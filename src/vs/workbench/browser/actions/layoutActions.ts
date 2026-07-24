@@ -1,11 +1,13 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { EXPLORER_VIEWLET_ID } from "../../contrib/files/browser/explorerComponent.ts";
 import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerService.ts";
 import { PROBLEMS_VIEW_ID, ProblemsComponentDIToken } from "../../contrib/markers/browser/problemsComponent.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { LayoutServiceDIToken } from "../../services/layout/browser/layoutService.ts";
 import { PanelServiceDIToken } from "../parts/panel/panelService.ts";
+import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
 
 // Columns added/removed per increase/decrease Side Bar Width command.
 const SIDEBAR_WIDTH_STEP = 3;
@@ -28,8 +30,7 @@ export const showExplorerAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 10 }],
     keybinding: parseKeybinding("ctrl+shift+e"),
     run(accessor) {
-        accessor.get(LayoutServiceDIToken).setSidebarVisible(true);
-        accessor.get(ExplorerServiceDIToken).focus();
+        accessor.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID);
     },
 };
 
@@ -39,10 +40,8 @@ export const revealActiveFileInExplorerAction: CommandAction = {
     run(accessor) {
         const filePath = accessor.get(EditorServiceDIToken).getActiveEditor()?.absoluteFilePath;
         if (!filePath) return;
-        const explorer = accessor.get(ExplorerServiceDIToken);
-        accessor.get(LayoutServiceDIToken).setSidebarVisible(true);
-        explorer.focus();
-        void explorer.revealPath(filePath);
+        accessor.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID);
+        void accessor.get(ExplorerServiceDIToken).revealPath(filePath);
     },
 };
 

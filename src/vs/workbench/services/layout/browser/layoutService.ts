@@ -1,4 +1,5 @@
 import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
+import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import type { WorkbenchLayoutElement } from "../../../../../../tuidom/ui/workbenchlayout/workbenchLayoutElement.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -124,6 +125,17 @@ export class LayoutService extends Disposable {
 
     public toggleSidebar(): void {
         this.setSidebarVisible(!this.isSidebarVisible());
+    }
+
+    /**
+     * Подменяет контент сайдбара (левой панели) — так {@link SidebarService}
+     * переключает вьюлеты (Explorer ↔ Source Control) без activity bar. Сам
+     * реестр вьюлетов живёт в сервисе, layout лишь показывает переданный элемент.
+     */
+    public setSidebarContent(element: TUIElement | null): void {
+        const layout = this.requireLayout();
+        layout.setLeftPanel(element);
+        layout.markDirty();
     }
 
     /** Grow/shrink the sidebar by `delta` columns, clamped by the layout element. */

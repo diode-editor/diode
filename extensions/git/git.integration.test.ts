@@ -16,6 +16,7 @@ import type { IGutterChangeDecoration } from "../../src/vs/editor/common/model/i
 import type { IEditorDecorationsService } from "../../src/vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../src/vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../src/vs/workbench/api/common/iThemeColorResolver.ts";
+import { PUBLISH_CHANGES_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/changesService.ts";
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
@@ -147,6 +148,48 @@ describe("builtin git plugin (integration)", () => {
         expect(new TextDecoder().decode(bytes)).toBe(TRACKED_AT_HEAD);
 
         expect(editorSpy.latestFor("tracked.txt")).toBeUndefined();
+    });
+
+    it("публикует ядру полный набор изменённых файлов (вкладка Changes)", async () => {
+        const published: unknown[] = [];
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        // Спай хостовой команды: расширение вызовет её fall-through'ом.
+        harness.commandRegistry.register(PUBLISH_CHANGES_COMMAND, (payload) => {
+            published.push(payload);
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+
+        await registerAndActivate(harness.host, gitRegistration());
+
+        interface Change {
+            uri: string;
+            status: string;
+            colorId: string;
+            path: string;
+        }
+        const latest = (): Change[] | undefined => published.at(-1) as Change[] | undefined;
+        const got = await waitFor(
+            () => latest()?.some((r) => r.uri.endsWith("tracked.txt") && r.status === "M") ?? false,
+        );
+        expect(got).toBe(true);
+
+        const set = latest()!;
+        // path — путь относительно корня репо (из porcelain, через `/`), не basename.
+        expect(set.find((r) => r.uri.endsWith("tracked.txt"))).toMatchObject({
+            status: "M",
+            colorId: "gitDecoration.modifiedResourceForeground",
+            path: "tracked.txt",
+        });
+        expect(set.find((r) => r.uri.endsWith("untracked.txt"))).toMatchObject({
+            status: "U",
+            colorId: "gitDecoration.untrackedResourceForeground",
+            path: "untracked.txt",
+        });
     });
 
     it("не отдаёт оригинал для untracked-файла и для файла вне репозитория", async () => {
