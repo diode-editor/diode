@@ -1,5 +1,4 @@
 import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
-import { DisplayLine } from "../../../../tuidom/common/displayLine.ts";
 import { Point } from "../../../../tuidom/common/geometryPromitives.ts";
 import { StyleFlags } from "../../../../tuidom/common/styleFlags.ts";
 import type { TUIEventBase } from "../../../../tuidom/dom/events/tuiEventBase.ts";
@@ -31,6 +30,7 @@ import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecor
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
 import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.ts";
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
@@ -61,6 +61,9 @@ const FOLD_GAP_LEFT = 1;
 const FOLD_GAP_RIGHT = 1;
 // Marker drawn after a collapsed region's header line, standing in for the hidden body.
 const FOLD_COLLAPSED_MARKER = "⋯"; // ⋯ horizontal ellipsis
+// Marker drawn at the cut point of an extremely long line whose rendering was
+// stopped at STOP_RENDERING_LINE_AFTER (VS Code shows the same overflow ellipsis).
+const LONG_LINE_TRUNCATION_MARKER = "…"; // U+2026 horizontal ellipsis
 
 // Indentation guide: a vertical line drawn over a region's leading whitespace,
 // spanning the region's body.
@@ -161,7 +164,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** Цвета редактора (см. {@link IEditorStyles}); задаются контроллером через {@link setStyles}. */
     private styles: IEditorStyles = unthemedEditorStyles;
 
-    private contentWidthCache: { versionId: number; value: number } | null = null;
+    private lineWidthCache: LineWidthCache | null = null;
     private occurrenceCache: { versionId: number; line: number; character: number; ranges: IRange[] } | null = null;
     private activeContextMenuSession: OverlaySessionHandle | null = null;
 
@@ -170,18 +173,17 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public get contentWidth(): number {
-        const doc = this.viewState.document;
-        const currentVersionId = doc.versionId;
-        if (this.contentWidthCache !== null && this.contentWidthCache.versionId === currentVersionId) {
-            return this.contentWidthCache.value;
+        // The width cache tracks edits incrementally off onDidChangeContent, so
+        // this is O(1) between edits and re-measures only changed lines after one
+        // — unlike the old per-versionId whole-document rescan that froze the
+        // editor on long lines (worst of all in the Output panel). Bound once to
+        // the document, which is fixed per EditorElement (a disk reload builds a
+        // fresh element).
+        if (this.lineWidthCache === null) {
+            this.lineWidthCache = new LineWidthCache(this.viewState.document, this.tabSize);
         }
-        let max = 0;
-        for (let i = 0; i < doc.lineCount; i++) {
-            const dl = new DisplayLine(doc.getLineContent(i), this.tabSize);
-            max = Math.max(max, dl.displayWidth);
-        }
-        this.contentWidthCache = { versionId: currentVersionId, value: max };
-        return max;
+        this.lineWidthCache.setTabSize(this.tabSize);
+        return this.lineWidthCache.getMaxWidth();
     }
 
     public get scrollTop(): number {
@@ -243,7 +245,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         const primary = this.viewState.selections[0];
         const cursorVisualLine = this.viewState.logicalToVisualLine(primary.active.line);
         const cursorLineContent = this.viewState.getViewLine(cursorVisualLine);
-        const cursorDl = new DisplayLine(cursorLineContent, this.tabSize);
+        const cursorDl = this.viewState.displayLineFor(cursorLineContent);
         const localX = cursorDl.offsetToColumn(primary.active.character) - scrollLeft + gutterW;
         const localY = cursorVisualLine - scrollTop;
 
@@ -433,7 +435,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
 
             const lineContent = this.viewState.getViewLine(viewLine);
-            const dl = new DisplayLine(lineContent, this.tabSize);
+            const dl = this.viewState.displayLineFor(lineContent);
             const lineTokens = this.viewState.getViewLineTokens(viewLine);
             const tokenIndex = lineTokens ? new TokenIndex(lineTokens, lineContent.length) : null;
 
@@ -478,6 +480,20 @@ export class EditorElement extends TUIElement implements IScrollable {
                 } else {
                     context.setCell(gutterW + screenX, screenY, { char, fg, bg, style, width });
                     screenX += width;
+                }
+            }
+
+            // Extremely long line: rendering stopped at STOP_RENDERING_LINE_AFTER.
+            // Draw an overflow ellipsis at the cut point when it is on screen, so
+            // the truncation is visible rather than silent (à la VS Code).
+            if (dl.isTruncated) {
+                const markerCol = dl.displayWidth - scrollLeft;
+                if (markerCol >= 0 && markerCol < contentCols) {
+                    context.setCell(gutterW + markerCol, screenY, {
+                        char: LONG_LINE_TRUNCATION_MARKER,
+                        fg: editorFg,
+                        bg: editorBg,
+                    });
                 }
             }
 
@@ -546,7 +562,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         const primary = this.viewState.selections[0];
         const cursorVisualLine = this.viewState.logicalToVisualLine(primary.active.line);
         const cursorLineContent = this.viewState.getViewLine(cursorVisualLine);
-        const cursorDl = new DisplayLine(cursorLineContent, this.tabSize);
+        const cursorDl = this.viewState.displayLineFor(cursorLineContent);
         const cursorScreenX = cursorDl.offsetToColumn(primary.active.character) - scrollLeft + gutterW;
         const cursorScreenY = cursorVisualLine - scrollTop;
 
@@ -686,7 +702,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             if (logLine < range.start.line || logLine > range.end.line) continue;
 
             const lineContent = this.viewState.getViewLine(viewLine);
-            const dl = new DisplayLine(lineContent, this.tabSize);
+            const dl = this.viewState.displayLineFor(lineContent);
             const startChar = logLine === range.start.line ? range.start.character : 0;
             const endChar = logLine === range.end.line ? range.end.character : lineContent.length + 1;
 
@@ -793,7 +809,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         const logLine = this.viewState.visualToLogicalLine(viewLine);
         const displayCol = localX < gutterW ? 0 : localX - gutterW + this.viewState.scrollLeft;
         const lineContent = this.viewState.document.getLineContent(logLine);
-        const dl = new DisplayLine(lineContent, this.tabSize);
+        const dl = this.viewState.displayLineFor(lineContent);
         const charOffset = dl.columnToOffset(displayCol);
         return { line: logLine, character: charOffset };
     }

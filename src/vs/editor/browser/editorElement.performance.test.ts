@@ -17,6 +17,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createCursorSelection } from "../common/core/iSelection.ts";
+import { createInsertEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
@@ -186,5 +187,105 @@ describe("EditorElement / EditorViewState render-loop performance (cached)", () 
         // Both caches hit on every cursor-move frame.
         // 100 frames on a 3500-line doc should complete in well under 300 ms.
         expect(ms).toBeLessThan(300);
+    }, 120_000);
+});
+
+// ─── Extremely long lines ───────────────────────────────────
+//
+// The regression that froze the editor: `contentWidth` re-segmented the whole
+// document (a `new DisplayLine` per line) on every versionId bump, and the
+// render loop built a full-line DisplayLine per visible line. One 200 k-char
+// line cost ~72 ms per pass — and the Output panel bumps versionId on every
+// appended record, so active RPC tracing meant a full rescan per log line.
+//
+// After the fix: `contentWidth` is an incremental per-line width cache and the
+// render/caret paths cap the DisplayLine at STOP_RENDERING_LINE_AFTER. Cost is
+// O(cap), not O(line length), and an append re-measures only the changed lines.
+
+const EXTREME_LINE_LENGTH = 200_000;
+
+describe("EditorElement — extremely long lines must not freeze", () => {
+    function makeDocWithLongLine(): TextDocument {
+        const lines: string[] = [];
+        for (let i = 0; i < 200; i++) lines.push(`normal line ${i}`);
+        lines.push("x".repeat(EXTREME_LINE_LENGTH));
+        return new TextDocument(lines.join("\n"));
+    }
+
+    /**
+     * The Output-panel freeze, reproduced: append 200 records to a document that
+     * already holds one 200 k-char line, reading `contentWidth` after each append
+     * exactly as the horizontal scrollbar does every layout. Each append bumps
+     * versionId. The OLD code re-segmented the 200 k line every time (~72 ms × 200
+     * ≈ 14 s); the incremental cache re-measures only the two changed lines.
+     */
+    it("contentWidth stays cheap across appends that bump versionId", () => {
+        const doc = makeDocWithLongLine();
+        const viewState = new EditorViewState(doc, [createCursorSelection(0, 0)]);
+        const editor = new EditorElement(viewState);
+
+        void editor.contentWidth; // warm up + prime the cache
+
+        const APPENDS = 200;
+        const t0 = performance.now();
+        for (let i = 0; i < APPENDS; i++) {
+            const lastLine = doc.lineCount - 1;
+            doc.applyEdits([createInsertEdit(lastLine, doc.getLineLength(lastLine), `\nlog record ${i}`)]);
+            void editor.contentWidth; // scrollbar layout read
+        }
+        const ms = performance.now() - t0;
+
+        console.log(`[long-line] ${APPENDS} appends + contentWidth reads: ${ms.toFixed(1)} ms`);
+        // Comfortably under a second; the old whole-document rescan took seconds.
+        expect(ms).toBeLessThan(1_000);
+    }, 120_000);
+
+    /**
+     * The first `contentWidth` after opening a file whose single line is 200 k
+     * chars. The cap bounds the scan to STOP_RENDERING_LINE_AFTER.
+     */
+    it("first contentWidth on open is bounded by the cap, not the line length", () => {
+        const doc = makeDocWithLongLine();
+        const viewState = new EditorViewState(doc, [createCursorSelection(0, 0)]);
+        const editor = new EditorElement(viewState);
+
+        const t0 = performance.now();
+        const width = editor.contentWidth;
+        const ms = performance.now() - t0;
+
+        console.log(`[long-line] first contentWidth on ${EXTREME_LINE_LENGTH}-char line: ${ms.toFixed(1)} ms`);
+        // Width is capped, and the scan cost is bounded well under 100 ms.
+        expect(width).toBeLessThanOrEqual(10_000);
+        expect(ms).toBeLessThan(100);
+    }, 120_000);
+
+    /**
+     * Building the visible line's DisplayLine (what the render loop does each
+     * frame) must be O(cap) on the extreme line, not O(200 000). The slot array
+     * is capped, and a batch of rebuilds (scroll/keypress re-renders while the
+     * giant line is on screen) stays bounded. Uncapped, each build re-segments
+     * 200 k chars (~40 ms → seconds for the batch); capped it is ~2 ms.
+     */
+    it("displayLineFor caps the visible long line", () => {
+        const doc = makeDocWithLongLine();
+        const viewState = new EditorViewState(doc, [createCursorSelection(0, 0)]);
+        const longLine = doc.getLineContent(doc.lineCount - 1);
+
+        const dl = viewState.displayLineFor(longLine);
+        expect(dl.isTruncated).toBe(true);
+        // Slot count is bounded by the cap, not the 200 000-char line length.
+        expect(dl.slots.length).toBeLessThanOrEqual(10_000);
+
+        const REBUILDS = 100;
+        const t0 = performance.now();
+        for (let i = 0; i < REBUILDS; i++) {
+            viewState.displayLineFor(longLine);
+        }
+        const ms = performance.now() - t0;
+
+        console.log(`[long-line] ${REBUILDS} displayLineFor rebuilds: ${ms.toFixed(1)} ms`);
+        // Capped builds cost ~2 ms each; uncapped 200 k-char builds would take
+        // seconds for the batch. A 1.5 s ceiling separates the two decisively.
+        expect(ms).toBeLessThan(1_500);
     }, 120_000);
 });

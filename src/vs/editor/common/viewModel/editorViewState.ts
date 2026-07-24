@@ -1,5 +1,6 @@
 import { DisplayLine } from "../../../../../tuidom/common/displayLine.ts";
 import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
+import { STOP_RENDERING_LINE_AFTER } from "../../../../../tuidom/common/textLimits.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IPosition } from "../core/iPosition.ts";
 import { comparePositions } from "../core/iPosition.ts";
@@ -79,6 +80,18 @@ export class EditorViewState {
         this.document = document;
         this.selections = selections && selections.length > 0 ? selections : [createCursorSelection(0, 0)];
         this.runDetectIndentation();
+    }
+
+    /**
+     * Единая точка построения {@link DisplayLine} для строк документа — с
+     * порогом {@link STOP_RENDERING_LINE_AFTER}. За порогом разбирается только
+     * префикс, поэтому экстремально длинная строка перестаёт быть O(длины) на
+     * любом пути (рендер, каретка, навигация по словам, hit-test). Виджеты вне
+     * редактора строят `DisplayLine` без порога — их короткие строки этого не
+     * требуют.
+     */
+    public displayLineFor(lineContent: string): DisplayLine {
+        return new DisplayLine(lineContent, this.tabSize, STOP_RENDERING_LINE_AFTER);
     }
 
     /**
@@ -554,7 +567,7 @@ export class EditorViewState {
                 const pos = sel.active;
                 if (pos.character > 0) {
                     const lineContent = this.document.getLineContent(pos.line);
-                    const dl = new DisplayLine(lineContent, this.tabSize);
+                    const dl = this.displayLineFor(lineContent);
                     let prevOffset: number;
                     if (pos.character >= lineContent.length) {
                         /* v8 ignore start -- the `: 0` arm is unreachable: this branch needs pos.character > 0 AND >= line length, so the line is non-empty and always has slots */
@@ -610,7 +623,7 @@ export class EditorViewState {
 
             if (pos.character > 0) {
                 const lineContent = this.document.getLineContent(pos.line);
-                const dl = new DisplayLine(lineContent, this.tabSize);
+                const dl = this.displayLineFor(lineContent);
                 if (pos.character >= lineContent.length) {
                     /* v8 ignore start -- the `: 0` arm is unreachable: this branch needs pos.character > 0 AND >= line length, so the line is non-empty and always has slots */
                     newChar = dl.slots.length > 0 ? dl.slots[dl.slots.length - 1].offset : 0;
@@ -633,7 +646,7 @@ export class EditorViewState {
                 return sel;
             }
 
-            const targetDl = new DisplayLine(this.document.getLineContent(newLine), this.tabSize);
+            const targetDl = this.displayLineFor(this.document.getLineContent(newLine));
             return this.buildSelection(sel, newLine, newChar, targetDl.offsetToColumn(newChar), inSelectionMode);
         });
         this.normalizeSelections();
@@ -654,7 +667,7 @@ export class EditorViewState {
 
             if (pos.character < lineLen) {
                 const lineContent = this.document.getLineContent(pos.line);
-                const dl = new DisplayLine(lineContent, this.tabSize);
+                const dl = this.displayLineFor(lineContent);
                 const slotIndex = dl.slotIndexAtOffset(pos.character);
                 if (slotIndex >= 0 && slotIndex < dl.slots.length - 1) {
                     newChar = dl.slots[slotIndex + 1].offset;
@@ -671,7 +684,7 @@ export class EditorViewState {
                 }
             }
 
-            const targetDl = new DisplayLine(this.document.getLineContent(newLine), this.tabSize);
+            const targetDl = this.displayLineFor(this.document.getLineContent(newLine));
             return this.buildSelection(sel, newLine, newChar, targetDl.offsetToColumn(newChar), inSelectionMode);
         });
         this.normalizeSelections();
@@ -690,10 +703,10 @@ export class EditorViewState {
             if (prevVisible >= 0) {
                 let ideal = getIdealColumn(sel);
                 if (sel.idealColumn === undefined) {
-                    const currentDl = new DisplayLine(this.document.getLineContent(pos.line), this.tabSize);
+                    const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
                     ideal = currentDl.offsetToColumn(pos.character);
                 }
-                const targetDl = new DisplayLine(this.document.getLineContent(prevVisible), this.tabSize);
+                const targetDl = this.displayLineFor(this.document.getLineContent(prevVisible));
                 const newChar = targetDl.columnToOffset(ideal);
                 return this.buildSelection(sel, prevVisible, newChar, ideal, inSelectionMode);
             }
@@ -715,10 +728,10 @@ export class EditorViewState {
             if (nextVisible >= 0) {
                 let ideal = getIdealColumn(sel);
                 if (sel.idealColumn === undefined) {
-                    const currentDl = new DisplayLine(this.document.getLineContent(pos.line), this.tabSize);
+                    const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
                     ideal = currentDl.offsetToColumn(pos.character);
                 }
-                const targetDl = new DisplayLine(this.document.getLineContent(nextVisible), this.tabSize);
+                const targetDl = this.displayLineFor(this.document.getLineContent(nextVisible));
                 const newChar = targetDl.columnToOffset(ideal);
                 return this.buildSelection(sel, nextVisible, newChar, ideal, inSelectionMode);
             }
@@ -745,7 +758,7 @@ export class EditorViewState {
     public cursorBottom(inSelectionMode = false): void {
         const lastLine = this.document.lineCount - 1;
         const lastChar = this.document.getLineLength(lastLine);
-        const dl = new DisplayLine(this.document.getLineContent(lastLine), this.tabSize);
+        const dl = this.displayLineFor(this.document.getLineContent(lastLine));
         const idealCol = dl.offsetToColumn(lastChar);
         this.selections = this.selections.map((sel) => {
             return this.buildSelection(sel, lastLine, lastChar, idealCol, inSelectionMode);
@@ -768,7 +781,7 @@ export class EditorViewState {
             const content = this.document.getLineContent(sel.active.line);
             const firstNonWs = firstNonWhitespaceIndex(content);
             const target = sel.active.character === firstNonWs && firstNonWs !== 0 ? 0 : firstNonWs;
-            const idealCol = new DisplayLine(content, this.tabSize).offsetToColumn(target);
+            const idealCol = this.displayLineFor(content).offsetToColumn(target);
             return this.buildSelection(sel, sel.active.line, target, idealCol, inSelectionMode);
         });
         this.normalizeSelections();
@@ -799,14 +812,14 @@ export class EditorViewState {
                 const prevLine = this.previousVisibleLine(pos.line);
                 if (prevLine >= 0) {
                     const lineLen = this.document.getLineLength(prevLine);
-                    const dl = new DisplayLine(this.document.getLineContent(prevLine), this.tabSize);
+                    const dl = this.displayLineFor(this.document.getLineContent(prevLine));
                     return this.buildSelection(sel, prevLine, lineLen, dl.offsetToColumn(lineLen), inSelectionMode);
                 }
                 return sel;
             }
             const line = this.document.getLineContent(pos.line);
             const newChar = findWordBoundaryLeft(line, pos.character);
-            const dl = new DisplayLine(line, this.tabSize);
+            const dl = this.displayLineFor(line);
             return this.buildSelection(sel, pos.line, newChar, dl.offsetToColumn(newChar), inSelectionMode);
         });
         this.normalizeSelections();
@@ -830,7 +843,7 @@ export class EditorViewState {
             }
             const line = this.document.getLineContent(pos.line);
             const newChar = findWordBoundaryRight(line, pos.character);
-            const dl = new DisplayLine(line, this.tabSize);
+            const dl = this.displayLineFor(line);
             return this.buildSelection(sel, pos.line, newChar, dl.offsetToColumn(newChar), inSelectionMode);
         });
         this.normalizeSelections();
@@ -856,7 +869,7 @@ export class EditorViewState {
             const pos = sel.active;
             let ideal = getIdealColumn(sel);
             if (sel.idealColumn === undefined) {
-                const currentDl = new DisplayLine(this.document.getLineContent(pos.line), this.tabSize);
+                const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
                 ideal = currentDl.offsetToColumn(pos.character);
             }
             let targetLine = pos.line;
@@ -865,7 +878,7 @@ export class EditorViewState {
                 if (next < 0) break;
                 targetLine = next;
             }
-            const targetDl = new DisplayLine(this.document.getLineContent(targetLine), this.tabSize);
+            const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
             const newChar = targetDl.columnToOffset(ideal);
             return this.buildSelection(sel, targetLine, newChar, ideal, inSelectionMode);
         });
@@ -883,7 +896,7 @@ export class EditorViewState {
             const pos = sel.active;
             let ideal = getIdealColumn(sel);
             if (sel.idealColumn === undefined) {
-                const currentDl = new DisplayLine(this.document.getLineContent(pos.line), this.tabSize);
+                const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
                 ideal = currentDl.offsetToColumn(pos.character);
             }
             let targetLine = pos.line;
@@ -892,7 +905,7 @@ export class EditorViewState {
                 if (prev < 0) break;
                 targetLine = prev;
             }
-            const targetDl = new DisplayLine(this.document.getLineContent(targetLine), this.tabSize);
+            const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
             const newChar = targetDl.columnToOffset(ideal);
             return this.buildSelection(sel, targetLine, newChar, ideal, inSelectionMode);
         });
@@ -915,7 +928,7 @@ export class EditorViewState {
                 const lineLen = this.document.getLineLength(pos.line);
                 if (pos.character < lineLen) {
                     const lineContent = this.document.getLineContent(pos.line);
-                    const dl = new DisplayLine(lineContent, this.tabSize);
+                    const dl = this.displayLineFor(lineContent);
                     const slotIndex = dl.slotIndexAtOffset(pos.character);
                     let nextEnd: number;
                     /* v8 ignore start -- the else is unreachable: Segmenter slots contiguously cover the line, so every in-range offset maps to a slot */
@@ -1269,7 +1282,7 @@ export class EditorViewState {
         }
 
         const lineContent = this.document.getLineContent(pos.line);
-        const dl = new DisplayLine(lineContent, this.tabSize);
+        const dl = this.displayLineFor(lineContent);
         const col = dl.offsetToColumn(pos.character);
         if (col < this.scrollLeft) {
             this.scrollLeft = col;
