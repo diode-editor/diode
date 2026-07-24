@@ -23,6 +23,13 @@ export interface IScmChange {
     readonly uri: Uri;
     readonly status: string;
     readonly colorId: string;
+    /**
+     * Путь для показа — относительно корня репозитория, из git (всегда через `/`).
+     * Метку считает расширение, а не ядро: сопоставлять абсолютные пути с корнем
+     * воркспейса на стороне ядра ненадёжно кроссплатформенно (Windows: 8.3-имена,
+     * регистр диска). Пусто — если расширение путь не прислало (тогда basename).
+     */
+    readonly path: string;
 }
 
 export const ScmChangesServiceDIToken = token<ScmChangesService>("ScmChangesService");
@@ -79,7 +86,7 @@ export class ScmChangesService extends Disposable {
         // Расширение публикует набор на каждый refresh (в т.ч. на смену активного
         // редактора), поэтому идентичный набор гасим тут — иначе вкладка Changes
         // пересобиралась бы вхолостую.
-        const signature = changes.map((c) => `${c.uri.toString()}\t${c.status}\t${c.colorId}`).join("\n");
+        const signature = changes.map((c) => `${c.uri.toString()}\t${c.status}\t${c.colorId}\t${c.path}`).join("\n");
         if (signature === this.signature) return;
         this.signature = signature;
         this.changeList = changes;
@@ -93,9 +100,19 @@ function parseChanges(payload: unknown): IScmChange[] {
     const changes: IScmChange[] = [];
     for (const raw of payload) {
         if (typeof raw !== "object" || raw === null) continue;
-        const { uri, status, colorId } = raw as { uri?: unknown; status?: unknown; colorId?: unknown };
+        const { uri, status, colorId, path } = raw as {
+            uri?: unknown;
+            status?: unknown;
+            colorId?: unknown;
+            path?: unknown;
+        };
         if (typeof uri !== "string" || uri === "" || typeof status !== "string") continue;
-        changes.push({ uri: Uri.parse(uri), status, colorId: typeof colorId === "string" ? colorId : "" });
+        changes.push({
+            uri: Uri.parse(uri),
+            status,
+            colorId: typeof colorId === "string" ? colorId : "",
+            path: typeof path === "string" ? path : "",
+        });
     }
     return changes;
 }

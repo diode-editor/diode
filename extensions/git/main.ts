@@ -44,6 +44,8 @@ const PUBLISH_CHANGES_COMMAND = "vexx.scm.publishChanges";
 /** A tracked resource: its porcelain code (for untracked detection) + tree decoration. */
 interface IStatusEntry {
     readonly xy: string;
+    /** Путь относительно корня репозитория (из porcelain, всегда через `/`). */
+    readonly relPath: string;
     readonly deco: IStatusDecoration;
 }
 
@@ -229,7 +231,11 @@ class GitDecorations {
             const result = await this.git(["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
             if (result !== null) {
                 for (const e of parsePorcelainStatus(Buffer.from(result.stdout, "utf8"))) {
-                    next.set(path.join(this.repoRoot, e.path), { xy: e.xy, deco: statusToDecoration(e.xy) });
+                    next.set(path.join(this.repoRoot, e.path), {
+                        xy: e.xy,
+                        relPath: e.path,
+                        deco: statusToDecoration(e.xy),
+                    });
                 }
             } else {
                 next = new Map(); // degraded → no decorations
@@ -257,6 +263,7 @@ class GitDecorations {
             uri: vscode.Uri.file(absPath).toString(),
             status: entry.deco.badge,
             colorId: entry.deco.colorId,
+            path: entry.relPath,
         }));
         void Promise.resolve(vscode.commands.executeCommand(PUBLISH_CHANGES_COMMAND, resources)).catch(
             /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */

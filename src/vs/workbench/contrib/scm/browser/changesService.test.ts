@@ -11,8 +11,13 @@ function setup(): { service: ScmChangesService; commands: CommandRegistry } {
     return { service, commands };
 }
 
-const A = { uri: "file:///repo/a.ts", status: "M", colorId: "gitDecoration.modifiedResourceForeground" };
-const B = { uri: "file:///repo/b.ts", status: "U", colorId: "gitDecoration.untrackedResourceForeground" };
+const A = { uri: "file:///repo/a.ts", status: "M", colorId: "gitDecoration.modifiedResourceForeground", path: "a.ts" };
+const B = {
+    uri: "file:///repo/src/b.ts",
+    status: "U",
+    colorId: "gitDecoration.untrackedResourceForeground",
+    path: "src/b.ts",
+};
 
 describe("ScmChangesService", () => {
     it("публикует набор командой и отдаёт его снимком + событием", () => {
@@ -23,9 +28,9 @@ describe("ScmChangesService", () => {
         commands.execute(PUBLISH_CHANGES_COMMAND, [A, B]);
 
         expect(changed).toHaveBeenCalledTimes(1);
-        expect(service.changes.map((c) => [c.uri.toString(), c.status, c.colorId])).toEqual([
-            ["file:///repo/a.ts", "M", "gitDecoration.modifiedResourceForeground"],
-            ["file:///repo/b.ts", "U", "gitDecoration.untrackedResourceForeground"],
+        expect(service.changes.map((c) => [c.uri.toString(), c.status, c.colorId, c.path])).toEqual([
+            ["file:///repo/a.ts", "M", "gitDecoration.modifiedResourceForeground", "a.ts"],
+            ["file:///repo/src/b.ts", "U", "gitDecoration.untrackedResourceForeground", "src/b.ts"],
         ]);
     });
 
@@ -39,12 +44,13 @@ describe("ScmChangesService", () => {
         expect(service.changes).toEqual([]);
     });
 
-    it("colorId необязателен: без него — пустая строка", () => {
+    it("colorId и path необязательны: без них — пустые строки", () => {
         const { service, commands } = setup();
 
         commands.execute(PUBLISH_CHANGES_COMMAND, [{ uri: "file:///x", status: "M" }]);
 
         expect(service.changes[0].colorId).toBe("");
+        expect(service.changes[0].path).toBe("");
     });
 
     it("идентичную повторную публикацию гасит — событие не файрится", () => {

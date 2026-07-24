@@ -48,10 +48,15 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     let testApp: TestApp;
 
     /** Публикует набор изменений так же, как это делает git-расширение. */
-    function publish(entries: { path: string; status: string; colorId: string }[]): void {
+    function publish(entries: { path: string; rel: string; status: string; colorId: string }[]): void {
         commands.execute(
             PUBLISH_CHANGES_COMMAND,
-            entries.map((e) => ({ uri: Uri.file(e.path).toString(), status: e.status, colorId: e.colorId })),
+            entries.map((e) => ({
+                uri: Uri.file(e.path).toString(),
+                status: e.status,
+                colorId: e.colorId,
+                path: e.rel,
+            })),
         );
     }
 
@@ -99,8 +104,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
 
     it("workbench.view.scm показывает список изменённых файлов в сайдбаре", async () => {
         publish([
-            { path: ws.path("a.txt"), status: "M", colorId: MODIFIED },
-            { path: ws.path("nested/b.txt"), status: "U", colorId: UNTRACKED },
+            { path: ws.path("a.txt"), rel: "a.txt", status: "M", colorId: MODIFIED },
+            { path: ws.path("nested/b.txt"), rel: "nested/b.txt", status: "U", colorId: UNTRACKED },
         ]);
         commands.execute(SHOW_SCM);
         await settle(0);
@@ -135,7 +140,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         editor?.goToPosition(1, 0);
         editor?.viewState.type("XX");
 
-        publish([{ path: ws.path("a.txt"), status: "M", colorId: MODIFIED }]);
+        publish([{ path: ws.path("a.txt"), rel: "a.txt", status: "M", colorId: MODIFIED }]);
         commands.execute(SHOW_SCM);
         await settle(0);
 

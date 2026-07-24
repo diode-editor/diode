@@ -170,6 +170,7 @@ describe("builtin git plugin (integration)", () => {
             uri: string;
             status: string;
             colorId: string;
+            path: string;
         }
         const latest = (): Change[] | undefined => published.at(-1) as Change[] | undefined;
         const got = await waitFor(
@@ -178,13 +179,16 @@ describe("builtin git plugin (integration)", () => {
         expect(got).toBe(true);
 
         const set = latest()!;
+        // path — путь относительно корня репо (из porcelain, через `/`), не basename.
         expect(set.find((r) => r.uri.endsWith("tracked.txt"))).toMatchObject({
             status: "M",
             colorId: "gitDecoration.modifiedResourceForeground",
+            path: "tracked.txt",
         });
         expect(set.find((r) => r.uri.endsWith("untracked.txt"))).toMatchObject({
             status: "U",
             colorId: "gitDecoration.untrackedResourceForeground",
+            path: "untracked.txt",
         });
     });
 

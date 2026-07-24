@@ -13,8 +13,6 @@ import type { EditorService } from "../../../services/editor/browser/editorServi
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
-import type { ExplorerService } from "../../files/browser/explorerService.ts";
-import { ExplorerServiceDIToken } from "../../files/browser/explorerService.ts";
 
 import type { ScmChangesService } from "./changesService.ts";
 import { ScmChangesServiceDIToken } from "./changesService.ts";
@@ -54,7 +52,6 @@ export class ChangesComponent extends ThemedComponent {
         ScmChangesServiceDIToken,
         EditorServiceDIToken,
         CommandRegistryDIToken,
-        ExplorerServiceDIToken,
         ThemeServiceDIToken,
     ] as const;
 
@@ -70,7 +67,6 @@ export class ChangesComponent extends ThemedComponent {
         private readonly changesService: ScmChangesService,
         private readonly editors: EditorService,
         private readonly commands: CommandRegistry,
-        private readonly explorer: ExplorerService,
         themeService: ThemeService,
     ) {
         super(themeService);
@@ -89,12 +85,6 @@ export class ChangesComponent extends ThemedComponent {
 
         this.register(
             this.changesService.onDidChangeChanges(() => {
-                this.rebuild();
-            }),
-        );
-        this.register(
-            this.explorer.onDidChangeRoot(() => {
-                this.provider.rootPath = this.explorer.getRootPath();
                 this.rebuild();
             }),
         );
@@ -136,7 +126,6 @@ export class ChangesComponent extends ThemedComponent {
         const colors: Record<string, number> = {};
         for (const id of GIT_STATUS_COLOR_IDS) colors[id] = this.theme.getRequiredColor(id);
         this.provider.statusColors = colors;
-        this.provider.rootPath = this.explorer.getRootPath();
         this.rebuild();
     }
 }

@@ -1,5 +1,3 @@
-import * as path from "node:path";
-
 import type { ITreeDataProvider, ITreeItem } from "../../../../../../tuidom/ui/tree/iTreeDataProvider.ts";
 
 import type { IScmChange } from "./changesService.ts";
@@ -11,12 +9,10 @@ export type ChangeNode = IScmChange;
  * Данные плоского списка изменённых файлов. Провайдер-агностик: держит снимок,
  * выданный ему {@link setChanges}, а контроллер обновляет его по
  * `ScmChangesService.onDidChangeChanges`. Метка — путь относительно корня
- * воркспейса (если он задан), иначе basename; цвет буквы-статуса — из карты
- * `colorId → RGB`, которую пушит контроллер из темы.
+ * репозитория (его прислало git-расширение), иначе basename; цвет буквы-статуса —
+ * из карты `colorId → RGB`, которую пушит контроллер из темы.
  */
 export class ChangesTreeDataProvider implements ITreeDataProvider<ChangeNode> {
-    /** Корень воркспейса для относительных меток; null → показываем basename. */
-    public rootPath: string | null = null;
     /** `gitDecoration.*` id → упакованный RGB, из темы (пушит контроллер). */
     public statusColors: Record<string, number> = {};
     public onChange?: (element?: ChangeNode) => void;
@@ -25,7 +21,7 @@ export class ChangesTreeDataProvider implements ITreeDataProvider<ChangeNode> {
 
     /** Заменяет содержимое списка снимком изменений (сортировка — по пути, стабильно). */
     public setChanges(changes: readonly IScmChange[]): void {
-        this.changeList = [...changes].sort((a, b) => a.uri.toString().localeCompare(b.uri.toString()));
+        this.changeList = [...changes].sort((a, b) => this.label(a).localeCompare(this.label(b)));
     }
 
     public getChildren(element?: ChangeNode): ChangeNode[] {
@@ -46,13 +42,10 @@ export class ChangesTreeDataProvider implements ITreeDataProvider<ChangeNode> {
         return element.uri.toString();
     }
 
-    /** Путь относительно корня воркспейса; вне корня/без корня — basename. */
+    /** Путь от git (относительно корня репо); если его нет — basename из URI. */
     private label(element: ChangeNode): string {
-        const fsPath = element.uri.fsPath;
-        if (this.rootPath !== null) {
-            const rel = path.relative(this.rootPath, fsPath);
-            if (rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel)) return rel;
-        }
-        return path.basename(fsPath);
+        if (element.path !== "") return element.path;
+        const uriPath = element.uri.path;
+        return uriPath.slice(uriPath.lastIndexOf("/") + 1);
     }
 }
