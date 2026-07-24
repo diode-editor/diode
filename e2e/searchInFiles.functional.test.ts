@@ -174,25 +174,25 @@ describe("Search panel (functional e2e)", () => {
         expect(text).toContain("sub/gamma.md");
     }, 120_000);
 
-    // ── BUG: клик мышью не фокусирует поля Search ────────────────────────────
-    // Документирует дефект: query фокусируется программно при открытии, но клик
-    // по любому из трёх input-полей фокус не переносит. Как только фокус ушёл
-    // (Tab), мышью вернуться нельзя, а include/exclude мышью недостижимы вовсе.
-    it("[BUG] клик по полю include/exclude не фокусирует его (mouse-focus сломан)", async () => {
+    // ── Клик мышью фокусирует поля Search (регресс на баг клик-фокуса) ────────
+    // Раньше query фокусировался только программно при открытии, а клик по любому
+    // из трёх input-полей фокус не переносил (include/exclude мышью недостижимы).
+    // Фикс — InputElement.performDefaultAction делегирует mousedown базовому
+    // фокусу. Клик по include уводит туда ввод, а строка запроса остаётся "foo".
+    it("клик по полю include фокусирует его, ввод уходит туда, а не в query", async () => {
         const app = await openSearch();
         const { session } = app;
         await session.text("foo");
         await session.waitForText((t) => t.includes("results in"));
 
-        // Пытаемся кликнуть в поле include и напечатать — текст уходит в query.
         await clickText(session, "files to include", { maxX: 60 });
         await session.text("XX");
         const text = frameToText(await session.captureFrame());
-        // Наблюдаемый (ошибочный) итог: XX приклеился к строке запроса, а плейсхолдер
-        // include остался — т.е. клик фокус не перенёс. Когда баг починят, этот тест
-        // покраснеет и его надо будет перевернуть на ожидаемое поведение.
-        expect(text).toContain("fooXX");
-        expect(text).toContain("files to include");
+        // XX ушёл в поле include (его плейсхолдер сменился на введённый текст), а
+        // строка запроса осталась "foo" — клик перенёс фокус.
+        expect(text).not.toContain("fooXX");
+        expect(text).not.toContain("files to include");
+        expect(text).toContain("XX");
     }, 120_000);
 
     // ── F1: байтовые смещения → колонки, целостность превью на кириллице ─────
