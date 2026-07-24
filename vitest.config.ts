@@ -108,6 +108,7 @@ export default defineConfig({
         "src/vs/base/node/assets/createDefaultAssetAccess.ts", // SEA vs dev + fs-резолв
         "src/vs/base/node/assets/packagedRuntime.ts", // node:sea + резолв import.meta.url; I/O-часть — в BundleFile.ts (юниты)
         "src/vs/workbench/contrib/terminal/node/loadNodePty.ts", // SEA-путь загрузки нативного node-pty: node:sea + распаковка .node в tmp + dlopen; e2e — terminal.scenario.ts на реальном SEA-бинаре
+        "src/vs/workbench/services/search/node/loadRipgrep.ts", // SEA-путь загрузки rg: node:sea + распаковка бинаря в tmp; dev-путь гоняет textSearchService.integration.test, e2e — search.scenario.ts на реальном SEA-бинаре
         "src/vs/workbench/services/extensions/node/extensionHostSubprocess.ts", // точка входа subprocess + IPC
         "extensions/git/main.ts", // extension entry (subprocess IO/glue); логика — в git/lib/* (юниты), e2e — интеграция
         "extensions/vexx-settings/main.ts", // extension entry (грузится в subprocess); поведение — в ExtensionHost.SettingsCompletion.test.ts + e2e

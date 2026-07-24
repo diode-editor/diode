@@ -193,7 +193,13 @@ export class InputElement extends TUIElement {
             }
             return;
         }
-        if (event.type !== "keydown") return;
+        if (event.type !== "keydown") {
+            // Non-keydown events (notably mousedown) fall through to the base
+            // handler, which focuses a tabbable element — so a click focuses the
+            // field. Without this, the input could only be focused programmatically.
+            super.performDefaultAction(event);
+            return;
+        }
         const keyEvent = event as TUIKeyboardEvent;
 
         if (keyEvent.key === "Backspace") {

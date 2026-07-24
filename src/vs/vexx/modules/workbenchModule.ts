@@ -26,6 +26,9 @@ import {
     PanelFocusContributionDIToken,
 } from "../../workbench/browser/parts/panel/panelFocusContribution.ts";
 import { PanelService, PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
+import { SearchComponent, SearchComponentDIToken } from "../../workbench/contrib/search/browser/searchComponent.ts";
+import { TextSearchServiceDIToken } from "../../workbench/services/search/common/textSearch.ts";
+import { TextSearchService } from "../../workbench/services/search/node/textSearchService.ts";
 import { OutputChannelActions, OutputChannelActionsDIToken } from "../../workbench/contrib/output/browser/outputChannelActions.ts";
 import { OutputComponent, OutputComponentDIToken } from "../../workbench/contrib/output/browser/outputComponent.ts";
 import { OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
@@ -200,6 +203,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // input-команд (активный InputElement; читают экшены Actions/InputActions).
     container.bind(ExplorerServiceDIToken, ExplorerService);
     container.bind(ExplorerComponentDIToken, ExplorerComponent);
+    container.bind(TextSearchServiceDIToken, TextSearchService);
+    container.bind(SearchComponentDIToken, SearchComponent);
     container.bind(FileOperationsServiceDIToken, FileOperationsService);
     container.bind(InputWidgetServiceDIToken, InputWidgetService);
     // QuickInput-кластер (этап 8): общий виджет-компонент (host прикрепляет

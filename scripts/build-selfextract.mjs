@@ -32,6 +32,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 
 import { buildDistArtifacts } from "./build-dist.mjs";
@@ -203,6 +204,12 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath }) {
         if (virtualPath.endsWith(".node") || virtualPath.endsWith("spawn-helper")) chmodSync(dest, 0o755);
     }
 
+    // ripgrep: self-extract — НЕ SEA, поэтому loadRipgrep.ts идёт dev-путём
+    // require("@vscode/ripgrep").rgPath, а тот резолвит бинарь из optional-dependency
+    // @vscode/ripgrep-<platform>-<arch>. Кладём оба пакета в node_modules payload'а;
+    // бинарь rg помечаем исполняемым. Scope host-платформы (см. pack-node-pty.mjs).
+    stageRipgrep(stageDir);
+
     const payloadPath = join(stageDir, "..", `payload-${target}.tar.gz`);
     execFileSync("tar", ["-czf", payloadPath, "-C", stageDir, "."], {
         stdio: "inherit",
@@ -210,6 +217,28 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath }) {
         env: { ...process.env, COPYFILE_DISABLE: "1" },
     });
     return readFileSync(payloadPath);
+}
+
+/**
+ * Копирует пакеты @vscode/ripgrep (резолвер) и @vscode/ripgrep-<platform>-<arch>
+ * (реальный бинарь) в `node_modules` payload'а, чтобы рантайм-require их нашёл.
+ * @param {string} stageDir
+ */
+function stageRipgrep(stageDir) {
+    const requireFromRoot = createRequire(join(root, "package.json"));
+    const binaryName = process.platform === "win32" ? "rg.exe" : "rg";
+    const platformName = `ripgrep-${process.platform}-${process.arch}`;
+
+    // Резолвим сам бинарь (его subpath ЭКСПОРТИРОВАН) и выводим корни пакетов из
+    // пути — `exports` в @vscode/ripgrep запрещает резолвить "./package.json".
+    const rgBinaryPath = requireFromRoot.resolve(`@vscode/${platformName}/bin/${binaryName}`);
+    const platformDir = dirname(dirname(rgBinaryPath)); // node_modules/@vscode/ripgrep-<platform>-<arch>
+    const resolverDir = join(dirname(platformDir), "ripgrep"); // node_modules/@vscode/ripgrep
+
+    const nodeModules = join(stageDir, "node_modules");
+    cpSync(resolverDir, join(nodeModules, "@vscode", "ripgrep"), { recursive: true });
+    cpSync(platformDir, join(nodeModules, "@vscode", platformName), { recursive: true });
+    chmodSync(join(nodeModules, "@vscode", platformName, "bin", binaryName), 0o755);
 }
 
 /** @param {string} url */

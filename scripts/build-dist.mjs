@@ -14,12 +14,13 @@ import { join } from "node:path";
 import { buildExtensions } from "./build-extensions.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
 import { buildVexxBundle } from "./pack-assets.mjs";
+import { buildRipgrepBundle } from "./pack-ripgrep.mjs";
 
 /**
  * Собирает `dist/main.js`, `dist/vexx.bundle` и `dist/node-pty.bundle`.
  *
  * @param {{ repoRoot: string }} params
- * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string }>}
+ * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string }>}
  */
 export async function buildDistArtifacts({ repoRoot }) {
     const distDir = join(repoRoot, "dist");
@@ -51,5 +52,14 @@ export async function buildDistArtifacts({ repoRoot }) {
         `[build-dist] Packed ${ptyInputs.length} node-pty files → ${nodePtyBundlePath} (${(ptyBundle.length / 1024).toFixed(1)} KB)`,
     );
 
-    return { distDir, mainJsPath: join(distDir, "main.js"), bundlePath, nodePtyBundlePath };
+    // 5. Пакуем бинарь ripgrep в dist/rg.bundle. SEA вшивает его ассетом; self-extract
+    // берёт rg из @vscode/ripgrep в node_modules payload'а (dev-путь loadRipgrep.ts).
+    const { bundle: rgBundle, binaryName: rgBinaryName } = buildRipgrepBundle({ repoRoot });
+    const ripgrepBundlePath = join(distDir, "rg.bundle");
+    writeFileSync(ripgrepBundlePath, rgBundle);
+    console.log(
+        `[build-dist] Packed ripgrep (${rgBinaryName}) → ${ripgrepBundlePath} (${(rgBundle.length / 1024 / 1024).toFixed(1)} MB)`,
+    );
+
+    return { distDir, mainJsPath: join(distDir, "main.js"), bundlePath, nodePtyBundlePath, ripgrepBundlePath };
 }

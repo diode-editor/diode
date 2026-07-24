@@ -140,6 +140,7 @@ import {
     toggleProblemsAction,
     toggleSidebarAction,
 } from "./layoutActions.ts";
+import { showSearchAction } from "./searchActions.ts";
 import {
     listFocusFirstAction,
     listFocusLastAction,
@@ -316,6 +317,7 @@ export const builtinActions: readonly CommandAction[] = [
     // биндингами, поэтому позиция после Find/Suggest-хвоста безопасна.
     toggleSidebarAction,
     showExplorerAction,
+    showSearchAction,
     revealActiveFileInExplorerAction,
     increaseSidebarWidthAction,
     decreaseSidebarWidthAction,

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { Point, Size } from "../../common/geometryPromitives.ts";
+import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 
 import { InputElement } from "./inputElement.ts";
 
@@ -34,6 +35,18 @@ describe("InputElement — focused rendering", () => {
         app.render();
 
         expect(app.backend.getFgAt(new Point(0, 0))).toBe(FOCUSED_BORDER_FG);
+    });
+
+    it("focuses on mousedown so a click lands the caret in the field", () => {
+        const input = new InputElement();
+        TestApp.createWithContent(input, new Size(20, 1)); // wire into a tree with a FocusManager
+
+        expect(input.isFocused).toBe(false);
+        input.dispatchEvent(
+            new TUIMouseEvent("mousedown", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }),
+        );
+
+        expect(input.isFocused).toBe(true);
     });
 
     it("reverts to the unfocused border colour after blur", () => {

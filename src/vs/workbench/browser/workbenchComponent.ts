@@ -19,6 +19,7 @@ import {
     ExplorerComponent,
     ExplorerComponentDIToken,
 } from "../contrib/files/browser/explorerComponent.ts";
+import { SEARCH_VIEWLET_ID, SearchComponent, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import { ExplorerService, ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
 import { FileOperationsService, FileOperationsServiceDIToken } from "../contrib/files/browser/fileOperationsService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
@@ -106,6 +107,7 @@ export class WorkbenchComponent extends ThemedComponent {
     private lifecycleService: LifecycleService;
     private explorerService: ExplorerService;
     private explorerComponent: ExplorerComponent;
+    private searchComponent: SearchComponent;
     private changesComponent: ChangesComponent;
     private sidebarService: SidebarService;
     private fileOperations: FileOperationsService;
@@ -146,6 +148,9 @@ export class WorkbenchComponent extends ThemedComponent {
         // (дерево + контекст-меню). WorkbenchComponent владеет их жизнью.
         this.explorerService = this.register(accessor.get(ExplorerServiceDIToken));
         this.explorerComponent = this.register(accessor.get(ExplorerComponentDIToken));
+        // Search-кластер: сервис поиска (spawn rg) внутри компонента; сам компонент —
+        // ещё один вьюлет сайдбара (регистрируется в setWorkspaceFolder).
+        this.searchComponent = this.register(accessor.get(SearchComponentDIToken));
         // Клавиатурный диспатчер: WorkbenchComponent владеет его жизнью и подключает
         // view-хук модальных оверлеев (хук контекст-ключей замыкает на себя
         // WorkbenchContextKeys) — сам сервис про view ничего не знает.
@@ -334,6 +339,9 @@ export class WorkbenchComponent extends ThemedComponent {
         // восстанавливает персист layout'а.
         this.sidebarService.registerViewlet(EXPLORER_VIEWLET_ID, this.explorerComponent.view, () => {
             this.explorerService.focus();
+        });
+        this.sidebarService.registerViewlet(SEARCH_VIEWLET_ID, this.searchComponent.view, () => {
+            this.searchComponent.focus();
         });
         this.sidebarService.registerViewlet(SCM_VIEWLET_ID, this.changesComponent.view, () => {
             this.changesComponent.focus();
