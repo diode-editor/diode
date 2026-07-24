@@ -37,12 +37,13 @@ export default defineScenario({
         await driver.waitForText((t) => t.includes("results in"));
         await driver.capture("results");
 
-        // Replace with a string absent from the tree — the count turns to "No
-        // results". Built from fragments so this scenario file doesn't self-match.
+        // Replace with a string absent from the whole repo — the count turns to
+        // "No results". Assembled from fragments so neither this file nor any test
+        // fixture contains the contiguous token (which would make it self-match).
         for (let i = 0; i < "textsearchservice".length; i++) {
             await driver.sendKey("Backspace");
         }
-        await typeText(driver, ["zzq", "qxx", "notathing"].join(""));
+        await typeText(driver, ["Xq7", "zzV", "nomatch", "Wk9q"].join(""));
         await driver.waitForText((t) => t.includes("No results"));
         await driver.capture("no-results");
     },

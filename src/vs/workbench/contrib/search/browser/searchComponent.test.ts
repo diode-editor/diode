@@ -189,6 +189,15 @@ describe("SearchComponent", () => {
         expect(render(component).screenToString()).toContain("2 results in 1 file");
     });
 
+    it("shows workspace-relative, forward-slash labels for Windows paths", () => {
+        const results = [fileMatch("C:\\work\\sub\\gamma.md", [[1, "", "foo", ""]])];
+        const component = make(fakeSearch(results).service, fakeExplorer("C:\\work"));
+        typeQuery(component, "foo");
+        const screen = render(component).screenToString();
+        expect(screen).toContain("sub/gamma.md");
+        expect(screen).not.toContain("C:\\work");
+    });
+
     it("shows an absolute path for a match outside the workspace root", () => {
         const results = [fileMatch("/elsewhere/x.ts", [[1, "", "foo", ""]])];
         const component = make(fakeSearch(results).service, fakeExplorer(ROOT));

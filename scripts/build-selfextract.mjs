@@ -227,15 +227,18 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath }) {
 function stageRipgrep(stageDir) {
     const requireFromRoot = createRequire(join(root, "package.json"));
     const binaryName = process.platform === "win32" ? "rg.exe" : "rg";
-    const platformPkg = `@vscode/ripgrep-${process.platform}-${process.arch}`;
+    const platformName = `ripgrep-${process.platform}-${process.arch}`;
 
-    const resolverDir = dirname(requireFromRoot.resolve("@vscode/ripgrep/package.json"));
-    const platformDir = dirname(requireFromRoot.resolve(`${platformPkg}/package.json`));
+    // Резолвим сам бинарь (его subpath ЭКСПОРТИРОВАН) и выводим корни пакетов из
+    // пути — `exports` в @vscode/ripgrep запрещает резолвить "./package.json".
+    const rgBinaryPath = requireFromRoot.resolve(`@vscode/${platformName}/bin/${binaryName}`);
+    const platformDir = dirname(dirname(rgBinaryPath)); // node_modules/@vscode/ripgrep-<platform>-<arch>
+    const resolverDir = join(dirname(platformDir), "ripgrep"); // node_modules/@vscode/ripgrep
 
     const nodeModules = join(stageDir, "node_modules");
     cpSync(resolverDir, join(nodeModules, "@vscode", "ripgrep"), { recursive: true });
-    cpSync(platformDir, join(nodeModules, "@vscode", platformPkg.replace("@vscode/", "")), { recursive: true });
-    chmodSync(join(nodeModules, "@vscode", platformPkg.replace("@vscode/", ""), "bin", binaryName), 0o755);
+    cpSync(platformDir, join(nodeModules, "@vscode", platformName), { recursive: true });
+    chmodSync(join(nodeModules, "@vscode", platformName, "bin", binaryName), 0o755);
 }
 
 /** @param {string} url */

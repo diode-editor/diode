@@ -316,8 +316,13 @@ function splitGlobs(value: string): string[] {
         .filter((g) => g !== "");
 }
 
-/** Displays a matched file as a workspace-relative path (falls back to absolute). */
+/**
+ * Displays a matched file as a workspace-relative path (falls back to absolute),
+ * with separators normalised to `/`. Handles both POSIX (`/`) and Windows (`\`)
+ * paths, since ripgrep reports native separators — a long unstripped absolute
+ * path would otherwise clip the basename off the right edge of the list.
+ */
 function labelFor(absolutePath: string, root: string): string {
-    if (absolutePath.startsWith(root + "/")) return absolutePath.slice(root.length + 1);
-    return absolutePath;
+    const rel = absolutePath.startsWith(root) ? absolutePath.slice(root.length).replace(/^[/\\]+/u, "") : absolutePath;
+    return rel.replace(/\\/gu, "/");
 }
