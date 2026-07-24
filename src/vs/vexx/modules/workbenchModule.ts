@@ -20,12 +20,12 @@ import {
     EditorStatusContributionDIToken,
 } from "../../workbench/browser/parts/editor/editorStatusContribution.ts";
 import { PanelComponent, PanelComponentDIToken } from "../../workbench/browser/parts/panel/panelComponent.ts";
+import { SidebarService, SidebarServiceDIToken } from "../../workbench/browser/parts/sidebar/sidebarService.ts";
 import {
     PanelFocusContribution,
     PanelFocusContributionDIToken,
 } from "../../workbench/browser/parts/panel/panelFocusContribution.ts";
 import { PanelService, PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
-import { SidebarService, SidebarServiceDIToken } from "../../workbench/browser/parts/sidebar/sidebarService.ts";
 import { SearchComponent, SearchComponentDIToken } from "../../workbench/contrib/search/browser/searchComponent.ts";
 import { TextSearchServiceDIToken } from "../../workbench/services/search/common/textSearch.ts";
 import { TextSearchService } from "../../workbench/services/search/node/textSearchService.ts";
@@ -112,6 +112,8 @@ import {
     QuickAccessRegistry,
     QuickAccessRegistryDIToken,
 } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
+import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
+import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
 import { CommandOriginalResourceProvider } from "../../workbench/contrib/scm/browser/commandOriginalResourceProvider.ts";
 import {
     OriginalResourceProviderDIToken,
@@ -201,7 +203,6 @@ export const workbenchModule: ContainerModule = (container) => {
     // input-команд (активный InputElement; читают экшены Actions/InputActions).
     container.bind(ExplorerServiceDIToken, ExplorerService);
     container.bind(ExplorerComponentDIToken, ExplorerComponent);
-    container.bind(SidebarServiceDIToken, SidebarService);
     container.bind(TextSearchServiceDIToken, TextSearchService);
     container.bind(SearchComponentDIToken, SearchComponent);
     container.bind(FileOperationsServiceDIToken, FileOperationsService);
@@ -297,12 +298,20 @@ export const workbenchModule: ContainerModule = (container) => {
         () => new CommandOriginalResourceProvider(container.get(CommandRegistryDIToken)),
     );
     container.bind(QuickDiffServiceDIToken, QuickDiffService);
+    // Вкладка Changes: расширение пушит набор изменений в ScmChangesService
+    // (команда `vexx.scm.publishChanges`), ChangesComponent показывает его
+    // списком в нижней Panel и по клику открывает дифф этапа 5.
+    container.bind(ScmChangesServiceDIToken, ScmChangesService);
+    container.bind(ChangesComponentDIToken, ChangesComponent);
     // Этап 11: layout-логика (сайдбар/панель + персист layout'а; сам
     // WorkbenchLayoutElement приходит от владельца view через attachLayout),
     // персист открытых редакторов, контекст-ключи workbench'а (замыкают
     // KeybindingDispatcher.updateContextKeys; корневая view — через attachView)
     // и главное меню (пункты — из MenuRegistry, контрол — MenuBarComponent).
     container.bind(LayoutServiceDIToken, LayoutService);
+    // Сайдбар: реестр вьюлетов + переключатель Explorer ↔ Source Control
+    // (activity bar'а нет, переключают команды workbench.view.*).
+    container.bind(SidebarServiceDIToken, SidebarService);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);
     container.bind(WorkbenchContextKeysDIToken, WorkbenchContextKeys);
     container.bind(MenuBarComponentDIToken, MenuBarComponent);

@@ -251,6 +251,7 @@ describe("Workbench — menu bar wiring", () => {
             "Color Theme",
             "Explorer",
             "Search",
+            "Source Control",
             "Problems",
             "Output",
             "Terminal",
@@ -290,6 +291,16 @@ describe("Workbench — menu bar wiring", () => {
         entryByLabel(popup, "Explorer").onSelect?.();
 
         expect(executeSpy).toHaveBeenCalledWith("workbench.view.explorer");
+    });
+
+    it("View → Search runs the search command", () => {
+        const { testApp, commands } = createAppTestHarness();
+        const executeSpy = vi.spyOn(commands, "execute");
+        const popup = openMenu(testApp, "v");
+
+        entryByLabel(popup, "Search").onSelect?.();
+
+        expect(executeSpy).toHaveBeenCalledWith("workbench.view.search");
     });
 
     it("View → Toggle Primary Side Bar toggles the left panel visibility", () => {

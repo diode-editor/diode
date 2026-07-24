@@ -27,6 +27,9 @@ import { SearchResultsElement, type SearchRow } from "./searchResultsElement.ts"
 
 export const SearchComponentDIToken = token<SearchComponent>("SearchComponent");
 
+/** Id вьюлета Search в сайдбаре (совпадает с `view.id` и id команды `workbench.view.search`). */
+export const SEARCH_VIEWLET_ID = "search";
+
 /** Debounce before a query/toggle change spawns ripgrep (avoids a process per keystroke). */
 const SEARCH_DEBOUNCE_MS = 150;
 /** Fixed rows of the header block above the results list. */

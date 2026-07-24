@@ -30,6 +30,9 @@ import type { FileTreeNode } from "./fileTreeDataProvider.ts";
 
 export const ExplorerComponentDIToken = token<ExplorerComponent>("ExplorerComponent");
 
+/** Id вьюлета Explorer в сайдбаре (см. {@link SidebarService}). */
+export const EXPLORER_VIEWLET_ID = "explorer";
+
 interface ExplorerViewParts {
     readonly tree: TreeViewElement<FileTreeNode>;
     readonly scrollBars: ScrollBarDecorator;
@@ -116,7 +119,7 @@ export class ExplorerComponent extends ThemedComponent {
         const tree = new TreeViewElement<FileTreeNode>(provider);
         const scrollBars = new ScrollBarDecorator(tree);
         const root = new TitledPanelElement("  EXPLORER", new PaddingContainerElement(scrollBars, { left: 1 }));
-        root.id = "explorer";
+        root.id = EXPLORER_VIEWLET_ID;
         this.parts = { tree, scrollBars, root };
 
         tree.onExpandedChanged = (node, expanded) => {

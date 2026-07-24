@@ -1,69 +1,55 @@
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import type { WorkbenchLayoutElement } from "../../../../../../tuidom/ui/workbenchlayout/workbenchLayoutElement.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
+import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 
 export const SidebarServiceDIToken = token<SidebarService>("SidebarService");
 
-/** Id вида сайдбара «Explorer» (совпадает с id команды `workbench.view.explorer`). */
-export const EXPLORER_VIEW_ID = "workbench.view.explorer";
-/** Id вида сайдбара «Search» (совпадает с id команды `workbench.view.search`). */
-export const SEARCH_VIEW_ID = "workbench.view.search";
+/** Зарегистрированный вьюлет сайдбара: его корневой контрол + как его сфокусировать. */
+interface ISidebarViewlet {
+    readonly view: TUIElement;
+    readonly focus: () => void;
+}
 
 /**
- * Какой вид занимает левый сайдбар. У VS Code это делает activity bar + ViewsService;
- * у нас его нет и не будет — сайдбар держит ровно один элемент (`setLeftPanel`), а
- * переключение между Explorer и Search идёт через пункты меню View и команды
- * (`workbench.view.explorer` / `workbench.view.search`), которые зовут
- * {@link setActiveView}. Реестр видов + активный вид живут здесь (истина);
- * `WorkbenchLayoutElement` прикрепляется через {@link attachLayout} и следует за
- * активным видом. Смоделировано по {@link PanelService} для нижней панели.
+ * Реестр вьюлетов сайдбара (левой панели) и переключатель между ними — Explorer
+ * и Source Control. Заменяет захардкоженный Explorer: у нас нет activity bar, роль
+ * переключателя играют команды (`workbench.view.explorer` / `workbench.view.scm`),
+ * а показ вьюлета — это подмена контента сайдбара через {@link LayoutService}
+ * (`setSidebarContent`). Аналог `IViewletService`/`ActivityBar` в VS Code, только
+ * без визуального бара.
  */
 export class SidebarService {
-    public static dependencies = [] as const;
+    public static dependencies = [LayoutServiceDIToken] as const;
 
-    private layout: WorkbenchLayoutElement | null = null;
-    private readonly views = new Map<string, TUIElement>();
+    private readonly viewlets = new Map<string, ISidebarViewlet>();
     private activeId: string | null = null;
-    private readonly listeners = new Set<(id: string) => void>();
 
-    /** Прикрепляет layout-элемент (late init из WorkbenchComponent) и показывает активный вид. */
-    public attachLayout(layout: WorkbenchLayoutElement): void {
-        this.layout = layout;
-        this.apply();
+    public constructor(private readonly layout: LayoutService) {}
+
+    /** Регистрирует вьюлет под id (Explorer, SCM). Повторная регистрация заменяет. */
+    public registerViewlet(id: string, view: TUIElement, focus: () => void): void {
+        this.viewlets.set(id, { view, focus });
     }
 
-    /**
-     * Регистрирует (или обновляет) вид сайдбара под `id`. Первый зарегистрированный
-     * становится активным по умолчанию. Обновление элемента активного вида (Explorer
-     * пересобирает свой корень при смене папки) сразу переезжает в сайдбар.
-     */
-    public setView(id: string, view: TUIElement): void {
-        this.views.set(id, view);
-        this.activeId ??= id;
-        if (this.activeId === id) this.apply();
-    }
-
-    /** Делает вид `id` активным (по команде/пункту меню). Неизвестный/уже активный id — no-op. */
-    public setActiveView(id: string): void {
-        if (!this.views.has(id) || this.activeId === id) return;
-        this.activeId = id;
-        this.apply();
-        for (const listener of [...this.listeners]) listener(id);
-    }
-
-    public getActiveViewId(): string | null {
+    public getActiveViewletId(): string | null {
         return this.activeId;
     }
 
-    public onDidChangeActiveView(listener: (id: string) => void): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
-    }
-
-    private apply(): void {
-        if (this.layout === null || this.activeId === null) return;
-        // activeId всегда указывает на зарегистрированный вид (виды не удаляются).
-        this.layout.setLeftPanel(this.views.get(this.activeId)!);
+    /**
+     * Делает вьюлет активным: подменяет контент сайдбара. При `reveal` (клик по
+     * команде показа) ещё и раскрывает сайдбар и отдаёт вьюлету фокус; при
+     * `reveal: false` (стартовая установка) — только контент, не трогая видимость,
+     * которую восстанавливает персист layout'а. Неизвестный id — no-op.
+     */
+    public showViewlet(id: string, reveal = true): void {
+        const viewlet = this.viewlets.get(id);
+        if (viewlet === undefined) return;
+        this.activeId = id;
+        this.layout.setSidebarContent(viewlet.view);
+        if (reveal) {
+            this.layout.setSidebarVisible(true);
+            viewlet.focus();
+        }
     }
 }

@@ -1,114 +1,77 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import type { WorkbenchLayoutElement } from "../../../../../../tuidom/ui/workbenchlayout/workbenchLayoutElement.ts";
+import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
 
-import { EXPLORER_VIEW_ID, SEARCH_VIEW_ID, SidebarService } from "./sidebarService.ts";
+import { SidebarService } from "./sidebarService.ts";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fakeView(tag: string): TUIElement {
-    return { tag } as unknown as TUIElement;
+/** Заглушка LayoutService: считает вызовы подмены контента и видимости. */
+function fakeLayout(): {
+    layout: LayoutService;
+    content: TUIElement[];
+    visibleCalls: boolean[];
+} {
+    const content: TUIElement[] = [];
+    const visibleCalls: boolean[] = [];
+    const layout = {
+        setSidebarContent: (el: TUIElement | null) => content.push(el!),
+        setSidebarVisible: (v: boolean) => visibleCalls.push(v),
+    } as unknown as LayoutService;
+    return { layout, content, visibleCalls };
 }
 
-function fakeLayout(): { layout: WorkbenchLayoutElement; setLeftPanel: ReturnType<typeof vi.fn> } {
-    const setLeftPanel = vi.fn();
-    return { layout: { setLeftPanel } as unknown as WorkbenchLayoutElement, setLeftPanel };
-}
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
+const viewA = { id: "a" } as unknown as TUIElement;
+const viewB = { id: "b" } as unknown as TUIElement;
 
 describe("SidebarService", () => {
-    it("makes the first registered view active by default", () => {
-        const service = new SidebarService();
-        service.setView(EXPLORER_VIEW_ID, fakeView("explorer"));
-        service.setView(SEARCH_VIEW_ID, fakeView("search"));
-        expect(service.getActiveViewId()).toBe(EXPLORER_VIEW_ID);
+    it("showViewlet подменяет контент, раскрывает сайдбар и фокусирует вьюлет", () => {
+        const { layout, content, visibleCalls } = fakeLayout();
+        const service = new SidebarService(layout);
+        const focus = vi.fn();
+        service.registerViewlet("explorer", viewA, focus);
+
+        service.showViewlet("explorer");
+
+        expect(content).toEqual([viewA]);
+        expect(visibleCalls).toEqual([true]);
+        expect(focus).toHaveBeenCalledTimes(1);
+        expect(service.getActiveViewletId()).toBe("explorer");
     });
 
-    it("shows the active view when a layout is attached", () => {
-        const service = new SidebarService();
-        const explorer = fakeView("explorer");
-        service.setView(EXPLORER_VIEW_ID, explorer);
-        const { layout, setLeftPanel } = fakeLayout();
-        service.attachLayout(layout);
-        expect(setLeftPanel).toHaveBeenCalledWith(explorer);
+    it("reveal=false ставит контент, но не трогает видимость и фокус (стартовая установка)", () => {
+        const { layout, content, visibleCalls } = fakeLayout();
+        const service = new SidebarService(layout);
+        const focus = vi.fn();
+        service.registerViewlet("explorer", viewA, focus);
+
+        service.showViewlet("explorer", false);
+
+        expect(content).toEqual([viewA]);
+        expect(visibleCalls).toEqual([]);
+        expect(focus).not.toHaveBeenCalled();
+        expect(service.getActiveViewletId()).toBe("explorer");
     });
 
-    it("does nothing on attach when no view is registered yet", () => {
-        const service = new SidebarService();
-        const { layout, setLeftPanel } = fakeLayout();
-        service.attachLayout(layout);
-        expect(setLeftPanel).not.toHaveBeenCalled();
+    it("переключает активный вьюлет", () => {
+        const { layout, content } = fakeLayout();
+        const service = new SidebarService(layout);
+        service.registerViewlet("explorer", viewA, () => undefined);
+        service.registerViewlet("scm", viewB, () => undefined);
+
+        service.showViewlet("explorer");
+        service.showViewlet("scm");
+
+        expect(content).toEqual([viewA, viewB]);
+        expect(service.getActiveViewletId()).toBe("scm");
     });
 
-    it("swaps the left panel when the active view changes", () => {
-        const service = new SidebarService();
-        const explorer = fakeView("explorer");
-        const search = fakeView("search");
-        const { layout, setLeftPanel } = fakeLayout();
-        service.attachLayout(layout);
-        service.setView(EXPLORER_VIEW_ID, explorer);
-        service.setView(SEARCH_VIEW_ID, search);
+    it("неизвестный id — no-op", () => {
+        const { layout, content } = fakeLayout();
+        const service = new SidebarService(layout);
 
-        service.setActiveView(SEARCH_VIEW_ID);
-        expect(service.getActiveViewId()).toBe(SEARCH_VIEW_ID);
-        expect(setLeftPanel).toHaveBeenLastCalledWith(search);
-    });
+        service.showViewlet("nope");
 
-    it("fires onDidChangeActiveView on a real switch", () => {
-        const service = new SidebarService();
-        service.setView(EXPLORER_VIEW_ID, fakeView("explorer"));
-        service.setView(SEARCH_VIEW_ID, fakeView("search"));
-        const seen: string[] = [];
-        service.onDidChangeActiveView((id) => seen.push(id));
-        service.setActiveView(SEARCH_VIEW_ID);
-        expect(seen).toEqual([SEARCH_VIEW_ID]);
-    });
-
-    it("ignores setActiveView for an unknown or already-active view", () => {
-        const service = new SidebarService();
-        service.setView(EXPLORER_VIEW_ID, fakeView("explorer"));
-        const { layout, setLeftPanel } = fakeLayout();
-        service.attachLayout(layout);
-        setLeftPanel.mockClear();
-        const seen: string[] = [];
-        service.onDidChangeActiveView((id) => seen.push(id));
-
-        service.setActiveView("workbench.view.nope"); // unknown
-        service.setActiveView(EXPLORER_VIEW_ID); // already active
-        expect(setLeftPanel).not.toHaveBeenCalled();
-        expect(seen).toEqual([]);
-    });
-
-    it("re-applies when the active view's element is replaced (folder switch)", () => {
-        const service = new SidebarService();
-        const { layout, setLeftPanel } = fakeLayout();
-        service.attachLayout(layout);
-        service.setView(EXPLORER_VIEW_ID, fakeView("explorer-1"));
-        const explorer2 = fakeView("explorer-2");
-        service.setView(EXPLORER_VIEW_ID, explorer2);
-        expect(setLeftPanel).toHaveBeenLastCalledWith(explorer2);
-    });
-
-    it("does not re-apply when an inactive view's element is updated", () => {
-        const service = new SidebarService();
-        const { layout, setLeftPanel } = fakeLayout();
-        service.setView(EXPLORER_VIEW_ID, fakeView("explorer"));
-        service.attachLayout(layout);
-        setLeftPanel.mockClear();
-        service.setView(SEARCH_VIEW_ID, fakeView("search")); // registered but not active
-        expect(setLeftPanel).not.toHaveBeenCalled();
-    });
-
-    it("disposing a listener stops further notifications", () => {
-        const service = new SidebarService();
-        service.setView(EXPLORER_VIEW_ID, fakeView("explorer"));
-        service.setView(SEARCH_VIEW_ID, fakeView("search"));
-        const seen: string[] = [];
-        const sub = service.onDidChangeActiveView((id) => seen.push(id));
-        sub.dispose();
-        service.setActiveView(SEARCH_VIEW_ID);
-        expect(seen).toEqual([]);
+        expect(content).toEqual([]);
+        expect(service.getActiveViewletId()).toBeNull();
     });
 });

@@ -14,14 +14,12 @@ import {
     WorkbenchContributionsRegistry,
     WorkbenchContributionsRegistryDIToken,
 } from "../common/workbenchContributionsRegistry.ts";
-import { ExplorerComponent, ExplorerComponentDIToken } from "../contrib/files/browser/explorerComponent.ts";
-import { SearchComponent, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import {
-    EXPLORER_VIEW_ID,
-    SEARCH_VIEW_ID,
-    SidebarService,
-    SidebarServiceDIToken,
-} from "./parts/sidebar/sidebarService.ts";
+    EXPLORER_VIEWLET_ID,
+    ExplorerComponent,
+    ExplorerComponentDIToken,
+} from "../contrib/files/browser/explorerComponent.ts";
+import { SEARCH_VIEWLET_ID, SearchComponent, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import { ExplorerService, ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
 import { FileOperationsService, FileOperationsServiceDIToken } from "../contrib/files/browser/fileOperationsService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
@@ -30,6 +28,7 @@ import { DiagnosticsServiceDIToken } from "../contrib/markers/browser/diagnostic
 import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
 import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
+import { ChangesComponent, ChangesComponentDIToken, SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
 import { TerminalPanelComponentDIToken } from "../contrib/terminal/browser/terminalPanelComponent.ts";
@@ -58,6 +57,7 @@ import { PanelComponentDIToken } from "./parts/panel/panelComponent.ts";
 import { QuickInputComponentDIToken } from "./parts/quickinput/quickInputComponent.ts";
 import type { QuickInputService } from "./parts/quickinput/quickInputService.ts";
 import { QuickInputServiceDIToken } from "./parts/quickinput/quickInputService.ts";
+import { type SidebarService, SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import { StatusBarComponent, StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 import type { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
@@ -108,6 +108,7 @@ export class WorkbenchComponent extends ThemedComponent {
     private explorerService: ExplorerService;
     private explorerComponent: ExplorerComponent;
     private searchComponent: SearchComponent;
+    private changesComponent: ChangesComponent;
     private sidebarService: SidebarService;
     private fileOperations: FileOperationsService;
     private fileSearchService: FileSearchService;
@@ -148,9 +149,8 @@ export class WorkbenchComponent extends ThemedComponent {
         this.explorerService = this.register(accessor.get(ExplorerServiceDIToken));
         this.explorerComponent = this.register(accessor.get(ExplorerComponentDIToken));
         // Search-кластер: сервис поиска (spawn rg) внутри компонента; сам компонент —
-        // ещё один вид сайдбара. SidebarService переключает Explorer↔Search.
+        // ещё один вьюлет сайдбара (регистрируется в setWorkspaceFolder).
         this.searchComponent = this.register(accessor.get(SearchComponentDIToken));
-        this.sidebarService = accessor.get(SidebarServiceDIToken);
         // Клавиатурный диспатчер: WorkbenchComponent владеет его жизнью и подключает
         // view-хук модальных оверлеев (хук контекст-ключей замыкает на себя
         // WorkbenchContextKeys) — сам сервис про view ничего не знает.
@@ -179,9 +179,12 @@ export class WorkbenchComponent extends ThemedComponent {
         // ProblemsComponent, TERMINAL — TerminalService.
         this.register(accessor.get(DiagnosticsServiceDIToken));
         this.register(accessor.get(ProblemsComponentDIToken));
-        // Между Problems и Terminal — порядок резолва и есть порядок табов:
-        // PROBLEMS · OUTPUT · TERMINAL, как в VS Code.
+        // Порядок резолва = порядок табов панели: PROBLEMS · OUTPUT · TERMINAL.
         this.register(accessor.get(OutputComponentDIToken));
+        // ChangesComponent — вьюлет сайдбара (Source Control), не таб панели; резолв
+        // подтягивает ScmChangesService, чья команда `vexx.scm.publishChanges`
+        // регистрируется до активации git-расширения, публикующего в неё набор.
+        this.changesComponent = this.register(accessor.get(ChangesComponentDIToken));
         this.terminalService = this.register(accessor.get(TerminalServiceDIToken));
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));
         this.register(accessor.get(TerminalPanelComponentDIToken));
@@ -190,6 +193,7 @@ export class WorkbenchComponent extends ThemedComponent {
         // dispatcher.updateContextKeys). Сам layout-элемент и корневую view
         // прикрепляем ниже, как только они построены.
         this.layoutService = this.register(accessor.get(LayoutServiceDIToken));
+        this.sidebarService = accessor.get(SidebarServiceDIToken);
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
         // Реестр workbench-contributions: фич-проводка вынесена в самодостаточные
         // contribution-классы (статус-бар и пр.). Реестр инстанцирует их по фазам:
@@ -200,8 +204,6 @@ export class WorkbenchComponent extends ThemedComponent {
         this.workbenchLayout.setCenterContent(this.editorGroupComponent.view);
         this.workbenchLayout.setBottomPanel(panelComponent.view);
         this.layoutService.attachLayout(this.workbenchLayout);
-        // Сайдбар держит один вид; SidebarService следует за активным (Explorer/Search).
-        this.sidebarService.attachLayout(this.workbenchLayout);
         // Персист открытых редакторов (write-through подписан на EditorService
         // внутри сервиса; layout персистит LayoutService через onDidChangeLayout).
         this.workbenchState = this.register(accessor.get(WorkbenchStateServiceDIToken));
@@ -332,10 +334,19 @@ export class WorkbenchComponent extends ThemedComponent {
         this.explorerService.setRootPath(dirPath);
         // Новые терминалы спавнятся в папке воркспейса.
         this.terminalService.setWorkingDirectory(dirPath);
-        // Explorer регистрируется первым — он вид сайдбара по умолчанию; Search — рядом,
-        // переключение между ними идёт через SidebarService (меню View / команды).
-        this.sidebarService.setView(EXPLORER_VIEW_ID, this.explorerComponent.view);
-        this.sidebarService.setView(SEARCH_VIEW_ID, this.searchComponent.view);
+        // Регистрируем вьюлеты сайдбара (view Explorer'а валиден после setRootPath)
+        // и показываем Explorer по умолчанию, не трогая видимость сайдбара — её
+        // восстанавливает персист layout'а.
+        this.sidebarService.registerViewlet(EXPLORER_VIEWLET_ID, this.explorerComponent.view, () => {
+            this.explorerService.focus();
+        });
+        this.sidebarService.registerViewlet(SEARCH_VIEWLET_ID, this.searchComponent.view, () => {
+            this.searchComponent.focus();
+        });
+        this.sidebarService.registerViewlet(SCM_VIEWLET_ID, this.changesComponent.view, () => {
+            this.changesComponent.focus();
+        });
+        this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);
         // Открыть per-project стор состояния для этой папки (переключение флашит
         // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.
         this.workbenchState.openWorkspace(dirPath);
