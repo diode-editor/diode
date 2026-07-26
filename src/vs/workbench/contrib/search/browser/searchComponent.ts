@@ -5,17 +5,29 @@ import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.
 import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
 import { VStackElement } from "../../../../../../tuidom/ui/layout/vStackElement.ts";
+import { ListViewElement } from "../../../../../../tuidom/ui/list/listViewElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
+import { Uri } from "../../../../base/common/uri.ts";
+import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { getDialogButtonStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
+import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
+import {
+    getDialogButtonStyles,
+    getListViewStyles,
+    getScrollBarStyles,
+} from "../../../../platform/theme/browser/defaultStyles.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
+import { StateServiceDIToken } from "../../../common/coreTokens.ts";
+import { SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import { ExplorerServiceDIToken } from "../../files/browser/explorerService.ts";
 import type { ExplorerService } from "../../files/browser/explorerService.ts";
 import type {
     IFileMatch,
     ISearchHandle,
+    ITextMatch,
     ITextSearchQuery,
     ITextSearchService,
 } from "../../../services/search/common/textSearch.ts";
@@ -23,12 +35,30 @@ import { TextSearchServiceDIToken } from "../../../services/search/common/textSe
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
-import { SearchResultsElement, type SearchRow } from "./searchResultsElement.ts";
+import { buildFileRow, buildMatchRow, formatFileRow, formatMatchRow, type ISearchRowStyles } from "./searchResultRows.ts";
 
 export const SearchComponentDIToken = token<SearchComponent>("SearchComponent");
 
 /** Id вьюлета Search в сайдбаре (совпадает с `view.id` и id команды `workbench.view.search`). */
 export const SEARCH_VIEWLET_ID = "search";
+
+/** Редактор, в котором раскрывается позиция результата поиска. */
+export interface ISearchRevealEditor {
+    goToPosition(line: number, column?: number): void;
+    revealRange(range: IRange): void;
+}
+
+/**
+ * Минимальный срез группы редакторов для открытия результата: открыть файл и
+ * довести до позиции. `EditorService` соответствует ему структурно — связывание
+ * делает DI-модуль (как {@link import("../../markers/browser/problemsComponent.ts").MarkerRevealTargetDIToken}).
+ */
+export interface ISearchRevealTarget {
+    openUri(uri: Uri): void;
+    getActiveEditor(): ISearchRevealEditor | null;
+}
+
+export const SearchRevealTargetDIToken = token<ISearchRevealTarget>("SearchRevealTarget");
 
 /** Debounce before a query/toggle change spawns ripgrep (avoids a process per keystroke). */
 const SEARCH_DEBOUNCE_MS = 150;
@@ -39,6 +69,18 @@ const HEADER_HEIGHT = 4;
 const CASE_GLYPH = "Aa";
 const WORD_GLYPH = "\\b";
 const REGEX_GLYPH = ".*";
+
+/** Одна файл-группа накопленной модели результатов (порядок — порядок стрима). */
+interface IFileGroup {
+    readonly absolutePath: string;
+    readonly relPath: string;
+    readonly matches: ITextMatch[];
+}
+
+/** Метаданные строки списка — для активации и рестайла при смене темы. */
+type RowMeta =
+    | { readonly kind: "file"; readonly element: TextLabelElement; readonly group: IFileGroup }
+    | { readonly kind: "match"; readonly element: TextLabelElement; readonly group: IFileGroup; readonly match: ITextMatch };
 
 /**
  * Pins a fixed-height header on top and gives the remaining height to the
@@ -87,13 +129,22 @@ class SearchViewElement extends TUIElement {
  * Search view (left sidebar): a query input + case/whole-word/regex toggles,
  * files-to-include/exclude inputs, a result count, and the streamed results
  * list. Search-as-you-type (debounced) drives {@link TextSearchService}; results
- * stream into {@link SearchResultsElement} grouped by file. Opening a result in
- * the editor and a collapsible results tree are later steps. Framing mirrors
+ * stream into a virtualised {@link ListViewElement} grouped by file. In the
+ * `tree` view mode file groups are collapsible; the `flat` mode shows the same
+ * grouped rows without collapsing (`search.action.viewAsTree`/`viewAsList`,
+ * persisted per workspace). Enter/double-click on a match opens the file at the
+ * match position via the {@link ISearchRevealTarget} seam. Framing mirrors
  * {@link import("../../files/browser/explorerComponent.ts").ExplorerComponent}
  * (TitledPanel + `sideBar.*` colors).
  */
 export class SearchComponent extends ThemedComponent {
-    public static dependencies = [TextSearchServiceDIToken, ExplorerServiceDIToken, ThemeServiceDIToken] as const;
+    public static dependencies = [
+        TextSearchServiceDIToken,
+        ExplorerServiceDIToken,
+        SearchRevealTargetDIToken,
+        StateServiceDIToken,
+        ThemeServiceDIToken,
+    ] as const;
 
     private readonly root: TitledPanelElement;
     private readonly queryInput = new InputElement();
@@ -104,17 +155,24 @@ export class SearchComponent extends ThemedComponent {
     private readonly regexButton = new ButtonElement(REGEX_GLYPH);
     private readonly countLabel = new TextLabelElement("");
     private readonly gaps: TextLabelElement[] = [];
-    private readonly results = new SearchResultsElement();
+    /**
+     * Результаты — виртуализирующий список; публичен для команд list-навигации и
+     * тестов. Typeahead выключен: в панели поиска набор букв — это уточнение
+     * запроса, а не прыжки по результатам (в отличие от дерева файлов).
+     */
+    public readonly results = new ListViewElement({ typeahead: false });
     private readonly scrollBars: ScrollBarDecorator;
 
     private caseSensitive = false;
     private wholeWord = false;
     private regex = false;
 
-    private rows: SearchRow[] = [];
+    private viewMode: SearchViewMode;
+    private groups = new Map<string, IFileGroup>();
+    private rowMeta = new Map<string, RowMeta>();
+    /** Сквозной счётчик матч-строк — гарантия уникальности id в пределах поиска. */
+    private matchSeq = 0;
     private matchCount = 0;
-    private fileCount = 0;
-    private currentFileRow: Extract<SearchRow, { kind: "file" }> | null = null;
     private handle: ISearchHandle | null = null;
     private debounceTimer: ReturnType<typeof setTimeout> | null = null;
     /** Bumped per search so a stale in-flight callback/complete is ignored. */
@@ -123,9 +181,13 @@ export class SearchComponent extends ThemedComponent {
     public constructor(
         private readonly searchService: ITextSearchService,
         private readonly explorerService: ExplorerService,
+        private readonly revealTarget: ISearchRevealTarget,
+        private readonly stateService: IStateService,
         themeService: ThemeService,
     ) {
         super(themeService);
+
+        this.viewMode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
 
         this.queryInput.placeholder = "Search";
         this.includeInput.placeholder = "files to include";
@@ -147,8 +209,12 @@ export class SearchComponent extends ThemedComponent {
             this.onToggleChanged();
         });
 
+        this.results.id = "searchResults";
+        this.results.onActivate = (element) => {
+            // Список не принимает строки без id — здесь он гарантированно есть.
+            this.activateRow(element.id as string);
+        };
         this.scrollBars = new ScrollBarDecorator(this.results);
-        this.results.setRows(this.rows);
 
         const header = new VStackElement();
         header.addChild(this.buildQueryRow(), { width: "fill", height: 1 });
@@ -170,6 +236,26 @@ export class SearchComponent extends ThemedComponent {
     /** Focuses the query input (called when the Search view is shown). */
     public focus(): void {
         this.queryInput.focus();
+    }
+
+    public getViewMode(): SearchViewMode {
+        return this.viewMode;
+    }
+
+    /** Переключает вид дерево/плоско, пересобирая строки из модели (без нового rg). */
+    public setViewMode(mode: SearchViewMode): void {
+        if (mode === this.viewMode) return;
+        this.viewMode = mode;
+        this.stateService.store(SEARCH_VIEW_MODE_STATE, mode);
+        this.rebuildRows();
+    }
+
+    /** Восстанавливает вид из workspace-стора (зовётся после `openWorkspace`, без write-through). */
+    public restoreViewMode(): void {
+        const mode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
+        if (mode === this.viewMode) return;
+        this.viewMode = mode;
+        this.rebuildRows();
     }
 
     private buildQueryRow(): HFlexElement {
@@ -210,11 +296,11 @@ export class SearchComponent extends ThemedComponent {
     private runSearch(): void {
         this.cancelSearch();
         const gen = ++this.searchGen;
-        this.rows = [];
-        this.currentFileRow = null;
+        this.groups.clear();
+        this.rowMeta.clear();
+        this.matchSeq = 0;
         this.matchCount = 0;
-        this.fileCount = 0;
-        this.results.setRows(this.rows);
+        this.results.clear();
 
         const root = this.explorerService.getRootPath();
         const query = this.buildQuery();
@@ -233,18 +319,72 @@ export class SearchComponent extends ThemedComponent {
     }
 
     private onResult(match: IFileMatch, root: string): void {
-        if (this.currentFileRow === null || labelFor(match.absolutePath, root) !== this.currentFileRow.label) {
-            this.currentFileRow = { kind: "file", label: labelFor(match.absolutePath, root), count: 0 };
-            this.rows.push(this.currentFileRow);
-            this.fileCount++;
+        const relPath = labelFor(match.absolutePath, root);
+        let group = this.groups.get(relPath);
+        if (group === undefined) {
+            group = { absolutePath: match.absolutePath, relPath, matches: [] };
+            this.groups.set(relPath, group);
+            this.appendFileRow(group);
         }
         for (const m of match.matches) {
-            this.rows.push({ kind: "match", lineNumber: m.lineNumber, ...m.preview });
-            this.currentFileRow.count++;
+            group.matches.push(m);
+            this.appendMatchRow(group, m);
             this.matchCount++;
         }
-        this.results.markDirty();
+        // Файл-строка группы гарантированно добавлена выше — обновляем её счётчик.
+        const fileMeta = this.rowMeta.get(fileRowId(group)) as Extract<RowMeta, { kind: "file" }>;
+        formatFileRow(fileMeta.element, group.relPath, group.matches.length, this.rowStyles());
         this.updateCount(true);
+    }
+
+    private appendFileRow(group: IFileGroup): void {
+        const id = fileRowId(group);
+        const element = buildFileRow(id, group.relPath, group.matches.length, this.rowStyles());
+        this.rowMeta.set(id, { kind: "file", element, group });
+        this.results.appendRow(element, { label: group.relPath });
+    }
+
+    private appendMatchRow(group: IFileGroup, match: ITextMatch): void {
+        const id = `match:${this.matchSeq++}:${group.relPath}:${match.lineNumber}:${match.startColumn}`;
+        const element = buildMatchRow(id, match, this.rowStyles());
+        this.rowMeta.set(id, { kind: "match", element, group, match });
+        // Вся разница режимов: в дереве матчи — дети файл-строки (шевроны,
+        // сворачивание), в плоском — самостоятельные строки без гуттера.
+        this.results.appendRow(element, this.viewMode === "tree" ? { parentId: fileRowId(group) } : undefined);
+    }
+
+    /** Пересобирает строки списка из накопленной модели (смена режима/восстановление). */
+    private rebuildRows(): void {
+        this.results.clear();
+        this.rowMeta.clear();
+        this.matchSeq = 0;
+        for (const group of this.groups.values()) {
+            this.appendFileRow(group);
+            for (const match of group.matches) {
+                this.appendMatchRow(group, match);
+            }
+        }
+    }
+
+    /** Enter/двойной клик: файл-строка сворачивается, матч открывается на позиции. */
+    private activateRow(rowId: string): void {
+        const meta = this.rowMeta.get(rowId);
+        /* v8 ignore start -- defensive: every appended row has meta under its id */
+        if (meta === undefined) return;
+        /* v8 ignore stop */
+        if (meta.kind === "file") {
+            this.results.toggleCollapsed(fileRowId(meta.group));
+            return;
+        }
+        this.revealTarget.openUri(Uri.file(meta.group.absolutePath));
+        const editor = this.revealTarget.getActiveEditor();
+        /* v8 ignore start -- defensive: openUri always opens/activates an editor for the file */
+        if (editor === null) return;
+        /* v8 ignore stop */
+        // lineNumber у ripgrep 1-based, редактор ждёт 0-based; колонки уже 0-based.
+        const line = meta.match.lineNumber - 1;
+        editor.goToPosition(line, meta.match.startColumn);
+        editor.revealRange(createRange(line, meta.match.startColumn, line, meta.match.endColumn));
     }
 
     private buildQuery(): ITextSearchQuery {
@@ -266,8 +406,8 @@ export class SearchComponent extends ThemedComponent {
     private countText(searching: boolean): string {
         if (this.queryInput.inputState.value === "") return "";
         if (this.matchCount === 0) return searching ? "Searching…" : "No results";
-        const files = this.fileCount === 1 ? "file" : "files";
-        return `${this.matchCount} results in ${this.fileCount} ${files}`;
+        const files = this.groups.size === 1 ? "file" : "files";
+        return `${this.matchCount} results in ${this.groups.size} ${files}`;
     }
 
     private cancelSearch(): void {
@@ -279,6 +419,14 @@ export class SearchComponent extends ThemedComponent {
         this.handle = null;
     }
 
+    private rowStyles(): ISearchRowStyles {
+        return {
+            dimFg: this.theme.getRequiredColor("descriptionForeground"),
+            matchFg: this.theme.getRequiredColor("sideBar.foreground"),
+            matchBg: this.theme.getRequiredColor("editor.wordHighlightBackground"),
+        };
+    }
+
     protected updateStyles(): void {
         const fg = this.theme.getRequiredColor("sideBar.foreground");
         const bg = this.theme.getRequiredColor("sideBar.background");
@@ -288,13 +436,17 @@ export class SearchComponent extends ThemedComponent {
         this.countLabel.setColors(dimFg, bg);
         for (const gap of this.gaps) gap.setColors(fg, bg);
         this.scrollBars.setStyles(getScrollBarStyles(this.theme, "sideBar.background"));
-        this.results.setStyles({
-            fg,
-            bg,
-            dimFg,
-            matchFg: fg,
-            matchBg: this.theme.getRequiredColor("editor.wordHighlightBackground"),
-        });
+        this.results.setStyles(getListViewStyles(this.theme));
+
+        // Содержимое строк красится их формат-функциями — прогоняем рестайл по всем.
+        const styles = this.rowStyles();
+        for (const meta of this.rowMeta.values()) {
+            if (meta.kind === "file") {
+                formatFileRow(meta.element, meta.group.relPath, meta.group.matches.length, styles);
+            } else {
+                formatMatchRow(meta.element, meta.match, styles);
+            }
+        }
 
         const inactive = getDialogButtonStyles(this.theme);
         const active = this.activeButtonStyles();
@@ -309,6 +461,10 @@ export class SearchComponent extends ThemedComponent {
         const hoverBg = this.theme.getRequiredColor("button.hoverBackground");
         return { fg, bg, hoverBg, focusedFg: fg, focusedBg: bg, focusedHoverBg: hoverBg };
     }
+}
+
+function fileRowId(group: IFileGroup): string {
+    return `file:${group.relPath}`;
 }
 
 /** Splits a comma-separated glob field into trimmed, non-empty globs. */

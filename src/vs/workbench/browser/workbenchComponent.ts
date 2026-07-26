@@ -350,6 +350,9 @@ export class WorkbenchComponent extends ThemedComponent {
         // Открыть per-project стор состояния для этой папки (переключение флашит
         // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.
         this.workbenchState.openWorkspace(dirPath);
+        // Режим дерево/плоско поиска — из workspace-стора; строго после openWorkspace,
+        // иначе прочитается global-стор.
+        this.searchComponent.restoreViewMode();
         // Fire-and-forget: the index builds in the background so startup and the
         // first render are not blocked. `fileIndexReady` exposes completion for
         // callers (and tests) that need the index populated.

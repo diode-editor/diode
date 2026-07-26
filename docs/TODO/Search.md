@@ -14,21 +14,24 @@
 - **Пакетирование** — `scripts/pack-ripgrep.mjs` → `dist/rg.bundle`, врезано в
   `build-dist`/`build-sea`/`build-selfextract`. Зависимость `@vscode/ripgrep`.
 - **UI** — `contrib/search/browser/searchComponent.ts` (запрос + тумблеры
-  Aa/`\b`/`.*`, include/exclude, счётчик, поиск по мере ввода) + `searchResultsElement.ts`
-  (плоский виртуализованный список с подсветкой совпадения).
+  Aa/`\b`/`.*`, include/exclude, счётчик, поиск по мере ввода) +
+  `searchResultRows.ts` (фабрики строк с посимвольной подсветкой) поверх
+  виртуализирующего `tuidom/ui/list/ListViewElement` (фокус, курсор,
+  клавиатура, hover — от контейнера).
+- **Интерактивные результаты** — сворачиваемые группы файл→матчи (tree-режим),
+  переключение дерево/плоско парой команд `search.action.viewAsTree`/`viewAsList`
+  (`when: searchViewletVisible`, персист `workbench.search.viewMode` по-проектно),
+  Enter/двойной клик по матчу открывает файл на строке/колонке совпадения (шов
+  `SearchRevealTargetDIToken` → EditorService, по образцу Problems).
 - **Сайдбар-своп** — `browser/parts/sidebar/sidebarService.ts`, команды
   `browser/actions/searchActions.ts` + `showExplorerAction`.
-- e2e-сценарий `e2e/scenarios/searchInFiles.scenario.ts` (демо + скриншоты).
+- e2e: сценарий `e2e/scenarios/searchInFiles.scenario.ts` (демо + скриншоты:
+  дерево, collapse, flat, открытие на позиции) + функциональный
+  `e2e/searchInFiles.functional.test.ts`.
 
 ## Дальше (отложено)
 
-- **Открытие результата в редакторе** — клик/Enter по строке матча открывает файл
-  на нужной строке/колонке (`commands.execute("workbench.openFile", …)` +
-  `navigateActiveEditor`/`revealRange`; модель `ITextMatch` уже несёт `lineNumber`
-  и колонки). Сейчас клик по результату — no-op.
-- **Древовидный вид результатов** — сворачиваемые группы файл→матчи. Модель
-  `file → matches` уже готова; апгрейд `SearchResultsElement` → `TreeViewElement`
-  (или свои collapse-строки) — правка только вью.
+- **Кнопки тумблера дерево/плоско в шапке панели** — команды уже есть, нужен UI.
 - **Кросс-платформенный rg** — бандл/распаковка верифицированы на linux-x64; macOS/
   Windows — как у node-pty, отдельной задачей (CI-матрица).
 - Прочее из VS Code: replace, подсветка контекста, `search.exclude`/`files.exclude`

@@ -140,7 +140,7 @@ import {
     toggleProblemsAction,
     toggleSidebarAction,
 } from "./layoutActions.ts";
-import { showSearchAction } from "./searchActions.ts";
+import { searchViewAsListAction, searchViewAsTreeAction, showSearchAction } from "./searchActions.ts";
 import {
     listFocusFirstAction,
     listFocusLastAction,
@@ -318,6 +318,8 @@ export const builtinActions: readonly CommandAction[] = [
     toggleSidebarAction,
     showExplorerAction,
     showSearchAction,
+    searchViewAsTreeAction,
+    searchViewAsListAction,
     revealActiveFileInExplorerAction,
     increaseSidebarWidthAction,
     decreaseSidebarWidthAction,

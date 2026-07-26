@@ -24,6 +24,9 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
+import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
+import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
+import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
@@ -52,6 +55,7 @@ export class WorkbenchContextKeys extends Disposable {
         InputWidgetServiceDIToken,
         KeybindingDispatcherDIToken,
         LayoutServiceDIToken,
+        SidebarServiceDIToken,
     ] as const;
 
     private view: BodyElement | null = null;
@@ -66,6 +70,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly inputWidgetService: InputWidgetService,
         private readonly dispatcher: KeybindingDispatcher,
         private readonly layoutService: LayoutService,
+        private readonly sidebarService: SidebarService,
     ) {
         super();
         // Make custom-mode names (mode_<name>) valid `when` identifiers, then keep context
@@ -114,6 +119,10 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);
         this.contextKeys.set("panelVisible", this.layoutService.isPanelVisible());
+        this.contextKeys.set(
+            "searchViewletVisible",
+            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SEARCH_VIEWLET_ID,
+        );
         this.contextKeys.set("findWidgetVisible", this.findService.isVisible());
         this.contextKeys.set("suggestWidgetVisible", this.completionService.isOpen());
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);

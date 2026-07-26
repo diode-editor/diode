@@ -12,6 +12,7 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
+import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
 /**
@@ -51,7 +52,8 @@ function makeHarness() {
         terminalEnv as unknown as TerminalEnvironmentService,
         { setActive } as unknown as InputWidgetService,
         dispatcher as unknown as KeybindingDispatcher,
-        { isPanelVisible: () => true } as unknown as LayoutService,
+        { isPanelVisible: () => true, isSidebarVisible: () => true } as unknown as LayoutService,
+        { getActiveViewletId: () => "search" } as unknown as SidebarService,
     );
 
     return {

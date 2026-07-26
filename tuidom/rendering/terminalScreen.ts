@@ -3,7 +3,7 @@ import { DEFAULT_COLOR } from "../common/colorUtils.ts";
 import { Point, Size } from "../common/geometryPromitives.ts";
 import { StyleFlags } from "../common/styleFlags.ts";
 
-import type { CellPatch } from "./grid.ts";
+import type { CellPatch, ReadonlyCellData } from "./grid.ts";
 import { Grid } from "./grid.ts";
 
 export class TerminalScreen {
@@ -33,6 +33,10 @@ export class TerminalScreen {
 
     public setCell(position: Point, cell: CellPatch): void {
         this.grid.updateCell(position, cell);
+    }
+
+    public getCell(position: Point): ReadonlyCellData {
+        return this.grid.getCell(position);
     }
 
     public flush(backend: ITerminalBackend): void {

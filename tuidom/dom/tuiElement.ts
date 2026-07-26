@@ -1,6 +1,6 @@
 import { DisplayLine } from "../common/displayLine.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../common/geometryPromitives.ts";
-import type { CellPatch } from "../rendering/grid.ts";
+import type { CellPatch, ReadonlyCellData } from "../rendering/grid.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 
 import { BORDER_ROUNDED, type BorderStyle } from "./borderStyle.ts";
@@ -45,6 +45,20 @@ export class RenderContext {
         const screenY = y + this.offset.dy;
         if (!this.clipRect.containsPoint(new Point(screenX, screenY))) return;
         this.canvas.setCell(new Point(screenX, screenY), cell);
+    }
+
+    /**
+     * Читает уже отрисованную ячейку в локальных координатах (тот же оффсет и
+     * клип, что у {@link setCell}). Возвращает null вне клипа или вне экрана.
+     * Нужен пост-обработке вроде оверлея выделения в списках: прочитать ячейку,
+     * решить по её текущим цветам и патчнуть через {@link setCell}.
+     */
+    public getCell(x: number, y: number): ReadonlyCellData | null {
+        const screenX = x + this.offset.dx;
+        const screenY = y + this.offset.dy;
+        if (!this.clipRect.containsPoint(new Point(screenX, screenY))) return null;
+        if (screenX < 0 || screenY < 0 || screenX >= this.canvas.width || screenY >= this.canvas.height) return null;
+        return this.canvas.getCell(new Point(screenX, screenY));
     }
 
     public setCursorPosition(x: number, y: number): void {

@@ -15,7 +15,12 @@ import type {
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { SearchComponent } from "./searchComponent.ts";
+import { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
+import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
+import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import type { IRange } from "../../../../editor/common/core/iRange.ts";
+
+import { SearchComponent, type ISearchRevealTarget } from "./searchComponent.ts";
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const ROOT = "/work/project";
@@ -55,8 +60,54 @@ function fileMatch(absolutePath: string, lines: Array<[number, string, string, s
     };
 }
 
-function make(search: ITextSearchService, explorer: ExplorerService): SearchComponent {
-    return new SearchComponent(search, explorer, new ThemeService(theme));
+/** Reveal-цель, записывающая открытия и переходы (аналог фейка Problems). */
+function fakeReveal(): {
+    target: ISearchRevealTarget;
+    opened: string[];
+    positions: Array<[number, number | undefined]>;
+    ranges: IRange[];
+} {
+    const opened: string[] = [];
+    const positions: Array<[number, number | undefined]> = [];
+    const ranges: IRange[] = [];
+    const target: ISearchRevealTarget = {
+        openUri: (uri) => opened.push(uri.fsPath),
+        getActiveEditor: () => ({
+            goToPosition: (line, column) => positions.push([line, column]),
+            revealRange: (range) => ranges.push(range),
+        }),
+    };
+    return { target, opened, positions, ranges };
+}
+
+/** In-memory стейт: get отдаёт сохранённое или дефолт, store записывает. */
+function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
+    const stored = new Map<string, unknown>();
+    const service: IStateService = {
+        get<T>(descriptor: IStateDescriptor<T>): T {
+            return stored.has(descriptor.key) ? (stored.get(descriptor.key) as T) : descriptor.default;
+        },
+        store<T>(descriptor: IStateDescriptor<T>, value: T): void {
+            stored.set(descriptor.key, value);
+        },
+        openWorkspace: () => {},
+        flushSync: () => {},
+    };
+    return { service, stored };
+}
+
+function make(
+    search: ITextSearchService,
+    explorer: ExplorerService,
+    opts: { reveal?: ISearchRevealTarget; state?: IStateService } = {},
+): SearchComponent {
+    return new SearchComponent(
+        search,
+        explorer,
+        opts.reveal ?? fakeReveal().target,
+        opts.state ?? NULL_STATE_SERVICE,
+        new ThemeService(theme),
+    );
 }
 
 function render(component: SearchComponent, w = 40, h = 14): MockTerminalBackend {
@@ -256,5 +307,115 @@ describe("SearchComponent", () => {
         const spy = vi.spyOn(queryInput(component), "focus");
         component.focus();
         expect(spy).toHaveBeenCalled();
+    });
+
+    describe("tree/flat view modes", () => {
+        const twoFiles = () => [
+            fileMatch("/work/project/a.ts", [[12, "const ", "foo", " = 1"], [20, "", "foo", ""]]),
+            fileMatch("/work/project/b.ts", [[3, "let ", "foo", ""]]),
+        ];
+
+        it("typing letters in the results list does not typeahead-jump between groups", () => {
+            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            // Курсор на первой строке (file:a.ts); буква «b» не должна прыгать на b.ts.
+            component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "b" }));
+            expect(component.results.inspectState()).toMatchObject({ cursorId: "file:a.ts" });
+        });
+
+        it("collapsing a file group hides its matches (tree mode)", () => {
+            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            expect(component.results.contentHeight).toBe(5); // 2 файла + 3 матча
+
+            component.results.toggleCollapsed("file:a.ts");
+            expect(component.results.contentHeight).toBe(3);
+        });
+
+        it("Enter on a file row toggles its group", () => {
+            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            // Курсор по умолчанию — на первой строке (file:a.ts).
+            component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+            expect(component.results.isCollapsed("file:a.ts")).toBe(true);
+        });
+
+        it("switching to flat rebuilds rows from the model without a new search", () => {
+            const { service } = fakeSearch(twoFiles());
+            const spy = vi.spyOn(service, "search");
+            const component = make(service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+
+            component.setViewMode("flat");
+            expect(spy).toHaveBeenCalledTimes(1); // rg не перезапускался
+            expect(component.getViewMode()).toBe("flat");
+            // Те же строки, но группы больше не сворачиваются (детей нет).
+            expect(component.results.contentHeight).toBe(5);
+            component.results.toggleCollapsed("file:a.ts");
+            expect(component.results.contentHeight).toBe(5);
+        });
+
+        it("setViewMode persists to workspace state; same mode is a no-op", () => {
+            const { service: state, stored } = fakeState();
+            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
+            component.setViewMode("flat");
+            expect(stored.get("workbench.search.viewMode")).toBe("flat");
+
+            stored.clear();
+            component.setViewMode("flat");
+            expect(stored.size).toBe(0);
+        });
+
+        it("restoreViewMode reads the store without writing back", () => {
+            const { service: state, stored } = fakeState();
+            stored.set("workbench.search.viewMode", "flat");
+            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT), { state });
+            // Конструктор уже прочитал flat; вернём tree и проверим restore.
+            component.setViewMode("tree");
+            stored.set("workbench.search.viewMode", "flat");
+            const writes = vi.spyOn(state, "store");
+
+            component.restoreViewMode();
+            expect(component.getViewMode()).toBe("flat");
+            expect(writes).not.toHaveBeenCalled();
+
+            component.restoreViewMode(); // повтор — no-op
+            expect(component.getViewMode()).toBe("flat");
+        });
+    });
+
+    it("theme change restyles existing file and match rows in place", () => {
+        const themeService = new ThemeService(theme);
+        const component = new SearchComponent(
+            fakeSearch([fileMatch("/work/project/a.ts", [[1, "x ", "foo", ""]])]).service,
+            fakeExplorer(ROOT),
+            fakeReveal().target,
+            NULL_STATE_SERVICE,
+            themeService,
+        );
+        typeQuery(component, "foo");
+        const before = render(component).screenToString();
+
+        themeService.setTheme(theme); // повторное применение гоняет рестайл по строкам
+        expect(render(component).screenToString()).toBe(before);
+    });
+
+    describe("opening a result", () => {
+        it("Enter on a match opens the file at the match position (1-based line → 0-based)", () => {
+            const reveal = fakeReveal();
+            const results = [fileMatch("/work/project/a.ts", [[12, "const ", "foo", " = 1"]])];
+            const component = make(fakeSearch(results).service, fakeExplorer(ROOT), { reveal: reveal.target });
+            typeQuery(component, "foo");
+
+            const matchRow = component.results.getChildren()[1];
+            component.results.setCursorTo(matchRow.id as string);
+            component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+
+            expect(reveal.opened).toEqual(["/work/project/a.ts"]);
+            expect(reveal.positions).toEqual([[11, 6]]); // line 12 → 11, startColumn = "const ".length
+            expect(reveal.ranges).toEqual([
+                { start: { line: 11, character: 6 }, end: { line: 11, character: 9 } },
+            ]);
+        });
     });
 });
