@@ -4,6 +4,7 @@ import type { KeyPressEvent } from "../input/keyEvent.ts";
 import type { MouseToken } from "../input/rawTerminalToken.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 
+import { contextMenuEventFromKeydown } from "./events/contextMenuEventSource.ts";
 import { FocusManager } from "./events/focusManager.ts";
 import { MouseEventDispatcher } from "./events/mouseEventDispatcher.ts";
 import { TUIKeyboardEvent } from "./events/tuiKeyboardEvent.ts";
@@ -110,6 +111,16 @@ export class TuiApplication {
             }
             this.pinnedKeypressTarget = event.type === "keydown" ? target : null;
             const notPrevented = target.dispatchEvent(tuiEvent);
+
+            // Клавиатурный запрос контекстного меню (ContextMenu / Shift+F10)
+            // синтезируется в общее событие "contextmenu" — только если keydown
+            // не съеден (глобальный кейбинд делает preventDefault сам).
+            if (notPrevented && event.type === "keydown") {
+                const contextMenuEvent = contextMenuEventFromKeydown(tuiEvent, target);
+                if (contextMenuEvent) {
+                    target.dispatchEvent(contextMenuEvent);
+                }
+            }
 
             // Tab focus cycling (default behavior if not prevented, only on keydown)
             if (notPrevented && event.key === "Tab" && event.type === "keydown" && this.focusManager) {
