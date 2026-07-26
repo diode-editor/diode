@@ -26,7 +26,11 @@ import {
     PanelFocusContributionDIToken,
 } from "../../workbench/browser/parts/panel/panelFocusContribution.ts";
 import { PanelService, PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
-import { SearchComponent, SearchComponentDIToken } from "../../workbench/contrib/search/browser/searchComponent.ts";
+import {
+    SearchComponent,
+    SearchComponentDIToken,
+    SearchRevealTargetDIToken,
+} from "../../workbench/contrib/search/browser/searchComponent.ts";
 import { TextSearchServiceDIToken } from "../../workbench/services/search/common/textSearch.ts";
 import { TextSearchService } from "../../workbench/services/search/node/textSearchService.ts";
 import { OutputChannelActions, OutputChannelActionsDIToken } from "../../workbench/contrib/output/browser/outputChannelActions.ts";
@@ -289,6 +293,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // Диагностики: поставщики → MarkerService → потребители (squiggles, Problems).
     container.bind(DiagnosticsEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(MarkerRevealTargetDIToken, () => container.get(EditorServiceDIToken));
+    // Открытие результата поиска на позиции — тот же структурный срез EditorService.
+    container.bind(SearchRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(DiagnosticsServiceDIToken, DiagnosticsService);
     // Quick diff: живые change-bars в гуттере. Оригинал спрашиваем у SCM-расширения
     // командой, читаем через реестр провайдеров ФС, диффаем против живого буфера.

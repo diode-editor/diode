@@ -59,6 +59,15 @@ export const PANEL_ACTIVE_VIEW_STATE: IStateDescriptor<string> = {
     default: "",
 };
 
+/** Режим отображения результатов поиска: дерево (сворачиваемые группы) или плоско. */
+export type SearchViewMode = "tree" | "flat";
+
+export const SEARCH_VIEW_MODE_STATE: IStateDescriptor<SearchViewMode> = {
+    key: "workbench.search.viewMode",
+    scope: "workspace",
+    default: "tree",
+};
+
 /** Открытые файлы + активная вкладка. */
 export const OPEN_EDITORS_STATE: IStateDescriptor<IOpenEditorsState> = {
     key: "workbench.editors.openEditors",

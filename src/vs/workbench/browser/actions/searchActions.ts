@@ -1,7 +1,7 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { SEARCH_VIEWLET_ID } from "../../contrib/search/browser/searchComponent.ts";
+import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../../contrib/search/browser/searchComponent.ts";
 import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
 
 /**
@@ -18,5 +18,28 @@ export const showSearchAction: CommandAction = {
     keybinding: parseKeybinding("ctrl+shift+f"),
     run(accessor) {
         accessor.get(SidebarServiceDIToken).showViewlet(SEARCH_VIEWLET_ID);
+    },
+};
+
+/**
+ * Режим отображения результатов: дерево (сворачиваемые файл-группы) или плоский
+ * список. Пара команд вместо тоггла — как у VS Code (`search.action.viewAsTree`/
+ * `viewAsList`); выбор персистится по-проектно.
+ */
+export const searchViewAsTreeAction: CommandAction = {
+    id: "search.action.viewAsTree",
+    title: "Search: View as Tree",
+    when: "searchViewletVisible",
+    run(accessor) {
+        accessor.get(SearchComponentDIToken).setViewMode("tree");
+    },
+};
+
+export const searchViewAsListAction: CommandAction = {
+    id: "search.action.viewAsList",
+    title: "Search: View as List",
+    when: "searchViewletVisible",
+    run(accessor) {
+        accessor.get(SearchComponentDIToken).setViewMode("flat");
     },
 };
