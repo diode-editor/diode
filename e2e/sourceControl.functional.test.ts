@@ -10,16 +10,19 @@ import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Функциональные e2e для PR #207 (Source Control в сайдбаре): чёрным ящиком через
-// инспектор настоящего бинаря. Проверяем заявленное поведение и крайние случаи:
-// переключение Explorer↔SCM, список изменений, дифф по двойному клику, untracked,
-// чистое репо, не-git папка, относительные пути, реальный кейбинд ctrl+shift+g.
+// Функциональные e2e Source Control (#207, миграция на ListViewElement): чёрным
+// ящиком через инспектор настоящего бинаря. Проверяем заявленное поведение и
+// крайние случаи: переключение Explorer↔SCM, список изменений, прямой дифф по
+// двойному клику (одной вкладкой), инлайн-кнопку Open File, режимы tree/flat,
+// контекстное меню, untracked/deleted, чистое репо, не-git папку.
 
-// Переключатели вьюлетов — user-кейбиндами (детерминированно, без палитры). Буквы
-// НЕ мнемонические (F/E/S/V/G/H — меню-бар), как в sourceControl.scenario.
+// Переключатели вьюлетов и режимов — user-кейбиндами (детерминированно, без
+// палитры). Буквы НЕ мнемонические (F/E/S/V/G/H — меню-бар), как в scenario.
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
     { key: "alt+x", command: "workbench.view.explorer" },
+    { key: "alt+t", command: "scm.action.viewAsTree" },
+    { key: "alt+l", command: "scm.action.viewAsList" },
 ];
 
 function git(cwd: string, ...args: string[]): void {
@@ -120,7 +123,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(lineWith(frame, "app.ts")).toContain("M");
         expect(lineWith(frame, "extra.ts")).toContain("U");
         // Список получил фокус (showViewlet reveal).
-        expect(await session.focusedType()).toBe("TreeViewElement");
+        expect(await session.focusedType()).toBe("ListViewElement");
     }, 120_000);
 
     it("двойной клик по modified-файлу открывает дифф «файл ↔ HEAD»", async () => {
@@ -144,13 +147,14 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
 
-        await session.waitForText((t) => t.includes("↔ HEAD"));
-        // Дифф показывает изменённую строку.
-        const frame = frameToText(await session.captureFrame());
-        expect(frame).toContain("↔ HEAD");
+        // Дифф открылся ЕДИНСТВЕННОЙ вкладкой: в строке вкладок ровно одно
+        // упоминание app.ts (метка диффа), файловой вкладки нет.
+        const frame = await session.waitForText((t) => t.includes("↔ HEAD")).then(frameToText);
+        const tabsLine = lineWith(frame, "↔ HEAD");
+        expect(tabsLine.split("app.ts").length - 1).toBe(1);
     }, 120_000);
 
-    it("двойной клик по untracked-файлу не падает и показывает уведомление вместо диффа", async () => {
+    it("двойной клик по untracked-файлу открывает сам файл (сравнивать не с чем)", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, untracked: { "extra.ts": "export const answer = 42;\n" } });
         app = await open(repo);
         const { session } = app;
@@ -168,10 +172,78 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
 
-        // Уведомление в статус-баре, диффа НЕТ, приложение живо.
-        const frame = await session.waitForText((t) => t.includes("No changes to compare")).then(frameToText);
+        // Открылся сам файл (его контент и есть «всё новое»), диффа и notice нет.
+        const frame = await session.waitForText((t) => t.includes("export const answer = 42;")).then(frameToText);
         expect(frame).not.toContain("↔ HEAD");
-        expect(await session.getDocument()).not.toBeNull();
+        expect(frame).not.toContain("No changes to compare");
+    }, 120_000);
+
+    it("клик по инлайн-глифу строки открывает сам файл, а не дифф", async () => {
+        const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD } });
+        app = await open(repo);
+        const { session } = app;
+
+        await session.waitForText((t) => t.includes("app.ts"));
+        await session.key("Alt+C");
+        await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
+        const list = await session.waitForNode("#changesList");
+
+        // Глиф Open File — третья колонка справа (глиф · пробел · буква статуса).
+        await session.clickNode("#changesList", { dx: list.box.width - 3, dy: 0 });
+
+        // Открылась файловая вкладка с рабочим содержимым, диффа нет.
+        const frame = await session.waitForText((t) => t.includes('"hello " + name')).then(frameToText);
+        expect(frame).not.toContain("↔ HEAD");
+    }, 120_000);
+
+    it("scm.action.viewAsTree сворачивает пути в компакт-папки, viewAsList возвращает", async () => {
+        const repo = makeRepo({
+            committed: { "src/deep/mod.ts": "export const x = 1;\n" },
+            modify: { "src/deep/mod.ts": "export const x = 2;\n" },
+        });
+        app = await open(repo);
+        const { session } = app;
+
+        await session.waitForText((t) => t.includes("EXPLORER"));
+        await session.key("Alt+C");
+        await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("src/deep/mod.ts"));
+
+        await session.key("Alt+T");
+        const box = (await session.waitForNode("#changesView")).box;
+        const tree = await session
+            .waitForText((t) => {
+                const scm = regionText(t, box);
+                return scm.includes("src/deep") && !scm.includes("src/deep/mod.ts") && scm.includes("mod.ts");
+            })
+            .then(frameToText);
+        expect(regionText(tree, box)).toContain("src/deep"); // компакт-цепочка одним узлом
+
+        await session.key("Alt+L");
+        await session.waitForText((t) => regionText(t, box).includes("src/deep/mod.ts"));
+    }, 120_000);
+
+    it("правый клик по строке открывает контекстное меню Open File / Open Changes", async () => {
+        const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD } });
+        app = await open(repo);
+        const { session } = app;
+
+        await session.waitForText((t) => t.includes("app.ts"));
+        await session.key("Alt+C");
+        await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
+        const list = await session.waitForNode("#changesList");
+
+        const x = list.box.x + 2;
+        const y = list.box.y;
+        await session.sendMouse({ action: "press", button: "right", x, y });
+        await session.sendMouse({ action: "release", button: "right", x, y });
+
+        const frame = await session.waitForText((t) => t.includes("Open File")).then(frameToText);
+        expect(frame).toContain("Open Changes");
+
+        // Escape закрывает меню, приложение живо.
+        await session.key("Escape");
+        await session.waitForText((t) => !t.includes("Open Changes"));
+        expect((await session.getDocument()).root).not.toBeNull();
     }, 120_000);
 
     it("чистое репо без изменений — пустой список Source Control без краша", async () => {
@@ -237,7 +309,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(frame).toContain("src/deep/mod.ts");
     }, 120_000);
 
-    it("двойной клик по удалённому файлу (status D) не роняет приложение", async () => {
+    it("двойной клик по удалённому файлу (status D) открывает дифф «HEAD ↔ пусто»", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, clean: true });
         // Удаляем закоммиченный файл на диске → unstaged deletion (D).
         execFileSync("rm", [join(repo, "app.ts")]);
@@ -256,10 +328,11 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
 
-        // Не проверяем, открылся ли дифф (файла на диске нет — поведение на выбор
-        // реализации): важно, что приложение живо и отвечает инспектору.
-        await session.waitForIdle();
-        expect((await session.getDocument()).root).not.toBeNull();
+        // Файла на диске нет — modified-сторона пустая: вся HEAD-версия минусами,
+        // ни одного плюса с содержимым.
+        const frame = await session.waitForText((t) => t.includes("↔ HEAD")).then(frameToText);
+        expect(frame).toContain("-  export function greet");
+        expect(frame).not.toMatch(/\+ {2}\S/);
         expect(session.getStderr()).not.toMatch(/Error|Exception|unhandled/i);
     }, 120_000);
 

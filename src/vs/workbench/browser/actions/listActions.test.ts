@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Size } from "../../../../../tuidom/common/geometryPromitives.ts";
+import { ListViewElement } from "../../../../../tuidom/ui/list/listViewElement.ts";
+import { TextLabelElement } from "../../../../../tuidom/ui/text/textLabelElement.ts";
 import type { ITreeDataProvider, ITreeItem } from "../../../../../tuidom/ui/tree/iTreeDataProvider.ts";
 import { TreeViewElement } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
@@ -96,6 +98,44 @@ describe("ListActions — drive the focused TreeViewElement", () => {
         exec(listFocusFirstAction);
 
         expect(selected).toHaveBeenLastCalledWith(ITEMS[0]);
+    });
+});
+
+describe("ListActions — drive the focused ListViewElement", () => {
+    function mountFocusedList() {
+        const list = new ListViewElement();
+        for (let i = 0; i < 30; i++) {
+            const row = new TextLabelElement(`Row ${String(i)}`);
+            row.id = `l${String(i)}`;
+            list.appendRow(row);
+        }
+        const app = TestApp.createWithContent(list, new Size(40, 10));
+        list.focus();
+
+        const accessor = new Container();
+        accessor.bind(TuiApplicationDIToken, () => app.app);
+        const commands = new CommandRegistry();
+        function exec(action: typeof listFocusPageDownAction): void {
+            registerAction(commands, new KeybindingRegistry(), accessor, action);
+            commands.execute(action.id);
+        }
+        return { list, exec };
+    }
+
+    it("list.focusPageDown / focusLast / focusPageUp / focusFirst move the cursor", () => {
+        const { list, exec } = mountFocusedList();
+
+        exec(listFocusPageDownAction);
+        expect(list.getCursorElement()?.id).toBe("l9");
+
+        exec(listFocusLastAction);
+        expect(list.getCursorElement()?.id).toBe("l29");
+
+        exec(listFocusPageUpAction);
+        expect(list.getCursorElement()?.id).toBe("l20");
+
+        exec(listFocusFirstAction);
+        expect(list.getCursorElement()?.id).toBe("l0");
     });
 });
 

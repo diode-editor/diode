@@ -213,6 +213,7 @@ export class WorkbenchComponent extends ThemedComponent {
         this.dialogService.attachHost(this.view);
         // Контекст-меню дерева Explorer'а открывается в overlay-слое корневой view.
         this.explorerComponent.attachHost(this.view);
+        this.changesComponent.attachHost(this.view);
         this.view.setContent(this.workbenchLayout);
         this.view.setStatusBar(this.statusBarComponent.view);
         // Источник фокуса для контекст-ключей — FocusManager корневой view.
@@ -353,6 +354,7 @@ export class WorkbenchComponent extends ThemedComponent {
         // Режим дерево/плоско поиска — из workspace-стора; строго после openWorkspace,
         // иначе прочитается global-стор.
         this.searchComponent.restoreViewMode();
+        this.changesComponent.restoreViewMode();
         // Fire-and-forget: the index builds in the background so startup and the
         // first render are not blocked. `fileIndexReady` exposes completion for
         // callers (and tests) that need the index populated.

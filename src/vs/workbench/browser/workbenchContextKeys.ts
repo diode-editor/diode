@@ -3,6 +3,7 @@ import type { TUIFocusEvent } from "../../../../tuidom/dom/events/tuiFocusEvent.
 import type { TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
 import type { BodyElement } from "../../../../tuidom/ui/body/bodyElement.ts";
 import { InputElement } from "../../../../tuidom/ui/inputbox/inputElement.ts";
+import { ListViewElement } from "../../../../tuidom/ui/list/listViewElement.ts";
 import { TerminalViewElement } from "../../../../tuidom/ui/terminal/terminalViewElement.ts";
 import { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
 import { EditorElement } from "../../editor/browser/editorElement.ts";
@@ -24,6 +25,7 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
+import { SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
 import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
@@ -114,7 +116,7 @@ export class WorkbenchContextKeys extends Disposable {
         // сбрасывается в false, иначе он залипал бы от прошлого редактора.
         this.contextKeys.set("editorReadonly", active instanceof EditorElement && active.readOnly);
         this.contextKeys.set("inputWidgetFocus", active instanceof InputElement);
-        this.contextKeys.set("listFocus", active instanceof TreeViewElement);
+        this.contextKeys.set("listFocus", active instanceof TreeViewElement || active instanceof ListViewElement);
         this.inputWidgetService.setActive(active instanceof InputElement ? active : null);
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);
@@ -122,6 +124,10 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set(
             "searchViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SEARCH_VIEWLET_ID,
+        );
+        this.contextKeys.set(
+            "scmViewletVisible",
+            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SCM_VIEWLET_ID,
         );
         this.contextKeys.set("findWidgetVisible", this.findService.isVisible());
         this.contextKeys.set("suggestWidgetVisible", this.completionService.isOpen());

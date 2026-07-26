@@ -24,9 +24,11 @@ export interface IReadOnlyFileSystemProvider {
  * ресурсов (аналог `IFileService` + `registerProvider` у vscode; шаг 2 из #107,
  * см. [docs/TODO/Uri.md]).
  *
- * Схему `file` реестр НЕ обслуживает: файлы на диске читаются напрямую
- * (`TextFileModel`), и заводить для них провайдера ради симметрии значило бы
- * менять горячий путь открытия файла ради одного будущего потребителя.
+ * Схему `file` обслуживает read-only `DiskFileSystemProvider` (node-слой,
+ * регистрируется композицией) — для browser-потребителей, которым нужен снимок
+ * с диска без открытого редактора (прямой дифф из Changes). Горячий путь
+ * открытия файла (`TextFileModel`) по-прежнему читает диск напрямую, мимо
+ * реестра.
  */
 export interface IFileSystemProviderRegistry {
     /**

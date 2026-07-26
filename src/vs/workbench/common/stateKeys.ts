@@ -68,6 +68,15 @@ export const SEARCH_VIEW_MODE_STATE: IStateDescriptor<SearchViewMode> = {
     default: "tree",
 };
 
+/** Режим списка изменений Source Control: плоско (как VS Code list) или дерево папок. */
+export type ScmViewMode = "tree" | "flat";
+
+export const SCM_VIEW_MODE_STATE: IStateDescriptor<ScmViewMode> = {
+    key: "workbench.scm.viewMode",
+    scope: "workspace",
+    default: "flat",
+};
+
 /** Открытые файлы + активная вкладка. */
 export const OPEN_EDITORS_STATE: IStateDescriptor<IOpenEditorsState> = {
     key: "workbench.editors.openEditors",

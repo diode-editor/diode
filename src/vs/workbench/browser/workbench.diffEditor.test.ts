@@ -10,7 +10,7 @@ import { FileSystemProviderRegistry } from "../../platform/files/common/fileSyst
 import { createTestContainer } from "../../vexx/modules/testProfile.ts";
 import { FileSystemProviderRegistryDIToken } from "../common/coreTokens.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
-import { COMPARE_NOTICE_MS } from "../contrib/scm/browser/compareWithHeadAction.ts";
+import { COMPARE_NOTICE_MS, openDiffWithHead } from "../contrib/scm/browser/compareWithHeadAction.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
@@ -234,6 +234,97 @@ describe("Workbench — вкладка diff, отказы", () => {
         vi.useRealTimers();
         app.render();
 
+        expect(app.backend.screenToString()).not.toContain("No changes to compare");
+        workbench.dispose();
+    });
+});
+
+describe("Workbench — дифф без открытого файла (openDiffWithHead)", () => {
+    let ws: ITempWorkspace;
+
+    beforeEach(() => {
+        ws = createTempWorkspace({ prefix: "vexx-diff-core-", files: { "a.txt": "alpha\nBRAVO\ncharlie\ndelta\n" } });
+    });
+
+    afterEach(() => {
+        ws.dispose();
+    });
+
+    /**
+     * Собирает workbench, дополняя штатный реестр (в нём уже есть `file:` из
+     * markersModule) провайдером `git:` — как это делает адаптер расширения.
+     */
+    function mountWorkbench() {
+        const { container, bindApp } = createTestContainer();
+        container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
+            readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
+            onDidChangeFile: () => ({ dispose: () => undefined }),
+        });
+        const workbench = container.get(WorkbenchComponentDIToken);
+        const commands = container.get(CommandRegistryDIToken);
+        const editors = container.get(EditorServiceDIToken);
+        commands.register(ORIGINAL_RESOURCE_COMMAND, (raw) =>
+            Uri.from({ scheme: "git", path: String(raw), query: '{"ref":"HEAD"}' }).toString(),
+        );
+        workbench.setWorkspaceFolder(ws.dir);
+        workbench.mount();
+        const app = TestApp.create(workbench.view, new Size(100, 16));
+        bindApp(app.app);
+        return { container, workbench, editors, app };
+    }
+
+    it("modified читается с диска: открывается одна дифф-вкладка, файловая — нет", async () => {
+        const { container, workbench, editors, app } = mountWorkbench();
+
+        const result = await openDiffWithHead(container, Uri.file(ws.path("a.txt")));
+        await settle(10);
+        app.render();
+
+        expect(result).toBe("opened");
+        const screen = app.backend.screenToString();
+        expect(screen).toContain("a.txt ↔ HEAD");
+        expect(screen).toContain("-  bravo");
+        expect(screen).toContain("+  BRAVO");
+        // Инвариант прямого диффа: единственная вкладка — vexx-diff, файл не открыт.
+        expect(editors.getPanes().map((p) => p.uri.scheme)).toEqual(["vexx-diff"]);
+        workbench.dispose();
+    });
+
+    it("нечитающийся с диска файл (удалён) даёт дифф «HEAD ↔ пусто»", async () => {
+        const { container, workbench, app } = mountWorkbench();
+
+        // Расширение неизвестно языковому сервису — заодно покрывается откат
+        // languageId на plaintext.
+        const result = await openDiffWithHead(container, Uri.file(ws.path("gone.weird")));
+        await settle(10);
+        app.render();
+
+        expect(result).toBe("opened");
+        const screen = app.backend.screenToString();
+        expect(screen).toContain("gone.weird ↔ HEAD");
+        // Вся HEAD-версия — минусами; справа только пустая строка, ни одного
+        // плюса с содержимым.
+        expect(screen).toContain("-  alpha");
+        expect(screen).toContain("-  delta");
+        expect(screen).not.toMatch(/\+ {2}\S/);
+        workbench.dispose();
+    });
+
+    it("«оригинала нет» возвращается вызывающему без побочных эффектов", async () => {
+        // ORIGINAL_RESOURCE_COMMAND не зарегистрирована — SCM-расширения нет.
+        const { container, bindApp } = createTestContainer();
+        const workbench = container.get(WorkbenchComponentDIToken);
+        const editors = container.get(EditorServiceDIToken);
+        workbench.setWorkspaceFolder(ws.dir);
+        workbench.mount();
+        const app = TestApp.create(workbench.view, new Size(100, 16));
+        bindApp(app.app);
+
+        const result = await openDiffWithHead(container, Uri.file(ws.path("a.txt")));
+        app.render();
+
+        expect(result).toBe("no-original");
+        expect(editors.editorCount).toBe(0);
         expect(app.backend.screenToString()).not.toContain("No changes to compare");
         workbench.dispose();
     });

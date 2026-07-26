@@ -15,7 +15,7 @@ function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Репозиторий: закоммиченный файл + его правка на диске + untracked-файл. */
+/** Репозиторий: закоммиченные файлы (в т.ч. вложенный) + правки на диске + untracked. */
 function makeRepo(): { repoDir: string } {
     const repoDir = mkdtempSync(join(tmpdir(), "vexx-scm-demo-"));
     git(repoDir, "init", "-q");
@@ -26,10 +26,15 @@ function makeRepo(): { repoDir: string } {
     // был первой строкой списка — по нему и открываем дифф.
     const trackedFile = join(repoDir, "app.ts");
     writeFileSync(trackedFile, ["export function greet(name: string) {", '    return "hi " + name;', "}", ""].join("\n"));
+    // Вложенный файл — для кадра tree-режима (компакт-цепочка src/util одним узлом).
+    const nestedFile = join(repoDir, "src", "util", "format.ts");
+    execFileSync("mkdir", ["-p", join(nestedFile, "..")]);
+    writeFileSync(nestedFile, "export const pad = (s: string) => s.padEnd(8);\n");
     git(repoDir, "add", "-A");
     git(repoDir, "commit", "-qm", "init");
     // Правим на диске (modified) и добавляем новый файл (untracked).
     writeFileSync(trackedFile, ["export function greet(name: string) {", '    return "hello " + name;', "}", ""].join("\n"));
+    writeFileSync(nestedFile, "export const pad = (s: string) => s.padEnd(12);\n");
     writeFileSync(join(repoDir, "extra.ts"), "export const answer = 42;\n");
     return { repoDir };
 }
@@ -44,9 +49,12 @@ export default defineScenario({
     rows: 22,
     // Нужен extension host — набор изменений публикует git-расширение.
     skipOn: ["win32", "darwin"],
-    // Переключение на Source Control — через user-кейбинд (детерминированно, без
-    // палитры). Букву берём НЕ мнемоническую: F/E/S/V/G/H — это меню-бар.
-    userKeybindings: [{ key: "alt+c", command: "workbench.view.scm" }],
+    // Переключение на Source Control и режимов — через user-кейбинды
+    // (детерминированно, без палитры). Буквы НЕ мнемонические: F/E/S/V/G/H — меню-бар.
+    userKeybindings: [
+        { key: "alt+c", command: "workbench.view.scm" },
+        { key: "alt+t", command: "scm.action.viewAsTree" },
+    ],
     async run(editor) {
         // Готовность: Explorer показывает файлы (папка открылась, расширение
         // считает git status).
@@ -74,5 +82,28 @@ export default defineScenario({
         await editor.sendMouse({ action: "release", button: "left", x, y });
         await editor.waitForText((t) => t.includes("↔ HEAD"));
         await editor.capture("diff");
+
+        // Режим «дерево»: пути сворачиваются в компакт-папки (src/util одним узлом
+        // с шевроном), файлы — под ними.
+        await editor.sendKey("Alt+T");
+        await editor.waitForText((t) => t.includes("src/util") && !t.includes("src/util/format.ts"));
+        await editor.capture("changes-tree");
+
+        // Контекстное меню строки: правый клик по app.ts (в дереве: src/util,
+        // format.ts, app.ts, extra.ts → третья строка).
+        const rows = await editor.waitForNode("#changesList");
+        const menuX = rows.box.x + 2;
+        const menuY = rows.box.y + 2;
+        await editor.sendMouse({ action: "press", button: "right", x: menuX, y: menuY });
+        await editor.sendMouse({ action: "release", button: "right", x: menuX, y: menuY });
+        await editor.waitForText((t) => t.includes("Open File") && t.includes("Open Changes"));
+        await editor.capture("context-menu");
+        await editor.sendKey("Escape");
+
+        // Инлайн-кнопка Open File (глиф у правого края строки): открывает сам файл,
+        // а не дифф — кликаем по untracked extra.ts (четвёртая строка дерева).
+        await editor.clickNode("#changesList", { dx: rows.box.width - 3, dy: 3 });
+        await editor.waitForText((t) => t.includes("export const answer = 42;"));
+        await editor.capture("open-file-button");
     },
 });
