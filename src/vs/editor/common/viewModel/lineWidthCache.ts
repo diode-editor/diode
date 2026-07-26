@@ -3,7 +3,7 @@ import { measureTextWidth } from "../../../../../tuidom/common/measureTextWidth.
 import {
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
-} from "../../../../../tuidom/common/textLimits.ts";
+} from "./longLineRendering.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 
@@ -88,9 +88,9 @@ export class LineWidthCache extends Disposable {
             if (w === UNCOMPUTED) {
                 const content = this.document.getLineContent(i);
                 w = measureTextWidth(content, this.tabSizeInternal, STOP_RENDERING_LINE_AFTER);
-                // A truncated line renders a "[…]" badge past its capped content;
-                // include its width so horizontal scroll can actually reach the
-                // badge (otherwise it sits at the exclusive end and is unreachable).
+                // A truncated line renders a "Long line trimmed" button past its
+                // capped content; include its width so horizontal scroll can reach
+                // it (otherwise it sits at the exclusive end and is unreachable).
                 if (content.length > STOP_RENDERING_LINE_AFTER) w += LONG_LINE_TRUNCATION_BADGE_WIDTH;
                 this.lineWidths[i] = w;
             }

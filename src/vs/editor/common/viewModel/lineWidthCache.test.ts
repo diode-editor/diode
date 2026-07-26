@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
-} from "../../../../../tuidom/common/textLimits.ts";
+} from "./longLineRendering.ts";
 import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
 import { TextDocument } from "../model/textDocument.ts";
 

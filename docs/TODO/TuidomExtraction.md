@@ -28,15 +28,15 @@ titledpanel, workbenchlayout), — это **нормальная связь «п
 не утечки: домена редактора они не знают. Масштаб работ куда меньше, чем кажется
 по инстинкту «displayLine выглядит редакторным».
 
-### 1. Вернуть в редактор — доменный блокер
+### 1. Вернуть в редактор — доменный блокер ✅ СДЕЛАНО
 
-- **`tuidom/common/textLimits.ts` → editor.** Кодирует **политику рендера
-  редактора** (`STOP_RENDERING_LINE_AFTER = 10 000`) и **UI-копирайт редактора**
-  (`LONG_LINE_TRUNCATION_BADGE = " Long line trimmed "`). Импортёры: **только 3
-  editor-файла** (`editorElement`, `editorViewState`, `lineWidthCache`), **0
-  tuidom**. Для тулкита эти значения бессмысленны и утащатся при выносе.
-  → перенести в editor (напр. `src/vs/editor/common/viewModel/longLineRendering.ts`),
-  поправить ~7 путей импорта. **Behavior-neutral**, поведение не меняется.
+- **`tuidom/common/textLimits.ts` → `src/vs/editor/common/viewModel/longLineRendering.ts`.**
+  Кодировал **политику рендера редактора** (`STOP_RENDERING_LINE_AFTER = 10 000`)
+  и **UI-копирайт редактора** (`LONG_LINE_TRUNCATION_BADGE = " Long line trimmed "`);
+  импортёры — только editor, 0 tuidom. Перенесён в editor-слой, ~7 путей импорта
+  обновлены; поведение не изменилось (behavior-neutral). tuidom-механизмы
+  (`DisplayLine.stopAfter`, `measureTextWidth`) порог не знают — редактор передаёт
+  его параметром.
 
 ### 2. Пограничное — решить, но не блокер
 
@@ -92,8 +92,7 @@ fs-доступ; `vitest` в dev. Всё leaf, без `vs/`-хвоста.
 
 ## Порядок работ перед выносом
 
-1. Перенести **`textLimits.ts`** в editor — снять единственный доменный блокер
-   (быстро, behavior-neutral).
+1. ~~Перенести **`textLimits.ts`** в editor~~ — **сделано** (`longLineRendering.ts`).
 2. Решить судьбу **`measureTextWidth.ts`** (оставить в tuidom / перенести).
 3. Развязать **`.stories.ts` / `.bench.ts`** от `src/vs` — в первую очередь
    `inputElement.stories.ts`.
