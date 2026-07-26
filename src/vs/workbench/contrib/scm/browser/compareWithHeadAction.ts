@@ -60,7 +60,7 @@ export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri): Pro
 
     const languageId =
         pane?.languageId ?? accessor.get(LanguageServiceDIToken).getLanguageIdForResource(uri.fsPath) ?? "plaintext";
-    const label = pane ? editors.displayName(pane) : (uri.path.split("/").pop() ?? uri.path);
+    const label = pane ? editors.displayName(pane) : uri.path.slice(uri.path.lastIndexOf("/") + 1);
 
     const input = {
         uri: Uri.from({ scheme: DIFF_SCHEME, path: uri.path, query: "HEAD" }),

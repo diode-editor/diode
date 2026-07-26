@@ -23,8 +23,8 @@ export interface IScmRowStyles {
     readonly dimFg: number;
 }
 
-/**  nf-cod-go_to_file — инлайн-кнопка «открыть сам файл» (клик делегирует контейнер). */
-const OPEN_FILE_GLYPH = "";
+/** nf-cod-go_to_file () — инлайн-кнопка «открыть сам файл» (клик делегирует контейнер). */
+export const OPEN_FILE_GLYPH = "";
 
 /**
  * Части файловой строки: `HFlexElement`-корень (его id — идентичность строки в

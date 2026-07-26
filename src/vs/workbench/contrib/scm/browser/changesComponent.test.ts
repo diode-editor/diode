@@ -17,14 +17,19 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { ChangesComponent } from "./changesComponent.ts";
 import { PUBLISH_CHANGES_COMMAND, ScmChangesService } from "./changesService.ts";
+import { buildFolderRow, OPEN_FILE_GLYPH } from "./scmChangeRows.ts";
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 
 // ─── Fakes / helpers ──────────────────────────────────────────────────────────
 
-function fakeMenu(entries: { label: string; onSelect?: () => void }[] = []): { service: MenuService; menu: IMenu } {
+type FakeMenuEntry = { label: string; onSelect?: () => void } | { type: "separator" };
+
+function fakeMenu(entries: FakeMenuEntry[] = []): { service: MenuService; menu: IMenu } {
     const menu: IMenu = {
-        getEntries: vi.fn(() => entries.map((e) => ({ type: "item" as const, ...e }))),
+        getEntries: vi.fn(() =>
+            entries.map((e) => ("type" in e ? { type: "separator" as const } : { type: "item" as const, ...e })),
+        ),
         getSubmenus: () => [],
         onDidChange: () => ({ dispose: () => undefined }),
         dispose: () => undefined,
@@ -57,7 +62,7 @@ interface IHarness {
     executed: Array<[string, unknown[]]>;
 }
 
-function make(opts: { state?: IStateService; menuEntries?: { label: string; onSelect?: () => void }[] } = {}): IHarness {
+function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {}): IHarness {
     const commands = new CommandRegistry();
     const scm = new ScmChangesService(commands);
     const { service: menuService, menu } = fakeMenu(opts.menuEntries);
@@ -108,7 +113,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(screen).toContain("nested/b.txt");
         // Буква статуса и глиф — в строке файла.
         expect(screen).toContain("U");
-        expect(screen).toContain("");
+        expect(screen).toContain(OPEN_FILE_GLYPH);
         expect(h.component.list.rowCount).toBe(2);
     });
 
@@ -224,9 +229,10 @@ describe("ChangesComponent — tree-режим", () => {
 });
 
 describe("ChangesComponent — тема и контекстное меню", () => {
-    it("смена темы перекрашивает строки на месте, без пересборки", () => {
+    it("смена темы перекрашивает строки на месте, без пересборки (в т.ч. папки дерева)", () => {
         const h = make();
-        publish(h.commands, [{ rel: "a.txt" }]);
+        publish(h.commands, [{ rel: "nested/a.txt" }]);
+        h.component.setViewMode("tree"); // папочная строка проходит рестайл нетронутой
         const rowBefore = h.component.list.getChildren()[0];
         const before = frame(h);
 
@@ -236,40 +242,61 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(h.component.list.getChildren()[0]).toBe(rowBefore); // те же элементы
     });
 
-    it("правый клик по файлу открывает контекстное меню в overlay-слое хоста", () => {
-        const h = make({ menuEntries: [{ label: "Open File" }] });
+    it("активация строки с неизвестным id — тихий no-op (защита моста rowMeta)", () => {
+        const h = make();
+        publish(h.commands, [{ rel: "a.txt" }]);
+
+        const ghost = buildFolderRow("ghost", "ghost");
+        expect(() => h.component.list.onActivate?.(ghost)).not.toThrow();
+        expect(h.executed).toEqual([]);
+    });
+
+    it("правый клик по файлу открывает контекстное меню, Enter выбирает, Escape закрывает", () => {
+        const onSelect = vi.fn();
+        // Сепаратор — проверка, что он проходит обёртку onSelect без изменений.
+        const h = make({ menuEntries: [{ label: "Open File", onSelect }, { type: "separator" }] });
         publish(h.commands, [{ rel: "a.txt" }]);
 
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
         h.component.attachHost(app.root);
 
         const list = h.component.list;
-        list.dispatchEvent(
-            new TUIMouseEvent("click", {
-                button: "right",
-                screenX: list.globalPosition.x + 2,
-                screenY: list.globalPosition.y,
-                localX: 2,
-                localY: 0,
-            }),
-        );
-        app.render();
+        const rightClick = () => {
+            list.dispatchEvent(
+                new TUIMouseEvent("click", {
+                    button: "right",
+                    screenX: list.globalPosition.x + 2,
+                    screenY: list.globalPosition.y,
+                    localX: 2,
+                    localY: 0,
+                }),
+            );
+            app.render();
+        };
 
+        rightClick();
         expect(h.menu.getEntries).toHaveBeenCalledWith({ uri: uriOf("a.txt") });
         expect(app.backend.screenToString()).toContain("Open File");
 
         // Повторный вызов закрывает прежнюю сессию и открывает новую.
-        list.dispatchEvent(
-            new TUIMouseEvent("click", {
-                button: "right",
-                screenX: list.globalPosition.x + 2,
-                screenY: list.globalPosition.y,
-                localX: 2,
-                localY: 0,
-            }),
+        rightClick();
+        expect(app.backend.screenToString()).toContain("Open File");
+
+        // Enter выбирает пункт: сессия закрывается ДО original onSelect.
+        app.querySelector("PopupMenuElement")!.dispatchEvent(
+            new TUIKeyboardEvent("keydown", { key: "Enter" }),
         );
         app.render();
-        expect(app.backend.screenToString()).toContain("Open File");
+        expect(onSelect).toHaveBeenCalledTimes(1);
+        expect(app.backend.screenToString()).not.toContain("Open File");
+
+        // Escape закрывает через menu.onClose → session.close() (гард onClose).
+        rightClick();
+        app.querySelector("PopupMenuElement")!.dispatchEvent(
+            new TUIKeyboardEvent("keydown", { key: "Escape" }),
+        );
+        app.render();
+        expect(app.backend.screenToString()).not.toContain("Open File");
     });
 
     it("без хоста и на папках правый клик — тихий no-op", () => {
