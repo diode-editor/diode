@@ -16,6 +16,8 @@
 
 import { describe, expect, it } from "vitest";
 
+import { DisplayLine } from "../../../../tuidom/common/displayLine.ts";
+import { STOP_RENDERING_LINE_AFTER } from "../../../../tuidom/common/textLimits.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { createInsertEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
@@ -261,31 +263,36 @@ describe("EditorElement — extremely long lines must not freeze", () => {
 
     /**
      * Building the visible line's DisplayLine (what the render loop does each
-     * frame) must be O(cap) on the extreme line, not O(200 000). The slot array
-     * is capped, and a batch of rebuilds (scroll/keypress re-renders while the
-     * giant line is on screen) stays bounded. Uncapped, each build re-segments
-     * 200 k chars (~40 ms → seconds for the batch); capped it is ~2 ms.
+     * frame) must be O(cap) on the extreme line, not O(200 000). Two proofs: the
+     * slot array is capped (structural), and capping makes a batch of rebuilds
+     * dramatically cheaper than segmenting the whole line. The timing check is
+     * relative (capped vs uncapped on the same line), so it scales with the
+     * machine and does not flake on slow CI — an absolute ms budget did.
      */
     it("displayLineFor caps the visible long line", () => {
         const doc = makeDocWithLongLine();
         const viewState = new EditorViewState(doc, [createCursorSelection(0, 0)]);
         const longLine = doc.getLineContent(doc.lineCount - 1);
+        const tabSize = viewState.tabSize;
 
         const dl = viewState.displayLineFor(longLine);
         expect(dl.isTruncated).toBe(true);
         // Slot count is bounded by the cap, not the 200 000-char line length.
         expect(dl.slots.length).toBeLessThanOrEqual(10_000);
 
-        const REBUILDS = 100;
-        const t0 = performance.now();
-        for (let i = 0; i < REBUILDS; i++) {
-            viewState.displayLineFor(longLine);
-        }
-        const ms = performance.now() - t0;
+        const ITER = 10;
+        const timeBatch = (build: () => void): number => {
+            build(); // warm up (JIT) so the comparison is fair
+            const t0 = performance.now();
+            for (let i = 0; i < ITER; i++) build();
+            return performance.now() - t0;
+        };
+        const capped = timeBatch(() => new DisplayLine(longLine, tabSize, STOP_RENDERING_LINE_AFTER));
+        const uncapped = timeBatch(() => new DisplayLine(longLine, tabSize));
 
-        console.log(`[long-line] ${REBUILDS} displayLineFor rebuilds: ${ms.toFixed(1)} ms`);
-        // Capped builds cost ~2 ms each; uncapped 200 k-char builds would take
-        // seconds for the batch. A 1.5 s ceiling separates the two decisively.
-        expect(ms).toBeLessThan(1_500);
+        console.log(`[long-line] ${ITER}× DisplayLine — capped ${capped.toFixed(1)} ms vs uncapped ${uncapped.toFixed(1)} ms`);
+        // The real ratio is ~20–35×; require at least 3× to stay robust to noise
+        // while still failing loudly if the cap ever stops taking effect.
+        expect(capped * 3).toBeLessThan(uncapped);
     }, 120_000);
 });
