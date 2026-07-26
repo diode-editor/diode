@@ -31,9 +31,9 @@ export class ContextMenuController {
 
         // Выбор пункта закрывает меню ДО действия: команда может открыть
         // диалог/переставить фокус, и restoreFocus сессии не должен затирать
-        // фокус, выставленный командой.
+        // фокус, выставленный командой. Подменю закрывают цепочку сами.
         const entries: MenuEntry[] = request.entries.map((entry) => {
-            if (entry.type === "separator") return entry;
+            if (entry.type === "separator" || entry.type === "submenu") return entry;
             const original = entry.onSelect;
             return {
                 ...entry,
@@ -58,7 +58,15 @@ export class ContextMenuController {
             closeOnEscape: true,
             pointerPolicy: "close-on-outside",
             disposeOnClose: true,
+            // Клик по вложенному подменю (отдельный item слоя) — не «мимо».
+            ownsTarget: (target) => menu.ownsElement(target),
+            // Escape при открытом подменю закрывает уровень, а не всё меню, —
+            // роутинг делает само меню (performDefaultAction).
+            shouldCloseOnEscape: () => !menu.hasOpenSubmenu(),
             onClose: () => {
+                // Сессия закрыта (Escape, клик мимо, hide) — каскадно закрываем
+                // открытые подменю: их сессии слой сам не увяжет.
+                menu.closeSubmenus();
                 // Через hide() поле занулено до close() — не трогаем: там может
                 // быть уже открыта следующая сессия.
                 if (this.session === session) {

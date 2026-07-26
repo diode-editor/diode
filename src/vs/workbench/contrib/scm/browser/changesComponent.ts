@@ -234,7 +234,7 @@ export class ChangesComponent extends ThemedComponent {
 
         const context: ScmMenuContext = { uri };
         const entries: MenuEntry[] = this.contextMenu.getEntries(context).map((entry) => {
-            if (entry.type === "separator") return entry;
+            if (entry.type === "separator" || entry.type === "submenu") return entry;
             const original = entry.onSelect;
             return {
                 ...entry,

@@ -36,6 +36,17 @@ export interface OverlaySessionOptions {
     capturesKeyboard?: boolean;
     disposeOnClose?: boolean;
     onClose?: () => void;
+    /**
+     * Дополнительная принадлежность цели к сессии для close-on-outside: клик по
+     * элементу, за который поручился владелец (вложенные попапы-подменю — они
+     * отдельные item'ы слоя, не потомки), сессию не закрывает.
+     */
+    ownsTarget?: (target: TUIElement) => boolean;
+    /**
+     * Хук перед закрытием по Escape: вернуть false, чтобы слой сессию НЕ закрывал
+     * (владелец обработает Escape сам — например закроет только верхнее подменю).
+     */
+    shouldCloseOnEscape?: () => boolean;
 }
 
 export interface OverlaySessionHandle {
@@ -64,6 +75,8 @@ interface OverlaySessionState {
     rootEscapeHandler: ((event: TUIEventBase) => void) | null;
     rootOutsideHandler: ((event: TUIEventBase) => void) | null;
     onClose: (() => void) | null;
+    ownsTarget: ((target: TUIElement) => boolean) | null;
+    shouldCloseOnEscape: (() => boolean) | null;
 }
 
 export class OverlayLayer extends TUIElement {
@@ -131,6 +144,8 @@ export class OverlayLayer extends TUIElement {
             rootEscapeHandler: null,
             rootOutsideHandler: null,
             onClose: options.onClose ?? null,
+            ownsTarget: options.ownsTarget ?? null,
+            shouldCloseOnEscape: options.shouldCloseOnEscape ?? null,
         };
 
         this.sessions.set(element, session);
@@ -415,6 +430,8 @@ export class OverlayLayer extends TUIElement {
                 /* v8 ignore stop */
                 const keyEvent = event as TUIKeyboardEvent;
                 if (keyEvent.key !== "Escape" || event.defaultPrevented) return;
+                // Владелец может перехватить Escape (закрыть только подменю).
+                if (session.shouldCloseOnEscape && !session.shouldCloseOnEscape()) return;
                 this.closeSession(session);
             };
             root.addEventListener("keydown", session.rootEscapeHandler, { capture: true });
@@ -426,6 +443,7 @@ export class OverlayLayer extends TUIElement {
                 if (event.type !== "mousedown") return;
                 /* v8 ignore stop */
                 if (event.target && isInsideElement(event.target, session.element)) return;
+                if (event.target && session.ownsTarget?.(event.target) === true) return;
                 this.closeSession(session);
             };
             root.addEventListener("mousedown", session.rootOutsideHandler, { capture: true });

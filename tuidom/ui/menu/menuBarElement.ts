@@ -226,7 +226,7 @@ export class MenuBarElement extends TUIElement {
         this.closePopup();
 
         const wrappedEntries = this.items[index].entries.map((entry) => {
-            if (entry.type === "separator") {
+            if (entry.type === "separator" || entry.type === "submenu") {
                 return entry;
             }
 

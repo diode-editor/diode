@@ -1,6 +1,7 @@
 import { ContextMenuController } from "../../../../../tuidom/ui/contextview/contextMenuController.ts";
 import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import type { IMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
+import type { MenuId } from "../../actions/common/menuId.ts";
 import type { MenuService } from "../../actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../actions/common/menuService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
@@ -57,13 +58,30 @@ export class ContextMenuService {
         const own = delegate.getEntries?.() ?? [];
         let registry: MenuEntry[] = [];
         if (isMenuDelegate(delegate)) {
-            const menu = this.menuService.createMenu(delegate.menuId);
-            registry = menu.getEntries(delegate.menuContext);
-            menu.dispose();
+            registry = this.collectRegistryEntries(delegate.menuId, delegate.menuContext, new Set());
         }
         if (own.length > 0 && registry.length > 0) {
             return [...own, { type: "separator" }, ...registry];
         }
         return own.length > 0 ? own : registry;
+    }
+
+    /**
+     * Рекурсивная сборка точки реестра: submenu-записи резолвятся во вложенные
+     * попапы (eager, на момент открытия — `when` учитывается сейчас). Пустые
+     * подменю выбрасываются; `seen` рвёт циклы `MenuId` (как `submenuIds` в
+     * vscode `menu.ts`).
+     */
+    private collectRegistryEntries(menuId: MenuId, context: unknown, seen: Set<MenuId>): MenuEntry[] {
+        if (seen.has(menuId)) return [];
+        seen.add(menuId);
+        const menu = this.menuService.createMenu(menuId);
+        const entries = menu.getEntries(context, (submenu) => {
+            const nested = this.collectRegistryEntries(submenu.submenu, context, seen);
+            if (nested.length === 0) return null;
+            return { type: "submenu", label: submenu.title, entries: nested };
+        });
+        menu.dispose();
+        return entries;
     }
 }
