@@ -1,5 +1,5 @@
 import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
-import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
+import type { MenuEntry, MenuSubmenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../commands/common/commandRegistry.ts";
 import type { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
@@ -25,6 +25,12 @@ export interface ISubmenuEntry {
 export const CHECKED_ICON = "\u2713"; // ✓
 
 export const MenuRegistryDIToken = token<MenuRegistry>("MenuRegistry");
+
+/**
+ * Резолвер submenu-записи во вложенный `MenuSubmenuEntry` (для контекстных
+ * меню). `null` — подменю выбрасывается (пустое или цикл `MenuId`).
+ */
+export type SubmenuResolver = (submenu: ISubmenuEntry) => MenuSubmenuEntry | null;
 
 /**
  * Порядок групп: спец-группа `navigation` всегда первая (как в
@@ -116,12 +122,16 @@ export class MenuRegistry {
         }
     }
 
-    public getMenuItems(menuId: MenuId, context?: unknown): MenuEntry[] {
-        const visible = this.items.filter((item): item is IMenuContribution => {
+    public getMenuItems(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[] {
+        const visible = this.items.filter((item) => {
             if (item.menuId !== menuId) return false;
-            // Вложенные попапы в обычных меню не рендерим — submenu-записи
-            // потребляет только `getSubmenus` (меню-бар).
-            if (isSubmenuContribution(item)) return false;
+            // Без резолвера submenu-записи в обычных меню не рендерим — их
+            // потребляет только `getSubmenus` (меню-бар). С резолвером они
+            // встраиваются вложенными попапами со своим group/order-слотом.
+            if (isSubmenuContribution(item)) {
+                if (resolveSubmenu === undefined) return false;
+                return item.when === undefined || this.contextKeys.evaluate(item.when);
+            }
             if (item.when !== undefined && !this.contextKeys.evaluate(item.when)) return false;
             if (item.visible !== undefined && !item.visible(context)) return false;
             return true;
@@ -129,9 +139,20 @@ export class MenuRegistry {
 
         const result: MenuEntry[] = [];
         for (const bucket of collectSorted(visible)) {
+            const groupEntries: MenuEntry[] = [];
+            for (const item of bucket) {
+                if (isSubmenuContribution(item)) {
+                    // null от резолвера — подменю выброшено (пустое/цикл).
+                    const entry = resolveSubmenu!(this.toSubmenuEntry(item));
+                    if (entry !== null) groupEntries.push(entry);
+                } else {
+                    groupEntries.push(this.toEntry(item, context));
+                }
+            }
+            if (groupEntries.length === 0) continue;
             // Разделитель — только между непустыми группами (без ведущих/хвостовых).
             if (result.length > 0) result.push({ type: "separator" });
-            for (const item of bucket) result.push(this.toEntry(item, context));
+            result.push(...groupEntries);
         }
         return result;
     }
@@ -149,12 +170,16 @@ export class MenuRegistry {
         });
         return collectSorted(visible)
             .flat()
-            .map((item) => ({
-                title: item.title,
-                mnemonic: item.mnemonic,
-                submenu: item.submenu,
-                isSelection: item.isSelection,
-            }));
+            .map((item) => this.toSubmenuEntry(item));
+    }
+
+    private toSubmenuEntry(item: ISubmenuContribution): ISubmenuEntry {
+        return {
+            title: item.title,
+            mnemonic: item.mnemonic,
+            submenu: item.submenu,
+            isSelection: item.isSelection,
+        };
     }
 
     private toEntry(item: IMenuContribution, context: unknown): MenuEntry {

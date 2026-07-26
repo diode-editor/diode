@@ -3,7 +3,7 @@ import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.t
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { MenuId } from "./menuId.ts";
-import type { ISubmenuEntry, MenuRegistry } from "./menuRegistry.ts";
+import type { ISubmenuEntry, MenuRegistry, SubmenuResolver } from "./menuRegistry.ts";
 import { MenuRegistryDIToken } from "./menuRegistry.ts";
 
 export const MenuServiceDIToken = token<MenuService>("MenuService");
@@ -16,8 +16,11 @@ export const MenuServiceDIToken = token<MenuService>("MenuService");
  * vscode — все наши меню пересобираются при открытии).
  */
 export interface IMenu extends IDisposable {
-    /** Пункты меню на текущий момент (см. `MenuRegistry.getMenuItems`). */
-    getEntries(context?: unknown): MenuEntry[];
+    /**
+     * Пункты меню на текущий момент (см. `MenuRegistry.getMenuItems`).
+     * С `resolveSubmenu` submenu-записи встраиваются вложенными попапами.
+     */
+    getEntries(context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[];
     /** Submenu-записи меню (см. `MenuRegistry.getSubmenus`). */
     getSubmenus(): ISubmenuEntry[];
     /** Подписка на смену состава этой точки (append/снятие пункта в реестре). */
@@ -57,8 +60,8 @@ class Menu extends Disposable implements IMenu {
         );
     }
 
-    public getEntries(context?: unknown): MenuEntry[] {
-        return this.registry.getMenuItems(this.menuId, context);
+    public getEntries(context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[] {
+        return this.registry.getMenuItems(this.menuId, context, resolveSubmenu);
     }
 
     public getSubmenus(): ISubmenuEntry[] {

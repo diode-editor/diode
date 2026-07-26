@@ -151,7 +151,7 @@ export class ExplorerComponent extends ThemedComponent {
         // путь узла (args команд) и признак непустого буфера (видимость Paste).
         const context = { path: filePath, canPaste: this.fileClipboard.read() !== null };
         const entries: MenuEntry[] = this.contextMenu.getEntries(context).map((entry) => {
-            if (entry.type === "separator") return entry;
+            if (entry.type === "separator" || entry.type === "submenu") return entry;
             const original = entry.onSelect;
             return {
                 ...entry,

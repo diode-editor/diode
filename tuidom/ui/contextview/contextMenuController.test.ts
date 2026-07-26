@@ -6,7 +6,7 @@ import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 import { InputElement } from "../inputbox/inputElement.ts";
-import type { MenuEntry } from "../menu/popupMenuElement.ts";
+import type { MenuEntry, MenuItemEntry } from "../menu/popupMenuElement.ts";
 import { PopupMenuElement } from "../menu/popupMenuElement.ts";
 import { unthemedMenuStyles } from "../menu/popupMenuItemElement.tsx";
 
@@ -64,7 +64,7 @@ describe("ContextMenuController", () => {
         expect(controller.isOpen()).toBe(true);
 
         const popup = app.root.overlayLayer.getItems()[0].element as PopupMenuElement;
-        popup.entries.find((e) => e.type !== "separator")?.onSelect?.();
+        popup.entries.find((e): e is MenuItemEntry => e.type !== "separator" && e.type !== "submenu")?.onSelect?.();
 
         // Обёртка закрыла меню до пользовательского действия.
         expect(order).toEqual(["select:open=false"]);
