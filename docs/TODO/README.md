@@ -33,6 +33,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 - [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points (реестр contributions #164, MenuRegistry #166, vscode-канон меню #168 — меню-бар на реестре, co-location placement, IMenu, MenuId-класс; QuickAccess #169, Configuration #170, Color #171 — все contribution points перенесены)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
+- [ ] [TuidomExtraction](TuidomExtraction.md) — аудит перед выносом tuidom в отдельный репозиторий: что из него по смыслу редакторное и должно вернуться назад (блокер — `textLimits.ts`; tuidom в остальном чист; `displayLine` остаётся)
 - [~] [ListControls](ListControls.md) — два списочных контрола: data-driven `TreeViewElement` остаётся намеренно (внешнее API расширений — `TreeDataProvider`), `ListViewElement` — для собственных списков workbench; техдолг — дублирование механик и union-instanceof в `listFocus`/`list.*`
 - [~] [WhenContext](WhenContext.md) — система контекста when (остался полноценный парсер when-выражений)
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate готов; далее scope-селекторы, async/background токенизация)

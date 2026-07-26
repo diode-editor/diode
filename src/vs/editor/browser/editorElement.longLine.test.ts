@@ -5,7 +5,7 @@ import {
     LONG_LINE_TRUNCATION_BADGE,
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
-} from "../../../../tuidom/common/textLimits.ts";
+} from "../common/viewModel/longLineRendering.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";

@@ -20,7 +20,7 @@ import { DisplayLine } from "../../../../tuidom/common/displayLine.ts";
 import {
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
-} from "../../../../tuidom/common/textLimits.ts";
+} from "../common/viewModel/longLineRendering.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { createInsertEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";

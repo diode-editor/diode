@@ -1,7 +1,6 @@
 import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
 import { Point } from "../../../../tuidom/common/geometryPromitives.ts";
 import { StyleFlags } from "../../../../tuidom/common/styleFlags.ts";
-import { LONG_LINE_TRUNCATION_BADGE } from "../../../../tuidom/common/textLimits.ts";
 import type { TUIEventBase } from "../../../../tuidom/dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import type { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
@@ -32,6 +31,7 @@ import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
+import { LONG_LINE_TRUNCATION_BADGE } from "../common/viewModel/longLineRendering.ts";
 import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.ts";
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";

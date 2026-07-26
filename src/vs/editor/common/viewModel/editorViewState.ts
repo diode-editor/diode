@@ -3,7 +3,7 @@ import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
 import {
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
-} from "../../../../../tuidom/common/textLimits.ts";
+} from "./longLineRendering.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IPosition } from "../core/iPosition.ts";
 import { comparePositions } from "../core/iPosition.ts";
