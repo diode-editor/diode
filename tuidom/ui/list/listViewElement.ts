@@ -645,9 +645,9 @@ export class ListViewElement extends ScrollableElement {
             case " ":
                 this.toggleCursorRow();
                 break;
-            // Page/Home/End обрабатываются здесь, а не глобальными командами list.*:
-            // те привязаны `when:"listFocus"` к `instanceof TreeViewElement` и этот
-            // контейнер не перехватят (см. workbenchContextKeys.ts).
+            // Page/Home/End дублируются здесь при живых глобальных командах list.*
+            // (workbench перехватывает их раньше performDefaultAction): standalone-
+            // использование контейнера вне workbench не должно терять навигацию.
             case "PageDown":
                 this.focusPageDown();
                 break;

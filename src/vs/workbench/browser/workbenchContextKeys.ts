@@ -3,6 +3,7 @@ import type { TUIFocusEvent } from "../../../../tuidom/dom/events/tuiFocusEvent.
 import type { TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
 import type { BodyElement } from "../../../../tuidom/ui/body/bodyElement.ts";
 import { InputElement } from "../../../../tuidom/ui/inputbox/inputElement.ts";
+import { ListViewElement } from "../../../../tuidom/ui/list/listViewElement.ts";
 import { TerminalViewElement } from "../../../../tuidom/ui/terminal/terminalViewElement.ts";
 import { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
 import { EditorElement } from "../../editor/browser/editorElement.ts";
@@ -114,7 +115,7 @@ export class WorkbenchContextKeys extends Disposable {
         // сбрасывается в false, иначе он залипал бы от прошлого редактора.
         this.contextKeys.set("editorReadonly", active instanceof EditorElement && active.readOnly);
         this.contextKeys.set("inputWidgetFocus", active instanceof InputElement);
-        this.contextKeys.set("listFocus", active instanceof TreeViewElement);
+        this.contextKeys.set("listFocus", active instanceof TreeViewElement || active instanceof ListViewElement);
         this.inputWidgetService.setActive(active instanceof InputElement ? active : null);
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);

@@ -8,6 +8,8 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 
+import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
+
 describe("Workbench when-context integration", () => {
     let ws: ITempWorkspace;
 
@@ -47,6 +49,20 @@ describe("Workbench when-context integration", () => {
         const tree = h.testApp.querySelector("TreeViewElement");
         expect(tree).not.toBeNull();
         tree!.focus();
+
+        expect(contextKeys.get("listFocus")).toBe(true);
+        expect(contextKeys.get("textInputFocus")).toBe(false);
+    });
+
+    it("sets listFocus when a ListViewElement is focused (search results)", async () => {
+        const h = createIntegrationApp();
+        const contextKeys = h.container.get(ContextKeyServiceDIToken);
+        await h.workbench.activate();
+
+        h.container.get(SidebarServiceDIToken).showViewlet("search", false);
+        const list = h.testApp.querySelector("#searchResults");
+        expect(list).not.toBeNull();
+        list!.focus();
 
         expect(contextKeys.get("listFocus")).toBe(true);
         expect(contextKeys.get("textInputFocus")).toBe(false);
