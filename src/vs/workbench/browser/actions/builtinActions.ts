@@ -13,7 +13,6 @@ import {
     fileRenameAction,
     fileUndoAction,
     refreshExplorerAction,
-    showExplorerContextMenuAction,
 } from "../../contrib/files/browser/fileTreeActions.ts";
 import {
     fileCopyAction,
@@ -251,7 +250,6 @@ export const builtinActions: readonly CommandAction[] = [
 
     // Context menu (Shift+F10)
     showEditorContextMenuAction,
-    showExplorerContextMenuAction,
 
     // Explorer file operations (Workbench/Actions поверх Explorer/FileOperations-сервисов)
     fileDeleteAction,

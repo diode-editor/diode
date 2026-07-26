@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
-import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IMenu, MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
@@ -67,7 +68,13 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     const scm = new ScmChangesService(commands);
     const { service: menuService, menu } = fakeMenu(opts.menuEntries);
     const themeService = new ThemeService(theme);
-    const component = new ChangesComponent(scm, commands, menuService, opts.state ?? NULL_STATE_SERVICE, themeService);
+    const component = new ChangesComponent(
+        scm,
+        commands,
+        new ContextMenuService(menuService),
+        opts.state ?? NULL_STATE_SERVICE,
+        themeService,
+    );
 
     const executed: Array<[string, unknown[]]> = [];
     commands.register("scm.action.openFile", (...args) => executed.push(["scm.action.openFile", args]));
@@ -258,12 +265,12 @@ describe("ChangesComponent — тема и контекстное меню", () 
         publish(h.commands, [{ rel: "a.txt" }]);
 
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
-        h.component.attachHost(app.root);
 
         const list = h.component.list;
         const rightClick = () => {
             list.dispatchEvent(
-                new TUIMouseEvent("click", {
+                new TUIContextMenuEvent({
+                    trigger: "mouse",
                     button: "right",
                     screenX: list.globalPosition.x + 2,
                     screenY: list.globalPosition.y,
@@ -275,7 +282,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         };
 
         rightClick();
-        expect(h.menu.getEntries).toHaveBeenCalledWith({ uri: uriOf("a.txt") });
+        expect(h.menu.getEntries).toHaveBeenCalledWith({ uri: uriOf("a.txt") }, expect.any(Function));
         expect(app.backend.screenToString()).toContain("Open File");
 
         // Повторный вызов закрывает прежнюю сессию и открывает новую.
@@ -299,23 +306,30 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(app.backend.screenToString()).not.toContain("Open File");
     });
 
-    it("без хоста и на папках правый клик — тихий no-op", () => {
+    it("вне приложения и на папках правый клик — тихий no-op", () => {
         const h = make({ menuEntries: [{ label: "Open File" }] });
         publish(h.commands, [{ rel: "nested/b.txt" }]);
 
-        // Без attachHost: файловая строка не роняет.
+        // Вне приложения (нет overlay-слоя): файловая строка не роняет.
         const list = h.component.list;
         list.dispatchEvent(
-            new TUIMouseEvent("click", { button: "right", screenX: 2, screenY: 0, localX: 2, localY: 0 }),
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: 2,
+                screenY: 0,
+                localX: 2,
+                localY: 0,
+            }),
         );
-        expect(h.menu.getEntries).not.toHaveBeenCalled();
 
-        // Папка в tree-режиме: меню не открывается даже с хостом.
+        // Папка в tree-режиме: меню не собирается вовсе (guard до сервиса).
         h.component.setViewMode("tree");
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
-        h.component.attachHost(app.root);
+        (h.menu.getEntries as ReturnType<typeof vi.fn>).mockClear();
         list.dispatchEvent(
-            new TUIMouseEvent("click", {
+            new TUIContextMenuEvent({
+                trigger: "mouse",
                 button: "right",
                 screenX: list.globalPosition.x + 2,
                 screenY: list.globalPosition.y,
@@ -323,6 +337,8 @@ describe("ChangesComponent — тема и контекстное меню", () 
                 localY: 0,
             }),
         );
+        app.render();
         expect(h.menu.getEntries).not.toHaveBeenCalled();
+        expect(app.querySelector("PopupMenuElement")).toBeNull();
     });
 });

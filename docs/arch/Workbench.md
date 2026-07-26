@@ -270,10 +270,10 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     (обёрнут `ScrollBarDecorator` + `TitledPanelElement` «EXPLORER»,
     `view.id = "explorer"`; стили — `getFileTreeStyles`/`getScrollBarStyles`),
     вяжет события дерева (expand → watch каталога, активация файла → команда
-    `workbench.openFile`) и владеет контекст-меню дерева (PopupMenu, пункты
-    исполняют команды `explorer.*`/`fileOperations.*`; правый клик и Shift+F10 —
-    `openContextMenuAtSelection` — один путь). Overlay-хост приходит через
-    late-init шов `attachHost(BodyElement)` (как у DialogService).
+    `workbench.openFile`) и открывает контекст-меню дерева через
+    `ContextMenuService` — делегат с `MenuId.ExplorerContext`, пункты исполняют
+    команды `explorer.*`/`fileOperations.*`; правый клик и Shift+F10 — одно
+    событие `contextmenu` движка, один путь.
   - `Services/FileOperationsService.ts` — файловые операции поверх
     `WorkspaceEditService`/`DialogService`/`UndoRedoService`/`IFileClipboard`:
     `runCreate`/`runRename` (промпт имени через узкий шов

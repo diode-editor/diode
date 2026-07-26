@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Point } from "../../../../tuidom/common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -103,7 +103,13 @@ describe("File explorer context menu — clipboard entries", () => {
     function clickTree(row: number, button: "left" | "right"): void {
         const tree = h.testApp.querySelector("TreeViewElement") as TreeViewElement<unknown>;
         tree.globalPosition = new Point(0, 0);
-        tree.dispatchEvent(new TUIMouseEvent("click", { button, screenX: 2, screenY: row, localX: 2, localY: row }));
+        const init = { screenX: 2, screenY: row, localX: 2, localY: row };
+        if (button === "right") {
+            // Правый клик — событие contextmenu (движок диспатчит его на release).
+            tree.dispatchEvent(new TUIContextMenuEvent({ trigger: "mouse", button, ...init }));
+        } else {
+            tree.dispatchEvent(new TUIMouseEvent("click", { button, ...init }));
+        }
         h.testApp.render();
     }
 

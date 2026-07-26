@@ -3,7 +3,7 @@ import { DisplayLine } from "../../common/displayLine.ts";
 import { Point } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
-import type { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import type { TUIContextMenuEvent, TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import type { RenderContext } from "../../dom/tuiElement.ts";
 import { ScrollableElement, type ScrollViewportInfo } from "../scrollbar/scrollableElement.ts";
 
@@ -225,6 +225,8 @@ export class TreeViewElement<T> extends ScrollableElement {
             this.handleKeypress(event as TUIKeyboardEvent);
         } else if (event.type === "click") {
             this.handleClick(event as TUIMouseEvent);
+        } else if (event.type === "contextmenu") {
+            this.handleContextMenu(event as TUIContextMenuEvent);
         } else if (event.type === "dblclick") {
             this.handleDblClick(event as TUIMouseEvent);
         } else if (event.type === "wheel") {
@@ -749,11 +751,15 @@ export class TreeViewElement<T> extends ScrollableElement {
         await this.toggleExpand(node.element);
     }
 
-    private handleClick(event: TUIMouseEvent): void {
-        const index = this.scrollTop + event.localY;
-        if (index < 0 || index >= this.flatNodes.length) return;
-
-        if (event.button === "right") {
+    /**
+     * Единый вход контекстного меню: от мыши — узел под кликом (мультивыбор по
+     * выбранной строке не сбрасывается), от клавиатуры — узел курсора с якорем
+     * на его глобальной позиции. Виджет только сигналит {@link onContextMenu}.
+     */
+    private handleContextMenu(event: TUIContextMenuEvent): void {
+        if (event.trigger === "mouse") {
+            const index = this.scrollTop + event.localY;
+            if (index < 0 || index >= this.flatNodes.length) return;
             // Не сбрасываем множественный выбор, если кликнули по уже выбранной строке.
             const key = this.provider.getKey(this.flatNodes[index].element);
             if (!this.selectedKeys.has(key)) {
@@ -762,10 +768,19 @@ export class TreeViewElement<T> extends ScrollableElement {
                 this.selectedIndex = index;
                 this.applyCursor(index);
             }
-            const node = this.flatNodes[index];
-            this.onContextMenu?.(node.element, event.screenX, event.screenY);
+            this.onContextMenu?.(this.flatNodes[index].element, event.screenX, event.screenY);
             return;
         }
+        const anchor = this.getSelectedRowGlobalPosition();
+        if (anchor === null || this.selectedIndex < 0 || this.selectedIndex >= this.flatNodes.length) return;
+        this.onContextMenu?.(this.flatNodes[this.selectedIndex].element, anchor.x, anchor.y);
+    }
+
+    private handleClick(event: TUIMouseEvent): void {
+        const index = this.scrollTop + event.localY;
+        if (index < 0 || index >= this.flatNodes.length) return;
+
+        if (event.button !== "left") return; // правый клик несёт событие contextmenu
 
         if (event.ctrlKey) {
             this.toggleSelectionAt(index);

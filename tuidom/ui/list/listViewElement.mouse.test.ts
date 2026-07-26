@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { Size } from "../../common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { TUIContextMenuEvent, TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { TextLabelElement } from "../text/textLabelElement.ts";
 
 import { ListViewElement } from "./listViewElement.ts";
@@ -15,7 +15,7 @@ function makeRow(id: string): TextLabelElement {
 
 function mouse(
     list: ListViewElement,
-    type: "click" | "dblclick" | "wheel" | "mousemove",
+    type: "click" | "dblclick" | "wheel" | "mousemove" | "contextmenu",
     init: {
         localX?: number;
         localY?: number;
@@ -25,6 +25,19 @@ function mouse(
         wheelDirection?: "up" | "down" | "left" | "right";
     } = {},
 ): void {
+    if (type === "contextmenu") {
+        list.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: 10 + (init.localX ?? 0),
+                screenY: 20 + (init.localY ?? 0),
+                localX: init.localX ?? 0,
+                localY: init.localY ?? 0,
+            }),
+        );
+        return;
+    }
     list.dispatchEvent(
         new TUIMouseEvent(type, {
             button: init.button ?? "left",
@@ -90,11 +103,11 @@ describe("ListViewElement mouse", () => {
         expect(list.isCollapsed("file1")).toBe(false);
     });
 
-    it("right click fires onContextMenu with screen coordinates", () => {
+    it("mouse contextmenu fires onContextMenu with screen coordinates", () => {
         const list = createFlatList();
         const onContextMenu = vi.fn();
         list.onContextMenu = onContextMenu;
-        mouse(list, "click", { button: "right", localX: 4, localY: 2 });
+        mouse(list, "contextmenu", { localX: 4, localY: 2 });
 
         expect(list.getCursorElement()?.id).toBe("r2");
         expect(onContextMenu).toHaveBeenCalledTimes(1);
@@ -108,16 +121,40 @@ describe("ListViewElement mouse", () => {
         const list = createFlatList();
         mouse(list, "click", { localX: 0, localY: 1 });
         mouse(list, "click", { localX: 0, localY: 3, ctrlKey: true });
-        mouse(list, "click", { button: "right", localX: 0, localY: 3 });
+        mouse(list, "contextmenu", { localX: 0, localY: 3 });
 
         expect(list.getSelectedElements().map((el) => el.id)).toEqual(["r1", "r3"]);
         expect(list.getCursorElement()?.id).toBe("r3");
     });
 
+    it("keyboard contextmenu anchors at the cursor row", () => {
+        const list = createFlatList();
+        const onContextMenu = vi.fn();
+        list.onContextMenu = onContextMenu;
+        mouse(list, "click", { localX: 0, localY: 2 }); // курсор на r2
+
+        list.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "keyboard",
+                button: "none",
+                screenX: 0,
+                screenY: 0,
+                localX: 0,
+                localY: 0,
+            }),
+        );
+
+        expect(onContextMenu).toHaveBeenCalledTimes(1);
+        const [element, screenX, screenY] = onContextMenu.mock.calls[0] as [TextLabelElement, number, number];
+        expect(element.id).toBe("r2");
+        expect(screenX).toBe(list.globalPosition.x);
+        expect(screenY).toBe(list.globalPosition.y + 2);
+    });
+
     it("right click on an unselected row resets the multi-selection", () => {
         const list = createFlatList();
         mouse(list, "click", { localX: 0, localY: 3, ctrlKey: true });
-        mouse(list, "click", { button: "right", localX: 0, localY: 1 });
+        mouse(list, "contextmenu", { localX: 0, localY: 1 });
         expect(list.getSelectedElements().map((el) => el.id)).toEqual(["r1"]);
     });
 

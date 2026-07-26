@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
-import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { TUIContextMenuEvent, TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 
 import type { ITreeDataProvider, ITreeItem } from "./iTreeDataProvider.ts";
 import { TreeViewElement } from "./treeViewElement.ts";
@@ -159,7 +159,14 @@ describe("TreeViewElement - multi-selection", () => {
         click(tree, 3, { shiftKey: true }); // выбраны b, c, d
 
         tree.dispatchEvent(
-            new TUIMouseEvent("click", { button: "right", screenX: 5, screenY: 2, localX: 5, localY: 2 }),
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: 5,
+                screenY: 2,
+                localX: 5,
+                localY: 2,
+            }),
         );
 
         expect(selectedIds(tree)).toEqual(["b", "c", "d"]); // выбор не сброшен

@@ -8,6 +8,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
+import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
@@ -36,19 +37,21 @@ describe("ExplorerService — revealPath (через дерево ExplorerCompon
 
         const clipboard = new InMemoryFileClipboard();
         service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
-        const menuService = new MenuService(
-            new MenuRegistry(
-                new CommandRegistry(),
-                new KeybindingRegistry(),
-                new ContextKeyService(),
-                MENU_CONTRIBUTIONS,
+        const contextMenuService = new ContextMenuService(
+            new MenuService(
+                new MenuRegistry(
+                    new CommandRegistry(),
+                    new KeybindingRegistry(),
+                    new ContextKeyService(),
+                    MENU_CONTRIBUTIONS,
+                ),
             ),
         );
         component = new ExplorerComponent(
             service,
             new CommandRegistry(),
             clipboard,
-            menuService,
+            contextMenuService,
             new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
         );
         service.setRootPath(ws.dir);

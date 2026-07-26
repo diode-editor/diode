@@ -1,23 +1,15 @@
-import type { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
-import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
 import { ListViewElement } from "../../../../../../tuidom/ui/list/listViewElement.ts";
-import type { MenuEntry } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
-import { PopupMenuElement } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import type { IMenu, MenuService } from "../../../../platform/actions/common/menuService.ts";
-import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import {
-    getListViewStyles,
-    getMenuStyles,
-    getScrollBarStyles,
-} from "../../../../platform/theme/browser/defaultStyles.ts";
+import { getListViewStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { ScmMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
@@ -58,9 +50,8 @@ type ScmRowMeta =
  * flat — отсортированные пути без parentId, tree — pre-order обход
  * {@link buildScmTree} с компакт-папками. Активация файла исполняет
  * `scm.action.openChanges` (прямой дифф без промежуточной вкладки), инлайн-глиф
- * строки — `scm.action.openFile`, правый клик поднимает контекстное меню
- * `MenuId.ScmContext` в overlay-слое хоста (его прикрепляет владелец корневой
- * view через {@link attachHost}, как у Explorer).
+ * строки — `scm.action.openFile`, правый клик/Shift+F10 поднимают контекстное
+ * меню `MenuId.ScmContext` через `ContextMenuService` (делегат, как у Explorer).
  *
  * Место в сайдбаре (а не в нижней Panel) — как в VS Code: у нас нет activity bar,
  * поэтому Explorer ↔ Source Control переключают команды (`workbench.view.*`),
@@ -70,7 +61,7 @@ export class ChangesComponent extends ThemedComponent {
     public static dependencies = [
         ScmChangesServiceDIToken,
         CommandRegistryDIToken,
-        MenuServiceDIToken,
+        ContextMenuServiceDIToken,
         StateServiceDIToken,
         ThemeServiceDIToken,
     ] as const;
@@ -81,9 +72,6 @@ export class ChangesComponent extends ThemedComponent {
     public readonly view: TitledPanelElement;
 
     private readonly scrollBars: ScrollBarDecorator;
-    private readonly contextMenu: IMenu;
-    private host: BodyElement | null = null;
-    private contextMenuSession: OverlaySessionHandle | null = null;
 
     private viewMode: ScmViewMode;
     private rowMeta = new Map<string, ScmRowMeta>();
@@ -92,13 +80,12 @@ export class ChangesComponent extends ThemedComponent {
     public constructor(
         private readonly changesService: ScmChangesService,
         private readonly commands: CommandRegistry,
-        menuService: MenuService,
+        private readonly contextMenuService: ContextMenuService,
         private readonly stateService: IStateService,
         themeService: ThemeService,
     ) {
         super(themeService);
         this.viewMode = this.stateService.get(SCM_VIEW_MODE_STATE);
-        this.contextMenu = this.register(menuService.createMenu(MenuId.ScmContext));
 
         this.list.id = "changesList";
         this.scrollBars = new ScrollBarDecorator(this.list);
@@ -131,15 +118,6 @@ export class ChangesComponent extends ThemedComponent {
     /** Focuses the changes list (used by the "Show Source Control" command). */
     public focus(): void {
         this.list.focus();
-    }
-
-    /**
-     * Прикрепляет хост с overlay-слоем (корневую BodyElement-view приложения) —
-     * в нём открываются popup-сессии контекстного меню. Зовёт владелец корневой
-     * view (WorkbenchComponent), как у Explorer.
-     */
-    public attachHost(host: BodyElement): void {
-        this.host = host;
     }
 
     /** Изменение под курсором списка — цель SCM-команд без явного uri-аргумента. */
@@ -226,64 +204,15 @@ export class ChangesComponent extends ThemedComponent {
         this.rowMeta.set(parts.root.id as string, { kind: "file", parts, change, label });
     }
 
-    /** Калька showContextMenu Explorer'а: PopupMenu в overlay-слое хоста. */
+    /** Контекстное меню файловой строки — делегат ContextMenuService (как у Explorer). */
     private showContextMenu(uri: string, screenX: number, screenY: number): void {
-        if (!this.host) return;
-        const host = this.host;
-        this.hideContextMenu();
-
         const context: ScmMenuContext = { uri };
-        const entries: MenuEntry[] = this.contextMenu.getEntries(context).map((entry) => {
-            if (entry.type === "separator" || entry.type === "submenu") return entry;
-            const original = entry.onSelect;
-            return {
-                ...entry,
-                onSelect: () => {
-                    this.hideContextMenu();
-                    original?.();
-                },
-            };
+        this.contextMenuService.showContextMenu({
+            getOwner: () => this.list,
+            getAnchor: () => ({ screenX, screenY }),
+            menuId: MenuId.ScmContext,
+            menuContext: context,
         });
-
-        const menu = new PopupMenuElement(entries);
-        menu.setStyles(getMenuStyles(this.theme));
-        menu.tabIndex = 0;
-
-        let session: OverlaySessionHandle | null = null;
-        session = host.overlayLayer.openPopupSession(
-            menu,
-            { screenX, screenY },
-            {
-                visible: true,
-                restoreFocus: true,
-                focusOnOpen: true,
-                closeOnEscape: true,
-                pointerPolicy: "close-on-outside",
-                disposeOnClose: true,
-                onClose: () => {
-                    // Через hideContextMenu поле уже занулено до close() — не трогаем
-                    // (там может быть уже открыта следующая сессия).
-                    if (this.contextMenuSession === session) {
-                        this.contextMenuSession = null;
-                    }
-                },
-            },
-        );
-
-        menu.onClose = () => {
-            session.close();
-        };
-
-        this.contextMenuSession = session;
-    }
-
-    private hideContextMenu(): void {
-        if (!this.contextMenuSession) return;
-        const session = this.contextMenuSession;
-        this.contextMenuSession = null;
-        // Именно close(), не dispose(): close восстанавливает сохранённый фокус
-        // (restoreFocus), а disposeOnClose доведёт teardown до конца.
-        session.close();
     }
 
     protected updateStyles(): void {
