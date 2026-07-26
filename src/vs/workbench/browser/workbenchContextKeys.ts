@@ -25,6 +25,7 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
+import { SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
 import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
@@ -123,6 +124,10 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set(
             "searchViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SEARCH_VIEWLET_ID,
+        );
+        this.contextKeys.set(
+            "scmViewletVisible",
+            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SCM_VIEWLET_ID,
         );
         this.contextKeys.set("findWidgetVisible", this.findService.isVisible());
         this.contextKeys.set("suggestWidgetVisible", this.completionService.isOpen());

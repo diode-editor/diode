@@ -102,6 +102,7 @@ export interface ContextKeyTypes {
     // notificationCenterVisible: boolean;
     // notificationToastsVisible: boolean;
     searchViewletVisible: boolean;
+    scmViewletVisible: boolean;
     // sideBarVisible: boolean;
     // sideBarFocus: boolean;
     // panelFocus: boolean;
@@ -242,6 +243,7 @@ export const allContextKeys: ContextKey[] = [
     // "notificationCenterVisible",
     // "notificationToastsVisible",
     "searchViewletVisible",
+    "scmViewletVisible",
     // "sideBarVisible",
     // "sideBarFocus",
     // "panelFocus",
