@@ -1,6 +1,7 @@
 import { MenuContributionsDIToken } from "../../platform/actions/common/iMenuContribution.ts";
 import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
 import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
+import { ContextMenuService, ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { QuitHandlerDIToken } from "../../workbench/browser/actions/appActions.ts";
@@ -261,6 +262,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(MenuContributionsDIToken, () => MENU_CONTRIBUTIONS);
     container.bind(MenuRegistryDIToken, MenuRegistry);
     container.bind(MenuServiceDIToken, MenuService);
+    container.bind(ContextMenuServiceDIToken, ContextMenuService);
     container.bind(AutoRevealContributionDIToken, AutoRevealContribution);
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
     container.bind(EditorContextMenuContributionDIToken, EditorContextMenuContribution);

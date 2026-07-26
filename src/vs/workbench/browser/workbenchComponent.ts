@@ -3,8 +3,10 @@ import { WorkbenchLayoutElement } from "../../../../tuidom/ui/workbenchlayout/wo
 import { registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
+import { getMenuStyles } from "../../platform/theme/browser/defaultStyles.ts";
 import type { KeybindingRegistry } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
@@ -211,6 +213,9 @@ export class WorkbenchComponent extends ThemedComponent {
         this.view = new BodyElement();
         this.view.id = "workbench";
         this.dialogService.attachHost(this.view);
+        // Темизированные стили контекстных меню: сервис показывает попапы сам,
+        // тему знает только workbench — прикрепляем поставщика (как attachHost).
+        accessor.get(ContextMenuServiceDIToken).menuStyles = () => getMenuStyles(this.theme);
         // Контекст-меню дерева Explorer'а открывается в overlay-слое корневой view.
         this.explorerComponent.attachHost(this.view);
         this.changesComponent.attachHost(this.view);
