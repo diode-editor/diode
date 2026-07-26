@@ -74,4 +74,19 @@ describe("StatusBarComponent — long-lines indicator", () => {
         editor.viewState.document.setText("keep");
         expect(texts(component.view.getItems())).not.toContain(LONG_LINES_TEXT);
     });
+
+    it("плашка Long lines покрашена как warning (тема-цвета)", () => {
+        const { component, source } = createStatusBarHarness();
+        source.openEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 1));
+        const item = component.view.getItems().find((i) => i.text === LONG_LINES_TEXT);
+        expect(typeof item?.background).toBe("number");
+        expect(typeof item?.foreground).toBe("number");
+    });
+
+    it("обычные сегменты остаются без плашки", () => {
+        const { component, source } = createStatusBarHarness();
+        source.openEditor("short line");
+        const lnCol = component.view.getItems().find((i) => i.text.startsWith("Ln "));
+        expect(lnCol?.background).toBeUndefined();
+    });
 });

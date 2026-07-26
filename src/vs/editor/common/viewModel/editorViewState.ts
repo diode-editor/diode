@@ -1,6 +1,9 @@
 import { DisplayLine } from "../../../../../tuidom/common/displayLine.ts";
 import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
-import { STOP_RENDERING_LINE_AFTER } from "../../../../../tuidom/common/textLimits.ts";
+import {
+    LONG_LINE_TRUNCATION_BADGE_WIDTH,
+    STOP_RENDERING_LINE_AFTER,
+} from "../../../../../tuidom/common/textLimits.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IPosition } from "../core/iPosition.ts";
 import { comparePositions } from "../core/iPosition.ts";
@@ -1307,10 +1310,16 @@ export class EditorViewState {
         const lineContent = this.document.getLineContent(pos.line);
         const dl = this.displayLineFor(lineContent);
         const col = dl.offsetToColumn(pos.character);
+        // On a truncated line the cursor clamps to the cut column; the "[…]"
+        // badge sits just past it. Reveal up to the badge's last cell so
+        // reaching the line end (End / scroll) shows the whole badge, not a
+        // sliver clipped at the right edge.
+        const revealCol =
+            dl.isTruncated && col >= dl.displayWidth ? col + LONG_LINE_TRUNCATION_BADGE_WIDTH - 1 : col;
         if (col < this.scrollLeft) {
             this.scrollLeft = col;
-        } else if (col >= this.scrollLeft + this.viewportWidth) {
-            this.scrollLeft = col - this.viewportWidth + 1;
+        } else if (revealCol >= this.scrollLeft + this.viewportWidth) {
+            this.scrollLeft = revealCol - this.viewportWidth + 1;
         }
     }
 

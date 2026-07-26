@@ -152,7 +152,13 @@ export class EditorStatusContribution extends Disposable {
             this.statusBar.addEntry({ id: "status.editor.mode", text, alignment: "right", priority: 70 }),
         );
         this.longLinesHandle = this.setSegment(this.longLinesHandle, this.longLinesSegment(editor), (text) =>
-            this.statusBar.addEntry({ id: "status.editor.longLines", text, alignment: "right", priority: 60 }),
+            this.statusBar.addEntry({
+                id: "status.editor.longLines",
+                text,
+                alignment: "right",
+                priority: 60,
+                kind: "warning",
+            }),
         );
     }
 

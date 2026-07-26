@@ -11,6 +11,13 @@ export interface StatusBarItem {
      * means. Items without it are inert.
      */
     onClick?: () => void;
+    /**
+     * Per-item colours (packed RGB). When set, the item's text cells use these
+     * instead of the bar's foreground/background — a "plaque" look for warning
+     * indicators. The separators and padding around the item keep the bar bg.
+     */
+    background?: number;
+    foreground?: number;
 }
 
 interface HitRegion {
@@ -123,31 +130,41 @@ export class StatusBarElement extends TUIElement {
     public override render(context: RenderContext): void {
         const width = this.layoutSize.width;
         const resolved = this.resolvedStyle;
-
-        const left = this.leftText();
-        const right = this.rightText();
+        const pad = StatusBarElement.paddingX;
 
         // Background
         for (let x = 0; x < width; x++) {
             context.setCell(x, 0, { char: " ", fg: resolved.fg, bg: resolved.bg });
         }
 
-        const pad = StatusBarElement.paddingX;
-
-        // Left-aligned items, inset by the bar padding.
-        for (let i = 0; i < left.length && pad + i < width; i++) {
-            context.setCell(pad + i, 0, { char: left[i], fg: resolved.fg, bg: resolved.bg });
+        // Left-aligned items, inset by the bar padding. Each item paints its own
+        // cells so a `background`/`foreground` (a warning plaque) applies to just
+        // that item's text, not the whole bar or the two-cell separators.
+        let cursor = pad;
+        for (const item of this.items.filter((i) => i.align !== "right")) {
+            const fg = item.foreground ?? resolved.fg;
+            const bg = item.background ?? resolved.bg;
+            for (let i = 0; i < item.text.length && cursor + i < width; i++) {
+                context.setCell(cursor + i, 0, { char: item.text[i], fg, bg });
+            }
+            cursor += item.text.length + 2;
         }
 
-        // Right-aligned items, flush to the padded right edge. Skip any cell
-        // that falls into the left padding or that a left item already owns —
-        // left items win on overlap. The last cell lands at width-1-paddingX,
-        // so an upper-bound check is unnecessary.
-        const rightStart = width - pad - right.length;
-        for (let i = 0; i < right.length; i++) {
-            const x = rightStart + i;
-            if (x < pad + left.length) continue;
-            context.setCell(x, 0, { char: right[i], fg: resolved.fg, bg: resolved.bg });
+        // Right-aligned items, flush to the padded right edge. Skip any cell that
+        // falls into the left padding or that a left item already owns — left
+        // items win on overlap. The last cell lands at width-1-paddingX, so an
+        // upper-bound check is unnecessary.
+        const leftEnd = pad + this.leftText().length;
+        cursor = width - pad - this.rightText().length;
+        for (const item of this.items.filter((i) => i.align === "right")) {
+            const fg = item.foreground ?? resolved.fg;
+            const bg = item.background ?? resolved.bg;
+            for (let i = 0; i < item.text.length; i++) {
+                const x = cursor + i;
+                if (x < leftEnd) continue;
+                context.setCell(x, 0, { char: item.text[i], fg, bg });
+            }
+            cursor += item.text.length + 2;
         }
     }
 }

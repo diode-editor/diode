@@ -6,9 +6,9 @@ import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromit
 import { RenderContext } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 
-import { StatusBarElement } from "./statusBarElement.ts";
+import { StatusBarElement, type StatusBarItem } from "./statusBarElement.ts";
 
-function renderStatusBar(width: number, items: { text: string }[] = []): MockTerminalBackend {
+function renderStatusBar(width: number, items: StatusBarItem[] = []): MockTerminalBackend {
     const bar = new StatusBarElement();
     bar.setItems(items);
     return renderElement(bar, width, 1, { constraints: BoxConstraints.tight(new Size(width, 10)) });
@@ -38,6 +38,27 @@ describe("StatusBarElement", () => {
         const backend = renderStatusBar(30, [{ text: "file.ts" }, { text: "[Modified]" }]);
         const screenText = backend.screenToString().split("\n")[0];
         expect(screenText).toContain("file.ts  [Modified]");
+    });
+
+    it("paints a left item's own background/foreground over its text cells", () => {
+        const BG = 0x7a6400;
+        const FG = 0xffffff;
+        // paddingX=1 → "warn" occupies cells 1..4.
+        const backend = renderStatusBar(20, [{ text: "warn", background: BG, foreground: FG }]);
+        for (let x = 1; x <= 4; x++) {
+            expect(backend.getBgAt(new Point(x, 0))).toBe(BG);
+            expect(backend.getFgAt(new Point(x, 0))).toBe(FG);
+        }
+        // The padding cell before it keeps the bar background (not the plaque).
+        expect(backend.getBgAt(new Point(0, 0))).not.toBe(BG);
+    });
+
+    it("paints a right-aligned item's own background", () => {
+        const BG = 0x855f00;
+        const backend = renderStatusBar(20, [{ text: "warn", align: "right", background: BG }]);
+        // Right item flush to the padded right edge (width 20, pad 1) → cells 15..18.
+        expect(backend.getBgAt(new Point(15, 0))).toBe(BG);
+        expect(backend.getBgAt(new Point(18, 0))).toBe(BG);
     });
 
     it("setItems triggers markDirty", () => {

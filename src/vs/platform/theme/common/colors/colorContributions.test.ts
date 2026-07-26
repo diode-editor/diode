@@ -35,6 +35,8 @@ const REQUIRED_COLORS: (keyof IWorkbenchColors)[] = [
     "sideBar.foreground",
     "statusBar.background",
     "statusBar.foreground",
+    "statusBarItem.warningBackground",
+    "statusBarItem.warningForeground",
     "list.activeSelectionBackground",
     "list.activeSelectionForeground",
     "list.inactiveSelectionBackground",

@@ -42,6 +42,13 @@ export class StatusBarComponent extends ThemedComponent {
                 const item: StatusBarItem = { text: entry.text };
                 if (entry.alignment === "right") item.align = "right";
                 if (entry.onClick !== undefined) item.onClick = entry.onClick;
+                // A "warning" entry is painted as a themed plaque (VS Code
+                // `statusBarItem.warning*`) so it stands out — e.g. the
+                // «Long lines» indicator.
+                if (entry.kind === "warning") {
+                    item.background = this.theme.getRequiredColor("statusBarItem.warningBackground");
+                    item.foreground = this.theme.getRequiredColor("statusBarItem.warningForeground");
+                }
                 return item;
             }),
         );
@@ -51,5 +58,7 @@ export class StatusBarComponent extends ThemedComponent {
         const bg = this.theme.getRequiredColor("statusBar.background");
         const fg = this.theme.getRequiredColor("statusBar.foreground");
         this.view.style = { fg, bg };
+        // Per-item plaque colours are theme-resolved, so re-resolve them too.
+        this.renderEntries();
     }
 }

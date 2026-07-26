@@ -66,6 +66,14 @@ export const workbenchColors = {
         defaults: { dark: "#FFFFFF", light: "#3B3B3B" },
         description: "Status Bar foreground color.",
     },
+    "statusBarItem.warningBackground": {
+        defaults: { dark: "#7A6400", light: "#855F00" },
+        description: "Status Bar warning items background color. Warning items stand out from other Status Bar entries.",
+    },
+    "statusBarItem.warningForeground": {
+        defaults: { dark: "#FFFFFF", light: "#FFFFFF" },
+        description: "Status Bar warning items foreground color. Warning items stand out from other Status Bar entries.",
+    },
     "titleBar.activeBackground": {
         defaults: null,
         description: "Title Bar background when the window is active.",
