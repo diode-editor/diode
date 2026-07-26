@@ -2,7 +2,7 @@ import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
-import type { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { TUIMouseEvent, type TUIMouseEventType } from "../../dom/events/tuiMouseEvent.ts";
 import type { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import type { CellPatch } from "../../rendering/grid.ts";
 import { ScrollableElement, type ScrollViewportInfo } from "../scrollbar/scrollableElement.ts";
@@ -69,7 +69,12 @@ interface ListRow {
  *
  * Контракт строк: строки — презентационные. Хит-тест всегда возвращает сам
  * контейнер, поэтому строки не получают mouse-событий и фокуса; вся семантика
- * клика/клавиатуры принадлежит списку. Выделение и hover рисуются пост-оверлеем
+ * клика/клавиатуры принадлежит списку. Единственное исключение — делегация
+ * левого клика без модификаторов: контейнер ре-диспатчит click/dblclick в
+ * поддерево видимой строки, и если чей-то listener вызвал `preventDefault()`,
+ * клик считается потреблённым — курсор, выделение и активация не трогаются.
+ * Так строка может нести инлайн-кнопки (обычные элементы с click-listener'ом),
+ * не зная ничего про список. Выделение и hover рисуются пост-оверлеем
  * поверх отрендеренной строки: перекрашиваются только ячейки, чьи цвета совпадают
  * с унаследованными fg/bg контейнера, так что собственные цвета строки (подсветка
  * совпадения, приглушённый номер) выделение переживают. Строка, явно выставившая
@@ -91,6 +96,15 @@ export class ListViewElement extends ScrollableElement {
     private hasCollapsibleRows = false;
     /** Кеш полного DFS-порядка для getChildren(); null = требуется пересборка. */
     private allChildrenCache: TUIElement[] | null = null;
+    /**
+     * Окно строк, реально разложенное последним performLayout. Делегация кликов
+     * (см. {@link delegateToRowChild}) доверяет позициям детей только внутри него:
+     * скролл или пересборка проекции между кадрами делают layout недействительным
+     * (-1), и незалейаученные строки с ленивыми позициями (0,0)/80×24 не ловят
+     * чужие клики.
+     */
+    private lastLayoutScrollTop = -1;
+    private lastLayoutViewportHeight = 0;
 
     private cursorIndex = 0;
     private anchorIndex = 0;
@@ -168,6 +182,7 @@ export class ListViewElement extends ScrollableElement {
         this.allChildrenCache = null;
         this.visibleRows = null;
         this.visibleIndexById.clear();
+        this.lastLayoutScrollTop = -1;
         this.cursorIndex = 0;
         this.anchorIndex = 0;
         this.hoveredIndex = null;
@@ -345,6 +360,8 @@ export class ListViewElement extends ScrollableElement {
             row.element.globalPosition = new Point(this.globalPosition.x + contentX, this.globalPosition.y + y);
             row.element.performLayout(BoxConstraints.tight(new Size(Math.max(0, size.width - contentX), 1)));
         }
+        this.lastLayoutScrollTop = start;
+        this.lastLayoutViewportHeight = size.height;
         return size;
     }
 
@@ -492,6 +509,7 @@ export class ListViewElement extends ScrollableElement {
     }
 
     private invalidateProjection(): void {
+        this.lastLayoutScrollTop = -1;
         if (this.visibleRows !== null) {
             this.pendingCursorId = this.rowIdAt(this.cursorIndex);
             this.pendingCursorIndex = this.cursorIndex;
@@ -748,6 +766,34 @@ export class ListViewElement extends ScrollableElement {
         this.toggleCollapsed(row.id);
     }
 
+    /**
+     * Ре-диспатчит click/dblclick в поддерево видимой строки; true = ребёнок
+     * потребил событие (какой-то listener вызвал `preventDefault()`).
+     *
+     * Хит-тест идёт от элемента строки, так что результат по построению лежит в её
+     * поддереве. Доверять позициям детей можно только строкам, разложенным последним
+     * performLayout на своих местах: скролл или пересборка проекции между кадрами
+     * инвалидируют окно, и делегация отключается до следующего кадра — иначе
+     * незалейаученная строка с ленивыми (0,0)/80×24 поймала бы чужой клик.
+     */
+    private delegateToRowChild(index: number, row: ListRow, event: TUIMouseEvent): boolean {
+        if (this.scrollTop !== this.lastLayoutScrollTop) return false;
+        if (index >= this.lastLayoutScrollTop + this.lastLayoutViewportHeight) return false;
+        const hit = row.element.elementFromPoint(new Point(event.screenX, event.screenY));
+        if (hit === null || hit === row.element) return false;
+        const synthetic = new TUIMouseEvent(event.type as TUIMouseEventType, {
+            button: event.button,
+            screenX: event.screenX,
+            screenY: event.screenY,
+            localX: event.screenX - hit.globalPosition.x,
+            localY: event.screenY - hit.globalPosition.y,
+            shiftKey: event.shiftKey,
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+        });
+        return !hit.dispatchEvent(synthetic);
+    }
+
     private handleClick(event: TUIMouseEvent): void {
         const rows = this.ensureProjection();
         const index = this.scrollTop + event.localY;
@@ -778,6 +824,8 @@ export class ListViewElement extends ScrollableElement {
             return;
         }
 
+        if (this.delegateToRowChild(index, row, event)) return;
+
         this.setSelectedIndex(index);
 
         // Клик по колонке шеврона сворачивает/раскрывает.
@@ -795,6 +843,7 @@ export class ListViewElement extends ScrollableElement {
         if (index < 0 || index >= rows.length) return;
 
         const row = rows[index];
+        if (this.delegateToRowChild(index, row, event)) return;
         if (this.rowHasChildren(row.id)) {
             this.toggleCollapsed(row.id);
         } else {
