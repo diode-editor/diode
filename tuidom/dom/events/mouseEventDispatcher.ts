@@ -2,6 +2,7 @@ import { Point } from "../../common/geometryPromitives.ts";
 import type { MouseToken } from "../../input/rawTerminalToken.ts";
 import type { TUIElement } from "../tuiElement.ts";
 
+import { contextMenuEventFromClick } from "./contextMenuEventSource.ts";
 import type { TUIMouseEventInit, TUIMouseEventType, WheelDirection } from "./tuiMouseEvent.ts";
 import { TUIMouseEvent } from "./tuiMouseEvent.ts";
 
@@ -72,7 +73,12 @@ export class MouseEventDispatcher {
         this.dispatchOn(effectiveTarget, "mouseup", token, screenX, screenY);
 
         if (this.pressedElement === effectiveTarget && this.pressedButton === token.button) {
-            this.dispatchOn(effectiveTarget, "click", token, screenX, screenY);
+            const clickEvent = new TUIMouseEvent("click", this.buildInit(effectiveTarget, token, screenX, screenY));
+            effectiveTarget.dispatchEvent(clickEvent);
+            const contextMenuEvent = contextMenuEventFromClick(clickEvent);
+            if (contextMenuEvent) {
+                effectiveTarget.dispatchEvent(contextMenuEvent);
+            }
 
             // A double click is two clicks on the same cell, not merely on the same
             // element: clicking two different words of one editor in quick succession

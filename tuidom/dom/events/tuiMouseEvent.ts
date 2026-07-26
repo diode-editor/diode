@@ -8,7 +8,8 @@ export type TUIMouseEventType =
     | "dblclick"
     | "mouseenter"
     | "mouseleave"
-    | "wheel";
+    | "wheel"
+    | "contextmenu";
 
 export type WheelDirection = "up" | "down" | "left" | "right";
 
@@ -48,5 +49,26 @@ export class TUIMouseEvent extends TUIEventBase {
         this.altKey = init.altKey ?? false;
         this.ctrlKey = init.ctrlKey ?? false;
         this.wheelDirection = init.wheelDirection;
+    }
+}
+
+/**
+ * Откуда пришёл запрос контекстного меню. Определяет трактовку якоря:
+ * "mouse" — точка клика (screenX/screenY), "keyboard" — сам target
+ * (координаты заполнены его глобальной позицией как fallback; потребитель
+ * уточняет якорь — каретка, выделенная строка).
+ */
+export type ContextMenuTrigger = "mouse" | "keyboard";
+
+export interface TUIContextMenuEventInit extends TUIMouseEventInit {
+    trigger: ContextMenuTrigger;
+}
+
+export class TUIContextMenuEvent extends TUIMouseEvent {
+    public readonly trigger: ContextMenuTrigger;
+
+    public constructor(init: TUIContextMenuEventInit) {
+        super("contextmenu", init);
+        this.trigger = init.trigger;
     }
 }

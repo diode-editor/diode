@@ -135,6 +135,15 @@ export function serializeKey(name: string): string {
         return `\x1b[1;${mod.toString()}${letter}`;
     }
 
+    // Kitty functional keys without legacy escape form (CSI-u codepoint)
+    if (remaining === "ContextMenu") {
+        if (!hasModifiers) {
+            return "\x1b[57363u";
+        }
+        const mod = encodeModifier(ctrl, shift, alt, meta);
+        return `\x1b[57363;${mod.toString()}u`;
+    }
+
     // CSI tilde keys (Insert, Delete, PageUp, PageDown, F5–F12)
     if (remaining in csiTildeKeys) {
         const num = csiTildeKeys[remaining];
