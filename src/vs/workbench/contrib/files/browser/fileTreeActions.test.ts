@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
-import { type ExplorerComponent, ExplorerComponentDIToken } from "./explorerComponent.ts";
 import { type ExplorerService, ExplorerServiceDIToken } from "./explorerService.ts";
 import { type FileOperationsService, FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 import {
@@ -12,7 +11,6 @@ import {
     fileRenameAction,
     fileUndoAction,
     refreshExplorerAction,
-    showExplorerContextMenuAction,
 } from "./fileTreeActions.ts";
 
 interface StubCalls {
@@ -21,12 +19,11 @@ interface StubCalls {
     refreshed: number;
     undone: number;
     redone: number;
-    contextMenus: number;
 }
 
 /** Аксессор со стабами Explorer-сервисов; наблюдаемые вызовы — в `calls`. */
 function makeAccessor(selectedPaths: string[] = []): { accessor: Container; calls: StubCalls } {
-    const calls: StubCalls = { deleted: [], renamed: [], refreshed: 0, undone: 0, redone: 0, contextMenus: 0 };
+    const calls: StubCalls = { deleted: [], renamed: [], refreshed: 0, undone: 0, redone: 0 };
     const accessor = new Container();
     accessor.bind(
         ExplorerServiceDIToken,
@@ -55,15 +52,6 @@ function makeAccessor(selectedPaths: string[] = []): { accessor: Container; call
                     calls.redone++;
                 },
             }) as unknown as FileOperationsService,
-    );
-    accessor.bind(
-        ExplorerComponentDIToken,
-        () =>
-            ({
-                openContextMenuAtSelection: () => {
-                    calls.contextMenus++;
-                },
-            }) as unknown as ExplorerComponent,
     );
     return { accessor, calls };
 }
@@ -147,11 +135,4 @@ describe("refreshExplorerAction / undo / redo / context menu", () => {
         expect(calls.redone).toBe(1);
     });
 
-    it("showExplorerContextMenuAction opens the menu at the selection (Shift+F10 under listFocus)", () => {
-        expect(showExplorerContextMenuAction.keybinding).toEqual(parseKeybinding("shift+f10"));
-        expect(showExplorerContextMenuAction.when).toBe("listFocus");
-        const { accessor, calls } = makeAccessor();
-        showExplorerContextMenuAction.run(accessor);
-        expect(calls.contextMenus).toBe(1);
-    });
 });

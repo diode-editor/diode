@@ -216,9 +216,6 @@ export class WorkbenchComponent extends ThemedComponent {
         // Темизированные стили контекстных меню: сервис показывает попапы сам,
         // тему знает только workbench — прикрепляем поставщика (как attachHost).
         accessor.get(ContextMenuServiceDIToken).menuStyles = () => getMenuStyles(this.theme);
-        // Контекст-меню дерева Explorer'а открывается в overlay-слое корневой view.
-        this.explorerComponent.attachHost(this.view);
-        this.changesComponent.attachHost(this.view);
         this.view.setContent(this.workbenchLayout);
         this.view.setStatusBar(this.statusBarComponent.view);
         // Источник фокуса для контекст-ключей — FocusManager корневой view.

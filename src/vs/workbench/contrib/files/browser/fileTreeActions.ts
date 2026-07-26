@@ -76,17 +76,3 @@ export const fileRedoAction: CommandAction = {
         accessor.get(FileOperationsServiceDIToken).redoWorkspace();
     },
 };
-
-/**
- * Открывает контекстное меню дерева файлов с клавиатуры (Shift+F10), заякорив его на
- * выделенной строке. `when: listFocus` разводит бинд с редакторным по фокусу.
- */
-export const showExplorerContextMenuAction: CommandAction = {
-    id: "filesExplorer.openContextMenu",
-    title: "Show Explorer Context Menu",
-    keybinding: parseKeybinding("shift+f10"),
-    when: "listFocus",
-    run(accessor) {
-        accessor.get(ExplorerComponentDIToken).openContextMenuAtSelection();
-    },
-};

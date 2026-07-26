@@ -10,6 +10,7 @@ import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inM
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
@@ -20,10 +21,10 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-/** Собирает MenuService для explorer-меню поверх переданного CommandRegistry. */
-function makeMenuService(commands: CommandRegistry): MenuService {
-    return new MenuService(
-        new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
+/** Собирает ContextMenuService для explorer-меню поверх переданного CommandRegistry. */
+function makeContextMenuService(commands: CommandRegistry): ContextMenuService {
+    return new ContextMenuService(
+        new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS)),
     );
 }
 
@@ -49,7 +50,7 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         service,
         commands,
         clipboard,
-        makeMenuService(commands),
+        makeContextMenuService(commands),
         themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
     );
     return {
@@ -143,18 +144,16 @@ describe("ExplorerComponent", () => {
         expect(h.opened).toEqual([ws.path("README.md")]);
     });
 
-    it("openContextMenuAtSelection opens the popup menu anchored at the selected row", () => {
-        h.component.attachHost(app.root);
-        // "src" is the first/selected row after refresh.
-        h.component.openContextMenuAtSelection();
+    it("Shift+F10 opens the popup menu anchored at the selected row", () => {
+        // "src" is the first/selected row after refresh; дерево в фокусе.
+        app.sendKey("Shift+F10");
         app.render();
 
         expect(app.querySelector("PopupMenuElement")).not.toBeNull();
         expect(app.backend.screenToString()).toContain("New File");
     });
 
-    it("openContextMenuAtSelection follows the keyboard selection to another row", () => {
-        h.component.attachHost(app.root);
+    it("the keyboard context menu follows the selection to another row", () => {
         const created: string[] = [];
         h.commands.register("explorer.newFile", (filePath) => {
             created.push(filePath as string);
@@ -162,7 +161,7 @@ describe("ExplorerComponent", () => {
 
         app.sendKey("ArrowDown"); // move selection from "src" to "README.md"
         app.render();
-        h.component.openContextMenuAtSelection();
+        app.sendKey("Shift+F10");
         app.render();
 
         // Enter accepts the first entry ("New File...") — it carries the selected path.
@@ -173,30 +172,19 @@ describe("ExplorerComponent", () => {
         expect(app.querySelector("PopupMenuElement")).toBeNull();
     });
 
-    it("openContextMenuAtSelection is a no-op when no host is attached", () => {
-        // A row is selected, but without an overlay host the menu cannot open.
-        expect(() => {
-            h.component.openContextMenuAtSelection();
-        }).not.toThrow();
-        app.render();
-        expect(app.querySelector("PopupMenuElement")).toBeNull();
-    });
-
     it("re-opening the context menu closes the previous session first", () => {
-        h.component.attachHost(app.root);
-        h.component.openContextMenuAtSelection();
+        app.sendKey("Shift+F10");
         app.render();
         expect(app.querySelectorAll("PopupMenuElement")).toHaveLength(1);
 
-        h.component.openContextMenuAtSelection();
+        app.sendKey("Shift+F10");
         app.render();
         // Не два меню разом: предыдущая сессия закрыта.
         expect(app.querySelectorAll("PopupMenuElement")).toHaveLength(1);
     });
 
     it("the Paste entry appears only when the file clipboard is non-empty", () => {
-        h.component.attachHost(app.root);
-        h.component.openContextMenuAtSelection();
+        app.sendKey("Shift+F10");
         app.render();
         expect(app.backend.screenToString()).not.toContain("Paste");
 
@@ -204,7 +192,7 @@ describe("ExplorerComponent", () => {
         app.render();
 
         h.clipboard.write([ws.path("README.md")], "copy");
-        h.component.openContextMenuAtSelection();
+        app.sendKey("Shift+F10");
         app.render();
         expect(app.backend.screenToString()).toContain("Paste");
     });
@@ -329,7 +317,7 @@ describe("ExplorerComponent — root assigned after construction", () => {
             service,
             new CommandRegistry(),
             clipboard,
-            makeMenuService(new CommandRegistry()),
+            makeContextMenuService(new CommandRegistry()),
             new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
         );
         const app = TestApp.createWithContent(component.view, new Size(30, 10));
@@ -341,26 +329,17 @@ describe("ExplorerComponent — root assigned after construction", () => {
         service.dispose();
     });
 
-    it("openContextMenuAtSelection is a no-op before a root is assigned", () => {
-        const h = createExplorer();
-        // Нет дерева — короткое замыкание, даже без хоста и попыток открыть меню.
-        expect(() => {
-            h.component.openContextMenuAtSelection();
-        }).not.toThrow();
-        h.dispose();
-    });
-
     it("context menu is a no-op when the tree is empty (no selected row)", async () => {
         const wsEmpty = createTempWorkspace({ prefix: "vexx-explorer-empty-" });
         const h = createExplorer();
         h.service.setRootPath(wsEmpty.dir);
         const app = TestApp.createWithContent(h.component.view, new Size(30, 10));
-        h.component.attachHost(app.root);
+        h.service.focus();
         await h.service.refresh();
         app.render();
 
         // Tree exists but has no rows → no selected node/anchor → context menu is a no-op.
-        h.component.openContextMenuAtSelection();
+        app.sendKey("Shift+F10");
         app.render();
         expect(app.querySelector("PopupMenuElement")).toBeNull();
 

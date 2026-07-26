@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
+import { TUIContextMenuEvent, TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 
 import type { ITreeDataProvider, ITreeItem } from "./iTreeDataProvider.ts";
 import { TreeViewElement } from "./treeViewElement.ts";
@@ -62,6 +63,18 @@ function makeClickEvent(opts: {
     });
 }
 
+/** Мышиный contextmenu — то, что движок диспатчит на правый press+release. */
+function makeContextMenuEvent(opts: { screenX: number; screenY: number; localX?: number; localY?: number }) {
+    return new TUIContextMenuEvent({
+        trigger: "mouse",
+        button: "right",
+        screenX: opts.screenX,
+        screenY: opts.screenY,
+        localX: opts.localX ?? opts.screenX,
+        localY: opts.localY ?? opts.screenY,
+    });
+}
+
 describe("TreeViewElement - context menu (right-click)", () => {
     it("right-click fires onContextMenu with the correct element", async () => {
         const { tree, refresh } = createTree(FLAT_NODES);
@@ -69,7 +82,7 @@ describe("TreeViewElement - context menu (right-click)", () => {
         const onContextMenu = vi.fn();
         tree.onContextMenu = onContextMenu;
 
-        tree.dispatchEvent(makeClickEvent({ button: "right", screenX: 5, screenY: 1 }));
+        tree.dispatchEvent(makeContextMenuEvent({ screenX: 5, screenY: 1 }));
 
         expect(onContextMenu).toHaveBeenCalledOnce();
         const [element] = onContextMenu.mock.calls[0] as [TestNode, number, number];
@@ -82,7 +95,7 @@ describe("TreeViewElement - context menu (right-click)", () => {
         const onContextMenu = vi.fn();
         tree.onContextMenu = onContextMenu;
 
-        tree.dispatchEvent(makeClickEvent({ button: "right", screenX: 12, screenY: 2 }));
+        tree.dispatchEvent(makeContextMenuEvent({ screenX: 12, screenY: 2 }));
 
         expect(onContextMenu).toHaveBeenCalledWith(FLAT_NODES[2], 12, 2);
     });
@@ -93,7 +106,7 @@ describe("TreeViewElement - context menu (right-click)", () => {
         const onContextMenu = vi.fn();
         tree.onContextMenu = onContextMenu;
 
-        tree.dispatchEvent(makeClickEvent({ button: "right", screenX: 5, screenY: 0 }));
+        tree.dispatchEvent(makeContextMenuEvent({ screenX: 5, screenY: 0 }));
 
         // Verify onContextMenu was called for row 0 (Alpha), which means the row was selected
         expect(onContextMenu).toHaveBeenCalledOnce();
@@ -108,7 +121,7 @@ describe("TreeViewElement - context menu (right-click)", () => {
         tree.onActivate = onActivate;
         tree.onContextMenu = vi.fn();
 
-        tree.dispatchEvent(makeClickEvent({ button: "right", screenX: 5, screenY: 0 }));
+        tree.dispatchEvent(makeContextMenuEvent({ screenX: 5, screenY: 0 }));
 
         expect(onActivate).not.toHaveBeenCalled();
     });
@@ -120,7 +133,7 @@ describe("TreeViewElement - context menu (right-click)", () => {
         tree.onContextMenu = onContextMenu;
 
         // Row 99 is way beyond the 3-item list
-        tree.dispatchEvent(makeClickEvent({ button: "right", screenX: 5, screenY: 99 }));
+        tree.dispatchEvent(makeContextMenuEvent({ screenX: 5, screenY: 99 }));
 
         expect(onContextMenu).not.toHaveBeenCalled();
     });
@@ -200,5 +213,51 @@ describe("TreeViewElement - getSelectedRowGlobalPosition (keyboard context menu 
 
         // y = globalPosition.y(0) + (selectedIndex(7) - scrollTop(5)) = 2
         expect(tree.getSelectedRowGlobalPosition()).toEqual(new Point(0, 2));
+    });
+});
+
+describe("TreeViewElement - context menu (keyboard trigger)", () => {
+    it("keyboard trigger anchors at the selected row's global position", async () => {
+        const { tree, refresh } = createTree(FLAT_NODES);
+        await refresh();
+        const onContextMenu = vi.fn();
+        tree.onContextMenu = onContextMenu;
+
+        tree.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "ArrowDown" }));
+        const anchor = tree.getSelectedRowGlobalPosition();
+        expect(anchor).not.toBeNull();
+
+        tree.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "keyboard",
+                button: "none",
+                screenX: tree.globalPosition.x,
+                screenY: tree.globalPosition.y,
+                localX: 0,
+                localY: 0,
+            }),
+        );
+
+        expect(onContextMenu).toHaveBeenCalledWith(FLAT_NODES[1], anchor!.x, anchor!.y);
+    });
+
+    it("keyboard trigger is a no-op on an empty tree", async () => {
+        const { tree, refresh } = createTree([]);
+        await refresh();
+        const onContextMenu = vi.fn();
+        tree.onContextMenu = onContextMenu;
+
+        tree.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "keyboard",
+                button: "none",
+                screenX: 0,
+                screenY: 0,
+                localX: 0,
+                localY: 0,
+            }),
+        );
+
+        expect(onContextMenu).not.toHaveBeenCalled();
     });
 });

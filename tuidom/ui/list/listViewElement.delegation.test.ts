@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { Size } from "../../common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { TUIContextMenuEvent, TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { HFlexElement, hflexFill, hflexFixed } from "../layout/hFlexElement.ts";
 import { TextLabelElement } from "../text/textLabelElement.ts";
 
@@ -112,13 +112,22 @@ describe("ListViewElement click delegation", () => {
         expect((onActivate.mock.calls[0][0] as HFlexElement).id).toBe("r2");
     });
 
-    it("right click over a consuming child opens the context menu as usual", () => {
+    it("a contextmenu event over a consuming child opens the context menu as usual", () => {
         const onButton = vi.fn();
         const onContextMenu = vi.fn();
         const { list } = createList(onButton);
         list.onContextMenu = onContextMenu;
 
-        mouse(list, "click", { x: BUTTON_X, y: 1, button: "right" });
+        list.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: BUTTON_X,
+                screenY: 1,
+                localX: BUTTON_X,
+                localY: 1,
+            }),
+        );
 
         expect(onButton).not.toHaveBeenCalled();
         expect(onContextMenu).toHaveBeenCalledTimes(1);

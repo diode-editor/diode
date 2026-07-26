@@ -69,6 +69,14 @@ export default defineScenario({
         const list = await editor.waitForNode("#changesView");
         await editor.capture("changes");
 
+        // Shift+F10 на сфокусированном списке — контекстное меню SCM (Open File /
+        // Open Changes): клавиатурный путь пришёл вместе с единым событием
+        // contextmenu движка, отдельной команды у SCM нет.
+        await editor.sendKey("Shift+F10");
+        await editor.waitForText((t) => t.includes("Open File") && t.includes("Open Changes"));
+        await editor.capture("context-menu");
+        await editor.sendKey("Escape");
+
         // Двойной клик по первой строке (app.ts, modified) открывает вкладку-
         // смотрелку этапа 5. Строка списка — под заголовком рамки, поэтому y+1.
         // Двойной, а не одиночный: одиночный клик по дереву лишь выделяет,

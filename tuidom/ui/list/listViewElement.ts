@@ -2,7 +2,7 @@ import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
-import { TUIMouseEvent, type TUIMouseEventType } from "../../dom/events/tuiMouseEvent.ts";
+import { TUIMouseEvent, type TUIContextMenuEvent, type TUIMouseEventType } from "../../dom/events/tuiMouseEvent.ts";
 import type { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import type { CellPatch } from "../../rendering/grid.ts";
 import { ScrollableElement, type ScrollViewportInfo } from "../scrollbar/scrollableElement.ts";
@@ -382,6 +382,8 @@ export class ListViewElement extends ScrollableElement {
             this.handleKeypress(event as TUIKeyboardEvent);
         } else if (event.type === "click") {
             this.handleClick(event as TUIMouseEvent);
+        } else if (event.type === "contextmenu") {
+            this.handleContextMenu(event as TUIContextMenuEvent);
         } else if (event.type === "dblclick") {
             this.handleDblClick(event as TUIMouseEvent);
         } else if (event.type === "wheel") {
@@ -393,6 +395,36 @@ export class ListViewElement extends ScrollableElement {
         } else {
             super.performDefaultAction(event);
         }
+    }
+
+    /**
+     * Единый вход контекстного меню: от мыши — строка под кликом (мультивыбор по
+     * выбранной строке не сбрасывается), от клавиатуры — строка курсора с якорем
+     * на её глобальной позиции. Виджет только сигналит {@link onContextMenu} —
+     * сборка и показ меню на стороне владельца.
+     */
+    private handleContextMenu(event: TUIContextMenuEvent): void {
+        const rows = this.ensureProjection();
+        if (event.trigger === "mouse") {
+            const index = this.scrollTop + event.localY;
+            if (index < 0 || index >= rows.length) return;
+            const row = rows[index];
+            // Не сбрасываем множественный выбор, если кликнули по уже выбранной строке.
+            if (!this.selectedIds.has(row.id)) {
+                this.setSelectedIndex(index);
+            } else {
+                this.cursorIndex = index;
+                this.applyCursor(index);
+            }
+            this.onContextMenu?.(row.element, event.screenX, event.screenY);
+            return;
+        }
+        if (this.cursorIndex < 0 || this.cursorIndex >= rows.length) return;
+        this.onContextMenu?.(
+            rows[this.cursorIndex].element,
+            this.globalPosition.x,
+            this.globalPosition.y + (this.cursorIndex - this.scrollTop),
+        );
     }
 
     // ─── Render ───
@@ -800,17 +832,7 @@ export class ListViewElement extends ScrollableElement {
         if (index < 0 || index >= rows.length) return;
         const row = rows[index];
 
-        if (event.button === "right") {
-            // Не сбрасываем множественный выбор, если кликнули по уже выбранной строке.
-            if (!this.selectedIds.has(row.id)) {
-                this.setSelectedIndex(index);
-            } else {
-                this.cursorIndex = index;
-                this.applyCursor(index);
-            }
-            this.onContextMenu?.(row.element, event.screenX, event.screenY);
-            return;
-        }
+        if (event.button !== "left") return; // правый клик несёт событие contextmenu
 
         if (event.ctrlKey) {
             this.toggleSelectionAt(index);

@@ -5,7 +5,9 @@ import { EditorServiceDIToken } from "../../services/editor/browser/editorServic
 /**
  * Открывает контекстное меню редактора с клавиатуры (Shift+F10, как в VS Code),
  * заякорив его на каретке. Тот же набор пунктов, что и по правому клику.
- * Explorer-собрат — `showExplorerContextMenuAction` в `FileTreeActions.ts`.
+ * Спискам/деревьям отдельная команда не нужна: Shift+F10 для них синтезирует
+ * движок (событие "contextmenu"), а этот бинд перехватывает его раньше только
+ * при фокусе в тексте (`when: textInputFocus`).
  */
 export const showEditorContextMenuAction: CommandAction = {
     id: "editor.action.showContextMenu",

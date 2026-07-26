@@ -1,24 +1,16 @@
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import type { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
-import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
-import type { MenuEntry } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
-import { PopupMenuElement } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
 import { TreeViewElement } from "../../../../../../tuidom/ui/tree/treeViewElement.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import type { IMenu, MenuService } from "../../../../platform/actions/common/menuService.ts";
-import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import {
-    getFileTreeStyles,
-    getMenuStyles,
-    getScrollBarStyles,
-} from "../../../../platform/theme/browser/defaultStyles.ts";
+import { getFileTreeStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
 import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -44,9 +36,9 @@ interface ExplorerViewParts {
  * поверх провайдера {@link ExplorerService} (обёрнутым в скроллбар и рамку
  * EXPLORER), перестраивает дерево по смене корня воркспейса и регистрирует его
  * в сервисе (шов `IExplorerView`). Активация файла уходит в команду
- * `workbench.openFile`; правый клик/Shift+F10 открывают контекстное меню
- * (PopupMenu в overlay-слое хоста — его прикрепляет владелец корневой view
- * через {@link attachHost}), пункты которого исполняют команды
+ * `workbench.openFile`; правый клик/Shift+F10 (единое событие "contextmenu"
+ * движка) открывают контекстное меню через `ContextMenuService` — делегат с
+ * точкой `MenuId.ExplorerContext`, пункты исполняют команды
  * `explorer.*`/`fileOperations.*`.
  */
 export class ExplorerComponent extends ThemedComponent {
@@ -54,24 +46,20 @@ export class ExplorerComponent extends ThemedComponent {
         ExplorerServiceDIToken,
         CommandRegistryDIToken,
         FileClipboardDIToken,
-        MenuServiceDIToken,
+        ContextMenuServiceDIToken,
         ThemeServiceDIToken,
     ] as const;
 
     private parts: ExplorerViewParts | null = null;
-    private host: BodyElement | null = null;
-    private contextMenuSession: OverlaySessionHandle | null = null;
-    private readonly contextMenu: IMenu;
 
     public constructor(
         private readonly explorerService: ExplorerService,
         private readonly commands: CommandRegistry,
         private readonly fileClipboard: IFileClipboard,
-        menuService: MenuService,
+        private readonly contextMenuService: ContextMenuService,
         themeService: ThemeService,
     ) {
         super(themeService);
-        this.contextMenu = this.register(menuService.createMenu(MenuId.ExplorerContext));
         this.register(
             explorerService.onDidChangeRoot(() => {
                 this.rebuild();
@@ -86,28 +74,6 @@ export class ExplorerComponent extends ThemedComponent {
     /** Корневой контрол. До первого setRootPath сервиса дерева ещё нет (как и раньше у контроллера). */
     public get view(): TUIElement {
         return this.parts?.root as TUIElement;
-    }
-
-    /**
-     * Прикрепляет хост с overlay-слоем (корневую BodyElement-view приложения) —
-     * в нём открываются popup-сессии контекстного меню. Зовёт владелец корневой
-     * view (WorkbenchComponent) после её постройки, как у DialogService.
-     */
-    public attachHost(host: BodyElement): void {
-        this.host = host;
-    }
-
-    /**
-     * Открывает контекстное меню дерева с клавиатуры (Shift+F10), заякорив его на
-     * выделенной строке. Переиспользует ровно тот же путь, что и правый клик.
-     * No-op, если дерево пусто или выбор отсутствует.
-     */
-    public openContextMenuAtSelection(): void {
-        if (!this.parts) return;
-        const node = this.parts.tree.getSelectedNode();
-        const anchor = this.parts.tree.getSelectedRowGlobalPosition();
-        if (!node || !anchor) return;
-        this.showContextMenu(node.path, anchor.x, anchor.y);
     }
 
     /** Пересоздаёт дерево под новый провайдер сервиса и регистрирует его как view сервиса. */
@@ -135,72 +101,23 @@ export class ExplorerComponent extends ThemedComponent {
             }
         };
         tree.onContextMenu = (node, screenX, screenY) => {
-            this.showContextMenu(node.path, screenX, screenY);
+            this.showContextMenu(tree, node.path, screenX, screenY);
         };
 
         this.explorerService.attachView(tree);
         this.updateStyles();
     }
 
-    private showContextMenu(filePath: string, screenX: number, screenY: number): void {
-        if (!this.host) return;
-        const host = this.host;
-        this.hideContextMenu();
-
-        // Пункты — из живого меню MenuId.ExplorerContext. Контекст открытия несёт
-        // путь узла (args команд) и признак непустого буфера (видимость Paste).
-        const context = { path: filePath, canPaste: this.fileClipboard.read() !== null };
-        const entries: MenuEntry[] = this.contextMenu.getEntries(context).map((entry) => {
-            if (entry.type === "separator" || entry.type === "submenu") return entry;
-            const original = entry.onSelect;
-            return {
-                ...entry,
-                onSelect: () => {
-                    this.hideContextMenu();
-                    original?.();
-                },
-            };
+    private showContextMenu(tree: TreeViewElement<FileTreeNode>, filePath: string, screenX: number, screenY: number): void {
+        // Контекст открытия несёт путь узла (args команд) и признак непустого
+        // буфера (видимость Paste); пункты собирает ContextMenuService из
+        // MenuId.ExplorerContext.
+        this.contextMenuService.showContextMenu({
+            getOwner: () => tree,
+            getAnchor: () => ({ screenX, screenY }),
+            menuId: MenuId.ExplorerContext,
+            menuContext: { path: filePath, canPaste: this.fileClipboard.read() !== null },
         });
-
-        const menu = new PopupMenuElement(entries);
-        menu.setStyles(getMenuStyles(this.theme));
-        menu.tabIndex = 0;
-
-        let session: OverlaySessionHandle | null = null;
-        session = host.overlayLayer.openPopupSession(
-            menu,
-            { screenX, screenY },
-            {
-                visible: true,
-                restoreFocus: true,
-                focusOnOpen: true,
-                closeOnEscape: true,
-                pointerPolicy: "close-on-outside",
-                disposeOnClose: true,
-                onClose: () => {
-                    // Через hideContextMenu поле уже занулено до close() — не трогаем
-                    // (там может быть уже открыта следующая сессия).
-                    if (this.contextMenuSession === session) {
-                        this.contextMenuSession = null;
-                    }
-                },
-            },
-        );
-
-        menu.onClose = () => {
-            session.close();
-        };
-
-        this.contextMenuSession = session;
-    }
-
-    private hideContextMenu(): void {
-        if (!this.contextMenuSession) return;
-        const session = this.contextMenuSession;
-        this.contextMenuSession = null;
-        // Именно close(), не dispose(): close восстанавливает сохранённый фокус (restoreFocus),
-        // а disposeOnClose доведёт teardown до конца.
-        session.close();
     }
 
     protected updateStyles(): void {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Point } from "../../../../tuidom/common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -45,7 +45,7 @@ describe("Workbench — Refresh Explorer", () => {
         // Right-click the first row to open the context menu.
         tree.globalPosition = new Point(0, 0);
         tree.dispatchEvent(
-            new TUIMouseEvent("click", { button: "right", screenX: 2, screenY: 0, localX: 2, localY: 0 }),
+            new TUIContextMenuEvent({ trigger: "mouse", button: "right", screenX: 2, screenY: 0, localX: 2, localY: 0 }),
         );
         h.testApp.render();
         expect(h.testApp.querySelector("PopupMenuElement")).not.toBeNull();

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { Size } from "../../common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
-import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { TUIContextMenuEvent, TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { TextLabelElement } from "../text/textLabelElement.ts";
 
 import { ListViewElement } from "./listViewElement.ts";
@@ -55,7 +55,29 @@ describe("ListViewElement edge cases", () => {
         const { list } = createEmptyList();
         const onContextMenu = vi.fn();
         list.onContextMenu = onContextMenu;
-        list.dispatchEvent(new TUIMouseEvent("click", { button: "right", localX: 0, localY: 0, screenX: 0, screenY: 0 }));
+        list.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                localX: 0,
+                localY: 0,
+                screenX: 0,
+                screenY: 0,
+            }),
+        );
+        expect(onContextMenu).not.toHaveBeenCalled();
+
+        // Клавиатурный триггер на пустом списке — тоже no-op.
+        list.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "keyboard",
+                button: "none",
+                localX: 0,
+                localY: 0,
+                screenX: 0,
+                screenY: 0,
+            }),
+        );
         expect(onContextMenu).not.toHaveBeenCalled();
     });
 
