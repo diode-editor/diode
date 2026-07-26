@@ -2,6 +2,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { DiffEditorPane } from "../../../browser/parts/editor/diffEditorPane.ts";
+import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
 import {
     LanguageServiceDIToken,
@@ -20,44 +21,53 @@ const DIFF_SCHEME = "vexx-diff";
 /** Сколько держать сообщение о том, что сравнивать не с чем. */
 export const COMPARE_NOTICE_MS = 4000;
 
+/** `"no-original"` = сравнивать не с чем; реакцию (notice, открыть файл) выбирает вызывающий. */
+export type OpenDiffResult = "opened" | "no-original";
+
 /**
- * «Сравнить с HEAD» — вкладка с inline-диффом активного файла против версии из
- * git. Соединяет всё, что собрано этапами 0–3: оригинал даёт SCM-расширение
- * (`IOriginalResourceProvider`), читается он через реестр провайдеров ФС, дифф
- * считает перенесённый движок, отображение собирает `DiffViewModel`, а вкладкой
- * это становится благодаря абстракции панели.
+ * Ядро «сравнить с HEAD»: открывает вкладку inline-диффа для произвольного uri,
+ * не требуя активного редактора. Оригинал даёт SCM-расширение
+ * (`IOriginalResourceProvider`) через реестр провайдеров ФС; modified-сторона —
+ * открытый буфер этого uri (несохранённые правки видны), а без него — снимок с
+ * диска через `file:`-провайдер; файл, не читающийся с диска (удалён, status D),
+ * даёт дифф «HEAD ↔ пусто». Дифф считает перенесённый движок, отображение
+ * собирает `DiffViewModel`, вкладкой это становится благодаря абстракции панели.
  *
  * Дифф — **снимок** на момент вызова: панель держит тексты у себя. Живой
  * пересчёт по правкам исходного буфера — отдельная задача (docs/TODO/Diff.md).
  */
-async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
+export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri): Promise<OpenDiffResult> {
     const editors = accessor.get(EditorServiceDIToken);
-    const editor = editors.getActiveEditor();
-    if (editor === null) return;
 
-    const notice = (message: string): void => {
-        const handle = accessor
-            .get(StatusBarServiceDIToken)
-            .addEntry({ id: "scm.compare.notice", text: message, alignment: "left", priority: 100 });
-        setTimeout(() => {
-            handle.dispose();
-        }, COMPARE_NOTICE_MS);
-    };
+    const originalText = await readOriginal(accessor, uri);
+    if (originalText === null) return "no-original";
 
-    const originalText = await readOriginal(accessor, editor.uri);
-    if (originalText === null) {
-        // Untracked, вне репозитория, git недоступен, SCM-расширение не поднялось —
-        // для пользователя всё это одно и то же: сравнивать не с чем.
-        notice("No changes to compare: the file has no version in git");
-        return;
+    const pane = editors
+        .getPanes()
+        .find((p): p is TextEditorPane => p instanceof TextEditorPane && p.uri.toString() === uri.toString());
+
+    let modifiedText: string;
+    if (pane) {
+        modifiedText = pane.getText();
+    } else {
+        try {
+            const bytes = await accessor.get(FileSystemProviderRegistryDIToken).readFile(uri);
+            modifiedText = new TextDecoder().decode(bytes);
+        } catch {
+            modifiedText = "";
+        }
     }
 
+    const languageId =
+        pane?.languageId ?? accessor.get(LanguageServiceDIToken).getLanguageIdForResource(uri.fsPath) ?? "plaintext";
+    const label = pane ? editors.displayName(pane) : (uri.path.split("/").pop() ?? uri.path);
+
     const input = {
-        uri: Uri.from({ scheme: DIFF_SCHEME, path: editor.uri.path, query: "HEAD" }),
-        label: `${editors.displayName(editor)} ↔ HEAD`,
+        uri: Uri.from({ scheme: DIFF_SCHEME, path: uri.path, query: "HEAD" }),
+        label: `${label} ↔ HEAD`,
         originalText,
-        modifiedText: editor.getText(),
-        languageId: editor.languageId,
+        modifiedText,
+        languageId,
     };
 
     // Дифф — снимок, а идентичность вкладки (`vexx-diff:<path>?HEAD`) от содержимого
@@ -68,7 +78,7 @@ async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
     if (existing instanceof DiffEditorPane) {
         existing.setInput(input);
         editors.activateTab(editors.getPanes().indexOf(existing));
-        return;
+        return "opened";
     }
 
     editors.openPane(
@@ -79,6 +89,7 @@ async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
             input,
         ),
     );
+    return "opened";
 }
 
 /** Текст версии из git, либо `null`, если сравнивать не с чем. */
@@ -91,6 +102,28 @@ async function readOriginal(accessor: ServiceAccessor, uri: Uri): Promise<string
         return new TextDecoder().decode(await providers.readFile(original));
     } catch {
         return null;
+    }
+}
+
+/** Палитра: сравнивает активный файл; без активного редактора — тихий no-op. */
+async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
+    const editors = accessor.get(EditorServiceDIToken);
+    const editor = editors.getActiveEditor();
+    if (editor === null) return;
+
+    const result = await openDiffWithHead(accessor, editor.uri);
+    if (result === "no-original") {
+        // Untracked, вне репозитория, git недоступен, SCM-расширение не поднялось —
+        // для пользователя всё это одно и то же: сравнивать не с чем.
+        const handle = accessor.get(StatusBarServiceDIToken).addEntry({
+            id: "scm.compare.notice",
+            text: "No changes to compare: the file has no version in git",
+            alignment: "left",
+            priority: 100,
+        });
+        setTimeout(() => {
+            handle.dispose();
+        }, COMPARE_NOTICE_MS);
     }
 }
 
