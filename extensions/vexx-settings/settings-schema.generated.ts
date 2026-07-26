@@ -14,6 +14,7 @@ export interface ISettingSchemaEntry {
 }
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
+    {"key":"editor.contextmenu","type":"boolean","default":true,"description":"Controls whether the editor shows the context menu."},
     {"key":"editor.cursorSurroundingLines","type":"number","default":3,"description":"Controls the minimal number of visible leading lines around the cursor."},
     {"key":"editor.insertSpaces","type":"boolean","default":true,"description":"Insert spaces when pressing Tab."},
     {"key":"editor.tabSize","type":"number","default":4,"description":"The number of spaces a tab is equal to."},

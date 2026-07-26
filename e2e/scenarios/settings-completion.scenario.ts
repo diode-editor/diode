@@ -50,8 +50,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("editor."), { timeoutMs: 4000 });
         await editor.capture("suggest-key");
 
-        // Ключи идут в порядке схемы (сортировка по имени): cursorSurroundingLines,
-        // insertSpaces, tabSize. Берём второй — у него boolean-значения.
+        // Ключи идут в порядке схемы (сортировка по имени): contextmenu,
+        // cursorSurroundingLines, insertSpaces, tabSize. Берём insertSpaces
+        // (третий) — у него boolean-значения.
+        await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
 
