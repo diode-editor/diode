@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -154,6 +155,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
+        createTestEditorContextMenuController(),
     );
     const groupComponent = new EditorGroupComponent(group, themeService);
 

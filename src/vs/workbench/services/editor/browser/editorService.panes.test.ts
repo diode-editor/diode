@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 
 import { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -31,6 +32,7 @@ function createEditorService(): EditorService {
         NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
+        createTestEditorContextMenuController(),
     );
 }
 

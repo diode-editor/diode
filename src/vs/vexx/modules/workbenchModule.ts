@@ -3,14 +3,14 @@ import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common
 import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
 import { ContextMenuService, ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import {
+    ContextMenuController as EditorContextMenuController,
+    ContextMenuControllerDIToken as EditorContextMenuControllerDIToken,
+} from "../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { QuitHandlerDIToken } from "../../workbench/browser/actions/appActions.ts";
 import { MENU_CONTRIBUTIONS } from "../../workbench/browser/actions/menuContributions.ts";
 import { MenuBarComponent, MenuBarComponentDIToken } from "../../workbench/browser/menuBarComponent.ts";
-import {
-    EditorContextMenuContribution,
-    EditorContextMenuContributionDIToken,
-} from "../../workbench/browser/parts/editor/editorContextMenuContribution.ts";
 import {
     EditorGroupComponent,
     EditorGroupComponentDIToken,
@@ -263,9 +263,11 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(MenuRegistryDIToken, MenuRegistry);
     container.bind(MenuServiceDIToken, MenuService);
     container.bind(ContextMenuServiceDIToken, ContextMenuService);
+    // Пилот editor-скоупа DI: политика контекстного меню редактора живёт в
+    // editor/contrib (как у vscode), биндится здесь как обычный сервис.
+    container.bind(EditorContextMenuControllerDIToken, EditorContextMenuController);
     container.bind(AutoRevealContributionDIToken, AutoRevealContribution);
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
-    container.bind(EditorContextMenuContributionDIToken, EditorContextMenuContribution);
     container.bind(OpenFileCommandContributionDIToken, OpenFileCommandContribution);
     // Panel-кластер (этап 6): реестр вкладок нижней панели + компонент-контрол,
     // Problems-дерево и встроенный терминал (сервис инстансов + view-владелец).

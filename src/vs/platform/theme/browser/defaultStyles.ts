@@ -130,7 +130,6 @@ export function getEditorStyles(theme: WorkbenchTheme): IEditorStyles {
         warningForeground: theme.getRequiredColor("editorWarning.foreground"),
         infoForeground: theme.getRequiredColor("editorInfo.foreground"),
         hintForeground: theme.getRequiredColor("editorHint.foreground"),
-        menu: getMenuStyles(theme),
     };
 }
 

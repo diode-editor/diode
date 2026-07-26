@@ -6,11 +6,6 @@ import type { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboard
 import type { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { TUIPasteEvent } from "../../../../tuidom/dom/events/tuiPasteEvent.ts";
 import { RenderContext, TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
-import type { OverlaySessionHandle } from "../../../../tuidom/ui/contextview/overlayLayer.ts";
-import type { MenuEntry } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
-import { PopupMenuElement } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
-import type { IMenuStyles } from "../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
-import { unthemedMenuStyles } from "../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
 import type { IScrollable } from "../../../../tuidom/ui/scrollbar/iScrollable.ts";
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
@@ -88,8 +83,6 @@ export interface IEditorStyles {
     readonly warningForeground: number;
     readonly infoForeground: number;
     readonly hintForeground: number;
-    /** Стили контекстного меню (цвета `menu.*` уже резолвнуты). */
-    readonly menu: IMenuStyles;
 }
 
 // Defaults preserve the historical theme-less look (VS Code dark values; the
@@ -107,7 +100,6 @@ export const unthemedEditorStyles: IEditorStyles = {
     warningForeground: packRgb(0xcc, 0xa7, 0x00),
     infoForeground: packRgb(0x37, 0x94, 0xff),
     hintForeground: packRgb(0xee, 0xee, 0xee),
-    menu: unthemedMenuStyles,
 };
 
 /** Viewport geometry shared by the range-background highlight passes. */
@@ -151,19 +143,11 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** Gutter change-bar decorations (SCM/git dirty-diff) for the open document (pushed by the controller). */
     public gutterChangeDecorations: readonly IGutterChangeDecoration[] = NO_GUTTER_CHANGE_DECORATIONS;
 
-    public contextMenuEntries: MenuEntry[] = [];
-    /**
-     * Ленивый источник пунктов контекст-меню — резолвится в момент ОТКРЫТИЯ (чтобы
-     * `when`-видимость пунктов учитывала актуальный контекст). Если задан,
-     * перекрывает статический {@link contextMenuEntries}.
-     */
-    public contextMenuProvider?: () => MenuEntry[];
     /** Цвета редактора (см. {@link IEditorStyles}); задаются контроллером через {@link setStyles}. */
     private styles: IEditorStyles = unthemedEditorStyles;
 
     private lineWidthCache: LineWidthCache | null = null;
     private occurrenceCache: { versionId: number; line: number; character: number; ranges: IRange[] } | null = null;
-    private activeContextMenuSession: OverlaySessionHandle | null = null;
 
     public get contentHeight(): number {
         return this.viewState.getViewLineCount();
@@ -799,7 +783,11 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.markDirty();
     }
 
-    private screenToDocPosition(localX: number, localY: number): { line: number; character: number } {
+    /**
+     * Документная позиция под локальной точкой (клики контроллеров: контекстное
+     * меню ставит каретку на позицию клика). Клик по гуттеру маппится в колонку 0.
+     */
+    public docPositionAt(localX: number, localY: number): { line: number; character: number } {
         const gutterW = this.gutterWidth;
         const viewLineCount = this.viewState.getViewLineCount();
         /* v8 ignore start -- unreachable: a TextDocument always has at least one line and a fold header is never hidden, so getViewLineCount() is never 0 */
@@ -816,10 +804,10 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     private handleMouseDown(event: TUIMouseEvent): void {
-        if (event.button === "right") {
-            this.openContextMenu(event.screenX, event.screenY);
-            return;
-        }
+        // Правый клик каретку не трогает сам: политика (двигать ли каретку,
+        // открывать ли меню) — у editor/contrib/contextmenu по событию
+        // "contextmenu", которое движок диспатчит на отпускании кнопки.
+        if (event.button !== "left") return;
         /* v8 ignore start -- unreachable: getViewLineCount() is never 0 (document always has a line; fold headers stay visible) */
         if (this.viewState.getViewLineCount() === 0) return;
         /* v8 ignore stop */
@@ -830,7 +818,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             return;
         }
 
-        const pos = this.screenToDocPosition(event.localX, event.localY);
+        const pos = this.docPositionAt(event.localX, event.localY);
 
         if (event.shiftKey && this.viewState.selections.length > 0) {
             const anchor = this.viewState.selections[0].anchor;
@@ -849,11 +837,11 @@ export class EditorElement extends TUIElement implements IScrollable {
      */
     private handleDoubleClick(event: TUIMouseEvent): void {
         if (event.button !== "left") return;
-        // The gutter is not text: screenToDocPosition would clamp to column 0 and
+        // The gutter is not text: docPositionAt would clamp to column 0 and
         // select the line's first word, which is not what was clicked.
         if (event.localX < this.gutterWidth) return;
 
-        const pos = this.screenToDocPosition(event.localX, event.localY);
+        const pos = this.docPositionAt(event.localX, event.localY);
         const lineContent = this.viewState.document.getLineContent(pos.line);
         const word = findWordRangeAt(lineContent, pos.character);
         if (word === null) return; // whitespace or punctuation — leave the caret alone
@@ -881,70 +869,6 @@ export class EditorElement extends TUIElement implements IScrollable {
         return true;
     }
 
-    /**
-     * Открывает контекстное меню с клавиатуры (Shift+F10), заякорив его на каретке.
-     * Если каретка вне видимой области, {@link getCaretScreenCell} вернёт `null` —
-     * тогда якоримся в левый верхний угол редактора.
-     */
-    public openContextMenuAtCaret(): void {
-        const anchor = this.getCaretScreenCell() ?? this.globalPosition;
-        this.openContextMenu(anchor.x, anchor.y);
-    }
-
-    private openContextMenu(screenX: number, screenY: number): void {
-        this.closeContextMenu();
-        const entries = this.contextMenuProvider?.() ?? this.contextMenuEntries;
-        if (entries.length === 0) return;
-
-        const wrappedEntries: MenuEntry[] = entries.map((entry) => {
-            if (entry.type === "separator") return entry;
-            const original = entry.onSelect;
-            return {
-                ...entry,
-                onSelect: () => {
-                    this.closeContextMenu();
-                    original?.();
-                },
-            };
-        });
-
-        const menu = new PopupMenuElement(wrappedEntries);
-        menu.setStyles(this.styles.menu);
-
-        const layer = this.getOverlayLayer();
-        if (!layer) return;
-
-        let session: OverlaySessionHandle | null = null;
-        session = layer.createSession(menu, new Point(screenX, screenY), {
-            visible: true,
-            closeOnEscape: true,
-            pointerPolicy: "close-on-outside",
-            focusOnOpen: true,
-            disposeOnClose: true,
-            onClose: () => {
-                /* v8 ignore start -- the `!==` else is unreachable: openContextMenu disposes (not closes) any prior session before reassigning, so a session's onClose only fires while it is still the active one */
-                if (this.activeContextMenuSession === session) {
-                    this.activeContextMenuSession = null;
-                }
-                /* v8 ignore stop */
-            },
-        });
-
-        menu.onClose = () => {
-            session.close();
-        };
-
-        this.activeContextMenuSession = session;
-    }
-
-    private closeContextMenu(): void {
-        if (!this.activeContextMenuSession) return;
-        const session = this.activeContextMenuSession;
-        this.activeContextMenuSession = null;
-        session.dispose();
-    }
-
-
     private handleMouseMove(event: TUIMouseEvent): void {
         // Reveal expanded fold chevrons whenever the mouse is over the gutter.
         this.setFoldGutterHovered(event.localX >= 0 && event.localX < this.gutterWidth);
@@ -954,7 +878,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (this.viewState.getViewLineCount() === 0) return;
         /* v8 ignore stop */
 
-        const pos = this.screenToDocPosition(event.localX, event.localY);
+        const pos = this.docPositionAt(event.localX, event.localY);
         this.viewState.selections = [
             createSelection(this.dragAnchor.line, this.dragAnchor.character, pos.line, pos.character),
         ];

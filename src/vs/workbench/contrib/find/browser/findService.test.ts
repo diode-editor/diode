@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -40,6 +41,7 @@ function makeGroup(): {
         NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
+        createTestEditorContextMenuController(),
     );
     const groupComponent = new EditorGroupComponent(group, themeService);
     return { group, groupComponent, themeService };

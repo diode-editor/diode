@@ -2,7 +2,6 @@ import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import type { OverlayAnchorPosition } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
-import type { MenuEntry } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import type { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
@@ -263,10 +262,6 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     public onDidChangeReadOnly(listener: () => void): IDisposable {
         this.readOnlyListeners.add(listener);
         return { dispose: () => this.readOnlyListeners.delete(listener) };
-    }
-
-    public set contextMenuProvider(provider: () => MenuEntry[]) {
-        this.component.contextMenuProvider = provider;
     }
 
     public onDidChangeCursorPosition(listener: () => void): IDisposable {
