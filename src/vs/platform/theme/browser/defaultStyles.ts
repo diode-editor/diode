@@ -1,4 +1,5 @@
 import type { IButtonStyles } from "../../../../../tuidom/ui/button/buttonElement.ts";
+import type { IListViewStyles } from "../../../../../tuidom/ui/list/listViewElement.ts";
 import type { ITabStripStyles } from "../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
 import type { IMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
 import { unthemedMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
@@ -149,6 +150,17 @@ function getListSelectionStyles(theme: WorkbenchTheme) {
  * Дерево файлов (Explorer): помимо выделения темизирует приглушение
  * «вырезанных» строк и стрелку симлинка (`list.deemphasizedForeground`).
  */
+/**
+ * Виртуализирующий список (ListViewElement): выделение/hover из общих
+ * `list.*`-токенов, шеврон сворачиваемых строк — приглушённым цветом.
+ */
+export function getListViewStyles(theme: WorkbenchTheme): IListViewStyles {
+    return {
+        ...getListSelectionStyles(theme),
+        chevronFg: theme.getRequiredColor("list.deemphasizedForeground"),
+    };
+}
+
 export function getFileTreeStyles(theme: WorkbenchTheme): ITreeViewStyles {
     return {
         ...getListSelectionStyles(theme),
