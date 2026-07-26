@@ -116,6 +116,52 @@ function listFiles(dirAbs, out = []) {
     return out;
 }
 
+/**
+ * DI-правило «токен рядом со своим типом»: файл, зовущий `token<T>()`, обязан
+ * объявлять `T` сам или импортировать его из своего слоя/ниже — иначе токен
+ * семантически ведёт в слой выше себя (см. docs/DI.md «Где объявлять токены»).
+ */
+function checkTokenDeclarations(rel, raw, zoneIdx, violations) {
+    for (const m of raw.matchAll(/\btoken\s*<\s*([A-Za-z0-9_]+)\b/g)) {
+        const typeName = m[1];
+        if (new RegExp(`\\b(class|interface|type)\\s+${typeName}\\b`).test(raw)) continue;
+        const importMatch = raw.match(
+            new RegExp(`import[^;]*\\{[^}]*\\b${typeName}\\b[^}]*\\}\\s*from\\s*["']([^"']+)["']`),
+        );
+        if (!importMatch) continue; // тип не найден — не наша ось (re-export и т.п.)
+        const target = path
+            .normalize(path.join(path.dirname(rel), importMatch[1]))
+            .split(path.sep)
+            .join("/");
+        const targetZone = zoneOf(target);
+        if (targetZone !== null && ZONES.indexOf(targetZone) > zoneIdx) {
+            violations.push(`${rel} → token<${typeName}> (тип из слоя ${targetZone} выше слоя токена)`);
+        }
+    }
+}
+
+/** Нижняя граница DI: tuidom не импортирует src/vs (и, как следствие, diContainer). */
+function checkTuidomBoundary(violations) {
+    const tuidomRoot = path.join(repoRoot, "tuidom");
+    if (!existsSync(tuidomRoot)) return;
+    for (const abs of listFiles(tuidomRoot)) {
+        const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
+        if (!isCheckedSource(rel)) continue;
+        const content = readFileSync(abs, "utf8")
+            .replace(/\/\*[\s\S]*?\*\//g, "")
+            .replace(/^\s*\/\/.*$/gm, "");
+        for (const m of content.matchAll(/(["'])(\.\.?\/[^"']+?\.(?:ts|tsx))\1/g)) {
+            const target = path
+                .normalize(path.join(path.dirname(rel), m[2]))
+                .split(path.sep)
+                .join("/");
+            if (target.startsWith("src/vs/")) {
+                violations.push(`${rel} → ${target}  (tuidom не импортирует src/vs)`);
+            }
+        }
+    }
+}
+
 function main() {
     if (!existsSync(vsRoot)) {
         console.log("[check-layers] src/vs не существует (до миграции) — нечего проверять");
@@ -123,6 +169,7 @@ function main() {
     }
 
     const violations = [];
+    checkTuidomBoundary(violations);
     for (const abs of listFiles(vsRoot)) {
         const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
         if (!isCheckedSource(rel)) continue;
@@ -130,9 +177,11 @@ function main() {
         const env = envOf(rel);
         if (zone === null) continue;
         const zoneIdx = ZONES.indexOf(zone);
+        const raw = readFileSync(abs, "utf8");
+        checkTokenDeclarations(rel, raw, zoneIdx, violations);
         // Комментарии (jsdoc {@link import(...)}) и type-only импорты — не
         // зависимости времени исполнения.
-        const content = readFileSync(abs, "utf8")
+        const content = raw
             .replace(/\/\*[\s\S]*?\*\//g, "")
             .replace(/^\s*\/\/.*$/gm, "")
             .replace(/(?:import|export)\s+type\s[\s\S]*?from\s*["'][^"']+["'];/g, "");
