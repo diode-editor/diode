@@ -94,6 +94,29 @@ export class EditorViewState {
         return new DisplayLine(lineContent, this.tabSize, STOP_RENDERING_LINE_AFTER);
     }
 
+    private longLinesCache: { versionId: number; value: boolean } | null = null;
+
+    /**
+     * Есть ли в документе хоть одна строка длиннее порога рендера
+     * {@link STOP_RENDERING_LINE_AFTER} — т.е. та, что рисуется усечённой. Даёт
+     * статус-бару сигнал «Long lines». Критерий — длина в code units (как и отсечка
+     * в {@link DisplayLine}): O(1) на строку (`getLineLength` не сегментирует),
+     * результат кэшируется по `versionId`.
+     */
+    public hasLinesOverRenderCap(): boolean {
+        const versionId = this.document.versionId;
+        if (this.longLinesCache?.versionId === versionId) return this.longLinesCache.value;
+        let value = false;
+        for (let i = 0; i < this.document.lineCount; i++) {
+            if (this.document.getLineLength(i) > STOP_RENDERING_LINE_AFTER) {
+                value = true;
+                break;
+            }
+        }
+        this.longLinesCache = { versionId, value };
+        return value;
+    }
+
     /**
      * Primary cursor/selection list. Assigning a new array notifies
      * cursor-change listeners (used e.g. by the status bar Ln/Col indicator).

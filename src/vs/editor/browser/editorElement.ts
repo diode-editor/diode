@@ -1,6 +1,7 @@
 import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
 import { Point } from "../../../../tuidom/common/geometryPromitives.ts";
 import { StyleFlags } from "../../../../tuidom/common/styleFlags.ts";
+import { LONG_LINE_TRUNCATION_BADGE } from "../../../../tuidom/common/textLimits.ts";
 import type { TUIEventBase } from "../../../../tuidom/dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import type { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
@@ -61,9 +62,6 @@ const FOLD_GAP_LEFT = 1;
 const FOLD_GAP_RIGHT = 1;
 // Marker drawn after a collapsed region's header line, standing in for the hidden body.
 const FOLD_COLLAPSED_MARKER = "⋯"; // ⋯ horizontal ellipsis
-// Marker drawn at the cut point of an extremely long line whose rendering was
-// stopped at STOP_RENDERING_LINE_AFTER (VS Code shows the same overflow ellipsis).
-const LONG_LINE_TRUNCATION_MARKER = "…"; // U+2026 horizontal ellipsis
 
 // Indentation guide: a vertical line drawn over a region's leading whitespace,
 // spanning the region's body.
@@ -484,16 +482,19 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
 
             // Extremely long line: rendering stopped at STOP_RENDERING_LINE_AFTER.
-            // Draw an overflow ellipsis at the cut point when it is on screen, so
+            // Draw the truncation badge at the cut point when it is on screen, so
             // the truncation is visible rather than silent (à la VS Code).
             if (dl.isTruncated) {
-                const markerCol = dl.displayWidth - scrollLeft;
-                if (markerCol >= 0 && markerCol < contentCols) {
-                    context.setCell(gutterW + markerCol, screenY, {
-                        char: LONG_LINE_TRUNCATION_MARKER,
-                        fg: editorFg,
-                        bg: editorBg,
-                    });
+                const badgeStartCol = dl.displayWidth - scrollLeft;
+                for (let i = 0; i < LONG_LINE_TRUNCATION_BADGE.length; i++) {
+                    const col = badgeStartCol + i;
+                    if (col >= 0 && col < contentCols) {
+                        context.setCell(gutterW + col, screenY, {
+                            char: LONG_LINE_TRUNCATION_BADGE[i],
+                            fg: this.styles.warningForeground,
+                            bg: editorBg,
+                        });
+                    }
                 }
             }
 

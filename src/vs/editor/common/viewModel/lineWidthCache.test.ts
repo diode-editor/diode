@@ -30,10 +30,12 @@ describe("LineWidthCache", () => {
         expect(cache.getMaxWidth()).toBe(4);
     });
 
-    it("caps an extreme line at the render threshold, not its length", () => {
+    it("caps an extreme line at the render threshold (plus the badge), not its length", () => {
         const doc = new TextDocument("z".repeat(1_000_000));
         const cache = new LineWidthCache(doc, 4);
-        expect(cache.getMaxWidth()).toBe(10_000);
+        // Capped prefix width (10 000) + the "[…]" badge (3) so the badge is
+        // reachable by horizontal scroll — never the full million.
+        expect(cache.getMaxWidth()).toBe(10_003);
     });
 
     it("repeated calls without edits are stable", () => {

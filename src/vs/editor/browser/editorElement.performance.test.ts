@@ -256,8 +256,9 @@ describe("EditorElement — extremely long lines must not freeze", () => {
         const ms = performance.now() - t0;
 
         console.log(`[long-line] first contentWidth on ${EXTREME_LINE_LENGTH}-char line: ${ms.toFixed(1)} ms`);
-        // Width is capped, and the scan cost is bounded well under 100 ms.
-        expect(width).toBeLessThanOrEqual(10_000);
+        // Width is capped (prefix 10 000 + the "[…]" badge), and the scan cost is
+        // bounded well under 100 ms — never the 200 000-char line length.
+        expect(width).toBeLessThanOrEqual(10_003);
         expect(ms).toBeLessThan(100);
     }, 120_000);
 

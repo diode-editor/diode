@@ -1,6 +1,9 @@
 import { Disposable } from "../../../../../tuidom/common/disposable.ts";
 import { measureTextWidth } from "../../../../../tuidom/common/measureTextWidth.ts";
-import { STOP_RENDERING_LINE_AFTER } from "../../../../../tuidom/common/textLimits.ts";
+import {
+    LONG_LINE_TRUNCATION_BADGE_WIDTH,
+    STOP_RENDERING_LINE_AFTER,
+} from "../../../../../tuidom/common/textLimits.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 
@@ -83,7 +86,12 @@ export class LineWidthCache extends Disposable {
         for (let i = 0; i < lineCount; i++) {
             let w = this.lineWidths[i];
             if (w === UNCOMPUTED) {
-                w = measureTextWidth(this.document.getLineContent(i), this.tabSizeInternal, STOP_RENDERING_LINE_AFTER);
+                const content = this.document.getLineContent(i);
+                w = measureTextWidth(content, this.tabSizeInternal, STOP_RENDERING_LINE_AFTER);
+                // A truncated line renders a "[…]" badge past its capped content;
+                // include its width so horizontal scroll can actually reach the
+                // badge (otherwise it sits at the exclusive end and is unreachable).
+                if (content.length > STOP_RENDERING_LINE_AFTER) w += LONG_LINE_TRUNCATION_BADGE_WIDTH;
                 this.lineWidths[i] = w;
             }
             if (w > max) max = w;
