@@ -44,6 +44,16 @@ function isSubmenu(entry: MenuEntry): entry is MenuSubmenuEntry {
 /** Индикатор строки-подменю (рисуется в колонке шортката). */
 const SUBMENU_INDICATOR = "›";
 
+/**
+ * Дочерний попап подменю. Вынесено из класса не для красоты: самоссылка
+ * `new PopupMenuElement` в теле класса заставляет esbuild/tsx завести алиас
+ * `_PopupMenuElement`, и `constructor.name` в приложении получает `_`-префикс —
+ * локаторы инспектора (`waitForNode("PopupMenuElement")`) перестают матчить.
+ */
+function createSubmenuPopup(entries: MenuEntry[]): PopupMenuElement {
+    return new PopupMenuElement(entries);
+}
+
 export class PopupMenuElement extends TUIElement {
     public readonly entries: MenuEntry[];
     public selectedIndex: number;
@@ -282,7 +292,7 @@ export class PopupMenuElement extends TUIElement {
             };
         });
 
-        const child = new PopupMenuElement(wrapped);
+        const child = createSubmenuPopup(wrapped);
         child.setStyles(this.styles);
         child.parentMenu = this;
         child.onClose = () => {
