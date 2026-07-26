@@ -315,6 +315,14 @@ describe("SearchComponent", () => {
             fileMatch("/work/project/b.ts", [[3, "let ", "foo", ""]]),
         ];
 
+        it("typing letters in the results list does not typeahead-jump between groups", () => {
+            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            // Курсор на первой строке (file:a.ts); буква «b» не должна прыгать на b.ts.
+            component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "b" }));
+            expect(component.results.inspectState()).toMatchObject({ cursorId: "file:a.ts" });
+        });
+
         it("collapsing a file group hides its matches (tree mode)", () => {
             const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
             typeQuery(component, "foo");

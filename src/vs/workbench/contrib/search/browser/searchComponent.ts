@@ -155,8 +155,12 @@ export class SearchComponent extends ThemedComponent {
     private readonly regexButton = new ButtonElement(REGEX_GLYPH);
     private readonly countLabel = new TextLabelElement("");
     private readonly gaps: TextLabelElement[] = [];
-    /** Результаты — виртуализирующий список; публичен для команд list-навигации и тестов. */
-    public readonly results = new ListViewElement();
+    /**
+     * Результаты — виртуализирующий список; публичен для команд list-навигации и
+     * тестов. Typeahead выключен: в панели поиска набор букв — это уточнение
+     * запроса, а не прыжки по результатам (в отличие от дерева файлов).
+     */
+    public readonly results = new ListViewElement({ typeahead: false });
     private readonly scrollBars: ScrollBarDecorator;
 
     private caseSensitive = false;

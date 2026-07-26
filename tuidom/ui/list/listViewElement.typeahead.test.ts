@@ -101,6 +101,19 @@ describe("ListViewElement typeahead", () => {
         expect(cursorId(list)).toBe("r0");
     });
 
+    it("is disabled entirely by the constructor option", () => {
+        const list = new ListViewElement({ typeahead: false });
+        for (const label of ["alpha", "beta"]) {
+            const row = makeRow(`r-${label}`);
+            list.appendRow(row, { label });
+        }
+        TestApp.createWithContent(list, new Size(30, 10));
+        list.focus();
+
+        key(list, "b");
+        expect(list.inspectState()).toMatchObject({ cursorId: "r-alpha" });
+    });
+
     it("does nothing on an empty list", () => {
         const list = createList([]);
         key(list, "a");

@@ -40,7 +40,10 @@ export const unthemedListViewStyles: IListViewStyles = {
 export interface IListRowOptions {
     /** Родительская строка; глубина/отступ выводятся из цепочки родителей. */
     readonly parentId?: string;
-    /** Текст для typeahead-поиска; строки без label быстрый поиск пропускает. */
+    /**
+     * Текст для typeahead-поиска; строки без label быстрый поиск пропускает.
+     * Сам typeahead выключается опцией конструктора `typeahead: false`.
+     */
     readonly label?: string;
 }
 
@@ -75,6 +78,7 @@ interface ListRow {
  */
 export class ListViewElement extends ScrollableElement {
     private readonly indentSize: number;
+    private readonly typeaheadEnabled: boolean;
 
     private rowById = new Map<string, ListRow>();
     /** Дети по родителю в порядке добавления; ключ null — верхний уровень. */
@@ -106,10 +110,11 @@ export class ListViewElement extends ScrollableElement {
     public onCollapsedChanged: ((element: TUIElement, collapsed: boolean) => void) | null = null;
     public onContextMenu: ((element: TUIElement, screenX: number, screenY: number) => void) | null = null;
 
-    public constructor(options?: { indentSize?: number }) {
+    public constructor(options?: { indentSize?: number; typeahead?: boolean }) {
         super();
         this.tabIndex = 0;
         this.indentSize = options?.indentSize ?? DEFAULT_INDENT_SIZE;
+        this.typeaheadEnabled = options?.typeahead ?? true;
     }
 
     public setStyles(styles: IListViewStyles): void {
@@ -652,6 +657,7 @@ export class ListViewElement extends ScrollableElement {
      * префикс, начиная с текущей строки. Буфер копится, пока не выйдет тайм-аут.
      */
     private handleTypeahead(event: TUIKeyboardEvent): void {
+        if (!this.typeaheadEnabled) return;
         if (event.ctrlKey || event.altKey || event.metaKey) return;
         const ch = event.key;
         // Только одиночные печатные символы: имена клавиш ("Enter", "F1"), управляющие
