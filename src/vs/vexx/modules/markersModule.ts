@@ -1,4 +1,5 @@
 import { FileSystemProviderRegistry } from "../../platform/files/common/fileSystemProviderRegistry.ts";
+import { DiskFileSystemProvider } from "../../platform/files/node/diskFileSystemProvider.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { MarkerService } from "../../platform/markers/common/markerService.ts";
 import {
@@ -29,9 +30,15 @@ export const markersModule: ContainerModule<MarkersModuleContext> = (
     { settingsResource, keybindingsResource },
 ) => {
     container.bind(MarkerServiceDIToken, () => new MarkerService());
-    // Реестр поставщиков содержимого по схеме: пустой до тех пор, пока адаптер
-    // extension host'а не зарегистрирует в нём схемы расширений (`git:`).
-    container.bind(FileSystemProviderRegistryDIToken, () => new FileSystemProviderRegistry());
+    // Реестр поставщиков содержимого по схеме: из коробки — только read-only
+    // `file:` с диска (browser-потребители без открытого редактора, например
+    // прямой дифф из Changes); схемы расширений (`git:`) регистрирует адаптер
+    // extension host'а после активации.
+    container.bind(FileSystemProviderRegistryDIToken, () => {
+        const registry = new FileSystemProviderRegistry();
+        registry.registerProvider("file", new DiskFileSystemProvider());
+        return registry;
+    });
     container.bind(SettingsResourceDIToken, () => settingsResource);
     container.bind(KeybindingsResourceDIToken, () => keybindingsResource);
 };
