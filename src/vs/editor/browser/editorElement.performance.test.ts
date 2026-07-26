@@ -17,7 +17,10 @@
 import { describe, expect, it } from "vitest";
 
 import { DisplayLine } from "../../../../tuidom/common/displayLine.ts";
-import { STOP_RENDERING_LINE_AFTER } from "../../../../tuidom/common/textLimits.ts";
+import {
+    LONG_LINE_TRUNCATION_BADGE_WIDTH,
+    STOP_RENDERING_LINE_AFTER,
+} from "../../../../tuidom/common/textLimits.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { createInsertEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
@@ -256,9 +259,9 @@ describe("EditorElement — extremely long lines must not freeze", () => {
         const ms = performance.now() - t0;
 
         console.log(`[long-line] first contentWidth on ${EXTREME_LINE_LENGTH}-char line: ${ms.toFixed(1)} ms`);
-        // Width is capped (prefix 10 000 + the "[…]" badge), and the scan cost is
-        // bounded well under 100 ms — never the 200 000-char line length.
-        expect(width).toBeLessThanOrEqual(10_003);
+        // Width is capped (prefix 10 000 + the truncation button), and the scan
+        // cost is bounded well under 100 ms — never the 200 000-char line length.
+        expect(width).toBeLessThanOrEqual(STOP_RENDERING_LINE_AFTER + LONG_LINE_TRUNCATION_BADGE_WIDTH);
         expect(ms).toBeLessThan(100);
     }, 120_000);
 

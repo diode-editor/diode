@@ -482,8 +482,9 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
 
             // Extremely long line: rendering stopped at STOP_RENDERING_LINE_AFTER.
-            // Draw the truncation badge at the cut point when it is on screen, so
-            // the truncation is visible rather than silent (à la VS Code).
+            // Draw a labelled "Long line trimmed" button at the cut point when it
+            // is on screen, painted as a warning plaque (dark text on the warning
+            // colour) so the truncation is obvious rather than silent.
             if (dl.isTruncated) {
                 const badgeStartCol = dl.displayWidth - scrollLeft;
                 for (let i = 0; i < LONG_LINE_TRUNCATION_BADGE.length; i++) {
@@ -491,8 +492,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                     if (col >= 0 && col < contentCols) {
                         context.setCell(gutterW + col, screenY, {
                             char: LONG_LINE_TRUNCATION_BADGE[i],
-                            fg: this.styles.warningForeground,
-                            bg: editorBg,
+                            fg: editorBg,
+                            bg: this.styles.warningForeground,
                         });
                     }
                 }

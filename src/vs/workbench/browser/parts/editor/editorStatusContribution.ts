@@ -54,7 +54,6 @@ export class EditorStatusContribution extends Disposable {
     private encodingHandle: IStatusBarEntryHandle | null = null;
     private eolHandle: IStatusBarEntryHandle | null = null;
     private languageHandle: IStatusBarEntryHandle | null = null;
-    private longLinesHandle: IStatusBarEntryHandle | null = null;
     private editorSubscriptions: IDisposable[] = [];
 
     public constructor(
@@ -81,7 +80,6 @@ export class EditorStatusContribution extends Disposable {
                 this.encodingHandle?.dispose();
                 this.eolHandle?.dispose();
                 this.languageHandle?.dispose();
-                this.longLinesHandle?.dispose();
             },
         });
         // Подхватываем редактор, ставший активным до создания contribution'а.
@@ -107,12 +105,6 @@ export class EditorStatusContribution extends Disposable {
                 this.update();
             }),
             editor.onDidChangeEncoding(() => {
-                this.update();
-            }),
-            // Content changes can add or remove long lines — most sharply in the
-            // Output panel, where the long line arrives via append after the file
-            // is already open. Refresh the "Long lines" indicator on each edit.
-            editor.viewState.document.onDidChangeContent(() => {
                 this.update();
             }),
         ];
@@ -151,15 +143,6 @@ export class EditorStatusContribution extends Disposable {
         this.languageHandle = this.setSegment(this.languageHandle, this.languageSegment(editor), (text) =>
             this.statusBar.addEntry({ id: "status.editor.mode", text, alignment: "right", priority: 70 }),
         );
-        this.longLinesHandle = this.setSegment(this.longLinesHandle, this.longLinesSegment(editor), (text) =>
-            this.statusBar.addEntry({
-                id: "status.editor.longLines",
-                text,
-                alignment: "right",
-                priority: 60,
-                kind: "warning",
-            }),
-        );
     }
 
     /** Приводит запись сегмента к целевому тексту: снять / обновить / добавить. */
@@ -197,18 +180,6 @@ export class EditorStatusContribution extends Disposable {
     private eolSegment(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
         return editor.eol === EndOfLine.CRLF ? "CRLF" : "LF";
-    }
-
-    /**
-     * Индикатор «строки за порогом рендера»: показывается, только когда в файле
-     * есть строка длиннее {@link STOP_RENDERING_LINE_AFTER} и потому рисуется
-     * усечённой. Сигнал пользователю, что редактор урезал вывод (компаньон
-     * бейджа `[…]` в конце строки). Null — когда таких строк нет или редактора
-     * нет.
-     */
-    private longLinesSegment(editor: IActiveEditorStatus | null): string | null {
-        if (editor === null) return null;
-        return editor.viewState.hasLinesOverRenderCap() ? "⚠ Long lines" : null;
     }
 
     /**

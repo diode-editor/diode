@@ -12,11 +12,12 @@
 export const STOP_RENDERING_LINE_AFTER = 10_000;
 
 /**
- * Кнопка-бейдж, рисуемая в конце усечённой строки (см. `EditorElement`), и её
- * ширина в колонках. Ширина учитывается в `contentWidth` усечённой строки, иначе
- * бейдж встал бы ровно на `contentWidth` (эксклюзивный конец) и горизонтальный
- * скролл никогда не довёл бы до него. Все символы бейджа шириной 1 → длина строки
- * равна ширине в колонках.
+ * Кнопка-плашка, рисуемая в конце усечённой строки (см. `EditorElement`), и её
+ * ширина в колонках. Подписанная («Long line trimmed»), чтобы сразу читалось,
+ * что строка урезана. Ширина учитывается в `contentWidth` усечённой строки, иначе
+ * плашка встала бы ровно на `contentWidth` (эксклюзивный конец) и горизонтальный
+ * скролл никогда не довёл бы до неё. Все символы шириной 1 → длина строки равна
+ * ширине в колонках.
  */
-export const LONG_LINE_TRUNCATION_BADGE = "[…]";
+export const LONG_LINE_TRUNCATION_BADGE = " Long line trimmed ";
 export const LONG_LINE_TRUNCATION_BADGE_WIDTH = LONG_LINE_TRUNCATION_BADGE.length;

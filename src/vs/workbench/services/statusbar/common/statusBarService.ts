@@ -18,13 +18,6 @@ export interface IStatusBarEntry {
     readonly priority: number;
     /** Колбэк клика; записи без него инертны. */
     readonly onClick?: () => void;
-    /**
-     * Семантическая роль записи (VS Code `IStatusbarEntry.kind`). `"warning"`
-     * красит плашку в тему-цвета `statusBarItem.warning*`, чтобы она выделялась
-     * (например индикатор «Long lines»). Резолвит цвета `StatusBarComponent` —
-     * поставщик записи остаётся тема-агностичным.
-     */
-    readonly kind?: "warning";
 }
 
 /**

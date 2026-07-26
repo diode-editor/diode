@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+    LONG_LINE_TRUNCATION_BADGE_WIDTH,
+    STOP_RENDERING_LINE_AFTER,
+} from "../../../../../tuidom/common/textLimits.ts";
 import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
@@ -30,12 +34,12 @@ describe("LineWidthCache", () => {
         expect(cache.getMaxWidth()).toBe(4);
     });
 
-    it("caps an extreme line at the render threshold (plus the badge), not its length", () => {
+    it("caps an extreme line at the render threshold (plus the button), not its length", () => {
         const doc = new TextDocument("z".repeat(1_000_000));
         const cache = new LineWidthCache(doc, 4);
-        // Capped prefix width (10 000) + the "[…]" badge (3) so the badge is
+        // Capped prefix width (10 000) + the truncation button so it stays
         // reachable by horizontal scroll — never the full million.
-        expect(cache.getMaxWidth()).toBe(10_003);
+        expect(cache.getMaxWidth()).toBe(STOP_RENDERING_LINE_AFTER + LONG_LINE_TRUNCATION_BADGE_WIDTH);
     });
 
     it("repeated calls without edits are stable", () => {

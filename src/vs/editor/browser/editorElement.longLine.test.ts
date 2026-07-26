@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
-import { STOP_RENDERING_LINE_AFTER } from "../../../../tuidom/common/textLimits.ts";
+import {
+    LONG_LINE_TRUNCATION_BADGE,
+    LONG_LINE_TRUNCATION_BADGE_WIDTH,
+    STOP_RENDERING_LINE_AFTER,
+} from "../../../../tuidom/common/textLimits.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement, unthemedEditorStyles } from "./editorElement.ts";
 
-const TRUNCATION_BADGE = "[…]";
+const BADGE_LABEL = LONG_LINE_TRUNCATION_BADGE.trim(); // "Long line trimmed"
 
-function createEditor(text: string, width = 40, height = 3): { app: TestApp; editor: EditorElement; vs: EditorViewState } {
+function createEditor(text: string, width = 60, height = 3): { app: TestApp; editor: EditorElement; vs: EditorViewState } {
     const doc = new TextDocument(text);
     const vs = new EditorViewState(doc);
     const editor = new EditorElement(vs);
@@ -18,59 +22,56 @@ function createEditor(text: string, width = 40, height = 3): { app: TestApp; edi
     return { app, editor, vs };
 }
 
-describe("EditorElement — long-line truncation badge", () => {
-    it("draws the [truncation] badge at the cut point when it is on screen", () => {
-        // One line a bit longer than the render cap → rendering stops at the cap
-        // and the cut point sits at display column STOP_RENDERING_LINE_AFTER.
-        const { app, editor, vs } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 50), 40, 3);
+describe("EditorElement — long-line truncation button", () => {
+    it("draws the 'Long line trimmed' button at the cut point when on screen", () => {
+        const { app, editor, vs } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 500), 60, 3);
         const gw = editor.gutterWidth;
-        const contentCols = 40 - gw;
+        const contentCols = 60 - gw;
 
-        // Scroll so the cut column lands a few columns into the viewport.
-        const badgeScreenCol = 10;
-        vs.scrollLeft = STOP_RENDERING_LINE_AFTER - badgeScreenCol;
+        // Scroll so the whole button lands inside the content area.
+        const buttonScreenCol = 5;
+        vs.scrollLeft = STOP_RENDERING_LINE_AFTER - buttonScreenCol;
         app.render();
 
         const backend = app.backend;
-        // Columns before the cut still show real content ('x').
-        expect(backend.getTextAt(new Point(gw + badgeScreenCol - 1, 0), 1)).toBe("x");
-        // The cut point shows the three-cell button badge "[…]".
-        expect(backend.getTextAt(new Point(gw + badgeScreenCol, 0), 3)).toBe(TRUNCATION_BADGE);
-        // Past the badge is blank (nothing beyond the cap is rendered).
-        expect(backend.getTextAt(new Point(gw + badgeScreenCol + 3, 0), 1)).toBe(" ");
-        // Badge stays inside the content area.
-        expect(badgeScreenCol + TRUNCATION_BADGE.length).toBeLessThan(contentCols);
+        // The button's full label is rendered at the cut point.
+        expect(backend.getTextAt(new Point(gw + buttonScreenCol, 0), LONG_LINE_TRUNCATION_BADGE_WIDTH)).toBe(
+            LONG_LINE_TRUNCATION_BADGE,
+        );
+        // Whole button fits inside the content area.
+        expect(buttonScreenCol + LONG_LINE_TRUNCATION_BADGE_WIDTH).toBeLessThanOrEqual(contentCols);
     });
 
-    it("paints the badge in the warning colour so it reads as an affordance", () => {
-        const { app, editor, vs } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 50), 40, 3);
+    it("paints the button as a warning plaque (warning background)", () => {
+        const { app, editor, vs } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 500), 60, 3);
         const gw = editor.gutterWidth;
-        const badgeScreenCol = 10;
-        vs.scrollLeft = STOP_RENDERING_LINE_AFTER - badgeScreenCol;
+        const buttonScreenCol = 5;
+        vs.scrollLeft = STOP_RENDERING_LINE_AFTER - buttonScreenCol;
         app.render();
 
-        // Untouched by a theme, the editor uses the unthemed style baseline.
-        expect(app.backend.getFgAt(new Point(gw + badgeScreenCol, 0))).toBe(unthemedEditorStyles.warningForeground);
+        // A cell inside the label carries the warning colour as its background.
+        const labelCell = new Point(gw + buttonScreenCol + 1, 0);
+        expect(app.backend.getBgAt(labelCell)).toBe(unthemedEditorStyles.warningForeground);
     });
 
-    it("shows no badge when the cut point is scrolled off to the right", () => {
-        const { app, editor, vs } = createEditor("y".repeat(STOP_RENDERING_LINE_AFTER + 50), 40, 3);
+    it("shows no button when the cut point is scrolled off to the right", () => {
+        const { app, editor, vs } = createEditor("y".repeat(STOP_RENDERING_LINE_AFTER + 500), 60, 3);
         const gw = editor.gutterWidth;
         vs.scrollLeft = 0; // viewport shows the head; cut point is far to the right
         app.render();
 
-        const row = app.backend.getTextAt(new Point(gw, 0), 40 - gw);
-        expect(row).not.toContain("…");
+        const row = app.backend.getTextAt(new Point(gw, 0), 60 - gw);
+        expect(row).not.toContain(BADGE_LABEL);
     });
 
-    it("draws no badge for a line at or below the cap", () => {
-        const { app, editor, vs } = createEditor("z".repeat(STOP_RENDERING_LINE_AFTER), 40, 3);
+    it("draws no button for a line at or below the cap", () => {
+        const { app, editor, vs } = createEditor("z".repeat(STOP_RENDERING_LINE_AFTER), 60, 3);
         const gw = editor.gutterWidth;
         // Scroll to the very end of the (non-truncated) line.
         vs.scrollLeft = STOP_RENDERING_LINE_AFTER - 10;
         app.render();
 
-        const row = app.backend.getTextAt(new Point(gw, 0), 40 - gw);
-        expect(row).not.toContain("…");
+        const row = app.backend.getTextAt(new Point(gw, 0), 60 - gw);
+        expect(row).not.toContain(BADGE_LABEL);
     });
 });

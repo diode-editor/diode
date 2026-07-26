@@ -22,19 +22,16 @@ export default defineScenario({
     cols: 100,
     rows: 20,
     async run(editor) {
-        // The editor renders at all (no freeze) — the head comment is on screen,
-        // and the status bar already carries the "⚠ Long lines" indicator.
+        // The editor renders at all (no freeze) — the head comment is on screen.
         await editor.waitForText((t) => t.includes("minified bundle"));
-        await editor.waitForText((t) => t.includes("Long lines"));
         await editor.capture("at-open");
 
         // Move onto the giant line and jump to its end. The cursor clamps to the
-        // render cap; a nudge right scrolls the last columns fully into view so the
-        // whole "[…]" truncation badge shows at the cut point.
+        // render cap; the reveal scrolls the last columns fully into view so the
+        // whole "Long line trimmed" button shows at the cut point.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("End");
-        await editor.wheel(60, 2, "right");
-        await editor.waitForText((t) => t.includes("[…]"));
+        await editor.waitForText((t) => t.includes("Long line trimmed"));
         await editor.capture("cut-marker");
     },
 });
