@@ -7,7 +7,6 @@ import type { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboard
 import type { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { TUIPasteEvent } from "../../../../tuidom/dom/events/tuiPasteEvent.ts";
 import { RenderContext, TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
-import type { BodyElement } from "../../../../tuidom/ui/body/bodyElement.ts";
 import type { OverlaySessionHandle } from "../../../../tuidom/ui/contextview/overlayLayer.ts";
 import type { MenuEntry } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { PopupMenuElement } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
@@ -927,11 +926,6 @@ export class EditorElement extends TUIElement implements IScrollable {
         session.dispose();
     }
 
-    private getOverlayLayer() {
-        const root = this.getRoot();
-        if (!root) return null;
-        return (root as BodyElement).overlayLayer;
-    }
 
     private handleMouseMove(event: TUIMouseEvent): void {
         // Reveal expanded fold chevrons whenever the mouse is over the gutter.

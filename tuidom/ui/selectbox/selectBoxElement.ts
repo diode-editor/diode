@@ -3,7 +3,6 @@ import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
-import type { BodyElement } from "../body/bodyElement.ts";
 import type { OverlaySessionHandle } from "../contextview/overlayLayer.ts";
 import type { MenuEntry } from "../menu/popupMenuElement.ts";
 import { PopupMenuElement } from "../menu/popupMenuElement.ts";
@@ -177,8 +176,8 @@ export class SelectBoxElement extends TUIElement {
     }
 
     private open(): void {
-        const layer = (this.getRoot() as BodyElement | null)?.overlayLayer;
-        if (layer === undefined || this.options.length === 0) return;
+        const layer = this.getOverlayLayer();
+        if (layer === null || this.options.length === 0) return;
 
         const entries: MenuEntry[] = this.options.map((option, index) => {
             if (option.isSeparator === true) return { type: "separator" };

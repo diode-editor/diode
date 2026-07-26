@@ -22,6 +22,13 @@ export class EditorGroupElement extends TUIElement {
      * widget (and any future editor-group overlay). Positions are relative to the
      * group; the layer clips its items to the group bounds.
      */
+    /**
+     * Слой группы — только для докнутых виджетов группы (find), которые приходят
+     * к нему адресно через этот геттер. getOverlayLayer здесь сознательно НЕ
+     * переопределён: попапы/контекстные меню из содержимого группы должны жить
+     * в глобальном слое BodyElement (позиции слоя — в его локальных координатах,
+     * а слой группы вдобавок клипует к её границам).
+     */
     public get overlayLayer(): OverlayLayer {
         return this.overlayLayerValue;
     }

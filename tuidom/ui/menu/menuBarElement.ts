@@ -3,7 +3,6 @@ import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIFocusEvent } from "../../dom/events/tuiFocusEvent.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
-import type { BodyElement } from "../body/bodyElement.ts";
 import type { OverlayLayer } from "../contextview/overlayLayer.ts";
 import type { OverlaySessionHandle } from "../contextview/overlayLayer.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../layout/hFlexElement.ts";
@@ -249,6 +248,8 @@ export class MenuBarElement extends TUIElement {
         this.activeMenu = menu;
 
         const layer = this.getOverlayLayer();
+        /* v8 ignore next -- defensive: меню-бар всегда прикреплён к BodyElement со слоем */
+        if (!layer) return;
         const position = this.getMenuGlobalPosition(index);
         let session: OverlaySessionHandle | null = null;
         session = layer.createSession(menu, position, {
@@ -342,7 +343,4 @@ export class MenuBarElement extends TUIElement {
         return new Point(this.globalPosition.x + el.localPosition.dx, this.globalPosition.y + 1);
     }
 
-    private getOverlayLayer(): OverlayLayer {
-        return (this.getRoot() as BodyElement).overlayLayer;
-    }
 }

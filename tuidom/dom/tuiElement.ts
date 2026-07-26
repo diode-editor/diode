@@ -3,6 +3,8 @@ import { BoxConstraints, Offset, Point, Rect, Size } from "../common/geometryPro
 import type { CellPatch, ReadonlyCellData } from "../rendering/grid.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 
+import type { OverlayLayer } from "../ui/contextview/overlayLayer.ts";
+
 import { BORDER_ROUNDED, type BorderStyle } from "./borderStyle.ts";
 import type { FocusManager } from "./events/focusManager.ts";
 import { EventPhase, TUIEventBase } from "./events/tuiEventBase.ts";
@@ -568,6 +570,15 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
      */
     public getRoot(): TUIElement | null {
         return this.root;
+    }
+
+    /**
+     * Ближайший overlay-слой вверх по дереву (попапы, контекстные меню,
+     * докнутые виджеты). Элементы-хосты слоёв (BodyElement, EditorGroupElement)
+     * переопределяют и возвращают свой слой.
+     */
+    public getOverlayLayer(): OverlayLayer | null {
+        return this.getParent()?.getOverlayLayer() ?? null;
     }
 
     /**

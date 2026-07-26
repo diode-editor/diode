@@ -20,6 +20,10 @@ export class BodyElement extends TUIElement {
         this.overlayLayer.setParent(this);
     }
 
+    public override getOverlayLayer(): OverlayLayer {
+        return this.overlayLayer;
+    }
+
     public setContent(element: TUIElement): void {
         this.content = element;
         this.content.setParent(this);
