@@ -6,7 +6,6 @@ import { QuickDiffServiceDIToken } from "../contrib/scm/browser/quickDiffService
 import { ThemeConfigContributionDIToken } from "../contrib/themes/browser/themeConfigContribution.ts";
 import { TerminalEnvStatusContributionDIToken } from "../services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
 
-import { EditorContextMenuContributionDIToken } from "./parts/editor/editorContextMenuContribution.ts";
 import { EditorStatusContributionDIToken } from "./parts/editor/editorStatusContribution.ts";
 import { PanelFocusContributionDIToken } from "./parts/panel/panelFocusContribution.ts";
 
@@ -21,7 +20,6 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: TerminalEnvStatusContributionDIToken, phase: "restored" },
     { token: AutoRevealContributionDIToken, phase: "restored" },
     { token: ThemeConfigContributionDIToken, phase: "restored" },
-    { token: EditorContextMenuContributionDIToken, phase: "restored" },
     { token: OpenFileCommandContributionDIToken, phase: "restored" },
     { token: PanelFocusContributionDIToken, phase: "restored" },
     // Каналы Output как команды + пункты submenu селектора.

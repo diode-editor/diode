@@ -1,6 +1,6 @@
 import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import type { OverlayAnchorPosition } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
-import type { MenuEntry } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
+import { TUIContextMenuEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import type { IEditorStyles } from "../../../../editor/browser/editorElement.ts";
 import { EditorElement, unthemedEditorStyles } from "../../../../editor/browser/editorElement.ts";
@@ -79,18 +79,12 @@ export class EditorComponent extends ThemedComponent {
     private readonly selectionListeners: (() => void)[] = [];
     /** Текущая подписка на view-state; перевешивается при его пересоздании. */
     private viewStateCursorSubscription?: IDisposable;
-    private contextMenuProviderValue?: () => MenuEntry[];
     /**
      * Кэш стилей редактора из последнего updateStyles: EditorElement пересоздаётся
      * при перечитке модели с диска, и свежий экземпляр должен получить те же
      * стили без повторного визита темы.
      */
     private currentEditorStyles: IEditorStyles = unthemedEditorStyles;
-
-    public set contextMenuProvider(provider: () => MenuEntry[]) {
-        this.contextMenuProviderValue = provider;
-        this.editor.contextMenuProvider = provider;
-    }
 
     public get foldingRangeSource(): FoldingRangeSource | undefined {
         return this.foldingRangeSourceValue;
@@ -226,9 +220,6 @@ export class EditorComponent extends ThemedComponent {
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = this.tokenStyleResolver;
         this.editor.tabIndex = 0;
-        if (this.contextMenuProviderValue !== undefined) {
-            this.editor.contextMenuProvider = this.contextMenuProviderValue;
-        }
         this.editor.setStyles(this.currentEditorStyles);
         this.attachUndoRouting();
         // Курсор сброшен на (0,0) вместе с view-state — перевешиваем форвардинг и
@@ -272,11 +263,21 @@ export class EditorComponent extends ThemedComponent {
     }
 
     /**
-     * Открывает контекстное меню редактора с клавиатуры (Shift+F10), заякорив его на
-     * каретке. Делегирует в {@link EditorElement.openContextMenuAtCaret}.
+     * Открывает контекстное меню редактора с клавиатуры (Shift+F10): диспатчит
+     * синтетическое событие "contextmenu" на элементе редактора — командный путь
+     * сходится в общий пайплайн editor/contrib/contextmenu (якорь — каретка).
      */
     public showContextMenu(): void {
-        this.editor.openContextMenuAtCaret();
+        this.editor.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "keyboard",
+                button: "none",
+                screenX: this.editor.globalPosition.x,
+                screenY: this.editor.globalPosition.y,
+                localX: 0,
+                localY: 0,
+            }),
+        );
     }
 
     public focus(): void {

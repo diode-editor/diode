@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import { PopupMenuElement } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
@@ -130,49 +129,6 @@ describe("EditorElement — drag anchor reset on mouseup", () => {
 
         const afterRelease = editor.viewState.selections[0];
         expect(afterRelease.active).toEqual({ line: 1, character: 3 });
-    });
-});
-
-// ─── Context-menu layer null guard ──────────────────────────
-
-describe("EditorElement — context menu without a layer", () => {
-    it("right-click on a detached editor does not throw when no layer is present", () => {
-        // Construct an editor that is NOT mounted into a BodyElement, so
-        // getOverlayLayer() returns null and openContextMenu bails out.
-        const doc = new TextDocument("hello");
-        const viewState = new EditorViewState(doc);
-        const editor = new EditorElement(viewState);
-        editor.contextMenuEntries = [{ label: "Copy" }];
-
-        expect(() =>
-            editor.dispatchEvent(
-                new TUIMouseEvent("mousedown", {
-                    button: "right",
-                    screenX: 2,
-                    screenY: 0,
-                    localX: 2,
-                    localY: 0,
-                }),
-            ),
-        ).not.toThrow();
-    });
-});
-
-// ─── Context menu's own onClose closes the session ──────────
-
-describe("EditorElement — context menu onClose wiring", () => {
-    it("invoking the popup menu's onClose closes the overlay session", () => {
-        const { app, editor } = createEditor("hello world", 40, 10);
-        editor.contextMenuEntries = [{ label: "Copy" }];
-
-        fireMouse(editor, "mousedown", 5, 0, "right");
-        expect(app.root.overlayLayer.hasVisibleItems()).toBe(true);
-
-        // The menu wires its own onClose to session.close(); firing it tears the popup down.
-        const menu = app.root.overlayLayer.getItems()[0].element as PopupMenuElement;
-        menu.onClose?.();
-
-        expect(app.root.overlayLayer.hasVisibleItems()).toBe(false);
     });
 });
 

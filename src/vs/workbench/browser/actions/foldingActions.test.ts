@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { settle } from "../../../../TestUtils/timing.ts";
@@ -49,6 +50,7 @@ function openEditor(content: string) {
         NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
+        createTestEditorContextMenuController(),
     );
     const filePath = ws.writeFile("doc.txt", content);
     ctrl.openFile(filePath);

@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -34,6 +35,7 @@ function openEditor(content: string) {
         NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
+        createTestEditorContextMenuController(),
     );
     const filePath = ws.writeFile("doc.txt", content);
     ctrl.openFile(filePath);

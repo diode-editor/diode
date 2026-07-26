@@ -68,7 +68,9 @@ describe("Workbench — Shift+F10 context menu", () => {
         const menu = h.testApp.querySelectorAll("PopupMenuElement");
         expect(menu).toHaveLength(1);
         expect(menu[0].globalPosition.x).toBe(caret!.x);
-        expect(menu[0].globalPosition.y).toBe(caret!.y);
+        // Канон openPopupSession: попап открывается строкой ниже якоря
+        // (preferBelow), у нижнего края экрана флипается вверх.
+        expect(menu[0].globalPosition.y).toBe(caret!.y + 1);
     });
 
     it("Escape closes the menu opened via Shift+F10", () => {

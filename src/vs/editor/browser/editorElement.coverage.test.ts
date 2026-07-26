@@ -4,7 +4,6 @@ import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
 import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import { PopupMenuElement } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createSelection } from "../common/core/iSelection.ts";
 import { createLineTokens, createToken } from "../common/languages/iLineTokens.ts";
@@ -203,42 +202,5 @@ describe("EditorElement — keypress modifier handling", () => {
         const editor = makeEditor("ab");
         fireKeyPress(editor, { key: "ArrowLeft" });
         expect(editor.viewState.document.getText()).toBe("ab");
-    });
-});
-
-describe("EditorElement — context menu separators and close lifecycle", () => {
-    it("passes separator entries through unchanged (no onSelect wrapping)", () => {
-        const doc = new TextDocument("hello");
-        const viewState = new EditorViewState(doc);
-        const editor = new EditorElement(viewState);
-        const app = TestApp.createWithContent(editor, new Size(40, 10));
-        editor.contextMenuEntries = [{ label: "Copy" }, { type: "separator" }, { label: "Paste" }];
-
-        fireMouseDown(editor, 5, 0, "right");
-
-        const menuEl = app.root.overlayLayer.getItems()[0].element as PopupMenuElement;
-        // The middle entry is a separator and must be preserved verbatim.
-        expect(menuEl.entries[1]).toEqual({ type: "separator" });
-    });
-
-    it("clears the active session when the popup closes, allowing a fresh open", () => {
-        const doc = new TextDocument("hello");
-        const viewState = new EditorViewState(doc);
-        const editor = new EditorElement(viewState);
-        const app = TestApp.createWithContent(editor, new Size(40, 10));
-        editor.contextMenuEntries = [{ label: "Copy" }];
-
-        fireMouseDown(editor, 5, 0, "right");
-        expect(app.root.overlayLayer.hasVisibleItems()).toBe(true);
-
-        // Close by clicking outside → the layer's onClose fires, resetting the
-        // active session (the `session === activeContextMenuSession` branch).
-        fireMouseDown(editor, 2, 2, "left");
-        expect(app.root.overlayLayer.hasVisibleItems()).toBe(false);
-
-        // A subsequent right-click opens a brand-new popup.
-        fireMouseDown(editor, 6, 1, "right");
-        expect(app.root.overlayLayer.hasVisibleItems()).toBe(true);
-        expect(app.root.overlayLayer.getItems().length).toBe(1);
     });
 });

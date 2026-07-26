@@ -21,6 +21,11 @@ export const editorConfiguration: IConfigurationNode = {
             default: 3,
             description: "Controls the minimal number of visible leading lines around the cursor.",
         },
+        "editor.contextmenu": {
+            type: "boolean",
+            default: true,
+            description: "Controls whether the editor shows the context menu.",
+        },
         // editor.detectIndentation — добавим, когда редактор станет читать её из конфига.
     },
 };

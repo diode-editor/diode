@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -41,6 +42,7 @@ function createEditorService(
         overrides.configurationService ?? NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
+        createTestEditorContextMenuController(),
     );
 }
 

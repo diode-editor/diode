@@ -9,6 +9,8 @@ import type { ITokenStyleResolver } from "../../../../editor/common/languages/iT
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
+import { ContextMenuControllerDIToken } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { IFileWatcherDIToken } from "../../../../platform/files/common/iFileWatcherDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -55,6 +57,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         IConfigurationServiceDIToken,
         UndoRedoServiceDIToken,
         IFileWatcherDIToken,
+        ContextMenuControllerDIToken,
     ] as const;
 
     private panes: IEditorPane[] = [];
@@ -90,6 +93,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private configurationService: IConfigurationService;
     private undoRedoService: UndoRedoService;
     private fileWatcher: IFileWatcher;
+    private contextMenuController: ContextMenuController;
     private activeEditorListeners: ((editor: TextEditorPane | null) => void)[] = [];
     private editorSavedListeners: ((meta: IEditorSavedMeta) => void)[] = [];
     private editorsChangedListeners: (() => void)[] = [];
@@ -218,6 +222,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         configurationService: IConfigurationService,
         undoRedoService: UndoRedoService,
         fileWatcher: IFileWatcher,
+        contextMenuController: ContextMenuController,
     ) {
         super();
         this.themeService = themeService;
@@ -227,6 +232,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.configurationService = configurationService;
         this.undoRedoService = undoRedoService;
         this.fileWatcher = fileWatcher;
+        this.contextMenuController = contextMenuController;
         // Live-reload: при изменении `editor.*` настроек перепримeняем их ко всем
         // открытым редакторам группы (не только к вновь создаваемым).
         this.register(
@@ -447,6 +453,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             model,
         );
         const editor = new TextEditorPane(model, component);
+        // Политика контекстного меню редактора слушает "contextmenu" на обвязке
+        // пары: ScrollBarDecorator переживает пересоздание EditorElement при
+        // перечитке, сам элемент контроллер берёт из цели события.
+        this.contextMenuController.attach(component.view);
         this.wirePane(editor);
         // Наблюдатель ставим до возможного openFile, чтобы слежение началось с
         // первой загрузки.

@@ -141,7 +141,6 @@ dispose реестра сматывает все contribution'ы. Две фаз�
 Текущие: `EditorStatusContribution`, `TerminalEnvStatusContribution` (сегменты
 статус-бара), `AutoRevealContribution` (`explorer.autoReveal`),
 `ThemeConfigContribution` (live-reload `workbench.colorTheme`),
-`EditorContextMenuContribution` (провайдер контекст-меню редактора из `MenuRegistry`),
 `OpenFileCommandContribution` (команда `workbench.openFile`),
 `PanelFocusContribution` (возврат фокуса в редактор, когда содержимое нижней панели
 уходит со сцены). Все — `restored`.
@@ -208,9 +207,9 @@ shortTitle → title» фиксируется при деривации). Явн
 **MenuService (потребление).** `MenuService.createMenu(menuId) → IMenu` (аналог
 `IMenuService`/`IMenu`): живое меню одной точки — `getEntries(context?)`/
 `getSubmenus()` резолвят на момент вызова, `onDidChange` переэмитит смену
-состава реестра. Консюмеры не ходят в реестр напрямую: контекст-меню редактора
-(`EditorContextMenuContribution` → `EditorElement.contextMenuProvider`),
-Explorer (`ExplorerComponent.showContextMenu`), меню-бар (`MenuBarComponent`:
+состава реестра. Консюмеры не ходят в реестр напрямую: контекстные меню — через
+`ContextMenuService` (`platform/contextview`, делегаты с `menuId`; редактор —
+`editor/contrib/contextmenu`), меню-бар (`MenuBarComponent`:
 top-уровень — `getSubmenus(MenubarMainMenu)`, entries каждого меню — ленивый
 геттер, резолв при открытии попапа — шорткаты и динамические пункты всегда
 актуальны, порядок резолва относительно user keybindings не важен). Событий

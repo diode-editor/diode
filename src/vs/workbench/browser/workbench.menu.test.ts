@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { TUIContextMenuEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { MenuBarElement } from "../../../../tuidom/ui/menu/menuBarElement.ts";
 import type { MenuEntry, MenuItemEntry } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { PopupMenuElement } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
@@ -437,9 +438,22 @@ describe("Workbench — menu bar wiring", () => {
 });
 
 describe("Workbench — editor context menu", () => {
+    /** Открывает настоящее меню (клавиатурный триггер) и читает пункты попапа. */
     function getEditorEntries(testApp: TestApp): MenuEntry[] {
         const editor = testApp.querySelector("EditorElement") as EditorElement;
-        return editor.contextMenuProvider?.() ?? editor.contextMenuEntries;
+        editor.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "keyboard",
+                button: "none",
+                screenX: editor.globalPosition.x,
+                screenY: editor.globalPosition.y,
+                localX: 0,
+                localY: 0,
+            }),
+        );
+        const items = testApp.root.overlayLayer.getItems();
+        const popup = items[items.length - 1].element as PopupMenuElement;
+        return popup.entries;
     }
 
     it("populates editor context menu entries when an editor is created", () => {

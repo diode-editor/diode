@@ -153,12 +153,6 @@ describe("getEditorStyles", () => {
         expect(styles.indentGuideForeground).toBe(unthemedEditorStyles.indentGuideForeground);
         expect(styles.indentGuideActiveForeground).toBe(unthemedEditorStyles.indentGuideActiveForeground);
     });
-
-    it("carries the context-menu styles through the same channel", () => {
-        const theme = makeTheme();
-
-        expect(getEditorStyles(theme).menu).toEqual(getMenuStyles(theme));
-    });
 });
 
 describe("getFileTreeStyles", () => {

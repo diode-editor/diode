@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 
 import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -26,6 +27,7 @@ function createEditorService(): EditorService {
         NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
+        createTestEditorContextMenuController(),
     );
 }
 

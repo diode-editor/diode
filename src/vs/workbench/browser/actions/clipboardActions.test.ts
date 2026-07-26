@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createCursorSelection, createSelection } from "../../../editor/common/core/iSelection.ts";
@@ -47,6 +48,7 @@ function createGroup(): EditorService {
         NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
+        createTestEditorContextMenuController(),
     );
 }
 
