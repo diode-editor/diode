@@ -30,16 +30,38 @@ export class DisplayLine {
     public readonly slots: readonly GraphemeSlot[];
     /** Total display width in terminal columns */
     public readonly displayWidth: number;
+    /**
+     * `true`, если строка была длиннее `stopAfter` и разобран лишь префикс —
+     * рендер по этому флагу рисует маркер обрезки. При `stopAfter = Infinity`
+     * (дефолт) всегда `false`.
+     */
+    public readonly isTruncated: boolean;
 
     private readonly columnMap: Int32Array;
     private readonly rawLength: number;
 
-    public constructor(raw: string, tabSize: number = DEFAULT_TAB_SIZE) {
+    /**
+     * @param stopAfter Максимум code units, которые разбираем. За порогом
+     * сегментация обрывается (лениво — `Intl.Segmenter` не трогает хвост), а
+     * `columnMap` аллоцируется по длине **префикса**, а не всей строки, — иначе
+     * одна мегабайтная строка съедала бы мегабайтный `Int32Array`. Дефолт
+     * `Infinity` сохраняет прежнее поведение для всех не-редакторных вызовов.
+     */
+    public constructor(raw: string, tabSize: number = DEFAULT_TAB_SIZE, stopAfter: number = Infinity) {
         const slots: GraphemeSlot[] = [];
         let column = 0;
-        this.rawLength = raw.length;
+        // Длина разобранного префикса: либо вся строка, либо offset первой
+        // отброшенной графемы (сегменты непрерывны, поэтому это ровно граница).
+        let scannedLength = raw.length;
+        let truncated = false;
 
         for (const { segment, index } of segmenter.segment(raw)) {
+            if (index >= stopAfter) {
+                truncated = true;
+                scannedLength = index;
+                break;
+            }
+
             let displayWidth: number;
 
             if (segment === "\t") {
@@ -63,10 +85,14 @@ export class DisplayLine {
 
         this.slots = slots;
         this.displayWidth = column;
+        this.isTruncated = truncated;
+        // За порогом строка ведёт себя как оканчивающаяся на `scannedLength`:
+        // офсеты в хвосте клампятся к `displayWidth` (курсор прилипает к маркеру).
+        this.rawLength = scannedLength;
 
         // Build reverse lookup: for each code unit offset → display column
         // This allows O(1) offsetToColumn lookups.
-        const map = new Int32Array(raw.length + 1);
+        const map = new Int32Array(scannedLength + 1);
         column = 0;
         for (const slot of slots) {
             for (let i = 0; i < slot.length; i++) {
@@ -74,7 +100,7 @@ export class DisplayLine {
             }
             column += slot.displayWidth;
         }
-        map[raw.length] = column; // past-the-end = total width
+        map[scannedLength] = column; // past-the-end = total width
         this.columnMap = map;
     }
 
