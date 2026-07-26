@@ -1,18 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
+import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { FileSystemProviderRegistry } from "../../platform/files/common/fileSystemProviderRegistry.ts";
 import { createTestContainer } from "../../vexx/modules/testProfile.ts";
 import { FileSystemProviderRegistryDIToken } from "../common/coreTokens.ts";
 import type { ChangesComponent } from "../contrib/scm/browser/changesComponent.ts";
 import { ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
-import type { ScmChangesService } from "../contrib/scm/browser/changesService.ts";
-import { PUBLISH_CHANGES_COMMAND, ScmChangesServiceDIToken } from "../contrib/scm/browser/changesService.ts";
+import { PUBLISH_CHANGES_COMMAND } from "../contrib/scm/browser/changesService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
@@ -26,8 +25,9 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
  * Сквозной гейт этапа 6 «до кадра»: SCM-расширение (заглушка) публикует набор
  * изменённых файлов командой `vexx.scm.publishChanges`, а вьюлет **Source
  * Control** в сайдбаре (вместо Explorer, переключение командой `workbench.view.scm`)
- * показывает их списком; активация файла открывает дифф этапа 5. Роль git играют
- * заглушки (`git:`-провайдер + `originalResource`), путь ядра — настоящий.
+ * показывает их списком; активация файла открывает дифф этапа 5 напрямую, без
+ * промежуточной файловой вкладки. Роль git играют заглушки (`git:`-провайдер +
+ * `originalResource`), путь ядра — настоящий.
  */
 
 const AT_HEAD = "alpha\nbravo\ncharlie\ndelta\n";
@@ -42,7 +42,6 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     let commands: CommandRegistry;
     let editors: EditorService;
     let changes: ChangesComponent;
-    let scm: ScmChangesService;
     let sidebar: SidebarService;
     let sideBg: number;
     let testApp: TestApp;
@@ -60,26 +59,37 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         );
     }
 
+    /** Активирует строку списка клавиатурным путём: курсор на строку → Enter. */
+    function activate(absolutePath: string): void {
+        changes.list.setCursorTo(Uri.file(absolutePath).toString());
+        changes.list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+    }
+
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-changes-", files: { "a.txt": AT_HEAD } });
+        ws = createTempWorkspace({
+            prefix: "vexx-changes-",
+            files: { "a.txt": AT_HEAD, "nested/b.txt": "b-on-disk\n", "untracked.txt": "brand new\n" },
+        });
 
         const { container, bindApp } = createTestContainer();
-        const registry = new FileSystemProviderRegistry();
-        registry.registerProvider("git", {
+        // Дополняем штатный реестр (в нём уже есть file: из markersModule)
+        // git:-провайдером — как это делает адаптер расширения. Untracked-файлу
+        // originalResource отвечает null — как настоящее git-расширение.
+        container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
             onDidChangeFile: () => ({ dispose: () => undefined }),
         });
-        container.bind(FileSystemProviderRegistryDIToken, () => registry);
 
         workbench = container.get(WorkbenchComponentDIToken);
         commands = container.get(CommandRegistryDIToken);
         editors = container.get(EditorServiceDIToken);
         changes = container.get(ChangesComponentDIToken);
-        scm = container.get(ScmChangesServiceDIToken);
         sidebar = container.get(SidebarServiceDIToken);
         sideBg = container.get(ThemeServiceDIToken).theme.getRequiredColor("sideBar.background");
         commands.register(ORIGINAL_RESOURCE_COMMAND, (raw) =>
-            Uri.from({ scheme: "git", path: String(raw), query: '{"ref":"HEAD"}' }).toString(),
+            String(raw).endsWith("untracked.txt")
+                ? null
+                : Uri.from({ scheme: "git", path: String(raw), query: '{"ref":"HEAD"}' }).toString(),
         );
 
         workbench.setWorkspaceFolder(ws.dir);
@@ -115,8 +125,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(sidebar.getActiveViewletId()).toBe("scm");
         expect(screen).toContain("SOURCE CONTROL");
         expect(screen).toContain("nested/b.txt");
-        // Дерево покрашено темой сайдбара (bg = sideBar bg), а не дефолтом — отрисовано.
-        expect(changes.tree.resolvedStyle.bg).toBe(sideBg);
+        // Список покрашен темой сайдбара (bg = sideBar bg), а не дефолтом — отрисован.
+        expect(changes.list.resolvedStyle.bg).toBe(sideBg);
     });
 
     it("переключение Explorer ↔ Source Control меняет содержимое сайдбара", () => {
@@ -134,7 +144,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(screen).not.toContain("SOURCE CONTROL");
     });
 
-    it("активация файла открывает дифф этапа 5 (файл ↔ HEAD)", async () => {
+    it("активация открытого файла показывает дифф с несохранёнными правками — одной вкладкой", async () => {
         // Правим буфер, не сохраняя: дифф должен показать несохранённое.
         const editor = editors.getActiveEditor();
         editor?.goToPosition(1, 0);
@@ -144,8 +154,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         commands.execute(SHOW_SCM);
         await settle(0);
 
-        // Активируем узел файла — тот же обработчик, что зовёт клик/Enter по списку.
-        changes.tree.onActivate?.(scm.changes[0]);
+        const panesBefore = editors.editorCount;
+        activate(ws.path("a.txt"));
         await settle(10);
         testApp.render();
 
@@ -153,5 +163,61 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(screen).toContain("a.txt ↔ HEAD");
         expect(screen).toContain("-  bravo");
         expect(screen).toContain("+  XXbravo");
+        // Ровно одна новая вкладка — дифф; файловая не открывалась (файл уже был открыт).
+        expect(editors.editorCount).toBe(panesBefore + 1);
+    });
+
+    it("активация НЕоткрытого файла читает диск и открывает только дифф-вкладку", async () => {
+        publish([{ path: ws.path("nested/b.txt"), rel: "nested/b.txt", status: "M", colorId: MODIFIED }]);
+        commands.execute(SHOW_SCM);
+        await settle(0);
+
+        activate(ws.path("nested/b.txt"));
+        await settle(10);
+        testApp.render();
+
+        expect(testApp.backend.screenToString()).toContain("b.txt ↔ HEAD");
+        // Файловая вкладка b.txt не появилась — только a.txt из beforeEach и дифф.
+        // fsPath не бросает на не-file схемах (дифф-вкладка несёт тот же путь) —
+        // файловую вкладку отличаем схемой.
+        const panes = editors.getPanes();
+        expect(panes.filter((p) => p.uri.scheme === "vexx-diff")).toHaveLength(1);
+        expect(panes.some((p) => p.uri.scheme === "file" && p.uri.fsPath === ws.path("nested/b.txt"))).toBe(false);
+    });
+
+    it("активация untracked-файла открывает сам файл, а не notice", async () => {
+        publish([{ path: ws.path("untracked.txt"), rel: "untracked.txt", status: "U", colorId: UNTRACKED }]);
+        commands.execute(SHOW_SCM);
+        await settle(0);
+
+        activate(ws.path("untracked.txt"));
+        await settle(10);
+        testApp.render();
+
+        const screen = testApp.backend.screenToString();
+        expect(screen).toContain("brand new");
+        expect(screen).not.toContain("↔ HEAD");
+        expect(screen).not.toContain("No changes to compare");
+        expect(editors.getPanes().some((p) => p.uri.fsPath === ws.path("untracked.txt"))).toBe(true);
+    });
+
+    it("scm.action.viewAsTree группирует по папкам, viewAsList возвращает пути", async () => {
+        publish([
+            { path: ws.path("a.txt"), rel: "a.txt", status: "M", colorId: MODIFIED },
+            { path: ws.path("nested/b.txt"), rel: "nested/b.txt", status: "M", colorId: MODIFIED },
+        ]);
+        commands.execute(SHOW_SCM);
+        await settle(0);
+
+        commands.execute("scm.action.viewAsTree");
+        testApp.render();
+        let screen = testApp.backend.screenToString();
+        expect(screen).toContain("nested");
+        expect(screen).not.toContain("nested/b.txt");
+
+        commands.execute("scm.action.viewAsList");
+        testApp.render();
+        screen = testApp.backend.screenToString();
+        expect(screen).toContain("nested/b.txt");
     });
 });
