@@ -65,7 +65,7 @@ RPC-мостов vscode). Смысловые правила поверх осе�
 - **Недисковые ресурсы** — читаются через `IFileSystemProviderRegistry` (`platform/files/common`): схема → read-only поставщик. Поставщиков даёт extension host (расширение регистрирует `workspace.registerFileSystemProvider`; встроенный git — схему `git:` с версией файла из ревизии), связывает их с реестром `api/browser/fileSystemProviderAdapter.ts`. Схему `file` реестр не обслуживает — файлы на диске читает `TextFileModel` напрямую.
 - **Editor не зависит от темизации и расширений** — связь через интерфейсы `ITokenStyleResolver`/`ILanguageService` (`vs/editor/common/languages/`); их реализуют `workbench/services/themes` и `workbench/services/extensions`.
 - **Extension host** (`vs/workbench/api/`) — единственное место, где расширения поднимаются к workbench-сервисам: адаптеры (`*Adapter` ≈ `mainThread*`) типизированы минимальными портами и связываются в DI.
-- **Editor-фичи с сервисами** (find/suggest) живут в `workbench/contrib`, а не `editor/contrib` (у vscode — второе): наш DI-запрет не пускает токены в editor-слой. Осознанное отклонение — см. [TODO/VscodeStructureFollowUps.md](TODO/VscodeStructureFollowUps.md).
+- **Editor-фичи** могут жить в `editor/contrib` с собственными токенами и `static dependencies` на platform-сервисы (пилот — `editor/contrib/contextmenu`). В `workbench/contrib` остаётся то, что реально зависит от workbench-сервисов: find/suggest сидят на `EditorService` (группы/вкладки) — их переезд требует развязки, см. [TODO/VscodeStructureFollowUps.md](TODO/VscodeStructureFollowUps.md).
 - **Inspector** (`tuidom/inspector`) зависит только от tuidom; транспорт — рукописный WebSocket на `node:http`; write/capture-порт `InspectorDriver` — интерфейс, адаптер даёт `vexx`-слой.
 
 ### Дословный перенос upstream: `editor/common/diff`
@@ -95,11 +95,15 @@ RPC-мостов vscode). Смысловые правила поверх осе�
 
 Примитивы DI (`Token`, `Container`, `token()`) живут в
 `vs/platform/instantiation/common/diContainer.ts` (путь vscode-овский, модель
-наша — токены + `static dependencies`, без декораторов), но **объявлять
-конкретные DI-токены и импортировать `Container`** можно **только на уровнях
-workbench и vexx** (плюс исторические исключения `*DIToken`-файлов в
-platform). Сквозные токены ядра — `vs/workbench/common/coreTokens.ts`;
-биндинги собираются в модулях `vs/vexx/modules/`.
+наша — токены + `static dependencies`, без декораторов). **Токен объявляется
+рядом со своим типом; слой токена = слой типа** — platform-сервисы держат
+токены в platform (сейчас их там 13), editor-фичи — в editor, workbench-сервисы
+— в workbench. Отдельного списка «слоёв с DI» нет: импорт токена проверяет та
+же ось зависимостей, что и любой импорт (`valid-layers-check`, включая правило
+«файл с `token<T>()` берёт `T` из своего слоя или ниже»). Нижняя граница:
+`tuidom/` токенов не объявляет и `diContainer` не импортирует. Сквозные токены
+ядра без файла-владельца — `vs/workbench/common/coreTokens.ts`; биндинги
+собираются в модулях `vs/vexx/modules/`.
 
 Все DI-токены именуются по конвенции `*DIToken` (например
 `EditorServiceDIToken`, `TuiApplicationDIToken`). Подробности — [DI.md](DI.md).

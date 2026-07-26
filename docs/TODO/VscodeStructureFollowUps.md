@@ -8,9 +8,12 @@
 
 - [ ] **find/suggest → `editor/contrib`.** Сервисные части фич редактора
   (`FindService`/`CompletionService` и их компоненты) живут в
-  `workbench/contrib/{find,suggest}`, у vscode — `editor/contrib`. Мешает наш
-  DI-запрет (токены только workbench+vexx); нужен editor-скоуп токенов или
-  ослабление правила.
+  `workbench/contrib/{find,suggest}`, у vscode — `editor/contrib`. DI-запрет
+  для editor-слоя снят (токен объявляется рядом со своим типом, пилот —
+  `editor/contrib/contextmenu`), но переезду мешает не он: оба сервиса честно
+  зависят от `EditorService` (workbench-понятия групп/вкладок) и
+  `Find/SuggestComponentDIToken` (workbench). Нужна развязка — в upstream
+  editor-contrib работают с одним `ICodeEditor`, а не с сервисом групп.
 - [ ] **Single-process исключения env-оси** (`EXCEPTIONS` в
   `scripts/check-layers.mjs`): «browser»-сторона напрямую зовёт node-сервисы
   (`services/search/node`, `services/terminalEnvironment/node`,

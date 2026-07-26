@@ -23,18 +23,18 @@
 
 ## Где объявлять токены
 
-DI-токены и зависимости (`static dependencies`) объявляются **только на уровнях Workbench и App**. Слои ниже (Editor, TUIDom, Input, Rendering, Backend) не должны импортировать `Container`, `token()` или `Token` и не должны объявлять DI-токены.
+**Токен объявляется рядом со своим типом** — в том же файле, что и класс/интерфейс, к которому он ведёт, либо в соседнем файле `*DIToken.ts` того же каталога (образец: `src/vs/platform/configuration/common/iConfigurationServiceDIToken.ts`). Слой токена = слой типа: токен platform-сервиса живёт в platform, editor-фичи — в editor, workbench-сервиса — в workbench.
 
-`Common/DiContainer.ts` реализует механизм DI, но конкретные токены в Common/ не объявляются.
+Отдельного списка «слоёв, где можно DI» нет — его заменяет ось зависимостей: импорт токена подчиняется тем же правилам слоёв, что и любой другой импорт. Проверяет `npm run valid-layers-check`, включая правило «файл с `token<T>()` берёт `T` из своего слоя или ниже» — токен не может вести к типу из слоя выше себя.
 
-Сквозные токены ядра (`TuiApplicationDIToken`, `TerminalBackendDIToken`, `ClipboardDIToken`, `MarkerServiceDIToken`, `StateServiceDIToken`, `SettingsResourceDIToken`/`KeybindingsResourceDIToken` и др.) живут в `src/vs/workbench/Services/CoreTokens.ts`; там же, в `Workbench/Services/`, — токены сервисов (`CommandRegistryDIToken`, `KeybindingRegistryDIToken`, `ContextKeyServiceDIToken`, `IFileWatcherDIToken`, `FileSearchServiceDIToken`, `UndoRedoServiceDIToken` и т.п.). Токены компонентов (`*ComponentDIToken`) — рядом с компонентами в `Workbench/Components/`.
+Нижняя граница: **`tuidom/` токенов не объявляет и `diContainer` не импортирует** — движок не тянет DI-модель Vexx (кандидат на отдельный репозиторий; сторож — в `check-layers`).
+
+Сквозные токены ядра, у которых нет файла-владельца (`TuiApplicationDIToken`, `TerminalBackendDIToken`, `ClipboardDIToken` и др.), живут в `src/vs/workbench/common/coreTokens.ts`. Размещение там части сервисных токенов — наследие прежнего правила «токены только в workbench»; новые токены туда не добавлять, объявлять рядом с типом.
 
 ## Объявление токенов
 
-Токены объявляются рядом с реализацией (`Workbench/Services/` для сервисов, `Workbench/Components/` для компонентов):
-
 ```typescript
-import { token } from "../Common/DiContainer.ts";
+import { token } from "../../platform/instantiation/common/diContainer.ts";
 
 export const EditorServiceDIToken = token<EditorService>("EditorService");
 ```
