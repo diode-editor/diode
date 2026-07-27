@@ -480,15 +480,16 @@ describe("WorkbenchLayoutElement", () => {
             expect(center.layoutSize).toEqual(new Size(80, 24));
         });
 
-        it("re-attaches a previously-hidden panel to the live root when shown", () => {
+        it("скрытая панель укоренена всегда — root производный от цепочки родителей", () => {
             const layout = new WorkbenchLayoutElement();
             const panel = createPanel();
-            layout.setBottomPanel(panel); // attached while layout has no root → panel.root null
-            layout.setAsRoot(); // setAsRoot does not propagate to (hidden) descendants
-            expect(panel.getRoot()).toBeNull();
+            layout.setBottomPanel(panel); // прикрепление до укоренения layout
+            layout.setAsRoot();
+            // Раньше root был кэшем и у скрытой панели протухал (null) до
+            // повторного показа; теперь выводится из живой цепочки родителей.
+            expect(panel.getRoot()).toBe(layout);
 
             layout.setBottomPanelVisible(true);
-            // Showing re-attaches the subtree so it picks up the current root.
             expect(panel.getRoot()).toBe(layout);
         });
 

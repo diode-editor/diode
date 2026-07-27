@@ -236,7 +236,9 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     public localPosition: Offset = new Offset(0, 0);
     public isLayoutDirty = true;
     protected _parent: TUIElement | null = null;
-    protected root: TUIElement | null = null;
+    // Якорь дерева: выставляется setAsRoot() (BodyElement, тестовые корни).
+    // Сам root НЕ кэшируется — getRoot() выводит его из цепочки родителей.
+    private isRootAnchor = false;
 
     // Callback invoked when markDirty reaches the root — used by TuiApplication to schedule a render
     private requestRenderCallback: (() => void) | null = null;
@@ -275,7 +277,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     public get isFocused(): boolean {
-        const fm = this.root?.focusManager ?? null;
+        const fm = this.getRoot()?.focusManager ?? null;
         return fm !== null && fm.activeElement === this;
     }
 
@@ -531,14 +533,14 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     // ─── Focus convenience ───
 
     public focus(): void {
-        const fm = this.root?.focusManager ?? null;
+        const fm = this.getRoot()?.focusManager ?? null;
         if (fm) {
             fm.setFocus(this);
         }
     }
 
     public blur(): void {
-        const fm = this.root?.focusManager ?? null;
+        const fm = this.getRoot()?.focusManager ?? null;
         if (fm?.activeElement === this) {
             fm.setFocus(null);
         }
@@ -562,33 +564,44 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     /**
-     * Sets parent reference for dirty propagation and root reference propagation.
-     * Called by parent elements when adding children.
+     * Sets parent reference for dirty propagation. Called by parent elements
+     * when adding children. Отцепление (parent=null) гасит фокус, если он был
+     * внутри отцепляемого поддерева — иначе клавиатура продолжала бы уходить в
+     * элемент, которого больше нет на экране.
      */
     public setParent(parent: TUIElement | null): void {
+        if (parent === null && this._parent !== null) {
+            const fm = this.getRoot()?.focusManager ?? null;
+            let node = fm?.activeElement ?? null;
+            while (node !== null && node !== this) {
+                node = node.getParent();
+            }
+            if (node === this) {
+                (fm as FocusManager).setFocus(null);
+            }
+        }
         this._parent = parent;
-        const newRoot = parent ? parent.root : null;
-        this.propagateRoot(newRoot);
         if (parent && (this.isStyleDirty || this.subtreeStyleDirty)) {
             this.markSubtreeStyleDirtyUp();
         }
     }
 
-    private propagateRoot(newRoot: TUIElement | null): void {
-        if (newRoot === null && this.root?.focusManager?.activeElement === this) {
-            this.root.focusManager.setFocus(null);
-        }
-        this.root = newRoot;
-        for (const child of this.getChildren()) {
-            child.propagateRoot(newRoot);
-        }
-    }
-
     /**
-     * Returns the root element of the hierarchy.
+     * Корень дерева — **производный** от цепочки родителей: прогулка вверх до
+     * вершины; если вершина — якорь (setAsRoot), это и есть корень, иначе
+     * поддерево отсоединено и корня нет. Раньше root был кэшем, который
+     * пропагировался вниз через getChildren() при setParent — контейнеры,
+     * прячущие детей из getChildren() (неактивные вкладки), оставляли их с
+     * протухшим null-root навсегда (семейство багов #204: focus()/open()
+     * молча не работали). Живая цепочка родителей протухнуть не может.
      */
     public getRoot(): TUIElement | null {
-        return this.root;
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        let current: TUIElement = this;
+        while (current._parent !== null) {
+            current = current._parent;
+        }
+        return current.isRootAnchor ? current : null;
     }
 
     /**
@@ -602,9 +615,11 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
 
     /**
      * Sets this element as the root (used for testing and by BodyElement).
+     * Помечает элемент якорем — getRoot() признаёт корнем только вершину
+     * цепочки с этой меткой.
      */
     public setAsRoot(): void {
-        this.root = this;
+        this.isRootAnchor = true;
     }
 
     /**

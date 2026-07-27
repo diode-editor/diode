@@ -257,7 +257,7 @@ describe("контракт контейнера: дети, скрытые из g
         expect(actions.getRoot()).not.toBeNull();
     });
 
-    it.fails("[этап 3] скрытая нижняя панель укореняется вместе с layout", () => {
+    it("скрытая нижняя панель укоренена вместе с layout (производный root)", () => {
         const container = new WorkbenchLayoutElement();
         const bottom = new TUIElement();
         container.setBottomPanel(bottom);

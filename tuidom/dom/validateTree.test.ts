@@ -48,23 +48,26 @@ describe("validateTree", () => {
         expect(violations.some((v) => v.includes("orphan") && v.includes("getParent"))).toBe(true);
     });
 
-    it("ловит неукоренённое поддерево — модель бага #204", () => {
+    it("модель бага #204 больше не нарушение: производный root не протухает", () => {
+        // Раньше: ребёнок, прикреплённый к неукоренённому контейнеру и скрытый
+        // из getChildren() в момент укоренения, навсегда оставался с root=null.
+        // Теперь getRoot() выводится из живой цепочки родителей — состояние
+        // валидно без всяких перецеплений.
         const container = new ContainerElement();
         const child = new TUIElement();
         child.id = "stale";
-        container.add(child); // container не укоренён → child.root = null
+        container.add(child); // контейнер ещё не укоренён
 
         const root = makeRootedContainer();
-        // Прячем ребёнка от пропагации: родитель укореняется, но getChildren в
-        // этот момент «не отдаёт» ребёнка (вкладка неактивна).
+        // Ребёнок скрыт из getChildren() в момент укоренения (вкладка неактивна).
         const childrenSpy = container.getChildren.bind(container);
         let hideChildren = true;
         container.getChildren = () => (hideChildren ? [] : childrenSpy());
         root.add(container);
-        hideChildren = false; // «вкладку активировали» — ребёнок снова виден
+        hideChildren = false; // «вкладку активировали»
 
-        const violations = validateTree(root);
-        expect(violations.some((v) => v.includes("stale") && v.includes("не укоренён"))).toBe(true);
+        expect(child.getRoot()).toBe(root);
+        expect(validateTree(root)).toEqual([]);
     });
 
     it("ловит двойное прикрепление одного элемента", () => {
