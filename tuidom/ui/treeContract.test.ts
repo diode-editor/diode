@@ -5,8 +5,8 @@ import { TUIElement } from "../dom/tuiElement.ts";
 import { validateTree } from "../dom/validateTree.ts";
 
 import { BodyElement } from "./body/bodyElement.ts";
+import { OverlayHostElement } from "./contextview/overlayHostElement.ts";
 import { OverlayLayer } from "./contextview/overlayLayer.ts";
-import { EditorGroupElement } from "./editorgroup/editorGroupElement.ts";
 import { BoxContainerElement } from "./layout/boxContainerElement.ts";
 import { FitContentElement } from "./layout/fitContentElement.ts";
 import { HFlexElement, hflexFill } from "./layout/hFlexElement.ts";
@@ -154,9 +154,9 @@ const CASES: ContainerCase[] = [
         },
     },
     {
-        name: "EditorGroupElement",
+        name: "OverlayHostElement",
         build: () => {
-            const container = new EditorGroupElement();
+            const container = new OverlayHostElement();
             const child = new TUIElement();
             container.setContent(child);
             return { container, child };

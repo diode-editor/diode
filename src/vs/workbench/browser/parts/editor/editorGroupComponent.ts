@@ -1,7 +1,11 @@
 import * as path from "node:path";
 
-import { EditorGroupElement } from "../../../../../../tuidom/ui/editorgroup/editorGroupElement.ts";
+import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
+import { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
 import type { TabInfo } from "../../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
+import { EditorTabStripElement } from "../../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
+import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
+import { VFlexElement, vflexFill, vflexFixed } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { getTabStripStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
@@ -16,30 +20,43 @@ import type { IEditorPane } from "./iEditorPane.ts";
 export const EditorGroupComponentDIToken = token<EditorGroupComponent>("EditorGroupComponent");
 
 /**
- * Компонент группы редакторов: владеет {@link EditorGroupElement} (tab strip +
- * контент-хост + локальный OverlayLayer для find-виджета) и отражает в нём
+ * Компонент группы редакторов: собирает группу из примитивов tuidom —
+ * {@link OverlayHostElement} (локальный OverlayLayer для find-виджета) поверх
+ * VFlex [tab strip (1 ряд), контент-слот (остаток)] — и отражает в ней
  * состояние {@link EditorService} — по {@link EditorService.onDidChangeEditors}
  * вставляет view активного {@link TextEditorPane} и перерисовывает табы (метки с
- * разводкой тёзок, иконки, маркер изменённости, активная вкладка). Клики по
- * табам возвращаются в сервис (`activateTab`/`closeTab`; закрытие «грязной»
- * вкладки — через `onRequestConfirmClose`).
+ * разводкой тёзок, иконки, маркер изменённости, активная вкладка). Пустой слот
+ * занимает филлер, крашеный editor.background. Клики по табам возвращаются в
+ * сервис (`activateTab`/`closeTab`; закрытие «грязной» вкладки — через
+ * `onRequestConfirmClose`).
  */
 export class EditorGroupComponent extends ThemedComponent {
     public static dependencies = [EditorServiceDIToken, ThemeServiceDIToken] as const;
 
-    public readonly view: EditorGroupElement;
+    public readonly view: OverlayHostElement;
+
+    private readonly vflex = new VFlexElement();
+    private readonly tabStrip = new EditorTabStripElement();
+    /** Держит и красит пустую область группы, пока не открыт ни один редактор. */
+    private readonly emptyFiller = new FillerElement();
+    /** Текущий житель контент-слота: view активной pane либо emptyFiller. */
+    private contentSlot: TUIElement;
 
     public constructor(
         private readonly editorService: EditorService,
         themeService: ThemeService,
     ) {
         super(themeService);
-        this.view = new EditorGroupElement();
+        this.view = new OverlayHostElement();
         this.view.id = "editorGroup";
-        this.view.tabStrip.onTabActivate = (index) => {
+        this.tabStrip.layoutStyle = { height: vflexFixed(1), width: "fill" };
+        this.contentSlot = this.emptyFiller;
+        this.syncSlot(this.emptyFiller);
+        this.view.setContent(this.vflex);
+        this.tabStrip.onTabActivate = (index) => {
             this.editorService.activateTab(index);
         };
-        this.view.tabStrip.onTabClose = (index) => {
+        this.tabStrip.onTabClose = (index) => {
             // Индекс приходит из tab strip и всегда указывает на существующую вкладку.
             // Именно getPane, а не getEditor: закрывать надо вкладку любого вида,
             // иначе не-текстовую панель (дифф) нельзя было бы закрыть крестиком.
@@ -62,16 +79,24 @@ export class EditorGroupComponent extends ThemedComponent {
         this.initStyles();
     }
 
+    /** Вставляет жителя контент-слота: [tabStrip, слот] одним replaceChildren. */
+    private syncSlot(slot: TUIElement): void {
+        slot.layoutStyle = { height: vflexFill(), width: "fill" };
+        this.vflex.replaceChildren([this.tabStrip, slot]);
+        this.contentSlot = slot;
+    }
+
     /** Приводит контрол к состоянию сервиса: контент активного редактора + табы. */
     private syncFromService(): void {
         // Именно ВКЛАДКА: `getActivePane()` следует за фокусом и при работе в
         // нижней панели вернул бы её detached-редактор — группа вставила бы его
         // вместо файла, и область редактора оказывалась пустой.
         const activeView = this.editorService.getActiveTabPane()?.view ?? null;
-        // Guard от повторной вставки того же view: setContent перевешивает parent,
-        // а активный редактор меняется реже, чем файрится onDidChangeEditors.
-        if (this.view.getContent() !== activeView) {
-            this.view.setContent(activeView);
+        const next = activeView ?? this.emptyFiller;
+        // Guard от повторной вставки того же view: replaceChildren перевешивает
+        // parent, а активный редактор меняется реже, чем файрится onDidChangeEditors.
+        if (this.contentSlot !== next) {
+            this.syncSlot(next);
         }
         this.syncTabs();
     }
@@ -90,8 +115,8 @@ export class EditorGroupComponent extends ThemedComponent {
             };
         });
 
-        this.view.tabStrip.setTabs(tabs);
-        this.view.tabStrip.activeIndex = this.editorService.activeIndex;
+        this.tabStrip.setTabs(tabs);
+        this.tabStrip.activeIndex = this.editorService.activeIndex;
     }
 
     /**
@@ -144,7 +169,8 @@ export class EditorGroupComponent extends ThemedComponent {
     }
 
     protected updateStyles(): void {
-        this.view.tabStrip.setStyles(getTabStripStyles(this.theme));
+        this.tabStrip.setStyles(getTabStripStyles(this.theme));
+        // emptyFiller наследует editor.background от view через каскад.
         this.view.style = {
             fg: this.theme.getRequiredColor("editor.foreground"),
             bg: this.theme.getRequiredColor("editor.background"),

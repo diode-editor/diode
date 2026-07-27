@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { BodyElement } from "../ui/body/bodyElement.ts";
-import { EditorGroupElement } from "../ui/editorgroup/editorGroupElement.ts";
+import { OverlayHostElement } from "../ui/contextview/overlayHostElement.ts";
 import { BoxElement } from "../ui/layout/boxElement.ts";
 
 import { TUIElement } from "./tuiElement.ts";
@@ -36,16 +36,16 @@ describe("TUIElement.getOverlayLayer — ближайший overlay-слой в�
         expect(body.getOverlayLayer()).toBe(body.overlayLayer);
     });
 
-    it("EditorGroupElement's docked-widget layer is not exposed — popups go to the body layer", () => {
-        // Слой группы живёт в её локальных координатах и клипует к её границам —
+    it("OverlayHostElement's docked-widget layer is not exposed — popups go to the body layer", () => {
+        // Слой хоста живёт в его локальных координатах и клипует к его границам —
         // он для докнутых виджетов (find), а не для попапов из содержимого.
         const body = new BodyElement();
-        const group = new EditorGroupElement();
-        body.setContent(group);
+        const host = new OverlayHostElement();
+        body.setContent(host);
         const leaf = new TUIElement();
-        group.setContent(leaf);
+        host.setContent(leaf);
 
         expect(leaf.getOverlayLayer()).toBe(body.overlayLayer);
-        expect(group.getOverlayLayer()).toBe(body.overlayLayer);
+        expect(host.getOverlayLayer()).toBe(body.overlayLayer);
     });
 });
