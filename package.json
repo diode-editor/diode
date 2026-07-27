@@ -33,6 +33,7 @@
     "lint": "eslint src/ extensions/",
     "lint:fix": "eslint src/ extensions/ --fix",
     "valid-layers-check": "node scripts/check-layers.mjs",
+    "pack:tuidom": "node scripts/pack-tuidom.mjs",
     "import:vscode-diff": "node scripts/import-vscode-diff.mjs"
   },
   "devDependencies": {
