@@ -225,7 +225,8 @@ export function buildTuidomPackage({ pkgName, license, smoke }) {
 const { values: args } = parseArgs({
     options: {
         publish: { type: "boolean", default: false },
-        name: { type: "string", default: "tuidom" },
+        // Скоуп организации: голое "tuidom" npm отклоняет как too similar к чужому "tui-dom".
+        name: { type: "string", default: "@tuidom/all" },
         license: { type: "string", default: "MIT" },
         tag: { type: "string" },
         "no-smoke": { type: "boolean", default: false },
