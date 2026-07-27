@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createStatusBarHarness } from "./statusBarComponent.testUtils.ts";
+import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { HFlexElement } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
+import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+
+import { clickSegment, createStatusBarHarness, statusSegments, statusTexts } from "./statusBarComponent.testUtils.ts";
 
 describe("StatusBarComponent", () => {
     let savedEnv: NodeJS.ProcessEnv;
@@ -28,10 +32,9 @@ describe("StatusBarComponent", () => {
         process.env = savedEnv;
     });
 
-    it("view is a StatusBarElement with the statusBar id", () => {
+    it("view is the composed flex row with the statusBar id", () => {
         const { component } = createStatusBarHarness();
-        expect(component.view).toBeDefined();
-        expect(component.view.constructor.name).toBe("StatusBarElement");
+        expect(component.view).toBeInstanceOf(HFlexElement);
         expect(component.view.id).toBe("statusBar");
     });
 
@@ -39,7 +42,7 @@ describe("StatusBarComponent", () => {
         const { component } = createStatusBarHarness();
 
         // Test env has no probe → legacy tier, no non-local modes.
-        expect(component.view.getItems()).toEqual([{ text: "legacy" }]);
+        expect(statusSegments(component.view)).toEqual([{ text: "legacy", side: "left" }]);
     });
 
     it("shows the cursor position (right-aligned) after a file is opened", () => {
@@ -47,15 +50,14 @@ describe("StatusBarComponent", () => {
 
         source.openEditor();
 
-        const items = component.view.getItems();
-        expect(items).toEqual([
-            { text: "legacy" },
-            { text: "Ln 1, Col 1", align: "right" },
-            { text: "UTF-8", align: "right", onClick: expect.any(Function) as () => void },
-            { text: "LF", align: "right", onClick: expect.any(Function) as () => void },
+        expect(statusSegments(component.view)).toEqual([
+            { text: "legacy", side: "left" },
+            { text: "Ln 1, Col 1", side: "right" },
+            { text: "UTF-8", side: "right" },
+            { text: "LF", side: "right" },
             // NULL_LANGUAGE_SERVICE не знает display name — беджик показывает
             // сырой language id.
-            { text: "plaintext", align: "right" },
+            { text: "plaintext", side: "right" },
         ]);
     });
 
@@ -65,9 +67,9 @@ describe("StatusBarComponent", () => {
         const editor = source.openEditor();
         editor.viewState.type("x");
 
-        const items = component.view.getItems();
-        expect(items).not.toContainEqual({ text: "test-statusbar-nofile.txt" });
-        expect(items).not.toContainEqual({ text: "[Modified]" });
+        const texts = statusTexts(component.view);
+        expect(texts).not.toContain("test-statusbar-nofile.txt");
+        expect(texts).not.toContain("[Modified]");
     });
 
     it("omits the cursor position when there is no selection", () => {
@@ -77,17 +79,12 @@ describe("StatusBarComponent", () => {
         editor.viewState.selections = [];
 
         // Язык остаётся: активный редактор есть, пропадает только Ln/Col.
-        expect(component.view.getItems()).toEqual([
-            { text: "legacy" },
-            { text: "UTF-8", align: "right", onClick: expect.any(Function) as () => void },
-            { text: "LF", align: "right", onClick: expect.any(Function) as () => void },
-            { text: "plaintext", align: "right" },
-        ]);
+        expect(statusTexts(component.view)).toEqual(["legacy", "UTF-8", "LF", "plaintext"]);
     });
 
     it("shows the terminal tier as the first segment", () => {
         const { component } = createStatusBarHarness();
-        expect(component.view.getItems()[0]).toEqual({ text: "legacy" });
+        expect(statusTexts(component.view)[0]).toBe("legacy");
     });
 
     it("updates the cursor column as text is typed", () => {
@@ -96,8 +93,7 @@ describe("StatusBarComponent", () => {
         const editor = source.openEditor();
         editor.viewState.type("x");
 
-        const items = component.view.getItems();
-        expect(items).toContainEqual({ text: "Ln 1, Col 2", align: "right" });
+        expect(statusTexts(component.view)).toContain("Ln 1, Col 2");
     });
 
     it("shows the chord hint entry and clears it on dispose", () => {
@@ -110,12 +106,10 @@ describe("StatusBarComponent", () => {
             alignment: "left",
             priority: 50,
         });
-        expect(component.view.getItems()).toContainEqual({
-            text: "(Ctrl+K) was pressed. Waiting for next key…",
-        });
+        expect(statusTexts(component.view)).toContain("(Ctrl+K) was pressed. Waiting for next key…");
 
         hint.dispose();
-        expect(component.view.getItems()).toEqual([{ text: "legacy" }]);
+        expect(statusSegments(component.view)).toEqual([{ text: "legacy", side: "left" }]);
     });
 
     it("keeps the chord hint alongside the cursor position", () => {
@@ -129,9 +123,9 @@ describe("StatusBarComponent", () => {
             priority: 50,
         });
 
-        const items = component.view.getItems();
-        expect(items).toContainEqual({ text: "(Ctrl+K) waiting…" });
-        expect(items).toContainEqual({ text: "Ln 1, Col 1", align: "right" });
+        const segments = statusSegments(component.view);
+        expect(segments).toContainEqual({ text: "(Ctrl+K) waiting…", side: "left" });
+        expect(segments).toContainEqual({ text: "Ln 1, Col 1", side: "right" });
     });
 
     it("tracks the cursor live without an explicit refresh", () => {
@@ -142,7 +136,7 @@ describe("StatusBarComponent", () => {
         // No manual refresh — the cursor-change subscription drives the update.
         editor.viewState.type("abc");
 
-        expect(component.view.getItems()).toContainEqual({ text: "Ln 1, Col 4", align: "right" });
+        expect(statusTexts(component.view)).toContain("Ln 1, Col 4");
     });
 
     it("dispose of the contributions removes their entries", () => {
@@ -150,10 +144,10 @@ describe("StatusBarComponent", () => {
         source.openEditor();
 
         editorContribution.dispose();
-        expect(component.view.getItems()).toEqual([{ text: "legacy" }]);
+        expect(statusTexts(component.view)).toEqual(["legacy"]);
 
         terminalContribution.dispose();
-        expect(component.view.getItems()).toEqual([]);
+        expect(statusTexts(component.view)).toEqual([]);
     });
 
     it("dispose of the component stops following the service", () => {
@@ -162,6 +156,98 @@ describe("StatusBarComponent", () => {
         component.dispose();
         statusBarService.addEntry({ id: "late", text: "late", alignment: "left", priority: 0 });
 
-        expect(component.view.getItems()).toEqual([{ text: "legacy" }]);
+        expect(statusTexts(component.view)).toEqual(["legacy"]);
+    });
+
+    describe("clicks", () => {
+        it("клик по левой записи с onClick зовёт её колбэк", () => {
+            const { component, statusBarService } = createStatusBarHarness();
+            let clicked = 0;
+            statusBarService.addEntry({
+                id: "left.clickable",
+                text: "clickable",
+                alignment: "left",
+                priority: 10,
+                onClick: () => clicked++,
+            });
+
+            clickSegment(component.view, "clickable");
+            expect(clicked).toBe(1);
+        });
+
+        it("запись без onClick инертна", () => {
+            const { component } = createStatusBarHarness();
+            // "legacy" — сегмент терминального окружения, колбэка у него нет.
+            expect(() => clickSegment(component.view, "legacy")).not.toThrow();
+        });
+
+        it("clickSegment по несуществующему сегменту бросает", () => {
+            const { component } = createStatusBarHarness();
+            expect(() => clickSegment(component.view, "no-such-segment")).toThrow('no segment "no-such-segment"');
+        });
+
+        it("клик по лейблу снятой записи — no-op (лейбл остался в пуле)", () => {
+            const { component, statusBarService } = createStatusBarHarness();
+            let clicked = 0;
+            const hint = statusBarService.addEntry({
+                id: "left.temp",
+                text: "temp",
+                alignment: "left",
+                priority: 10,
+                onClick: () => clicked++,
+            });
+            const label = component.view
+                .getChildren()
+                .find(
+                    (child): child is TextLabelElement =>
+                        child instanceof TextLabelElement && child.getText() === "temp",
+                );
+            expect(label).toBeDefined();
+
+            hint.dispose();
+
+            // Лейбл отцеплен от полосы, но живёт в пуле; его индекс теперь за
+            // пределами снапшота — клик обязан молча ничего не делать.
+            label!.dispatchEvent(
+                new TUIMouseEvent("click", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }),
+            );
+            expect(clicked).toBe(0);
+        });
+    });
+
+    describe("build-once reconciliation", () => {
+        it("cursor movement mutates the existing labels without rebuilding the tree", () => {
+            const { component, source } = createStatusBarHarness();
+            const editor = source.openEditor();
+
+            const childrenBefore = component.view.getChildren();
+            const labelBefore = childrenBefore.find(
+                (child) => "getText" in child && (child as { getText(): string }).getText() === "Ln 1, Col 1",
+            );
+            expect(labelBefore).toBeDefined();
+
+            editor.viewState.type("x");
+
+            // Тот же массив детей и тот же экземпляр лейбла — изменился только текст.
+            expect(component.view.getChildren()).toEqual(childrenBefore);
+            expect((labelBefore as { getText(): string }).getText()).toBe("Ln 1, Col 2");
+        });
+
+        it("adding and removing a segment rebuilds the row, reusing pooled labels", () => {
+            const { component, statusBarService } = createStatusBarHarness();
+            const countBefore = component.view.getChildren().length;
+
+            const hint = statusBarService.addEntry({ id: "hint", text: "hint", alignment: "left", priority: 50 });
+            // Новый левый сегмент → +лейбл и +разделитель.
+            expect(component.view.getChildren().length).toBe(countBefore + 2);
+            const labelsAfterAdd = component.view.getChildren();
+
+            hint.dispose();
+            expect(component.view.getChildren().length).toBe(countBefore);
+
+            // Повторное добавление переиспользует пул — те же экземпляры детей.
+            statusBarService.addEntry({ id: "hint2", text: "hint2", alignment: "left", priority: 50 });
+            expect(component.view.getChildren()).toEqual(labelsAfterAdd);
+        });
     });
 });

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { StatusBarElement } from "../../../../tuidom/ui/statusbar/statusBarElement.ts";
+import type { HFlexElement } from "../../../../tuidom/ui/layout/hFlexElement.ts";
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
+
+import { statusTexts } from "./parts/statusbar/statusBarComponent.testUtils.ts";
 
 describe("Workbench — theme application", () => {
     it("applies foreground/background colors the theme defines", () => {
@@ -37,9 +39,8 @@ describe("Workbench — theme application", () => {
 });
 
 describe("Workbench — chord with standalone modifier key", () => {
-    function statusTexts(testApp: TestApp): string[] {
-        const statusBar = testApp.querySelector("StatusBarElement") as StatusBarElement;
-        return statusBar.getItems().map((i) => i.text);
+    function chordHints(testApp: TestApp): string[] {
+        return statusTexts(testApp.querySelector("#statusBar") as HFlexElement);
     }
 
     it("a standalone modifier keydown while a chord is pending is not swallowed by the chord-capture layer", () => {
@@ -48,7 +49,7 @@ describe("Workbench — chord with standalone modifier key", () => {
         h.workbench.focusEditor();
 
         h.testApp.sendKey("Ctrl+K");
-        expect(statusTexts(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
+        expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
 
         // Kitty protocol delivers a standalone Shift keydown while the chord waits.
         // The capture handler special-cases modifier keys (it returns early instead of
@@ -57,6 +58,6 @@ describe("Workbench — chord with standalone modifier key", () => {
 
         // The waiting hint is gone — the modifier reached the bubble dispatcher rather
         // than being consumed silently by the chord-capture interceptor.
-        expect(statusTexts(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
+        expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
     });
 });

@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 
-import { createStatusBarHarness } from "./statusBarComponent.testUtils.ts";
+import { clickSegment, createStatusBarHarness, statusTexts } from "./statusBarComponent.testUtils.ts";
 import type { StatusBarComponent } from "./statusBarComponent.ts";
 
 function itemTexts(component: StatusBarComponent): string[] {
-    return component.view.getItems().map((item) => item.text);
+    return statusTexts(component.view);
 }
 
 describe("StatusBarComponent — encoding & EOL segments", () => {
@@ -72,9 +72,8 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         commands.register("workbench.action.editor.changeEncoding", () => executed.push("enc"));
         commands.register("workbench.action.editor.changeEOL", () => executed.push("eol"));
 
-        const items = component.view.getItems();
-        items.find((item) => item.text === "UTF-8")!.onClick!();
-        items.find((item) => item.text === "LF")!.onClick!();
+        clickSegment(component.view, "UTF-8");
+        clickSegment(component.view, "LF");
 
         expect(executed).toEqual(["enc", "eol"]);
     });

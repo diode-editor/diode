@@ -1,5 +1,8 @@
 import { MockTerminalBackend } from "../../../../../../tuidom/backend/mockTerminalBackend.ts";
 import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
+import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import type { HFlexElement, HFlexLayoutStyle } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
+import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -102,6 +105,45 @@ export class FakeActiveEditorSource implements IActiveEditorStatusSource {
         this.setActiveEditor(editor);
         return editor;
     }
+}
+
+export interface IStatusSegment {
+    text: string;
+    side: "left" | "right";
+}
+
+/**
+ * Сегменты полосы в порядке отрисовки: обход детей hflex — лейблы до
+ * fill-ребёнка (centerFill) относятся к левой стороне, после — к правой.
+ * Паддинги и разделители (Filler) пропускаются.
+ */
+export function statusSegments(view: HFlexElement): IStatusSegment[] {
+    const segments: IStatusSegment[] = [];
+    let side: "left" | "right" = "left";
+    for (const child of view.getChildren()) {
+        if ((child.layoutStyle as HFlexLayoutStyle).width.type === "fill") {
+            side = "right";
+            continue;
+        }
+        if (child instanceof TextLabelElement) {
+            segments.push({ text: child.getText(), side });
+        }
+    }
+    return segments;
+}
+
+/** Тексты сегментов в порядке отрисовки (без разделения по сторонам). */
+export function statusTexts(view: HFlexElement): string[] {
+    return statusSegments(view).map((segment) => segment.text);
+}
+
+/** Кликает по сегменту с данным текстом — наблюдаемый клик, не шов. */
+export function clickSegment(view: HFlexElement, text: string): void {
+    const label = view
+        .getChildren()
+        .find((child): child is TextLabelElement => child instanceof TextLabelElement && child.getText() === text);
+    if (!label) throw new Error(`status bar has no segment "${text}"`);
+    label.dispatchEvent(new TUIMouseEvent("click", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }));
 }
 
 export interface StatusBarHarness {
