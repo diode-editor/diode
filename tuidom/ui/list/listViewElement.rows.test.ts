@@ -43,17 +43,19 @@ describe("ListViewElement rows", () => {
         expect(() => list.appendRow(makeRow("child"), { parentId: "ghost" })).toThrow(/unknown parentId "ghost"/);
     });
 
-    it("derives depth from the parent chain and keeps DFS order in getChildren", () => {
+    it("derives depth from the parent chain; getChildren — в порядке вставки", () => {
         const list = new ListViewElement();
         list.appendRow(makeRow("file1"));
         list.appendRow(makeRow("m1"), { parentId: "file1" });
         list.appendRow(makeRow("m1.1"), { parentId: "m1" });
         list.appendRow(makeRow("file2"));
         list.appendRow(makeRow("m2"), { parentId: "file2" });
-        // Дозапись в поддерево первого файла после начала второго — DFS-порядок сохраняется.
+        // Дозапись в поддерево первого файла после начала второго.
         list.appendRow(makeRow("m1.2"), { parentId: "m1" });
 
-        expect(list.getChildren().map((el) => el.id)).toEqual(["file1", "m1", "m1.1", "m1.2", "file2", "m2"]);
+        // getChildren — плоский список владения (порядок вставки, O(1) append);
+        // DFS-порядок иерархии держит видимая проекция, а не список детей.
+        expect(list.getChildren().map((el) => el.id)).toEqual(["file1", "m1", "m1.1", "file2", "m2", "m1.2"]);
         expect(list.contentHeight).toBe(6);
     });
 

@@ -12,9 +12,8 @@ export class EditorGroupElement extends TUIElement {
     public constructor() {
         super();
         this.tabStrip = new EditorTabStripElement();
-        this.tabStrip.setParent(this);
         this.overlayLayerValue = new OverlayLayer();
-        this.overlayLayerValue.setParent(this);
+        this.syncChildren();
     }
 
     /**
@@ -38,23 +37,21 @@ export class EditorGroupElement extends TUIElement {
     }
 
     public setContent(element: TUIElement | null): void {
-        if (this.content) {
-            this.content.setParent(null);
-        }
         this.content = element;
-        if (this.content) {
-            this.content.setParent(this);
-        }
+        this.syncChildren();
         this.markDirty();
     }
 
-    public override getChildren(): readonly TUIElement[] {
+    /**
+     * Канонический порядок слотов. Overlay layer last → hit-tested first
+     * (clicks on the find widget win over the editor underneath; clicks
+     * elsewhere fall through to content).
+     */
+    private syncChildren(): void {
         const children: TUIElement[] = [this.tabStrip];
         if (this.content) children.push(this.content);
-        // Overlay layer last → hit-tested first (clicks on the find widget win
-        // over the editor underneath; clicks elsewhere fall through to content).
         children.push(this.overlayLayerValue);
-        return children;
+        this.setChildren(children);
     }
 
     // ─── Layout ───

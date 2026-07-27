@@ -21,12 +21,8 @@ export class HeaderBodyLayout extends TUIElement {
         this.header = header;
         this.body = body;
         this.headerHeight = headerHeight;
-        this.header.setParent(this);
-        this.body.setParent(this);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.header, this.body];
+        this.appendChild(this.header);
+        this.appendChild(this.body);
     }
 
     public override performLayout(constraints: BoxConstraints): Size {

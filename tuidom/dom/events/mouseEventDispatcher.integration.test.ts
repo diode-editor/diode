@@ -12,20 +12,13 @@ import type { TUIMouseEvent } from "./tuiMouseEvent.ts";
 // ─── Helpers ───
 
 class ContainerElement extends TUIElement {
-    private children: TUIElement[] = [];
-
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this.children.push(child);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.children;
+        this.appendChild(child);
     }
 
     public override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             child.performLayout(BoxConstraints.tight(child.layoutSize));
         }
         return size;

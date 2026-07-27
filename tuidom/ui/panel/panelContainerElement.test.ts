@@ -19,13 +19,8 @@ const BORDER = packRgb(70, 80, 90);
 // "OUTPUT" (6) → segment [11, 19), glyphs x 12..17.
 
 class ContainerElement extends TUIElement {
-    private kids: TUIElement[] = [];
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this.kids.push(child);
-    }
-    public override getChildren(): readonly TUIElement[] {
-        return this.kids;
+        this.appendChild(child);
     }
 }
 

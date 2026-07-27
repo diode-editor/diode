@@ -50,14 +50,13 @@ export class WorkbenchLayoutElement extends TUIElement {
 
     public constructor() {
         super();
-        this.sash.setParent(this);
+        this.syncChildren();
         this.sash.onDrag = (boundaryScreenX) => {
             // Translate the absolute boundary column to a panel width and clamp it.
             this.leftPanelWidth = this.clampWidth(boundaryScreenX - this.globalPosition.x);
             this.markDirty();
             this.onDidChangeLayout?.();
         };
-        this.bottomSash.setParent(this);
         this.bottomSash.onDrag = (boundaryScreenY) => {
             // The panel's bottom is pinned to the container bottom; the boundary row
             // is its top, so the height is (containerBottom - boundaryRow).
@@ -75,53 +74,23 @@ export class WorkbenchLayoutElement extends TUIElement {
     }
 
     public setLeftPanel(element: TUIElement | null): void {
-        if (this.leftPanel) {
-            this.leftPanel.setParent(null);
-        }
         this.leftPanel = element;
-        if (element) {
-            element.setParent(this);
-            // Саш появляется в getChildren() только вместе с панелью: если панель
-            // прицепили после укоренения, пропагация root саш уже не увидела —
-            // перецепляем явно (нашёл validateTree).
-            this.sash.setParent(this);
-        }
+        this.syncChildren();
     }
 
     public setCenterContent(element: TUIElement | null): void {
-        if (this.centerContent) {
-            this.centerContent.setParent(null);
-        }
         this.centerContent = element;
-        if (element) {
-            element.setParent(this);
-        }
+        this.syncChildren();
     }
 
     public setBottomPanel(element: TUIElement | null): void {
-        if (this.bottomPanel) {
-            this.bottomPanel.setParent(null);
-        }
         this.bottomPanel = element;
-        if (element) {
-            element.setParent(this);
-            // См. setLeftPanel: саш делит видимость с панелью.
-            this.bottomSash.setParent(this);
-        }
+        this.syncChildren();
     }
 
     public setLeftPanelVisible(visible: boolean): void {
-        const becomingVisible = visible && !this.leftPanelVisible;
         this.leftPanelVisible = visible;
-        if (becomingVisible) {
-            // Скрытые панель и саш исключены из getChildren() и пропускают
-            // пропагацию root/стилей — перецепляем при показе (см. подробный
-            // комментарий в setBottomPanelVisible). Нашёл validateTree: раньше
-            // перецепляли только панель, а саш оставался с root=null.
-            this.leftPanel?.setParent(this);
-            this.leftPanel?.markStyleDirty();
-            this.sash.setParent(this);
-        }
+        this.syncChildren();
         this.onDidChangeLayout?.();
     }
 
@@ -130,19 +99,8 @@ export class WorkbenchLayoutElement extends TUIElement {
     }
 
     public setBottomPanelVisible(visible: boolean): void {
-        const becomingVisible = visible && !this.bottomPanelVisible;
         this.bottomPanelVisible = visible;
-        if (becomingVisible && this.bottomPanel !== null) {
-            // While hidden the panel is excluded from getChildren(), so it misses
-            // root/style propagation. Re-attach on show: setParent re-propagates the
-            // current root down its subtree, and markStyleDirty forces a fresh style
-            // pass (so its content — e.g. the Problems tree — resolves correctly).
-            this.bottomPanel.setParent(this);
-            this.bottomPanel.markStyleDirty();
-            // Саш тоже скрыт вместе с панелью — без перецепления он остаётся
-            // с root=null (нашёл validateTree).
-            this.bottomSash.setParent(this);
-        }
+        this.syncChildren();
         this.onDidChangeLayout?.();
     }
 
@@ -196,28 +154,33 @@ export class WorkbenchLayoutElement extends TUIElement {
         return this.bottomPanel;
     }
 
-    public override getChildren(): readonly TUIElement[] {
+    /**
+     * Пересобирает список детей и их видимость. Скрытая панель ОСТАЁТСЯ в
+     * дереве с hidden=true (root и стили доходят — раньше её исключали из
+     * getChildren() и руками чинили пропагацию при показе). Sashes are added
+     * last so they sit on top of the neighbouring content at the boundary for
+     * hit-testing; каждый скрыт вместе со своей панелью.
+     */
+    private syncChildren(): void {
+        const showLeft = this.leftPanel !== null && this.leftPanelVisible;
+        const showBottom = this.bottomPanel !== null && this.bottomPanelVisible;
         const children: TUIElement[] = [];
-        const leftPanel = this.leftPanelVisible ? this.leftPanel : null;
-        const bottomPanel = this.bottomPanelVisible ? this.bottomPanel : null;
-        if (leftPanel !== null) {
-            children.push(leftPanel);
+        if (this.leftPanel !== null) {
+            this.leftPanel.hidden = !this.leftPanelVisible;
+            children.push(this.leftPanel);
         }
-        if (this.centerContent) {
+        if (this.centerContent !== null) {
             children.push(this.centerContent);
         }
-        if (bottomPanel !== null) {
-            children.push(bottomPanel);
+        if (this.bottomPanel !== null) {
+            this.bottomPanel.hidden = !this.bottomPanelVisible;
+            children.push(this.bottomPanel);
         }
-        // Sashes are added last so they sit on top of the neighbouring content at the
-        // boundary for hit-testing. Each is present only while its panel is shown.
-        if (leftPanel !== null) {
-            children.push(this.sash);
-        }
-        if (bottomPanel !== null) {
-            children.push(this.bottomSash);
-        }
-        return children;
+        this.sash.hidden = !showLeft;
+        children.push(this.sash);
+        this.bottomSash.hidden = !showBottom;
+        children.push(this.bottomSash);
+        this.setChildren(children);
     }
 
     private clampWidth(width: number): number {

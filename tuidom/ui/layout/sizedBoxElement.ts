@@ -37,18 +37,14 @@ export class SizedBoxElement extends TUIElement {
     }
 
     public setChild(child: TUIElement | null): void {
-        if (this.child) this.child.setParent(null);
+        if (this.child) this.removeChild(this.child);
         this.child = child;
-        if (this.child) this.child.setParent(this);
+        if (this.child) this.appendChild(this.child);
         this.markDirty();
     }
 
     public getChild(): TUIElement | null {
         return this.child;
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.child ? [this.child] : [];
     }
 
     public override getMinIntrinsicWidth(height: number): number {

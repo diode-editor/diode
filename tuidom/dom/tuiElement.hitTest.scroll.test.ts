@@ -21,12 +21,7 @@ class ContentElement extends TUIElement implements IContentSized {
     }
 
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this.children.push(child);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.children;
+        this.appendChild(child);
     }
 }
 
@@ -137,10 +132,9 @@ describe("ScrollViewport.elementFromPoint — offset viewport", () => {
         const content = new ContentElement(80, 100);
         const viewport = new ScrollViewport(content);
 
-        // Viewport starts at (10, 5) on screen
+        // Viewport starts at (10, 5) on screen; its layout positions content at
+        // the viewport origin — content.globalPosition выводится сам.
         layoutElement(viewport, new Point(10, 5), new Size(60, 15));
-        content.localPosition = new Offset(10, 5);
-        content.performLayout(BoxConstraints.tight(new Size(60, 15)));
 
         const child = new TUIElement();
         content.addChild(child);

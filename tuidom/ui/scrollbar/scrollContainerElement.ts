@@ -46,7 +46,7 @@ export class ScrollBarDecorator extends TUIElement {
     public constructor(child: TUIElement & IScrollable) {
         super();
         this.child = child;
-        this.child.setParent(this);
+        this.appendChild(this.child);
     }
 
     public setStyles(styles: IScrollBarStyles): void {
@@ -59,13 +59,11 @@ export class ScrollBarDecorator extends TUIElement {
     }
 
     public setChild(child: TUIElement & IScrollable): void {
+        // setChildren, а не appendChild: старый ребёнок обязан отцепиться. До
+        // рефакторинга владения он молча оставался с parent=декоратор навсегда.
         this.child = child;
-        this.child.setParent(this);
+        this.setChildren([this.child]);
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.child];
     }
 
     public performLayout(constraints: BoxConstraints): Size {

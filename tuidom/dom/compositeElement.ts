@@ -36,7 +36,7 @@ export abstract class CompositeElement extends TUIElement {
     public rebuild(): void {
         const node = this.describe();
         this.rootChild = reconcile(this.rootChild, node);
-        this.rootChild.setParent(this);
+        this.setChildren([this.rootChild]);
         this.markDirty();
     }
 
@@ -45,10 +45,6 @@ export abstract class CompositeElement extends TUIElement {
     }
 
     // ─── Proxy to rootChild ───
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.rootChild ? [this.rootChild] : [];
-    }
 
     public override getMinIntrinsicWidth(height: number): number {
         return this.rootChild?.getMinIntrinsicWidth(height) ?? 0;

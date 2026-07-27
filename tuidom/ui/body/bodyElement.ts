@@ -17,7 +17,7 @@ export class BodyElement extends TUIElement {
         this.setAsRoot();
 
         this.overlayLayer = new OverlayLayer();
-        this.overlayLayer.setParent(this);
+        this.syncChildren();
     }
 
     public override getOverlayLayer(): OverlayLayer {
@@ -26,26 +26,30 @@ export class BodyElement extends TUIElement {
 
     public setContent(element: TUIElement): void {
         this.content = element;
-        this.content.setParent(this);
+        this.syncChildren();
     }
 
-    public setMenuBar(menuBar: MenuBarElement): void {
+    public setMenuBar(menuBar: MenuBarElement | null): void {
         this.menuBar = menuBar;
-        this.menuBar.setParent(this);
+        this.syncChildren();
     }
 
     public setStatusBar(statusBar: StatusBarElement): void {
         this.statusBar = statusBar;
-        this.statusBar.setParent(this);
+        this.syncChildren();
     }
 
-    public override getChildren(): readonly TUIElement[] {
+    /**
+     * Пересобирает список детей в каноническом порядке слотов. Порядок — это
+     * z-порядок хит-теста: overlay последний, т.е. поверх всего.
+     */
+    private syncChildren(): void {
         const children: TUIElement[] = [];
         if (this.menuBar) children.push(this.menuBar);
         if (this.content) children.push(this.content);
         if (this.statusBar) children.push(this.statusBar);
         children.push(this.overlayLayer);
-        return children;
+        this.setChildren(children);
     }
 
     public performLayout(constraints: BoxConstraints): Size {

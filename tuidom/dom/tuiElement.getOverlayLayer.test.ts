@@ -6,25 +6,31 @@ import { BoxElement } from "../ui/layout/boxElement.ts";
 
 import { TUIElement } from "./tuiElement.ts";
 
+class ContainerElement extends TUIElement {
+    public addChild(child: TUIElement): void {
+        this.appendChild(child);
+    }
+}
+
 describe("TUIElement.getOverlayLayer — ближайший overlay-слой вверх по дереву", () => {
     it("returns null for a detached element", () => {
         expect(new TUIElement().getOverlayLayer()).toBeNull();
     });
 
     it("returns null when no ancestor hosts a layer", () => {
-        const parent = new BoxElement();
+        const parent = new ContainerElement();
         const child = new TUIElement();
-        child.setParent(parent);
+        parent.addChild(child);
 
         expect(child.getOverlayLayer()).toBeNull();
     });
 
     it("finds the BodyElement layer from nested content", () => {
         const body = new BodyElement();
-        const box = new BoxElement();
+        const box = new ContainerElement();
         body.setContent(box);
         const leaf = new TUIElement();
-        leaf.setParent(box);
+        box.addChild(leaf);
 
         expect(leaf.getOverlayLayer()).toBe(body.overlayLayer);
         expect(body.getOverlayLayer()).toBe(body.overlayLayer);

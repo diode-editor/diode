@@ -150,7 +150,7 @@ export class QuickPickElement extends TUIElement {
 
         this.inputElement = new InputElement();
         this.inputElement.showBorder = false;
-        this.inputElement.setParent(this);
+        this.appendChild(this.inputElement);
 
         this.inputElement.onChange = (value) => {
             this.onQueryChange?.(value);
@@ -396,10 +396,6 @@ export class QuickPickElement extends TUIElement {
     }
 
     // ─── Children ───────────────────────────────────────────────────────────
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.inputElement];
-    }
 
     // ─── Render ─────────────────────────────────────────────────────────────
 

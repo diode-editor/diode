@@ -93,12 +93,8 @@ class SearchViewElement extends TUIElement {
         private readonly results: TUIElement,
     ) {
         super();
-        header.setParent(this);
-        results.setParent(this);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.header, this.results];
+        this.appendChild(header);
+        this.appendChild(results);
     }
 
     public override performLayout(constraints: BoxConstraints): Size {

@@ -73,17 +73,20 @@ export class MenuBarElement extends TUIElement {
             return el;
         });
         this.hflex.addChild(new MenuBarFillerElement(), { width: hflexFill(), height: 1 });
-        this.hflex.setParent(this);
+        this.appendChild(this.hflex);
     }
 
-    public override setParent(parent: TUIElement | null): void {
-        if (this._parent && this.parentMnemonicHandler) {
-            this._parent.removeEventListener("keydown", this.parentMnemonicHandler);
+    /**
+     * Мнемоники (Alt+F и т.п.) слушаются на РОДИТЕЛЕ: keydown, не дошедший до
+     * меню по фокусу, всё равно должен открывать его. Слушатель переезжает
+     * вместе с прикреплением — хук вместо запрещённого override setParent.
+     */
+    protected override onDidChangeParent(oldParent: TUIElement | null, newParent: TUIElement | null): void {
+        if (oldParent && this.parentMnemonicHandler) {
+            oldParent.removeEventListener("keydown", this.parentMnemonicHandler);
         }
 
-        super.setParent(parent);
-
-        if (parent) {
+        if (newParent) {
             this.parentMnemonicHandler = (event: TUIKeyboardEvent) => {
                 const match = this.findMnemonicMatch(event);
                 if (match >= 0) {
@@ -92,14 +95,10 @@ export class MenuBarElement extends TUIElement {
                     event.preventDefault();
                 }
             };
-            parent.addEventListener("keydown", this.parentMnemonicHandler);
+            newParent.addEventListener("keydown", this.parentMnemonicHandler);
         } else {
             this.parentMnemonicHandler = null;
         }
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.hflex];
     }
 
     public get isMenuOpen(): boolean {

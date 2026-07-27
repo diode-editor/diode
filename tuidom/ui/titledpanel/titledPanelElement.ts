@@ -19,7 +19,7 @@ export class TitledPanelElement extends TUIElement<TitledPanelStyle> {
         super();
         this.title = title;
         this.child = child;
-        this.child.setParent(this);
+        this.appendChild(this.child);
         this.titlePaddingLeft = options?.titlePaddingLeft ?? 1;
     }
 
@@ -30,10 +30,6 @@ export class TitledPanelElement extends TUIElement<TitledPanelStyle> {
     public setTitle(value: string): void {
         this.title = value;
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.child];
     }
 
     public override performLayout(constraints: BoxConstraints): Size {

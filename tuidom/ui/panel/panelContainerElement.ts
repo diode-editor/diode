@@ -92,9 +92,8 @@ export class PanelContainerElement extends TUIElement {
 
     public addView(view: PanelView): void {
         this.views.push(view);
-        if (view.content !== null) view.content.setParent(this);
-        if (view.actions != null) view.actions.setParent(this);
         this.activeId ??= view.id;
+        this.syncChildren();
         this.markDirty();
     }
 
@@ -102,9 +101,8 @@ export class PanelContainerElement extends TUIElement {
     public setViewActions(id: string, actions: TUIElement | null): void {
         const view = this.views.find((v) => v.id === id);
         if (view === undefined) return;
-        if (view.actions != null) view.actions.setParent(null);
         view.actions = actions;
-        if (actions !== null) actions.setParent(this);
+        this.syncChildren();
         this.markDirty();
     }
 
@@ -112,29 +110,39 @@ export class PanelContainerElement extends TUIElement {
     public setViewContent(id: string, content: TUIElement | null): void {
         const view = this.views.find((v) => v.id === id);
         if (view === undefined) return;
-        if (view.content !== null) view.content.setParent(null);
         view.content = content;
-        if (content !== null) content.setParent(this);
+        this.syncChildren();
         this.markDirty();
     }
 
     public setActiveView(id: string): void {
         if (this.views.every((v) => v.id !== id) || this.activeId === id) return;
         this.activeId = id;
-        // Неактивная вкладка исключена из getChildren() и пропускает нисходящую
-        // пропагацию root/стилей (контент и actions могли прицепиться к ещё не
-        // укоренённой панели — модель #204). Перецепляем при активации; нашёл
-        // validateTree.
-        const view = this.activeView();
-        if (view?.content != null) {
-            view.content.setParent(this);
-            view.content.markStyleDirty();
-        }
-        if (view?.actions != null) {
-            view.actions.setParent(this);
-            view.actions.markStyleDirty();
-        }
+        this.syncChildren();
         this.markDirty();
+    }
+
+    /**
+     * Все вкладки живут в дереве постоянно; неактивные — hidden (root и стили
+     * доходят до них всегда). Раньше getChildren() отдавал только активную, и
+     * контент/actions, прицепленные до укоренения панели, оставались с
+     * протухшим root — модель бага #204 (селектор каналов Output молча не
+     * открывал выпадашку после restore сессии).
+     */
+    private syncChildren(): void {
+        const children: TUIElement[] = [];
+        for (const view of this.views) {
+            const isActive = view.id === this.activeId;
+            if (view.actions != null) {
+                view.actions.hidden = !isActive;
+                children.push(view.actions);
+            }
+            if (view.content !== null) {
+                view.content.hidden = !isActive;
+                children.push(view.content);
+            }
+        }
+        this.setChildren(children);
     }
 
     public getActiveViewId(): string | null {
@@ -189,14 +197,6 @@ export class PanelContainerElement extends TUIElement {
             x += width;
         }
         return segments;
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        const active = this.activeView();
-        const children: TUIElement[] = [];
-        if (active?.actions != null) children.push(active.actions);
-        if (active?.content != null) children.push(active.content);
-        return children;
     }
 
     public override performLayout(constraints: BoxConstraints): Size {

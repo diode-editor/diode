@@ -64,17 +64,13 @@ export class BoxContainerElement extends TUIElement {
 
     public setChild(child: TUIElement | null): void {
         if (this.child) {
-            this.child.setParent(null);
+            this.removeChild(this.child);
         }
         this.child = child;
         if (this.child) {
-            this.child.setParent(this);
+            this.appendChild(this.child);
         }
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.child ? [this.child] : [];
     }
 
     private get headerRows(): number {

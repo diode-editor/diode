@@ -107,7 +107,7 @@ export class PopupMenuElement extends TUIElement {
             }
         }
 
-        this.vstack.setParent(this);
+        this.appendChild(this.vstack);
         this.updateItemSelectedStates();
     }
 
@@ -129,10 +129,6 @@ export class PopupMenuElement extends TUIElement {
             separator.setStyles(styles);
         }
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.vstack];
     }
 
     public override getMinIntrinsicWidth(_height: number): number {

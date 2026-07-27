@@ -94,8 +94,6 @@ export class ListViewElement extends ScrollableElement {
     private visibleRows: ListRow[] | null = null;
     private visibleIndexById = new Map<string, number>();
     private hasCollapsibleRows = false;
-    /** Кеш полного DFS-порядка для getChildren(); null = требуется пересборка. */
-    private allChildrenCache: TUIElement[] | null = null;
     /**
      * Окно строк, реально разложенное последним performLayout. Делегация кликов
      * (см. {@link delegateToRowChild}) доверяет позициям детей только внутри него:
@@ -164,22 +162,18 @@ export class ListViewElement extends ScrollableElement {
             this.childIds.set(parentId, siblings);
         }
         siblings.push(id);
-        element.setParent(this);
+        this.appendChild(element);
 
-        this.allChildrenCache = null;
         this.invalidateProjection();
         this.markDirty();
     }
 
     public clear(): void {
-        for (const row of this.rowById.values()) {
-            row.element.setParent(null);
-        }
+        this.setChildren([]);
         this.rowById.clear();
         this.childIds.clear();
         this.collapsedIds.clear();
         this.selectedIds.clear();
-        this.allChildrenCache = null;
         this.visibleRows = null;
         this.visibleIndexById.clear();
         this.lastLayoutScrollTop = -1;
@@ -308,28 +302,6 @@ export class ListViewElement extends ScrollableElement {
     }
 
     // ─── TUIElement overrides ───
-
-    /** Все строки (включая свёрнутые и скрытые) — root-пропагация и стили должны доходить до каждой. */
-    public override getChildren(): readonly TUIElement[] {
-        if (this.allChildrenCache === null) {
-            const all: TUIElement[] = [];
-            const walk = (parentId: string | null): void => {
-                const ids = this.childIds.get(parentId);
-                if (!ids) return;
-                for (const id of ids) {
-                    const row = this.rowById.get(id);
-                    /* v8 ignore start -- defensive: childIds and rowById are mutated in lock-step */
-                    if (!row) continue;
-                    /* v8 ignore stop */
-                    all.push(row.element);
-                    walk(id);
-                }
-            };
-            walk(null);
-            this.allChildrenCache = all;
-        }
-        return this.allChildrenCache;
-    }
 
     /**
      * Строки презентационные: хит-тест всегда возвращает сам контейнер, чтобы вся

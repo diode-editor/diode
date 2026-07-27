@@ -84,7 +84,8 @@ export class OverlayLayer extends TUIElement {
     private sessions = new Map<TUIElement, OverlaySessionState>();
 
     public addItem(element: TUIElement, position: Point, visible = false): void {
-        element.setParent(this);
+        this.appendChild(element);
+        element.hidden = !visible;
         this.items.push({ element, position, visible });
         this.markDirty();
     }
@@ -98,7 +99,7 @@ export class OverlayLayer extends TUIElement {
 
         const index = this.items.findIndex((item) => item.element === element);
         if (index !== -1) {
-            this.items[index].element.setParent(null);
+            this.removeChild(this.items[index].element);
             this.items.splice(index, 1);
             this.markDirty();
         }
@@ -108,6 +109,9 @@ export class OverlayLayer extends TUIElement {
         const item = this.items.find((item) => item.element === element);
         if (item) {
             item.visible = visible;
+            // hidden зеркалит видимость item'а: базовые обходы (Tab, hit-test)
+            // пропускают закрытые сессии сами, без override'ов.
+            item.element.hidden = !visible;
             this.markDirty();
         }
     }
@@ -247,7 +251,7 @@ export class OverlayLayer extends TUIElement {
         this.sessions.clear();
 
         for (const item of this.items) {
-            item.element.setParent(null);
+            this.removeChild(item.element);
         }
         this.items = [];
         this.markDirty();
@@ -255,28 +259,6 @@ export class OverlayLayer extends TUIElement {
 
     public getItems(): readonly OverlayLayerItem[] {
         return this.items;
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.items.map((item) => item.element);
-    }
-
-    /**
-     * Tab-обход не должен заходить в скрытые сессии. Оверлей-элементы остаются в
-     * дереве и после закрытия (сессию переиспользуют), а `tabIndex` у них
-     * положительный — поэтому Tab уводил фокус в невидимый инпут find-виджета или
-     * в закрытый QuickPick, и дальнейший ввод уходил в никуда. Layout, отрисовка
-     * и hit-test невидимые элементы уже пропускают — приводим обход к ним.
-     */
-    public override getDepthFirstFocusableOrder(): TUIElement[] {
-        // Сам слой в обход не входит: это невидимый контейнер, фокус берут только
-        // элементы открытых сессий.
-        const result: TUIElement[] = [];
-        for (const item of this.items) {
-            if (!item.visible) continue;
-            result.push(...item.element.getDepthFirstFocusableOrder());
-        }
-        return result;
     }
 
     public override elementFromPoint(point: Point): TUIElement | null {
@@ -407,7 +389,7 @@ export class OverlayLayer extends TUIElement {
         const index = this.items.findIndex((item) => item.element === session.element);
         /* v8 ignore start -- defensive: createSession always adds the element to items, so a live session's element is always found here */
         if (index >= 0) {
-            this.items[index].element.setParent(null);
+            this.removeChild(this.items[index].element);
             this.items.splice(index, 1);
         }
         /* v8 ignore stop */

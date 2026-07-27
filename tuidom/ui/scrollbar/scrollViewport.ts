@@ -21,7 +21,7 @@ export class ScrollViewport extends TUIElement implements IScrollable {
     public constructor(child: TUIElement & IContentSized) {
         super();
         this.child = child;
-        this.child.setParent(this);
+        this.appendChild(this.child);
     }
 
     public get contentHeight(): number {
@@ -53,10 +53,6 @@ export class ScrollViewport extends TUIElement implements IScrollable {
 
     public getChild(): TUIElement & IContentSized {
         return this.child;
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.child];
     }
 
     public override performLayout(constraints: BoxConstraints): Size {

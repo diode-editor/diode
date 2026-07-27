@@ -16,12 +16,8 @@ class TwoInputContainer extends TUIElement {
 
     public constructor() {
         super();
-        this.first.setParent(this);
-        this.second.setParent(this);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.first, this.second];
+        this.appendChild(this.first);
+        this.appendChild(this.second);
     }
 }
 

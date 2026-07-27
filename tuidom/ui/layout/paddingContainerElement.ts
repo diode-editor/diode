@@ -20,7 +20,7 @@ export class PaddingContainerElement extends TUIElement {
     public constructor(child: TUIElement | null, padding?: Padding) {
         super();
         this.child = child;
-        if (this.child) this.child.setParent(this);
+        if (this.child) this.appendChild(this.child);
         this.top = padding?.top ?? 0;
         this.right = padding?.right ?? 0;
         this.bottom = padding?.bottom ?? 0;
@@ -28,14 +28,10 @@ export class PaddingContainerElement extends TUIElement {
     }
 
     public setChild(child: TUIElement | null): void {
-        if (this.child) this.child.setParent(null);
+        if (this.child) this.removeChild(this.child);
         this.child = child;
-        if (this.child) this.child.setParent(this);
+        if (this.child) this.appendChild(this.child);
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.child ? [this.child] : [];
     }
 
     public override getMinIntrinsicWidth(height: number): number {

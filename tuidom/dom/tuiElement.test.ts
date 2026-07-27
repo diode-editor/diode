@@ -66,9 +66,9 @@ describe("TUIElement coordinate system", () => {
     });
 
     it("markDirty propagates to parent", () => {
-        const parent = new TUIElement();
+        const parent = new ContainerElement();
         const child = new TUIElement();
-        child.setParent(parent);
+        parent.addChild(child);
 
         parent.performLayout(BoxConstraints.tight(new Size(10, 5)));
         expect(parent.isLayoutDirty).toBe(false);
@@ -79,12 +79,12 @@ describe("TUIElement coordinate system", () => {
     });
 
     it("markDirty propagates through multiple ancestors", () => {
-        const grandparent = new TUIElement();
-        const parent = new TUIElement();
+        const grandparent = new ContainerElement();
+        const parent = new ContainerElement();
         const child = new TUIElement();
 
-        parent.setParent(grandparent);
-        child.setParent(parent);
+        grandparent.addChild(parent);
+        parent.addChild(child);
 
         grandparent.performLayout(BoxConstraints.tight(new Size(10, 5)));
         parent.performLayout(BoxConstraints.tight(new Size(10, 5)));
@@ -99,10 +99,10 @@ describe("TUIElement coordinate system", () => {
     });
 
     it("setParent establishes parent reference", () => {
-        const parent = new TUIElement();
+        const parent = new ContainerElement();
         const child = new TUIElement();
 
-        child.setParent(parent);
+        parent.addChild(child);
 
         // Verify by checking dirty propagation works
         parent.performLayout(BoxConstraints.tight(new Size(10, 5)));
@@ -111,12 +111,12 @@ describe("TUIElement coordinate system", () => {
         expect(parent.isLayoutDirty).toBe(true);
     });
 
-    it("setParent(null) removes parent reference", () => {
-        const parent = new TUIElement();
+    it("отцепление убирает ссылку на родителя", () => {
+        const parent = new ContainerElement();
         const child = new TUIElement();
 
-        child.setParent(parent);
-        child.setParent(null);
+        parent.addChild(child);
+        parent.detachChild(child);
 
         parent.performLayout(BoxConstraints.tight(new Size(10, 5)));
         child.markDirty();
@@ -151,7 +151,6 @@ describe("TUIElement coordinate system", () => {
 
     it("child with null parent does not crash on markDirty", () => {
         const element = new TUIElement();
-        element.setParent(null);
 
         expect(() => {
             element.markDirty();
@@ -159,12 +158,12 @@ describe("TUIElement coordinate system", () => {
     });
 
     it("multiple markDirty calls are idempotent", () => {
-        const parent1 = new TUIElement();
-        const parent2 = new TUIElement();
+        const parent1 = new ContainerElement();
+        const parent2 = new ContainerElement();
         const child = new TUIElement();
 
-        child.setParent(parent1);
-        parent1.setParent(parent2);
+        parent1.addChild(child);
+        parent2.addChild(parent1);
 
         parent1.performLayout(BoxConstraints.tight(new Size(10, 5)));
         parent2.performLayout(BoxConstraints.tight(new Size(10, 5)));
@@ -190,36 +189,36 @@ describe("TUIElement coordinate system", () => {
 
 describe("TUIElement root reference propagation", () => {
     it("setParent propagates root from parent to child", () => {
-        const parent = new TUIElement();
+        const parent = new ContainerElement();
         const child = new TUIElement();
 
         parent.setAsRoot();
 
-        child.setParent(parent);
+        parent.addChild(child);
 
         expect(child.getRoot()).toBe(parent);
     });
 
-    it("setParent(null) clears root reference", () => {
-        const parent = new TUIElement();
+    it("отцепление обнуляет производный root", () => {
+        const parent = new ContainerElement();
         const child = new TUIElement();
 
         parent.setAsRoot();
-        child.setParent(parent);
+        parent.addChild(child);
         expect(child.getRoot()).toBe(parent);
 
-        child.setParent(null);
+        parent.detachChild(child);
         expect(child.getRoot()).toBeNull();
     });
 
     it("nested children all get root reference from grandparent", () => {
-        const root = new TUIElement();
-        const parent = new TUIElement();
+        const root = new ContainerElement();
+        const parent = new ContainerElement();
         const child = new TUIElement();
 
         root.setAsRoot();
-        parent.setParent(root);
-        child.setParent(parent);
+        root.addChild(parent);
+        parent.addChild(child);
 
         expect(root.getRoot()).toBe(root);
         expect(parent.getRoot()).toBe(root);
@@ -227,13 +226,13 @@ describe("TUIElement root reference propagation", () => {
     });
 
     it("multiple children of same parent all get same root", () => {
-        const root = new TUIElement();
+        const root = new ContainerElement();
         const child1 = new TUIElement();
         const child2 = new TUIElement();
 
         root.setAsRoot();
-        child1.setParent(root);
-        child2.setParent(root);
+        root.addChild(child1);
+        root.addChild(child2);
 
         expect(child1.getRoot()).toBe(root);
         expect(child2.getRoot()).toBe(root);
@@ -241,17 +240,17 @@ describe("TUIElement root reference propagation", () => {
     });
 
     it("changing parent updates root reference", () => {
-        const root1 = new TUIElement();
-        const root2 = new TUIElement();
+        const root1 = new ContainerElement();
+        const root2 = new ContainerElement();
         const child = new TUIElement();
 
         root1.setAsRoot();
         root2.setAsRoot();
 
-        child.setParent(root1);
+        root1.addChild(child);
         expect(child.getRoot()).toBe(root1);
 
-        child.setParent(root2);
+        root2.addChild(child);
         expect(child.getRoot()).toBe(root2);
     });
 });
@@ -259,15 +258,12 @@ describe("TUIElement root reference propagation", () => {
 // ─── Helper: container element with explicit children ───
 
 class ContainerElement extends TUIElement {
-    private _children: TUIElement[] = [];
-
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this._children.push(child);
+        this.appendChild(child);
     }
 
-    public override getChildren(): readonly TUIElement[] {
-        return this._children;
+    public detachChild(child: TUIElement): void {
+        this.removeChild(child);
     }
 }
 

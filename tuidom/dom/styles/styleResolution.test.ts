@@ -6,15 +6,8 @@ import { TUIElement } from "../tuiElement.ts";
 import { ROOT_RESOLVED_STYLE } from "./tuiStyle.ts";
 
 class ContainerElement extends TUIElement {
-    private children: TUIElement[] = [];
-
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this.children.push(child);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.children;
+        this.appendChild(child);
     }
 }
 

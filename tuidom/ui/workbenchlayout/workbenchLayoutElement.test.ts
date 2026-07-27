@@ -153,7 +153,10 @@ describe("WorkbenchLayoutElement", () => {
     });
 
     describe("getChildren", () => {
-        it("returns both panels plus the sash when left panel is visible", () => {
+        // Структура ≠ видимость: скрытые панели остаются детьми с hidden=true
+        // (root/стили доходят), сашы присутствуют всегда и скрыты вместе со
+        // своей панелью. Видимость проверяем флагом, состав — списком.
+        it("панели и сашы в списке, sash идёт после панелей (hit-test поверх)", () => {
             const layout = new WorkbenchLayoutElement();
             const leftPanel = createPanel();
             const center = createPanel();
@@ -163,12 +166,12 @@ describe("WorkbenchLayoutElement", () => {
 
             const children = layout.getChildren();
             expect(children.slice(0, 2)).toEqual([leftPanel, center]);
-            // The draggable sash is appended last so it hit-tests on top at the boundary.
-            expect(children).toHaveLength(3);
             expect(children[2]).toBeInstanceOf(SashElement);
+            expect(children[2].hidden).toBe(false);
+            expect(leftPanel.hidden).toBe(false);
         });
 
-        it("returns only center when left panel is hidden", () => {
+        it("скрытая левая панель остаётся ребёнком с hidden=true (и её саш тоже)", () => {
             const layout = new WorkbenchLayoutElement();
             const leftPanel = createPanel();
             const center = createPanel();
@@ -177,22 +180,30 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelVisible(false);
 
-            expect(layout.getChildren()).toEqual([center]);
+            expect(layout.getChildren()).toContain(leftPanel);
+            expect(leftPanel.hidden).toBe(true);
+            expect(center.hidden).toBe(false);
+            const sashes = layout.getChildren().filter((c) => c instanceof SashElement);
+            expect(sashes.every((s) => s.hidden)).toBe(true);
         });
 
-        it("returns empty array when nothing is set", () => {
+        it("без панелей — только скрытые сашы", () => {
             const layout = new WorkbenchLayoutElement();
 
-            expect(layout.getChildren()).toEqual([]);
+            const children = layout.getChildren();
+            expect(children).toHaveLength(2);
+            expect(children.every((c) => c instanceof SashElement && c.hidden)).toBe(true);
         });
 
-        it("returns only center when no left panel set", () => {
+        it("центр без левой панели: сашы скрыты", () => {
             const layout = new WorkbenchLayoutElement();
             const center = createPanel();
 
             layout.setCenterContent(center);
 
-            expect(layout.getChildren()).toEqual([center]);
+            expect(layout.getChildren()[0]).toBe(center);
+            const sashes = layout.getChildren().filter((c) => c instanceof SashElement);
+            expect(sashes.every((s) => s.hidden)).toBe(true);
         });
     });
 
@@ -475,8 +486,8 @@ describe("WorkbenchLayoutElement", () => {
             expect(layout.getBottomPanelVisible()).toBe(false);
             layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
-            // Hidden panel is absent from the tree and the center keeps full height.
-            expect(layout.getChildren()).toEqual([center]);
+            // Скрытая панель остаётся в дереве с hidden=true; центр во всю высоту.
+            expect(layout.getBottomPanel()?.hidden).toBe(true);
             expect(center.layoutSize).toEqual(new Size(80, 24));
         });
 
@@ -546,12 +557,14 @@ describe("WorkbenchLayoutElement", () => {
             expect(panel.globalPosition).toEqual(new Point(20, 18));
         });
 
-        it("appends the panel then the horizontal sash to the children", () => {
+        it("панель и горизонтальный саш в детях, саш последним (hit-test поверх)", () => {
             const { layout } = laidOut({ height: 8 });
             const children = layout.getChildren();
-            // center, bottom panel, horizontal sash.
-            expect(children).toHaveLength(3);
-            expect(children[2]).toBeInstanceOf(SashElement);
+            // center, bottom panel, вертикальный саш (скрыт), горизонтальный саш.
+            const sashes = children.filter((c) => c instanceof SashElement);
+            expect(sashes).toHaveLength(2);
+            expect(children.at(-1)).toBe(sashes.at(-1));
+            expect((sashes.at(-1) as SashElement).hidden).toBe(false);
         });
 
         it("renders the visible bottom panel at its position", () => {
@@ -566,7 +579,7 @@ describe("WorkbenchLayoutElement", () => {
 
         it("resizes the panel height by dragging the horizontal sash", () => {
             const { layout } = laidOut({ height: 8 });
-            const sash = layout.getChildren()[2] as SashElement;
+            const sash = layout.getChildren().filter((c) => c instanceof SashElement).at(-1) as SashElement;
             // Panel bottom is pinned at row 24; dragging its top to row 14 → height 10.
             sash.onDrag?.(14);
             expect(layout.getBottomPanelHeight()).toBe(10);
@@ -574,7 +587,7 @@ describe("WorkbenchLayoutElement", () => {
 
         it("clamps the panel height to its minimum and maximum", () => {
             const { layout } = laidOut({ height: 8 });
-            const sash = layout.getChildren()[2] as SashElement;
+            const sash = layout.getChildren().filter((c) => c instanceof SashElement).at(-1) as SashElement;
             sash.onDrag?.(23); // height 1 → clamped up to MIN (3)
             expect(layout.getBottomPanelHeight()).toBe(3);
             sash.onDrag?.(-100); // height 124 → clamped to containerHeight - MIN_EDITOR_HEIGHT (21)

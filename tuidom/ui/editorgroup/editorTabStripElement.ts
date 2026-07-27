@@ -84,7 +84,7 @@ export class EditorTabStripElement extends TUIElement {
         this.filler = new TabStripFillerElement();
         this.filler.style = { fg: DEFAULT_COLOR, bg: this.styles.stripBg };
         this.hflex.addChild(this.filler, { width: hflexFill(), height: 1 });
-        this.hflex.setParent(this);
+        this.appendChild(this.hflex);
     }
 
     /** Пробрасывает цвета в filler и уже созданные вкладки. */
@@ -183,10 +183,6 @@ export class EditorTabStripElement extends TUIElement {
     }
 
     // ─── Children ───
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.hflex];
-    }
 
     // ─── Intrinsic Size ───
 

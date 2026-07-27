@@ -81,8 +81,9 @@ describe("PanelComponent", () => {
 
         const tree = new TUIElement();
         service.setViewContent("problems", tree);
-        // Активная вкладка — problems: контент виден как ребёнок контрола.
-        expect(component.view.getChildren()).toEqual([tree]);
+        // Активная вкладка — problems: её контент в детях контрола и не скрыт.
+        expect(component.view.getChildren()).toContain(tree);
+        expect(tree.hidden).toBe(false);
 
         // Смена контента другой вкладки не перевешивает контент problems.
         const setViewContent = vi.spyOn(component.view, "setViewContent");
@@ -93,7 +94,11 @@ describe("PanelComponent", () => {
         setViewContent.mockRestore();
 
         service.setViewContent("problems", null);
-        expect(component.view.getChildren()).toEqual([]);
+        // Контент problems отцеплен; виджет terminal остаётся скрытым ребёнком.
+        expect(component.view.getChildren()).not.toContain(tree);
+        expect(tree.getParent()).toBeNull();
+        expect(component.view.getChildren()).toContain(widget);
+        expect(widget.hidden).toBe(true);
         component.dispose();
     });
 

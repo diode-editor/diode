@@ -3,19 +3,24 @@ import { describe, expect, it } from "vitest";
 import { TUIElement } from "./tuiElement.ts";
 import { assertValidTree, validateTree } from "./validateTree.ts";
 
-/** Контейнер с ручным списком детей — как настоящие контейнеры tuidom. */
+/**
+ * Контейнер, УМЕЮЩИЙ ломать инварианты: наивный ручной список детей, как у
+ * контейнеров до рефакторинга владения. validateTree тестируется именно на
+ * сломанных состояниях, которые штатным API больше не собрать.
+ */
 class ContainerElement extends TUIElement {
-    private readonly children: TUIElement[] = [];
+    private readonly kids: TUIElement[] = [];
 
     public add(child: TUIElement, options?: { setParent?: boolean }): void {
-        this.children.push(child);
         if (options?.setParent !== false) {
-            child.setParent(this);
+            this.appendChild(child);
+        } else {
+            this.kids.push(child); // сирота: в списке, но без parent
         }
     }
 
     public override getChildren(): readonly TUIElement[] {
-        return this.children;
+        return [...super.getChildren(), ...this.kids];
     }
 }
 
@@ -79,7 +84,7 @@ describe("validateTree", () => {
         root.add(a);
         root.add(b);
         a.add(shared);
-        b.add(shared);
+        b.add(shared, { setParent: false }); // второй контейнер отдаёт тот же элемент
 
         const violations = validateTree(root);
         expect(violations.some((v) => v.includes("shared") && v.includes("дважды"))).toBe(true);
@@ -97,8 +102,8 @@ describe("validateTree", () => {
         stranger.id = "stranger";
         const child = new TUIElement();
         child.id = "moved";
-        root.add(child, { setParent: false });
-        child.setParent(stranger); // ребёнок в root.getChildren(), а parent — чужой
+        root.add(child, { setParent: false }); // в root.getChildren() — сиротой
+        stranger.add(child); // а parent теперь указывает на чужой контейнер
 
         const violations = validateTree(root);
         expect(violations.some((v) => v.includes("moved") && v.includes("stranger"))).toBe(true);
