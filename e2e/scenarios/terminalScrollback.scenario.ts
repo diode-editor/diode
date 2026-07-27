@@ -1,3 +1,5 @@
+import { basename } from "node:path";
+
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Скролбэк встроенного терминала: вывод длиннее экрана уезжает в историю, и её видно.
@@ -31,7 +33,8 @@ export default defineScenario({
         await editor.sendKey("Enter");
 
         await editor.waitForText((t) => t.includes("TERMINAL"));
-        await editor.waitForText((t) => t.includes("vexx$") || t.includes("❯"));
+        // Имя каталога, а не литерал "vexx": в git-worktree cwd оканчивается иначе.
+        await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
 
         // Печатаем заведомо больше строк, чем помещается в панель: начало вывода
         // уходит в скролбэк, на экране остаётся хвост.

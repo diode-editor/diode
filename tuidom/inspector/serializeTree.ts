@@ -34,7 +34,15 @@ function serializeNode(element: TUIElement, focused: TUIElement | null, counter:
     const state = element.inspectState();
     if (state !== undefined) snapshot.state = state;
 
-    snapshot.children = element.getChildren().map((child) => serializeNode(child, focused, counter));
+    // Скрытые (hidden) поддеревья не сериализуются: инспектор — «глаз
+    // пользователя», а скрытое не рисуется, не кликается и не участвует в
+    // Tab-обходе. Структурно такие элементы остаются в дереве (стили/root
+    // доходят) — но e2e-тест, ждущий исчезновения виджета со сцены
+    // (waitForNoNode), должен видеть ровно то же, что видит пользователь.
+    snapshot.children = element
+        .getChildren()
+        .filter((child) => !child.hidden)
+        .map((child) => serializeNode(child, focused, counter));
 
     return snapshot;
 }
