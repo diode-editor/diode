@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../common/geometryPromitives.ts";
 
 import { TUIElement } from "./tuiElement.ts";
 
@@ -19,8 +19,11 @@ class ContainerElement extends TUIElement {
     }
 }
 
+// Тесты задают позиции АБСОЛЮТНЫМИ координатами; globalPosition производный,
+// поэтому пересчитываем в локальные относительно уже прикреплённого родителя.
 function layoutElement(el: TUIElement, globalPos: Point, size: Size): void {
-    el.globalPosition = globalPos;
+    const base = el.getParent()?.globalPosition ?? new Point(0, 0);
+    el.localPosition = new Offset(globalPos.x - base.x, globalPos.y - base.y);
     el.performLayout(BoxConstraints.tight(size));
 }
 
@@ -78,12 +81,12 @@ describe("elementFromPoint — flat structure (root → children)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child1 = new TUIElement();
-        layoutElement(child1, new Point(0, 0), new Size(40, 24));
         root.addChild(child1);
+        layoutElement(child1, new Point(0, 0), new Size(40, 24));
 
         const child2 = new TUIElement();
-        layoutElement(child2, new Point(40, 0), new Size(40, 24));
         root.addChild(child2);
+        layoutElement(child2, new Point(40, 0), new Size(40, 24));
 
         expect(root.elementFromPoint(new Point(10, 5))).toBe(child1);
         expect(root.elementFromPoint(new Point(50, 5))).toBe(child2);
@@ -94,8 +97,8 @@ describe("elementFromPoint — flat structure (root → children)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 10), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 10), new Size(20, 10));
 
         expect(root.elementFromPoint(new Point(5, 5))).toBe(root);
     });
@@ -105,12 +108,12 @@ describe("elementFromPoint — flat structure (root → children)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child1 = new TUIElement();
-        layoutElement(child1, new Point(0, 0), new Size(20, 10));
         root.addChild(child1);
+        layoutElement(child1, new Point(0, 0), new Size(20, 10));
 
         const child2 = new TUIElement();
-        layoutElement(child2, new Point(5, 5), new Size(20, 10));
         root.addChild(child2);
+        layoutElement(child2, new Point(5, 5), new Size(20, 10));
 
         // Point (10, 7) is inside both children; child2 should win
         expect(root.elementFromPoint(new Point(10, 7))).toBe(child2);
@@ -121,12 +124,12 @@ describe("elementFromPoint — flat structure (root → children)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child1 = new TUIElement();
-        layoutElement(child1, new Point(0, 0), new Size(20, 10));
         root.addChild(child1);
+        layoutElement(child1, new Point(0, 0), new Size(20, 10));
 
         const child2 = new TUIElement();
-        layoutElement(child2, new Point(30, 0), new Size(20, 10));
         root.addChild(child2);
+        layoutElement(child2, new Point(30, 0), new Size(20, 10));
 
         expect(root.elementFromPoint(new Point(5, 5))).toBe(child1);
     });
@@ -138,16 +141,16 @@ describe("elementFromPoint — deep nesting", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const container = new ContainerElement();
-        layoutElement(container, new Point(5, 2), new Size(70, 20));
         root.addChild(container);
+        layoutElement(container, new Point(5, 2), new Size(70, 20));
 
         const inner = new ContainerElement();
-        layoutElement(inner, new Point(10, 5), new Size(50, 10));
         container.addChild(inner);
+        layoutElement(inner, new Point(10, 5), new Size(50, 10));
 
         const leaf = new TUIElement();
-        layoutElement(leaf, new Point(15, 7), new Size(30, 5));
         inner.addChild(leaf);
+        layoutElement(leaf, new Point(15, 7), new Size(30, 5));
 
         expect(root.elementFromPoint(new Point(20, 9))).toBe(leaf);
     });
@@ -157,12 +160,12 @@ describe("elementFromPoint — deep nesting", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const container = new ContainerElement();
-        layoutElement(container, new Point(5, 2), new Size(70, 20));
         root.addChild(container);
+        layoutElement(container, new Point(5, 2), new Size(70, 20));
 
         const inner = new TUIElement();
-        layoutElement(inner, new Point(10, 5), new Size(50, 10));
         container.addChild(inner);
+        layoutElement(inner, new Point(10, 5), new Size(50, 10));
 
         // Point (7, 3) is inside container but outside inner
         expect(root.elementFromPoint(new Point(7, 3))).toBe(container);
@@ -173,8 +176,8 @@ describe("elementFromPoint — deep nesting", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const container = new ContainerElement();
-        layoutElement(container, new Point(5, 2), new Size(70, 20));
         root.addChild(container);
+        layoutElement(container, new Point(5, 2), new Size(70, 20));
 
         // Point (2, 1) is inside root but outside container
         expect(root.elementFromPoint(new Point(2, 1))).toBe(root);
@@ -187,24 +190,24 @@ describe("elementFromPoint — multiple containers (horizontal split)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const panelA = new ContainerElement();
-        layoutElement(panelA, new Point(0, 0), new Size(40, 24));
         root.addChild(panelA);
+        layoutElement(panelA, new Point(0, 0), new Size(40, 24));
 
         const itemA1 = new TUIElement();
-        layoutElement(itemA1, new Point(0, 0), new Size(40, 12));
         panelA.addChild(itemA1);
+        layoutElement(itemA1, new Point(0, 0), new Size(40, 12));
 
         const itemA2 = new TUIElement();
-        layoutElement(itemA2, new Point(0, 12), new Size(40, 12));
         panelA.addChild(itemA2);
+        layoutElement(itemA2, new Point(0, 12), new Size(40, 12));
 
         const panelB = new ContainerElement();
-        layoutElement(panelB, new Point(40, 0), new Size(40, 24));
         root.addChild(panelB);
+        layoutElement(panelB, new Point(40, 0), new Size(40, 24));
 
         const itemB1 = new TUIElement();
-        layoutElement(itemB1, new Point(40, 5), new Size(30, 10));
         panelB.addChild(itemB1);
+        layoutElement(itemB1, new Point(40, 5), new Size(30, 10));
 
         // Point inside itemA2
         expect(root.elementFromPoint(new Point(20, 15))).toBe(itemA2);
@@ -221,12 +224,12 @@ describe("elementFromPoint — nested containers with offsets", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const panel = new ContainerElement();
-        layoutElement(panel, new Point(5, 3), new Size(70, 18));
         root.addChild(panel);
+        layoutElement(panel, new Point(5, 3), new Size(70, 18));
 
         const widget = new TUIElement();
-        layoutElement(widget, new Point(10, 5), new Size(50, 10));
         panel.addChild(widget);
+        layoutElement(widget, new Point(10, 5), new Size(50, 10));
 
         // Inside widget
         expect(root.elementFromPoint(new Point(15, 10))).toBe(widget);
@@ -257,16 +260,16 @@ describe("elementFromPoint — edge cases", () => {
         layoutElement(root, new Point(0, 0), new Size(100, 50));
 
         const level1 = new ContainerElement();
-        layoutElement(level1, new Point(10, 10), new Size(80, 30));
         root.addChild(level1);
+        layoutElement(level1, new Point(10, 10), new Size(80, 30));
 
         const level2 = new ContainerElement();
-        layoutElement(level2, new Point(20, 15), new Size(60, 20));
         level1.addChild(level2);
+        layoutElement(level2, new Point(20, 15), new Size(60, 20));
 
         const leaf = new TUIElement();
-        layoutElement(leaf, new Point(30, 20), new Size(40, 10));
         level2.addChild(leaf);
+        layoutElement(leaf, new Point(30, 20), new Size(40, 10));
 
         expect(root.elementFromPoint(new Point(35, 25))).toBe(leaf);
         expect(root.elementFromPoint(new Point(25, 17))).toBe(level2);
@@ -281,8 +284,8 @@ describe("elementFromPoint — edge cases", () => {
         const children: TUIElement[] = [];
         for (let i = 0; i < 10; i++) {
             const child = new TUIElement();
-            layoutElement(child, new Point(i * 10, 0), new Size(10, 10));
             root.addChild(child);
+            layoutElement(child, new Point(i * 10, 0), new Size(10, 10));
             children.push(child);
         }
 

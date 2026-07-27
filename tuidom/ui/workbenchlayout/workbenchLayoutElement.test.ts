@@ -37,7 +37,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelWidth(25);
 
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(leftPanel.layoutSize).toEqual(new Size(25, 24));
@@ -54,7 +54,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelWidth(25);
 
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(center.layoutSize).toEqual(new Size(55, 24));
@@ -71,7 +71,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelWidth(30);
 
-            layout.globalPosition = new Point(0, 1);
+            layout.localPosition = new Offset(0, 1);
             layout.performLayout(BoxConstraints.tight(new Size(80, 22)));
 
             expect(leftPanel.globalPosition).toEqual(new Point(0, 1));
@@ -89,7 +89,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelVisible(false);
 
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(center.layoutSize).toEqual(new Size(80, 24));
@@ -106,7 +106,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelVisible(false);
 
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(leftPanel.isLayoutDirty).toBe(true);
@@ -123,7 +123,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelWidth(30);
 
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
             expect(center.layoutSize.width).toBe(50);
 
@@ -144,7 +144,7 @@ describe("WorkbenchLayoutElement", () => {
 
             layout.setCenterContent(center);
 
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(center.layoutSize).toEqual(new Size(80, 24));
@@ -268,7 +268,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelWidth(100);
 
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             // 80 - MIN_CENTER_WIDTH(20) = 60 reserved for the panel, 20 for the editor.
@@ -282,7 +282,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(createPanel());
             layout.setLeftPanelWidth(50);
 
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             // Narrow terminal clamps the displayed width down...
             layout.performLayout(BoxConstraints.tight(new Size(40, 24)));
             expect(layout.getLeftPanelWidth()).toBe(50);
@@ -300,7 +300,7 @@ describe("WorkbenchLayoutElement", () => {
 
             layout.setLeftPanel(left);
             layout.setLeftPanelWidth(20);
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
 
             expect(() => layout.performLayout(BoxConstraints.tight(new Size(40, 10)))).not.toThrow();
             expect(left.layoutSize).toEqual(new Size(20, 10));
@@ -323,7 +323,7 @@ describe("WorkbenchLayoutElement", () => {
         function renderLayout(layout: WorkbenchLayoutElement, size: Size): MockTerminalBackend {
             const backend = new MockTerminalBackend(size);
             const termScreen = new TerminalScreen(size);
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(size));
             layout.render(new RenderContext(termScreen, new Offset(0, 0), new Rect(new Point(0, 0), size)));
             termScreen.flush(backend);
@@ -382,7 +382,7 @@ describe("WorkbenchLayoutElement", () => {
             const layout = new WorkbenchLayoutElement();
             layout.setLeftPanel(createPanel());
             layout.setCenterContent(createPanel());
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(containerWidth, 24)));
             return layout;
         }
@@ -420,7 +420,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanel(createPanel());
             layout.setCenterContent(createPanel());
             layout.setLeftPanelWidth(leftWidth);
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
             const sash = layout.getChildren()[2] as SashElement;
             return { layout, sash };
@@ -462,7 +462,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setBottomPanel(panel);
             layout.setBottomPanelVisible(true);
             if (options?.height !== undefined) layout.setBottomPanelHeight(options.height);
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
             return { layout, center, panel };
         }
@@ -473,7 +473,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setBottomPanel(createPanel());
             expect(layout.getBottomPanelVisible()).toBe(false);
-            layout.globalPosition = new Point(0, 0);
+            layout.localPosition = new Offset(0, 0);
             layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
             // Hidden panel is absent from the tree and the center keeps full height.
             expect(layout.getChildren()).toEqual([center]);

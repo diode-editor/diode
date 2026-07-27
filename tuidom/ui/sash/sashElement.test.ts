@@ -41,11 +41,11 @@ function makeToken(overrides: Partial<MouseToken> & { action: MouseToken["action
 function buildScene(): { root: ContainerElement; sash: SashElement; drags: number[] } {
     const root = new ContainerElement();
     root.setAsRoot();
-    root.globalPosition = new Point(0, 0);
+    root.localPosition = new Offset(0, 0);
     root.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
     const sash = new SashElement();
-    sash.globalPosition = new Point(30, 0);
+    sash.localPosition = new Offset(30, 0);
     sash.performLayout(BoxConstraints.tight(new Size(1, 24)));
     root.addChild(sash);
 
@@ -199,11 +199,11 @@ describe("SashElement", () => {
         function buildHScene(): { root: ContainerElement; sash: SashElement; drags: number[] } {
             const root = new ContainerElement();
             root.setAsRoot();
-            root.globalPosition = new Point(0, 0);
+            root.localPosition = new Offset(0, 0);
             root.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             const sash = new SashElement("horizontal");
-            sash.globalPosition = new Point(0, 10);
+            sash.localPosition = new Offset(0, 10);
             sash.performLayout(BoxConstraints.tight(new Size(80, 1)));
             root.addChild(sash);
 

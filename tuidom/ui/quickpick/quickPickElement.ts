@@ -390,9 +390,7 @@ export class QuickPickElement extends TUIElement {
 
         // Position InputElement inside the top border, padded by 1 on each side.
         const inputWidth = Math.max(0, size.width - 2);
-        this.inputElement.localPosition = new Offset(1, 1);
-        this.inputElement.globalPosition = new Point(this.globalPosition.x + 1, this.globalPosition.y + 1);
-        this.inputElement.performLayout(BoxConstraints.tight(new Size(inputWidth, 1)));
+        this.layoutChild(this.inputElement, 1, 1, BoxConstraints.tight(new Size(inputWidth, 1)));
 
         return size;
     }

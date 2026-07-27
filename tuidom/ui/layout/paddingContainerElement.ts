@@ -104,9 +104,7 @@ export class PaddingContainerElement extends TUIElement {
         if (this.child) {
             const childWidth = Math.max(0, containerSize.width - this.left - this.right);
             const childHeight = Math.max(0, containerSize.height - this.top - this.bottom);
-            this.child.localPosition = new Offset(this.left, this.top);
-            this.child.globalPosition = new Point(this.globalPosition.x + this.left, this.globalPosition.y + this.top);
-            this.child.performLayout(BoxConstraints.tight(new Size(childWidth, childHeight)));
+            this.layoutChild(this.child, this.left, this.top, BoxConstraints.tight(new Size(childWidth, childHeight)));
         }
 
         return containerSize;

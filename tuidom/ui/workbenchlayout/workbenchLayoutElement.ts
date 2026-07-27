@@ -254,47 +254,28 @@ export class WorkbenchLayoutElement extends TUIElement {
         const centerHeight = Math.max(0, containerSize.height - panelHeight);
 
         if (showLeft && this.leftPanel) {
-            const leftSize = new Size(leftWidth, containerSize.height);
-            this.leftPanel.localPosition = new Offset(0, 0);
-            this.leftPanel.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-            this.leftPanel.performLayout(BoxConstraints.tight(leftSize));
+            this.layoutChild(this.leftPanel, 0, 0, BoxConstraints.tight(new Size(leftWidth, containerSize.height)));
         }
 
         if (this.centerContent) {
-            const centerSize = new Size(centerWidth, centerHeight);
-            this.centerContent.localPosition = new Offset(leftWidth, 0);
-            this.centerContent.globalPosition = new Point(this.globalPosition.x + leftWidth, this.globalPosition.y);
-            this.centerContent.performLayout(BoxConstraints.tight(centerSize));
+            this.layoutChild(this.centerContent, leftWidth, 0, BoxConstraints.tight(new Size(centerWidth, centerHeight)));
         }
 
         if (showBottom && this.bottomPanel) {
-            const panelSize = new Size(centerWidth, panelHeight);
-            this.bottomPanel.localPosition = new Offset(leftWidth, centerHeight);
-            this.bottomPanel.globalPosition = new Point(
-                this.globalPosition.x + leftWidth,
-                this.globalPosition.y + centerHeight,
-            );
-            this.bottomPanel.performLayout(BoxConstraints.tight(panelSize));
+            this.layoutChild(this.bottomPanel, leftWidth, centerHeight, BoxConstraints.tight(new Size(centerWidth, panelHeight)));
         }
 
         if (showLeft) {
             // 1-column hit target sitting on the boundary between the sidebar and center.
             // Must be laid out explicitly, otherwise its lazy layoutSize would report a
             // stale box at (0,0) and break hit-testing.
-            this.sash.localPosition = new Offset(leftWidth, 0);
-            this.sash.globalPosition = new Point(this.globalPosition.x + leftWidth, this.globalPosition.y);
-            this.sash.performLayout(BoxConstraints.tight(new Size(1, containerSize.height)));
+            this.layoutChild(this.sash, leftWidth, 0, BoxConstraints.tight(new Size(1, containerSize.height)));
         }
 
         if (showBottom) {
             // 1-row hit target on the boundary between the editor and the bottom panel,
             // spanning the center width at the panel's top row.
-            this.bottomSash.localPosition = new Offset(leftWidth, centerHeight);
-            this.bottomSash.globalPosition = new Point(
-                this.globalPosition.x + leftWidth,
-                this.globalPosition.y + centerHeight,
-            );
-            this.bottomSash.performLayout(BoxConstraints.tight(new Size(centerWidth, 1)));
+            this.layoutChild(this.bottomSash, leftWidth, centerHeight, BoxConstraints.tight(new Size(centerWidth, 1)));
         }
 
         return containerSize;

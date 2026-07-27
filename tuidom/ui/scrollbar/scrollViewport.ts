@@ -62,11 +62,8 @@ export class ScrollViewport extends TUIElement implements IScrollable {
     public override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
 
-        this.child.localPosition = new Offset(0, 0);
-        this.child.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-
         // Give child the full viewport size — it draws all content in local coords
-        this.child.performLayout(BoxConstraints.tight(size));
+        this.layoutChild(this.child, 0, 0, BoxConstraints.tight(size));
 
         return size;
     }

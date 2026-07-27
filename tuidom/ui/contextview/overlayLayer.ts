@@ -308,16 +308,15 @@ export class OverlayLayer extends TUIElement {
         for (const item of this.items) {
             if (!item.visible) continue;
 
-            item.element.globalPosition = new Point(
-                this.globalPosition.x + item.position.x,
-                this.globalPosition.y + item.position.y,
-            );
-            item.element.localPosition = new Offset(item.position.x, item.position.y);
-
             // Constrain child so it doesn't overflow beyond the layer bounds
             const availableWidth = Math.max(0, layerSize.width - item.position.x);
             const availableHeight = Math.max(0, layerSize.height - item.position.y);
-            item.element.performLayout(BoxConstraints.loose(new Size(availableWidth, availableHeight)));
+            this.layoutChild(
+                item.element,
+                item.position.x,
+                item.position.y,
+                BoxConstraints.loose(new Size(availableWidth, availableHeight)),
+            );
         }
 
         return layerSize;

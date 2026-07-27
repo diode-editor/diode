@@ -106,13 +106,8 @@ class SearchViewElement extends TUIElement {
         const headerHeight = Math.min(size.height, HEADER_HEIGHT);
         const resultsHeight = Math.max(0, size.height - headerHeight);
 
-        this.header.localPosition = new Offset(0, 0);
-        this.header.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-        this.header.performLayout(BoxConstraints.tight(new Size(size.width, headerHeight)));
-
-        this.results.localPosition = new Offset(0, headerHeight);
-        this.results.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y + headerHeight);
-        this.results.performLayout(BoxConstraints.tight(new Size(size.width, resultsHeight)));
+        this.layoutChild(this.header, 0, 0, BoxConstraints.tight(new Size(size.width, headerHeight)));
+        this.layoutChild(this.results, 0, headerHeight, BoxConstraints.tight(new Size(size.width, resultsHeight)));
         return size;
     }
 

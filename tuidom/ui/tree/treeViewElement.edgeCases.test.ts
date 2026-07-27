@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { TUIMouseEvent, type TUIMouseEventType, type WheelDirection } from "../../dom/events/tuiMouseEvent.ts";
 
 import type { ITreeDataProvider, ITreeItem } from "./iTreeDataProvider.ts";
@@ -44,7 +44,7 @@ function createTree(
     const provider = createProvider(roots);
     const tree = new TreeViewElement(provider);
     const app = TestApp.createWithContent(tree, viewportSize);
-    tree.globalPosition = new Point(0, 0);
+    tree.localPosition = new Offset(0, 0);
     tree.performLayout(BoxConstraints.tight(viewportSize));
     tree.focus();
     return { tree, app, provider };

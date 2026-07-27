@@ -63,7 +63,7 @@ describe("CompositeElement proxy behavior (lines 72-84)", () => {
         // Pretend the child was previously positioned elsewhere.
         child.localPosition = new Offset(9, 9);
 
-        comp.globalPosition = new Point(5, 6);
+        comp.localPosition = new Offset(5, 6);
         comp.performLayout(BoxConstraints.tight(new Size(30, 8)));
 
         // The proxy forces the child to the composite origin.

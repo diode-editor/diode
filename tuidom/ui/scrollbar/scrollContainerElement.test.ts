@@ -170,7 +170,7 @@ describe("ScrollBarDecorator", () => {
         const { container, child } = createScrollContainer(12, 5, 50);
 
         // Set container global position to (10, 20)
-        container.globalPosition = new Point(10, 20);
+        container.localPosition = new Offset(10, 20);
         container.performLayout(BoxConstraints.tight(new Size(12, 5)));
 
         // Child should be at (10, 20)

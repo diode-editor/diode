@@ -356,9 +356,7 @@ export class ListViewElement extends ScrollableElement {
             const row = rows[i];
             const contentX = this.rowContentX(row);
             const y = i - start;
-            row.element.localPosition = new Offset(contentX, y);
-            row.element.globalPosition = new Point(this.globalPosition.x + contentX, this.globalPosition.y + y);
-            row.element.performLayout(BoxConstraints.tight(new Size(Math.max(0, size.width - contentX), 1)));
+            this.layoutChild(row.element, contentX, y, BoxConstraints.tight(new Size(Math.max(0, size.width - contentX), 1)));
         }
         this.lastLayoutScrollTop = start;
         this.lastLayoutViewportHeight = size.height;

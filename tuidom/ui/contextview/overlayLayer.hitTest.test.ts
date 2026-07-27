@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { BoxElement } from "../layout/boxElement.ts";
 import { PopupMenuElement } from "../menu/popupMenuElement.ts";
 
@@ -8,7 +8,7 @@ import { OverlayLayer } from "./overlayLayer.ts";
 
 function sizedBox(global: Point, size: Size): BoxElement {
     const box = new BoxElement();
-    box.globalPosition = global;
+    box.localPosition = new Offset(global.x, global.y);
     box.performLayout(BoxConstraints.tight(size));
     return box;
 }
@@ -43,7 +43,7 @@ describe("OverlayLayer — elementFromPoint", () => {
 describe("OverlayLayer — openPopupSession", () => {
     it("opens a session positioned by the anchor", () => {
         const layer = new OverlayLayer();
-        layer.globalPosition = new Point(0, 0);
+        layer.localPosition = new Offset(0, 0);
         layer.performLayout(BoxConstraints.tight(new Size(40, 20)));
 
         const menu = new PopupMenuElement([{ label: "Copy" }]);

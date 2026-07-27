@@ -207,20 +207,13 @@ export class PanelContainerElement extends TUIElement {
         if (actions != null) {
             const actionsWidth = Math.min(actions.getMaxIntrinsicWidth(1), containerSize.width);
             const x = Math.max(this.tabsEnd(), containerSize.width - actionsWidth - TAB_INDENT);
-            actions.localPosition = new Offset(x, TAB_ROW);
-            actions.globalPosition = new Point(this.globalPosition.x + x, this.globalPosition.y + TAB_ROW);
-            actions.performLayout(BoxConstraints.tight(new Size(Math.max(0, containerSize.width - x), 1)));
+            this.layoutChild(actions, x, TAB_ROW, BoxConstraints.tight(new Size(Math.max(0, containerSize.width - x), 1)));
         }
         const content = this.activeView()?.content;
         if (content != null) {
             const contentWidth = Math.max(0, containerSize.width - CONTENT_LEFT);
             const contentHeight = Math.max(0, containerSize.height - CONTENT_TOP);
-            content.localPosition = new Offset(CONTENT_LEFT, CONTENT_TOP);
-            content.globalPosition = new Point(
-                this.globalPosition.x + CONTENT_LEFT,
-                this.globalPosition.y + CONTENT_TOP,
-            );
-            content.performLayout(BoxConstraints.tight(new Size(contentWidth, contentHeight)));
+            this.layoutChild(content, CONTENT_LEFT, CONTENT_TOP, BoxConstraints.tight(new Size(contentWidth, contentHeight)));
         }
         return containerSize;
     }

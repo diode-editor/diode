@@ -70,9 +70,7 @@ export abstract class CompositeElement extends TUIElement {
         const resultSize = super.performLayout(constraints);
 
         if (this.rootChild) {
-            this.rootChild.localPosition = new Offset(0, 0);
-            this.rootChild.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-            this.rootChild.performLayout(BoxConstraints.tight(resultSize));
+            this.layoutChild(this.rootChild, 0, 0, BoxConstraints.tight(resultSize));
         }
 
         return resultSize;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../common/geometryPromitives.ts";
 import type { IContentSized } from "../ui/scrollbar/iScrollable.ts";
 import { ScrollViewport } from "../ui/scrollbar/scrollViewport.ts";
 
@@ -30,8 +30,11 @@ class ContentElement extends TUIElement implements IContentSized {
     }
 }
 
+// Тесты задают позиции АБСОЛЮТНЫМИ координатами; globalPosition производный,
+// поэтому пересчитываем в локальные относительно уже прикреплённого родителя.
 function layoutElement(el: TUIElement, globalPos: Point, size: Size): void {
-    el.globalPosition = globalPos;
+    const base = el.getParent()?.globalPosition ?? new Point(0, 0);
+    el.localPosition = new Offset(globalPos.x - base.x, globalPos.y - base.y);
     el.performLayout(BoxConstraints.tight(size));
 }
 
@@ -45,13 +48,13 @@ describe("ScrollViewport.elementFromPoint — vertical scroll", () => {
         // Layout viewport at (0,0) with size 80x20
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
         // Content gets same global position as viewport
-        content.globalPosition = new Point(0, 0);
+        content.localPosition = new Offset(0, 0);
         content.performLayout(BoxConstraints.tight(new Size(80, 20)));
 
         // Place a child inside content at y=35 (visible only when scrolled)
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 30), new Size(20, 10));
         content.addChild(child);
+        layoutElement(child, new Point(10, 30), new Size(20, 10));
 
         // Scroll down by 30
         viewport.scrollTo(0, 30);
@@ -65,12 +68,12 @@ describe("ScrollViewport.elementFromPoint — vertical scroll", () => {
         const viewport = new ScrollViewport(content);
 
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
-        content.globalPosition = new Point(0, 0);
+        content.localPosition = new Offset(0, 0);
         content.performLayout(BoxConstraints.tight(new Size(80, 20)));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 50), new Size(20, 10));
         content.addChild(child);
+        layoutElement(child, new Point(10, 50), new Size(20, 10));
 
         viewport.scrollTo(0, 0);
 
@@ -95,12 +98,12 @@ describe("ScrollViewport.elementFromPoint — horizontal scroll", () => {
         const viewport = new ScrollViewport(content);
 
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
-        content.globalPosition = new Point(0, 0);
+        content.localPosition = new Offset(0, 0);
         content.performLayout(BoxConstraints.tight(new Size(80, 20)));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(100, 5), new Size(20, 10));
         content.addChild(child);
+        layoutElement(child, new Point(100, 5), new Size(20, 10));
 
         viewport.scrollTo(90, 0);
 
@@ -115,12 +118,12 @@ describe("ScrollViewport.elementFromPoint — both axes", () => {
         const viewport = new ScrollViewport(content);
 
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
-        content.globalPosition = new Point(0, 0);
+        content.localPosition = new Offset(0, 0);
         content.performLayout(BoxConstraints.tight(new Size(80, 20)));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(100, 100), new Size(20, 10));
         content.addChild(child);
+        layoutElement(child, new Point(100, 100), new Size(20, 10));
 
         viewport.scrollTo(95, 95);
 
@@ -136,12 +139,12 @@ describe("ScrollViewport.elementFromPoint — offset viewport", () => {
 
         // Viewport starts at (10, 5) on screen
         layoutElement(viewport, new Point(10, 5), new Size(60, 15));
-        content.globalPosition = new Point(10, 5);
+        content.localPosition = new Offset(10, 5);
         content.performLayout(BoxConstraints.tight(new Size(60, 15)));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 20), new Size(40, 10));
         content.addChild(child);
+        layoutElement(child, new Point(10, 20), new Size(40, 10));
 
         viewport.scrollTo(0, 15);
 

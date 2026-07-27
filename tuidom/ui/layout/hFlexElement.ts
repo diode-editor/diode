@@ -162,10 +162,7 @@ export class HFlexElement extends TUIElement {
                 childWidth = remaining;
             }
 
-            child.localPosition = new Offset(currentX, 0);
-            child.globalPosition = new Point(this.globalPosition.x + currentX, this.globalPosition.y);
-
-            child.performLayout(BoxConstraints.tight(new Size(childWidth, childHeight)));
+            this.layoutChild(child, currentX, 0, BoxConstraints.tight(new Size(childWidth, childHeight)));
             currentX += childWidth;
         }
 

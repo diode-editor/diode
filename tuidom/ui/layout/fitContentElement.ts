@@ -52,9 +52,7 @@ export class FitContentElement extends TUIElement {
         super.performLayout(BoxConstraints.tight(resultSize));
 
         if (this.child) {
-            this.child.localPosition = new Offset(0, 0);
-            this.child.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-            this.child.performLayout(BoxConstraints.tight(resultSize));
+            this.layoutChild(this.child, 0, 0, BoxConstraints.tight(resultSize));
         }
 
         return resultSize;

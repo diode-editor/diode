@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectScreen, screen } from "../../../src/TestUtils/expectScreen.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { RenderContext } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 import { BoxElement } from "../layout/boxElement.ts";
@@ -75,7 +75,7 @@ describe("BodyElement root reference", () => {
 
 describe("BodyElement menuBar integration", () => {
     function layoutBody(body: BodyElement, width = 40, height = 20): void {
-        body.globalPosition = new Point(0, 0);
+        body.localPosition = new Offset(0, 0);
         body.performLayout(BoxConstraints.tight(new Size(width, height)));
     }
 
@@ -140,7 +140,7 @@ describe("BodyElement menuBar integration", () => {
 
 describe("BodyElement statusBar integration", () => {
     function layoutBody(body: BodyElement, width = 40, height = 20): void {
-        body.globalPosition = new Point(0, 0);
+        body.localPosition = new Offset(0, 0);
         body.performLayout(BoxConstraints.tight(new Size(width, height)));
     }
 

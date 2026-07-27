@@ -70,7 +70,7 @@ function renderPanel(panel: PanelContainerElement, size: Size): MockTerminalBack
 }
 
 function layoutPanel(panel: PanelContainerElement, size: Size): void {
-    panel.globalPosition = new Point(0, 0);
+    panel.localPosition = new Offset(0, 0);
     panel.performLayout(BoxConstraints.tight(size));
 }
 
@@ -192,13 +192,13 @@ describe("PanelContainerElement", () => {
         function scene(): { root: ContainerElement; panel: PanelContainerElement; activated: string[] } {
             const root = new ContainerElement();
             root.setAsRoot();
-            root.globalPosition = new Point(0, 0);
+            root.localPosition = new Offset(0, 0);
             root.performLayout(BoxConstraints.tight(new Size(40, 8)));
 
             const panel = themed();
             panel.addView({ id: "a", title: "PROBLEMS", content: null });
             panel.addView({ id: "b", title: "OUTPUT", content: null });
-            panel.globalPosition = new Point(0, 0);
+            panel.localPosition = new Offset(0, 0);
             panel.performLayout(BoxConstraints.tight(new Size(40, 8)));
             root.addChild(panel);
 

@@ -71,14 +71,11 @@ export class ScrollBarDecorator extends TUIElement {
     public performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
-        this.child.localPosition = new Offset(0, 0);
-        this.child.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-
         const { showVertical, showHorizontal } = this.resolveScrollBarVisibility(containerSize);
         const childWidth = containerSize.width - (showVertical ? 1 : 0);
         const childHeight = containerSize.height - (showHorizontal ? 1 : 0);
 
-        this.child.performLayout(BoxConstraints.tight(new Size(childWidth, childHeight)));
+        this.layoutChild(this.child, 0, 0, BoxConstraints.tight(new Size(childWidth, childHeight)));
 
         return containerSize;
     }

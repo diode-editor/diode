@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import type { MouseToken } from "../../input/rawTerminalToken.ts";
 import { BodyElement } from "../../ui/body/bodyElement.ts";
 import { TuiApplication } from "../tuiApplication.ts";
@@ -56,7 +56,7 @@ describe("MouseEventDispatcher integration with TuiApplication", () => {
         const body = new BodyElement();
         const root = new ContainerElement();
         const child = new TUIElement();
-        child.globalPosition = new Point(10, 5);
+        child.localPosition = new Offset(10, 5);
         child.performLayout(BoxConstraints.tight(new Size(20, 10)));
         root.addChild(child);
 
@@ -85,7 +85,7 @@ describe("MouseEventDispatcher integration with TuiApplication", () => {
         const body = new BodyElement();
         const root = new ContainerElement();
         const child = new TUIElement();
-        child.globalPosition = new Point(10, 5);
+        child.localPosition = new Offset(10, 5);
         child.performLayout(BoxConstraints.tight(new Size(20, 10)));
         root.addChild(child);
 

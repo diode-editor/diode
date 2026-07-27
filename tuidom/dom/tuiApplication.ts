@@ -56,8 +56,9 @@ export class TuiApplication {
             this.frameCounter++;
             this.screen.clear();
 
-            // Set root global position to (0, 0) — top-left of screen
-            this.root.globalPosition = new Point(0, 0);
+            // Root at (0, 0) — top-left of screen. globalPosition производный
+            // (localPosition корня без родителя), выставлять его не нужно.
+            this.root.localPosition = new Offset(0, 0);
 
             // Perform layout with tight constraints based on screen size
             const constraints = BoxConstraints.tight(this.screen.size);

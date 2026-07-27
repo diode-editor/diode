@@ -1,5 +1,5 @@
 import { MockTerminalBackend } from "../../tuidom/backend/mockTerminalBackend.ts";
-import { BoxConstraints, Point, Size } from "../../tuidom/common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Size } from "../../tuidom/common/geometryPromitives.ts";
 import type { TUIElement } from "../../tuidom/dom/tuiElement.ts";
 import { RenderContext } from "../../tuidom/dom/tuiElement.ts";
 import { TerminalScreen } from "../../tuidom/rendering/terminalScreen.ts";
@@ -26,7 +26,8 @@ export function renderElement(
     const size = new Size(width, height);
     const backend = new MockTerminalBackend(size);
     const termScreen = new TerminalScreen(size);
-    element.globalPosition = new Point(0, 0);
+    // globalPosition производный: у элемента без родителя он равен localPosition.
+    element.localPosition = new Offset(0, 0);
     element.performLayout(options.constraints ?? BoxConstraints.tight(size));
     if (options.resolveStyles === true) {
         element.performStyleResolution(element.resolvedStyle);

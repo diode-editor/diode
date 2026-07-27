@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FakeTerminalSurface } from "../../../src/TestUtils/FakeTerminalSurface.ts";
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { StyleFlags } from "../../common/styleFlags.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import type { CellPatch } from "../../rendering/grid.ts";
@@ -27,7 +27,7 @@ class RecordingContext extends RenderContext {
 function render(el: TUIElement, width: number, height: number): RecordingContext {
     const size = new Size(width, height);
     const context = new RecordingContext(new TerminalScreen(size));
-    el.globalPosition = new Point(0, 0);
+    el.localPosition = new Offset(0, 0);
     el.performLayout(BoxConstraints.tight(size));
     el.render(context);
     return context;
@@ -171,7 +171,7 @@ describe("TerminalViewElement — updates", () => {
         surface.setGrid(["a"]);
         const el = new TerminalViewElement(surface);
         const context = new RecordingContext(new TerminalScreen(new Size(1, 1)));
-        el.globalPosition = new Point(0, 0);
+        el.localPosition = new Offset(0, 0);
         el.performLayout(BoxConstraints.tight(new Size(1, 1)));
 
         // markDirty подписан на onUpdate — после emitUpdate элемент помечен грязным

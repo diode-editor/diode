@@ -3,7 +3,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Point } from "../../../../tuidom/common/geometryPromitives.ts";
+import { Offset, Point } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
@@ -102,7 +102,7 @@ describe("File explorer context menu — clipboard entries", () => {
 
     function clickTree(row: number, button: "left" | "right"): void {
         const tree = h.testApp.querySelector("TreeViewElement") as TreeViewElement<unknown>;
-        tree.globalPosition = new Point(0, 0);
+        tree.localPosition = new Offset(0, 0);
         const init = { screenX: 2, screenY: row, localX: 2, localY: row };
         if (button === "right") {
             // Правый клик — событие contextmenu (движок диспатчит его на release).

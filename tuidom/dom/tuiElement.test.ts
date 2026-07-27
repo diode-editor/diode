@@ -133,12 +133,20 @@ describe("TUIElement coordinate system", () => {
         expect(element.localPosition).toEqual(offset);
     });
 
-    it("globalPosition reflects absolute screen coordinates", () => {
-        const element = new TUIElement();
-        const point = new Point(15, 20);
-        element.globalPosition = point;
+    it("globalPosition выводится из цепочки родителей (parent.global + local)", () => {
+        // Позиция производная: у standalone-элемента равна localPosition, у
+        // ребёнка — сумме localPosition вверх по цепочке. Рассинхрон полей,
+        // который раньше приходилось поддерживать руками, невозможен.
+        const standalone = new TUIElement();
+        standalone.localPosition = new Offset(15, 20);
+        expect(standalone.globalPosition).toEqual(new Point(15, 20));
 
-        expect(element.globalPosition).toEqual(point);
+        const parent = new ContainerElement();
+        parent.localPosition = new Offset(10, 5);
+        const child = new TUIElement();
+        child.localPosition = new Offset(3, 2);
+        parent.addChild(child);
+        expect(child.globalPosition).toEqual(new Point(13, 7));
     });
 
     it("child with null parent does not crash on markDirty", () => {

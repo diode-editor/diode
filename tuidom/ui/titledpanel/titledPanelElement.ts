@@ -40,9 +40,7 @@ export class TitledPanelElement extends TUIElement<TitledPanelStyle> {
         const containerSize = super.performLayout(constraints);
         const childHeight = Math.max(0, containerSize.height - 1);
 
-        this.child.localPosition = new Offset(0, 1);
-        this.child.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y + 1);
-        this.child.performLayout(BoxConstraints.tight(new Size(containerSize.width, childHeight)));
+        this.layoutChild(this.child, 0, 1, BoxConstraints.tight(new Size(containerSize.width, childHeight)));
 
         return containerSize;
     }

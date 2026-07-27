@@ -99,11 +99,6 @@ export class VStackElement extends TUIElement {
 
             // Set local position (relative to this container)
             child.localPosition = new Offset(0, currentY);
-            // Set global position (absolute screen coords)
-            child.globalPosition = new Point(
-                this.globalPosition.x + child.localPosition.dx,
-                this.globalPosition.y + child.localPosition.dy,
-            );
 
             // Store in layoutState for compatibility
             child.layoutState = {

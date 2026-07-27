@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { TUIContextMenuEvent, TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 
@@ -41,7 +41,7 @@ function createTree(roots: TestNode[], viewportSize = new Size(40, 10)) {
     const provider = createProvider(roots);
     const tree = new TreeViewElement(provider);
     const app = TestApp.createWithContent(tree, viewportSize);
-    tree.globalPosition = new Point(0, 0);
+    tree.localPosition = new Offset(0, 0);
     tree.performLayout(BoxConstraints.tight(viewportSize));
     tree.focus();
     return { tree, app, provider, refresh: () => tree.refresh() };
@@ -182,7 +182,7 @@ describe("TreeViewElement - getSelectedRowGlobalPosition (keyboard context menu 
     it("offsets the anchor by the tree's own global position", async () => {
         const { tree, refresh } = createTree(FLAT_NODES);
         await refresh();
-        tree.globalPosition = new Point(3, 5);
+        tree.localPosition = new Offset(3, 5);
 
         tree.dispatchEvent(makeClickEvent({ button: "left", screenX: 5, screenY: 2 }));
 

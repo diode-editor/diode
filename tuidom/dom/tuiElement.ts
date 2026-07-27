@@ -234,7 +234,6 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
 
     // Coordinate system
     public localPosition: Offset = new Offset(0, 0);
-    public globalPosition: Point = new Point(0, 0);
     public isLayoutDirty = true;
     protected _parent: TUIElement | null = null;
     protected root: TUIElement | null = null;
@@ -282,6 +281,26 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
 
     public getParent(): TUIElement | null {
         return this._parent;
+    }
+
+    /**
+     * Абсолютная позиция элемента на экране — **производная** от цепочки
+     * родителей: `parent.globalPosition + localPosition`. Раньше это было поле,
+     * которое каждый контейнер обязан был выставлять руками параллельно с
+     * `localPosition` (LAYOUT.md честно писал «в корректном состоянии они
+     * равны») — забытая запись давала элемент, который рисуется, но не
+     * кликается. Теперь рассинхрон невозможен по построению.
+     *
+     * У отсоединённого элемента (parent=null) равна `localPosition` — так
+     * standalone-рендер в тестах может позиционировать элемент напрямую.
+     */
+    public get globalPosition(): Point {
+        const parent = this._parent;
+        if (parent === null) {
+            return new Point(this.localPosition.dx, this.localPosition.dy);
+        }
+        const parentGlobal = parent.globalPosition;
+        return new Point(parentGlobal.x + this.localPosition.dx, parentGlobal.y + this.localPosition.dy);
     }
 
     public getChildren(): readonly TUIElement[] {
@@ -612,6 +631,16 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
 
     public getMaxIntrinsicHeight(_width: number): number {
         return 0;
+    }
+
+    /**
+     * Хелпер контейнера: позиционирует ребёнка (localPosition) и прогоняет его
+     * layout — одна строка вместо ритуала из двух-трёх записей. globalPosition
+     * не трогает: он производный.
+     */
+    protected layoutChild(child: TUIElement, x: number, y: number, constraints: BoxConstraints): Size {
+        child.localPosition = new Offset(x, y);
+        return child.performLayout(constraints);
     }
 
     /**

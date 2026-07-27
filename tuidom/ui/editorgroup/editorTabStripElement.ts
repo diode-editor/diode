@@ -211,9 +211,7 @@ export class EditorTabStripElement extends TUIElement {
     public override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
-        this.hflex.localPosition = new Offset(0, 0);
-        this.hflex.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-        this.hflex.performLayout(BoxConstraints.tight(new Size(containerSize.width, 1)));
+        this.layoutChild(this.hflex, 0, 0, BoxConstraints.tight(new Size(containerSize.width, 1)));
 
         return containerSize;
     }

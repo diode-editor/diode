@@ -112,7 +112,7 @@ describe("StatusBarElement", () => {
         const backend = new MockTerminalBackend(size);
         const termScreen = new TerminalScreen(size);
         const bar = new StatusBarElement();
-        bar.globalPosition = new Point(0, 2);
+        bar.localPosition = new Offset(0, 2);
         bar.setItems([{ text: "bottom" }]);
         bar.performLayout(BoxConstraints.tight(new Size(20, 10)));
         bar.render(new RenderContext(termScreen, new Offset(0, 2)));

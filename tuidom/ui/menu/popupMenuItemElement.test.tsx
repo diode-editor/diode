@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Point, Size , Offset} from "../../common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
@@ -14,7 +14,7 @@ function renderItem(item: PopupMenuItemElement, width?: number): string {
     const size = new Size(intrinsicWidth, 1);
     const backend = new MockTerminalBackend(size);
     const termScreen = new TerminalScreen(size);
-    item.globalPosition = new Point(0, 0);
+    item.localPosition = new Offset(0, 0);
     item.performLayout(BoxConstraints.tight(size));
     item.render(new RenderContext(termScreen));
     termScreen.flush(backend);
@@ -212,7 +212,7 @@ describe("PopupMenuSeparatorElement", () => {
         const size = new Size(6, 1);
         const backend = new MockTerminalBackend(size);
         const termScreen = new TerminalScreen(size);
-        sep.globalPosition = new Point(0, 0);
+        sep.localPosition = new Offset(0, 0);
         sep.performLayout(BoxConstraints.tight(size));
         sep.render(new RenderContext(termScreen));
         termScreen.flush(backend);

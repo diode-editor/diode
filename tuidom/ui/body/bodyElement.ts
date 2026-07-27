@@ -54,29 +54,21 @@ export class BodyElement extends TUIElement {
         const statusBarHeight = this.statusBar ? 1 : 0;
 
         if (this.menuBar) {
-            this.menuBar.localPosition = new Offset(0, 0);
-            this.menuBar.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-            this.menuBar.performLayout(BoxConstraints.tight(containerSize));
+            this.layoutChild(this.menuBar, 0, 0, BoxConstraints.tight(containerSize));
         }
 
         if (this.content) {
             const contentHeight = Math.max(0, containerSize.height - menuBarHeight - statusBarHeight);
             const contentSize = new Size(containerSize.width, contentHeight);
-            this.content.localPosition = new Offset(0, menuBarHeight);
-            this.content.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y + menuBarHeight);
-            this.content.performLayout(BoxConstraints.tight(contentSize));
+            this.layoutChild(this.content, 0, menuBarHeight, BoxConstraints.tight(contentSize));
         }
 
         if (this.statusBar) {
             const statusBarY = containerSize.height - statusBarHeight;
-            this.statusBar.localPosition = new Offset(0, statusBarY);
-            this.statusBar.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y + statusBarY);
-            this.statusBar.performLayout(BoxConstraints.tight(new Size(containerSize.width, statusBarHeight)));
+            this.layoutChild(this.statusBar, 0, statusBarY, BoxConstraints.tight(new Size(containerSize.width, statusBarHeight)));
         }
 
-        this.overlayLayer.localPosition = new Offset(0, 0);
-        this.overlayLayer.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-        this.overlayLayer.performLayout(BoxConstraints.tight(containerSize));
+        this.layoutChild(this.overlayLayer, 0, 0, BoxConstraints.tight(containerSize));
 
         return containerSize;
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import type { MouseToken } from "../../input/rawTerminalToken.ts";
 import { TUIElement } from "../tuiElement.ts";
 
@@ -20,8 +20,11 @@ class ContainerElement extends TUIElement {
     }
 }
 
+// Тесты задают позиции АБСОЛЮТНЫМИ координатами; globalPosition производный,
+// поэтому пересчитываем в локальные относительно уже прикреплённого родителя.
 function layoutElement(el: TUIElement, globalPos: Point, size: Size): void {
-    el.globalPosition = globalPos;
+    const base = el.getParent()?.globalPosition ?? new Point(0, 0);
+    el.localPosition = new Offset(globalPos.x - base.x, globalPos.y - base.y);
     el.performLayout(BoxConstraints.tight(size));
 }
 
@@ -58,12 +61,12 @@ function buildScene(captures: boolean): { root: ContainerElement; captor: TUIEle
 
     const captor = new TUIElement();
     captor.capturesPointer = captures;
-    layoutElement(captor, new Point(10, 0), new Size(1, 24));
     root.addChild(captor);
+    layoutElement(captor, new Point(10, 0), new Size(1, 24));
 
     const sibling = new TUIElement();
-    layoutElement(sibling, new Point(11, 0), new Size(40, 24));
     root.addChild(sibling);
+    layoutElement(sibling, new Point(11, 0), new Size(40, 24));
 
     return { root, captor, sibling };
 }

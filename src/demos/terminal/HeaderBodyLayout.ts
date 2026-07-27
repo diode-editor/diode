@@ -35,16 +35,12 @@ export class HeaderBodyLayout extends TUIElement {
         const h = size.height;
         const hh = Math.min(this.headerHeight, h);
 
-        this.header.localPosition = new Offset(0, 0);
-        this.header.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-        this.header.performLayout(BoxConstraints.tight(new Size(w, hh)));
+        this.layoutChild(this.header, 0, 0, BoxConstraints.tight(new Size(w, hh)));
 
         const padX = Math.max(0, Math.min(this.bodyPadX, Math.floor((w - 1) / 2)));
         const bodyW = Math.max(0, w - 2 * padX);
         const bodyH = Math.max(0, h - hh);
-        this.body.localPosition = new Offset(padX, hh);
-        this.body.globalPosition = new Point(this.globalPosition.x + padX, this.globalPosition.y + hh);
-        this.body.performLayout(BoxConstraints.tight(new Size(bodyW, bodyH)));
+        this.layoutChild(this.body, padX, hh, BoxConstraints.tight(new Size(bodyW, bodyH)));
 
         return size;
     }

@@ -229,7 +229,7 @@ describe("VStackElement", () => {
         vstack.addChild(box2, { width: "fill", height: 3 });
 
         // Set parent global position to (5, 10)
-        vstack.globalPosition = new Point(5, 10);
+        vstack.localPosition = new Offset(5, 10);
         vstack.performLayout(BoxConstraints.tight(new Size(10, 6)));
 
         // First child should be at (5, 10)
