@@ -3,12 +3,11 @@ import { describe, expect, it } from "vitest";
 import { expectScreen, screen } from "../../../src/TestUtils/expectScreen.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
-import { RenderContext } from "../../dom/tuiElement.ts";
+import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 import { BoxElement } from "../layout/boxElement.ts";
 import { VStackElement } from "../layout/vStackElement.ts";
 import { MenuBarElement } from "../menu/menuBarElement.ts";
-import { StatusBarElement } from "../statusbar/statusBarElement.ts";
 
 import { BodyElement } from "./bodyElement.ts";
 
@@ -126,7 +125,7 @@ describe("BodyElement menuBar integration", () => {
         expect(content.layoutSize.height).toBe(20);
     });
 
-    it("menuBar receives full body size for layout", () => {
+    it("menuBar is constrained to a single top row", () => {
         const body = new BodyElement();
         const menuBar = new MenuBarElement([{ label: "File", entries: [] }]);
 
@@ -134,7 +133,8 @@ describe("BodyElement menuBar integration", () => {
         layoutBody(body, 40, 20);
 
         expect(menuBar.layoutSize.width).toBe(40);
-        expect(menuBar.layoutSize.height).toBe(20);
+        expect(menuBar.layoutSize.height).toBe(1);
+        expect(menuBar.globalPosition.y).toBe(0);
     });
 });
 
@@ -146,7 +146,7 @@ describe("BodyElement statusBar integration", () => {
 
     it("statusBar receives root reference from BodyElement", () => {
         const body = new BodyElement();
-        const statusBar = new StatusBarElement();
+        const statusBar = new TUIElement();
 
         body.setStatusBar(statusBar);
 
@@ -155,7 +155,7 @@ describe("BodyElement statusBar integration", () => {
 
     it("statusBar positioned at bottom row", () => {
         const body = new BodyElement();
-        const statusBar = new StatusBarElement();
+        const statusBar = new TUIElement();
 
         body.setStatusBar(statusBar);
         layoutBody(body, 40, 20);
@@ -166,7 +166,7 @@ describe("BodyElement statusBar integration", () => {
 
     it("content height reduced by 1 when statusBar is set", () => {
         const body = new BodyElement();
-        const statusBar = new StatusBarElement();
+        const statusBar = new TUIElement();
         const content = new BoxElement();
 
         body.setStatusBar(statusBar);
@@ -180,7 +180,7 @@ describe("BodyElement statusBar integration", () => {
     it("content height reduced by 2 with both menuBar and statusBar", () => {
         const body = new BodyElement();
         const menuBar = new MenuBarElement([{ label: "File", entries: [] }]);
-        const statusBar = new StatusBarElement();
+        const statusBar = new TUIElement();
         const content = new BoxElement();
 
         body.setMenuBar(menuBar);
@@ -193,19 +193,23 @@ describe("BodyElement statusBar integration", () => {
         expect(statusBar.localPosition.dy).toBe(19);
     });
 
-    it("statusBar included in getChildren", () => {
+    it("statusBar lives in the body tree; body's own children are the slot flex and the overlay on top", () => {
         const body = new BodyElement();
-        const statusBar = new StatusBarElement();
+        const statusBar = new TUIElement();
 
         body.setStatusBar(statusBar);
 
+        // Прямых детей у body два: vflex со слотами и overlay последним (поверх).
         const children = body.getChildren();
-        expect(children).toContain(statusBar);
+        expect(children).toHaveLength(2);
+        expect(children[1]).toBe(body.overlayLayer);
+        expect(children[0].getChildren()).toContain(statusBar);
+        expect(statusBar.getRoot()).toBe(body);
     });
 
     it("statusBar has full width", () => {
         const body = new BodyElement();
-        const statusBar = new StatusBarElement();
+        const statusBar = new TUIElement();
 
         body.setStatusBar(statusBar);
         layoutBody(body, 40, 20);

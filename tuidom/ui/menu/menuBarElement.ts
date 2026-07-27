@@ -28,7 +28,8 @@ export class MenuBarElement extends TUIElement {
     private itemElements: MenuBarItemElement[] = [];
     private hflex: HFlexElement;
     private previousFocusedElement: TUIElement | null = null;
-    private parentMnemonicHandler: ((event: TUIKeyboardEvent) => void) | null = null;
+    private mnemonicHandler: ((event: TUIKeyboardEvent) => void) | null = null;
+    private mnemonicTarget: TUIElement | null = null;
     private menuStyles: IMenuStyles = unthemedMenuStyles;
 
     /**
@@ -77,17 +78,20 @@ export class MenuBarElement extends TUIElement {
     }
 
     /**
-     * Мнемоники (Alt+F и т.п.) слушаются на РОДИТЕЛЕ: keydown, не дошедший до
-     * меню по фокусу, всё равно должен открывать его. Слушатель переезжает
-     * вместе с прикреплением — хук вместо запрещённого override setParent.
+     * Мнемоники (Alt+F и т.п.) слушаются на КОРНЕ дерева: keydown без фокуса
+     * диспатчится прямо в корень и до промежуточных контейнеров не всплывает,
+     * а открывать меню он должен всё равно. Если поддерево ещё не прикреплено
+     * к корню — слушаем родителя (при живом дереве это одно и то же место, к
+     * которому события всплывают). Слушатель переезжает вместе с
+     * прикреплением — хук вместо запрещённого override setParent.
      */
-    protected override onDidChangeParent(oldParent: TUIElement | null, newParent: TUIElement | null): void {
-        if (oldParent && this.parentMnemonicHandler) {
-            oldParent.removeEventListener("keydown", this.parentMnemonicHandler);
+    protected override onDidChangeParent(_oldParent: TUIElement | null, newParent: TUIElement | null): void {
+        if (this.mnemonicTarget && this.mnemonicHandler) {
+            this.mnemonicTarget.removeEventListener("keydown", this.mnemonicHandler);
         }
 
         if (newParent) {
-            this.parentMnemonicHandler = (event: TUIKeyboardEvent) => {
+            this.mnemonicHandler = (event: TUIKeyboardEvent) => {
                 const match = this.findMnemonicMatch(event);
                 if (match >= 0) {
                     this.focus();
@@ -95,9 +99,11 @@ export class MenuBarElement extends TUIElement {
                     event.preventDefault();
                 }
             };
-            newParent.addEventListener("keydown", this.parentMnemonicHandler);
+            this.mnemonicTarget = this.getRoot() ?? newParent;
+            this.mnemonicTarget.addEventListener("keydown", this.mnemonicHandler);
         } else {
-            this.parentMnemonicHandler = null;
+            this.mnemonicHandler = null;
+            this.mnemonicTarget = null;
         }
     }
 

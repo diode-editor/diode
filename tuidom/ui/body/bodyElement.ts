@@ -1,15 +1,22 @@
-import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { OverlayLayer } from "../contextview/overlayLayer.ts";
-import type { MenuBarElement } from "../menu/menuBarElement.ts";
-import type { StatusBarElement } from "../statusbar/statusBarElement.ts";
+import { VFlexElement, vflexFill, vflexFixed } from "../layout/vFlexElement.ts";
 
 export class BodyElement extends TUIElement {
     public title = "";
-    public content: TUIElement | null = null;
-    public menuBar: MenuBarElement | null = null;
-    public statusBar: StatusBarElement | null = null;
     public readonly overlayLayer: OverlayLayer;
+
+    private readonly vflex = new VFlexElement();
+    /**
+     * Держит место контента, пока тот не задан: без fill-ряда между menuBar и
+     * statusBar статус-бар прилипал бы к верху, а не к нижнему ряду. Ничего не
+     * рисует (дефолтный render пустого элемента).
+     */
+    private readonly contentSpacer = new TUIElement();
+    private menuBar: TUIElement | null = null;
+    private content: TUIElement | null = null;
+    private statusBar: TUIElement | null = null;
 
     public constructor() {
         super();
@@ -17,7 +24,9 @@ export class BodyElement extends TUIElement {
         this.setAsRoot();
 
         this.overlayLayer = new OverlayLayer();
-        this.syncChildren();
+        // Дети body неизменны; порядок — это z-порядок хит-теста:
+        // overlay последний, т.е. поверх всего.
+        this.setChildren([this.vflex, this.overlayLayer]);
     }
 
     public override getOverlayLayer(): OverlayLayer {
@@ -26,52 +35,45 @@ export class BodyElement extends TUIElement {
 
     public setContent(element: TUIElement): void {
         this.content = element;
-        this.syncChildren();
+        this.syncSlots();
     }
 
-    public setMenuBar(menuBar: MenuBarElement | null): void {
+    /** Слот занимает ровно 1 ряд — виджет, рисующий ниже ряда 0, будет обрезан. */
+    public setMenuBar(menuBar: TUIElement | null): void {
         this.menuBar = menuBar;
-        this.syncChildren();
+        this.syncSlots();
     }
 
-    public setStatusBar(statusBar: StatusBarElement): void {
+    /** Слот занимает ровно 1 ряд — виджет, рисующий ниже ряда 0, будет обрезан. */
+    public setStatusBar(statusBar: TUIElement | null): void {
         this.statusBar = statusBar;
-        this.syncChildren();
+        this.syncSlots();
     }
 
     /**
-     * Пересобирает список детей в каноническом порядке слотов. Порядок — это
-     * z-порядок хит-теста: overlay последний, т.е. поверх всего.
+     * Пересобирает ряды vflex в каноническом порядке слотов: menuBar (1 ряд),
+     * content (остаток), statusBar (1 ряд).
      */
-    private syncChildren(): void {
-        const children: TUIElement[] = [];
-        if (this.menuBar) children.push(this.menuBar);
-        if (this.content) children.push(this.content);
-        if (this.statusBar) children.push(this.statusBar);
-        children.push(this.overlayLayer);
-        this.setChildren(children);
+    private syncSlots(): void {
+        const rows: TUIElement[] = [];
+        if (this.menuBar) {
+            this.menuBar.layoutStyle = { height: vflexFixed(1), width: "fill" };
+            rows.push(this.menuBar);
+        }
+        const contentRow = this.content ?? this.contentSpacer;
+        contentRow.layoutStyle = { height: vflexFill(), width: "fill" };
+        rows.push(contentRow);
+        if (this.statusBar) {
+            this.statusBar.layoutStyle = { height: vflexFixed(1), width: "fill" };
+            rows.push(this.statusBar);
+        }
+        this.vflex.replaceChildren(rows);
     }
 
     public performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
-        const menuBarHeight = this.menuBar ? 1 : 0;
-        const statusBarHeight = this.statusBar ? 1 : 0;
 
-        if (this.menuBar) {
-            this.layoutChild(this.menuBar, 0, 0, BoxConstraints.tight(containerSize));
-        }
-
-        if (this.content) {
-            const contentHeight = Math.max(0, containerSize.height - menuBarHeight - statusBarHeight);
-            const contentSize = new Size(containerSize.width, contentHeight);
-            this.layoutChild(this.content, 0, menuBarHeight, BoxConstraints.tight(contentSize));
-        }
-
-        if (this.statusBar) {
-            const statusBarY = containerSize.height - statusBarHeight;
-            this.layoutChild(this.statusBar, 0, statusBarY, BoxConstraints.tight(new Size(containerSize.width, statusBarHeight)));
-        }
-
+        this.layoutChild(this.vflex, 0, 0, BoxConstraints.tight(containerSize));
         this.layoutChild(this.overlayLayer, 0, 0, BoxConstraints.tight(containerSize));
 
         return containerSize;
@@ -83,8 +85,6 @@ export class BodyElement extends TUIElement {
             context.setCell(y, 0, { char: this.title[y] });
         }
 
-        // Дети в каноническом порядке слотов (см. syncChildren): menuBar,
-        // content, statusBar, overlay поверх всех.
         this.renderChildren(context);
     }
 }
