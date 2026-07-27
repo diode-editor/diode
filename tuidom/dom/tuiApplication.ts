@@ -11,6 +11,7 @@ import { TUIKeyboardEvent } from "./events/tuiKeyboardEvent.ts";
 import { TUIPasteEvent } from "./events/tuiPasteEvent.ts";
 import { ROOT_RESOLVED_STYLE } from "./styles/tuiStyle.ts";
 import { RenderContext, type TUIElement } from "./tuiElement.ts";
+import { assertValidTree } from "./validateTree.ts";
 
 export class TuiApplication {
     public backend: ITerminalBackend;
@@ -20,6 +21,13 @@ export class TuiApplication {
     public focusManager: FocusManager | null = null;
     public mouseDispatcher: MouseEventDispatcher = new MouseEventDispatcher();
     private renderScheduled = false;
+    /**
+     * Прогонять {@link assertValidTree} после каждого кадра. Включено в тестовых
+     * харнессах (TestApp) и опционально в приложении (env VEXX_VALIDATE_TREE=1):
+     * забытый setParent / неукоренённое поддерево падают громко на первом же
+     * кадре, а не молчаливым «не показывается / не кликается».
+     */
+    public validateTreeAfterRender = false;
     // Монотонный счётчик отрисованных кадров. Инкремент на каждый renderFrame —
     // инспектор ждёт «рендер устоялся» (frameCount не менялся + нет
     // запланированного рендера), не завися от sleep. См. inspector/idleWaiter.
@@ -62,6 +70,9 @@ export class TuiApplication {
             const screenClip = new Rect(new Point(0, 0), this.screen.size);
             this.root.render(new RenderContext(this.screen, new Offset(0, 0), screenClip));
             this.screen.flush(this.backend);
+            if (this.validateTreeAfterRender) {
+                assertValidTree(this.root);
+            }
         }
     }
 

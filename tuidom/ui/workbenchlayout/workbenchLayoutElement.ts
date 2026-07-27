@@ -81,6 +81,10 @@ export class WorkbenchLayoutElement extends TUIElement {
         this.leftPanel = element;
         if (element) {
             element.setParent(this);
+            // Саш появляется в getChildren() только вместе с панелью: если панель
+            // прицепили после укоренения, пропагация root саш уже не увидела —
+            // перецепляем явно (нашёл validateTree).
+            this.sash.setParent(this);
         }
     }
 
@@ -101,11 +105,23 @@ export class WorkbenchLayoutElement extends TUIElement {
         this.bottomPanel = element;
         if (element) {
             element.setParent(this);
+            // См. setLeftPanel: саш делит видимость с панелью.
+            this.bottomSash.setParent(this);
         }
     }
 
     public setLeftPanelVisible(visible: boolean): void {
+        const becomingVisible = visible && !this.leftPanelVisible;
         this.leftPanelVisible = visible;
+        if (becomingVisible) {
+            // Скрытые панель и саш исключены из getChildren() и пропускают
+            // пропагацию root/стилей — перецепляем при показе (см. подробный
+            // комментарий в setBottomPanelVisible). Нашёл validateTree: раньше
+            // перецепляли только панель, а саш оставался с root=null.
+            this.leftPanel?.setParent(this);
+            this.leftPanel?.markStyleDirty();
+            this.sash.setParent(this);
+        }
         this.onDidChangeLayout?.();
     }
 
@@ -123,6 +139,9 @@ export class WorkbenchLayoutElement extends TUIElement {
             // pass (so its content — e.g. the Problems tree — resolves correctly).
             this.bottomPanel.setParent(this);
             this.bottomPanel.markStyleDirty();
+            // Саш тоже скрыт вместе с панелью — без перецепления он остаётся
+            // с root=null (нашёл validateTree).
+            this.bottomSash.setParent(this);
         }
         this.onDidChangeLayout?.();
     }

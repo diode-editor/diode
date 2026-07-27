@@ -167,6 +167,9 @@ async function runEditor(): Promise<void> {
         : null;
     const backend = headlessBackend ?? new NodeTerminalBackend();
     const application = new TuiApplication(backend);
+    // Опциональная самопроверка дерева после каждого кадра (дорогая только
+    // относительно, но включается явно): ловит полуприкреплённые элементы.
+    application.validateTreeAfterRender = process.env.VEXX_VALIDATE_TREE === "1";
     const clipboard = new OscClipboard((seq) => {
         backend.writeOscSequence(seq);
     });

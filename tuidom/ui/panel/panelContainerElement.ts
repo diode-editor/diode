@@ -121,6 +121,19 @@ export class PanelContainerElement extends TUIElement {
     public setActiveView(id: string): void {
         if (this.views.every((v) => v.id !== id) || this.activeId === id) return;
         this.activeId = id;
+        // Неактивная вкладка исключена из getChildren() и пропускает нисходящую
+        // пропагацию root/стилей (контент и actions могли прицепиться к ещё не
+        // укоренённой панели — модель #204). Перецепляем при активации; нашёл
+        // validateTree.
+        const view = this.activeView();
+        if (view?.content != null) {
+            view.content.setParent(this);
+            view.content.markStyleDirty();
+        }
+        if (view?.actions != null) {
+            view.actions.setParent(this);
+            view.actions.markStyleDirty();
+        }
         this.markDirty();
     }
 
