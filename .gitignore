@@ -14,3 +14,6 @@ extensions/*/out/
 
 # Агентская машинерия (agents/): журналы, задачи, STOP-флаг
 .agents-runs/
+
+# Staging npm-пакета tuidom (scripts/pack-tuidom.mjs)
+dist-tuidom/
