@@ -40,9 +40,10 @@ function createProvider(roots: TestNode[]): ITreeDataProvider<TestNode> {
 function createTree(
     roots: TestNode[],
     viewportSize: Size = new Size(40, 10),
+    options?: { leftPadding?: number },
 ): { tree: TreeViewElement<TestNode>; app: TestApp; provider: ITreeDataProvider<TestNode> } {
     const provider = createProvider(roots);
-    const tree = new TreeViewElement(provider);
+    const tree = new TreeViewElement(provider, options);
     const app = TestApp.createWithContent(tree, viewportSize);
     tree.localPosition = new Offset(0, 0);
     tree.performLayout(BoxConstraints.tight(viewportSize));
@@ -172,6 +173,28 @@ describe("TreeViewElement edge cases", () => {
 
             const [el] = onSelect.mock.calls[0] as [TestNode];
             expect(el.id).toBe("README.md");
+        });
+
+        it("hits the arrow at its column shifted by leftPadding", async () => {
+            const { tree } = createTree(cloneNested(), new Size(40, 10), { leftPadding: 1 });
+            await tree.refresh();
+            expect(tree.contentHeight).toBe(2);
+
+            // The depth-0 expand icon moves from column 0 to column 1.
+            tree.dispatchEvent(mouseEvent("click", { localX: 1, localY: 0 }));
+            await Promise.resolve();
+
+            expect(tree.contentHeight).toBe(4);
+        });
+
+        it("does not treat the padding gutter as the arrow", async () => {
+            const { tree } = createTree(cloneNested(), new Size(40, 10), { leftPadding: 1 });
+            await tree.refresh();
+
+            tree.dispatchEvent(mouseEvent("click", { localX: 0, localY: 0 }));
+            await Promise.resolve();
+
+            expect(tree.contentHeight).toBe(2); // unchanged
         });
     });
 

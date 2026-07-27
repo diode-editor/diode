@@ -191,6 +191,27 @@ describe("TreeViewElement rendering", () => {
         expect(backend.getFgAt(new Point(width - 1, 1))).toBe(packRgb(120, 120, 120));
     });
 
+    it("shifts row content by leftPadding while the cursor background reaches the left edge", async () => {
+        const roots: TestNode[] = [
+            { id: "a", label: "Alpha" },
+            { id: "b", label: "Beta" },
+        ];
+        const tree = new TreeViewElement(createProvider(roots), { leftPadding: 1 });
+        await tree.refresh();
+
+        const backend = renderTree(tree, 12, 2);
+        const actual = backend
+            .screenToString()
+            .split("\n")
+            .map((l) => l.trimEnd());
+        // padding(1) + expandIcon slot(" ") + " " + label
+        expect(actual[0]).toBe("   Alpha");
+        expect(actual[1]).toBe("   Beta");
+        // Cursor row (unfocused → inactive selection) is filled from the very first column.
+        expect(backend.getBgAt(new Point(0, 0))).toBe(unthemedTreeViewStyles.inactiveSelectionBg);
+        expect(backend.getBgAt(new Point(0, 1))).not.toBe(unthemedTreeViewStyles.inactiveSelectionBg);
+    });
+
     it("renders with scroll offset", async () => {
         const roots: TestNode[] = [];
         for (let i = 0; i < 10; i++) {
