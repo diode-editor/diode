@@ -202,8 +202,11 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public get gutterWidth(): number {
-        const viewLineCount = this.viewState.getViewLineCount();
-        const digitCount = Math.max(1, Math.floor(Math.log10(viewLineCount)) + 1);
+        // Logical line count, not view line count: the gutter paints logical
+        // line numbers, so folding must not shrink the digit column (a 150-line
+        // file folded to <100 view lines would truncate "150" to "15").
+        const lineCount = this.viewState.document.lineCount;
+        const digitCount = Math.max(1, Math.floor(Math.log10(lineCount)) + 1);
         return GUTTER_LEFT_PADDING + digitCount + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT;
     }
 
