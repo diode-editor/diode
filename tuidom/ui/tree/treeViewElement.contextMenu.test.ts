@@ -216,6 +216,29 @@ describe("TreeViewElement - getSelectedRowGlobalPosition (keyboard context menu 
     });
 });
 
+describe("TreeViewElement - raw right click", () => {
+    it("a raw right-button click is ignored (contextmenu carries the gesture)", async () => {
+        const { tree, refresh } = createTree(FLAT_NODES);
+        await refresh();
+        const onContextMenu = vi.fn();
+        tree.onContextMenu = onContextMenu;
+
+        tree.dispatchEvent(makeClickEvent({ button: "right", screenX: 5, screenY: 2 }));
+
+        expect(onContextMenu).not.toHaveBeenCalled();
+        expect(tree.getSelectedNode()).toBe(FLAT_NODES[0]); // курсор не сдвинулся
+    });
+
+    it("a click below the last row is a no-op", async () => {
+        const { tree, refresh } = createTree(FLAT_NODES);
+        await refresh();
+
+        tree.dispatchEvent(makeClickEvent({ screenX: 5, screenY: 99 }));
+
+        expect(tree.getSelectedNode()).toBe(FLAT_NODES[0]);
+    });
+});
+
 describe("TreeViewElement - context menu (keyboard trigger)", () => {
     it("keyboard trigger anchors at the selected row's global position", async () => {
         const { tree, refresh } = createTree(FLAT_NODES);

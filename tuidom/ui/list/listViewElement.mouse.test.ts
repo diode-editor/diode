@@ -127,6 +127,18 @@ describe("ListViewElement mouse", () => {
         expect(list.getCursorElement()?.id).toBe("r3");
     });
 
+    it("a raw right-button click is ignored (contextmenu carries the gesture)", () => {
+        const list = createFlatList();
+        const onContextMenu = vi.fn();
+        list.onContextMenu = onContextMenu;
+        mouse(list, "click", { localX: 0, localY: 1 }); // курсор на r1
+
+        mouse(list, "click", { button: "right", localX: 0, localY: 3 });
+
+        expect(onContextMenu).not.toHaveBeenCalled();
+        expect(list.getCursorElement()?.id).toBe("r1"); // курсор не сдвинулся
+    });
+
     it("keyboard contextmenu anchors at the cursor row", () => {
         const list = createFlatList();
         const onContextMenu = vi.fn();

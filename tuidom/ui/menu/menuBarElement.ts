@@ -248,8 +248,9 @@ export class MenuBarElement extends TUIElement {
         this.activeMenu = menu;
 
         const layer = this.getOverlayLayer();
-        /* v8 ignore next -- defensive: меню-бар всегда прикреплён к BodyElement со слоем */
+        /* v8 ignore start -- defensive: меню-бар всегда прикреплён к BodyElement со слоем */
         if (!layer) return;
+        /* v8 ignore stop */
         const position = this.getMenuGlobalPosition(index);
         let session: OverlaySessionHandle | null = null;
         session = layer.createSession(menu, position, {
