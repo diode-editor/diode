@@ -260,20 +260,18 @@ export class PopupMenuElement extends TUIElement {
     }
 
     private closeChild(): void {
-        if (!this.child) return;
-        const child = this.child;
-        this.child = null;
-        this.childEntryIndex = -1;
-        child.session.close();
+        // Поля нулит onClose сессии — единая точка и для внешнего закрытия.
+        this.child?.session.close();
     }
 
     private openSubmenu(entryIndex: number): void {
         const entry = this.entries[entryIndex];
-        /* v8 ignore next -- defensive: вызывается только для submenu-строк */
+        /* v8 ignore start -- defensive: вызывается только для submenu-строк */
         if (!isSubmenu(entry)) return;
+        /* v8 ignore stop */
         const layer = this.getOverlayLayer();
         if (!layer) return;
-        if (this.childEntryIndex === entryIndex && this.child) return; // уже открыто
+        if (this.child !== null && this.childEntryIndex === entryIndex) return; // уже открыто
         this.closeChild();
 
         const resolved = typeof entry.entries === "function" ? entry.entries() : entry.entries;
@@ -319,10 +317,11 @@ export class PopupMenuElement extends TUIElement {
                 disposeOnClose: true,
                 onClose: () => {
                     child.closeSubmenus();
-                    if (this.child?.menu === child) {
-                        this.child = null;
-                        this.childEntryIndex = -1;
-                    }
+                    /* v8 ignore start -- защитный гард: к моменту onClose поле ещё указывает на закрываемое подменю (openSubmenu закрывает прежнее ДО назначения нового) */
+                    if (this.child?.menu !== child) return;
+                    /* v8 ignore stop */
+                    this.child = null;
+                    this.childEntryIndex = -1;
                 },
             },
         );

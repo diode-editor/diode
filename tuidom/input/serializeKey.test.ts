@@ -244,3 +244,13 @@ describe("serializeKey", () => {
         }
     });
 });
+
+describe("serializeKey — ContextMenu (Kitty CSI-u)", () => {
+    it("serializes ContextMenu without modifiers", () => {
+        expect(serializeKey("ContextMenu")).toBe("\x1b[57363u");
+    });
+
+    it("serializes ContextMenu with modifiers", () => {
+        expect(serializeKey("Shift+ContextMenu")).toBe("\x1b[57363;2u");
+    });
+});

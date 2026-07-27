@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Point, Size } from "../../common/geometryPromitives.ts";
+import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { InputElement } from "../inputbox/inputElement.ts";
 import { ContextMenuController } from "../contextview/contextMenuController.ts";
@@ -76,15 +77,79 @@ describe("PopupMenuElement — вложенные подменю", () => {
         expect(layerItems(app).length).toBe(2);
     });
 
-    it("opens a child popup on mouse click on the submenu row", () => {
+    it("opens a child popup with Enter on the submenu row", () => {
+        const { app } = setup();
+
+        app.sendKey("ArrowDown"); // на строку Open With
+        app.sendKey("Enter");
+
+        expect(layerItems(app).length).toBe(2);
+    });
+
+    it("hovering the submenu row moves the selection onto it", () => {
+        const { app } = setup();
+        const menu = rootMenu(app);
+        const items = menu.getChildren()[0].getChildren().filter((el) => el instanceof PopupMenuItemElement);
+
+        (items[1] as PopupMenuItemElement).onHover?.(); // ховер на Open With
+
+        expect(menu.selectedIndex).toBe(1);
+    });
+
+    it("opening another submenu closes the currently open one", () => {
+        const { app } = setup([
+            { type: "submenu", label: "First", entries: [{ label: "A" }] },
+            { type: "submenu", label: "Second", entries: [{ label: "B" }] },
+        ]);
+        app.sendKey("ArrowRight"); // открыт First
+        expect(layerItems(app).length).toBe(2);
+
+        const menu = rootMenu(app);
+        const items = menu.getChildren()[0].getChildren().filter((el) => el instanceof PopupMenuItemElement);
+        (items[1] as PopupMenuItemElement).onSelect?.(); // клик по Second
+
+        expect(layerItems(app).length).toBe(2); // First закрыт, Second открыт
+        const child = layerItems(app)[1].element as PopupMenuElement;
+        expect(child.entries.map((e) => (e.type === "separator" ? "─" : e.label))).toEqual(["B"]);
+    });
+
+    it("selecting a leaf two levels deep closes the whole chain (closeAll recursion)", () => {
+        const { app, controller, selected } = setup();
+
+        app.sendKey("ArrowDown");
+        app.sendKey("ArrowRight"); // уровень 2
+        app.sendKey("ArrowDown"); // на More
+        app.sendKey("ArrowRight"); // уровень 3
+        app.sendKey("Enter"); // Hex
+
+        expect(selected).toContain("Hex");
+        expect(controller.isOpen()).toBe(false);
+        expect(layerItems(app).length).toBe(0);
+    });
+
+    it("Enter on a submenu row of a detached menu (no layer) is a no-op", () => {
+        const menu = new PopupMenuElement([{ type: "submenu", label: "Lost", entries: [{ label: "X" }] }]);
+
+        expect(() => {
+            menu.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+        }).not.toThrow();
+        expect(menu.hasOpenSubmenu()).toBe(false);
+    });
+
+    it("opens a child popup on mouse click on the submenu row; a second click does not duplicate it", () => {
         const { app } = setup();
         app.render();
 
         const menu = rootMenu(app);
         const items = menu.getChildren()[0].getChildren().filter((el) => el instanceof PopupMenuItemElement);
         (items[1] as PopupMenuItemElement).onSelect?.();
-
         expect(layerItems(app).length).toBe(2);
+        const child = layerItems(app)[1].element;
+
+        // Повторный клик по той же строке — гард «уже открыто», без пересоздания.
+        (items[1] as PopupMenuItemElement).onSelect?.();
+        expect(layerItems(app).length).toBe(2);
+        expect(layerItems(app)[1].element).toBe(child);
     });
 
     it("anchors the child to the right of the parent at the row's line", () => {
