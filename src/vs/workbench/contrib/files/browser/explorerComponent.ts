@@ -1,5 +1,4 @@
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
 import { TreeViewElement } from "../../../../../../tuidom/ui/tree/treeViewElement.ts";
@@ -82,9 +81,11 @@ export class ExplorerComponent extends ThemedComponent {
         /* v8 ignore start -- defensive: onDidChangeRoot only fires from setRootPath, where the provider is (re)created */
         if (!provider) return;
         /* v8 ignore stop */
-        const tree = new TreeViewElement<FileTreeNode>(provider);
+        // Отступ контента в 1 колонку живёт внутри дерева, а не во внешнем
+        // паддинг-контейнере: так подсветка курсора заливает строку от края панели.
+        const tree = new TreeViewElement<FileTreeNode>(provider, { leftPadding: 1 });
         const scrollBars = new ScrollBarDecorator(tree);
-        const root = new TitledPanelElement("  EXPLORER", new PaddingContainerElement(scrollBars, { left: 1 }));
+        const root = new TitledPanelElement("  EXPLORER", scrollBars);
         root.id = EXPLORER_VIEWLET_ID;
         this.parts = { tree, scrollBars, root };
 

@@ -61,6 +61,12 @@ export class TreeViewElement<T> extends ScrollableElement {
     private selectedKeys = new Set<string>();
     private cutKeys = new Set<string>();
     private maxRowWidth = 0;
+    /**
+     * Отступ контента строк от левого края элемента. В отличие от внешнего
+     * паддинг-контейнера, входит в саму строку, поэтому фон курсора/выделения
+     * заливает строку от края, а текст начинается со сдвигом.
+     */
+    private leftPadding: number;
     private typeaheadBuffer = "";
     private typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -76,9 +82,10 @@ export class TreeViewElement<T> extends ScrollableElement {
         this.markDirty();
     }
 
-    public constructor(provider: ITreeDataProvider<T>) {
+    public constructor(provider: ITreeDataProvider<T>, options?: { leftPadding?: number }) {
         super();
         this.tabIndex = 0;
+        this.leftPadding = options?.leftPadding ?? 0;
         this.provider = provider;
         this.provider.onChange = (element) => {
             void this.refresh(element);
@@ -195,7 +202,7 @@ export class TreeViewElement<T> extends ScrollableElement {
      */
     public getSelectedRowGlobalPosition(): Point | null {
         if (this.selectedIndex < 0 || this.selectedIndex >= this.flatNodes.length) return null;
-        const indentX = this.flatNodes[this.selectedIndex].depth * INDENT_SIZE;
+        const indentX = this.rowIndentX(this.flatNodes[this.selectedIndex].depth);
         return new Point(
             this.globalPosition.x + indentX - this.scrollLeft,
             this.globalPosition.y + (this.selectedIndex - this.scrollTop),
@@ -276,7 +283,7 @@ export class TreeViewElement<T> extends ScrollableElement {
             const rowIconColor = node.item.iconColor;
             const labelColor = node.item.labelColor;
             // Метка имени начинается сразу после иконки типа (если она есть).
-            const labelStart = node.depth * INDENT_SIZE + 2 + (rowIcon ? 2 : 0);
+            const labelStart = this.rowIndentX(node.depth) + 2 + (rowIcon ? 2 : 0);
             // Цвет-декорация имени уступает выделению/курсору, чтобы выбранная строка
             // оставалась читаемой (тот же приоритет, что и у cutFg).
             const labelColorActive = labelColor !== undefined && !(isCursor || isSelected);
@@ -311,13 +318,13 @@ export class TreeViewElement<T> extends ScrollableElement {
                 }
 
                 // Color the icon character
-                const iconStart = node.depth * INDENT_SIZE + 2;
+                const iconStart = this.rowIndentX(node.depth) + 2;
                 if (rowIcon && rowIconColor !== undefined && col === iconStart) {
                     fg = rowIconColor;
                 }
 
                 // Color the expand icon
-                const expandIconPos = node.depth * INDENT_SIZE;
+                const expandIconPos = this.rowIndentX(node.depth);
                 if (col === expandIconPos && node.item.collapsible) {
                     fg = packRgb(150, 150, 150);
                 }
@@ -459,13 +466,18 @@ export class TreeViewElement<T> extends ScrollableElement {
         }
     }
 
+    /** Колонка (в координатах контента), с которой начинается строка узла данной глубины. */
+    private rowIndentX(depth: number): number {
+        return this.leftPadding + depth * INDENT_SIZE;
+    }
+
     private calculateRowWidth(depth: number, item: ITreeItem): number {
         // indent + expandIcon + space + icon + space + label
-        return depth * INDENT_SIZE + 2 + (item.icon ? 2 : 0) + new DisplayLine(item.label).displayWidth;
+        return this.rowIndentX(depth) + 2 + (item.icon ? 2 : 0) + new DisplayLine(item.label).displayWidth;
     }
 
     private formatRow(node: FlatTreeNode<T>): string {
-        const indent = " ".repeat(node.depth * INDENT_SIZE);
+        const indent = " ".repeat(this.rowIndentX(node.depth));
         const expandIcon = node.item.collapsible
             ? this.expandedKeys.has(this.provider.getKey(node.element))
                 ? ICON_EXPANDED
@@ -798,7 +810,7 @@ export class TreeViewElement<T> extends ScrollableElement {
 
         // Check if clicked on expand icon area
         const node = this.flatNodes[index];
-        const expandIconX = node.depth * INDENT_SIZE;
+        const expandIconX = this.rowIndentX(node.depth);
         const clickX = this.scrollLeft + event.localX;
         if (node.item.collapsible && clickX >= expandIconX && clickX <= expandIconX + 1) {
             void this.toggleExpand(node.element);
