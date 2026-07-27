@@ -5,6 +5,7 @@ import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
 import { EditorElement, unthemedEditorStyles } from "./editorElement.ts";
 
@@ -47,6 +48,15 @@ describe("gutterWidth", () => {
         // 1 line → 1 digit → 2 + 1 + 3 = 6
         expect(editor.gutterWidth).toBe(6);
     });
+
+    it("keeps the digit column sized by logical lines when folding shrinks the view below a power of ten", () => {
+        const lines = Array.from({ length: 150 }, (_, i) => (i === 0 ? "header" : `  body ${String(i)}`)).join("\n");
+        const { editor } = createEditor(lines);
+        editor.viewState.setFoldingRegions([createFoldingRegion(0, 148, true)]);
+        // 2 view lines remain, but logical numbers go up to 150 → still 3 digits → 2 + 3 + 3 = 8
+        expect(editor.viewState.getViewLineCount()).toBe(2);
+        expect(editor.gutterWidth).toBe(8);
+    });
 });
 
 // ─── Gutter rendering ───────────────────────────────────────
@@ -77,6 +87,21 @@ describe("gutter rendering", () => {
         expect(backend.getTextAt(new Point(0, 8), 7)).toBe("   9   ");
         expect(backend.getTextAt(new Point(0, 9), 7)).toBe("  10   ");
         expect(backend.getTextAt(new Point(0, 11), 7)).toBe("  12   ");
+    });
+
+    it("renders full logical line numbers when folding shrinks the view below a power of ten", () => {
+        const lines = Array.from({ length: 150 }, (_, i) => (i === 0 ? "header" : `  body ${String(i)}`)).join("\n");
+        const { app, editor } = createEditor(lines, 20, 5);
+        editor.viewState.setFoldingRegions([createFoldingRegion(0, 148, true)]);
+        app.render();
+
+        const backend = app.backend;
+        // gutterWidth = 8 (2 pad + 3 digits + 3 fold margin); row 1 is logical line 150,
+        // whose units digit must survive the fold-shrunken view (regression: showed "15").
+        // Row 0 is the collapsed header — its fold column holds a chevron, so only
+        // the digit part is asserted there.
+        expect(backend.getTextAt(new Point(0, 0), 6)).toBe("    1 ");
+        expect(backend.getTextAt(new Point(0, 1), 8)).toBe("  150   ");
     });
 
     it("renders empty gutter and content past end of document (no tildes)", () => {
