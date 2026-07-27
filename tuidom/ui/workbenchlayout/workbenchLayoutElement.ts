@@ -244,19 +244,5 @@ export class WorkbenchLayoutElement extends TUIElement {
         return containerSize;
     }
 
-    public render(context: RenderContext): void {
-        this.renderChild(context, this.leftPanel, this.leftPanel !== null && this.leftPanelVisible);
-        this.renderChild(context, this.centerContent, this.centerContent !== null);
-        this.renderChild(context, this.bottomPanel, this.bottomPanel !== null && this.bottomPanelVisible);
-        // The sashes sit on top at the boundary; each paints only on hover/drag.
-        this.renderChild(context, this.sash, this.leftPanel !== null && this.leftPanelVisible);
-        this.renderChild(context, this.bottomSash, this.bottomPanel !== null && this.bottomPanelVisible);
-    }
 
-    private renderChild(context: RenderContext, child: TUIElement | null, show: boolean): void {
-        if (!child || !show) return;
-        const offset = new Offset(child.localPosition.dx, child.localPosition.dy);
-        const clip = new Rect(child.globalPosition, child.layoutSize);
-        child.render(context.withOffset(offset).withClip(clip));
-    }
 }

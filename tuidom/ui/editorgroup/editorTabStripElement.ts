@@ -212,9 +212,4 @@ export class EditorTabStripElement extends TUIElement {
         return containerSize;
     }
 
-    // ─── Render ───
-
-    public override render(context: RenderContext): void {
-        this.hflex.render(context.withOffset(this.hflex.localPosition));
-    }
 }

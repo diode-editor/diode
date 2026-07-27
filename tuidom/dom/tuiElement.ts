@@ -789,9 +789,29 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
         return resultSize;
     }
 
-    public render(_context: RenderContext): void {
-        // Base implementation does nothing.
-        // Subclasses override to draw themselves.
+    /**
+     * Дефолт: отрисовать детей (лист без детей не рисует ничего). Контейнер,
+     * которому нужно собственное полотно (фон, рамка, заголовок), рисует его и
+     * зовёт {@link renderChildren}; полностью кастомный рендер (виртуализация,
+     * скролл-сдвиг) переопределяет метод целиком.
+     */
+    public render(context: RenderContext): void {
+        this.renderChildren(context);
+    }
+
+    /**
+     * Каноничная отрисовка детей: каждый видимый ребёнок получает контекст со
+     * сдвигом на свою localPosition и клипом по своим границам (дети не рисуют
+     * за пределами выделенной области). Скрытые (hidden) пропускаются. Это тот
+     * самый цикл, который раньше был скопирован в десяток контейнеров.
+     */
+    protected renderChildren(context: RenderContext): void {
+        for (const child of this.getChildren()) {
+            if (child.hidden) continue;
+            const offset = new Offset(child.localPosition.dx, child.localPosition.dy);
+            const clip = new Rect(child.globalPosition, child.layoutSize);
+            child.render(context.withOffset(offset).withClip(clip));
+        }
     }
 
     // ─── Hit-testing ───

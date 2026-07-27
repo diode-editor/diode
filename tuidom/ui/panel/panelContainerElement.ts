@@ -255,21 +255,13 @@ export class PanelContainerElement extends TUIElement {
         }
 
         // View-specific controls in the title row (drawn after the tabs so they win
-        // the shared row), then the content below.
-        const active = this.activeView();
-        const actions = active?.actions;
-        if (actions != null) {
-            const offset = new Offset(actions.localPosition.dx, actions.localPosition.dy);
-            const clip = new Rect(actions.globalPosition, actions.layoutSize);
-            actions.render(context.withOffset(offset).withClip(clip));
-        }
+        // the shared row), then the active view's content below — renderChildren
+        // рисует только видимых детей, скрытые вкладки пропускаются базой.
+        this.renderChildren(context);
 
-        // Active view's content element, or its placeholder empty-state message.
-        if (active?.content != null) {
-            const offset = new Offset(active.content.localPosition.dx, active.content.localPosition.dy);
-            const clip = new Rect(active.content.globalPosition, active.content.layoutSize);
-            active.content.render(context.withOffset(offset).withClip(clip));
-        } else if (active?.placeholder !== undefined && height > CONTENT_TOP) {
+        // Placeholder empty-state message, если у активной вкладки нет контента.
+        const active = this.activeView();
+        if (active?.content == null && active?.placeholder !== undefined && height > CONTENT_TOP) {
             const message = active.placeholder;
             for (let i = 0; i < message.length && i + CONTENT_LEFT < width; i++) {
                 context.setCell(i + CONTENT_LEFT, CONTENT_TOP, {

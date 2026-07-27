@@ -151,13 +151,6 @@ export class HFlexElement extends TUIElement {
 
     // ─── Render ───
 
-    public override render(context: RenderContext): void {
-        for (const child of this.getChildren()) {
-            const childOffset = new Offset(child.localPosition.dx, child.localPosition.dy);
-            const childClip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(childOffset).withClip(childClip));
-        }
-    }
 }
 
 // ─── HFlex JSX Adapter ───

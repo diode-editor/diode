@@ -72,9 +72,4 @@ export abstract class CompositeElement extends TUIElement {
         return resultSize;
     }
 
-    public override render(context: RenderContext): void {
-        if (this.rootChild) {
-            this.rootChild.render(context.withOffset(this.rootChild.localPosition));
-        }
-    }
 }

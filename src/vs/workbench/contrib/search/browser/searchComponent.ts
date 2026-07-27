@@ -107,13 +107,6 @@ class SearchViewElement extends TUIElement {
         return size;
     }
 
-    public override render(context: RenderContext): void {
-        for (const child of this.getChildren()) {
-            const offset = new Offset(child.localPosition.dx, child.localPosition.dy);
-            const clip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(offset).withClip(clip));
-        }
-    }
 }
 
 /**

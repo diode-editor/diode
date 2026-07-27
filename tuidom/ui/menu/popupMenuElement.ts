@@ -180,9 +180,7 @@ export class PopupMenuElement extends TUIElement {
         context.drawBox(0, 0, w, h, { fg: borderFg, bg, separators });
 
         // Render VStack content
-        const vstackOffset = new Offset(this.vstack.localPosition.dx, this.vstack.localPosition.dy);
-        const vstackClip = new Rect(this.vstack.globalPosition, this.vstack.layoutSize);
-        this.vstack.render(context.withOffset(vstackOffset).withClip(vstackClip));
+        this.renderChildren(context);
     }
 
     private computeConfig(): PopupMenuItemConfig {

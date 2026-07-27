@@ -83,27 +83,8 @@ export class BodyElement extends TUIElement {
             context.setCell(y, 0, { char: this.title[y] });
         }
 
-        // Content layer
-        if (this.content) {
-            const contentOffset = new Offset(this.content.localPosition.dx, this.content.localPosition.dy);
-            const contentClip = new Rect(this.content.globalPosition, this.content.layoutSize);
-            this.content.render(context.withOffset(contentOffset).withClip(contentClip));
-        }
-
-        // Status bar
-        if (this.statusBar) {
-            const statusBarOffset = new Offset(this.statusBar.localPosition.dx, this.statusBar.localPosition.dy);
-            const statusBarClip = new Rect(this.statusBar.globalPosition, this.statusBar.layoutSize);
-            this.statusBar.render(context.withOffset(statusBarOffset).withClip(statusBarClip));
-        }
-
-        // Menu bar — rendered after content so popup overlays content
-        if (this.menuBar) {
-            const menuBarOffset = new Offset(this.menuBar.localPosition.dx, this.menuBar.localPosition.dy);
-            this.menuBar.render(context.withOffset(menuBarOffset));
-        }
-
-        // Context menu layer — rendered on top
-        this.overlayLayer.render(context);
+        // Дети в каноническом порядке слотов (см. syncChildren): menuBar,
+        // content, statusBar, overlay поверх всех.
+        this.renderChildren(context);
     }
 }

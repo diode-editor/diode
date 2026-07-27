@@ -4,6 +4,21 @@
 
 TUI-фреймворк — дерево элементов с layout, событиями, фокусом (аналог браузерного DOM). Layout и позиционирование — в [../LAYOUT.md](../LAYOUT.md).
 
+## Владение деревом (инварианты)
+
+Список детей принадлежит базовому `TUIElement`: топология меняется только через
+`appendChild`/`insertChild`/`removeChild`/`replaceChild`/`setChildren` (protected; наружу
+контейнеры дают доменный API), они же атомарно держат обратную ссылку `getParent()`.
+`getChildren()` не переопределяется; порядок детей = z-порядок хит-теста и Tab-обхода.
+Видимость — флаг `hidden` (аналог `display:none`): скрытый элемент остаётся в дереве (стили
+и root доходят), но выпадает из Tab-обхода/hit-теста, контейнер его не раскладывает и не
+рисует. `getRoot()` и `globalPosition` — производные от цепочки родителей (кэшей нет).
+Виджету, которому нужен родитель при прикреплении (мнемоники MenuBar), — хук
+`onDidChangeParent`. Инварианты дерева проверяет `validateTree` (в тестах — после каждого
+кадра TestApp; в приложении — `VEXX_VALIDATE_TREE=1`). Дефолтный `render()` рисует видимых
+детей с offset+clip (`renderChildren`); свой цикл — только у нестандартной трансляции
+(`ScrollViewport`, `ListViewElement`).
+
 `RenderContext` инкапсулирует то, что виджеты не обязаны знать: рендеринг wide chars (`drawText` через `DisplayLine` — без ручной возни с grapheme-слотами) и рамки (`drawBox` — углы/линии одним вызовом, `fill`, `separators`, пресеты из `BorderStyle.ts`, канон — `BORDER_ROUNDED`). Все бордер-виджеты рисуют рамку через него — единый стиль, без дублированных циклов.
 
 Подсистемы: **Events** (capture/bubble, клавиатура/фокус, менеджер фокуса с tab-навигацией, default actions), **Styles** (наследование `fg`/`bg` от родителя, sentinel `INHERITED_*`, dirty-пропагация + top-down резолвинг; компонент-специфичные стили через generic `TUIElement<S extends TUIStyle>`), **Widgets** (боксы с рамкой, стек, word-wrap текст, скролл, меню, `CompletionListElement`, `FitContentElement` — контейнер «размер по содержимому» под loose-constraints overlay-слоя, типовой корень диалогов/поповеров, `SizedBoxElement` — контейнер фиксированного «предпочтительного» размера (клампится к constraints), корень overlay-виджетов фиксированной ширины (find), и др.).
@@ -30,7 +45,7 @@ TUI-фреймворк — дерево элементов с layout, событ
 
 Контейнер для «много строк»: потребитель императивно собирает **обычные TUIElement-строки** (высота ровно 1) и добавляет их через `appendRow(element, { parentId?, label? })`; никаких renderer-делегатов и JSX. Виртуализация спрятана внутри: `performLayout`/`render` трогают только строки видимого окна `[scrollTop, scrollTop+height)`, хит-тест — арифметика, поэтому стоимость кадра не зависит от числа строк (бенч: ~1 мс на 100k строк). У каждой строки обязан быть непустой `element.id` — иначе `appendRow` бросает.
 
-Что контейнер даёт бесплатно (общие механики списков, 1:1 с `TreeViewElement`): фокус (`tabIndex=0`, строки в Tab-обход не попадают), курсор + мультивыбор (Shift/Ctrl), клавиатура (стрелки, Enter→`onActivate`, Space→collapse, PageUp/Down/Home/End — и внутри для standalone-использования, и через глобальные `list.*`-команды workbench, чей ключ `listFocus` покрывает оба списочных контрола), hover, typeahead по `label` (выключается опцией конструктора `typeahead: false` — так делает поиск, где буквы принадлежат строке запроса), сигнал `onContextMenu(element, screenX, screenY)`. Иерархия — через `parentId`: строка с детьми получает шеврон (гуттер «auto»: без сворачиваемых строк отступ не резервируется), `setCollapsed`/`toggleCollapsed` прячут поддиапазон; `setRowHidden` — то же для произвольной строки. `getChildren()` отдаёт **всех** (root-пропагация и стили должны доходить до каждого — канон `OverlayLayer`), culling — точечно в layout/render/хит-тесте/фокус-обходе.
+Что контейнер даёт бесплатно (общие механики списков, 1:1 с `TreeViewElement`): фокус (`tabIndex=0`, строки в Tab-обход не попадают), курсор + мультивыбор (Shift/Ctrl), клавиатура (стрелки, Enter→`onActivate`, Space→collapse, PageUp/Down/Home/End — и внутри для standalone-использования, и через глобальные `list.*`-команды workbench, чей ключ `listFocus` покрывает оба списочных контрола), hover, typeahead по `label` (выключается опцией конструктора `typeahead: false` — так делает поиск, где буквы принадлежат строке запроса), сигнал `onContextMenu(element, screenX, screenY)`. Иерархия — через `parentId`: строка с детьми получает шеврон (гуттер «auto»: без сворачиваемых строк отступ не резервируется), `setCollapsed`/`toggleCollapsed` прячут поддиапазон; `setRowHidden` — то же для произвольной строки. `getChildren()` отдаёт **всех** в порядке вставки (O(1) append; DFS-порядок иерархии держит видимая проекция), culling — точечно в layout/render/хит-тесте.
 
 Выделение/hover рисуются **post-render оверлеем**: контейнер читает готовые ячейки строки через `RenderContext.getCell` и патчит только те, чьи fg/bg совпадают с унаследованными, — собственные цвета строки (подсветка совпадения, приглушённый номер) выделение переживают, а стили детей никогда не мутируются из render-пути. Граница ответственности контекстного меню: движок диспатчит единое событие `contextmenu` (правый клик на release / клавиша ContextMenu / Shift+F10 — сливает `contextMenuEventSource`, якорь нормализован: точка от мыши, элемент от клавиатуры), контейнер в его default action выбирает строку и **сигналит** `onContextMenu` координатами; презентация попапа — tuidom (`ContextMenuController` поверх `OverlayLayer`), сборка пунктов из `MenuRegistry` — `platform/contextview` (`ContextMenuService`, делегаты владельца).
 

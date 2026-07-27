@@ -95,14 +95,6 @@ export class VStackElement extends TUIElement {
         return containerSize;
     }
 
-    public render(context: RenderContext): void {
-        for (const child of this.getChildren()) {
-            // Use localPosition from coordinate system instead of layoutState
-            const childOffset = new Offset(child.localPosition.dx, child.localPosition.dy);
-            const childClip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(childOffset).withClip(childClip));
-        }
-    }
 }
 
 // ─── VStack JSX Adapter ───

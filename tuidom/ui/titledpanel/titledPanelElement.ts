@@ -56,8 +56,6 @@ export class TitledPanelElement extends TUIElement<TitledPanelStyle> {
             context.setCell(x, 0, { char, fg: titleFg, bg: titleBg });
         }
 
-        const childOffset = new Offset(this.child.localPosition.dx, this.child.localPosition.dy);
-        const childClip = new Rect(this.child.globalPosition, this.child.layoutSize);
-        this.child.render(context.withOffset(childOffset).withClip(childClip));
+        this.renderChildren(context);
     }
 }

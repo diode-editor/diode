@@ -130,11 +130,7 @@ export class BoxContainerElement extends TUIElement {
         }
 
         // Render child
-        if (this.child) {
-            const childOffset = new Offset(this.child.localPosition.dx, this.child.localPosition.dy);
-            const childClip = new Rect(this.child.globalPosition, this.child.layoutSize);
-            this.child.render(context.withOffset(childOffset).withClip(childClip));
-        }
+        this.renderChildren(context);
     }
 }
 
