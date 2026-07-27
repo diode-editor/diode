@@ -122,7 +122,7 @@ TuiApplication.renderFrame():
 
 Параметр `height`/`width` зарезервирован для виджетов с word-wrap (высота зависит от ширины). Сейчас большинство элементов его игнорируют.
 
-Intrinsic-методы используются контейнерами (HFlexElement, будущий VFlexElement) для режима **Fit** — «подстройся под контент ребёнка».
+Intrinsic-методы используются контейнерами (HFlexElement, VFlexElement) для режима **Fit** — «подстройся под контент ребёнка».
 
 ## SizedBoxElement
 
@@ -157,6 +157,17 @@ height: number | "fill"          — размер по cross оси (верти�
 5. Вызвать `child.performLayout(tight(width, height))` для всех
 
 Хелперы: `hflexFixed(n)`, `hflexFit()`, `hflexFill()`.
+
+## VFlexElement
+
+Вертикальный flex-контейнер — зеркало `HFlexElement` с переставленными осями. Каждому ребёнку задаётся `VFlexLayoutStyle`:
+
+```
+height: Fixed(n) | Fit | Fill    — размер по главной оси (вертикальной)
+width: number | "fill"           — размер по cross оси (горизонтальной)
+```
+
+Семантика режимов и алгоритм те же, что у HFlex (Fit — по `getMaxIntrinsicHeight()`, максимум один Fill-ребёнок). Хелперы: `vflexFixed(n)`, `vflexFit()`, `vflexFill()`. JSX-адаптера пока нет — добавляется симметрично HFlex при первом JSX-потребителе.
 
 ## WorkbenchLayoutElement — сайдбар, редактор и нижняя панель
 
