@@ -4,14 +4,14 @@ import { renderElement } from "../../../src/TestUtils/renderElement.ts";
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { getFileIcon } from "../../../src/vs/base/common/fileIcons.ts";
 import { packRgb } from "../../common/colorUtils.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { BodyElement } from "../body/bodyElement.ts";
 import { BoxElement } from "../layout/boxElement.ts";
 
 import { EditorGroupElement } from "./editorGroupElement.ts";
 
 function layoutGroup(group: EditorGroupElement, width = 40, height = 10): void {
-    group.globalPosition = new Point(0, 0);
+    group.localPosition = new Offset(0, 0);
     group.performLayout(BoxConstraints.tight(new Size(width, height)));
 }
 

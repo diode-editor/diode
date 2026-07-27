@@ -4,7 +4,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Point } from "../../../../tuidom/common/geometryPromitives.ts";
+import { Offset, Point } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { QuickPickElement } from "../../../../tuidom/ui/quickpick/quickPickElement.ts";
 import type { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
@@ -171,7 +171,7 @@ describe("Workbench — Rename via context menu", () => {
         h.testApp.render();
 
         // Right-click the file row (row 0) to open its context menu.
-        tree.globalPosition = new Point(0, 0);
+        tree.localPosition = new Offset(0, 0);
         tree.dispatchEvent(
             new TUIContextMenuEvent({ trigger: "mouse", button: "right", screenX: 2, screenY: 0, localX: 2, localY: 0 }),
         );

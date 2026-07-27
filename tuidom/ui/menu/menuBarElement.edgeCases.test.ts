@@ -84,7 +84,7 @@ describe("MenuBarElement — setParent mnemonic listener lifecycle", () => {
         backend.sendKey("Tab"); // child[0]
         expect(children[0].isFocused).toBe(true);
 
-        menuBar.setParent(null); // removes the keydown listener from body
+        body.setMenuBar(null); // removes the keydown listener from body
 
         // Dispatch the mnemonic straight at the still-attached child / parent: no effect.
         children[0].dispatchEvent(new TUIKeyboardEvent("keydown", { key: "f", altKey: true }));
@@ -103,7 +103,7 @@ describe("MenuBarElement — setParent mnemonic listener lifecycle", () => {
 
         // Move the menuBar to a brand-new body (exercises the remove-old + add-new path).
         const newBody = new BodyElement();
-        menuBar.setParent(newBody);
+        newBody.setMenuBar(menuBar);
         expect(menuBar.getParent()).toBe(newBody);
 
         // Old parent no longer routes the mnemonic.

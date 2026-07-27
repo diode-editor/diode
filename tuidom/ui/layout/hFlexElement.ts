@@ -23,30 +23,18 @@ export function hflexFill(): HFlexChildSize {
 }
 
 export class HFlexElement extends TUIElement {
-    private children: TUIElement[] = [];
-
     public addChild(child: TUIElement, style: HFlexLayoutStyle): void {
         if (style.width.type === "fill") {
-            const hasFill = this.children.some((c) => (c.layoutStyle as HFlexLayoutStyle).width.type === "fill");
+            const hasFill = this.getChildren().some((c) => (c.layoutStyle as HFlexLayoutStyle).width.type === "fill");
             if (hasFill) {
                 throw new Error("HFlexElement supports at most one fill child");
             }
         }
         child.layoutStyle = style;
-        child.setParent(this);
-        this.children.push(child);
+        this.appendChild(child);
     }
 
     public replaceChildren(newChildren: TUIElement[]): void {
-        const oldSet = new Set(this.children);
-        const newSet = new Set(newChildren);
-
-        for (const old of oldSet) {
-            if (!newSet.has(old)) {
-                old.setParent(null);
-            }
-        }
-
         let fillCount = 0;
         for (const child of newChildren) {
             const style = child.layoutStyle as HFlexLayoutStyle | undefined;
@@ -55,22 +43,14 @@ export class HFlexElement extends TUIElement {
         if (fillCount > 1) {
             throw new Error("HFlexElement supports at most one fill child");
         }
-
-        this.children = newChildren;
-        for (const child of newChildren) {
-            child.setParent(this);
-        }
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.children;
+        this.setChildren(newChildren);
     }
 
     // ─── Intrinsic Size ───
 
     public override getMinIntrinsicWidth(height: number): number {
         let sum = 0;
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as HFlexLayoutStyle;
             if (style.width.type === "fixed") {
                 sum += style.width.value;
@@ -83,7 +63,7 @@ export class HFlexElement extends TUIElement {
 
     public override getMaxIntrinsicWidth(height: number): number {
         let sum = 0;
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as HFlexLayoutStyle;
             if (style.width.type === "fixed") {
                 sum += style.width.value;
@@ -96,7 +76,7 @@ export class HFlexElement extends TUIElement {
 
     public override getMinIntrinsicHeight(width: number): number {
         let max = 0;
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as HFlexLayoutStyle;
             if (style.height === "fill") {
                 max = Math.max(max, child.getMinIntrinsicHeight(width));
@@ -109,7 +89,7 @@ export class HFlexElement extends TUIElement {
 
     public override getMaxIntrinsicHeight(width: number): number {
         let max = 0;
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as HFlexLayoutStyle;
             if (style.height === "fill") {
                 max = Math.max(max, child.getMaxIntrinsicHeight(width));
@@ -132,7 +112,7 @@ export class HFlexElement extends TUIElement {
         let fillChild: TUIElement | null = null;
 
         // Pass 1: measure fixed and fit children
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as HFlexLayoutStyle;
             const childHeight = style.height === "fill" ? containerHeight : style.height;
 
@@ -149,7 +129,7 @@ export class HFlexElement extends TUIElement {
         const remaining = Math.max(0, containerWidth - fixedSum - fitSum);
         let currentX = 0;
 
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as HFlexLayoutStyle;
             const childHeight = style.height === "fill" ? containerHeight : style.height;
 
@@ -162,10 +142,7 @@ export class HFlexElement extends TUIElement {
                 childWidth = remaining;
             }
 
-            child.localPosition = new Offset(currentX, 0);
-            child.globalPosition = new Point(this.globalPosition.x + currentX, this.globalPosition.y);
-
-            child.performLayout(BoxConstraints.tight(new Size(childWidth, childHeight)));
+            this.layoutChild(child, currentX, 0, BoxConstraints.tight(new Size(childWidth, childHeight)));
             currentX += childWidth;
         }
 
@@ -174,13 +151,6 @@ export class HFlexElement extends TUIElement {
 
     // ─── Render ───
 
-    public override render(context: RenderContext): void {
-        for (const child of this.children) {
-            const childOffset = new Offset(child.localPosition.dx, child.localPosition.dy);
-            const childClip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(childOffset).withClip(childClip));
-        }
-    }
 }
 
 // ─── HFlex JSX Adapter ───

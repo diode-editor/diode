@@ -6,16 +6,9 @@ import { querySelector, querySelectorAll } from "./tuiSelector.ts";
 // ─── Helpers ───
 
 class Container extends TUIElement {
-    private kids: TUIElement[] = [];
-
     public addChild(child: TUIElement): this {
-        child.setParent(this);
-        this.kids.push(child);
+        this.appendChild(child);
         return this;
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.kids;
     }
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Point } from "../../common/geometryPromitives.ts";
+import { Offset, Point } from "../../common/geometryPromitives.ts";
 import { TUIElement } from "../tuiElement.ts";
 
 import { contextMenuEventFromClick, contextMenuEventFromKeydown } from "./contextMenuEventSource.ts";
@@ -50,7 +50,7 @@ describe("contextMenuEventFromClick", () => {
 describe("contextMenuEventFromKeydown", () => {
     function makeTarget(): TUIElement {
         const target = new TUIElement();
-        target.globalPosition = new Point(5, 9);
+        target.localPosition = new Offset(5, 9);
         return target;
     }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../src/TestUtils/renderElement.ts";
-import { BoxConstraints, Point, Size } from "../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../common/geometryPromitives.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 
 import { CompositeElement } from "./compositeElement.ts";
@@ -45,7 +45,7 @@ describe("CompositeElement layout proxy", () => {
     it("lays the rootChild out with tight constraints matching the composite size", () => {
         const comp = new TestComposite();
         comp.rebuild();
-        comp.globalPosition = new Point(3, 4);
+        comp.localPosition = new Offset(3, 4);
         comp.performLayout(BoxConstraints.tight(new Size(40, 12)));
 
         const leaf = comp.getRootChild() as RecordingLeaf;

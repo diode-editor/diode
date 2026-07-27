@@ -12,9 +12,8 @@ export class EditorGroupElement extends TUIElement {
     public constructor() {
         super();
         this.tabStrip = new EditorTabStripElement();
-        this.tabStrip.setParent(this);
         this.overlayLayerValue = new OverlayLayer();
-        this.overlayLayerValue.setParent(this);
+        this.syncChildren();
     }
 
     /**
@@ -38,23 +37,21 @@ export class EditorGroupElement extends TUIElement {
     }
 
     public setContent(element: TUIElement | null): void {
-        if (this.content) {
-            this.content.setParent(null);
-        }
         this.content = element;
-        if (this.content) {
-            this.content.setParent(this);
-        }
+        this.syncChildren();
         this.markDirty();
     }
 
-    public override getChildren(): readonly TUIElement[] {
+    /**
+     * Канонический порядок слотов. Overlay layer last → hit-tested first
+     * (clicks on the find widget win over the editor underneath; clicks
+     * elsewhere fall through to content).
+     */
+    private syncChildren(): void {
         const children: TUIElement[] = [this.tabStrip];
         if (this.content) children.push(this.content);
-        // Overlay layer last → hit-tested first (clicks on the find widget win
-        // over the editor underneath; clicks elsewhere fall through to content).
         children.push(this.overlayLayerValue);
-        return children;
+        this.setChildren(children);
     }
 
     // ─── Layout ───
@@ -64,23 +61,17 @@ export class EditorGroupElement extends TUIElement {
         const tabStripHeight = 1;
 
         // Tab strip: 1 row at top
-        this.tabStrip.localPosition = new Offset(0, 0);
-        this.tabStrip.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-        this.tabStrip.performLayout(BoxConstraints.tight(new Size(containerSize.width, tabStripHeight)));
+        this.layoutChild(this.tabStrip, 0, 0, BoxConstraints.tight(new Size(containerSize.width, tabStripHeight)));
 
         // Content: remaining height
         if (this.content) {
             const contentHeight = Math.max(0, containerSize.height - tabStripHeight);
-            this.content.localPosition = new Offset(0, tabStripHeight);
-            this.content.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y + tabStripHeight);
-            this.content.performLayout(BoxConstraints.tight(new Size(containerSize.width, contentHeight)));
+            this.layoutChild(this.content, 0, tabStripHeight, BoxConstraints.tight(new Size(containerSize.width, contentHeight)));
         }
 
         // Overlay layer covers the whole group (tab strip + content); item
         // positions are relative to the group's top-left.
-        this.overlayLayerValue.localPosition = new Offset(0, 0);
-        this.overlayLayerValue.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-        this.overlayLayerValue.performLayout(BoxConstraints.tight(containerSize));
+        this.layoutChild(this.overlayLayerValue, 0, 0, BoxConstraints.tight(containerSize));
 
         return containerSize;
     }

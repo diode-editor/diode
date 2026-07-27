@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../src/TestUtils/renderElement.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 
 import { BoxContainerElement } from "./boxContainerElement.ts";
@@ -147,7 +147,7 @@ describe("BoxContainerElement", () => {
             box.setTitle("T");
             box.setHasSeparator(true);
 
-            box.globalPosition = new Point(0, 0);
+            box.localPosition = new Offset(0, 0);
             box.performLayout(BoxConstraints.tight(new Size(10, 8)));
 
             // paddingX = 1, paddingTop = 1 + headerRows(2) = 3

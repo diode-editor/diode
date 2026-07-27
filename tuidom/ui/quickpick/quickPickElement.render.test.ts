@@ -18,7 +18,7 @@ function renderPicker(picker: QuickPickElement, width: number): MockTerminalBack
     const backend = new MockTerminalBackend(size);
     const termScreen = new TerminalScreen(size);
 
-    picker.globalPosition = new Point(0, 0);
+    picker.localPosition = new Offset(0, 0);
     picker.performLayout(BoxConstraints.tight(size));
 
     const clip = new Rect(new Point(0, 0), size);
@@ -323,7 +323,7 @@ describe("QuickPickElement — scroll", () => {
         const size = new Size(30, 3);
         const backend = new MockTerminalBackend(size);
         const termScreen = new TerminalScreen(size);
-        picker.globalPosition = new Point(0, 0);
+        picker.localPosition = new Offset(0, 0);
         picker.performLayout(BoxConstraints.tight(size));
         const clip = new Rect(new Point(0, 0), size);
         picker.render(new RenderContext(termScreen, new Offset(0, 0), clip));
@@ -375,7 +375,7 @@ describe("QuickPickElement — layout width", () => {
     it("with loose constraints uses preferredWidth, not maxWidth", () => {
         const picker = new QuickPickElement();
         picker.preferredWidth = 40;
-        picker.globalPosition = new Point(0, 0);
+        picker.localPosition = new Offset(0, 0);
         picker.performLayout(BoxConstraints.loose(new Size(100, 50)));
         expect(picker.layoutSize.width).toBe(40);
     });
@@ -383,7 +383,7 @@ describe("QuickPickElement — layout width", () => {
     it("with an unbounded maxWidth falls back to preferredWidth (line 197 else branch)", () => {
         const picker = new QuickPickElement();
         picker.preferredWidth = 50;
-        picker.globalPosition = new Point(0, 0);
+        picker.localPosition = new Offset(0, 0);
         // maxWidth = Infinity → Number.isFinite(...) is false → maxW = preferredWidth.
         picker.performLayout(new BoxConstraints(0, Infinity, 0, Infinity));
         expect(picker.layoutSize.width).toBe(50);
@@ -392,7 +392,7 @@ describe("QuickPickElement — layout width", () => {
     it("with loose constraints is clamped to maxWidth when smaller than preferredWidth", () => {
         const picker = new QuickPickElement();
         picker.preferredWidth = 40;
-        picker.globalPosition = new Point(0, 0);
+        picker.localPosition = new Offset(0, 0);
         picker.performLayout(BoxConstraints.loose(new Size(30, 50)));
         expect(picker.layoutSize.width).toBe(30);
     });
@@ -400,7 +400,7 @@ describe("QuickPickElement — layout width", () => {
     it("with tight constraints uses exact size regardless of preferredWidth", () => {
         const picker = new QuickPickElement();
         picker.preferredWidth = 40;
-        picker.globalPosition = new Point(0, 0);
+        picker.localPosition = new Offset(0, 0);
         const height = picker.getMinIntrinsicHeight(50);
         picker.performLayout(BoxConstraints.tight(new Size(50, height)));
         expect(picker.layoutSize.width).toBe(50);

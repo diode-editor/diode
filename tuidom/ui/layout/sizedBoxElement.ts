@@ -37,18 +37,14 @@ export class SizedBoxElement extends TUIElement {
     }
 
     public setChild(child: TUIElement | null): void {
-        if (this.child) this.child.setParent(null);
+        if (this.child) this.removeChild(this.child);
         this.child = child;
-        if (this.child) this.child.setParent(this);
+        if (this.child) this.appendChild(this.child);
         this.markDirty();
     }
 
     public getChild(): TUIElement | null {
         return this.child;
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.child ? [this.child] : [];
     }
 
     public override getMinIntrinsicWidth(height: number): number {
@@ -74,9 +70,7 @@ export class SizedBoxElement extends TUIElement {
         super.performLayout(BoxConstraints.tight(size));
 
         if (this.child) {
-            this.child.localPosition = new Offset(0, 0);
-            this.child.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-            this.child.performLayout(BoxConstraints.tight(size));
+            this.layoutChild(this.child, 0, 0, BoxConstraints.tight(size));
         }
 
         return size;

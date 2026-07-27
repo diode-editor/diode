@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
@@ -12,7 +12,7 @@ describe("PanelContainerElement.inspectState", () => {
         panel.addView({ id: "a", title: "PROBLEMS", content: null });
         panel.addView({ id: "b", title: "OUTPUT", content: null });
         panel.setActiveView("b");
-        panel.globalPosition = new Point(0, 0);
+        panel.localPosition = new Offset(0, 0);
         panel.performLayout(BoxConstraints.tight(new Size(40, 8)));
 
         const state = panel.inspectState();
@@ -27,7 +27,7 @@ describe("PanelContainerElement.inspectState", () => {
     it("offsets tab x by the panel's global position", () => {
         const panel = new PanelContainerElement();
         panel.addView({ id: "a", title: "PROBLEMS", content: null });
-        panel.globalPosition = new Point(30, 12);
+        panel.localPosition = new Offset(30, 12);
         panel.performLayout(BoxConstraints.tight(new Size(40, 8)));
 
         const state = panel.inspectState();

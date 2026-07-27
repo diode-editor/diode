@@ -12,15 +12,40 @@
 
 Публичный геттер `layoutSize` — ленивый: если `isLayoutDirty`, он вызывает `performLayout` с loose constraints. Это fallback для чтения размера вне цикла layout.
 
+## Владение деревом: appendChild-семейство и hidden
+
+Список детей принадлежит базовому `TUIElement`; топология меняется **только** через
+`appendChild` / `insertChild` / `removeChild` / `replaceChild` / `setChildren`
+(protected — снаружи контейнер даёт свой доменный API: `setContent`, `addView`, `appendRow`).
+Эти методы атомарно держат обратную ссылку `getParent()`, поэтому «ребёнок в списке без
+родителя» непредставим. `getChildren()` не переопределяется. Порядок детей — это
+одновременно z-порядок хит-теста (последний — поверх) и порядок Tab-обхода; слотовые
+контейнеры пересобирают канонический порядок декларативным `setChildren` (см.
+`BodyElement.syncChildren`).
+
+Видимость отделена от структуры флагом **`hidden`** (аналог `display:none`): скрытый
+элемент остаётся в дереве — `getRoot()` и каскад стилей до него доходят, — но выпадает из
+Tab-обхода и hit-теста (базовые обходы), а контейнер его не раскладывает и не рисует
+(`renderChildren` пропускает). Так живут неактивные вкладки `PanelContainerElement`,
+скрытые панели/сашы `WorkbenchLayoutElement` и закрытые сессии `OverlayLayer`. Куда уходит
+фокус при скрытии — политика уровня workbench (`PanelFocusContribution`), не базы.
+
+Производные величины (кэшей нет, протухнуть нечему):
+- **`getRoot()`** — прогулка вверх по цепочке родителей до вершины с меткой `setAsRoot()`;
+- **`globalPosition`** — `parent.globalPosition + localPosition` (у отсоединённого — равен
+  `localPosition`).
+
+Инварианты дерева проверяет `validateTree` (`tuidom/dom/validateTree.ts`): в тестах — после
+каждого кадра (`TestApp`), в приложении — `VEXX_VALIDATE_TREE=1`.
+
 ## Контейнеры и `performLayout`
 
-Layout управляют контейнеры. Каждый контейнер (`VStackElement`, `BodyElement`, `ScrollBarDecorator`, `ContextMenuLayer`) в своём `performLayout()`:
+Layout управляют контейнеры. Каждый контейнер (`VStackElement`, `BodyElement`, `ScrollBarDecorator`, `OverlayLayer`) в своём `performLayout()`:
 
 1. Вызывает `super.performLayout(constraints)` — фиксирует собственный размер
-2. Для каждого ребёнка:
-   - Вычисляет позицию и размер ребёнка по своей логике
-   - Устанавливает `child.localPosition` и `child.globalPosition`
-   - Вызывает `child.performLayout(childConstraints)`
+2. Для каждого видимого ребёнка вычисляет позицию и размер по своей логике и вызывает
+   `this.layoutChild(child, x, y, childConstraints)` — хелпер ставит `localPosition` и
+   прогоняет layout ребёнка (`globalPosition` производный, его никто не выставляет)
 
 Листовые элементы (`BoxElement`, `EditorElement`, `PopupMenuElement`) используют базовый `performLayout`, который просто применяет `constraints.constrain()` к текущему размеру. Некоторые (`PopupMenuElement`) переопределяют метод для вычисления intrinsic size.
 
@@ -35,12 +60,10 @@ Layout управляют контейнеры. Каждый контейнер 
 
 ## Координатная система
 
-Два свойства задают положение элемента на экране:
+- **`localPosition: Offset`** — смещение элемента относительно родителя. Устанавливает контейнер в `performLayout()` (через `layoutChild`). Это ЕДИНСТВЕННАЯ хранимая координата.
+- **`globalPosition: Point`** — абсолютная позиция на экране (0-based), **производный геттер**: `parent.globalPosition + localPosition`; у элемента без родителя равен `localPosition`. Раньше это было второе поле, которое контейнеры выставляли руками параллельно, — забытая запись давала элемент, который рисуется, но не кликается.
 
-- **`localPosition: Offset`** — смещение элемента относительно родителя. Устанавливает контейнер в `performLayout()`.
-- **`globalPosition: Point`** — абсолютная позиция элемента на экране (0-based). Устанавливает контейнер в `performLayout()` как `parent.globalPosition + child.localPosition`.
-
-Корневой элемент получает `globalPosition = (0, 0)` от `TuiApplication` перед вызовом `performLayout()`.
+Корневой элемент получает `localPosition = (0, 0)` от `TuiApplication` перед вызовом `performLayout()`.
 
 ## RenderContext
 
@@ -51,7 +74,7 @@ Layout управляют контейнеры. Каждый контейнер 
 
 Виджеты используют `context.setCell(x, y, cell)` для рендера в локальных координатах. Метод транслирует координаты: `screenX = x + offset.dx`, `screenY = y + offset.dy`, проверяет попадание в clipRect и пишет в canvas. Аналогично работает `context.setCursorPosition(x, y)`.
 
-`RenderContext.offset` и `globalPosition` отслеживают одну и ту же величину параллельно: offset накапливается при рендере, globalPosition вычисляется при layout. В корректном состоянии они равны.
+`RenderContext.offset` и `globalPosition` считают одну величину двумя путями: offset накапливается при рендере, globalPosition выводится из цепочки родителей. Совпадают всегда, пока контейнер рисует детей канонично — базовым `render()`/`renderChildren()` (offset = `child.localPosition`, clip = границы ребёнка, скрытые пропускаются). Свой цикл отрисовки нужен только контейнерам с нестандартной трансляцией: `ScrollViewport` (сдвиг на `-scrollTop`), `ListViewElement` (виртуализация).
 
 ## Скролл
 
@@ -76,7 +99,7 @@ ScrollBarDecorator → EditorElement
 
 ```
 TuiApplication.renderFrame():
-    root.globalPosition = (0, 0)
+    root.localPosition = (0, 0)
     root.performLayout(tight(screenSize))          // рекурсивно: размеры + позиции
     screenClip = Rect((0,0), screenSize)
     root.render(RenderContext(screen, offset=0, screenClip))  // рекурсивно: отрисовка
@@ -163,10 +186,10 @@ height: number | "fill"          — размер по cross оси (верти�
 
 `SashElement` (`tuidom/ui/sash/sashElement.ts`) — невидимый хит-таргет на границе панелей;
 параметр `orientation` (`"vertical"` — колонка шириной 1, ресайз по X; `"horizontal"` — ряд
-высотой 1, ресайз по Y). Оба сэша добавляются в `getChildren()` **последними**, чтобы
-`elementFromPoint` находил их поверх соседнего контента, и раскладываются в `performLayout` на
-границе (вертикальный — на колонке `leftWidth`; горизонтальный — на строке `centerHeight`,
-верхняя строка панели).
+высотой 1, ресайз по Y). Оба сэша — постоянные дети layout (последними в списке, чтобы `elementFromPoint` находил их
+поверх соседнего контента); каждый скрыт (`hidden`) вместе со своей панелью. Раскладываются в
+`performLayout` на границе (вертикальный — на колонке `leftWidth`; горизонтальный — на строке
+`centerHeight`, верхняя строка панели).
 
 Перетаскивание опирается на **opt-in pointer capture**: `TUIElement.capturesPointer` (по
 умолчанию `false`) у sash выставлен в `true`. Пока зажата кнопка, `MouseEventDispatcher`

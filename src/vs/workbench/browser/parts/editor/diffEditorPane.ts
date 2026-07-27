@@ -78,7 +78,10 @@ export class DiffEditorPane extends ThemedComponent implements IEditorPane, IDif
             dispose: () => {
                 this.tokenStores.original.dispose();
                 this.tokenStores.modified.dispose();
-                this.view.setParent(null);
+                // view из дерева НЕ отцепляем: пока группа держит его как content,
+                // setParent(null) оставляет полуприкреплённое состояние (ребёнок в
+                // getChildren с parent=null — ловит validateTree). Отцепляет тот,
+                // кто монтировал: EditorGroupElement.setContent при смене контента.
             },
         });
         this.initStyles();

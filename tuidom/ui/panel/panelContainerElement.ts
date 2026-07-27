@@ -92,9 +92,8 @@ export class PanelContainerElement extends TUIElement {
 
     public addView(view: PanelView): void {
         this.views.push(view);
-        if (view.content !== null) view.content.setParent(this);
-        if (view.actions != null) view.actions.setParent(this);
         this.activeId ??= view.id;
+        this.syncChildren();
         this.markDirty();
     }
 
@@ -102,9 +101,8 @@ export class PanelContainerElement extends TUIElement {
     public setViewActions(id: string, actions: TUIElement | null): void {
         const view = this.views.find((v) => v.id === id);
         if (view === undefined) return;
-        if (view.actions != null) view.actions.setParent(null);
         view.actions = actions;
-        if (actions !== null) actions.setParent(this);
+        this.syncChildren();
         this.markDirty();
     }
 
@@ -112,16 +110,39 @@ export class PanelContainerElement extends TUIElement {
     public setViewContent(id: string, content: TUIElement | null): void {
         const view = this.views.find((v) => v.id === id);
         if (view === undefined) return;
-        if (view.content !== null) view.content.setParent(null);
         view.content = content;
-        if (content !== null) content.setParent(this);
+        this.syncChildren();
         this.markDirty();
     }
 
     public setActiveView(id: string): void {
         if (this.views.every((v) => v.id !== id) || this.activeId === id) return;
         this.activeId = id;
+        this.syncChildren();
         this.markDirty();
+    }
+
+    /**
+     * Все вкладки живут в дереве постоянно; неактивные — hidden (root и стили
+     * доходят до них всегда). Раньше getChildren() отдавал только активную, и
+     * контент/actions, прицепленные до укоренения панели, оставались с
+     * протухшим root — модель бага #204 (селектор каналов Output молча не
+     * открывал выпадашку после restore сессии).
+     */
+    private syncChildren(): void {
+        const children: TUIElement[] = [];
+        for (const view of this.views) {
+            const isActive = view.id === this.activeId;
+            if (view.actions != null) {
+                view.actions.hidden = !isActive;
+                children.push(view.actions);
+            }
+            if (view.content !== null) {
+                view.content.hidden = !isActive;
+                children.push(view.content);
+            }
+        }
+        this.setChildren(children);
     }
 
     public getActiveViewId(): string | null {
@@ -178,14 +199,6 @@ export class PanelContainerElement extends TUIElement {
         return segments;
     }
 
-    public override getChildren(): readonly TUIElement[] {
-        const active = this.activeView();
-        const children: TUIElement[] = [];
-        if (active?.actions != null) children.push(active.actions);
-        if (active?.content != null) children.push(active.content);
-        return children;
-    }
-
     public override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
         // Контролы вкладки прижаты вправо на строке табов — как в шапке Panel у
@@ -194,20 +207,13 @@ export class PanelContainerElement extends TUIElement {
         if (actions != null) {
             const actionsWidth = Math.min(actions.getMaxIntrinsicWidth(1), containerSize.width);
             const x = Math.max(this.tabsEnd(), containerSize.width - actionsWidth - TAB_INDENT);
-            actions.localPosition = new Offset(x, TAB_ROW);
-            actions.globalPosition = new Point(this.globalPosition.x + x, this.globalPosition.y + TAB_ROW);
-            actions.performLayout(BoxConstraints.tight(new Size(Math.max(0, containerSize.width - x), 1)));
+            this.layoutChild(actions, x, TAB_ROW, BoxConstraints.tight(new Size(Math.max(0, containerSize.width - x), 1)));
         }
         const content = this.activeView()?.content;
         if (content != null) {
             const contentWidth = Math.max(0, containerSize.width - CONTENT_LEFT);
             const contentHeight = Math.max(0, containerSize.height - CONTENT_TOP);
-            content.localPosition = new Offset(CONTENT_LEFT, CONTENT_TOP);
-            content.globalPosition = new Point(
-                this.globalPosition.x + CONTENT_LEFT,
-                this.globalPosition.y + CONTENT_TOP,
-            );
-            content.performLayout(BoxConstraints.tight(new Size(contentWidth, contentHeight)));
+            this.layoutChild(content, CONTENT_LEFT, CONTENT_TOP, BoxConstraints.tight(new Size(contentWidth, contentHeight)));
         }
         return containerSize;
     }
@@ -249,21 +255,13 @@ export class PanelContainerElement extends TUIElement {
         }
 
         // View-specific controls in the title row (drawn after the tabs so they win
-        // the shared row), then the content below.
-        const active = this.activeView();
-        const actions = active?.actions;
-        if (actions != null) {
-            const offset = new Offset(actions.localPosition.dx, actions.localPosition.dy);
-            const clip = new Rect(actions.globalPosition, actions.layoutSize);
-            actions.render(context.withOffset(offset).withClip(clip));
-        }
+        // the shared row), then the active view's content below — renderChildren
+        // рисует только видимых детей, скрытые вкладки пропускаются базой.
+        this.renderChildren(context);
 
-        // Active view's content element, or its placeholder empty-state message.
-        if (active?.content != null) {
-            const offset = new Offset(active.content.localPosition.dx, active.content.localPosition.dy);
-            const clip = new Rect(active.content.globalPosition, active.content.layoutSize);
-            active.content.render(context.withOffset(offset).withClip(clip));
-        } else if (active?.placeholder !== undefined && height > CONTENT_TOP) {
+        // Placeholder empty-state message, если у активной вкладки нет контента.
+        const active = this.activeView();
+        if (active?.content == null && active?.placeholder !== undefined && height > CONTENT_TOP) {
             const message = active.placeholder;
             for (let i = 0; i < message.length && i + CONTENT_LEFT < width; i++) {
                 context.setCell(i + CONTENT_LEFT, CONTENT_TOP, {

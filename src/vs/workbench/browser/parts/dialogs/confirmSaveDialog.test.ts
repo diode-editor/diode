@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { MockTerminalBackend } from "../../../../../../tuidom/backend/mockTerminalBackend.ts";
 import { DEFAULT_COLOR } from "../../../../../../tuidom/common/colorUtils.ts";
-import { BoxConstraints, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { ROOT_RESOLVED_STYLE } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import { RenderContext } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { TerminalScreen } from "../../../../../../tuidom/rendering/terminalScreen.ts";
@@ -23,7 +23,7 @@ function renderDialog(filename: string): MockTerminalBackend {
     const backend = new MockTerminalBackend(size);
     const termScreen = new TerminalScreen(size);
 
-    view.globalPosition = new Point(0, 0);
+    view.localPosition = new Offset(0, 0);
     view.performStyleResolution(ROOT_RESOLVED_STYLE);
     view.performLayout(BoxConstraints.tight(size));
     view.render(new RenderContext(termScreen));

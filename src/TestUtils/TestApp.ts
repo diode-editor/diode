@@ -13,6 +13,9 @@ export class TestApp {
         this.app = new TuiApplication(backend);
         this.app.root = root;
         this.bodyRoot = root;
+        // Каждый кадр в тестах верифицирует инварианты дерева (симметрия parent,
+        // укоренённость) — молчаливые полуприкреплённые состояния падают сразу.
+        this.app.validateTreeAfterRender = true;
         this.app.run();
     }
 

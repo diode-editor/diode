@@ -93,12 +93,8 @@ class SearchViewElement extends TUIElement {
         private readonly results: TUIElement,
     ) {
         super();
-        header.setParent(this);
-        results.setParent(this);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.header, this.results];
+        this.appendChild(header);
+        this.appendChild(results);
     }
 
     public override performLayout(constraints: BoxConstraints): Size {
@@ -106,23 +102,11 @@ class SearchViewElement extends TUIElement {
         const headerHeight = Math.min(size.height, HEADER_HEIGHT);
         const resultsHeight = Math.max(0, size.height - headerHeight);
 
-        this.header.localPosition = new Offset(0, 0);
-        this.header.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-        this.header.performLayout(BoxConstraints.tight(new Size(size.width, headerHeight)));
-
-        this.results.localPosition = new Offset(0, headerHeight);
-        this.results.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y + headerHeight);
-        this.results.performLayout(BoxConstraints.tight(new Size(size.width, resultsHeight)));
+        this.layoutChild(this.header, 0, 0, BoxConstraints.tight(new Size(size.width, headerHeight)));
+        this.layoutChild(this.results, 0, headerHeight, BoxConstraints.tight(new Size(size.width, resultsHeight)));
         return size;
     }
 
-    public override render(context: RenderContext): void {
-        for (const child of this.getChildren()) {
-            const offset = new Offset(child.localPosition.dx, child.localPosition.dy);
-            const clip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(offset).withClip(clip));
-        }
-    }
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../common/geometryPromitives.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 
 import { CompositeElement } from "./compositeElement.ts";
@@ -137,7 +137,7 @@ describe("CompositeElement", () => {
         it("positions rootChild at (0,0) relative to self", () => {
             const comp = new TestComposite();
             comp.rebuild();
-            comp.globalPosition = new Point(10, 20);
+            comp.localPosition = new Offset(10, 20);
             comp.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             const child = comp.getRootChild()!;
@@ -166,7 +166,7 @@ describe("CompositeElement", () => {
         it("delegates render to rootChild", () => {
             const comp = new TestComposite();
             comp.rebuild();
-            comp.globalPosition = new Point(0, 0);
+            comp.localPosition = new Offset(0, 0);
             comp.performLayout(BoxConstraints.tight(new Size(80, 24)));
 
             const screen = new TerminalScreen(new Size(80, 24));

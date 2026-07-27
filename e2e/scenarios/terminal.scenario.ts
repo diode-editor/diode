@@ -1,3 +1,5 @@
+import { basename } from "node:path";
+
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Integrated terminal: the TERMINAL tab in the bottom panel hosting a live shell.
@@ -41,7 +43,8 @@ export default defineScenario({
         // The TERMINAL tab is active and the shell has rendered its prompt: either our
         // PS1 (clean CI bash) or a fancy rc-installed one (starship's `❯` locally).
         await editor.waitForText((t) => t.includes("TERMINAL"));
-        await editor.waitForText((t) => t.includes("vexx$") || t.includes("❯"));
+        // Имя каталога, а не литерал "vexx": в git-worktree cwd оканчивается иначе.
+        await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
         await editor.capture("terminal-open");
 
         // The shell is live: type a command and wait for its output line. The typed

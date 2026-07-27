@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import type { MouseToken } from "../../input/rawTerminalToken.ts";
 import { BodyElement } from "../../ui/body/bodyElement.ts";
 import { TuiApplication } from "../tuiApplication.ts";
@@ -12,20 +12,13 @@ import type { TUIMouseEvent } from "./tuiMouseEvent.ts";
 // ─── Helpers ───
 
 class ContainerElement extends TUIElement {
-    private children: TUIElement[] = [];
-
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this.children.push(child);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.children;
+        this.appendChild(child);
     }
 
     public override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             child.performLayout(BoxConstraints.tight(child.layoutSize));
         }
         return size;
@@ -56,7 +49,7 @@ describe("MouseEventDispatcher integration with TuiApplication", () => {
         const body = new BodyElement();
         const root = new ContainerElement();
         const child = new TUIElement();
-        child.globalPosition = new Point(10, 5);
+        child.localPosition = new Offset(10, 5);
         child.performLayout(BoxConstraints.tight(new Size(20, 10)));
         root.addChild(child);
 
@@ -85,7 +78,7 @@ describe("MouseEventDispatcher integration with TuiApplication", () => {
         const body = new BodyElement();
         const root = new ContainerElement();
         const child = new TUIElement();
-        child.globalPosition = new Point(10, 5);
+        child.localPosition = new Offset(10, 5);
         child.performLayout(BoxConstraints.tight(new Size(20, 10)));
         root.addChild(child);
 

@@ -46,7 +46,7 @@ export class ScrollBarDecorator extends TUIElement {
     public constructor(child: TUIElement & IScrollable) {
         super();
         this.child = child;
-        this.child.setParent(this);
+        this.appendChild(this.child);
     }
 
     public setStyles(styles: IScrollBarStyles): void {
@@ -59,26 +59,21 @@ export class ScrollBarDecorator extends TUIElement {
     }
 
     public setChild(child: TUIElement & IScrollable): void {
+        // setChildren, а не appendChild: старый ребёнок обязан отцепиться. До
+        // рефакторинга владения он молча оставался с parent=декоратор навсегда.
         this.child = child;
-        this.child.setParent(this);
+        this.setChildren([this.child]);
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.child];
     }
 
     public performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
-        this.child.localPosition = new Offset(0, 0);
-        this.child.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-
         const { showVertical, showHorizontal } = this.resolveScrollBarVisibility(containerSize);
         const childWidth = containerSize.width - (showVertical ? 1 : 0);
         const childHeight = containerSize.height - (showHorizontal ? 1 : 0);
 
-        this.child.performLayout(BoxConstraints.tight(new Size(childWidth, childHeight)));
+        this.layoutChild(this.child, 0, 0, BoxConstraints.tight(new Size(childWidth, childHeight)));
 
         return containerSize;
     }
@@ -86,9 +81,7 @@ export class ScrollBarDecorator extends TUIElement {
     public render(context: RenderContext): void {
         const { showVertical, showHorizontal } = this.resolveScrollBarVisibility(this.layoutSize);
 
-        const childOffset = new Offset(this.child.localPosition.dx, this.child.localPosition.dy);
-        const childClip = new Rect(this.child.globalPosition, this.child.layoutSize);
-        this.child.render(context.withOffset(childOffset).withClip(childClip));
+        this.renderChildren(context);
 
         const childWidth = this.child.layoutSize.width;
         const childHeight = this.child.layoutSize.height;

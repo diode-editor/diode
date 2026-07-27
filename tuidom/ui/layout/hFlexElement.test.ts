@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 import { TextBlockElement } from "../text/textBlockElement.ts";
 
@@ -34,7 +34,7 @@ class FixedSizeElement extends TUIElement {
 }
 
 function layoutHFlex(flex: HFlexElement, width = 80, height = 24): void {
-    flex.globalPosition = new Point(0, 0);
+    flex.localPosition = new Offset(0, 0);
     flex.performLayout(BoxConstraints.tight(new Size(width, height)));
 }
 
@@ -172,7 +172,7 @@ describe("HFlexElement", () => {
     describe("global positions", () => {
         it("sets correct global positions for children", () => {
             const flex = new HFlexElement();
-            flex.globalPosition = new Point(5, 10);
+            flex.localPosition = new Offset(5, 10);
 
             const a = new TUIElement();
             const b = new TUIElement();

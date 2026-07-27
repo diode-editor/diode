@@ -36,7 +36,7 @@ export abstract class CompositeElement extends TUIElement {
     public rebuild(): void {
         const node = this.describe();
         this.rootChild = reconcile(this.rootChild, node);
-        this.rootChild.setParent(this);
+        this.setChildren([this.rootChild]);
         this.markDirty();
     }
 
@@ -45,10 +45,6 @@ export abstract class CompositeElement extends TUIElement {
     }
 
     // ─── Proxy to rootChild ───
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.rootChild ? [this.rootChild] : [];
-    }
 
     public override getMinIntrinsicWidth(height: number): number {
         return this.rootChild?.getMinIntrinsicWidth(height) ?? 0;
@@ -70,17 +66,10 @@ export abstract class CompositeElement extends TUIElement {
         const resultSize = super.performLayout(constraints);
 
         if (this.rootChild) {
-            this.rootChild.localPosition = new Offset(0, 0);
-            this.rootChild.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-            this.rootChild.performLayout(BoxConstraints.tight(resultSize));
+            this.layoutChild(this.rootChild, 0, 0, BoxConstraints.tight(resultSize));
         }
 
         return resultSize;
     }
 
-    public override render(context: RenderContext): void {
-        if (this.rootChild) {
-            this.rootChild.render(context.withOffset(this.rootChild.localPosition));
-        }
-    }
 }

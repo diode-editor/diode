@@ -178,7 +178,7 @@ describe("EditorTabItemElement", () => {
 
         it("setModified with same value does not mark dirty", () => {
             const tab = new EditorTabItemElement("file.ts", tsIcon.icon, tsIcon.color);
-            tab.globalPosition = new Point(0, 0);
+            tab.localPosition = new Offset(0, 0);
             tab.performLayout(BoxConstraints.tight(new Size(20, 1)));
             expect(tab.isLayoutDirty).toBe(false);
             tab.setModified(false);
@@ -200,7 +200,7 @@ describe("EditorTabItemElement", () => {
 
         it("setReadOnly с тем же значением не помечает вкладку грязной", () => {
             const tab = new EditorTabItemElement("file.ts", tsIcon.icon, tsIcon.color);
-            tab.globalPosition = new Point(0, 0);
+            tab.localPosition = new Offset(0, 0);
             tab.performLayout(BoxConstraints.tight(new Size(20, 1)));
             expect(tab.isLayoutDirty).toBe(false);
             tab.setReadOnly(false);
@@ -263,7 +263,7 @@ describe("EditorTabItemElement", () => {
             const onActivate = vi.fn();
             tab.onActivate = onActivate;
 
-            tab.globalPosition = new Point(0, 0);
+            tab.localPosition = new Offset(0, 0);
             tab.performLayout(BoxConstraints.tight(new Size(tab.getMaxIntrinsicWidth(1), 1)));
 
             const event = new TUIMouseEvent("click", {
@@ -286,7 +286,7 @@ describe("EditorTabItemElement", () => {
             tab.onActivate = onActivate;
 
             const w = tab.getMaxIntrinsicWidth(1);
-            tab.globalPosition = new Point(0, 0);
+            tab.localPosition = new Offset(0, 0);
             tab.performLayout(BoxConstraints.tight(new Size(w, 1)));
 
             // Close button is at position: width - paddingRight - 1
@@ -311,7 +311,7 @@ describe("EditorTabItemElement", () => {
             tab.onClose = onClose;
             tab.onActivate = onActivate;
 
-            tab.globalPosition = new Point(0, 0);
+            tab.localPosition = new Offset(0, 0);
             tab.performLayout(BoxConstraints.tight(new Size(tab.getMaxIntrinsicWidth(1), 1)));
 
             const event = new TUIMouseEvent("click", {
@@ -335,7 +335,7 @@ describe("EditorTabItemElement", () => {
             tab.onActivate = onActivate;
 
             const w = tab.getMaxIntrinsicWidth(1);
-            tab.globalPosition = new Point(0, 0);
+            tab.localPosition = new Offset(0, 0);
             tab.performLayout(BoxConstraints.tight(new Size(w, 1)));
 
             const closeX = w - 1 - 1; // paddingRight=1, close char len=1

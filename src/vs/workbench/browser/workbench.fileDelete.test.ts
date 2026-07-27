@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Point } from "../../../../tuidom/common/geometryPromitives.ts";
+import { Offset, Point } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
@@ -220,7 +220,7 @@ describe("File tree context menu — right-click opens context menu", () => {
     }
 
     function rightClickRow(tree: TreeViewElement<unknown>, row: number): void {
-        tree.globalPosition = new Point(0, 0);
+        tree.localPosition = new Offset(0, 0);
         tree.dispatchEvent(
             new TUIContextMenuEvent({ trigger: "mouse", button: "right", screenX: 2, screenY: row, localX: 2, localY: row }),
         );

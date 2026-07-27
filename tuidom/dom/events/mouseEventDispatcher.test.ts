@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import type { MouseToken } from "../../input/rawTerminalToken.ts";
 import { TUIElement } from "../tuiElement.ts";
 
@@ -10,20 +10,16 @@ import type { TUIMouseEvent } from "./tuiMouseEvent.ts";
 // ─── Helpers ───
 
 class ContainerElement extends TUIElement {
-    private children: TUIElement[] = [];
-
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this.children.push(child);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.children;
+        this.appendChild(child);
     }
 }
 
+// Тесты задают позиции АБСОЛЮТНЫМИ координатами; globalPosition производный,
+// поэтому пересчитываем в локальные относительно уже прикреплённого родителя.
 function layoutElement(el: TUIElement, globalPos: Point, size: Size): void {
-    el.globalPosition = globalPos;
+    const base = el.getParent()?.globalPosition ?? new Point(0, 0);
+    el.localPosition = new Offset(globalPos.x - base.x, globalPos.y - base.y);
     el.performLayout(BoxConstraints.tight(size));
 }
 
@@ -58,8 +54,8 @@ describe("MouseEventDispatcher — mousedown / mouseup", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const events = collected(child, "mousedown");
         const dispatcher = new MouseEventDispatcher();
@@ -80,8 +76,8 @@ describe("MouseEventDispatcher — mousedown / mouseup", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const events = collected(child, "mouseup");
         const dispatcher = new MouseEventDispatcher();
@@ -100,8 +96,8 @@ describe("MouseEventDispatcher — click", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const clicks = collected(child, "click");
         const dispatcher = new MouseEventDispatcher();
@@ -120,12 +116,12 @@ describe("MouseEventDispatcher — click", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const childA = new TUIElement();
-        layoutElement(childA, new Point(0, 0), new Size(40, 24));
         root.addChild(childA);
+        layoutElement(childA, new Point(0, 0), new Size(40, 24));
 
         const childB = new TUIElement();
-        layoutElement(childB, new Point(40, 0), new Size(40, 24));
         root.addChild(childB);
+        layoutElement(childB, new Point(40, 0), new Size(40, 24));
 
         const clicksA = collected(childA, "click");
         const clicksB = collected(childB, "click");
@@ -146,8 +142,8 @@ describe("MouseEventDispatcher — dblclick", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const dblclicks = collected(child, "dblclick");
         let time = 1000;
@@ -171,8 +167,8 @@ describe("MouseEventDispatcher — dblclick", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const dblclicks = collected(child, "dblclick");
         let time = 1000;
@@ -195,12 +191,12 @@ describe("MouseEventDispatcher — dblclick", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const childA = new TUIElement();
-        layoutElement(childA, new Point(0, 0), new Size(40, 24));
         root.addChild(childA);
+        layoutElement(childA, new Point(0, 0), new Size(40, 24));
 
         const childB = new TUIElement();
-        layoutElement(childB, new Point(40, 0), new Size(40, 24));
         root.addChild(childB);
+        layoutElement(childB, new Point(40, 0), new Size(40, 24));
 
         const dblA = collected(childA, "dblclick");
         const dblB = collected(childB, "dblclick");
@@ -226,8 +222,8 @@ describe("MouseEventDispatcher — dblclick", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const dblclicks = collected(child, "dblclick");
         let time = 1000;
@@ -251,8 +247,8 @@ describe("MouseEventDispatcher — dblclick", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const dblclicks = collected(child, "dblclick");
         let time = 1000;
@@ -282,8 +278,8 @@ describe("MouseEventDispatcher — mouseenter / mouseleave (basic)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const enters = collected(child, "mouseenter");
         const dispatcher = new MouseEventDispatcher();
@@ -299,12 +295,12 @@ describe("MouseEventDispatcher — mouseenter / mouseleave (basic)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const childA = new TUIElement();
-        layoutElement(childA, new Point(0, 0), new Size(40, 24));
         root.addChild(childA);
+        layoutElement(childA, new Point(0, 0), new Size(40, 24));
 
         const childB = new TUIElement();
-        layoutElement(childB, new Point(40, 0), new Size(40, 24));
         root.addChild(childB);
+        layoutElement(childB, new Point(40, 0), new Size(40, 24));
 
         const leavesA = collected(childA, "mouseleave");
         const entersB = collected(childB, "mouseenter");
@@ -325,8 +321,8 @@ describe("MouseEventDispatcher — mouseenter / mouseleave (basic)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const enters = collected(child, "mouseenter");
         const leaves = collected(child, "mouseleave");
@@ -345,12 +341,12 @@ describe("MouseEventDispatcher — mouseenter / mouseleave (basic)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const parent = new ContainerElement();
-        layoutElement(parent, new Point(0, 0), new Size(80, 24));
         root.addChild(parent);
+        layoutElement(parent, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         parent.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         // Listen for bubble on parent (non-capture)
         const parentEntersBubble: TUIMouseEvent[] = [];
@@ -377,12 +373,12 @@ describe("MouseEventDispatcher — mouseenter/leave with nesting (ancestors)", (
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const panel = new ContainerElement();
-        layoutElement(panel, new Point(0, 0), new Size(80, 24));
         root.addChild(panel);
+        layoutElement(panel, new Point(0, 0), new Size(80, 24));
 
         const button = new TUIElement();
-        layoutElement(button, new Point(10, 5), new Size(20, 10));
         panel.addChild(button);
+        layoutElement(button, new Point(10, 5), new Size(20, 10));
 
         return { root, panel, button };
     }
@@ -447,12 +443,12 @@ describe("MouseEventDispatcher — mouseenter/leave with nesting (ancestors)", (
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const panel = new ContainerElement();
-        layoutElement(panel, new Point(10, 5), new Size(30, 15));
         root.addChild(panel);
+        layoutElement(panel, new Point(10, 5), new Size(30, 15));
 
         const button = new TUIElement();
-        layoutElement(button, new Point(15, 8), new Size(10, 5));
         panel.addChild(button);
+        layoutElement(button, new Point(15, 8), new Size(10, 5));
 
         const dispatcher = new MouseEventDispatcher();
 
@@ -475,12 +471,12 @@ describe("MouseEventDispatcher — mouseenter/leave with nesting (ancestors)", (
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const panel = new ContainerElement();
-        layoutElement(panel, new Point(10, 5), new Size(30, 15));
         root.addChild(panel);
+        layoutElement(panel, new Point(10, 5), new Size(30, 15));
 
         const button = new TUIElement();
-        layoutElement(button, new Point(15, 8), new Size(10, 5));
         panel.addChild(button);
+        layoutElement(button, new Point(15, 8), new Size(10, 5));
 
         const order: string[] = [];
         panel.addEventListener("mouseenter", () => order.push("panel"));
@@ -498,12 +494,12 @@ describe("MouseEventDispatcher — mouseenter/leave with nesting (ancestors)", (
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const panel = new ContainerElement();
-        layoutElement(panel, new Point(10, 5), new Size(30, 15));
         root.addChild(panel);
+        layoutElement(panel, new Point(10, 5), new Size(30, 15));
 
         const button = new TUIElement();
-        layoutElement(button, new Point(15, 8), new Size(10, 5));
         panel.addChild(button);
+        layoutElement(button, new Point(15, 8), new Size(10, 5));
 
         const dispatcher = new MouseEventDispatcher();
         dispatcher.handleMouseToken(makeToken({ action: "move", x: 21, y: 11 }), root);
@@ -525,8 +521,8 @@ describe("MouseEventDispatcher — mousemove", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const moves = collected(child, "mousemove");
         const dispatcher = new MouseEventDispatcher();
@@ -544,12 +540,12 @@ describe("MouseEventDispatcher — mousemove", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const parent = new ContainerElement();
-        layoutElement(parent, new Point(0, 0), new Size(80, 24));
         root.addChild(parent);
+        layoutElement(parent, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         parent.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const parentMoves: TUIMouseEvent[] = [];
         parent.addEventListener("mousemove", (e) => {
@@ -572,8 +568,8 @@ describe("MouseEventDispatcher — wheel", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const wheels = collected(child, "wheel");
         const dispatcher = new MouseEventDispatcher();
@@ -590,12 +586,12 @@ describe("MouseEventDispatcher — wheel", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const parent = new ContainerElement();
-        layoutElement(parent, new Point(0, 0), new Size(80, 24));
         root.addChild(parent);
+        layoutElement(parent, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         parent.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const parentWheels: TUIMouseEvent[] = [];
         parent.addEventListener("wheel", (e) => {
@@ -682,8 +678,8 @@ describe("MouseEventDispatcher — null target (empty space)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const enters = collected(child, "mouseenter");
         const leaves = collected(child, "mouseleave");
@@ -707,8 +703,8 @@ describe("MouseEventDispatcher — null target (empty space)", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const enters = collected(child, "mouseenter");
         const dispatcher = new MouseEventDispatcher();
@@ -772,8 +768,8 @@ describe("MouseEventDispatcher — localX/localY", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const child = new TUIElement();
-        layoutElement(child, new Point(10, 5), new Size(20, 10));
         root.addChild(child);
+        layoutElement(child, new Point(10, 5), new Size(20, 10));
 
         const clicks = collected(child, "click");
         const dispatcher = new MouseEventDispatcher();
@@ -792,12 +788,12 @@ describe("MouseEventDispatcher — localX/localY", () => {
         layoutElement(root, new Point(0, 0), new Size(80, 24));
 
         const panel = new ContainerElement();
-        layoutElement(panel, new Point(5, 3), new Size(70, 18));
         root.addChild(panel);
+        layoutElement(panel, new Point(5, 3), new Size(70, 18));
 
         const widget = new TUIElement();
-        layoutElement(widget, new Point(10, 5), new Size(50, 10));
         panel.addChild(widget);
+        layoutElement(widget, new Point(10, 5), new Size(50, 10));
 
         const clicks = collected(widget, "click");
         const dispatcher = new MouseEventDispatcher();
@@ -863,18 +859,18 @@ describe("MouseEventDispatcher — nested enter/leave ancestor walk (explicit)",
         // exercises both the leave-walk (old branch) and enter-walk (new branch)
         // up to their common ancestor (root).
         const panelA = new ContainerElement();
-        layoutElement(panelA, new Point(0, 0), new Size(30, 24));
         root.addChild(panelA);
+        layoutElement(panelA, new Point(0, 0), new Size(30, 24));
         const childA = new TUIElement();
-        layoutElement(childA, new Point(2, 2), new Size(10, 5));
         panelA.addChild(childA);
+        layoutElement(childA, new Point(2, 2), new Size(10, 5));
 
         const panelB = new ContainerElement();
-        layoutElement(panelB, new Point(40, 0), new Size(30, 24));
         root.addChild(panelB);
+        layoutElement(panelB, new Point(40, 0), new Size(30, 24));
         const childB = new TUIElement();
-        layoutElement(childB, new Point(42, 2), new Size(10, 5));
         panelB.addChild(childB);
+        layoutElement(childB, new Point(42, 2), new Size(10, 5));
 
         return { root, panelA, childA, panelB, childB };
     }

@@ -64,17 +64,13 @@ export class BoxContainerElement extends TUIElement {
 
     public setChild(child: TUIElement | null): void {
         if (this.child) {
-            this.child.setParent(null);
+            this.removeChild(this.child);
         }
         this.child = child;
         if (this.child) {
-            this.child.setParent(this);
+            this.appendChild(this.child);
         }
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.child ? [this.child] : [];
     }
 
     private get headerRows(): number {
@@ -114,9 +110,7 @@ export class BoxContainerElement extends TUIElement {
             const childHeight = Math.max(0, containerSize.height - paddingTop - paddingBottom);
             const childX = paddingX;
             const childY = paddingTop;
-            this.child.localPosition = new Offset(childX, childY);
-            this.child.globalPosition = new Point(this.globalPosition.x + childX, this.globalPosition.y + childY);
-            this.child.performLayout(BoxConstraints.tight(new Size(childWidth, childHeight)));
+            this.layoutChild(this.child, childX, childY, BoxConstraints.tight(new Size(childWidth, childHeight)));
         }
         return containerSize;
     }
@@ -136,11 +130,7 @@ export class BoxContainerElement extends TUIElement {
         }
 
         // Render child
-        if (this.child) {
-            const childOffset = new Offset(this.child.localPosition.dx, this.child.localPosition.dy);
-            const childClip = new Rect(this.child.globalPosition, this.child.layoutSize);
-            this.child.render(context.withOffset(childOffset).withClip(childClip));
-        }
+        this.renderChildren(context);
     }
 }
 

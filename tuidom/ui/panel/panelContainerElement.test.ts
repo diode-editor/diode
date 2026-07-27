@@ -19,13 +19,8 @@ const BORDER = packRgb(70, 80, 90);
 // "OUTPUT" (6) → segment [11, 19), glyphs x 12..17.
 
 class ContainerElement extends TUIElement {
-    private kids: TUIElement[] = [];
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this.kids.push(child);
-    }
-    public override getChildren(): readonly TUIElement[] {
-        return this.kids;
+        this.appendChild(child);
     }
 }
 
@@ -70,7 +65,7 @@ function renderPanel(panel: PanelContainerElement, size: Size): MockTerminalBack
 }
 
 function layoutPanel(panel: PanelContainerElement, size: Size): void {
-    panel.globalPosition = new Point(0, 0);
+    panel.localPosition = new Offset(0, 0);
     panel.performLayout(BoxConstraints.tight(size));
 }
 
@@ -192,13 +187,13 @@ describe("PanelContainerElement", () => {
         function scene(): { root: ContainerElement; panel: PanelContainerElement; activated: string[] } {
             const root = new ContainerElement();
             root.setAsRoot();
-            root.globalPosition = new Point(0, 0);
+            root.localPosition = new Offset(0, 0);
             root.performLayout(BoxConstraints.tight(new Size(40, 8)));
 
             const panel = themed();
             panel.addView({ id: "a", title: "PROBLEMS", content: null });
             panel.addView({ id: "b", title: "OUTPUT", content: null });
-            panel.globalPosition = new Point(0, 0);
+            panel.localPosition = new Offset(0, 0);
             panel.performLayout(BoxConstraints.tight(new Size(40, 8)));
             root.addChild(panel);
 

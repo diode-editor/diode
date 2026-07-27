@@ -107,7 +107,7 @@ export class PopupMenuElement extends TUIElement {
             }
         }
 
-        this.vstack.setParent(this);
+        this.appendChild(this.vstack);
         this.updateItemSelectedStates();
     }
 
@@ -129,10 +129,6 @@ export class PopupMenuElement extends TUIElement {
             separator.setStyles(styles);
         }
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.vstack];
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
@@ -164,9 +160,7 @@ export class PopupMenuElement extends TUIElement {
         super.performLayout(BoxConstraints.tight(resultSize));
 
         const innerSize = new Size(resultSize.width - 2, resultSize.height - 2);
-        this.vstack.localPosition = new Offset(1, 1);
-        this.vstack.globalPosition = new Point(this.globalPosition.x + 1, this.globalPosition.y + 1);
-        this.vstack.performLayout(BoxConstraints.tight(innerSize));
+        this.layoutChild(this.vstack, 1, 1, BoxConstraints.tight(innerSize));
 
         return resultSize;
     }
@@ -186,9 +180,7 @@ export class PopupMenuElement extends TUIElement {
         context.drawBox(0, 0, w, h, { fg: borderFg, bg, separators });
 
         // Render VStack content
-        const vstackOffset = new Offset(this.vstack.localPosition.dx, this.vstack.localPosition.dy);
-        const vstackClip = new Rect(this.vstack.globalPosition, this.vstack.layoutSize);
-        this.vstack.render(context.withOffset(vstackOffset).withClip(vstackClip));
+        this.renderChildren(context);
     }
 
     private computeConfig(): PopupMenuItemConfig {

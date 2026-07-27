@@ -20,7 +20,7 @@ export class PaddingContainerElement extends TUIElement {
     public constructor(child: TUIElement | null, padding?: Padding) {
         super();
         this.child = child;
-        if (this.child) this.child.setParent(this);
+        if (this.child) this.appendChild(this.child);
         this.top = padding?.top ?? 0;
         this.right = padding?.right ?? 0;
         this.bottom = padding?.bottom ?? 0;
@@ -28,14 +28,10 @@ export class PaddingContainerElement extends TUIElement {
     }
 
     public setChild(child: TUIElement | null): void {
-        if (this.child) this.child.setParent(null);
+        if (this.child) this.removeChild(this.child);
         this.child = child;
-        if (this.child) this.child.setParent(this);
+        if (this.child) this.appendChild(this.child);
         this.markDirty();
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this.child ? [this.child] : [];
     }
 
     public override getMinIntrinsicWidth(height: number): number {
@@ -104,9 +100,7 @@ export class PaddingContainerElement extends TUIElement {
         if (this.child) {
             const childWidth = Math.max(0, containerSize.width - this.left - this.right);
             const childHeight = Math.max(0, containerSize.height - this.top - this.bottom);
-            this.child.localPosition = new Offset(this.left, this.top);
-            this.child.globalPosition = new Point(this.globalPosition.x + this.left, this.globalPosition.y + this.top);
-            this.child.performLayout(BoxConstraints.tight(new Size(childWidth, childHeight)));
+            this.layoutChild(this.child, this.left, this.top, BoxConstraints.tight(new Size(childWidth, childHeight)));
         }
 
         return containerSize;
@@ -133,11 +127,7 @@ export class PaddingContainerElement extends TUIElement {
             }
         }
 
-        if (this.child) {
-            const childOffset = new Offset(this.child.localPosition.dx, this.child.localPosition.dy);
-            const childClip = new Rect(this.child.globalPosition, this.child.layoutSize);
-            this.child.render(context.withOffset(childOffset).withClip(childClip));
-        }
+        this.renderChildren(context);
     }
 }
 

@@ -50,14 +50,13 @@ export class WorkbenchLayoutElement extends TUIElement {
 
     public constructor() {
         super();
-        this.sash.setParent(this);
+        this.syncChildren();
         this.sash.onDrag = (boundaryScreenX) => {
             // Translate the absolute boundary column to a panel width and clamp it.
             this.leftPanelWidth = this.clampWidth(boundaryScreenX - this.globalPosition.x);
             this.markDirty();
             this.onDidChangeLayout?.();
         };
-        this.bottomSash.setParent(this);
         this.bottomSash.onDrag = (boundaryScreenY) => {
             // The panel's bottom is pinned to the container bottom; the boundary row
             // is its top, so the height is (containerBottom - boundaryRow).
@@ -75,37 +74,23 @@ export class WorkbenchLayoutElement extends TUIElement {
     }
 
     public setLeftPanel(element: TUIElement | null): void {
-        if (this.leftPanel) {
-            this.leftPanel.setParent(null);
-        }
         this.leftPanel = element;
-        if (element) {
-            element.setParent(this);
-        }
+        this.syncChildren();
     }
 
     public setCenterContent(element: TUIElement | null): void {
-        if (this.centerContent) {
-            this.centerContent.setParent(null);
-        }
         this.centerContent = element;
-        if (element) {
-            element.setParent(this);
-        }
+        this.syncChildren();
     }
 
     public setBottomPanel(element: TUIElement | null): void {
-        if (this.bottomPanel) {
-            this.bottomPanel.setParent(null);
-        }
         this.bottomPanel = element;
-        if (element) {
-            element.setParent(this);
-        }
+        this.syncChildren();
     }
 
     public setLeftPanelVisible(visible: boolean): void {
         this.leftPanelVisible = visible;
+        this.syncChildren();
         this.onDidChangeLayout?.();
     }
 
@@ -114,16 +99,8 @@ export class WorkbenchLayoutElement extends TUIElement {
     }
 
     public setBottomPanelVisible(visible: boolean): void {
-        const becomingVisible = visible && !this.bottomPanelVisible;
         this.bottomPanelVisible = visible;
-        if (becomingVisible && this.bottomPanel !== null) {
-            // While hidden the panel is excluded from getChildren(), so it misses
-            // root/style propagation. Re-attach on show: setParent re-propagates the
-            // current root down its subtree, and markStyleDirty forces a fresh style
-            // pass (so its content — e.g. the Problems tree — resolves correctly).
-            this.bottomPanel.setParent(this);
-            this.bottomPanel.markStyleDirty();
-        }
+        this.syncChildren();
         this.onDidChangeLayout?.();
     }
 
@@ -177,28 +154,33 @@ export class WorkbenchLayoutElement extends TUIElement {
         return this.bottomPanel;
     }
 
-    public override getChildren(): readonly TUIElement[] {
+    /**
+     * Пересобирает список детей и их видимость. Скрытая панель ОСТАЁТСЯ в
+     * дереве с hidden=true (root и стили доходят — раньше её исключали из
+     * getChildren() и руками чинили пропагацию при показе). Sashes are added
+     * last so they sit on top of the neighbouring content at the boundary for
+     * hit-testing; каждый скрыт вместе со своей панелью.
+     */
+    private syncChildren(): void {
+        const showLeft = this.leftPanel !== null && this.leftPanelVisible;
+        const showBottom = this.bottomPanel !== null && this.bottomPanelVisible;
         const children: TUIElement[] = [];
-        const leftPanel = this.leftPanelVisible ? this.leftPanel : null;
-        const bottomPanel = this.bottomPanelVisible ? this.bottomPanel : null;
-        if (leftPanel !== null) {
-            children.push(leftPanel);
+        if (this.leftPanel !== null) {
+            this.leftPanel.hidden = !this.leftPanelVisible;
+            children.push(this.leftPanel);
         }
-        if (this.centerContent) {
+        if (this.centerContent !== null) {
             children.push(this.centerContent);
         }
-        if (bottomPanel !== null) {
-            children.push(bottomPanel);
+        if (this.bottomPanel !== null) {
+            this.bottomPanel.hidden = !this.bottomPanelVisible;
+            children.push(this.bottomPanel);
         }
-        // Sashes are added last so they sit on top of the neighbouring content at the
-        // boundary for hit-testing. Each is present only while its panel is shown.
-        if (leftPanel !== null) {
-            children.push(this.sash);
-        }
-        if (bottomPanel !== null) {
-            children.push(this.bottomSash);
-        }
-        return children;
+        this.sash.hidden = !showLeft;
+        children.push(this.sash);
+        this.bottomSash.hidden = !showBottom;
+        children.push(this.bottomSash);
+        this.setChildren(children);
     }
 
     private clampWidth(width: number): number {
@@ -235,65 +217,32 @@ export class WorkbenchLayoutElement extends TUIElement {
         const centerHeight = Math.max(0, containerSize.height - panelHeight);
 
         if (showLeft && this.leftPanel) {
-            const leftSize = new Size(leftWidth, containerSize.height);
-            this.leftPanel.localPosition = new Offset(0, 0);
-            this.leftPanel.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-            this.leftPanel.performLayout(BoxConstraints.tight(leftSize));
+            this.layoutChild(this.leftPanel, 0, 0, BoxConstraints.tight(new Size(leftWidth, containerSize.height)));
         }
 
         if (this.centerContent) {
-            const centerSize = new Size(centerWidth, centerHeight);
-            this.centerContent.localPosition = new Offset(leftWidth, 0);
-            this.centerContent.globalPosition = new Point(this.globalPosition.x + leftWidth, this.globalPosition.y);
-            this.centerContent.performLayout(BoxConstraints.tight(centerSize));
+            this.layoutChild(this.centerContent, leftWidth, 0, BoxConstraints.tight(new Size(centerWidth, centerHeight)));
         }
 
         if (showBottom && this.bottomPanel) {
-            const panelSize = new Size(centerWidth, panelHeight);
-            this.bottomPanel.localPosition = new Offset(leftWidth, centerHeight);
-            this.bottomPanel.globalPosition = new Point(
-                this.globalPosition.x + leftWidth,
-                this.globalPosition.y + centerHeight,
-            );
-            this.bottomPanel.performLayout(BoxConstraints.tight(panelSize));
+            this.layoutChild(this.bottomPanel, leftWidth, centerHeight, BoxConstraints.tight(new Size(centerWidth, panelHeight)));
         }
 
         if (showLeft) {
             // 1-column hit target sitting on the boundary between the sidebar and center.
             // Must be laid out explicitly, otherwise its lazy layoutSize would report a
             // stale box at (0,0) and break hit-testing.
-            this.sash.localPosition = new Offset(leftWidth, 0);
-            this.sash.globalPosition = new Point(this.globalPosition.x + leftWidth, this.globalPosition.y);
-            this.sash.performLayout(BoxConstraints.tight(new Size(1, containerSize.height)));
+            this.layoutChild(this.sash, leftWidth, 0, BoxConstraints.tight(new Size(1, containerSize.height)));
         }
 
         if (showBottom) {
             // 1-row hit target on the boundary between the editor and the bottom panel,
             // spanning the center width at the panel's top row.
-            this.bottomSash.localPosition = new Offset(leftWidth, centerHeight);
-            this.bottomSash.globalPosition = new Point(
-                this.globalPosition.x + leftWidth,
-                this.globalPosition.y + centerHeight,
-            );
-            this.bottomSash.performLayout(BoxConstraints.tight(new Size(centerWidth, 1)));
+            this.layoutChild(this.bottomSash, leftWidth, centerHeight, BoxConstraints.tight(new Size(centerWidth, 1)));
         }
 
         return containerSize;
     }
 
-    public render(context: RenderContext): void {
-        this.renderChild(context, this.leftPanel, this.leftPanel !== null && this.leftPanelVisible);
-        this.renderChild(context, this.centerContent, this.centerContent !== null);
-        this.renderChild(context, this.bottomPanel, this.bottomPanel !== null && this.bottomPanelVisible);
-        // The sashes sit on top at the boundary; each paints only on hover/drag.
-        this.renderChild(context, this.sash, this.leftPanel !== null && this.leftPanelVisible);
-        this.renderChild(context, this.bottomSash, this.bottomPanel !== null && this.bottomPanelVisible);
-    }
 
-    private renderChild(context: RenderContext, child: TUIElement | null, show: boolean): void {
-        if (!child || !show) return;
-        const offset = new Offset(child.localPosition.dx, child.localPosition.dy);
-        const clip = new Rect(child.globalPosition, child.layoutSize);
-        child.render(context.withOffset(offset).withClip(clip));
-    }
 }

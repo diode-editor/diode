@@ -21,12 +21,8 @@ export class HeaderBodyLayout extends TUIElement {
         this.header = header;
         this.body = body;
         this.headerHeight = headerHeight;
-        this.header.setParent(this);
-        this.body.setParent(this);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return [this.header, this.body];
+        this.appendChild(this.header);
+        this.appendChild(this.body);
     }
 
     public override performLayout(constraints: BoxConstraints): Size {
@@ -35,25 +31,14 @@ export class HeaderBodyLayout extends TUIElement {
         const h = size.height;
         const hh = Math.min(this.headerHeight, h);
 
-        this.header.localPosition = new Offset(0, 0);
-        this.header.globalPosition = new Point(this.globalPosition.x, this.globalPosition.y);
-        this.header.performLayout(BoxConstraints.tight(new Size(w, hh)));
+        this.layoutChild(this.header, 0, 0, BoxConstraints.tight(new Size(w, hh)));
 
         const padX = Math.max(0, Math.min(this.bodyPadX, Math.floor((w - 1) / 2)));
         const bodyW = Math.max(0, w - 2 * padX);
         const bodyH = Math.max(0, h - hh);
-        this.body.localPosition = new Offset(padX, hh);
-        this.body.globalPosition = new Point(this.globalPosition.x + padX, this.globalPosition.y + hh);
-        this.body.performLayout(BoxConstraints.tight(new Size(bodyW, bodyH)));
+        this.layoutChild(this.body, padX, hh, BoxConstraints.tight(new Size(bodyW, bodyH)));
 
         return size;
     }
 
-    public override render(context: RenderContext): void {
-        for (const child of this.getChildren()) {
-            const offset = new Offset(child.localPosition.dx, child.localPosition.dy);
-            const clip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(offset).withClip(clip));
-        }
-    }
 }

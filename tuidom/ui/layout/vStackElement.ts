@@ -13,37 +13,18 @@ export interface VStackLayoutState {
 }
 
 export class VStackElement extends TUIElement {
-    private children: TUIElement[] = [];
-
     public addChild(child: TUIElement, style: VStackLayoutStyle): void {
         child.layoutStyle = style;
-        child.setParent(this); // Set parent for dirty propagation
-        this.children.push(child);
+        this.appendChild(child);
     }
 
     public replaceChildren(newChildren: TUIElement[]): void {
-        const oldSet = new Set(this.children);
-        const newSet = new Set(newChildren);
-
-        for (const old of oldSet) {
-            if (!newSet.has(old)) {
-                old.setParent(null);
-            }
-        }
-
-        this.children = newChildren;
-        for (const child of newChildren) {
-            child.setParent(this);
-        }
-    }
-
-    public getChildren(): readonly TUIElement[] {
-        return this.children;
+        this.setChildren(newChildren);
     }
 
     public override getMinIntrinsicWidth(height: number): number {
         let max = 0;
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as VStackLayoutStyle;
             if (style.width === "fill" || style.width === "stretch") {
                 max = Math.max(max, child.getMinIntrinsicWidth(height));
@@ -56,7 +37,7 @@ export class VStackElement extends TUIElement {
 
     public override getMaxIntrinsicWidth(height: number): number {
         let max = 0;
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as VStackLayoutStyle;
             if (style.width === "fill" || style.width === "stretch") {
                 max = Math.max(max, child.getMaxIntrinsicWidth(height));
@@ -69,7 +50,7 @@ export class VStackElement extends TUIElement {
 
     public override getMinIntrinsicHeight(_width: number): number {
         let sum = 0;
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as VStackLayoutStyle;
             sum += style.height;
         }
@@ -78,7 +59,7 @@ export class VStackElement extends TUIElement {
 
     public override getMaxIntrinsicHeight(_width: number): number {
         let sum = 0;
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as VStackLayoutStyle;
             sum += style.height;
         }
@@ -91,7 +72,7 @@ export class VStackElement extends TUIElement {
         const containerWidth = containerSize.width;
         let currentY = 0;
 
-        for (const child of this.children) {
+        for (const child of this.getChildren()) {
             const style = child.layoutStyle as VStackLayoutStyle;
             const childWidth = style.width === "fill" || style.width === "stretch" ? containerWidth : style.width;
             const childHeight = style.height;
@@ -99,11 +80,6 @@ export class VStackElement extends TUIElement {
 
             // Set local position (relative to this container)
             child.localPosition = new Offset(0, currentY);
-            // Set global position (absolute screen coords)
-            child.globalPosition = new Point(
-                this.globalPosition.x + child.localPosition.dx,
-                this.globalPosition.y + child.localPosition.dy,
-            );
 
             // Store in layoutState for compatibility
             child.layoutState = {
@@ -119,14 +95,6 @@ export class VStackElement extends TUIElement {
         return containerSize;
     }
 
-    public render(context: RenderContext): void {
-        for (const child of this.children) {
-            // Use localPosition from coordinate system instead of layoutState
-            const childOffset = new Offset(child.localPosition.dx, child.localPosition.dy);
-            const childClip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(childOffset).withClip(childClip));
-        }
-    }
 }
 
 // ─── VStack JSX Adapter ───

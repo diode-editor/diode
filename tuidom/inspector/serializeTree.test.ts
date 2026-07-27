@@ -24,6 +24,18 @@ describe("serializeTree", () => {
         expect(serializeTree(null, null)).toBeNull();
     });
 
+    it("скрытые поддеревья не сериализуются — инспектор видит то же, что пользователь", () => {
+        const body = new BodyElement();
+        const label = new TextLabelElement("visible");
+        body.setContent(label);
+        const app = TestApp.create(body, new Size(20, 5)).app;
+
+        expect(findByType(serializeTree(app.root, null) as NodeSnapshot, "TextLabelElement")).toBeDefined();
+
+        label.hidden = true;
+        expect(findByType(serializeTree(app.root, null) as NodeSnapshot, "TextLabelElement")).toBeUndefined();
+    });
+
     it("serializes type, box, id and text of a nested label", () => {
         const body = new BodyElement();
         const label = new TextLabelElement("hello");

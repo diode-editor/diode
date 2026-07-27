@@ -4,15 +4,8 @@ import { FocusManager } from "./events/focusManager.ts";
 import { TUIElement } from "./tuiElement.ts";
 
 class ContainerElement extends TUIElement {
-    private _children: TUIElement[] = [];
-
     public addChild(child: TUIElement): void {
-        child.setParent(this);
-        this._children.push(child);
-    }
-
-    public override getChildren(): readonly TUIElement[] {
-        return this._children;
+        this.appendChild(child);
     }
 }
 
@@ -23,14 +16,14 @@ describe("TUIElement focus convenience", () => {
     });
 
     it("isFocused returns true when element is activeElement", () => {
-        const root = new TUIElement();
+        const root = new ContainerElement();
         root.setAsRoot();
         const fm = new FocusManager(root);
         root.focusManager = fm;
 
         const child = new TUIElement();
         child.tabIndex = 0;
-        child.setParent(root);
+        root.addChild(child);
         fm.setFocus(child);
 
         expect(child.isFocused).toBe(true);

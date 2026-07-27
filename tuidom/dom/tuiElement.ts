@@ -234,10 +234,11 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
 
     // Coordinate system
     public localPosition: Offset = new Offset(0, 0);
-    public globalPosition: Point = new Point(0, 0);
     public isLayoutDirty = true;
     protected _parent: TUIElement | null = null;
-    protected root: TUIElement | null = null;
+    // Якорь дерева: выставляется setAsRoot() (BodyElement, тестовые корни).
+    // Сам root НЕ кэшируется — getRoot() выводит его из цепочки родителей.
+    private isRootAnchor = false;
 
     // Callback invoked when markDirty reaches the root — used by TuiApplication to schedule a render
     private requestRenderCallback: (() => void) | null = null;
@@ -276,7 +277,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     public get isFocused(): boolean {
-        const fm = this.root?.focusManager ?? null;
+        const fm = this.getRoot()?.focusManager ?? null;
         return fm !== null && fm.activeElement === this;
     }
 
@@ -284,8 +285,144 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
         return this._parent;
     }
 
+    /**
+     * Абсолютная позиция элемента на экране — **производная** от цепочки
+     * родителей: `parent.globalPosition + localPosition`. Раньше это было поле,
+     * которое каждый контейнер обязан был выставлять руками параллельно с
+     * `localPosition` (LAYOUT.md честно писал «в корректном состоянии они
+     * равны») — забытая запись давала элемент, который рисуется, но не
+     * кликается. Теперь рассинхрон невозможен по построению.
+     *
+     * У отсоединённого элемента (parent=null) равна `localPosition` — так
+     * standalone-рендер в тестах может позиционировать элемент напрямую.
+     */
+    public get globalPosition(): Point {
+        const parent = this._parent;
+        if (parent === null) {
+            return new Point(this.localPosition.dx, this.localPosition.dy);
+        }
+        const parentGlobal = parent.globalPosition;
+        return new Point(parentGlobal.x + this.localPosition.dx, parentGlobal.y + this.localPosition.dy);
+    }
+
+    // ─── Владение детьми ───
+    //
+    // Список детей принадлежит базовому классу; топология меняется ТОЛЬКО через
+    // appendChild/insertChild/removeChild/replaceChild/setChildren — они же
+    // атомарно поддерживают обратную ссылку parent. getChildren() не
+    // переопределяется: «ребёнок в списке, но parent не выставлен» (и наоборот)
+    // непредставимы. Порядок детей — это z-порядок хит-теста (последний сверху)
+    // и порядок Tab-обхода; контейнер задаёт его порядком вставки/setChildren.
+
+    private childrenList: TUIElement[] = [];
+
     public getChildren(): readonly TUIElement[] {
-        return [];
+        return this.childrenList;
+    }
+
+    /**
+     * Видимость (аналог display:none): скрытый элемент ОСТАЁТСЯ в дереве —
+     * root и каскад стилей до него доходят, — но выпадает из hit-теста и
+     * Tab-обхода (базовые обходы), а контейнер не раскладывает и не рисует его.
+     * Это разводит «структуру» и «что сейчас видно», которые раньше смешивал
+     * getChildren(): контейнеры исключали скрытых детей из структуры и потом
+     * руками чинили пропагацию при показе (источник семейства багов #204).
+     */
+    public get hidden(): boolean {
+        return this.hiddenValue;
+    }
+
+    public set hidden(value: boolean) {
+        if (this.hiddenValue === value) return;
+        this.hiddenValue = value;
+        // Фокус НЕ трогаем: куда уходит фокус при скрытии — политика уровня
+        // workbench (PanelFocusContribution возвращает его в редактор, оверлей
+        // восстанавливает savedFocus). База лишь гарантирует, что Tab-обход и
+        // hit-test в скрытое не заходят.
+        this.markDirty();
+    }
+
+    private hiddenValue = false;
+
+    /** Прикрепляет ребёнка в конец списка (снимая с прежнего родителя). */
+    protected appendChild(child: TUIElement): void {
+        this.insertChild(this.childrenList.length, child);
+    }
+
+    /** Прикрепляет ребёнка на позицию index (снимая с прежнего родителя). */
+    protected insertChild(index: number, child: TUIElement): void {
+        if (child === this) {
+            throw new Error("TUIElement: элемент не может быть собственным ребёнком");
+        }
+        child._parent?.removeChild(child);
+        this.childrenList.splice(index, 0, child);
+        child.setParent(this);
+        this.markDirty();
+    }
+
+    /** Отцепляет ребёнка (no-op, если он не наш). */
+    protected removeChild(child: TUIElement): void {
+        const index = this.childrenList.indexOf(child);
+        if (index === -1) return;
+        this.childrenList.splice(index, 1);
+        child.setParent(null);
+        this.markDirty();
+    }
+
+    /**
+     * Заменяет ребёнка, сохраняя позицию в списке — а значит z-порядок и место
+     * в Tab-обходе (важно слотовым контейнерам: content меняется, а overlay
+     * обязан остаться поверх).
+     */
+    protected replaceChild(oldChild: TUIElement, newChild: TUIElement): void {
+        if (oldChild === newChild) return;
+        const index = this.childrenList.indexOf(oldChild);
+        if (index === -1) {
+            this.appendChild(newChild);
+            return;
+        }
+        newChild._parent?.removeChild(newChild);
+        oldChild.setParent(null);
+        this.childrenList[index] = newChild;
+        newChild.setParent(this);
+        this.markDirty();
+    }
+
+    /**
+     * Декларативно приводит список детей к заданному (слотовые контейнеры
+     * пересобирают канонический порядок одним вызовом). Лишние отцепляются,
+     * новые прикрепляются, порядок — как в next.
+     */
+    protected setChildren(next: readonly TUIElement[]): void {
+        const nextSet = new Set(next);
+        if (nextSet.size !== next.length) {
+            throw new Error("TUIElement.setChildren: один элемент дважды в списке");
+        }
+        for (const child of this.childrenList) {
+            if (!nextSet.has(child)) {
+                child.setParent(null);
+            }
+        }
+        for (const child of next) {
+            if (child._parent !== this) {
+                child._parent?.removeChild(child);
+                child.setParent(this);
+            }
+        }
+        this.childrenList = [...next];
+        this.markDirty();
+    }
+
+    /** Гасит фокус, если activeElement — этот элемент или его потомок. */
+    private releaseFocusIfInside(): void {
+        const fm = this.getRoot()?.focusManager ?? null;
+        let node = fm?.activeElement ?? null;
+        while (node !== null && node !== this) {
+            node = node.getParent();
+        }
+        if (node === this) {
+            (fm as FocusManager).setFocus(null);
+        }
     }
 
     /**
@@ -316,15 +453,12 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     /**
-     * Returns focusable descendants (tabIndex >= 0) in depth-first order.
-     */
-    /**
-     * Порядок Tab-обхода поддерева. Рекурсия идёт через этот же метод у детей, а
-     * не через плоский обход `getChildren()`: контейнеры, у которых часть детей
-     * не участвует в навигации (скрытые сессии `OverlayLayer`), переопределяют
-     * его и обязаны быть услышанными.
+     * Порядок Tab-обхода поддерева: фокусируемые (tabIndex >= 0) в глубину.
+     * Скрытые (hidden) поддеревья пропускаются целиком — Tab не должен уводить
+     * фокус в невидимый инпут (закрытый find-виджет, неактивная вкладка).
      */
     public getDepthFirstFocusableOrder(): TUIElement[] {
+        if (this.hidden) return [];
         const result: TUIElement[] = [];
         if (this.tabIndex >= 0) result.push(this);
         for (const child of this.getChildren()) {
@@ -512,14 +646,14 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     // ─── Focus convenience ───
 
     public focus(): void {
-        const fm = this.root?.focusManager ?? null;
+        const fm = this.getRoot()?.focusManager ?? null;
         if (fm) {
             fm.setFocus(this);
         }
     }
 
     public blur(): void {
-        const fm = this.root?.focusManager ?? null;
+        const fm = this.getRoot()?.focusManager ?? null;
         if (fm?.activeElement === this) {
             fm.setFocus(null);
         }
@@ -543,33 +677,52 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     /**
-     * Sets parent reference for dirty propagation and root reference propagation.
-     * Called by parent elements when adding children.
+     * Внутренний сеттер обратной ссылки — вызывается ТОЛЬКО из
+     * appendChild/insertChild/removeChild/replaceChild/setChildren, поэтому
+     * список детей и parent меняются строго вместе. Отцепление (parent=null)
+     * гасит фокус, если он был внутри отцепляемого поддерева — иначе
+     * клавиатура продолжала бы уходить в элемент, которого больше нет на
+     * экране. После смены зовёт {@link onDidChangeParent} (хук для виджетов,
+     * вешающих слушатели на родителя, — MenuBarElement).
      */
-    public setParent(parent: TUIElement | null): void {
+    private setParent(parent: TUIElement | null): void {
+        if (parent === null && this._parent !== null) {
+            this.releaseFocusIfInside();
+        }
+        const oldParent = this._parent;
         this._parent = parent;
-        const newRoot = parent ? parent.root : null;
-        this.propagateRoot(newRoot);
         if (parent && (this.isStyleDirty || this.subtreeStyleDirty)) {
             this.markSubtreeStyleDirtyUp();
         }
-    }
-
-    private propagateRoot(newRoot: TUIElement | null): void {
-        if (newRoot === null && this.root?.focusManager?.activeElement === this) {
-            this.root.focusManager.setFocus(null);
-        }
-        this.root = newRoot;
-        for (const child of this.getChildren()) {
-            child.propagateRoot(newRoot);
-        }
+        this.onDidChangeParent(oldParent, parent);
     }
 
     /**
-     * Returns the root element of the hierarchy.
+     * Хук смены родителя: вызывается после каждого перецепления. Базовая
+     * реализация пуста; виджеты, которым нужен доступ к родителю при
+     * прикреплении (слушатель мнемоник MenuBarElement на keydown родителя),
+     * переопределяют его вместо запрещённого override setParent.
+     */
+    protected onDidChangeParent(_oldParent: TUIElement | null, _newParent: TUIElement | null): void {
+        // Базовая реализация ничего не делает.
+    }
+
+    /**
+     * Корень дерева — **производный** от цепочки родителей: прогулка вверх до
+     * вершины; если вершина — якорь (setAsRoot), это и есть корень, иначе
+     * поддерево отсоединено и корня нет. Раньше root был кэшем, который
+     * пропагировался вниз через getChildren() при setParent — контейнеры,
+     * прячущие детей из getChildren() (неактивные вкладки), оставляли их с
+     * протухшим null-root навсегда (семейство багов #204: focus()/open()
+     * молча не работали). Живая цепочка родителей протухнуть не может.
      */
     public getRoot(): TUIElement | null {
-        return this.root;
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        let current: TUIElement = this;
+        while (current._parent !== null) {
+            current = current._parent;
+        }
+        return current.isRootAnchor ? current : null;
     }
 
     /**
@@ -583,9 +736,11 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
 
     /**
      * Sets this element as the root (used for testing and by BodyElement).
+     * Помечает элемент якорем — getRoot() признаёт корнем только вершину
+     * цепочки с этой меткой.
      */
     public setAsRoot(): void {
-        this.root = this;
+        this.isRootAnchor = true;
     }
 
     /**
@@ -615,6 +770,16 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     /**
+     * Хелпер контейнера: позиционирует ребёнка (localPosition) и прогоняет его
+     * layout — одна строка вместо ритуала из двух-трёх записей. globalPosition
+     * не трогает: он производный.
+     */
+    protected layoutChild(child: TUIElement, x: number, y: number, constraints: BoxConstraints): Size {
+        child.localPosition = new Offset(x, y);
+        return child.performLayout(constraints);
+    }
+
+    /**
      * Performs layout: applies constraints to set the allocated visible area.
      */
     public performLayout(constraints: BoxConstraints): Size {
@@ -624,15 +789,36 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
         return resultSize;
     }
 
-    public render(_context: RenderContext): void {
-        // Base implementation does nothing.
-        // Subclasses override to draw themselves.
+    /**
+     * Дефолт: отрисовать детей (лист без детей не рисует ничего). Контейнер,
+     * которому нужно собственное полотно (фон, рамка, заголовок), рисует его и
+     * зовёт {@link renderChildren}; полностью кастомный рендер (виртуализация,
+     * скролл-сдвиг) переопределяет метод целиком.
+     */
+    public render(context: RenderContext): void {
+        this.renderChildren(context);
+    }
+
+    /**
+     * Каноничная отрисовка детей: каждый видимый ребёнок получает контекст со
+     * сдвигом на свою localPosition и клипом по своим границам (дети не рисуют
+     * за пределами выделенной области). Скрытые (hidden) пропускаются. Это тот
+     * самый цикл, который раньше был скопирован в десяток контейнеров.
+     */
+    protected renderChildren(context: RenderContext): void {
+        for (const child of this.getChildren()) {
+            if (child.hidden) continue;
+            const offset = new Offset(child.localPosition.dx, child.localPosition.dy);
+            const clip = new Rect(child.globalPosition, child.layoutSize);
+            child.render(context.withOffset(offset).withClip(clip));
+        }
     }
 
     // ─── Hit-testing ───
 
     // eslint-disable-next-line @typescript-eslint/prefer-return-this-type
     public elementFromPoint(point: Point): TUIElement | null {
+        if (this.hidden) return null; // скрытое не кликается
         const bounds = new Rect(this.globalPosition, this.layoutSize);
         if (!bounds.containsPoint(point)) return null;
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../src/TestUtils/renderElement.ts";
 import type { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
-import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { RenderContext } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 
@@ -262,7 +262,7 @@ describe("InputElement — cursor position", () => {
         input.inputState.value = "hi";
         const size = new Size(20, 1);
         const termScreen = new TerminalScreen(size);
-        input.globalPosition = new Point(0, 0);
+        input.localPosition = new Offset(0, 0);
         input.performLayout(BoxConstraints.tight(size));
         input.render(new RenderContext(termScreen));
         // Not focused → no cursor set
