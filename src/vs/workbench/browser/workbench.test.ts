@@ -2,14 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import type { EditorTabStripElement } from "../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
+import type { HFlexElement } from "../../../../tuidom/ui/layout/hFlexElement.ts";
 import type { QuickPickElement } from "../../../../tuidom/ui/quickpick/quickPickElement.ts";
-import type { StatusBarElement } from "../../../../tuidom/ui/statusbar/statusBarElement.ts";
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { createTestContainer } from "../../vexx/modules/testProfile.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
+import { statusSegments, statusTexts } from "./parts/statusbar/statusBarComponent.testUtils.ts";
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
 describe("Workbench integration", () => {
@@ -148,17 +149,16 @@ describe("Workbench integration", () => {
     it("creates UI tree with statusbar", () => {
         const h = createAppTestHarness();
 
-        expect(h.testApp.querySelector("StatusBarElement")).not.toBeNull();
+        expect(h.testApp.querySelector("#statusBar")).not.toBeNull();
     });
 
     it("statusbar shows the cursor position after openFile", () => {
         const h = createAppTestHarness();
         h.workbench.openFile("/tmp/test-app-statusbar.txt");
 
-        const statusBar = h.testApp.querySelector("StatusBarElement") as StatusBarElement;
-        const items = statusBar.getItems();
-        expect(items).toContainEqual({ text: "Ln 1, Col 1", align: "right" });
-        expect(items).not.toContainEqual({ text: "test-app-statusbar.txt" });
+        const statusBar = h.testApp.querySelector("#statusBar") as HFlexElement;
+        expect(statusSegments(statusBar)).toContainEqual({ text: "Ln 1, Col 1", side: "right" });
+        expect(statusTexts(statusBar)).not.toContain("test-app-statusbar.txt");
     });
 
     it("statusbar updates the cursor position live after typing", () => {
@@ -168,17 +168,15 @@ describe("Workbench integration", () => {
 
         h.testApp.sendKey("x");
 
-        const statusBar = h.testApp.querySelector("StatusBarElement") as StatusBarElement;
-        const items = statusBar.getItems();
-        expect(items).toContainEqual({ text: "Ln 1, Col 2", align: "right" });
-        expect(items).not.toContainEqual({ text: "[Modified]" });
+        const statusBar = h.testApp.querySelector("#statusBar") as HFlexElement;
+        expect(statusSegments(statusBar)).toContainEqual({ text: "Ln 1, Col 2", side: "right" });
+        expect(statusTexts(statusBar)).not.toContain("[Modified]");
     });
 });
 
 describe("Workbench — chords", () => {
-    function statusTexts(testApp: TestApp): string[] {
-        const statusBar = testApp.querySelector("StatusBarElement") as StatusBarElement;
-        return statusBar.getItems().map((i) => i.text);
+    function chordHints(testApp: TestApp): string[] {
+        return statusTexts(testApp.querySelector("#statusBar") as HFlexElement);
     }
 
     function editorText(testApp: TestApp): string {
@@ -195,7 +193,7 @@ describe("Workbench — chords", () => {
         // First part does not execute the command yet…
         expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
         // …and a waiting hint is shown in the status bar.
-        expect(statusTexts(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
+        expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
 
         h.testApp.sendKey("s");
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.files.save");
@@ -213,7 +211,7 @@ describe("Workbench — chords", () => {
         h.testApp.sendKey("x"); // not part of any chord
 
         expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
-        expect(statusTexts(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
+        expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
         expect(editorText(h.testApp)).toBe(""); // 'x' did not leak
     });
 
@@ -225,7 +223,7 @@ describe("Workbench — chords", () => {
         h.testApp.sendKey("Ctrl+K");
         h.testApp.sendKey("x");
 
-        expect(statusTexts(h.testApp).some((t) => t.includes("(Ctrl+K X) is not a command"))).toBe(true);
+        expect(chordHints(h.testApp).some((t) => t.includes("(Ctrl+K X) is not a command"))).toBe(true);
     });
 
     it("the 'not a command' message auto-clears after the timeout", () => {
@@ -237,10 +235,10 @@ describe("Workbench — chords", () => {
         try {
             h.testApp.sendKey("Ctrl+K");
             h.testApp.sendKey("x");
-            expect(statusTexts(h.testApp).some((t) => t.includes("is not a command"))).toBe(true);
+            expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(true);
 
             vi.advanceTimersByTime(4000);
-            expect(statusTexts(h.testApp).some((t) => t.includes("is not a command"))).toBe(false);
+            expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(false);
         } finally {
             vi.useRealTimers();
         }
@@ -282,10 +280,10 @@ describe("Workbench — chords", () => {
         vi.useFakeTimers();
         try {
             h.testApp.sendKey("Ctrl+K");
-            expect(statusTexts(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
+            expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
 
             vi.advanceTimersByTime(5000);
-            expect(statusTexts(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
+            expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
 
             // Pending state was reset: 's' alone no longer completes the chord.
             const executeSpy = vi.spyOn(h.commands, "execute");
@@ -306,15 +304,15 @@ describe("Workbench — chords", () => {
             // Broken chord arms the auto-clear timer for the "not a command" hint.
             h.testApp.sendKey("Ctrl+K");
             h.testApp.sendKey("x");
-            expect(statusTexts(h.testApp).some((t) => t.includes("is not a command"))).toBe(true);
+            expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(true);
 
             // The very next key dispatch clears that pending timer (and the hint) eagerly,
             // so when the original 4s timeout elapses there is no lingering message to reset.
             h.testApp.sendKey("a");
-            expect(statusTexts(h.testApp).some((t) => t.includes("is not a command"))).toBe(false);
+            expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(false);
 
             vi.advanceTimersByTime(4000);
-            expect(statusTexts(h.testApp).some((t) => t.includes("is not a command"))).toBe(false);
+            expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(false);
         } finally {
             vi.useRealTimers();
         }
@@ -326,13 +324,13 @@ describe("Workbench — chords", () => {
         h.workbench.focusEditor();
 
         h.testApp.sendKey("Ctrl+K");
-        expect(statusTexts(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
+        expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
 
         // Moving focus away while a chord is pending must abort it.
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;
         editor.blur();
 
-        expect(statusTexts(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
+        expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
 
         // The pending state was reset: 's' alone no longer completes the chord.
         const executeSpy = vi.spyOn(h.commands, "execute");

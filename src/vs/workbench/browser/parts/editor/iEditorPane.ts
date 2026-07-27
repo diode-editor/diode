@@ -27,7 +27,7 @@ export interface IEditorPane extends IDisposable {
      */
     readonly label: string;
 
-    /** Контент вкладки — вставляется в `EditorGroupElement.setContent`. */
+    /** Контент вкладки — вставляется в контент-слот `EditorGroupComponent`. */
     readonly view: TUIElement;
 
     /** Есть ли несохранённые изменения (точка во вкладке вместо крестика). */

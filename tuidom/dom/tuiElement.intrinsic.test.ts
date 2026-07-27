@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { BoxConstraints, Size } from "../common/geometryPromitives.ts";
 import { VStackElement } from "../ui/layout/vStackElement.ts";
 import { PopupMenuElement } from "../ui/menu/popupMenuElement.ts";
-import { StatusBarElement } from "../ui/statusbar/statusBarElement.ts";
 import { TextBlockElement } from "../ui/text/textBlockElement.ts";
 
 import { TUIElement } from "./tuiElement.ts";
@@ -42,23 +41,6 @@ describe("Intrinsic Size API", () => {
             expect(el.getMinIntrinsicWidth(100)).toBe(intrinsic.width);
             expect(el.getMaxIntrinsicHeight(100)).toBe(intrinsic.height);
             expect(el.getMinIntrinsicHeight(100)).toBe(intrinsic.height);
-        });
-    });
-
-    describe("StatusBarElement", () => {
-        it("returns height 1 and text width", () => {
-            const el = new StatusBarElement();
-            el.setItems([{ text: "Ln 1" }, { text: "Col 1" }]);
-            expect(el.getMaxIntrinsicHeight(100)).toBe(1);
-            expect(el.getMinIntrinsicHeight(100)).toBe(1);
-            // Content plus one padding cell on each side of the bar.
-            expect(el.getMaxIntrinsicWidth(100)).toBe("Ln 1  Col 1".length + 2);
-            expect(el.getMinIntrinsicWidth(100)).toBe("Ln 1  Col 1".length + 2);
-        });
-
-        it("returns 0 width with no items", () => {
-            const el = new StatusBarElement();
-            expect(el.getMaxIntrinsicWidth(100)).toBe(0);
         });
     });
 

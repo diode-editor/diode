@@ -727,7 +727,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
 
     /**
      * Ближайший overlay-слой вверх по дереву (попапы, контекстные меню,
-     * докнутые виджеты). Элементы-хосты слоёв (BodyElement, EditorGroupElement)
+     * докнутые виджеты). Элементы-хосты слоёв (BodyElement, OverlayHostElement)
      * переопределяют и возвращают свой слой.
      */
     public getOverlayLayer(): OverlayLayer | null {

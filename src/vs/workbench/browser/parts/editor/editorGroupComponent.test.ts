@@ -5,6 +5,12 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import type { EditorTabStripElement } from "../../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
+import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
+import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
+import { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
+import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -46,8 +52,12 @@ function createEditorGroup(
     return { service, component };
 }
 
+function tabStrip(component: EditorGroupComponent): EditorTabStripElement {
+    return component.view.querySelector("EditorTabStripElement") as EditorTabStripElement;
+}
+
 function tabLabels(component: EditorGroupComponent): string[] {
-    return component.view.tabStrip.getItemElements().map((item) => item.getLabel());
+    return tabStrip(component).getItemElements().map((item) => item.getLabel());
 }
 
 describe("EditorGroupComponent", () => {
@@ -138,6 +148,17 @@ describe("EditorGroupComponent", () => {
     });
 
     describe("content host", () => {
+        /** Житель контент-слота — второй ряд vflex, под tab strip. */
+        function contentSlot(component: EditorGroupComponent): TUIElement {
+            return component.view.getContent()!.getChildren()[1];
+        }
+
+        it("view is a single overlay host with the editorGroup id", () => {
+            const { component } = createEditorGroup();
+            expect(component.view).toBeInstanceOf(OverlayHostElement);
+            expect(component.view.id).toBe("editorGroup");
+        });
+
         it("shows the view of the active editor after a tab switch", () => {
             const { service, component } = createEditorGroup();
             service.openFile(writeFile("a.ts", "a"));
@@ -145,17 +166,31 @@ describe("EditorGroupComponent", () => {
 
             service.activateTab(0);
 
-            expect(component.view.getContent()).toBe(service.getActiveEditor()!.view);
+            expect(contentSlot(component)).toBe(service.getActiveEditor()!.view);
         });
 
-        it("clears the content when the last tab closes", () => {
+        it("swaps the slot back to the filler when the last tab closes, unparenting the pane view", () => {
             const { service, component } = createEditorGroup();
             service.openFile(writeFile("a.ts", "a"));
-            expect(component.view.getContent()).not.toBeNull();
+            const paneView = service.getActiveEditor()!.view;
+            expect(contentSlot(component)).toBe(paneView);
 
             service.closeTab(0);
 
-            expect(component.view.getContent()).toBeNull();
+            expect(contentSlot(component)).toBeInstanceOf(FillerElement);
+            expect(paneView.getParent()).toBeNull();
+        });
+
+        it("пустая группа закрашена editor.background ниже tab strip", () => {
+            const { component } = createEditorGroup();
+            const backend = renderElement(component.view, 10, 5, { resolveStyles: true });
+
+            const bg = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("editor.background");
+            for (let y = 1; y < 5; y++) {
+                for (let x = 0; x < 10; x++) {
+                    expect(backend.getBgAt(new Point(x, y))).toBe(bg);
+                }
+            }
         });
     });
 
@@ -165,7 +200,7 @@ describe("EditorGroupComponent", () => {
             service.openFile(writeFile("a.ts", "a"));
             service.openFile(writeFile("b.ts", "b"));
 
-            const items = component.view.tabStrip.getItemElements();
+            const items = tabStrip(component).getItemElements();
             expect(items).toHaveLength(2);
             expect(items[0].getLabel()).toBe("a.ts");
             expect(items[1].getLabel()).toBe("b.ts");
@@ -176,10 +211,10 @@ describe("EditorGroupComponent", () => {
             service.openFile(writeFile("a.ts", "a"));
             service.openFile(writeFile("b.ts", "b"));
 
-            expect(component.view.tabStrip.activeIndex).toBe(1);
+            expect(tabStrip(component).activeIndex).toBe(1);
 
             service.activateTab(0);
-            expect(component.view.tabStrip.activeIndex).toBe(0);
+            expect(tabStrip(component).activeIndex).toBe(0);
         });
     });
 
@@ -192,7 +227,7 @@ describe("EditorGroupComponent", () => {
             const editor = service.getActiveEditor()!;
             editor.viewState.insertText("y");
 
-            const items = component.view.tabStrip.getItemElements();
+            const items = tabStrip(component).getItemElements();
             expect(items[0].getModified()).toBe(true);
         });
 
@@ -205,7 +240,7 @@ describe("EditorGroupComponent", () => {
             editor.viewState.insertText("y");
             await editor.save();
 
-            const items = component.view.tabStrip.getItemElements();
+            const items = tabStrip(component).getItemElements();
             expect(items[0].getModified()).toBe(false);
         });
 
@@ -215,7 +250,7 @@ describe("EditorGroupComponent", () => {
 
             service.getActiveEditor()!.setEol(EndOfLine.CRLF);
 
-            const items = component.view.tabStrip.getItemElements();
+            const items = tabStrip(component).getItemElements();
             expect(items[0].getModified()).toBe(true);
         });
 
@@ -227,7 +262,7 @@ describe("EditorGroupComponent", () => {
             editor.setEol(EndOfLine.CRLF);
             editor.undo();
 
-            const items = component.view.tabStrip.getItemElements();
+            const items = tabStrip(component).getItemElements();
             expect(items[0].getModified()).toBe(false);
         });
     });
@@ -238,7 +273,7 @@ describe("EditorGroupComponent", () => {
             service.openFile(writeFile("a.ts", "a"));
             service.openFile(writeFile("b.ts", "b"));
 
-            component.view.tabStrip.onTabActivate?.(0);
+            tabStrip(component).onTabActivate?.(0);
 
             expect(service.activeIndex).toBe(0);
         });
@@ -248,7 +283,7 @@ describe("EditorGroupComponent", () => {
             service.openFile(writeFile("a.ts", "a"));
             service.openFile(writeFile("b.ts", "b"));
 
-            component.view.tabStrip.onTabClose?.(0);
+            tabStrip(component).onTabClose?.(0);
 
             expect(service.editorCount).toBe(1);
             expect(service.getActiveEditor()?.fileName).toBe("b.ts");
@@ -265,7 +300,7 @@ describe("EditorGroupComponent", () => {
                 confirmedIndex = index;
             };
 
-            component.view.tabStrip.onTabClose?.(0);
+            tabStrip(component).onTabClose?.(0);
 
             expect(confirmedIndex).toBe(0);
             expect(service.editorCount).toBe(1); // not closed — waiting on confirmation

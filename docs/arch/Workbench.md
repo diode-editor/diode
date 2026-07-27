@@ -389,9 +389,15 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     (`update`/`dispose`), `onDidChangeEntries`, `entries()` (left, затем right; внутри
     стороны — по убыванию `priority`, выше — левее, как в VS Code). Про поставщиков
     и контролы не знает.
-  - `Components/StatusBar/StatusBarComponent.ts` — `ThemedComponent`; владеет
-    `StatusBarElement` (`view.id = "statusBar"`), перерисовывает айтемы по
-    `onDidChangeEntries`, красит бар из темы в `updateStyles()`.
+  - `Components/StatusBar/StatusBarComponent.ts` — `ThemedComponent`; **композиционный
+    корень** из примитивов tuidom (`view` = `HFlexElement`, `view.id = "statusBar"`:
+    краевые `FillerElement`-паддинги, лейблы сегментов `TextLabelElement` через
+    2-клеточные филлеры-разделители, fill-филлер в середине). Дерево строится один
+    раз и мутируется по `onDidChangeEntries`: при неизменном числе сегментов —
+    только `setText` (путь курсора `Ln X, Col Y`), пересборка `replaceChildren` —
+    лишь при смене состава; лейблы живут в пулах, клик резолвит запись по
+    (стороне, индексу) в момент клика. Красит бар из темы в `updateStyles()` —
+    дети наследуют цвета каскадом.
   - Сегменты публикуют workbench-contribution'ы (инстанцируются реестром в фазе
     `restored`, см. «Workbench-contributions»): `Services/EditorStatusContribution.ts`
     (правые, порядок VS Code: `Ln X, Col Y` · Encoding · EOL · Language; Encoding/EOL
@@ -483,9 +489,11 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     (`collectDirty`). События: `onActiveEditorChanged`, `onEditorSaved`,
     `onDidChangeEditors` (канал синхронизации view; файрится до
     `onActiveEditorChanged`, чтобы контент стоял в дереве к моменту фокуса).
-  - `Components/Editor/EditorGroupComponent.ts` — `ThemedComponent`; владеет
-    `EditorGroupElement` (tab strip + контент-хост + локальный OverlayLayer
-    для find-виджета; `view.id = "editorGroup"`): по `onDidChangeEditors`
+  - `Components/Editor/EditorGroupComponent.ts` — `ThemedComponent`; **композиционный
+    корень** из примитивов tuidom: `view` = `OverlayHostElement` (локальный
+    OverlayLayer для find-виджета; `view.id = "editorGroup"`) поверх `VFlexElement`
+    [`EditorTabStripElement` (1 ряд), контент-слот (остаток; пустой — фон-филлер
+    `editor.background`)]: по `onDidChangeEditors`
     вставляет view активного `EditorPane` и перерисовывает табы (метки с
     минимальной разводкой тёзок по родительским каталогам, иконки, маркер
     изменённости — `getTabStripStyles`); клики по табам возвращает в сервис
@@ -507,7 +515,7 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     (`getQuery`/`setQuery`/`setCounter`/`focus` + колбэки `onQueryChange`/`onNext`/
     `onPrev`/`onClose`), а не на `view`. Overlay-сессия — в ЛОКАЛЬНОМ слое группы
     редакторов (`pointerPolicy: "passthrough"` — док-виджет, клики мимо уходят в
-    редактор); хост (`EditorGroupElement`) приходит через late-init шов `attachHost`
+    редактор); хост (`OverlayHostElement` группы) приходит через late-init шов `attachHost`
     (зовёт `WorkbenchComponent` после постройки дерева). `show()` позиционирует
     виджет (правый край группы с 1-колоночным отступом, под tab strip) и фокусирует input.
   - `Services/FindService.ts` — состояние поиска query → matches → current
@@ -546,7 +554,7 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     `setWorkspaceFolder`, `StatusBarComponent`, `MenuBarComponent` — ПОСЛЕ
     применения user keybindings), прикрепляет late-init швы
     (`DialogService`/`ExplorerComponent`/`QuickInputComponent`/`SuggestComponent`
-    `attachHost(BodyElement)`, `FindComponent.attachHost(EditorGroupElement)`,
+    `attachHost(BodyElement)`, `FindComponent.attachHost(OverlayHostElement)`,
     `LayoutService.attachLayout`, `WorkbenchContextKeys.attachView`), вешает
     листенеры `KeybindingDispatcher` и фокус-хуки, регистрирует список
     `builtinActions` одним циклом. Фич-проводка (autoReveal, live-reload темы,
@@ -633,11 +641,18 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
 
 Связь двунаправленная и без обратной зависимости TUIDom → Workbench:
 `element.onX = …` (element → component) и `component.update(view)`
-(component → element). Эталоны: `EditorGroupComponent` ↔ `EditorGroupElement`,
-`InputWidgetService` ↔ `InputElement` + `InputState`, `StatusBarComponent` ↔
-`StatusBarElement`. «Контроллеры под видом элемента» (напр. `MenuBarElement`,
-`ContextMenuLayer`) сводим к этому паттерну — см.
-[../TODO/Inspector.md](../TODO/Inspector.md).
+(component → element). Эталоны: `EditorGroupComponent` ↔ `EditorTabStripElement`,
+`InputWidgetService` ↔ `InputElement` + `InputState`. «Контроллеры под видом
+элемента» (напр. `MenuBarElement`, `ContextMenuLayer`) сводим к этому паттерну —
+см. [../TODO/Inspector.md](../TODO/Inspector.md).
+
+**Где живёт Element.** Элемент общего назначения (его публичный API не упоминает
+понятий Vexx) — в `tuidom/ui/`. Vexx-специфичному элементу в tuidom не место:
+либо он вовсе не существует — компонент является **композиционным корнем** и
+собирает view из примитивов (`FindComponent`, `StatusBarComponent`,
+`EditorGroupComponent`, диалоги), либо, если посимвольная раскладка оправдывает
+ручной render (как у `EditorElement`), живёт рядом со своим компонентом в
+`parts/*`.
 
 Зависимости слоя: Workbench → { Editor, TUIDom, Theme, Configuration, Common,
 интерфейс Backend }. Workbench — верхний слой ядра приложения; выше него только

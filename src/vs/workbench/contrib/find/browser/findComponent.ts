@@ -2,7 +2,7 @@ import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import type { IButtonStyles } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
-import type { EditorGroupElement } from "../../../../../../tuidom/ui/editorgroup/editorGroupElement.ts";
+import type { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
 import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { BoxContainerElement } from "../../../../../../tuidom/ui/layout/boxContainerElement.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
@@ -62,7 +62,7 @@ const COUNTER_GAP = 2; // зазор между счётчиком и рядом
  * строки запроса. Логика поиска (query → matches → index) живёт в
  * {@link import("./findService.ts").FindService}.
  *
- * Overlay-хост ({@link EditorGroupElement} с локальным overlay-слоем) приходит
+ * Overlay-хост ({@link OverlayHostElement} группы редакторов) приходит
  * через late-init шов {@link attachHost} — его зовёт владелец корневой view
  * (WorkbenchComponent) после постройки дерева, как у QuickInputComponent.
  */
@@ -88,7 +88,7 @@ export class FindComponent extends ThemedComponent {
     private matchCurrent = 0;
     private matchTotal = 0;
 
-    private groupView: EditorGroupElement | null = null;
+    private host: OverlayHostElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
     public constructor(themeService: ThemeService) {
@@ -183,9 +183,9 @@ export class FindComponent extends ThemedComponent {
     // ─── Overlay-сессия ───────────────────────────────────────────────────────
 
     /** Прикрепляет виджет к overlay-слою группы редакторов (до первого показа). */
-    public attachHost(groupView: EditorGroupElement): void {
-        this.groupView = groupView;
-        this.session = groupView.overlayLayer.createSession(this.view, new Point(0, 0), {
+    public attachHost(host: OverlayHostElement): void {
+        this.host = host;
+        this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,
             restoreFocus: true,
             // Find — это док-виджет: клики мимо него намеренно уходят в редактор (как в VS Code).
@@ -248,14 +248,14 @@ export class FindComponent extends ThemedComponent {
     }
 
     private updatePosition(): void {
-        const group = this.groupView;
+        const group = this.host;
         if (group === null) return;
         const groupWidth = group.layoutSize.width;
         const widgetW = Math.min(60, Math.max(28, groupWidth - 2));
         this.preferredWidth = widgetW;
         this.view.setPreferredWidth(widgetW);
         const px = Math.max(0, groupWidth - widgetW - 1); // right-align with a 1-col margin to the group's edge
-        const py = 1; // directly under the tab strip
+        const py = 1; // хост — группа редакторов, её ряд 0 занимает tab strip
         this.session?.setPosition(new Point(px, py));
     }
 }

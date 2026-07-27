@@ -10,6 +10,7 @@ import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { EndOfLine } from "../../editor/common/core/endOfLine.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 
+import { statusTexts } from "./parts/statusbar/statusBarComponent.testUtils.ts";
 import { StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 
 function visiblePicker(h: IAppHarness): QuickPickElement {
@@ -118,10 +119,7 @@ describe("Workbench — Change File Encoding", () => {
 
         expect(editor.encoding).toBe("windows1251");
         expect(editor.getText()).toBe("Привет, мир!\n");
-        const items = h.container
-            .get(StatusBarComponentDIToken)
-            .view.getItems()
-            .map((item) => item.text);
+        const items = statusTexts(h.container.get(StatusBarComponentDIToken).view);
         expect(items).toContain("Windows 1251");
     });
 
@@ -259,10 +257,7 @@ describe("Workbench — Change End of Line Sequence", () => {
 
         const editor = h.activeEditor();
         expect(editor.eol).toBe(2); // EndOfLine.CRLF
-        const items = h.container
-            .get(StatusBarComponentDIToken)
-            .view.getItems()
-            .map((item) => item.text);
+        const items = statusTexts(h.container.get(StatusBarComponentDIToken).view);
         expect(items).toContain("CRLF");
     });
 

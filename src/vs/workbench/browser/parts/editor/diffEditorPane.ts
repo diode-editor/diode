@@ -81,7 +81,7 @@ export class DiffEditorPane extends ThemedComponent implements IEditorPane, IDif
                 // view из дерева НЕ отцепляем: пока группа держит его как content,
                 // setParent(null) оставляет полуприкреплённое состояние (ребёнок в
                 // getChildren с parent=null — ловит validateTree). Отцепляет тот,
-                // кто монтировал: EditorGroupElement.setContent при смене контента.
+                // кто монтировал: контент-слот EditorGroupComponent при смене контента.
             },
         });
         this.initStyles();

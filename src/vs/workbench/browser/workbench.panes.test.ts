@@ -44,7 +44,7 @@ class TextOnlyPane implements IEditorPane {
     public dispose(): void {
         // view не отцепляем: пока группа держит его как content, setParent(null)
         // оставил бы полуприкреплённое состояние (ловит validateTree). Отцепляет
-        // владелец монтирования — EditorGroupElement.setContent при смене.
+        // владелец монтирования — контент-слот EditorGroupComponent при смене.
     }
 }
 

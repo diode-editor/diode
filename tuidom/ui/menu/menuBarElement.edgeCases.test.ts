@@ -96,23 +96,37 @@ describe("MenuBarElement — setParent mnemonic listener lifecycle", () => {
         expect(menuBar.isMenuOpen).toBe(false);
     });
 
-    it("re-parenting removes the old listener and installs a fresh one on the new parent", () => {
-        const { menuBar, children } = setupWithBody(simpleItems());
-        const oldBody = menuBar.getParent();
-        expect(oldBody).not.toBeNull();
+    it("re-parenting removes the old listener and installs a fresh one on the new root", () => {
+        const { menuBar, children, body } = setupWithBody(simpleItems());
+        expect(menuBar.getRoot()).toBe(body);
 
         // Move the menuBar to a brand-new body (exercises the remove-old + add-new path).
         const newBody = new BodyElement();
         newBody.setMenuBar(menuBar);
-        expect(menuBar.getParent()).toBe(newBody);
+        expect(menuBar.getRoot()).toBe(newBody);
 
-        // Old parent no longer routes the mnemonic.
-        oldBody!.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "f", altKey: true }));
+        // The old root no longer routes the mnemonic.
+        body.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "f", altKey: true }));
         expect(menuBar.isMenuOpen).toBe(false);
 
         // The old child is unaffected too.
         children[0].dispatchEvent(new TUIKeyboardEvent("keydown", { key: "f", altKey: true }));
         expect(menuBar.isMenuOpen).toBe(false);
+
+        // The new root does route it.
+        newBody.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "f", altKey: true }));
+        expect(menuBar.isMenuOpen).toBe(true);
+    });
+
+    it("falls back to the parent when the subtree is not attached to a root yet", () => {
+        const detached = new TUIElement();
+        const menuBar = new MenuBarElement(simpleItems());
+        detached.appendChild(menuBar);
+        expect(menuBar.getRoot()).toBeNull();
+
+        // The mnemonic listener sits on the parent — events bubbling to it open the menu.
+        detached.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "f", altKey: true }));
+        expect(menuBar.isMenuOpen).toBe(true);
     });
 });
 

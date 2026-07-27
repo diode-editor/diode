@@ -1,6 +1,7 @@
 import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
-import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
-import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
+import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
+import { TUIElement } from "../../dom/tuiElement.ts";
+import { FillerElement } from "../layout/fillerElement.ts";
 import { HFlexElement, hflexFill, hflexFit } from "../layout/hFlexElement.ts";
 
 import { EditorTabItemElement } from "./editorTabItemElement.ts";
@@ -35,42 +36,12 @@ export interface TabInfo {
     isReadOnly: boolean;
 }
 
-// ─── Filler Element ───
-
-class TabStripFillerElement extends TUIElement {
-    public override getMinIntrinsicWidth(_height: number): number {
-        return 0;
-    }
-
-    public override getMaxIntrinsicWidth(_height: number): number {
-        return 0;
-    }
-
-    /* v8 ignore start -- the strip lays children out at a fixed height, so the filler's intrinsic-height methods are never queried */
-    public override getMinIntrinsicHeight(_width: number): number {
-        return 1;
-    }
-
-    public override getMaxIntrinsicHeight(_width: number): number {
-        return 1;
-    }
-    /* v8 ignore stop */
-
-    public override render(context: RenderContext): void {
-        const width = this.layoutSize.width;
-        const resolved = this.resolvedStyle;
-        for (let x = 0; x < width; x++) {
-            context.setCell(x, 0, { char: " ", fg: resolved.fg, bg: resolved.bg });
-        }
-    }
-}
-
 // ─── EditorTabStripElement ───
 
 export class EditorTabStripElement extends TUIElement {
     private hflex: HFlexElement;
     private itemElements: EditorTabItemElement[] = [];
-    private filler: TabStripFillerElement;
+    private filler: FillerElement;
     private activeIndexValue = -1;
 
     private styles: ITabStripStyles = unthemedTabStripStyles;
@@ -81,7 +52,7 @@ export class EditorTabStripElement extends TUIElement {
     public constructor() {
         super();
         this.hflex = new HFlexElement();
-        this.filler = new TabStripFillerElement();
+        this.filler = new FillerElement();
         this.filler.style = { fg: DEFAULT_COLOR, bg: this.styles.stripBg };
         this.hflex.addChild(this.filler, { width: hflexFill(), height: 1 });
         this.appendChild(this.hflex);

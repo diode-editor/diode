@@ -4,6 +4,7 @@ import type { MockTerminalBackend } from "../../../../../../tuidom/backend/mockT
 import { createAppTestHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { registerContextKeys } from "../../../../platform/contextkey/common/contextKeys.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { statusSegments } from "../../../browser/parts/statusbar/statusBarComponent.testUtils.ts";
 import { StatusBarComponentDIToken } from "../../../browser/parts/statusbar/statusBarComponent.ts";
 import { TerminalBackendDIToken } from "../../../common/coreTokens.ts";
 
@@ -42,7 +43,7 @@ describe("Terminal environment integration (context keys + status bar)", () => {
 
         expect(contextKeys.evaluate("tier == 'kitty'")).toBe(true);
         expect(contextKeys.evaluate("cap_extendedKeys")).toBe(true);
-        expect(statusBar.view.getItems()[0]).toEqual({ text: "kitty" });
+        expect(statusSegments(statusBar.view)[0]).toEqual({ text: "kitty", side: "left" });
     });
 
     it("upgrades the tier (and re-renders) when the fire-and-forget probe confirms support", async () => {
@@ -50,14 +51,14 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         const { contextKeys, statusBar, backend } = await setup();
 
         expect(contextKeys.evaluate("tier == 'legacy'")).toBe(true);
-        expect(statusBar.view.getItems()[0]).toEqual({ text: "legacy" });
+        expect(statusSegments(statusBar.view)[0]).toEqual({ text: "legacy", side: "left" });
 
         // activate() already started the probe; the terminal now confirms keyboard-protocol support.
         backend.resolveKeyboardProtocol(true);
 
         expect(contextKeys.evaluate("tier == 'legacy'")).toBe(false);
         expect(contextKeys.evaluate("cap_extendedKeys")).toBe(true);
-        expect(statusBar.view.getItems()[0]).toEqual({ text: "csi-u" });
+        expect(statusSegments(statusBar.view)[0]).toEqual({ text: "csi-u", side: "left" });
     });
 
     it("reflects a runtime mode toggle in context keys and the status bar", async () => {
@@ -67,7 +68,7 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         env.setMode("ssh", true);
 
         expect(contextKeys.evaluate("mode_ssh")).toBe(true);
-        expect(statusBar.view.getItems()[0]).toEqual({ text: "legacy · ssh" });
+        expect(statusSegments(statusBar.view)[0]).toEqual({ text: "legacy · ssh", side: "left" });
     });
 
     it("custom-mode identifiers are valid in when-expressions once registered", async () => {

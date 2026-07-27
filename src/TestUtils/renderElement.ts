@@ -1,5 +1,5 @@
 import { MockTerminalBackend } from "../../tuidom/backend/mockTerminalBackend.ts";
-import { BoxConstraints, Offset, Size } from "../../tuidom/common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Rect, Size } from "../../tuidom/common/geometryPromitives.ts";
 import type { TUIElement } from "../../tuidom/dom/tuiElement.ts";
 import { RenderContext } from "../../tuidom/dom/tuiElement.ts";
 import { TerminalScreen } from "../../tuidom/rendering/terminalScreen.ts";
@@ -32,7 +32,10 @@ export function renderElement(
     if (options.resolveStyles === true) {
         element.performStyleResolution(element.resolvedStyle);
     }
-    element.render(new RenderContext(termScreen));
+    // Клип по краям экрана — как в TuiApplication: переполняющий layout не
+    // должен писать за пределы grid (там нет bounds-чека, это crash).
+    const screenClip = new Rect(new Point(0, 0), size);
+    element.render(new RenderContext(termScreen, new Offset(0, 0), screenClip));
     termScreen.flush(backend);
     return backend;
 }

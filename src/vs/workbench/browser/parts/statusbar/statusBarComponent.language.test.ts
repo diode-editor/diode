@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 
-import { createStatusBarHarness } from "./statusBarComponent.testUtils.ts";
+import { createStatusBarHarness, statusSegments } from "./statusBarComponent.testUtils.ts";
 
 describe("StatusBarComponent — language badge", () => {
     let savedEnv: NodeJS.ProcessEnv;
@@ -31,7 +31,7 @@ describe("StatusBarComponent — language badge", () => {
 
     it("нет беджика без активного редактора", () => {
         const { component } = createStatusBarHarness();
-        expect(component.view.getItems()).toEqual([{ text: "legacy" }]);
+        expect(statusSegments(component.view)).toEqual([{ text: "legacy", side: "left" }]);
     });
 
     it("показывает display name из ILanguageService, беджик правее Ln/Col", () => {
@@ -45,12 +45,12 @@ describe("StatusBarComponent — language badge", () => {
         const editor = source.openEditor();
         editor.setLanguage("typescript");
 
-        expect(component.view.getItems()).toEqual([
-            { text: "legacy" },
-            { text: "Ln 1, Col 1", align: "right" },
-            { text: "UTF-8", align: "right", onClick: expect.any(Function) as () => void },
-            { text: "LF", align: "right", onClick: expect.any(Function) as () => void },
-            { text: "TypeScript", align: "right" },
+        expect(statusSegments(component.view)).toEqual([
+            { text: "legacy", side: "left" },
+            { text: "Ln 1, Col 1", side: "right" },
+            { text: "UTF-8", side: "right" },
+            { text: "LF", side: "right" },
+            { text: "TypeScript", side: "right" },
         ]);
     });
 
@@ -59,7 +59,7 @@ describe("StatusBarComponent — language badge", () => {
 
         source.openEditor();
 
-        expect(component.view.getItems()).toContainEqual({ text: "plaintext", align: "right" });
+        expect(statusSegments(component.view)).toContainEqual({ text: "plaintext", side: "right" });
     });
 
     it("обновляется на setLanguage без ручного обновления", () => {
@@ -68,7 +68,7 @@ describe("StatusBarComponent — language badge", () => {
 
         editor.setLanguage("markdown");
 
-        expect(component.view.getItems()).toContainEqual({ text: "markdown", align: "right" });
+        expect(statusSegments(component.view)).toContainEqual({ text: "markdown", side: "right" });
     });
 
     it("переподписывается при смене активного редактора", () => {
@@ -78,10 +78,10 @@ describe("StatusBarComponent — language badge", () => {
 
         // Смена языка НЕактивного редактора беджик не трогает.
         firstEditor.setLanguage("python");
-        expect(component.view.getItems()).toContainEqual({ text: "plaintext", align: "right" });
+        expect(statusSegments(component.view)).toContainEqual({ text: "plaintext", side: "right" });
 
         // Смена языка активного — обновляет.
         source.getActiveEditor()!.setLanguage("json");
-        expect(component.view.getItems()).toContainEqual({ text: "json", align: "right" });
+        expect(statusSegments(component.view)).toContainEqual({ text: "json", side: "right" });
     });
 });
