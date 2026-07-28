@@ -333,6 +333,36 @@ describe("QuickPickElement — scroll", () => {
         expect(backend.getTextAt(new Point(0, 2), 1)).toBe("╰");
     });
 
+    it("degenerate allocation 1×1: draws nothing (frame does not fit)", () => {
+        const picker = new QuickPickElement();
+        picker.items = makeItems(2);
+        const size = new Size(1, 1);
+        const backend = new MockTerminalBackend(size);
+        const termScreen = new TerminalScreen(size);
+        picker.localPosition = new Offset(0, 0);
+        expect(picker.layout(BoxConstraints.tight(size))).toEqual(size);
+        picker.render(new RenderContext(termScreen, new Offset(0, 0), new Rect(new Point(0, 0), size)));
+        termScreen.flush(backend);
+        expect(backend.getTextAt(new Point(0, 0), 1)).toBe(" ");
+    });
+
+    it("height 2: draws the frame only, input row is skipped", () => {
+        const picker = new QuickPickElement();
+        picker.placeholder = "Search";
+        picker.items = makeItems(2);
+        const size = new Size(30, 2);
+        const backend = new MockTerminalBackend(size);
+        const termScreen = new TerminalScreen(size);
+        picker.localPosition = new Offset(0, 0);
+        expect(picker.layout(BoxConstraints.tight(size))).toEqual(size);
+        picker.render(new RenderContext(termScreen, new Offset(0, 0), new Rect(new Point(0, 0), size)));
+        termScreen.flush(backend);
+        expect(backend.getTextAt(new Point(0, 0), 1)).toBe("╭");
+        expect(backend.getTextAt(new Point(0, 1), 1)).toBe("╰");
+        // Строки под input внутри рамки нет — плейсхолдер не рисуется.
+        expect(backend.getTextAt(new Point(1, 1), 7)).not.toContain("Search");
+    });
+
     it("clamped height: list window shrinks to the allocated rows", () => {
         const picker = new QuickPickElement();
         picker.items = makeItems(10);
