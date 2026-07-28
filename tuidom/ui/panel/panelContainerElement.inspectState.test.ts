@@ -13,7 +13,7 @@ describe("PanelContainerElement.inspectState", () => {
         panel.addView({ id: "b", title: "OUTPUT", content: null });
         panel.setActiveView("b");
         panel.localPosition = new Offset(0, 0);
-        panel.performLayout(BoxConstraints.tight(new Size(40, 8)));
+        panel.layout(BoxConstraints.tight(new Size(40, 8)));
 
         const state = panel.inspectState();
         expect(state.activeId).toBe("b");
@@ -28,7 +28,7 @@ describe("PanelContainerElement.inspectState", () => {
         const panel = new PanelContainerElement();
         panel.addView({ id: "a", title: "PROBLEMS", content: null });
         panel.localPosition = new Offset(30, 12);
-        panel.performLayout(BoxConstraints.tight(new Size(40, 8)));
+        panel.layout(BoxConstraints.tight(new Size(40, 8)));
 
         const state = panel.inspectState();
         expect(state.tabRow).toBe(13);

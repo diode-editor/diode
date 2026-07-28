@@ -63,7 +63,7 @@ function renderViewport(
     backend: MockTerminalBackend,
 ): MockTerminalBackend {
     viewport.localPosition = new Offset(0, 0);
-    viewport.performLayout(BoxConstraints.tight(termScreen.size));
+    viewport.layout(BoxConstraints.tight(termScreen.size));
     const clipRect = new Rect(new Point(0, 0), termScreen.size);
     viewport.render(new RenderContext(termScreen, new Offset(0, 0), clipRect));
     termScreen.flush(backend);
@@ -156,7 +156,7 @@ describe("ScrollViewport", () => {
     it("sets child globalPosition from viewport globalPosition", () => {
         const { viewport, child } = createViewport(10, 5, 20);
         viewport.localPosition = new Offset(3, 7);
-        viewport.performLayout(BoxConstraints.tight(new Size(10, 5)));
+        viewport.layout(BoxConstraints.tight(new Size(10, 5)));
         expect(child.globalPosition).toEqual(new Point(3, 7));
     });
 
@@ -169,7 +169,7 @@ describe("ScrollViewport", () => {
         viewport.scrollTop = 2;
 
         viewport.localPosition = new Offset(5, 1);
-        viewport.performLayout(BoxConstraints.tight(new Size(10, 3)));
+        viewport.layout(BoxConstraints.tight(new Size(10, 3)));
 
         const clipRect = new Rect(new Point(0, 0), size);
         viewport.render(new RenderContext(termScreen, new Offset(5, 1), clipRect));
@@ -220,7 +220,7 @@ describe("ScrollViewport", () => {
     it("scrollTo clamps to valid range", () => {
         const { viewport } = createViewport(10, 3, 20);
         viewport.localPosition = new Offset(0, 0);
-        viewport.performLayout(BoxConstraints.tight(new Size(10, 3)));
+        viewport.layout(BoxConstraints.tight(new Size(10, 3)));
 
         viewport.scrollTo(0, 100);
         expect(viewport.scrollTop).toBe(17); // 20 - 3
@@ -250,7 +250,7 @@ describe("ScrollViewport", () => {
     it("clamps vertical scroll so content cannot scroll past its end", () => {
         const { viewport } = createViewport(10, 4, 20); // content 20 rows, viewport 4
         viewport.localPosition = new Offset(0, 0);
-        viewport.performLayout(BoxConstraints.tight(new Size(10, 4)));
+        viewport.layout(BoxConstraints.tight(new Size(10, 4)));
 
         viewport.scrollTo(0, 9999);
         expect(viewport.scrollTop).toBe(16); // 20 - 4
@@ -260,7 +260,7 @@ describe("ScrollViewport", () => {
         // contentWidth = "Line 001".length = 8, viewport width = 5 → max scrollLeft = 3
         const { viewport } = createViewport(5, 3, 20);
         viewport.localPosition = new Offset(0, 0);
-        viewport.performLayout(BoxConstraints.tight(new Size(5, 3)));
+        viewport.layout(BoxConstraints.tight(new Size(5, 3)));
 
         viewport.scrollTo(9999, 0);
         expect(viewport.scrollLeft).toBe(3); // 8 - 5
@@ -269,7 +269,7 @@ describe("ScrollViewport", () => {
     it("scrollBy past the end stays clamped at the maximum", () => {
         const { viewport } = createViewport(10, 4, 20);
         viewport.localPosition = new Offset(0, 0);
-        viewport.performLayout(BoxConstraints.tight(new Size(10, 4)));
+        viewport.layout(BoxConstraints.tight(new Size(10, 4)));
 
         viewport.scrollBy(0, 100);
         viewport.scrollBy(0, 100);
@@ -279,7 +279,7 @@ describe("ScrollViewport", () => {
     it("scrollBy adjusts relative to current position", () => {
         const { viewport } = createViewport(10, 3, 20);
         viewport.localPosition = new Offset(0, 0);
-        viewport.performLayout(BoxConstraints.tight(new Size(10, 3)));
+        viewport.layout(BoxConstraints.tight(new Size(10, 3)));
 
         viewport.scrollBy(0, 5);
         expect(viewport.scrollTop).toBe(5);

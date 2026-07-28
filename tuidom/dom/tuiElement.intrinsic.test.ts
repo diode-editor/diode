@@ -82,7 +82,7 @@ describe("Intrinsic Size API", () => {
             const stack = new VStackElement();
             const child = new TUIElement();
             stack.addChild(child, { width: "stretch", height: 1 });
-            stack.performLayout(BoxConstraints.tight(new Size(40, 10)));
+            stack.layout(BoxConstraints.tight(new Size(40, 10)));
             expect(child.layoutSize.width).toBe(40);
             expect(child.layoutSize.height).toBe(1);
         });

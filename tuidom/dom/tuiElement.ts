@@ -265,13 +265,13 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     private _listeners = new Map<string, ListenerEntry[]>();
 
     /**
-     * Allocated visible area on screen, set by parent container via performLayout().
-     * Lazy fallback: if layout is dirty, triggers performLayout with loose constraints.
+     * Allocated visible area on screen, set by parent container via layout().
+     * Lazy fallback: if layout is dirty, triggers layout with loose constraints.
      */
     public get layoutSize(): Size {
         if (this.isLayoutDirty) {
             const constraints = BoxConstraints.loose(this.allocatedSize);
-            this.performLayout(constraints);
+            this.layout(constraints);
         }
         return this.allocatedSize;
     }
@@ -776,13 +776,48 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
      */
     protected layoutChild(child: TUIElement, x: number, y: number, constraints: BoxConstraints): Size {
         child.localPosition = new Offset(x, y);
-        return child.performLayout(constraints);
+        return child.layout(constraints);
     }
 
     /**
-     * Performs layout: applies constraints to set the allocated visible area.
+     * Единственный публичный вход в layout — НЕ переопределять (переопределяется
+     * {@link performLayout}). Запоминает входные constraints (их читает
+     * геометрическая проверка validateTree) и следит за контрактом: размер после
+     * layout обязан удовлетворять constraints. «Контент не влез» — вопрос
+     * отрисовки (клип), а не геометрии; занимать меньше выделенного можно только
+     * под loose-constraints родителя. См. docs/LAYOUT.md, «Контракт performLayout».
      */
-    public performLayout(constraints: BoxConstraints): Size {
+    public layout(constraints: BoxConstraints): Size {
+        this.lastConstraintsValue = constraints;
+        const result = this.performLayout(constraints);
+        if (!constraints.isSatisfiedBy(result)) {
+            throw new Error(
+                `${this.constructor.name}: performLayout вернул ${result.width}×${result.height}, ` +
+                    `нарушив constraints [${constraints.minWidth}..${constraints.maxWidth}]×` +
+                    `[${constraints.minHeight}..${constraints.maxHeight}]`,
+            );
+        }
+        if (result.width !== this.allocatedSize.width || result.height !== this.allocatedSize.height) {
+            throw new Error(
+                `${this.constructor.name}: performLayout вернул ${result.width}×${result.height}, ` +
+                    `но записал allocatedSize ${this.allocatedSize.width}×${this.allocatedSize.height}`,
+            );
+        }
+        return result;
+    }
+
+    /** Constraints последнего layout() — null, если layout ещё не вызывался. */
+    public get lastLayoutConstraints(): BoxConstraints | null {
+        return this.lastConstraintsValue;
+    }
+
+    private lastConstraintsValue: BoxConstraints | null = null;
+
+    /**
+     * Переопределяемая реализация layout: применяет constraints к выделенной
+     * области. Вызывается ТОЛЬКО из {@link layout} — снаружи зовите layout().
+     */
+    protected performLayout(constraints: BoxConstraints): Size {
         const resultSize = constraints.constrain(this.allocatedSize);
         this.allocatedSize = resultSize;
         this.isLayoutDirty = false;

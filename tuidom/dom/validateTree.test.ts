@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { BoxConstraints, Size } from "../common/geometryPromitives.ts";
+
 import { TUIElement } from "./tuiElement.ts";
 import { assertValidTree, validateTree } from "./validateTree.ts";
 
@@ -128,5 +130,74 @@ describe("validateTree", () => {
         expect(() => {
             assertValidTree(root);
         }).toThrow(/нарушает инварианты/);
+    });
+});
+
+describe("validateTree — layout-контракт", () => {
+    it("проходит для дерева, разложенного по контракту", () => {
+        const root = makeRootedContainer();
+        const child = new TUIElement();
+        root.add(child);
+        root.layout(BoxConstraints.tight(new Size(80, 24)));
+        child.layout(BoxConstraints.loose(new Size(80, 24)));
+
+        expect(validateTree(root)).toEqual([]);
+    });
+
+    it("ловит размер, разошедшийся с constraints последнего layout", () => {
+        const root = makeRootedContainer();
+        const child = new TUIElement();
+        child.id = "broken";
+        root.add(child);
+        child.layout(BoxConstraints.tight(new Size(10, 5)));
+        // Мутация после layout: новый layout с другими constraints, затем
+        // подмена записанных constraints невозможна — эмулируем через второй
+        // layout и «протухшую» запись: ломаем running state руками.
+        (child as unknown as { lastConstraintsValue: BoxConstraints }).lastConstraintsValue = BoxConstraints.tight(
+            new Size(3, 3),
+        );
+
+        const violations = validateTree(root);
+        expect(violations.some((v) => v.includes("broken") && v.includes("нарушает layout-контракт"))).toBe(true);
+    });
+
+    it("пропускает узлы с isLayoutDirty (офскрин-строки виртуализации)", () => {
+        const root = makeRootedContainer();
+        const stale = new TUIElement();
+        root.add(stale);
+        stale.layout(BoxConstraints.tight(new Size(10, 5)));
+        (stale as unknown as { lastConstraintsValue: BoxConstraints }).lastConstraintsValue = BoxConstraints.tight(
+            new Size(3, 3),
+        );
+        stale.isLayoutDirty = true; // помечен на переclamp — не проверяем
+
+        expect(validateTree(root)).toEqual([]);
+    });
+
+    it("пропускает скрытые поддеревья целиком", () => {
+        const root = makeRootedContainer();
+        const panel = new ContainerElement();
+        const inner = new TUIElement();
+        root.add(panel);
+        panel.add(inner);
+        // Ребёнок скрытой панели «чист», но с нарушенной геометрией прошлых кадров.
+        inner.layout(BoxConstraints.tight(new Size(10, 5)));
+        (inner as unknown as { lastConstraintsValue: BoxConstraints }).lastConstraintsValue = BoxConstraints.tight(
+            new Size(3, 3),
+        );
+        panel.hidden = true;
+        panel.isLayoutDirty = false;
+        inner.isLayoutDirty = false;
+
+        expect(validateTree(root)).toEqual([]);
+    });
+
+    it("пропускает ни разу не разложенные узлы", () => {
+        const root = makeRootedContainer();
+        const fresh = new TUIElement();
+        root.add(fresh);
+        fresh.isLayoutDirty = false; // чист, но layout() не вызывался
+
+        expect(validateTree(root)).toEqual([]);
     });
 });

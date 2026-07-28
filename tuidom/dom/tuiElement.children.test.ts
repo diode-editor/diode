@@ -211,7 +211,7 @@ describe("TUIElement — hidden (структура ≠ видимость)", ()
 
     it("повторная установка того же значения — no-op (без markDirty)", () => {
         const child = new TUIElement();
-        child.performLayout(BoxConstraints.tight(new Size(4, 2)));
+        child.layout(BoxConstraints.tight(new Size(4, 2)));
         expect(child.isLayoutDirty).toBe(false);
         child.hidden = false; // уже false
         expect(child.isLayoutDirty).toBe(false);
@@ -239,13 +239,13 @@ describe("TUIElement — hidden (структура ≠ видимость)", ()
     it("hit-test не попадает в скрытое; клик проваливается к элементу ниже", () => {
         const root = new ContainerElement();
         root.setAsRoot();
-        root.performLayout(BoxConstraints.tight(new Size(20, 10)));
+        root.layout(BoxConstraints.tight(new Size(20, 10)));
         const below = new TUIElement();
         const above = new TUIElement();
         root.add(below);
         root.add(above); // последний — поверх
-        below.performLayout(BoxConstraints.tight(new Size(20, 10)));
-        above.performLayout(BoxConstraints.tight(new Size(20, 10)));
+        below.layout(BoxConstraints.tight(new Size(20, 10)));
+        above.layout(BoxConstraints.tight(new Size(20, 10)));
 
         expect(root.elementFromPoint(new Point(3, 3))).toBe(above);
         above.hidden = true;

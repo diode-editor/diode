@@ -39,7 +39,7 @@ function renderTree(tree: TreeViewElement<TestNode>, width: number, height: numb
     const backend = new MockTerminalBackend(size);
     const termScreen = new TerminalScreen(size);
     tree.localPosition = new Offset(0, 0);
-    tree.performLayout(BoxConstraints.tight(size));
+    tree.layout(BoxConstraints.tight(size));
     const clipRect = new Rect(new Point(0, 0), size);
     tree.render(new RenderContext(termScreen, new Offset(0, 0), clipRect));
     termScreen.flush(backend);
@@ -223,7 +223,7 @@ describe("TreeViewElement rendering", () => {
         // Layout first so scrollTo can clamp properly
         const size = new Size(12, 3);
         tree.localPosition = new Offset(0, 0);
-        tree.performLayout(BoxConstraints.tight(size));
+        tree.layout(BoxConstraints.tight(size));
         tree.scrollTo(0, 5);
 
         const backend = new MockTerminalBackend(size);

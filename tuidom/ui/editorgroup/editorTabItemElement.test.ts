@@ -143,11 +143,11 @@ describe("EditorTabItemElement", () => {
 
         it("does not repaint on a repeated mouseenter", () => {
             const tab = new EditorTabItemElement("file.ts", tsIcon.icon, tsIcon.color);
-            tab.performLayout(BoxConstraints.tight(new Size(20, 1)));
+            tab.layout(BoxConstraints.tight(new Size(20, 1)));
             hover(tab, "mouseenter");
             expect(tab.isLayoutDirty).toBe(true);
 
-            tab.performLayout(BoxConstraints.tight(new Size(20, 1)));
+            tab.layout(BoxConstraints.tight(new Size(20, 1)));
             expect(tab.isLayoutDirty).toBe(false);
             hover(tab, "mouseenter"); // already hovered → no-op
             expect(tab.isLayoutDirty).toBe(false);
@@ -155,7 +155,7 @@ describe("EditorTabItemElement", () => {
 
         it("does not repaint on a mouseleave when not hovered", () => {
             const tab = new EditorTabItemElement("file.ts", tsIcon.icon, tsIcon.color);
-            tab.performLayout(BoxConstraints.tight(new Size(20, 1)));
+            tab.layout(BoxConstraints.tight(new Size(20, 1)));
             expect(tab.isLayoutDirty).toBe(false);
             hover(tab, "mouseleave"); // never entered → no-op
             expect(tab.isLayoutDirty).toBe(false);
@@ -179,7 +179,7 @@ describe("EditorTabItemElement", () => {
         it("setModified with same value does not mark dirty", () => {
             const tab = new EditorTabItemElement("file.ts", tsIcon.icon, tsIcon.color);
             tab.localPosition = new Offset(0, 0);
-            tab.performLayout(BoxConstraints.tight(new Size(20, 1)));
+            tab.layout(BoxConstraints.tight(new Size(20, 1)));
             expect(tab.isLayoutDirty).toBe(false);
             tab.setModified(false);
             expect(tab.isLayoutDirty).toBe(false);
@@ -201,7 +201,7 @@ describe("EditorTabItemElement", () => {
         it("setReadOnly с тем же значением не помечает вкладку грязной", () => {
             const tab = new EditorTabItemElement("file.ts", tsIcon.icon, tsIcon.color);
             tab.localPosition = new Offset(0, 0);
-            tab.performLayout(BoxConstraints.tight(new Size(20, 1)));
+            tab.layout(BoxConstraints.tight(new Size(20, 1)));
             expect(tab.isLayoutDirty).toBe(false);
             tab.setReadOnly(false);
             expect(tab.isLayoutDirty).toBe(false);
@@ -264,7 +264,7 @@ describe("EditorTabItemElement", () => {
             tab.onActivate = onActivate;
 
             tab.localPosition = new Offset(0, 0);
-            tab.performLayout(BoxConstraints.tight(new Size(tab.getMaxIntrinsicWidth(1), 1)));
+            tab.layout(BoxConstraints.tight(new Size(tab.getMaxIntrinsicWidth(1), 1)));
 
             const event = new TUIMouseEvent("click", {
                 button: "left",
@@ -287,7 +287,7 @@ describe("EditorTabItemElement", () => {
 
             const w = tab.getMaxIntrinsicWidth(1);
             tab.localPosition = new Offset(0, 0);
-            tab.performLayout(BoxConstraints.tight(new Size(w, 1)));
+            tab.layout(BoxConstraints.tight(new Size(w, 1)));
 
             // Close button is at position: width - paddingRight - 1
             const closeX = w - 1 - 1; // paddingRight=1, close char len=1
@@ -312,7 +312,7 @@ describe("EditorTabItemElement", () => {
             tab.onActivate = onActivate;
 
             tab.localPosition = new Offset(0, 0);
-            tab.performLayout(BoxConstraints.tight(new Size(tab.getMaxIntrinsicWidth(1), 1)));
+            tab.layout(BoxConstraints.tight(new Size(tab.getMaxIntrinsicWidth(1), 1)));
 
             const event = new TUIMouseEvent("click", {
                 button: "middle",
@@ -336,7 +336,7 @@ describe("EditorTabItemElement", () => {
 
             const w = tab.getMaxIntrinsicWidth(1);
             tab.localPosition = new Offset(0, 0);
-            tab.performLayout(BoxConstraints.tight(new Size(w, 1)));
+            tab.layout(BoxConstraints.tight(new Size(w, 1)));
 
             const closeX = w - 1 - 1; // paddingRight=1, close char len=1
             const event = new TUIMouseEvent("click", {

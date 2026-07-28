@@ -15,7 +15,7 @@ function renderItem(item: PopupMenuItemElement, width?: number): string {
     const backend = new MockTerminalBackend(size);
     const termScreen = new TerminalScreen(size);
     item.localPosition = new Offset(0, 0);
-    item.performLayout(BoxConstraints.tight(size));
+    item.layout(BoxConstraints.tight(size));
     item.render(new RenderContext(termScreen));
     termScreen.flush(backend);
     return backend.getTextAt(new Point(0, 0), intrinsicWidth);
@@ -213,7 +213,7 @@ describe("PopupMenuSeparatorElement", () => {
         const backend = new MockTerminalBackend(size);
         const termScreen = new TerminalScreen(size);
         sep.localPosition = new Offset(0, 0);
-        sep.performLayout(BoxConstraints.tight(size));
+        sep.layout(BoxConstraints.tight(size));
         sep.render(new RenderContext(termScreen));
         termScreen.flush(backend);
 

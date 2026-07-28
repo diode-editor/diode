@@ -97,7 +97,7 @@ class SearchViewElement extends TUIElement {
         this.appendChild(results);
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const headerHeight = Math.min(size.height, HEADER_HEIGHT);
         const resultsHeight = Math.max(0, size.height - headerHeight);

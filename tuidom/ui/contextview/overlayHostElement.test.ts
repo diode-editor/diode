@@ -22,7 +22,7 @@ class FillElement extends TUIElement {
         this.fixed = fixed;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         return super.performLayout(this.fixed ? BoxConstraints.tight(this.fixed) : constraints);
     }
 
@@ -51,7 +51,7 @@ describe("OverlayHostElement", () => {
             const content = new BoxElement();
             host.setContent(content);
             host.localPosition = new Offset(0, 0);
-            host.performLayout(BoxConstraints.tight(new Size(40, 10)));
+            host.layout(BoxConstraints.tight(new Size(40, 10)));
 
             expect(content.localPosition).toEqual(new Offset(0, 0));
             expect(content.layoutSize).toEqual(new Size(40, 10));
@@ -60,7 +60,7 @@ describe("OverlayHostElement", () => {
         it("works without content", () => {
             const host = new OverlayHostElement();
             host.localPosition = new Offset(0, 0);
-            host.performLayout(BoxConstraints.tight(new Size(40, 10)));
+            host.layout(BoxConstraints.tight(new Size(40, 10)));
 
             expect(host.overlayLayer.layoutSize).toEqual(new Size(40, 10));
         });

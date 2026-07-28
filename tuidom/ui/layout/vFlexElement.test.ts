@@ -34,7 +34,7 @@ class FixedSizeElement extends TUIElement {
 
 function layoutVFlex(flex: VFlexElement, width = 80, height = 24): void {
     flex.localPosition = new Offset(0, 0);
-    flex.performLayout(BoxConstraints.tight(new Size(width, height)));
+    flex.layout(BoxConstraints.tight(new Size(width, height)));
 }
 
 describe("VFlexElement", () => {
@@ -178,7 +178,7 @@ describe("VFlexElement", () => {
             flex.addChild(a, { height: vflexFixed(4), width: 20 });
             flex.addChild(b, { height: vflexFixed(6), width: 20 });
 
-            flex.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            flex.layout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(a.globalPosition).toEqual(new Point(5, 10));
             expect(b.globalPosition).toEqual(new Point(5, 14));

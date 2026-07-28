@@ -12,7 +12,7 @@ import { TerminalViewElement } from "./terminalViewElement.ts";
 function makeElement(): { el: TerminalViewElement; surface: FakeTerminalSurface } {
     const surface = new FakeTerminalSurface();
     const el = new TerminalViewElement(surface);
-    el.performLayout(BoxConstraints.tight(new Size(20, 10)));
+    el.layout(BoxConstraints.tight(new Size(20, 10)));
     return { el, surface };
 }
 

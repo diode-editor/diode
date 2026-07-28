@@ -16,7 +16,7 @@ function renderMenu(entries: MenuEntry[], width?: number, height?: number): Mock
     const size = new Size(width ?? intrinsic.width, height ?? intrinsic.height);
     const backend = new MockTerminalBackend(size);
     const termScreen = new TerminalScreen(size);
-    menu.performLayout(BoxConstraints.tight(size));
+    menu.layout(BoxConstraints.tight(size));
     menu.render(new RenderContext(termScreen));
     termScreen.flush(backend);
     return backend;

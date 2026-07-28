@@ -16,10 +16,10 @@ class ContainerElement extends TUIElement {
         this.appendChild(child);
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         for (const child of this.getChildren()) {
-            child.performLayout(BoxConstraints.tight(child.layoutSize));
+            child.layout(BoxConstraints.tight(child.layoutSize));
         }
         return size;
     }
@@ -50,7 +50,7 @@ describe("MouseEventDispatcher integration with TuiApplication", () => {
         const root = new ContainerElement();
         const child = new TUIElement();
         child.localPosition = new Offset(10, 5);
-        child.performLayout(BoxConstraints.tight(new Size(20, 10)));
+        child.layout(BoxConstraints.tight(new Size(20, 10)));
         root.addChild(child);
 
         body.setContent(root);
@@ -79,7 +79,7 @@ describe("MouseEventDispatcher integration with TuiApplication", () => {
         const root = new ContainerElement();
         const child = new TUIElement();
         child.localPosition = new Offset(10, 5);
-        child.performLayout(BoxConstraints.tight(new Size(20, 10)));
+        child.layout(BoxConstraints.tight(new Size(20, 10)));
         root.addChild(child);
 
         body.setContent(root);

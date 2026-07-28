@@ -62,7 +62,7 @@ export abstract class CompositeElement extends TUIElement {
         return this.rootChild?.getMaxIntrinsicHeight(width) ?? 0;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const resultSize = super.performLayout(constraints);
 
         if (this.rootChild) {

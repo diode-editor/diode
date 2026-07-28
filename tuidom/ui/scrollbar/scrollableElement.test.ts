@@ -72,7 +72,7 @@ describe("ScrollableElement", () => {
         it("clamps scrollTop to valid range", () => {
             const { widget, termScreen } = createGrid(5, 3, 20, 10);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
 
             widget.scrollTo(0, -5);
             expect(widget.scrollTop).toBe(0);
@@ -87,7 +87,7 @@ describe("ScrollableElement", () => {
         it("clamps scrollLeft to valid range", () => {
             const { widget, termScreen } = createGrid(5, 3, 20, 10);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
 
             widget.scrollTo(-5, 0);
             expect(widget.scrollLeft).toBe(0);
@@ -102,7 +102,7 @@ describe("ScrollableElement", () => {
         it("clamps both axes at once", () => {
             const { widget, termScreen } = createGrid(5, 3, 20, 10);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
 
             widget.scrollTo(100, 100);
             expect(widget.scrollLeft).toBe(15);
@@ -112,7 +112,7 @@ describe("ScrollableElement", () => {
         it("allows zero when content fits viewport", () => {
             const { widget, termScreen } = createGrid(10, 10, 5, 3);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
 
             widget.scrollTo(5, 5);
             expect(widget.scrollLeft).toBe(0);
@@ -124,7 +124,7 @@ describe("ScrollableElement", () => {
         it("scrolls relative to current position", () => {
             const { widget, termScreen } = createGrid(5, 3, 20, 10);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
 
             widget.scrollBy(3, 2);
             expect(widget.scrollLeft).toBe(3);
@@ -138,7 +138,7 @@ describe("ScrollableElement", () => {
         it("clamps when scrolling beyond bounds", () => {
             const { widget, termScreen } = createGrid(5, 3, 20, 10);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
 
             widget.scrollBy(-10, -10);
             expect(widget.scrollLeft).toBe(0);
@@ -168,7 +168,7 @@ describe("ScrollableElement", () => {
         it("renders with vertical scroll offset", () => {
             const { widget, termScreen } = createGrid(5, 3, 20, 10);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
             widget.scrollTo(0, 5);
 
             const backend = renderElement(widget, 5, 3);
@@ -189,7 +189,7 @@ describe("ScrollableElement", () => {
         it("renders with horizontal scroll offset", () => {
             const { widget, termScreen } = createGrid(5, 3, 20, 10);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
             widget.scrollTo(7, 0);
 
             const backend = renderElement(widget, 5, 3);
@@ -211,7 +211,7 @@ describe("ScrollableElement", () => {
         it("renders with both scroll offsets", () => {
             const { widget, termScreen } = createGrid(5, 3, 20, 10);
             widget.localPosition = new Offset(0, 0);
-            widget.performLayout(BoxConstraints.tight(termScreen.size));
+            widget.layout(BoxConstraints.tight(termScreen.size));
             widget.scrollTo(4, 3);
 
             const backend = renderElement(widget, 5, 3);

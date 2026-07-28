@@ -148,7 +148,7 @@ describe("BoxContainerElement", () => {
             box.setHasSeparator(true);
 
             box.localPosition = new Offset(0, 0);
-            box.performLayout(BoxConstraints.tight(new Size(10, 8)));
+            box.layout(BoxConstraints.tight(new Size(10, 8)));
 
             // paddingX = 1, paddingTop = 1 + headerRows(2) = 3
             expect(child.globalPosition).toEqual(new Point(1, 3));

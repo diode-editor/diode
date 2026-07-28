@@ -63,7 +63,7 @@ export class SizedBoxElement extends TUIElement {
         return this.preferredHeight ?? this.child?.getMaxIntrinsicHeight(width) ?? 0;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const desiredWidth = this.getMaxIntrinsicWidth(this.preferredHeight ?? 0);
         const desiredHeight = this.getMaxIntrinsicHeight(desiredWidth);
         const size = constraints.constrain(new Size(desiredWidth, desiredHeight));

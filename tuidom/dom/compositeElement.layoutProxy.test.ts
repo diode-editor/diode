@@ -15,7 +15,7 @@ class RecordingLeaf extends TUIElement {
     public laidOutWith: BoxConstraints | null = null;
     public renderedAt: Point | null = null;
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         this.laidOutWith = constraints;
         return super.performLayout(constraints);
     }
@@ -46,7 +46,7 @@ describe("CompositeElement layout proxy", () => {
         const comp = new TestComposite();
         comp.rebuild();
         comp.localPosition = new Offset(3, 4);
-        comp.performLayout(BoxConstraints.tight(new Size(40, 12)));
+        comp.layout(BoxConstraints.tight(new Size(40, 12)));
 
         const leaf = comp.getRootChild() as RecordingLeaf;
         expect(leaf.laidOutWith).not.toBeNull();
@@ -63,7 +63,7 @@ describe("CompositeElement layout proxy", () => {
         const comp = new EmptyComposite();
         // No rebuild → rootChild is null.
         expect(() => {
-            comp.performLayout(BoxConstraints.tight(new Size(10, 4)));
+            comp.layout(BoxConstraints.tight(new Size(10, 4)));
         }).not.toThrow();
         expect(comp.getRootChild()).toBeNull();
     });

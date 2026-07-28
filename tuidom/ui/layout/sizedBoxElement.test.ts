@@ -32,14 +32,14 @@ describe("SizedBoxElement", () => {
     it("takes the preferred size under loose constraints", () => {
         const box = new SizedBoxElement(44, 3);
         box.setChild(new FixedIntrinsicChild(10, 1));
-        const size = box.performLayout(BoxConstraints.loose(new Size(80, 24)));
+        const size = box.layout(BoxConstraints.loose(new Size(80, 24)));
         expect(size).toEqual(new Size(44, 3));
     });
 
     it("clamps the preferred size down to the constraint maximum", () => {
         const box = new SizedBoxElement(44, 3);
         box.setChild(new FixedIntrinsicChild(10, 1));
-        const size = box.performLayout(BoxConstraints.loose(new Size(20, 3)));
+        const size = box.layout(BoxConstraints.loose(new Size(20, 3)));
         expect(size).toEqual(new Size(20, 3));
     });
 
@@ -47,7 +47,7 @@ describe("SizedBoxElement", () => {
         const box = new SizedBoxElement(44, 3);
         const child = new FixedIntrinsicChild(10, 1);
         box.setChild(child);
-        box.performLayout(BoxConstraints.loose(new Size(80, 24)));
+        box.layout(BoxConstraints.loose(new Size(80, 24)));
         expect(child.layoutSize).toEqual(new Size(44, 3));
     });
 
@@ -58,7 +58,7 @@ describe("SizedBoxElement", () => {
         expect(box.getMaxIntrinsicWidth(0)).toBe(12);
         expect(box.getMinIntrinsicHeight(0)).toBe(5);
         expect(box.getMaxIntrinsicHeight(0)).toBe(5);
-        const size = box.performLayout(BoxConstraints.loose(new Size(80, 24)));
+        const size = box.layout(BoxConstraints.loose(new Size(80, 24)));
         expect(size).toEqual(new Size(12, 5));
     });
 

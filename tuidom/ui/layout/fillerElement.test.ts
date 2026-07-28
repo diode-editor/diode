@@ -38,8 +38,8 @@ describe("FillerElement", () => {
         const backend = new MockTerminalBackend(size);
         const termScreen = new TerminalScreen(size);
         parent.localPosition = new Offset(0, 0);
-        parent.performLayout(BoxConstraints.tight(size));
-        filler.performLayout(BoxConstraints.tight(size));
+        parent.layout(BoxConstraints.tight(size));
+        filler.layout(BoxConstraints.tight(size));
         parent.performStyleResolution(parent.resolvedStyle);
         filler.render(new RenderContext(termScreen));
         termScreen.flush(backend);
@@ -57,7 +57,7 @@ describe("FillerElement", () => {
         const backend = new MockTerminalBackend(size);
         const termScreen = new TerminalScreen(size);
         filler.localPosition = new Offset(0, 0);
-        filler.performLayout(BoxConstraints.tight(new Size(3, 2)));
+        filler.layout(BoxConstraints.tight(new Size(3, 2)));
         filler.performStyleResolution(filler.resolvedStyle);
         filler.render(new RenderContext(termScreen));
         termScreen.flush(backend);

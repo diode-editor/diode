@@ -47,7 +47,7 @@ function renderTree(tree: TreeViewElement<TestNode>, width: number, height: numb
     const backend = new MockTerminalBackend(size);
     const termScreen = new TerminalScreen(size);
     tree.localPosition = new Offset(0, 0);
-    tree.performLayout(BoxConstraints.tight(size));
+    tree.layout(BoxConstraints.tight(size));
     const clipRect = new Rect(new Point(0, 0), size);
     tree.render(new RenderContext(termScreen, new Offset(0, 0), clipRect));
     termScreen.flush(backend);

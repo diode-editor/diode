@@ -26,7 +26,7 @@ class MarkerLeaf extends TUIElement {
         return 3;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         this.laidOutWith = constraints;
         return super.performLayout(constraints);
     }
@@ -64,7 +64,7 @@ describe("CompositeElement proxy behavior (lines 72-84)", () => {
         child.localPosition = new Offset(9, 9);
 
         comp.localPosition = new Offset(5, 6);
-        comp.performLayout(BoxConstraints.tight(new Size(30, 8)));
+        comp.layout(BoxConstraints.tight(new Size(30, 8)));
 
         // The proxy forces the child to the composite origin.
         expect(child.localPosition).toEqual(new Offset(0, 0));

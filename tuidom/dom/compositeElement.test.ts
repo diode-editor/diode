@@ -36,8 +36,9 @@ class FakeLeaf extends TUIElement {
         return 1;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
-        return super.performLayout(BoxConstraints.tight(new Size(this.text.length, 1)));
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const natural = new Size(this.text.length, 1);
+        return super.performLayout(BoxConstraints.tight(constraints.constrain(natural)));
     }
 
     public override render(_context: RenderContext): void {
@@ -138,7 +139,7 @@ describe("CompositeElement", () => {
             const comp = new TestComposite();
             comp.rebuild();
             comp.localPosition = new Offset(10, 20);
-            comp.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            comp.layout(BoxConstraints.tight(new Size(80, 24)));
 
             const child = comp.getRootChild()!;
             expect(child.localPosition.dx).toBe(0);
@@ -167,7 +168,7 @@ describe("CompositeElement", () => {
             const comp = new TestComposite();
             comp.rebuild();
             comp.localPosition = new Offset(0, 0);
-            comp.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            comp.layout(BoxConstraints.tight(new Size(80, 24)));
 
             const screen = new TerminalScreen(new Size(80, 24));
             const ctx = new RenderContext(screen);

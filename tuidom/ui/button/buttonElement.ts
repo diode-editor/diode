@@ -85,8 +85,9 @@ export class ButtonElement extends TUIElement {
         return 1;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
-        return super.performLayout(BoxConstraints.tight(new Size(this.label.length + 4, 1)));
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const natural = new Size(this.getMaxIntrinsicWidth(1), this.getMaxIntrinsicHeight(0));
+        return super.performLayout(BoxConstraints.tight(constraints.constrain(natural)));
     }
 
     protected override performDefaultAction(event: TUIEventBase): void {
@@ -108,6 +109,6 @@ export class ButtonElement extends TUIElement {
             : this.hovered
               ? this.styles.hoverBg
               : this.styles.bg;
-        context.drawText(0, 0, `[ ${this.label} ]`, { fg, bg });
+        context.drawText(0, 0, `[ ${this.label} ]`, { fg, bg }, { maxWidth: this.layoutSize.width });
     }
 }

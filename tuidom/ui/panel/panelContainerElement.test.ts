@@ -66,7 +66,7 @@ function renderPanel(panel: PanelContainerElement, size: Size): MockTerminalBack
 
 function layoutPanel(panel: PanelContainerElement, size: Size): void {
     panel.localPosition = new Offset(0, 0);
-    panel.performLayout(BoxConstraints.tight(size));
+    panel.layout(BoxConstraints.tight(size));
 }
 
 describe("PanelContainerElement", () => {
@@ -188,13 +188,13 @@ describe("PanelContainerElement", () => {
             const root = new ContainerElement();
             root.setAsRoot();
             root.localPosition = new Offset(0, 0);
-            root.performLayout(BoxConstraints.tight(new Size(40, 8)));
+            root.layout(BoxConstraints.tight(new Size(40, 8)));
 
             const panel = themed();
             panel.addView({ id: "a", title: "PROBLEMS", content: null });
             panel.addView({ id: "b", title: "OUTPUT", content: null });
             panel.localPosition = new Offset(0, 0);
-            panel.performLayout(BoxConstraints.tight(new Size(40, 8)));
+            panel.layout(BoxConstraints.tight(new Size(40, 8)));
             root.addChild(panel);
 
             const activated: string[] = [];

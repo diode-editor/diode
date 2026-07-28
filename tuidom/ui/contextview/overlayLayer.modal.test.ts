@@ -25,7 +25,7 @@ class FixedSizeElement extends TUIElement {
         this.desired = desired;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const target = constraints.constrain(this.desired);
         return super.performLayout(BoxConstraints.tight(target));
     }

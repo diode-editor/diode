@@ -22,5 +22,12 @@ export default defineScenario({
         await editor.sendKey("Ctrl+P");
         await editor.waitForText((t) => t.includes("Go to File"));
         await editor.capture("overlay");
+
+        // Низкий терминал: контракт performLayout (Н1) — пикер обязан ужаться в
+        // выделенную высоту (короткое окно списка, целая нижняя рамка), а не
+        // рисовать natural-высоту под обрезку клипом.
+        await editor.resize(120, 10);
+        await editor.waitForText((t) => t.includes("Go to File"));
+        await editor.capture("low-terminal");
     },
 });

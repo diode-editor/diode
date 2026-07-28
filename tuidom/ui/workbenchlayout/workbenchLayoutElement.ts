@@ -204,7 +204,7 @@ export class WorkbenchLayoutElement extends TUIElement {
         return Math.min(clamped, containerHeight);
     }
 
-    public performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
         const showLeft = this.leftPanel !== null && this.leftPanelVisible;

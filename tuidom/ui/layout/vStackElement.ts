@@ -1,4 +1,4 @@
-import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
 import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
@@ -66,7 +66,7 @@ export class VStackElement extends TUIElement {
         return sum;
     }
 
-    public performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         // First, call parent implementation to set allocatedSize and mark as clean
         const containerSize = super.performLayout(constraints);
         const containerWidth = containerSize.width;
@@ -78,16 +78,12 @@ export class VStackElement extends TUIElement {
             const childHeight = style.height;
             const childSize = new Size(childWidth, childHeight);
 
-            // Set local position (relative to this container)
-            child.localPosition = new Offset(0, currentY);
-
             // Store in layoutState for compatibility
             child.layoutState = {
                 rect: new Rect(new Point(0, currentY), childSize),
             };
 
-            // Perform child layout
-            child.performLayout(BoxConstraints.tight(childSize));
+            this.layoutChild(child, 0, currentY, BoxConstraints.tight(childSize));
 
             currentY += childHeight;
         }

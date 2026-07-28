@@ -1,6 +1,42 @@
 import { describe, expect, it } from "vitest";
 
-import { Point, Rect, Size } from "./geometryPromitives.ts";
+import { BoxConstraints, Point, Rect, Size } from "./geometryPromitives.ts";
+
+describe("BoxConstraints", () => {
+    describe("isSatisfiedBy", () => {
+        it("tight принимает ровно свой размер и отклоняет любой другой", () => {
+            const tight = BoxConstraints.tight(new Size(10, 5));
+            expect(tight.isSatisfiedBy(new Size(10, 5))).toBe(true);
+            expect(tight.isSatisfiedBy(new Size(9, 5))).toBe(false);
+            expect(tight.isSatisfiedBy(new Size(11, 5))).toBe(false);
+            expect(tight.isSatisfiedBy(new Size(10, 4))).toBe(false);
+            expect(tight.isSatisfiedBy(new Size(10, 6))).toBe(false);
+        });
+
+        it("loose принимает всё от нуля до максимума включительно", () => {
+            const loose = BoxConstraints.loose(new Size(10, 5));
+            expect(loose.isSatisfiedBy(new Size(0, 0))).toBe(true);
+            expect(loose.isSatisfiedBy(new Size(10, 5))).toBe(true);
+            expect(loose.isSatisfiedBy(new Size(11, 5))).toBe(false);
+            expect(loose.isSatisfiedBy(new Size(10, 6))).toBe(false);
+        });
+
+        it("диапазонные constraints проверяют обе границы каждой оси", () => {
+            const range = new BoxConstraints(2, 8, 3, 6);
+            expect(range.isSatisfiedBy(new Size(2, 3))).toBe(true);
+            expect(range.isSatisfiedBy(new Size(8, 6))).toBe(true);
+            expect(range.isSatisfiedBy(new Size(1, 4))).toBe(false);
+            expect(range.isSatisfiedBy(new Size(5, 7))).toBe(false);
+        });
+
+        it("результат constrain всегда удовлетворяет своим constraints", () => {
+            const range = new BoxConstraints(2, 8, 3, 6);
+            for (const size of [new Size(0, 0), new Size(100, 100), new Size(5, 5)]) {
+                expect(range.isSatisfiedBy(range.constrain(size))).toBe(true);
+            }
+        });
+    });
+});
 
 describe("Rect", () => {
     describe("containsPoint", () => {

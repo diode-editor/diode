@@ -16,7 +16,7 @@ describe("FitContentElement", () => {
         const fit = new FitContentElement();
         fit.setChild(label("hello"));
 
-        const size = fit.performLayout(BoxConstraints.loose(new Size(80, 24)));
+        const size = fit.layout(BoxConstraints.loose(new Size(80, 24)));
 
         expect(size.width).toBe(5);
         expect(size.height).toBe(1);
@@ -26,7 +26,7 @@ describe("FitContentElement", () => {
         const fit = new FitContentElement();
         fit.setChild(label("a very long line of text"));
 
-        const size = fit.performLayout(BoxConstraints.loose(new Size(10, 24)));
+        const size = fit.layout(BoxConstraints.loose(new Size(10, 24)));
 
         expect(size.width).toBe(10);
     });
@@ -44,7 +44,7 @@ describe("FitContentElement", () => {
     it("is empty without a child", () => {
         const fit = new FitContentElement();
 
-        const size = fit.performLayout(BoxConstraints.loose(new Size(80, 24)));
+        const size = fit.layout(BoxConstraints.loose(new Size(80, 24)));
 
         expect(size.width).toBe(0);
         expect(size.height).toBe(0);

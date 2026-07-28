@@ -51,13 +51,13 @@ function clickAt(component: FindComponent, x: number, y: number): void {
 describe("FindComponent — root sizing", () => {
     it("renders at the preferred width and a fixed 3-row height", () => {
         const component = make();
-        const size = component.view.performLayout(BoxConstraints.loose(new Size(80, 10)));
+        const size = component.view.layout(BoxConstraints.loose(new Size(80, 10)));
         expect(size).toEqual(new Size(WIDTH, 3));
     });
 
     it("shrinks to the available width when constrained", () => {
         const component = make();
-        const size = component.view.performLayout(BoxConstraints.loose(new Size(30, 3)));
+        const size = component.view.layout(BoxConstraints.loose(new Size(30, 3)));
         expect(size).toEqual(new Size(30, 3));
     });
 });

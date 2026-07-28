@@ -17,7 +17,7 @@ class ContainerElement extends TUIElement {
 function layoutElement(el: TUIElement, globalPos: Point, size: Size): void {
     const base = el.getParent()?.globalPosition ?? new Point(0, 0);
     el.localPosition = new Offset(globalPos.x - base.x, globalPos.y - base.y);
-    el.performLayout(BoxConstraints.tight(size));
+    el.layout(BoxConstraints.tight(size));
 }
 
 // ─── Tests ───

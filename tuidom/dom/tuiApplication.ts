@@ -62,7 +62,7 @@ export class TuiApplication {
 
             // Perform layout with tight constraints based on screen size
             const constraints = BoxConstraints.tight(this.screen.size);
-            this.root.performLayout(constraints);
+            this.root.layout(constraints);
 
             // Resolve styles (top-down cascade)
             this.root.performStyleResolution(ROOT_RESOLVED_STYLE);

@@ -141,7 +141,7 @@ export class TerminalViewElement extends TUIElement {
         });
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         // Держим PTY и эмулятор ровно по выделенной области (TIOCSWINSZ+SIGWINCH).
         this.surface.resize(size.width, size.height);

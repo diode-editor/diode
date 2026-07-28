@@ -284,7 +284,7 @@ export class OverlayLayer extends TUIElement {
         return session?.visible === true && session.options.pointerPolicy === "modal";
     }
 
-    public performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const layerSize = super.performLayout(constraints);
 
         for (const item of this.items) {

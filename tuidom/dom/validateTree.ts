@@ -19,6 +19,12 @@ import type { TUIElement } from "./tuiElement.ts";
  *   пропагация его не увидела — `focus()`/`open()` будут молча no-op.
  * - **Единственность прикрепления**: узел встречается в дереве один раз
  *   (нет циклов, нет двух родителей, отдающих один элемент).
+ * - **Layout-контракт**: размер узла удовлетворяет constraints его последнего
+ *   `layout()` (Н1, см. LAYOUT.md «Контракт performLayout»). Ловит мутации
+ *   размера после layout без markDirty — сам layout() ассертит в моменте.
+ *   Пропускаются узлы с `isLayoutDirty` (офскрин-строки виртуализирующего
+ *   ListViewElement легитимно несут устаревший layout), скрытые (`hidden`)
+ *   поддеревья целиком (их никто не раскладывал) и ни разу не разложенные.
  *
  * Координаты (`globalPosition` = сумма `localPosition` предков) намеренно не
  * проверяются: у виртуализирующих контейнеров (ListViewElement) офскрин-дети
@@ -34,13 +40,16 @@ export function validateTree(root: TUIElement): string[] {
     if (expectedRoot !== root) {
         violations.push(`корень обхода ${describe(root)} не считает себя корнем: getRoot() → ${describeOrNull(expectedRoot)}`);
     }
+    checkLayoutContract(root, violations);
 
     const visited = new Set<TUIElement>();
-    const stack: TUIElement[] = [root];
+    // hiddenAncestor: внутри скрытого поддерева геометрия не проверяется — дети
+    // скрытого могут быть «чистыми» со stale-layout прошлых кадров.
+    const stack: { node: TUIElement; hiddenAncestor: boolean }[] = [{ node: root, hiddenAncestor: root.hidden }];
     visited.add(root);
 
     while (stack.length > 0) {
-        const node = stack.pop() as TUIElement;
+        const { node, hiddenAncestor } = stack.pop() as { node: TUIElement; hiddenAncestor: boolean };
         for (const child of node.getChildren()) {
             if (visited.has(child)) {
                 violations.push(`${describe(child)} встречается в дереве дважды (второй раз — как ребёнок ${describe(node)})`);
@@ -60,11 +69,31 @@ export function validateTree(root: TUIElement): string[] {
                 violations.push(`${describe(child)} не укоренён: getRoot() → ${describeOrNull(childRoot)} (ожидался ${describe(root)})`);
             }
 
-            stack.push(child);
+            const childHidden = hiddenAncestor || child.hidden;
+            if (!childHidden) {
+                checkLayoutContract(child, violations);
+            }
+
+            stack.push({ node: child, hiddenAncestor: childHidden });
         }
     }
 
     return violations;
+}
+
+/** Проверка layout-контракта одного узла (пропуски описаны в docstring выше). */
+function checkLayoutContract(node: TUIElement, violations: string[]): void {
+    if (node.isLayoutDirty) return;
+    const constraints = node.lastLayoutConstraints;
+    if (constraints === null) return;
+    const size = node.layoutSize; // isLayoutDirty=false → lazy-layout не сработает
+    if (!constraints.isSatisfiedBy(size)) {
+        violations.push(
+            `${describe(node)} нарушает layout-контракт: размер ${size.width}×${size.height} ` +
+                `не удовлетворяет constraints [${constraints.minWidth}..${constraints.maxWidth}]×` +
+                `[${constraints.minHeight}..${constraints.maxHeight}] последнего layout()`,
+        );
+    }
 }
 
 /**

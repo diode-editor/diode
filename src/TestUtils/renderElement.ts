@@ -28,7 +28,7 @@ export function renderElement(
     const termScreen = new TerminalScreen(size);
     // globalPosition производный: у элемента без родителя он равен localPosition.
     element.localPosition = new Offset(0, 0);
-    element.performLayout(options.constraints ?? BoxConstraints.tight(size));
+    element.layout(options.constraints ?? BoxConstraints.tight(size));
     if (options.resolveStyles === true) {
         element.performStyleResolution(element.resolvedStyle);
     }

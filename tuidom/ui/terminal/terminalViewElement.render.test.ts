@@ -28,7 +28,7 @@ function render(el: TUIElement, width: number, height: number): RecordingContext
     const size = new Size(width, height);
     const context = new RecordingContext(new TerminalScreen(size));
     el.localPosition = new Offset(0, 0);
-    el.performLayout(BoxConstraints.tight(size));
+    el.layout(BoxConstraints.tight(size));
     el.render(context);
     return context;
 }
@@ -172,7 +172,7 @@ describe("TerminalViewElement — updates", () => {
         const el = new TerminalViewElement(surface);
         const context = new RecordingContext(new TerminalScreen(new Size(1, 1)));
         el.localPosition = new Offset(0, 0);
-        el.performLayout(BoxConstraints.tight(new Size(1, 1)));
+        el.layout(BoxConstraints.tight(new Size(1, 1)));
 
         // markDirty подписан на onUpdate — после emitUpdate элемент помечен грязным
         // и следующий render() возьмёт новую сетку.

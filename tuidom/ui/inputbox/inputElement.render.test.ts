@@ -17,20 +17,20 @@ function renderInput(input: InputElement, width: number): MockTerminalBackend {
 describe("InputElement — layout", () => {
     it("has height 1 without border", () => {
         const input = new InputElement();
-        input.performLayout(BoxConstraints.tight(new Size(20, 1)));
+        input.layout(BoxConstraints.tight(new Size(20, 1)));
         expect(input.layoutSize.height).toBe(1);
     });
 
     it("has height 3 with border", () => {
         const input = new InputElement();
         input.showBorder = true;
-        input.performLayout(BoxConstraints.tight(new Size(20, 3)));
+        input.layout(BoxConstraints.tight(new Size(20, 3)));
         expect(input.layoutSize.height).toBe(3);
     });
 
     it("takes the given width", () => {
         const input = new InputElement();
-        input.performLayout(BoxConstraints.tight(new Size(30, 1)));
+        input.layout(BoxConstraints.tight(new Size(30, 1)));
         expect(input.layoutSize.width).toBe(30);
     });
 
@@ -65,13 +65,13 @@ describe("InputElement — layout", () => {
     it("falls back to max(minWidth, 20) when maxWidth is unbounded (line 72 else branch)", () => {
         const input = new InputElement();
         // Non-finite maxWidth → width is max(minWidth, 20). minWidth 10 < 20 ⇒ 20.
-        input.performLayout(new BoxConstraints(10, Infinity, 1, 1));
+        input.layout(new BoxConstraints(10, Infinity, 1, 1));
         expect(input.layoutSize.width).toBe(20);
     });
 
     it("uses minWidth when it exceeds 20 under an unbounded maxWidth", () => {
         const input = new InputElement();
-        input.performLayout(new BoxConstraints(25, Infinity, 1, 1));
+        input.layout(new BoxConstraints(25, Infinity, 1, 1));
         expect(input.layoutSize.width).toBe(25);
     });
 });
@@ -263,7 +263,7 @@ describe("InputElement — cursor position", () => {
         const size = new Size(20, 1);
         const termScreen = new TerminalScreen(size);
         input.localPosition = new Offset(0, 0);
-        input.performLayout(BoxConstraints.tight(size));
+        input.layout(BoxConstraints.tight(size));
         input.render(new RenderContext(termScreen));
         // Not focused → no cursor set
         expect(termScreen.cursorPosition).toBeNull();

@@ -134,9 +134,9 @@ export class SelectBoxElement extends TUIElement {
         return 1;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
-        const width = constraints.constrain(new Size(this.contentWidth(), 1)).width;
-        return super.performLayout(BoxConstraints.tight(new Size(width, 1)));
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const natural = new Size(this.getMaxIntrinsicWidth(1), this.getMaxIntrinsicHeight(0));
+        return super.performLayout(BoxConstraints.tight(constraints.constrain(natural)));
     }
 
     public override render(context: RenderContext): void {

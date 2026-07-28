@@ -40,7 +40,7 @@ export class OverlayHostElement extends TUIElement {
         this.setChildren(children);
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
         if (this.content) {

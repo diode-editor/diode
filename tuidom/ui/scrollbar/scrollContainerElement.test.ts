@@ -37,7 +37,7 @@ function renderContainer(
     termScreen: TerminalScreen,
     backend: MockTerminalBackend,
 ): MockTerminalBackend {
-    container.performLayout(BoxConstraints.tight(termScreen.size));
+    container.layout(BoxConstraints.tight(termScreen.size));
     container.render(new RenderContext(termScreen));
     termScreen.flush(backend);
     return backend;
@@ -46,14 +46,14 @@ function renderContainer(
 describe("ScrollBarDecorator", () => {
     it("allocates child width as container width minus 1 when content overflows", () => {
         const { container, child } = createScrollContainer(12, 5, 20);
-        container.performLayout(BoxConstraints.tight(new Size(12, 5)));
+        container.layout(BoxConstraints.tight(new Size(12, 5)));
         expect(child.layoutSize.width).toBe(11);
         expect(child.layoutSize.height).toBe(5);
     });
 
     it("allocates full width when content fits viewport", () => {
         const { container, child } = createScrollContainer(12, 5, 3);
-        container.performLayout(BoxConstraints.tight(new Size(12, 5)));
+        container.layout(BoxConstraints.tight(new Size(12, 5)));
         expect(child.layoutSize.width).toBe(12);
         expect(child.layoutSize.height).toBe(5);
     });
@@ -161,7 +161,7 @@ describe("ScrollBarDecorator", () => {
     it("sets child localPosition to (0, 0)", () => {
         const { container, child } = createScrollContainer(12, 5, 50);
 
-        container.performLayout(BoxConstraints.tight(new Size(12, 5)));
+        container.layout(BoxConstraints.tight(new Size(12, 5)));
 
         expect(child.localPosition).toEqual(new Offset(0, 0));
     });
@@ -171,7 +171,7 @@ describe("ScrollBarDecorator", () => {
 
         // Set container global position to (10, 20)
         container.localPosition = new Offset(10, 20);
-        container.performLayout(BoxConstraints.tight(new Size(12, 5)));
+        container.layout(BoxConstraints.tight(new Size(12, 5)));
 
         // Child should be at (10, 20)
         expect(child.globalPosition).toEqual(new Point(10, 20));
@@ -180,7 +180,7 @@ describe("ScrollBarDecorator", () => {
     it("child markDirty propagates to container", () => {
         const { container, child } = createScrollContainer(12, 5, 50);
 
-        container.performLayout(BoxConstraints.tight(new Size(12, 5)));
+        container.layout(BoxConstraints.tight(new Size(12, 5)));
         expect(container.isLayoutDirty).toBe(false);
 
         child.markDirty();
@@ -192,7 +192,7 @@ describe("ScrollBarDecorator", () => {
         const { container, child } = createScrollContainer(12, 5, 50);
 
         // Verify by checking that child's markDirty affects container
-        container.performLayout(BoxConstraints.tight(new Size(12, 5)));
+        container.layout(BoxConstraints.tight(new Size(12, 5)));
         child.markDirty();
 
         expect(container.isLayoutDirty).toBe(true);
@@ -200,7 +200,7 @@ describe("ScrollBarDecorator", () => {
 
     it("allocates child width as container width minus 1 while updating coordinates", () => {
         const { container, child } = createScrollContainer(12, 5, 50);
-        container.performLayout(BoxConstraints.tight(new Size(12, 5)));
+        container.layout(BoxConstraints.tight(new Size(12, 5)));
 
         // Child should have width=11 (12-1 for scrollbar) and height=5
         expect(child.layoutSize.width).toBe(11);
@@ -253,7 +253,7 @@ describe("ScrollBarDecorator vertical policy", () => {
         const container = new ScrollBarDecorator(viewport);
         container.verticalScrollBar = "always";
 
-        container.performLayout(BoxConstraints.tight(size));
+        container.layout(BoxConstraints.tight(size));
         container.render(new RenderContext(termScreen));
         termScreen.flush(backend);
 
@@ -278,7 +278,7 @@ describe("ScrollBarDecorator vertical policy", () => {
         const container = new ScrollBarDecorator(viewport);
         container.verticalScrollBar = "never";
 
-        container.performLayout(BoxConstraints.tight(size));
+        container.layout(BoxConstraints.tight(size));
         container.render(new RenderContext(termScreen));
         termScreen.flush(backend);
 
@@ -302,7 +302,7 @@ describe("ScrollBarDecorator vertical policy", () => {
         const container = new ScrollBarDecorator(viewport);
         container.verticalScrollBar = "never";
 
-        container.performLayout(BoxConstraints.tight(size));
+        container.layout(BoxConstraints.tight(size));
 
         expect(child.layoutSize.width).toBe(12);
     });
@@ -317,7 +317,7 @@ describe("ScrollBarDecorator horizontal scrollbar", () => {
         const container = new ScrollBarDecorator(widget);
         container.verticalScrollBar = "never";
 
-        container.performLayout(BoxConstraints.tight(size));
+        container.layout(BoxConstraints.tight(size));
         container.render(new RenderContext(termScreen));
         termScreen.flush(backend);
 
@@ -337,7 +337,7 @@ describe("ScrollBarDecorator horizontal scrollbar", () => {
         const container = new ScrollBarDecorator(widget);
         container.verticalScrollBar = "never";
 
-        container.performLayout(BoxConstraints.tight(size));
+        container.layout(BoxConstraints.tight(size));
         container.render(new RenderContext(termScreen));
         termScreen.flush(backend);
 
@@ -352,7 +352,7 @@ describe("ScrollBarDecorator horizontal scrollbar", () => {
         container.verticalScrollBar = "never";
         container.horizontalScrollBar = "never";
 
-        container.performLayout(BoxConstraints.tight(size));
+        container.layout(BoxConstraints.tight(size));
 
         expect(widget.layoutSize.height).toBe(5);
         expect(widget.layoutSize.width).toBe(10);
@@ -365,7 +365,7 @@ describe("ScrollBarDecorator horizontal scrollbar", () => {
         container.verticalScrollBar = "never";
         container.horizontalScrollBar = "always";
 
-        container.performLayout(BoxConstraints.tight(size));
+        container.layout(BoxConstraints.tight(size));
 
         expect(widget.layoutSize.height).toBe(4);
     });
@@ -375,7 +375,7 @@ describe("ScrollBarDecorator horizontal scrollbar", () => {
         const widget = new WideContentWidget(30, 20);
         const container = new ScrollBarDecorator(widget);
 
-        container.performLayout(BoxConstraints.tight(size));
+        container.layout(BoxConstraints.tight(size));
 
         // auto: both overflows → both scrollbars visible
         // width - 1 for vertical scrollbar, height - 1 for horizontal scrollbar
