@@ -55,6 +55,37 @@ describe("TUIElement coordinate system", () => {
         expect(size).toEqual(new Size(10, 5));
     });
 
+    it("layout() records the constraints it was called with", () => {
+        const element = new TUIElement();
+        expect(element.lastLayoutConstraints).toBeNull();
+        const constraints = BoxConstraints.tight(new Size(10, 5));
+        element.layout(constraints);
+        expect(element.lastLayoutConstraints).toBe(constraints);
+    });
+
+    it("layout() throws when performLayout violates the constraints", () => {
+        class Violator extends TUIElement {
+            protected override performLayout(): Size {
+                return super.performLayout(BoxConstraints.tight(new Size(99, 1)));
+            }
+        }
+        const element = new Violator();
+        expect(() => element.layout(BoxConstraints.tight(new Size(10, 5)))).toThrow(/нарушив constraints/);
+    });
+
+    it("layout() throws when the returned size diverges from allocatedSize", () => {
+        class Liar extends TUIElement {
+            protected override performLayout(constraints: BoxConstraints): Size {
+                // Дефолтный allocatedSize 80×24 → constrain даст (10, 6); возврат (10, 5)
+                // удовлетворяет constraints, но расходится с записанным.
+                super.performLayout(constraints);
+                return new Size(constraints.minWidth, constraints.minHeight);
+            }
+        }
+        const element = new Liar();
+        expect(() => element.layout(new BoxConstraints(10, 10, 5, 6))).toThrow(/записал allocatedSize/);
+    });
+
     it("markDirty sets isLayoutDirty flag", () => {
         const element = new TUIElement();
         element.layout(BoxConstraints.tight(new Size(10, 5)));

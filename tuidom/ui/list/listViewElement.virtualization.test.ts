@@ -16,7 +16,7 @@ class ProbeRow extends TUIElement {
         this.id = id;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         this.layoutCalls++;
         return super.performLayout(constraints);
     }

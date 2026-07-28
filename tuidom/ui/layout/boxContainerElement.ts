@@ -100,7 +100,7 @@ export class BoxContainerElement extends TUIElement {
         return this.child.getMaxIntrinsicHeight(Math.max(0, width - 2)) + paddingY;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
         if (this.child) {
             const paddingX = 1;

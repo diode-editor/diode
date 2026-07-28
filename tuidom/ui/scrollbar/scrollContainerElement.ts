@@ -66,7 +66,7 @@ export class ScrollBarDecorator extends TUIElement {
         this.markDirty();
     }
 
-    public performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
         const { showVertical, showHorizontal } = this.resolveScrollBarVisibility(containerSize);

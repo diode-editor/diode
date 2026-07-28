@@ -154,7 +154,7 @@ export class PopupMenuElement extends TUIElement {
         return new Size(totalWidth, totalHeight);
     }
 
-    public performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const intrinsic = this.getIntrinsicSize();
         const resultSize = constraints.constrain(intrinsic);
         super.performLayout(BoxConstraints.tight(resultSize));

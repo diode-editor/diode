@@ -15,7 +15,7 @@ class RecordingLeaf extends TUIElement {
     public laidOutWith: BoxConstraints | null = null;
     public renderedAt: Point | null = null;
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         this.laidOutWith = constraints;
         return super.performLayout(constraints);
     }

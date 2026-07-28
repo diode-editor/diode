@@ -32,7 +32,7 @@ export class TitledPanelElement extends TUIElement<TitledPanelStyle> {
         this.markDirty();
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
         const childHeight = Math.max(0, containerSize.height - 1);
 

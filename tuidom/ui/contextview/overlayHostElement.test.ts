@@ -22,7 +22,7 @@ class FillElement extends TUIElement {
         this.fixed = fixed;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         return super.performLayout(this.fixed ? BoxConstraints.tight(this.fixed) : constraints);
     }
 

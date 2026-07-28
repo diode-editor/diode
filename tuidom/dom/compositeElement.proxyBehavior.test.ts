@@ -26,7 +26,7 @@ class MarkerLeaf extends TUIElement {
         return 3;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         this.laidOutWith = constraints;
         return super.performLayout(constraints);
     }

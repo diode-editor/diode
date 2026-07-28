@@ -160,7 +160,7 @@ export class EditorTabItemElement extends TUIElement {
         return 1;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const natural = new Size(this.getMaxIntrinsicWidth(1), this.getMaxIntrinsicHeight(0));
         return super.performLayout(BoxConstraints.tight(constraints.constrain(natural)));
     }

@@ -70,7 +70,7 @@ export class BodyElement extends TUIElement {
         this.vflex.replaceChildren(rows);
     }
 
-    public performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
         this.layoutChild(this.vflex, 0, 0, BoxConstraints.tight(containerSize));

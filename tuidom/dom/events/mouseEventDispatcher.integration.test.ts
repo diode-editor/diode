@@ -16,7 +16,7 @@ class ContainerElement extends TUIElement {
         this.appendChild(child);
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         for (const child of this.getChildren()) {
             child.layout(BoxConstraints.tight(child.layoutSize));

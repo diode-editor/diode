@@ -55,7 +55,7 @@ export class ScrollViewport extends TUIElement implements IScrollable {
         return this.child;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
 
         // Give child the full viewport size — it draws all content in local coords

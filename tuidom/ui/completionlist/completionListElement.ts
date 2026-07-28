@@ -185,7 +185,7 @@ export class CompletionListElement extends TUIElement {
         return this.boxHeight;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const size = constraints.constrain(new Size(this.boxWidth, this.boxHeight));
         super.performLayout(BoxConstraints.tight(size));
         return size;

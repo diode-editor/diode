@@ -319,7 +319,7 @@ export class ListViewElement extends ScrollableElement {
         return this.tabIndex >= 0 ? [this] : [];
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const rows = this.ensureProjection();
         const start = this.scrollTop;

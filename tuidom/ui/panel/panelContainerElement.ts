@@ -199,7 +199,7 @@ export class PanelContainerElement extends TUIElement {
         return segments;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
         // Контролы вкладки прижаты вправо на строке табов — как в шапке Panel у
         // VS Code. Ширину берём интринсиковую и не даём заехать на сами табы.

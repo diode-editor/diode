@@ -68,7 +68,7 @@ export class InputElement extends TUIElement {
         return this.showBorder ? 3 : 1;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const height = this.getMaxIntrinsicHeight(0);
         const width = Number.isFinite(constraints.maxWidth) ? constraints.maxWidth : Math.max(constraints.minWidth, 20);
         return super.performLayout(BoxConstraints.tight(constraints.constrain(new Size(width, height))));

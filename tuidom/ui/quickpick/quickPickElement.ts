@@ -393,7 +393,7 @@ export class QuickPickElement extends TUIElement {
         return this.totalHeight;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const natural = new Size(this.getMaxIntrinsicWidth(1), this.getMaxIntrinsicHeight(0));
         const size = constraints.constrain(natural);
 

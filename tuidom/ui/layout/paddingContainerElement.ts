@@ -94,7 +94,7 @@ export class PaddingContainerElement extends TUIElement {
         this.markDirty();
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
         if (this.child) {

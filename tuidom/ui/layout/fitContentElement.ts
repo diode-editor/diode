@@ -41,7 +41,7 @@ export class FitContentElement extends TUIElement {
         return this.child?.getMaxIntrinsicHeight(width) ?? 0;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const w = this.getMaxIntrinsicWidth(0);
         const h = this.getMaxIntrinsicHeight(w);
         const resultSize = constraints.constrain(new Size(w, h));

@@ -789,7 +789,21 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
      */
     public layout(constraints: BoxConstraints): Size {
         this.lastConstraintsValue = constraints;
-        return this.performLayout(constraints);
+        const result = this.performLayout(constraints);
+        if (!constraints.isSatisfiedBy(result)) {
+            throw new Error(
+                `${this.constructor.name}: performLayout вернул ${result.width}×${result.height}, ` +
+                    `нарушив constraints [${constraints.minWidth}..${constraints.maxWidth}]×` +
+                    `[${constraints.minHeight}..${constraints.maxHeight}]`,
+            );
+        }
+        if (result.width !== this.allocatedSize.width || result.height !== this.allocatedSize.height) {
+            throw new Error(
+                `${this.constructor.name}: performLayout вернул ${result.width}×${result.height}, ` +
+                    `но записал allocatedSize ${this.allocatedSize.width}×${this.allocatedSize.height}`,
+            );
+        }
+        return result;
     }
 
     /** Constraints последнего layout() — null, если layout ещё не вызывался. */
@@ -800,9 +814,10 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     private lastConstraintsValue: BoxConstraints | null = null;
 
     /**
-     * Performs layout: applies constraints to set the allocated visible area.
+     * Переопределяемая реализация layout: применяет constraints к выделенной
+     * области. Вызывается ТОЛЬКО из {@link layout} — снаружи зовите layout().
      */
-    public performLayout(constraints: BoxConstraints): Size {
+    protected performLayout(constraints: BoxConstraints): Size {
         const resultSize = constraints.constrain(this.allocatedSize);
         this.allocatedSize = resultSize;
         this.isLayoutDirty = false;

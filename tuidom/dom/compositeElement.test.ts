@@ -36,8 +36,9 @@ class FakeLeaf extends TUIElement {
         return 1;
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
-        return super.performLayout(BoxConstraints.tight(new Size(this.text.length, 1)));
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const natural = new Size(this.text.length, 1);
+        return super.performLayout(BoxConstraints.tight(constraints.constrain(natural)));
     }
 
     public override render(_context: RenderContext): void {

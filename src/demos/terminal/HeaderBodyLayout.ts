@@ -25,7 +25,7 @@ export class HeaderBodyLayout extends TUIElement {
         this.appendChild(this.body);
     }
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const w = size.width;
         const h = size.height;

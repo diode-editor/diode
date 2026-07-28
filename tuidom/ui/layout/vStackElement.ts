@@ -66,7 +66,7 @@ export class VStackElement extends TUIElement {
         return sum;
     }
 
-    public performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         // First, call parent implementation to set allocatedSize and mark as clean
         const containerSize = super.performLayout(constraints);
         const containerWidth = containerSize.width;

@@ -106,7 +106,7 @@ export class VFlexElement extends TUIElement {
 
     // ─── Layout ───
 
-    public override performLayout(constraints: BoxConstraints): Size {
+    protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
         const containerWidth = containerSize.width;
         const containerHeight = containerSize.height;
