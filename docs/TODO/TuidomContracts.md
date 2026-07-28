@@ -39,7 +39,17 @@
 
 ## Задачи
 
-### [ ] Н1. Контракт возвращаемого значения `performLayout`
+### [x] Н1. Контракт возвращаемого значения `performLayout`
+
+**Решено (2026-07-28), контракт записан в [LAYOUT.md](../LAYOUT.md) «Контракт
+performLayout».** Принята Flutter-модель: constraints обязывают; «меньше выделенного» —
+только под loose родителя; Fit во flex остаётся на интринсиках + tight (SwiftUI-вариант
+«loose + чтение возврата» рассмотрен и отклонён). Механика: split
+`layout()`/`performLayout` (публичный вход записывает constraints и ассертит результат),
+геометрическая проверка в `validateTree`, нарушители (`button`, `input`, `textLabel`,
+`selectBox`, `editorTabItem`, `quickPick`) приведены — natural-размер листа живёт только
+в intrinsic-методах. QuickPick получил `effectiveVisibleRows` — окно списка от
+фактической высоты.
 
 **Противоречие.** База обещает: `performLayout` возвращает
 `constraints.constrain(allocatedSize)` — размер удовлетворяет constraints

@@ -8,9 +8,33 @@
 
 ## Размер элемента (`allocatedSize`)
 
-`allocatedSize` — это **выделенная видимая область** элемента на экране, а не размер его контента. Контейнер-родитель определяет это значение через вызов `performLayout(constraints)`. Элемент рисует себя от (0, 0) в локальных координатах, а clipRect обрезает всё, что выходит за границы.
+`allocatedSize` — это **выделенная видимая область** элемента на экране, а не размер его контента. Контейнер-родитель определяет это значение через вызов `layout(constraints)`. Элемент рисует себя от (0, 0) в локальных координатах, а clipRect обрезает всё, что выходит за границы.
 
-Публичный геттер `layoutSize` — ленивый: если `isLayoutDirty`, он вызывает `performLayout` с loose constraints. Это fallback для чтения размера вне цикла layout.
+Публичный геттер `layoutSize` — ленивый: если `isLayoutDirty`, он вызывает `layout` с loose constraints. Это fallback для чтения размера вне цикла layout.
+
+## Контракт performLayout
+
+Единственный публичный вход в layout — **`layout(constraints)`**, он не переопределяется.
+Переопределяемая реализация — **protected `performLayout(constraints)`**. `layout()`
+запоминает входные constraints (`lastLayoutConstraints`) и следит за контрактом
+(модель Flutter, решение Н1 из [TODO/TuidomContracts.md](TODO/TuidomContracts.md)):
+
+1. **Constraints обязывают.** Размер после layout обязан удовлетворять входным
+   constraints: tight — приказ занять ровно столько, loose — диапазон `[0..max]`.
+   «Контент не влез» — вопрос отрисовки (клип, `maxWidth` у `drawText`), а не
+   геометрии; «хочу занимать меньше выделенного» выражается только loose-constraints
+   родителя (так `OverlayLayer` раскладывает попапы).
+2. **Контейнер с tight-constraints вправе не читать возврат** — он гарантирован.
+   С loose — обязан читать, чтобы позиционировать соседей.
+3. **Единственный источник natural-размера листового виджета — его intrinsic-методы.**
+   `performLayout` листа выражается через них:
+   `super.performLayout(tight(constraints.constrain(natural)))` — так intrinsic-обещание
+   и фактический layout не могут разойтись (ButtonElement, TextLabelElement,
+   SelectBoxElement, EditorTabItemElement).
+
+Нарушение контракта — исключение прямо в `layout()` (проверка копеечная и включена
+всегда) плюс геометрическая проверка `validateTree` после каждого кадра в тестах —
+она ловит и мутации размера задним числом, после layout.
 
 ## Владение деревом: appendChild-семейство и hidden
 
@@ -36,18 +60,21 @@ Tab-обхода и hit-теста (базовые обходы), а конте�
   `localPosition`).
 
 Инварианты дерева проверяет `validateTree` (`tuidom/dom/validateTree.ts`): в тестах — после
-каждого кадра (`TestApp`), в приложении — `VEXX_VALIDATE_TREE=1`.
+каждого кадра (`TestApp`), в приложении — `VEXX_VALIDATE_TREE=1`. Помимо топологии
+(симметрия parent, достижимость root, единственность прикрепления) он проверяет
+layout-контракт: размер каждого узла удовлетворяет constraints его последнего `layout()`
+(пропуская dirty-узлы виртуализации, скрытые поддеревья и ни разу не разложенные).
 
 ## Контейнеры и `performLayout`
 
-Layout управляют контейнеры. Каждый контейнер (`VStackElement`, `BodyElement`, `ScrollBarDecorator`, `OverlayLayer`) в своём `performLayout()`:
+Layout управляют контейнеры. Каждый контейнер (`VStackElement`, `BodyElement`, `ScrollBarDecorator`, `OverlayLayer`) в своём переопределении `performLayout()`:
 
 1. Вызывает `super.performLayout(constraints)` — фиксирует собственный размер
 2. Для каждого видимого ребёнка вычисляет позицию и размер по своей логике и вызывает
    `this.layoutChild(child, x, y, childConstraints)` — хелпер ставит `localPosition` и
-   прогоняет layout ребёнка (`globalPosition` производный, его никто не выставляет)
+   прогоняет `child.layout()` (`globalPosition` производный, его никто не выставляет)
 
-Листовые элементы (`BoxElement`, `EditorElement`, `PopupMenuElement`) используют базовый `performLayout`, который просто применяет `constraints.constrain()` к текущему размеру. Некоторые (`PopupMenuElement`) переопределяют метод для вычисления intrinsic size.
+Листовые элементы (`BoxElement`, `EditorElement`) используют базовый `performLayout`, который просто применяет `constraints.constrain()` к текущему размеру. Самосайзящиеся (`PopupMenuElement`, `QuickPickElement`) переопределяют его по конвенции контракта: natural-размер из intrinsic-методов, заклампленный в constraints.
 
 ## `layoutStyle` и `layoutState`
 
@@ -100,7 +127,7 @@ ScrollBarDecorator → EditorElement
 ```
 TuiApplication.renderFrame():
     root.localPosition = (0, 0)
-    root.performLayout(tight(screenSize))          // рекурсивно: размеры + позиции
+    root.layout(tight(screenSize))                 // рекурсивно: размеры + позиции
     screenClip = Rect((0,0), screenSize)
     root.render(RenderContext(screen, offset=0, screenClip))  // рекурсивно: отрисовка
     screen.flush(backend)
@@ -122,7 +149,7 @@ TuiApplication.renderFrame():
 
 Параметр `height`/`width` зарезервирован для виджетов с word-wrap (высота зависит от ширины). Сейчас большинство элементов его игнорируют.
 
-Intrinsic-методы используются контейнерами (HFlexElement, VFlexElement) для режима **Fit** — «подстройся под контент ребёнка».
+Intrinsic-методы используются контейнерами (HFlexElement, VFlexElement) для режима **Fit** — «подстройся под контент ребёнка» (решение Н1: Fit измеряется интринсиками и кладётся tight; альтернатива «loose + чтение возврата» сознательно не выбрана). По конвенции контракта performLayout intrinsic-методы — **единственное место**, где листовой виджет записывает свой natural-размер; `performLayout` выражается через них.
 
 ## SizedBoxElement
 
@@ -154,7 +181,8 @@ height: number | "fill"          — размер по cross оси (верти�
 2. Измерить Fit-детей через `getMaxIntrinsicWidth()`, суммировать
 3. `remaining = containerWidth - fixedSum - fitSum`
 4. Fill-ребёнок получает `remaining`
-5. Вызвать `child.performLayout(tight(width, height))` для всех
+5. Разложить всех через `layoutChild(child, x, 0, tight(width, height))` — tight
+   обязывает (контракт performLayout), возврат читать не нужно
 
 Хелперы: `hflexFixed(n)`, `hflexFit()`, `hflexFill()`.
 
