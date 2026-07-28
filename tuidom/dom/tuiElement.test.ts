@@ -18,7 +18,7 @@ describe("TUIElement coordinate system", () => {
     it("performLayout returns calculated size", () => {
         const element = new TUIElement();
         const constraints = BoxConstraints.tight(new Size(10, 5));
-        const result = element.performLayout(constraints);
+        const result = element.layout(constraints);
 
         expect(result).toEqual(new Size(10, 5));
     });
@@ -28,26 +28,26 @@ describe("TUIElement coordinate system", () => {
         expect(element.isLayoutDirty).toBe(true);
 
         const constraints = BoxConstraints.tight(new Size(10, 5));
-        element.performLayout(constraints);
+        element.layout(constraints);
 
         expect(element.isLayoutDirty).toBe(false);
     });
 
-    it("lazy size getter triggers performLayout when isDirty", () => {
+    it("lazy size getter triggers layout when isDirty", () => {
         const element = new TUIElement();
-        const spy = vi.spyOn(element, "performLayout");
+        const spy = vi.spyOn(element, "layout");
 
-        // First access should trigger performLayout
+        // First access should trigger layout
         const size = element.layoutSize;
 
         expect(spy).toHaveBeenCalled();
         expect(size).toEqual(new Size(80, 24)); // default
     });
 
-    it("lazy size getter does not trigger performLayout when clean", () => {
+    it("lazy size getter does not trigger layout when clean", () => {
         const element = new TUIElement();
-        element.performLayout(BoxConstraints.tight(new Size(10, 5)));
-        const spy = vi.spyOn(element, "performLayout");
+        element.layout(BoxConstraints.tight(new Size(10, 5)));
+        const spy = vi.spyOn(element, "layout");
 
         const size = element.layoutSize;
 
@@ -57,7 +57,7 @@ describe("TUIElement coordinate system", () => {
 
     it("markDirty sets isLayoutDirty flag", () => {
         const element = new TUIElement();
-        element.performLayout(BoxConstraints.tight(new Size(10, 5)));
+        element.layout(BoxConstraints.tight(new Size(10, 5)));
         expect(element.isLayoutDirty).toBe(false);
 
         element.markDirty();
@@ -70,7 +70,7 @@ describe("TUIElement coordinate system", () => {
         const child = new TUIElement();
         parent.addChild(child);
 
-        parent.performLayout(BoxConstraints.tight(new Size(10, 5)));
+        parent.layout(BoxConstraints.tight(new Size(10, 5)));
         expect(parent.isLayoutDirty).toBe(false);
 
         child.markDirty();
@@ -86,8 +86,8 @@ describe("TUIElement coordinate system", () => {
         grandparent.addChild(parent);
         parent.addChild(child);
 
-        grandparent.performLayout(BoxConstraints.tight(new Size(10, 5)));
-        parent.performLayout(BoxConstraints.tight(new Size(10, 5)));
+        grandparent.layout(BoxConstraints.tight(new Size(10, 5)));
+        parent.layout(BoxConstraints.tight(new Size(10, 5)));
 
         expect(grandparent.isLayoutDirty).toBe(false);
         expect(parent.isLayoutDirty).toBe(false);
@@ -105,7 +105,7 @@ describe("TUIElement coordinate system", () => {
         parent.addChild(child);
 
         // Verify by checking dirty propagation works
-        parent.performLayout(BoxConstraints.tight(new Size(10, 5)));
+        parent.layout(BoxConstraints.tight(new Size(10, 5)));
         child.markDirty();
 
         expect(parent.isLayoutDirty).toBe(true);
@@ -118,7 +118,7 @@ describe("TUIElement coordinate system", () => {
         parent.addChild(child);
         parent.detachChild(child);
 
-        parent.performLayout(BoxConstraints.tight(new Size(10, 5)));
+        parent.layout(BoxConstraints.tight(new Size(10, 5)));
         child.markDirty();
 
         // Parent should remain clean since child has no parent
@@ -165,8 +165,8 @@ describe("TUIElement coordinate system", () => {
         parent1.addChild(child);
         parent2.addChild(parent1);
 
-        parent1.performLayout(BoxConstraints.tight(new Size(10, 5)));
-        parent2.performLayout(BoxConstraints.tight(new Size(10, 5)));
+        parent1.layout(BoxConstraints.tight(new Size(10, 5)));
+        parent2.layout(BoxConstraints.tight(new Size(10, 5)));
 
         child.markDirty();
         child.markDirty();

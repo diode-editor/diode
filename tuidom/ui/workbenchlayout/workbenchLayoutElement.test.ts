@@ -38,7 +38,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelWidth(25);
 
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(leftPanel.layoutSize).toEqual(new Size(25, 24));
             expect(leftPanel.localPosition).toEqual(new Offset(0, 0));
@@ -55,7 +55,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelWidth(25);
 
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(center.layoutSize).toEqual(new Size(55, 24));
             expect(center.localPosition).toEqual(new Offset(25, 0));
@@ -72,7 +72,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelWidth(30);
 
             layout.localPosition = new Offset(0, 1);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 22)));
+            layout.layout(BoxConstraints.tight(new Size(80, 22)));
 
             expect(leftPanel.globalPosition).toEqual(new Point(0, 1));
             expect(center.globalPosition).toEqual(new Point(30, 1));
@@ -90,7 +90,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelVisible(false);
 
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(center.layoutSize).toEqual(new Size(80, 24));
             expect(center.localPosition).toEqual(new Offset(0, 0));
@@ -107,7 +107,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelVisible(false);
 
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(leftPanel.isLayoutDirty).toBe(true);
         });
@@ -124,15 +124,15 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelWidth(30);
 
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
             expect(center.layoutSize.width).toBe(50);
 
             layout.setLeftPanelVisible(false);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
             expect(center.layoutSize.width).toBe(80);
 
             layout.setLeftPanelVisible(true);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
             expect(center.layoutSize.width).toBe(50);
         });
     });
@@ -145,7 +145,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
 
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
 
             expect(center.layoutSize).toEqual(new Size(80, 24));
             expect(center.localPosition).toEqual(new Offset(0, 0));
@@ -280,7 +280,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelWidth(100);
 
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
 
             // 80 - MIN_CENTER_WIDTH(20) = 60 reserved for the panel, 20 for the editor.
             expect(leftPanel.layoutSize.width).toBe(60);
@@ -295,11 +295,11 @@ describe("WorkbenchLayoutElement", () => {
 
             layout.localPosition = new Offset(0, 0);
             // Narrow terminal clamps the displayed width down...
-            layout.performLayout(BoxConstraints.tight(new Size(40, 24)));
+            layout.layout(BoxConstraints.tight(new Size(40, 24)));
             expect(layout.getLeftPanelWidth()).toBe(50);
 
             // ...but widening restores the full absolute width.
-            layout.performLayout(BoxConstraints.tight(new Size(120, 24)));
+            layout.layout(BoxConstraints.tight(new Size(120, 24)));
             expect(layout.getLeftPanel()?.layoutSize.width).toBe(50);
         });
     });
@@ -313,7 +313,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelWidth(20);
             layout.localPosition = new Offset(0, 0);
 
-            expect(() => layout.performLayout(BoxConstraints.tight(new Size(40, 10)))).not.toThrow();
+            expect(() => layout.layout(BoxConstraints.tight(new Size(40, 10)))).not.toThrow();
             expect(left.layoutSize).toEqual(new Size(20, 10));
         });
 
@@ -335,7 +335,7 @@ describe("WorkbenchLayoutElement", () => {
             const backend = new MockTerminalBackend(size);
             const termScreen = new TerminalScreen(size);
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(size));
+            layout.layout(BoxConstraints.tight(size));
             layout.render(new RenderContext(termScreen, new Offset(0, 0), new Rect(new Point(0, 0), size)));
             termScreen.flush(backend);
             return backend;
@@ -394,7 +394,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanel(createPanel());
             layout.setCenterContent(createPanel());
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(containerWidth, 24)));
+            layout.layout(BoxConstraints.tight(new Size(containerWidth, 24)));
             return layout;
         }
 
@@ -432,7 +432,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(createPanel());
             layout.setLeftPanelWidth(leftWidth);
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
             const sash = layout.getChildren()[2] as SashElement;
             return { layout, sash };
         }
@@ -474,7 +474,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setBottomPanelVisible(true);
             if (options?.height !== undefined) layout.setBottomPanelHeight(options.height);
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
             return { layout, center, panel };
         }
 
@@ -485,7 +485,7 @@ describe("WorkbenchLayoutElement", () => {
             layout.setBottomPanel(createPanel());
             expect(layout.getBottomPanelVisible()).toBe(false);
             layout.localPosition = new Offset(0, 0);
-            layout.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            layout.layout(BoxConstraints.tight(new Size(80, 24)));
             // Скрытая панель остаётся в дереве с hidden=true; центр во всю высоту.
             expect(layout.getBottomPanel()?.hidden).toBe(true);
             expect(center.layoutSize).toEqual(new Size(80, 24));

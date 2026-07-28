@@ -25,7 +25,7 @@ function renderVStack(
     termScreen: TerminalScreen,
     backend: MockTerminalBackend,
 ): MockTerminalBackend {
-    vstack.performLayout(BoxConstraints.tight(termScreen.size));
+    vstack.layout(BoxConstraints.tight(termScreen.size));
     vstack.render(new RenderContext(termScreen));
     termScreen.flush(backend);
     return backend;
@@ -212,7 +212,7 @@ describe("VStackElement", () => {
         vstack.addChild(box1, { width: "fill", height: 3 });
         vstack.addChild(box2, { width: "fill", height: 3 });
 
-        vstack.performLayout(BoxConstraints.tight(new Size(10, 6)));
+        vstack.layout(BoxConstraints.tight(new Size(10, 6)));
 
         // First child at y=0
         expect(box1.localPosition).toEqual(new Offset(0, 0));
@@ -230,7 +230,7 @@ describe("VStackElement", () => {
 
         // Set parent global position to (5, 10)
         vstack.localPosition = new Offset(5, 10);
-        vstack.performLayout(BoxConstraints.tight(new Size(10, 6)));
+        vstack.layout(BoxConstraints.tight(new Size(10, 6)));
 
         // First child should be at (5, 10)
         expect(box1.globalPosition).toEqual(new Point(5, 10));
@@ -244,7 +244,7 @@ describe("VStackElement", () => {
         const box = new BoxElement();
         vstack.addChild(box, { width: "fill", height: 3 });
 
-        vstack.performLayout(BoxConstraints.tight(new Size(10, 6)));
+        vstack.layout(BoxConstraints.tight(new Size(10, 6)));
         expect(vstack.isLayoutDirty).toBe(false);
 
         box.markDirty();
@@ -259,7 +259,7 @@ describe("VStackElement", () => {
         vstack.addChild(box, { width: "fill", height: 3 });
 
         // Verify by checking that child's markDirty affects vstack
-        vstack.performLayout(BoxConstraints.tight(new Size(10, 6)));
+        vstack.layout(BoxConstraints.tight(new Size(10, 6)));
         box.markDirty();
 
         expect(vstack.isLayoutDirty).toBe(true);

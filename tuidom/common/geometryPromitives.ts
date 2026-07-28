@@ -55,6 +55,16 @@ export class BoxConstraints {
             Math.min(this.maxHeight, Math.max(this.minHeight, size.height)),
         );
     }
+
+    /** Удовлетворяет ли размер этим constraints (контракт layout: см. docs/LAYOUT.md). */
+    public isSatisfiedBy(size: Size): boolean {
+        return (
+            size.width >= this.minWidth &&
+            size.width <= this.maxWidth &&
+            size.height >= this.minHeight &&
+            size.height <= this.maxHeight
+        );
+    }
 }
 
 export class Rect {

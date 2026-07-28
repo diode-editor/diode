@@ -25,7 +25,7 @@ function renderDialog(filename: string): MockTerminalBackend {
 
     view.localPosition = new Offset(0, 0);
     view.performStyleResolution(ROOT_RESOLVED_STYLE);
-    view.performLayout(BoxConstraints.tight(size));
+    view.layout(BoxConstraints.tight(size));
     view.render(new RenderContext(termScreen));
     termScreen.flush(backend);
     return backend;

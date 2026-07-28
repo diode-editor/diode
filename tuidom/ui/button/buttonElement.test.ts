@@ -40,7 +40,7 @@ describe("ButtonElement — metadata & layout", () => {
 
     it("lays out to a fixed label-sized box", () => {
         const button = new ButtonElement("Save");
-        const size = button.performLayout(BoxConstraints.tight(new Size(40, 5)));
+        const size = button.layout(BoxConstraints.tight(new Size(40, 5)));
         expect(size).toEqual(new Size("Save".length + 4, 1));
     });
 });

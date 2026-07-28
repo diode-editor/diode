@@ -35,11 +35,11 @@ function buildScene(): { root: ContainerElement; sash: SashElement; drags: numbe
     const root = new ContainerElement();
     root.setAsRoot();
     root.localPosition = new Offset(0, 0);
-    root.performLayout(BoxConstraints.tight(new Size(80, 24)));
+    root.layout(BoxConstraints.tight(new Size(80, 24)));
 
     const sash = new SashElement();
     sash.localPosition = new Offset(30, 0);
-    sash.performLayout(BoxConstraints.tight(new Size(1, 24)));
+    sash.layout(BoxConstraints.tight(new Size(1, 24)));
     root.addChild(sash);
 
     const drags: number[] = [];
@@ -111,7 +111,7 @@ describe("SashElement", () => {
         dispatcher.handleMouseToken(makeToken({ action: "press", x: 31, y: 1 }), root);
         dispatcher.handleMouseToken(makeToken({ action: "release", x: 31, y: 1 }), root);
         // Re-layout the sash to its (unchanged) spot, then move with no button held.
-        sash.performLayout(BoxConstraints.tight(new Size(1, 24)));
+        sash.layout(BoxConstraints.tight(new Size(1, 24)));
         dispatcher.handleMouseToken(makeToken({ action: "move", x: 41, y: 1 }), root);
 
         expect(drags).toEqual([]);
@@ -193,11 +193,11 @@ describe("SashElement", () => {
             const root = new ContainerElement();
             root.setAsRoot();
             root.localPosition = new Offset(0, 0);
-            root.performLayout(BoxConstraints.tight(new Size(80, 24)));
+            root.layout(BoxConstraints.tight(new Size(80, 24)));
 
             const sash = new SashElement("horizontal");
             sash.localPosition = new Offset(0, 10);
-            sash.performLayout(BoxConstraints.tight(new Size(80, 1)));
+            sash.layout(BoxConstraints.tight(new Size(80, 1)));
             root.addChild(sash);
 
             const drags: number[] = [];

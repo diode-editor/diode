@@ -19,7 +19,7 @@ function makeElement(scrollbackLines = 100): { el: TerminalViewElement; surface:
     const surface = new FakeTerminalSurface();
     surface.scrollbackLines = scrollbackLines;
     const el = new TerminalViewElement(surface);
-    el.performLayout(BoxConstraints.tight(new Size(WIDTH, HEIGHT)));
+    el.layout(BoxConstraints.tight(new Size(WIDTH, HEIGHT)));
     return { el, surface };
 }
 

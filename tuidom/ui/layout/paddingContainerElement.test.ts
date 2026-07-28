@@ -33,7 +33,7 @@ function layoutAndRender(element: PaddingContainerElement, width: number, height
     const termScreen = new TerminalScreen(size);
 
     element.localPosition = new Offset(0, 0);
-    element.performLayout(BoxConstraints.tight(size));
+    element.layout(BoxConstraints.tight(size));
     element.render(new RenderContext(termScreen));
     termScreen.flush(backend);
     return backend;
@@ -45,7 +45,7 @@ describe("PaddingContainerElement", () => {
         const padded = new PaddingContainerElement(box, { top: 1, left: 1 });
 
         padded.localPosition = new Offset(0, 0);
-        padded.performLayout(BoxConstraints.tight(new Size(8, 5)));
+        padded.layout(BoxConstraints.tight(new Size(8, 5)));
 
         expect(box.layoutSize.width).toBe(7); // 8 - 1 left
         expect(box.layoutSize.height).toBe(4); // 5 - 1 top
@@ -56,7 +56,7 @@ describe("PaddingContainerElement", () => {
         const padded = new PaddingContainerElement(box, { top: 2, left: 3, right: 1, bottom: 1 });
 
         padded.localPosition = new Offset(0, 0);
-        padded.performLayout(BoxConstraints.tight(new Size(20, 10)));
+        padded.layout(BoxConstraints.tight(new Size(20, 10)));
 
         expect(box.layoutSize.width).toBe(16); // 20 - 3 - 1
         expect(box.layoutSize.height).toBe(7); // 10 - 2 - 1
@@ -67,7 +67,7 @@ describe("PaddingContainerElement", () => {
         const padded = new PaddingContainerElement(box, { top: 2, left: 3 });
 
         padded.localPosition = new Offset(5, 10);
-        padded.performLayout(BoxConstraints.tight(new Size(20, 10)));
+        padded.layout(BoxConstraints.tight(new Size(20, 10)));
 
         expect(box.globalPosition.x).toBe(8); // 5 + 3
         expect(box.globalPosition.y).toBe(12); // 10 + 2
@@ -109,7 +109,7 @@ describe("PaddingContainerElement", () => {
         const padded = new PaddingContainerElement(box, { top: 10, left: 10 });
 
         padded.localPosition = new Offset(0, 0);
-        padded.performLayout(BoxConstraints.tight(new Size(5, 5)));
+        padded.layout(BoxConstraints.tight(new Size(5, 5)));
 
         expect(box.layoutSize.width).toBe(0);
         expect(box.layoutSize.height).toBe(0);
@@ -121,7 +121,7 @@ describe("PaddingContainerElement", () => {
         const padded = new PaddingContainerElement(child, { top: 2, right: 4, bottom: 1, left: 3 });
 
         padded.localPosition = new Offset(7, 9);
-        padded.performLayout(BoxConstraints.tight(new Size(20, 10)));
+        padded.layout(BoxConstraints.tight(new Size(20, 10)));
 
         // child is offset by (left, top) from the container's global position
         expect(child.localPosition).toEqual(new Offset(3, 2));
@@ -221,7 +221,7 @@ describe("PaddingContainerElement", () => {
 
         padded.localPosition = new Offset(0, 0);
         padded.performStyleResolution(ROOT_RESOLVED_STYLE);
-        padded.performLayout(BoxConstraints.tight(size));
+        padded.layout(BoxConstraints.tight(size));
         padded.render(new RenderContext(termScreen));
         termScreen.flush(backend);
 

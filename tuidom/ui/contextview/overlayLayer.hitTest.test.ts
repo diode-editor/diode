@@ -9,7 +9,7 @@ import { OverlayLayer } from "./overlayLayer.ts";
 function sizedBox(global: Point, size: Size): BoxElement {
     const box = new BoxElement();
     box.localPosition = new Offset(global.x, global.y);
-    box.performLayout(BoxConstraints.tight(size));
+    box.layout(BoxConstraints.tight(size));
     return box;
 }
 
@@ -44,7 +44,7 @@ describe("OverlayLayer — openPopupSession", () => {
     it("opens a session positioned by the anchor", () => {
         const layer = new OverlayLayer();
         layer.localPosition = new Offset(0, 0);
-        layer.performLayout(BoxConstraints.tight(new Size(40, 20)));
+        layer.layout(BoxConstraints.tight(new Size(40, 20)));
 
         const menu = new PopupMenuElement([{ label: "Copy" }]);
         const anchor = { screenX: 3, screenY: 1 };

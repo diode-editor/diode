@@ -19,7 +19,7 @@ function renderPicker(picker: QuickPickElement, width: number): MockTerminalBack
     const termScreen = new TerminalScreen(size);
 
     picker.localPosition = new Offset(0, 0);
-    picker.performLayout(BoxConstraints.tight(size));
+    picker.layout(BoxConstraints.tight(size));
 
     const clip = new Rect(new Point(0, 0), size);
     picker.render(new RenderContext(termScreen, new Offset(0, 0), clip));
@@ -324,7 +324,7 @@ describe("QuickPickElement — scroll", () => {
         const backend = new MockTerminalBackend(size);
         const termScreen = new TerminalScreen(size);
         picker.localPosition = new Offset(0, 0);
-        picker.performLayout(BoxConstraints.tight(size));
+        picker.layout(BoxConstraints.tight(size));
         const clip = new Rect(new Point(0, 0), size);
         picker.render(new RenderContext(termScreen, new Offset(0, 0), clip));
         termScreen.flush(backend);
@@ -376,7 +376,7 @@ describe("QuickPickElement — layout width", () => {
         const picker = new QuickPickElement();
         picker.preferredWidth = 40;
         picker.localPosition = new Offset(0, 0);
-        picker.performLayout(BoxConstraints.loose(new Size(100, 50)));
+        picker.layout(BoxConstraints.loose(new Size(100, 50)));
         expect(picker.layoutSize.width).toBe(40);
     });
 
@@ -385,7 +385,7 @@ describe("QuickPickElement — layout width", () => {
         picker.preferredWidth = 50;
         picker.localPosition = new Offset(0, 0);
         // maxWidth = Infinity → Number.isFinite(...) is false → maxW = preferredWidth.
-        picker.performLayout(new BoxConstraints(0, Infinity, 0, Infinity));
+        picker.layout(new BoxConstraints(0, Infinity, 0, Infinity));
         expect(picker.layoutSize.width).toBe(50);
     });
 
@@ -393,7 +393,7 @@ describe("QuickPickElement — layout width", () => {
         const picker = new QuickPickElement();
         picker.preferredWidth = 40;
         picker.localPosition = new Offset(0, 0);
-        picker.performLayout(BoxConstraints.loose(new Size(30, 50)));
+        picker.layout(BoxConstraints.loose(new Size(30, 50)));
         expect(picker.layoutSize.width).toBe(30);
     });
 
@@ -402,7 +402,7 @@ describe("QuickPickElement — layout width", () => {
         picker.preferredWidth = 40;
         picker.localPosition = new Offset(0, 0);
         const height = picker.getMinIntrinsicHeight(50);
-        picker.performLayout(BoxConstraints.tight(new Size(50, height)));
+        picker.layout(BoxConstraints.tight(new Size(50, height)));
         expect(picker.layoutSize.width).toBe(50);
     });
 

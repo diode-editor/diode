@@ -75,7 +75,7 @@ describe("BodyElement root reference", () => {
 describe("BodyElement menuBar integration", () => {
     function layoutBody(body: BodyElement, width = 40, height = 20): void {
         body.localPosition = new Offset(0, 0);
-        body.performLayout(BoxConstraints.tight(new Size(width, height)));
+        body.layout(BoxConstraints.tight(new Size(width, height)));
     }
 
     it("menuBar receives root reference from BodyElement", () => {
@@ -141,7 +141,7 @@ describe("BodyElement menuBar integration", () => {
 describe("BodyElement statusBar integration", () => {
     function layoutBody(body: BodyElement, width = 40, height = 20): void {
         body.localPosition = new Offset(0, 0);
-        body.performLayout(BoxConstraints.tight(new Size(width, height)));
+        body.layout(BoxConstraints.tight(new Size(width, height)));
     }
 
     it("statusBar receives root reference from BodyElement", () => {

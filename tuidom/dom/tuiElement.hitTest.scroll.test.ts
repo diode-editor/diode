@@ -30,7 +30,7 @@ class ContentElement extends TUIElement implements IContentSized {
 function layoutElement(el: TUIElement, globalPos: Point, size: Size): void {
     const base = el.getParent()?.globalPosition ?? new Point(0, 0);
     el.localPosition = new Offset(globalPos.x - base.x, globalPos.y - base.y);
-    el.performLayout(BoxConstraints.tight(size));
+    el.layout(BoxConstraints.tight(size));
 }
 
 // ─── Tests ───
@@ -44,7 +44,7 @@ describe("ScrollViewport.elementFromPoint — vertical scroll", () => {
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
         // Content gets same global position as viewport
         content.localPosition = new Offset(0, 0);
-        content.performLayout(BoxConstraints.tight(new Size(80, 20)));
+        content.layout(BoxConstraints.tight(new Size(80, 20)));
 
         // Place a child inside content at y=35 (visible only when scrolled)
         const child = new TUIElement();
@@ -64,7 +64,7 @@ describe("ScrollViewport.elementFromPoint — vertical scroll", () => {
 
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
         content.localPosition = new Offset(0, 0);
-        content.performLayout(BoxConstraints.tight(new Size(80, 20)));
+        content.layout(BoxConstraints.tight(new Size(80, 20)));
 
         const child = new TUIElement();
         content.addChild(child);
@@ -94,7 +94,7 @@ describe("ScrollViewport.elementFromPoint — horizontal scroll", () => {
 
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
         content.localPosition = new Offset(0, 0);
-        content.performLayout(BoxConstraints.tight(new Size(80, 20)));
+        content.layout(BoxConstraints.tight(new Size(80, 20)));
 
         const child = new TUIElement();
         content.addChild(child);
@@ -114,7 +114,7 @@ describe("ScrollViewport.elementFromPoint — both axes", () => {
 
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
         content.localPosition = new Offset(0, 0);
-        content.performLayout(BoxConstraints.tight(new Size(80, 20)));
+        content.layout(BoxConstraints.tight(new Size(80, 20)));
 
         const child = new TUIElement();
         content.addChild(child);

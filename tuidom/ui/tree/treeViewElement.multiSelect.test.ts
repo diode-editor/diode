@@ -39,7 +39,7 @@ async function createTree(roots: TestNode[], viewportSize: Size = new Size(40, 1
     const tree = new TreeViewElement(provider);
     const app = TestApp.createWithContent(tree, viewportSize);
     tree.localPosition = new Offset(0, 0);
-    tree.performLayout(BoxConstraints.tight(viewportSize));
+    tree.layout(BoxConstraints.tight(viewportSize));
     tree.focus();
     await tree.refresh();
     return { tree, app };
