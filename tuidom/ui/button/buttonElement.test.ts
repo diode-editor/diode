@@ -38,10 +38,24 @@ describe("ButtonElement — metadata & layout", () => {
         expect(button.getMaxIntrinsicHeight(10)).toBe(1);
     });
 
-    it("lays out to a fixed label-sized box", () => {
+    it("obeys tight constraints — occupies the whole allocated box", () => {
         const button = new ButtonElement("Save");
         const size = button.layout(BoxConstraints.tight(new Size(40, 5)));
+        expect(size).toEqual(new Size(40, 5));
+    });
+
+    it("takes its natural label-sized box under loose constraints", () => {
+        const button = new ButtonElement("Save");
+        const size = button.layout(BoxConstraints.loose(new Size(40, 5)));
         expect(size).toEqual(new Size("Save".length + 4, 1));
+    });
+
+    it("clamps to a narrow tight box and truncates the render", () => {
+        const button = new ButtonElement("Save");
+        const size = button.layout(BoxConstraints.tight(new Size(5, 1)));
+        expect(size).toEqual(new Size(5, 1));
+        const backend = renderElement(button, 5, 1);
+        expect(backend.getTextAt(new Point(0, 0), 5)).toBe("[ Sav");
     });
 });
 

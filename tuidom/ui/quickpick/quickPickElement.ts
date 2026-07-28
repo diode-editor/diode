@@ -172,11 +172,11 @@ export class QuickPickElement extends TUIElement {
                     break;
                 case "PageDown":
                     event.preventDefault();
-                    this.moveSelection(this.visibleItemCount);
+                    this.moveSelection(Math.max(1, this.effectiveVisibleRows));
                     break;
                 case "PageUp":
                     event.preventDefault();
-                    this.moveSelection(-this.visibleItemCount);
+                    this.moveSelection(-Math.max(1, this.effectiveVisibleRows));
                     break;
                 case "Enter":
                     event.preventDefault();
@@ -234,11 +234,11 @@ export class QuickPickElement extends TUIElement {
      * falls outside the visible list rows (border, input, message, separator).
      */
     private itemIndexFromLocalY(localY: number): number | null {
-        if (this.visibleItemCount === 0) return null;
+        if (this.effectiveVisibleRows === 0) return null;
         const bodyTop = this.messageRow !== null ? 3 : 2;
         const firstRowY = bodyTop + 1; // border/input/[message]/separator then rows
         const row = localY - firstRowY;
-        if (row < 0 || row >= this.visibleItemCount) return null;
+        if (row < 0 || row >= this.effectiveVisibleRows) return null;
         return this.scrollOffset + row;
     }
 
@@ -332,6 +332,20 @@ export class QuickPickElement extends TUIElement {
     }
 
     /**
+     * Сколько строк списка реально помещается в выделенную layout'ом высоту.
+     * Разрыв цикличности с {@link totalHeight}: natural-высота считается ДО
+     * layout (интринсики, visibleItemCount), фактическое окно — ПОСЛЕ, от
+     * layoutSize. На низком терминале (loose от overlay с маленьким остатком)
+     * окно меньше natural — рендер, хит-тест и скролл живут по нему.
+     */
+    private get effectiveVisibleRows(): number {
+        if (this.visibleItemCount === 0) return 0;
+        // top border + input + [message] + separator + bottom border
+        const chrome = 4 + (this.messageRow !== null ? 1 : 0);
+        return Math.max(0, Math.min(this.visibleItemCount, this.layoutSize.height - chrome));
+    }
+
+    /**
      * The message row shown under the input (InputBox flavor). A validation
      * message wins over the plain prompt; returns null when neither is set.
      */
@@ -380,13 +394,18 @@ export class QuickPickElement extends TUIElement {
     }
 
     public override performLayout(constraints: BoxConstraints): Size {
-        const maxW = Number.isFinite(constraints.maxWidth) ? constraints.maxWidth : this.preferredWidth;
-        const width = Math.max(constraints.minWidth, Math.min(this.preferredWidth, maxW));
-        // Always use natural height — QuickPickElement is self-sizing vertically.
-        // Callers may allocate more rows, but we only occupy what we need.
-        const size = new Size(width, this.totalHeight);
+        const natural = new Size(this.getMaxIntrinsicWidth(1), this.getMaxIntrinsicHeight(0));
+        const size = constraints.constrain(natural);
 
         super.performLayout(BoxConstraints.tight(size));
+
+        // Единственная точка ресинка скролла с фактическим окном: высота могла
+        // ужаться против natural, и старый scrollOffset/выделение могли выпасть
+        // из видимого окна.
+        const rows = this.effectiveVisibleRows;
+        const maxScroll = Math.max(0, this.itemsValue.length - Math.max(rows, 1));
+        this.scrollOffset = Math.min(this.scrollOffset, maxScroll);
+        this.ensureVisible(this.selectedIndexValue);
 
         // Position InputElement inside the top border, padded by 1 on each side.
         const inputWidth = Math.max(0, size.width - 2);
@@ -401,11 +420,14 @@ export class QuickPickElement extends TUIElement {
 
     public override render(context: RenderContext): void {
         const w = this.layoutSize.width;
-        // Use natural height, not the (potentially larger) allocated layoutSize.height.
-        // This prevents a visual gap between the last item and the bottom border when
-        // the parent container allocates more vertical space than needed.
-        const h = this.totalHeight;
-        const hasItems = this.visibleItemCount > 0;
+        // Use natural height when the parent allocates more vertical space than
+        // needed (prevents a gap between the last item and the bottom border);
+        // when allocated LESS (низкий терминал), рисуем строго в выделенном.
+        const h = Math.min(this.totalHeight, this.layoutSize.height);
+        if (w < 2 || h < 2) return; // не помещается даже рамка
+
+        const visibleRows = this.effectiveVisibleRows;
+        const hasItems = visibleRows > 0;
 
         // Row after the input (+ message row when present): separator/bottom border.
         const message = this.messageRow;
@@ -422,22 +444,24 @@ export class QuickPickElement extends TUIElement {
             this.renderTitle(context, w);
         }
 
-        // ── Render InputElement ───────────────────────────────────────────────
+        // ── Render InputElement (только если строка не легла на нижнюю рамку) ─
         // Give it an explicit placeholder since we own the visual chrome.
-        this.inputElement.placeholder = this.placeholder;
-        const inputClip = new Rect(this.inputElement.globalPosition, this.inputElement.layoutSize);
-        const inputOffset = new Offset(this.inputElement.localPosition.dx, this.inputElement.localPosition.dy);
-        this.inputElement.render(context.withOffset(inputOffset).withClip(inputClip));
+        if (h >= 3) {
+            this.inputElement.placeholder = this.placeholder;
+            const inputClip = new Rect(this.inputElement.globalPosition, this.inputElement.layoutSize);
+            const inputOffset = new Offset(this.inputElement.localPosition.dx, this.inputElement.localPosition.dy);
+            this.inputElement.render(context.withOffset(inputOffset).withClip(inputClip));
+        }
 
         // ── Optional message row (InputBox prompt / validation) ───────────────
-        if (message !== null) {
+        if (message !== null && h >= 4) {
             this.renderMessageRow(context, w, 2, message);
         }
 
         // ── Item rows (frame + separator already drawn by drawBox above) ──────
         if (hasItems) {
             const hasIcons = this.itemsValue.some((item) => item.icon !== undefined);
-            for (let i = 0; i < this.visibleItemCount; i++) {
+            for (let i = 0; i < visibleRows; i++) {
                 const itemIndex = this.scrollOffset + i;
                 this.renderItemRow(context, w, bodyTop + 1 + i, itemIndex, hasIcons);
             }
@@ -613,10 +637,12 @@ export class QuickPickElement extends TUIElement {
     }
 
     private ensureVisible(index: number): void {
+        const rows = this.effectiveVisibleRows;
+        if (rows <= 0) return;
         if (index < this.scrollOffset) {
             this.scrollOffset = index;
-        } else if (index >= this.scrollOffset + this.visibleItemCount) {
-            this.scrollOffset = index - this.visibleItemCount + 1;
+        } else if (index >= this.scrollOffset + rows) {
+            this.scrollOffset = index - rows + 1;
         }
     }
 }

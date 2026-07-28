@@ -316,20 +316,59 @@ describe("QuickPickElement — scroll", () => {
         expect(backend.getTextAt(new Point(0, h - 1), 1)).toBe("╰");
     });
 
-    it("compact screen: only 3 rows fit in height constraint", () => {
+    it("compact screen: obeys tight(30,3) — box shrinks, no item rows", () => {
         const picker = new QuickPickElement();
         picker.items = makeItems(2);
-        // Force into a 3-high constraint — should not crash
         const size = new Size(30, 3);
         const backend = new MockTerminalBackend(size);
         const termScreen = new TerminalScreen(size);
         picker.localPosition = new Offset(0, 0);
-        picker.layout(BoxConstraints.tight(size));
+        const result = picker.layout(BoxConstraints.tight(size));
+        expect(result).toEqual(size); // контракт: tight обязывает
         const clip = new Rect(new Point(0, 0), size);
         picker.render(new RenderContext(termScreen, new Offset(0, 0), clip));
         termScreen.flush(backend);
-        // Should not throw; just verify borders
+        // Рамка целиком в выделенной высоте: нижняя граница на строке 2, не обрезана.
         expect(backend.getTextAt(new Point(0, 0), 1)).toBe("╭");
+        expect(backend.getTextAt(new Point(0, 2), 1)).toBe("╰");
+    });
+
+    it("clamped height: list window shrinks to the allocated rows", () => {
+        const picker = new QuickPickElement();
+        picker.items = makeItems(10);
+        // natural = 4 + 10 = 14; loose(30, 8) → высота 8, окно списка 8-4 = 4 строки
+        picker.localPosition = new Offset(0, 0);
+        const result = picker.layout(BoxConstraints.loose(new Size(30, 8)));
+        expect(result.height).toBe(8);
+
+        const size = new Size(30, 8);
+        const backend = new MockTerminalBackend(size);
+        const termScreen = new TerminalScreen(size);
+        const clip = new Rect(new Point(0, 0), size);
+        picker.render(new RenderContext(termScreen, new Offset(0, 0), clip));
+        termScreen.flush(backend);
+        // Строки 3..6 — элементы, строка 7 — нижняя рамка.
+        expect(backend.getTextAt(new Point(2, 3), 9)).toBe("file-1.ts");
+        expect(backend.getTextAt(new Point(2, 6), 9)).toBe("file-4.ts");
+        expect(backend.getTextAt(new Point(0, 7), 1)).toBe("╰");
+    });
+
+    it("allocated more than natural: size obeys tight, frame stays natural", () => {
+        const picker = new QuickPickElement();
+        picker.items = makeItems(2); // natural = 6
+        picker.localPosition = new Offset(0, 0);
+        const result = picker.layout(BoxConstraints.tight(new Size(30, 12)));
+        expect(result).toEqual(new Size(30, 12)); // контракт: tight обязывает
+
+        const size = new Size(30, 12);
+        const backend = new MockTerminalBackend(size);
+        const termScreen = new TerminalScreen(size);
+        const clip = new Rect(new Point(0, 0), size);
+        picker.render(new RenderContext(termScreen, new Offset(0, 0), clip));
+        termScreen.flush(backend);
+        // Рамка рисуется natural-высотой: низ на строке 5, ниже — пусто.
+        expect(backend.getTextAt(new Point(0, 5), 1)).toBe("╰");
+        expect(backend.getTextAt(new Point(0, 6), 1)).toBe(" ");
     });
 });
 
