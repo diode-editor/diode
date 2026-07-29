@@ -131,7 +131,9 @@ export class HFlexElement extends TUIElement {
 
         for (const child of this.getChildren()) {
             const style = child.layoutStyle as HFlexLayoutStyle;
-            const childHeight = style.height === "fill" ? containerHeight : style.height;
+            // Инвариант вложенности (Н2): дети не вылезают за контейнер — при
+            // нехватке места жадный кламп по остатку в порядке детей.
+            const childHeight = Math.min(style.height === "fill" ? containerHeight : style.height, containerHeight);
 
             let childWidth: number;
             if (style.width.type === "fixed") {
@@ -141,6 +143,7 @@ export class HFlexElement extends TUIElement {
             } else {
                 childWidth = remaining;
             }
+            childWidth = Math.max(0, Math.min(childWidth, containerWidth - currentX));
 
             this.layoutChild(child, currentX, 0, BoxConstraints.tight(new Size(childWidth, childHeight)));
             currentX += childWidth;

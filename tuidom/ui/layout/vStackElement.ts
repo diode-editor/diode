@@ -74,8 +74,13 @@ export class VStackElement extends TUIElement {
 
         for (const child of this.getChildren()) {
             const style = child.layoutStyle as VStackLayoutStyle;
-            const childWidth = style.width === "fill" || style.width === "stretch" ? containerWidth : style.width;
-            const childHeight = style.height;
+            // Инвариант вложенности (Н2): дети не вылезают за контейнер — при
+            // нехватке места жадный кламп по остатку в порядке детей.
+            const childWidth = Math.min(
+                style.width === "fill" || style.width === "stretch" ? containerWidth : style.width,
+                containerWidth,
+            );
+            const childHeight = Math.max(0, Math.min(style.height, containerSize.height - currentY));
             const childSize = new Size(childWidth, childHeight);
 
             // Store in layoutState for compatibility

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Size } from "../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Size } from "../common/geometryPromitives.ts";
 
 import { TUIElement } from "./tuiElement.ts";
 import { assertValidTree, validateTree } from "./validateTree.ts";
@@ -197,6 +197,68 @@ describe("validateTree — layout-контракт", () => {
         const fresh = new TUIElement();
         root.add(fresh);
         fresh.isLayoutDirty = false; // чист, но layout() не вызывался
+
+        expect(validateTree(root)).toEqual([]);
+    });
+});
+
+describe("validateTree — инвариант вложенности", () => {
+    it("проходит, когда ребёнок внутри родителя (включая совпадение границ)", () => {
+        const root = makeRootedContainer();
+        const child = new TUIElement();
+        root.add(child);
+        root.layout(BoxConstraints.tight(new Size(80, 24)));
+        child.layout(BoxConstraints.tight(new Size(80, 24))); // ровно в границы
+
+        expect(validateTree(root)).toEqual([]);
+    });
+
+    it("ловит ребёнка, вылезающего за родителя размером", () => {
+        const root = makeRootedContainer();
+        const child = new TUIElement();
+        child.id = "spill";
+        root.add(child);
+        root.layout(BoxConstraints.tight(new Size(20, 5)));
+        child.layout(BoxConstraints.tight(new Size(80, 24))); // шире и выше родителя
+
+        const violations = validateTree(root);
+        expect(violations.some((v) => v.includes("spill") && v.includes("вылезает за родителя"))).toBe(true);
+    });
+
+    it("ловит ребёнка, вылезающего позицией при подходящем размере", () => {
+        const root = makeRootedContainer();
+        const child = new TUIElement();
+        child.id = "shifted";
+        root.add(child);
+        root.layout(BoxConstraints.tight(new Size(20, 5)));
+        child.layout(BoxConstraints.tight(new Size(10, 3)));
+        child.localPosition = new Offset(15, 4); // 15+10 > 20, 4+3 > 5
+
+        const violations = validateTree(root);
+        expect(violations.some((v) => v.includes("shifted") && v.includes("вылезает за родителя"))).toBe(true);
+    });
+
+    it("пропускает пару, где dirty сам родитель (его геометрия stale)", () => {
+        const root = makeRootedContainer();
+        const panel = new ContainerElement();
+        const child = new TUIElement();
+        root.add(panel);
+        panel.add(child);
+        root.layout(BoxConstraints.tight(new Size(80, 24)));
+        panel.layout(BoxConstraints.tight(new Size(20, 5)));
+        child.layout(BoxConstraints.tight(new Size(80, 24))); // вылезает
+        panel.isLayoutDirty = true; // но родитель ждёт переклада — пара не проверяется
+
+        expect(validateTree(root)).toEqual([]);
+    });
+
+    it("нулевой ребёнок на краю родителя — не нарушение", () => {
+        const root = makeRootedContainer();
+        const child = new TUIElement();
+        root.add(child);
+        root.layout(BoxConstraints.tight(new Size(20, 5)));
+        child.layout(BoxConstraints.tight(new Size(0, 0)));
+        child.localPosition = new Offset(20, 5); // ровно на границе, пустой
 
         expect(validateTree(root)).toEqual([]);
     });

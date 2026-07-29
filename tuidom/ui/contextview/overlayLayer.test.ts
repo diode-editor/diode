@@ -53,6 +53,34 @@ describe("OverlayLayer", () => {
         expect(lines[0][2]).toBe(" ");
     });
 
+    it("клипует рисование ребёнка по его layoutSize (инвариант отрисовки Н2)", () => {
+        // Виджет, рисующий за пределами своего размера: строку длиннее ширины.
+        class SpillingElement extends BoxElement {
+            public override render(context: Parameters<BoxElement["render"]>[0]): void {
+                context.drawText(0, 0, "XXXXXXXXXX"); // 10 колонок
+            }
+        }
+        const backend = renderLayer(12, 3, (layer) => {
+            // Позиция x=8 в слое шириной 12 → loose-остаток даёт ширину 4.
+            layer.addItem(new SpillingElement(), new Point(8, 1), true);
+        });
+        const lines = backend.screenToString().split("\n");
+        // Нарисовано ровно 4 X (клип по layoutSize), левее позиции — пусто.
+        expect(lines[1].slice(8, 12)).toBe("XXXX");
+        expect(lines[1].slice(0, 8).trim()).toBe("");
+    });
+
+    it("рисует ребёнка из его localPosition после layout (Н5)", () => {
+        const backend = renderLayer(80, 24, (layer) => {
+            const box = new BoxElement();
+            layer.addItem(box, new Point(5, 2), true);
+        });
+        const lines = backend.screenToString().split("\n");
+        // Позиция задана через сессию, но рендер читает child.localPosition,
+        // которую выставил layoutChild, — точка одна и та же.
+        expect(lines[2][5]).toBe("+");
+    });
+
     it("does not render item after making it invisible", () => {
         const layer = new OverlayLayer();
         const box = new BoxElement();

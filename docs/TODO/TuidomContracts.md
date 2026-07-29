@@ -84,7 +84,15 @@ performLayout».** Принята Flutter-модель: constraints обязыв
 `tuidom/ui/layout/hFlexElement.ts`, `tuidom/ui/button/buttonElement.ts`,
 `tuidom/ui/quickpick/quickPickElement.ts`, `docs/LAYOUT.md`.
 
-### [ ] Н2. Клип детей — привычка, а не инвариант
+### [x] Н2. Клип детей — привычка, а не инвариант
+
+**Решено (2026-07-29), записано в [LAYOUT.md](../LAYOUT.md) «Инвариант вложенности
+и клип».** Переполнение нелегально нигде: `Rect(child) ⊆ Rect(parent)` без
+исключений, проверка в `validateTree`. Посылка «три контейнера не клипуют
+намеренно — попапы обязаны рисовать за границами» оказалась устаревшей: попапы
+живут в `OverlayLayer` (реперентинг), а не рисуются за якорем. `menuBar`/`fitContent`
+потеряли рудиментарные кастомные `render` (перешли на базовый `renderChildren`),
+`overlayLayer` клипует детей, флексы/стеки жадно клампят детей по остатку.
 
 **Противоречие.** База `renderChildren` клипует всегда по
 `Rect(child.globalPosition, child.layoutSize)`. Из семи контейнеров, рисующих
@@ -158,16 +166,11 @@ theme-agnostic, цена — мосты) или токен темы (мосты 
 Файлы: `tuidom/dom/tuiElement.ts` (`onDidChangeParent`, `getRoot`),
 `tuidom/ui/menu/menuBarElement.ts`.
 
-### [ ] Н5. `item.position` в OverlayLayer — параллельное поле позиции
+### [x] Н5. `item.position` в OverlayLayer — параллельное поле позиции
 
-`overlayLayer.ts` хранит `item.position`, скармливает его в `layoutChild` и
-**рисует опять из `item.position`**, а не из `child.localPosition`. Живого
-рассинхрона нет (поток односторонний), но это тот самый паттерн «позиция
-авторитетна снаружи элемента», который #214 только что вычистил из ядра, — и
-образец, который скопирует следующий оверлейный контейнер. Привести к чтению из
-`child.localPosition` после layout.
-
-Файлы: `tuidom/ui/contextview/overlayLayer.ts`.
+**Закрыто вместе с Н2 (2026-07-29):** `overlayLayer.render` читает
+`child.localPosition` (выставленную `layoutChild`) и клипует по границам ребёнка;
+`item.position` остался только входом сессии, который слой транслирует в layout.
 
 ### [ ] Н6. Три семантики на одном списке детей
 

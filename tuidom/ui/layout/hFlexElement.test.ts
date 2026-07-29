@@ -287,27 +287,28 @@ describe("HFlexElement", () => {
         });
     });
 
-    describe("overflow: fixed children exceed available width", () => {
-        it("still lays out children at their fixed widths, running past the viewport", () => {
+    describe("нехватка места: жадный кламп по остатку (инвариант вложенности Н2)", () => {
+        it("fixed-дети клампятся по остатку в порядке детей, за контейнер никто не вылезает", () => {
             const flex = new HFlexElement();
             const a = new TUIElement();
             const b = new TUIElement();
             flex.addChild(a, { width: hflexFixed(60), height: 5 });
             flex.addChild(b, { width: hflexFixed(60), height: 5 });
 
-            layoutHFlex(flex, 80, 24); // container only 80 wide, children total 120
+            layoutHFlex(flex, 80, 24); // контейнер 80, дети хотят 120
 
-            expect(a.layoutSize.width).toBe(60);
-            expect(b.layoutSize.width).toBe(60);
-            expect(b.localPosition.dx).toBe(60); // second child starts past the container edge contribution
+            expect(a.layoutSize.width).toBe(60); // первый влезает целиком
+            expect(b.layoutSize.width).toBe(20); // второму — остаток
+            expect(b.localPosition.dx).toBe(60);
+            expect(b.localPosition.dx + b.layoutSize.width).toBe(80); // ровно край
         });
 
-        it("fixed children exceeding width leave a fill child clamped to zero", () => {
+        it("fixed-дети съели всё — fill и хвост клампятся в ноль на краю", () => {
             const flex = new HFlexElement();
             const a = new TUIElement();
             const b = new TUIElement();
             const fill = new TUIElement();
-            // fixed widths total 100 > container 80, so remaining = max(0, 80-100) = 0
+            // fixed суммарно 100 > контейнера 80
             flex.addChild(a, { width: hflexFixed(50), height: 5 });
             flex.addChild(b, { width: hflexFixed(50), height: 5 });
             flex.addChild(fill, { width: hflexFill(), height: 5 });
@@ -315,13 +316,13 @@ describe("HFlexElement", () => {
             layoutHFlex(flex, 80, 24);
 
             expect(a.layoutSize.width).toBe(50);
-            expect(b.layoutSize.width).toBe(50);
+            expect(b.layoutSize.width).toBe(30); // остаток
             expect(fill.layoutSize.width).toBe(0);
-            // fill is positioned right after the overflowing fixed children
-            expect(fill.localPosition.dx).toBe(100);
+            // нулевой fill стоит на краю контейнера, не за ним
+            expect(fill.localPosition.dx).toBe(80);
         });
 
-        it("fit children that exceed width leave no remaining space for fill (clamped to 0)", () => {
+        it("fit-ребёнок шире контейнера клампится по ширине контейнера, fill — в ноль", () => {
             const flex = new HFlexElement();
             const fit = new FixedSizeElement(100, 5);
             const fill = new TUIElement();
@@ -330,8 +331,18 @@ describe("HFlexElement", () => {
 
             layoutHFlex(flex, 80, 24);
 
-            expect(fit.layoutSize.width).toBe(100);
+            expect(fit.layoutSize.width).toBe(80);
             expect(fill.layoutSize.width).toBe(0); // remaining = max(0, 80 - 100) = 0
+        });
+
+        it("высота ребёнка выше контейнера клампится по высоте контейнера", () => {
+            const flex = new HFlexElement();
+            const tall = new TUIElement();
+            flex.addChild(tall, { width: hflexFixed(10), height: 50 });
+
+            layoutHFlex(flex, 80, 24);
+
+            expect(tall.layoutSize.height).toBe(24);
         });
     });
 
