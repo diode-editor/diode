@@ -304,12 +304,18 @@ export class OverlayLayer extends TUIElement {
         return layerSize;
     }
 
-    public render(context: RenderContext): void {
+    public override render(context: RenderContext): void {
         for (const item of this.items) {
             if (!item.visible) continue;
 
-            const childOffset = new Offset(item.position.x, item.position.y);
-            item.element.render(context.withOffset(childOffset));
+            // Позиция — из localPosition (её выставил layoutChild), не из
+            // item.position: после layout авторитетна геометрия элемента (Н5).
+            // Клип по границам ребёнка — инвариант отрисовки (Н2): нарисованное
+            // не выходит за layoutSize, хит-зона совпадает с видимым.
+            const child = item.element;
+            const childOffset = new Offset(child.localPosition.dx, child.localPosition.dy);
+            const clip = new Rect(child.globalPosition, child.layoutSize);
+            child.render(context.withOffset(childOffset).withClip(clip));
         }
     }
 

@@ -2,7 +2,7 @@ import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromit
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIFocusEvent } from "../../dom/events/tuiFocusEvent.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
-import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
+import { TUIElement } from "../../dom/tuiElement.ts";
 import type { OverlayLayer } from "../contextview/overlayLayer.ts";
 import type { OverlaySessionHandle } from "../contextview/overlayLayer.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../layout/hFlexElement.ts";
@@ -133,10 +133,6 @@ export class MenuBarElement extends TUIElement {
         this.layoutChild(this.hflex, 0, 0, BoxConstraints.tight(new Size(containerSize.width, 1)));
 
         return containerSize;
-    }
-
-    public render(context: RenderContext): void {
-        this.hflex.render(context.withOffset(this.hflex.localPosition));
     }
 
     protected override performDefaultAction(event: TUIEventBase): void {

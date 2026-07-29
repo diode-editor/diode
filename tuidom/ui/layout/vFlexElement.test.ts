@@ -286,27 +286,28 @@ describe("VFlexElement", () => {
         });
     });
 
-    describe("overflow: fixed children exceed available height", () => {
-        it("still lays out children at their fixed heights, running past the viewport", () => {
+    describe("нехватка места: жадный кламп по остатку (инвариант вложенности Н2)", () => {
+        it("fixed-дети клампятся по остатку в порядке детей, за контейнер никто не вылезает", () => {
             const flex = new VFlexElement();
             const a = new TUIElement();
             const b = new TUIElement();
             flex.addChild(a, { height: vflexFixed(20), width: 10 });
             flex.addChild(b, { height: vflexFixed(20), width: 10 });
 
-            layoutVFlex(flex, 80, 24); // container only 24 tall, children total 40
+            layoutVFlex(flex, 80, 24); // контейнер 24, дети хотят 40
 
-            expect(a.layoutSize.height).toBe(20);
-            expect(b.layoutSize.height).toBe(20);
+            expect(a.layoutSize.height).toBe(20); // первый влезает целиком
+            expect(b.layoutSize.height).toBe(4); // второму — остаток
             expect(b.localPosition.dy).toBe(20);
+            expect(b.localPosition.dy + b.layoutSize.height).toBe(24); // ровно край
         });
 
-        it("fixed children exceeding height leave a fill child clamped to zero", () => {
+        it("fixed-дети съели всё — fill и хвост клампятся в ноль на краю", () => {
             const flex = new VFlexElement();
             const a = new TUIElement();
             const b = new TUIElement();
             const fill = new TUIElement();
-            // fixed heights total 30 > container 24, so remaining = max(0, 24-30) = 0
+            // fixed суммарно 30 > контейнера 24
             flex.addChild(a, { height: vflexFixed(15), width: 10 });
             flex.addChild(b, { height: vflexFixed(15), width: 10 });
             flex.addChild(fill, { height: vflexFill(), width: 10 });
@@ -314,12 +315,13 @@ describe("VFlexElement", () => {
             layoutVFlex(flex, 80, 24);
 
             expect(a.layoutSize.height).toBe(15);
-            expect(b.layoutSize.height).toBe(15);
+            expect(b.layoutSize.height).toBe(9); // остаток
             expect(fill.layoutSize.height).toBe(0);
-            expect(fill.localPosition.dy).toBe(30);
+            // нулевой fill стоит на краю контейнера, не за ним
+            expect(fill.localPosition.dy).toBe(24);
         });
 
-        it("fit children that exceed height leave no remaining space for fill (clamped to 0)", () => {
+        it("fit-ребёнок выше контейнера клампится по высоте контейнера, fill — в ноль", () => {
             const flex = new VFlexElement();
             const fit = new FixedSizeElement(10, 30);
             const fill = new TUIElement();
@@ -328,8 +330,18 @@ describe("VFlexElement", () => {
 
             layoutVFlex(flex, 80, 24);
 
-            expect(fit.layoutSize.height).toBe(30);
+            expect(fit.layoutSize.height).toBe(24);
             expect(fill.layoutSize.height).toBe(0); // remaining = max(0, 24 - 30) = 0
+        });
+
+        it("ширина ребёнка шире контейнера клампится по ширине контейнера", () => {
+            const flex = new VFlexElement();
+            const wide = new TUIElement();
+            flex.addChild(wide, { height: vflexFixed(5), width: 200 });
+
+            layoutVFlex(flex, 80, 24);
+
+            expect(wide.layoutSize.width).toBe(80);
         });
     });
 

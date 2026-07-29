@@ -1,3 +1,5 @@
+import { Rect } from "../common/geometryPromitives.ts";
+
 import type { TUIElement } from "./tuiElement.ts";
 
 /**
@@ -25,10 +27,11 @@ import type { TUIElement } from "./tuiElement.ts";
  *   Пропускаются узлы с `isLayoutDirty` (офскрин-строки виртуализирующего
  *   ListViewElement легитимно несут устаревший layout), скрытые (`hidden`)
  *   поддеревья целиком (их никто не раскладывал) и ни разу не разложенные.
- *
- * Координаты (`globalPosition` = сумма `localPosition` предков) намеренно не
- * проверяются: у виртуализирующих контейнеров (ListViewElement) офскрин-дети
- * легитимно несут устаревшие позиции до следующего layout.
+ * - **Вложенность**: ребёнок геометрически внутри родителя —
+ *   `Rect(child) ⊆ Rect(parent)` (Н2, см. LAYOUT.md «Инвариант вложенности»).
+ *   Исключений нет: «переполнение» (попапы, дропдауны) реализуется переносом в
+ *   OverlayLayer, а не рисованием за границами. Пропуски те же, что у
+ *   layout-контракта, плюс пары, где dirty сам родитель (его геометрия stale).
  *
  * Использование: в тестах — автоматически после каждого кадра
  * (`TuiApplication.validateTreeAfterRender`, включает TestApp); в приложении —
@@ -72,6 +75,7 @@ export function validateTree(root: TUIElement): string[] {
             const childHidden = hiddenAncestor || child.hidden;
             if (!childHidden) {
                 checkLayoutContract(child, violations);
+                checkContainment(node, child, violations);
             }
 
             stack.push({ node: child, hiddenAncestor: childHidden });
@@ -92,6 +96,26 @@ function checkLayoutContract(node: TUIElement, violations: string[]): void {
             `${describe(node)} нарушает layout-контракт: размер ${size.width}×${size.height} ` +
                 `не удовлетворяет constraints [${constraints.minWidth}..${constraints.maxWidth}]×` +
                 `[${constraints.minHeight}..${constraints.maxHeight}] последнего layout()`,
+        );
+    }
+}
+
+/** Инвариант вложенности (Н2): ребёнок геометрически внутри родителя. */
+function checkContainment(parent: TUIElement, child: TUIElement, violations: string[]): void {
+    if (parent.isLayoutDirty || child.isLayoutDirty) return;
+    if (parent.lastLayoutConstraints === null || child.lastLayoutConstraints === null) return;
+    const parentRect = new Rect(parent.globalPosition, parent.layoutSize);
+    const childRect = new Rect(child.globalPosition, child.layoutSize);
+    const inside =
+        childRect.x >= parentRect.x &&
+        childRect.y >= parentRect.y &&
+        childRect.right <= parentRect.right &&
+        childRect.bottom <= parentRect.bottom;
+    if (!inside) {
+        violations.push(
+            `${describe(child)} вылезает за родителя ${describe(parent)}: ` +
+                `ребёнок [${childRect.x}..${childRect.right})×[${childRect.y}..${childRect.bottom}), ` +
+                `родитель [${parentRect.x}..${parentRect.right})×[${parentRect.y}..${parentRect.bottom})`,
         );
     }
 }

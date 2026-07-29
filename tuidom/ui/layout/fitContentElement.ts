@@ -1,5 +1,5 @@
-import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
-import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
+import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
+import { TUIElement } from "../../dom/tuiElement.ts";
 
 /**
  * Контейнер «по содержимому»: занимает max-intrinsic размер единственного
@@ -54,9 +54,4 @@ export class FitContentElement extends TUIElement {
         return resultSize;
     }
 
-    public override render(context: RenderContext): void {
-        if (this.child) {
-            this.child.render(context.withOffset(this.child.localPosition));
-        }
-    }
 }

@@ -132,7 +132,9 @@ export class VFlexElement extends TUIElement {
 
         for (const child of this.getChildren()) {
             const style = child.layoutStyle as VFlexLayoutStyle;
-            const childWidth = style.width === "fill" ? containerWidth : style.width;
+            // Инвариант вложенности (Н2): дети не вылезают за контейнер — при
+            // нехватке места жадный кламп по остатку в порядке детей.
+            const childWidth = Math.min(style.width === "fill" ? containerWidth : style.width, containerWidth);
 
             let childHeight: number;
             if (style.height.type === "fixed") {
@@ -142,6 +144,7 @@ export class VFlexElement extends TUIElement {
             } else {
                 childHeight = remaining;
             }
+            childHeight = Math.max(0, Math.min(childHeight, containerHeight - currentY));
 
             this.layoutChild(child, 0, currentY, BoxConstraints.tight(new Size(childWidth, childHeight)));
             currentY += childHeight;

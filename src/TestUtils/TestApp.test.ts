@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Size } from "../../tuidom/common/geometryPromitives.ts";
+import { BoxConstraints, Size } from "../../tuidom/common/geometryPromitives.ts";
 import type { TUIKeyboardEvent } from "../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import { TUIElement } from "../../tuidom/dom/tuiElement.ts";
 import { BodyElement } from "../../tuidom/ui/body/bodyElement.ts";
@@ -11,6 +11,16 @@ import { TestApp } from "./TestApp.ts";
 class ContainerElement extends TUIElement {
     public addChild(child: TUIElement): void {
         this.appendChild(child);
+    }
+
+    // Контейнер обязан раскладывать детей (инвариант вложенности): стопкой в
+    // (0,0) под loose по собственному размеру.
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const size = super.performLayout(constraints);
+        for (const child of this.getChildren()) {
+            this.layoutChild(child, 0, 0, BoxConstraints.loose(size));
+        }
+        return size;
     }
 }
 

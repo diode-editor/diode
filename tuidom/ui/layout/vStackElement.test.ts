@@ -238,6 +238,24 @@ describe("VStackElement", () => {
         expect(box2.globalPosition).toEqual(new Point(5, 13));
     });
 
+    it("клампит детей по остатку при нехватке места (инвариант вложенности Н2)", () => {
+        const { vstack } = createVStack(10, 6);
+
+        const box1 = new BoxElement();
+        const box2 = new BoxElement();
+        const box3 = new BoxElement();
+        vstack.addChild(box1, { width: 30, height: 4 }); // шире контейнера
+        vstack.addChild(box2, { width: "fill", height: 4 }); // хочет 4, остаток 2
+        vstack.addChild(box3, { width: "fill", height: 4 }); // остатка нет
+
+        vstack.layout(BoxConstraints.tight(new Size(10, 6)));
+
+        expect(box1.layoutSize).toEqual(new Size(10, 4)); // ширина заклампена
+        expect(box2.layoutSize.height).toBe(2); // остаток высоты
+        expect(box3.layoutSize.height).toBe(0);
+        expect(box3.localPosition.dy).toBe(6); // на краю, не за ним
+    });
+
     it("child markDirty propagates to parent", () => {
         const { vstack } = createVStack(10, 6);
 
