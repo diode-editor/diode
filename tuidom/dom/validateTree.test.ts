@@ -252,6 +252,16 @@ describe("validateTree — инвариант вложенности", () => {
         expect(validateTree(root)).toEqual([]);
     });
 
+    it("пропускает пару, где родитель чист, но ни разу не раскладывался", () => {
+        const root = makeRootedContainer();
+        const child = new TUIElement();
+        root.add(child);
+        root.isLayoutDirty = false; // чист, но layout() не вызывался
+        child.layout(BoxConstraints.tight(new Size(80, 24)));
+
+        expect(validateTree(root)).toEqual([]);
+    });
+
     it("нулевой ребёнок на краю родителя — не нарушение", () => {
         const root = makeRootedContainer();
         const child = new TUIElement();
