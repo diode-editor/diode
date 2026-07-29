@@ -47,12 +47,14 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
         await editor.capture("terminal-open");
 
-        // The shell is live: type a command and wait for its output line. The typed
-        // command echoes once, its output prints once — so the marker appears twice
-        // (robust against the exact prompt glyph).
-        await editor.sendText("echo vexx-term-ok");
+        // The shell is live: type a command and wait for its output line. В тексте
+        // команды маркер разорван пустой подстановкой (vexx-term""-ok), поэтому
+        // целиком он может появиться ТОЛЬКО в выводе шелла — ожидание не зависит
+        // ни от глифа промпта, ни от переноса эхо-команды через край панели
+        // (длинный cwd git-worktree переносил её и маркер не собирался).
+        await editor.sendText('echo vexx-term""-ok');
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.split("vexx-term-ok").length - 1 >= 2);
+        await editor.waitForText((t) => t.includes("vexx-term-ok"));
         await editor.capture("terminal-echo");
     },
 });
