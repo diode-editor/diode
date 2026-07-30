@@ -8,20 +8,17 @@ import { TUIElement } from "./tuiElement.ts";
 
 // ─── Helpers ───
 
+// Scroll-контент по контракту (LAYOUT.md «Инвариант вложенности и клип») — ЛИСТ:
+// рисует весь контент сам в локальных координатах, детей с контентными
+// координатами не имеет (они нарушали бы инвариант вложенности Н2).
 class ContentElement extends TUIElement implements IContentSized {
     public contentHeight: number;
     public contentWidth: number;
-
-    private children: TUIElement[] = [];
 
     public constructor(contentWidth: number, contentHeight: number) {
         super();
         this.contentWidth = contentWidth;
         this.contentHeight = contentHeight;
-    }
-
-    public addChild(child: TUIElement): void {
-        this.appendChild(child);
     }
 }
 
@@ -35,118 +32,37 @@ function layoutElement(el: TUIElement, globalPos: Point, size: Size): void {
 
 // ─── Tests ───
 
-describe("ScrollViewport.elementFromPoint — vertical scroll", () => {
-    it("adjusts point by scrollTop to find content element", () => {
+describe("ScrollViewport.elementFromPoint — контракт «контент — лист»", () => {
+    it("возвращает контент в любой точке вьюпорта независимо от прокрутки", () => {
         const content = new ContentElement(80, 100);
         const viewport = new ScrollViewport(content);
-
-        // Layout viewport at (0,0) with size 80x20
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
-        // Content gets same global position as viewport
-        content.localPosition = new Offset(0, 0);
-        content.layout(BoxConstraints.tight(new Size(80, 20)));
 
-        // Place a child inside content at y=35 (visible only when scrolled)
-        const child = new TUIElement();
-        content.addChild(child);
-        layoutElement(child, new Point(10, 30), new Size(20, 10));
-
-        // Scroll down by 30
-        viewport.scrollTo(0, 30);
-
-        // Screen point (15, 5) → content y = 5 + 30 = 35, which is inside child (30..40)
-        expect(viewport.elementFromPoint(new Point(15, 5))).toBe(child);
-    });
-
-    it("returns content when scrolled point misses child", () => {
-        const content = new ContentElement(80, 100);
-        const viewport = new ScrollViewport(content);
-
-        layoutElement(viewport, new Point(0, 0), new Size(80, 20));
-        content.localPosition = new Offset(0, 0);
-        content.layout(BoxConstraints.tight(new Size(80, 20)));
-
-        const child = new TUIElement();
-        content.addChild(child);
-        layoutElement(child, new Point(10, 50), new Size(20, 10));
-
-        viewport.scrollTo(0, 0);
-
-        // Without scroll, point (15, 5) maps to content y=5, which misses child at 50..60
         expect(viewport.elementFromPoint(new Point(15, 5))).toBe(content);
+        viewport.scrollTo(0, 30);
+        expect(viewport.elementFromPoint(new Point(15, 5))).toBe(content);
+        viewport.scrollTo(40, 60);
+        expect(viewport.elementFromPoint(new Point(79, 19))).toBe(content);
     });
 
-    it("returns null when point is outside viewport bounds", () => {
+    it("возвращает null вне границ вьюпорта", () => {
         const content = new ContentElement(80, 100);
         const viewport = new ScrollViewport(content);
-
         layoutElement(viewport, new Point(0, 0), new Size(80, 20));
 
-        // Point outside viewport
         expect(viewport.elementFromPoint(new Point(0, 25))).toBeNull();
+        expect(viewport.elementFromPoint(new Point(80, 5))).toBeNull();
     });
-});
 
-describe("ScrollViewport.elementFromPoint — horizontal scroll", () => {
-    it("adjusts point by scrollLeft to find content element", () => {
-        const content = new ContentElement(200, 20);
-        const viewport = new ScrollViewport(content);
-
-        layoutElement(viewport, new Point(0, 0), new Size(80, 20));
-        content.localPosition = new Offset(0, 0);
-        content.layout(BoxConstraints.tight(new Size(80, 20)));
-
-        const child = new TUIElement();
-        content.addChild(child);
-        layoutElement(child, new Point(100, 5), new Size(20, 10));
-
-        viewport.scrollTo(90, 0);
-
-        // Screen x=15, scrollLeft=90 → content x = 15 + 90 = 105, inside child (100..120)
-        expect(viewport.elementFromPoint(new Point(15, 8))).toBe(child);
-    });
-});
-
-describe("ScrollViewport.elementFromPoint — both axes", () => {
-    it("adjusts point by both scrollLeft and scrollTop", () => {
-        const content = new ContentElement(200, 200);
-        const viewport = new ScrollViewport(content);
-
-        layoutElement(viewport, new Point(0, 0), new Size(80, 20));
-        content.localPosition = new Offset(0, 0);
-        content.layout(BoxConstraints.tight(new Size(80, 20)));
-
-        const child = new TUIElement();
-        content.addChild(child);
-        layoutElement(child, new Point(100, 100), new Size(20, 10));
-
-        viewport.scrollTo(95, 95);
-
-        // Screen (10, 8) → content (105, 103), inside child (100..120, 100..110)
-        expect(viewport.elementFromPoint(new Point(10, 8))).toBe(child);
-    });
-});
-
-describe("ScrollViewport.elementFromPoint — offset viewport", () => {
-    it("respects viewport's own global position", () => {
+    it("учитывает собственную позицию вьюпорта на экране", () => {
         const content = new ContentElement(80, 100);
         const viewport = new ScrollViewport(content);
-
-        // Viewport starts at (10, 5) on screen; its layout positions content at
-        // the viewport origin — content.globalPosition выводится сам.
         layoutElement(viewport, new Point(10, 5), new Size(60, 15));
-
-        const child = new TUIElement();
-        content.addChild(child);
-        layoutElement(child, new Point(10, 20), new Size(40, 10));
-
         viewport.scrollTo(0, 15);
 
-        // Screen point (25, 12) is inside viewport (10..70, 5..20)
-        // Content point: (25 + 0, 12 + 15) = (25, 27), inside child (10..50, 20..30)
-        expect(viewport.elementFromPoint(new Point(25, 12))).toBe(child);
-
-        // Screen point (5, 3) is outside viewport
+        // Внутри вьюпорта (10..70, 5..20) — контент, независимо от прокрутки.
+        expect(viewport.elementFromPoint(new Point(25, 12))).toBe(content);
+        // Вне вьюпорта — null.
         expect(viewport.elementFromPoint(new Point(5, 3))).toBeNull();
     });
 });

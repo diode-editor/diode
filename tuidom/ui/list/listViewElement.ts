@@ -304,14 +304,12 @@ export class ListViewElement extends ScrollableElement {
     // ─── TUIElement overrides ───
 
     /**
-     * Строки презентационные: хит-тест всегда возвращает сам контейнер, чтобы вся
-     * семантика мыши жила в нём (и чтобы закуленные строки с непосчитанным layout
-     * не крали хиты у чужих углов экрана — см. базовый elementFromPoint).
+     * Строки презентационные: в хит-тест не спускаемся — вся семантика мыши
+     * живёт в контейнере (и закуленные строки с непосчитанным layout не крадут
+     * хиты у чужих углов экрана).
      */
-    public override elementFromPoint(point: Point): TUIElement | null {
-        const bounds = new Rect(this.globalPosition, this.layoutSize);
-        if (!bounds.containsPoint(point)) return null;
-        return this;
+    protected override hitTestChildren(_point: Point): TUIElement | null {
+        return null;
     }
 
     /** Строки не участвуют в Tab-обходе — фокусируется только сам список. */

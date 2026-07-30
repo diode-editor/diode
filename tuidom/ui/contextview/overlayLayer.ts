@@ -261,22 +261,25 @@ export class OverlayLayer extends TUIElement {
         return this.items;
     }
 
-    public override elementFromPoint(point: Point): TUIElement | null {
-        for (let i = this.items.length - 1; i >= 0; i--) {
-            const item = this.items[i];
-            if (!item.visible) continue;
-            const bounds = new Rect(item.element.globalPosition, item.element.layoutSize);
-            if (bounds.containsPoint(point)) {
-                const hit = item.element.elementFromPoint(point);
-                if (hit) return hit;
-            }
-            // A modal session swallows every point not already claimed by an item above it,
-            // so the hit never falls through to elements behind the overlay.
-            if (this.isModalElement(item.element)) {
-                return item.element;
-            }
+    /**
+     * Базовый обратный обход детей (скрытые сессии выпадают через hidden) +
+     * modal-хвост: модальная сессия проглатывает точку, не взятую элементами
+     * над ней, — клик не проваливается под оверлей.
+     */
+    protected override hitTestChildren(point: Point): TUIElement | null {
+        const children = this.getChildren();
+        for (let i = children.length - 1; i >= 0; i--) {
+            const child = children[i];
+            const hit = child.elementFromPoint(point);
+            if (hit) return hit;
+            if (this.isModalElement(child)) return child;
         }
         return null;
+    }
+
+    /** Слой прозрачен для кликов: мимо попапов точка уходит контенту под ним. */
+    protected override hitTestSelf(_point: Point): boolean {
+        return false;
     }
 
     private isModalElement(element: TUIElement): boolean {

@@ -928,20 +928,56 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     // ─── Hit-testing ───
+    //
+    // Правило системы (Н6): рендер и Tab обходят детей ВПЕРЁД, хит-тест — тем
+    // же списком НАЗАД (последний нарисован сверху). Правило зашито в шаблон
+    // ниже и не переопределяется; контейнер объявляет отличия только в двух
+    // симметричных точках — {@link hitTestChildren} (зеркало
+    // {@link renderChildren}) и {@link hitTestSelf}.
 
+    /**
+     * Финальный шаблон хит-теста — НЕ переопределять (кастомизация — через
+     * {@link hitTestChildren}/{@link hitTestSelf}): скрытое не кликается,
+     * вне собственных границ хита нет (инвариант вложенности Н2 гарантирует,
+     * что и у детей его там нет), дети опрашиваются в обратном порядке
+     * отрисовки, затем — сам элемент.
+     */
     // eslint-disable-next-line @typescript-eslint/prefer-return-this-type
     public elementFromPoint(point: Point): TUIElement | null {
         if (this.hidden) return null; // скрытое не кликается
         const bounds = new Rect(this.globalPosition, this.layoutSize);
         if (!bounds.containsPoint(point)) return null;
 
+        const hit = this.hitTestChildren(point);
+        if (hit) return hit;
+
+        return this.hitTestSelf(point) ? this : null;
+    }
+
+    /**
+     * Хит-тест детей — зеркало {@link renderChildren}: тот же список, обратный
+     * порядок (верхний — первый), скрытых пропускает сам elementFromPoint
+     * ребёнка. Переопределение — для контейнеров с осознанно другой политикой:
+     * презентационные строки ListViewElement (`null` — мышь у контейнера),
+     * modal-хвост OverlayLayer.
+     */
+    protected hitTestChildren(point: Point): TUIElement | null {
         const children = this.getChildren();
         for (let i = children.length - 1; i >= 0; i--) {
             const hit = children[i].elementFromPoint(point);
             if (hit) return hit;
         }
+        return null;
+    }
 
-        return this;
+    /**
+     * Берёт ли элемент точку на себя, когда никто из детей её не взял.
+     * Дефолт — да (непрозрачный бокс). `false` — прозрачный для кликов
+     * контейнер: точка проваливается к элементам ПОД ним (OverlayLayer без
+     * попапа в этой точке).
+     */
+    protected hitTestSelf(_point: Point): boolean {
+        return true;
     }
 
     // ─── Query API (querySelector / querySelectorAll) ───
