@@ -287,3 +287,60 @@ describe("elementFromPoint — edge cases", () => {
         expect(root.elementFromPoint(new Point(95, 5))).toBe(children[9]);
     });
 });
+
+describe("elementFromPoint — протокол hitTestChildren/hitTestSelf (Н6)", () => {
+    it("hitTestSelf=false: прозрачный контейнер пропускает точку к соседу под ним", () => {
+        class TransparentElement extends ContainerElement {
+            protected override hitTestSelf(): boolean {
+                return false;
+            }
+        }
+        const root = new ContainerElement();
+        layoutElement(root, new Point(0, 0), new Size(100, 20));
+        const below = new TUIElement();
+        root.addChild(below);
+        layoutElement(below, new Point(0, 0), new Size(100, 20));
+        // Прозрачный слой ПОВЕРХ below (последний ребёнок — сверху).
+        const layer = new TransparentElement();
+        root.addChild(layer);
+        layoutElement(layer, new Point(0, 0), new Size(100, 20));
+        const popup = new TUIElement();
+        layer.addChild(popup);
+        layoutElement(popup, new Point(10, 5), new Size(20, 5));
+
+        // Внутри попапа — попап; мимо попапа — сквозь прозрачный слой в below.
+        expect(root.elementFromPoint(new Point(15, 7))).toBe(popup);
+        expect(root.elementFromPoint(new Point(50, 15))).toBe(below);
+    });
+
+    it("hitTestChildren → null: дети презентационные, точку берёт контейнер", () => {
+        class PresentationalContainer extends ContainerElement {
+            protected override hitTestChildren(): TUIElement | null {
+                return null;
+            }
+        }
+        const container = new PresentationalContainer();
+        layoutElement(container, new Point(0, 0), new Size(50, 10));
+        const row = new TUIElement();
+        container.addChild(row);
+        layoutElement(row, new Point(0, 0), new Size(50, 1));
+
+        expect(container.elementFromPoint(new Point(5, 0))).toBe(container);
+    });
+
+    it("дефолтный hitTestChildren зеркален renderChildren: последний ребёнок сверху", () => {
+        const root = new ContainerElement();
+        layoutElement(root, new Point(0, 0), new Size(40, 10));
+        const under = new TUIElement();
+        const over = new TUIElement();
+        root.addChild(under);
+        root.addChild(over);
+        layoutElement(under, new Point(0, 0), new Size(40, 10));
+        layoutElement(over, new Point(10, 2), new Size(10, 4));
+
+        // Точка в перекрытии — верхний (последний в списке детей).
+        expect(root.elementFromPoint(new Point(15, 3))).toBe(over);
+        // Точка мимо верхнего — нижний.
+        expect(root.elementFromPoint(new Point(5, 5))).toBe(under);
+    });
+});

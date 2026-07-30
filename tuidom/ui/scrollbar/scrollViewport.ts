@@ -1,4 +1,4 @@
-import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Rect, Size } from "../../common/geometryPromitives.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
 import type { IContentSized, IScrollable } from "./iScrollable.ts";
@@ -70,20 +70,7 @@ export class ScrollViewport extends TUIElement implements IScrollable {
         this.child.render(context.withOffset(scrollOffset).withClip(viewportClip));
     }
 
-    public override elementFromPoint(point: Point): TUIElement | null {
-        const bounds = new Rect(this.globalPosition, this.layoutSize);
-        if (!bounds.containsPoint(point)) return null;
-
-        const scrolledPoint = new Point(point.x + this.scrollLeft, point.y + this.scrollTop);
-
-        // Bypass content's bounds check — its layoutSize equals viewport size,
-        // but children can live far beyond that in content coordinates.
-        const children = this.child.getChildren();
-        for (let i = children.length - 1; i >= 0; i--) {
-            const hit = children[i].elementFromPoint(scrolledPoint);
-            if (hit) return hit;
-        }
-
-        return this.child;
-    }
+    // Хит-тест — базовый: ребёнок размером с вьюпорт берёт точку на себя.
+    // Контракт «scroll-контент — лист, рисует сам» (LAYOUT.md) — детей с
+    // контентными координатами у него нет, трансформация точки не нужна.
 }
