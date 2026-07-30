@@ -224,7 +224,7 @@ describe("TUIElement — подключение к дереву (onDidConnect/on
         class FocusProbe extends TUIElement {
             public constructor() {
                 super();
-                this.tabIndex = 0;
+                this.focusable = true;
                 this.addEventListener("blur", () => order.push("blur"));
             }
 

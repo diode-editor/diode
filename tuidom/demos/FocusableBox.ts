@@ -14,7 +14,7 @@ export class FocusableBox extends TUIElement {
 
     public constructor(label: string) {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
         this.label = label;
 
         this.addEventListener("focus", () => {

@@ -33,7 +33,7 @@ export class ButtonElement extends TUIElement {
     public constructor(label: string, options?: { styles?: IButtonStyles }) {
         super();
         this.label = label;
-        this.tabIndex = 0;
+        this.focusable = true;
         if (options?.styles) {
             this.styles = options.styles;
         }

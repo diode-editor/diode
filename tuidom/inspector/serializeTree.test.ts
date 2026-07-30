@@ -41,7 +41,7 @@ describe("serializeTree", () => {
         const label = new TextLabelElement("hello");
         label.id = "greeting";
         label.role = "heading";
-        label.tabIndex = 3;
+        label.focusable = true;
         body.setContent(label);
         const app = TestApp.create(body, new Size(20, 5)).app;
 
@@ -53,7 +53,7 @@ describe("serializeTree", () => {
         const labelNode = findByType(snap!, "TextLabelElement");
         expect(labelNode?.id).toBe("greeting");
         expect(labelNode?.role).toBe("heading");
-        expect(labelNode?.tabIndex).toBe(3);
+        expect(labelNode?.focusable).toBe(true);
         expect(labelNode?.text).toBe("hello");
         expect(labelNode?.focused).toBe(false);
     });

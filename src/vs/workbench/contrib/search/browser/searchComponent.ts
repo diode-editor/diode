@@ -260,7 +260,7 @@ export class SearchComponent extends ThemedComponent {
     }
 
     private configureToggle(button: ButtonElement, onActivate: () => void): void {
-        button.tabIndex = -1; // keep focus in the query input on click
+        button.focusable = false; // keep focus in the query input on click
         button.onActivate = onActivate;
     }
 

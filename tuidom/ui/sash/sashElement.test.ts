@@ -68,7 +68,7 @@ describe("SashElement", () => {
     it("opts into pointer capture and stays unfocusable", () => {
         const sash = new SashElement();
         expect(sash.capturesPointer).toBe(true);
-        expect(sash.tabIndex).toBe(-1);
+        expect(sash.focusable).toBe(false);
     });
 
     it("renders nothing (invisible hit target)", () => {

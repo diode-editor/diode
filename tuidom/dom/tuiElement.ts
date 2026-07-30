@@ -225,8 +225,10 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     public id: string | undefined = undefined;
     public role: string | undefined = undefined;
 
-    // Focus support
-    public tabIndex = -1;
+    // Участие в Tab-обходе и фокусе по клику. Порядок обхода — это порядок
+    // детей в дереве (как z-порядок и хит-тест); числового приоритета в духе
+    // DOM tabindex нет намеренно — он был бы вторым источником порядка.
+    public focusable = false;
 
     // Pointer capture (opt-in): while a button is held on this element, the dispatcher
     // routes subsequent move/release events here even if the cursor leaves its bounds.
@@ -453,14 +455,14 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     /**
-     * Порядок Tab-обхода поддерева: фокусируемые (tabIndex >= 0) в глубину.
+     * Порядок Tab-обхода поддерева: фокусируемые (focusable) в глубину.
      * Скрытые (hidden) поддеревья пропускаются целиком — Tab не должен уводить
      * фокус в невидимый инпут (закрытый find-виджет, неактивная вкладка).
      */
     public getDepthFirstFocusableOrder(): TUIElement[] {
         if (this.hidden) return [];
         const result: TUIElement[] = [];
-        if (this.tabIndex >= 0) result.push(this);
+        if (this.focusable) result.push(this);
         for (const child of this.getChildren()) {
             result.push(...child.getDepthFirstFocusableOrder());
         }
@@ -578,7 +580,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
      * Analogous to Web DOM default actions (e.g. <a> navigation, <input> text entry).
      */
     protected performDefaultAction(event: TUIEventBase): void {
-        if (event.type === "mousedown" && this.tabIndex >= 0) {
+        if (event.type === "mousedown" && this.focusable) {
             this.focus();
         }
     }

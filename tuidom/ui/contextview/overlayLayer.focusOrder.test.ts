@@ -13,10 +13,10 @@ import { BoxElement } from "../layout/boxElement.ts";
  */
 function appWithOverlay() {
     const content = new BoxElement();
-    content.tabIndex = 0;
+    content.focusable = true;
     const app = TestApp.createWithContent(content, new Size(40, 12));
     const hidden = new InputElement();
-    hidden.tabIndex = 0;
+    hidden.focusable = true;
     const session = app.root.overlayLayer.createSession(hidden, new Point(1, 1), {
         pointerPolicy: "close-on-outside",
     });

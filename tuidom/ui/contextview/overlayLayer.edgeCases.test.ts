@@ -13,7 +13,7 @@ describe("OverlayLayer edge cases", () => {
         const layer = app.root.overlayLayer;
 
         const menu = new PopupMenuElement([{ label: "Copy" }]);
-        menu.tabIndex = 0;
+        menu.focusable = true;
 
         const onClose = vi.fn();
         const session = layer.createSession(menu, new Point(2, 2), {
@@ -96,7 +96,7 @@ describe("OverlayLayer edge cases", () => {
         const layer = app.root.overlayLayer;
 
         const menu = new PopupMenuElement([{ label: "Copy" }]);
-        menu.tabIndex = 0;
+        menu.focusable = true;
 
         const onClose = vi.fn();
         const session = layer.createSession(menu, new Point(3, 1), {

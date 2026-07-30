@@ -146,7 +146,7 @@ export class QuickPickElement extends TUIElement {
 
     public constructor() {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
 
         this.inputElement = new InputElement();
         this.inputElement.showBorder = false;

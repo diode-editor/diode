@@ -97,7 +97,7 @@ describe("FindComponent — button clicks", () => {
 
     it("keeps focus in the input — the nav buttons are non-focusable", () => {
         const component = make();
-        expect(buttons(component).every((b) => b.tabIndex === -1)).toBe(true);
+        expect(buttons(component).every((b) => b.focusable === false)).toBe(true);
     });
 });
 

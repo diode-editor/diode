@@ -61,7 +61,7 @@ export class SelectBoxElement extends TUIElement {
 
     public constructor() {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
         this.addEventListener("mousedown", (event) => {
             if (event.button !== "left") return;
             this.toggleOpen();
@@ -196,7 +196,7 @@ export class SelectBoxElement extends TUIElement {
 
         const menu = new PopupMenuElement(entries);
         menu.setStyles(this.styles.list);
-        menu.tabIndex = 0;
+        menu.focusable = true;
         // Список раскрывается ПОД контролом и прижимается к его левому краю —
         // как раскрывается `<select>`.
         this.session = layer.openPopupSession(

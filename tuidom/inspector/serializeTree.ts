@@ -29,7 +29,7 @@ function serializeNode(element: TUIElement, focused: TUIElement | null, counter:
 
     if (element.id !== undefined) snapshot.id = element.id;
     if (element.role !== undefined) snapshot.role = element.role;
-    if (element.tabIndex !== -1) snapshot.tabIndex = element.tabIndex;
+    if (element.focusable) snapshot.focusable = true;
     if (element instanceof TextLabelElement) snapshot.text = element.getText();
     const state = element.inspectState();
     if (state !== undefined) snapshot.state = state;

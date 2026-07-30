@@ -75,7 +75,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
 
     public constructor() {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
         this.addEventListener("wheel", (event) => {
             this.handleWheel(event);
         });

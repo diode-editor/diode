@@ -124,7 +124,7 @@ export class ListViewElement extends ScrollableElement {
 
     public constructor(options?: { indentSize?: number; typeahead?: boolean }) {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
         this.indentSize = options?.indentSize ?? DEFAULT_INDENT_SIZE;
         this.typeaheadEnabled = options?.typeahead ?? true;
     }
@@ -316,7 +316,7 @@ export class ListViewElement extends ScrollableElement {
 
     /** Строки не участвуют в Tab-обходе — фокусируется только сам список. */
     public override getDepthFirstFocusableOrder(): TUIElement[] {
-        return this.tabIndex >= 0 ? [this] : [];
+        return this.focusable ? [this] : [];
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {

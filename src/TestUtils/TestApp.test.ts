@@ -41,7 +41,7 @@ describe("TestApp", () => {
     it("sendKey delivers keyboard event to focused element", () => {
         const container = new ContainerElement();
         const child = new TUIElement();
-        child.tabIndex = 0;
+        child.focusable = true;
         container.addChild(child);
 
         const testApp = TestApp.create(createBody(container), new Size(20, 5));
@@ -84,10 +84,10 @@ describe("TestApp", () => {
     it("focusedElement returns currently focused element", () => {
         const container = new ContainerElement();
         const a = new TUIElement();
-        a.tabIndex = 0;
+        a.focusable = true;
         a.role = "first";
         const b = new TUIElement();
-        b.tabIndex = 0;
+        b.focusable = true;
         b.role = "second";
         container.addChild(a);
         container.addChild(b);
@@ -106,10 +106,10 @@ describe("TestApp", () => {
     it("Tab cycles focus between focusable elements", () => {
         const container = new ContainerElement();
         const a = new TUIElement();
-        a.tabIndex = 0;
+        a.focusable = true;
         a.id = "first";
         const b = new TUIElement();
-        b.tabIndex = 0;
+        b.focusable = true;
         b.id = "second";
         container.addChild(a);
         container.addChild(b);

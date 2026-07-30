@@ -35,9 +35,9 @@ describe("CompletionListElement", () => {
         expect(w.getSelectedItem()?.label).toBe("indent_style");
     });
 
-    it("не забирает фокус (tabIndex=-1)", () => {
+    it("не забирает фокус (focusable=false)", () => {
         const w = makeWidget(ITEMS);
-        expect(w.tabIndex).toBe(-1);
+        expect(w.focusable).toBe(false);
     });
 
     it("фильтрует по подстроке (case-insensitive)", () => {
@@ -116,7 +116,7 @@ describe("CompletionListElement", () => {
         expect(accepted).toBe(false);
     });
 
-    it("mousedown не фокусит (tabIndex=-1)", () => {
+    it("mousedown не фокусит (focusable=false)", () => {
         const w = makeWidget(ITEMS);
         w.dispatchEvent(
             new TUIMouseEvent("mousedown", { button: "left", screenX: 0, screenY: 1, localX: 5, localY: 1 }),

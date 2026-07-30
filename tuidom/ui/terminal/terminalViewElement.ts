@@ -75,7 +75,7 @@ export class TerminalViewElement extends TUIElement {
     public constructor(surface: ITerminalSurface) {
         super();
         this.surface = surface;
-        this.tabIndex = 0; // фокусируемый — принимает клавиатуру
+        this.focusable = true; // фокусируемый — принимает клавиатуру
         this.capturesPointer = true; // drag: move/up приходят сюда даже вне границ
 
         // Новые данные из шелла → перерисовать контрол (TuiApplication батчит кадр).

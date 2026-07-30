@@ -95,7 +95,7 @@ export interface NodeSnapshot {
     type: string;
     id?: string;
     role?: string;
-    tabIndex?: number;
+    focusable?: true;
     box: { x: number; y: number; width: number; height: number };
     style: { fg: number; bg: number };
     focused: boolean;

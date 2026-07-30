@@ -231,7 +231,7 @@ describe("QuickOpenService — open/close", () => {
         const { service, body, testApp } = createService();
         // Put something focusable in the body and focus it first
         const dummyInput = new InputElement();
-        dummyInput.tabIndex = 0;
+        dummyInput.focusable = true;
         body.setContent(dummyInput);
         testApp.app.root = body;
         dummyInput.focus();

@@ -22,7 +22,7 @@ describe("TUIElement focus convenience", () => {
         root.focusManager = fm;
 
         const child = new TUIElement();
-        child.tabIndex = 0;
+        child.focusable = true;
         root.addChild(child);
         fm.setFocus(child);
 
@@ -36,7 +36,7 @@ describe("TUIElement focus convenience", () => {
         root.focusManager = fm;
 
         const child = new TUIElement();
-        child.tabIndex = 0;
+        child.focusable = true;
         root.addChild(child);
 
         child.focus();
@@ -50,7 +50,7 @@ describe("TUIElement focus convenience", () => {
         root.focusManager = fm;
 
         const child = new TUIElement();
-        child.tabIndex = 0;
+        child.focusable = true;
         root.addChild(child);
 
         child.focus();
@@ -67,10 +67,10 @@ describe("TUIElement focus convenience", () => {
         root.focusManager = fm;
 
         const child1 = new TUIElement();
-        child1.tabIndex = 0;
+        child1.focusable = true;
         root.addChild(child1);
         const child2 = new TUIElement();
-        child2.tabIndex = 0;
+        child2.focusable = true;
         root.addChild(child2);
 
         child1.focus();

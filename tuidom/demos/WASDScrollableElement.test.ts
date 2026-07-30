@@ -12,7 +12,7 @@ function createWASD(
     gridHeight: number,
 ): { widget: WASDScrollableElement; app: TestApp } {
     const widget = new WASDScrollableElement(gridWidth, gridHeight);
-    widget.tabIndex = 0;
+    widget.focusable = true;
     const app = TestApp.createWithContent(widget, new Size(viewportWidth, viewportHeight));
     widget.focus();
     return { widget, app };

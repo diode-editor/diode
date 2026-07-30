@@ -136,7 +136,7 @@ describe("ListViewElement rendering", () => {
         const list = new ListViewElement();
         list.appendRow(makeRow("a"));
         expect(list.getDepthFirstFocusableOrder()).toEqual([list]);
-        list.tabIndex = -1;
+        list.focusable = false;
         expect(list.getDepthFirstFocusableOrder()).toEqual([]);
     });
 });

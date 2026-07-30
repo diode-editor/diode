@@ -57,7 +57,7 @@ export class MenuBarElement extends TUIElement {
 
     public constructor(items: MenuBarItem[]) {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
         this.items = items;
 
         this.hflex = new HFlexElement();

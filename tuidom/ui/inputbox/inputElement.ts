@@ -44,7 +44,7 @@ export class InputElement extends TUIElement {
     public constructor(inputState?: InputState) {
         super();
         this.inputState = inputState ?? new InputState();
-        this.tabIndex = 0;
+        this.focusable = true;
 
         this.addEventListener("focus", () => {
             this.markDirty();
