@@ -287,6 +287,31 @@ describe("TUIElement — подключение к дереву (onDidConnect/on
         expect(log).toEqual(["container:connect(root)", "remover:connect(root)", "victim:disconnect"]);
     });
 
+    it("реентерабельность: узел, удалённый из onDidDisconnect соседа, пропускается по протухшей связи", () => {
+        const log: string[] = [];
+        const root = makeRoot(log);
+        const container = new ProbeElement("container", log);
+        const victim = new ProbeElement("victim", log);
+        class RemovingProbe extends ProbeElement {
+            protected override onDidDisconnect(): void {
+                super.onDidDisconnect();
+                container.remove(victim);
+            }
+        }
+        const remover = new RemovingProbe("remover", log);
+        container.add(remover);
+        container.add(victim);
+        root.add(container);
+        log.length = 0;
+
+        root.remove(container);
+        // victim снят хуком уже ПОСЛЕ отключения поддерева (его собственный
+        // setParent не видит смены укоренённости: null → null), а обход
+        // пропускает его по протухшей связи — уведомление молчит.
+        expect(log).toEqual(["container:disconnect", "remover:disconnect"]);
+        expect(victim.getParent()).toBeNull();
+    });
+
     it("исключение из хука пролетает наружу, топология остаётся консистентной", () => {
         const log: string[] = [];
         class ThrowingProbe extends TUIElement {
