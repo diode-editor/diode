@@ -114,7 +114,7 @@ describe("TuiApplication", () => {
         app.root = body;
         app.run();
 
-        editor.tabIndex = 0;
+        editor.focusable = true;
         editor.focus();
 
         // Select "ello": cursor to end, then select left 4 times

@@ -17,7 +17,7 @@ import { MenuBarElement } from "./menuBarElement.ts";
 class FocusableChild extends TUIElement {
     public constructor() {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
     }
 
     public render(): void {
@@ -127,9 +127,9 @@ describe("MenuBarElement", () => {
     });
 
     describe("focus management", () => {
-        it("menuBar is focusable (tabIndex = 0)", () => {
+        it("menuBar is focusable (focusable = true)", () => {
             const { menuBar } = setupWithBody(simpleItems());
-            expect(menuBar.tabIndex).toBe(0);
+            expect(menuBar.focusable).toBe(true);
         });
 
         it("Tab focuses menuBar first (before content children)", () => {

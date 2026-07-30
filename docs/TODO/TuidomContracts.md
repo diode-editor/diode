@@ -146,7 +146,16 @@ theme-agnostic, цена — мосты) или токен темы (мосты 
 Файлы: `tuidom/dom/styles/tuiStyle.ts`, `tuidom/dom/tuiElement.ts`,
 `src/vs/platform/theme/browser/defaultStyles.ts`, весь `tuidom/ui/*`.
 
-### [ ] Н4. `onDidChangeParent` не ловит смену корня
+### [x] Н4. `onDidChangeParent` не ловит смену корня
+
+**Решено (2026-07-30), записано в [LAYOUT.md](../LAYOUT.md) «Подключение к дереву».**
+Выбран вариант «ядро уведомляет»: хуки `onDidConnect(root)`/`onDidDisconnect()`
+(аналог DOM connectedCallback, пропагация СОБЫТИЯ по перемещаемому поддереву —
+не кэша-состояния, которого боялся этот пункт: getRoot() остался производным).
+`setAsRoot` уведомляет уже собранное поддерево, повторный вызов — no-op, якорь
+на узле с родителем запрещён. MenuBar подписывает мнемоники строго на живом
+корне; fallback «слушать промежуточного родителя» убран осознанно — он и был
+багом.
 
 **Противоречие.** `getRoot()` выводится из всей цепочки предков, а
 `onDidChangeParent` срабатывает только на смене непосредственного родителя.
@@ -205,7 +214,13 @@ z-index становится честно аддитивным.
 Файлы: `tuidom/ui/layout/boxContainerElement.ts`, `tuidom/ui/menu/popupMenuElement.ts`,
 `tuidom/ui/quickpick/quickPickElement.ts`, `tuidom/ui/completionlist/completionListElement.ts`.
 
-### [ ] Н8. `tabIndex: number` — булево в одежде порядка
+### [x] Н8. `tabIndex: number` — булево в одежде порядка
+
+**Решено (2026-07-30):** переименовано в `focusable: boolean` (default false).
+Числовой порядок отвергнут намеренно: он был бы вторым источником порядка,
+конкурирующим с инвариантом «порядок Tab-обхода = порядок детей в дереве» (и
+с направлением Н6); в вебе `tabindex > 0` — признанный антипаттерн. Поле
+снапшота инспектора: `tabIndex?: number` → `focusable?: true`.
 
 `getDepthFirstFocusableOrder` смотрит только на `tabIndex >= 0`, значение
 игнорируется. Клиенты: 72 × `= 0`, 15 × `= -1`, единственная продовая

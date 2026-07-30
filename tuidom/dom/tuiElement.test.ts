@@ -353,11 +353,11 @@ describe("TUIElement.getDepthFirstFocusableOrder", () => {
         const root = new ContainerElement();
         root.setAsRoot();
         const a = new TUIElement();
-        a.tabIndex = 0;
+        a.focusable = true;
         const b = new TUIElement();
-        b.tabIndex = 0;
+        b.focusable = true;
         const c = new TUIElement();
-        // c.tabIndex = -1 (default, not focusable)
+        // c.focusable = false (default, not focusable)
         root.addChild(a);
         root.addChild(b);
         root.addChild(c);
@@ -370,16 +370,16 @@ describe("TUIElement.getDepthFirstFocusableOrder", () => {
         const containerA = new ContainerElement();
         root.addChild(containerA);
         const a1 = new TUIElement();
-        a1.tabIndex = 0;
+        a1.focusable = true;
         containerA.addChild(a1);
         const a2 = new TUIElement();
-        a2.tabIndex = 0;
+        a2.focusable = true;
         containerA.addChild(a2);
 
         const containerB = new ContainerElement();
         root.addChild(containerB);
         const b1 = new TUIElement();
-        b1.tabIndex = 0;
+        b1.focusable = true;
         containerB.addChild(b1);
 
         expect(root.getDepthFirstFocusableOrder()).toEqual([a1, a2, b1]);

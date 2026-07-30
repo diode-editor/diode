@@ -26,8 +26,8 @@ describe("TuiApplication — keypress follows its keydown target", () => {
 
         const first = new BoxElement();
         const second = new BoxElement();
-        first.tabIndex = 0;
-        second.tabIndex = 0;
+        first.focusable = true;
+        second.focusable = true;
 
         const stack = new VStackElement();
         stack.addChild(first, { width: "stretch", height: 3 });

@@ -39,7 +39,7 @@ describe("OverlayLayer session API", () => {
         expect(app.focusedElement).toBe(input);
 
         const menu = new PopupMenuElement([{ label: "Copy" }]);
-        menu.tabIndex = 0;
+        menu.focusable = true;
 
         const session = app.root.overlayLayer.createSession(menu, new Point(1, 1), {
             visible: false,
@@ -60,7 +60,7 @@ describe("OverlayLayer session API", () => {
         const app = TestApp.createWithContent(input, new Size(30, 10));
 
         const menu = new PopupMenuElement([{ label: "Copy" }]);
-        menu.tabIndex = 0;
+        menu.focusable = true;
 
         const session = app.root.overlayLayer.createSession(menu, new Point(5, 2), {
             visible: true,
@@ -89,7 +89,7 @@ describe("OverlayLayer session API", () => {
         const app = TestApp.createWithContent(input, new Size(30, 10));
 
         const menu = new PopupMenuElement([{ label: "Copy" }]);
-        menu.tabIndex = 0;
+        menu.focusable = true;
 
         const session = app.root.overlayLayer.createSession(menu, new Point(3, 1), {
             visible: true,

@@ -32,7 +32,7 @@ interface ISetup {
 function setup(text = "hello world\nsecond line", configuration?: IConfigurationService): ISetup {
     const doc = new TextDocument(text);
     const editor = new EditorElement(new EditorViewState(doc));
-    editor.tabIndex = 0;
+    editor.focusable = true;
     const view = new ScrollBarDecorator(editor);
     const app = TestApp.createWithContent(view, new Size(50, 12));
 

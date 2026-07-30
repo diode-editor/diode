@@ -14,7 +14,7 @@ import { unthemedMenuStyles } from "./popupMenuItemElement.tsx";
 class FocusableChild extends TUIElement {
     public constructor() {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
     }
 
     public render(): void {

@@ -25,15 +25,15 @@ function buildFocusableTree(): {
     root.focusManager = fm;
 
     const a = new TUIElement();
-    a.tabIndex = 0;
+    a.focusable = true;
     root.addChild(a);
 
     const b = new TUIElement();
-    b.tabIndex = 0;
+    b.focusable = true;
     root.addChild(b);
 
     const c = new TUIElement();
-    c.tabIndex = 0;
+    c.focusable = true;
     root.addChild(c);
 
     return { root, a, b, c, fm };
@@ -128,7 +128,7 @@ describe("FocusManager", () => {
             const container = new ContainerElement();
             root.addChild(container);
             const child = new TUIElement();
-            child.tabIndex = 0;
+            child.focusable = true;
             container.addChild(child);
 
             const rootHandler = vi.fn();
@@ -200,20 +200,20 @@ describe("FocusManager", () => {
             expect(fm.activeElement).toBe(c);
         });
 
-        it("skips elements with tabIndex = -1", () => {
+        it("skips elements with focusable = false", () => {
             const root = new ContainerElement();
             root.setAsRoot();
             const fm = new FocusManager(root);
             root.focusManager = fm;
 
             const a = new TUIElement();
-            a.tabIndex = 0;
+            a.focusable = true;
             root.addChild(a);
             const skip = new TUIElement();
-            // skip.tabIndex = -1 (default)
+            // skip.focusable = false (default)
             root.addChild(skip);
             const b = new TUIElement();
-            b.tabIndex = 0;
+            b.focusable = true;
             root.addChild(b);
 
             fm.setFocus(a);
@@ -227,7 +227,7 @@ describe("FocusManager", () => {
             const fm = new FocusManager(root);
             root.focusManager = fm;
 
-            root.addChild(new TUIElement()); // tabIndex = -1
+            root.addChild(new TUIElement()); // focusable = false
 
             fm.cycleFocus("forward");
             expect(fm.activeElement).toBeNull();
@@ -264,18 +264,18 @@ describe("FocusManager", () => {
             root.focusManager = fm;
 
             const outside = new TUIElement();
-            outside.tabIndex = 0;
+            outside.focusable = true;
             root.addChild(outside);
 
-            const scope = new ContainerElement(); // tabIndex -1 → container only, not focusable itself
+            const scope = new ContainerElement(); // focusable=false → сам контейнер в обход не попадает
             root.addChild(scope);
 
             const m1 = new TUIElement();
-            m1.tabIndex = 0;
+            m1.focusable = true;
             scope.addChild(m1);
 
             const m2 = new TUIElement();
-            m2.tabIndex = 0;
+            m2.focusable = true;
             scope.addChild(m2);
 
             return { root, outside, scope, m1, m2, fm };
@@ -328,7 +328,7 @@ describe("FocusManager", () => {
             const inner = new ContainerElement();
             scope.addChild(inner);
             const innerFocusable = new TUIElement();
-            innerFocusable.tabIndex = 0;
+            innerFocusable.focusable = true;
             inner.addChild(innerFocusable);
 
             fm.pushFocusScope(scope);

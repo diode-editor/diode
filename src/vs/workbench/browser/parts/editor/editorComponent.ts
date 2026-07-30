@@ -138,7 +138,7 @@ export class EditorComponent extends ThemedComponent {
         this.editorViewState.tokenStore = this.tokenStore;
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = tokenStyleResolver;
-        this.editor.tabIndex = 0;
+        this.editor.focusable = true;
         this.attachUndoRouting();
         this.attachSelectionForwarding();
         this.view = new ScrollBarDecorator(this.editor);
@@ -219,7 +219,7 @@ export class EditorComponent extends ThemedComponent {
         this.editorViewState.tokenStore = this.tokenStore;
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = this.tokenStyleResolver;
-        this.editor.tabIndex = 0;
+        this.editor.focusable = true;
         this.editor.setStyles(this.currentEditorStyles);
         this.attachUndoRouting();
         // Курсор сброшен на (0,0) вместе с view-state — перевешиваем форвардинг и

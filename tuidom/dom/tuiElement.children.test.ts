@@ -167,7 +167,7 @@ describe("TUIElement — владение детьми", () => {
 
         const branch = new ContainerElement();
         const leaf = new TUIElement();
-        leaf.tabIndex = 0;
+        leaf.focusable = true;
         root.add(branch);
         branch.add(leaf);
         fm.setFocus(leaf);
@@ -185,7 +185,7 @@ describe("TUIElement — владение детьми", () => {
 
         const branch = new ContainerElement();
         const outside = new TUIElement();
-        outside.tabIndex = 0;
+        outside.focusable = true;
         root.add(branch);
         root.add(outside);
         fm.setFocus(outside);
@@ -223,10 +223,10 @@ describe("TUIElement — hidden (структура ≠ видимость)", ()
         const root = new ContainerElement();
         root.setAsRoot();
         const visible = new TUIElement();
-        visible.tabIndex = 0;
+        visible.focusable = true;
         const branch = new ContainerElement();
         const insideHidden = new TUIElement();
-        insideHidden.tabIndex = 0;
+        insideHidden.focusable = true;
         root.add(visible);
         root.add(branch);
         branch.add(insideHidden);

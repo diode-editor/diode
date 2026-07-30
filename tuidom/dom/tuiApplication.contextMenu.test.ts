@@ -18,7 +18,7 @@ describe("TuiApplication — keyboard contextmenu synthesis", () => {
         const app = new TuiApplication(backend);
 
         const box = new BoxElement();
-        box.tabIndex = 0;
+        box.focusable = true;
 
         const body = new BodyElement();
         body.setContent(box);

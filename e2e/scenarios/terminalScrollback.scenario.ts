@@ -37,17 +37,20 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
 
         // Печатаем заведомо больше строк, чем помещается в панель: начало вывода
-        // уходит в скролбэк, на экране остаётся хвост.
-        await editor.sendText("seq 1 100");
+        // уходит в скролбэк, на экране остаётся хвост. Первая строка вывода —
+        // маркер верха: в тексте команды он разорван пустой подстановкой, поэтому
+        // целиком существует только в выводе (эхо команды может переноситься через
+        // край панели из-за длинного cwd git-worktree — на него не полагаемся).
+        await editor.sendText('echo scrollback""-top; seq 1 100');
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("100"));
         await editor.capture("bottom");
 
         // Shift+PageUp листает в историю страницами. Жмём заведомо больше страниц, чем
         // есть в скролбэке: смещение клампится в самый верх — детерминированный кадр,
-        // не зависящий от высоты панели. Там видно строку с самой командой.
+        // не зависящий от высоты панели. Там видна первая строка вывода (маркер).
         for (let i = 0; i < 20; i++) await editor.sendKey("Shift+PageUp");
-        await editor.waitForText((t) => t.includes("seq 1 100"));
+        await editor.waitForText((t) => t.includes("scrollback-top"));
         await editor.capture("scrolled");
 
         // Обратно на дно — тем же перелистыванием вниз до упора.

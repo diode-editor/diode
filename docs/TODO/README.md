@@ -133,6 +133,6 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 Сейчас при запуске приложения `activeElement` не установлен — чтобы элемент начал получать события, приходится вручную вызывать `app.focusManager!.setFocus(widget)`. Нужно:
 - Продумать систему автоматической установки `activeElement` при старте: авто-фокус на первый focusable элемент, или `autofocus`-атрибут на элементе
 - Поддержать `autofocus` свойство на `TUIElement` — при `app.run()` FocusManager ищет первый элемент с `autofocus` и ставит фокус
-- Фолбэк: если ни у одного элемента нет `autofocus`, фокусить первый элемент с `tabIndex >= 0`
+- Фолбэк: если ни у одного элемента нет `autofocus`, фокусить первый элемент с `focusable`
 
 Файлы: `tuidom/dom/events/focusManager.ts`, `src/vs/base/browser/TuiApplication.ts`, `tuidom/dom/tuiElement.ts`

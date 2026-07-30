@@ -128,7 +128,7 @@ describe("TuiApplication — input routing", () => {
 class FocusableLeaf extends TUIElement {
     public constructor() {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
     }
 }
 

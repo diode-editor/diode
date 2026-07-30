@@ -17,7 +17,7 @@ class FocusableBox extends TUIElement {
 
     public constructor() {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
 
         this.addEventListener("focus", () => {
             this.bg = FOCUSED_BG;
@@ -149,7 +149,7 @@ describe("Focus integration: Tab cycling through TuiApplication", () => {
         expect(backend.getBgAt(new Point(0, 3))).toBe(DEFAULT_BG);
     });
 
-    it("elements with tabIndex = -1 are skipped during Tab cycling", () => {
+    it("elements with focusable = false are skipped during Tab cycling", () => {
         const backend = new MockTerminalBackend(new Size(20, 12));
         const app = new TuiApplication(backend);
 
@@ -160,7 +160,7 @@ describe("Focus integration: Tab cycling through TuiApplication", () => {
         stack.addChild(box1, { width: "fill", height: 3 });
 
         const nonFocusable = new FocusableBox();
-        nonFocusable.tabIndex = -1; // not focusable
+        nonFocusable.focusable = false; // not focusable
         stack.addChild(nonFocusable, { width: "fill", height: 3 });
 
         const box3 = new FocusableBox();
@@ -285,7 +285,7 @@ describe("Focus: click moves focus to focusable element", () => {
         expect(boxes[0].isFocused).toBe(false);
     });
 
-    it("element with tabIndex=-1 does not receive focus on mousedown", () => {
+    it("non-focusable element does not receive focus on mousedown", () => {
         const backend = new MockTerminalBackend(new Size(20, 6));
         const app = new TuiApplication(backend);
 
@@ -293,7 +293,7 @@ describe("Focus: click moves focus to focusable element", () => {
         const stack = new VStackElement();
 
         const box = new FocusableBox();
-        box.tabIndex = -1;
+        box.focusable = false;
         stack.addChild(box, { width: "fill", height: 3 });
 
         body.setContent(stack);

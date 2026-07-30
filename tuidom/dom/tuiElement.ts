@@ -225,8 +225,10 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     public id: string | undefined = undefined;
     public role: string | undefined = undefined;
 
-    // Focus support
-    public tabIndex = -1;
+    // Участие в Tab-обходе и фокусе по клику. Порядок обхода — это порядок
+    // детей в дереве (как z-порядок и хит-тест); числового приоритета в духе
+    // DOM tabindex нет намеренно — он был бы вторым источником порядка.
+    public focusable = false;
 
     // Pointer capture (opt-in): while a button is held on this element, the dispatcher
     // routes subsequent move/release events here even if the cursor leaves its bounds.
@@ -453,14 +455,14 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     /**
-     * Порядок Tab-обхода поддерева: фокусируемые (tabIndex >= 0) в глубину.
+     * Порядок Tab-обхода поддерева: фокусируемые (focusable) в глубину.
      * Скрытые (hidden) поддеревья пропускаются целиком — Tab не должен уводить
      * фокус в невидимый инпут (закрытый find-виджет, неактивная вкладка).
      */
     public getDepthFirstFocusableOrder(): TUIElement[] {
         if (this.hidden) return [];
         const result: TUIElement[] = [];
-        if (this.tabIndex >= 0) result.push(this);
+        if (this.focusable) result.push(this);
         for (const child of this.getChildren()) {
             result.push(...child.getDepthFirstFocusableOrder());
         }
@@ -578,7 +580,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
      * Analogous to Web DOM default actions (e.g. <a> navigation, <input> text entry).
      */
     protected performDefaultAction(event: TUIEventBase): void {
-        if (event.type === "mousedown" && this.tabIndex >= 0) {
+        if (event.type === "mousedown" && this.focusable) {
             this.focus();
         }
     }
@@ -686,6 +688,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
      * вешающих слушатели на родителя, — MenuBarElement).
      */
     private setParent(parent: TUIElement | null): void {
+        const oldRoot = this.getRoot(); // снимок ДО мутации — по ещё живой цепочке
         if (parent === null && this._parent !== null) {
             this.releaseFocusIfInside();
         }
@@ -695,16 +698,83 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
             this.markSubtreeStyleDirtyUp();
         }
         this.onDidChangeParent(oldParent, parent);
+
+        const newRoot = this.getRoot();
+        if (oldRoot !== newRoot) {
+            if (oldRoot !== null) this.fireDidDisconnect();
+            if (newRoot !== null) this.fireDidConnect(newRoot);
+        }
     }
 
     /**
      * Хук смены родителя: вызывается после каждого перецепления. Базовая
-     * реализация пуста; виджеты, которым нужен доступ к родителю при
-     * прикреплении (слушатель мнемоник MenuBarElement на keydown родителя),
-     * переопределяют его вместо запрещённого override setParent.
+     * реализация пуста; переопределяется вместо запрещённого override
+     * setParent. Для доступа к КОРНЮ используйте {@link onDidConnect} — на
+     * момент этого хука поддерево может быть ещё не укоренено.
      */
     protected onDidChangeParent(_oldParent: TUIElement | null, _newParent: TUIElement | null): void {
         // Базовая реализация ничего не делает.
+    }
+
+    // ─── Подключение к дереву (аналог DOM connectedCallback) ───
+    //
+    // «Прикреплён к родителю» ≠ «подключён к укоренённому дереву»: поддерево
+    // может собираться отвязанно и укорениться позже (или наоборот). Хуки ниже
+    // сообщают каждому узлу перемещаемого поддерева о смене укоренённости —
+    // это пропагация СОБЫТИЯ, не состояния (getRoot() остаётся производным,
+    // протухать нечему; ср. кэш root, удалённый в #214).
+
+    /**
+     * Поддерево подключилось к укоренённому дереву: внутри хука
+     * `getRoot() === root`. Перенос между родителями (даже внутри одного
+     * дерева) — это всегда пара disconnect → connect: будьте идемпотентны.
+     * Скрытые (hidden) узлы получают хук наравне с видимыми — подключение
+     * не зависит от видимости. НЕ полагайтесь на `root.focusManager` — он
+     * появляется позже (TuiApplication.run). Хук не должен бросать; мутации
+     * разрешены только в собственном поддереве. Если хук удаляет узел из ещё
+     * не обойдённой части дерева, тот получит disconnect без предшествовавшего
+     * connect-уведомления (подключение — факт топологии, уведомления
+     * догоняют).
+     */
+    protected onDidConnect(_root: TUIElement): void {
+        // Базовая реализация ничего не делает.
+    }
+
+    /**
+     * Поддерево отключилось от укоренённого дерева: внутри хука
+     * `getRoot() === null`. Прежний root хук хранит сам, если нужен для
+     * отписки (DOM-прецедент: disconnectedCallback тоже без аргументов).
+     */
+    protected onDidDisconnect(): void {
+        // Базовая реализация ничего не делает.
+    }
+
+    /** Подключён ли элемент к укоренённому дереву. */
+    public get isConnected(): boolean {
+        return this.getRoot() !== null;
+    }
+
+    /**
+     * Pre-order обход поддерева (родитель раньше детей — DOM tree order).
+     * Снимок детей берётся ДО вызова хука узла, перед рекурсией проверяется
+     * актуальность связи: ребёнок, добавленный хуком, получит свой connect
+     * через собственный setParent; удалённый — уже получил disconnect и
+     * пропускается.
+     */
+    private fireDidConnect(root: TUIElement): void {
+        const children = [...this.getChildren()];
+        this.onDidConnect(root);
+        for (const child of children) {
+            if (child.getParent() === this) child.fireDidConnect(root);
+        }
+    }
+
+    private fireDidDisconnect(): void {
+        const children = [...this.getChildren()];
+        this.onDidDisconnect();
+        for (const child of children) {
+            if (child.getParent() === this) child.fireDidDisconnect();
+        }
     }
 
     /**
@@ -737,10 +807,18 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     /**
      * Sets this element as the root (used for testing and by BodyElement).
      * Помечает элемент якорем — getRoot() признаёт корнем только вершину
-     * цепочки с этой меткой.
+     * цепочки с этой меткой. Уже собранное поддерево получает
+     * {@link onDidConnect} (поздний setAsRoot легален); повторный вызов —
+     * no-op; якорь на узле с родителем запрещён (getRoot() не видит якорь в
+     * середине цепочки — сработал бы только после detach, миной).
      */
     public setAsRoot(): void {
+        if (this.isRootAnchor) return;
+        if (this._parent !== null) {
+            throw new Error("TUIElement.setAsRoot: якорь корня допустим только на вершине цепочки (без родителя)");
+        }
         this.isRootAnchor = true;
+        this.fireDidConnect(this);
     }
 
     /**

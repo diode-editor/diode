@@ -257,7 +257,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     public constructor(viewState: EditorViewState) {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
         this.viewState = viewState;
         this.undoManager = new UndoManager(viewState.document, viewState);
 

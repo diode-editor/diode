@@ -48,7 +48,7 @@ export class ContextMenuController {
         if (request.styles) {
             menu.setStyles(request.styles);
         }
-        menu.tabIndex = 0;
+        menu.focusable = true;
 
         let session: OverlaySessionHandle | null = null;
         session = layer.openPopupSession(menu, request.anchor, {

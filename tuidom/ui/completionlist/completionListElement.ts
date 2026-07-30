@@ -54,7 +54,7 @@ export interface CompletionListItem {
  * Собственной строки ввода нет — фильтр внутренний (набор символов сужает
  * список, не трогая буфер редактора).
  *
- * Как в VS Code suggest widget попап **не забирает фокус** (`tabIndex = -1`):
+ * Как в VS Code suggest widget попап **не забирает фокус** (`focusable = false`):
  * навигацией/принятием/скрытием управляет {@link import("../../../src/vs/workbench/contrib/suggest/browser/completionService.ts").CompletionService} через
  * публичные методы (клавиши приходят командами по `suggestWidgetVisible`), а
  * фильтрация идёт от префикса под кареткой редактора. Мышью: наведение
@@ -76,7 +76,7 @@ export class CompletionListElement extends TUIElement {
     public constructor() {
         super();
         // Не фокусируемся: редактор сохраняет фокус и каретку (см. класс-док).
-        this.tabIndex = -1;
+        this.focusable = false;
         this.addEventListener("mousemove", (event) => {
             this.handleMouseMove(event);
         });

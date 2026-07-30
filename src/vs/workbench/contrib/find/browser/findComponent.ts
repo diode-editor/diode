@@ -58,7 +58,7 @@ const COUNTER_GAP = 2; // зазор между счётчиком и рядом
  * строка запроса ({@link InputElement}) никогда не переподключается к дереву и
  * не теряет фокус между нажатиями. Виджет НЕ владеет навигационными клавишами:
  * open/next/prev/close ведут зарегистрированные команды; клик по кнопке зовёт
- * колбэк. Кнопки non-focusable (`tabIndex = -1`) — клик не уводит фокус из
+ * колбэк. Кнопки non-focusable (`focusable = false`) — клик не уводит фокус из
  * строки запроса. Логика поиска (query → matches → index) живёт в
  * {@link import("./findService.ts").FindService}.
  *
@@ -137,7 +137,7 @@ export class FindComponent extends ThemedComponent {
 
     private createButton(label: string, onActivate: () => void): ButtonElement {
         const button = new ButtonElement(label);
-        button.tabIndex = -1; // keep focus in the query input on click
+        button.focusable = false; // keep focus in the query input on click
         button.onActivate = onActivate;
         return button;
     }

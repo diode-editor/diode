@@ -198,7 +198,7 @@ describe("OverlayLayer — root listener guards", () => {
         const layer = app.root.overlayLayer;
 
         const menu = new PopupMenuElement([{ label: "Copy" }]);
-        menu.tabIndex = 0;
+        menu.focusable = true;
         const session = layer.createSession(menu, new Point(3, 1), {
             visible: true,
             closeOnEscape: true,
@@ -222,7 +222,7 @@ describe("OverlayLayer — root listener guards", () => {
         const layer = app.root.overlayLayer;
 
         const menu = new PopupMenuElement([{ label: "Copy" }, { label: "Paste" }]);
-        menu.tabIndex = 0;
+        menu.focusable = true;
         const session = layer.createSession(menu, new Point(2, 2), {
             visible: true,
             pointerPolicy: "close-on-outside",

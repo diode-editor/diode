@@ -44,7 +44,7 @@ describe("domQueries", () => {
 
     it("typeText шлёт каждый символ отдельным sendKey", () => {
         const target = new TUIElement();
-        target.tabIndex = 0;
+        target.focusable = true;
         const testApp = TestApp.createWithContent(target);
         target.focus();
 

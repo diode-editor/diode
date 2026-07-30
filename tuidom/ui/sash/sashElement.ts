@@ -39,7 +39,7 @@ export class SashElement extends TUIElement {
         super();
         this.orientation = orientation;
         this.capturesPointer = true;
-        // Keep tabIndex = -1 so mousedown does not steal focus from the file tree.
+        // Keep focusable = false so mousedown does not steal focus from the file tree.
 
         this.addEventListener("mousedown", (event) => {
             if (event.button !== "left") return;

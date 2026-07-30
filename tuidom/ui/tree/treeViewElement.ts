@@ -84,7 +84,7 @@ export class TreeViewElement<T> extends ScrollableElement {
 
     public constructor(provider: ITreeDataProvider<T>, options?: { leftPadding?: number }) {
         super();
-        this.tabIndex = 0;
+        this.focusable = true;
         this.leftPadding = options?.leftPadding ?? 0;
         this.provider = provider;
         this.provider.onChange = (element) => {
