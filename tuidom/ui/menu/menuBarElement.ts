@@ -28,7 +28,15 @@ export class MenuBarElement extends TUIElement {
     private itemElements: MenuBarItemElement[] = [];
     private hflex: HFlexElement;
     private previousFocusedElement: TUIElement | null = null;
-    private mnemonicHandler: ((event: TUIKeyboardEvent) => void) | null = null;
+    private readonly mnemonicHandler = (event: TUIKeyboardEvent): void => {
+        const match = this.findMnemonicMatch(event);
+        if (match >= 0) {
+            this.focus();
+            this.openMenu(match);
+            event.preventDefault();
+        }
+    };
+
     private mnemonicTarget: TUIElement | null = null;
     private menuStyles: IMenuStyles = unthemedMenuStyles;
 
@@ -80,31 +88,19 @@ export class MenuBarElement extends TUIElement {
     /**
      * Мнемоники (Alt+F и т.п.) слушаются на КОРНЕ дерева: keydown без фокуса
      * диспатчится прямо в корень и до промежуточных контейнеров не всплывает,
-     * а открывать меню он должен всё равно. Если поддерево ещё не прикреплено
-     * к корню — слушаем родителя (при живом дереве это одно и то же место, к
-     * которому события всплывают). Слушатель переезжает вместе с
-     * прикреплением — хук вместо запрещённого override setParent.
+     * а открывать меню он должен всё равно. Подписка живёт строго на
+     * подключённом дереве (Н4): в неукоренённом поддереве мнемоники не
+     * работают — раньше fallback вешал слушатель на промежуточного родителя,
+     * и тот никогда не переезжал на появившийся позже корень.
      */
-    protected override onDidChangeParent(_oldParent: TUIElement | null, newParent: TUIElement | null): void {
-        if (this.mnemonicTarget && this.mnemonicHandler) {
-            this.mnemonicTarget.removeEventListener("keydown", this.mnemonicHandler);
-        }
+    protected override onDidConnect(root: TUIElement): void {
+        this.mnemonicTarget = root;
+        root.addEventListener("keydown", this.mnemonicHandler);
+    }
 
-        if (newParent) {
-            this.mnemonicHandler = (event: TUIKeyboardEvent) => {
-                const match = this.findMnemonicMatch(event);
-                if (match >= 0) {
-                    this.focus();
-                    this.openMenu(match);
-                    event.preventDefault();
-                }
-            };
-            this.mnemonicTarget = this.getRoot() ?? newParent;
-            this.mnemonicTarget.addEventListener("keydown", this.mnemonicHandler);
-        } else {
-            this.mnemonicHandler = null;
-            this.mnemonicTarget = null;
-        }
+    protected override onDidDisconnect(): void {
+        this.mnemonicTarget?.removeEventListener("keydown", this.mnemonicHandler);
+        this.mnemonicTarget = null;
     }
 
     public get isMenuOpen(): boolean {

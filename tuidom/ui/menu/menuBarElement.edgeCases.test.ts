@@ -118,14 +118,28 @@ describe("MenuBarElement — setParent mnemonic listener lifecycle", () => {
         expect(menuBar.isMenuOpen).toBe(true);
     });
 
-    it("falls back to the parent when the subtree is not attached to a root yet", () => {
-        const detached = new TUIElement();
+    it("не слушает мнемоники в неукоренённом поддереве; подключение к body включает их", () => {
+        class Holder extends TUIElement {
+            public add(child: TUIElement): void {
+                this.appendChild(child);
+            }
+        }
+        const detached = new Holder();
         const menuBar = new MenuBarElement(simpleItems());
-        detached.appendChild(menuBar);
+        detached.add(menuBar);
         expect(menuBar.getRoot()).toBeNull();
 
-        // The mnemonic listener sits on the parent — events bubbling to it open the menu.
+        // Н4: слушатель мнемоник живёт строго на корне подключённого дерева.
+        // Раньше fallback вешал его на промежуточного родителя, и слушатель
+        // никогда не переезжал на появившийся позже корень.
         detached.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "f", altKey: true }));
+        expect(menuBar.isMenuOpen).toBe(false);
+
+        // Прикрепление к живому дереву (onDidConnect) включает мнемоники.
+        const body = new BodyElement();
+        body.setMenuBar(menuBar);
+        expect(menuBar.getRoot()).toBe(body);
+        body.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "f", altKey: true }));
         expect(menuBar.isMenuOpen).toBe(true);
     });
 });
