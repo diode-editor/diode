@@ -43,6 +43,7 @@ jobs:
               '| Платформа | Артефакт |',
               '| --- | --- |',
               '| Linux x64 | `vexx-linux-x64` |',
+              '| Linux arm64 | `vexx-linux-arm64` |',
               '| macOS arm64 | `vexx-macos-arm64` |',
               '| macOS x64 | `vexx-macos-x64` |',
               '| Windows x64 | `vexx-windows-x64.exe` |',

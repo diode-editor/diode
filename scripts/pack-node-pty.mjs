@@ -21,9 +21,10 @@
  * есть: относительная раскладка сохраняется, и тот же резолв срабатывает после
  * распаковки. SEA пер-платформенный по природе — бандл собирается на своей ОС.
  *
- * Верифицирован **только linux-x64**; на macOS/Windows раскладка пакуется, но не
- * проверена end-to-end (spawn-helper+codesign на Mac, ConPTY и выбор шелла по
- * COMSPEC на Windows) — это доведёт отдельная задача, см. docs/TODO/IntegratedTerminal.md.
+ * Верифицированы **linux-x64 и linux-arm64** (linux собирается нативно на CI-раннере
+ * своей архитектуры, поэтому натив всегда хостовой архи); на macOS/Windows раскладка
+ * пакуется, но не проверена end-to-end (spawn-helper+codesign на Mac, ConPTY и выбор
+ * шелла по COMSPEC на Windows) — это доведёт отдельная задача, см. docs/TODO/IntegratedTerminal.md.
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";

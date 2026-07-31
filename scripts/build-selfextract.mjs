@@ -195,7 +195,8 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath }) {
     // → require("node-pty"), а его разрешение стартует рядом с main.js. Кладём ту
     // же отфильтрованную раскладку, что и в node-pty.bundle (package.json + lib/**
     // рантайм-JS + build/Release/*), нативный .node помечаем исполняемым.
-    // Scope linux-x64 (см. pack-node-pty.mjs).
+    // Натив — всегда архитектуры хоста сборки (см. pack-node-pty.mjs), поэтому
+    // linux-таргеты собираются нативно на раннере своей архи (x64 и arm64).
     const { inputs: ptyInputs } = buildNodePtyBundle({ repoRoot: root });
     for (const { virtualPath, data } of ptyInputs) {
         const dest = join(stageDir, "node_modules", virtualPath);
@@ -209,6 +210,17 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath }) {
     // @vscode/ripgrep-<platform>-<arch>. Кладём оба пакета в node_modules payload'а;
     // бинарь rg помечаем исполняемым. Scope host-платформы (см. pack-node-pty.mjs).
     stageRipgrep(stageDir);
+
+    // Натив (node-pty, ripgrep) выше стейджится с архитектуры ХОСТА: кросс-payload
+    // получит чужие бинари и не заработает. Легальный кросс — только node, поэтому
+    // предупреждаем, но не падаем.
+    if (target !== HOST_TARGET) {
+        console.warn(
+            `[selfextract] WARNING: target ${target} != host ${HOST_TARGET} — node-pty и ripgrep ` +
+                `стейджатся с архитектуры хоста, такой бинарь на таргете работать не будет. ` +
+                `Собирайте на нативном раннере таргета.`,
+        );
+    }
 
     const payloadPath = join(stageDir, "..", `payload-${target}.tar.gz`);
     execFileSync("tar", ["-czf", payloadPath, "-C", stageDir, "."], {

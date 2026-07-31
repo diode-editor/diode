@@ -26,11 +26,18 @@ jobs:
         #   selfextract — sh-стаб + приклеенный payload (нетронутый node + main.js +
         #                 vexx.bundle). Обязателен на Intel macOS, где инъекция
         #                 SEA-блоба портит Mach-O chained fixups → segfault до main()
-        #                 (#143, #144); на linux-x64 просто лучше — бинарь втрое
+        #                 (#143, #144); на linux просто лучше — бинарь втрое
         #                 меньше. Windows остаётся на SEA: стаб — POSIX sh.
+        # linux-arm64 (Raspberry Pi 3/4/5 на 64-битной ОС) собирается на нативном
+        # arm-раннере: node-pty компилируется и ripgrep приезжает под свою
+        # архитектуру при npm install, smoke гоняется на реальном arm64.
         include:
           - os: ubuntu-latest
             asset: vexx-linux-x64
+            binary: dist/vexx
+            mode: selfextract
+          - os: ubuntu-24.04-arm
+            asset: vexx-linux-arm64
             binary: dist/vexx
             mode: selfextract
           - os: macos-latest
