@@ -48,8 +48,6 @@ function buildScene(): { root: ContainerElement; sash: SashElement; drags: numbe
     return { root, sash, drags };
 }
 
-const HOVER_COLOR = 0x007fd4;
-
 /** Render the sash standalone and return the character drawn in its top cell. */
 function renderTopChar(sash: SashElement): string {
     const size = new Size(2, 3);
@@ -120,7 +118,6 @@ describe("SashElement", () => {
     it("paints the hover line only after the cursor lingers", () => {
         vi.useFakeTimers();
         const { root, sash } = buildScene();
-        sash.hoverBorderColor = HOVER_COLOR;
         const dispatcher = new MouseEventDispatcher();
 
         // Cursor enters the sash (screenX 30) — line must not appear immediately.
@@ -132,21 +129,9 @@ describe("SashElement", () => {
         expect(renderTopChar(sash)).toBe("│");
     });
 
-    it("stays invisible without a hover color even after lingering", () => {
-        vi.useFakeTimers();
-        const { root, sash } = buildScene();
-        const dispatcher = new MouseEventDispatcher();
-
-        dispatcher.handleMouseToken(makeToken({ action: "move", x: 31, y: 1 }), root);
-        vi.advanceTimersByTime(300);
-
-        expect(renderTopChar(sash)).toBe(" ");
-    });
-
     it("hides the line when the cursor leaves", () => {
         vi.useFakeTimers();
         const { root, sash } = buildScene();
-        sash.hoverBorderColor = HOVER_COLOR;
         const dispatcher = new MouseEventDispatcher();
 
         dispatcher.handleMouseToken(makeToken({ action: "move", x: 31, y: 1 }), root);
@@ -161,7 +146,6 @@ describe("SashElement", () => {
     it("paints during a drag without waiting for the hover delay", () => {
         vi.useFakeTimers();
         const { root, sash } = buildScene();
-        sash.hoverBorderColor = HOVER_COLOR;
         const dispatcher = new MouseEventDispatcher();
 
         dispatcher.handleMouseToken(makeToken({ action: "press", x: 31, y: 1 }), root);
@@ -175,7 +159,6 @@ describe("SashElement", () => {
     it("cancels the pending hover timer when the cursor leaves before the delay", () => {
         vi.useFakeTimers();
         const { root, sash } = buildScene();
-        sash.hoverBorderColor = HOVER_COLOR;
         const dispatcher = new MouseEventDispatcher();
 
         // Enter the sash, then leave again before the hover delay elapses.
@@ -219,7 +202,6 @@ describe("SashElement", () => {
         it("paints a horizontal hover line", () => {
             vi.useFakeTimers();
             const { root, sash } = buildHScene();
-            sash.hoverBorderColor = HOVER_COLOR;
             const dispatcher = new MouseEventDispatcher();
 
             dispatcher.handleMouseToken(makeToken({ action: "move", x: 5, y: 11 }), root);

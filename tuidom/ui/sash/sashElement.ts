@@ -27,12 +27,8 @@ export type SashOrientation = "vertical" | "horizontal";
 export class SashElement extends TUIElement {
     public onDrag?: (boundaryScreen: number) => void;
 
-    /** Color of the hover line; when undefined the sash stays invisible. */
-    public hoverBorderColor: number | undefined = undefined;
-
     private readonly orientation: SashOrientation;
     private dragging = false;
-    private hovered = false;
     private hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
     public constructor(orientation: SashOrientation = "vertical") {
@@ -54,20 +50,19 @@ export class SashElement extends TUIElement {
         this.addEventListener("mouseup", () => {
             this.dragging = false;
         });
+        // Ядерное hover-состояние мгновенно, а сашу нужна задержка (мелькание
+        // при пролёте курсора) — таймер остаётся, но результат выражается
+        // кастомным состоянием "lit".
         this.addEventListener("mouseenter", () => {
             this.clearHoverTimer();
             this.hoverTimer = setTimeout(() => {
                 this.hoverTimer = null;
-                this.hovered = true;
-                this.markDirty();
+                this.setStyleState("lit", true);
             }, HOVER_DELAY_MS);
         });
         this.addEventListener("mouseleave", () => {
             this.clearHoverTimer();
-            if (this.hovered) {
-                this.hovered = false;
-                this.markDirty();
-            }
+            this.setStyleState("lit", false);
         });
     }
 
@@ -79,8 +74,8 @@ export class SashElement extends TUIElement {
     }
 
     public override render(context: RenderContext): void {
-        const color = this.hoverBorderColor;
-        if (color === undefined || !(this.hovered || this.dragging)) return;
+        if (!(this.hasStyleState("lit") || this.dragging)) return;
+        const color = this.styleVar("sash.hoverBorder");
         if (this.orientation === "vertical") {
             for (let y = 0; y < this.layoutSize.height; y++) {
                 context.setCell(0, y, { char: "│", fg: color });

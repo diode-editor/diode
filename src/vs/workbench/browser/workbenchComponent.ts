@@ -381,7 +381,6 @@ export class WorkbenchComponent extends ThemedComponent {
             fg: this.theme.getRequiredColor("foreground"),
             bg: this.theme.getRequiredColor("editor.background"),
         };
-        this.workbenchLayout.setSashHoverColor(this.theme.getRequiredColor("sash.hoverBorder"));
     }
 
     public showConfirmSaveDialog(

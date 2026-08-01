@@ -765,6 +765,18 @@ export class TUIElement {
         return value;
     }
 
+    /**
+     * Резолвит StyleColor (число | сентинел INHERITED_* | имя токена) в
+     * конкретный цвет в контексте ЭТОГО элемента (его resolvedStyle и
+     * var-scope). Для painter-виджетов, принимающих цвета данными
+     * (посимвольные стили TextLabel, iconColor строк дерева): данные могут
+     * ссылаться на токены и переживать смену темы без пере-пуша.
+     */
+    public resolveColor(color: StyleColor): number {
+        const { fg, bg } = this.resolvedStyleValue;
+        return resolveStyleColor(color, fg, bg, this.varScopeRef, () => this.describeForStyleError());
+    }
+
     // ─── Состояния стиля ───
 
     /**
