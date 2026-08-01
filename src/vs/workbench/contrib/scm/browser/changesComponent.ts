@@ -9,13 +9,11 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import { getListViewStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { ScmMenuContext } from "../../../browser/actions/menuContexts.ts";
-import { ThemedComponent } from "../../../browser/component.ts";
+import { Component } from "../../../browser/component.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SCM_VIEW_MODE_STATE, type ScmViewMode } from "../../../common/stateKeys.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
+import {} from "../../../services/themes/common/themeTokens.ts";
 
 import type { IScmChange, ScmChangesService } from "./changesService.ts";
 import { ScmChangesServiceDIToken } from "./changesService.ts";
@@ -57,13 +55,12 @@ type ScmRowMeta =
  * поэтому Explorer ↔ Source Control переключают команды (`workbench.view.*`),
  * а сам показ — подмена контента сайдбара через {@link SidebarService}.
  */
-export class ChangesComponent extends ThemedComponent {
+export class ChangesComponent extends Component {
     public static dependencies = [
         ScmChangesServiceDIToken,
         CommandRegistryDIToken,
         ContextMenuServiceDIToken,
         StateServiceDIToken,
-        ThemeServiceDIToken,
     ] as const;
 
     /** Список изменений — доступен тестам и оркестрации (фокус, inspectState). */
@@ -75,16 +72,20 @@ export class ChangesComponent extends ThemedComponent {
 
     private viewMode: ScmViewMode;
     private rowMeta = new Map<string, ScmRowMeta>();
-    private rowStyles: IScmRowStyles = { statusColors: {}, dimFg: 0 };
+    // Токены темы: строки красятся именами gitDecoration.* — резолвит каскад,
+    // рестайл на смену темы не нужен.
+    private readonly rowStyles: IScmRowStyles = {
+        statusColors: Object.fromEntries(GIT_STATUS_COLOR_IDS.map((id) => [id, id])),
+        dimFg: "descriptionForeground",
+    };
 
     public constructor(
         private readonly changesService: ScmChangesService,
         private readonly commands: CommandRegistry,
         private readonly contextMenuService: ContextMenuService,
         private readonly stateService: IStateService,
-        themeService: ThemeService,
     ) {
-        super(themeService);
+        super();
         this.viewMode = this.stateService.get(SCM_VIEW_MODE_STATE);
 
         this.list.id = "changesList";
@@ -94,13 +95,15 @@ export class ChangesComponent extends ThemedComponent {
             new PaddingContainerElement(this.scrollBars, { left: 1 }),
         );
         this.view.id = "changesView";
+        this.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+        this.list.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
 
         this.list.onActivate = (element) => {
             // Список не принимает строки без id — здесь он гарантированно есть.
-            this.activateRow(element.id as string);
+            this.activateRow(element.id!);
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
-            const meta = this.rowMeta.get(element.id as string);
+            const meta = this.rowMeta.get(element.id!);
             // Для папок пункты меню бессмысленны — меню только у файловых строк.
             if (meta?.kind !== "file") return;
             this.showContextMenu(meta.change.uri.toString(), screenX, screenY);
@@ -111,7 +114,6 @@ export class ChangesComponent extends ThemedComponent {
                 this.rebuild();
             }),
         );
-        this.initStyles();
         this.rebuild();
     }
 
@@ -201,7 +203,7 @@ export class ChangesComponent extends ThemedComponent {
             this.commands.execute("scm.action.openFile", change.uri.toString());
         });
         this.list.appendRow(parts.root, { parentId, label });
-        this.rowMeta.set(parts.root.id as string, { kind: "file", parts, change, label });
+        this.rowMeta.set(parts.root.id!, { kind: "file", parts, change, label });
     }
 
     /** Контекстное меню файловой строки — делегат ContextMenuService (как у Explorer). */
@@ -213,27 +215,5 @@ export class ChangesComponent extends ThemedComponent {
             menuId: MenuId.ScmContext,
             menuContext: context,
         });
-    }
-
-    protected updateStyles(): void {
-        const colors: Record<string, number> = {};
-        for (const id of GIT_STATUS_COLOR_IDS) colors[id] = this.theme.getRequiredColor(id);
-        this.rowStyles = { statusColors: colors, dimFg: this.theme.getRequiredColor("descriptionForeground") };
-
-        this.list.setStyles(getListViewStyles(this.theme));
-        this.list.style = {
-            fg: this.theme.getRequiredColor("sideBar.foreground"),
-            bg: this.theme.getRequiredColor("sideBar.background"),
-        };
-        this.scrollBars.setStyles(getScrollBarStyles(this.theme, "sideBar.background"));
-        this.view.style = {
-            fg: this.theme.getRequiredColor("sideBar.foreground"),
-            bg: this.theme.getRequiredColor("sideBar.background"),
-        };
-
-        // Смена темы перекрашивает строки на месте — пересборка не нужна.
-        for (const meta of this.rowMeta.values()) {
-            if (meta.kind === "file") formatFileRow(meta.parts, meta.change, meta.label, this.rowStyles);
-        }
     }
 }

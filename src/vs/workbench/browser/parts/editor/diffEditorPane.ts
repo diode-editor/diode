@@ -11,10 +11,8 @@ import type { ITokenStyleResolver } from "../../../../editor/common/languages/iT
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
-import { getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemedComponent } from "../../component.ts";
+import { Component } from "../../component.ts";
 
 import type { IEditorPane } from "./iEditorPane.ts";
 
@@ -43,7 +41,7 @@ export interface IDiffEditorPaneInput {
  * Владеет двумя `TextDocument` и двумя `DocumentTokenStore` — они нужны только
  * ради подсветки, редактирования здесь нет.
  */
-export class DiffEditorPane extends ThemedComponent implements IEditorPane, IDiffRowSource {
+export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSource {
     public readonly uri: Uri;
     public readonly label: string;
     public readonly view: ScrollBarDecorator;
@@ -58,18 +56,18 @@ export class DiffEditorPane extends ThemedComponent implements IEditorPane, IDif
     private readonly tokenizationRegistry: TokenizationRegistry;
 
     public constructor(
-        themeService: ThemeService,
         tokenizationRegistry: TokenizationRegistry,
         tokenStyleResolver: ITokenStyleResolver,
         input: IDiffEditorPaneInput,
     ) {
-        super(themeService);
+        super();
         this.uri = input.uri;
         this.label = input.label;
         this.tokenStyleResolver = tokenStyleResolver;
         this.tokenizationRegistry = tokenizationRegistry;
 
         this.element = new DiffViewElement();
+        this.element.style = { fg: "editor.foreground", bg: "editor.background" };
         this.view = new ScrollBarDecorator(this.element);
         this.view.id = "diffEditor";
         this.buildFrom(input);
@@ -84,7 +82,6 @@ export class DiffEditorPane extends ThemedComponent implements IEditorPane, IDif
                 // кто монтировал: контент-слот EditorGroupComponent при смене контента.
             },
         });
-        this.initStyles();
     }
 
     /**
@@ -156,19 +153,5 @@ export class DiffEditorPane extends ThemedComponent implements IEditorPane, IDif
 
     public resolveTokenStyle(scopes: readonly string[]) {
         return this.tokenStyleResolver.resolve(scopes);
-    }
-
-    protected updateStyles(): void {
-        const theme = this.theme;
-        this.element.setStyles({
-            background: theme.getRequiredColor("editor.background"),
-            foreground: theme.getRequiredColor("editor.foreground"),
-            gutterBackground: theme.getColor("editorGutter.background") ?? theme.getRequiredColor("editor.background"),
-            lineNumberForeground: theme.getRequiredColor("editorLineNumber.foreground"),
-            insertedLineBackground: theme.getRequiredColor("diffEditor.insertedLineBackground"),
-            removedLineBackground: theme.getRequiredColor("diffEditor.removedLineBackground"),
-            unchangedRegionForeground: theme.getRequiredColor("diffEditor.unchangedRegionForeground"),
-        });
-        this.view.setStyles(getScrollBarStyles(theme, "editor.background"));
     }
 }

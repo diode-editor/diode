@@ -5,7 +5,7 @@ import { TextLabel } from "../ui/text/textLabelElement.ts";
 
 import { CompositeElement } from "./compositeElement.ts";
 import type { JsxNode } from "./jsx/jsx-runtime.ts";
-import { ROOT_RESOLVED_STYLE } from "./styles/tuiStyle.ts";
+import { ROOT_STYLE_CONTEXT } from "./styles/tuiStyle.ts";
 import { TUIElement } from "./tuiElement.ts";
 
 class ContainerElement extends TUIElement {
@@ -37,12 +37,12 @@ describe("CompositeElement style resolution", () => {
         const composite = new TestComposite();
         root.addChild(composite);
 
-        root.performStyleResolution(ROOT_RESOLVED_STYLE);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
         expect(composite.getRootChild()!.resolvedStyle.fg).toBe(packRgb(100, 100, 100));
 
         composite.color = packRgb(255, 0, 0);
         composite.rebuild();
-        root.performStyleResolution(ROOT_RESOLVED_STYLE);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
         expect(composite.getRootChild()!.resolvedStyle.fg).toBe(packRgb(255, 0, 0));
     });
 
@@ -52,14 +52,14 @@ describe("CompositeElement style resolution", () => {
         root.setRequestRenderCallback(() => {
             /* noop */
         });
-        root.performStyleResolution(ROOT_RESOLVED_STYLE);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
 
         const composite = new TestComposite();
         composite.color = packRgb(0, 90, 180);
         composite.rebuild();
 
         root.addChild(composite);
-        root.performStyleResolution(ROOT_RESOLVED_STYLE);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
         const child = composite.getRootChild()!;
         expect(child.resolvedStyle.fg).toBe(packRgb(0, 90, 180));
     });

@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +9,7 @@ import { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
 import type { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -43,7 +43,7 @@ function makeGroup(): {
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
     );
-    const groupComponent = new EditorGroupComponent(group, themeService);
+    const groupComponent = new EditorGroupComponent(group);
     return { group, groupComponent, themeService };
 }
 
@@ -85,7 +85,7 @@ describe("FindService", () => {
         const testApp = TestApp.create(body, new Size(80, 24));
         testApp.render();
 
-        const component = new FindComponent(themeService);
+        const component = new FindComponent();
         const find = new FindService(component, group);
         component.attachHost(groupComponent.view);
 
@@ -263,14 +263,14 @@ describe("FindService", () => {
 
     it("isVisible() is false before the host view is attached", () => {
         const { group, themeService } = makeGroup();
-        const component = new FindComponent(themeService);
+        const component = new FindComponent();
         const find = new FindService(component, group);
         expect(find.isVisible()).toBe(false);
     });
 
     it("open() / hide() before the host view is attached are no-ops and do not throw", () => {
         const { group, themeService } = makeGroup();
-        const component = new FindComponent(themeService);
+        const component = new FindComponent();
         const find = new FindService(component, group);
         expect(() => {
             find.open();
@@ -299,7 +299,7 @@ describe("FindService", () => {
         const body = new BodyElement();
         body.setContent(groupComponent.view);
         TestApp.create(body, new Size(80, 24)).render();
-        const component = new FindComponent(themeService);
+        const component = new FindComponent();
         const find = new FindService(component, group);
         component.attachHost(groupComponent.view);
 

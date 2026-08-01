@@ -1,20 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
+import { STYLE_TOKEN_DEFAULTS } from "../../../../tuidom/dom/styles/styleTokens.ts";
+import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { TextDocument } from "../common/model/textDocument.ts";
+import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import {
     LONG_LINE_TRUNCATION_BADGE,
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
 } from "../common/viewModel/longLineRendering.ts";
-import { TestApp } from "../../../TestUtils/TestApp.ts";
-import { TextDocument } from "../common/model/textDocument.ts";
-import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
-import { EditorElement, unthemedEditorStyles } from "./editorElement.ts";
+import { EditorElement } from "./editorElement.ts";
 
 const BADGE_LABEL = LONG_LINE_TRUNCATION_BADGE.trim(); // "Long line trimmed"
 
-function createEditor(text: string, width = 60, height = 3): { app: TestApp; editor: EditorElement; vs: EditorViewState } {
+function createEditor(
+    text: string,
+    width = 60,
+    height = 3,
+): { app: TestApp; editor: EditorElement; vs: EditorViewState } {
     const doc = new TextDocument(text);
     const vs = new EditorViewState(doc);
     const editor = new EditorElement(vs);
@@ -51,7 +56,7 @@ describe("EditorElement — long-line truncation button", () => {
 
         // A cell inside the label carries the warning colour as its background.
         const labelCell = new Point(gw + buttonScreenCol + 1, 0);
-        expect(app.backend.getBgAt(labelCell)).toBe(unthemedEditorStyles.warningForeground);
+        expect(app.backend.getBgAt(labelCell)).toBe(STYLE_TOKEN_DEFAULTS["editorWarning.foreground"]);
     });
 
     it("shows no button when the cut point is scrolled off to the right", () => {

@@ -7,8 +7,6 @@ import { AboutDialog } from "../../../browser/parts/dialogs/aboutDialog.tsx";
 import { ConfirmDialog, type ConfirmDialogOptions } from "../../../browser/parts/dialogs/confirmDialog.tsx";
 import { ConfirmSaveDialog } from "../../../browser/parts/dialogs/confirmSaveDialog.tsx";
 import type { DialogComponent } from "../../../browser/parts/dialogs/dialogComponent.ts";
-import type { ThemeService } from "../../themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 
 export const DialogServiceDIToken = token<DialogService>("DialogService");
 
@@ -22,9 +20,7 @@ export type ConfirmSaveChoice = "save" | "dontSave" | "cancel";
  * оркестратор через {@link attachHost} после построения своей view.
  */
 export class DialogService extends Disposable {
-    public static dependencies = [ThemeServiceDIToken] as const;
-
-    private themeService: ThemeService;
+    public static dependencies = [] as const;
     private host: BodyElement | null = null;
 
     private confirmSaveDialog: ConfirmSaveDialog | null = null;
@@ -36,9 +32,8 @@ export class DialogService extends Disposable {
     private aboutDialog: AboutDialog | null = null;
     private aboutSession: OverlaySessionHandle | null = null;
 
-    public constructor(themeService: ThemeService) {
+    public constructor() {
         super();
-        this.themeService = themeService;
         this.register({
             dispose: () => {
                 this.confirmSaveDialog?.dispose();
@@ -63,7 +58,7 @@ export class DialogService extends Disposable {
     ): void {
         const host = this.requireHost();
         if (!this.confirmSaveDialog) {
-            this.confirmSaveDialog = new ConfirmSaveDialog(this.themeService, filename);
+            this.confirmSaveDialog = new ConfirmSaveDialog(filename);
             this.confirmSaveSession = host.overlayLayer.createSession(this.confirmSaveDialog.view, new Point(0, 0), {
                 visible: false,
                 restoreFocus: true,
@@ -128,7 +123,7 @@ export class DialogService extends Disposable {
         const host = this.requireHost();
         this.hideConfirmDialog();
 
-        const dialog = new ConfirmDialog(this.themeService, options);
+        const dialog = new ConfirmDialog(options);
         dialog.onConfirm = () => {
             this.hideConfirmDialog();
             callbacks.onConfirm();
@@ -174,7 +169,7 @@ export class DialogService extends Disposable {
     public showAboutDialog(): void {
         const host = this.requireHost();
         if (!this.aboutDialog) {
-            this.aboutDialog = new AboutDialog(this.themeService);
+            this.aboutDialog = new AboutDialog();
             this.aboutDialog.onClose = () => {
                 this.aboutSession?.close();
             };

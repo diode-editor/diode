@@ -2,10 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../src/TestUtils/renderElement.ts";
 import type { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
+import { DEFAULT_COLOR } from "../../common/colorUtils.ts";
 import { Point } from "../../common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { STYLE_TOKEN_DEFAULTS } from "../../dom/styles/styleTokens.ts";
 
-import { ACTIVE_MENU_BG, MENU_BAR_BG, MenuBarFillerElement, MenuBarItemElement } from "./menuBarItemElement.tsx";
+import { MenuBarFillerElement, MenuBarItemElement } from "./menuBarItemElement.tsx";
+
+const MENU_BAR_BG = STYLE_TOKEN_DEFAULTS["menuBar.background"];
+const ACTIVE_MENU_BG = STYLE_TOKEN_DEFAULTS["menubar.selectionBackground"];
 
 function render(element: MenuBarItemElement | MenuBarFillerElement, width?: number): MockTerminalBackend {
     const w = width ?? element.getMaxIntrinsicWidth(0);
@@ -35,8 +40,10 @@ describe("MenuBarItemElement — metadata", () => {
 
 describe("MenuBarItemElement — active state", () => {
     it("toggles active and switches the background color", () => {
+        // Обычный пункт НАСЛЕДУЕТ фон полосы (его задаёт MenuBarElement
+        // токенами menuBar.*): standalone-рендер наследует прозрачный корень.
         const item = new MenuBarItemElement("File");
-        expect(render(item).getBgAt(new Point(0, 0))).toBe(MENU_BAR_BG);
+        expect(render(item).getBgAt(new Point(0, 0))).toBe(DEFAULT_COLOR);
 
         item.active = true;
         expect(item.active).toBe(true);
@@ -138,10 +145,10 @@ describe("MenuBarFillerElement", () => {
         expect(filler.getMaxIntrinsicHeight(0)).toBe(1);
     });
 
-    it("fills its laid-out width with the menu-bar background", () => {
+    it("заливает свою ширину унаследованным фоном (полосу красит MenuBarElement)", () => {
         const filler = new MenuBarFillerElement();
         const backend = render(filler, 4);
-        expect(backend.getBgAt(new Point(0, 0))).toBe(MENU_BAR_BG);
-        expect(backend.getBgAt(new Point(3, 0))).toBe(MENU_BAR_BG);
+        expect(backend.getBgAt(new Point(0, 0))).toBe(DEFAULT_COLOR);
+        expect(backend.getBgAt(new Point(3, 0))).toBe(DEFAULT_COLOR);
     });
 });

@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import type { StyleColor } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import type { ITreeDataProvider, ITreeItem } from "../../../../../../tuidom/ui/tree/iTreeDataProvider.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IMarker } from "../../../../platform/markers/common/iMarker.ts";
@@ -27,10 +28,10 @@ export type ProblemNode =
 
 /** Foreground colour per severity, pushed by the controller from the theme. */
 export interface SeverityColors {
-    error: number;
-    warning: number;
-    info: number;
-    hint: number;
+    error: StyleColor;
+    warning: StyleColor;
+    info: StyleColor;
+    hint: StyleColor;
 }
 
 /** Codicon glyphs (PUA — need a nerd-font, as elsewhere in the project). */
@@ -101,7 +102,7 @@ export class ProblemsTreeDataProvider implements ITreeDataProvider<ProblemNode> 
         return element.kind === "file" ? `node:${element.resource}` : `marker:${element.resource}:${element.index}`;
     }
 
-    private colorFor(severity: MarkerSeverity): number {
+    private colorFor(severity: MarkerSeverity): StyleColor {
         switch (severity) {
             case MarkerSeverity.Error:
                 return this.severityColors.error;

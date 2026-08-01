@@ -18,7 +18,7 @@ export const SuggestComponentDIToken = token<SuggestComponent>("SuggestComponent
  * компонент только показывает/двигает попап и раздаёт вызовы контролу.
  *
  * Не {@link import("../../../browser/component.ts").ThemedComponent}: CompletionListElement
- * живёт на исторической unthemed-палитре (`unthemedCompletionListStyles` —
+ * токены editorSuggestWidget.* резолвятся из палитры темы на корне (Н3).
  * дефолт контрола), маппинг на ключи темы — отдельная задача.
  *
  * Overlay-хост (корневая BodyElement-view приложения) приходит через late-init

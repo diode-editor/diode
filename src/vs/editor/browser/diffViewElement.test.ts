@@ -10,7 +10,7 @@ import { DiffViewModel } from "../common/diff/diffViewModel.ts";
 import { createLineTokens, createToken } from "../common/languages/iLineTokens.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
 
-import type { IDiffRowSource, IDiffViewStyles } from "./diffViewElement.ts";
+import type { IDiffRowSource } from "./diffViewElement.ts";
 import { DiffViewElement } from "./diffViewElement.ts";
 
 const ADDED_BG = packRgb(0x37, 0x3d, 0x29);
@@ -21,14 +21,12 @@ const LINE_NO = packRgb(0x85, 0x85, 0x85);
 const COLLAPSED_FG = packRgb(0x8c, 0x8c, 0x8c);
 const KEYWORD = packRgb(0x56, 0x9c, 0xd6);
 
-const STYLES: IDiffViewStyles = {
-    background: BG,
-    foreground: FG,
-    gutterBackground: BG,
-    lineNumberForeground: LINE_NO,
-    insertedLineBackground: ADDED_BG,
-    removedLineBackground: REMOVED_BG,
-    unchangedRegionForeground: COLLAPSED_FG,
+const STYLE_VARS = {
+    "editorGutter.background": BG,
+    "editorLineNumber.foreground": LINE_NO,
+    "diffEditor.insertedLineBackground": ADDED_BG,
+    "diffEditor.removedLineBackground": REMOVED_BG,
+    "diffEditor.unchangedRegionForeground": COLLAPSED_FG,
 };
 
 /** Источник строк без токенов — подсветка проверяется отдельным тестом. */
@@ -54,7 +52,8 @@ function makeElement(
         hideUnchangedRegions: options.collapsed === true,
     });
     const element = new DiffViewElement();
-    element.setStyles(STYLES);
+    element.setStyleVars(STYLE_VARS);
+    element.style = { fg: FG, bg: BG };
     element.setRows(model.rows, options.source ?? plainSource(original, modified));
     return element;
 }
@@ -169,7 +168,8 @@ describe("DiffViewElement — свёрнутые куски", () => {
             minimumHiddenLineCount: 1,
         });
         const element = new DiffViewElement();
-        element.setStyles(STYLES);
+        element.setStyleVars(STYLE_VARS);
+        element.style = { fg: FG, bg: BG };
         element.setRows(model.rows, plainSource(original, modified));
 
         expect(screenLines(render(element))).toContain("  ⋯ ⋯    ⋯ 1 unchanged line");

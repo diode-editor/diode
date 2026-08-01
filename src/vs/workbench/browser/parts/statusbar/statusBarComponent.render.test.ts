@@ -37,7 +37,7 @@ describe("StatusBarComponent — кадр", () => {
     function renderLine(width: number, openFile = true): string {
         const harness = createStatusBarHarness();
         if (openFile) harness.source.openEditor();
-        const backend = renderElement(harness.component.view, width, 1, { resolveStyles: true });
+        const backend = renderElement(harness.component.view, width, 1, { themeVars: true });
         return backend.screenToString().split("\n")[0];
     }
 
@@ -56,7 +56,7 @@ describe("StatusBarComponent — кадр", () => {
     it("фон всей полосы — statusBar.background темы, включая паддинги и середину", () => {
         const harness = createStatusBarHarness();
         harness.source.openEditor();
-        const backend = renderElement(harness.component.view, 45, 1, { resolveStyles: true });
+        const backend = renderElement(harness.component.view, 45, 1, { themeVars: true });
 
         const bg = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("statusBar.background");
         for (const x of [0, 3, 8, 20, 44]) {

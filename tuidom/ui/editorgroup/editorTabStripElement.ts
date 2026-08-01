@@ -1,29 +1,9 @@
-import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 import { FillerElement } from "../layout/fillerElement.ts";
 import { HFlexElement, hflexFill, hflexFit } from "../layout/hFlexElement.ts";
 
 import { EditorTabItemElement } from "./editorTabItemElement.ts";
-
-// ─── Styles ───
-
-export interface ITabStripStyles {
-    readonly activeFg: number;
-    readonly activeBg: number;
-    readonly inactiveFg: number;
-    readonly inactiveBg: number;
-    readonly stripBg: number;
-}
-
-// Defaults preserve the historical look; controllers override them via setStyles.
-export const unthemedTabStripStyles: ITabStripStyles = {
-    activeFg: packRgb(255, 255, 255),
-    activeBg: packRgb(30, 30, 30),
-    inactiveFg: packRgb(150, 150, 150),
-    inactiveBg: packRgb(45, 45, 45),
-    stripBg: packRgb(37, 37, 38),
-};
 
 // ─── Tab Info ───
 
@@ -44,8 +24,6 @@ export class EditorTabStripElement extends TUIElement {
     private filler: FillerElement;
     private activeIndexValue = -1;
 
-    private styles: ITabStripStyles = unthemedTabStripStyles;
-
     public onTabActivate: ((index: number) => void) | null = null;
     public onTabClose: ((index: number) => void) | null = null;
 
@@ -53,17 +31,9 @@ export class EditorTabStripElement extends TUIElement {
         super();
         this.hflex = new HFlexElement();
         this.filler = new FillerElement();
-        this.filler.style = { fg: DEFAULT_COLOR, bg: this.styles.stripBg };
+        this.filler.style = { bg: "editorGroupHeader.tabsBackground" };
         this.hflex.addChild(this.filler, { width: hflexFill(), height: 1 });
         this.appendChild(this.hflex);
-    }
-
-    /** Пробрасывает цвета в filler и уже созданные вкладки. */
-    public setStyles(styles: ITabStripStyles): void {
-        this.styles = styles;
-        this.filler.style = { fg: DEFAULT_COLOR, bg: styles.stripBg };
-        this.updateItemStyles();
-        this.markDirty();
     }
 
     public get activeIndex(): number {
@@ -114,6 +84,12 @@ export class EditorTabStripElement extends TUIElement {
                     paddingLeft: 2,
                     paddingRight: 2,
                 });
+                // Вкладка декларирует оба вида токенами; активность — состояние.
+                item.style = {
+                    fg: "tab.inactiveForeground",
+                    bg: "tab.inactiveBackground",
+                    when: [{ states: ["active"], fg: "tab.activeForeground", bg: "tab.activeBackground" }],
+                };
                 const index = i;
                 item.onActivate = () => this.onTabActivate?.(index);
                 item.onClose = () => this.onTabClose?.(index);
@@ -136,20 +112,15 @@ export class EditorTabStripElement extends TUIElement {
             children.push(item);
         }
 
-        this.filler.style = { fg: DEFAULT_COLOR, bg: this.styles.stripBg };
         this.filler.layoutStyle = { width: hflexFill(), height: 1 };
         children.push(this.filler);
 
         this.hflex.replaceChildren(children);
     }
 
-    public updateItemStyles(): void {
+    private updateItemStyles(): void {
         for (let i = 0; i < this.itemElements.length; i++) {
-            const isActive = i === this.activeIndexValue;
-            this.itemElements[i].style = {
-                fg: isActive ? this.styles.activeFg : this.styles.inactiveFg,
-                bg: isActive ? this.styles.activeBg : this.styles.inactiveBg,
-            };
+            this.itemElements[i].setStyleState("active", i === this.activeIndexValue);
         }
     }
 
@@ -182,5 +153,4 @@ export class EditorTabStripElement extends TUIElement {
 
         return containerSize;
     }
-
 }

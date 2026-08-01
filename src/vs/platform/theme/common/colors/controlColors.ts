@@ -107,4 +107,45 @@ export const controlColors = {
         defaults: { dark: "#535353", light: "#CECECE" },
         description: "Border color of menus.",
     },
+    // Значения — из реестра VS Code (`colorRegistry.ts`), кроме отмеченных:
+    // там наши исторические дефолты сохраняют вид встроенных тем 1:1 (Н3).
+    "input.foreground": {
+        defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
+        description: "Input box foreground.",
+    },
+    "input.background": {
+        defaults: { dark: "#3C3C3C", light: "#FFFFFF" },
+        description: "Input box background.",
+    },
+    "input.border": {
+        defaults: { dark: "#3C3C3C", light: "#CECECE" },
+        description: "Input box border.",
+    },
+    "input.placeholderForeground": {
+        // Исторический цвет плейсхолдера Vexx (у VS Code — #989898 поверх прозрачности).
+        defaults: { dark: "#6E6E6E", light: "#767676" },
+        description: "Input box foreground color for placeholder text.",
+    },
+    "menubar.selectionForeground": {
+        defaults: { dark: "#FFFFFF", light: "#000000" },
+        description: "Foreground color of the selected menu item in the menubar.",
+    },
+    "menubar.selectionBackground": {
+        // Исторический цвет активного пункта меню-бара Vexx.
+        defaults: { dark: "#005AB4", light: "#0060C0" },
+        description: "Background color of the selected menu item in the menubar.",
+    },
+    "quickInput.foreground": {
+        defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
+        description: "Quick picker foreground color.",
+    },
+    "quickInput.background": {
+        defaults: { dark: "#252526", light: "#F3F3F3" },
+        description: "Quick picker background color.",
+    },
+    "list.highlightForeground": {
+        // Исторический цвет подсветки совпадений Vexx (у VS Code — #2AAAFF).
+        defaults: { dark: "#64C8FF", light: "#0066BF" },
+        description: "List/Tree foreground color of the match highlights when searching.",
+    },
 } as const satisfies ColorContribution;

@@ -20,7 +20,10 @@ function fakeClock(): IdleClock & { time(): number } {
  * `bumps` — моменты (в мс), когда frameCount увеличивается. `scheduledUntil` —
  * до какого времени `isRenderScheduled` держит true.
  */
-function scriptedSource(clock: { now(): number }, opts: { bumps?: number[]; scheduledUntil?: number } = {}): IdleSource {
+function scriptedSource(
+    clock: { now(): number },
+    opts: { bumps?: number[]; scheduledUntil?: number } = {},
+): IdleSource {
     const bumps = [...(opts.bumps ?? [])].sort((a, b) => a - b);
     const scheduledUntil = opts.scheduledUntil ?? -1;
     return {

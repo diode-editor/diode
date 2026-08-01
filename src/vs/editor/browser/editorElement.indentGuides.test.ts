@@ -9,7 +9,7 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { computeIndentationFolds } from "../contrib/folding/foldingRangeProvider.ts";
 import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
-import { EditorElement, unthemedEditorStyles } from "./editorElement.ts";
+import { EditorElement } from "./editorElement.ts";
 
 const GUIDE = "│";
 
@@ -115,7 +115,7 @@ describe("EditorElement – indentation guides", () => {
         const fg = packRgb(11, 22, 33);
         const activeFg = packRgb(200, 210, 220);
         const { app, editor } = createEditor(SAMPLE, 3);
-        editor.setStyles({ ...unthemedEditorStyles, indentGuideForeground: fg, indentGuideActiveForeground: activeFg });
+        editor.setStyleVars({ "editorIndentGuide.background1": fg, "editorIndentGuide.activeBackground1": activeFg });
         app.render();
         const gw = editor.gutterWidth;
         expect(app.backend.getFgAt(new Point(gw + 2, 3))).toBe(activeFg); // active (if-body)
@@ -195,14 +195,9 @@ describe("EditorElement – indentation guides, provider regions", () => {
     // 3:                    ← blank
     // 4:   /* #endregion */
     // 5: }
-    const REGION_SAMPLE = [
-        "function foo() {",
-        "  /* #region */",
-        "  const a = 1;",
-        "",
-        "  /* #endregion */",
-        "}",
-    ].join("\n");
+    const REGION_SAMPLE = ["function foo() {", "  /* #region */", "  const a = 1;", "", "  /* #endregion */", "}"].join(
+        "\n",
+    );
 
     function createWithProviderRegion(cursorLine = 0): { app: TestApp; editor: EditorElement } {
         const doc = new TextDocument(REGION_SAMPLE);

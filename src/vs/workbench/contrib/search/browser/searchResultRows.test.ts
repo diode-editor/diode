@@ -5,13 +5,7 @@ import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
-import {
-    buildFileRow,
-    buildMatchRow,
-    formatFileRow,
-    type ISearchRowStyles,
-    trimBefore,
-} from "./searchResultRows.ts";
+import { buildFileRow, buildMatchRow, formatFileRow, type ISearchRowStyles, trimBefore } from "./searchResultRows.ts";
 
 const DIM = packRgb(128, 128, 128);
 const MATCH_FG = packRgb(0, 0, 0);
@@ -65,7 +59,11 @@ describe("searchResultRows", () => {
 
     it("long context before the match is trimmed with a leading ellipsis", () => {
         const longBefore = "x".repeat(80) + "tail ";
-        const row = buildMatchRow("m", makeMatch({ preview: { before: longBefore, inside: "hit", after: "" } }), STYLES);
+        const row = buildMatchRow(
+            "m",
+            makeMatch({ preview: { before: longBefore, inside: "hit", after: "" } }),
+            STYLES,
+        );
         const backend = renderElement(row, 40, 1);
 
         expect(backend.getTextAt(new Point(4, 0), 1)).toBe("…");

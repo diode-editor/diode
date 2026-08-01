@@ -63,9 +63,9 @@ describe("ListViewElement collapse", () => {
         list.onCollapsedChanged = onCollapsedChanged;
 
         list.toggleCollapsed("file1");
-        expect(onCollapsedChanged).toHaveBeenCalledWith(list.getChildren()[0], true);
+        expect(onCollapsedChanged).toHaveBeenCalledWith(list.getChildren()[0].getChildren()[0], true);
         list.toggleCollapsed("file1");
-        expect(onCollapsedChanged).toHaveBeenCalledWith(list.getChildren()[0], false);
+        expect(onCollapsedChanged).toHaveBeenCalledWith(list.getChildren()[0].getChildren()[0], false);
     });
 
     it("collapse is a no-op for childless rows and repeated states", () => {
@@ -81,8 +81,12 @@ describe("ListViewElement collapse", () => {
 
     it("throws for an unknown id", () => {
         const list = makeGroupedList();
-        expect(() => list.setCollapsed("ghost", true)).toThrow(/unknown row id "ghost"/);
-        expect(() => list.setRowHidden("ghost", true)).toThrow(/unknown row id "ghost"/);
+        expect(() => {
+            list.setCollapsed("ghost", true);
+        }).toThrow(/unknown row id "ghost"/);
+        expect(() => {
+            list.setRowHidden("ghost", true);
+        }).toThrow(/unknown row id "ghost"/);
     });
 
     it("setRowHidden hides a row with its subtree and is reversible", () => {

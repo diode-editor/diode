@@ -168,7 +168,11 @@ describe("QuickDiffService", () => {
         await settle();
 
         expect(ed.last).toEqual([
-            { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } }, color: MODIFIED, dashed: true },
+            {
+                range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } },
+                color: MODIFIED,
+                dashed: true,
+            },
         ]);
     });
 
@@ -312,7 +316,14 @@ describe("QuickDiffService", () => {
         const originals: IOriginalResourceProvider = { provideOriginalResource: () => Promise.resolve(ORIGINAL) };
 
         expect(
-            () => new QuickDiffService(src.source, originals, new FileSystemProviderRegistry(), cfg.service, theme.service),
+            () =>
+                new QuickDiffService(
+                    src.source,
+                    originals,
+                    new FileSystemProviderRegistry(),
+                    cfg.service,
+                    theme.service,
+                ),
         ).not.toThrow();
         await settle();
     });
@@ -326,7 +337,12 @@ describe("QuickDiffService", () => {
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
         const theme = fakeTheme({ "editorGutter.modifiedBackground": MODIFIED });
         const originals: IOriginalResourceProvider = {
-            provideOriginalResource: () => new Promise((resolve) => setTimeout(() => resolve(ORIGINAL), 20)),
+            provideOriginalResource: () =>
+                new Promise((resolve) =>
+                    setTimeout(() => {
+                        resolve(ORIGINAL);
+                    }, 20),
+                ),
         };
 
         new QuickDiffService(src.source, originals, registry, cfg.service, theme.service);

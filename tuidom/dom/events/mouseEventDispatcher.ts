@@ -159,6 +159,9 @@ export class MouseEventDispatcher {
         if (oldElement) {
             const leaveElements = this.getAncestorList(oldElement).filter((el) => !newPath.has(el));
             for (const el of leaveElements) {
+                // hover-состояние — ДО события: слушатели mouseleave видят его
+                // снятым (как в DOM). Общий предок в diff не входит — не мигает.
+                el.setStyleState("hover", false);
                 this.dispatchOn(el, "mouseleave", token, screenX, screenY);
             }
         }
@@ -169,6 +172,8 @@ export class MouseEventDispatcher {
                 .filter((el) => !oldPath.has(el))
                 .reverse();
             for (const el of enterElements) {
+                // hover стоит на всей цепочке target→root, как :hover в CSS.
+                el.setStyleState("hover", true);
                 this.dispatchOn(el, "mouseenter", token, screenX, screenY);
             }
         }

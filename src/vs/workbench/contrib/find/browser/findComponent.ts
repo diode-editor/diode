@@ -1,41 +1,22 @@
 import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { IButtonStyles } from "../../../../../../tuidom/ui/button/buttonElement.ts";
+import { INHERITED_BG } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
-import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import type { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
+import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { BoxContainerElement } from "../../../../../../tuidom/ui/layout/boxContainerElement.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
 import { SizedBoxElement } from "../../../../../../tuidom/ui/layout/sizedBoxElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { getFindWidgetStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
-import { ThemedComponent } from "../../../browser/component.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
+import { Component } from "../../../browser/component.ts";
 
 export const FindComponentDIToken = token<FindComponent>("FindComponent");
 
 /**
  * Packed-цвета find-виджета. Единственный источник значений —
- * `getFindWidgetStyles(theme)` в `Workbench/Styles/defaultStyles.ts`
  * (ключи VS Code `editorWidget.*`, `descriptionForeground`, `editorError.foreground`).
  */
-export interface IFindWidgetStyles {
-    /** Фон окна виджета (`editorWidget.background`). */
-    readonly bg: number;
-    /** Основной текст (`editorWidget.foreground`). */
-    readonly fg: number;
-    /** Рамка окна (`editorWidget.border`). */
-    readonly borderFg: number;
-    /** Счётчик совпадений «{i} of {n}» (`descriptionForeground`). */
-    readonly counterFg: number;
-    /** «No results» — акцент ошибки (`editorError.foreground`). */
-    readonly noResultsFg: number;
-    /** Кнопки ↑ ↓ ✕ (`button.*`). */
-    readonly button: IButtonStyles;
-}
-
 // Навигационные / close-глифы, выровнены по правому краю строки запроса.
 const PREV_GLYPH = "↑";
 const NEXT_GLYPH = "↓";
@@ -51,7 +32,7 @@ const COUNTER_GAP = 2; // зазор между счётчиком и рядом
  * ({@link SizedBoxElement} → {@link BoxContainerElement} → {@link HFlexElement}
  * со строкой запроса, счётчиком совпадений и кнопками ↑ ↓ ✕). Ручного рендера
  * нет — рамку, фон и раскладку дают примитивы, цвета приходят из активной темы
- * через {@link getFindWidgetStyles} (паттерн диалогов; ключи `editorWidget.*`).
+ * токенами темы (`editorWidget.*`), которые резолвит каскад (Н3).
  *
  * Дерево строится ОДИН раз в конструкторе и дальше мутируется на месте
  * (`setQuery`/`setCounter` меняют только текст/цвет счётчика и его зазор) — так
@@ -66,8 +47,8 @@ const COUNTER_GAP = 2; // зазор между счётчиком и рядом
  * через late-init шов {@link attachHost} — его зовёт владелец корневой view
  * (WorkbenchComponent) после постройки дерева, как у QuickInputComponent.
  */
-export class FindComponent extends ThemedComponent {
-    public static dependencies = [ThemeServiceDIToken] as const;
+export class FindComponent extends Component {
+    public static dependencies = [] as const;
 
     public readonly view: SizedBoxElement;
 
@@ -91,8 +72,8 @@ export class FindComponent extends ThemedComponent {
     private host: OverlayHostElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
-    public constructor(themeService: ThemeService) {
-        super(themeService);
+    public constructor() {
+        super();
 
         this.view = new SizedBoxElement(this.preferredWidth, WIDGET_HEIGHT);
         this.view.id = "findWidget";
@@ -122,6 +103,9 @@ export class FindComponent extends ThemedComponent {
         row.addChild(this.closeButton, { width: hflexFit(), height: 1 });
 
         this.box = new BoxContainerElement();
+        this.box.setBg("editorWidget.background");
+        this.box.setFg("editorWidget.foreground");
+        this.box.setBorderFg("editorWidget.border");
         this.box.setChild(row);
         this.view.setChild(this.box);
 
@@ -131,8 +115,6 @@ export class FindComponent extends ThemedComponent {
                 this.session = null;
             },
         });
-
-        this.initStyles();
     }
 
     private createButton(label: string, onActivate: () => void): ButtonElement {
@@ -215,30 +197,16 @@ export class FindComponent extends ThemedComponent {
 
     // ─── Стили / состояние ────────────────────────────────────────────────────
 
-    protected updateStyles(): void {
-        const styles = getFindWidgetStyles(this.theme);
-        this.box.setBg(styles.bg);
-        this.box.setFg(styles.fg);
-        this.box.setBorderFg(styles.borderFg);
-        this.counterGap.setColors(styles.fg, styles.bg);
-        for (const button of this.buttons()) {
-            button.setStyles(styles.button);
-        }
-        this.refreshCounter();
-    }
-
-    /** Обновляет текст/цвет счётчика и его зазор под текущее состояние + тему. */
+    /** Обновляет текст/цвет счётчика: выбирается ИМЯ токена — тему резолвит каскад. */
     private refreshCounter(): void {
-        const styles = getFindWidgetStyles(this.theme);
         const counter = this.counterText();
         this.counterLabel.setText(counter);
-        this.counterLabel.setColors(this.matchTotal === 0 ? styles.noResultsFg : styles.counterFg, styles.bg);
+        this.counterLabel.setColors(
+            this.matchTotal === 0 ? "editorError.foreground" : "descriptionForeground",
+            INHERITED_BG,
+        );
         this.counterGap.layoutStyle = { width: hflexFixed(counter === "" ? 0 : COUNTER_GAP), height: 1 };
         this.counterGap.markDirty();
-    }
-
-    private buttons(): readonly ButtonElement[] {
-        return [this.prevButton, this.nextButton, this.closeButton];
     }
 
     private counterText(): string {

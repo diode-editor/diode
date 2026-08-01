@@ -13,7 +13,7 @@ import { ConfirmDialog, type ConfirmDialogOptions } from "./confirmDialog.tsx";
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 
 function mount(options: Partial<ConfirmDialogOptions> = {}) {
-    const dialog = new ConfirmDialog(new ThemeService(theme), {
+    const dialog = new ConfirmDialog({
         title: "Delete",
         message: "Delete «x.txt»?",
         confirmLabel: "Move to Trash",

@@ -5,12 +5,7 @@ import { PopupMenuElement } from "./popupMenuElement.ts";
 
 describe("PopupMenuElement.inspectState", () => {
     it("reports item labels (separators as null) and the selected index", () => {
-        const entries: MenuEntry[] = [
-            { label: "Cut" },
-            { label: "Copy" },
-            { type: "separator" },
-            { label: "Paste" },
-        ];
+        const entries: MenuEntry[] = [{ label: "Cut" }, { label: "Copy" }, { type: "separator" }, { label: "Paste" }];
         const menu = new PopupMenuElement(entries);
 
         // Первый выбираемый пункт активен по умолчанию.

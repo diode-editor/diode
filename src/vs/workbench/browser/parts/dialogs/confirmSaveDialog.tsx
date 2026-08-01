@@ -6,7 +6,6 @@ import { PaddingContainer } from "../../../../../../tuidom/ui/layout/paddingCont
 import { VStack } from "../../../../../../tuidom/ui/layout/vStackElement.ts";
 import type { StyledChar } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import { TextLabel } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import type { IDialogStyles } from "./dialogComponent.ts";
 import { DialogComponent } from "./dialogComponent.ts";
@@ -34,8 +33,8 @@ export class ConfirmSaveDialog extends DialogComponent {
     private readonly cancelButton: ButtonElement;
     private readonly saveButton: ButtonElement;
 
-    public constructor(themeService: ThemeService, filename: string) {
-        super(themeService, "confirmSaveDialog");
+    public constructor(filename: string) {
+        super("confirmSaveDialog");
         this.filename = filename;
 
         this.dontSaveButton = new ButtonElement("Don't Save");
@@ -49,7 +48,7 @@ export class ConfirmSaveDialog extends DialogComponent {
         this.dontSaveButton.layoutStyle = { width: hflexFit(), height: 1 };
         this.cancelButton.layoutStyle = { width: hflexFit(), height: 1 };
         this.saveButton.layoutStyle = { width: hflexFit(), height: 1 };
-        this.initStyles();
+        this.rebuild();
     }
 
     public setFilename(filename: string): void {

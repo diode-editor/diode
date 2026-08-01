@@ -173,7 +173,14 @@ describe("Workbench — Rename via context menu", () => {
         // Right-click the file row (row 0) to open its context menu.
         tree.localPosition = new Offset(0, 0);
         tree.dispatchEvent(
-            new TUIContextMenuEvent({ trigger: "mouse", button: "right", screenX: 2, screenY: 0, localX: 2, localY: 0 }),
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: 2,
+                screenY: 0,
+                localX: 2,
+                localY: 0,
+            }),
         );
         h.testApp.render();
         expect(h.testApp.querySelector("PopupMenuElement")).not.toBeNull();

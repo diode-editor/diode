@@ -6,7 +6,6 @@ import type { TUIElement } from "../../../../../tuidom/dom/tuiElement.ts";
 import { BoxElement } from "../../../../../tuidom/ui/layout/boxElement.ts";
 import type { MenuEntry, MenuItemEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { PopupMenuElement } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
-import { unthemedMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench/browser/actions/menuContributions.ts";
 import { MenuId } from "../../actions/common/menuId.ts";
@@ -120,10 +119,10 @@ describe("ContextMenuService", () => {
         expect(onHide).toHaveBeenCalledOnce();
     });
 
-    it("uses the attached menuStyles provider", () => {
+    it("меню резолвит цвета из корневого var-scope (тема без пуша стилей)", () => {
         const { app, owner, service } = setup();
         const bg = packRgb(0x0a, 0x1b, 0x2c);
-        service.menuStyles = () => ({ ...unthemedMenuStyles, bg });
+        app.root.setStyleVars({ "menu.background": bg });
 
         service.showContextMenu({
             getOwner: () => owner,

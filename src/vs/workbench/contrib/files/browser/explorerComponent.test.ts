@@ -13,6 +13,7 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
+import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { MENU_CONTRIBUTIONS } from "../../../browser/actions/menuContributions.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
@@ -24,7 +25,9 @@ import { ExplorerService } from "./explorerService.ts";
 /** Собирает ContextMenuService для explorer-меню поверх переданного CommandRegistry. */
 function makeContextMenuService(commands: CommandRegistry): ContextMenuService {
     return new ContextMenuService(
-        new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS)),
+        new MenuService(
+            new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
+        ),
     );
 }
 
@@ -46,13 +49,7 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         opened.push(filePath as string);
     });
     const service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
-    const component = new ExplorerComponent(
-        service,
-        commands,
-        clipboard,
-        makeContextMenuService(commands),
-        themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
-    );
+    const component = new ExplorerComponent(service, commands, clipboard, makeContextMenuService(commands));
     return {
         service,
         component,
@@ -318,7 +315,6 @@ describe("ExplorerComponent — root assigned after construction", () => {
             new CommandRegistry(),
             clipboard,
             makeContextMenuService(new CommandRegistry()),
-            new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
         );
         const app = TestApp.createWithContent(component.view, new Size(30, 10));
         await service.refresh();
@@ -369,6 +365,7 @@ describe("ExplorerComponent with ThemeService", () => {
         h.service.setRootPath(ws.dir);
 
         const app = TestApp.createWithContent(h.component.view, new Size(30, 10));
+        applyThemeVars(app.root, themeService.theme);
         await h.service.refresh();
         app.render();
 
@@ -393,6 +390,7 @@ describe("ExplorerComponent with ThemeService", () => {
         themeService.setTheme(WorkbenchTheme.fromThemeFile(newThemeFile));
 
         const app = TestApp.createWithContent(h.component.view, new Size(30, 10));
+        applyThemeVars(app.root, themeService.theme);
         await h.service.refresh();
         app.render();
 
@@ -410,12 +408,14 @@ describe("ExplorerComponent with ThemeService", () => {
         h.service.setRootPath(ws.dir);
 
         const app = TestApp.createWithContent(h.component.view, new Size(30, 10));
+        applyThemeVars(app.root, themeService.theme);
         await h.service.refresh();
         app.render();
 
-        // Sidebar colors come from the dark default registry.
-        expect(h.component.view.style.fg).toBe(0xcccccc); // default dark "sideBar.foreground"
-        expect(h.component.view.style.bg).toBe(0x252526); // default dark "sideBar.background"
+        // Sidebar colors come from the dark default registry (fromThemeFile
+        // слоит дефолты под цвета темы, токены всегда резолвятся).
+        expect(h.component.view.resolvedStyle.fg).toBe(0xcccccc); // default dark "sideBar.foreground"
+        expect(h.component.view.resolvedStyle.bg).toBe(0x252526); // default dark "sideBar.background"
         // Still renders its contents.
         expect(app.backend.screenToString()).toContain("index.ts");
 

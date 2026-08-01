@@ -1,11 +1,9 @@
 import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import type { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
 import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
-import { QuickPickElement, unthemedQuickPickStyles } from "../../../../../../tuidom/ui/quickpick/quickPickElement.ts";
+import { QuickPickElement } from "../../../../../../tuidom/ui/quickpick/quickPickElement.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
-import { ThemedComponent } from "../../component.ts";
+import { Component } from "../../component.ts";
 
 export const QuickInputComponentDIToken = token<QuickInputComponent>("QuickInputComponent");
 
@@ -22,8 +20,8 @@ export const QuickInputComponentDIToken = token<QuickInputComponent>("QuickInput
  * шов {@link attachHost} — его зовёт владелец корневой view (сейчас
  * WorkbenchComponent) после её постройки, как у DialogService/ExplorerComponent.
  */
-export class QuickInputComponent extends ThemedComponent {
-    public static dependencies = [ThemeServiceDIToken] as const;
+export class QuickInputComponent extends Component {
+    public static dependencies = [] as const;
 
     public readonly view: QuickPickElement;
 
@@ -37,8 +35,8 @@ export class QuickInputComponent extends ThemedComponent {
     private host: BodyElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
-    public constructor(themeService: ThemeService) {
-        super(themeService);
+    public constructor() {
+        super();
         this.view = new QuickPickElement();
         this.view.id = "quickInput";
         this.register({
@@ -47,7 +45,6 @@ export class QuickInputComponent extends ThemedComponent {
                 this.session = null;
             },
         });
-        this.initStyles();
     }
 
     /** Вызывается владельцем корневой view до первого показа пикера. */
@@ -85,13 +82,6 @@ export class QuickInputComponent extends ThemedComponent {
         if (this.session?.isOpen()) {
             this.session.close();
         }
-    }
-
-    protected updateStyles(): void {
-        // Пикер пока живёт на исторической unthemed-палитре — маппинг «ключ темы →
-        // поле IQuickPickStyles» не изобретаем здесь, это отдельная задача
-        // (Styles/defaultStyles.ts). Пуш дефолтов сохраняет текущий визуал 1:1.
-        this.view.setStyles(unthemedQuickPickStyles);
     }
 
     private updatePosition(): void {

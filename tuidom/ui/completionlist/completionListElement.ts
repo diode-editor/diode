@@ -1,4 +1,3 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { DisplayLine } from "../../common/displayLine.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import { truncateEnd } from "../../common/textTruncation.ts";
@@ -8,27 +7,6 @@ import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { kindIcon } from "./completionItemKindIcon.ts";
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-
-export interface ICompletionListStyles {
-    readonly borderFg: number;
-    readonly bg: number;
-    readonly fg: number;
-    readonly activeSelectionBg: number;
-    readonly activeSelectionFg: number;
-    readonly iconFg: number;
-    readonly detailFg: number;
-}
-
-// Текущая (NvChad-подобная) палитра; темизированных call-sites пока нет.
-export const unthemedCompletionListStyles: ICompletionListStyles = {
-    borderFg: packRgb(83, 83, 83),
-    bg: packRgb(34, 34, 40),
-    fg: packRgb(204, 204, 204),
-    activeSelectionBg: packRgb(56, 62, 90),
-    activeSelectionFg: packRgb(255, 255, 255),
-    iconFg: packRgb(130, 170, 255),
-    detailFg: packRgb(120, 120, 130),
-};
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 // [│(0)][pad(1)][icon(2)][gap(3,4)][label…][…][pad(w-2)][│(w-1)]
@@ -71,7 +49,6 @@ export class CompletionListElement extends TUIElement {
     private filterValue = "";
     private selectedIndexValue = 0;
     private scrollOffset = 0;
-    private styles: ICompletionListStyles = unthemedCompletionListStyles;
 
     public constructor() {
         super();
@@ -86,11 +63,6 @@ export class CompletionListElement extends TUIElement {
     }
 
     // ─── Public API ──────────────────────────────────────────────────────────
-
-    public setStyles(styles: ICompletionListStyles): void {
-        this.styles = styles;
-        this.markDirty();
-    }
 
     /** Задаёт полный набор элементов; переприменяет текущий фильтр (fresh). */
     public setItems(items: readonly CompletionListItem[]): void {
@@ -200,7 +172,11 @@ export class CompletionListElement extends TUIElement {
         // Фон + рамка (единый стиль углов с остальными оверлеями). Рамку рисуем
         // только здесь; ряды заливают лишь внутреннюю область, чтобы фон
         // выделения не залезал на боковые рамки.
-        context.drawBox(0, 0, w, h, { fg: this.styles.borderFg, bg: this.styles.bg, fill: true });
+        context.drawBox(0, 0, w, h, {
+            fg: this.styleVar("editorSuggestWidget.border"),
+            bg: this.styleVar("editorSuggestWidget.background"),
+            fill: true,
+        });
 
         // Ряды
         for (let i = 0; i < this.visibleItemCount; i++) {
@@ -211,8 +187,12 @@ export class CompletionListElement extends TUIElement {
     private renderRow(context: RenderContext, w: number, rowY: number, itemIndex: number): void {
         const item = this.filteredItems[itemIndex];
         const isSelected = itemIndex === this.selectedIndexValue;
-        const rowBg = isSelected ? this.styles.activeSelectionBg : this.styles.bg;
-        const rowFg = isSelected ? this.styles.activeSelectionFg : this.styles.fg;
+        const rowBg = isSelected
+            ? this.styleVar("editorSuggestWidget.selectedBackground")
+            : this.styleVar("editorSuggestWidget.background");
+        const rowFg = isSelected
+            ? this.styleVar("editorSuggestWidget.selectedForeground")
+            : this.styleVar("editorSuggestWidget.foreground");
 
         // Фон ряда только во внутренней области [1, w-1) — боковые рамки (их
         // нарисовал drawBox) не трогаем, иначе фон выделения залезает на рамку.
@@ -220,7 +200,10 @@ export class CompletionListElement extends TUIElement {
 
         // Иконка типа
         const icon = kindIcon(item.kind);
-        context.drawText(2, rowY, icon, { fg: isSelected ? rowFg : this.styles.iconFg, bg: rowBg });
+        context.drawText(2, rowY, icon, {
+            fg: isSelected ? rowFg : this.styleVar("editorSuggestWidget.iconForeground"),
+            bg: rowBg,
+        });
 
         // Правый блок: detail (dim, right-aligned)
         const contentRight = w - 1 - RIGHT_PAD; // exclusive
@@ -230,7 +213,7 @@ export class CompletionListElement extends TUIElement {
             const detailW = new DisplayLine(detailText).displayWidth;
             if (LABEL_X + 1 + detailW <= contentRight) {
                 context.drawText(contentRight - detailW, rowY, detailText, {
-                    fg: isSelected ? rowFg : this.styles.detailFg,
+                    fg: isSelected ? rowFg : this.styleVar("editorSuggestWidget.detailForeground"),
                     bg: rowBg,
                 });
                 rightWidth = detailW;

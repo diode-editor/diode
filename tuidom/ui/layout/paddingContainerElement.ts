@@ -1,7 +1,8 @@
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
 import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
-import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
+import type { StyleColor } from "../../dom/styles/tuiStyle.ts";
+import { TUIElement } from "../../dom/tuiElement.ts";
 
 export interface Padding {
     top?: number;
@@ -105,37 +106,13 @@ export class PaddingContainerElement extends TUIElement {
 
         return containerSize;
     }
-
-    public override render(context: RenderContext): void {
-        const resolved = this.resolvedStyle;
-        const { width, height } = this.layoutSize;
-
-        for (let x = 0; x < width; x++) {
-            for (let y = 0; y < this.top; y++) {
-                context.setCell(x, y, { char: " ", fg: resolved.fg, bg: resolved.bg });
-            }
-            for (let y = height - this.bottom; y < height; y++) {
-                context.setCell(x, y, { char: " ", fg: resolved.fg, bg: resolved.bg });
-            }
-        }
-        for (let y = this.top; y < height - this.bottom; y++) {
-            for (let x = 0; x < this.left; x++) {
-                context.setCell(x, y, { char: " ", fg: resolved.fg, bg: resolved.bg });
-            }
-            for (let x = width - this.right; x < width; x++) {
-                context.setCell(x, y, { char: " ", fg: resolved.fg, bg: resolved.bg });
-            }
-        }
-
-        this.renderChildren(context);
-    }
 }
 
 // ─── PaddingContainer JSX Adapter ───
 
 export interface PaddingContainerProps extends Padding {
-    bg?: number;
-    fg?: number;
+    bg?: StyleColor;
+    fg?: StyleColor;
     children?: JsxChild;
 }
 

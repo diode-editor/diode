@@ -1,4 +1,3 @@
-import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
@@ -7,21 +6,6 @@ import type { ScrollBarColors } from "./scrollBarRenderer.ts";
 import { renderHorizontalScrollBar, renderScrollBar } from "./scrollBarRenderer.ts";
 
 export type ScrollBarPolicy = "auto" | "always" | "never";
-
-export interface IScrollBarStyles {
-    readonly thumb: number;
-    readonly track: number;
-    /** Fills the scrollbar row/column so the widget's own background shows, not the terminal's. */
-    readonly background: number;
-}
-
-// Standalone defaults for theme-less use (stories, tests). Workbench components overwrite
-// these from the active theme — see getScrollBarStyles (defaultStyles.ts).
-export const unthemedScrollBarStyles: IScrollBarStyles = {
-    thumb: packRgb(100, 100, 100),
-    track: packRgb(50, 50, 50),
-    background: DEFAULT_COLOR,
-};
 
 /**
  * Draws scrollbars alongside a scrollable child.
@@ -41,17 +25,11 @@ export class ScrollBarDecorator extends TUIElement {
     private child: TUIElement & IScrollable;
     public verticalScrollBar: ScrollBarPolicy = "auto";
     public horizontalScrollBar: ScrollBarPolicy = "auto";
-    private styles: IScrollBarStyles = unthemedScrollBarStyles;
 
     public constructor(child: TUIElement & IScrollable) {
         super();
         this.child = child;
         this.appendChild(this.child);
-    }
-
-    public setStyles(styles: IScrollBarStyles): void {
-        this.styles = styles;
-        this.markDirty();
     }
 
     public getChild(): TUIElement & IScrollable {
@@ -85,7 +63,14 @@ export class ScrollBarDecorator extends TUIElement {
 
         const childWidth = this.child.layoutSize.width;
         const childHeight = this.child.layoutSize.height;
-        const colors: ScrollBarColors = this.styles;
+        // Токены темы + фон колонки от КАСКАДА: декоратор внутри панели/сайдбара
+        // наследует фон хозяина — бывшая параметризация getScrollBarStyles(theme,
+        // backgroundKey) стала свойством дерева.
+        const colors: ScrollBarColors = {
+            thumb: this.styleVar("scrollbarSlider.background"),
+            track: this.styleVar("scrollbar.background"),
+            background: this.resolvedStyle.bg,
+        };
 
         if (showVertical) {
             renderScrollBar(

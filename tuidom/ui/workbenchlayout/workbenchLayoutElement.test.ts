@@ -564,7 +564,7 @@ describe("WorkbenchLayoutElement", () => {
             const sashes = children.filter((c) => c instanceof SashElement);
             expect(sashes).toHaveLength(2);
             expect(children.at(-1)).toBe(sashes.at(-1));
-            expect((sashes.at(-1) as SashElement).hidden).toBe(false);
+            expect(sashes.at(-1)!.hidden).toBe(false);
         });
 
         it("renders the visible bottom panel at its position", () => {
@@ -579,7 +579,10 @@ describe("WorkbenchLayoutElement", () => {
 
         it("resizes the panel height by dragging the horizontal sash", () => {
             const { layout } = laidOut({ height: 8 });
-            const sash = layout.getChildren().filter((c) => c instanceof SashElement).at(-1) as SashElement;
+            const sash = layout
+                .getChildren()
+                .filter((c) => c instanceof SashElement)
+                .at(-1)!;
             // Panel bottom is pinned at row 24; dragging its top to row 14 → height 10.
             sash.onDrag?.(14);
             expect(layout.getBottomPanelHeight()).toBe(10);
@@ -587,7 +590,10 @@ describe("WorkbenchLayoutElement", () => {
 
         it("clamps the panel height to its minimum and maximum", () => {
             const { layout } = laidOut({ height: 8 });
-            const sash = layout.getChildren().filter((c) => c instanceof SashElement).at(-1) as SashElement;
+            const sash = layout
+                .getChildren()
+                .filter((c) => c instanceof SashElement)
+                .at(-1)!;
             sash.onDrag?.(23); // height 1 → clamped up to MIN (3)
             expect(layout.getBottomPanelHeight()).toBe(3);
             sash.onDrag?.(-100); // height 124 → clamped to containerHeight - MIN_EDITOR_HEIGHT (21)

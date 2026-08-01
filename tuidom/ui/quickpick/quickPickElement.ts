@@ -1,51 +1,14 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { DisplayLine } from "../../common/displayLine.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import { abbreviatePath, truncateEnd } from "../../common/textTruncation.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import type { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { INHERITED_BG, INHERITED_FG } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { InputElement } from "../inputbox/inputElement.ts";
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
-
-export interface IQuickPickStyles {
-    readonly borderFg: number;
-    readonly bg: number;
-    readonly fg: number;
-    readonly activeSelectionBg: number;
-    readonly activeSelectionFg: number;
-    readonly matchFg: number;
-    readonly descriptionFg: number;
-    readonly badgeFg: number;
-    readonly shortcutFg: number;
-    readonly hintFg: number;
-    readonly titleFg: number;
-    readonly promptFg: number;
-    readonly validationErrorFg: number;
-    readonly validationWarningFg: number;
-    readonly validationInfoFg: number;
-}
-
-// Текущая (нетемизированная) палитра пикера; темизированных call-sites пока нет.
-export const unthemedQuickPickStyles: IQuickPickStyles = {
-    borderFg: packRgb(83, 83, 83),
-    bg: packRgb(37, 37, 38),
-    fg: packRgb(204, 204, 204),
-    activeSelectionBg: packRgb(4, 57, 94),
-    activeSelectionFg: packRgb(255, 255, 255),
-    matchFg: packRgb(100, 200, 255),
-    descriptionFg: packRgb(125, 125, 125),
-    badgeFg: packRgb(150, 190, 100),
-    shortcutFg: packRgb(128, 128, 128),
-    hintFg: packRgb(100, 150, 200),
-    titleFg: packRgb(230, 230, 230),
-    promptFg: packRgb(140, 140, 140),
-    validationErrorFg: packRgb(240, 100, 90),
-    validationWarningFg: packRgb(255, 200, 0),
-    validationInfoFg: packRgb(100, 150, 200),
-};
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -125,8 +88,6 @@ export class QuickPickElement extends TUIElement {
      */
     public preferredWidth = 60;
 
-    private styles: IQuickPickStyles = unthemedQuickPickStyles;
-
     public onQueryChange: ((query: string) => void) | null = null;
     public onAccept: ((item: QuickPickItem, index: number) => void) | null = null;
     public onCancel: (() => void) | null = null;
@@ -147,9 +108,12 @@ export class QuickPickElement extends TUIElement {
     public constructor() {
         super();
         this.focusable = true;
+        this.style = { fg: "quickInput.foreground", bg: "quickInput.background" };
 
         this.inputElement = new InputElement();
         this.inputElement.showBorder = false;
+        // Строка запроса — часть пикера: наследует его цвета, а не input.*.
+        this.inputElement.style = { fg: INHERITED_FG, bg: INHERITED_BG };
         this.appendChild(this.inputElement);
 
         this.inputElement.onChange = (value) => {
@@ -320,11 +284,6 @@ export class QuickPickElement extends TUIElement {
         this.inputElement.focus();
     }
 
-    public setStyles(styles: IQuickPickStyles): void {
-        this.styles = styles;
-        this.markDirty();
-    }
-
     // ─── Layout ─────────────────────────────────────────────────────────────
 
     private get visibleItemCount(): number {
@@ -353,14 +312,14 @@ export class QuickPickElement extends TUIElement {
         if (this.validationMessage !== null) {
             const fg =
                 this.validationSeverity === "warning"
-                    ? this.styles.validationWarningFg
+                    ? this.styleVar("editorWarning.foreground")
                     : this.validationSeverity === "info"
-                      ? this.styles.validationInfoFg
-                      : this.styles.validationErrorFg;
+                      ? this.styleVar("editorInfo.foreground")
+                      : this.styleVar("editorError.foreground");
             return { text: this.validationMessage, fg };
         }
         if (this.prompt !== undefined) {
-            return { text: this.prompt, fg: this.styles.promptFg };
+            return { text: this.prompt, fg: this.styleVar("quickPick.promptForeground") };
         }
         return null;
     }
@@ -437,7 +396,12 @@ export class QuickPickElement extends TUIElement {
         // The separator between the input area and the list is a T-connector row
         // (├───┤); item rows re-draw their own side borders under the row bg.
         const separators = hasItems ? [bodyTop] : undefined;
-        context.drawBox(0, 0, w, h, { fg: this.styles.borderFg, bg: this.styles.bg, fill: true, separators });
+        context.drawBox(0, 0, w, h, {
+            fg: this.styleVar("quickPick.border"),
+            bg: this.styleVar("quickInput.background"),
+            fill: true,
+            separators,
+        });
 
         // ── Top border title (optional, centered as ┤ title ├) ────────────────
         if (this.title !== undefined && this.title !== "") {
@@ -475,9 +439,20 @@ export class QuickPickElement extends TUIElement {
         // Need room for the two caps plus the border corners.
         if (labelWidth + 4 > w) return;
         const startX = Math.max(2, Math.floor((w - labelWidth) / 2));
-        context.setCell(startX - 1, 0, { char: "┤", fg: this.styles.borderFg, bg: this.styles.bg });
-        context.drawText(startX, 0, label, { fg: this.styles.titleFg, bg: this.styles.bg });
-        context.setCell(startX + labelWidth, 0, { char: "├", fg: this.styles.borderFg, bg: this.styles.bg });
+        context.setCell(startX - 1, 0, {
+            char: "┤",
+            fg: this.styleVar("quickPick.border"),
+            bg: this.styleVar("quickInput.background"),
+        });
+        context.drawText(startX, 0, label, {
+            fg: this.styleVar("quickPick.titleForeground"),
+            bg: this.styleVar("quickInput.background"),
+        });
+        context.setCell(startX + labelWidth, 0, {
+            char: "├",
+            fg: this.styleVar("quickPick.border"),
+            bg: this.styleVar("quickInput.background"),
+        });
     }
 
     /** Draws the prompt / validation message row under the input. */
@@ -488,21 +463,39 @@ export class QuickPickElement extends TUIElement {
         message: { text: string; fg: number },
     ): void {
         for (let x = 0; x < w; x++) {
-            context.setCell(x, rowY, { char: " ", fg: message.fg, bg: this.styles.bg });
+            context.setCell(x, rowY, { char: " ", fg: message.fg, bg: this.styleVar("quickInput.background") });
         }
-        context.setCell(0, rowY, { char: "│", fg: this.styles.borderFg, bg: this.styles.bg });
-        context.setCell(w - 1, rowY, { char: "│", fg: this.styles.borderFg, bg: this.styles.bg });
+        context.setCell(0, rowY, {
+            char: "│",
+            fg: this.styleVar("quickPick.border"),
+            bg: this.styleVar("quickInput.background"),
+        });
+        context.setCell(w - 1, rowY, {
+            char: "│",
+            fg: this.styleVar("quickPick.border"),
+            bg: this.styleVar("quickInput.background"),
+        });
         const avail = Math.max(0, w - 3);
         const text =
             new DisplayLine(message.text).displayWidth <= avail ? message.text : truncateEnd(message.text, avail);
-        context.drawText(2, rowY, text, { fg: message.fg, bg: this.styles.bg }, { maxWidth: avail });
+        context.drawText(
+            2,
+            rowY,
+            text,
+            { fg: message.fg, bg: this.styleVar("quickInput.background") },
+            { maxWidth: avail },
+        );
     }
 
     private renderItemRow(context: RenderContext, w: number, rowY: number, itemIndex: number, hasIcons: boolean): void {
         const item = this.itemsValue[itemIndex];
         const isSelected = itemIndex === this.selectedIndexValue;
-        const rowBg = isSelected ? this.styles.activeSelectionBg : this.styles.bg;
-        const rowFg = isSelected ? this.styles.activeSelectionFg : this.styles.fg;
+        const rowBg = isSelected
+            ? this.styleVar("list.activeSelectionBackground")
+            : this.styleVar("quickInput.background");
+        const rowFg = isSelected
+            ? this.styleVar("list.activeSelectionForeground")
+            : this.styleVar("quickInput.foreground");
 
         // ── Row background ────────────────────────────────────────────────────
         // Fill only the interior; the border columns keep the box background so
@@ -512,8 +505,16 @@ export class QuickPickElement extends TUIElement {
         }
 
         // ── Side borders ──────────────────────────────────────────────────────
-        context.setCell(0, rowY, { char: "│", fg: this.styles.borderFg, bg: this.styles.bg });
-        context.setCell(w - 1, rowY, { char: "│", fg: this.styles.borderFg, bg: this.styles.bg });
+        context.setCell(0, rowY, {
+            char: "│",
+            fg: this.styleVar("quickPick.border"),
+            bg: this.styleVar("quickInput.background"),
+        });
+        context.setCell(w - 1, rowY, {
+            char: "│",
+            fg: this.styleVar("quickPick.border"),
+            bg: this.styleVar("quickInput.background"),
+        });
 
         let x = 2;
 
@@ -540,18 +541,22 @@ export class QuickPickElement extends TUIElement {
         const metaAfter: RightPart[] = [];
 
         if (item.badge !== undefined) {
-            metaBefore.push({ text: " ★ " + item.badge, fg: this.styles.badgeFg });
+            metaBefore.push({ text: " ★ " + item.badge, fg: this.styleVar("quickPick.badgeForeground") });
         }
         if (item.shortcut !== undefined) {
             metaAfter.push({
                 text: "  " + item.shortcut,
-                fg: isSelected ? this.styles.activeSelectionFg : this.styles.shortcutFg,
+                fg: isSelected
+                    ? this.styleVar("list.activeSelectionForeground")
+                    : this.styleVar("quickPick.shortcutForeground"),
             });
         }
         if (item.hint !== undefined) {
             metaAfter.push({
                 text: "  " + item.hint,
-                fg: isSelected ? this.styles.activeSelectionFg : this.styles.hintFg,
+                fg: isSelected
+                    ? this.styleVar("list.activeSelectionForeground")
+                    : this.styleVar("quickPick.hintForeground"),
             });
         }
 
@@ -579,7 +584,9 @@ export class QuickPickElement extends TUIElement {
             const shown = new DisplayLine(dir).displayWidth <= dirBudget ? dir : abbreviatePath(dir, dirBudget);
             descParts.push({
                 text: DESC_SEPARATOR + shown,
-                fg: isSelected ? this.styles.activeSelectionFg : this.styles.descriptionFg,
+                fg: isSelected
+                    ? this.styleVar("list.activeSelectionForeground")
+                    : this.styleVar("descriptionForeground"),
             });
         }
 
@@ -593,7 +600,11 @@ export class QuickPickElement extends TUIElement {
                 maxWidth: labelDraw,
                 getStyle: (offset) => {
                     if (matchSet.has(offset)) {
-                        return { fg: isSelected ? this.styles.activeSelectionFg : this.styles.matchFg };
+                        return {
+                            fg: isSelected
+                                ? this.styleVar("list.activeSelectionForeground")
+                                : this.styleVar("list.highlightForeground"),
+                        };
                     }
                     return undefined;
                 },

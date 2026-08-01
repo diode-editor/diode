@@ -8,7 +8,7 @@ import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts"
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 
-import { ButtonElement, unthemedButtonStyles } from "./buttonElement.ts";
+import { ButtonElement } from "./buttonElement.ts";
 
 const BUTTON_FG = packRgb(204, 204, 204);
 const BUTTON_BG = packRgb(60, 60, 60);
@@ -18,7 +18,7 @@ const BUTTON_SEL_BG = packRgb(0, 120, 215);
 const BUTTON_SEL_HOVER_BG = packRgb(26, 134, 224);
 
 function renderStandalone(button: ButtonElement): MockTerminalBackend {
-    return renderElement(button, button.getMaxIntrinsicWidth(0), 1);
+    return renderElement(button, button.getMaxIntrinsicWidth(0), 1, { resolveStyles: true });
 }
 
 describe("ButtonElement — metadata & layout", () => {
@@ -54,7 +54,7 @@ describe("ButtonElement — metadata & layout", () => {
         const button = new ButtonElement("Save");
         const size = button.layout(BoxConstraints.tight(new Size(5, 1)));
         expect(size).toEqual(new Size(5, 1));
-        const backend = renderElement(button, 5, 1);
+        const backend = renderElement(button, 5, 1, { resolveStyles: true });
         expect(backend.getTextAt(new Point(0, 0), 5)).toBe("[ Sav");
     });
 });
@@ -80,23 +80,19 @@ describe("ButtonElement — rendering", () => {
     });
 });
 
-describe("ButtonElement — hover", () => {
-    function hover(button: ButtonElement, type: "mouseenter" | "mouseleave"): void {
-        button.dispatchEvent(new TUIMouseEvent(type, { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }));
-    }
-
+describe("ButtonElement — hover/checked (состояния ядра)", () => {
     it("uses the hover background while hovered and unfocused", () => {
         const button = new ButtonElement("OK");
-        hover(button, "mouseenter");
+        button.setStyleState("hover", true);
         const backend = renderStandalone(button);
         expect(backend.getFgAt(new Point(0, 0))).toBe(BUTTON_FG);
         expect(backend.getBgAt(new Point(0, 0))).toBe(BUTTON_HOVER_BG);
     });
 
-    it("reverts to the base background after mouseleave", () => {
+    it("reverts to the base background when hover is cleared", () => {
         const button = new ButtonElement("OK");
-        hover(button, "mouseenter");
-        hover(button, "mouseleave");
+        button.setStyleState("hover", true);
+        button.setStyleState("hover", false);
         const backend = renderStandalone(button);
         expect(backend.getBgAt(new Point(0, 0))).toBe(BUTTON_BG);
     });
@@ -105,7 +101,7 @@ describe("ButtonElement — hover", () => {
         const button = new ButtonElement("OK");
         const testApp = TestApp.createWithContent(button, new Size(20, 3));
         button.focus();
-        hover(button, "mouseenter");
+        button.setStyleState("hover", true);
         testApp.render();
 
         const pos = button.globalPosition;
@@ -113,37 +109,28 @@ describe("ButtonElement — hover", () => {
         expect(testApp.backend.getBgAt(new Point(pos.x, pos.y))).toBe(BUTTON_SEL_HOVER_BG);
     });
 
-    it("honors styles set via setStyles in render", () => {
+    it("setChecked включает primary-вид независимо от фокуса", () => {
         const button = new ButtonElement("OK");
-        const customHoverBg = packRgb(1, 2, 3);
-        button.setStyles({ ...unthemedButtonStyles, hoverBg: customHoverBg });
-        hover(button, "mouseenter");
+        button.setChecked(true);
         const backend = renderStandalone(button);
-        expect(backend.getBgAt(new Point(0, 0))).toBe(customHoverBg);
+        expect(backend.getFgAt(new Point(0, 0))).toBe(BUTTON_SEL_FG);
+        expect(backend.getBgAt(new Point(0, 0))).toBe(BUTTON_SEL_BG);
     });
 
-    it("honors styles passed via constructor options in render", () => {
-        const customBg = packRgb(7, 8, 9);
-        const button = new ButtonElement("OK", { styles: { ...unthemedButtonStyles, bg: customBg } });
+    it("checked + hover — primary hover-фон", () => {
+        const button = new ButtonElement("OK");
+        button.setChecked(true);
+        button.setStyleState("hover", true);
         const backend = renderStandalone(button);
-        expect(backend.getBgAt(new Point(0, 0))).toBe(customBg);
+        expect(backend.getBgAt(new Point(0, 0))).toBe(BUTTON_SEL_HOVER_BG);
     });
 
-    it("ignores a repeated mouseenter without re-marking dirty", () => {
+    it("setChecked(false) возвращает secondary-вид", () => {
         const button = new ButtonElement("OK");
-        hover(button, "mouseenter");
-        const markDirty = vi.spyOn(button, "markDirty");
-        hover(button, "mouseenter");
-        expect(markDirty).not.toHaveBeenCalled();
-        expect(renderStandalone(button).getBgAt(new Point(0, 0))).toBe(BUTTON_HOVER_BG);
-    });
-
-    it("ignores mouseleave when not hovered", () => {
-        const button = new ButtonElement("OK");
-        const markDirty = vi.spyOn(button, "markDirty");
-        hover(button, "mouseleave");
-        expect(markDirty).not.toHaveBeenCalled();
-        expect(renderStandalone(button).getBgAt(new Point(0, 0))).toBe(BUTTON_BG);
+        button.setChecked(true);
+        button.setChecked(false);
+        const backend = renderStandalone(button);
+        expect(backend.getBgAt(new Point(0, 0))).toBe(BUTTON_BG);
     });
 });
 

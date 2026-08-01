@@ -347,3 +347,49 @@ describe("FocusManager", () => {
         });
     });
 });
+
+describe("FocusManager — focus-состояние стиля", () => {
+    function makeFocusPair(): { fm: FocusManager; a: TUIElement; b: TUIElement } {
+        const root = new ContainerElement();
+        root.setAsRoot();
+        const a = new TUIElement();
+        a.focusable = true;
+        const b = new TUIElement();
+        b.focusable = true;
+        root.addChild(a);
+        root.addChild(b);
+        return { fm: new FocusManager(root), a, b };
+    }
+
+    it("setFocus ставит focus на target, переброс переносит, null снимает", () => {
+        const { fm, a, b } = makeFocusPair();
+
+        fm.setFocus(a);
+        expect(a.hasStyleState("focus")).toBe(true);
+
+        fm.setFocus(b);
+        expect(a.hasStyleState("focus")).toBe(false);
+        expect(b.hasStyleState("focus")).toBe(true);
+
+        fm.setFocus(null);
+        expect(b.hasStyleState("focus")).toBe(false);
+    });
+
+    it("состояние видно из blur/focus-слушателей (обновлено ДО события)", () => {
+        const { fm, a, b } = makeFocusPair();
+        fm.setFocus(a);
+
+        let stateInBlur: boolean | null = null;
+        a.addEventListener("blur", () => {
+            stateInBlur = a.hasStyleState("focus");
+        });
+        let stateInFocus: boolean | null = null;
+        b.addEventListener("focus", () => {
+            stateInFocus = b.hasStyleState("focus");
+        });
+
+        fm.setFocus(b);
+        expect(stateInBlur).toBe(false);
+        expect(stateInFocus).toBe(true);
+    });
+});

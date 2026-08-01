@@ -67,12 +67,6 @@ export class WorkbenchLayoutElement extends TUIElement {
         };
     }
 
-    /** Color of both sashes' hover line; pass undefined to keep them invisible. */
-    public setSashHoverColor(color: number | undefined): void {
-        this.sash.hoverBorderColor = color;
-        this.bottomSash.hoverBorderColor = color;
-    }
-
     public setLeftPanel(element: TUIElement | null): void {
         this.leftPanel = element;
         this.syncChildren();
@@ -221,11 +215,21 @@ export class WorkbenchLayoutElement extends TUIElement {
         }
 
         if (this.centerContent) {
-            this.layoutChild(this.centerContent, leftWidth, 0, BoxConstraints.tight(new Size(centerWidth, centerHeight)));
+            this.layoutChild(
+                this.centerContent,
+                leftWidth,
+                0,
+                BoxConstraints.tight(new Size(centerWidth, centerHeight)),
+            );
         }
 
         if (showBottom && this.bottomPanel) {
-            this.layoutChild(this.bottomPanel, leftWidth, centerHeight, BoxConstraints.tight(new Size(centerWidth, panelHeight)));
+            this.layoutChild(
+                this.bottomPanel,
+                leftWidth,
+                centerHeight,
+                BoxConstraints.tight(new Size(centerWidth, panelHeight)),
+            );
         }
 
         if (showLeft) {
@@ -243,6 +247,4 @@ export class WorkbenchLayoutElement extends TUIElement {
 
         return containerSize;
     }
-
-
 }

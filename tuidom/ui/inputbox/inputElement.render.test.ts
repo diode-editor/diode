@@ -11,7 +11,7 @@ import { InputState } from "./inputState.ts";
 
 function renderInput(input: InputElement, width: number): MockTerminalBackend {
     const height = input.showBorder ? 3 : 1;
-    return renderElement(input, width, height);
+    return renderElement(input, width, height, { resolveStyles: true });
 }
 
 describe("InputElement — layout", () => {

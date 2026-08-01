@@ -1,7 +1,6 @@
 import type { TUIElement } from "../../dom/tuiElement.ts";
 import type { MenuEntry } from "../menu/popupMenuElement.ts";
 import { PopupMenuElement } from "../menu/popupMenuElement.ts";
-import type { IMenuStyles } from "../menu/popupMenuItemElement.tsx";
 
 import type { OverlayAnchorPosition, OverlaySessionHandle } from "./overlayLayer.ts";
 
@@ -10,7 +9,6 @@ export interface ContextMenuShowRequest {
     owner: TUIElement;
     anchor: OverlayAnchorPosition;
     entries: MenuEntry[];
-    styles?: IMenuStyles;
     onHide?: () => void;
 }
 
@@ -45,9 +43,6 @@ export class ContextMenuController {
         });
 
         const menu = new PopupMenuElement(entries);
-        if (request.styles) {
-            menu.setStyles(request.styles);
-        }
         menu.focusable = true;
 
         let session: OverlaySessionHandle | null = null;

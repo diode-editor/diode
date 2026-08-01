@@ -4,12 +4,14 @@ import { expectScreen, screen } from "../../../src/TestUtils/expectScreen.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
+import { STYLE_TOKEN_DEFAULTS } from "../../dom/styles/styleTokens.ts";
+import { ROOT_STYLE_CONTEXT } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 import { TextBlockElement } from "../text/textBlockElement.ts";
 
 import { ScrollableElement, type ScrollViewportInfo } from "./scrollableElement.ts";
-import { ScrollBarDecorator, unthemedScrollBarStyles } from "./scrollContainerElement.ts";
+import { ScrollBarDecorator } from "./scrollContainerElement.ts";
 import { ScrollViewport } from "./scrollViewport.ts";
 
 function createScrollContainer(
@@ -38,6 +40,7 @@ function renderContainer(
     backend: MockTerminalBackend,
 ): MockTerminalBackend {
     container.layout(BoxConstraints.tight(termScreen.size));
+    container.performStyleResolution(ROOT_STYLE_CONTEXT);
     container.render(new RenderContext(termScreen));
     termScreen.flush(backend);
     return backend;
@@ -384,26 +387,29 @@ describe("ScrollBarDecorator horizontal scrollbar", () => {
     });
 });
 
-describe("ScrollBarDecorator setStyles", () => {
-    it("renders the bar with the injected thumb/track/background colours", () => {
+describe("ScrollBarDecorator — цвета из токенов и каскада", () => {
+    it("токены темы + фон колонки от собственного каскада", () => {
         const { container, termScreen, backend } = createScrollContainer(12, 5, 20);
-        const styles = { thumb: packRgb(1, 2, 3), track: packRgb(4, 5, 6), background: packRgb(7, 8, 9) };
-        container.setStyles(styles);
+        container.setStyleVars({
+            "scrollbarSlider.background": packRgb(1, 2, 3),
+            "scrollbar.background": packRgb(4, 5, 6),
+        });
+        container.style = { bg: packRgb(7, 8, 9) };
 
         renderContainer(container, termScreen, backend);
 
         // scrollTop = 0: thumb hugs the top of the track, the bottom row is track.
-        expect(backend.getFgAt(new Point(11, 0))).toBe(styles.thumb);
-        expect(backend.getFgAt(new Point(11, 4))).toBe(styles.track);
-        expect(backend.getBgAt(new Point(11, 4))).toBe(styles.background);
+        expect(backend.getFgAt(new Point(11, 0))).toBe(packRgb(1, 2, 3));
+        expect(backend.getFgAt(new Point(11, 4))).toBe(packRgb(4, 5, 6));
+        expect(backend.getBgAt(new Point(11, 4))).toBe(packRgb(7, 8, 9));
     });
 
-    it("uses the unthemed defaults until styles are injected", () => {
+    it("без хостовой таблицы — дефолты токенов tuidom", () => {
         const { container, termScreen, backend } = createScrollContainer(12, 5, 20);
 
         renderContainer(container, termScreen, backend);
 
-        expect(backend.getFgAt(new Point(11, 0))).toBe(unthemedScrollBarStyles.thumb);
-        expect(backend.getFgAt(new Point(11, 4))).toBe(unthemedScrollBarStyles.track);
+        expect(backend.getFgAt(new Point(11, 0))).toBe(STYLE_TOKEN_DEFAULTS["scrollbarSlider.background"]);
+        expect(backend.getFgAt(new Point(11, 4))).toBe(STYLE_TOKEN_DEFAULTS["scrollbar.background"]);
     });
 });

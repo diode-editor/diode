@@ -3,7 +3,7 @@ import type { StoryContext, StoryMeta } from "../../../StoryRunner/StoryTypes.ts
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
-import { EditorElement, unthemedEditorStyles } from "./editorElement.ts";
+import { EditorElement } from "./editorElement.ts";
 
 export const meta: StoryMeta = {
     title: "EditorElement",
@@ -22,11 +22,10 @@ Have fun!`;
     const viewState = new EditorViewState(doc);
     const editor = new EditorElement(viewState);
     editor.style = { fg: packRgb(212, 212, 212), bg: packRgb(30, 30, 30) };
-    editor.setStyles({
-        ...unthemedEditorStyles,
-        gutterBackground: packRgb(30, 30, 30),
-        lineNumberForeground: packRgb(133, 133, 133),
-        lineNumberActiveForeground: packRgb(198, 198, 198),
+    editor.setStyleVars({
+        "editorGutter.background": packRgb(30, 30, 30),
+        "editorLineNumber.foreground": packRgb(133, 133, 133),
+        "editorLineNumber.activeForeground": packRgb(198, 198, 198),
     });
     ctx.body.setContent(editor);
 }

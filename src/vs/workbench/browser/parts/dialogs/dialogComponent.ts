@@ -1,34 +1,41 @@
 import type { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import type { JsxNode } from "../../../../../../tuidom/dom/jsx/jsx-runtime.ts";
 import { reconcile } from "../../../../../../tuidom/dom/jsx/reconcile.ts";
+import type { StyleColor } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import type { ButtonElement, IButtonStyles } from "../../../../../../tuidom/ui/button/buttonElement.ts";
+import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { FitContentElement } from "../../../../../../tuidom/ui/layout/fitContentElement.ts";
-import { getDialogStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemedComponent } from "../../component.ts";
+import { Component } from "../../component.ts";
 
 /**
  * Packed-цвета модального диалога. Единственный источник значений —
- * `getDialogStyles(theme)` в `Workbench/Styles/defaultStyles.ts`
+ * Цвета — токены темы (DIALOG_STYLES), резолвит каскад (Н3).
  * (ключи `editorWidget.*`, `descriptionForeground`, `textLink.foreground`, …).
  */
 export interface IDialogStyles {
-    /** Фон окна диалога (`editorWidget.background`). */
-    readonly bg: number;
-    /** Основной текст (`editorWidget.foreground`). */
-    readonly fg: number;
-    /** Рамка окна (`editorWidget.border`). */
-    readonly borderFg: number;
-    /** Приглушённый пояснительный текст (`descriptionForeground`). */
-    readonly descriptionFg: number;
-    /** Акцент предупреждения (`editorWarning.foreground`). */
-    readonly warningFg: number;
-    /** Ссылки (`textLink.foreground`). */
-    readonly linkFg: number;
-    /** Ряд кнопок диалога (`button.*`). */
-    readonly button: IButtonStyles;
+    /** Фон окна диалога. */
+    readonly bg: StyleColor;
+    /** Основной текст. */
+    readonly fg: StyleColor;
+    /** Рамка окна. */
+    readonly borderFg: StyleColor;
+    /** Приглушённый пояснительный текст. */
+    readonly descriptionFg: StyleColor;
+    /** Акцент предупреждения. */
+    readonly warningFg: StyleColor;
+    /** Ссылки. */
+    readonly linkFg: StyleColor;
 }
+
+/** Токены темы диалога — резолвит каскад, пере-пуш при смене темы не нужен. */
+const DIALOG_STYLES: IDialogStyles = {
+    bg: "editorWidget.background",
+    fg: "editorWidget.foreground",
+    borderFg: "editorWidget.border",
+    descriptionFg: "descriptionForeground",
+    warningFg: "editorWarning.foreground",
+    linkFg: "textLink.foreground",
+};
 
 /**
  * База модальных диалогов Workbench. Диалог — компонент: он НЕ наследует
@@ -36,11 +43,10 @@ export interface IDialogStyles {
  * размещает в нём дерево примитивов, описанное JSX'ом в {@link describe}.
  *
  * База даёт диалогам общее поведение: reconcile-перестройку дерева
- * ({@link rebuild}), покраску из темы ({@link updateStyles} красит ряд кнопок
- * и перестраивает дерево с новыми {@link IDialogStyles}), навигацию стрелками
+ * ({@link rebuild}; цвета — токены темы, резолвит каскад), навигацию стрелками
  * по ряду кнопок и Escape → {@link onDismiss}.
  */
-export abstract class DialogComponent extends ThemedComponent {
+export abstract class DialogComponent extends Component {
     public readonly view: FitContentElement;
 
     private rootChild: TUIElement | null = null;
@@ -51,8 +57,8 @@ export abstract class DialogComponent extends ThemedComponent {
      * класса в дереве). Наследник обязан вызвать `initStyles()` последней
      * строкой конструктора — это и начальная покраска, и первый rebuild.
      */
-    protected constructor(themeService: ThemeService, id: string) {
-        super(themeService);
+    protected constructor(id: string) {
+        super();
         this.view = new FitContentElement();
         this.view.id = id;
         this.view.addEventListener("keydown", (event) => {
@@ -71,16 +77,8 @@ export abstract class DialogComponent extends ThemedComponent {
 
     /** Перестраивает дерево контролов под текущее состояние и тему. */
     protected rebuild(): void {
-        this.rootChild = reconcile(this.rootChild, this.describe(getDialogStyles(this.theme)));
+        this.rootChild = reconcile(this.rootChild, this.describe(DIALOG_STYLES));
         this.view.setChild(this.rootChild);
-    }
-
-    protected override updateStyles(): void {
-        const styles = getDialogStyles(this.theme);
-        for (const button of this.rowButtons()) {
-            button.setStyles(styles.button);
-        }
-        this.rebuild();
     }
 
     private handleDialogKeydown(event: TUIKeyboardEvent): void {

@@ -1,10 +1,7 @@
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { PanelContainerElement } from "../../../../../../tuidom/ui/panel/panelContainerElement.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { getPanelContainerStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
-import { ThemedComponent } from "../../component.ts";
+import { Component } from "../../component.ts";
 
 import type { PanelService } from "./panelService.ts";
 import { PanelServiceDIToken } from "./panelService.ts";
@@ -18,8 +15,8 @@ export const PanelComponentDIToken = token<PanelComponent>("PanelComponent");
  * фичи через сервис. Клик по табу возвращается в сервис
  * (`PanelService.activateView`) — на нём висят ленивые фичи (спавн терминала).
  */
-export class PanelComponent extends ThemedComponent {
-    public static dependencies = [PanelServiceDIToken, ThemeServiceDIToken] as const;
+export class PanelComponent extends Component {
+    public static dependencies = [PanelServiceDIToken] as const;
 
     public readonly view: PanelContainerElement;
 
@@ -28,11 +25,8 @@ export class PanelComponent extends ThemedComponent {
     /** То же для контролов шапки — чтобы не перевешивать их на каждый чих. */
     private actions = new Map<string, TUIElement | null>();
 
-    public constructor(
-        private readonly panelService: PanelService,
-        themeService: ThemeService,
-    ) {
-        super(themeService);
+    public constructor(private readonly panelService: PanelService) {
+        super();
         this.view = new PanelContainerElement();
         this.view.id = "panel";
         // Клик по табу: контрол уже переключил активную вкладку у себя — синхронизируем
@@ -51,7 +45,6 @@ export class PanelComponent extends ThemedComponent {
             }),
         );
         this.syncViews();
-        this.initStyles();
     }
 
     /** Приводит контрол к реестру сервиса: новые вкладки + изменившийся контент. */
@@ -78,9 +71,5 @@ export class PanelComponent extends ThemedComponent {
         }
         const activeId = this.panelService.getActiveViewId();
         if (activeId !== null) this.view.setActiveView(activeId);
-    }
-
-    protected updateStyles(): void {
-        this.view.setStyles(getPanelContainerStyles(this.theme));
     }
 }

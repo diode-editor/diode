@@ -1,9 +1,9 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
-import { TUIMouseEvent, type TUIContextMenuEvent, type TUIMouseEventType } from "../../dom/events/tuiMouseEvent.ts";
-import type { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
+import { type TUIContextMenuEvent, TUIMouseEvent, type TUIMouseEventType } from "../../dom/events/tuiMouseEvent.ts";
+import type { RenderContext } from "../../dom/tuiElement.ts";
+import { TUIElement } from "../../dom/tuiElement.ts";
 import type { CellPatch } from "../../rendering/grid.ts";
 import { ScrollableElement, type ScrollViewportInfo } from "../scrollbar/scrollableElement.ts";
 
@@ -13,29 +13,6 @@ const DEFAULT_INDENT_SIZE = 2;
 const TYPEAHEAD_TIMEOUT_MS = 800;
 const ICON_EXPANDED = ""; //  nf-fa-angle_down — chevron, как в TreeViewElement
 const ICON_COLLAPSED = ""; //  nf-fa-angle_right
-
-export interface IListViewStyles {
-    readonly activeSelectionBg: number;
-    readonly activeSelectionFg: number;
-    readonly inactiveSelectionBg: number;
-    readonly inactiveSelectionFg: number;
-    /** `undefined` отключает hover-подсветку. */
-    readonly hoverBg: number | undefined;
-    /** `undefined` — hovered-строка оставляет обычный fg. */
-    readonly hoverFg: number | undefined;
-    readonly chevronFg: number;
-}
-
-// Defaults mirror the tree's historical look; controllers override them via setStyles.
-export const unthemedListViewStyles: IListViewStyles = {
-    activeSelectionBg: packRgb(4, 57, 94),
-    activeSelectionFg: packRgb(255, 255, 255),
-    inactiveSelectionBg: packRgb(55, 55, 61),
-    inactiveSelectionFg: packRgb(204, 204, 204),
-    hoverBg: undefined,
-    hoverFg: undefined,
-    chevronFg: packRgb(150, 150, 150),
-};
 
 export interface IListRowOptions {
     /** Родительская строка; глубина/отступ выводятся из цепочки родителей. */
@@ -49,11 +26,58 @@ export interface IListRowOptions {
 
 interface ListRow {
     readonly element: TUIElement;
+    readonly host: ListRowHostElement;
     readonly id: string;
     readonly parentId: string | null;
     readonly depth: number;
     readonly label: string | undefined;
     hidden: boolean;
+}
+
+/**
+ * Внутренняя обёртка строки: владеет when-вариантами состояний
+ * (hover < selected < selected+in:focus — порядок = приоритет) и сдвигом
+ * контента (гуттер иерархии). Состояния ставит список; in:focus видит
+ * focus-состояние самого списка (строки презентационные и фокуса не имеют).
+ * Пост-рендерный оверлей прежней реализации умер: смена состояния меняет
+ * resolvedStyle строки, дети без собственных цветов наследуют результат, а
+ * явные посимвольные подсветки (match highlight) выделение переживают.
+ */
+class ListRowHostElement extends TUIElement {
+    public contentX = 0;
+    private readonly child: TUIElement;
+
+    public constructor(child: TUIElement) {
+        super();
+        this.child = child;
+        this.appendChild(child);
+        this.style = {
+            when: [
+                { states: ["hover"], bg: "list.hoverBackground" },
+                {
+                    states: ["selected"],
+                    fg: "list.inactiveSelectionForeground",
+                    bg: "list.inactiveSelectionBackground",
+                },
+                {
+                    states: ["selected", "in:focus"],
+                    fg: "list.activeSelectionForeground",
+                    bg: "list.activeSelectionBackground",
+                },
+            ],
+        };
+    }
+
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const size = super.performLayout(constraints);
+        this.layoutChild(
+            this.child,
+            this.contentX,
+            0,
+            BoxConstraints.tight(new Size(Math.max(0, size.width - this.contentX), 1)),
+        );
+        return size;
+    }
 }
 
 /**
@@ -115,8 +139,6 @@ export class ListViewElement extends ScrollableElement {
     private typeaheadBuffer = "";
     private typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
 
-    private styles: IListViewStyles = unthemedListViewStyles;
-
     public onSelect: ((element: TUIElement) => void) | null = null;
     public onActivate: ((element: TUIElement) => void) | null = null;
     public onCollapsedChanged: ((element: TUIElement, collapsed: boolean) => void) | null = null;
@@ -129,17 +151,14 @@ export class ListViewElement extends ScrollableElement {
         this.typeaheadEnabled = options?.typeahead ?? true;
     }
 
-    public setStyles(styles: IListViewStyles): void {
-        this.styles = styles;
-        this.markDirty();
-    }
-
     // ─── Rows ───
 
     public appendRow(element: TUIElement, options?: IListRowOptions): void {
         const id = element.id;
         if (id === undefined || id === "") {
-            throw new Error(`ListViewElement: every row element must have a non-empty id (row #${this.rowById.size} has none)`);
+            throw new Error(
+                `ListViewElement: every row element must have a non-empty id (row #${this.rowById.size} has none)`,
+            );
         }
         if (this.rowById.has(id)) {
             throw new Error(`ListViewElement: duplicate row id "${id}"`);
@@ -154,7 +173,8 @@ export class ListViewElement extends ScrollableElement {
             depth = parent.depth + 1;
         }
 
-        const row: ListRow = { element, id, parentId, depth, label: options?.label, hidden: false };
+        const host = new ListRowHostElement(element);
+        const row: ListRow = { element, host, id, parentId, depth, label: options?.label, hidden: false };
         this.rowById.set(id, row);
         let siblings = this.childIds.get(parentId);
         if (!siblings) {
@@ -162,7 +182,7 @@ export class ListViewElement extends ScrollableElement {
             this.childIds.set(parentId, siblings);
         }
         siblings.push(id);
-        this.appendChild(element);
+        this.appendChild(host);
 
         this.invalidateProjection();
         this.markDirty();
@@ -324,9 +344,13 @@ export class ListViewElement extends ScrollableElement {
         const end = Math.min(rows.length, start + size.height);
         for (let i = start; i < end; i++) {
             const row = rows[i];
-            const contentX = this.rowContentX(row);
             const y = i - start;
-            this.layoutChild(row.element, contentX, y, BoxConstraints.tight(new Size(Math.max(0, size.width - contentX), 1)));
+            row.host.contentX = this.rowContentX(row);
+            // Состояния строк синхронизируются здесь: layout идёт в кадре ДО
+            // резолва стилей, setStyleState — no-op без смены значения.
+            row.host.setStyleState("selected", i === this.cursorIndex || this.selectedIds.has(row.id));
+            row.host.setStyleState("hover", i === this.hoveredIndex);
+            this.layoutChild(row.host, 0, y, BoxConstraints.tight(new Size(size.width, 1)));
         }
         this.lastLayoutScrollTop = start;
         this.lastLayoutViewportHeight = size.height;
@@ -401,72 +425,35 @@ export class ListViewElement extends ScrollableElement {
         const rows = this.ensureProjection();
         const { scrollTop, viewportWidth, viewportHeight } = viewport;
         const resolved = this.resolvedStyle;
-        const focused = this.isFocused;
 
         for (let screenY = 0; screenY < viewportHeight; screenY++) {
             const rowIndex = scrollTop + screenY;
 
-            // 1. Заливка строки (фон под гуттером и хвостом после контента).
+            // 1. Заливка строки фоном списка (гуттер и область за строками).
             for (let x = 0; x < viewportWidth; x++) {
                 context.setCell(x, screenY, { char: " ", fg: resolved.fg, bg: resolved.bg, width: 1 });
             }
             if (rowIndex >= rows.length) continue;
             const row = rows[rowIndex];
 
-            // 2. Шеврон сворачиваемой строки.
+            // 2. Строка-обёртка: её when-состояния (hover/selected) уже
+            // отрезолвлены каскадом — фон льёт база, дети наследуют результат.
+            const host = row.host;
+            const hostOffset = new Offset(host.localPosition.dx, host.localPosition.dy);
+            const hostClip = new Rect(host.globalPosition, host.layoutSize);
+            host.render(context.withOffset(hostOffset).withClip(hostClip));
+
+            // 3. Шеврон сворачиваемой строки — поверх, на фоне строки.
             if (this.hasCollapsibleRows && this.rowHasChildren(row.id)) {
                 const icon = this.collapsedIds.has(row.id) ? ICON_COLLAPSED : ICON_EXPANDED;
                 context.setCell(row.depth * this.indentSize, screenY, {
                     char: icon,
-                    fg: this.styles.chevronFg,
-                    bg: resolved.bg,
+                    fg: this.styleVar("list.deemphasizedForeground"),
+                    bg: host.resolvedStyle.bg,
                     width: 1,
                 });
             }
-
-            // 3. Сама строка.
-            const child = row.element;
-            const childOffset = new Offset(child.localPosition.dx, child.localPosition.dy);
-            const childClip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(childOffset).withClip(childClip));
-
-            // 4. Оверлей курсора/выделения/hover поверх готовой строки.
-            const state = this.resolveRowState(rowIndex, row, focused, resolved);
-            if (state === null) continue;
-            for (let x = 0; x < viewportWidth; x++) {
-                const cell = context.getCell(x, screenY);
-                /* v8 ignore start -- defensive: the row was just filled, so its cells are inside clip and screen */
-                if (cell === null) continue;
-                /* v8 ignore stop */
-                const patch: CellPatch = {};
-                if (cell.bg === resolved.bg) patch.bg = state.bg;
-                if (cell.fg === resolved.fg) patch.fg = state.fg;
-                if (patch.bg !== undefined || patch.fg !== undefined) {
-                    context.setCell(x, screenY, patch);
-                }
-            }
         }
-    }
-
-    private resolveRowState(
-        index: number,
-        row: ListRow,
-        focused: boolean,
-        resolved: { fg: number; bg: number },
-    ): { bg: number; fg: number } | null {
-        // Priority: cursor/selection > hover > normal
-        const isCursor = index === this.cursorIndex;
-        const isSelected = this.selectedIds.has(row.id);
-        if (isCursor || isSelected) {
-            if (focused) {
-                return { bg: this.styles.activeSelectionBg, fg: this.styles.activeSelectionFg };
-            }
-            return { bg: this.styles.inactiveSelectionBg, fg: this.styles.inactiveSelectionFg };
-        }
-        if (index === this.hoveredIndex && this.styles.hoverBg !== undefined) {
-            return { bg: this.styles.hoverBg, fg: this.styles.hoverFg ?? resolved.fg };
-        }
-        return null;
     }
 
     // ─── Private: projection ───
@@ -497,7 +484,7 @@ export class ListViewElement extends ScrollableElement {
         // Курсор возвращается на прежнюю строку по id; если она пропала (скрыта,
         // свёрнута под родителя) — на ближайший оставшийся индекс, не прыгая наверх.
         if (this.pendingCursorId !== null && this.visibleIndexById.has(this.pendingCursorId)) {
-            this.cursorIndex = this.visibleIndexById.get(this.pendingCursorId) as number;
+            this.cursorIndex = this.visibleIndexById.get(this.pendingCursorId)!;
         } else if (out.length === 0) {
             this.cursorIndex = 0;
         } else {

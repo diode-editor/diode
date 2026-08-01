@@ -12,7 +12,7 @@ import { PanelService } from "./panelService.ts";
 function makeHarness() {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const service = new PanelService();
-    const component = new PanelComponent(service, themeService);
+    const component = new PanelComponent(service);
     return { themeService, service, component };
 }
 
@@ -22,27 +22,13 @@ describe("PanelComponent", () => {
         const service = new PanelService();
         service.addView({ id: "problems", title: "PROBLEMS", content: null, placeholder: "empty" });
 
-        const component = new PanelComponent(service, themeService);
+        const component = new PanelComponent(service);
         // Вкладка, зарегистрированная ДО компонента, подхвачена начальным sync'ом.
         expect(component.view.getViewIds()).toEqual(["problems"]);
         expect(component.view.getActiveViewId()).toBe("problems");
 
         service.addView({ id: "terminal", title: "TERMINAL", content: null });
         expect(component.view.getViewIds()).toEqual(["problems", "terminal"]);
-        component.dispose();
-    });
-
-    it("applies panel colours from the active theme", () => {
-        // onThemeChange файрит сразу при подписке (в конструкторе) — ставим шпиона заранее.
-        const setStyles = vi.spyOn(PanelContainerElement.prototype, "setStyles");
-        const { themeService, component } = makeHarness();
-        const theme = themeService.theme;
-        expect(setStyles).toHaveBeenCalledWith({
-            background: theme.getRequiredColor("panel.background"),
-            titleForeground: theme.getRequiredColor("panelTitle.inactiveForeground"),
-            borderColor: theme.getRequiredColor("panel.border"),
-        });
-        setStyles.mockRestore();
         component.dispose();
     });
 
@@ -99,22 +85,6 @@ describe("PanelComponent", () => {
         expect(tree.getParent()).toBeNull();
         expect(component.view.getChildren()).toContain(widget);
         expect(widget.hidden).toBe(true);
-        component.dispose();
-    });
-
-    it("re-applies styles when the theme changes", () => {
-        const { themeService, component } = makeHarness();
-        const setStyles = vi.spyOn(component.view, "setStyles");
-
-        const theme = WorkbenchTheme.fromThemeFile({ name: "other", type: "dark", colors: {} });
-        themeService.setTheme(theme);
-
-        expect(setStyles).toHaveBeenCalledWith({
-            background: theme.getRequiredColor("panel.background"),
-            titleForeground: theme.getRequiredColor("panelTitle.inactiveForeground"),
-            borderColor: theme.getRequiredColor("panel.border"),
-        });
-        setStyles.mockRestore();
         component.dispose();
     });
 });

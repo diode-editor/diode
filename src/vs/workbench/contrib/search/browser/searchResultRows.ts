@@ -1,13 +1,14 @@
+import type { StyleColor } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
 /** Цвета содержимого строк поиска (выделение/hover красит сам ListViewElement). */
 export interface ISearchRowStyles {
     /** Номера строк и счётчики матчей у файлов. */
-    readonly dimFg: number;
+    readonly dimFg: StyleColor;
     /** Подсветка найденного спана. */
-    readonly matchFg: number;
-    readonly matchBg: number;
+    readonly matchFg: StyleColor;
+    readonly matchBg: StyleColor;
 }
 
 /** Отступ между смысловыми кусками строки (путь↔счётчик, номер↔текст). */

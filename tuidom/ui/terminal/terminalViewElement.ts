@@ -42,19 +42,6 @@ const WHEEL_ACTION: Record<WheelDirection, TerminalMouseAction> = {
 const WHEEL_SCROLL_LINES = 3;
 const WHEEL_SCROLL_SIGN: Record<WheelDirection, number> = { up: -1, down: 1, left: 0, right: 0 };
 
-export interface ITerminalViewStyles {
-    /** Заменяет DEFAULT_COLOR-fg ячеек при блите (цвет текста темы). */
-    readonly defaultFg: number;
-    /** Заменяет DEFAULT_COLOR-bg ячеек при блите (фон темы). */
-    readonly defaultBg: number;
-}
-
-// Без темы блитим DEFAULT_COLOR как есть; контроллер пушит цвета темы через setStyles.
-export const unthemedTerminalViewStyles: ITerminalViewStyles = {
-    defaultFg: DEFAULT_COLOR,
-    defaultBg: DEFAULT_COLOR,
-};
-
 export class TerminalViewElement extends TUIElement {
     private readonly surface: ITerminalSurface;
     // Переиспользуемая ячейка — readCell(x, y, cell) не аллоцирует новый объект на каждую ячейку.
@@ -65,15 +52,11 @@ export class TerminalViewElement extends TUIElement {
 
     // Цвета «по умолчанию», которыми заменяем DEFAULT_COLOR ячеек при блите. Контроллер
     // пушит сюда цвета темы (как EditorElement/PanelContainerElement получают цвета извне).
-    private styles: ITerminalViewStyles = unthemedTerminalViewStyles;
-
-    public setStyles(styles: ITerminalViewStyles): void {
-        this.styles = styles;
-        this.markDirty();
-    }
 
     public constructor(surface: ITerminalSurface) {
         super();
+        // Дефолтные цвета терминала — токены темы (фоллбэки panel/editor — в пуше палитры).
+        this.style = { fg: "terminal.foreground", bg: "terminal.background" };
         this.surface = surface;
         this.focusable = true; // фокусируемый — принимает клавиатуру
         this.capturesPointer = true; // drag: move/up приходят сюда даже вне границ
@@ -164,8 +147,8 @@ export class TerminalViewElement extends TUIElement {
                 if (this.surface.readCell(x, y, cell)) {
                     context.setCell(x, y, {
                         char: cell.char,
-                        fg: cell.fg === DEFAULT_COLOR ? this.styles.defaultFg : cell.fg,
-                        bg: cell.bg === DEFAULT_COLOR ? this.styles.defaultBg : cell.bg,
+                        fg: cell.fg === DEFAULT_COLOR ? this.resolvedStyle.fg : cell.fg,
+                        bg: cell.bg === DEFAULT_COLOR ? this.resolvedStyle.bg : cell.bg,
                         style: cell.style,
                         width: cell.width,
                     });

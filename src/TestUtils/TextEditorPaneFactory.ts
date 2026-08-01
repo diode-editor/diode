@@ -31,7 +31,6 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         overrides.undoRedoService ?? new UndoRedoService(),
     );
     const component = new EditorComponent(
-        themeService,
         overrides.registry ?? new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         model,

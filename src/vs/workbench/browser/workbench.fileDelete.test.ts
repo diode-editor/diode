@@ -222,7 +222,14 @@ describe("File tree context menu — right-click opens context menu", () => {
     function rightClickRow(tree: TreeViewElement<unknown>, row: number): void {
         tree.localPosition = new Offset(0, 0);
         tree.dispatchEvent(
-            new TUIContextMenuEvent({ trigger: "mouse", button: "right", screenX: 2, screenY: row, localX: 2, localY: row }),
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: 2,
+                screenY: row,
+                localX: 2,
+                localY: row,
+            }),
         );
         h.testApp.render();
     }

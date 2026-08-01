@@ -19,9 +19,11 @@ describe("Workbench — theme application", () => {
             colors: { foreground: "#AABBCC", "editor.background": "#102030" },
         });
         themeService.setTheme(theme);
+        h.testApp.render();
 
-        expect(h.workbench.view.style.fg).toBe(0xaabbcc);
-        expect(h.workbench.view.style.bg).toBe(0x102030);
+        // Стиль корня — токены; резолвит каскад из палитры, пушенной setTheme.
+        expect(h.workbench.view.resolvedStyle.fg).toBe(0xaabbcc);
+        expect(h.workbench.view.resolvedStyle.bg).toBe(0x102030);
     });
 
     it("falls back to the default color registry when the theme omits foreground/background", () => {
@@ -32,9 +34,10 @@ describe("Workbench — theme application", () => {
         // default registry supplies both, so the workbench is never left uncolored.
         const sparseTheme = WorkbenchTheme.fromThemeFile({ name: "sparse", type: "dark", colors: {} });
         themeService.setTheme(sparseTheme);
+        h.testApp.render();
 
-        expect(h.workbench.view.style.fg).toBe(0xcccccc); // default dark "foreground"
-        expect(h.workbench.view.style.bg).toBe(0x1e1e1e); // default dark "editor.background"
+        expect(h.workbench.view.resolvedStyle.fg).toBe(0xcccccc); // default dark "foreground"
+        expect(h.workbench.view.resolvedStyle.bg).toBe(0x1e1e1e); // default dark "editor.background"
     });
 });
 

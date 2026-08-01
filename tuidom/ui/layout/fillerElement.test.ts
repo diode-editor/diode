@@ -4,6 +4,7 @@ import { renderElement } from "../../../src/TestUtils/renderElement.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
+import { ROOT_STYLE_CONTEXT } from "../../dom/styles/tuiStyle.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 
@@ -40,7 +41,7 @@ describe("FillerElement", () => {
         parent.localPosition = new Offset(0, 0);
         parent.layout(BoxConstraints.tight(size));
         filler.layout(BoxConstraints.tight(size));
-        parent.performStyleResolution(parent.resolvedStyle);
+        parent.performStyleResolution(ROOT_STYLE_CONTEXT);
         filler.render(new RenderContext(termScreen));
         termScreen.flush(backend);
 
@@ -58,7 +59,7 @@ describe("FillerElement", () => {
         const termScreen = new TerminalScreen(size);
         filler.localPosition = new Offset(0, 0);
         filler.layout(BoxConstraints.tight(new Size(3, 2)));
-        filler.performStyleResolution(filler.resolvedStyle);
+        filler.performStyleResolution(ROOT_STYLE_CONTEXT);
         filler.render(new RenderContext(termScreen));
         termScreen.flush(backend);
 

@@ -1,4 +1,3 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { DisplayLine } from "../../common/displayLine.ts";
 import { BoxConstraints, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
@@ -7,19 +6,6 @@ import type { TUIPasteEvent } from "../../dom/events/tuiPasteEvent.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
 import { InputState } from "./inputState.ts";
-
-// ─── Colors ─────────────────────────────────────────────────────────────────
-const INPUT_FG = packRgb(204, 204, 204);
-const INPUT_BG = packRgb(60, 60, 60);
-const PLACEHOLDER_FG = packRgb(110, 110, 110);
-const FOCUSED_BORDER_FG = packRgb(0x00, 0x7f, 0xd4); // #007FD4 — focusBorder from dark+
-const UNFOCUSED_BORDER_FG = packRgb(0x3c, 0x3c, 0x3c); // #3C3C3C
-const SELECTION_BG = packRgb(0x26, 0x4f, 0x78); // #264F78 — VS Code selection
-
-export interface InputElementStyle {
-    fg?: number;
-    bg?: number;
-}
 
 /**
  * Single-line text input widget.
@@ -45,13 +31,9 @@ export class InputElement extends TUIElement {
         super();
         this.inputState = inputState ?? new InputState();
         this.focusable = true;
-
-        this.addEventListener("focus", () => {
-            this.markDirty();
-        });
-        this.addEventListener("blur", () => {
-            this.markDirty();
-        });
+        // Цвета — токены темы (Н3); рамка в фокусе перекрашивается тем, что
+        // ядро ставит focus-состояние и перерезолвит стиль (render дёргается).
+        this.style = { fg: "input.foreground", bg: "input.background" };
     }
 
     // ─── Layout ─────────────────────────────────────────────────────────────
@@ -103,9 +85,10 @@ export class InputElement extends TUIElement {
             this.renderBorder(context, w, h, focused);
         }
 
+        const { fg, bg } = this.resolvedStyle;
         // Fill content row background
         for (let x = contentXStart; x < contentXStart + contentWidth; x++) {
-            context.setCell(x, contentY, { char: " ", fg: INPUT_FG, bg: INPUT_BG });
+            context.setCell(x, contentY, { char: " ", fg, bg });
         }
 
         // Content area clip (screen-space coordinates)
@@ -117,11 +100,14 @@ export class InputElement extends TUIElement {
 
         // Draw text or placeholder
         if (text.length === 0 && this.placeholder !== undefined) {
-            textContext.drawText(contentXStart, contentY, this.placeholder, { fg: PLACEHOLDER_FG, bg: INPUT_BG });
+            textContext.drawText(contentXStart, contentY, this.placeholder, {
+                fg: this.styleVar("input.placeholderForeground"),
+                bg,
+            });
         } else if (this.inputState.hasSelection) {
             this.renderTextWithSelection(textContext, dl, text, contentXStart, contentY);
         } else {
-            textContext.drawText(contentXStart - this.scrollX, contentY, text, { fg: INPUT_FG, bg: INPUT_BG });
+            textContext.drawText(contentXStart - this.scrollX, contentY, text, { fg, bg });
         }
 
         // Hardware cursor
@@ -150,15 +136,16 @@ export class InputElement extends TUIElement {
 
         const selStartCol = dl.offsetToColumn(selStart);
         const selEndCol = dl.offsetToColumn(selEnd);
+        const { fg, bg } = this.resolvedStyle;
 
         if (before.length > 0) {
-            context.drawText(contentXStart - this.scrollX, contentY, before, { fg: INPUT_FG, bg: INPUT_BG });
+            context.drawText(contentXStart - this.scrollX, contentY, before, { fg, bg });
         }
         /* v8 ignore start -- this branch only runs when inputState.hasSelection (selStart !== selEnd), so the slice is always non-empty; the false side is unreachable */
         if (selected.length > 0) {
             context.drawText(contentXStart + selStartCol - this.scrollX, contentY, selected, {
-                fg: INPUT_FG,
-                bg: SELECTION_BG,
+                fg,
+                bg: this.styleVar("input.selectionBackground"),
             });
         }
         /* v8 ignore stop */
@@ -170,13 +157,13 @@ export class InputElement extends TUIElement {
             void x;
         }
         if (after.length > 0) {
-            context.drawText(contentXStart + selEndCol - this.scrollX, contentY, after, { fg: INPUT_FG, bg: INPUT_BG });
+            context.drawText(contentXStart + selEndCol - this.scrollX, contentY, after, { fg, bg });
         }
     }
 
     private renderBorder(context: RenderContext, w: number, h: number, focused: boolean): void {
-        const fg = focused ? FOCUSED_BORDER_FG : UNFOCUSED_BORDER_FG;
-        context.drawBox(0, 0, w, h, { fg, bg: INPUT_BG });
+        const borderFg = this.styleVar(focused ? "focusBorder" : "input.border");
+        context.drawBox(0, 0, w, h, { fg: borderFg, bg: this.resolvedStyle.bg });
     }
 
     // ─── Input ──────────────────────────────────────────────────────────────

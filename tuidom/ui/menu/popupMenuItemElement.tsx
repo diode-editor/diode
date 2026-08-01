@@ -1,38 +1,9 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { CompositeElement } from "../../dom/compositeElement.ts";
 import type { JsxNode } from "../../dom/jsx/jsx-runtime.ts";
+import { INHERITED_BG, INHERITED_FG } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { HFlex, hflexFill, hflexFit, hflexFixed } from "../layout/hFlexElement.ts";
 import { TextLabel } from "../text/textLabelElement.ts";
-
-/** Цвета выпадающего меню (ключи VS Code `menu.*`). */
-export interface IMenuStyles {
-    /** menu.foreground */
-    readonly fg: number;
-    /** menu.background */
-    readonly bg: number;
-    /** menu.selectionForeground */
-    readonly highlightFg: number;
-    /** menu.selectionBackground */
-    readonly highlightBg: number;
-    /** Приглушённый цвет шортката (нет прямого ключа VS Code). */
-    readonly shortcutFg: number;
-    /** menu.border */
-    readonly borderFg: number;
-    /** menu.separatorBackground */
-    readonly separatorFg: number;
-}
-
-/** Дефолты в цветах VS Code Dark+ — используются, пока владелец не задал стили. */
-export const unthemedMenuStyles: IMenuStyles = {
-    fg: packRgb(204, 204, 204), // #cccccc
-    bg: packRgb(37, 37, 38), // #252526
-    highlightFg: packRgb(255, 255, 255), // #ffffff
-    highlightBg: packRgb(4, 57, 94), // #04395e
-    shortcutFg: packRgb(128, 128, 128), // #808080
-    borderFg: packRgb(83, 83, 83), // #535353
-    separatorFg: packRgb(83, 83, 83), // #535353
-};
 
 export interface PopupMenuItemConfig {
     hasIconColumn: boolean;
@@ -48,21 +19,13 @@ export class PopupMenuItemElement extends CompositeElement {
     public onHover?: () => void;
     private readonly config: PopupMenuItemConfig;
     private selectedValue = false;
-    private styles: IMenuStyles;
 
-    public constructor(
-        label: string,
-        config: PopupMenuItemConfig,
-        shortcut?: string,
-        icon?: string,
-        styles: IMenuStyles = unthemedMenuStyles,
-    ) {
+    public constructor(label: string, config: PopupMenuItemConfig, shortcut?: string, icon?: string) {
         super();
         this.label = label;
         this.config = config;
         this.shortcut = shortcut;
         this.icon = icon;
-        this.styles = styles;
 
         this.addEventListener("click", (event) => {
             if (event.defaultPrevented) return;
@@ -88,15 +51,12 @@ export class PopupMenuItemElement extends CompositeElement {
         this.rebuild();
     }
 
-    public setStyles(styles: IMenuStyles): void {
-        this.styles = styles;
-        this.rebuild();
-    }
-
     public describe(): JsxNode {
-        const styles = this.styles;
-        const fg = this.selectedValue ? styles.highlightFg : styles.fg;
-        const bg = this.selectedValue ? styles.highlightBg : styles.bg;
+        // Обычное состояние НАСЛЕДУЕТ цвета (сентинелы) — так селектбокс может
+        // переопределить фон раскрытого списка (dropdown.listBackground) одним
+        // style на корне попапа; выделение — токены menu.selection*.
+        const fg = this.selectedValue ? "menu.selectionForeground" : INHERITED_FG;
+        const bg = this.selectedValue ? "menu.selectionBackground" : INHERITED_BG;
 
         const labelText = this.config.hasShortcuts ? this.label + " " : this.label;
 
@@ -116,7 +76,7 @@ export class PopupMenuItemElement extends CompositeElement {
                 {this.config.hasShortcuts && this.shortcut ? (
                     <TextLabel
                         text={"  " + this.shortcut}
-                        fg={this.selectedValue ? styles.highlightFg : styles.shortcutFg}
+                        fg={this.selectedValue ? "menu.selectionForeground" : "menu.shortcutForeground"}
                         bg={bg}
                         layout={{ width: hflexFit(), height: "fill" }}
                     />
@@ -128,18 +88,6 @@ export class PopupMenuItemElement extends CompositeElement {
 }
 
 export class PopupMenuSeparatorElement extends TUIElement {
-    private styles: IMenuStyles;
-
-    public constructor(styles: IMenuStyles = unthemedMenuStyles) {
-        super();
-        this.styles = styles;
-    }
-
-    public setStyles(styles: IMenuStyles): void {
-        this.styles = styles;
-        this.markDirty();
-    }
-
     public override getMinIntrinsicWidth(_height: number): number {
         return 0;
     }
@@ -159,7 +107,11 @@ export class PopupMenuSeparatorElement extends TUIElement {
     public override render(context: RenderContext): void {
         const width = this.layoutSize.width;
         for (let x = 0; x < width; x++) {
-            context.setCell(x, 0, { char: "─", fg: this.styles.separatorFg, bg: this.styles.bg });
+            context.setCell(x, 0, {
+                char: "─",
+                fg: this.styleVar("menu.separatorBackground"),
+                bg: this.resolvedStyle.bg,
+            });
         }
     }
 }

@@ -4,11 +4,12 @@ import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
+import { ROOT_STYLE_CONTEXT } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 
 import type { ITreeDataProvider, ITreeItem } from "./iTreeDataProvider.ts";
-import { TreeViewElement, unthemedTreeViewStyles } from "./treeViewElement.ts";
+import { TreeViewElement } from "./treeViewElement.ts";
 
 interface TestNode {
     id: string;
@@ -48,6 +49,7 @@ function renderTree(tree: TreeViewElement<TestNode>, width: number, height: numb
     const termScreen = new TerminalScreen(size);
     tree.localPosition = new Offset(0, 0);
     tree.layout(BoxConstraints.tight(size));
+    tree.performStyleResolution(ROOT_STYLE_CONTEXT);
     const clipRect = new Rect(new Point(0, 0), size);
     tree.render(new RenderContext(termScreen, new Offset(0, 0), clipRect));
     termScreen.flush(backend);
@@ -109,7 +111,10 @@ describe("TreeViewElement git-status decorations", () => {
 
         it("yields to the selection foreground on the focused cursor row", async () => {
             const tree = new TreeViewElement(createProvider([{ id: "a", label: "Alpha", labelColor: GIT_MODIFIED }]));
-            tree.setStyles({ ...unthemedTreeViewStyles, activeSelectionBg: ACTIVE_BG, activeSelectionFg: ACTIVE_FG });
+            tree.setStyleVars({
+                "list.activeSelectionBackground": ACTIVE_BG,
+                "list.activeSelectionForeground": ACTIVE_FG,
+            });
             await tree.refresh();
             const app = TestApp.createWithContent(tree, new Size(14, 1));
             tree.focus();
@@ -173,7 +178,7 @@ describe("TreeViewElement git-status decorations", () => {
     describe("badge + symlink coexistence", () => {
         it("keeps the git badge at the edge and shifts the symlink arrow left of it", async () => {
             const tree = new TreeViewElement(createProvider([{ id: "a", label: "Alpha", badge: "M", symlink: true }]));
-            tree.setStyles({ ...unthemedTreeViewStyles, symlinkFg: packRgb(120, 120, 120) });
+            tree.setStyleVars({ "list.deemphasizedForeground": packRgb(120, 120, 120) });
             await tree.refresh();
 
             const width = 14;

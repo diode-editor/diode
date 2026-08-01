@@ -1,8 +1,8 @@
+import { DEFAULT_COLOR } from "../common/colorUtils.ts";
 import { DisplayLine } from "../common/displayLine.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../common/geometryPromitives.ts";
 import type { CellPatch, ReadonlyCellData } from "../rendering/grid.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
-
 import type { OverlayLayer } from "../ui/contextview/overlayLayer.ts";
 
 import { BORDER_ROUNDED, type BorderStyle } from "./borderStyle.ts";
@@ -12,8 +12,25 @@ import type { TUIFocusEvent } from "./events/tuiFocusEvent.ts";
 import { TUIKeyboardEvent } from "./events/tuiKeyboardEvent.ts";
 import type { TUIMouseEvent } from "./events/tuiMouseEvent.ts";
 import type { TUIPasteEvent } from "./events/tuiPasteEvent.ts";
-import type { ResolvedTUIStyle, TUIStyle } from "./styles/tuiStyle.ts";
-import { resolveStyle, ROOT_RESOLVED_STYLE } from "./styles/tuiStyle.ts";
+import type { AnyStyleToken } from "./styles/styleTokens.ts";
+import { ROOT_VAR_SCOPE } from "./styles/styleTokens.ts";
+import type {
+    ResolvedTUIStyle,
+    StyleColor,
+    StyleResolutionContext,
+    StyleState,
+    StyleStateSelector,
+    TUIStyle,
+} from "./styles/tuiStyle.ts";
+import type { StyleVarScope } from "./styles/tuiStyle.ts";
+import {
+    extendVarScope,
+    mergeStyleVariants,
+    resolveStyleColor,
+    ROOT_RESOLVED_STYLE,
+    ROOT_STYLE_CONTEXT,
+    styleEquals,
+} from "./styles/tuiStyle.ts";
 import { querySelector, querySelectorAll } from "./tuiSelector.ts";
 
 const MAX_COORD = 100_000;
@@ -214,7 +231,7 @@ interface ListenerEntry {
     capture: boolean;
 }
 
-export class TUIElement<S extends TUIStyle = TUIStyle> {
+export class TUIElement {
     private allocatedSize: Size = new Size(80, 24);
 
     public dirty = false;
@@ -249,16 +266,32 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     public focusManager: FocusManager | null = null;
 
     // ─── Style system ───
-    private styleValue: Readonly<S> = {} as S;
+    private styleValue: Readonly<TUIStyle> = {};
     private resolvedStyleValue: ResolvedTUIStyle = ROOT_RESOLVED_STYLE;
     private isStyleDirty = true;
     private subtreeStyleDirty = false;
+    // Сырые цвета ПОСЛЕ when-merge (до резолва сентинелов) — отвечают на
+    // вопрос «задан ли цвет собственным стилем» (заливка фона, инспектор).
+    private appliedFgValue: StyleColor | undefined;
+    private appliedBgValue: StyleColor | undefined;
+    // Активные состояния (hover/focus ведёт ядро, прочие — виджеты). Lazy:
+    // у подавляющего большинства элементов состояний нет.
+    private styleStatesSet: Set<string> | null = null;
+    // Собственная таблица токенов (обычно только у корня — хост кладёт тему).
+    private styleVarsValue: Readonly<Record<string, number>> | null = null;
+    // Ближайший резолвленный var-scope — источник styleVar(). До первого
+    // резолва — дефолты tuidom.
+    private varScopeRef: StyleVarScope = ROOT_VAR_SCOPE;
+    // Контекст, переданный детям на последнем резолве. Валиден, пока элемент
+    // чист: любая смена входа (стиль/состояние предка) дирявит всё поддерево.
+    private childStyleContext: StyleResolutionContext = ROOT_STYLE_CONTEXT;
 
-    public get style(): Readonly<S> {
+    public get style(): Readonly<TUIStyle> {
         return this.styleValue;
     }
 
-    public set style(value: S) {
+    public set style(value: TUIStyle) {
+        if (styleEquals(this.styleValue, value)) return;
         this.styleValue = value;
         this.markStyleDirty();
     }
@@ -631,18 +664,146 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
         }
     }
 
-    public performStyleResolution(inherited: ResolvedTUIStyle): void {
+    public performStyleResolution(context: StyleResolutionContext): void {
         if (!this.isStyleDirty && !this.subtreeStyleDirty) return;
 
         if (this.isStyleDirty) {
-            this.resolvedStyleValue = resolveStyle(this.style, inherited);
+            const applied = mergeStyleVariants(this.style, (selector) =>
+                this.isStyleSelectorActive(selector, context.ancestorStates),
+            );
+            this.appliedFgValue = applied.fg;
+            this.appliedBgValue = applied.bg;
+            const vars =
+                this.styleVarsValue !== null ? extendVarScope(context.vars, this.styleVarsValue) : context.vars;
+            this.varScopeRef = vars;
+            const describe = (): string => this.describeForStyleError();
+            const fg =
+                applied.fg !== undefined
+                    ? resolveStyleColor(applied.fg, context.fg, context.bg, vars, describe)
+                    : context.fg;
+            const bg =
+                applied.bg !== undefined
+                    ? resolveStyleColor(applied.bg, context.fg, context.bg, vars, describe)
+                    : context.bg;
+            this.resolvedStyleValue = { fg, bg };
+            this.childStyleContext = this.buildChildStyleContext(context);
         }
         this.isStyleDirty = false;
         this.subtreeStyleDirty = false;
 
         for (const child of this.getChildren()) {
-            child.performStyleResolution(this.resolvedStyleValue);
+            child.performStyleResolution(this.childStyleContext);
         }
+    }
+
+    private isStyleSelectorActive(selector: StyleStateSelector, ancestorStates: ReadonlySet<string>): boolean {
+        if (selector.startsWith("in:")) {
+            const state = selector.slice(3);
+            return this.styleStatesSet?.has(state) === true || ancestorStates.has(state);
+        }
+        return this.styleStatesSet?.has(selector) === true;
+    }
+
+    private buildChildStyleContext(context: StyleResolutionContext): StyleResolutionContext {
+        const { fg, bg } = this.resolvedStyleValue;
+        let ancestorStates = context.ancestorStates;
+        if (this.styleStatesSet !== null && this.styleStatesSet.size > 0) {
+            const union = new Set(context.ancestorStates);
+            for (const state of this.styleStatesSet) {
+                union.add(state);
+            }
+            ancestorStates = union;
+        }
+        return { fg, bg, vars: this.varScopeRef, ancestorStates };
+    }
+
+    private describeForStyleError(): string {
+        const id = this.id !== undefined ? `#${this.id}` : "";
+        return `${this.constructor.name}${id}`;
+    }
+
+    // ─── Переменные стиля (токены) ───
+
+    /**
+     * Кладёт таблицу токен→число, каскадирующую в поддерево ПОВЕРХ таблиц
+     * предков и дефолтов tuidom (STYLE_TOKEN_DEFAULTS). Обычное место — корень:
+     * хост транслирует сюда палитру темы одним вызовом (hot-swap = повторный
+     * вызов). Таблица заменяется целиком, null — снимает. Значения — только
+     * конкретные числа (packed RGB | DEFAULT_COLOR); сентинелы INHERITED_*
+     * нелегальны.
+     */
+    public setStyleVars(vars: Readonly<Record<string, number>> | null): void {
+        if (vars === this.styleVarsValue) return;
+        if (vars !== null) {
+            for (const key of Object.keys(vars)) {
+                if (vars[key] < DEFAULT_COLOR) {
+                    throw new Error(
+                        `${this.describeForStyleError()}.setStyleVars: токен "${key}" содержит сентинел/некорректное значение ${vars[key]} — таблицы принимают только конкретные цвета`,
+                    );
+                }
+            }
+        }
+        this.styleVarsValue = vars;
+        this.markStyleDirty();
+    }
+
+    /**
+     * Читает токен из ближайшего резолвленного var-scope — для painter-виджетов,
+     * рисующих несколько цветов в custom render. Валидно после резолва стилей
+     * (render всегда после него в кадре); до первого резолва видит дефолты
+     * tuidom. Незнакомый токен — throw; передан fallback (аналог второго
+     * аргумента CSS var()) — возвращается он. Fallback — для токенов, чьё
+     * отсутствие ЛЕГАЛЬНО и означает «взять из каскада» (editorGutter.background
+     * → фон редактора), а не страховка от опечаток.
+     */
+    public styleVar(name: AnyStyleToken, fallback?: number): number {
+        const value = this.varScopeRef[name];
+        if (typeof value !== "number") {
+            if (fallback !== undefined) return fallback;
+            throw new Error(`${this.describeForStyleError()}.styleVar: неизвестный цветовой токен "${name}"`);
+        }
+        return value;
+    }
+
+    /**
+     * Резолвит StyleColor (число | сентинел INHERITED_* | имя токена) в
+     * конкретный цвет в контексте ЭТОГО элемента (его resolvedStyle и
+     * var-scope). Для painter-виджетов, принимающих цвета данными
+     * (посимвольные стили TextLabel, iconColor строк дерева): данные могут
+     * ссылаться на токены и переживать смену темы без пере-пуша.
+     */
+    public resolveColor(color: StyleColor): number {
+        const { fg, bg } = this.resolvedStyleValue;
+        return resolveStyleColor(color, fg, bg, this.varScopeRef, () => this.describeForStyleError());
+    }
+
+    // ─── Состояния стиля ───
+
+    /**
+     * Ставит/снимает состояние стиля. hover и focus ведёт ядро (диспатчер
+     * мыши и менеджер фокуса); произвольные строковые состояния ("selected",
+     * "checked", …) виджеты ставят сами. Смена состояния перерезолвит стиль
+     * элемента и поддерева: дети наследуют РЕЗУЛЬТАТ родителя с учётом его
+     * состояний, а `in:`-селекторы потомков видят состояния предков.
+     */
+    public setStyleState(state: StyleState, active: boolean): void {
+        const current = this.styleStatesSet?.has(state) === true;
+        if (current === active) return;
+        if (active) {
+            (this.styleStatesSet ??= new Set()).add(state);
+        } else {
+            this.styleStatesSet?.delete(state);
+        }
+        this.markStyleDirty();
+    }
+
+    public hasStyleState(state: StyleState): boolean {
+        return this.styleStatesSet?.has(state) === true;
+    }
+
+    /** Активные состояния (порядок вставки) — инспектор/тесты. */
+    public get activeStyleStates(): readonly string[] {
+        return this.styleStatesSet !== null ? [...this.styleStatesSet] : [];
     }
 
     // ─── Focus convenience ───
@@ -694,8 +855,10 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
         }
         const oldParent = this._parent;
         this._parent = parent;
-        if (parent && (this.isStyleDirty || this.subtreeStyleDirty)) {
-            this.markSubtreeStyleDirtyUp();
+        if (parent) {
+            // Безусловно: даже чистое поддерево обязано пере-резолвиться в
+            // контексте нового родителя (другой каскад/состояния предков).
+            this.markStyleDirty();
         }
         this.onDidChangeParent(oldParent, parent);
 
@@ -903,13 +1066,48 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     /**
-     * Дефолт: отрисовать детей (лист без детей не рисует ничего). Контейнер,
-     * которому нужно собственное полотно (фон, рамка, заголовок), рисует его и
-     * зовёт {@link renderChildren}; полностью кастомный рендер (виртуализация,
-     * скролл-сдвиг) переопределяет метод целиком.
+     * Дефолт: залить собственный фон (если он задан собственным стилем) и
+     * отрисовать детей. Контейнер, которому нужно собственное полотно (рамка,
+     * заголовок), рисует его и зовёт {@link renderChildren}; полностью
+     * кастомный рендер (виртуализация, скролл-сдвиг) переопределяет метод
+     * целиком — и тогда сам зовёт {@link paintOwnBackground} первой строкой,
+     * если хочет фон от каскада.
      */
     public render(context: RenderContext): void {
+        this.paintOwnBackground(context);
         this.renderChildren(context);
+    }
+
+    /**
+     * Заливает прямоугольник элемента resolvedStyle.bg, если bg задан
+     * СОБСТВЕННЫМ стилем — базой или сработавшим when-вариантом. Элементы без
+     * собственного bg прозрачны (как в CSS). Сентинелы INHERITED_* тоже
+     * считаются «задан»: это намеренная перезаливка цветом родителя (INHERITED_BG)
+     * или инверсия (INHERITED_FG). Выход за границы невозможен — контекст
+     * элемента уже клипован родителем.
+     */
+    protected paintOwnBackground(context: RenderContext): void {
+        if (this.appliedBgValue === undefined) return;
+        const { fg, bg } = this.resolvedStyleValue;
+        const { width, height } = this.layoutSize;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                context.setCell(x, y, { char: " ", fg, bg });
+            }
+        }
+    }
+
+    /** true, если фон задан собственным стилем (см. {@link paintOwnBackground}). */
+    public get hasOwnBackground(): boolean {
+        return this.appliedBgValue !== undefined;
+    }
+
+    /**
+     * Сырые цвета после when-merge, до резолва токенов/сентинелов: что элемент
+     * «попросил сам» (undefined = наследует). Для инспектора и тестов.
+     */
+    public get appliedStyle(): { fg?: StyleColor; bg?: StyleColor } {
+        return { fg: this.appliedFgValue, bg: this.appliedBgValue };
     }
 
     /**
@@ -942,7 +1140,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
      * что и у детей его там нет), дети опрашиваются в обратном порядке
      * отрисовки, затем — сам элемент.
      */
-    // eslint-disable-next-line @typescript-eslint/prefer-return-this-type
+
     public elementFromPoint(point: Point): TUIElement | null {
         if (this.hidden) return null; // скрытое не кликается
         const bounds = new Rect(this.globalPosition, this.layoutSize);

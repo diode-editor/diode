@@ -6,11 +6,11 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
-import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
@@ -62,13 +62,7 @@ describe("ExplorerComponent hover", () => {
                 ),
             ),
         );
-        component = new ExplorerComponent(
-            service,
-            new CommandRegistry(),
-            clipboard,
-            contextMenuService,
-            new ThemeService(theme),
-        );
+        component = new ExplorerComponent(service, new CommandRegistry(), clipboard, contextMenuService);
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(30, 10));
         await service.refresh();

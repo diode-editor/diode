@@ -66,42 +66,6 @@ const INDENT_GUIDE = "│"; // U+2502 box drawings light vertical
  * меню). Основные fg/bg редактора сюда не входят — они задаются через
  * `editor.style = { fg, bg }` (система наследования TUIStyle).
  */
-export interface IEditorStyles {
-    /** `undefined` — гуттер наследует фон редактора (`resolvedStyle.bg`). */
-    readonly gutterBackground: number | undefined;
-    readonly lineNumberForeground: number;
-    readonly lineNumberActiveForeground: number;
-    /** Background used to highlight occurrences of the word under the cursor. */
-    readonly occurrenceHighlightBackground: number;
-    readonly foldingControlForeground: number;
-    /** Colour of the indentation guides (VS Code `editorIndentGuide.background1`). */
-    readonly indentGuideForeground: number;
-    /** Colour of the active indentation guide (VS Code `editorIndentGuide.activeBackground1`). */
-    readonly indentGuideActiveForeground: number;
-    /** Squiggle foreground per severity (`editorError/Warning/Info/Hint.foreground`). */
-    readonly errorForeground: number;
-    readonly warningForeground: number;
-    readonly infoForeground: number;
-    readonly hintForeground: number;
-}
-
-// Defaults preserve the historical theme-less look (VS Code dark values; the
-// occurrence highlight is an opaque approximation of #575757b8 composited over
-// the editor bg). Workbench components override them via setStyles from the active theme.
-export const unthemedEditorStyles: IEditorStyles = {
-    gutterBackground: undefined,
-    lineNumberForeground: packRgb(133, 133, 133),
-    lineNumberActiveForeground: packRgb(198, 198, 198),
-    occurrenceHighlightBackground: packRgb(71, 71, 71),
-    foldingControlForeground: packRgb(197, 197, 197),
-    indentGuideForeground: packRgb(0x40, 0x40, 0x40), // #404040
-    indentGuideActiveForeground: packRgb(0x70, 0x70, 0x70), // #707070
-    errorForeground: packRgb(0xf1, 0x4c, 0x4c),
-    warningForeground: packRgb(0xcc, 0xa7, 0x00),
-    infoForeground: packRgb(0x37, 0x94, 0xff),
-    hintForeground: packRgb(0xee, 0xee, 0xee),
-};
-
 /** Viewport geometry shared by the range-background highlight passes. */
 interface RangeHighlightGeometry {
     scrollTop: number;
@@ -142,9 +106,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     public markerDecorations: readonly IMarkerDecoration[] = NO_MARKER_DECORATIONS;
     /** Gutter change-bar decorations (SCM/git dirty-diff) for the open document (pushed by the controller). */
     public gutterChangeDecorations: readonly IGutterChangeDecoration[] = NO_GUTTER_CHANGE_DECORATIONS;
-
-    /** Цвета редактора (см. {@link IEditorStyles}); задаются контроллером через {@link setStyles}. */
-    private styles: IEditorStyles = unthemedEditorStyles;
 
     private lineWidthCache: LineWidthCache | null = null;
     private occurrenceCache: { versionId: number; line: number; character: number; ranges: IRange[] } | null = null;
@@ -298,11 +259,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /** Единственный канал обновления цветов редактора (маппинг темы делает Workbench-мост). */
-    public setStyles(styles: IEditorStyles): void {
-        this.styles = styles;
-        this.markDirty();
-    }
-
     public render(context: RenderContext): void {
         const gutterW = this.gutterWidth;
         const contentCols = this.layoutSize.width - gutterW;
@@ -315,13 +271,13 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         const editorFg = this.resolvedStyle.fg;
         const editorBg = this.resolvedStyle.bg;
-        const gutBg = this.styles.gutterBackground ?? editorBg;
-        const lnFg = this.styles.lineNumberForeground;
-        const lnActiveFg = this.styles.lineNumberActiveForeground;
+        const gutBg = this.styleVar("editorGutter.background", editorBg);
+        const lnFg = this.styleVar("editorLineNumber.foreground");
+        const lnActiveFg = this.styleVar("editorLineNumber.activeForeground");
 
         const primaryLine = this.viewState.selections[0].active.line;
         const digitCount = gutterW - GUTTER_LEFT_PADDING - FOLD_GAP_LEFT - 1 - FOLD_GAP_RIGHT;
-        const foldFg = this.styles.foldingControlForeground;
+        const foldFg = this.styleVar("editorGutter.foldingControlForeground");
 
         // Fold-region headers by their (logical) start line, so the gutter can draw
         // a chevron and the header line a collapsed marker without scanning per cell.
@@ -479,7 +435,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                         context.setCell(gutterW + col, screenY, {
                             char: LONG_LINE_TRUNCATION_BADGE[i],
                             fg: editorBg,
-                            bg: this.styles.warningForeground,
+                            bg: this.styleVar("editorWarning.foreground"),
                         });
                     }
                 }
@@ -516,7 +472,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         // Highlight all occurrences of the word under the cursor (weakest layer,
         // painted first so selections and search matches win where they overlap).
-        const occurrenceBg = this.styles.occurrenceHighlightBackground;
+        const occurrenceBg = this.styleVar("editor.wordHighlightBackground");
         for (const range of this.getOccurrenceHighlights()) {
             this.paintRangeBackground(context, range, occurrenceBg, geometry);
         }
@@ -615,8 +571,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
         }
 
-        const guideFg = this.styles.indentGuideForeground;
-        const activeFg = this.styles.indentGuideActiveForeground;
+        const guideFg = this.styleVar("editorIndentGuide.background1");
+        const activeFg = this.styleVar("editorIndentGuide.activeBackground1");
 
         for (const region of regions) {
             if (region.isCollapsed) continue;
@@ -709,13 +665,13 @@ export class EditorElement extends TUIElement implements IScrollable {
     private severityForeground(severity: MarkerSeverity): number {
         switch (severity) {
             case MarkerSeverity.Error:
-                return this.styles.errorForeground;
+                return this.styleVar("editorError.foreground");
             case MarkerSeverity.Warning:
-                return this.styles.warningForeground;
+                return this.styleVar("editorWarning.foreground");
             case MarkerSeverity.Info:
-                return this.styles.infoForeground;
+                return this.styleVar("editorInfo.foreground");
             case MarkerSeverity.Hint:
-                return this.styles.hintForeground;
+                return this.styleVar("editorHint.foreground");
         }
     }
 

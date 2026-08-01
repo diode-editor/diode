@@ -60,7 +60,7 @@ interface IHarness {
     scm: ScmChangesService;
     menu: IMenu;
     themeService: ThemeService;
-    executed: Array<[string, unknown[]]>;
+    executed: [string, unknown[]][];
 }
 
 function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {}): IHarness {
@@ -73,10 +73,9 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
         commands,
         new ContextMenuService(menuService),
         opts.state ?? NULL_STATE_SERVICE,
-        themeService,
     );
 
-    const executed: Array<[string, unknown[]]> = [];
+    const executed: [string, unknown[]][] = [];
     commands.register("scm.action.openFile", (...args) => executed.push(["scm.action.openFile", args]));
     commands.register("scm.action.openChanges", (...args) => executed.push(["scm.action.openChanges", args]));
 
@@ -100,7 +99,7 @@ function uriOf(rel: string): string {
 }
 
 function frame(h: IHarness, w = 40, ht = 10): string {
-    return renderElement(h.component.view, w, ht, { resolveStyles: true }).screenToString();
+    return renderElement(h.component.view, w, ht, { themeVars: true }).screenToString();
 }
 
 function pressEnter(h: IHarness): void {
@@ -290,18 +289,14 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(app.backend.screenToString()).toContain("Open File");
 
         // Enter выбирает пункт: сессия закрывается ДО original onSelect.
-        app.querySelector("PopupMenuElement")!.dispatchEvent(
-            new TUIKeyboardEvent("keydown", { key: "Enter" }),
-        );
+        app.querySelector("PopupMenuElement")!.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         app.render();
         expect(onSelect).toHaveBeenCalledTimes(1);
         expect(app.backend.screenToString()).not.toContain("Open File");
 
         // Escape закрывает через menu.onClose → session.close() (гард onClose).
         rightClick();
-        app.querySelector("PopupMenuElement")!.dispatchEvent(
-            new TUIKeyboardEvent("keydown", { key: "Escape" }),
-        );
+        app.querySelector("PopupMenuElement")!.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Escape" }));
         app.render();
         expect(app.backend.screenToString()).not.toContain("Open File");
     });

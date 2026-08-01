@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { BoxConstraints, Point, Size } from "../common/geometryPromitives.ts";
 
+import { ROOT_STYLE_CONTEXT } from "./styles/tuiStyle.ts";
 import { FocusManager } from "./events/focusManager.ts";
 import { TUIElement } from "./tuiElement.ts";
 
@@ -262,7 +263,7 @@ describe("TUIElement — hidden (структура ≠ видимость)", ()
         branch.hidden = true;
         leaf.style = { fg: 123 };
 
-        root.performStyleResolution(root.resolvedStyle);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
 
         expect(leaf.resolvedStyle.fg).toBe(123);
     });

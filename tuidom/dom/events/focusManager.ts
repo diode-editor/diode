@@ -30,6 +30,8 @@ export class FocusManager {
         const oldElement = this.activeElement;
 
         if (oldElement) {
+            // Состояние стиля — ДО события: blur-слушатели видят его снятым.
+            oldElement.setStyleState("focus", false);
             const blurEvent = new TUIFocusEvent("blur", element);
             this.activeElement = null;
             oldElement.dispatchEvent(blurEvent);
@@ -38,6 +40,9 @@ export class FocusManager {
         this.activeElement = element;
 
         if (element) {
+            // Только target (как :focus в CSS); потомкам доступен селектор
+            // "in:focus", предок при нужде слушает focus/blur в bubble-фазе.
+            element.setStyleState("focus", true);
             const focusEvent = new TUIFocusEvent("focus", oldElement);
             element.dispatchEvent(focusEvent);
         }

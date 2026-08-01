@@ -2,9 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { SEARCH_VIEWLET_ID } from "../../contrib/search/browser/searchComponent.ts";
-import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
-
 import { SearchComponentDIToken } from "../../contrib/search/browser/searchComponent.ts";
+import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
 
 import { searchViewAsListAction, searchViewAsTreeAction, showSearchAction } from "./searchActions.ts";
 

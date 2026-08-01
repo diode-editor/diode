@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
-import { EndOfLine } from "../../editor/common/core/endOfLine.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { EndOfLine } from "../../editor/common/core/endOfLine.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../editor/common/core/iTextEdit.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
+import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
 const TOGGLE_READONLY = "workbench.action.files.toggleActiveEditorReadonlyInSession";
 
@@ -163,10 +163,9 @@ describe("Workbench — read-only editor", () => {
         // Без этих кейсов слой when остаётся непокрытым: проверено — тесты выше
         // проходят и с полностью снятыми `&& !editorReadonly`.
         function resolve(key: string, ctrlKey = false) {
-            return h.container.get(KeybindingRegistryDIToken).resolveKey(
-                { key, ctrlKey, shiftKey: false, altKey: false, metaKey: false },
-                contextKeys(),
-            );
+            return h.container
+                .get(KeybindingRegistryDIToken)
+                .resolveKey({ key, ctrlKey, shiftKey: false, altKey: false, metaKey: false }, contextKeys());
         }
 
         it("Backspace резолвится в deleteLeft, пока редактор writable", () => {
@@ -220,10 +219,7 @@ describe("Workbench — read-only editor", () => {
             // сюда не достают вовсе: это программные пути, а не команды.
             h.commands.execute(TOGGLE_READONLY);
 
-            h.activeEditor().applyExternalEdits(
-                [createTextEdit(createRange(0, 0, 0, 5), "Beta")],
-                "external edit",
-            );
+            h.activeEditor().applyExternalEdits([createTextEdit(createRange(0, 0, 0, 5), "Beta")], "external edit");
 
             expect(h.activeEditor().getText()).toBe("Alpha");
             expect(h.activeEditor().isModified).toBe(false);

@@ -6,7 +6,7 @@ import { Point, Size } from "../../common/geometryPromitives.ts";
 import type { MouseToken } from "../../input/rawTerminalToken.ts";
 
 import type { ITreeDataProvider, ITreeItem } from "./iTreeDataProvider.ts";
-import { TreeViewElement, unthemedTreeViewStyles } from "./treeViewElement.ts";
+import { TreeViewElement } from "./treeViewElement.ts";
 
 // ─── Test data ───
 
@@ -52,14 +52,13 @@ function createTree(
     viewportSize: Size = new Size(20, 5),
 ): { tree: TreeViewElement<TestNode>; app: TestApp } {
     const tree = new TreeViewElement(createProvider(roots));
-    tree.setStyles({
-        ...unthemedTreeViewStyles,
-        activeSelectionBg: ACTIVE_BG,
-        activeSelectionFg: ACTIVE_FG,
-        inactiveSelectionBg: INACTIVE_BG,
-        inactiveSelectionFg: INACTIVE_FG,
-        hoverBg: HOVER_BG,
-        cutFg: CUT_FG,
+    tree.setStyleVars({
+        "list.activeSelectionBackground": ACTIVE_BG,
+        "list.activeSelectionForeground": ACTIVE_FG,
+        "list.inactiveSelectionBackground": INACTIVE_BG,
+        "list.inactiveSelectionForeground": INACTIVE_FG,
+        "list.hoverBackground": HOVER_BG,
+        "list.deemphasizedForeground": CUT_FG,
     });
     const app = TestApp.createWithContent(tree, viewportSize);
     return { tree, app };

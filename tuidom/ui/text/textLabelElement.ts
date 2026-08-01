@@ -2,11 +2,13 @@ import { DEFAULT_COLOR } from "../../common/colorUtils.ts";
 import { DisplayLine } from "../../common/displayLine.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import { StyleFlags } from "../../common/styleFlags.ts";
+import type { StyleColor } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
+/** Посимвольный стиль; цвета — StyleColor: числа ИЛИ имена токенов темы. */
 export interface StyledChar {
-    fg?: number;
-    bg?: number;
+    fg?: StyleColor;
+    bg?: StyleColor;
     style?: StyleFlags;
 }
 
@@ -28,7 +30,7 @@ export class TextLabelElement extends TUIElement {
         this.markDirty();
     }
 
-    public setColors(fg: number, bg: number): void {
+    public setColors(fg: StyleColor, bg: StyleColor): void {
         this.style = { ...this.style, fg, bg };
     }
 
@@ -73,7 +75,17 @@ export class TextLabelElement extends TUIElement {
             { fg: resolved.fg, bg: resolved.bg, style: StyleFlags.None },
             {
                 maxWidth: width,
-                getStyle: (offset) => this.charStyles.get(offset),
+                getStyle: (offset) => {
+                    const charStyle = this.charStyles.get(offset);
+                    if (charStyle === undefined) return undefined;
+                    // Ключи — только для заданных полей: drawText мёржит
+                    // спредом, и ключ с undefined затёр бы базовый цвет.
+                    const override: { fg?: number; bg?: number; style?: StyleFlags } = {};
+                    if (charStyle.fg !== undefined) override.fg = this.resolveColor(charStyle.fg);
+                    if (charStyle.bg !== undefined) override.bg = this.resolveColor(charStyle.bg);
+                    if (charStyle.style !== undefined) override.style = charStyle.style;
+                    return override;
+                },
             },
         );
     }
@@ -83,8 +95,8 @@ export class TextLabelElement extends TUIElement {
 
 export interface TextLabelProps {
     text: string;
-    fg?: number;
-    bg?: number;
+    fg?: StyleColor;
+    bg?: StyleColor;
     charStyles?: Map<number, StyledChar>;
 }
 

@@ -3,7 +3,7 @@ import { packRgb } from "../../common/colorUtils.ts";
 import { ScrollBarDecorator } from "../scrollbar/scrollContainerElement.ts";
 import { TextLabelElement } from "../text/textLabelElement.ts";
 
-import { ListViewElement, unthemedListViewStyles } from "./listViewElement.ts";
+import { ListViewElement } from "./listViewElement.ts";
 
 export const meta: StoryMeta = {
     title: "ListViewElement",
@@ -23,7 +23,6 @@ function makeRow(id: string, text: string): TextLabelElement {
 export function stress100k(ctx: StoryContext): void {
     ctx.body.title = "ListViewElement — 100k rows (PgUp/PgDn/Home/End, Space to collapse)";
     const list = new ListViewElement();
-    list.setStyles({ ...unthemedListViewStyles, hoverBg: packRgb(42, 45, 46) });
 
     for (let g = 0; g < 10_000; g++) {
         const groupId = `group-${g}`;
@@ -49,7 +48,6 @@ export function stress100k(ctx: StoryContext): void {
 export function streamingAppend(ctx: StoryContext): void {
     ctx.body.title = "ListViewElement — streaming append (1k rows/tick)";
     const list = new ListViewElement();
-    list.setStyles(unthemedListViewStyles);
     ctx.body.setContent(new ScrollBarDecorator(list));
 
     let next = 0;
@@ -83,7 +81,6 @@ export function searchLike(ctx: StoryContext): void {
     const MATCH_BG = packRgb(234, 92, 0);
 
     const list = new ListViewElement();
-    list.setStyles({ ...unthemedListViewStyles, hoverBg: packRgb(42, 45, 46) });
 
     const files = ["src/main.ts", "src/app/editor.ts", "docs/README.md"];
     for (const file of files) {

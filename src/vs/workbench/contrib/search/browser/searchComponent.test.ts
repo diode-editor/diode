@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MockTerminalBackend } from "../../../../../../tuidom/backend/mockTerminalBackend.ts";
+import { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import type { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
+import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
-import type { ExplorerService } from "../../files/browser/explorerService.ts";
 import type {
     IFileMatch,
     ISearchHandle,
@@ -14,13 +17,9 @@ import type {
 } from "../../../services/search/common/textSearch.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import type { ExplorerService } from "../../files/browser/explorerService.ts";
 
-import { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
-import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
-import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
-import type { IRange } from "../../../../editor/common/core/iRange.ts";
-
-import { SearchComponent, type ISearchRevealTarget } from "./searchComponent.ts";
+import { type ISearchRevealTarget, SearchComponent } from "./searchComponent.ts";
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const ROOT = "/work/project";
@@ -48,7 +47,7 @@ function fakeExplorer(root: string | null): ExplorerService {
     return { getRootPath: () => root } as unknown as ExplorerService;
 }
 
-function fileMatch(absolutePath: string, lines: Array<[number, string, string, string]>): IFileMatch {
+function fileMatch(absolutePath: string, lines: [number, string, string, string][]): IFileMatch {
     return {
         absolutePath,
         matches: lines.map(([lineNumber, before, inside, after]) => ({
@@ -64,11 +63,11 @@ function fileMatch(absolutePath: string, lines: Array<[number, string, string, s
 function fakeReveal(): {
     target: ISearchRevealTarget;
     opened: string[];
-    positions: Array<[number, number | undefined]>;
+    positions: [number, number | undefined][];
     ranges: IRange[];
 } {
     const opened: string[] = [];
-    const positions: Array<[number, number | undefined]> = [];
+    const positions: [number, number | undefined][] = [];
     const ranges: IRange[] = [];
     const target: ISearchRevealTarget = {
         openUri: (uri) => opened.push(uri.fsPath),
@@ -101,17 +100,11 @@ function make(
     explorer: ExplorerService,
     opts: { reveal?: ISearchRevealTarget; state?: IStateService } = {},
 ): SearchComponent {
-    return new SearchComponent(
-        search,
-        explorer,
-        opts.reveal ?? fakeReveal().target,
-        opts.state ?? NULL_STATE_SERVICE,
-        new ThemeService(theme),
-    );
+    return new SearchComponent(search, explorer, opts.reveal ?? fakeReveal().target, opts.state ?? NULL_STATE_SERVICE);
 }
 
 function render(component: SearchComponent, w = 40, h = 14): MockTerminalBackend {
-    return renderElement(component.view, w, h, { resolveStyles: true });
+    return renderElement(component.view, w, h, { themeVars: true });
 }
 
 function queryInput(component: SearchComponent): InputElement {
@@ -153,7 +146,12 @@ describe("SearchComponent", () => {
     });
 
     it("uses singular 'file' for a single matched file", () => {
-        const results = [fileMatch("/work/project/a.ts", [[1, "", "foo", ""], [2, "x ", "foo", " y"]])];
+        const results = [
+            fileMatch("/work/project/a.ts", [
+                [1, "", "foo", ""],
+                [2, "x ", "foo", " y"],
+            ]),
+        ];
         const component = make(fakeSearch(results).service, fakeExplorer(ROOT));
         typeQuery(component, "foo");
         expect(render(component).screenToString()).toContain("2 results in 1 file");
@@ -257,11 +255,14 @@ describe("SearchComponent", () => {
     });
 
     it("ignores results and completion from a superseded search", async () => {
-        const captured: Array<(m: IFileMatch) => void> = [];
+        const captured: ((m: IFileMatch) => void)[] = [];
         const service: ITextSearchService = {
             search(_q, _f, onResult): ISearchHandle {
                 captured.push(onResult);
-                return { complete: Promise.resolve({ matchCount: 0, fileCount: 0, limitHit: false }), cancel: () => {} };
+                return {
+                    complete: Promise.resolve({ matchCount: 0, fileCount: 0, limitHit: false }),
+                    cancel: () => {},
+                };
             },
         };
         const component = make(service, fakeExplorer(ROOT));
@@ -311,7 +312,10 @@ describe("SearchComponent", () => {
 
     describe("tree/flat view modes", () => {
         const twoFiles = () => [
-            fileMatch("/work/project/a.ts", [[12, "const ", "foo", " = 1"], [20, "", "foo", ""]]),
+            fileMatch("/work/project/a.ts", [
+                [12, "const ", "foo", " = 1"],
+                [20, "", "foo", ""],
+            ]),
             fileMatch("/work/project/b.ts", [[3, "let ", "foo", ""]]),
         ];
 
@@ -385,18 +389,16 @@ describe("SearchComponent", () => {
     });
 
     it("theme change restyles existing file and match rows in place", () => {
-        const themeService = new ThemeService(theme);
         const component = new SearchComponent(
             fakeSearch([fileMatch("/work/project/a.ts", [[1, "x ", "foo", ""]])]).service,
             fakeExplorer(ROOT),
             fakeReveal().target,
             NULL_STATE_SERVICE,
-            themeService,
         );
         typeQuery(component, "foo");
         const before = render(component).screenToString();
 
-        themeService.setTheme(theme); // повторное применение гоняет рестайл по строкам
+        // Токены резолвит каскад — повторный рендер стабилен без рестайла.
         expect(render(component).screenToString()).toBe(before);
     });
 
@@ -407,15 +409,14 @@ describe("SearchComponent", () => {
             const component = make(fakeSearch(results).service, fakeExplorer(ROOT), { reveal: reveal.target });
             typeQuery(component, "foo");
 
-            const matchRow = component.results.getChildren()[1];
-            component.results.setCursorTo(matchRow.id as string);
+            // Дети списка — обёртки строк (носители состояний); id — у контента.
+            const matchRow = component.results.getChildren()[1].getChildren()[0];
+            component.results.setCursorTo(matchRow.id!);
             component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
 
             expect(reveal.opened).toEqual(["/work/project/a.ts"]);
             expect(reveal.positions).toEqual([[11, 6]]); // line 12 → 11, startColumn = "const ".length
-            expect(reveal.ranges).toEqual([
-                { start: { line: 11, character: 6 }, end: { line: 11, character: 9 } },
-            ]);
+            expect(reveal.ranges).toEqual([{ start: { line: 11, character: 6 }, end: { line: 11, character: 9 } }]);
         });
     });
 });

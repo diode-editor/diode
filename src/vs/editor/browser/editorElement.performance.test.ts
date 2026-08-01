@@ -17,14 +17,11 @@
 import { describe, expect, it } from "vitest";
 
 import { DisplayLine } from "../../../../tuidom/common/displayLine.ts";
-import {
-    LONG_LINE_TRUNCATION_BADGE_WIDTH,
-    STOP_RENDERING_LINE_AFTER,
-} from "../common/viewModel/longLineRendering.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { createInsertEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "../common/viewModel/longLineRendering.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
@@ -294,7 +291,9 @@ describe("EditorElement — extremely long lines must not freeze", () => {
         const capped = timeBatch(() => new DisplayLine(longLine, tabSize, STOP_RENDERING_LINE_AFTER));
         const uncapped = timeBatch(() => new DisplayLine(longLine, tabSize));
 
-        console.log(`[long-line] ${ITER}× DisplayLine — capped ${capped.toFixed(1)} ms vs uncapped ${uncapped.toFixed(1)} ms`);
+        console.log(
+            `[long-line] ${ITER}× DisplayLine — capped ${capped.toFixed(1)} ms vs uncapped ${uncapped.toFixed(1)} ms`,
+        );
         // The real ratio is ~20–35×; require at least 3× to stay robust to noise
         // while still failing loudly if the cap ever stops taking effect.
         expect(capped * 3).toBeLessThan(uncapped);

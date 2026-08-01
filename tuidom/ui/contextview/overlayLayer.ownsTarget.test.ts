@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { Point, Size } from "../../common/geometryPromitives.ts";
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+import { Point, Size } from "../../common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { InputElement } from "../inputbox/inputElement.ts";
 import { PopupMenuElement } from "../menu/popupMenuElement.ts";

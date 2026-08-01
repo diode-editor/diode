@@ -17,7 +17,7 @@ const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const WIDTH = 44;
 
 function make(): FindComponent {
-    return new FindComponent(new ThemeService(theme));
+    return new FindComponent();
 }
 
 /**
@@ -97,7 +97,7 @@ describe("FindComponent — button clicks", () => {
 
     it("keeps focus in the input — the nav buttons are non-focusable", () => {
         const component = make();
-        expect(buttons(component).every((b) => b.focusable === false)).toBe(true);
+        expect(buttons(component).every((b) => !b.focusable)).toBe(true);
     });
 });
 
@@ -111,10 +111,10 @@ describe("FindComponent — hover", () => {
         const next = buttons(component)[1];
         const x = next.globalPosition.x;
 
-        next.dispatchEvent(mouse("mouseenter"));
+        next.setStyleState("hover", true);
         expect(render(component).getBgAt(new Point(x, 1))).toBe(hoverBg);
 
-        next.dispatchEvent(mouse("mouseleave"));
+        next.setStyleState("hover", false);
         expect(render(component).getBgAt(new Point(x, 1))).toBe(restBg);
     });
 });

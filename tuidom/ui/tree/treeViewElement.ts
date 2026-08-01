@@ -1,4 +1,3 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { DisplayLine } from "../../common/displayLine.ts";
 import { Point } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
@@ -16,32 +15,6 @@ const TYPEAHEAD_TIMEOUT_MS = 800;
 const ICON_EXPANDED = "\uF107"; //  nf-fa-angle_down — chevron, как в nvim-tree/NvChad
 const ICON_COLLAPSED = "\uF105"; //  nf-fa-angle_right
 const SYMLINK_BADGE = "\u21B5"; // enter-like arrow marking a symlink, pinned to the right edge
-
-export interface ITreeViewStyles {
-    readonly activeSelectionBg: number;
-    readonly activeSelectionFg: number;
-    readonly inactiveSelectionBg: number;
-    readonly inactiveSelectionFg: number;
-    /** `undefined` \u043E\u0442\u043A\u043B\u044E\u0447\u0430\u0435\u0442 hover-\u043F\u043E\u0434\u0441\u0432\u0435\u0442\u043A\u0443. */
-    readonly hoverBg: number | undefined;
-    /** `undefined` \u2014 hovered-\u0441\u0442\u0440\u043E\u043A\u0430 \u043E\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442 \u043E\u0431\u044B\u0447\u043D\u044B\u0439 fg. */
-    readonly hoverFg: number | undefined;
-    /** `undefined` \u043E\u0442\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u043F\u0440\u0438\u0433\u043B\u0443\u0448\u0435\u043D\u0438\u0435 \u00AB\u0432\u044B\u0440\u0435\u0437\u0430\u043D\u043D\u044B\u0445\u00BB \u0441\u0442\u0440\u043E\u043A. */
-    readonly cutFg: number | undefined;
-    readonly symlinkFg: number;
-}
-
-// Defaults preserve the historical look; controllers override them via setStyles.
-export const unthemedTreeViewStyles: ITreeViewStyles = {
-    activeSelectionBg: packRgb(4, 57, 94),
-    activeSelectionFg: packRgb(255, 255, 255),
-    inactiveSelectionBg: packRgb(55, 55, 61),
-    inactiveSelectionFg: packRgb(204, 204, 204),
-    hoverBg: undefined,
-    hoverFg: undefined,
-    cutFg: undefined,
-    symlinkFg: packRgb(128, 128, 128),
-};
 
 interface FlatTreeNode<T> {
     element: T;
@@ -70,17 +43,10 @@ export class TreeViewElement<T> extends ScrollableElement {
     private typeaheadBuffer = "";
     private typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
 
-    private styles: ITreeViewStyles = unthemedTreeViewStyles;
-
     public onSelect: ((item: T) => void) | null = null;
     public onActivate: ((item: T) => void) | null = null;
     public onExpandedChanged: ((element: T, expanded: boolean) => void) | null = null;
     public onContextMenu: ((element: T, screenX: number, screenY: number) => void) | null = null;
-
-    public setStyles(styles: ITreeViewStyles): void {
-        this.styles = styles;
-        this.markDirty();
-    }
 
     public constructor(provider: ITreeDataProvider<T>, options?: { leftPadding?: number }) {
         super();
@@ -280,8 +246,10 @@ export class TreeViewElement<T> extends ScrollableElement {
 
             const rowText = this.formatRow(node);
             const rowIcon = node.item.icon;
-            const rowIconColor = node.item.iconColor;
-            const labelColor = node.item.labelColor;
+            // Данные могут отдавать имена токенов (gitDecoration.*) — резолвим
+            // в контексте дерева: раскраска переживает смену темы без пере-пуша.
+            const rowIconColor = node.item.iconColor !== undefined ? this.resolveColor(node.item.iconColor) : undefined;
+            const labelColor = node.item.labelColor !== undefined ? this.resolveColor(node.item.labelColor) : undefined;
             // Метка имени начинается сразу после иконки типа (если она есть).
             const labelStart = this.rowIndentX(node.depth) + 2 + (rowIcon ? 2 : 0);
             // Цвет-декорация имени уступает выделению/курсору, чтобы выбранная строка
@@ -326,7 +294,7 @@ export class TreeViewElement<T> extends ScrollableElement {
                 // Color the expand icon
                 const expandIconPos = this.rowIndentX(node.depth);
                 if (col === expandIconPos && node.item.collapsible) {
-                    fg = packRgb(150, 150, 150);
+                    fg = this.styleVar("list.deemphasizedForeground");
                 }
 
                 if (w === 2 && screenX + 1 >= viewportWidth) {
@@ -360,7 +328,7 @@ export class TreeViewElement<T> extends ScrollableElement {
             if (node.item.symlink && symlinkX >= 0) {
                 context.setCell(symlinkX, screenY, {
                     char: SYMLINK_BADGE,
-                    fg: this.styles.symlinkFg,
+                    fg: this.styleVar("list.deemphasizedForeground"),
                     bg: rowBg,
                     width: 1,
                 });
@@ -379,15 +347,21 @@ export class TreeViewElement<T> extends ScrollableElement {
         // Priority: cursor/selection > hover > cut > normal
         if (isCursor || isSelected) {
             if (focused) {
-                return { bg: this.styles.activeSelectionBg, fg: this.styles.activeSelectionFg };
+                return {
+                    bg: this.styleVar("list.activeSelectionBackground"),
+                    fg: this.styleVar("list.activeSelectionForeground"),
+                };
             }
-            return { bg: this.styles.inactiveSelectionBg, fg: this.styles.inactiveSelectionFg };
+            return {
+                bg: this.styleVar("list.inactiveSelectionBackground"),
+                fg: this.styleVar("list.inactiveSelectionForeground"),
+            };
         }
-        if (isHovered && this.styles.hoverBg !== undefined) {
-            return { bg: this.styles.hoverBg, fg: this.styles.hoverFg ?? resolved.fg };
+        if (isHovered) {
+            return { bg: this.styleVar("list.hoverBackground"), fg: resolved.fg };
         }
-        if (isCut && this.styles.cutFg !== undefined) {
-            return { bg: resolved.bg, fg: this.styles.cutFg };
+        if (isCut) {
+            return { bg: resolved.bg, fg: this.styleVar("list.deemphasizedForeground") };
         }
         return { bg: resolved.bg, fg: resolved.fg };
     }
