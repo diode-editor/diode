@@ -456,7 +456,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
             node = node.getParent();
         }
         if (node === this) {
-            fm!.setFocus(null);
+            (fm as FocusManager).setFocus(null);
         }
     }
 
@@ -1050,13 +1050,48 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     /**
-     * Дефолт: отрисовать детей (лист без детей не рисует ничего). Контейнер,
-     * которому нужно собственное полотно (фон, рамка, заголовок), рисует его и
-     * зовёт {@link renderChildren}; полностью кастомный рендер (виртуализация,
-     * скролл-сдвиг) переопределяет метод целиком.
+     * Дефолт: залить собственный фон (если он задан собственным стилем) и
+     * отрисовать детей. Контейнер, которому нужно собственное полотно (рамка,
+     * заголовок), рисует его и зовёт {@link renderChildren}; полностью
+     * кастомный рендер (виртуализация, скролл-сдвиг) переопределяет метод
+     * целиком — и тогда сам зовёт {@link paintOwnBackground} первой строкой,
+     * если хочет фон от каскада.
      */
     public render(context: RenderContext): void {
+        this.paintOwnBackground(context);
         this.renderChildren(context);
+    }
+
+    /**
+     * Заливает прямоугольник элемента resolvedStyle.bg, если bg задан
+     * СОБСТВЕННЫМ стилем — базой или сработавшим when-вариантом. Элементы без
+     * собственного bg прозрачны (как в CSS). Сентинелы INHERITED_* тоже
+     * считаются «задан»: это намеренная перезаливка цветом родителя (INHERITED_BG)
+     * или инверсия (INHERITED_FG). Выход за границы невозможен — контекст
+     * элемента уже клипован родителем.
+     */
+    protected paintOwnBackground(context: RenderContext): void {
+        if (this.appliedBgValue === undefined) return;
+        const { fg, bg } = this.resolvedStyleValue;
+        const { width, height } = this.layoutSize;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                context.setCell(x, y, { char: " ", fg, bg });
+            }
+        }
+    }
+
+    /** true, если фон задан собственным стилем (см. {@link paintOwnBackground}). */
+    public get hasOwnBackground(): boolean {
+        return this.appliedBgValue !== undefined;
+    }
+
+    /**
+     * Сырые цвета после when-merge, до резолва токенов/сентинелов: что элемент
+     * «попросил сам» (undefined = наследует). Для инспектора и тестов.
+     */
+    public get appliedStyle(): { fg?: StyleColor; bg?: StyleColor } {
+        return { fg: this.appliedFgValue, bg: this.appliedBgValue };
     }
 
     /**
