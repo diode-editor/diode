@@ -42,6 +42,21 @@ describe("style setter triggers dirty", () => {
         root.style = { fg: packRgb(1, 2, 3) };
         expect(renderRequested).toBe(true);
     });
+
+    it("пуш равного по значению стиля — no-op (не дирявит и не планирует кадр)", () => {
+        const root = new ContainerElement();
+        root.setAsRoot();
+        root.style = { fg: packRgb(1, 2, 3), bg: packRgb(4, 5, 6) };
+        root.performStyleResolution(ROOT_RESOLVED_STYLE);
+
+        let renderRequested = false;
+        root.setRequestRenderCallback(() => {
+            renderRequested = true;
+        });
+
+        root.style = { fg: packRgb(1, 2, 3), bg: packRgb(4, 5, 6) };
+        expect(renderRequested).toBe(false);
+    });
 });
 
 describe("performStyleResolution", () => {

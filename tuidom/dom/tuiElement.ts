@@ -13,7 +13,7 @@ import { TUIKeyboardEvent } from "./events/tuiKeyboardEvent.ts";
 import type { TUIMouseEvent } from "./events/tuiMouseEvent.ts";
 import type { TUIPasteEvent } from "./events/tuiPasteEvent.ts";
 import type { ResolvedTUIStyle, TUIStyle } from "./styles/tuiStyle.ts";
-import { resolveStyle, ROOT_RESOLVED_STYLE } from "./styles/tuiStyle.ts";
+import { resolveStyle, ROOT_RESOLVED_STYLE, styleEquals } from "./styles/tuiStyle.ts";
 import { querySelector, querySelectorAll } from "./tuiSelector.ts";
 
 const MAX_COORD = 100_000;
@@ -259,6 +259,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     }
 
     public set style(value: S) {
+        if (styleEquals(this.styleValue, value)) return;
         this.styleValue = value;
         this.markStyleDirty();
     }

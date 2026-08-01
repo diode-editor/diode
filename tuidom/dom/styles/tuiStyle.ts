@@ -39,6 +39,28 @@ export const ROOT_RESOLVED_STYLE: ResolvedTUIStyle = {
     bg: DEFAULT_COLOR,
 };
 
+// ─── Comparison ───
+
+/**
+ * Структурное равенство деклараций стиля. Используется сеттером `style`,
+ * чтобы повторный пуш того же значения (JSX-rebuild, reconcile, повторное
+ * применение темы) не помечал грязным всё поддерево.
+ */
+export function styleEquals(a: TUIStyle, b: TUIStyle): boolean {
+    if (a === b) return true;
+    // Сравниваются ВСЕ собственные ключи: подклассы расширяют стиль своими
+    // полями (TitledPanelStyle.panelTitleFg), и они обязаны участвовать в
+    // равенстве. Ключ с undefined против отсутствия ключа считается различием —
+    // консервативно в безопасную сторону (лишний резолв, а не пропущенный).
+    const aKeys = Object.keys(a) as (keyof TUIStyle)[];
+    const bKeys = Object.keys(b) as (keyof TUIStyle)[];
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+        if (a[key] !== b[key]) return false;
+    }
+    return true;
+}
+
 // ─── Resolution functions ───
 
 export function resolveStyleColor(color: StyleColor, inheritedFg: number, inheritedBg: number): number {
