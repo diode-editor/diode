@@ -1,4 +1,5 @@
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
+import { BORDER_THICKNESS } from "../../dom/borderStyle.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
@@ -138,8 +139,8 @@ export class PopupMenuElement extends TUIElement {
 
     public getIntrinsicSize(): Size {
         const innerWidth = this.vstack.getMaxIntrinsicWidth(this.entries.length);
-        const totalWidth = 2 + innerWidth; // borders left + right
-        const totalHeight = this.entries.length + 2; // border top + entries + border bottom
+        const totalWidth = BORDER_THICKNESS * 2 + innerWidth; // borders left + right
+        const totalHeight = this.entries.length + BORDER_THICKNESS * 2; // border top + entries + border bottom
         return new Size(totalWidth, totalHeight);
     }
 
@@ -148,8 +149,8 @@ export class PopupMenuElement extends TUIElement {
         const resultSize = constraints.constrain(intrinsic);
         super.performLayout(BoxConstraints.tight(resultSize));
 
-        const innerSize = new Size(resultSize.width - 2, resultSize.height - 2);
-        this.layoutChild(this.vstack, 1, 1, BoxConstraints.tight(innerSize));
+        const innerSize = new Size(resultSize.width - BORDER_THICKNESS * 2, resultSize.height - BORDER_THICKNESS * 2);
+        this.layoutChild(this.vstack, BORDER_THICKNESS, BORDER_THICKNESS, BoxConstraints.tight(innerSize));
 
         return resultSize;
     }

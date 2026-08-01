@@ -1,6 +1,7 @@
 import { DisplayLine } from "../../common/displayLine.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import { abbreviatePath, truncateEnd } from "../../common/textTruncation.ts";
+import { BORDER_THICKNESS } from "../../dom/borderStyle.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import type { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
@@ -9,6 +10,9 @@ import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { InputElement } from "../inputbox/inputElement.ts";
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
+
+/** Паддинг между контентом ряда и правой рамкой (не путать с самой рамкой). */
+const RIGHT_PAD = 1;
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -199,8 +203,7 @@ export class QuickPickElement extends TUIElement {
      */
     private itemIndexFromLocalY(localY: number): number | null {
         if (this.effectiveVisibleRows === 0) return null;
-        const bodyTop = this.messageRow !== null ? 3 : 2;
-        const firstRowY = bodyTop + 1; // border/input/[message]/separator then rows
+        const firstRowY = this.bodyTop + 1; // border/input/[message]/separator then rows
         const row = localY - firstRowY;
         if (row < 0 || row >= this.effectiveVisibleRows) return null;
         return this.scrollOffset + row;
@@ -299,9 +302,17 @@ export class QuickPickElement extends TUIElement {
      */
     private get effectiveVisibleRows(): number {
         if (this.visibleItemCount === 0) return 0;
-        // top border + input + [message] + separator + bottom border
-        const chrome = 4 + (this.messageRow !== null ? 1 : 0);
+        // Всё, кроме строк списка: верх (рамка + input + [message]) + сепаратор + нижняя рамка.
+        const chrome = this.bodyTop + 1 + BORDER_THICKNESS;
         return Math.max(0, Math.min(this.visibleItemCount, this.layoutSize.height - chrome));
+    }
+
+    /**
+     * Строка сепаратора/нижней рамки сразу под «шапкой» (верхняя рамка + input +
+     * [message]) — она же счётчик занятых шапкой строк.
+     */
+    private get bodyTop(): number {
+        return BORDER_THICKNESS + 1 + (this.messageRow !== null ? 1 : 0);
     }
 
     /**
@@ -326,14 +337,12 @@ export class QuickPickElement extends TUIElement {
 
     private get totalHeight(): number {
         const listRows = this.visibleItemCount;
-        // Extra row for the InputBox prompt / validation message, when present.
-        const messageRows = this.messageRow !== null ? 1 : 0;
         if (listRows === 0) {
             // top border + input row + [message row] + bottom border
-            return 3 + messageRows;
+            return this.bodyTop + BORDER_THICKNESS;
         }
         // top border + input row + [message row] + separator + list rows + bottom border
-        return 4 + messageRows + listRows;
+        return this.bodyTop + 1 + listRows + BORDER_THICKNESS;
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
@@ -366,9 +375,14 @@ export class QuickPickElement extends TUIElement {
         this.scrollOffset = Math.min(this.scrollOffset, maxScroll);
         this.ensureVisible(this.selectedIndexValue);
 
-        // Position InputElement inside the top border, padded by 1 on each side.
-        const inputWidth = Math.max(0, size.width - 2);
-        this.layoutChild(this.inputElement, 1, 1, BoxConstraints.tight(new Size(inputWidth, 1)));
+        // Position InputElement inside the top border, padded by the border on each side.
+        const inputWidth = Math.max(0, size.width - BORDER_THICKNESS * 2);
+        this.layoutChild(
+            this.inputElement,
+            BORDER_THICKNESS,
+            BORDER_THICKNESS,
+            BoxConstraints.tight(new Size(inputWidth, 1)),
+        );
 
         return size;
     }
@@ -383,14 +397,14 @@ export class QuickPickElement extends TUIElement {
         // needed (prevents a gap between the last item and the bottom border);
         // when allocated LESS (низкий терминал), рисуем строго в выделенном.
         const h = Math.min(this.totalHeight, this.layoutSize.height);
-        if (w < 2 || h < 2) return; // не помещается даже рамка
+        if (w < BORDER_THICKNESS * 2 || h < BORDER_THICKNESS * 2) return; // не помещается даже рамка
 
         const visibleRows = this.effectiveVisibleRows;
         const hasItems = visibleRows > 0;
 
         // Row after the input (+ message row when present): separator/bottom border.
         const message = this.messageRow;
-        const bodyTop = message !== null ? 3 : 2;
+        const bodyTop = this.bodyTop;
 
         // ── Background fill + frame ───────────────────────────────────────────
         // The separator between the input area and the list is a T-connector row
@@ -530,7 +544,7 @@ export class QuickPickElement extends TUIElement {
         // fits, and the description (file path) is shrunk to whatever space is
         // left so nothing overflows the picker border. The other metadata
         // fields (badge / shortcut / hint) are short and always shown whole.
-        const contentRight = w - 2; // exclusive, inside right border
+        const contentRight = w - BORDER_THICKNESS - RIGHT_PAD; // exclusive, inside right border
         const avail = Math.max(0, contentRight - x);
 
         interface RightPart {
