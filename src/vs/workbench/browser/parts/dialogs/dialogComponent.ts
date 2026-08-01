@@ -2,7 +2,7 @@ import type { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKe
 import type { JsxNode } from "../../../../../../tuidom/dom/jsx/jsx-runtime.ts";
 import { reconcile } from "../../../../../../tuidom/dom/jsx/reconcile.ts";
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import type { ButtonElement, IButtonStyles } from "../../../../../../tuidom/ui/button/buttonElement.ts";
+import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { FitContentElement } from "../../../../../../tuidom/ui/layout/fitContentElement.ts";
 import { getDialogStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -26,8 +26,6 @@ export interface IDialogStyles {
     readonly warningFg: number;
     /** Ссылки (`textLink.foreground`). */
     readonly linkFg: number;
-    /** Ряд кнопок диалога (`button.*`). */
-    readonly button: IButtonStyles;
 }
 
 /**
@@ -76,10 +74,8 @@ export abstract class DialogComponent extends ThemedComponent {
     }
 
     protected override updateStyles(): void {
-        const styles = getDialogStyles(this.theme);
-        for (const button of this.rowButtons()) {
-            button.setStyles(styles.button);
-        }
+        // Кнопки красятся токенами сами (Н3); диалогу остаётся перестройка
+        // дерева с цветами текущей темы.
         this.rebuild();
     }
 

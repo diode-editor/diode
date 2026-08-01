@@ -1,62 +1,36 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
-export interface IButtonStyles {
-    readonly fg: number;
-    readonly bg: number;
-    readonly hoverBg: number;
-    readonly focusedFg: number;
-    readonly focusedBg: number;
-    readonly focusedHoverBg: number;
-}
-
-// Defaults preserve the historical look; owners (e.g. a dialog) override them via setStyles.
-export const unthemedButtonStyles: IButtonStyles = {
-    fg: packRgb(204, 204, 204),
-    bg: packRgb(60, 60, 60),
-    hoverBg: packRgb(69, 73, 78),
-    focusedFg: packRgb(255, 255, 255),
-    focusedBg: packRgb(0, 120, 215),
-    focusedHoverBg: packRgb(26, 134, 224),
-};
-
 export class ButtonElement extends TUIElement {
     public onActivate?: () => void;
 
-    private styles: IButtonStyles = unthemedButtonStyles;
     private readonly label: string;
-    private hovered = false;
 
-    public constructor(label: string, options?: { styles?: IButtonStyles }) {
+    public constructor(label: string) {
         super();
         this.label = label;
         this.focusable = true;
-        if (options?.styles) {
-            this.styles = options.styles;
-        }
+        // Вся state-логика цвета — в when-вариантах: hover/focus ставит ядро,
+        // "checked" (тумблеры) — setChecked. Порядок = приоритет: checked
+        // объявлен ПОСЛЕ focus — включённый тумблер выглядит primary
+        // независимо от фокуса.
+        this.style = {
+            fg: "button.secondaryForeground",
+            bg: "button.secondaryBackground",
+            when: [
+                { states: ["hover"], bg: "button.secondaryHoverBackground" },
+                { states: ["focus"], fg: "button.foreground", bg: "button.background" },
+                { states: ["focus", "hover"], bg: "button.hoverBackground" },
+                { states: ["checked"], fg: "button.foreground", bg: "button.background" },
+                { states: ["checked", "hover"], bg: "button.hoverBackground" },
+            ],
+        };
 
-        this.addEventListener("focus", () => {
-            this.markDirty();
-        });
-        this.addEventListener("blur", () => {
-            this.markDirty();
-        });
         this.addEventListener("click", (event) => {
             if (event.defaultPrevented) return;
             this.onActivate?.();
-        });
-        this.addEventListener("mouseenter", () => {
-            if (this.hovered) return;
-            this.hovered = true;
-            this.markDirty();
-        });
-        this.addEventListener("mouseleave", () => {
-            if (!this.hovered) return;
-            this.hovered = false;
-            this.markDirty();
         });
     }
 
@@ -64,9 +38,9 @@ export class ButtonElement extends TUIElement {
         return this.label;
     }
 
-    public setStyles(styles: IButtonStyles): void {
-        this.styles = styles;
-        this.markDirty();
+    /** Режим «включённого тумблера» (кнопки-переключатели поиска): primary-вид. */
+    public setChecked(checked: boolean): void {
+        this.setStyleState("checked", checked);
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
@@ -100,15 +74,7 @@ export class ButtonElement extends TUIElement {
     }
 
     public override render(context: RenderContext): void {
-        const focused = this.isFocused;
-        const fg = focused ? this.styles.focusedFg : this.styles.fg;
-        const bg = focused
-            ? this.hovered
-                ? this.styles.focusedHoverBg
-                : this.styles.focusedBg
-            : this.hovered
-              ? this.styles.hoverBg
-              : this.styles.bg;
+        const { fg, bg } = this.resolvedStyle;
         context.drawText(0, 0, `[ ${this.label} ]`, { fg, bg }, { maxWidth: this.layoutSize.width });
     }
 }

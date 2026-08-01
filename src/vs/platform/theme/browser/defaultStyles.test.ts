@@ -8,7 +8,6 @@ import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/
 import { WorkbenchTheme } from "../common/workbenchTheme.ts";
 
 import {
-    getDialogButtonStyles,
     getDialogStyles,
     getEditorStyles,
     getFileTreeStyles,
@@ -24,21 +23,6 @@ function makeTheme(): WorkbenchTheme {
     return WorkbenchTheme.fromThemeFile(darkPlusTheme);
 }
 
-describe("getDialogButtonStyles", () => {
-    it("maps the focused button to the primary and the unfocused one to the secondary tokens", () => {
-        const theme = makeTheme();
-
-        const styles = getDialogButtonStyles(theme);
-
-        expect(styles.fg).toBe(theme.getRequiredColor("button.secondaryForeground"));
-        expect(styles.bg).toBe(theme.getRequiredColor("button.secondaryBackground"));
-        expect(styles.hoverBg).toBe(theme.getRequiredColor("button.secondaryHoverBackground"));
-        expect(styles.focusedFg).toBe(theme.getRequiredColor("button.foreground"));
-        expect(styles.focusedBg).toBe(theme.getRequiredColor("button.background"));
-        expect(styles.focusedHoverBg).toBe(theme.getRequiredColor("button.hoverBackground"));
-    });
-});
-
 describe("dialog and find-widget styles", () => {
     it("getDialogStyles maps the dialog window to editorWidget.*/description/link/warning keys", () => {
         const theme = makeTheme();
@@ -51,7 +35,6 @@ describe("dialog and find-widget styles", () => {
         expect(styles.descriptionFg).toBe(theme.getRequiredColor("descriptionForeground"));
         expect(styles.warningFg).toBe(theme.getRequiredColor("editorWarning.foreground"));
         expect(styles.linkFg).toBe(theme.getRequiredColor("textLink.foreground"));
-        expect(styles.button).toEqual(getDialogButtonStyles(theme));
     });
 
     it("getFindWidgetStyles maps the find widget to editorWidget.*/description/error keys", () => {
@@ -62,7 +45,6 @@ describe("dialog and find-widget styles", () => {
             borderFg: theme.getRequiredColor("editorWidget.border"),
             counterFg: theme.getRequiredColor("descriptionForeground"),
             noResultsFg: theme.getRequiredColor("editorError.foreground"),
-            button: getDialogButtonStyles(theme),
         });
     });
 });
@@ -98,7 +80,6 @@ describe("getMenuStyles", () => {
             },
         });
 
-        expect(getDialogButtonStyles(theme).bg).toBe(theme.getRequiredColor("button.secondaryBackground"));
         expect(getMenuStyles(theme).bg).toBe(theme.getRequiredColor("menu.background"));
     });
 });

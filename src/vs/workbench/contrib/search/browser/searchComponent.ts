@@ -1,6 +1,5 @@
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { RenderContext, TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import type { IButtonStyles } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
@@ -14,16 +13,10 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import {
-    getDialogButtonStyles,
-    getListViewStyles,
-    getScrollBarStyles,
-} from "../../../../platform/theme/browser/defaultStyles.ts";
+import { getListViewStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
-import { ExplorerServiceDIToken } from "../../files/browser/explorerService.ts";
-import type { ExplorerService } from "../../files/browser/explorerService.ts";
 import type {
     IFileMatch,
     ISearchHandle,
@@ -34,8 +27,16 @@ import type {
 import { TextSearchServiceDIToken } from "../../../services/search/common/textSearch.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
+import type { ExplorerService } from "../../files/browser/explorerService.ts";
+import { ExplorerServiceDIToken } from "../../files/browser/explorerService.ts";
 
-import { buildFileRow, buildMatchRow, formatFileRow, formatMatchRow, type ISearchRowStyles } from "./searchResultRows.ts";
+import {
+    buildFileRow,
+    buildMatchRow,
+    formatFileRow,
+    formatMatchRow,
+    type ISearchRowStyles,
+} from "./searchResultRows.ts";
 
 export const SearchComponentDIToken = token<SearchComponent>("SearchComponent");
 
@@ -80,7 +81,12 @@ interface IFileGroup {
 /** Метаданные строки списка — для активации и рестайла при смене темы. */
 type RowMeta =
     | { readonly kind: "file"; readonly element: TextLabelElement; readonly group: IFileGroup }
-    | { readonly kind: "match"; readonly element: TextLabelElement; readonly group: IFileGroup; readonly match: ITextMatch };
+    | {
+          readonly kind: "match";
+          readonly element: TextLabelElement;
+          readonly group: IFileGroup;
+          readonly match: ITextMatch;
+      };
 
 /**
  * Pins a fixed-height header on top and gives the remaining height to the
@@ -106,7 +112,6 @@ class SearchViewElement extends TUIElement {
         this.layoutChild(this.results, 0, headerHeight, BoxConstraints.tight(new Size(size.width, resultsHeight)));
         return size;
     }
-
 }
 
 /**
@@ -176,9 +181,15 @@ export class SearchComponent extends ThemedComponent {
         this.queryInput.placeholder = "Search";
         this.includeInput.placeholder = "files to include";
         this.excludeInput.placeholder = "files to exclude";
-        this.queryInput.onChange = () => this.scheduleSearch();
-        this.includeInput.onChange = () => this.scheduleSearch();
-        this.excludeInput.onChange = () => this.scheduleSearch();
+        this.queryInput.onChange = () => {
+            this.scheduleSearch();
+        };
+        this.includeInput.onChange = () => {
+            this.scheduleSearch();
+        };
+        this.excludeInput.onChange = () => {
+            this.scheduleSearch();
+        };
 
         this.configureToggle(this.caseButton, () => {
             this.caseSensitive = !this.caseSensitive;
@@ -209,7 +220,11 @@ export class SearchComponent extends ThemedComponent {
         this.root = new TitledPanelElement("  SEARCH", new SearchViewElement(header, this.scrollBars));
         this.root.id = "search";
 
-        this.register({ dispose: () => this.cancelSearch() });
+        this.register({
+            dispose: () => {
+                this.cancelSearch();
+            },
+        });
         this.initStyles();
     }
 
@@ -265,7 +280,10 @@ export class SearchComponent extends ThemedComponent {
     }
 
     private onToggleChanged(): void {
-        this.updateStyles(); // reflect the new active/inactive look immediately
+        // «Включённый» вид тумблера — состояние checked на самой кнопке (Н3).
+        this.caseButton.setChecked(this.caseSensitive);
+        this.wordButton.setChecked(this.wholeWord);
+        this.regexButton.setChecked(this.regex);
         this.runSearch();
     }
 
@@ -431,19 +449,6 @@ export class SearchComponent extends ThemedComponent {
                 formatMatchRow(meta.element, meta.match, styles);
             }
         }
-
-        const inactive = getDialogButtonStyles(this.theme);
-        const active = this.activeButtonStyles();
-        this.caseButton.setStyles(this.caseSensitive ? active : inactive);
-        this.wordButton.setStyles(this.wholeWord ? active : inactive);
-        this.regexButton.setStyles(this.regex ? active : inactive);
-    }
-
-    private activeButtonStyles(): IButtonStyles {
-        const fg = this.theme.getRequiredColor("button.foreground");
-        const bg = this.theme.getRequiredColor("button.background");
-        const hoverBg = this.theme.getRequiredColor("button.hoverBackground");
-        return { fg, bg, hoverBg, focusedFg: fg, focusedBg: bg, focusedHoverBg: hoverBg };
     }
 }
 

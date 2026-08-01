@@ -111,10 +111,10 @@ describe("FindComponent — hover", () => {
         const next = buttons(component)[1];
         const x = next.globalPosition.x;
 
-        next.dispatchEvent(mouse("mouseenter"));
+        next.setStyleState("hover", true);
         expect(render(component).getBgAt(new Point(x, 1))).toBe(hoverBg);
 
-        next.dispatchEvent(mouse("mouseleave"));
+        next.setStyleState("hover", false);
         expect(render(component).getBgAt(new Point(x, 1))).toBe(restBg);
     });
 });

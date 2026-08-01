@@ -1,6 +1,5 @@
-import type { IButtonStyles } from "../../../../../tuidom/ui/button/buttonElement.ts";
-import type { IListViewStyles } from "../../../../../tuidom/ui/list/listViewElement.ts";
 import type { ITabStripStyles } from "../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
+import type { IListViewStyles } from "../../../../../tuidom/ui/list/listViewElement.ts";
 import type { IMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
 import { unthemedMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
 import type { IPanelContainerStyles } from "../../../../../tuidom/ui/panel/panelContainerElement.ts";
@@ -24,22 +23,6 @@ import type { WorkbenchTheme } from "../common/workbenchTheme.ts";
  */
 
 /**
- * Кнопки диалогов/виджетов: фокусированная кнопка — «primary» (`button.*`),
- * нефокусированная — «secondary» (`button.secondary*`). `button.*` токены
- * гарантированы реестром дефолтов, инлайн-фоллбэки не нужны.
- */
-export function getDialogButtonStyles(theme: WorkbenchTheme): IButtonStyles {
-    return {
-        fg: theme.getRequiredColor("button.secondaryForeground"),
-        bg: theme.getRequiredColor("button.secondaryBackground"),
-        hoverBg: theme.getRequiredColor("button.secondaryHoverBackground"),
-        focusedFg: theme.getRequiredColor("button.foreground"),
-        focusedBg: theme.getRequiredColor("button.background"),
-        focusedHoverBg: theme.getRequiredColor("button.hoverBackground"),
-    };
-}
-
-/**
  * Окна модальных диалогов (`DialogComponent` и наследники): фон/текст/рамка —
  * ключи VS Code `editorWidget.*` (диалоги рисуются как editor-widget), пояснения —
  * `descriptionForeground`, ссылки — `textLink.foreground`, предупреждения —
@@ -53,14 +36,13 @@ export function getDialogStyles(theme: WorkbenchTheme): IDialogStyles {
         descriptionFg: theme.getRequiredColor("descriptionForeground"),
         warningFg: theme.getRequiredColor("editorWarning.foreground"),
         linkFg: theme.getRequiredColor("textLink.foreground"),
-        button: getDialogButtonStyles(theme),
     };
 }
 
 /**
  * Find-виджет рисуется как editor-widget: фон/текст/рамка — ключи VS Code
  * `editorWidget.*`, счётчик совпадений — `descriptionForeground`, «No results» —
- * `editorError.foreground`, кнопки ↑ ↓ ✕ — общий `getDialogButtonStyles`. Все
+ * `editorError.foreground`. Все
  * ключи гарантированы реестром дефолтов.
  */
 export function getFindWidgetStyles(theme: WorkbenchTheme): IFindWidgetStyles {
@@ -70,7 +52,6 @@ export function getFindWidgetStyles(theme: WorkbenchTheme): IFindWidgetStyles {
         borderFg: theme.getRequiredColor("editorWidget.border"),
         counterFg: theme.getRequiredColor("descriptionForeground"),
         noResultsFg: theme.getRequiredColor("editorError.foreground"),
-        button: getDialogButtonStyles(theme),
     };
 }
 

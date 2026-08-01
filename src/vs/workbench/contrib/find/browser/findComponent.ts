@@ -1,8 +1,7 @@
 import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { IButtonStyles } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
-import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import type { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
+import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { BoxContainerElement } from "../../../../../../tuidom/ui/layout/boxContainerElement.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
@@ -32,8 +31,6 @@ export interface IFindWidgetStyles {
     readonly counterFg: number;
     /** «No results» — акцент ошибки (`editorError.foreground`). */
     readonly noResultsFg: number;
-    /** Кнопки ↑ ↓ ✕ (`button.*`). */
-    readonly button: IButtonStyles;
 }
 
 // Навигационные / close-глифы, выровнены по правому краю строки запроса.
@@ -221,9 +218,6 @@ export class FindComponent extends ThemedComponent {
         this.box.setFg(styles.fg);
         this.box.setBorderFg(styles.borderFg);
         this.counterGap.setColors(styles.fg, styles.bg);
-        for (const button of this.buttons()) {
-            button.setStyles(styles.button);
-        }
         this.refreshCounter();
     }
 
