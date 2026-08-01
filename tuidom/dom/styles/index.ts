@@ -1,3 +1,5 @@
+export type { AnyStyleToken, StyleToken } from "./styleTokens.ts";
+export { ROOT_VAR_SCOPE, STYLE_TOKEN_DEFAULTS } from "./styleTokens.ts";
 export type {
     ResolvedTUIStyle,
     StyleColor,
@@ -5,9 +7,11 @@ export type {
     StyleState,
     StyleStateSelector,
     StyleStateVariant,
+    StyleVarScope,
     TUIStyle,
 } from "./tuiStyle.ts";
 export {
+    extendVarScope,
     INHERITED_BG,
     INHERITED_FG,
     mergeStyleVariants,

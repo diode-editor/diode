@@ -1,3 +1,4 @@
+import { DEFAULT_COLOR } from "../common/colorUtils.ts";
 import { DisplayLine } from "../common/displayLine.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../common/geometryPromitives.ts";
 import type { CellPatch, ReadonlyCellData } from "../rendering/grid.ts";
@@ -11,6 +12,8 @@ import type { TUIFocusEvent } from "./events/tuiFocusEvent.ts";
 import { TUIKeyboardEvent } from "./events/tuiKeyboardEvent.ts";
 import type { TUIMouseEvent } from "./events/tuiMouseEvent.ts";
 import type { TUIPasteEvent } from "./events/tuiPasteEvent.ts";
+import type { AnyStyleToken } from "./styles/styleTokens.ts";
+import { ROOT_VAR_SCOPE } from "./styles/styleTokens.ts";
 import type {
     ResolvedTUIStyle,
     StyleColor,
@@ -19,7 +22,9 @@ import type {
     StyleStateSelector,
     TUIStyle,
 } from "./styles/tuiStyle.ts";
+import type { StyleVarScope } from "./styles/tuiStyle.ts";
 import {
+    extendVarScope,
     mergeStyleVariants,
     resolveStyleColor,
     ROOT_RESOLVED_STYLE,
@@ -272,6 +277,11 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     // Активные состояния (hover/focus ведёт ядро, прочие — виджеты). Lazy:
     // у подавляющего большинства элементов состояний нет.
     private styleStatesSet: Set<string> | null = null;
+    // Собственная таблица токенов (обычно только у корня — хост кладёт тему).
+    private styleVarsValue: Readonly<Record<string, number>> | null = null;
+    // Ближайший резолвленный var-scope — источник styleVar(). До первого
+    // резолва — дефолты tuidom.
+    private varScopeRef: StyleVarScope = ROOT_VAR_SCOPE;
     // Контекст, переданный детям на последнем резолве. Валиден, пока элемент
     // чист: любая смена входа (стиль/состояние предка) дирявит всё поддерево.
     private childStyleContext: StyleResolutionContext = ROOT_STYLE_CONTEXT;
@@ -446,7 +456,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
             node = node.getParent();
         }
         if (node === this) {
-            (fm as FocusManager).setFocus(null);
+            fm!.setFocus(null);
         }
     }
 
@@ -663,8 +673,18 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
             );
             this.appliedFgValue = applied.fg;
             this.appliedBgValue = applied.bg;
-            const fg = applied.fg !== undefined ? resolveStyleColor(applied.fg, context.fg, context.bg) : context.fg;
-            const bg = applied.bg !== undefined ? resolveStyleColor(applied.bg, context.fg, context.bg) : context.bg;
+            const vars =
+                this.styleVarsValue !== null ? extendVarScope(context.vars, this.styleVarsValue) : context.vars;
+            this.varScopeRef = vars;
+            const describe = (): string => this.describeForStyleError();
+            const fg =
+                applied.fg !== undefined
+                    ? resolveStyleColor(applied.fg, context.fg, context.bg, vars, describe)
+                    : context.fg;
+            const bg =
+                applied.bg !== undefined
+                    ? resolveStyleColor(applied.bg, context.fg, context.bg, vars, describe)
+                    : context.bg;
             this.resolvedStyleValue = { fg, bg };
             this.childStyleContext = this.buildChildStyleContext(context);
         }
@@ -694,7 +714,51 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
             }
             ancestorStates = union;
         }
-        return { fg, bg, ancestorStates };
+        return { fg, bg, vars: this.varScopeRef, ancestorStates };
+    }
+
+    private describeForStyleError(): string {
+        const id = this.id !== undefined ? `#${this.id}` : "";
+        return `${this.constructor.name}${id}`;
+    }
+
+    // ─── Переменные стиля (токены) ───
+
+    /**
+     * Кладёт таблицу токен→число, каскадирующую в поддерево ПОВЕРХ таблиц
+     * предков и дефолтов tuidom (STYLE_TOKEN_DEFAULTS). Обычное место — корень:
+     * хост транслирует сюда палитру темы одним вызовом (hot-swap = повторный
+     * вызов). Таблица заменяется целиком, null — снимает. Значения — только
+     * конкретные числа (packed RGB | DEFAULT_COLOR); сентинелы INHERITED_*
+     * нелегальны.
+     */
+    public setStyleVars(vars: Readonly<Record<string, number>> | null): void {
+        if (vars === this.styleVarsValue) return;
+        if (vars !== null) {
+            for (const key of Object.keys(vars)) {
+                if (vars[key] < DEFAULT_COLOR) {
+                    throw new Error(
+                        `${this.describeForStyleError()}.setStyleVars: токен "${key}" содержит сентинел/некорректное значение ${vars[key]} — таблицы принимают только конкретные цвета`,
+                    );
+                }
+            }
+        }
+        this.styleVarsValue = vars;
+        this.markStyleDirty();
+    }
+
+    /**
+     * Читает токен из ближайшего резолвленного var-scope — для painter-виджетов,
+     * рисующих несколько цветов в custom render. Валидно после резолва стилей
+     * (render всегда после него в кадре); до первого резолва видит дефолты
+     * tuidom. Незнакомый токен — throw.
+     */
+    public styleVar(name: AnyStyleToken): number {
+        const value = this.varScopeRef[name];
+        if (typeof value !== "number") {
+            throw new Error(`${this.describeForStyleError()}.styleVar: неизвестный цветовой токен "${name}"`);
+        }
+        return value;
     }
 
     // ─── Состояния стиля ───

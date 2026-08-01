@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { packRgb } from "../../common/colorUtils.ts";
 import { TUIElement } from "../tuiElement.ts";
 
+import { STYLE_TOKEN_DEFAULTS } from "./styleTokens.ts";
 import { INHERITED_BG, ROOT_RESOLVED_STYLE, ROOT_STYLE_CONTEXT } from "./tuiStyle.ts";
 
 class ContainerElement extends TUIElement {
@@ -409,5 +410,119 @@ describe("состояния стиля и when-варианты", () => {
         blue.addChild(child);
         root.performStyleResolution(ROOT_STYLE_CONTEXT);
         expect(child.resolvedStyle.fg).toBe(packRgb(0, 0, 255));
+    });
+});
+
+describe("токены-переменные (var-scope)", () => {
+    function makeTree(): { root: ContainerElement; mid: ContainerElement; leaf: TUIElement } {
+        const root = new ContainerElement();
+        root.setAsRoot();
+        root.setRequestRenderCallback(() => {
+            /* noop */
+        });
+        const mid = new ContainerElement();
+        const leaf = new TUIElement();
+        root.addChild(mid);
+        mid.addChild(leaf);
+        return { root, mid, leaf };
+    }
+
+    it("стиль ссылается на токен из корневой таблицы", () => {
+        const { root, leaf } = makeTree();
+        root.setStyleVars({ "editor.background": packRgb(30, 30, 30) });
+        leaf.style = { bg: "editor.background" };
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        expect(leaf.resolvedStyle.bg).toBe(packRgb(30, 30, 30));
+    });
+
+    it("без хостовой таблицы работает дефолт tuidom", () => {
+        const { root, leaf } = makeTree();
+        leaf.style = { bg: "list.activeSelectionBackground" };
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        expect(leaf.resolvedStyle.bg).toBe(STYLE_TOKEN_DEFAULTS["list.activeSelectionBackground"]);
+    });
+
+    it("таблица в середине дерева перекрывает корневую для своего поддерева", () => {
+        const { root, mid, leaf } = makeTree();
+        root.setStyleVars({ "x.color": packRgb(1, 1, 1) });
+        mid.setStyleVars({ "x.color": packRgb(2, 2, 2) });
+        leaf.style = { fg: "x.color" };
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        expect(leaf.resolvedStyle.fg).toBe(packRgb(2, 2, 2));
+
+        // сиблинг вне поддерева mid видит корневое значение
+        const sibling = new TUIElement();
+        sibling.style = { fg: "x.color" };
+        root.addChild(sibling);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        expect(sibling.resolvedStyle.fg).toBe(packRgb(1, 1, 1));
+    });
+
+    it("смена корневой таблицы (hot-swap темы) перерезолвит поддерево", () => {
+        const { root, leaf } = makeTree();
+        root.setStyleVars({ "t.bg": packRgb(10, 10, 10) });
+        leaf.style = { bg: "t.bg" };
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        expect(leaf.resolvedStyle.bg).toBe(packRgb(10, 10, 10));
+
+        root.setStyleVars({ "t.bg": packRgb(200, 200, 200) });
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        expect(leaf.resolvedStyle.bg).toBe(packRgb(200, 200, 200));
+    });
+
+    it("токен в when-варианте", () => {
+        const { root, leaf } = makeTree();
+        root.setStyleVars({ "sel.bg": packRgb(4, 57, 94) });
+        leaf.style = { bg: packRgb(0, 0, 0), when: [{ states: ["selected"], bg: "sel.bg" }] };
+        leaf.setStyleState("selected", true);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        expect(leaf.resolvedStyle.bg).toBe(packRgb(4, 57, 94));
+    });
+
+    it("styleVar: чтение после резолва, throw на незнакомом", () => {
+        const { root, mid } = makeTree();
+        root.setStyleVars({ "panel.border": packRgb(70, 70, 70) });
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        expect(mid.styleVar("panel.border")).toBe(packRgb(70, 70, 70));
+        expect(mid.styleVar("list.activeSelectionBackground")).toBe(
+            STYLE_TOKEN_DEFAULTS["list.activeSelectionBackground"],
+        );
+        expect(() => mid.styleVar("no.such")).toThrow('неизвестный цветовой токен "no.such"');
+    });
+
+    it("незнакомый токен в стиле — fail-fast с именем класса", () => {
+        const { root, leaf } = makeTree();
+        leaf.style = { fg: "missing.token" };
+        expect(() => {
+            root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        }).toThrow('TUIElement: неизвестный цветовой токен "missing.token"');
+    });
+
+    it("setStyleVars отвергает сентинелы", () => {
+        const { root } = makeTree();
+        expect(() => {
+            root.setStyleVars({ bad: -100 });
+        }).toThrow('токен "bad"');
+    });
+
+    it("setStyleVars: identity no-op, null снимает таблицу", () => {
+        const { root, leaf } = makeTree();
+        const table = { "v.fg": packRgb(5, 5, 5) };
+        root.setStyleVars(table);
+        leaf.style = { fg: "v.fg" };
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+
+        let renderRequested = false;
+        root.setRequestRenderCallback(() => {
+            renderRequested = true;
+        });
+        root.setStyleVars(table);
+        expect(renderRequested).toBe(false);
+
+        root.setStyleVars(null);
+        expect(renderRequested).toBe(true);
+        expect(() => {
+            root.performStyleResolution(ROOT_STYLE_CONTEXT);
+        }).toThrow("v.fg");
     });
 });

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
 
+import { ROOT_VAR_SCOPE, STYLE_TOKEN_DEFAULTS } from "./styleTokens.ts";
 import type { ResolvedTUIStyle, StyleStateSelector } from "./tuiStyle.ts";
 import {
+    extendVarScope,
     INHERITED_BG,
     INHERITED_FG,
     mergeStyleVariants,
@@ -32,6 +34,46 @@ describe("resolveStyleColor", () => {
 
     it("passes through DEFAULT_COLOR unchanged", () => {
         expect(resolveStyleColor(DEFAULT_COLOR, ifg, ibg)).toBe(DEFAULT_COLOR);
+    });
+
+    it("токен резолвится из переданного scope", () => {
+        const scope = { "my.token": packRgb(9, 8, 7) };
+        expect(resolveStyleColor("my.token", ifg, ibg, scope)).toBe(packRgb(9, 8, 7));
+    });
+
+    it("токен без scope резолвится из дефолтов tuidom", () => {
+        expect(resolveStyleColor("list.activeSelectionBackground", ifg, ibg)).toBe(
+            STYLE_TOKEN_DEFAULTS["list.activeSelectionBackground"],
+        );
+    });
+
+    it("незнакомый токен — fail-fast с владельцем и именем токена", () => {
+        expect(() => resolveStyleColor("no.such.token", ifg, ibg, undefined, () => "ButtonElement#ok")).toThrow(
+            'ButtonElement#ok: неизвестный цветовой токен "no.such.token"',
+        );
+        expect(() => resolveStyleColor("no.such.token", ifg, ibg)).toThrow("TUIStyle");
+    });
+
+    it("ключи Object.prototype не считаются токенами", () => {
+        expect(() => resolveStyleColor("toString", ifg, ibg, {})).toThrow('неизвестный цветовой токен "toString"');
+    });
+
+    it("extendVarScope: свои значения поверх родительских, лукап по цепочке", () => {
+        const parent = { a: 1, b: 2 };
+        const scope = extendVarScope(parent, { b: 20, c: 30 });
+        expect(resolveStyleColor("a", ifg, ibg, scope)).toBe(1);
+        expect(resolveStyleColor("b", ifg, ibg, scope)).toBe(20);
+        expect(resolveStyleColor("c", ifg, ibg, scope)).toBe(30);
+    });
+});
+
+describe("ROOT_VAR_SCOPE", () => {
+    it("заморожен, с null-прототипом, несёт дефолты", () => {
+        expect(Object.isFrozen(ROOT_VAR_SCOPE)).toBe(true);
+        expect(Object.getPrototypeOf(ROOT_VAR_SCOPE)).toBeNull();
+        expect(ROOT_VAR_SCOPE["list.activeSelectionForeground"]).toBe(
+            STYLE_TOKEN_DEFAULTS["list.activeSelectionForeground"],
+        );
     });
 });
 

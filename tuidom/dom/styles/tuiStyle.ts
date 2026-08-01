@@ -1,5 +1,8 @@
 import { DEFAULT_COLOR } from "../../common/colorUtils.ts";
 
+import type { AnyStyleToken } from "./styleTokens.ts";
+import { ROOT_VAR_SCOPE } from "./styleTokens.ts";
+
 // ─── Inherited Color Sentinels ───
 // Sentinel values that resolve to the inherited fg/bg from the parent.
 // Start at -100 to avoid collision with DEFAULT_COLOR (-1).
@@ -13,7 +16,12 @@ export const INHERITED_BG = -101;
 // - DEFAULT_COLOR (-1): terminal default
 // - INHERITED_FG (-100): resolve to parent's fg
 // - INHERITED_BG (-101): resolve to parent's bg
-export type StyleColor = number;
+// - имя токена-переменной ("list.activeSelectionBackground") — резолвится
+//   через каскадирующий var-scope (setStyleVars) с дном из STYLE_TOKEN_DEFAULTS
+export type StyleColor = number | AnyStyleToken;
+
+/** Таблица токен→число. Лукап идёт по прототипной цепочке до ROOT_VAR_SCOPE. */
+export type StyleVarScope = Readonly<Record<string, number>>;
 
 // ─── Состояния стиля ───
 // Набор активных состояний элемента ведёт ядро (hover/focus) и виджеты
@@ -75,6 +83,8 @@ export const ROOT_RESOLVED_STYLE: ResolvedTUIStyle = {
 export interface StyleResolutionContext {
     readonly fg: number;
     readonly bg: number;
+    /** Ближайший var-scope (собственные таблицы предков поверх дефолтов). */
+    readonly vars: StyleVarScope;
     /** Объединение СОБСТВЕННЫХ состояний всех предков — для `in:`-селекторов. */
     readonly ancestorStates: ReadonlySet<string>;
 }
@@ -84,8 +94,14 @@ const EMPTY_STATES: ReadonlySet<string> = new Set();
 export const ROOT_STYLE_CONTEXT: StyleResolutionContext = {
     fg: DEFAULT_COLOR,
     bg: DEFAULT_COLOR,
+    vars: ROOT_VAR_SCOPE,
     ancestorStates: EMPTY_STATES,
 };
+
+/** Пользовательская таблица поверх родительского scope — прототипная цепочка, без копий. */
+export function extendVarScope(parent: StyleVarScope, own: Readonly<Record<string, number>>): StyleVarScope {
+    return Object.assign(Object.create(parent) as Record<string, number>, own);
+}
 
 // ─── Comparison ───
 
@@ -127,7 +143,26 @@ function whenEquals(a: readonly StyleStateVariant[] | undefined, b: readonly Sty
 
 // ─── Resolution functions ───
 
-export function resolveStyleColor(color: StyleColor, inheritedFg: number, inheritedBg: number): number {
+/**
+ * Токен → число из scope (fail-fast на незнакомом), затем сентинелы
+ * INHERITED_* → унаследованные цвета. Проверка значения через typeof — защита
+ * от ключей Object.prototype ("toString") у пользовательских таблиц.
+ */
+export function resolveStyleColor(
+    color: StyleColor,
+    inheritedFg: number,
+    inheritedBg: number,
+    vars: StyleVarScope = ROOT_VAR_SCOPE,
+    describeOwner?: () => string,
+): number {
+    if (typeof color === "string") {
+        const value = vars[color];
+        if (typeof value !== "number") {
+            const owner = describeOwner !== undefined ? describeOwner() : "TUIStyle";
+            throw new Error(`${owner}: неизвестный цветовой токен "${color}"`);
+        }
+        return value;
+    }
     if (color === INHERITED_FG) return inheritedFg;
     if (color === INHERITED_BG) return inheritedBg;
     return color;
