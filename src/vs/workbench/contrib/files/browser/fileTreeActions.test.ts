@@ -134,5 +134,4 @@ describe("refreshExplorerAction / undo / redo / context menu", () => {
         fileRedoAction.run(accessor);
         expect(calls.redone).toBe(1);
     });
-
 });

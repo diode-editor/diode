@@ -24,7 +24,9 @@ import { ExplorerService } from "./explorerService.ts";
 /** Собирает ContextMenuService для explorer-меню поверх переданного CommandRegistry. */
 function makeContextMenuService(commands: CommandRegistry): ContextMenuService {
     return new ContextMenuService(
-        new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS)),
+        new MenuService(
+            new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
+        ),
     );
 }
 

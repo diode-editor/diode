@@ -9,7 +9,6 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { getFileTreeStyles, } from "../../../../platform/theme/browser/defaultStyles.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
 import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -109,7 +108,12 @@ export class ExplorerComponent extends ThemedComponent {
         this.updateStyles();
     }
 
-    private showContextMenu(tree: TreeViewElement<FileTreeNode>, filePath: string, screenX: number, screenY: number): void {
+    private showContextMenu(
+        tree: TreeViewElement<FileTreeNode>,
+        filePath: string,
+        screenX: number,
+        screenY: number,
+    ): void {
         // Контекст открытия несёт путь узла (args команд) и признак непустого
         // буфера (видимость Paste); пункты собирает ContextMenuService из
         // MenuId.ExplorerContext.
@@ -124,7 +128,6 @@ export class ExplorerComponent extends ThemedComponent {
     protected updateStyles(): void {
         // Темы могут приходить и до корня воркспейса — дерева тогда ещё нет.
         if (!this.parts) return;
-        this.parts.tree.setStyles(getFileTreeStyles(this.theme));
         this.parts.root.style = {
             fg: this.theme.getRequiredColor("sideBar.foreground"),
             bg: this.theme.getRequiredColor("sideBar.background"),

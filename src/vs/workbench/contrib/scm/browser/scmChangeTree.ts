@@ -49,7 +49,7 @@ export function buildScmTree(changes: readonly IScmChange[]): readonly ScmTreeNo
 
     for (const change of changes) {
         const segments = displayPath(change).split("/");
-        const name = segments.pop() as string;
+        const name = segments.pop()!;
         let node = root;
         for (const segment of segments) {
             let next = node.folders.get(segment);

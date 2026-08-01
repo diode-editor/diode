@@ -5,11 +5,12 @@ import { packRgb } from "../../common/colorUtils.ts";
 import { Point, Size } from "../../common/geometryPromitives.ts";
 import { TextLabelElement } from "../text/textLabelElement.ts";
 
-import { ListViewElement, unthemedListViewStyles } from "./listViewElement.ts";
+import { ListViewElement } from "./listViewElement.ts";
 
 const ICON_EXPANDED = "";
 const ICON_COLLAPSED = "";
-const CHEVRON_FG = packRgb(1, 2, 3);
+// Шеврон — токен list.deemphasizedForeground; TestApp кладёт палитру dark+ (#808080).
+const CHEVRON_FG = 0x808080;
 const ACTIVE_BG = packRgb(4, 57, 94);
 const ACTIVE_FG = packRgb(255, 255, 255);
 
@@ -20,12 +21,6 @@ function makeRow(id: string, text = id): TextLabelElement {
 }
 
 function makeApp(list: ListViewElement, size = new Size(20, 5)): TestApp {
-    list.setStyles({
-        ...unthemedListViewStyles,
-        activeSelectionBg: ACTIVE_BG,
-        activeSelectionFg: ACTIVE_FG,
-        chevronFg: CHEVRON_FG,
-    });
     return TestApp.createWithContent(list, size);
 }
 

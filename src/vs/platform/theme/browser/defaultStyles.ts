@@ -1,6 +1,3 @@
-import type { IListViewStyles } from "../../../../../tuidom/ui/list/listViewElement.ts";
-import type { ITreeViewStyles } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
-import { unthemedTreeViewStyles } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
 import type { IEditorStyles } from "../../../editor/browser/editorElement.ts";
 import { unthemedEditorStyles } from "../../../editor/browser/editorElement.ts";
 import type { IDialogStyles } from "../../../workbench/browser/parts/dialogs/dialogComponent.ts";
@@ -73,52 +70,5 @@ export function getEditorStyles(theme: WorkbenchTheme): IEditorStyles {
         warningForeground: theme.getRequiredColor("editorWarning.foreground"),
         infoForeground: theme.getRequiredColor("editorInfo.foreground"),
         hintForeground: theme.getRequiredColor("editorHint.foreground"),
-    };
-}
-
-/** Общая для деревьев часть `list.*`: выделение/hover как в VS Code list. */
-function getListSelectionStyles(theme: WorkbenchTheme) {
-    return {
-        activeSelectionBg: theme.getRequiredColor("list.activeSelectionBackground"),
-        activeSelectionFg: theme.getRequiredColor("list.activeSelectionForeground"),
-        inactiveSelectionBg: theme.getRequiredColor("list.inactiveSelectionBackground"),
-        inactiveSelectionFg: theme.getRequiredColor("list.inactiveSelectionForeground"),
-        hoverBg: theme.getRequiredColor("list.hoverBackground"),
-        hoverFg: theme.getColor("list.hoverForeground"),
-    };
-}
-
-/**
- * Дерево файлов (Explorer): помимо выделения темизирует приглушение
- * «вырезанных» строк и стрелку симлинка (`list.deemphasizedForeground`).
- */
-/**
- * Виртуализирующий список (ListViewElement): выделение/hover из общих
- * `list.*`-токенов, шеврон сворачиваемых строк — приглушённым цветом.
- */
-export function getListViewStyles(theme: WorkbenchTheme): IListViewStyles {
-    return {
-        ...getListSelectionStyles(theme),
-        chevronFg: theme.getRequiredColor("list.deemphasizedForeground"),
-    };
-}
-
-export function getFileTreeStyles(theme: WorkbenchTheme): ITreeViewStyles {
-    return {
-        ...getListSelectionStyles(theme),
-        cutFg: theme.getRequiredColor("list.deemphasizedForeground"),
-        symlinkFg: theme.getRequiredColor("list.deemphasizedForeground"),
-    };
-}
-
-/**
- * Дерево Problems: cut/symlink-декораций у него нет, эти цвета остаются
- * unthemed-дефолтами (исторически Problems-дерево их не задавало).
- */
-export function getProblemsTreeStyles(theme: WorkbenchTheme): ITreeViewStyles {
-    return {
-        ...getListSelectionStyles(theme),
-        cutFg: unthemedTreeViewStyles.cutFg,
-        symlinkFg: unthemedTreeViewStyles.symlinkFg,
     };
 }

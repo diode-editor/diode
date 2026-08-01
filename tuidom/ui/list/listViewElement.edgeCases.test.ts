@@ -33,7 +33,18 @@ describe("ListViewElement edge cases", () => {
         list.onActivate = onActivate;
         list.onSelect = onSelect;
 
-        for (const name of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Home", "End", "PageUp", "PageDown"]) {
+        for (const name of [
+            "ArrowUp",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowRight",
+            "Enter",
+            " ",
+            "Home",
+            "End",
+            "PageUp",
+            "PageDown",
+        ]) {
             key(list, name);
         }
         app.render();
@@ -86,7 +97,9 @@ describe("ListViewElement edge cases", () => {
         list.appendRow(makeRow("a"));
         const app = TestApp.createWithContent(list, new Size(20, 5));
         expect(app.focusedElement).not.toBe(list);
-        list.dispatchEvent(new TUIMouseEvent("mousedown", { button: "left", localX: 0, localY: 0, screenX: 0, screenY: 0 }));
+        list.dispatchEvent(
+            new TUIMouseEvent("mousedown", { button: "left", localX: 0, localY: 0, screenX: 0, screenY: 0 }),
+        );
         expect(app.focusedElement).toBe(list);
     });
 
@@ -97,7 +110,9 @@ describe("ListViewElement edge cases", () => {
         list.clear();
         // Прежние id снова свободны, прежние parentId — уже нет.
         list.appendRow(makeRow("a"));
-        expect(() => list.appendRow(makeRow("x"), { parentId: "a1" })).toThrow(/unknown parentId/);
+        expect(() => {
+            list.appendRow(makeRow("x"), { parentId: "a1" });
+        }).toThrow(/unknown parentId/);
         expect(list.rowCount).toBe(1);
     });
 
@@ -105,11 +120,15 @@ describe("ListViewElement edge cases", () => {
         const list = new ListViewElement();
         for (let i = 0; i < 5; i++) list.appendRow(makeRow(`r${i}`));
         const app = TestApp.createWithContent(list, new Size(20, 10));
-        list.dispatchEvent(new TUIMouseEvent("mousemove", { button: "none" as never, localX: 0, localY: 4, screenX: 0, screenY: 4 }));
+        list.dispatchEvent(
+            new TUIMouseEvent("mousemove", { button: "none" as never, localX: 0, localY: 4, screenX: 0, screenY: 4 }),
+        );
         for (let i = 0; i < 4; i++) list.setRowHidden(`r${i}`, true);
         app.render(); // hover-индекс за пределами проекции — рендер не падает
 
-        list.dispatchEvent(new TUIMouseEvent("mouseleave", { button: "none" as never, localX: 0, localY: 0, screenX: 0, screenY: 0 }));
+        list.dispatchEvent(
+            new TUIMouseEvent("mouseleave", { button: "none" as never, localX: 0, localY: 0, screenX: 0, screenY: 0 }),
+        );
         app.render();
         expect(list.contentHeight).toBe(1);
     });

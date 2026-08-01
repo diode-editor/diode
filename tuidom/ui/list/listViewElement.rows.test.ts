@@ -17,30 +17,38 @@ describe("ListViewElement rows", () => {
         list.appendRow(makeRow("b"));
         expect(list.rowCount).toBe(2);
         expect(list.contentHeight).toBe(2);
-        expect(list.getChildren().map((el) => el.id)).toEqual(["a", "b"]);
+        expect(list.getChildren().map((host) => host.getChildren()[0].id)).toEqual(["a", "b"]);
     });
 
     it("throws when a row has no id", () => {
         const list = new ListViewElement();
-        expect(() => list.appendRow(new TextLabelElement("x"))).toThrow(/non-empty id/);
+        expect(() => {
+            list.appendRow(new TextLabelElement("x"));
+        }).toThrow(/non-empty id/);
     });
 
     it("throws when a row has an empty id", () => {
         const list = new ListViewElement();
         const row = new TextLabelElement("x");
         row.id = "";
-        expect(() => list.appendRow(row)).toThrow(/non-empty id/);
+        expect(() => {
+            list.appendRow(row);
+        }).toThrow(/non-empty id/);
     });
 
     it("throws on a duplicate id", () => {
         const list = new ListViewElement();
         list.appendRow(makeRow("a"));
-        expect(() => list.appendRow(makeRow("a"))).toThrow(/duplicate row id "a"/);
+        expect(() => {
+            list.appendRow(makeRow("a"));
+        }).toThrow(/duplicate row id "a"/);
     });
 
     it("throws on an unknown parentId", () => {
         const list = new ListViewElement();
-        expect(() => list.appendRow(makeRow("child"), { parentId: "ghost" })).toThrow(/unknown parentId "ghost"/);
+        expect(() => {
+            list.appendRow(makeRow("child"), { parentId: "ghost" });
+        }).toThrow(/unknown parentId "ghost"/);
     });
 
     it("derives depth from the parent chain; getChildren — в порядке вставки", () => {
@@ -55,7 +63,14 @@ describe("ListViewElement rows", () => {
 
         // getChildren — плоский список владения (порядок вставки, O(1) append);
         // DFS-порядок иерархии держит видимая проекция, а не список детей.
-        expect(list.getChildren().map((el) => el.id)).toEqual(["file1", "m1", "m1.1", "file2", "m2", "m1.2"]);
+        expect(list.getChildren().map((host) => host.getChildren()[0].id)).toEqual([
+            "file1",
+            "m1",
+            "m1.1",
+            "file2",
+            "m2",
+            "m1.2",
+        ]);
         expect(list.contentHeight).toBe(6);
     });
 
@@ -63,10 +78,11 @@ describe("ListViewElement rows", () => {
         const list = new ListViewElement();
         const row = makeRow("a");
         list.appendRow(row);
-        expect(row.getParent()).toBe(list);
+        // Строка живёт в обёртке-носителе состояний; список — дедушка.
+        expect(row.getParent()?.getParent()).toBe(list);
 
         list.clear();
-        expect(row.getParent()).toBeNull();
+        expect(row.getParent()?.getParent() ?? null).toBeNull();
         expect(list.rowCount).toBe(0);
         expect(list.contentHeight).toBe(0);
         expect(list.getChildren()).toEqual([]);

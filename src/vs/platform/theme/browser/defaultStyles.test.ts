@@ -1,18 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { unthemedTreeViewStyles } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
 import { unthemedEditorStyles } from "../../../editor/browser/editorElement.ts";
 import { dark2026Theme } from "../../../workbench/services/themes/common/themes/dark2026.ts";
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 import { WorkbenchTheme } from "../common/workbenchTheme.ts";
 
-import {
-    getDialogStyles,
-    getEditorStyles,
-    getFileTreeStyles,
-    getFindWidgetStyles,
-    getProblemsTreeStyles,
-} from "./defaultStyles.ts";
+import { getDialogStyles, getEditorStyles, getFindWidgetStyles } from "./defaultStyles.ts";
 
 function makeTheme(): WorkbenchTheme {
     return WorkbenchTheme.fromThemeFile(darkPlusTheme);
@@ -93,54 +86,5 @@ describe("getEditorStyles", () => {
         expect(styles.foldingControlForeground).toBe(unthemedEditorStyles.foldingControlForeground);
         expect(styles.indentGuideForeground).toBe(unthemedEditorStyles.indentGuideForeground);
         expect(styles.indentGuideActiveForeground).toBe(unthemedEditorStyles.indentGuideActiveForeground);
-    });
-});
-
-describe("getFileTreeStyles", () => {
-    it("resolves the list.* selection/hover keys from the theme", () => {
-        const theme = makeTheme();
-
-        const styles = getFileTreeStyles(theme);
-
-        expect(styles.activeSelectionBg).toBe(theme.getRequiredColor("list.activeSelectionBackground"));
-        expect(styles.activeSelectionFg).toBe(theme.getRequiredColor("list.activeSelectionForeground"));
-        expect(styles.inactiveSelectionBg).toBe(theme.getRequiredColor("list.inactiveSelectionBackground"));
-        expect(styles.inactiveSelectionFg).toBe(theme.getRequiredColor("list.inactiveSelectionForeground"));
-        expect(styles.hoverBg).toBe(theme.getRequiredColor("list.hoverBackground"));
-        expect(styles.hoverFg).toBe(theme.getColor("list.hoverForeground"));
-    });
-
-    it("deemphasizes cut rows and the symlink arrow with list.deemphasizedForeground", () => {
-        const theme = makeTheme();
-
-        const styles = getFileTreeStyles(theme);
-
-        expect(styles.cutFg).toBe(theme.getRequiredColor("list.deemphasizedForeground"));
-        expect(styles.symlinkFg).toBe(theme.getRequiredColor("list.deemphasizedForeground"));
-    });
-});
-
-describe("getProblemsTreeStyles", () => {
-    it("shares the list.* selection mapping with the file tree", () => {
-        const theme = makeTheme();
-
-        const styles = getProblemsTreeStyles(theme);
-        const fileTree = getFileTreeStyles(theme);
-
-        expect(styles.activeSelectionBg).toBe(fileTree.activeSelectionBg);
-        expect(styles.activeSelectionFg).toBe(fileTree.activeSelectionFg);
-        expect(styles.inactiveSelectionBg).toBe(fileTree.inactiveSelectionBg);
-        expect(styles.inactiveSelectionFg).toBe(fileTree.inactiveSelectionFg);
-        expect(styles.hoverBg).toBe(fileTree.hoverBg);
-        expect(styles.hoverFg).toBe(fileTree.hoverFg);
-    });
-
-    it("keeps cut/symlink colours at the unthemed baseline (Problems never themed them)", () => {
-        const theme = makeTheme();
-
-        const styles = getProblemsTreeStyles(theme);
-
-        expect(styles.cutFg).toBe(unthemedTreeViewStyles.cutFg);
-        expect(styles.symlinkFg).toBe(unthemedTreeViewStyles.symlinkFg);
     });
 });

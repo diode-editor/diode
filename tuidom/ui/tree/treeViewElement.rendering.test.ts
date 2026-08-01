@@ -4,11 +4,13 @@ import { expectScreen, screen } from "../../../src/TestUtils/expectScreen.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
+import { STYLE_TOKEN_DEFAULTS } from "../../dom/styles/styleTokens.ts";
+import { ROOT_STYLE_CONTEXT } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 
 import type { ITreeDataProvider, ITreeItem } from "./iTreeDataProvider.ts";
-import { TreeViewElement, unthemedTreeViewStyles } from "./treeViewElement.ts";
+import { TreeViewElement } from "./treeViewElement.ts";
 
 interface TestNode {
     id: string;
@@ -40,6 +42,7 @@ function renderTree(tree: TreeViewElement<TestNode>, width: number, height: numb
     const termScreen = new TerminalScreen(size);
     tree.localPosition = new Offset(0, 0);
     tree.layout(BoxConstraints.tight(size));
+    tree.performStyleResolution(ROOT_STYLE_CONTEXT);
     const clipRect = new Rect(new Point(0, 0), size);
     tree.render(new RenderContext(termScreen, new Offset(0, 0), clipRect));
     termScreen.flush(backend);
@@ -174,7 +177,7 @@ describe("TreeViewElement rendering", () => {
             getKey: (el) => el.id,
         };
         const tree = new TreeViewElement(provider);
-        tree.setStyles({ ...unthemedTreeViewStyles, symlinkFg: packRgb(120, 120, 120) });
+        tree.setStyleVars({ "list.deemphasizedForeground": packRgb(120, 120, 120) });
         await tree.refresh();
 
         const width = 14;
@@ -208,8 +211,8 @@ describe("TreeViewElement rendering", () => {
         expect(actual[0]).toBe("   Alpha");
         expect(actual[1]).toBe("   Beta");
         // Cursor row (unfocused → inactive selection) is filled from the very first column.
-        expect(backend.getBgAt(new Point(0, 0))).toBe(unthemedTreeViewStyles.inactiveSelectionBg);
-        expect(backend.getBgAt(new Point(0, 1))).not.toBe(unthemedTreeViewStyles.inactiveSelectionBg);
+        expect(backend.getBgAt(new Point(0, 0))).toBe(STYLE_TOKEN_DEFAULTS["list.inactiveSelectionBackground"]);
+        expect(backend.getBgAt(new Point(0, 1))).not.toBe(STYLE_TOKEN_DEFAULTS["list.inactiveSelectionBackground"]);
     });
 
     it("renders with scroll offset", async () => {

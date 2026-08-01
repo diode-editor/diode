@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../src/TestUtils/TestApp.ts";
-import { Size } from "../../common/geometryPromitives.ts";
 import type { BoxConstraints } from "../../common/geometryPromitives.ts";
+import { Size } from "../../common/geometryPromitives.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 
 import { ListViewElement } from "./listViewElement.ts";

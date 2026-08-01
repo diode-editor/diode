@@ -227,7 +227,8 @@ describe("TreeViewElement scroll + render behavior", () => {
         });
 
         it("colors the expand marker of a collapsible row distinctly", async () => {
-            const EXPAND_MARKER_FG = packRgb(150, 150, 150);
+            // Шеврон — токен list.deemphasizedForeground; TestApp кладёт палитру dark+ (#808080).
+            const EXPAND_MARKER_FG = 0x808080;
             const roots: TestNode[] = [{ id: "dir", label: "src", children: [{ id: "f", label: "main.ts" }] }];
             const { tree, app } = createTree(roots, new Size(20, 2));
             await tree.refresh();
