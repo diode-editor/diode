@@ -160,11 +160,13 @@ function asWaitForIdleParams(params: unknown): WaitForIdleParams {
     const { quietMs, timeoutMs } = asRecord(params);
     const out: WaitForIdleParams = {};
     if (quietMs !== undefined) {
-        if (!Number.isFinite(quietMs) || (quietMs as number) < 0) throw new Error("waitForIdle 'quietMs' must be a non-negative number");
+        if (!Number.isFinite(quietMs) || (quietMs as number) < 0)
+            throw new Error("waitForIdle 'quietMs' must be a non-negative number");
         out.quietMs = quietMs as number;
     }
     if (timeoutMs !== undefined) {
-        if (!Number.isFinite(timeoutMs) || (timeoutMs as number) < 0) throw new Error("waitForIdle 'timeoutMs' must be a non-negative number");
+        if (!Number.isFinite(timeoutMs) || (timeoutMs as number) < 0)
+            throw new Error("waitForIdle 'timeoutMs' must be a non-negative number");
         out.timeoutMs = timeoutMs as number;
     }
     return out;

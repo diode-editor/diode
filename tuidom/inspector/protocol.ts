@@ -98,6 +98,12 @@ export interface NodeSnapshot {
     focusable?: true;
     box: { x: number; y: number; width: number; height: number };
     style: { fg: number; bg: number };
+    /** Активные состояния стиля (hover/focus/произвольные) — если есть. */
+    styleStates?: string[];
+    /** Исходные имена токенов рядом с резолвленными числами style — если стиль ссылается на токены. */
+    styleTokens?: { fg?: string; bg?: string };
+    /** Элемент владеет заливкой фона (bg задан собственным стилем). */
+    ownBackground?: true;
     focused: boolean;
     text?: string;
     /**

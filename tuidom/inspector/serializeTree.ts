@@ -30,6 +30,16 @@ function serializeNode(element: TUIElement, focused: TUIElement | null, counter:
     if (element.id !== undefined) snapshot.id = element.id;
     if (element.role !== undefined) snapshot.role = element.role;
     if (element.focusable) snapshot.focusable = true;
+
+    const states = element.activeStyleStates;
+    if (states.length > 0) snapshot.styleStates = [...states];
+    const applied = element.appliedStyle;
+    if (typeof applied.fg === "string" || typeof applied.bg === "string") {
+        snapshot.styleTokens = {};
+        if (typeof applied.fg === "string") snapshot.styleTokens.fg = applied.fg;
+        if (typeof applied.bg === "string") snapshot.styleTokens.bg = applied.bg;
+    }
+    if (element.hasOwnBackground) snapshot.ownBackground = true;
     if (element instanceof TextLabelElement) snapshot.text = element.getText();
     const state = element.inspectState();
     if (state !== undefined) snapshot.state = state;

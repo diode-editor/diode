@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { TestApp } from "../../src/TestUtils/TestApp.ts";
 import { Size } from "../common/geometryPromitives.ts";
 import { BodyElement } from "../ui/body/bodyElement.ts";
-import { BoxElement } from "../ui/layout/boxElement.ts";
 import { InputElement } from "../ui/inputbox/inputElement.ts";
+import { BoxElement } from "../ui/layout/boxElement.ts";
 import { TextLabelElement } from "../ui/text/textLabelElement.ts";
 
 import type { NodeSnapshot } from "./protocol.ts";
@@ -30,10 +30,10 @@ describe("serializeTree", () => {
         body.setContent(label);
         const app = TestApp.create(body, new Size(20, 5)).app;
 
-        expect(findByType(serializeTree(app.root, null) as NodeSnapshot, "TextLabelElement")).toBeDefined();
+        expect(findByType(serializeTree(app.root, null)!, "TextLabelElement")).toBeDefined();
 
         label.hidden = true;
-        expect(findByType(serializeTree(app.root, null) as NodeSnapshot, "TextLabelElement")).toBeUndefined();
+        expect(findByType(serializeTree(app.root, null)!, "TextLabelElement")).toBeUndefined();
     });
 
     it("serializes type, box, id and text of a nested label", () => {
@@ -91,5 +91,45 @@ describe("serializeTree", () => {
 
         const snap = serializeTree(app.root, null);
         expect(snap?.nodeId).toBe(0);
+    });
+});
+
+describe("serializeTree — состояния и токены стиля (Н3)", () => {
+    it("активные состояния попадают в styleStates, пустые — опущены", () => {
+        const body = new BodyElement();
+        body.setAsRoot();
+        const box = new BoxElement();
+        body.appendChild(box);
+        box.setStyleState("hover", true);
+        box.setStyleState("selected", true);
+
+        const snapshot = serializeTree(body, null);
+        const boxNode = findByType(snapshot!, "BoxElement");
+        expect(boxNode?.styleStates).toEqual(["hover", "selected"]);
+        expect(snapshot!.styleStates).toBeUndefined();
+    });
+
+    it("токен-ссылки видны в styleTokens рядом с резолвленным style", () => {
+        const box = new BoxElement();
+        box.style = { bg: "list.activeSelectionBackground" };
+        const app = TestApp.createWithContent(box, new Size(40, 10));
+
+        const snapshot = serializeTree(app.root, null);
+        const boxNode = findByType(snapshot!, "BoxElement");
+        expect(boxNode?.styleTokens).toEqual({ bg: "list.activeSelectionBackground" });
+        expect(boxNode?.ownBackground).toBe(true);
+        expect(typeof boxNode?.style.bg).toBe("number");
+    });
+
+    it("числовые стили не создают styleTokens/ownBackground без собственного bg", () => {
+        const body = new BodyElement();
+        body.setAsRoot();
+        const label = new TextLabelElement("hi");
+        body.appendChild(label);
+
+        const snapshot = serializeTree(body, null);
+        const labelNode = findByType(snapshot!, "TextLabelElement");
+        expect(labelNode?.styleTokens).toBeUndefined();
+        expect(labelNode?.ownBackground).toBeUndefined();
     });
 });
