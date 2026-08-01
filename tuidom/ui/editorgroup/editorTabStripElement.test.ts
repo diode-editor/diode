@@ -7,7 +7,7 @@ import { packRgb } from "../../common/colorUtils.ts";
 import { Point } from "../../common/geometryPromitives.ts";
 
 import type { TabInfo } from "./editorTabStripElement.ts";
-import { EditorTabStripElement, unthemedTabStripStyles } from "./editorTabStripElement.ts";
+import { EditorTabStripElement } from "./editorTabStripElement.ts";
 
 const tsIcon = getFileIcon("file.ts");
 const jsIcon = getFileIcon("app.js");
@@ -61,27 +61,19 @@ describe("EditorTabStripElement", () => {
     });
 
     describe("active index", () => {
-        it("applies active styles to the active tab", () => {
+        it("активная вкладка — состояние active (когда-вариант токенов)", () => {
             const strip = new EditorTabStripElement();
-            strip.setStyles({
-                ...unthemedTabStripStyles,
-                activeFg: packRgb(255, 255, 255),
-                activeBg: packRgb(30, 30, 30),
-                inactiveFg: packRgb(100, 100, 100),
-                inactiveBg: packRgb(50, 50, 50),
-            });
-
             strip.setTabs(makeTabs("a.ts", "b.ts"));
             strip.activeIndex = 0;
 
             const items = strip.getItemElements();
-            expect(items[0].style.fg).toBe(packRgb(255, 255, 255));
-            expect(items[0].style.bg).toBe(packRgb(30, 30, 30));
-            expect(items[1].style.fg).toBe(packRgb(100, 100, 100));
-            expect(items[1].style.bg).toBe(packRgb(50, 50, 50));
+            expect(items[0].hasStyleState("active")).toBe(true);
+            expect(items[1].hasStyleState("active")).toBe(false);
+            expect(items[0].style.bg).toBe("tab.inactiveBackground");
+            expect(items[0].style.when?.[0].bg).toBe("tab.activeBackground");
         });
 
-        it("changes active styles when activeIndex changes", () => {
+        it("смена activeIndex переносит состояние active", () => {
             const strip = new EditorTabStripElement();
             strip.setTabs(makeTabs("a.ts", "b.ts"));
             strip.activeIndex = 0;
@@ -89,8 +81,8 @@ describe("EditorTabStripElement", () => {
             strip.activeIndex = 1;
 
             const items = strip.getItemElements();
-            expect(items[0].style.fg).toBe(unthemedTabStripStyles.inactiveFg);
-            expect(items[1].style.fg).toBe(unthemedTabStripStyles.activeFg);
+            expect(items[0].hasStyleState("active")).toBe(false);
+            expect(items[1].hasStyleState("active")).toBe(true);
         });
     });
 

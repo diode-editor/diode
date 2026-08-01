@@ -4,7 +4,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
-import { getProblemsTreeStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
+import { getProblemsTreeStyles, } from "../../../../platform/theme/browser/defaultStyles.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
@@ -143,7 +143,6 @@ export class ProblemsComponent extends ThemedComponent {
             fg: this.theme.getRequiredColor("editor.foreground"),
             bg: this.theme.getRequiredColor("panel.background"),
         };
-        this.view.setStyles(getScrollBarStyles(this.theme, "panel.background"));
         this.provider.severityColors = {
             error: this.theme.getRequiredColor("editorError.foreground"),
             warning: this.theme.getRequiredColor("editorWarning.foreground"),

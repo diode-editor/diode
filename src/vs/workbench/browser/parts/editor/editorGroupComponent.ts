@@ -8,7 +8,6 @@ import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.
 import { VFlexElement, vflexFill, vflexFixed } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { getTabStripStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -169,7 +168,6 @@ export class EditorGroupComponent extends ThemedComponent {
     }
 
     protected updateStyles(): void {
-        this.tabStrip.setStyles(getTabStripStyles(this.theme));
         // emptyFiller наследует editor.background от view через каскад.
         this.view.style = {
             fg: this.theme.getRequiredColor("editor.foreground"),

@@ -13,7 +13,7 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import { getListViewStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
+import { getListViewStyles, } from "../../../../platform/theme/browser/defaultStyles.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
@@ -437,7 +437,6 @@ export class SearchComponent extends ThemedComponent {
         this.root.style = { fg, bg };
         this.countLabel.setColors(dimFg, bg);
         for (const gap of this.gaps) gap.setColors(fg, bg);
-        this.scrollBars.setStyles(getScrollBarStyles(this.theme, "sideBar.background"));
         this.results.setStyles(getListViewStyles(this.theme));
 
         // Содержимое строк красится их формат-функциями — прогоняем рестайл по всем.

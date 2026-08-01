@@ -17,7 +17,7 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
-import { getEditorStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
+import { getEditorStyles, } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { ThemedComponent } from "../../component.ts";
@@ -245,7 +245,6 @@ export class EditorComponent extends ThemedComponent {
         const bg = this.theme.getRequiredColor("editor.background");
         this.editor.style = { fg, bg };
         this.editor.setStyles(this.currentEditorStyles);
-        this.view.setStyles(getScrollBarStyles(this.theme, "editor.background"));
     }
 
     public onDidChangeCursorPosition(listener: () => void): IDisposable {

@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { renderElement } from "../../../src/TestUtils/renderElement.ts";
 import { Point } from "../../common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
-import { TUIElement } from "../../dom/tuiElement.ts";
 import type { RenderContext } from "../../dom/tuiElement.ts";
+import { TUIElement } from "../../dom/tuiElement.ts";
 
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
@@ -80,7 +80,9 @@ describe("PanelContainerElement: контролы вкладки в шапке",
 
     it("setViewActions по неизвестной вкладке — no-op", () => {
         const { panel } = panelWithActions(null);
-        expect(() => panel.setViewActions("nope", new LabelStub("X"))).not.toThrow();
+        expect(() => {
+            panel.setViewActions("nope", new LabelStub("X"));
+        }).not.toThrow();
     });
 
     it("контролы не заезжают на табы, когда места мало", () => {

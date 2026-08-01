@@ -11,10 +11,7 @@ import {
     getEditorStyles,
     getFileTreeStyles,
     getFindWidgetStyles,
-    getPanelContainerStyles,
     getProblemsTreeStyles,
-    getTabStripStyles,
-    getTerminalViewStyles,
 } from "./defaultStyles.ts";
 
 function makeTheme(): WorkbenchTheme {
@@ -145,55 +142,5 @@ describe("getProblemsTreeStyles", () => {
 
         expect(styles.cutFg).toBe(unthemedTreeViewStyles.cutFg);
         expect(styles.symlinkFg).toBe(unthemedTreeViewStyles.symlinkFg);
-    });
-});
-
-describe("getTabStripStyles", () => {
-    it("resolves the tab.* keys and the strip background from the theme", () => {
-        const theme = makeTheme();
-
-        const styles = getTabStripStyles(theme);
-
-        expect(styles.activeFg).toBe(theme.getRequiredColor("tab.activeForeground"));
-        expect(styles.activeBg).toBe(theme.getRequiredColor("tab.activeBackground"));
-        expect(styles.inactiveFg).toBe(theme.getRequiredColor("tab.inactiveForeground"));
-        expect(styles.inactiveBg).toBe(theme.getRequiredColor("tab.inactiveBackground"));
-        expect(styles.stripBg).toBe(theme.getRequiredColor("editorGroupHeader.tabsBackground"));
-    });
-});
-
-describe("getTerminalViewStyles", () => {
-    it("resolves terminal.* colours when the theme defines them", () => {
-        const theme = makeTheme();
-
-        const styles = getTerminalViewStyles(theme);
-
-        expect(styles.defaultBg).toBe(theme.getColor("terminal.background"));
-        expect(styles.defaultFg).toBe(theme.getColor("terminal.foreground"));
-    });
-
-    it("falls back to panel/editor colours for themes without terminal colours", () => {
-        const base = WorkbenchTheme.fromThemeFile({ name: "no-terminal", type: "dark", colors: {} });
-        const colors = { ...base.colors };
-        delete colors["terminal.background"];
-        delete colors["terminal.foreground"];
-        const theme = new WorkbenchTheme("no-terminal", "dark", colors, base.tokenTheme);
-
-        const styles = getTerminalViewStyles(theme);
-
-        expect(styles.defaultBg).toBe(theme.getRequiredColor("panel.background"));
-        expect(styles.defaultFg).toBe(theme.getRequiredColor("editor.foreground"));
-    });
-});
-
-describe("getPanelContainerStyles", () => {
-    it("resolves the panel.* keys from the theme", () => {
-        const theme = makeTheme();
-
-        const styles = getPanelContainerStyles(theme);
-
-        expect(styles.background).toBe(theme.getRequiredColor("panel.background"));
-        expect(styles.titleForeground).toBe(theme.getRequiredColor("panelTitle.inactiveForeground"));
-        expect(styles.borderColor).toBe(theme.getRequiredColor("panel.border"));
     });
 });

@@ -1,8 +1,4 @@
-import type { ITabStripStyles } from "../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
 import type { IListViewStyles } from "../../../../../tuidom/ui/list/listViewElement.ts";
-import type { IPanelContainerStyles } from "../../../../../tuidom/ui/panel/panelContainerElement.ts";
-import type { IScrollBarStyles } from "../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
-import type { ITerminalViewStyles } from "../../../../../tuidom/ui/terminal/terminalViewElement.ts";
 import type { ITreeViewStyles } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
 import { unthemedTreeViewStyles } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
 import type { IEditorStyles } from "../../../editor/browser/editorElement.ts";
@@ -124,50 +120,5 @@ export function getProblemsTreeStyles(theme: WorkbenchTheme): ITreeViewStyles {
         ...getListSelectionStyles(theme),
         cutFg: unthemedTreeViewStyles.cutFg,
         symlinkFg: unthemedTreeViewStyles.symlinkFg,
-    };
-}
-
-/**
- * Скроллбары поверх виджета-хозяина. `backgroundKey` — собственный фон хозяина
- * (`editor.background`, `panel.background`, …): скроллбар живёт на выделенной
- * строке/колонке, куда ребёнок не рисует, и обязан сам залить её фоном, иначе
- * просвечивает фон терминала.
- */
-export function getScrollBarStyles(theme: WorkbenchTheme, backgroundKey: keyof IWorkbenchColors): IScrollBarStyles {
-    return {
-        thumb: theme.getRequiredColor("scrollbarSlider.background"),
-        track: theme.getRequiredColor("scrollbar.background"),
-        background: theme.getRequiredColor(backgroundKey),
-    };
-}
-
-/** Полоса вкладок редакторной группы: `tab.*` + фон самой полосы. */
-export function getTabStripStyles(theme: WorkbenchTheme): ITabStripStyles {
-    return {
-        activeFg: theme.getRequiredColor("tab.activeForeground"),
-        activeBg: theme.getRequiredColor("tab.activeBackground"),
-        inactiveFg: theme.getRequiredColor("tab.inactiveForeground"),
-        inactiveBg: theme.getRequiredColor("tab.inactiveBackground"),
-        stripBg: theme.getRequiredColor("editorGroupHeader.tabsBackground"),
-    };
-}
-
-/**
- * Встроенный терминал: `terminal.*`, с фоллбэком на панель/редактор для тем
- * без терминальных цветов (маппинг 1:1 исторической покраски терминального виджета).
- */
-export function getTerminalViewStyles(theme: WorkbenchTheme): ITerminalViewStyles {
-    return {
-        defaultBg: theme.getColor("terminal.background") ?? theme.getRequiredColor("panel.background"),
-        defaultFg: theme.getColor("terminal.foreground") ?? theme.getRequiredColor("editor.foreground"),
-    };
-}
-
-/** Нижняя панель (Problems/Terminal): фон, приглушённые заголовки вкладок, рамка. */
-export function getPanelContainerStyles(theme: WorkbenchTheme): IPanelContainerStyles {
-    return {
-        background: theme.getRequiredColor("panel.background"),
-        titleForeground: theme.getRequiredColor("panelTitle.inactiveForeground"),
-        borderColor: theme.getRequiredColor("panel.border"),
     };
 }

@@ -1,4 +1,3 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import { StyleFlags } from "../../common/styleFlags.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
@@ -24,19 +23,6 @@ interface TabSegment {
     readonly end: number;
 }
 
-export interface IPanelContainerStyles {
-    readonly background: number;
-    readonly titleForeground: number;
-    readonly borderColor: number;
-}
-
-// Defaults preserve the historical look; the controller overrides them via setStyles.
-export const unthemedPanelContainerStyles: IPanelContainerStyles = {
-    background: packRgb(24, 24, 24),
-    titleForeground: packRgb(142, 142, 142),
-    borderColor: packRgb(43, 43, 43),
-};
-
 /** One space of padding on each side of a tab title. */
 const TAB_PAD = 1;
 /** Indent of the tab strip from the left edge. */
@@ -60,13 +46,6 @@ const CONTENT_LEFT = 2;
  * `panelTitle.*`), mirroring how `EditorElement` receives its theme colours.
  */
 export class PanelContainerElement extends TUIElement {
-    private styles: IPanelContainerStyles = unthemedPanelContainerStyles;
-
-    public setStyles(styles: IPanelContainerStyles): void {
-        this.styles = styles;
-        this.markDirty();
-    }
-
     /** Fired when a tab is clicked (after the active view has switched). */
     public onActivateView?: (id: string) => void;
 
@@ -75,6 +54,7 @@ export class PanelContainerElement extends TUIElement {
 
     public constructor() {
         super();
+        this.style = { bg: "panel.background" };
         this.addEventListener("mousedown", (event) => {
             if (event.button !== "left") return;
             // Событие, всплывшее из дочернего контрола (селектор в шапке), не наше:
@@ -207,13 +187,23 @@ export class PanelContainerElement extends TUIElement {
         if (actions != null) {
             const actionsWidth = Math.min(actions.getMaxIntrinsicWidth(1), containerSize.width);
             const x = Math.max(this.tabsEnd(), containerSize.width - actionsWidth - TAB_INDENT);
-            this.layoutChild(actions, x, TAB_ROW, BoxConstraints.tight(new Size(Math.max(0, containerSize.width - x), 1)));
+            this.layoutChild(
+                actions,
+                x,
+                TAB_ROW,
+                BoxConstraints.tight(new Size(Math.max(0, containerSize.width - x), 1)),
+            );
         }
         const content = this.activeView()?.content;
         if (content != null) {
             const contentWidth = Math.max(0, containerSize.width - CONTENT_LEFT);
             const contentHeight = Math.max(0, containerSize.height - CONTENT_TOP);
-            this.layoutChild(content, CONTENT_LEFT, CONTENT_TOP, BoxConstraints.tight(new Size(contentWidth, contentHeight)));
+            this.layoutChild(
+                content,
+                CONTENT_LEFT,
+                CONTENT_TOP,
+                BoxConstraints.tight(new Size(contentWidth, contentHeight)),
+            );
         }
         return containerSize;
     }
@@ -224,13 +214,13 @@ export class PanelContainerElement extends TUIElement {
         // Fill the panel with its background first.
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                context.setCell(x, y, { char: " ", bg: this.styles.background });
+                context.setCell(x, y, { char: " ", bg: this.resolvedStyle.bg });
             }
         }
 
         // Top border strip (row 0).
         for (let x = 0; x < width; x++) {
-            context.setCell(x, 0, { char: "─", fg: this.styles.borderColor, bg: this.styles.background });
+            context.setCell(x, 0, { char: "─", fg: this.styleVar("panel.border"), bg: this.resolvedStyle.bg });
         }
 
         // Tab header (dim). The active tab is underlined — but only under the title
@@ -247,8 +237,8 @@ export class PanelContainerElement extends TUIElement {
                 const style = isActive && isGlyph ? StyleFlags.Underline : StyleFlags.None;
                 context.setCell(x, TAB_ROW, {
                     char,
-                    fg: this.styles.titleForeground,
-                    bg: this.styles.background,
+                    fg: this.styleVar("panelTitle.inactiveForeground"),
+                    bg: this.resolvedStyle.bg,
                     style,
                 });
             }
@@ -266,8 +256,8 @@ export class PanelContainerElement extends TUIElement {
             for (let i = 0; i < message.length && i + CONTENT_LEFT < width; i++) {
                 context.setCell(i + CONTENT_LEFT, CONTENT_TOP, {
                     char: message[i],
-                    fg: this.styles.titleForeground,
-                    bg: this.styles.background,
+                    fg: this.styleVar("panelTitle.inactiveForeground"),
+                    bg: this.resolvedStyle.bg,
                 });
             }
         }

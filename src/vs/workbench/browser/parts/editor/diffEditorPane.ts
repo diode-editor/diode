@@ -11,7 +11,6 @@ import type { ITokenStyleResolver } from "../../../../editor/common/languages/iT
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
-import { getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { ThemedComponent } from "../../component.ts";
@@ -169,6 +168,5 @@ export class DiffEditorPane extends ThemedComponent implements IEditorPane, IDif
             removedLineBackground: theme.getRequiredColor("diffEditor.removedLineBackground"),
             unchangedRegionForeground: theme.getRequiredColor("diffEditor.unchangedRegionForeground"),
         });
-        this.view.setStyles(getScrollBarStyles(theme, "editor.background"));
     }
 }

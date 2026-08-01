@@ -4,6 +4,7 @@ import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import { MouseEventDispatcher } from "../../dom/events/mouseEventDispatcher.ts";
+import { ROOT_STYLE_CONTEXT } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import type { MouseToken } from "../../input/rawTerminalToken.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
@@ -52,13 +53,15 @@ function makeToken(overrides: Partial<MouseToken> & { action: MouseToken["action
 
 function themed(): PanelContainerElement {
     const panel = new PanelContainerElement();
-    panel.setStyles({ background: BG, titleForeground: TITLE_FG, borderColor: BORDER });
+    panel.setStyleVars({ "panel.background": BG, "panelTitle.inactiveForeground": TITLE_FG, "panel.border": BORDER });
+    panel.style = { bg: "panel.background" };
     return panel;
 }
 
 function renderPanel(panel: PanelContainerElement, size: Size): MockTerminalBackend {
     const backend = new MockTerminalBackend(size);
     const screen = new TerminalScreen(size);
+    panel.performStyleResolution(ROOT_STYLE_CONTEXT);
     panel.render(new RenderContext(screen, new Offset(0, 0), new Rect(new Point(0, 0), size)));
     screen.flush(backend);
     return backend;

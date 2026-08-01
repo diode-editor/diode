@@ -9,7 +9,7 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import { getListViewStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
+import { getListViewStyles, } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { ScmMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
@@ -225,7 +225,6 @@ export class ChangesComponent extends ThemedComponent {
             fg: this.theme.getRequiredColor("sideBar.foreground"),
             bg: this.theme.getRequiredColor("sideBar.background"),
         };
-        this.scrollBars.setStyles(getScrollBarStyles(this.theme, "sideBar.background"));
         this.view.style = {
             fg: this.theme.getRequiredColor("sideBar.foreground"),
             bg: this.theme.getRequiredColor("sideBar.background"),

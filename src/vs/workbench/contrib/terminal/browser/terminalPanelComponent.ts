@@ -1,11 +1,8 @@
 import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
 import { TerminalViewElement } from "../../../../../../tuidom/ui/terminal/terminalViewElement.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { getTerminalViewStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
 import type { ITerminalInstance, TerminalService } from "./terminalService.ts";
 import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
@@ -35,12 +32,7 @@ export const TerminalPanelComponentDIToken = token<TerminalPanelComponent>("Term
  * dispose'ить виджеты — при закрытии инстанса и при своём dispose().
  */
 export class TerminalPanelComponent extends Disposable {
-    public static dependencies = [
-        TerminalServiceDIToken,
-        PanelServiceDIToken,
-        ThemeServiceDIToken,
-        TerminalFocusFallbackDIToken,
-    ] as const;
+    public static dependencies = [TerminalServiceDIToken, PanelServiceDIToken, TerminalFocusFallbackDIToken] as const;
 
     private widgets = new Map<number, TerminalViewElement>();
     private activeWidget: TerminalViewElement | null = null;
@@ -48,7 +40,6 @@ export class TerminalPanelComponent extends Disposable {
     public constructor(
         terminalService: TerminalService,
         private readonly panelService: PanelService,
-        private readonly themeService: ThemeService,
         private readonly focusFallback: ITerminalFocusFallback,
     ) {
         super();
@@ -72,13 +63,6 @@ export class TerminalPanelComponent extends Disposable {
                 this.activeWidget?.focus();
             }),
         );
-        // onThemeChange файрит немедленно с текущей темой; на этот момент виджетов
-        // ещё нет — свежие красятся при создании (handleOpen), открытые — здесь.
-        this.register(
-            this.themeService.onThemeChange((theme) => {
-                for (const widget of this.widgets.values()) widget.setStyles(getTerminalViewStyles(theme));
-            }),
-        );
         // Инстансы, созданные до компонента (сервис резолвится первым в том же модуле).
         for (const instance of terminalService.getInstances()) this.handleOpen(instance);
         this.handleActiveChange(terminalService.getActiveInstance());
@@ -95,7 +79,6 @@ export class TerminalPanelComponent extends Disposable {
 
     private handleOpen(instance: ITerminalInstance): void {
         const widget = new TerminalViewElement(instance.session);
-        widget.setStyles(getTerminalViewStyles(this.themeService.theme));
         this.widgets.set(instance.id, widget);
     }
 

@@ -5,11 +5,12 @@ import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { StyleFlags } from "../../common/styleFlags.ts";
+import { ROOT_STYLE_CONTEXT } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import type { CellPatch } from "../../rendering/grid.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 
-import { TerminalViewElement, unthemedTerminalViewStyles } from "./terminalViewElement.ts";
+import { TerminalViewElement } from "./terminalViewElement.ts";
 
 // Записывающий контекст — ловим точные CellPatch'и, чтобы проверить width/style/цвета,
 // которые MockTerminalBackend наружу не отдаёт.
@@ -29,6 +30,7 @@ function render(el: TUIElement, width: number, height: number): RecordingContext
     const context = new RecordingContext(new TerminalScreen(size));
     el.localPosition = new Offset(0, 0);
     el.layout(BoxConstraints.tight(size));
+    el.performStyleResolution(ROOT_STYLE_CONTEXT);
     el.render(context);
     return context;
 }
@@ -62,7 +64,7 @@ describe("TerminalViewElement — render", () => {
         const surface = new FakeTerminalSurface();
         surface.setGrid(["x"]); // ячейка с DEFAULT_COLOR fg/bg
         const el = new TerminalViewElement(surface);
-        el.setStyles({ defaultFg: FG, defaultBg: BG });
+        el.setStyleVars({ "terminal.foreground": FG, "terminal.background": BG });
         const patch = render(el, 1, 1).patchAt(0, 0);
 
         expect(patch?.fg).toBe(FG);
@@ -74,7 +76,7 @@ describe("TerminalViewElement — render", () => {
         const surface = new FakeTerminalSurface();
         surface.setCell(0, 0, "x", { fg: explicitFg });
         const el = new TerminalViewElement(surface);
-        el.setStyles({ defaultFg: FG, defaultBg: unthemedTerminalViewStyles.defaultBg });
+        el.setStyleVars({ "terminal.foreground": FG });
         const patch = render(el, 1, 1).patchAt(0, 0);
 
         expect(patch?.fg).toBe(explicitFg);

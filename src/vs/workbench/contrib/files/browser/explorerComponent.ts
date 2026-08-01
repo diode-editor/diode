@@ -9,7 +9,7 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { getFileTreeStyles, getScrollBarStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
+import { getFileTreeStyles, } from "../../../../platform/theme/browser/defaultStyles.ts";
 import { ThemedComponent } from "../../../browser/component.ts";
 import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -129,6 +129,5 @@ export class ExplorerComponent extends ThemedComponent {
             fg: this.theme.getRequiredColor("sideBar.foreground"),
             bg: this.theme.getRequiredColor("sideBar.background"),
         };
-        this.parts.scrollBars.setStyles(getScrollBarStyles(this.theme, "sideBar.background"));
     }
 }

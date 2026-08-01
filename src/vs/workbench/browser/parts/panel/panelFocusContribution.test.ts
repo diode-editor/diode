@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import { TerminalViewElement } from "../../../../../../tuidom/ui/terminal/terminalViewElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import type { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import {
     ContextKeyService,
     ContextKeyServiceDIToken,

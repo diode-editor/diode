@@ -17,7 +17,7 @@ import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 function buildHarness() {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const panelService = new PanelService();
-    const panelComponent = new PanelComponent(panelService, themeService);
+    const panelComponent = new PanelComponent(panelService);
     const sessions: FakeTerminalSurface[] = [];
     const factory: TerminalSessionFactory = () => {
         const surface = new FakeTerminalSurface();
@@ -26,7 +26,7 @@ function buildHarness() {
     };
     const service = new TerminalService(panelService, factory);
     const focusFallback = { focusEditor: vi.fn() };
-    const component = new TerminalPanelComponent(service, panelService, themeService, focusFallback);
+    const component = new TerminalPanelComponent(service, panelService, focusFallback);
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const dispose = (): void => {
         component.dispose();
@@ -197,11 +197,11 @@ describe("TerminalPanelComponent", () => {
     it("adopts instances created before the component existed", () => {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
         const panelService = new PanelService();
-        const panelComponent = new PanelComponent(panelService, themeService);
+        const panelComponent = new PanelComponent(panelService);
         const service = new TerminalService(panelService, () => new FakeTerminalSurface());
         service.openTerminal(); // инстанс существует ДО компонента
 
-        const component = new TerminalPanelComponent(service, panelService, themeService, { focusEditor: vi.fn() });
+        const component = new TerminalPanelComponent(service, panelService, { focusEditor: vi.fn() });
 
         expect(panelComponent.view.getChildren()).toHaveLength(1);
         expect(panelComponent.view.getChildren()[0]).toBeInstanceOf(TerminalViewElement);
@@ -218,55 +218,5 @@ describe("TerminalPanelComponent", () => {
         expect(disposeSpy).toHaveBeenCalledTimes(2);
         disposeSpy.mockRestore();
         h.service.dispose();
-    });
-});
-
-describe("TerminalPanelComponent — theme", () => {
-    /**
-     * Полноценная тема, из которой выброшены только terminal.* — так проверяются
-     * фоллбэки `getColor("terminal.*") ?? getRequiredColor(panel/editor)`. Остальные
-     * цвета оставляем дефолтными: их читает PanelComponent на том же onThemeChange.
-     */
-    function themeWithoutTerminalColors(): WorkbenchTheme {
-        const base = WorkbenchTheme.fromThemeFile({ name: "no-terminal-colors", type: "dark", colors: {} });
-        const colors = { ...base.colors };
-        delete colors["terminal.background"];
-        delete colors["terminal.foreground"];
-        colors["panel.background"] = 0x111111;
-        colors["editor.foreground"] = 0x222222;
-        return new WorkbenchTheme("no-terminal-colors", "dark", colors, base.tokenTheme);
-    }
-
-    it("pushes terminal theme colors into each widget on creation", () => {
-        const h = buildHarness();
-        const setStyles = vi.spyOn(TerminalViewElement.prototype, "setStyles");
-        h.service.openTerminal();
-        // dark+ default: terminal.foreground #CCCCCC, terminal.background #181818.
-        expect(setStyles).toHaveBeenCalledWith({ defaultFg: 0xcccccc, defaultBg: 0x181818 });
-        setStyles.mockRestore();
-        h.dispose();
-    });
-
-    it("re-applies colors to open widgets when the theme changes", () => {
-        const h = buildHarness();
-        h.service.openTerminal();
-        const setStyles = vi.spyOn(TerminalViewElement.prototype, "setStyles");
-
-        h.themeService.setTheme(themeWithoutTerminalColors());
-
-        expect(setStyles).toHaveBeenCalledWith({ defaultBg: 0x111111, defaultFg: 0x222222 });
-        setStyles.mockRestore();
-        h.dispose();
-    });
-
-    it("falls back to panel/editor colors for terminals created under such a theme", () => {
-        const h = buildHarness();
-        h.themeService.setTheme(themeWithoutTerminalColors());
-        const setStyles = vi.spyOn(TerminalViewElement.prototype, "setStyles");
-        h.service.openTerminal();
-
-        expect(setStyles).toHaveBeenCalledWith({ defaultBg: 0x111111, defaultFg: 0x222222 });
-        setStyles.mockRestore();
-        h.dispose();
     });
 });
