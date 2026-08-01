@@ -1,5 +1,6 @@
 import { DEFAULT_COLOR } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
+import { BORDER_THICKNESS } from "../../dom/borderStyle.ts";
 import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
 import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
 import type { StyleColor } from "../../dom/styles/tuiStyle.ts";
@@ -79,39 +80,54 @@ export class BoxContainerElement extends TUIElement {
         return this.hasSeparator ? 2 : 1;
     }
 
+    /** Вклад рамки (+ строк заголовка) в размер: контент живёт внутри этих insets. */
+    private get contentInsets(): { left: number; top: number; right: number; bottom: number } {
+        return {
+            left: BORDER_THICKNESS,
+            top: BORDER_THICKNESS + this.headerRows,
+            right: BORDER_THICKNESS,
+            bottom: BORDER_THICKNESS,
+        };
+    }
+
     public override getMinIntrinsicWidth(height: number): number {
-        if (!this.child) return 2;
-        return this.child.getMinIntrinsicWidth(height) + 2;
+        const insetsX = this.contentInsets.left + this.contentInsets.right;
+        if (!this.child) return insetsX;
+        return this.child.getMinIntrinsicWidth(height) + insetsX;
     }
 
     public override getMaxIntrinsicWidth(height: number): number {
-        if (!this.child) return 2;
-        return this.child.getMaxIntrinsicWidth(height) + 2;
+        const insetsX = this.contentInsets.left + this.contentInsets.right;
+        if (!this.child) return insetsX;
+        return this.child.getMaxIntrinsicWidth(height) + insetsX;
     }
 
     public override getMinIntrinsicHeight(width: number): number {
-        const paddingY = 2 + this.headerRows;
-        if (!this.child) return paddingY;
-        return this.child.getMinIntrinsicHeight(Math.max(0, width - 2)) + paddingY;
+        const insets = this.contentInsets;
+        const insetsY = insets.top + insets.bottom;
+        if (!this.child) return insetsY;
+        return this.child.getMinIntrinsicHeight(Math.max(0, width - insets.left - insets.right)) + insetsY;
     }
 
     public override getMaxIntrinsicHeight(width: number): number {
-        const paddingY = 2 + this.headerRows;
-        if (!this.child) return paddingY;
-        return this.child.getMaxIntrinsicHeight(Math.max(0, width - 2)) + paddingY;
+        const insets = this.contentInsets;
+        const insetsY = insets.top + insets.bottom;
+        if (!this.child) return insetsY;
+        return this.child.getMaxIntrinsicHeight(Math.max(0, width - insets.left - insets.right)) + insetsY;
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
         if (this.child) {
-            const paddingX = 1;
-            const paddingTop = 1 + this.headerRows;
-            const paddingBottom = 1;
-            const childWidth = Math.max(0, containerSize.width - paddingX * 2);
-            const childHeight = Math.max(0, containerSize.height - paddingTop - paddingBottom);
-            const childX = paddingX;
-            const childY = paddingTop;
-            this.layoutChild(this.child, childX, childY, BoxConstraints.tight(new Size(childWidth, childHeight)));
+            const insets = this.contentInsets;
+            const childWidth = Math.max(0, containerSize.width - insets.left - insets.right);
+            const childHeight = Math.max(0, containerSize.height - insets.top - insets.bottom);
+            this.layoutChild(
+                this.child,
+                insets.left,
+                insets.top,
+                BoxConstraints.tight(new Size(childWidth, childHeight)),
+            );
         }
         return containerSize;
     }

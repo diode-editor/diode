@@ -1,6 +1,7 @@
 import { DisplayLine } from "../../common/displayLine.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import { truncateEnd } from "../../common/textTruncation.ts";
+import { BORDER_THICKNESS } from "../../dom/borderStyle.ts";
 import type { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
@@ -133,12 +134,13 @@ export class CompletionListElement extends TUIElement {
     }
 
     private get boxWidth(): number {
-        const natural = LABEL_X + this.contentWidth + RIGHT_PAD + 1; // +1 правая рамка
+        // Левая рамка сидит внутри LABEL_X (см. схему колонок выше).
+        const natural = LABEL_X + this.contentWidth + RIGHT_PAD + BORDER_THICKNESS;
         return Math.max(MIN_WIDTH, Math.min(this.preferredWidth, natural));
     }
 
     private get boxHeight(): number {
-        return this.visibleItemCount + 2; // рамка сверху/снизу
+        return this.visibleItemCount + BORDER_THICKNESS * 2; // рамка сверху/снизу
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
@@ -180,7 +182,7 @@ export class CompletionListElement extends TUIElement {
 
         // Ряды
         for (let i = 0; i < this.visibleItemCount; i++) {
-            this.renderRow(context, w, 1 + i, this.scrollOffset + i);
+            this.renderRow(context, w, BORDER_THICKNESS + i, this.scrollOffset + i);
         }
     }
 
@@ -253,7 +255,7 @@ export class CompletionListElement extends TUIElement {
      * возвращённый индекс всегда в пределах `filteredItems`.
      */
     private rowAt(localY: number): number | null {
-        const row = localY - 1; // строка 0 — верхняя рамка
+        const row = localY - BORDER_THICKNESS; // строка 0 — верхняя рамка
         if (row < 0 || row >= this.visibleItemCount) return null;
         return this.scrollOffset + row;
     }
