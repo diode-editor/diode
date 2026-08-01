@@ -62,13 +62,7 @@ describe("ExplorerComponent hover", () => {
                 ),
             ),
         );
-        component = new ExplorerComponent(
-            service,
-            new CommandRegistry(),
-            clipboard,
-            contextMenuService,
-            new ThemeService(theme),
-        );
+        component = new ExplorerComponent(service, new CommandRegistry(), clipboard, contextMenuService);
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(30, 10));
         await service.refresh();

@@ -207,7 +207,14 @@ describe("Workbench — create via context menu", () => {
         h.testApp.render();
         tree.localPosition = new Offset(0, 0);
         tree.dispatchEvent(
-            new TUIContextMenuEvent({ trigger: "mouse", button: "right", screenX: 2, screenY: 0, localX: 2, localY: 0 }),
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: 2,
+                screenY: 0,
+                localX: 2,
+                localY: 0,
+            }),
         );
         h.testApp.render();
     }

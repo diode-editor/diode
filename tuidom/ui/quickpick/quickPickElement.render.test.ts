@@ -4,13 +4,18 @@ import { expectScreen, screen } from "../../../src/TestUtils/expectScreen.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
+import { STYLE_TOKEN_DEFAULTS } from "../../dom/styles/styleTokens.ts";
+import { ROOT_STYLE_CONTEXT } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 
 import type { QuickPickItem } from "./quickPickElement.ts";
-import { QuickPickElement, unthemedQuickPickStyles } from "./quickPickElement.ts";
+import { QuickPickElement } from "./quickPickElement.ts";
 
 // ─── Test helpers ────────────────────────────────────────────────────────────
+
+const ACTIVE_SELECTION_BG = STYLE_TOKEN_DEFAULTS["list.activeSelectionBackground"];
+const MATCH_FG = STYLE_TOKEN_DEFAULTS["list.highlightForeground"];
 
 function renderPicker(picker: QuickPickElement, width: number): MockTerminalBackend {
     const height = picker.getMinIntrinsicHeight(width);
@@ -20,6 +25,7 @@ function renderPicker(picker: QuickPickElement, width: number): MockTerminalBack
 
     picker.localPosition = new Offset(0, 0);
     picker.layout(BoxConstraints.tight(size));
+    picker.performStyleResolution(ROOT_STYLE_CONTEXT);
 
     const clip = new Rect(new Point(0, 0), size);
     picker.render(new RenderContext(termScreen, new Offset(0, 0), clip));
@@ -215,7 +221,7 @@ describe("QuickPickElement — selection", () => {
         const selectedBg = backend.getBgAt(new Point(5, 3));
         const normalBg = backend.getBgAt(new Point(5, 4));
         expect(selectedBg).not.toBe(normalBg);
-        expect(selectedBg).toBe(unthemedQuickPickStyles.activeSelectionBg);
+        expect(selectedBg).toBe(ACTIVE_SELECTION_BG);
     });
 
     it("selection highlight does not bleed onto the side borders (issue #94)", () => {
@@ -229,9 +235,9 @@ describe("QuickPickElement — selection", () => {
         const leftBorderBg = backend.getBgAt(new Point(0, 3));
         const rightBorderBg = backend.getBgAt(new Point(29, 3));
 
-        expect(interiorBg).toBe(unthemedQuickPickStyles.activeSelectionBg);
-        expect(leftBorderBg).not.toBe(unthemedQuickPickStyles.activeSelectionBg);
-        expect(rightBorderBg).not.toBe(unthemedQuickPickStyles.activeSelectionBg);
+        expect(interiorBg).toBe(ACTIVE_SELECTION_BG);
+        expect(leftBorderBg).not.toBe(ACTIVE_SELECTION_BG);
+        expect(rightBorderBg).not.toBe(ACTIVE_SELECTION_BG);
         // Border columns match the background of a non-selected row's border.
         expect(leftBorderBg).toBe(backend.getBgAt(new Point(0, 4)));
         expect(rightBorderBg).toBe(backend.getBgAt(new Point(29, 4)));
@@ -264,8 +270,8 @@ describe("QuickPickElement — match highlight colours", () => {
         // Label starts at x=2 (no icon column)
         const matchedFg = backend.getFgAt(new Point(2, 4)); // 'A' in "App"
         const unmatchedFg = backend.getFgAt(new Point(5, 4)); // 'C' in "Container"
-        expect(matchedFg).toBe(unthemedQuickPickStyles.matchFg);
-        expect(unmatchedFg).not.toBe(unthemedQuickPickStyles.matchFg);
+        expect(matchedFg).toBe(MATCH_FG);
+        expect(unmatchedFg).not.toBe(MATCH_FG);
     });
 
     it("no special colour when labelMatchRanges is empty", () => {
@@ -274,7 +280,7 @@ describe("QuickPickElement — match highlight colours", () => {
         const backend = renderPicker(picker, 40);
 
         const fg = backend.getFgAt(new Point(2, 3));
-        expect(fg).not.toBe(unthemedQuickPickStyles.matchFg);
+        expect(fg).not.toBe(MATCH_FG);
     });
 });
 
@@ -541,16 +547,15 @@ describe("QuickPickElement — long content does not overflow the border", () =>
     });
 });
 
-// ─── setStyles ───────────────────────────────────────────────────────────────
+// ─── Токены ──────────────────────────────────────────────────────────────────
 
-describe("QuickPickElement — setStyles", () => {
-    it("repaints the picker with the injected colours", () => {
+describe("QuickPickElement — цвета из var-scope", () => {
+    it("перекраска токенами (тема без пуша стилей)", () => {
         const picker = new QuickPickElement();
         picker.items = [{ label: "Alpha" }, { label: "Beta" }];
-        picker.setStyles({
-            ...unthemedQuickPickStyles,
-            activeSelectionBg: packRgb(9, 9, 9),
-            bg: packRgb(1, 2, 3),
+        picker.setStyleVars({
+            "list.activeSelectionBackground": packRgb(9, 9, 9),
+            "quickInput.background": packRgb(1, 2, 3),
         });
 
         const backend = renderPicker(picker, 30);

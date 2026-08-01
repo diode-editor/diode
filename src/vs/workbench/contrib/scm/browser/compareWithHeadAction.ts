@@ -11,7 +11,6 @@ import {
 } from "../../../common/coreTokens.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
 import { OriginalResourceProviderDIToken } from "./quickDiffService.ts";
 
@@ -82,12 +81,7 @@ export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri): Pro
     }
 
     editors.openPane(
-        new DiffEditorPane(
-            accessor.get(ThemeServiceDIToken),
-            accessor.get(TokenizationRegistryDIToken),
-            accessor.get(TokenStyleResolverDIToken),
-            input,
-        ),
+        new DiffEditorPane(accessor.get(TokenizationRegistryDIToken), accessor.get(TokenStyleResolverDIToken), input),
     );
     return "opened";
 }

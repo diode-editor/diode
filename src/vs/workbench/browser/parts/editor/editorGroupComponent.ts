@@ -10,9 +10,8 @@ import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
-import { ThemedComponent } from "../../component.ts";
+import {} from "../../../services/themes/common/themeTokens.ts";
+import { Component } from "../../component.ts";
 
 import type { IEditorPane } from "./iEditorPane.ts";
 
@@ -29,8 +28,8 @@ export const EditorGroupComponentDIToken = token<EditorGroupComponent>("EditorGr
  * сервис (`activateTab`/`closeTab`; закрытие «грязной» вкладки — через
  * `onRequestConfirmClose`).
  */
-export class EditorGroupComponent extends ThemedComponent {
-    public static dependencies = [EditorServiceDIToken, ThemeServiceDIToken] as const;
+export class EditorGroupComponent extends Component {
+    public static dependencies = [EditorServiceDIToken] as const;
 
     public readonly view: OverlayHostElement;
 
@@ -41,13 +40,12 @@ export class EditorGroupComponent extends ThemedComponent {
     /** Текущий житель контент-слота: view активной pane либо emptyFiller. */
     private contentSlot: TUIElement;
 
-    public constructor(
-        private readonly editorService: EditorService,
-        themeService: ThemeService,
-    ) {
-        super(themeService);
+    public constructor(private readonly editorService: EditorService) {
+        super();
         this.view = new OverlayHostElement();
         this.view.id = "editorGroup";
+        // emptyFiller наследует editor.background от view через каскад.
+        this.view.style = { fg: "editor.foreground", bg: "editor.background" };
         this.tabStrip.layoutStyle = { height: vflexFixed(1), width: "fill" };
         this.contentSlot = this.emptyFiller;
         this.syncSlot(this.emptyFiller);
@@ -75,7 +73,6 @@ export class EditorGroupComponent extends ThemedComponent {
             }),
         );
         this.syncFromService();
-        this.initStyles();
     }
 
     /** Вставляет жителя контент-слота: [tabStrip, слот] одним replaceChildren. */
@@ -165,13 +162,5 @@ export class EditorGroupComponent extends ThemedComponent {
             });
         }
         return labels;
-    }
-
-    protected updateStyles(): void {
-        // emptyFiller наследует editor.background от view через каскад.
-        this.view.style = {
-            fg: this.theme.getRequiredColor("editor.foreground"),
-            bg: this.theme.getRequiredColor("editor.background"),
-        };
     }
 }

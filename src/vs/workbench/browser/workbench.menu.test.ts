@@ -322,12 +322,7 @@ describe("Workbench — menu bar wiring", () => {
     it("opens the Go menu and renders its entries", () => {
         const { testApp } = createAppTestHarness();
         const popup = openMenu(testApp, "g");
-        expect(itemLabels(popup)).toEqual([
-            "Go to File...",
-            "Go to Line/Column...",
-            "Next Editor",
-            "Previous Editor",
-        ]);
+        expect(itemLabels(popup)).toEqual(["Go to File...", "Go to Line/Column...", "Next Editor", "Previous Editor"]);
     });
 
     it("Go → Go to File runs the quick-open command", () => {

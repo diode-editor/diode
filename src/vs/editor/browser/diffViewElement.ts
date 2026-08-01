@@ -25,26 +25,6 @@ export interface IDiffRowSource {
     resolveTokenStyle(scopes: readonly string[]): ResolvedTokenStyle;
 }
 
-export interface IDiffViewStyles {
-    readonly background: number;
-    readonly foreground: number;
-    readonly gutterBackground: number;
-    readonly lineNumberForeground: number;
-    readonly insertedLineBackground: number;
-    readonly removedLineBackground: number;
-    readonly unchangedRegionForeground: number;
-}
-
-export const unthemedDiffViewStyles: IDiffViewStyles = {
-    background: 0x000000,
-    foreground: 0xcccccc,
-    gutterBackground: 0x000000,
-    lineNumberForeground: 0x858585,
-    insertedLineBackground: 0x373d29,
-    removedLineBackground: 0x4b1818,
-    unchangedRegionForeground: 0x8c8c8c,
-};
-
 /** Символ-плейсхолдер свёрнутого куска — он же метка в обеих колонках номеров. */
 const ELLIPSIS = "⋯";
 
@@ -68,7 +48,6 @@ const GUTTER_RIGHT_PADDING = 2;
 export class DiffViewElement extends TUIElement implements IScrollable {
     private rowsValue: readonly IDiffViewRow[] = [];
     private source: IDiffRowSource | null = null;
-    private stylesValue: IDiffViewStyles = unthemedDiffViewStyles;
     private scrollTopValue = 0;
     private numberWidth = 1;
     public tabSize = 4;
@@ -94,11 +73,6 @@ export class DiffViewElement extends TUIElement implements IScrollable {
 
     public get rows(): readonly IDiffViewRow[] {
         return this.rowsValue;
-    }
-
-    public setStyles(styles: IDiffViewStyles): void {
-        this.stylesValue = styles;
-        this.markDirty();
     }
 
     /** Ширина гуттера: `отступ + номер + зазор + номер + зазор + маркер + отступ`. */
@@ -152,14 +126,13 @@ export class DiffViewElement extends TUIElement implements IScrollable {
     }
 
     public render(context: RenderContext): void {
-        const styles = this.stylesValue;
         const gutterW = this.gutterWidth;
         const contentCols = Math.max(0, this.layoutSize.width - gutterW);
         const height = this.layoutSize.height;
 
         for (let screenY = 0; screenY < height; screenY++) {
             const row = this.rowsValue.at(this.scrollTopValue + screenY);
-            const bg = row === undefined ? styles.background : this.backgroundOf(row);
+            const bg = row === undefined ? this.resolvedStyle.bg : this.backgroundOf(row);
 
             // Фон на всю ширину — иначе цвет строки обрывался бы по концу текста.
             for (let x = 0; x < this.layoutSize.width; x++) {
@@ -175,28 +148,27 @@ export class DiffViewElement extends TUIElement implements IScrollable {
     private backgroundOf(row: IDiffViewRow): number {
         switch (row.kind) {
             case "added":
-                return this.stylesValue.insertedLineBackground;
+                return this.styleVar("diffEditor.insertedLineBackground");
             case "deleted":
-                return this.stylesValue.removedLineBackground;
+                return this.styleVar("diffEditor.removedLineBackground");
             default:
-                return this.stylesValue.background;
+                return this.resolvedStyle.bg;
         }
     }
 
     /** `<номер оригинала> <номер изменённого> <маркер> `. */
     private renderGutter(context: RenderContext, screenY: number, row: IDiffViewRow, bg: number): void {
-        const styles = this.stylesValue;
         const w = this.numberWidth;
         const original = row.kind === "unchanged" || row.kind === "deleted" ? String(row.originalLine + 1) : "";
         const modified = row.kind === "unchanged" || row.kind === "added" ? String(row.modifiedLine + 1) : "";
         const marker = row.kind === "added" ? "+" : row.kind === "deleted" ? "-" : " ";
 
-        const numberFg = styles.lineNumberForeground;
+        const numberFg = this.styleVar("editorLineNumber.foreground");
         const collapsed = row.kind === "collapsed";
         const left = GUTTER_LEFT_PADDING;
         context.drawText(left, screenY, (collapsed ? ELLIPSIS : original).padStart(w), { fg: numberFg, bg });
         context.drawText(left + w + 1, screenY, (collapsed ? ELLIPSIS : modified).padStart(w), { fg: numberFg, bg });
-        context.drawText(left + w * 2 + 2, screenY, marker, { fg: styles.foreground, bg });
+        context.drawText(left + w * 2 + 2, screenY, marker, { fg: this.resolvedStyle.fg, bg });
     }
 
     private renderContent(
@@ -207,15 +179,13 @@ export class DiffViewElement extends TUIElement implements IScrollable {
         contentCols: number,
         bg: number,
     ): void {
-        const styles = this.stylesValue;
-
         if (row.kind === "collapsed") {
             const label = `${ELLIPSIS} ${String(row.hiddenLineCount)} unchanged line${row.hiddenLineCount === 1 ? "" : "s"}`;
             context.drawText(
                 gutterW,
                 screenY,
                 label,
-                { fg: styles.unchangedRegionForeground, bg },
+                { fg: this.styleVar("diffEditor.unchangedRegionForeground"), bg },
                 {
                     maxWidth: contentCols,
                 },
@@ -250,7 +220,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
             const slot = displayLine.graphemeAtColumn(displayCol);
             const width = slot ? slot.displayWidth : 1;
 
-            let fg = styles.foreground;
+            let fg = this.resolvedStyle.fg;
             let style: number = StyleFlags.None;
             if (tokenIndex && slot) {
                 const token = tokenIndex.tokenAt(slot.offset);

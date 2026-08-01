@@ -145,13 +145,13 @@ import {
     toggleProblemsAction,
     toggleSidebarAction,
 } from "./layoutActions.ts";
-import { searchViewAsListAction, searchViewAsTreeAction, showSearchAction } from "./searchActions.ts";
 import {
     listFocusFirstAction,
     listFocusLastAction,
     listFocusPageDownAction,
     listFocusPageUpAction,
 } from "./listActions.ts";
+import { searchViewAsListAction, searchViewAsTreeAction, showSearchAction } from "./searchActions.ts";
 import { closeActiveEditorAction, nextEditorInGroupAction, previousEditorInGroupAction } from "./tabActions.ts";
 import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whitespaceActions.ts";
 

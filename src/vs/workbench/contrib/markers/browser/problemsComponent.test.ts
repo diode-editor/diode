@@ -50,7 +50,7 @@ describe("ProblemsComponent", () => {
         panelService = new PanelService();
         panelComponent = new PanelComponent(panelService);
         revealTarget = makeRevealTarget();
-        component = new ProblemsComponent(markerService, panelService, revealTarget, themeService);
+        component = new ProblemsComponent(markerService, panelService, revealTarget);
         testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     });
 

@@ -14,7 +14,7 @@ import { LifecycleService } from "./lifecycleService.ts";
 function makeServices() {
     const body = new BodyElement();
     const testApp = TestApp.create(body, new Size(80, 24));
-    const dialogService = new DialogService(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)));
+    const dialogService = new DialogService();
     dialogService.attachHost(body);
     testApp.render();
     const lifecycle = new LifecycleService(dialogService);

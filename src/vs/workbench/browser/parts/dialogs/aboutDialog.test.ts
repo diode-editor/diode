@@ -13,7 +13,7 @@ import { AboutDialog } from "./aboutDialog.tsx";
 
 function mount() {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
-    const dialog = new AboutDialog(themeService);
+    const dialog = new AboutDialog();
     const testApp = TestApp.createWithContent(dialog.view, new Size(80, 24));
     const okButton = testApp.querySelector("ButtonElement") as ButtonElement;
     return { dialog, testApp, okButton };

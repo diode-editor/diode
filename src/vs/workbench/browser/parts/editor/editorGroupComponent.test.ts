@@ -1,16 +1,16 @@
 import * as fs from "node:fs";
-import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
-import type { EditorTabStripElement } from "../../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
-import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
+import type { EditorTabStripElement } from "../../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
+import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -18,6 +18,7 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/i
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
+import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorService } from "../../../services/editor/browser/editorService.ts";
@@ -48,7 +49,7 @@ function createEditorGroup(
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
     );
-    const component = new EditorGroupComponent(service, themeService);
+    const component = new EditorGroupComponent(service);
     return { service, component };
 }
 
@@ -57,7 +58,9 @@ function tabStrip(component: EditorGroupComponent): EditorTabStripElement {
 }
 
 function tabLabels(component: EditorGroupComponent): string[] {
-    return tabStrip(component).getItemElements().map((item) => item.getLabel());
+    return tabStrip(component)
+        .getItemElements()
+        .map((item) => item.getLabel());
 }
 
 describe("EditorGroupComponent", () => {
@@ -183,7 +186,7 @@ describe("EditorGroupComponent", () => {
 
         it("пустая группа закрашена editor.background ниже tab strip", () => {
             const { component } = createEditorGroup();
-            const backend = renderElement(component.view, 10, 5, { resolveStyles: true });
+            const backend = renderElement(component.view, 10, 5, { themeVars: true });
 
             const bg = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("editor.background");
             for (let y = 1; y < 5; y++) {
@@ -317,11 +320,12 @@ describe("EditorGroupComponent", () => {
             const { service, component } = createEditorGroup({ themeService });
             service.openFile(writeFile("a.ts", "a"));
 
-            expect(() => {
-                themeService.setTheme(emptyTheme);
-            }).not.toThrow();
-            expect(component.view.style.fg).toBe(0xd4d4d4); // default dark "editor.foreground"
-            expect(component.view.style.bg).toBe(0x1e1e1e); // default dark "editor.background"
+            // fromThemeFile слоит дефолты реестра ПОД цвета темы — токены
+            // editor.* всегда резолвятся, даже на пустой теме.
+            applyThemeVars(component.view, emptyTheme);
+            expect(() => renderElement(component.view, 10, 5, { resolveStyles: true })).not.toThrow();
+            expect(component.view.resolvedStyle.fg).toBe(0xd4d4d4); // default dark "editor.foreground"
+            expect(component.view.resolvedStyle.bg).toBe(0x1e1e1e); // default dark "editor.background"
         });
     });
 });

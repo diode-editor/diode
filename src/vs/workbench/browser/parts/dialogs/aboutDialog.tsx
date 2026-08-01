@@ -6,7 +6,6 @@ import { PaddingContainer } from "../../../../../../tuidom/ui/layout/paddingCont
 import { VStack } from "../../../../../../tuidom/ui/layout/vStackElement.ts";
 import { TextLabel } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import { APP_NAME, REPO_URL, VEXX_VERSION } from "../../../../base/common/version.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import type { IDialogStyles } from "./dialogComponent.ts";
 import { DialogComponent } from "./dialogComponent.ts";
@@ -17,13 +16,13 @@ export class AboutDialog extends DialogComponent {
 
     private readonly okButton: ButtonElement;
 
-    public constructor(themeService: ThemeService) {
-        super(themeService, "aboutDialog");
+    public constructor() {
+        super("aboutDialog");
 
         this.okButton = new ButtonElement("OK");
         this.okButton.onActivate = () => this.onClose?.();
         this.okButton.layoutStyle = { width: hflexFit(), height: 1 };
-        this.initStyles();
+        this.rebuild();
     }
 
     public focusDefault(): void {

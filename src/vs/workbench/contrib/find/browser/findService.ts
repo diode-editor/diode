@@ -5,8 +5,8 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import { findMatches } from "../../../../editor/contrib/find/findMatches.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import type { FindComponent } from "./findComponent.ts";

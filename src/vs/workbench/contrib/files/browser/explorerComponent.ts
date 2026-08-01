@@ -9,10 +9,9 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { ThemedComponent } from "../../../browser/component.ts";
+import { Component } from "../../../browser/component.ts";
 import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
+import {} from "../../../services/themes/common/themeTokens.ts";
 
 import type { ExplorerService } from "./explorerService.ts";
 import { ExplorerServiceDIToken } from "./explorerService.ts";
@@ -39,13 +38,12 @@ interface ExplorerViewParts {
  * точкой `MenuId.ExplorerContext`, пункты исполняют команды
  * `explorer.*`/`fileOperations.*`.
  */
-export class ExplorerComponent extends ThemedComponent {
+export class ExplorerComponent extends Component {
     public static dependencies = [
         ExplorerServiceDIToken,
         CommandRegistryDIToken,
         FileClipboardDIToken,
         ContextMenuServiceDIToken,
-        ThemeServiceDIToken,
     ] as const;
 
     private parts: ExplorerViewParts | null = null;
@@ -55,9 +53,8 @@ export class ExplorerComponent extends ThemedComponent {
         private readonly commands: CommandRegistry,
         private readonly fileClipboard: IFileClipboard,
         private readonly contextMenuService: ContextMenuService,
-        themeService: ThemeService,
     ) {
-        super(themeService);
+        super();
         this.register(
             explorerService.onDidChangeRoot(() => {
                 this.rebuild();
@@ -66,7 +63,6 @@ export class ExplorerComponent extends ThemedComponent {
         if (explorerService.provider) {
             this.rebuild();
         }
-        this.initStyles();
     }
 
     /** Корневой контрол. До первого setRootPath сервиса дерева ещё нет (как и раньше у контроллера). */
@@ -86,6 +82,7 @@ export class ExplorerComponent extends ThemedComponent {
         const scrollBars = new ScrollBarDecorator(tree);
         const root = new TitledPanelElement("  EXPLORER", scrollBars);
         root.id = EXPLORER_VIEWLET_ID;
+        root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.parts = { tree, scrollBars, root };
 
         tree.onExpandedChanged = (node, expanded) => {
@@ -105,7 +102,6 @@ export class ExplorerComponent extends ThemedComponent {
         };
 
         this.explorerService.attachView(tree);
-        this.updateStyles();
     }
 
     private showContextMenu(
@@ -123,14 +119,5 @@ export class ExplorerComponent extends ThemedComponent {
             menuId: MenuId.ExplorerContext,
             menuContext: { path: filePath, canPaste: this.fileClipboard.read() !== null },
         });
-    }
-
-    protected updateStyles(): void {
-        // Темы могут приходить и до корня воркспейса — дерева тогда ещё нет.
-        if (!this.parts) return;
-        this.parts.root.style = {
-            fg: this.theme.getRequiredColor("sideBar.foreground"),
-            bg: this.theme.getRequiredColor("sideBar.background"),
-        };
     }
 }

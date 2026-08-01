@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
-import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
+import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";

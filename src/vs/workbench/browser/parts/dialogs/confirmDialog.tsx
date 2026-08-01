@@ -5,7 +5,6 @@ import { HFlex, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom
 import { PaddingContainer } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
 import { VStack } from "../../../../../../tuidom/ui/layout/vStackElement.ts";
 import { TextLabel } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import type { IDialogStyles } from "./dialogComponent.ts";
 import { DialogComponent } from "./dialogComponent.ts";
@@ -39,8 +38,8 @@ export class ConfirmDialog extends DialogComponent {
     private readonly confirmButton: ButtonElement;
     private readonly cancelButton: ButtonElement;
 
-    public constructor(themeService: ThemeService, options: ConfirmDialogOptions) {
-        super(themeService, "confirmDialog");
+    public constructor(options: ConfirmDialogOptions) {
+        super("confirmDialog");
         this.options = options;
         this.confirmButton = new ButtonElement(options.confirmLabel);
         this.cancelButton = new ButtonElement(options.cancelLabel ?? "Cancel");
@@ -48,7 +47,7 @@ export class ConfirmDialog extends DialogComponent {
         this.cancelButton.onActivate = () => this.onCancel?.();
         this.confirmButton.layoutStyle = { width: hflexFit(), height: 1 };
         this.cancelButton.layoutStyle = { width: hflexFit(), height: 1 };
-        this.initStyles();
+        this.rebuild();
     }
 
     public focusDefault(): void {

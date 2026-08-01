@@ -7,7 +7,7 @@ import { createCursorSelection, createSelection } from "../common/core/iSelectio
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
-import { EditorElement, unthemedEditorStyles } from "./editorElement.ts";
+import { EditorElement } from "./editorElement.ts";
 
 // Default occurrence-highlight background (DEFAULT_OCCURRENCE_HIGHLIGHT_BG in EditorElement).
 const OCCURRENCE_BG = packRgb(71, 71, 71);
@@ -51,7 +51,7 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
     it("uses the configured wordHighlight background when set", () => {
         const custom = packRgb(90, 10, 10);
         const { app, editor, viewState, gw } = createEditor("foo foo");
-        editor.setStyles({ ...unthemedEditorStyles, occurrenceHighlightBackground: custom });
+        editor.setStyleVars({ "editor.wordHighlightBackground": custom });
         viewState.selections = [createCursorSelection(0, 0)];
         app.render();
 

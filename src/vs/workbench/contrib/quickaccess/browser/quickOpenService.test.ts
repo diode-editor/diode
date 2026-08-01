@@ -34,7 +34,7 @@ import { QUICK_ACCESS_PROVIDERS } from "./quickAccessProviders.ts";
 import { QuickOpenService } from "./quickOpenService.ts";
 
 function makeComponent(): QuickInputComponent {
-    return new QuickInputComponent(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)));
+    return new QuickInputComponent();
 }
 
 interface FakeGotoLineEditor extends IGotoLineEditor {

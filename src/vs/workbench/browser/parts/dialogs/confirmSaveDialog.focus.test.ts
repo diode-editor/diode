@@ -12,7 +12,7 @@ import { ConfirmSaveDialog } from "./confirmSaveDialog.tsx";
 
 function mount(filename = "test.ts") {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
-    const dialog = new ConfirmSaveDialog(themeService, filename);
+    const dialog = new ConfirmSaveDialog(filename);
     const testApp = TestApp.createWithContent(dialog.view, new Size(80, 24));
     const buttons = testApp.querySelectorAll("ButtonElement") as ButtonElement[];
     return { dialog, testApp, buttons };

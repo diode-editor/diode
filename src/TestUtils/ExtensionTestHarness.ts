@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +24,8 @@ import {
     type IExtensionHostConfigProvider,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
+
+import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
 
 const SUBPROCESS_ENTRY = fileURLToPath(
     new URL("../vs/workbench/services/extensions/node/__fixtures__/subprocessEntry.ts", import.meta.url),
@@ -157,7 +158,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
     );
-    const groupComponent = new EditorGroupComponent(group, themeService);
+    const groupComponent = new EditorGroupComponent(group);
 
     const adapter = new EditorOptionsServiceAdapter(group);
     const commandRegistry = new CommandRegistry();

@@ -4,27 +4,27 @@ import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import type { SelectBoxElement } from "../../../../tuidom/ui/selectbox/selectBoxElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { Uri } from "../../base/common/uri.ts";
+import { createSelection } from "../../editor/common/core/iSelection.ts";
+import { CHECKED_ICON } from "../../platform/actions/common/menuRegistry.ts";
+import { MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
+import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogService } from "../../platform/log/common/logService.ts";
 import { RingBufferSink } from "../../platform/log/common/ringBufferSink.ts";
-import { PROBLEMS_VIEW_ID } from "../contrib/markers/browser/problemsComponent.ts";
-import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
-import { createSelection } from "../../editor/common/core/iSelection.ts";
-import { Uri } from "../../base/common/uri.ts";
 import { loadState, StateService } from "../../platform/state/node/stateService.ts";
-import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
 import { EditorOptionsServiceAdapter } from "../api/browser/editorOptionsServiceAdapter.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
-import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
-import { WorkbenchStateServiceDIToken } from "./workbenchStateService.ts";
-
+import { PROBLEMS_VIEW_ID } from "../contrib/markers/browser/problemsComponent.ts";
+import { SwitchOutputMenu } from "../contrib/output/browser/outputChannelActions.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import { LogHistoryDIToken, OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../services/output/common/output.ts";
 import { OutputChannelRegistry } from "../services/output/common/outputChannelRegistry.ts";
 import { OutputServiceDIToken } from "../services/output/common/outputService.ts";
-import { CHECKED_ICON } from "../../platform/actions/common/menuRegistry.ts";
-import { MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
-import { SwitchOutputMenu } from "../contrib/output/browser/outputChannelActions.ts";
+
+import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
+import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
+import { WorkbenchStateServiceDIToken } from "./workbenchStateService.ts";
 
 const TOGGLE_OUTPUT = "workbench.action.output.toggleOutput";
 
@@ -526,9 +526,7 @@ describe("Workbench — Output: потребители, которым нужн�
 
         // Активная вкладка — открытый файл; Output пути на диске не имеет, и
         // индекс схлопывался бы в -1.
-        expect(h.container.get(EditorServiceDIToken).getActiveTabEditor()?.absoluteFilePath).toBe(
-            ws.path("alpha.txt"),
-        );
+        expect(h.container.get(EditorServiceDIToken).getActiveTabEditor()?.absoluteFilePath).toBe(ws.path("alpha.txt"));
     });
 });
 

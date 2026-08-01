@@ -8,7 +8,7 @@ import { createRange } from "../common/core/iRange.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
-import { EditorElement, unthemedEditorStyles } from "./editorElement.ts";
+import { EditorElement } from "./editorElement.ts";
 
 function makeEditor(content: string): EditorElement {
     const doc = new TextDocument(content);
@@ -23,7 +23,7 @@ const WARNING_FG = packRgb(1, 2, 3);
 describe("EditorElement — marker squiggle decorations", () => {
     it("paints the severity foreground over the marker range only", () => {
         const editor = makeEditor("abcdef");
-        editor.setStyles({ ...unthemedEditorStyles, warningForeground: WARNING_FG });
+        editor.setStyleVars({ "editorWarning.foreground": WARNING_FG });
         editor.markerDecorations = [{ range: createRange(0, 0, 0, 3), severity: MarkerSeverity.Warning }];
 
         const app = TestApp.createWithContent(editor, new Size(40, 4));
@@ -39,14 +39,14 @@ describe("EditorElement — marker squiggle decorations", () => {
 
     it("maps each severity to its configured colour", () => {
         const cases = [
-            { severity: MarkerSeverity.Error, field: "errorForeground" as const, color: packRgb(200, 0, 0) },
-            { severity: MarkerSeverity.Warning, field: "warningForeground" as const, color: packRgb(200, 160, 0) },
-            { severity: MarkerSeverity.Info, field: "infoForeground" as const, color: packRgb(0, 120, 255) },
-            { severity: MarkerSeverity.Hint, field: "hintForeground" as const, color: packRgb(180, 180, 180) },
+            { severity: MarkerSeverity.Error, token: "editorError.foreground", color: packRgb(200, 0, 0) },
+            { severity: MarkerSeverity.Warning, token: "editorWarning.foreground", color: packRgb(200, 160, 0) },
+            { severity: MarkerSeverity.Info, token: "editorInfo.foreground", color: packRgb(0, 120, 255) },
+            { severity: MarkerSeverity.Hint, token: "editorHint.foreground", color: packRgb(180, 180, 180) },
         ];
-        for (const { severity, field, color } of cases) {
+        for (const { severity, token, color } of cases) {
             const editor = makeEditor("abcdef");
-            editor.setStyles({ ...unthemedEditorStyles, [field]: color });
+            editor.setStyleVars({ [token]: color });
             editor.markerDecorations = [{ range: createRange(0, 0, 0, 2), severity }];
             const app = TestApp.createWithContent(editor, new Size(40, 4));
             app.render();

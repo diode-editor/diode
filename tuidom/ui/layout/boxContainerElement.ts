@@ -2,24 +2,25 @@ import { DEFAULT_COLOR } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
 import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
+import type { StyleColor } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
 export interface BoxContainerProps {
-    bg?: number;
-    fg?: number;
-    borderFg?: number;
+    bg?: StyleColor;
+    fg?: StyleColor;
+    borderFg?: StyleColor;
     title?: string;
-    titleFg?: number;
+    titleFg?: StyleColor;
     hasSeparator?: boolean;
     children?: JsxChild;
 }
 
 export class BoxContainerElement extends TUIElement {
-    private bg: number;
-    private fg: number;
-    private borderFg: number;
+    private bg: StyleColor;
+    private fg: StyleColor;
+    private borderFg: StyleColor;
     private title: string | undefined;
-    private titleFg: number;
+    private titleFg: StyleColor;
     private hasSeparator: boolean;
     private child: TUIElement | null = null;
 
@@ -32,17 +33,17 @@ export class BoxContainerElement extends TUIElement {
         this.hasSeparator = false;
     }
 
-    public setBg(value: number): void {
+    public setBg(value: StyleColor): void {
         this.bg = value;
         this.markDirty();
     }
 
-    public setFg(value: number): void {
+    public setFg(value: StyleColor): void {
         this.fg = value;
         this.markDirty();
     }
 
-    public setBorderFg(value: number): void {
+    public setBorderFg(value: StyleColor): void {
         this.borderFg = value;
         this.markDirty();
     }
@@ -52,7 +53,7 @@ export class BoxContainerElement extends TUIElement {
         this.markDirty();
     }
 
-    public setTitleFg(value: number): void {
+    public setTitleFg(value: StyleColor): void {
         this.titleFg = value;
         this.markDirty();
     }
@@ -121,12 +122,20 @@ export class BoxContainerElement extends TUIElement {
 
         // Fill background + frame (separator row when title has one).
         const separators = this.title && this.hasSeparator ? [2] : undefined;
-        context.drawBox(0, 0, w, h, { fg: this.borderFg, bg: this.bg, fill: true, separators });
+        context.drawBox(0, 0, w, h, {
+            fg: this.resolveColor(this.borderFg),
+            bg: this.resolveColor(this.bg),
+            fill: true,
+            separators,
+        });
 
         // Title row (y=1)
         if (this.title) {
             const titleX = Math.floor((w - this.title.length) / 2);
-            context.drawText(titleX, 1, this.title, { fg: this.titleFg, bg: this.bg });
+            context.drawText(titleX, 1, this.title, {
+                fg: this.resolveColor(this.titleFg),
+                bg: this.resolveColor(this.bg),
+            });
         }
 
         // Render child

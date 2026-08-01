@@ -1,3 +1,4 @@
+import { ContextMenuController } from "../vs/editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { MenuRegistry } from "../vs/platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../vs/platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
@@ -5,7 +6,6 @@ import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../vs/platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../vs/platform/keybinding/common/keybindingRegistry.ts";
-import { ContextMenuController } from "../vs/editor/contrib/contextmenu/browser/contextMenuController.ts";
 
 /**
  * Editor-контроллер контекстного меню для тестов, которым нужен EditorService,

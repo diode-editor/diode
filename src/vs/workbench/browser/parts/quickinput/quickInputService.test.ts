@@ -17,7 +17,7 @@ function createService(): {
     body: BodyElement;
     testApp: TestApp;
 } {
-    const component = new QuickInputComponent(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)));
+    const component = new QuickInputComponent();
     const service = new QuickInputService(component);
     const body = new BodyElement();
     const testApp = TestApp.create(body, new Size(80, 24));
@@ -97,7 +97,7 @@ describe("QuickInputService.input", () => {
 
     it("input() without an attached host is a no-op for positioning", () => {
         // No attachHost() → host is null and there is no overlay session.
-        const component = new QuickInputComponent(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)));
+        const component = new QuickInputComponent();
         const service = new QuickInputService(component);
         // input() reaches updatePosition, which early-returns without throwing.
         expect(() => void service.input({ value: "x" })).not.toThrow();

@@ -15,6 +15,8 @@ import type { InputWidgetService } from "../contrib/files/browser/inputWidgetSer
 import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
+import { SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
+import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
@@ -25,12 +27,11 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
-import { SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
-import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
-import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
-import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
+
+import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
+import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
 export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("WorkbenchContextKeys");
 

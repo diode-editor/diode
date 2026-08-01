@@ -447,7 +447,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private createAndWireEditor(): TextEditorPane {
         const model = new TextFileModel(this.languageService, this.undoRedoService);
         const component = new EditorComponent(
-            this.themeService,
             this.tokenizationRegistry,
             this.tokenStyleResolver,
             model,

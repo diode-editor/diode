@@ -73,7 +73,6 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
         commands,
         new ContextMenuService(menuService),
         opts.state ?? NULL_STATE_SERVICE,
-        themeService,
     );
 
     const executed: [string, unknown[]][] = [];
@@ -100,7 +99,7 @@ function uriOf(rel: string): string {
 }
 
 function frame(h: IHarness, w = 40, ht = 10): string {
-    return renderElement(h.component.view, w, ht, { resolveStyles: true }).screenToString();
+    return renderElement(h.component.view, w, ht, { themeVars: true }).screenToString();
 }
 
 function pressEnter(h: IHarness): void {

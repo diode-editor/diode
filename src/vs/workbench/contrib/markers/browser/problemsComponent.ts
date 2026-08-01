@@ -4,12 +4,11 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
-import { ThemedComponent } from "../../../browser/component.ts";
+import { Component } from "../../../browser/component.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
 import { MarkerServiceDIToken } from "../../../common/coreTokens.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
+import {} from "../../../services/themes/common/themeTokens.ts";
 
 import { type ProblemNode, ProblemsTreeDataProvider } from "./problemsTreeDataProvider.ts";
 
@@ -44,13 +43,8 @@ export const ProblemsComponentDIToken = token<ProblemsComponent>("ProblemsCompon
  * контент вкладки — null (панель рендерит placeholder). Активация маркера
  * раскрывает его позицию через шов {@link IMarkerRevealTarget}.
  */
-export class ProblemsComponent extends ThemedComponent {
-    public static dependencies = [
-        MarkerServiceDIToken,
-        PanelServiceDIToken,
-        MarkerRevealTargetDIToken,
-        ThemeServiceDIToken,
-    ] as const;
+export class ProblemsComponent extends Component {
+    public static dependencies = [MarkerServiceDIToken, PanelServiceDIToken, MarkerRevealTargetDIToken] as const;
 
     /** The Problems tree — доступен тестам и оркестрации (фокус, выделение). */
     public readonly tree: TreeViewElement<ProblemNode>;
@@ -64,11 +58,18 @@ export class ProblemsComponent extends ThemedComponent {
         private readonly markerService: MarkerService,
         private readonly panelService: PanelService,
         private readonly revealTarget: IMarkerRevealTarget,
-        themeService: ThemeService,
     ) {
-        super(themeService);
+        super();
         this.provider = new ProblemsTreeDataProvider();
         this.tree = new TreeViewElement(this.provider);
+        this.tree.style = { fg: "editor.foreground", bg: "panel.background" };
+        // Имена токенов — цвета резолвит дерево (resolveColor) в своём scope.
+        this.provider.severityColors = {
+            error: "editorError.foreground",
+            warning: "editorWarning.foreground",
+            info: "editorInfo.foreground",
+            hint: "editorHint.foreground",
+        };
         this.view = new ScrollBarDecorator(this.tree);
         this.view.id = "problemsView";
 
@@ -88,7 +89,6 @@ export class ProblemsComponent extends ThemedComponent {
                 this.rebuild();
             }),
         );
-        this.initStyles();
     }
 
     /** Focuses the Problems tree (used by the "Toggle Problems" command). */
@@ -134,19 +134,5 @@ export class ProblemsComponent extends ThemedComponent {
         const start = node.marker.range.start;
         editor.goToPosition(start.line, start.character);
         editor.revealRange(node.marker.range);
-    }
-
-    protected updateStyles(): void {
-        this.tree.style = {
-            fg: this.theme.getRequiredColor("editor.foreground"),
-            bg: this.theme.getRequiredColor("panel.background"),
-        };
-        this.provider.severityColors = {
-            error: this.theme.getRequiredColor("editorError.foreground"),
-            warning: this.theme.getRequiredColor("editorWarning.foreground"),
-            info: this.theme.getRequiredColor("editorInfo.foreground"),
-            hint: this.theme.getRequiredColor("editorHint.foreground"),
-        };
-        this.rebuild();
     }
 }

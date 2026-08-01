@@ -178,12 +178,16 @@ describe("StatusBarComponent", () => {
         it("запись без onClick инертна", () => {
             const { component } = createStatusBarHarness();
             // "legacy" — сегмент терминального окружения, колбэка у него нет.
-            expect(() => clickSegment(component.view, "legacy")).not.toThrow();
+            expect(() => {
+                clickSegment(component.view, "legacy");
+            }).not.toThrow();
         });
 
         it("clickSegment по несуществующему сегменту бросает", () => {
             const { component } = createStatusBarHarness();
-            expect(() => clickSegment(component.view, "no-such-segment")).toThrow('no segment "no-such-segment"');
+            expect(() => {
+                clickSegment(component.view, "no-such-segment");
+            }).toThrow('no segment "no-such-segment"');
         });
 
         it("клик по лейблу снятой записи — no-op (лейбл остался в пуле)", () => {

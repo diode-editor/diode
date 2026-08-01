@@ -1,3 +1,4 @@
+import type { StyleColor } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import { HFlexElement, hflexFill, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
@@ -17,10 +18,10 @@ export const GIT_STATUS_COLOR_IDS = [
 
 /** Цвета содержимого строк Changes (выделение/hover красит сам ListViewElement). */
 export interface IScmRowStyles {
-    /** `gitDecoration.*` id → упакованный RGB из темы. */
-    readonly statusColors: Record<string, number>;
+    /** `gitDecoration.*` id → цвет (число или имя токена темы). */
+    readonly statusColors: Record<string, StyleColor>;
     /** Глиф инлайн-кнопки Open File. */
-    readonly dimFg: number;
+    readonly dimFg: StyleColor;
 }
 
 /** nf-cod-go_to_file () — инлайн-кнопка «открыть сам файл» (клик делегирует контейнер). */
@@ -76,7 +77,7 @@ export function buildFileRow(
 
 /** Перекрашивает/перезаполняет файловую строку (стрим-обновление и смена темы). */
 export function formatFileRow(parts: IScmFileRowParts, change: IScmChange, label: string, styles: IScmRowStyles): void {
-    const color: number | undefined = styles.statusColors[change.colorId];
+    const color: StyleColor | undefined = styles.statusColors[change.colorId];
 
     parts.name.setText(label);
     parts.name.clearCharStyles();

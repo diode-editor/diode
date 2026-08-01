@@ -6,9 +6,8 @@ import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElem
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStatusBarEntry, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
-import { ThemedComponent } from "../../component.ts";
+import {} from "../../../services/themes/common/themeTokens.ts";
+import { Component } from "../../component.ts";
 
 export const StatusBarComponentDIToken = token<StatusBarComponent>("StatusBarComponent");
 
@@ -28,8 +27,8 @@ const SEPARATOR_WIDTH = 2;
  * Пересборка `replaceChildren` происходит лишь при смене числа сегментов;
  * лейблы и разделители живут в монотонно растущих пулах.
  */
-export class StatusBarComponent extends ThemedComponent {
-    public static dependencies = [StatusBarServiceDIToken, ThemeServiceDIToken] as const;
+export class StatusBarComponent extends Component {
+    public static dependencies = [StatusBarServiceDIToken] as const;
 
     public readonly view: HFlexElement;
 
@@ -49,20 +48,19 @@ export class StatusBarComponent extends ThemedComponent {
     private currentLeft: readonly IStatusBarEntry[] = [];
     private currentRight: readonly IStatusBarEntry[] = [];
 
-    public constructor(
-        private readonly statusBarService: StatusBarService,
-        themeService: ThemeService,
-    ) {
-        super(themeService);
+    public constructor(private readonly statusBarService: StatusBarService) {
+        super();
         this.view = new HFlexElement();
         this.view.id = "statusBar";
+        // Лейблы, паддинги и разделители своих цветов не задают — наследуют
+        // fg/bg полосы через каскад; токены резолвит тема на корне.
+        this.view.style = { fg: "statusBar.foreground", bg: "statusBar.background" };
         this.register(
             this.statusBarService.onDidChangeEntries(() => {
                 this.renderEntries();
             }),
         );
         this.renderEntries();
-        this.initStyles();
     }
 
     private renderEntries(): void {
@@ -75,8 +73,12 @@ export class StatusBarComponent extends ThemedComponent {
 
         this.ensureLabels(this.leftLabels, "left", left.length);
         this.ensureLabels(this.rightLabels, "right", right.length);
-        left.forEach((entry, i) => this.syncLabelText(this.leftLabels[i], entry.text));
-        right.forEach((entry, i) => this.syncLabelText(this.rightLabels[i], entry.text));
+        left.forEach((entry, i) => {
+            this.syncLabelText(this.leftLabels[i], entry.text);
+        });
+        right.forEach((entry, i) => {
+            this.syncLabelText(this.rightLabels[i], entry.text);
+        });
 
         if (structureChanged) {
             this.rebuildChildren();
@@ -141,13 +143,5 @@ export class StatusBarComponent extends ThemedComponent {
         push(this.padRight, hflexFixed(1));
 
         this.view.replaceChildren(children);
-    }
-
-    protected updateStyles(): void {
-        const bg = this.theme.getRequiredColor("statusBar.background");
-        const fg = this.theme.getRequiredColor("statusBar.foreground");
-        // Лейблы, паддинги и разделители своих цветов не задают — наследуют
-        // fg/bg полосы через каскад стилей.
-        this.view.style = { fg, bg };
     }
 }

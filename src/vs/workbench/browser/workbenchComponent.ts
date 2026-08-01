@@ -6,10 +6,10 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import { ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
-import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
 import type { KeybindingRegistry } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
+import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
 import { UserKeybindingsDIToken } from "../../vexx/modules/keybindingsModule.ts";
 import { ServiceAccessorDIToken, TuiApplicationDIToken } from "../common/coreTokens.ts";
 import {
@@ -21,7 +21,6 @@ import {
     ExplorerComponent,
     ExplorerComponentDIToken,
 } from "../contrib/files/browser/explorerComponent.ts";
-import { SEARCH_VIEWLET_ID, SearchComponent, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import { ExplorerService, ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
 import { FileOperationsService, FileOperationsServiceDIToken } from "../contrib/files/browser/fileOperationsService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
@@ -31,6 +30,11 @@ import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsCom
 import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
 import { ChangesComponent, ChangesComponentDIToken, SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
+import {
+    SEARCH_VIEWLET_ID,
+    SearchComponent,
+    SearchComponentDIToken,
+} from "../contrib/search/browser/searchComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
 import { TerminalPanelComponentDIToken } from "../contrib/terminal/browser/terminalPanelComponent.ts";
@@ -52,7 +56,7 @@ import type { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import { builtinActions } from "./actions/builtinActions.ts";
-import { ThemedComponent } from "./component.ts";
+import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
 import { EditorGroupComponent, EditorGroupComponentDIToken } from "./parts/editor/editorGroupComponent.ts";
 import { PanelComponentDIToken } from "./parts/panel/panelComponent.ts";
@@ -87,7 +91,7 @@ export const WorkbenchComponentDIToken = token<WorkbenchComponent>("WorkbenchCom
  * Здесь же остаётся квит-флоу ({@link requestQuit} + doQuit: teardown TUI и
  * `process.exit`; вызывается через шов `QuitHandlerDIToken` из `quitAction`).
  */
-export class WorkbenchComponent extends ThemedComponent {
+export class WorkbenchComponent extends Component {
     public static dependencies = [
         EditorServiceDIToken,
         CommandRegistryDIToken,
@@ -101,6 +105,7 @@ export class WorkbenchComponent extends ThemedComponent {
         LifecycleServiceDIToken,
     ] as const;
     public readonly view: BodyElement;
+    private readonly themeService: ThemeService;
     public readonly workbenchLayout: WorkbenchLayoutElement;
 
     private editorService: EditorService;
@@ -136,7 +141,8 @@ export class WorkbenchComponent extends ThemedComponent {
         dialogService: DialogService,
         lifecycleService: LifecycleService,
     ) {
-        super(themeService);
+        super();
+        this.themeService = themeService;
         this.terminalEnv = terminalEnv;
         this.dialogService = this.register(dialogService);
         this.lifecycleService = lifecycleService;
@@ -239,7 +245,14 @@ export class WorkbenchComponent extends ThemedComponent {
         const menuBarComponent = this.register(accessor.get(MenuBarComponentDIToken));
         this.view.setMenuBar(menuBarComponent.view);
 
-        this.initStyles();
+        // Единственная точка «тема → корневой var-scope» (Н3): onThemeChange
+        // файрит сразу с текущей темой, дальше цвета расходятся каскадом токенов.
+        this.register(
+            this.themeService.onThemeChange((theme) => {
+                applyThemeVars(this.view, theme);
+            }),
+        );
+        this.view.style = { fg: "foreground", bg: "editor.background" };
     }
 
     public mount(): void {
@@ -369,16 +382,6 @@ export class WorkbenchComponent extends ThemedComponent {
 
     public focusEditor(): void {
         this.editorService.focusEditor();
-    }
-
-    protected updateStyles(): void {
-        // Единственная точка «тема → корневой var-scope» (Н3): дальше цвета
-        // расходятся каскадом токенов, пуши структур по виджетам не нужны.
-        applyThemeVars(this.view, this.theme);
-        this.view.style = {
-            fg: this.theme.getRequiredColor("foreground"),
-            bg: this.theme.getRequiredColor("editor.background"),
-        };
     }
 
     public showConfirmSaveDialog(

@@ -12,7 +12,7 @@ import { DialogService } from "./dialogService.ts";
 function makeHost() {
     const body = new BodyElement();
     const testApp = TestApp.create(body, new Size(80, 24));
-    const service = new DialogService(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)));
+    const service = new DialogService();
     service.attachHost(body);
     testApp.render();
     return { body, testApp, service };
@@ -143,7 +143,7 @@ describe("DialogService — about", () => {
 
 describe("DialogService — до первого показа", () => {
     it("геттеры открытых диалогов отдают null на свежем сервисе", () => {
-        const service = new DialogService(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)));
+        const service = new DialogService();
 
         expect(service.getOpenConfirmSaveDialog()).toBeNull();
         expect(service.getOpenConfirmDialog()).toBeNull();
@@ -153,7 +153,7 @@ describe("DialogService — до первого показа", () => {
 
 describe("DialogService — host", () => {
     it("бросает понятную ошибку, если host не прикреплён", () => {
-        const service = new DialogService(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)));
+        const service = new DialogService();
 
         expect(() => {
             service.showAboutDialog();

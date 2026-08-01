@@ -1,10 +1,10 @@
 import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
-import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
-import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuRegistry.ts";
+import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import { OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
 import type { OutputService } from "../../../services/output/common/outputService.ts";
@@ -29,11 +29,7 @@ const SHOW_CHANNEL_PREFIX = "workbench.action.output.show.";
  * этот же флаг превращает submenu в `SelectBox`.
  */
 export class OutputChannelActions extends Disposable implements IWorkbenchContribution {
-    public static dependencies = [
-        OutputServiceDIToken,
-        MenuRegistryDIToken,
-        CommandRegistryDIToken,
-    ] as const;
+    public static dependencies = [OutputServiceDIToken, MenuRegistryDIToken, CommandRegistryDIToken] as const;
 
     private readonly registered = new Map<string, IDisposable[]>();
 

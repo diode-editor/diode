@@ -1,4 +1,5 @@
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
+import { INHERITED_BG, INHERITED_FG } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
@@ -13,7 +14,7 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import { ThemedComponent } from "../../../browser/component.ts";
+import { Component } from "../../../browser/component.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type {
@@ -24,8 +25,6 @@ import type {
     ITextSearchService,
 } from "../../../services/search/common/textSearch.ts";
 import { TextSearchServiceDIToken } from "../../../services/search/common/textSearch.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 import type { ExplorerService } from "../../files/browser/explorerService.ts";
 import { ExplorerServiceDIToken } from "../../files/browser/explorerService.ts";
 
@@ -125,13 +124,12 @@ class SearchViewElement extends TUIElement {
  * {@link import("../../files/browser/explorerComponent.ts").ExplorerComponent}
  * (TitledPanel + `sideBar.*` colors).
  */
-export class SearchComponent extends ThemedComponent {
+export class SearchComponent extends Component {
     public static dependencies = [
         TextSearchServiceDIToken,
         ExplorerServiceDIToken,
         SearchRevealTargetDIToken,
         StateServiceDIToken,
-        ThemeServiceDIToken,
     ] as const;
 
     private readonly root: TitledPanelElement;
@@ -171,9 +169,8 @@ export class SearchComponent extends ThemedComponent {
         private readonly explorerService: ExplorerService,
         private readonly revealTarget: ISearchRevealTarget,
         private readonly stateService: IStateService,
-        themeService: ThemeService,
     ) {
-        super(themeService);
+        super();
 
         this.viewMode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
 
@@ -218,13 +215,15 @@ export class SearchComponent extends ThemedComponent {
 
         this.root = new TitledPanelElement("  SEARCH", new SearchViewElement(header, this.scrollBars));
         this.root.id = "search";
+        this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+        this.countLabel.setColors("descriptionForeground", INHERITED_BG);
+        for (const gap of this.gaps) gap.setColors(INHERITED_FG, INHERITED_BG);
 
         this.register({
             dispose: () => {
                 this.cancelSearch();
             },
         });
-        this.initStyles();
     }
 
     public get view(): TUIElement {
@@ -420,32 +419,13 @@ export class SearchComponent extends ThemedComponent {
         this.handle = null;
     }
 
+    // Токены темы — резолвит каскад, рестайл строк на смену темы не нужен.
     private rowStyles(): ISearchRowStyles {
         return {
-            dimFg: this.theme.getRequiredColor("descriptionForeground"),
-            matchFg: this.theme.getRequiredColor("sideBar.foreground"),
-            matchBg: this.theme.getRequiredColor("editor.wordHighlightBackground"),
+            dimFg: "descriptionForeground",
+            matchFg: "sideBar.foreground",
+            matchBg: "editor.wordHighlightBackground",
         };
-    }
-
-    protected updateStyles(): void {
-        const fg = this.theme.getRequiredColor("sideBar.foreground");
-        const bg = this.theme.getRequiredColor("sideBar.background");
-        const dimFg = this.theme.getRequiredColor("descriptionForeground");
-
-        this.root.style = { fg, bg };
-        this.countLabel.setColors(dimFg, bg);
-        for (const gap of this.gaps) gap.setColors(fg, bg);
-
-        // Содержимое строк красится их формат-функциями — прогоняем рестайл по всем.
-        const styles = this.rowStyles();
-        for (const meta of this.rowMeta.values()) {
-            if (meta.kind === "file") {
-                formatFileRow(meta.element, meta.group.relPath, meta.group.matches.length, styles);
-            } else {
-                formatMatchRow(meta.element, meta.match, styles);
-            }
-        }
     }
 }
 

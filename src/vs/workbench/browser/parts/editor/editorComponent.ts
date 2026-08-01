@@ -1,13 +1,12 @@
 import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
-import type { OverlayAnchorPosition } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import { TUIContextMenuEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import type { OverlayAnchorPosition } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
-import type { IEditorStyles } from "../../../../editor/browser/editorElement.ts";
-import { EditorElement, unthemedEditorStyles } from "../../../../editor/browser/editorElement.ts";
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
-import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
+import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
@@ -17,10 +16,8 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
-import { getEditorStyles, } from "../../../../platform/theme/browser/defaultStyles.ts";
 import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemedComponent } from "../../component.ts";
+import { Component } from "../../component.ts";
 
 /**
  * View-обвязка одного открытого файла: владеет `EditorElement` (+ его view-state и
@@ -45,7 +42,7 @@ function mergeFoldingRegions(indentation: IFoldingRegion[], provider: readonly I
     return [...byStart.values()].sort((a, b) => a.startLine - b.startLine);
 }
 
-export class EditorComponent extends ThemedComponent {
+export class EditorComponent extends Component {
     public readonly view: ScrollBarDecorator;
 
     public get viewState(): EditorViewState {
@@ -79,12 +76,6 @@ export class EditorComponent extends ThemedComponent {
     private readonly selectionListeners: (() => void)[] = [];
     /** Текущая подписка на view-state; перевешивается при его пересоздании. */
     private viewStateCursorSubscription?: IDisposable;
-    /**
-     * Кэш стилей редактора из последнего updateStyles: EditorElement пересоздаётся
-     * при перечитке модели с диска, и свежий экземпляр должен получить те же
-     * стили без повторного визита темы.
-     */
-    private currentEditorStyles: IEditorStyles = unthemedEditorStyles;
 
     public get foldingRangeSource(): FoldingRangeSource | undefined {
         return this.foldingRangeSourceValue;
@@ -122,12 +113,11 @@ export class EditorComponent extends ThemedComponent {
     }
 
     public constructor(
-        themeService: ThemeService,
         tokenizationRegistry: TokenizationRegistry,
         tokenStyleResolver: ITokenStyleResolver,
         model: TextFileModel,
     ) {
-        super(themeService);
+        super();
 
         this.model = model;
         this.tokenizationRegistry = tokenizationRegistry;
@@ -139,6 +129,7 @@ export class EditorComponent extends ThemedComponent {
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = tokenStyleResolver;
         this.editor.focusable = true;
+        this.applyEditorStyle();
         this.attachUndoRouting();
         this.attachSelectionForwarding();
         this.view = new ScrollBarDecorator(this.editor);
@@ -190,7 +181,6 @@ export class EditorComponent extends ThemedComponent {
             },
         });
         this.recomputeFoldingRegions();
-        this.initStyles();
     }
 
     /**
@@ -220,7 +210,7 @@ export class EditorComponent extends ThemedComponent {
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = this.tokenStyleResolver;
         this.editor.focusable = true;
-        this.editor.setStyles(this.currentEditorStyles);
+        this.applyEditorStyle();
         this.attachUndoRouting();
         // Курсор сброшен на (0,0) вместе с view-state — перевешиваем форвардинг и
         // сообщаем подписчикам, иначе extension host остался бы со старым выделением.
@@ -239,12 +229,9 @@ export class EditorComponent extends ThemedComponent {
         });
     }
 
-    protected updateStyles(): void {
-        this.currentEditorStyles = getEditorStyles(this.theme);
-        const fg = this.theme.getRequiredColor("editor.foreground");
-        const bg = this.theme.getRequiredColor("editor.background");
-        this.editor.style = { fg, bg };
-        this.editor.setStyles(this.currentEditorStyles);
+    /** Цвета редактора — токены (Н3); ставятся при создании EditorElement. */
+    private applyEditorStyle(): void {
+        this.editor.style = { fg: "editor.foreground", bg: "editor.background" };
     }
 
     public onDidChangeCursorPosition(listener: () => void): IDisposable {

@@ -100,17 +100,11 @@ function make(
     explorer: ExplorerService,
     opts: { reveal?: ISearchRevealTarget; state?: IStateService } = {},
 ): SearchComponent {
-    return new SearchComponent(
-        search,
-        explorer,
-        opts.reveal ?? fakeReveal().target,
-        opts.state ?? NULL_STATE_SERVICE,
-        new ThemeService(theme),
-    );
+    return new SearchComponent(search, explorer, opts.reveal ?? fakeReveal().target, opts.state ?? NULL_STATE_SERVICE);
 }
 
 function render(component: SearchComponent, w = 40, h = 14): MockTerminalBackend {
-    return renderElement(component.view, w, h, { resolveStyles: true });
+    return renderElement(component.view, w, h, { themeVars: true });
 }
 
 function queryInput(component: SearchComponent): InputElement {
@@ -395,18 +389,16 @@ describe("SearchComponent", () => {
     });
 
     it("theme change restyles existing file and match rows in place", () => {
-        const themeService = new ThemeService(theme);
         const component = new SearchComponent(
             fakeSearch([fileMatch("/work/project/a.ts", [[1, "x ", "foo", ""]])]).service,
             fakeExplorer(ROOT),
             fakeReveal().target,
             NULL_STATE_SERVICE,
-            themeService,
         );
         typeQuery(component, "foo");
         const before = render(component).screenToString();
 
-        themeService.setTheme(theme); // повторное применение гоняет рестайл по строкам
+        // Токены резолвит каскад — повторный рендер стабилен без рестайла.
         expect(render(component).screenToString()).toBe(before);
     });
 

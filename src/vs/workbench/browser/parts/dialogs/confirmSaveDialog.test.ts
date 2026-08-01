@@ -15,7 +15,7 @@ import { ConfirmSaveDialog } from "./confirmSaveDialog.tsx";
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 
 function renderDialog(filename: string): MockTerminalBackend {
-    const dialog = new ConfirmSaveDialog(new ThemeService(theme), filename);
+    const dialog = new ConfirmSaveDialog(filename);
     const view = dialog.view;
     const w = view.getMaxIntrinsicWidth(0);
     const h = view.getMaxIntrinsicHeight(w);

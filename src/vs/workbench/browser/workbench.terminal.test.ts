@@ -72,7 +72,10 @@ describe("Workbench — integrated terminal", () => {
     it("Create New Terminal opens a second instance", () => {
         h.commands.execute(TOGGLE_TERMINAL); // first terminal
         // Дети панели теперь включают скрытые вкладки — виджет активной ищем по флагу.
-        const visibleWidget = (): unknown => panel().getChildren().find((c) => !c.hidden);
+        const visibleWidget = (): unknown =>
+            panel()
+                .getChildren()
+                .find((c) => !c.hidden);
         const firstWidget = visibleWidget();
 
         h.commands.execute(NEW_TERMINAL); // second terminal becomes active
@@ -107,6 +110,10 @@ describe("Workbench — integrated terminal", () => {
         panel().onActivateView?.(TERMINAL_VIEW_ID);
 
         expect(terminal.hasOpenTerminals).toBe(true);
-        expect(panel().getChildren().filter((c) => !c.hidden)).toHaveLength(1);
+        expect(
+            panel()
+                .getChildren()
+                .filter((c) => !c.hidden),
+        ).toHaveLength(1);
     });
 });

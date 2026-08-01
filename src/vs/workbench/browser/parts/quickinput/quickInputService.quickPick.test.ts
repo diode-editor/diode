@@ -18,7 +18,7 @@ function createService(): {
     body: BodyElement;
     testApp: TestApp;
 } {
-    const component = new QuickInputComponent(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)));
+    const component = new QuickInputComponent();
     const service = new QuickInputService(component);
     const body = new BodyElement();
     const testApp = TestApp.create(body, new Size(80, 24));

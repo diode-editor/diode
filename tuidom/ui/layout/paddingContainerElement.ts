@@ -1,6 +1,7 @@
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
 import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
+import type { StyleColor } from "../../dom/styles/tuiStyle.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 
 export interface Padding {
@@ -110,8 +111,8 @@ export class PaddingContainerElement extends TUIElement {
 // ─── PaddingContainer JSX Adapter ───
 
 export interface PaddingContainerProps extends Padding {
-    bg?: number;
-    fg?: number;
+    bg?: StyleColor;
+    fg?: StyleColor;
     children?: JsxChild;
 }
 
