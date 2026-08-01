@@ -6,7 +6,6 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import { ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
-import { getMenuStyles } from "../../platform/theme/browser/defaultStyles.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
 import type { KeybindingRegistry } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
@@ -216,7 +215,6 @@ export class WorkbenchComponent extends ThemedComponent {
         this.dialogService.attachHost(this.view);
         // Темизированные стили контекстных меню: сервис показывает попапы сам,
         // тему знает только workbench — прикрепляем поставщика (как attachHost).
-        accessor.get(ContextMenuServiceDIToken).menuStyles = () => getMenuStyles(this.theme);
         this.view.setContent(this.workbenchLayout);
         this.view.setStatusBar(this.statusBarComponent.view);
         // Источник фокуса для контекст-ключей — FocusManager корневой view.

@@ -1,10 +1,7 @@
 import type { ITabStripStyles } from "../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
 import type { IListViewStyles } from "../../../../../tuidom/ui/list/listViewElement.ts";
-import type { IMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
-import { unthemedMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
 import type { IPanelContainerStyles } from "../../../../../tuidom/ui/panel/panelContainerElement.ts";
 import type { IScrollBarStyles } from "../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
-import type { ISelectBoxStyles } from "../../../../../tuidom/ui/selectbox/selectBoxElement.ts";
 import type { ITerminalViewStyles } from "../../../../../tuidom/ui/terminal/terminalViewElement.ts";
 import type { ITreeViewStyles } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
 import { unthemedTreeViewStyles } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
@@ -56,23 +53,6 @@ export function getFindWidgetStyles(theme: WorkbenchTheme): IFindWidgetStyles {
 }
 
 /**
- * Цвета меню из ключей VS Code `menu.*`. Они гарантированы реестром дефолтов
- * (см. {@link defaultWorkbenchColors}), а `shortcutFg` не имеет темизируемого
- * ключа VS Code и берётся из {@link unthemedMenuStyles} (baseline меню без темы).
- */
-export function getMenuStyles(theme: WorkbenchTheme): IMenuStyles {
-    return {
-        fg: theme.getRequiredColor("menu.foreground"),
-        bg: theme.getRequiredColor("menu.background"),
-        highlightFg: theme.getRequiredColor("menu.selectionForeground"),
-        highlightBg: theme.getRequiredColor("menu.selectionBackground"),
-        shortcutFg: unthemedMenuStyles.shortcutFg,
-        borderFg: theme.getRequiredColor("menu.border"),
-        separatorFg: theme.getRequiredColor("menu.separatorBackground"),
-    };
-}
-
-/**
  * Специализированные цвета редактора. Основные fg/bg (`editor.foreground`/
  * `editor.background`) сюда не входят — они идут через `editor.style = { fg, bg }`
  * (наследование TUIStyle). Ключи с реестровым дефолтом читаются через
@@ -81,20 +61,6 @@ export function getMenuStyles(theme: WorkbenchTheme): IMenuStyles {
  * фоллбэком: гуттер падает на фон редактора (как в VS Code), остальные — на
  * unthemed-baseline. Контекстное меню редактора едет тем же каналом (`menu`).
  */
-/**
- * Стили выпадающего списка (`dropdown.*`). Раскрытый список красим теми же
- * `menu.*`, что и остальные попапы, — так же поступает VS Code, у которого
- * `dropdown.listBackground` по умолчанию наследует фон виджета.
- */
-export function getSelectBoxStyles(theme: WorkbenchTheme): ISelectBoxStyles {
-    return {
-        selectForeground: theme.getRequiredColor("dropdown.foreground"),
-        selectBackground: theme.getRequiredColor("dropdown.background"),
-        selectBorder: theme.getRequiredColor("dropdown.border"),
-        list: { ...getMenuStyles(theme), bg: theme.getRequiredColor("dropdown.listBackground") },
-    };
-}
-
 export function getEditorStyles(theme: WorkbenchTheme): IEditorStyles {
     return {
         gutterBackground: theme.getColor("editorGutter.background") ?? theme.getRequiredColor("editor.background"),

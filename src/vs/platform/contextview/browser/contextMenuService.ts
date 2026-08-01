@@ -1,6 +1,5 @@
 import { ContextMenuController } from "../../../../../tuidom/ui/contextview/contextMenuController.ts";
 import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
-import type { IMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
 import type { MenuId } from "../../actions/common/menuId.ts";
 import type { MenuService } from "../../actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../actions/common/menuService.ts";
@@ -9,7 +8,9 @@ import type { IContextMenuDelegate, IContextMenuMenuDelegate } from "../common/c
 
 export const ContextMenuServiceDIToken = token<ContextMenuService>("ContextMenuService");
 
-function isMenuDelegate(delegate: IContextMenuDelegate | IContextMenuMenuDelegate): delegate is IContextMenuMenuDelegate {
+function isMenuDelegate(
+    delegate: IContextMenuDelegate | IContextMenuMenuDelegate,
+): delegate is IContextMenuMenuDelegate {
     return "menuId" in delegate;
 }
 
@@ -21,12 +22,6 @@ function isMenuDelegate(delegate: IContextMenuDelegate | IContextMenuMenuDelegat
  */
 export class ContextMenuService {
     public static dependencies = [MenuServiceDIToken] as const;
-
-    /**
-     * Поставщик темизированных стилей меню; прикрепляет WorkbenchComponent
-     * (как attachHost у DialogService). Без него меню идёт unthemed-дефолтами.
-     */
-    public menuStyles: (() => IMenuStyles) | null = null;
 
     private readonly controller = new ContextMenuController();
 
@@ -40,7 +35,6 @@ export class ContextMenuService {
             owner: delegate.getOwner(),
             anchor: delegate.getAnchor(),
             entries,
-            styles: this.menuStyles?.(),
             onHide: () => delegate.onHide?.(),
         });
     }

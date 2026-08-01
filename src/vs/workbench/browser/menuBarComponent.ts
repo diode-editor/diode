@@ -4,11 +4,8 @@ import { MenuId } from "../../platform/actions/common/menuId.ts";
 import type { IMenu, MenuService } from "../../platform/actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
-import { getMenuStyles } from "../../platform/theme/browser/defaultStyles.ts";
-import type { ThemeService } from "../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
-import { ThemedComponent } from "./component.ts";
+import { Component } from "./component.ts";
 
 export const MenuBarComponentDIToken = token<MenuBarComponent>("MenuBarComponent");
 
@@ -20,17 +17,16 @@ export const MenuBarComponentDIToken = token<MenuBarComponent>("MenuBarComponent
  * пункты всегда актуальны — порядок резолва компонента относительно user
  * keybindings не важен.
  */
-export class MenuBarComponent extends ThemedComponent {
-    public static dependencies = [MenuServiceDIToken, ThemeServiceDIToken] as const;
+export class MenuBarComponent extends Component {
+    public static dependencies = [MenuServiceDIToken] as const;
 
     public readonly view: MenuBarElement;
 
-    public constructor(menuService: MenuService, themeService: ThemeService) {
-        super(themeService);
+    public constructor(menuService: MenuService) {
+        super();
         const mainMenu = this.register(menuService.createMenu(MenuId.MenubarMainMenu));
         this.view = new MenuBarElement(mainMenu.getSubmenus().map((sub) => this.buildItem(menuService, sub)));
         this.view.id = "menuBar";
-        this.initStyles();
     }
 
     private buildItem(
@@ -46,9 +42,5 @@ export class MenuBarComponent extends ThemedComponent {
                 return menu.getEntries();
             },
         };
-    }
-
-    protected updateStyles(): void {
-        this.view.setStyles(getMenuStyles(this.theme));
     }
 }

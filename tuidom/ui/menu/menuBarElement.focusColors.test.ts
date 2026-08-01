@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { Point, Size } from "../../common/geometryPromitives.ts";
+import { STYLE_TOKEN_DEFAULTS } from "../../dom/styles/styleTokens.ts";
 import { TuiApplication } from "../../dom/tuiApplication.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 import { BodyElement } from "../body/bodyElement.ts";
@@ -10,8 +11,11 @@ import { VStackElement } from "../layout/vStackElement.ts";
 
 import type { MenuBarItem } from "./menuBarElement.ts";
 import { MenuBarElement } from "./menuBarElement.ts";
-import { ACTIVE_MENU_BG, ACTIVE_MENU_FG, MENU_BAR_BG, MENU_BAR_FG } from "./menuBarItemElement.tsx";
-import { unthemedMenuStyles } from "./popupMenuItemElement.tsx";
+
+const MENU_BAR_FG = STYLE_TOKEN_DEFAULTS["menuBar.foreground"];
+const MENU_BAR_BG = STYLE_TOKEN_DEFAULTS["menuBar.background"];
+const ACTIVE_MENU_FG = STYLE_TOKEN_DEFAULTS["menubar.selectionForeground"];
+const ACTIVE_MENU_BG = STYLE_TOKEN_DEFAULTS["menubar.selectionBackground"];
 
 class FocusableChild extends TUIElement {
     public constructor() {
@@ -143,29 +147,29 @@ describe("MenuBarElement focus colors", () => {
 });
 
 describe("MenuBarElement menu styles", () => {
-    const customStyles = { ...unthemedMenuStyles, bg: packRgb(0x12, 0x34, 0x56) };
+    const customBg = packRgb(0x12, 0x34, 0x56);
 
-    it("applies cached styles to a dropdown opened later", () => {
-        const { backend, menuBar } = setup(simpleItems());
-
-        menuBar.setStyles(customStyles); // no menu open yet
+    it("дропдаун, открытый позже, резолвит цвета из var-scope корня", () => {
+        const { backend, app, menuBar } = setup(simpleItems());
+        void menuBar;
+        app.root?.setStyleVars({ "menu.background": customBg });
         backend.sendKey("Tab"); // focus menuBar → "File"
         backend.sendKey("Enter"); // open dropdown
 
         // Top-left corner of the dropdown frame (x=2: "File" starts after the 2-cell spacer).
-        expect(backend.getBgAt(new Point(2, 1))).toBe(customStyles.bg);
+        expect(backend.getBgAt(new Point(2, 1))).toBe(customBg);
     });
 
-    it("restyles an already open dropdown", () => {
-        const { backend, menuBar } = setup(simpleItems());
+    it("смена корневой таблицы перекрашивает уже открытый дропдаун", () => {
+        const { backend, app } = setup(simpleItems());
 
         backend.sendKey("Tab");
-        backend.sendKey("Enter"); // open dropdown with the unthemed styles
-        expect(backend.getBgAt(new Point(2, 1))).toBe(unthemedMenuStyles.bg);
+        backend.sendKey("Enter"); // open dropdown с дефолтами токенов
+        expect(backend.getBgAt(new Point(2, 1))).toBe(STYLE_TOKEN_DEFAULTS["menu.background"]);
 
-        menuBar.setStyles(customStyles);
+        app.root?.setStyleVars({ "menu.background": customBg });
         backend.sendKey("x"); // inert for the open menu; forces a synchronous re-render
 
-        expect(backend.getBgAt(new Point(2, 1))).toBe(customStyles.bg);
+        expect(backend.getBgAt(new Point(2, 1))).toBe(customBg);
     });
 });

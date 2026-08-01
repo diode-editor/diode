@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { Point, Size } from "../../common/geometryPromitives.ts";
+import { STYLE_TOKEN_DEFAULTS } from "../../dom/styles/styleTokens.ts";
 import { TuiApplication } from "../../dom/tuiApplication.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 import { BodyElement } from "../body/bodyElement.ts";
@@ -9,7 +10,6 @@ import { VStackElement } from "../layout/vStackElement.ts";
 
 import type { MenuBarItem } from "./menuBarElement.ts";
 import { MenuBarElement } from "./menuBarElement.ts";
-import { unthemedMenuStyles } from "./popupMenuItemElement.tsx";
 
 class FocusableChild extends TUIElement {
     public constructor() {
@@ -72,11 +72,11 @@ describe("PopupMenuElement — mouse hover moves selection", () => {
         backend.sendKey("Tab");
         backend.sendKey("ArrowDown"); // open File menu, first item highlighted
 
-        expect(backend.getBgAt(new Point(3, 2))).toBe(unthemedMenuStyles.highlightBg);
+        expect(backend.getBgAt(new Point(3, 2))).toBe(STYLE_TOKEN_DEFAULTS["menu.selectionBackground"]);
 
         moveMouse(backend, 4, 4); // over "Save"
-        expect(backend.getBgAt(new Point(3, 4))).toBe(unthemedMenuStyles.highlightBg);
-        expect(backend.getBgAt(new Point(3, 2))).not.toBe(unthemedMenuStyles.highlightBg);
+        expect(backend.getBgAt(new Point(3, 4))).toBe(STYLE_TOKEN_DEFAULTS["menu.selectionBackground"]);
+        expect(backend.getBgAt(new Point(3, 2))).not.toBe(STYLE_TOKEN_DEFAULTS["menu.selectionBackground"]);
     });
 
     it("hovering the already-selected item keeps it highlighted", () => {
@@ -85,7 +85,7 @@ describe("PopupMenuElement — mouse hover moves selection", () => {
         backend.sendKey("ArrowDown"); // "New" (first item) selected
 
         moveMouse(backend, 4, 2); // hover "New" — already selected
-        expect(backend.getBgAt(new Point(3, 2))).toBe(unthemedMenuStyles.highlightBg);
+        expect(backend.getBgAt(new Point(3, 2))).toBe(STYLE_TOKEN_DEFAULTS["menu.selectionBackground"]);
     });
 
     it("hovering back up moves the highlight up again", () => {
@@ -94,11 +94,11 @@ describe("PopupMenuElement — mouse hover moves selection", () => {
         backend.sendKey("ArrowDown");
 
         moveMouse(backend, 4, 4); // "Save"
-        expect(backend.getBgAt(new Point(3, 4))).toBe(unthemedMenuStyles.highlightBg);
+        expect(backend.getBgAt(new Point(3, 4))).toBe(STYLE_TOKEN_DEFAULTS["menu.selectionBackground"]);
 
         moveMouse(backend, 4, 3); // "Open"
-        expect(backend.getBgAt(new Point(3, 3))).toBe(unthemedMenuStyles.highlightBg);
-        expect(backend.getBgAt(new Point(3, 4))).not.toBe(unthemedMenuStyles.highlightBg);
+        expect(backend.getBgAt(new Point(3, 3))).toBe(STYLE_TOKEN_DEFAULTS["menu.selectionBackground"]);
+        expect(backend.getBgAt(new Point(3, 4))).not.toBe(STYLE_TOKEN_DEFAULTS["menu.selectionBackground"]);
     });
 
     it("Enter activates the mouse-hovered item", () => {

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { Point, Size } from "../../common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
-import { InputElement } from "../inputbox/inputElement.ts";
-import { ContextMenuController } from "../contextview/contextMenuController.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
+import { ContextMenuController } from "../contextview/contextMenuController.ts";
+import { InputElement } from "../inputbox/inputElement.ts";
 
 import type { MenuEntry } from "./popupMenuElement.ts";
 import { PopupMenuElement } from "./popupMenuElement.ts";
@@ -33,7 +33,11 @@ function setup(entries?: MenuEntry[], screen = new Size(60, 16)): ISetup {
                 label: "Open With",
                 entries: [
                     { label: "Editor", onSelect: () => selected.push("Editor") },
-                    { type: "submenu", label: "More", entries: [{ label: "Hex", onSelect: () => selected.push("Hex") }] },
+                    {
+                        type: "submenu",
+                        label: "More",
+                        entries: [{ label: "Hex", onSelect: () => selected.push("Hex") }],
+                    },
                 ],
             },
         ],
@@ -89,9 +93,12 @@ describe("PopupMenuElement — вложенные подменю", () => {
     it("hovering the submenu row moves the selection onto it", () => {
         const { app } = setup();
         const menu = rootMenu(app);
-        const items = menu.getChildren()[0].getChildren().filter((el) => el instanceof PopupMenuItemElement);
+        const items = menu
+            .getChildren()[0]
+            .getChildren()
+            .filter((el) => el instanceof PopupMenuItemElement);
 
-        (items[1] as PopupMenuItemElement).onHover?.(); // ховер на Open With
+        items[1].onHover?.(); // ховер на Open With
 
         expect(menu.selectedIndex).toBe(1);
     });
@@ -105,8 +112,11 @@ describe("PopupMenuElement — вложенные подменю", () => {
         expect(layerItems(app).length).toBe(2);
 
         const menu = rootMenu(app);
-        const items = menu.getChildren()[0].getChildren().filter((el) => el instanceof PopupMenuItemElement);
-        (items[1] as PopupMenuItemElement).onSelect?.(); // клик по Second
+        const items = menu
+            .getChildren()[0]
+            .getChildren()
+            .filter((el) => el instanceof PopupMenuItemElement);
+        items[1].onSelect?.(); // клик по Second
 
         expect(layerItems(app).length).toBe(2); // First закрыт, Second открыт
         const child = layerItems(app)[1].element as PopupMenuElement;
@@ -141,13 +151,16 @@ describe("PopupMenuElement — вложенные подменю", () => {
         app.render();
 
         const menu = rootMenu(app);
-        const items = menu.getChildren()[0].getChildren().filter((el) => el instanceof PopupMenuItemElement);
-        (items[1] as PopupMenuItemElement).onSelect?.();
+        const items = menu
+            .getChildren()[0]
+            .getChildren()
+            .filter((el) => el instanceof PopupMenuItemElement);
+        items[1].onSelect?.();
         expect(layerItems(app).length).toBe(2);
         const child = layerItems(app)[1].element;
 
         // Повторный клик по той же строке — гард «уже открыто», без пересоздания.
-        (items[1] as PopupMenuItemElement).onSelect?.();
+        items[1].onSelect?.();
         expect(layerItems(app).length).toBe(2);
         expect(layerItems(app)[1].element).toBe(child);
     });
@@ -237,8 +250,11 @@ describe("PopupMenuElement — вложенные подменю", () => {
         expect(layerItems(app).length).toBe(2);
 
         const menu = rootMenu(app);
-        const items = menu.getChildren()[0].getChildren().filter((el) => el instanceof PopupMenuItemElement);
-        (items[0] as PopupMenuItemElement).onHover?.(); // ховер на Copy
+        const items = menu
+            .getChildren()[0]
+            .getChildren()
+            .filter((el) => el instanceof PopupMenuItemElement);
+        items[0].onHover?.(); // ховер на Copy
 
         expect(layerItems(app).length).toBe(1);
     });

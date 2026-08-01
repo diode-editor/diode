@@ -9,9 +9,6 @@ import { MenuServiceDIToken } from "../../../../platform/actions/common/menuServ
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { getSelectBoxStyles } from "../../../../platform/theme/browser/defaultStyles.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
@@ -20,6 +17,8 @@ import { EditorServiceDIToken } from "../../../services/editor/browser/editorSer
 import { OUTPUT_LANGUAGE_ID, OUTPUT_URI_SCHEME, OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
 import type { OutputService } from "../../../services/output/common/outputService.ts";
 import { formatOutputLine, OutputServiceDIToken } from "../../../services/output/common/outputService.ts";
+import type { ThemeService } from "../../../services/themes/common/themeService.ts";
+import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
 import { SwitchOutputMenu } from "./outputChannelActions.ts";
 
@@ -65,17 +64,16 @@ export class OutputComponent extends Disposable {
         // `isSelection` превращает это же submenu в SelectBox. Живой IMenu, а не
         // снимок: каналы регистрируются по мере появления.
         this.switchMenu = this.register(menuService.createMenu(SwitchOutputMenu));
-        this.register(this.switchMenu.onDidChange(() => this.syncSelector()));
+        this.register(
+            this.switchMenu.onDidChange(() => {
+                this.syncSelector();
+            }),
+        );
         this.selector.onDidSelect = ({ index }) => {
             // Исполняем команду пункта, а не дёргаем сервис напрямую: пункт — это
             // `workbench.action.output.show.<id>`, и путь должен быть один.
             this.channelEntries()[index]?.onSelect?.();
         };
-        this.register(
-            this.themeService.onThemeChange((theme) => {
-                this.selector.setStyles(getSelectBoxStyles(theme));
-            }),
-        );
         this.panelService.addView({
             id: OUTPUT_VIEW_ID,
             title: "OUTPUT",

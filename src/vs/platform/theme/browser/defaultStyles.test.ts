@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { unthemedMenuStyles } from "../../../../../tuidom/ui/menu/popupMenuItemElement.tsx";
 import { unthemedTreeViewStyles } from "../../../../../tuidom/ui/tree/treeViewElement.ts";
 import { unthemedEditorStyles } from "../../../editor/browser/editorElement.ts";
 import { dark2026Theme } from "../../../workbench/services/themes/common/themes/dark2026.ts";
@@ -12,7 +11,6 @@ import {
     getEditorStyles,
     getFileTreeStyles,
     getFindWidgetStyles,
-    getMenuStyles,
     getPanelContainerStyles,
     getProblemsTreeStyles,
     getTabStripStyles,
@@ -46,41 +44,6 @@ describe("dialog and find-widget styles", () => {
             counterFg: theme.getRequiredColor("descriptionForeground"),
             noResultsFg: theme.getRequiredColor("editorError.foreground"),
         });
-    });
-});
-
-describe("getMenuStyles", () => {
-    it("resolves the menu.* keys from the theme", () => {
-        const theme = makeTheme();
-
-        const styles = getMenuStyles(theme);
-
-        expect(styles.fg).toBe(theme.getRequiredColor("menu.foreground"));
-        expect(styles.bg).toBe(theme.getRequiredColor("menu.background"));
-        expect(styles.highlightFg).toBe(theme.getRequiredColor("menu.selectionForeground"));
-        expect(styles.highlightBg).toBe(theme.getRequiredColor("menu.selectionBackground"));
-        expect(styles.borderFg).toBe(theme.getRequiredColor("menu.border"));
-        expect(styles.separatorFg).toBe(theme.getRequiredColor("menu.separatorBackground"));
-    });
-
-    it("keeps shortcutFg from the unthemed baseline (no VS Code key for it)", () => {
-        const theme = makeTheme();
-
-        expect(getMenuStyles(theme).shortcutFg).toBe(unthemedMenuStyles.shortcutFg);
-    });
-
-    it("honors theme overrides of the secondary button and menu colors", () => {
-        // Overrides only some tokens; the rest are supplied by the default color registry.
-        const theme = WorkbenchTheme.fromThemeFile({
-            name: "test",
-            type: "dark",
-            colors: {
-                "button.secondaryBackground": "#0B1621",
-                "menu.background": "#123456",
-            },
-        });
-
-        expect(getMenuStyles(theme).bg).toBe(theme.getRequiredColor("menu.background"));
     });
 });
 

@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { Point, Size } from "../../common/geometryPromitives.ts";
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 import { InputElement } from "../inputbox/inputElement.ts";
 import type { MenuEntry, MenuItemEntry } from "../menu/popupMenuElement.ts";
 import { PopupMenuElement } from "../menu/popupMenuElement.ts";
-import { unthemedMenuStyles } from "../menu/popupMenuItemElement.tsx";
 
 import { ContextMenuController } from "./contextMenuController.ts";
 
@@ -18,12 +17,7 @@ function setup(): { app: TestApp; input: InputElement; controller: ContextMenuCo
     return { app, input, controller: new ContextMenuController() };
 }
 
-function show(
-    controller: ContextMenuController,
-    owner: TUIElement,
-    entries: MenuEntry[],
-    onHide?: () => void,
-): void {
+function show(controller: ContextMenuController, owner: TUIElement, entries: MenuEntry[], onHide?: () => void): void {
     controller.show({ owner, anchor: { screenX: 3, screenY: 2 }, entries, onHide });
 }
 
@@ -100,7 +94,9 @@ describe("ContextMenuController", () => {
 
     it("hide is a no-op when nothing is open", () => {
         const { controller } = setup();
-        expect(() => controller.hide()).not.toThrow();
+        expect(() => {
+            controller.hide();
+        }).not.toThrow();
     });
 
     it("Escape closes the menu", () => {
@@ -135,15 +131,15 @@ describe("ContextMenuController", () => {
         expect(controller.isOpen()).toBe(false);
     });
 
-    it("applies the given styles to the popup", () => {
+    it("попап резолвит цвета из var-scope корня", () => {
         const { app, input, controller } = setup();
         const bg = packRgb(0x12, 0x34, 0x56);
+        app.root.setStyleVars({ "menu.background": bg });
 
         controller.show({
             owner: input,
             anchor: { screenX: 3, screenY: 2 },
             entries: [{ label: "Copy" }],
-            styles: { ...unthemedMenuStyles, bg },
         });
         app.render();
 

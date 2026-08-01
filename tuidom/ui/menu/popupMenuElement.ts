@@ -5,8 +5,8 @@ import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import type { OverlaySessionHandle } from "../contextview/overlayLayer.ts";
 import { VStackElement } from "../layout/vStackElement.ts";
 
-import type { IMenuStyles, PopupMenuItemConfig } from "./popupMenuItemElement.tsx";
-import { PopupMenuItemElement, PopupMenuSeparatorElement, unthemedMenuStyles } from "./popupMenuItemElement.tsx";
+import type { PopupMenuItemConfig } from "./popupMenuItemElement.tsx";
+import { PopupMenuItemElement, PopupMenuSeparatorElement } from "./popupMenuItemElement.tsx";
 
 export interface MenuItemEntry {
     type?: "item";
@@ -63,7 +63,6 @@ export class PopupMenuElement extends TUIElement {
     private vstack: VStackElement;
     private itemElements: PopupMenuItemElement[] = [];
     private separatorElements: PopupMenuSeparatorElement[] = [];
-    private styles: IMenuStyles = unthemedMenuStyles;
     /** Открытое дочернее подменю (сессия — в том же overlay-слое). */
     private child: { menu: PopupMenuElement; session: OverlaySessionHandle } | null = null;
     private childEntryIndex = -1;
@@ -72,6 +71,7 @@ export class PopupMenuElement extends TUIElement {
 
     public constructor(entries: MenuEntry[]) {
         super();
+        this.style = { fg: "menu.foreground", bg: "menu.background" };
         this.entries = entries;
         this.selectableIndices = entries.map((e, i) => (isSeparator(e) ? -1 : i)).filter((i) => i >= 0);
         this.selectedIndex = this.selectableIndices.length > 0 ? this.selectableIndices[0] : -1;
@@ -83,11 +83,11 @@ export class PopupMenuElement extends TUIElement {
             const entry = entries[i];
             const entryIndex = i;
             if (isSeparator(entry)) {
-                const separator = new PopupMenuSeparatorElement(this.styles);
+                const separator = new PopupMenuSeparatorElement();
                 this.separatorElements.push(separator);
                 this.vstack.addChild(separator, { width: "stretch", height: 1 });
             } else if (isSubmenu(entry)) {
-                const item = new PopupMenuItemElement(entry.label, config, SUBMENU_INDICATOR, entry.icon, this.styles);
+                const item = new PopupMenuItemElement(entry.label, config, SUBMENU_INDICATOR, entry.icon);
                 item.onSelect = () => {
                     this.openSubmenu(entryIndex);
                 };
@@ -97,7 +97,7 @@ export class PopupMenuElement extends TUIElement {
                 this.itemElements.push(item);
                 this.vstack.addChild(item, { width: "stretch", height: 1 });
             } else {
-                const item = new PopupMenuItemElement(entry.label, config, entry.shortcut, entry.icon, this.styles);
+                const item = new PopupMenuItemElement(entry.label, config, entry.shortcut, entry.icon);
                 item.onSelect = entry.onSelect;
                 item.onHover = () => {
                     this.selectByEntryIndex(entryIndex);
@@ -118,17 +118,6 @@ export class PopupMenuElement extends TUIElement {
             selectedIndex: this.selectedIndex,
             items: this.entries.map((e) => (isSeparator(e) ? null : e.label)),
         };
-    }
-
-    public setStyles(styles: IMenuStyles): void {
-        this.styles = styles;
-        for (const item of this.itemElements) {
-            item.setStyles(styles);
-        }
-        for (const separator of this.separatorElements) {
-            separator.setStyles(styles);
-        }
-        this.markDirty();
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
@@ -168,8 +157,9 @@ export class PopupMenuElement extends TUIElement {
     public render(context: RenderContext): void {
         const w = this.layoutSize.width;
         const h = this.layoutSize.height;
-        const borderFg = this.styles.borderFg;
-        const bg = this.styles.bg;
+        this.paintOwnBackground(context);
+        const borderFg = this.styleVar("menu.border");
+        const bg = this.resolvedStyle.bg;
 
         // Frame with T-connectors on separator rows (├───┤).
         const children = this.vstack.getChildren();
@@ -283,7 +273,6 @@ export class PopupMenuElement extends TUIElement {
         });
 
         const child = createSubmenuPopup(wrapped);
-        child.setStyles(this.styles);
         child.parentMenu = this;
         child.onClose = () => {
             this.closeChild();

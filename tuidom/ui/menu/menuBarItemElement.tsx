@@ -1,15 +1,10 @@
-import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
 import { StyleFlags } from "../../common/styleFlags.ts";
 import { CompositeElement } from "../../dom/compositeElement.ts";
 import type { JsxNode } from "../../dom/jsx/jsx-runtime.ts";
-import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
+import { INHERITED_BG, INHERITED_FG } from "../../dom/styles/tuiStyle.ts";
+import { TUIElement } from "../../dom/tuiElement.ts";
 import type { StyledChar } from "../text/textLabelElement.ts";
 import { TextLabel } from "../text/textLabelElement.ts";
-
-export const MENU_BAR_FG = DEFAULT_COLOR;
-export const MENU_BAR_BG = packRgb(64, 64, 64);
-export const ACTIVE_MENU_FG = packRgb(255, 255, 255);
-export const ACTIVE_MENU_BG = packRgb(0, 90, 180);
 
 export class MenuBarItemElement extends CompositeElement {
     public readonly label: string;
@@ -48,8 +43,10 @@ export class MenuBarItemElement extends CompositeElement {
     }
 
     public describe(): JsxNode {
-        const fg = this.activeValue ? ACTIVE_MENU_FG : MENU_BAR_FG;
-        const bg = this.activeValue ? ACTIVE_MENU_BG : MENU_BAR_BG;
+        // Обычное состояние наследует цвета полосы (их задаёт MenuBarElement
+        // токенами menuBar.*), активный пункт — токены menubar.selection*.
+        const fg = this.activeValue ? "menubar.selectionForeground" : INHERITED_FG;
+        const bg = this.activeValue ? "menubar.selectionBackground" : INHERITED_BG;
         return <TextLabel text={` ${this.label} `} fg={fg} bg={bg} charStyles={this.buildCharStyles()} />;
     }
 
@@ -69,6 +66,12 @@ export class MenuBarItemElement extends CompositeElement {
 }
 
 export class MenuBarFillerElement extends TUIElement {
+    public constructor() {
+        super();
+        // «Владею фоном, крашу унаследованным» — заливает база.
+        this.style = { fg: INHERITED_FG, bg: INHERITED_BG };
+    }
+
     public override getMinIntrinsicWidth(_height: number): number {
         return 0;
     }
@@ -83,12 +86,5 @@ export class MenuBarFillerElement extends TUIElement {
 
     public override getMaxIntrinsicHeight(_width: number): number {
         return 1;
-    }
-
-    public override render(context: RenderContext): void {
-        const width = this.layoutSize.width;
-        for (let x = 0; x < width; x++) {
-            context.setCell(x, 0, { char: " ", fg: MENU_BAR_FG, bg: MENU_BAR_BG });
-        }
     }
 }

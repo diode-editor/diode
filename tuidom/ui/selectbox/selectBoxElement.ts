@@ -1,4 +1,3 @@
-import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
@@ -6,8 +5,6 @@ import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import type { OverlaySessionHandle } from "../contextview/overlayLayer.ts";
 import type { MenuEntry } from "../menu/popupMenuElement.ts";
 import { PopupMenuElement } from "../menu/popupMenuElement.ts";
-import type { IMenuStyles } from "../menu/popupMenuItemElement.tsx";
-import { unthemedMenuStyles } from "../menu/popupMenuItemElement.tsx";
 
 /** Шеврон закрытого состояния — тот же глиф, что у `<select>` в VS Code. */
 const CHEVRON = "⌄"; // ⌄ DOWN ARROWHEAD
@@ -27,22 +24,6 @@ export interface ISelectData {
     readonly index: number;
 }
 
-export interface ISelectBoxStyles {
-    readonly selectForeground: number;
-    readonly selectBackground: number;
-    readonly selectBorder: number;
-    /** Стили раскрытого списка (готовые цвета меню). */
-    readonly list: IMenuStyles;
-}
-
-// Значения из vscode `unthemedSelectBoxStyles`; workbench перебивает их темой.
-export const unthemedSelectBoxStyles: ISelectBoxStyles = {
-    selectForeground: packRgb(0xf0, 0xf0, 0xf0),
-    selectBackground: packRgb(0x3c, 0x3c, 0x3c),
-    selectBorder: packRgb(0x3c, 0x3c, 0x3c),
-    list: unthemedMenuStyles,
-};
-
 /**
  * Выпадающий список (аналог `SelectBox` из `base/browser/ui/selectBox/`).
  * Закрытое состояние — одна строка `текст ⌄`; раскрытие строит
@@ -53,7 +34,6 @@ export const unthemedSelectBoxStyles: ISelectBoxStyles = {
 export class SelectBoxElement extends TUIElement {
     private options: readonly ISelectOptionItem[] = [];
     private selectedIndex = -1;
-    private styles: ISelectBoxStyles = unthemedSelectBoxStyles;
     private session: OverlaySessionHandle | null = null;
 
     /** Выбор пользователя. Программный {@link select} события не порождает. */
@@ -61,6 +41,7 @@ export class SelectBoxElement extends TUIElement {
 
     public constructor() {
         super();
+        this.style = { fg: "dropdown.foreground", bg: "dropdown.background" };
         this.focusable = true;
         this.addEventListener("mousedown", (event) => {
             if (event.button !== "left") return;
@@ -95,11 +76,6 @@ export class SelectBoxElement extends TUIElement {
             selectedText: this.selectedText(),
             options: this.options.map((o) => o.text),
         };
-    }
-
-    public setStyles(styles: ISelectBoxStyles): void {
-        this.styles = styles;
-        this.markDirty();
     }
 
     public isOpen(): boolean {
@@ -141,7 +117,7 @@ export class SelectBoxElement extends TUIElement {
 
     public override render(context: RenderContext): void {
         const width = this.layoutSize.width;
-        const { selectForeground: fg, selectBackground: bg } = this.styles;
+        const { fg, bg } = this.resolvedStyle;
         const text = this.selectedText();
 
         for (let x = 0; x < width; x++) {
@@ -152,7 +128,7 @@ export class SelectBoxElement extends TUIElement {
         }
         // Шеврон прижат вправо — так же, как стрелка нативного `<select>`.
         if (width > 0) {
-            context.setCell(width - 1, 0, { char: CHEVRON, fg: this.styles.selectBorder, bg });
+            context.setCell(width - 1, 0, { char: CHEVRON, fg: this.styleVar("dropdown.border"), bg });
         }
     }
 
@@ -195,7 +171,9 @@ export class SelectBoxElement extends TUIElement {
         });
 
         const menu = new PopupMenuElement(entries);
-        menu.setStyles(this.styles.list);
+        // Фон раскрытого списка — dropdown.listBackground; пункты наследуют
+        // (их обычное состояние объявлено сентинелами, не своим bg).
+        menu.style = { fg: "menu.foreground", bg: "dropdown.listBackground" };
         menu.focusable = true;
         // Список раскрывается ПОД контролом и прижимается к его левому краю —
         // как раскрывается `<select>`.

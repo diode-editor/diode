@@ -10,8 +10,6 @@ import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../layout/hFlexEl
 import { MenuBarFillerElement, MenuBarItemElement } from "./menuBarItemElement.tsx";
 import type { MenuEntry } from "./popupMenuElement.ts";
 import { PopupMenuElement } from "./popupMenuElement.ts";
-import type { IMenuStyles } from "./popupMenuItemElement.tsx";
-import { unthemedMenuStyles } from "./popupMenuItemElement.tsx";
 
 export interface MenuBarItem {
     label: string;
@@ -38,16 +36,6 @@ export class MenuBarElement extends TUIElement {
     };
 
     private mnemonicTarget: TUIElement | null = null;
-    private menuStyles: IMenuStyles = unthemedMenuStyles;
-
-    /**
-     * Кэширует стили меню, чтобы прокинуть их в дропдаун, который меню-бар
-     * создаёт при открытии (сам виджет полосы не тематизируется).
-     */
-    public setStyles(styles: IMenuStyles): void {
-        this.menuStyles = styles;
-        this.activeMenu?.setStyles(styles);
-    }
 
     private updateItemActiveStates(): void {
         for (let i = 0; i < this.itemElements.length; i++) {
@@ -57,6 +45,8 @@ export class MenuBarElement extends TUIElement {
 
     public constructor(items: MenuBarItem[]) {
         super();
+        // Полоса красится токенами; пункты наследуют (активный — menubar.selection*).
+        this.style = { fg: "menuBar.foreground", bg: "menuBar.background" };
         this.focusable = true;
         this.items = items;
 
@@ -239,7 +229,6 @@ export class MenuBarElement extends TUIElement {
         this.activeIndex = index;
         this.updateItemActiveStates();
         const menu = new PopupMenuElement(wrappedEntries);
-        menu.setStyles(this.menuStyles);
         this.activeMenu = menu;
 
         const layer = this.getOverlayLayer();
@@ -338,5 +327,4 @@ export class MenuBarElement extends TUIElement {
         const el = this.itemElements[index];
         return new Point(this.globalPosition.x + el.localPosition.dx, this.globalPosition.y + 1);
     }
-
 }

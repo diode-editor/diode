@@ -8,7 +8,7 @@ import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 
 import type { ISelectData } from "./selectBoxElement.ts";
-import { SelectBoxElement, unthemedSelectBoxStyles } from "./selectBoxElement.ts";
+import { SelectBoxElement } from "./selectBoxElement.ts";
 
 const CHEVRON = "⌄";
 const CHECK = "✓";
@@ -55,7 +55,9 @@ describe("SelectBoxElement: закрытое состояние", () => {
         select.setOptions([{ text: "a" }]);
         const app = TestApp.createWithContent(select, new Size(20, 5));
 
-        expect(() => app.render()).not.toThrow();
+        expect(() => {
+            app.render();
+        }).not.toThrow();
         expect(select.getSelected()).toBe(-1);
     });
 
@@ -205,9 +207,11 @@ describe("SelectBoxElement: выбор", () => {
         const select = new SelectBoxElement();
         select.setOptions([{ text: "a" }], 0);
 
-        expect(() => select.dispatchEvent(
-            new TUIMouseEvent("mousedown", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }),
-        )).not.toThrow();
+        expect(() =>
+            select.dispatchEvent(
+                new TUIMouseEvent("mousedown", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }),
+            ),
+        ).not.toThrow();
         expect(select.isOpen()).toBe(false);
     });
 
@@ -216,13 +220,13 @@ describe("SelectBoxElement: выбор", () => {
         expect(() => renderElement(select, 0, 1)).not.toThrow();
     });
 
-    it("стили доезжают и до закрытого состояния, и до раскрытого списка", () => {
+    it("токены dropdown.* доезжают и до закрытого состояния, и до раскрытого списка", () => {
         const { select, app } = mount(["alpha"]);
-        select.setStyles({
-            selectForeground: packRgb(1, 2, 3),
-            selectBackground: packRgb(4, 5, 6),
-            selectBorder: packRgb(7, 8, 9),
-            list: { ...unthemedSelectBoxStyles.list, bg: packRgb(10, 11, 12) },
+        app.root.setStyleVars({
+            "dropdown.foreground": packRgb(1, 2, 3),
+            "dropdown.background": packRgb(4, 5, 6),
+            "dropdown.border": packRgb(7, 8, 9),
+            "dropdown.listBackground": packRgb(10, 11, 12),
         });
         app.render();
 
