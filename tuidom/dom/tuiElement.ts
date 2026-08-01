@@ -231,7 +231,7 @@ interface ListenerEntry {
     capture: boolean;
 }
 
-export class TUIElement<S extends TUIStyle = TUIStyle> {
+export class TUIElement {
     private allocatedSize: Size = new Size(80, 24);
 
     public dirty = false;
@@ -266,7 +266,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     public focusManager: FocusManager | null = null;
 
     // ─── Style system ───
-    private styleValue: Readonly<S> = {} as S;
+    private styleValue: Readonly<TUIStyle> = {};
     private resolvedStyleValue: ResolvedTUIStyle = ROOT_RESOLVED_STYLE;
     private isStyleDirty = true;
     private subtreeStyleDirty = false;
@@ -286,11 +286,11 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     // чист: любая смена входа (стиль/состояние предка) дирявит всё поддерево.
     private childStyleContext: StyleResolutionContext = ROOT_STYLE_CONTEXT;
 
-    public get style(): Readonly<S> {
+    public get style(): Readonly<TUIStyle> {
         return this.styleValue;
     }
 
-    public set style(value: S) {
+    public set style(value: TUIStyle) {
         if (styleEquals(this.styleValue, value)) return;
         this.styleValue = value;
         this.markStyleDirty();

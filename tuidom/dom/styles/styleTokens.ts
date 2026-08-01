@@ -17,6 +17,7 @@ import type { StyleVarScope } from "./tuiStyle.ts";
 export const STYLE_TOKEN_DEFAULTS = {
     "list.activeSelectionBackground": packRgb(4, 57, 94),
     "list.activeSelectionForeground": packRgb(255, 255, 255),
+    "titledPanel.titleForeground": packRgb(130, 130, 130),
 } satisfies Record<string, number>;
 
 /** Литеральный union имён токенов tuidom — автокомплит и проверка внутри tuidom/ui. */

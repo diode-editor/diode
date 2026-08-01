@@ -98,9 +98,18 @@ export const ROOT_STYLE_CONTEXT: StyleResolutionContext = {
     ancestorStates: EMPTY_STATES,
 };
 
-/** Пользовательская таблица поверх родительского scope — прототипная цепочка, без копий. */
+/**
+ * Пользовательская таблица поверх родительского scope — прототипная цепочка,
+ * без копий. Свойства создаются через defineProperty: обычное присваивание
+ * ([[Set]]) отказало бы — родительские scope'ы заморожены, и цепочка прототипов
+ * блокирует запись одноимённого ключа.
+ */
 export function extendVarScope(parent: StyleVarScope, own: Readonly<Record<string, number>>): StyleVarScope {
-    return Object.assign(Object.create(parent) as Record<string, number>, own);
+    const scope = Object.create(parent) as Record<string, number>;
+    for (const key of Object.keys(own)) {
+        Object.defineProperty(scope, key, { value: own[key], enumerable: true, writable: false, configurable: false });
+    }
+    return scope;
 }
 
 // ─── Comparison ───
@@ -113,7 +122,7 @@ export function extendVarScope(parent: StyleVarScope, own: Readonly<Record<strin
 export function styleEquals(a: TUIStyle, b: TUIStyle): boolean {
     if (a === b) return true;
     // Сравниваются ВСЕ собственные ключи: подклассы расширяют стиль своими
-    // полями (TitledPanelStyle.panelTitleFg), и они обязаны участвовать в
+    // полями (исторический прецедент — TitledPanelStyle), и они обязаны участвовать в
     // равенстве. Ключ с undefined против отсутствия ключа считается различием —
     // консервативно в безопасную сторону (лишний резолв, а не пропущенный).
     const aKeys = Object.keys(a) as (keyof TUIStyle)[];

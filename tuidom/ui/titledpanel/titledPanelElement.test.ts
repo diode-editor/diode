@@ -4,6 +4,7 @@ import { renderElement } from "../../../src/TestUtils/renderElement.ts";
 import type { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { Offset, Point, Size } from "../../common/geometryPromitives.ts";
+import { STYLE_TOKEN_DEFAULTS } from "../../dom/styles/styleTokens.ts";
 import { BoxElement } from "../layout/boxElement.ts";
 
 import { TitledPanelElement } from "./titledPanelElement.ts";
@@ -63,24 +64,23 @@ describe("TitledPanelElement", () => {
             expect(text(0, 3, 6)).toBe("+----+");
         });
 
-        it("renders the title with the configured panelTitleFg when set", () => {
+        it("цвет заголовка переопределяется токеном titledPanel.titleForeground", () => {
             const titleFg = packRgb(10, 200, 30);
             const panel = new TitledPanelElement("Hi", new BoxElement());
-            panel.style = { panelTitleFg: titleFg };
+            panel.setStyleVars({ "titledPanel.titleForeground": titleFg });
 
             const { backend } = renderPanel(panel, 10, 3);
 
-            // Default titlePaddingLeft = 1, so 'H' is at column 1 and uses panelTitleFg.
+            // Default titlePaddingLeft = 1, so 'H' is at column 1.
             expect(backend.getFgAt(new Point(1, 0))).toBe(titleFg);
         });
 
-        it("falls back to the default title color when panelTitleFg is not set", () => {
+        it("без переопределения заголовок красится дефолтом токена", () => {
             const panel = new TitledPanelElement("Hi", new BoxElement());
 
             const { backend } = renderPanel(panel, 10, 3);
-            const defaultTitleFg = packRgb(130, 130, 130);
 
-            expect(backend.getFgAt(new Point(1, 0))).toBe(defaultTitleFg);
+            expect(backend.getFgAt(new Point(1, 0))).toBe(STYLE_TOKEN_DEFAULTS["titledPanel.titleForeground"]);
         });
     });
 });

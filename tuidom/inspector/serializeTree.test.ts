@@ -96,10 +96,10 @@ describe("serializeTree", () => {
 
 describe("serializeTree — состояния и токены стиля (Н3)", () => {
     it("активные состояния попадают в styleStates, пустые — опущены", () => {
-        const body = new BodyElement();
-        body.setAsRoot();
         const box = new BoxElement();
-        body.appendChild(box);
+        const body = new BodyElement();
+        body.setContent(box);
+        body.setAsRoot();
         box.setStyleState("hover", true);
         box.setStyleState("selected", true);
 
@@ -122,10 +122,10 @@ describe("serializeTree — состояния и токены стиля (Н3)"
     });
 
     it("числовые стили не создают styleTokens/ownBackground без собственного bg", () => {
-        const body = new BodyElement();
-        body.setAsRoot();
         const label = new TextLabelElement("hi");
-        body.appendChild(label);
+        const body = new BodyElement();
+        body.setContent(label);
+        body.setAsRoot();
 
         const snapshot = serializeTree(body, null);
         const labelNode = findByType(snapshot!, "TextLabelElement");
