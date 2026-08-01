@@ -1,5 +1,6 @@
 import { MockTerminalBackend } from "../../tuidom/backend/mockTerminalBackend.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../tuidom/common/geometryPromitives.ts";
+import { ROOT_STYLE_CONTEXT } from "../../tuidom/dom/styles/tuiStyle.ts";
 import type { TUIElement } from "../../tuidom/dom/tuiElement.ts";
 import { RenderContext } from "../../tuidom/dom/tuiElement.ts";
 import { TerminalScreen } from "../../tuidom/rendering/terminalScreen.ts";
@@ -30,7 +31,7 @@ export function renderElement(
     element.localPosition = new Offset(0, 0);
     element.layout(options.constraints ?? BoxConstraints.tight(size));
     if (options.resolveStyles === true) {
-        element.performStyleResolution(element.resolvedStyle);
+        element.performStyleResolution(ROOT_STYLE_CONTEXT);
     }
     // Клип по краям экрана — как в TuiApplication: переполняющий layout не
     // должен писать за пределы grid (там нет bounds-чека, это crash).

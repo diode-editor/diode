@@ -4,7 +4,7 @@ import { expectScreen, screen } from "../../../src/TestUtils/expectScreen.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
-import { ROOT_RESOLVED_STYLE } from "../../dom/styles/tuiStyle.ts";
+import { ROOT_STYLE_CONTEXT } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 
@@ -220,7 +220,7 @@ describe("PaddingContainerElement", () => {
         const termScreen = new TerminalScreen(size);
 
         padded.localPosition = new Offset(0, 0);
-        padded.performStyleResolution(ROOT_RESOLVED_STYLE);
+        padded.performStyleResolution(ROOT_STYLE_CONTEXT);
         padded.layout(BoxConstraints.tight(size));
         padded.render(new RenderContext(termScreen));
         termScreen.flush(backend);

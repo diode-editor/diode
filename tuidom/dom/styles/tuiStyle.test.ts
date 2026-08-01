@@ -2,8 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
 
-import type { ResolvedTUIStyle } from "./tuiStyle.ts";
-import { INHERITED_BG, INHERITED_FG, resolveStyle, resolveStyleColor, ROOT_RESOLVED_STYLE, styleEquals } from "./tuiStyle.ts";
+import type { ResolvedTUIStyle, StyleStateSelector } from "./tuiStyle.ts";
+import {
+    INHERITED_BG,
+    INHERITED_FG,
+    mergeStyleVariants,
+    resolveStyle,
+    resolveStyleColor,
+    ROOT_RESOLVED_STYLE,
+    styleEquals,
+} from "./tuiStyle.ts";
 
 describe("resolveStyleColor", () => {
     const ifg = packRgb(200, 200, 200);
@@ -49,6 +57,17 @@ describe("styleEquals", () => {
         expect(styleEquals({ fg: DEFAULT_COLOR }, {})).toBe(false);
     });
 
+    it("when: равные по значению массивы равны, различия ловятся", () => {
+        const a = { fg: 1, when: [{ states: ["hover"], bg: 2 }] };
+        expect(styleEquals(a, { fg: 1, when: [{ states: ["hover"], bg: 2 }] })).toBe(true);
+        expect(styleEquals(a, { fg: 1, when: [{ states: ["focus"], bg: 2 }] })).toBe(false);
+        expect(styleEquals(a, { fg: 1, when: [{ states: ["hover"], bg: 3 }] })).toBe(false);
+        expect(styleEquals(a, { fg: 1, when: [] })).toBe(false);
+        expect(styleEquals(a, { fg: 1 })).toBe(false);
+        expect(styleEquals({ fg: 1 }, a)).toBe(false);
+        expect(styleEquals(a, { fg: 1, when: [{ states: ["hover", "focus"], bg: 2 }] })).toBe(false);
+    });
+
     it("расширенные поля подклассов участвуют в равенстве", () => {
         interface ExtendedStyle {
             fg?: number;
@@ -59,6 +78,49 @@ describe("styleEquals", () => {
         expect(styleEquals(a, b)).toBe(false);
         expect(styleEquals(a, { fg: 1, panelTitleFg: 2 } as ExtendedStyle)).toBe(true);
         expect(styleEquals(a, { fg: 1 })).toBe(false);
+    });
+});
+
+describe("mergeStyleVariants", () => {
+    const активны = (states: string[]) => (sel: StyleStateSelector) => states.includes(sel);
+
+    it("без when возвращает базовые fg/bg", () => {
+        expect(mergeStyleVariants({ fg: 1, bg: 2 }, активны([]))).toEqual({ fg: 1, bg: 2 });
+        expect(mergeStyleVariants({}, активны([]))).toEqual({ fg: undefined, bg: undefined });
+    });
+
+    it("активная запись перекрывает базу, неактивная — нет", () => {
+        const style = { fg: 1, bg: 2, when: [{ states: ["hover"] as const, bg: 9 }] };
+        expect(mergeStyleVariants(style, активны(["hover"]))).toEqual({ fg: 1, bg: 9 });
+        expect(mergeStyleVariants(style, активны([]))).toEqual({ fg: 1, bg: 2 });
+    });
+
+    it("запись с fg-only не трогает bg (и наоборот)", () => {
+        const style = { fg: 1, bg: 2, when: [{ states: ["focus"] as const, fg: 7 }] };
+        expect(mergeStyleVariants(style, активны(["focus"]))).toEqual({ fg: 7, bg: 2 });
+    });
+
+    it("AND-семантика: запись активна, только когда активны ВСЕ селекторы", () => {
+        const style = { when: [{ states: ["focus", "hover"] as const, bg: 5 }] };
+        expect(mergeStyleVariants(style, активны(["focus"])).bg).toBeUndefined();
+        expect(mergeStyleVariants(style, активны(["focus", "hover"])).bg).toBe(5);
+    });
+
+    it("позже объявленная активная запись побеждает", () => {
+        const style = {
+            bg: 1,
+            when: [
+                { states: ["hover"] as const, bg: 2 },
+                { states: ["selected"] as const, bg: 3 },
+            ],
+        };
+        expect(mergeStyleVariants(style, активны(["hover", "selected"])).bg).toBe(3);
+        expect(mergeStyleVariants(style, активны(["hover"])).bg).toBe(2);
+    });
+
+    it("states: [] — безусловная запись, всегда активна", () => {
+        const style = { bg: 1, when: [{ states: [] as const, bg: 4 }] };
+        expect(mergeStyleVariants(style, активны([])).bg).toBe(4);
     });
 });
 

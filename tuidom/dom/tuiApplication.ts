@@ -9,7 +9,7 @@ import { FocusManager } from "./events/focusManager.ts";
 import { MouseEventDispatcher } from "./events/mouseEventDispatcher.ts";
 import { TUIKeyboardEvent } from "./events/tuiKeyboardEvent.ts";
 import { TUIPasteEvent } from "./events/tuiPasteEvent.ts";
-import { ROOT_RESOLVED_STYLE } from "./styles/tuiStyle.ts";
+import { ROOT_STYLE_CONTEXT } from "./styles/tuiStyle.ts";
 import { RenderContext, type TUIElement } from "./tuiElement.ts";
 import { assertValidTree } from "./validateTree.ts";
 
@@ -65,7 +65,7 @@ export class TuiApplication {
             this.root.layout(constraints);
 
             // Resolve styles (top-down cascade)
-            this.root.performStyleResolution(ROOT_RESOLVED_STYLE);
+            this.root.performStyleResolution(ROOT_STYLE_CONTEXT);
 
             // Render
             const screenClip = new Rect(new Point(0, 0), this.screen.size);

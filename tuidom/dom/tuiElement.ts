@@ -2,7 +2,6 @@ import { DisplayLine } from "../common/displayLine.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../common/geometryPromitives.ts";
 import type { CellPatch, ReadonlyCellData } from "../rendering/grid.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
-
 import type { OverlayLayer } from "../ui/contextview/overlayLayer.ts";
 
 import { BORDER_ROUNDED, type BorderStyle } from "./borderStyle.ts";
@@ -12,8 +11,21 @@ import type { TUIFocusEvent } from "./events/tuiFocusEvent.ts";
 import { TUIKeyboardEvent } from "./events/tuiKeyboardEvent.ts";
 import type { TUIMouseEvent } from "./events/tuiMouseEvent.ts";
 import type { TUIPasteEvent } from "./events/tuiPasteEvent.ts";
-import type { ResolvedTUIStyle, TUIStyle } from "./styles/tuiStyle.ts";
-import { resolveStyle, ROOT_RESOLVED_STYLE, styleEquals } from "./styles/tuiStyle.ts";
+import type {
+    ResolvedTUIStyle,
+    StyleColor,
+    StyleResolutionContext,
+    StyleState,
+    StyleStateSelector,
+    TUIStyle,
+} from "./styles/tuiStyle.ts";
+import {
+    mergeStyleVariants,
+    resolveStyleColor,
+    ROOT_RESOLVED_STYLE,
+    ROOT_STYLE_CONTEXT,
+    styleEquals,
+} from "./styles/tuiStyle.ts";
 import { querySelector, querySelectorAll } from "./tuiSelector.ts";
 
 const MAX_COORD = 100_000;
@@ -253,6 +265,16 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
     private resolvedStyleValue: ResolvedTUIStyle = ROOT_RESOLVED_STYLE;
     private isStyleDirty = true;
     private subtreeStyleDirty = false;
+    // Сырые цвета ПОСЛЕ when-merge (до резолва сентинелов) — отвечают на
+    // вопрос «задан ли цвет собственным стилем» (заливка фона, инспектор).
+    private appliedFgValue: StyleColor | undefined;
+    private appliedBgValue: StyleColor | undefined;
+    // Активные состояния (hover/focus ведёт ядро, прочие — виджеты). Lazy:
+    // у подавляющего большинства элементов состояний нет.
+    private styleStatesSet: Set<string> | null = null;
+    // Контекст, переданный детям на последнем резолве. Валиден, пока элемент
+    // чист: любая смена входа (стиль/состояние предка) дирявит всё поддерево.
+    private childStyleContext: StyleResolutionContext = ROOT_STYLE_CONTEXT;
 
     public get style(): Readonly<S> {
         return this.styleValue;
@@ -632,18 +654,76 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
         }
     }
 
-    public performStyleResolution(inherited: ResolvedTUIStyle): void {
+    public performStyleResolution(context: StyleResolutionContext): void {
         if (!this.isStyleDirty && !this.subtreeStyleDirty) return;
 
         if (this.isStyleDirty) {
-            this.resolvedStyleValue = resolveStyle(this.style, inherited);
+            const applied = mergeStyleVariants(this.style, (selector) =>
+                this.isStyleSelectorActive(selector, context.ancestorStates),
+            );
+            this.appliedFgValue = applied.fg;
+            this.appliedBgValue = applied.bg;
+            const fg = applied.fg !== undefined ? resolveStyleColor(applied.fg, context.fg, context.bg) : context.fg;
+            const bg = applied.bg !== undefined ? resolveStyleColor(applied.bg, context.fg, context.bg) : context.bg;
+            this.resolvedStyleValue = { fg, bg };
+            this.childStyleContext = this.buildChildStyleContext(context);
         }
         this.isStyleDirty = false;
         this.subtreeStyleDirty = false;
 
         for (const child of this.getChildren()) {
-            child.performStyleResolution(this.resolvedStyleValue);
+            child.performStyleResolution(this.childStyleContext);
         }
+    }
+
+    private isStyleSelectorActive(selector: StyleStateSelector, ancestorStates: ReadonlySet<string>): boolean {
+        if (selector.startsWith("in:")) {
+            const state = selector.slice(3);
+            return this.styleStatesSet?.has(state) === true || ancestorStates.has(state);
+        }
+        return this.styleStatesSet?.has(selector) === true;
+    }
+
+    private buildChildStyleContext(context: StyleResolutionContext): StyleResolutionContext {
+        const { fg, bg } = this.resolvedStyleValue;
+        let ancestorStates = context.ancestorStates;
+        if (this.styleStatesSet !== null && this.styleStatesSet.size > 0) {
+            const union = new Set(context.ancestorStates);
+            for (const state of this.styleStatesSet) {
+                union.add(state);
+            }
+            ancestorStates = union;
+        }
+        return { fg, bg, ancestorStates };
+    }
+
+    // ─── Состояния стиля ───
+
+    /**
+     * Ставит/снимает состояние стиля. hover и focus ведёт ядро (диспатчер
+     * мыши и менеджер фокуса); произвольные строковые состояния ("selected",
+     * "checked", …) виджеты ставят сами. Смена состояния перерезолвит стиль
+     * элемента и поддерева: дети наследуют РЕЗУЛЬТАТ родителя с учётом его
+     * состояний, а `in:`-селекторы потомков видят состояния предков.
+     */
+    public setStyleState(state: StyleState, active: boolean): void {
+        const current = this.styleStatesSet?.has(state) === true;
+        if (current === active) return;
+        if (active) {
+            (this.styleStatesSet ??= new Set()).add(state);
+        } else {
+            this.styleStatesSet?.delete(state);
+        }
+        this.markStyleDirty();
+    }
+
+    public hasStyleState(state: StyleState): boolean {
+        return this.styleStatesSet?.has(state) === true;
+    }
+
+    /** Активные состояния (порядок вставки) — инспектор/тесты. */
+    public get activeStyleStates(): readonly string[] {
+        return this.styleStatesSet !== null ? [...this.styleStatesSet] : [];
     }
 
     // ─── Focus convenience ───
@@ -695,8 +775,10 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
         }
         const oldParent = this._parent;
         this._parent = parent;
-        if (parent && (this.isStyleDirty || this.subtreeStyleDirty)) {
-            this.markSubtreeStyleDirtyUp();
+        if (parent) {
+            // Безусловно: даже чистое поддерево обязано пере-резолвиться в
+            // контексте нового родителя (другой каскад/состояния предков).
+            this.markStyleDirty();
         }
         this.onDidChangeParent(oldParent, parent);
 
@@ -943,7 +1025,7 @@ export class TUIElement<S extends TUIStyle = TUIStyle> {
      * что и у детей его там нет), дети опрашиваются в обратном порядке
      * отрисовки, затем — сам элемент.
      */
-    // eslint-disable-next-line @typescript-eslint/prefer-return-this-type
+
     public elementFromPoint(point: Point): TUIElement | null {
         if (this.hidden) return null; // скрытое не кликается
         const bounds = new Rect(this.globalPosition, this.layoutSize);
