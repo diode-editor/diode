@@ -7,6 +7,7 @@ import { ContextMenuServiceDIToken } from "../../platform/contextview/browser/co
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { getMenuStyles } from "../../platform/theme/browser/defaultStyles.ts";
+import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
 import type { KeybindingRegistry } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
@@ -373,6 +374,9 @@ export class WorkbenchComponent extends ThemedComponent {
     }
 
     protected updateStyles(): void {
+        // Единственная точка «тема → корневой var-scope» (Н3): дальше цвета
+        // расходятся каскадом токенов, пуши структур по виджетам не нужны.
+        applyThemeVars(this.view, this.theme);
         this.view.style = {
             fg: this.theme.getRequiredColor("foreground"),
             bg: this.theme.getRequiredColor("editor.background"),

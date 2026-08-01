@@ -3,6 +3,15 @@ import { Size } from "../../tuidom/common/geometryPromitives.ts";
 import { TuiApplication } from "../../tuidom/dom/tuiApplication.ts";
 import type { TUIElement } from "../../tuidom/dom/tuiElement.ts";
 import { BodyElement } from "../../tuidom/ui/body/bodyElement.ts";
+import { applyThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts";
+import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
+import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
+
+let cachedTestTheme: WorkbenchTheme | null = null;
+function defaultTestTheme(): WorkbenchTheme {
+    cachedTestTheme ??= WorkbenchTheme.fromThemeFile(darkPlusTheme);
+    return cachedTestTheme;
+}
 
 export class TestApp {
     public readonly backend: MockTerminalBackend;
@@ -13,6 +22,10 @@ export class TestApp {
         this.app = new TuiApplication(backend);
         this.app.root = root;
         this.bodyRoot = root;
+        // Паритет с приложением: корень получает палитру дефолтной темы тем же
+        // путём, что и WorkbenchComponent (Н3) — компоненты в тестах резолвят
+        // токены в те же цвета, что и вживую.
+        applyThemeVars(root, defaultTestTheme());
         // Каждый кадр в тестах верифицирует инварианты дерева (симметрия parent,
         // укоренённость) — молчаливые полуприкреплённые состояния падают сразу.
         this.app.validateTreeAfterRender = true;

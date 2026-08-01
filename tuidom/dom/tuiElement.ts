@@ -751,11 +751,15 @@ export class TUIElement {
      * Читает токен из ближайшего резолвленного var-scope — для painter-виджетов,
      * рисующих несколько цветов в custom render. Валидно после резолва стилей
      * (render всегда после него в кадре); до первого резолва видит дефолты
-     * tuidom. Незнакомый токен — throw.
+     * tuidom. Незнакомый токен — throw; передан fallback (аналог второго
+     * аргумента CSS var()) — возвращается он. Fallback — для токенов, чьё
+     * отсутствие ЛЕГАЛЬНО и означает «взять из каскада» (editorGutter.background
+     * → фон редактора), а не страховка от опечаток.
      */
-    public styleVar(name: AnyStyleToken): number {
+    public styleVar(name: AnyStyleToken, fallback?: number): number {
         const value = this.varScopeRef[name];
         if (typeof value !== "number") {
+            if (fallback !== undefined) return fallback;
             throw new Error(`${this.describeForStyleError()}.styleVar: неизвестный цветовой токен "${name}"`);
         }
         return value;
