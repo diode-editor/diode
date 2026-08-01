@@ -133,3 +133,18 @@ describe("serializeTree — состояния и токены стиля (Н3)"
         expect(labelNode?.ownBackground).toBeUndefined();
     });
 });
+
+describe("serializeTree — только fg-токен", () => {
+    it("styleTokens содержит один fg без bg", () => {
+        const label = new TextLabelElement("x");
+        label.style = { fg: "list.activeSelectionForeground" };
+        const body = new BodyElement();
+        body.setContent(label);
+        const app = TestApp.create(body, new Size(10, 3));
+        app.render();
+
+        const snapshot = serializeTree(app.root, null);
+        const node = findByType(snapshot as NodeSnapshot, "TextLabelElement");
+        expect(node?.styleTokens).toEqual({ fg: "list.activeSelectionForeground" });
+    });
+});

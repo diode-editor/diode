@@ -209,10 +209,6 @@ export class FindComponent extends Component {
         this.counterGap.markDirty();
     }
 
-    private buttons(): readonly ButtonElement[] {
-        return [this.prevButton, this.nextButton, this.closeButton];
-    }
-
     private counterText(): string {
         if (this.input.inputState.value.length === 0) return "";
         if (this.matchTotal === 0) return "No results";

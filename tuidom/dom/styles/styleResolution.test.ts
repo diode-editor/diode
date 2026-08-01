@@ -526,3 +526,29 @@ describe("токены-переменные (var-scope)", () => {
         }).toThrow("v.fg");
     });
 });
+
+describe("описание владельца в ошибках токенов", () => {
+    it("включает id элемента, когда он задан", () => {
+        const el = new TUIElement();
+        el.id = "myButton";
+        expect(() => el.styleVar("no.such.token")).toThrow('TUIElement#myButton.styleVar: неизвестный цветовой токен');
+    });
+});
+
+describe("resolveColor — публичный резолв данных", () => {
+    it("резолвит число/сентинел/токен и падает на незнакомом токене", () => {
+        const root = new ContainerElement();
+        root.setAsRoot();
+        root.setRequestRenderCallback(() => {
+            /* noop */
+        });
+        root.style = { fg: packRgb(9, 9, 9) };
+        root.setStyleVars({ "data.color": packRgb(1, 2, 3) });
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+
+        expect(root.resolveColor(packRgb(7, 7, 7))).toBe(packRgb(7, 7, 7));
+        expect(root.resolveColor(INHERITED_BG)).toBe(root.resolvedStyle.bg);
+        expect(root.resolveColor("data.color")).toBe(packRgb(1, 2, 3));
+        expect(() => root.resolveColor("no.such")).toThrow('ContainerElement: неизвестный цветовой токен "no.such"');
+    });
+});

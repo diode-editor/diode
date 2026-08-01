@@ -39,3 +39,14 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("terminal.foreground")).toBe(0x222222);
     });
 });
+
+describe("applyThemeVars — не-числовые значения пропускаются", () => {
+    it("undefined-цвет темы не попадает в таблицу (остаётся дефолт tuidom)", () => {
+        const base = WorkbenchTheme.fromThemeFile({ name: "t", type: "dark", colors: {} });
+        const colors = { ...base.colors, "list.hoverForeground": undefined } as typeof base.colors;
+        const theme = new WorkbenchTheme("t", "dark", colors, base.tokenTheme);
+        const root = new BodyElement();
+        root.setAsRoot();
+        expect(() => applyThemeVars(root, theme)).not.toThrow();
+    });
+});
