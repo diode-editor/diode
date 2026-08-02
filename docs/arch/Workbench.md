@@ -361,14 +361,15 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
   `WorkbenchComponent` confirm-save-флоу), добавились `LayoutActions.ts`/
   `TerminalActions.ts`, а сам упорядоченный список — `builtinActions.ts`
   (регистрирует владелец приложения одним циклом).
-- **Диалоги (этап 5b)** — `Components/Dialogs/`: база `DialogComponent`
-  (наследник `ThemedComponent`; владеет `FitContentElement`-view и строит в нём
-  JSX-дерево примитивов через reconcile — компонент **компонует** контролы, не
-  наследуя `TUIElement`; общее поведение: ряд кнопок, стрелки, Escape →
-  `onDismiss`; цвета — `getDialogStyles(theme)` из `Styles/defaultStyles.ts`:
-  ключи `editorWidget.*`, `descriptionForeground`, `textLink.foreground`,
-  `editorWarning.foreground`, `button.*`) и наследники `ConfirmDialog`,
-  `ConfirmSaveDialog`, `AboutDialog`. Оркестрация — `Services/DialogService.ts`
+- **Диалоги (этап 5b)** — `browser/parts/dialogs/`: база `DialogComponent`
+  (владеет `FitContentElement`-view; наследник собирает в нём дерево примитивов
+  конструкторами один раз — компонент **компонует** контролы, не наследуя
+  `TUIElement`; общий каркас окна — `buildFrame` (рамка + отступы + стек, цвета
+  контента раздаёт каскад); общее поведение: ряд кнопок, стрелки, Escape →
+  `onDismiss`; цвета — токены `DIALOG_STYLES`: `editorWidget.*`,
+  `descriptionForeground`, `textLink.foreground`, `editorWarning.foreground` —
+  резолвит каскад, пере-пуш при смене темы не нужен) и наследники
+  `ConfirmDialog`, `ConfirmSaveDialog`, `AboutDialog`. Оркестрация — `Services/DialogService.ts`
   (аналог `IDialogService`): владеет компонентами и их overlay-сессиями
   (`pointerPolicy: "modal"`, центрирование по экрану), API —
   `showConfirmDialog`/`showConfirmSaveDialog` (+ promise-обёртка `confirmSave`)/

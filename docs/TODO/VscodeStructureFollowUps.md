@@ -31,8 +31,7 @@
 
 - [ ] **Отдельный репозиторий**: `tuidom/` сейчас top-level каталог этого репо
   (граница видна, единый tsconfig); следующий шаг — пакет `tuidom` в своём
-  репо, vexx потребляет как зависимость (jsx-runtime exports уже указывает в
-  `tuidom/dom/jsx`).
+  репо, vexx потребляет как зависимость.
 - [ ] **Наследие «контролы знают про vexx»**: все виджеты `ui/*` переехали в
   tuidom, но часть несёт vexx-специфику старого дизайна — `BodyElement` знает
   про `menuBarElement`/`statusBarElement`-слоты, editorgroup/statusbar/
