@@ -17,7 +17,7 @@ go-to-definition работает; сервер-внук корректно уб
 1. **[x] document sync** — наивный push `editor.didOpen`/`editor.didChange`
    (полный текст) host → subprocess; `workspace.onDidOpen/onDidChangeTextDocument`
    фаерятся с настоящим текстом буфера. Без него languageclient не шлёт серверу ни байта.
-2. **[ ] definition-провайдер** — `languages.registerDefinitionProvider` по образцу
+2. **[x] definition-провайдер** — `languages.registerDefinitionProvider` по образцу
    completion/folding (core seam `iDefinitionSource` → RPC `languages.provideDefinition`)
    + UI-команда Go to Definition (F12) с кросс-файловой навигацией.
 3. **[ ] runway для languageclient** — перенос наивных стабов спайка
@@ -77,7 +77,7 @@ go-to-definition работает; сервер-внук корректно уб
 | `workspace.onDidOpenTextDocument` | real | — (шаг 1) |
 | `workspace.onDidChangeTextDocument` | real | — (шаг 1; одна full-range правка) |
 | `workspace.onDidCloseTextDocument` | no-op | продюсер закрытия вкладки → `editor.didClose` → fire + сброс didOpen-дедупа |
-| `languages.registerDefinitionProvider` | — | шаг 2: seam `iDefinitionSource` + RPC `languages.provideDefinition` + F12 |
+| `languages.registerDefinitionProvider` | real | — (шаг 2: seam `iDefinitionSource` → RPC `languages.provideDefinition`, таймаут 5000 мс — холодный сервер; UI — `DefinitionService` + F12, кросс-файловая навигация паттерном Problems reveal) |
 | `languages.createDiagnosticCollection` | — | шаг 3: naive → notify `diagnostics.publish` → `MarkerService.changeOne` |
 | остальные `register*Provider` (~28) | — | шаг 3: no-op; закрытие по образцу definition (seam + RPC + UI-потребитель) |
 

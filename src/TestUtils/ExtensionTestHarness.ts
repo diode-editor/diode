@@ -192,6 +192,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     bindDocumentSync(group, host);
     // Completion (WP8): источник автодополнений — провайдеры расширений через host.
     group.completionSource = (req) => host.provideCompletionItems(req);
+    // Definition (LSP): источник целей Go to Definition — как в extensionHostModule.
+    group.definitionSource = (req) => host.provideDefinition(req);
     // Folding (#87): источник областей сворачивания — провайдеры расширений через host.
     group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
     host.onFoldingProvidersChanged(() => {

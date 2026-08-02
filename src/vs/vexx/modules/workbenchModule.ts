@@ -136,6 +136,10 @@ import {
     CompletionService,
     CompletionServiceDIToken,
 } from "../../workbench/contrib/suggest/browser/completionService.ts";
+import {
+    DefinitionService,
+    DefinitionServiceDIToken,
+} from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
 import { SuggestComponent, SuggestComponentDIToken } from "../../workbench/contrib/suggest/browser/suggestComponent.ts";
 import {
     TerminalFocusFallbackDIToken,
@@ -251,6 +255,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // источники/триггеры/accept, item.command → CommandRegistry напрямую).
     container.bind(SuggestComponentDIToken, SuggestComponent);
     container.bind(CompletionServiceDIToken, CompletionService);
+    // Go to Definition: сервис без компонента — цели отдаёт definitionSource
+    // группы (провайдеры расширений), навигация — паттерн Problems reveal.
+    container.bind(DefinitionServiceDIToken, DefinitionService);
     container.bind(FindComponentDIToken, FindComponent);
     container.bind(FindServiceDIToken, FindService);
     container.bind(ActiveEditorStatusSourceDIToken, () => container.get(EditorServiceDIToken));

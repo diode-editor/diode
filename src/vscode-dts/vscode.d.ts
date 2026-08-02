@@ -2047,6 +2047,60 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Represents a location inside a resource, such as a line
+	 * inside a text file.
+	 */
+	export class Location {
+
+		/**
+		 * The resource identifier of this location.
+		 */
+		uri: Uri;
+
+		/**
+		 * The document range of this location.
+		 */
+		range: Range;
+
+		/**
+		 * Creates a new location object.
+		 *
+		 * @param uri The resource identifier.
+		 * @param rangeOrPosition The range or position. Positions will be converted to an empty range.
+		 */
+		constructor(uri: Uri, rangeOrPosition: Range | Position);
+	}
+
+	/**
+	 * Represents the connection of two locations. Provides additional metadata over normal {@link Location locations},
+	 * including an origin range.
+	 */
+	export interface LocationLink {
+		/**
+		 * Span of the origin of this link.
+		 *
+		 * Used as the underlined span for mouse definition hover. Defaults to the word range at
+		 * the definition position.
+		 */
+		originSelectionRange?: Range;
+
+		/**
+		 * The target resource identifier of this link.
+		 */
+		targetUri: Uri;
+
+		/**
+		 * The full target range of this link.
+		 */
+		targetRange: Range;
+
+		/**
+		 * The span of this link.
+		 */
+		targetSelectionRange?: Range;
+	}
+
+	/**
 	 * An event describing an individual change in the text of a {@link TextDocument document}.
 	 */
 	export interface TextDocumentContentChangeEvent {
@@ -3018,6 +3072,40 @@ declare module "vscode" {
 	 * the score is only checked to be `>0`, for other features, like {@link languages.registerCompletionItemProvider IntelliSense} the
 	 * score is used for determining the order in which providers are asked to participate.
 	 */
+	/**
+	 * Information about where a symbol is defined.
+	 *
+	 * Provides additional metadata over normal {@link Location} definitions, including the range of
+	 * the defining symbol
+	 */
+	export type DefinitionLink = LocationLink;
+
+	/**
+	 * The definition of a symbol represented as one or many {@link Location locations}.
+	 * For most programming languages there is only one location at which a symbol is
+	 * defined.
+	 */
+	export type Definition = Location | Location[];
+
+	/**
+	 * The definition provider interface defines the contract between extensions and
+	 * the [go to definition](https://code.visualstudio.com/docs/editor/editingevolved#_go-to-definition)
+	 * and peek definition features.
+	 */
+	export interface DefinitionProvider {
+
+		/**
+		 * Provide the definition of the symbol at the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns A definition or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideDefinition(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;
+	}
+
 	export namespace languages {
 
 		/**
@@ -3040,6 +3128,19 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerCompletionItemProvider(selector: DocumentSelector, provider: CompletionItemProvider, ...triggerCharacters: string[]): Disposable;
+
+		/**
+		 * Register a definition provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A definition provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDefinitionProvider(selector: DocumentSelector, provider: DefinitionProvider): Disposable;
 
 		/**
 		 * Register a folding range provider.

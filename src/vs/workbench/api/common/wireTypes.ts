@@ -1,6 +1,7 @@
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type { ICoreCompletionItem } from "../../../editor/common/languages/iCompletionSource.ts";
+import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
@@ -426,6 +427,91 @@ export async function requestFoldingRanges(
         ]);
         if (outcome === TIMEOUT) return [];
         return wireToCoreFoldingRegions(parseWireFoldingRanges(outcome));
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// ─── Definition (LSP) ────────────────────────────────────────────────────────
+
+/**
+ * Wire-форма одной цели definition (subprocess → host). `uri` — цель прыжка
+ * (может отличаться от запрошенного ресурса), `range` — прицельный диапазон
+ * символа (у `LocationLink` хост-сериализатор берёт `targetSelectionRange ??
+ * targetRange`).
+ */
+export interface WireDefinitionLocation {
+    readonly uri: string;
+    readonly range: IWireRange;
+}
+
+/** Параметры запроса definition (host → subprocess) — форма completion-запроса. */
+export interface IWireDefinitionParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    readonly text: string;
+    readonly line: number;
+    readonly character: number;
+}
+
+/** Валидирует одну wire-цель definition; `null`, если форма не распознана. */
+function parseWireDefinitionLocation(raw: unknown): WireDefinitionLocation | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.uri !== "string" || obj.uri === "") return null;
+    const range = parseWireRange(obj.range);
+    if (range === undefined) return null;
+    return { uri: obj.uri, range };
+}
+
+/**
+ * Разбирает сырой ответ definition в массив валидных {@link WireDefinitionLocation}.
+ * Невалидные элементы отбрасываются (drop+skip), а не роняют весь ответ.
+ */
+export function parseWireDefinitionLocations(raw: unknown): WireDefinitionLocation[] {
+    if (!Array.isArray(raw)) return [];
+    const result: WireDefinitionLocation[] = [];
+    for (const item of raw) {
+        const parsed = parseWireDefinitionLocation(item);
+        if (parsed !== null) result.push(parsed);
+    }
+    return result;
+}
+
+/** Переводит wire-цели в core-цели ({@link ICoreDefinitionLocation}). */
+export function wireToCoreDefinitionLocations(wire: readonly WireDefinitionLocation[]): ICoreDefinitionLocation[] {
+    return wire.map((loc) => ({
+        uri: loc.uri,
+        range: createRange(loc.range.startLine, loc.range.startCharacter, loc.range.endLine, loc.range.endCharacter),
+    }));
+}
+
+/**
+ * Запрашивает у subprocess'а цели definition с таймаутом. Возвращает пустой
+ * массив на таймаут, ошибку RPC или невалидный ответ (go-to-definition —
+ * best-effort, не блокирует UI). `request` — голая функция для юнит-тестов через
+ * {@link InProcessChannelPair} без форка subprocess'а.
+ */
+export async function requestDefinition(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireDefinitionParams,
+    timeoutMs: number,
+): Promise<ICoreDefinitionLocation[]> {
+    const TIMEOUT = Symbol("timeout");
+    let timer!: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<typeof TIMEOUT>((resolve) => {
+        timer = setTimeout(() => {
+            resolve(TIMEOUT);
+        }, timeoutMs);
+    });
+    try {
+        const outcome = await Promise.race([
+            request("languages.provideDefinition", params).catch(() => TIMEOUT),
+            timeout,
+        ]);
+        if (outcome === TIMEOUT) return [];
+        return wireToCoreDefinitionLocations(parseWireDefinitionLocations(outcome));
     } finally {
         clearTimeout(timer);
     }

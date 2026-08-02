@@ -226,6 +226,21 @@ export class Selection extends Range {
     }
 }
 
+/**
+ * `vscode.Location` — позиция внутри ресурса (цель definition/references).
+ * Position в конструкторе сворачивается в пустой Range (контракт vscode.d.ts).
+ */
+export class Location {
+    public uri: Uri;
+    public range: Range;
+
+    public constructor(uri: Uri, rangeOrPosition: Range | Position) {
+        this.uri = uri;
+        this.range =
+            rangeOrPosition instanceof Range ? rangeOrPosition : new Range(rangeOrPosition, rangeOrPosition);
+    }
+}
+
 /** Направление перевода строки. */
 export enum EndOfLine {
     LF = 1,

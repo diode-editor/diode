@@ -108,6 +108,10 @@ export const extensionHostModule: ContainerModule = (container) => {
         // подключаются как источник автодополнений группы (читает CompletionService).
         group.completionSource = (req) => host.provideCompletionItems(req);
 
+        // Definition: провайдеры расширений (languages.provideDefinition)
+        // подключаются как источник целей Go to Definition (читает DefinitionService).
+        group.definitionSource = (req) => host.provideDefinition(req);
+
         // Folding: провайдеры расширений (languages.provideFoldingRanges)
         // подключаются как источник областей сворачивания группы (читает
         // EditorComponent при пересчёте, мержит поверх indentation-фолдов).

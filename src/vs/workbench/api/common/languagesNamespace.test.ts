@@ -59,14 +59,14 @@ describe("LanguagesNamespace", () => {
         const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         // Только переход 0→1 шлёт notif (второй провайдер не шлёт).
         expect(subs).toHaveLength(1);
-        expect(subs[0].params).toEqual({ hasCompletionProviders: true, hasFoldingProviders: false });
+        expect(subs[0].params).toEqual({ hasCompletionProviders: true, hasFoldingProviders: false, hasDefinitionProviders: false });
 
         d1.dispose(); // ещё остаётся d2 — notif нет
         expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toHaveLength(1);
         d2.dispose(); // 1→0 — notif {false}
         const after = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         expect(after).toHaveLength(2);
-        expect(after[1].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: false });
+        expect(after[1].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: false, hasDefinitionProviders: false });
     });
 
     it("provideCompletionItems вызывает только матчащие провайдеры и сериализует items", async () => {
@@ -231,7 +231,7 @@ describe("LanguagesNamespace", () => {
         // Только переход 0→1 шлёт notif (второй провайдер не шлёт).
         const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         expect(subs).toHaveLength(1);
-        expect(subs[0].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: true });
+        expect(subs[0].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: true, hasDefinitionProviders: false });
 
         d1.dispose(); // ещё остаётся d2 — notif нет
         expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toHaveLength(1);
@@ -239,7 +239,7 @@ describe("LanguagesNamespace", () => {
         d2.dispose(); // 1→0 — notif {false}
         expect(foldingRegistrations).toHaveLength(0);
         const after = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
-        expect(after[1].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: false });
+        expect(after[1].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: false, hasDefinitionProviders: false });
     });
 
     it("provideFoldingRanges: провайдер вернул не массив → пропускается", async () => {

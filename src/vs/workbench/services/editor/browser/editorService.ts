@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
+import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -118,6 +119,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * `CompletionService` при триггере; в редакторы не раздаётся (group-level).
      */
     public completionSource?: CompletionSource;
+
+    /**
+     * Definition-источник (host/харнесс подключает сюда провайдеры расширений
+     * через `languages.provideDefinition`). Читается `DefinitionService` по
+     * команде Go to Definition; в редакторы не раздаётся (group-level).
+     */
+    public definitionSource?: DefinitionSource;
 
     /**
      * Save-участник, прокидываемый в каждый редактор группы (host/харнесс
