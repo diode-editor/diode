@@ -65,6 +65,21 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         changes.list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
     }
 
+    /**
+     * Поллит кадр до предиката: открытие диффа читает диск асинхронно, и
+     * фиксированная пауза флачит на медленных CI-раннерах под coverage.
+     * По таймауту возвращает последний кадр — ассерт упадёт с внятным диффом.
+     */
+    async function waitForScreen(predicate: (screen: string) => boolean, timeoutMs = 5000): Promise<string> {
+        const deadline = Date.now() + timeoutMs;
+        for (;;) {
+            testApp.render();
+            const screen = testApp.backend.screenToString();
+            if (predicate(screen) || Date.now() > deadline) return screen;
+            await settle(10);
+        }
+    }
+
     beforeEach(async () => {
         ws = createTempWorkspace({
             prefix: "vexx-changes-",
@@ -156,10 +171,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
 
         const panesBefore = editors.editorCount;
         activate(ws.path("a.txt"));
-        await settle(10);
-        testApp.render();
 
-        const screen = testApp.backend.screenToString();
+        const screen = await waitForScreen((s) => s.includes("a.txt ↔ HEAD"));
         expect(screen).toContain("a.txt ↔ HEAD");
         expect(screen).toContain("-  bravo");
         expect(screen).toContain("+  XXbravo");
@@ -173,10 +186,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         await settle(0);
 
         activate(ws.path("nested/b.txt"));
-        await settle(10);
-        testApp.render();
 
-        expect(testApp.backend.screenToString()).toContain("b.txt ↔ HEAD");
+        expect(await waitForScreen((s) => s.includes("b.txt ↔ HEAD"))).toContain("b.txt ↔ HEAD");
         // Файловая вкладка b.txt не появилась — только a.txt из beforeEach и дифф.
         // fsPath не бросает на не-file схемах (дифф-вкладка несёт тот же путь) —
         // файловую вкладку отличаем схемой.
@@ -191,10 +202,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         await settle(0);
 
         activate(ws.path("untracked.txt"));
-        await settle(10);
-        testApp.render();
 
-        const screen = testApp.backend.screenToString();
+        const screen = await waitForScreen((s) => s.includes("brand new"));
         expect(screen).toContain("brand new");
         expect(screen).not.toContain("↔ HEAD");
         expect(screen).not.toContain("No changes to compare");
