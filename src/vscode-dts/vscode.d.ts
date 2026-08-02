@@ -2047,6 +2047,61 @@ declare module "vscode" {
 	}
 
 	/**
+	 * An event describing an individual change in the text of a {@link TextDocument document}.
+	 */
+	export interface TextDocumentContentChangeEvent {
+		/**
+		 * The range that got replaced.
+		 */
+		readonly range: Range;
+		/**
+		 * The offset of the range that got replaced.
+		 */
+		readonly rangeOffset: number;
+		/**
+		 * The length of the range that got replaced.
+		 */
+		readonly rangeLength: number;
+		/**
+		 * The new text for the range.
+		 */
+		readonly text: string;
+	}
+
+	/**
+	 * Reasons for why a text document has changed.
+	 */
+	export enum TextDocumentChangeReason {
+		/** The text change is caused by an undo operation. */
+		Undo = 1,
+
+		/** The text change is caused by an redo operation. */
+		Redo = 2,
+	}
+
+	/**
+	 * An event describing a transactional {@link TextDocument document} change.
+	 */
+	export interface TextDocumentChangeEvent {
+
+		/**
+		 * The affected document.
+		 */
+		readonly document: TextDocument;
+
+		/**
+		 * An array of content changes.
+		 */
+		readonly contentChanges: readonly TextDocumentContentChangeEvent[];
+
+		/**
+		 * The reason why the document was changed.
+		 * Is `undefined` if the reason is not known.
+		 */
+		readonly reason: TextDocumentChangeReason | undefined;
+	}
+
+	/**
 	 * An event that is fired when a {@link TextDocument document} will be saved.
 	 *
 	 * To make modifications to the document before it is being saved, call the
@@ -2329,6 +2384,13 @@ declare module "vscode" {
 		 * for a document that has not been shown in an editor.
 		 */
 		export const onDidCloseTextDocument: Event<TextDocument>;
+
+		/**
+		 * An event that is emitted when a {@link TextDocument text document} is changed. This usually happens
+		 * when the {@link TextDocument.getText contents} changes but also when other things like the
+		 * {@link TextDocument.isDirty dirty}-state changes.
+		 */
+		export const onDidChangeTextDocument: Event<TextDocumentChangeEvent>;
 
 		/**
 		 * An event that is emitted when a {@link TextDocument text document} will be saved to disk.

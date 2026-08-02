@@ -13,11 +13,13 @@ import {
     EndOfLine,
     EventEmitter,
     FileSystemError,
+    Position,
+    Range,
     TextDocumentSaveReason,
     TextEdit,
     Uri,
 } from "./vscodeTypes.ts";
-import type { IWireReadFileResult, WireTextEdit } from "./wireTypes.ts";
+import { type IWireReadFileResult, parseWireDocumentSyncSnapshot, type WireTextEdit } from "./wireTypes.ts";
 
 /** Тайм-аут на один waitUntil-thenable участника will-save, мс. */
 const WILL_SAVE_LISTENER_TIMEOUT_MS = 1500;
@@ -47,6 +49,13 @@ function serializeTextEdit(edit: TextEdit): WireTextEdit {
         },
         text: edit.newText,
     };
+}
+
+/** Позиция конца текста (для full-range change-события document sync). */
+function endOfText(text: string): Position {
+    const lines = text.split("\n");
+    const last = lines.length - 1;
+    return new Position(last, lines[last].length);
 }
 
 /** Wire-параметры запроса will-save (host → subprocess). */
@@ -117,19 +126,88 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     const onDidChangeConfigurationEmitter = new EventEmitter<vscode.ConfigurationChangeEvent>();
     const onDidOpenTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
     const onDidCloseTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
+    const onDidChangeTextDocumentEmitter = new EventEmitter<vscode.TextDocumentChangeEvent>();
     const onWillSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocumentWillSaveEvent>();
     const onDidSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
 
-    // Счётчики слушателей save-событий: subprocess сообщает хосту (updateSubscriptions),
-    // нужно ли вообще запускать pipeline will/did-save.
+    // Счётчики слушателей save-событий и document sync: subprocess сообщает хосту
+    // (updateSubscriptions), нужно ли вообще запускать pipeline will/did-save и
+    // гонять полнотекстовый didOpen/didChange на правки буфера.
     let willSaveCount = 0;
     let didSaveCount = 0;
+    let documentSyncCount = 0;
     function pushSubscriptions(): void {
         rpc.notify("workspace.updateSubscriptions", {
             willSave: willSaveCount > 0,
             didSave: didSaveCount > 0,
+            documentSync: documentSyncCount > 0,
         });
     }
+
+    /**
+     * Оборачивает событие в подписку со счётчиком: на переходах 0↔1 subprocess
+     * шлёт `workspace.updateSubscriptions` (паттерн onWillSaveTextDocument).
+     */
+    function countedEvent<T>(
+        emitter: EventEmitter<T>,
+        onCountChanged: (delta: 1 | -1) => void,
+    ): (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]) => vscode.Disposable {
+        return (listener, thisArgs, disposables) => {
+            // Внутреннюю подписку регистрируем без `disposables` — в массив кладём
+            // wrapper, чтобы dispose через него корректно уменьшал счётчик.
+            const inner = emitter.event(listener as never, thisArgs);
+            onCountChanged(1);
+            const wrapper = new DisposableImpl(() => {
+                inner.dispose();
+                onCountChanged(-1);
+            }) as unknown as vscode.Disposable;
+            if (disposables !== undefined) disposables.push(wrapper);
+            return wrapper;
+        };
+    }
+
+    function onDocumentSyncCountChanged(delta: 1 | -1): void {
+        documentSyncCount += delta;
+        if ((delta === 1 && documentSyncCount === 1) || (delta === -1 && documentSyncCount === 0)) {
+            pushSubscriptions();
+        }
+    }
+
+    // ── Document sync (host → subprocess) ───────────────────────────────────
+    // `editor.didOpen` кладёт полный текст в реестр и фаерит onDidOpenTextDocument
+    // (один раз на ресурс — как в VS Code; повторные open'ы только обновляют текст);
+    // `editor.didChange` обновляет текст и фаерит onDidChangeTextDocument с одной
+    // full-range правкой (валидно и для Full, и для Incremental sync сервера).
+    const openedUris = new Set<string>();
+
+    rpc.handleNotification("editor.didOpen", (params) => {
+        const snap = parseWireDocumentSyncSnapshot(params);
+        if (snap === null) return;
+        const doc = registry.upsertFull(snap);
+        if (openedUris.has(snap.uri)) return;
+        openedUris.add(snap.uri);
+        onDidOpenTextDocumentEmitter.fire(doc as unknown as vscode.TextDocument);
+    });
+
+    rpc.handleNotification("editor.didChange", (params) => {
+        const snap = parseWireDocumentSyncSnapshot(params);
+        if (snap === null) return;
+        const oldText = registry.get(Uri.parse(snap.uri))?.getText() ?? "";
+        const doc = registry.upsertFull(snap);
+        const fullRange = new Range(new Position(0, 0), endOfText(oldText));
+        onDidChangeTextDocumentEmitter.fire({
+            document: doc as unknown as vscode.TextDocument,
+            contentChanges: [
+                {
+                    range: fullRange as unknown as vscode.Range,
+                    rangeOffset: 0,
+                    rangeLength: oldText.length,
+                    text: snap.text,
+                },
+            ],
+            reason: undefined,
+        });
+    });
 
     rpc.handleNotification("workspace.initialize", (params) => {
         const p = params as { configuration?: unknown; workspaceFolders?: IWireWorkspaceFolder[] };
@@ -312,7 +390,10 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         openTextDocument,
 
         onDidChangeConfiguration: onDidChangeConfigurationEmitter.event,
-        onDidOpenTextDocument: onDidOpenTextDocumentEmitter.event,
+        // Подписки document sync — со счётчиком: пока их нет, host не гоняет
+        // полнотекстовые didOpen/didChange RPC на каждую правку буфера.
+        onDidOpenTextDocument: countedEvent(onDidOpenTextDocumentEmitter, onDocumentSyncCountChanged),
+        onDidChangeTextDocument: countedEvent(onDidChangeTextDocumentEmitter, onDocumentSyncCountChanged),
         onDidCloseTextDocument: onDidCloseTextDocumentEmitter.event,
 
         onWillSaveTextDocument: (

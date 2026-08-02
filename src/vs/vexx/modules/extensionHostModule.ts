@@ -7,6 +7,7 @@ import type { ContainerModule } from "../../platform/instantiation/common/diCont
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
+import { activeDocumentSnapshot, bindDocumentSync } from "../../workbench/api/browser/documentSyncAdapter.ts";
 import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/editorDecorationsServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
@@ -82,6 +83,7 @@ export const extensionHostModule: ContainerModule = (container) => {
             editorDecorations,
             fileDecorations,
             themeColorResolver,
+            activeDocumentProvider: () => activeDocumentSnapshot(group),
         });
 
         // Провайдеры ФС расширений: схемы, объявленные субпроцессом (`git:` у
@@ -97,6 +99,10 @@ export const extensionHostModule: ContainerModule = (container) => {
         group.onEditorSaved((meta) => {
             host.didSaveTextDocument(meta);
         });
+
+        // Document sync (LSP): didOpen на смену активного редактора, didChange на
+        // правку его содержимого — стоковый vscode-languageclient видит живой буфер.
+        bindDocumentSync(group, host);
 
         // Completion: провайдеры расширений (languages.provideCompletionItems)
         // подключаются как источник автодополнений группы (читает CompletionService).

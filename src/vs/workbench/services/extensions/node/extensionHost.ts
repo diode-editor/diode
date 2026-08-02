@@ -25,6 +25,7 @@ import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
+    type IWireDocumentSyncSnapshot,
     parseDecorationRanges,
     parseWireEditorEdits,
     parseWireFileDecorations,
@@ -141,6 +142,14 @@ export interface IExtensionHostOptions {
      * передан — {@link NULL_THEME_COLOR_RESOLVER} (все цвета не резолвятся).
      */
     readonly themeColorResolver?: IThemeColorResolver;
+    /**
+     * Снимок активного документа для document sync. Хост пушит его как
+     * `editor.didOpen` при готовности subprocess'а — чтобы `workspace.textDocuments`
+     * был заполнен ДО активации расширения (стоковый vscode-languageclient читает
+     * его на `start()`), — и при появлении первого подписчика document sync
+     * (расширение активировалось уже после открытия файла).
+     */
+    readonly activeDocumentProvider?: () => IWireDocumentSyncSnapshot | null;
 }
 
 /**
@@ -215,6 +224,11 @@ export class ExtensionHost extends Disposable {
     private completionSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
     private foldingSubscribed = false;
+    /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
+    private documentSyncSubscribed = false;
+    /** Коалесинг didChange в пределах тика (latest-wins) — правка на каждое нажатие не гоняет RPC-шторм. */
+    private pendingDidChange: IWireDocumentSyncSnapshot | null = null;
+    private readonly activeDocumentProvider: (() => IWireDocumentSyncSnapshot | null) | undefined;
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
     private fileSystemSchemesValue: readonly string[] = [];
     private readonly fileSystemSchemesListeners: (() => void)[] = [];
@@ -246,6 +260,7 @@ export class ExtensionHost extends Disposable {
         this.editorDecorations = options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE;
         this.fileDecorations = options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE;
         this.themeColorResolver = options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER;
+        this.activeDocumentProvider = options.activeDocumentProvider;
         // Смена темы → пере-резолв держимых декораций в обе поверхности.
         this.register(
             this.themeColorResolver.onDidChange(() => {
@@ -388,6 +403,53 @@ export class ExtensionHost extends Disposable {
         const rpc = this.rpc;
         if (rpc === null || !this.didSaveSubscribed) return;
         rpc.notify("workspace.didSaveTextDocument", meta);
+    }
+
+    /**
+     * Пушит открытие документа в subprocess (`editor.didOpen`) — там пополняется
+     * `workspace.textDocuments` и фаерится `onDidOpenTextDocument`, на которое
+     * подписан document sync стокового vscode-languageclient. No-op без
+     * subprocess'а, без подписчиков document sync и для слишком больших документов.
+     */
+    public didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
+        this.documentSyncRpc(snapshot)?.notify("editor.didOpen", snapshot);
+    }
+
+    /**
+     * Пушит изменение документа (`editor.didChange` → `onDidChangeTextDocument`).
+     * Снапшоты коалесируются в пределах тика (latest-wins): многошаговая правка
+     * даёт одну нотификацию с последним текстом, версии остаются монотонными.
+     */
+    public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
+        const rpc = this.documentSyncRpc(snapshot);
+        if (rpc === null) return;
+        const alreadyScheduled = this.pendingDidChange !== null;
+        this.pendingDidChange = snapshot;
+        if (alreadyScheduled) return;
+        queueMicrotask(() => {
+            const pending = this.pendingDidChange;
+            this.pendingDidChange = null;
+            // Subprocess мог умереть, пока ждали тик (shutdown чистит pending вместе с rpc).
+            if (pending === null) return;
+            rpc.notify("editor.didChange", pending);
+        });
+    }
+
+    /**
+     * Общий гейт document sync push'а: возвращает rpc, если subprocess жив,
+     * подписка document sync есть и документ подъёмный; иначе `null` (no-op).
+     */
+    private documentSyncRpc(snapshot: IWireDocumentSyncSnapshot): RpcEndpoint | null {
+        const rpc = this.rpc;
+        if (rpc === null || !this.documentSyncSubscribed) return null;
+        if (snapshot.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping document sync: document too large", {
+                uri: snapshot.uri,
+                length: snapshot.text.length,
+            });
+            return null;
+        }
+        return rpc;
     }
 
     /**
@@ -587,6 +649,11 @@ export class ExtensionHost extends Disposable {
             // Send initial active editor state so that window.activeTextEditor
             // is correct before the first host.activateExtension call.
             rpc.notify("editor.activeEditorChanged", this.editorOptions.getActiveEditorMeta());
+            // Наполняем `workspace.textDocuments` активным документом ДО первой
+            // активации: стоковый vscode-languageclient читает его на start().
+            // Мимо гейта подписки — подписчиков в этот момент ещё нет.
+            const snapshot = this.activeDocumentProvider?.();
+            if (snapshot !== null && snapshot !== undefined) rpc.notify("editor.didOpen", snapshot);
         });
         await this.readyPromise;
         return rpc;
@@ -661,9 +728,19 @@ export class ExtensionHost extends Disposable {
         // Субпроцесс сообщает, есть ли подписчики на will/did-save. Без них хост
         // не гоняет RPC на сохранении (save остаётся синхронным).
         rpc.handleNotification("workspace.updateSubscriptions", (params) => {
-            const p = params as { willSave?: unknown; didSave?: unknown };
+            const p = params as { willSave?: unknown; didSave?: unknown; documentSync?: unknown };
             this.willSaveSubscribed = p.willSave === true;
             this.didSaveSubscribed = p.didSave === true;
+            const documentSyncBefore = this.documentSyncSubscribed;
+            this.documentSyncSubscribed = p.documentSync === true;
+            // Первый подписчик document sync мог появиться уже ПОСЛЕ открытия
+            // файла (активация по onLanguage идёт в ответ на ту же смену активного
+            // редактора) — доталкиваем текущий активный документ, иначе расширение
+            // не увидит его до следующего переключения.
+            if (!documentSyncBefore && this.documentSyncSubscribed) {
+                const snapshot = this.activeDocumentProvider?.();
+                if (snapshot !== null && snapshot !== undefined) rpc.notify("editor.didOpen", snapshot);
+            }
         });
         // Субпроцесс сообщает, есть ли зарегистрированные completion-провайдеры.
         // Без них хост не гоняет RPC на Ctrl+Space.
@@ -841,6 +918,8 @@ export class ExtensionHost extends Disposable {
         this.didSaveSubscribed = false;
         this.completionSubscribed = false;
         this.foldingSubscribed = false;
+        this.documentSyncSubscribed = false;
+        this.pendingDidChange = null;
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).
         this.decorationTypes.clear();

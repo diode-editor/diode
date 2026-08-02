@@ -86,6 +86,15 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(doc.version).toBe(2);
     });
 
+    it("явная версия снапшота (document sync) побеждает локальный инкремент", () => {
+        const reg = new DocumentRegistry();
+        const doc = reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "a\n", version: 7 });
+        expect(doc.version).toBe(7);
+        // Без явной версии — снова локальный инкремент от текущего значения.
+        reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "b\n" });
+        expect(doc.version).toBe(8);
+    });
+
     it("getText/lineCount отражают снапшот", () => {
         const reg = new DocumentRegistry();
         const doc = reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "line0\nline1\nline2" });

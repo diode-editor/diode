@@ -136,6 +136,46 @@ export async function requestWillSaveEdits(
     }
 }
 
+// ─── Document sync (LSP, наивный full-text push) ─────────────────────────────
+
+/**
+ * Снапшот документа для push-синхронизации host → subprocess
+ * (`editor.didOpen` / `editor.didChange`). Наивная модель: полный текст, без
+ * инкрементальных правок — subprocess переводит его в одну full-range правку
+ * `onDidChangeTextDocument`, что валидно и для Full, и для Incremental sync
+ * language-сервера.
+ */
+export interface IWireDocumentSyncSnapshot {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    /**
+     * Версия ядрового документа (`TextDocument.versionId`). Монотонна
+     * per-document — это требование LSP (`TextDocumentItem.version`).
+     */
+    readonly version: number;
+    /** Полный текст документа (LF-канонический). */
+    readonly text: string;
+    readonly isDirty?: boolean;
+}
+
+/** Валидирует параметры `editor.didOpen`/`didChange`; `null`, если форма не распознана. */
+export function parseWireDocumentSyncSnapshot(raw: unknown): IWireDocumentSyncSnapshot | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.uri !== "string" || obj.uri === "") return null;
+    if (typeof obj.languageId !== "string") return null;
+    if (!isFiniteNumber(obj.version)) return null;
+    if (typeof obj.text !== "string") return null;
+    return {
+        uri: obj.uri,
+        languageId: obj.languageId,
+        version: obj.version,
+        text: obj.text,
+        ...(typeof obj.isDirty === "boolean" ? { isDirty: obj.isDirty } : {}),
+    };
+}
+
 // ─── Completion (WP8) ────────────────────────────────────────────────────────
 
 /** Wire-форма диапазона (0-based, прямой маппинг на `IRange`). */

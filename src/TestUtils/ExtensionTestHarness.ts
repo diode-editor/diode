@@ -13,6 +13,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
+import { activeDocumentSnapshot, bindDocumentSync } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
@@ -176,6 +177,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const host = new ExtensionHost(adapter, commandAdapter, {
         spawnArgs: subprocessSpawnArgsForTests(),
         configuration,
+        activeDocumentProvider: () => activeDocumentSnapshot(group),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         ...(options.themeColorResolver !== undefined ? { themeColorResolver: options.themeColorResolver } : {}),
@@ -186,6 +188,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     group.onEditorSaved((meta) => {
         host.didSaveTextDocument(meta);
     });
+    // Document sync (LSP): продюсер didOpen/didChange — как в extensionHostModule.
+    bindDocumentSync(group, host);
     // Completion (WP8): источник автодополнений — провайдеры расширений через host.
     group.completionSource = (req) => host.provideCompletionItems(req);
     // Folding (#87): источник областей сворачивания — провайдеры расширений через host.
