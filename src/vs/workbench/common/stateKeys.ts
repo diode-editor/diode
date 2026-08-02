@@ -83,3 +83,18 @@ export const OPEN_EDITORS_STATE: IStateDescriptor<IOpenEditorsState> = {
     scope: "workspace",
     default: { files: [], activeIndex: -1 },
 };
+
+/** Состояние view-секций одного контейнера сайдбара (см. `ViewsService`). */
+export interface IViewContainerViewsState {
+    /** Id свёрнутых секций. */
+    readonly collapsed: readonly string[];
+    /** Веса (доли высоты) секций; после drag — фактические строки. */
+    readonly weights: Readonly<Record<string, number>>;
+}
+
+/** Свёрнутость и веса view-секций сайдбара, по контейнерам. */
+export const SIDEBAR_VIEWS_STATE: IStateDescriptor<Record<string, IViewContainerViewsState>> = {
+    key: "workbench.views.state",
+    scope: "workspace",
+    default: {},
+};

@@ -22,6 +22,7 @@ import {
 } from "../../workbench/browser/parts/editor/editorStatusContribution.ts";
 import { PanelComponent, PanelComponentDIToken } from "../../workbench/browser/parts/panel/panelComponent.ts";
 import { SidebarService, SidebarServiceDIToken } from "../../workbench/browser/parts/sidebar/sidebarService.ts";
+import { ViewsService, ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import {
     PanelFocusContribution,
     PanelFocusContributionDIToken,
@@ -322,6 +323,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // Сайдбар: реестр вьюлетов + переключатель Explorer ↔ Source Control
     // (activity bar'а нет, переключают команды workbench.view.*).
     container.bind(SidebarServiceDIToken, SidebarService);
+    // View-секции внутри вьюлета (PaneView): реестр, сборка контейнера,
+    // персист свёрнутости/весов, меню «⋯».
+    container.bind(ViewsServiceDIToken, ViewsService);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);
     container.bind(WorkbenchContextKeysDIToken, WorkbenchContextKeys);
     container.bind(MenuBarComponentDIToken, MenuBarComponent);
