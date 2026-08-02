@@ -8,7 +8,7 @@ import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { ConfirmDialog, type ConfirmDialogOptions } from "./confirmDialog.tsx";
+import { ConfirmDialog, type ConfirmDialogOptions } from "./confirmDialog.ts";
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 

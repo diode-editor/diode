@@ -7,7 +7,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 
-import type { ConfirmDialog } from "./parts/dialogs/confirmDialog.tsx";
+import type { ConfirmDialog } from "./parts/dialogs/confirmDialog.ts";
 
 describe("Workbench — save conflict (dirty-write protection)", () => {
     let ws: ITempWorkspace;

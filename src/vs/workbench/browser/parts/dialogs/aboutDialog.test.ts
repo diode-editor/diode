@@ -9,7 +9,7 @@ import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { AboutDialog } from "./aboutDialog.tsx";
+import { AboutDialog } from "./aboutDialog.ts";
 
 function mount() {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
