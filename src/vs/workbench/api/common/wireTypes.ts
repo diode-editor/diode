@@ -517,6 +517,77 @@ export async function requestDefinition(
     }
 }
 
+// ─── Diagnostics (LSP) ───────────────────────────────────────────────────────
+
+/**
+ * Wire-форма одной диагностики (subprocess → host, notify `diagnostics.publish`).
+ * Range — плоские 0-based поля (как в остальных wire-типах); `severity` —
+ * `vscode.DiagnosticSeverity` (0=Error…3=Hint), маппинг в `MarkerSeverity`
+ * делает потребитель sink'а.
+ */
+export interface WireMarker {
+    readonly severity: number;
+    readonly startLine: number;
+    readonly startCharacter: number;
+    readonly endLine: number;
+    readonly endCharacter: number;
+    readonly message: string;
+    readonly code?: string;
+    readonly source?: string;
+}
+
+/** Разобранные параметры `diagnostics.publish`. */
+export interface IWireDiagnosticsPublish {
+    readonly owner: string;
+    /** Ресурс как `uri.toString()` — ключ MarkerService. */
+    readonly resource: string;
+    readonly markers: readonly WireMarker[];
+}
+
+/** Валидирует один wire-маркер; `null`, если форма не распознана. */
+function parseWireMarker(raw: unknown): WireMarker | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const m = raw as Record<string, unknown>;
+    if (
+        !isFiniteNumber(m.severity) ||
+        !isFiniteNumber(m.startLine) ||
+        !isFiniteNumber(m.startCharacter) ||
+        !isFiniteNumber(m.endLine) ||
+        !isFiniteNumber(m.endCharacter) ||
+        typeof m.message !== "string"
+    ) {
+        return null;
+    }
+    return {
+        severity: m.severity,
+        startLine: m.startLine,
+        startCharacter: m.startCharacter,
+        endLine: m.endLine,
+        endCharacter: m.endCharacter,
+        message: m.message,
+        ...(typeof m.code === "string" ? { code: m.code } : {}),
+        ...(typeof m.source === "string" ? { source: m.source } : {}),
+    };
+}
+
+/**
+ * Разбирает параметры `diagnostics.publish`; `null`, если конверт не распознан.
+ * Невалидные маркеры отбрасываются (drop+skip), а не роняют публикацию.
+ */
+export function parseWireDiagnosticsPublish(raw: unknown): IWireDiagnosticsPublish | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.owner !== "string" || p.owner === "") return null;
+    if (typeof p.resource !== "string" || p.resource === "") return null;
+    if (!Array.isArray(p.markers)) return null;
+    const markers: WireMarker[] = [];
+    for (const item of p.markers) {
+        const parsed = parseWireMarker(item);
+        if (parsed !== null) markers.push(parsed);
+    }
+    return { owner: p.owner, resource: p.resource, markers };
+}
+
 // ─── Editor write (selection + edit, #194) ───────────────────────────────────
 
 /** Wire-форма выделения (0-based; anchor — якорь, active — курсор). */

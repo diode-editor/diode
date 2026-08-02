@@ -21,6 +21,7 @@ import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColor
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import {
+    type DiagnosticsSink,
     ExtensionHost,
     type IExtensionHostConfigProvider,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
@@ -105,6 +106,8 @@ export interface IExtensionHarnessOptions {
      * {@link NULL_LANGUAGE_SERVICE} (всё — `plaintext`).
      */
     readonly languageService?: ILanguageService;
+    /** Сток диагностик расширений (`diagnostics.publish`). По умолчанию не подключён. */
+    readonly diagnosticsSink?: DiagnosticsSink;
     /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
     /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
@@ -178,6 +181,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         spawnArgs: subprocessSpawnArgsForTests(),
         configuration,
         activeDocumentProvider: () => activeDocumentSnapshot(group),
+        ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         ...(options.themeColorResolver !== undefined ? { themeColorResolver: options.themeColorResolver } : {}),

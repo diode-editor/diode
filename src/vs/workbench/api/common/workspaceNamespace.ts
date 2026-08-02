@@ -51,6 +51,11 @@ function serializeTextEdit(edit: TextEdit): WireTextEdit {
     };
 }
 
+/** Валидный Event, который никогда не стреляет (хост его не фаерит). */
+function naiveEvent<T = never>(): vscode.Event<T> {
+    return new EventEmitter<T>().event;
+}
+
 /** Позиция конца текста (для full-range change-события document sync). */
 function endOfText(text: string): Position {
     const lines = text.split("\n");
@@ -395,6 +400,39 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         onDidOpenTextDocument: countedEvent(onDidOpenTextDocumentEmitter, onDocumentSyncCountChanged),
         onDidChangeTextDocument: countedEvent(onDidChangeTextDocumentEmitter, onDocumentSyncCountChanged),
         onDidCloseTextDocument: onDidCloseTextDocumentEmitter.event,
+
+        // ── Наивная поверхность, которую трогает vscode-languageclient. События,
+        // которых хост пока не фаерит, — валидные (никогда не стреляющие)
+        // Event'ы; шаги закрытия — таблица стабов в docs/TODO/LSP.md. ──────────
+        onDidChangeWorkspaceFolders: naiveEvent(),
+        onDidCreateFiles: naiveEvent(),
+        onDidDeleteFiles: naiveEvent(),
+        onDidRenameFiles: naiveEvent(),
+        onWillCreateFiles: naiveEvent(),
+        onWillDeleteFiles: naiveEvent(),
+        onWillRenameFiles: naiveEvent(),
+        onDidOpenNotebookDocument: naiveEvent(),
+        onDidCloseNotebookDocument: naiveEvent(),
+        onDidChangeNotebookDocument: naiveEvent(),
+        onDidSaveNotebookDocument: naiveEvent(),
+        notebookDocuments: [] as readonly unknown[],
+        applyEdit: (): Thenable<boolean> => Promise.resolve(true),
+        getWorkspaceFolder: (uri: vscode.Uri): vscode.WorkspaceFolder | undefined => {
+            const p = (uri as unknown as Uri).fsPath;
+            const found = workspaceFolders.find((f) => p === f.uri.fsPath || p.startsWith(f.uri.fsPath + "/"));
+            return (found ?? workspaceFolders[0]) as unknown as vscode.WorkspaceFolder | undefined;
+        },
+        createFileSystemWatcher: (): unknown => ({
+            onDidCreate: naiveEvent(),
+            onDidChange: naiveEvent(),
+            onDidDelete: naiveEvent(),
+            ignoreCreateEvents: false,
+            ignoreChangeEvents: false,
+            ignoreDeleteEvents: false,
+            dispose: (): void => undefined,
+        }),
+        registerTextDocumentContentProvider: (): vscode.Disposable =>
+            new DisposableImpl(() => undefined) as unknown as vscode.Disposable,
 
         onWillSaveTextDocument: (
             listener: (e: vscode.TextDocumentWillSaveEvent) => unknown,

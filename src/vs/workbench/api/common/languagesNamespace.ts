@@ -3,8 +3,31 @@ import type * as vscode from "vscode";
 import { matchDocumentSelector } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
-import { DisposableImpl, EventEmitter, Position, Range } from "./vscodeTypes.ts";
-import type { WireCompletionItem, WireDefinitionLocation, WireFoldingRange } from "./wireTypes.ts";
+import { DisposableImpl, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts";
+import type { WireCompletionItem, WireDefinitionLocation, WireFoldingRange, WireMarker } from "./wireTypes.ts";
+
+/** `vscode.Diagnostic` (утиный тип) → {@link WireMarker}; кривые поля — к дефолтам. */
+function toWireMarker(diag: unknown): WireMarker {
+    const d = diag as {
+        range?: { start: { line: number; character: number }; end: { line: number; character: number } };
+        message?: unknown;
+        severity?: unknown;
+        code?: unknown;
+        source?: unknown;
+    };
+    const r = d.range ?? { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
+    const code = typeof d.code === "string" || typeof d.code === "number" ? String(d.code) : undefined;
+    return {
+        severity: typeof d.severity === "number" ? d.severity : 0,
+        startLine: r.start.line,
+        startCharacter: r.start.character,
+        endLine: r.end.line,
+        endCharacter: r.end.character,
+        message: typeof d.message === "string" ? d.message : String(d.message ?? ""),
+        ...(code !== undefined ? { code } : {}),
+        ...(typeof d.source === "string" ? { source: d.source } : {}),
+    };
+}
 
 /** Зарегистрированный провайдер автодополнения. */
 export interface ICompletionRegistration {
@@ -332,7 +355,81 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         return ranges;
     });
 
+    // No-op регистрация провайдера — валидный Disposable; фича не работает,
+    // но стоковый клиент (vscode-languageclient заводит провайдеры под
+    // capabilities сервера) не падает. Шаги закрытия каждого — docs/TODO/LSP.md.
+    const registerNoopProvider = (): vscode.Disposable =>
+        new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
+
+    /**
+     * Коллекция диагностик, форвардящая маркеры хосту нотификацией
+     * `diagnostics.publish` — хост пишет их в `MarkerService`, откуда их
+     * подхватывают squiggle-декорации редактора и панель Problems. Ресурс
+     * нормализуется в `uri.toString()` (ключ MarkerService).
+     */
+    const createDiagnosticCollection = (name?: string): vscode.DiagnosticCollection => {
+        const owner = "ext:" + (name ?? "diagnostics");
+        // Оригинальные Diagnostic'и расширения (контракт get/forEach); wire-форма
+        // считается на публикации.
+        const store = new Map<string, readonly vscode.Diagnostic[]>();
+
+        const resourceOf = (uri: unknown): string => {
+            if (typeof uri === "string") return Uri.parse(uri).toString();
+            return String((uri as { toString(): string }).toString());
+        };
+        const publish = (resource: string, diags: readonly vscode.Diagnostic[]): void => {
+            rpc.notify("diagnostics.publish", { owner, resource, markers: diags.map(toWireMarker) });
+        };
+        const setOne = (uri: unknown, diags: readonly vscode.Diagnostic[] | undefined): void => {
+            const resource = resourceOf(uri);
+            store.set(resource, diags ?? []);
+            publish(resource, diags ?? []);
+        };
+
+        const collection = {
+            name: name ?? "diagnostics",
+            set: (arg: unknown, diags?: readonly vscode.Diagnostic[]): void => {
+                // Перегрузка VS Code: set(uri, diags) | set([[uri, diags], …]).
+                if (Array.isArray(arg)) {
+                    for (const entry of arg as [unknown, readonly vscode.Diagnostic[] | undefined][]) {
+                        setOne(entry[0], entry[1] ?? []);
+                    }
+                    return;
+                }
+                setOne(arg, diags);
+            },
+            delete: (uri: unknown): void => {
+                const resource = resourceOf(uri);
+                store.delete(resource);
+                publish(resource, []);
+            },
+            clear: (): void => {
+                for (const resource of store.keys()) publish(resource, []);
+                store.clear();
+            },
+            forEach: (
+                callback: (uri: unknown, diagnostics: readonly vscode.Diagnostic[], c: unknown) => unknown,
+                thisArg?: unknown,
+            ): void => {
+                for (const [resource, diags] of store) callback.call(thisArg, Uri.parse(resource), diags, collection);
+            },
+            get: (uri: unknown): readonly vscode.Diagnostic[] | undefined => store.get(resourceOf(uri)),
+            has: (uri: unknown): boolean => store.has(resourceOf(uri)),
+            dispose: (): void => {
+                collection.clear();
+            },
+            *[Symbol.iterator](): IterableIterator<[unknown, readonly vscode.Diagnostic[]]> {
+                for (const [resource, diags] of store) yield [Uri.parse(resource), diags];
+            },
+        };
+        return collection as unknown as vscode.DiagnosticCollection;
+    };
+
     const languagesNs = {
+        createDiagnosticCollection,
+        // Наивный score DocumentSelector'а (языковой матч клиент делает сам).
+        match: (): number => 10,
+
         registerCompletionItemProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.CompletionItemProvider,
@@ -379,6 +476,36 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
                 }
             }) as unknown as vscode.Disposable;
         },
+
+        // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
+        // под capabilities сервера). Закрытие каждого — по образцу definition:
+        // seam + RPC + UI-потребитель; см. таблицу стабов в docs/TODO/LSP.md. ──
+        registerDeclarationProvider: registerNoopProvider,
+        registerImplementationProvider: registerNoopProvider,
+        registerTypeDefinitionProvider: registerNoopProvider,
+        registerHoverProvider: registerNoopProvider,
+        registerReferenceProvider: registerNoopProvider,
+        registerDocumentHighlightProvider: registerNoopProvider,
+        registerDocumentSymbolProvider: registerNoopProvider,
+        registerWorkspaceSymbolProvider: registerNoopProvider,
+        registerCodeActionsProvider: registerNoopProvider,
+        registerCodeLensProvider: registerNoopProvider,
+        registerDocumentLinkProvider: registerNoopProvider,
+        registerColorProvider: registerNoopProvider,
+        registerDocumentFormattingEditProvider: registerNoopProvider,
+        registerDocumentRangeFormattingEditProvider: registerNoopProvider,
+        registerOnTypeFormattingEditProvider: registerNoopProvider,
+        registerRenameProvider: registerNoopProvider,
+        registerSelectionRangeProvider: registerNoopProvider,
+        registerSignatureHelpProvider: registerNoopProvider,
+        registerDocumentSemanticTokensProvider: registerNoopProvider,
+        registerDocumentRangeSemanticTokensProvider: registerNoopProvider,
+        registerInlayHintsProvider: registerNoopProvider,
+        registerInlineValuesProvider: registerNoopProvider,
+        registerInlineCompletionItemProvider: registerNoopProvider,
+        registerLinkedEditingRangeProvider: registerNoopProvider,
+        registerCallHierarchyProvider: registerNoopProvider,
+        registerTypeHierarchyProvider: registerNoopProvider,
     };
 
     return {

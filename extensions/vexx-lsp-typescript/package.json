@@ -1,0 +1,39 @@
+{
+  "name": "vexx-lsp-typescript",
+  "displayName": "TypeScript Language Server (Vexx)",
+  "description": "Stock typescript-language-server over vscode-languageclient: diagnostics and go-to-definition for TypeScript/JavaScript.",
+  "version": "0.1.0",
+  "publisher": "vexx",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.127.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact"
+  ],
+  "main": "./out/extension.cjs",
+  "contributes": {
+    "configuration": {
+      "title": "TypeScript Language Server",
+      "properties": {
+        "vexx.lsp.typescript.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Master switch for the built-in TypeScript language server integration."
+        },
+        "vexx.lsp.typescript.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a typescript-language-server executable or its JS entry point. Empty resolves from the workspace node_modules, then PATH."
+        }
+      }
+    }
+  }
+}

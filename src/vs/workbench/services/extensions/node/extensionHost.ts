@@ -28,6 +28,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
     type IWireDocumentSyncSnapshot,
     parseDecorationRanges,
+    parseWireDiagnosticsPublish,
     parseWireEditorEdits,
     parseWireFileDecorations,
     parseWireReadFileResult,
@@ -38,7 +39,15 @@ import {
     requestWillSaveEdits,
     type SerializedDecorationRenderOptions,
     themeColorIdOf,
+    type WireMarker,
 } from "../../../api/common/wireTypes.ts";
+
+/**
+ * Сток диагностик расширений (`diagnostics.publish`): владелец (коллекция),
+ * ресурс как `uri.toString()` и его полный набор маркеров (замена, не мерж).
+ * Подключается в module/харнессе к `MarkerService.changeOne`.
+ */
+export type DiagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]) => void;
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
@@ -151,6 +160,11 @@ export interface IExtensionHostOptions {
      */
     readonly themeColorResolver?: IThemeColorResolver;
     /**
+     * Сток диагностик из расширений (`languages.createDiagnosticCollection().set()`
+     * → notify `diagnostics.publish`). Если не передан — диагностики отбрасываются.
+     */
+    readonly diagnosticsSink?: DiagnosticsSink;
+    /**
      * Снимок активного документа для document sync. Хост пушит его как
      * `editor.didOpen` при готовности subprocess'а — чтобы `workspace.textDocuments`
      * был заполнен ДО активации расширения (стоковый vscode-languageclient читает
@@ -240,6 +254,7 @@ export class ExtensionHost extends Disposable {
     /** Коалесинг didChange в пределах тика (latest-wins) — правка на каждое нажатие не гоняет RPC-шторм. */
     private pendingDidChange: IWireDocumentSyncSnapshot | null = null;
     private readonly activeDocumentProvider: (() => IWireDocumentSyncSnapshot | null) | undefined;
+    private readonly diagnosticsSink: DiagnosticsSink | undefined;
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
     private fileSystemSchemesValue: readonly string[] = [];
     private readonly fileSystemSchemesListeners: (() => void)[] = [];
@@ -273,6 +288,7 @@ export class ExtensionHost extends Disposable {
         this.fileDecorations = options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE;
         this.themeColorResolver = options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER;
         this.activeDocumentProvider = options.activeDocumentProvider;
+        this.diagnosticsSink = options.diagnosticsSink;
         // Смена темы → пере-резолв держимых декораций в обе поверхности.
         this.register(
             this.themeColorResolver.onDidChange(() => {
@@ -818,6 +834,13 @@ export class ExtensionHost extends Disposable {
             if (raw.length === 0) return;
             const uris = raw.map((u) => Uri.parse(u));
             for (const cb of [...this.fileSystemChangeListeners]) cb(uris);
+        });
+        // Расширение опубликовало диагностики (createDiagnosticCollection().set)
+        // — отдаём их стоку (module ведёт в MarkerService → squiggle + Problems).
+        rpc.handleNotification("diagnostics.publish", (params) => {
+            const publish = parseWireDiagnosticsPublish(params);
+            if (publish === null) return;
+            this.diagnosticsSink?.(publish.owner, publish.resource, publish.markers);
         });
         rpc.handleNotification("window.showMessage", (params) => {
             const { severity, message } = params as { severity?: unknown; message?: unknown };

@@ -52,6 +52,7 @@
     "typescript": "^5.8",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18",
+    "vscode-languageclient": "^10.1.0",
     "ws": "^8.21.0",
     "yazl": "^3.3.1"
   },

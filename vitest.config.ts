@@ -111,6 +111,7 @@ export default defineConfig({
         "src/vs/workbench/services/search/node/loadRipgrep.ts", // SEA-путь загрузки rg: node:sea + распаковка бинаря в tmp; dev-путь гоняет textSearchService.integration.test, e2e — search.scenario.ts на реальном SEA-бинаре
         "src/vs/workbench/services/extensions/node/extensionHostSubprocess.ts", // точка входа subprocess + IPC
         "extensions/git/main.ts", // extension entry (subprocess IO/glue); логика — в git/lib/* (юниты), e2e — интеграция
+        "extensions/vexx-lsp-typescript/main.ts", // extension entry (spawn languageclient); логика резолва — в lib/* (юниты), интеграция — стоковый сервер в extensionHost.typescriptLsp.test
         "extensions/vexx-settings/main.ts", // extension entry (грузится в subprocess); поведение — в ExtensionHost.SettingsCompletion.test.ts + e2e
         "src/**/*.generated.ts", // сгенерированные data-файлы (напр. settings-schema.generated.ts), исполняются в subprocess
         "src/vs/workbench/api/common/vscodeNamespace.ts", // RPC-проводка в subprocess

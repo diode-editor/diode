@@ -20,10 +20,12 @@ go-to-definition работает; сервер-внук корректно уб
 2. **[x] definition-провайдер** — `languages.registerDefinitionProvider` по образцу
    completion/folding (core seam `iDefinitionSource` → RPC `languages.provideDefinition`)
    + UI-команда Go to Definition (F12) с кросс-файловой навигацией.
-3. **[ ] runway для languageclient** — перенос наивных стабов спайка
+3. **[x] runway для languageclient** — перенос наивных стабов спайка
    (`vscodeTypes` value-классы, no-op `register*Provider`, naive-события),
    `diagnostics.publish` → `MarkerService` (squiggle + Problems без правок),
-   builtin-расширение `vexx-lsp-typescript`.
+   builtin-расширение `vexx-lsp-typescript` (бандл с `vscode-languageclient@10`
+   проходит гейт RELATIVE_REQUIRE; `version: "1.127.0"` в лок-степе с
+   `extensions/VSCODE_VERSION` — тест в `vscodeNamespace.identity.test.ts`).
 4. **[ ] закрытие стоковым сервером** — тесты с настоящим `typescript-language-server`
    (правило: тесты над ИЗМЕНЯЕМЫМ кодом — правка без сохранения должна быть видна
    серверу), e2e + скриншот-демо.
@@ -78,8 +80,18 @@ go-to-definition работает; сервер-внук корректно уб
 | `workspace.onDidChangeTextDocument` | real | — (шаг 1; одна full-range правка) |
 | `workspace.onDidCloseTextDocument` | no-op | продюсер закрытия вкладки → `editor.didClose` → fire + сброс didOpen-дедупа |
 | `languages.registerDefinitionProvider` | real | — (шаг 2: seam `iDefinitionSource` → RPC `languages.provideDefinition`, таймаут 5000 мс — холодный сервер; UI — `DefinitionService` + F12, кросс-файловая навигация паттерном Problems reveal) |
-| `languages.createDiagnosticCollection` | — | шаг 3: naive → notify `diagnostics.publish` → `MarkerService.changeOne` |
-| остальные `register*Provider` (~28) | — | шаг 3: no-op; закрытие по образцу definition (seam + RPC + UI-потребитель) |
+| `languages.createDiagnosticCollection` | naive | работает: notify `diagnostics.publish` → `diagnosticsSink` → `MarkerService.changeOne` (squiggle + Problems); наивность — related information не передаётся, маркеры мёртвого subprocess'а не сбрасываются до рестарта |
+| `languages.match` | naive | всегда 10; настоящий скоринг DocumentSelector — при первом потребителе |
+| остальные `register*Provider` (26) | no-op | закрытие по образцу definition: core seam + RPC `languages.provideX` + UI-потребитель (hover-виджет, references-панель, rename и т.д.) |
+| `workspace.applyEdit` | no-op | врёт `true`; закрытие: RPC `workspace.applyEdit` → `EditorService`/`BulkEdit` (нужен rename/code actions) |
+| `workspace.getWorkspaceFolder` | naive | префикс-матч + fallback на первую папку |
+| `workspace.createFileSystemWatcher` | no-op | валидный не-стреляющий watcher; закрытие: мост к `IFileWatcher` ядра |
+| `workspace.onDid/Will{Create,Delete,Rename}Files`, notebook-события | no-op | продюсеры файловых операций ядра → RPC |
+| `window.withProgress` | naive | исполняет задачу без UI; закрытие: статус-бар/нотификации |
+| `window.tabGroups` | no-op | пустые группы; закрытие: проекция вкладок группы |
+| `window.showTextDocument` | naive | возвращает активный редактор; закрытие: RPC открытия ресурса |
+| `window.createOutputChannel` | naive | пишет в stdout-логгер хоста (включая LogOutputChannel-методы — ошибки p2c.asDiagnostics не теряются); закрытие: настоящая панель Output |
+| `env` (appName/language/clipboard/openExternal) | naive | честные значения; клипборд пуст, openExternal отказывает |
 
 ## Отложенное (за рамками итерации)
 

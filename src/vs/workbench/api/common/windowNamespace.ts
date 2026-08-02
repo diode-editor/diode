@@ -3,7 +3,7 @@ import type * as vscode from "vscode";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
-import { DisposableImpl, Position, Selection, Uri } from "./vscodeTypes.ts";
+import { DisposableImpl, EventEmitter, Position, Selection, Uri } from "./vscodeTypes.ts";
 import {
     type IWireEditorEdit,
     type IWireFileDecoration,
@@ -351,8 +351,14 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
 
         createOutputChannel: (name: string): vscode.OutputChannel => {
             // stdout субпроцесса пробрасывается в логгер `extensions.host.stdout`.
+            // Log-методы (LogOutputChannel) пишут туда же: ошибки конвертации
+            // vscode-languageclient (`p2c.asDiagnostics`) идут ТОЛЬКО в этот
+            // канал — no-op молча терял бы их.
             const log = (value: string): void => {
                 console.log(`[${name}] ${value}`);
+            };
+            const logEntry = (value: unknown): void => {
+                log(typeof value === "string" ? value : JSON.stringify(value));
             };
             return {
                 name,
@@ -377,7 +383,35 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 dispose: () => {
                     /* no-op */
                 },
+                logLevel: 3, // vscode.LogLevel.Info
+                onDidChangeLogLevel: new EventEmitter<never>().event,
+                trace: logEntry,
+                debug: logEntry,
+                info: logEntry,
+                warn: logEntry,
+                error: logEntry,
             } as unknown as vscode.OutputChannel;
+        },
+
+        // ── Наивная поверхность, которую трогает vscode-languageclient
+        // (статусы/шаги закрытия — таблица стабов в docs/TODO/LSP.md). ─────────
+        onDidChangeVisibleTextEditors: new EventEmitter<never>().event,
+        tabGroups: {
+            all: [] as readonly unknown[],
+            activeTabGroup: { tabs: [] as readonly unknown[] },
+            onDidChangeTabs: new EventEmitter<never>().event,
+            onDidChangeTabGroups: new EventEmitter<never>().event,
+        },
+        showTextDocument: (): Thenable<vscode.TextEditor | undefined> => Promise.resolve(windowNs.activeTextEditor),
+        withProgress: <R>(
+            _options: unknown,
+            task: (progress: { report(value: unknown): void }, token: vscode.CancellationToken) => Thenable<R>,
+        ): Thenable<R> => {
+            const token: vscode.CancellationToken = {
+                isCancellationRequested: false,
+                onCancellationRequested: new EventEmitter<never>().event,
+            } as unknown as vscode.CancellationToken;
+            return Promise.resolve(task({ report: (): void => undefined }, token));
         },
     };
 
