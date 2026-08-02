@@ -18,6 +18,11 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
         description: "Side Bar foreground color.",
     },
+    "toolbar.hoverBackground": {
+        // Upstream-значения с альфой; parseHexColor альфу отбрасывает.
+        defaults: { dark: "#5A5D5E50", light: "#B8B8B850" },
+        description: "Toolbar background when hovering over actions using the mouse.",
+    },
     "editorGroupHeader.tabsBackground": {
         defaults: { dark: "#252526", light: "#F8F8F8" },
         description: "Background color of the Tabs container.",
