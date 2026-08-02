@@ -63,20 +63,6 @@ const backend = new HeadlessCaptureBackend(new Size(80, 24));
 const frame = backend.captureFrame(); // plain-data GridSnapshot
 ```
 
-## JSX
-
-Function components are supported via the standard automatic runtime:
-
-```jsonc
-// tsconfig.json
-{
-    "compilerOptions": {
-        "jsx": "react-jsx",
-        "jsxImportSource": "__PKG_NAME__"
-    }
-}
-```
-
 ## License
 
 MIT

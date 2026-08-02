@@ -22,7 +22,7 @@ import simpleImportSort from "eslint-plugin-simple-import-sort";
 
 const overrides: TSESLint.FlatConfig.ConfigArray = [
     {
-        files: ["**/*.test.ts", "**/*.test.tsx"],
+        files: ["**/*.test.ts"],
         rules: {
             "@typescript-eslint/no-non-null-assertion": "off",
             "@typescript-eslint/no-empty-function": "off",

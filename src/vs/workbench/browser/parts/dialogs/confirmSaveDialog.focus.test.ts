@@ -8,7 +8,7 @@ import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { ConfirmSaveDialog } from "./confirmSaveDialog.tsx";
+import { ConfirmSaveDialog } from "./confirmSaveDialog.ts";
 
 function mount(filename = "test.ts") {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));

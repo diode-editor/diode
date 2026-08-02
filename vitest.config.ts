@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "extensions/**/*.test.ts", "tuidom/**/*.test.ts", "tuidom/**/*.test.tsx"],
+    include: ["src/**/*.test.ts", "extensions/**/*.test.ts", "tuidom/**/*.test.ts"],
     coverage: {
       skipFull: true,
       reportOnFailure: true,

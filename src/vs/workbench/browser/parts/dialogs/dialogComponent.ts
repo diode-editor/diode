@@ -1,10 +1,10 @@
 import type { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
-import type { JsxNode } from "../../../../../../tuidom/dom/jsx/jsx-runtime.ts";
-import { reconcile } from "../../../../../../tuidom/dom/jsx/reconcile.ts";
 import type { StyleColor } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
-import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
+import { BoxContainerElement } from "../../../../../../tuidom/ui/layout/boxContainerElement.ts";
 import { FitContentElement } from "../../../../../../tuidom/ui/layout/fitContentElement.ts";
+import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
+import { VStackElement } from "../../../../../../tuidom/ui/layout/vStackElement.ts";
 import { Component } from "../../component.ts";
 
 /**
@@ -28,7 +28,7 @@ export interface IDialogStyles {
 }
 
 /** Токены темы диалога — резолвит каскад, пере-пуш при смене темы не нужен. */
-const DIALOG_STYLES: IDialogStyles = {
+export const DIALOG_STYLES: IDialogStyles = {
     bg: "editorWidget.background",
     fg: "editorWidget.foreground",
     borderFg: "editorWidget.border",
@@ -39,23 +39,21 @@ const DIALOG_STYLES: IDialogStyles = {
 
 /**
  * База модальных диалогов Workbench. Диалог — компонент: он НЕ наследует
- * TUIElement, а владеет корневым контролом ({@link FitContentElement}) и
- * размещает в нём дерево примитивов, описанное JSX'ом в {@link describe}.
+ * TUIElement, а владеет корневым контролом ({@link FitContentElement}), в
+ * который наследник кладёт дерево примитивов, собранное в конструкторе
+ * (`this.view.setChild(root)`); цвета — токены {@link DIALOG_STYLES},
+ * резолвит каскад.
  *
- * База даёт диалогам общее поведение: reconcile-перестройку дерева
- * ({@link rebuild}; цвета — токены темы, резолвит каскад), навигацию стрелками
- * по ряду кнопок и Escape → {@link onDismiss}.
+ * База даёт диалогам общее поведение: навигацию стрелками по ряду кнопок
+ * и Escape → {@link onDismiss}.
  */
 export abstract class DialogComponent extends Component {
     public readonly view: FitContentElement;
 
-    private rootChild: TUIElement | null = null;
-
     /**
      * `id` вешается на корневой контрол — это DOM-идентичность диалога для
      * `querySelector("#...")` (у компонента, в отличие от элемента, нет имени
-     * класса в дереве). Наследник обязан вызвать `initStyles()` последней
-     * строкой конструктора — это и начальная покраска, и первый rebuild.
+     * класса в дереве).
      */
     protected constructor(id: string) {
         super();
@@ -66,20 +64,33 @@ export abstract class DialogComponent extends Component {
         });
     }
 
-    /** JSX-дерево диалога; строится из контролов и уже созданных кнопок. */
-    protected abstract describe(styles: IDialogStyles): JsxNode;
+    /**
+     * Собирает каркас окна — рамка с заголовком, отступы, вертикальный стек —
+     * и кладёт его в {@link view}. Наследник наполняет возвращённый стек
+     * строками; цвета контента раздаёт каскад от контейнера отступов.
+     */
+    protected buildFrame(title: string): VStackElement {
+        const { bg, fg, borderFg } = DIALOG_STYLES;
+        const box = new BoxContainerElement();
+        box.setBg(bg);
+        box.setBorderFg(borderFg);
+        box.setTitle(title);
+        box.setTitleFg(fg);
+        box.setHasSeparator(true);
+
+        const stack = new VStackElement();
+        const padding = new PaddingContainerElement(stack, { left: 2, right: 2 });
+        padding.style = { fg, bg };
+        box.setChild(padding);
+        this.view.setChild(box);
+        return stack;
+    }
 
     /** Ряд кнопок слева направо — для навигации стрелками и покраски из темы. */
     protected abstract rowButtons(): readonly ButtonElement[];
 
     /** Реакция на Escape (обычно — отмена/закрытие). */
     protected abstract onDismiss(): void;
-
-    /** Перестраивает дерево контролов под текущее состояние и тему. */
-    protected rebuild(): void {
-        this.rootChild = reconcile(this.rootChild, this.describe(DIALOG_STYLES));
-        this.view.setChild(this.rootChild);
-    }
 
     private handleDialogKeydown(event: TUIKeyboardEvent): void {
         const buttons = this.rowButtons();

@@ -5,9 +5,6 @@ import { BoxConstraints, Offset, Point, Size } from "../common/geometryPromitive
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 
 import { CompositeElement } from "./compositeElement.ts";
-import type { JsxNode } from "./jsx/jsx-runtime.ts";
-import type { ComponentType } from "./jsx/jsx-runtime.ts";
-import { jsx } from "./jsx/jsx-runtime.ts";
 import { RenderContext, TUIElement } from "./tuiElement.ts";
 
 // A leaf that records the constraints it was laid out with and draws a marker char.
@@ -26,25 +23,19 @@ class RecordingLeaf extends TUIElement {
     }
 }
 
-const LeafComponent: ComponentType<object> = (): RecordingLeaf => new RecordingLeaf();
-
 class TestComposite extends CompositeElement {
-    protected override describe(): JsxNode {
-        return jsx(LeafComponent, {});
+    public constructor() {
+        super();
+        this.setRootChild(new RecordingLeaf());
     }
 }
 
 // A composite that never builds a child.
-class EmptyComposite extends CompositeElement {
-    protected override describe(): JsxNode {
-        return new TUIElement();
-    }
-}
+class EmptyComposite extends CompositeElement {}
 
 describe("CompositeElement layout proxy", () => {
     it("lays the rootChild out with tight constraints matching the composite size", () => {
         const comp = new TestComposite();
-        comp.rebuild();
         comp.localPosition = new Offset(3, 4);
         comp.layout(BoxConstraints.tight(new Size(40, 12)));
 
@@ -59,9 +50,8 @@ describe("CompositeElement layout proxy", () => {
         expect(leaf.globalPosition).toEqual(new Point(3, 4));
     });
 
-    it("does not throw when performLayout runs before any rebuild (null rootChild)", () => {
+    it("does not throw when performLayout runs with null rootChild", () => {
         const comp = new EmptyComposite();
-        // No rebuild → rootChild is null.
         expect(() => {
             comp.layout(BoxConstraints.tight(new Size(10, 4)));
         }).not.toThrow();
@@ -70,7 +60,6 @@ describe("CompositeElement layout proxy", () => {
 
     it("renders the rootChild at the composite's offset", () => {
         const comp = new TestComposite();
-        comp.rebuild();
         const backend = renderElement(comp, 20, 5);
 
         const leaf = comp.getRootChild() as RecordingLeaf;
@@ -78,7 +67,7 @@ describe("CompositeElement layout proxy", () => {
         expect(backend.getTextAt(new Point(0, 0), 1)).toBe("X");
     });
 
-    it("does not throw when render runs before any rebuild (null rootChild)", () => {
+    it("does not throw when render runs with null rootChild", () => {
         const comp = new EmptyComposite();
         const screen = new TerminalScreen(new Size(10, 3));
         expect(() => {

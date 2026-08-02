@@ -22,7 +22,7 @@ import { parseArgs } from "node:util";
 const repoRoot = resolve(import.meta.dirname, "..");
 
 /** Файлы, которые в пакет не идут: тесты/истории/бенчи тянут src/, демки — top-level эффекты. */
-const EXCLUDED_FILE = /\.(test|stories|bench)\.(ts|tsx)$/;
+const EXCLUDED_FILE = /\.(test|stories|bench)\.ts$/;
 
 function run(cmd, cwd) {
     console.log(`> ${cmd}`);
@@ -38,7 +38,7 @@ function copyProductionSources(srcDir, outDir) {
             if (entry.isDirectory()) {
                 if (entryRel === "demos") continue;
                 walk(entryRel);
-            } else if (/\.tsx?$/.test(entry.name) && !EXCLUDED_FILE.test(entry.name)) {
+            } else if (/\.ts$/.test(entry.name) && !EXCLUDED_FILE.test(entry.name)) {
                 mkdirSync(join(outDir, rel), { recursive: true });
                 cpSync(join(srcDir, entryRel), join(outDir, entryRel));
                 copied.push(entryRel);
@@ -64,15 +64,6 @@ function buildTsconfig(pkgName) {
             declarationMap: false,
             outDir: "./dist",
             rootDir: "./src",
-            jsx: "react-jsx",
-            jsxImportSource: pkgName,
-            baseUrl: ".",
-            // Только для typecheck: в рантайме "<pkg>/jsx-runtime" резолвится
-            // self-reference'ом собранного пакета (name + exports).
-            paths: {
-                [`${pkgName}/jsx-runtime`]: ["./src/dom/jsx/jsx-runtime.ts"],
-                [`${pkgName}/jsx-dev-runtime`]: ["./src/dom/jsx/jsx-runtime.ts"],
-            },
             strict: true,
             verbatimModuleSyntax: true,
             esModuleInterop: true,
@@ -85,7 +76,7 @@ function buildTsconfig(pkgName) {
 
 /** tsc не переписывает .ts-расширения в .d.ts — приводим декларации в симметрию с .js сами. */
 function rewriteDtsExtensions(distDir) {
-    const specifier = /(["'])(\.\.?\/[^"']*)\.tsx?\1/g;
+    const specifier = /(["'])(\.\.?\/[^"']*)\.ts\1/g;
     const walk = (dir) => {
         for (const entry of readdirSync(dir, { withFileTypes: true })) {
             const path = join(dir, entry.name);
@@ -94,7 +85,7 @@ function rewriteDtsExtensions(distDir) {
                 const source = readFileSync(path, "utf8");
                 const rewritten = source.replace(specifier, "$1$2.js$1");
                 if (rewritten !== source) writeFileSync(path, rewritten);
-                if (/(["'])(\.\.?\/[^"']*)\.tsx?\1/.test(rewritten)) {
+                if (/(["'])(\.\.?\/[^"']*)\.ts\1/.test(rewritten)) {
                     throw new Error(`[pack-tuidom] ${path}: остался .ts-специфаер после переписывания`);
                 }
             }
@@ -117,8 +108,6 @@ function buildPackageJson({ pkgName, license }) {
         files: ["dist"],
         // TODO: sideEffects:false не ставим, пока top-level эффекты модулей не аудированы.
         exports: {
-            "./jsx-runtime": "./dist/dom/jsx/jsx-runtime.js",
-            "./jsx-dev-runtime": "./dist/dom/jsx/jsx-runtime.js",
             "./package.json": "./package.json",
             // Публичного API намеренно нет (API нестабилен) — экспонируем глубокие
             // пути как есть. "./*.js" страхует форму с расширением от dist/x.js.js.
@@ -171,7 +160,7 @@ import { Size } from "${pkgName}/common/geometryPromitives";
 import { TuiApplication } from "${pkgName}/dom/tuiApplication";
 import { BodyElement } from "${pkgName}/ui/body/bodyElement";
 import { BoxElement } from "${pkgName}/ui/layout/boxElement";
-// .tsx-модуль: доказывает, что self-reference "${pkgName}/jsx-runtime" резолвится на голом node.
+// Глубокий модуль ui-виджета: доказывает, что deep-пути экспортов резолвятся на голом node.
 import { MenuBarItemElement } from "${pkgName}/ui/menu/menuBarItemElement";
 
 const backend = new HeadlessCaptureBackend(new Size(40, 10));

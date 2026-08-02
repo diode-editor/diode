@@ -1,4 +1,3 @@
-import { DEFAULT_COLOR } from "../../common/colorUtils.ts";
 import { DisplayLine } from "../../common/displayLine.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import { StyleFlags } from "../../common/styleFlags.ts";
@@ -90,33 +89,3 @@ export class TextLabelElement extends TUIElement {
         );
     }
 }
-
-// ─── TextLabel JSX Adapter ───
-
-export interface TextLabelProps {
-    text: string;
-    fg?: StyleColor;
-    bg?: StyleColor;
-    charStyles?: Map<number, StyledChar>;
-}
-
-function applyTextLabelProps(el: TextLabelElement, props: TextLabelProps): void {
-    el.setText(props.text);
-    el.setColors(props.fg ?? DEFAULT_COLOR, props.bg ?? DEFAULT_COLOR);
-    el.clearCharStyles();
-    if (props.charStyles) {
-        for (const [index, style] of props.charStyles) {
-            el.setCharStyle(index, style);
-        }
-    }
-}
-
-export function TextLabel(props: TextLabelProps): TextLabelElement {
-    const el = new TextLabelElement(props.text);
-    applyTextLabelProps(el, props);
-    return el;
-}
-
-TextLabel.update = (el: TUIElement, props: TextLabelProps): void => {
-    applyTextLabelProps(el as TextLabelElement, props);
-};

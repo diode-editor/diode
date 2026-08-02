@@ -4,7 +4,7 @@ import { renderElement } from "../../../src/TestUtils/renderElement.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 
-import { SizedBox, SizedBoxElement } from "./sizedBoxElement.ts";
+import { SizedBoxElement } from "./sizedBoxElement.ts";
 
 /** Ребёнок с известным max-intrinsic и базовым (tight-послушным) performLayout. */
 class FixedIntrinsicChild extends TUIElement {
@@ -83,6 +83,14 @@ describe("SizedBoxElement", () => {
         expect(() => renderElement(box, 4, 2)).not.toThrow();
     });
 
+    it("setters update the preferred size", () => {
+        const box = new SizedBoxElement(10, 2);
+        box.setPreferredWidth(30);
+        box.setPreferredHeight(5);
+        expect(box.getMaxIntrinsicWidth(0)).toBe(30);
+        expect(box.getMaxIntrinsicHeight(0)).toBe(5);
+    });
+
     it("replacing the child detaches the previous one", () => {
         const box = new SizedBoxElement(10, 1);
         const first = new FixedIntrinsicChild(4, 1);
@@ -91,33 +99,5 @@ describe("SizedBoxElement", () => {
         box.setChild(null);
         expect(first.getParent()).toBeNull();
         expect(box.getChildren()).toEqual([]);
-    });
-
-    it("JSX adapter builds and updates preferred size + child", () => {
-        const first = new FixedIntrinsicChild(10, 1);
-        const el = SizedBox({ width: 40, height: 3, children: first });
-        expect(el).toBeInstanceOf(SizedBoxElement);
-        expect(el.getChild()).toBe(first);
-        expect(el.getMaxIntrinsicWidth(0)).toBe(40);
-
-        const second = new FixedIntrinsicChild(10, 1);
-        SizedBox.update(el, { width: 50, height: 3, children: second });
-        expect(el.getMaxIntrinsicWidth(0)).toBe(50);
-        expect(el.getChild()).toBe(second);
-
-        // Update with no children clears the child.
-        SizedBox.update(el, { width: 50, height: 3 });
-        expect(el.getChild()).toBeNull();
-    });
-
-    it("JSX adapter builds a childless box when no children are passed", () => {
-        const el = SizedBox({ width: 30, height: 2 });
-        expect(el).toBeInstanceOf(SizedBoxElement);
-        expect(el.getChild()).toBeNull();
-        expect(el.getMaxIntrinsicWidth(0)).toBe(30);
-
-        // An explicit empty children array also yields no child.
-        const empty = SizedBox({ width: 30, height: 2, children: [] });
-        expect(empty.getChild()).toBeNull();
     });
 });

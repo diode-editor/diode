@@ -6,8 +6,8 @@ import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import { TerminalScreen } from "../../rendering/terminalScreen.ts";
 
-import type { PopupMenuItemConfig } from "./popupMenuItemElement.tsx";
-import { PopupMenuItemElement, PopupMenuSeparatorElement } from "./popupMenuItemElement.tsx";
+import type { PopupMenuItemConfig } from "./popupMenuItemElement.ts";
+import { PopupMenuItemElement, PopupMenuSeparatorElement } from "./popupMenuItemElement.ts";
 
 function renderItem(item: PopupMenuItemElement, width?: number): string {
     const intrinsicWidth = width ?? item.getMaxIntrinsicWidth(1);

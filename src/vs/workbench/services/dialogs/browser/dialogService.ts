@@ -3,9 +3,9 @@ import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import type { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
 import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { AboutDialog } from "../../../browser/parts/dialogs/aboutDialog.tsx";
-import { ConfirmDialog, type ConfirmDialogOptions } from "../../../browser/parts/dialogs/confirmDialog.tsx";
-import { ConfirmSaveDialog } from "../../../browser/parts/dialogs/confirmSaveDialog.tsx";
+import { AboutDialog } from "../../../browser/parts/dialogs/aboutDialog.ts";
+import { ConfirmDialog, type ConfirmDialogOptions } from "../../../browser/parts/dialogs/confirmDialog.ts";
+import { ConfirmSaveDialog } from "../../../browser/parts/dialogs/confirmSaveDialog.ts";
 import type { DialogComponent } from "../../../browser/parts/dialogs/dialogComponent.ts";
 
 export const DialogServiceDIToken = token<DialogService>("DialogService");

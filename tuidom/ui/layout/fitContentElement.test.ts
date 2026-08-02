@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../src/TestUtils/renderElement.ts";
 import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";
-import type { TextLabelElement } from "../text/textLabelElement.ts";
-import { TextLabel } from "../text/textLabelElement.ts";
+import { TextLabelElement } from "../text/textLabelElement.ts";
 
 import { FitContentElement } from "./fitContentElement.ts";
 
 function label(text: string): TextLabelElement {
-    return TextLabel({ text });
+    return new TextLabelElement(text);
 }
 
 describe("FitContentElement", () => {

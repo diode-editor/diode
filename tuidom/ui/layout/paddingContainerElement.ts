@@ -1,7 +1,4 @@
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
-import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
-import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
-import type { StyleColor } from "../../dom/styles/tuiStyle.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 
 export interface Padding {
@@ -107,34 +104,3 @@ export class PaddingContainerElement extends TUIElement {
         return containerSize;
     }
 }
-
-// ─── PaddingContainer JSX Adapter ───
-
-export interface PaddingContainerProps extends Padding {
-    bg?: StyleColor;
-    fg?: StyleColor;
-    children?: JsxChild;
-}
-
-export function PaddingContainer(props: PaddingContainerProps): PaddingContainerElement {
-    const nodes = normalizeChildren(props.children);
-    const children = reconcileChildren([], nodes);
-    const padding = { top: props.top, right: props.right, bottom: props.bottom, left: props.left };
-    const el = new PaddingContainerElement(children[0] ?? null, padding);
-    if (props.bg !== undefined || props.fg !== undefined) {
-        el.style = { bg: props.bg, fg: props.fg };
-    }
-    return el;
-}
-
-PaddingContainer.update = (el: TUIElement, props: PaddingContainerProps): void => {
-    const pad = el as PaddingContainerElement;
-    pad.setPaddingTop(props.top ?? 0);
-    pad.setPaddingRight(props.right ?? 0);
-    pad.setPaddingBottom(props.bottom ?? 0);
-    pad.setPaddingLeft(props.left ?? 0);
-    pad.style = { bg: props.bg, fg: props.fg };
-    const nodes = normalizeChildren(props.children);
-    const newChildren = reconcileChildren(pad.getChildren(), nodes);
-    pad.setChild(newChildren[0] ?? null);
-};

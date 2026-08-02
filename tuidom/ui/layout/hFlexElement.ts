@@ -1,6 +1,4 @@
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
-import type { JsxChild, JsxNode } from "../../dom/jsx/jsx-runtime.ts";
-import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
 export type HFlexChildSize = { type: "fixed"; value: number } | { type: "fit" } | { type: "fill" };
@@ -155,26 +153,3 @@ export class HFlexElement extends TUIElement {
     // ─── Render ───
 
 }
-
-// ─── HFlex JSX Adapter ───
-
-export interface HFlexProps {
-    children?: JsxChild | JsxChild[];
-}
-
-export function HFlex(props: HFlexProps): HFlexElement {
-    const el = new HFlexElement();
-    const nodes = normalizeChildren(props.children);
-    const children = reconcileChildren([], nodes);
-    for (const child of children) {
-        el.addChild(child, child.layoutStyle as HFlexLayoutStyle);
-    }
-    return el;
-}
-
-HFlex.update = (el: TUIElement, props: HFlexProps): void => {
-    const hflex = el as HFlexElement;
-    const nodes = normalizeChildren(props.children);
-    const newChildren = reconcileChildren(hflex.getChildren(), nodes);
-    hflex.replaceChildren(newChildren);
-};

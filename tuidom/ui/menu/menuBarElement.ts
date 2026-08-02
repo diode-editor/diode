@@ -7,7 +7,7 @@ import type { OverlayLayer } from "../contextview/overlayLayer.ts";
 import type { OverlaySessionHandle } from "../contextview/overlayLayer.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../layout/hFlexElement.ts";
 
-import { MenuBarFillerElement, MenuBarItemElement } from "./menuBarItemElement.tsx";
+import { MenuBarFillerElement, MenuBarItemElement } from "./menuBarItemElement.ts";
 import type { MenuEntry } from "./popupMenuElement.ts";
 import { PopupMenuElement } from "./popupMenuElement.ts";
 

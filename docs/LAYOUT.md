@@ -283,7 +283,7 @@ height: Fixed(n) | Fit | Fill    — размер по главной оси (в
 width: number | "fill"           — размер по cross оси (горизонтальной)
 ```
 
-Семантика режимов и алгоритм те же, что у HFlex (Fit — по `getMaxIntrinsicHeight()`, максимум один Fill-ребёнок). Хелперы: `vflexFixed(n)`, `vflexFit()`, `vflexFill()`. JSX-адаптера пока нет — добавляется симметрично HFlex при первом JSX-потребителе.
+Семантика режимов и алгоритм те же, что у HFlex (Fit — по `getMaxIntrinsicHeight()`, максимум один Fill-ребёнок). Хелперы: `vflexFixed(n)`, `vflexFit()`, `vflexFill()`.
 
 ## WorkbenchLayoutElement — сайдбар, редактор и нижняя панель
 

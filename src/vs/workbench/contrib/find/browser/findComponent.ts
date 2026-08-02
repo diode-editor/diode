@@ -104,7 +104,6 @@ export class FindComponent extends Component {
 
         this.box = new BoxContainerElement();
         this.box.setBg("editorWidget.background");
-        this.box.setFg("editorWidget.foreground");
         this.box.setBorderFg("editorWidget.border");
         this.box.setChild(row);
         this.view.setChild(this.box);

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { packRgb } from "../common/colorUtils.ts";
-import { TextLabel } from "../ui/text/textLabelElement.ts";
+import { TextLabelElement } from "../ui/text/textLabelElement.ts";
 
 import { CompositeElement } from "./compositeElement.ts";
-import type { JsxNode } from "./jsx/jsx-runtime.ts";
 import { ROOT_STYLE_CONTEXT } from "./styles/tuiStyle.ts";
 import { TUIElement } from "./tuiElement.ts";
 
@@ -15,33 +14,32 @@ class ContainerElement extends TUIElement {
 }
 
 class TestComposite extends CompositeElement {
-    public color = packRgb(100, 100, 100);
-
-    public constructor() {
+    public constructor(color: number) {
         super();
-        this.rebuild();
+        this.recolor(color);
     }
 
-    public describe(): JsxNode {
-        return TextLabel({ text: "test", fg: this.color, bg: this.color });
+    public recolor(color: number): void {
+        const label = new TextLabelElement("test");
+        label.setColors(color, color);
+        this.setRootChild(label);
     }
 }
 
 describe("CompositeElement style resolution", () => {
-    it("rebuild with new colors resolves correctly after style resolution", () => {
+    it("replacing the root child with new colors resolves correctly after style resolution", () => {
         const root = new ContainerElement();
         root.setAsRoot();
         root.setRequestRenderCallback(() => {
             /* noop */
         });
-        const composite = new TestComposite();
+        const composite = new TestComposite(packRgb(100, 100, 100));
         root.addChild(composite);
 
         root.performStyleResolution(ROOT_STYLE_CONTEXT);
         expect(composite.getRootChild()!.resolvedStyle.fg).toBe(packRgb(100, 100, 100));
 
-        composite.color = packRgb(255, 0, 0);
-        composite.rebuild();
+        composite.recolor(packRgb(255, 0, 0));
         root.performStyleResolution(ROOT_STYLE_CONTEXT);
         expect(composite.getRootChild()!.resolvedStyle.fg).toBe(packRgb(255, 0, 0));
     });
@@ -54,9 +52,7 @@ describe("CompositeElement style resolution", () => {
         });
         root.performStyleResolution(ROOT_STYLE_CONTEXT);
 
-        const composite = new TestComposite();
-        composite.color = packRgb(0, 90, 180);
-        composite.rebuild();
+        const composite = new TestComposite(packRgb(0, 90, 180));
 
         root.addChild(composite);
         root.performStyleResolution(ROOT_STYLE_CONTEXT);

@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Offset, Point, Size } from "../common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Size } from "../common/geometryPromitives.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 
 import { CompositeElement } from "./compositeElement.ts";
-import type { JsxNode } from "./jsx/jsx-runtime.ts";
-import type { ComponentType } from "./jsx/jsx-runtime.ts";
-import { jsx } from "./jsx/jsx-runtime.ts";
 import { RenderContext, TUIElement } from "./tuiElement.ts";
 
 // ─── Test helpers ───
@@ -46,29 +43,25 @@ class FakeLeaf extends TUIElement {
     }
 }
 
-const LeafComponent: ComponentType<{ text: string }> = (props: { text: string }): FakeLeaf => {
-    return new FakeLeaf(props.text);
-};
-
-LeafComponent.update = (el: TUIElement, props: { text: string }): void => {
-    (el as FakeLeaf).text = props.text;
-};
-
 class TestComposite extends CompositeElement {
-    public text = "hello";
+    public constructor(text = "hello") {
+        super();
+        this.setRootChild(new FakeLeaf(text));
+    }
 
-    protected override describe(): JsxNode {
-        return jsx(LeafComponent, { text: this.text });
+    public replaceRoot(child: TUIElement): void {
+        this.setRootChild(child);
     }
 }
+
+class EmptyComposite extends CompositeElement {}
 
 // ─── Tests ───
 
 describe("CompositeElement", () => {
-    describe("rebuild", () => {
-        it("creates rootChild on first rebuild", () => {
+    describe("setRootChild", () => {
+        it("adopts the child built in the constructor", () => {
             const comp = new TestComposite();
-            comp.rebuild();
 
             expect(comp.getRootChild()).toBeInstanceOf(FakeLeaf);
             expect((comp.getRootChild() as FakeLeaf).text).toBe("hello");
@@ -76,56 +69,50 @@ describe("CompositeElement", () => {
 
         it("sets parent on rootChild", () => {
             const comp = new TestComposite();
-            comp.rebuild();
 
             expect(comp.getRootChild()!.getParent()).toBe(comp);
         });
 
-        it("reuses rootChild on subsequent rebuilds", () => {
+        it("replaces and detaches the previous rootChild", () => {
             const comp = new TestComposite();
-            comp.rebuild();
-            const first = comp.getRootChild();
+            const first = comp.getRootChild()!;
 
-            comp.text = "world";
-            comp.rebuild();
+            const next = new FakeLeaf("world");
+            comp.replaceRoot(next);
 
-            expect(comp.getRootChild()).toBe(first);
-            expect((comp.getRootChild() as FakeLeaf).text).toBe("world");
+            expect(comp.getRootChild()).toBe(next);
+            expect(first.getParent()).toBeNull();
+            expect(comp.getChildren()).toEqual([next]);
         });
     });
 
     describe("intrinsic size delegation", () => {
         it("delegates getMinIntrinsicWidth to rootChild", () => {
             const comp = new TestComposite();
-            comp.rebuild();
 
             expect(comp.getMinIntrinsicWidth(1)).toBe(5); // "hello".length
         });
 
         it("delegates getMaxIntrinsicWidth to rootChild", () => {
             const comp = new TestComposite();
-            comp.rebuild();
 
             expect(comp.getMaxIntrinsicWidth(1)).toBe(5);
         });
 
         it("delegates getMinIntrinsicHeight to rootChild", () => {
             const comp = new TestComposite();
-            comp.rebuild();
 
             expect(comp.getMinIntrinsicHeight(80)).toBe(1);
         });
 
         it("delegates getMaxIntrinsicHeight to rootChild", () => {
             const comp = new TestComposite();
-            comp.rebuild();
 
             expect(comp.getMaxIntrinsicHeight(80)).toBe(1);
         });
 
         it("returns 0 when rootChild is null", () => {
-            const comp = new TestComposite();
-            // no rebuild()
+            const comp = new EmptyComposite();
 
             expect(comp.getMinIntrinsicWidth(1)).toBe(0);
             expect(comp.getMaxIntrinsicWidth(1)).toBe(0);
@@ -137,7 +124,6 @@ describe("CompositeElement", () => {
     describe("layout", () => {
         it("positions rootChild at (0,0) relative to self", () => {
             const comp = new TestComposite();
-            comp.rebuild();
             comp.localPosition = new Offset(10, 20);
             comp.layout(BoxConstraints.tight(new Size(80, 24)));
 
@@ -150,15 +136,14 @@ describe("CompositeElement", () => {
     });
 
     describe("getChildren", () => {
-        it("returns [rootChild] after rebuild", () => {
+        it("returns [rootChild]", () => {
             const comp = new TestComposite();
-            comp.rebuild();
 
             expect(comp.getChildren()).toEqual([comp.getRootChild()]);
         });
 
-        it("returns [] before rebuild", () => {
-            const comp = new TestComposite();
+        it("returns [] when no root child was set", () => {
+            const comp = new EmptyComposite();
             expect(comp.getChildren()).toEqual([]);
         });
     });
@@ -166,7 +151,6 @@ describe("CompositeElement", () => {
     describe("render", () => {
         it("delegates render to rootChild", () => {
             const comp = new TestComposite();
-            comp.rebuild();
             comp.localPosition = new Offset(0, 0);
             comp.layout(BoxConstraints.tight(new Size(80, 24)));
 
