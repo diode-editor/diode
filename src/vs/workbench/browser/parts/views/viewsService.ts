@@ -95,7 +95,7 @@ export class ViewsService {
         entry.views.push(descriptor);
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
         if (entry.paneView !== null) {
-            this.rebuildPanes(entry);
+            this.rebuildPanes(entry.paneView, entry.views);
         }
     }
 
@@ -113,7 +113,7 @@ export class ViewsService {
         if (entry.view !== null) return;
         const paneView = new PaneViewElement();
         paneView.id = `viewContainer-${containerId}`;
-        paneView.onDidChangeState = () => this.persistContainerState(containerId);
+        paneView.onDidChangeState = () => this.persistContainerState(containerId, paneView);
         paneView.onDidRequestPaneMenu = (paneId, anchor) => {
             const context: ViewMenuContext = { view: paneId };
             this.contextMenuService.showContextMenu({
@@ -126,7 +126,7 @@ export class ViewsService {
         entry.paneView = paneView;
         entry.view = new TitledPanelElement(title, paneView);
         entry.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
-        this.rebuildPanes(entry);
+        this.rebuildPanes(paneView, entry.views);
         this.sidebarService.registerViewlet(containerId, entry.view, () => {
             this.focusContainer(containerId);
         });
@@ -175,13 +175,11 @@ export class ViewsService {
     }
 
     /** Пересобирает секции по реестру (первый build и поздняя регистрация). */
-    private rebuildPanes(entry: ContainerEntry): void {
-        const paneView = entry.paneView;
-        if (paneView === null) return;
+    private rebuildPanes(paneView: PaneViewElement, views: readonly IViewDescriptor[]): void {
         for (const paneId of [...paneView.getPaneIds()]) {
             paneView.removePane(paneId);
         }
-        for (const view of entry.views) {
+        for (const view of views) {
             paneView.addPane({
                 id: view.id,
                 title: view.title,
@@ -192,10 +190,7 @@ export class ViewsService {
     }
 
     /** Write-through по действию пользователя (toggle секции, drag границы). */
-    private persistContainerState(containerId: string): void {
-        const entry = this.containers.get(containerId);
-        const paneView = entry?.paneView;
-        if (paneView === undefined || paneView === null) return;
+    private persistContainerState(containerId: string, paneView: PaneViewElement): void {
         const state: IViewContainerViewsState = {
             collapsed: paneView.getPaneIds().filter((id) => paneView.isCollapsed(id)),
             weights: paneView.getWeights(),

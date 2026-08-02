@@ -150,6 +150,75 @@ describe("PaneViewElement mouse", () => {
         expect(view.isCollapsed("a")).toBe(false);
     });
 
+    it("drag, зажатый до сворачивания соседа, дальше игнорируется (защита от гонки capture)", () => {
+        const { app, view, stateChanges } = makeHarness();
+        // Симуляция: capture ещё держит заголовок b, но развёрнутых ниже уже нет.
+        view.setCollapsed("b", true);
+        app.render();
+        const headerB = app.querySelector("#paneHeader-b")!;
+        const before = bodyHeights(view);
+        (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y - 2);
+        app.render();
+        expect(bodyHeights(view)).toEqual(before);
+        expect(stateChanges()).toBe(0);
+    });
+
+    it("drag в собственную строку границы — no-op", () => {
+        const { app, view, stateChanges } = makeHarness();
+        const headerB = app.querySelector("#paneHeader-b")!;
+        (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y);
+        app.render();
+        expect(stateChanges()).toBe(0);
+        expect(view.getWeights()).toEqual({ a: 1, b: 1 });
+    });
+
+    it("drag за пределы минимума после клампа — no-op без события", () => {
+        const { app, view, stateChanges, headerPos } = makeHarness();
+        const pos = headerPos("b");
+        drag(app, pos.x + 2, pos.y, pos.y - 15); // кламп: a=3
+        app.render();
+        expect(stateChanges()).toBe(1);
+        const headerB = app.querySelector("#paneHeader-b")!;
+        (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y - 5);
+        app.render();
+        expect(bodyHeights(view)).toEqual({ a: 3, b: 17 });
+        expect(stateChanges()).toBe(1);
+    });
+
+    it("двум секциям тесно (сумма меньше минимумов) — граница не двигается", () => {
+        const view = new PaneViewElement();
+        for (const id of ["a", "b"]) {
+            const body = new FillerElement();
+            body.id = `${id}-body`;
+            view.addPane({ id, title: id.toUpperCase(), body });
+        }
+        let changes = 0;
+        view.onDidChangeState = () => changes++;
+        const app = TestApp.createWithContent(view, new Size(30, 7)); // тела 3 и 2 < 3+3
+        const headerB = app.querySelector("#paneHeader-b")!;
+        (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y - 1);
+        app.render();
+        expect(bodyHeights(view)).toEqual({ a: 3, b: 2 });
+        expect(changes).toBe(0);
+    });
+
+    it("свёрнутая секция не участвует в заморозке весов при drag", () => {
+        const view = new PaneViewElement();
+        for (const id of ["a", "b", "c"]) {
+            const body = new FillerElement();
+            body.id = `${id}-body`;
+            view.addPane({ id, title: id.toUpperCase(), body });
+        }
+        view.setCollapsed("c", true);
+        const app = TestApp.createWithContent(view, new Size(30, 22));
+        const headerB = app.querySelector("#paneHeader-b")!;
+        (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y - 2);
+        app.render();
+        const weights = view.getWeights();
+        expect(weights.c).toBe(1); // вес свёрнутой не тронут
+        expect(weights.a + weights.b).toBe(19); // фактические высоты развёрнутых (22 − 3 заголовка)
+    });
+
     it("дети заголовка презентационные — хит-тест отдаёт заголовок", () => {
         const { app, headerPos } = makeHarness();
         const pos = headerPos("a");

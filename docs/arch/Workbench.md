@@ -589,6 +589,27 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     restore глушится re-entrancy-guard'ом). Сам `WorkbenchLayoutElement` остаётся
     контролом у владельца корневой view (`WorkbenchComponent`) и приходит через
     late-init шов `attachLayout`.
+  - `browser/parts/sidebar/sidebarService.ts` — реестр вьюлетов сайдбара и
+    переключатель (activity bar'а нет, роль играют команды `workbench.view.*`;
+    показ вьюлета — подмена контента сайдбара через `LayoutService`). Explorer и
+    Search — одно-view вьюлеты, регистрируются напрямую.
+  - `browser/parts/views/` — **view-секции внутри вьюлета** (аналог
+    PaneView/ViewContainer VS Code): `paneViewElement.ts` + `paneHeaderElement.ts`
+    — составной контрол из готовых tuidom-примитивов (стопка сворачиваемых
+    секций; заголовок = 1 строка с шевроном, названием и кнопкой «⋯»; развёрнутые
+    тела делят высоту пропорционально весам, граница таскается за заголовок
+    нижней секции — паттерн `SashElement`); `viewsService.ts` — реестр
+    контейнеров и view-дескрипторов (`{id, containerId, title, order, body,
+    focus}` — `containerId` в реестре закладывает будущий перенос view между
+    контейнерами), сборка контейнера `TitledPanel(PaneView)` и регистрация его
+    прежним `registerViewlet`, персист свёрнутости/весов
+    (`workbench.views.state`, write-through по действию пользователя, restore
+    после `openWorkspace`) и меню «⋯» (`MenuId.ViewMoreActions`, императивная
+    фильтрация `viewMenuVisible` по `menuContext.view` — глобальный when-ключ не
+    годится: в сайдбаре видимы несколько секций сразу). Пилот — контейнер
+    Source Control: секции CHANGES (`ChangesComponent`) и GRAPH
+    (`GraphViewComponent`, последние коммиты от git-расширения командой
+    `vexx.scm.publishLog` → `ScmGraphService`).
   - `Services/WorkbenchStateService.ts` — персист открытых редакторов (headless):
     `openWorkspace` (per-project стор), `captureOpenEditors` (write-through —
     собственная подписка на `EditorService.onActiveEditorChanged`),

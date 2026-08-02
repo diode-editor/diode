@@ -114,6 +114,7 @@ describe("PaneViewElement layout", () => {
     it("addPane с повторным id бросает, removePane убирает секцию", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         expect(() => view.addPane({ id: "a", title: "A", body: new FillerElement() })).toThrow(/duplicate pane id/);
+        view.removePane("ghost"); // незнакомый id — тихий no-op
         view.removePane("b");
         expect(view.getPaneIds()).toEqual(["a"]);
         layout(view, 30, 20);

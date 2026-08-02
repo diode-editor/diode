@@ -136,6 +136,11 @@ describe("ViewsService", () => {
         service.registerView(view("scm.changes", "scm", 10));
         service.registerView(view("scm.graph", "scm", 20));
         service.attachContainer("scm");
+        // Контейнер без сохранённого состояния и неприаттаченный — пропускаются.
+        service.registerContainer({ id: "explorer", title: "EXPLORER" });
+        service.registerView(view("files", "explorer", 10));
+        service.attachContainer("explorer");
+        service.registerContainer({ id: "detached", title: "DETACHED" });
         const before = stored.get(SIDEBAR_VIEWS_STATE.key);
 
         service.restoreViewsState();
@@ -190,6 +195,34 @@ describe("ViewsService", () => {
         service.attachContainer("scm");
         service.registerView(view("scm.changes", "scm", 10));
         expect(paneViewOf(registered, "scm").getPaneIds()).toEqual(["scm.changes"]);
+    });
+
+    it("при равном order секции идут по id", () => {
+        const { service, registered } = makeHarness();
+        service.registerContainer({ id: "scm", title: "SCM" });
+        service.registerView(view("scm.zeta", "scm", 10));
+        service.registerView(view("scm.alpha", "scm", 10));
+        service.attachContainer("scm");
+        expect(paneViewOf(registered, "scm").getPaneIds()).toEqual(["scm.alpha", "scm.zeta"]);
+    });
+
+    it("focusContainer до attach и на контейнере без view — тихие no-op", () => {
+        const { service } = makeHarness();
+        service.registerContainer({ id: "scm", title: "SCM" });
+        expect(() => service.focusContainer("scm")).not.toThrow();
+        service.attachContainer("scm");
+        expect(() => service.focusContainer("scm")).not.toThrow();
+    });
+
+    it("все секции свёрнуты — фокус первой view контейнера", () => {
+        const { service, registered } = makeHarness();
+        const focusChanges = vi.fn();
+        service.registerContainer({ id: "scm", title: "SCM" });
+        service.registerView(view("scm.changes", "scm", 10, focusChanges));
+        service.attachContainer("scm");
+        paneViewOf(registered, "scm").setCollapsed("scm.changes", true);
+        service.focusContainer("scm");
+        expect(focusChanges).toHaveBeenCalledOnce();
     });
 
     it("attach незарегистрированного контейнера — ошибки", () => {

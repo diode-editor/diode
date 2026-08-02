@@ -8,7 +8,11 @@ import { PaneHeaderElement } from "./paneHeaderElement.ts";
 const DEFAULT_MIN_BODY_HEIGHT = 3;
 
 export interface IPaneOptions {
-    /** Уникален в контейнере; заголовок получает `id = paneHeader-<id>` (инспектор/e2e). */
+    /**
+     * Уникален в контейнере. Заголовок получает `id = paneHeader-<id>` с точками,
+     * заменёнными на дефисы — точка в селекторах инспектора/e2e не поддерживается
+     * (`workbench.scm.graph` → `#paneHeader-workbench-scm-graph`).
+     */
     readonly id: string;
     /** Название секции — рисуется как есть (конвенция VS Code: КАПСОМ). */
     readonly title: string;
@@ -58,7 +62,7 @@ export class PaneViewElement extends TUIElement {
             throw new Error(`PaneViewElement: duplicate pane id "${options.id}"`);
         }
         const header = new PaneHeaderElement(options.title);
-        header.id = `paneHeader-${options.id}`;
+        header.id = `paneHeader-${options.id.replaceAll(".", "-")}`;
         const record: PaneRecord = {
             id: options.id,
             header,
@@ -268,14 +272,14 @@ export class PaneViewElement extends TUIElement {
 /**
  * Детерминированный largest remainder: целые доли `total` пропорционально
  * весам; остаток — по убыванию дробной части, при равенстве — более ранней
- * секции. Неположительный вес считается единицей.
+ * секции. Веса всегда положительные (инициализация единицей, setWeights
+ * отфильтровывает мусор, drag клампит снизу единицей).
  */
 function distributeByWeight(total: number, weights: readonly number[]): number[] {
-    const safe = weights.map((w) => (w > 0 ? w : 1));
-    const sum = safe.reduce((a, b) => a + b, 0);
-    const base = safe.map((w) => Math.floor((total * w) / sum));
+    const sum = weights.reduce((a, b) => a + b, 0);
+    const base = weights.map((w) => Math.floor((total * w) / sum));
     let remainder = total - base.reduce((a, b) => a + b, 0);
-    const order = safe
+    const order = weights
         .map((w, i) => ({ i, frac: (total * w) / sum - base[i] }))
         .sort((a, b) => b.frac - a.frac || a.i - b.i);
     for (const { i } of order) {

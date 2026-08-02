@@ -78,12 +78,13 @@ export default defineScenario({
         await editor.sendKey("Escape");
 
         // Двойной клик по первой строке (app.ts, modified) открывает вкладку-
-        // смотрелку этапа 5. Строка списка — под заголовком рамки, поэтому y+1.
+        // смотрелку этапа 5. #changesView — тело секции CHANGES, строки идут с
+        // первого ряда (заголовок рамки рисует контейнер выше).
         // Двойной, а не одиночный: одиночный клик по дереву лишь выделяет,
         // активирует dblclick. Шлём 4 события подряд без settle, чтобы уложиться
         // в окно распознавания двойного клика (300 мс).
         const x = list.box.x + 2;
-        const y = list.box.y + 1;
+        const y = list.box.y;
         await editor.sendMouse({ action: "press", button: "left", x, y });
         await editor.sendMouse({ action: "release", button: "left", x, y });
         await editor.sendMouse({ action: "press", button: "left", x, y });

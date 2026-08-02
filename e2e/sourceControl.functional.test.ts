@@ -138,10 +138,11 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const list = await session.waitForNode("#changesView");
 
-        // Двойной клик по первой строке (app.ts, modified). Строка под заголовком
-        // рамки → y+1. Четыре события подряд без settle — в окно двойного клика.
+        // Двойной клик по первой строке (app.ts, modified): #changesView — тело
+        // секции CHANGES, строки идут с первого ряда (заголовок рамки рисует
+        // контейнер выше). Четыре события подряд без settle — в окно двойного клика.
         const x = list.box.x + 2;
-        const y = list.box.y + 1;
+        const y = list.box.y;
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
         await session.sendMouse({ action: "press", button: "left", x, y });
@@ -166,7 +167,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
 
         // Единственная строка списка — extra.ts (untracked): app.ts закоммичен без правок.
         const x = list.box.x + 2;
-        const y = list.box.y + 1;
+        const y = list.box.y;
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
         await session.sendMouse({ action: "press", button: "left", x, y });
@@ -322,7 +323,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         const list = await session.waitForNode("#changesView");
 
         const x = list.box.x + 2;
-        const y = list.box.y + 1;
+        const y = list.box.y;
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
         await session.sendMouse({ action: "press", button: "left", x, y });
