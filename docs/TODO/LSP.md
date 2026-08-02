@@ -1,7 +1,10 @@
 # LSP — стоковые language servers поверх extension host
 
-Статус: **[~] в работе** — платформа document sync + definition + диагностики,
-итог итерации: Go to Definition со стоковым `typescript-language-server`.
+Статус: **[~] платформа готова** — document sync + definition (F12) + диагностики
+работают со стоковым `typescript-language-server` end-to-end (юнит-интеграция
+`extensionHost.typescriptLsp.test.ts`, e2e `e2e/gotoDefinition.test.ts`,
+скриншот-сценарий `goto-definition`). Открыто — «Отложенное» ниже
+(SEA-упаковка серверов, второй язык, закрытие остальных стабов).
 
 ## Архитектура (проверена спайком, ветка `worktree-lsp-spike`)
 
@@ -26,9 +29,13 @@ go-to-definition работает; сервер-внук корректно уб
    builtin-расширение `vexx-lsp-typescript` (бандл с `vscode-languageclient@10`
    проходит гейт RELATIVE_REQUIRE; `version: "1.127.0"` в лок-степе с
    `extensions/VSCODE_VERSION` — тест в `vscodeNamespace.identity.test.ts`).
-4. **[ ] закрытие стоковым сервером** — тесты с настоящим `typescript-language-server`
+4. **[x] закрытие стоковым сервером** — тесты с настоящим `typescript-language-server`
    (правило: тесты над ИЗМЕНЯЕМЫМ кодом — правка без сохранения должна быть видна
-   серверу), e2e + скриншот-демо.
+   серверу), e2e + скриншот-демо. Сервер резолвится: настройка
+   `vexx.lsp.typescript.serverPath` → workspace `node_modules/.bin` → PATH;
+   `tsserverPath` — для песочниц без своего TypeScript
+   (`initializationOptions.tsserver.path`). Dev-прогон «из коробки»: воркспейс
+   с `typescript-language-server` в devDeps работает без настроек.
 
 ## Document sync (шаг 1 — сделано)
 

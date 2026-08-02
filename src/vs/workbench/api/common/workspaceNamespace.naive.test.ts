@@ -13,6 +13,23 @@ import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 // валидные никогда-не-стреляющие события + простейшие методы. Статусы и шаги
 // закрытия — таблица стабов в docs/TODO/LSP.md.
 
+/** Наивная поверхность workspace, отсутствующая в активной части vscode.d.ts (runtime опережает декларацию). */
+interface INaiveWorkspaceSurface {
+    notebookDocuments: readonly unknown[];
+    applyEdit(edit: unknown): Thenable<boolean>;
+    registerTextDocumentContentProvider(scheme: string, provider: unknown): { dispose(): void };
+    getWorkspaceFolder(uri: unknown): { name: string } | undefined;
+    createFileSystemWatcher(glob: string): {
+        onDidCreate(l: () => void): { dispose(): void };
+        onDidChange(l: () => void): { dispose(): void };
+        onDidDelete(l: () => void): { dispose(): void };
+        ignoreCreateEvents: boolean;
+        ignoreChangeEvents: boolean;
+        ignoreDeleteEvents: boolean;
+        dispose(): void;
+    };
+}
+
 function makeWorkspace() {
     const stub = makeStubRpc();
     const ctx: IVscodeHostContext = {
@@ -20,7 +37,8 @@ function makeWorkspace() {
         registry: new DocumentRegistry(),
         configStore: new WorkspaceConfigStore(),
     };
-    return { stub, workspace: createWorkspaceNamespace(ctx) };
+    const workspace = createWorkspaceNamespace(ctx);
+    return { stub, workspace, naive: workspace as unknown as INaiveWorkspaceSurface };
 }
 
 describe("WorkspaceNamespace — наивная поверхность LSP", () => {
@@ -44,18 +62,18 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
             expect(disposable, name).toBeDefined();
             expect(() => disposable.dispose(), name).not.toThrow();
         }
-        expect(workspace.notebookDocuments).toEqual([]);
+        expect(makeWorkspace().naive.notebookDocuments).toEqual([]);
     });
 
     it("applyEdit наивно подтверждает; registerTextDocumentContentProvider — валидный Disposable", async () => {
-        const { workspace } = makeWorkspace();
-        await expect(workspace.applyEdit({} as never)).resolves.toBe(true);
-        const disposable = workspace.registerTextDocumentContentProvider("scheme", {} as never);
+        const { naive } = makeWorkspace();
+        await expect(naive.applyEdit({})).resolves.toBe(true);
+        const disposable = naive.registerTextDocumentContentProvider("scheme", {});
         expect(() => disposable.dispose()).not.toThrow();
     });
 
     it("getWorkspaceFolder матчит по префиксу пути, иначе первая папка", () => {
-        const { stub, workspace } = makeWorkspace();
+        const { stub, naive } = makeWorkspace();
         stub.fire("workspace.initialize", {
             configuration: {},
             workspaceFolders: [
@@ -63,9 +81,7 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
                 { uri: Uri.file("/proj/b").toString(), name: "b", index: 1 },
             ],
         });
-        const folderOf = (p: string) =>
-            (workspace.getWorkspaceFolder(Uri.file(p) as unknown as vscode.Uri) as unknown as { name: string } | undefined)
-                ?.name;
+        const folderOf = (p: string): string | undefined => naive.getWorkspaceFolder(Uri.file(p))?.name;
         expect(folderOf("/proj/b/src/x.ts")).toBe("b");
         expect(folderOf("/proj/a")).toBe("a");
         // Вне всех папок — наивный fallback на первую (клиенту нужен хоть какой-то корень).
@@ -73,8 +89,8 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
     });
 
     it("createFileSystemWatcher — валидный не-стреляющий watcher", () => {
-        const { workspace } = makeWorkspace();
-        const watcher = workspace.createFileSystemWatcher("**/*.ts");
+        const { naive } = makeWorkspace();
+        const watcher = naive.createFileSystemWatcher("**/*.ts");
         const sub = watcher.onDidChange(() => undefined);
         expect(watcher.ignoreCreateEvents).toBe(false);
         expect(watcher.ignoreChangeEvents).toBe(false);

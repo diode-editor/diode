@@ -32,6 +32,11 @@
           "type": "string",
           "default": "",
           "description": "Path to a typescript-language-server executable or its JS entry point. Empty resolves from the workspace node_modules, then PATH."
+        },
+        "vexx.lsp.typescript.tsserverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to typescript/lib/tsserver.js for workspaces without their own TypeScript installation. Empty lets the language server resolve TypeScript itself."
         }
       }
     }

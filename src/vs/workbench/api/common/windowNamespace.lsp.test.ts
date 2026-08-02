@@ -11,6 +11,22 @@ import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 // LogOutputChannel-методы обязаны писать в канал (console → stdout-логгер
 // хоста): ошибки p2c.asDiagnostics клиент пишет ТОЛЬКО туда.
 
+/** Наивная поверхность window, отсутствующая в активной части vscode.d.ts (runtime опережает декларацию). */
+interface INaiveWindowSurface {
+    withProgress<R>(
+        options: unknown,
+        task: (progress: { report(value: unknown): void }, token: { isCancellationRequested: boolean; onCancellationRequested(l: () => void): unknown }) => Thenable<R>,
+    ): Thenable<R>;
+    showTextDocument(doc: unknown): Thenable<unknown>;
+    tabGroups: {
+        all: readonly unknown[];
+        activeTabGroup: { tabs: readonly unknown[] };
+        onDidChangeTabs(l: () => void): { dispose(): void };
+        onDidChangeTabGroups(l: () => void): { dispose(): void };
+    };
+    onDidChangeVisibleTextEditors(l: () => void): { dispose(): void };
+}
+
 function makeWindow() {
     const stub = makeStubRpc();
     const ctx: IVscodeHostContext = {
@@ -18,7 +34,8 @@ function makeWindow() {
         registry: new DocumentRegistry(),
         configStore: new WorkspaceConfigStore(),
     };
-    return { stub, window: createWindowNamespace(ctx) };
+    const window = createWindowNamespace(ctx);
+    return { stub, window, naive: window as unknown as INaiveWindowSurface };
 }
 
 describe("WindowNamespace — наивная поверхность LSP", () => {
@@ -56,8 +73,8 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
     });
 
     it("withProgress исполняет задачу с no-op прогрессом и не-отменённым токеном", async () => {
-        const { window } = makeWindow();
-        const result = await window.withProgress({ location: 15 } as never, (progress, token) => {
+        const { naive } = makeWindow();
+        const result = await naive.withProgress({ location: 15 }, (progress, token) => {
             progress.report({ message: "indexing" });
             expect(token.isCancellationRequested).toBe(false);
             expect(() => token.onCancellationRequested(() => undefined)).not.toThrow();
@@ -67,19 +84,19 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
     });
 
     it("showTextDocument резолвится активным редактором (или undefined без него)", async () => {
-        const { stub, window } = makeWindow();
-        await expect(window.showTextDocument({} as never)).resolves.toBeUndefined();
+        const { stub, window, naive } = makeWindow();
+        await expect(naive.showTextDocument({})).resolves.toBeUndefined();
 
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/f.ts").toString() });
-        await expect(window.showTextDocument({} as never)).resolves.toBe(window.activeTextEditor);
+        await expect(naive.showTextDocument({})).resolves.toBe(window.activeTextEditor);
     });
 
     it("tabGroups и onDidChangeVisibleTextEditors — валидные наивные объекты", () => {
-        const { window } = makeWindow();
-        expect(window.tabGroups.all).toEqual([]);
-        expect(window.tabGroups.activeTabGroup.tabs).toEqual([]);
-        expect(() => window.tabGroups.onDidChangeTabs(() => undefined).dispose()).not.toThrow();
-        expect(() => window.tabGroups.onDidChangeTabGroups(() => undefined).dispose()).not.toThrow();
-        expect(() => window.onDidChangeVisibleTextEditors(() => undefined).dispose()).not.toThrow();
+        const { naive } = makeWindow();
+        expect(naive.tabGroups.all).toEqual([]);
+        expect(naive.tabGroups.activeTabGroup.tabs).toEqual([]);
+        expect(() => naive.tabGroups.onDidChangeTabs(() => undefined).dispose()).not.toThrow();
+        expect(() => naive.tabGroups.onDidChangeTabGroups(() => undefined).dispose()).not.toThrow();
+        expect(() => naive.onDidChangeVisibleTextEditors(() => undefined).dispose()).not.toThrow();
     });
 });

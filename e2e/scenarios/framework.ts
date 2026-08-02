@@ -76,6 +76,12 @@ export interface ScenarioSpec {
      */
     installVsix?: readonly string[];
     /**
+     * settings.json активного профиля в hermetic user-data-dir сценария. Нужно
+     * фичам, которым требуется конфигурация (напр. путь к language-серверу для
+     * LSP-сценария — сервер живёт в devDeps репозитория, не в PATH).
+     */
+    settings?: Readonly<Record<string, unknown>>;
+    /**
      * Пользовательские кейбинды (`keybindings.json`) в hermetic user-data-dir
      * сценария. Нужны, когда команду важно исполнить, НЕ уводя фокус: палитра
      * возвращает фокус тому, у кого он был на момент открытия, а маршрут к ней
@@ -114,6 +120,7 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
         open: spec.open ?? [],
         cwd: repoRoot,
         ...(spec.installVsix !== undefined ? { installVsix: spec.installVsix } : {}),
+        ...(spec.settings !== undefined ? { settings: spec.settings } : {}),
         ...(spec.userKeybindings !== undefined ? { keybindings: spec.userKeybindings } : {}),
         ...(spec.cols !== undefined ? { cols: spec.cols } : {}),
         ...(spec.rows !== undefined ? { rows: spec.rows } : {}),

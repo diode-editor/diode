@@ -155,6 +155,7 @@ describe("LanguagesNamespace — no-op поверхность для vscode-lang
             expect(disposable, name).toBeDefined();
             expect(() => disposable.dispose(), name).not.toThrow();
         }
-        expect(languages.match({ language: "typescript" }, {} as vscode.TextDocument)).toBeGreaterThan(0);
+        const match = (languages as unknown as { match(selector: unknown, doc: unknown): number }).match;
+        expect(match({ language: "typescript" }, {})).toBeGreaterThan(0);
     });
 });

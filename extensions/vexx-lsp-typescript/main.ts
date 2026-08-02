@@ -30,12 +30,17 @@ export function activate(context: vscode.ExtensionContext): void {
             continue;
         }
 
+        // Воркспейсы без собственного TypeScript (песочницы тестов, чужие
+        // проекты): путь к tsserver.js передаётся серверу через
+        // initializationOptions.tsserver.path.
+        const tsserverPath = configuration.get<string>("tsserverPath", "") ?? "";
         const serverOptions: ServerOptions = { command: server.command, args: [...server.args] };
         const clientOptions: LanguageClientOptions = {
             documentSelector: spec.languageIds.map((language) => ({ scheme: "file", language })),
             // Ошибки конвертации (p2c.asDiagnostics и т.п.) клиент пишет ТОЛЬКО
             // сюда — канал обязан быть настоящим, no-op молча терял бы их.
             outputChannel,
+            ...(tsserverPath !== "" ? { initializationOptions: { tsserver: { path: tsserverPath } } } : {}),
         };
 
         const client = new LanguageClient(spec.id, spec.displayName, serverOptions, clientOptions);
