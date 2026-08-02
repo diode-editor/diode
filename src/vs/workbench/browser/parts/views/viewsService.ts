@@ -43,7 +43,8 @@ export interface IViewDescriptor {
 }
 
 interface ContainerEntry {
-    readonly descriptor: IViewContainerDescriptor;
+    /** null — контейнер ещё не зарегистрирован (в него только записались view). */
+    descriptor: IViewContainerDescriptor | null;
     readonly views: IViewDescriptor[];
     /** Появляются в {@link ViewsService.attachContainer}. */
     paneView: PaneViewElement | null;
@@ -75,23 +76,21 @@ export class ViewsService {
 
     /** Регистрирует контейнер (повторная регистрация заменяет описание). */
     public registerContainer(descriptor: IViewContainerDescriptor): void {
-        const existing = this.containers.get(descriptor.id);
-        if (existing !== undefined) {
-            this.containers.set(descriptor.id, { ...existing, descriptor });
-            return;
-        }
-        this.containers.set(descriptor.id, { descriptor, views: [], paneView: null, view: null });
+        this.ensureEntry(descriptor.id).descriptor = descriptor;
     }
 
     /**
-     * Регистрирует view в контейнере. Обычный порядок — до
-     * {@link attachContainer} (компоненты создаются раньше setWorkspaceFolder);
-     * поздняя регистрация пересобирает секции уже построенного контейнера.
+     * Регистрирует view в контейнере. Порядок свободный: компоненты создаются
+     * DI раньше, чем workbench регистрирует контейнеры, поэтому view можно
+     * записать «в счёт» будущего контейнера. Повторная регистрация того же id
+     * заменяет (идемпотентность при повторном setWorkspaceFolder); поздняя —
+     * пересобирает секции уже построенного контейнера.
      */
     public registerView(descriptor: IViewDescriptor): void {
-        const entry = this.containerOrThrow(descriptor.containerId);
-        if (entry.views.some((v) => v.id === descriptor.id)) {
-            throw new Error(`ViewsService: duplicate view id "${descriptor.id}"`);
+        const entry = this.ensureEntry(descriptor.containerId);
+        const existing = entry.views.findIndex((v) => v.id === descriptor.id);
+        if (existing >= 0) {
+            entry.views.splice(existing, 1);
         }
         entry.views.push(descriptor);
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
@@ -107,6 +106,10 @@ export class ViewsService {
      */
     public attachContainer(containerId: string): void {
         const entry = this.containerOrThrow(containerId);
+        if (entry.descriptor === null) {
+            throw new Error(`ViewsService: container "${containerId}" is not registered`);
+        }
+        const title = entry.descriptor.title;
         if (entry.view !== null) return;
         const paneView = new PaneViewElement();
         paneView.id = `viewContainer-${containerId}`;
@@ -121,7 +124,7 @@ export class ViewsService {
             });
         };
         entry.paneView = paneView;
-        entry.view = new TitledPanelElement(entry.descriptor.title, paneView);
+        entry.view = new TitledPanelElement(title, paneView);
         entry.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.rebuildPanes(entry);
         this.sidebarService.registerViewlet(containerId, entry.view, () => {
@@ -159,6 +162,15 @@ export class ViewsService {
     private containerOrThrow(id: string): ContainerEntry {
         const entry = this.containers.get(id);
         if (entry === undefined) throw new Error(`ViewsService: unknown container id "${id}"`);
+        return entry;
+    }
+
+    private ensureEntry(containerId: string): ContainerEntry {
+        let entry = this.containers.get(containerId);
+        if (entry === undefined) {
+            entry = { descriptor: null, views: [], paneView: null, view: null };
+            this.containers.set(containerId, entry);
+        }
         return entry;
     }
 

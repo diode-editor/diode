@@ -175,12 +175,27 @@ describe("ViewsService", () => {
         expect(focusGraph).toHaveBeenCalledOnce();
     });
 
-    it("дубль id view и незнакомый контейнер — ошибки", () => {
-        const { service } = makeHarness();
+    it("view можно регистрировать раньше контейнера (компоненты создаются раньше workbench)", () => {
+        const { service, registered } = makeHarness();
+        service.registerView(view("scm.changes", "scm", 10));
+        service.registerContainer({ id: "scm", title: "SCM" });
+        service.attachContainer("scm");
+        expect(paneViewOf(registered, "scm").getPaneIds()).toEqual(["scm.changes"]);
+    });
+
+    it("повторная регистрация view заменяет дескриптор (идемпотентность setWorkspaceFolder)", () => {
+        const { service, registered } = makeHarness();
         service.registerContainer({ id: "scm", title: "SCM" });
         service.registerView(view("scm.changes", "scm", 10));
-        expect(() => service.registerView(view("scm.changes", "scm", 20))).toThrow(/duplicate view id/);
-        expect(() => service.registerView(view("x", "ghost", 1))).toThrow(/unknown container id/);
-        expect(() => service.attachContainer("ghost")).toThrow(/unknown container id/);
+        service.attachContainer("scm");
+        service.registerView(view("scm.changes", "scm", 10));
+        expect(paneViewOf(registered, "scm").getPaneIds()).toEqual(["scm.changes"]);
+    });
+
+    it("attach незарегистрированного контейнера — ошибки", () => {
+        const { service } = makeHarness();
+        service.registerView(view("x", "ghost", 1));
+        expect(() => service.attachContainer("ghost")).toThrow(/is not registered/);
+        expect(() => service.attachContainer("missing")).toThrow(/unknown container id/);
     });
 });

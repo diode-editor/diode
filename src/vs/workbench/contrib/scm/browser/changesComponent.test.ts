@@ -13,6 +13,7 @@ import type { IStateDescriptor, IStateService } from "../../../../platform/state
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { SCM_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
@@ -68,11 +69,14 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     const scm = new ScmChangesService(commands);
     const { service: menuService, menu } = fakeMenu(opts.menuEntries);
     const themeService = new ThemeService(theme);
+    // Реестр view здесь не участвует — компонент тестируется standalone.
+    const viewsService = { registerView: () => {} } as unknown as ViewsService;
     const component = new ChangesComponent(
         scm,
         commands,
         new ContextMenuService(menuService),
         opts.state ?? NULL_STATE_SERVICE,
+        viewsService,
     );
 
     const executed: [string, unknown[]][] = [];
@@ -123,10 +127,10 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.component.list.rowCount).toBe(2);
     });
 
-    it("пустой набор — пустой список под рамкой", () => {
+    it("пустой набор — пустой список (рамку SOURCE CONTROL рисует контейнер ViewsService)", () => {
         const h = make();
         expect(h.component.list.rowCount).toBe(0);
-        expect(frame(h)).toContain("SOURCE CONTROL");
+        expect(frame(h).trim()).toBe("");
     });
 
     it("Enter по файлу исполняет scm.action.openChanges с uri строкой", () => {

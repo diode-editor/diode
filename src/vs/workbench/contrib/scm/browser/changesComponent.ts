@@ -1,7 +1,6 @@
 import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
 import { ListViewElement } from "../../../../../../tuidom/ui/list/listViewElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
-import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -12,6 +11,8 @@ import type { IStateService } from "../../../../platform/state/common/iStateServ
 import type { ScmMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { Component } from "../../../browser/component.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { SCM_VIEW_MODE_STATE, type ScmViewMode } from "../../../common/stateKeys.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
@@ -30,6 +31,9 @@ import { buildScmTree, displayPath, type ScmTreeNode, sortChangesFlat } from "./
 /** Id вьюлета Source Control в сайдбаре (см. {@link SidebarService}). */
 export const SCM_VIEWLET_ID = "scm";
 
+/** Id view-секции CHANGES внутри контейнера Source Control (см. {@link ViewsService}). */
+export const SCM_CHANGES_VIEW_ID = "workbench.scm.changes";
+
 export const ChangesComponentDIToken = token<ChangesComponent>("ChangesComponent");
 
 /** Метаданные строки списка — мост «id строки → модель» (как rowMeta у поиска). */
@@ -38,10 +42,11 @@ type ScmRowMeta =
     | { readonly kind: "folder" };
 
 /**
- * Вьюлет **Source Control** в сайдбаре: список изменённых файлов на
- * виртуализирующем {@link ListViewElement} под рамкой SOURCE CONTROL — параллель
- * Explorer'у. Потребитель {@link ScmChangesService}, набор в который пушит
- * SCM-расширение.
+ * View-секция **CHANGES** контейнера Source Control в сайдбаре: список
+ * изменённых файлов на виртуализирующем {@link ListViewElement}. Регистрирует
+ * себя в {@link ViewsService} (контейнер собирает и вешает в сайдбар
+ * `WorkbenchComponent.setWorkspaceFolder`). Потребитель
+ * {@link ScmChangesService}, набор в который пушит SCM-расширение.
  *
  * Строки собирает {@link buildFileRow}/{@link buildFolderRow}; режимы плоско/
  * дерево ({@link setViewMode}, персист по-проектно) отличаются только эмиссией:
@@ -61,12 +66,13 @@ export class ChangesComponent extends Component {
         CommandRegistryDIToken,
         ContextMenuServiceDIToken,
         StateServiceDIToken,
+        ViewsServiceDIToken,
     ] as const;
 
     /** Список изменений — доступен тестам и оркестрации (фокус, inspectState). */
     public readonly list = new ListViewElement();
-    /** Корневой контрол вьюлета (рамка SOURCE CONTROL); вкидывается в сайдбар. */
-    public readonly view: TitledPanelElement;
+    /** Тело view-секции CHANGES — вкидывается в контейнер через ViewsService. */
+    public readonly view: PaddingContainerElement;
 
     private readonly scrollBars: ScrollBarDecorator;
 
@@ -84,19 +90,26 @@ export class ChangesComponent extends Component {
         private readonly commands: CommandRegistry,
         private readonly contextMenuService: ContextMenuService,
         private readonly stateService: IStateService,
+        viewsService: ViewsService,
     ) {
         super();
         this.viewMode = this.stateService.get(SCM_VIEW_MODE_STATE);
 
         this.list.id = "changesList";
         this.scrollBars = new ScrollBarDecorator(this.list);
-        this.view = new TitledPanelElement(
-            "  SOURCE CONTROL",
-            new PaddingContainerElement(this.scrollBars, { left: 1 }),
-        );
+        this.view = new PaddingContainerElement(this.scrollBars, { left: 1 });
         this.view.id = "changesView";
         this.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.list.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+
+        viewsService.registerView({
+            id: SCM_CHANGES_VIEW_ID,
+            containerId: SCM_VIEWLET_ID,
+            title: "CHANGES",
+            order: 10,
+            body: this.view,
+            focus: () => this.focus(),
+        });
 
         this.list.onActivate = (element) => {
             // Список не принимает строки без id — здесь он гарантированно есть.

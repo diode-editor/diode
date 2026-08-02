@@ -3,11 +3,11 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { scmUriArg } from "../../../browser/actions/menuContexts.ts";
+import { scmUriArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
-import { ChangesComponentDIToken, SCM_VIEWLET_ID } from "./changesComponent.ts";
+import { ChangesComponentDIToken, SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "./changesComponent.ts";
 import { openDiffWithHead } from "./compareWithHeadAction.ts";
 
 /**
@@ -72,12 +72,22 @@ export const scmOpenChangesAction: CommandAction = {
 /**
  * Режим списка изменений: дерево папок (с компакцией цепочек) или плоский
  * список путей. Пара команд вместо тоггла — как у поиска и VS Code; выбор
- * персистится по-проектно.
+ * персистится по-проектно. Живут и в меню «⋯» секции CHANGES
+ * (`MenuId.ViewMoreActions`, фильтр — императивный `viewMenuVisible`).
  */
 export const scmViewAsTreeAction: CommandAction = {
     id: "scm.action.viewAsTree",
     title: "Source Control: View as Tree",
+    shortTitle: "View as Tree",
     when: "scmViewletVisible",
+    menus: [
+        {
+            menuId: MenuId.ViewMoreActions,
+            group: "1_view",
+            order: 10,
+            visible: viewMenuVisible(SCM_CHANGES_VIEW_ID),
+        },
+    ],
     run(accessor) {
         accessor.get(ChangesComponentDIToken).setViewMode("tree");
     },
@@ -86,7 +96,16 @@ export const scmViewAsTreeAction: CommandAction = {
 export const scmViewAsListAction: CommandAction = {
     id: "scm.action.viewAsList",
     title: "Source Control: View as List",
+    shortTitle: "View as List",
     when: "scmViewletVisible",
+    menus: [
+        {
+            menuId: MenuId.ViewMoreActions,
+            group: "1_view",
+            order: 20,
+            visible: viewMenuVisible(SCM_CHANGES_VIEW_ID),
+        },
+    ],
     run(accessor) {
         accessor.get(ChangesComponentDIToken).setViewMode("flat");
     },
