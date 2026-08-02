@@ -156,4 +156,21 @@ describe("BoxContainerElement", () => {
             expect(child.layoutSize).toEqual(new Size(8, 4));
         });
     });
+
+    describe("setChild", () => {
+        it("replaces the child, detaching the previous one", () => {
+            const box = new BoxContainerElement();
+            const first = new TUIElement();
+            box.setChild(first);
+            expect(box.getChildren()).toEqual([first]);
+
+            const second = new TUIElement();
+            box.setChild(second);
+            expect(box.getChildren()).toEqual([second]);
+            expect(first.getParent()).toBeNull();
+
+            box.setChild(null);
+            expect(box.getChildren()).toEqual([]);
+        });
+    });
 });

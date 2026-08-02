@@ -1,24 +1,11 @@
 import { DEFAULT_COLOR } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
 import { BORDER_THICKNESS } from "../../dom/borderStyle.ts";
-import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
-import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
 import type { StyleColor } from "../../dom/styles/tuiStyle.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
-export interface BoxContainerProps {
-    bg?: StyleColor;
-    fg?: StyleColor;
-    borderFg?: StyleColor;
-    title?: string;
-    titleFg?: StyleColor;
-    hasSeparator?: boolean;
-    children?: JsxChild;
-}
-
 export class BoxContainerElement extends TUIElement {
     private bg: StyleColor;
-    private fg: StyleColor;
     private borderFg: StyleColor;
     private title: string | undefined;
     private titleFg: StyleColor;
@@ -28,7 +15,6 @@ export class BoxContainerElement extends TUIElement {
     public constructor() {
         super();
         this.bg = DEFAULT_COLOR;
-        this.fg = DEFAULT_COLOR;
         this.borderFg = DEFAULT_COLOR;
         this.titleFg = DEFAULT_COLOR;
         this.hasSeparator = false;
@@ -36,11 +22,6 @@ export class BoxContainerElement extends TUIElement {
 
     public setBg(value: StyleColor): void {
         this.bg = value;
-        this.markDirty();
-    }
-
-    public setFg(value: StyleColor): void {
-        this.fg = value;
         this.markDirty();
     }
 
@@ -158,33 +139,3 @@ export class BoxContainerElement extends TUIElement {
         this.renderChildren(context);
     }
 }
-
-// ─── BoxContainer JSX Adapter ───
-
-function applyBoxContainerProps(el: BoxContainerElement, props: BoxContainerProps): void {
-    if (props.bg !== undefined) el.setBg(props.bg);
-    if (props.fg !== undefined) el.setFg(props.fg);
-    if (props.borderFg !== undefined) el.setBorderFg(props.borderFg);
-    el.setTitle(props.title);
-    if (props.titleFg !== undefined) el.setTitleFg(props.titleFg);
-    el.setHasSeparator(props.hasSeparator ?? false);
-}
-
-export function BoxContainer(props: BoxContainerProps): BoxContainerElement {
-    const el = new BoxContainerElement();
-    applyBoxContainerProps(el, props);
-    if (props.children !== undefined) {
-        const nodes = normalizeChildren(props.children);
-        const children = reconcileChildren([], nodes);
-        el.setChild(children[0] ?? null);
-    }
-    return el;
-}
-
-BoxContainer.update = (el: TUIElement, props: BoxContainerProps): void => {
-    const box = el as BoxContainerElement;
-    applyBoxContainerProps(box, props);
-    const nodes = normalizeChildren(props.children);
-    const newChildren = reconcileChildren(box.getChildren(), nodes);
-    box.setChild(newChildren[0] ?? null);
-};

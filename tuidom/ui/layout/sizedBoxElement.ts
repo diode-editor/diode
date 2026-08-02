@@ -1,6 +1,4 @@
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";
-import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
-import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
 /**
@@ -84,34 +82,3 @@ export class SizedBoxElement extends TUIElement {
         }
     }
 }
-
-// ─── SizedBox JSX Adapter ───
-
-export interface SizedBoxProps {
-    width?: number;
-    height?: number;
-    children?: JsxChild;
-}
-
-function applySizedBoxProps(el: SizedBoxElement, props: SizedBoxProps): void {
-    el.setPreferredWidth(props.width);
-    el.setPreferredHeight(props.height);
-}
-
-export function SizedBox(props: SizedBoxProps): SizedBoxElement {
-    const el = new SizedBoxElement(props.width, props.height);
-    if (props.children !== undefined) {
-        const nodes = normalizeChildren(props.children);
-        const children = reconcileChildren([], nodes);
-        el.setChild(children[0] ?? null);
-    }
-    return el;
-}
-
-SizedBox.update = (el: TUIElement, props: SizedBoxProps): void => {
-    const box = el as SizedBoxElement;
-    applySizedBoxProps(box, props);
-    const nodes = normalizeChildren(props.children);
-    const newChildren = reconcileChildren(box.getChildren(), nodes);
-    box.setChild(newChildren[0] ?? null);
-};

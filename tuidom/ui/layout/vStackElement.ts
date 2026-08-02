@@ -1,6 +1,4 @@
 import { BoxConstraints, Point, Rect, Size } from "../../common/geometryPromitives.ts";
-import type { JsxChild } from "../../dom/jsx/jsx-runtime.ts";
-import { normalizeChildren, reconcileChildren } from "../../dom/jsx/reconcile.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 
 export interface VStackLayoutStyle {
@@ -97,26 +95,3 @@ export class VStackElement extends TUIElement {
     }
 
 }
-
-// ─── VStack JSX Adapter ───
-
-export interface VStackProps {
-    children?: JsxChild | JsxChild[];
-}
-
-export function VStack(props: VStackProps): VStackElement {
-    const el = new VStackElement();
-    const nodes = normalizeChildren(props.children);
-    const children = reconcileChildren([], nodes);
-    for (const child of children) {
-        el.addChild(child, child.layoutStyle as VStackLayoutStyle);
-    }
-    return el;
-}
-
-VStack.update = (el: TUIElement, props: VStackProps): void => {
-    const vstack = el as VStackElement;
-    const nodes = normalizeChildren(props.children);
-    const newChildren = reconcileChildren(vstack.getChildren(), nodes);
-    vstack.replaceChildren(newChildren);
-};
