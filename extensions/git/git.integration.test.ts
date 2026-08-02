@@ -17,6 +17,7 @@ import type { IEditorDecorationsService } from "../../src/vs/workbench/api/commo
 import type { IFileDecorationsService } from "../../src/vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../src/vs/workbench/api/common/iThemeColorResolver.ts";
 import { PUBLISH_CHANGES_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/changesService.ts";
+import { PUBLISH_LOG_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/graphService.ts";
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
@@ -190,6 +191,44 @@ describe("builtin git plugin (integration)", () => {
             colorId: "gitDecoration.untrackedResourceForeground",
             path: "untracked.txt",
         });
+    });
+
+    it("публикует ядру последние коммиты (view Graph), git.refresh перепубликует", async () => {
+        const published: unknown[] = [];
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        // Спай хостовой команды: расширение вызовет её fall-through'ом.
+        harness.commandRegistry.register(PUBLISH_LOG_COMMAND, (payload) => {
+            published.push(payload);
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+
+        await registerAndActivate(harness.host, gitRegistration());
+
+        interface Commit {
+            sha: string;
+            shortSha: string;
+            subject: string;
+        }
+        const latest = (): Commit[] | undefined => published.at(-1) as Commit[] | undefined;
+        const got = await waitFor(() => latest()?.some((c) => c.subject === "init") ?? false);
+        expect(got).toBe(true);
+        const initial = latest()!;
+        expect(initial).toHaveLength(1);
+        expect(initial[0].sha).toMatch(/^[0-9a-f]{40}$/);
+        expect(initial[0].shortSha).toMatch(/^[0-9a-f]{4,}$/);
+
+        // Новый коммит + ручной git.refresh (команда расширения) → перепубликация.
+        git(harness.tmpDir, "add", "-A");
+        git(harness.tmpDir, "commit", "-qm", "second");
+        await harness.commandRegistry.execute("git.refresh");
+        const republished = await waitFor(() => latest()?.some((c) => c.subject === "second") ?? false);
+        expect(republished).toBe(true);
+        expect(latest()!.map((c) => c.subject)).toEqual(["second", "init"]);
     });
 
     it("не отдаёт оригинал для untracked-файла и для файла вне репозитория", async () => {

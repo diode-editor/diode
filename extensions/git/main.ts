@@ -8,6 +8,7 @@ import { fromGitUri, GIT_SCHEME, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./l
 import type { IStatusDecoration } from "./lib/map.ts";
 import { statusToDecoration } from "./lib/map.ts";
 import { parsePorcelainStatus } from "./lib/porcelain.ts";
+import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
 import type { IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
 import { runGit } from "./lib/runGit.ts";
 
@@ -40,6 +41,16 @@ function log(message: string): void {
  * границы процесса общих импортов не имеют.
  */
 const PUBLISH_CHANGES_COMMAND = "vexx.scm.publishChanges";
+
+/**
+ * Команда ядра, которой мы публикуем последние коммиты (view Graph). Ядро её
+ * регистрирует (`ScmGraphService`); строка дублируется по значению — общих
+ * импортов через границу процесса нет.
+ */
+const PUBLISH_LOG_COMMAND = "vexx.scm.publishLog";
+
+/** Сколько последних коммитов публикуем ядру для view Graph. */
+const LOG_COMMIT_LIMIT = 10;
 
 /** A tracked resource: its porcelain code (for untracked detection) + tree decoration. */
 interface IStatusEntry {
@@ -174,6 +185,17 @@ class GitDecorations {
             }),
         );
 
+        // Ручной refresh из ядра (пункт «Refresh» меню view Graph). Ядро зовёт
+        // best-effort через `commands.has()` — до активации расширения команда
+        // просто отсутствует.
+        this.disposables.push(
+            vscode.commands.registerCommand("git.refresh", () => {
+                this.guard("git.refresh", () => {
+                    this.scheduleRefresh();
+                });
+            }),
+        );
+
         this.watchGitDir();
 
         // The plugin owns its disposables; register a single umbrella disposable.
@@ -219,6 +241,23 @@ class GitDecorations {
 
     private async refreshAll(): Promise<void> {
         await this.refreshStatus();
+        await this.refreshLog();
+    }
+
+    /**
+     * Публикует ядру последние коммиты (view Graph). Деградация — пустой
+     * список: git недоступен или пустой репозиторий без HEAD (git log выходит
+     * ненулевым). Best-effort, как {@link publishChanges}: повторную идентичную
+     * публикацию гасит ядро, ошибку канала глотаем.
+     */
+    private async refreshLog(): Promise<void> {
+        if (this.isDisposed()) return;
+        const result = await this.git(["log", "-n", String(LOG_COMMIT_LIMIT), ...LOG_FORMAT_ARGS]);
+        const commits = result === null ? [] : parseLogZ(result.stdout);
+        void Promise.resolve(vscode.commands.executeCommand(PUBLISH_LOG_COMMAND, commits)).catch(
+            /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
+            () => undefined,
+        );
     }
 
     /** Recompute `git status` → tree decorations. Clears everything when disabled/degraded. */
