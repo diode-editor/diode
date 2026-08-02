@@ -30,6 +30,7 @@ import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsCom
 import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
 import { ChangesComponent, ChangesComponentDIToken, SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
+import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
 import {
     SEARCH_VIEWLET_ID,
     SearchComponent,
@@ -64,6 +65,7 @@ import { QuickInputComponentDIToken } from "./parts/quickinput/quickInputCompone
 import type { QuickInputService } from "./parts/quickinput/quickInputService.ts";
 import { QuickInputServiceDIToken } from "./parts/quickinput/quickInputService.ts";
 import { type SidebarService, SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
+import { type ViewsService, ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 import { StatusBarComponent, StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 import type { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
@@ -117,6 +119,7 @@ export class WorkbenchComponent extends Component {
     private searchComponent: SearchComponent;
     private changesComponent: ChangesComponent;
     private sidebarService: SidebarService;
+    private viewsService: ViewsService;
     private fileOperations: FileOperationsService;
     private fileSearchService: FileSearchService;
     private quickInput: QuickInputService;
@@ -189,10 +192,14 @@ export class WorkbenchComponent extends Component {
         this.register(accessor.get(ProblemsComponentDIToken));
         // Порядок резолва = порядок табов панели: PROBLEMS · OUTPUT · TERMINAL.
         this.register(accessor.get(OutputComponentDIToken));
-        // ChangesComponent — вьюлет сайдбара (Source Control), не таб панели; резолв
+        // ChangesComponent — секция CHANGES контейнера Source Control; резолв
         // подтягивает ScmChangesService, чья команда `vexx.scm.publishChanges`
         // регистрируется до активации git-расширения, публикующего в неё набор.
         this.changesComponent = this.register(accessor.get(ChangesComponentDIToken));
+        // Секция GRAPH того же контейнера (+ ScmGraphService с командой
+        // `vexx.scm.publishLog`); view записывается в реестр ViewsService здесь,
+        // контейнер собирается в setWorkspaceFolder.
+        this.register(accessor.get(GraphViewComponentDIToken));
         this.terminalService = this.register(accessor.get(TerminalServiceDIToken));
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));
         this.register(accessor.get(TerminalPanelComponentDIToken));
@@ -202,6 +209,7 @@ export class WorkbenchComponent extends Component {
         // прикрепляем ниже, как только они построены.
         this.layoutService = this.register(accessor.get(LayoutServiceDIToken));
         this.sidebarService = accessor.get(SidebarServiceDIToken);
+        this.viewsService = accessor.get(ViewsServiceDIToken);
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
         // Реестр workbench-contributions: фич-проводка вынесена в самодостаточные
         // contribution-классы (статус-бар и пр.). Реестр инстанцирует их по фазам:
@@ -358,9 +366,11 @@ export class WorkbenchComponent extends Component {
         this.sidebarService.registerViewlet(SEARCH_VIEWLET_ID, this.searchComponent.view, () => {
             this.searchComponent.focus();
         });
-        this.sidebarService.registerViewlet(SCM_VIEWLET_ID, this.changesComponent.view, () => {
-            this.changesComponent.focus();
-        });
+        // Source Control — контейнер view-секций (CHANGES, GRAPH): сборку и
+        // регистрацию вьюлета берёт на себя ViewsService; view записались в
+        // реестр из конструкторов компонентов.
+        this.viewsService.registerContainer({ id: SCM_VIEWLET_ID, title: "  SOURCE CONTROL" });
+        this.viewsService.attachContainer(SCM_VIEWLET_ID);
         this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);
         // Открыть per-project стор состояния для этой папки (переключение флашит
         // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.
@@ -369,6 +379,8 @@ export class WorkbenchComponent extends Component {
         // иначе прочитается global-стор.
         this.searchComponent.restoreViewMode();
         this.changesComponent.restoreViewMode();
+        // Свёрнутость/веса view-секций — тоже из workspace-стора.
+        this.viewsService.restoreViewsState();
         // Fire-and-forget: the index builds in the background so startup and the
         // first render are not blocked. `fileIndexReady` exposes completion for
         // callers (and tests) that need the index populated.

@@ -14,6 +14,14 @@ export class MenuId {
     /** Корень меню-бара: содержит только submenu-пункты (File/Edit/…). */
     /** Контролы активной вкладки в шапке (панель/сайдбар) — VS Code `ViewTitle`. */
     public static readonly ViewTitle = new MenuId("ViewTitle");
+    /**
+     * Меню «⋯» view-секции сайдбара — overflow-часть VS Code `ViewTitle`.
+     * Отдельная точка: `ViewTitle` фильтруется глобальным when-ключом `view`
+     * (= активная вкладка нижней панели), а в сайдбаре видимы несколько секций
+     * сразу — пункты фильтруются императивно по `menuContext.view`
+     * (см. `viewMenuVisible`).
+     */
+    public static readonly ViewMoreActions = new MenuId("ViewMoreActions");
     public static readonly MenubarMainMenu = new MenuId("MenubarMainMenu");
     public static readonly MenubarFileMenu = new MenuId("MenubarFileMenu");
     public static readonly MenubarEditMenu = new MenuId("MenubarEditMenu");

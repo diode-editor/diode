@@ -53,17 +53,17 @@ describe("menuItemsOfAction — деривация contributions из co-located
 });
 
 describe("MENU_CONTRIBUTIONS — итоговые встроенные меню", () => {
-    function registryOfBuiltins(): MenuRegistry {
+    function registryOfBuiltins(contextKeys?: ContextKeyService): MenuRegistry {
         return new MenuRegistry(
             new CommandRegistry(),
             new KeybindingRegistry(),
-            new ContextKeyService(),
+            contextKeys ?? new ContextKeyService(),
             MENU_CONTRIBUTIONS,
         );
     }
 
-    function labels(menuId: MenuId, context?: unknown): (string | "─")[] {
-        return registryOfBuiltins()
+    function labels(menuId: MenuId, context?: unknown, contextKeys?: ContextKeyService): (string | "─")[] {
+        return registryOfBuiltins(contextKeys)
             .getMenuItems(menuId, context)
             .map((e) => (e.type === "separator" ? "─" : e.label));
     }
@@ -93,5 +93,16 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
 
     it("ExplorerContext: пустой буфер обмена прячет Paste", () => {
         expect(labels(MenuId.ExplorerContext, { path: "/ws/a.txt", canPaste: false })).not.toContain("Paste");
+    });
+
+    it("ViewMoreActions: пункты фильтруются по id view из menuContext", () => {
+        const contextKeys = new ContextKeyService();
+        contextKeys.set("scmViewletVisible", true);
+        expect(labels(MenuId.ViewMoreActions, { view: "workbench.scm.changes" }, contextKeys)).toEqual([
+            "View as Tree",
+            "View as List",
+        ]);
+        expect(labels(MenuId.ViewMoreActions, { view: "workbench.scm.graph" }, contextKeys)).toEqual(["Refresh"]);
+        expect(labels(MenuId.ViewMoreActions, { view: "ghost" }, contextKeys)).toEqual([]);
     });
 });
