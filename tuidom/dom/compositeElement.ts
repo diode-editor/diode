@@ -1,42 +1,24 @@
-import { BoxConstraints, Offset, Point, Rect, Size } from "../common/geometryPromitives.ts";
+import { BoxConstraints, Size } from "../common/geometryPromitives.ts";
 
-import type { JsxNode } from "./jsx/jsx-runtime.ts";
-import { reconcile } from "./jsx/reconcile.ts";
-import { RenderContext, TUIElement } from "./tuiElement.ts";
+import { TUIElement } from "./tuiElement.ts";
 
 /**
- * Base class for composite elements that describe their child tree
- * via a `describe()` method returning a JSX Blueprint.
+ * Base class for composite elements that own a single root child built
+ * imperatively in the subclass constructor via {@link setRootChild}.
  *
- * Usage:
- * ```tsx
- * class MyElement extends CompositeElement {
- *     describe() {
- *         return <TextLabel text="hello" />;
- *     }
- * }
- * ```
- *
- * Call `this.rebuild()` whenever state changes to reconcile the child tree.
- * The first `rebuild()` is typically called at the end of the constructor.
+ * The composite fills its constraints, lays the child out tight to the
+ * resulting size and proxies intrinsic dimensions to the child.
  */
 export abstract class CompositeElement extends TUIElement {
     private rootChild: TUIElement | null = null;
 
-    /**
-     * Return a Blueprint or TUIElement describing this component's child tree.
-     * Called by `rebuild()` during reconciliation.
-     */
-    protected abstract describe(): JsxNode;
-
-    /**
-     * Reconcile the child tree: calls `describe()`, diffs against the current
-     * rootChild, and creates/updates elements as needed.
-     */
-    public rebuild(): void {
-        const node = this.describe();
-        this.rootChild = reconcile(this.rootChild, node);
-        this.setChildren([this.rootChild]);
+    /** Replace the root child; called once from the subclass constructor. */
+    protected setRootChild(child: TUIElement): void {
+        if (this.rootChild) {
+            this.removeChild(this.rootChild);
+        }
+        this.rootChild = child;
+        this.appendChild(child);
         this.markDirty();
     }
 

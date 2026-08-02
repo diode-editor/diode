@@ -7,7 +7,7 @@ import { Point } from "../../common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { STYLE_TOKEN_DEFAULTS } from "../../dom/styles/styleTokens.ts";
 
-import { MenuBarFillerElement, MenuBarItemElement } from "./menuBarItemElement.tsx";
+import { MenuBarFillerElement, MenuBarItemElement } from "./menuBarItemElement.ts";
 
 const MENU_BAR_BG = STYLE_TOKEN_DEFAULTS["menuBar.background"];
 const ACTIVE_MENU_BG = STYLE_TOKEN_DEFAULTS["menubar.selectionBackground"];

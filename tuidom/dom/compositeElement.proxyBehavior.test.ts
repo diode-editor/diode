@@ -4,8 +4,6 @@ import { renderElement } from "../../src/TestUtils/renderElement.ts";
 import { BoxConstraints, Offset, Point, Size } from "../common/geometryPromitives.ts";
 
 import { CompositeElement } from "./compositeElement.ts";
-import type { ComponentType, JsxNode } from "./jsx/jsx-runtime.ts";
-import { jsx } from "./jsx/jsx-runtime.ts";
 import { RenderContext, TUIElement } from "./tuiElement.ts";
 
 // A leaf with fixed intrinsic sizes that draws a single marker char and records
@@ -36,18 +34,16 @@ class MarkerLeaf extends TUIElement {
     }
 }
 
-const MarkerComponent: ComponentType<object> = (): MarkerLeaf => new MarkerLeaf();
-
 class MarkerComposite extends CompositeElement {
-    protected override describe(): JsxNode {
-        return jsx(MarkerComponent, {});
+    public constructor() {
+        super();
+        this.setRootChild(new MarkerLeaf());
     }
 }
 
-describe("CompositeElement proxy behavior (lines 72-84)", () => {
+describe("CompositeElement proxy behavior", () => {
     it("proxies all four intrinsic-size queries to the built child", () => {
         const comp = new MarkerComposite();
-        comp.rebuild();
 
         expect(comp.getMinIntrinsicWidth(0)).toBe(4);
         expect(comp.getMaxIntrinsicWidth(0)).toBe(7);
@@ -57,7 +53,6 @@ describe("CompositeElement proxy behavior (lines 72-84)", () => {
 
     it("resets a previously non-zero child localPosition to (0,0) during layout", () => {
         const comp = new MarkerComposite();
-        comp.rebuild();
 
         const child = comp.getRootChild()!;
         // Pretend the child was previously positioned elsewhere.
@@ -78,7 +73,6 @@ describe("CompositeElement proxy behavior (lines 72-84)", () => {
 
     it("renders the child shifted by the child's localPosition offset", () => {
         const comp = new MarkerComposite();
-        comp.rebuild();
 
         // After layout the child localPosition is (0,0), so the marker lands at (0,0).
         const backend = renderElement(comp, 10, 3);

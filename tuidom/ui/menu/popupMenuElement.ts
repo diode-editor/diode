@@ -6,8 +6,8 @@ import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
 import type { OverlaySessionHandle } from "../contextview/overlayLayer.ts";
 import { VStackElement } from "../layout/vStackElement.ts";
 
-import type { PopupMenuItemConfig } from "./popupMenuItemElement.tsx";
-import { PopupMenuItemElement, PopupMenuSeparatorElement } from "./popupMenuItemElement.tsx";
+import type { PopupMenuItemConfig } from "./popupMenuItemElement.ts";
+import { PopupMenuItemElement, PopupMenuSeparatorElement } from "./popupMenuItemElement.ts";
 
 export interface MenuItemEntry {
     type?: "item";

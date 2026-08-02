@@ -9,7 +9,7 @@ import { InputElement } from "../inputbox/inputElement.ts";
 
 import type { MenuEntry } from "./popupMenuElement.ts";
 import { PopupMenuElement } from "./popupMenuElement.ts";
-import { PopupMenuItemElement } from "./popupMenuItemElement.tsx";
+import { PopupMenuItemElement } from "./popupMenuItemElement.ts";
 
 interface ISetup {
     app: TestApp;
