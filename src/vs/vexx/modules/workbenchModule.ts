@@ -120,6 +120,11 @@ import {
 } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
 import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
+import { ScmGraphService, ScmGraphServiceDIToken } from "../../workbench/contrib/scm/browser/graphService.ts";
+import {
+    GraphViewComponent,
+    GraphViewComponentDIToken,
+} from "../../workbench/contrib/scm/browser/graphViewComponent.ts";
 import { CommandOriginalResourceProvider } from "../../workbench/contrib/scm/browser/commandOriginalResourceProvider.ts";
 import {
     OriginalResourceProviderDIToken,
@@ -314,6 +319,10 @@ export const workbenchModule: ContainerModule = (container) => {
     // списком в нижней Panel и по клику открывает дифф этапа 5.
     container.bind(ScmChangesServiceDIToken, ScmChangesService);
     container.bind(ChangesComponentDIToken, ChangesComponent);
+    // View Graph: расширение пушит последние коммиты в ScmGraphService
+    // (команда `vexx.scm.publishLog`), GraphViewComponent — секция GRAPH.
+    container.bind(ScmGraphServiceDIToken, ScmGraphService);
+    container.bind(GraphViewComponentDIToken, GraphViewComponent);
     // Этап 11: layout-логика (сайдбар/панель + персист layout'а; сам
     // WorkbenchLayoutElement приходит от владельца view через attachLayout),
     // персист открытых редакторов, контекст-ключи workbench'а (замыкают

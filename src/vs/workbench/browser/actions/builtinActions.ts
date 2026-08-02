@@ -43,6 +43,7 @@ import {
     showScmAction,
 } from "../../contrib/scm/browser/changesActions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
+import { scmGraphRefreshAction } from "../../contrib/scm/browser/graphActions.ts";
 import {
     acceptSelectedSuggestionAction,
     hideSuggestWidgetAction,
@@ -341,4 +342,5 @@ export const builtinActions: readonly CommandAction[] = [
     scmOpenChangesAction,
     scmViewAsTreeAction,
     scmViewAsListAction,
+    scmGraphRefreshAction,
 ];

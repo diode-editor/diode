@@ -30,6 +30,7 @@ import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsCom
 import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
 import { ChangesComponent, ChangesComponentDIToken, SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
+import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
 import {
     SEARCH_VIEWLET_ID,
     SearchComponent,
@@ -191,10 +192,14 @@ export class WorkbenchComponent extends Component {
         this.register(accessor.get(ProblemsComponentDIToken));
         // Порядок резолва = порядок табов панели: PROBLEMS · OUTPUT · TERMINAL.
         this.register(accessor.get(OutputComponentDIToken));
-        // ChangesComponent — вьюлет сайдбара (Source Control), не таб панели; резолв
+        // ChangesComponent — секция CHANGES контейнера Source Control; резолв
         // подтягивает ScmChangesService, чья команда `vexx.scm.publishChanges`
         // регистрируется до активации git-расширения, публикующего в неё набор.
         this.changesComponent = this.register(accessor.get(ChangesComponentDIToken));
+        // Секция GRAPH того же контейнера (+ ScmGraphService с командой
+        // `vexx.scm.publishLog`); view записывается в реестр ViewsService здесь,
+        // контейнер собирается в setWorkspaceFolder.
+        this.register(accessor.get(GraphViewComponentDIToken));
         this.terminalService = this.register(accessor.get(TerminalServiceDIToken));
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));
         this.register(accessor.get(TerminalPanelComponentDIToken));
