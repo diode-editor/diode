@@ -46,6 +46,12 @@ import {
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
 import { scmGraphRefreshAction } from "../../contrib/scm/browser/graphActions.ts";
 import {
+    gitStageAction,
+    gitStageAllAction,
+    gitUnstageAction,
+    gitUnstageAllAction,
+} from "../../contrib/scm/browser/stagingActions.ts";
+import {
     acceptSelectedSuggestionAction,
     hideSuggestWidgetAction,
     selectNextPageSuggestionAction,
@@ -347,4 +353,8 @@ export const builtinActions: readonly CommandAction[] = [
     scmViewAsTreeAction,
     scmViewAsListAction,
     scmGraphRefreshAction,
+    gitStageAction,
+    gitUnstageAction,
+    gitStageAllAction,
+    gitUnstageAllAction,
 ];

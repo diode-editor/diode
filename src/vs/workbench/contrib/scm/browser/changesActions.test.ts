@@ -35,8 +35,15 @@ describe("showScmAction", () => {
 });
 
 describe("scm.action.openFile", () => {
-    it("resolves the menu argument from the ScmContext open-context (scmUriArg)", () => {
-        expect(scmOpenFileAction.menus?.[0].args?.({ uri: "file:///repo/a.txt" })).toEqual(["file:///repo/a.txt"]);
+    it("resolves the single target from the ScmContext open-context and hides itself on multi-select", () => {
+        const single = { kind: "resource", uris: ["file:///repo/a.txt"], groups: ["worktree"] };
+        expect(scmOpenFileAction.menus?.[0].args?.(single)).toEqual(["file:///repo/a.txt"]);
+        expect(scmOpenFileAction.menus?.[0].visible?.(single)).toBe(true);
+
+        const multi = { kind: "resource", uris: ["file:///a", "file:///b"], groups: ["worktree"] };
+        expect(scmOpenFileAction.menus?.[0].visible?.(multi)).toBe(false);
+        const folder = { kind: "folder", uris: ["file:///a"], groups: ["worktree"] };
+        expect(scmOpenChangesAction.menus?.[0].visible?.(folder)).toBe(false);
     });
 
     it("opens the explicit uri argument", () => {

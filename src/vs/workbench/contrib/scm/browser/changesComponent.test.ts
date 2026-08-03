@@ -334,13 +334,22 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(h.component.list.getChildren()[0]).toBe(rowBefore); // те же элементы
     });
 
-    it("активация строки с неизвестным id — тихий no-op (защита моста rowMeta)", () => {
+    it("активация и контекст-меню строки с неизвестным id — тихий no-op (защита моста rowMeta)", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }]);
 
         const ghost = buildFolderRow("ghost", "ghost");
         expect(() => h.component.list.onActivate?.(ghost)).not.toThrow();
+        expect(() => h.component.list.onContextMenu?.(ghost, 0, 0)).not.toThrow();
         expect(h.executed).toEqual([]);
+    });
+
+    it("getSelectedChanges: курсор на заголовке группы — пустой список целей", () => {
+        const h = make();
+        publish(h.commands, [{ rel: "a.txt" }]);
+
+        h.component.list.setCursorTo("scmGroup-worktree");
+        expect(h.component.getSelectedChanges()).toEqual([]);
     });
 
     it("правый клик по файлу открывает контекстное меню, Enter выбирает, Escape закрывает", () => {
@@ -368,7 +377,10 @@ describe("ChangesComponent — тема и контекстное меню", () 
         };
 
         rightClick();
-        expect(h.menu.getEntries).toHaveBeenCalledWith({ uri: uriOf("a.txt") }, expect.any(Function));
+        expect(h.menu.getEntries).toHaveBeenCalledWith(
+            { kind: "resource", uris: [uriOf("a.txt")], groups: ["worktree"] },
+            expect.any(Function),
+        );
         expect(app.backend.screenToString()).toContain("Open File");
 
         // Повторный вызов закрывает прежнюю сессию и открывает новую.
@@ -388,40 +400,111 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(app.backend.screenToString()).not.toContain("Open File");
     });
 
-    it("вне приложения и на папках правый клик — тихий no-op", () => {
+    it("вне приложения правый клик — тихий no-op (нет overlay-слоя)", () => {
         const h = make({ menuEntries: [{ label: "Open File" }] });
         publish(h.commands, [{ rel: "nested/b.txt" }]);
 
-        // Вне приложения (нет overlay-слоя): файловая строка не роняет.
         const list = h.component.list;
-        list.dispatchEvent(
-            new TUIContextMenuEvent({
-                trigger: "mouse",
-                button: "right",
-                screenX: 2,
-                screenY: 0,
-                localX: 2,
-                localY: 0,
-            }),
-        );
+        expect(() =>
+            list.dispatchEvent(
+                new TUIContextMenuEvent({
+                    trigger: "mouse",
+                    button: "right",
+                    screenX: 2,
+                    screenY: 1,
+                    localX: 2,
+                    localY: 1,
+                }),
+            ),
+        ).not.toThrow();
+    });
 
-        // Папка в tree-режиме: меню не собирается вовсе (guard до сервиса).
-        // Строки: заголовок группы (0), папка nested (1), b.txt (2).
+    it("меню на папке несёт файлы поддерева, на заголовке группы — всю группу", () => {
+        const h = make({ menuEntries: [{ label: "Stage Changes" }] });
+        publish(h.commands, [{ rel: "nested/a.txt" }, { rel: "nested/b.txt" }, { rel: "root.txt" }]);
         h.component.setViewMode("tree");
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
-        (h.menu.getEntries as ReturnType<typeof vi.fn>).mockClear();
-        list.dispatchEvent(
-            new TUIContextMenuEvent({
-                trigger: "mouse",
-                button: "right",
-                screenX: list.globalPosition.x + 2,
-                screenY: list.globalPosition.y + 1,
-                localX: 2,
-                localY: 1,
-            }),
+        const list = h.component.list;
+        const rightClickRow = (row: number) => {
+            list.dispatchEvent(
+                new TUIContextMenuEvent({
+                    trigger: "mouse",
+                    button: "right",
+                    screenX: list.globalPosition.x + 2,
+                    screenY: list.globalPosition.y + row,
+                    localX: 2,
+                    localY: row,
+                }),
+            );
+            app.render();
+        };
+
+        // Строки: заголовок Changes (0), папка nested (1), a.txt (2), b.txt (3), root.txt (4).
+        rightClickRow(1);
+        expect(h.menu.getEntries).toHaveBeenLastCalledWith(
+            { kind: "folder", uris: [uriOf("nested/a.txt"), uriOf("nested/b.txt")], groups: ["worktree"] },
+            expect.any(Function),
         );
+
+        rightClickRow(0);
+        expect(h.menu.getEntries).toHaveBeenLastCalledWith(
+            {
+                kind: "group",
+                uris: [uriOf("nested/a.txt"), uriOf("nested/b.txt"), uriOf("root.txt")],
+                groups: ["worktree"],
+            },
+            expect.any(Function),
+        );
+    });
+
+    it("правый клик по строке из multi-select несёт всё выделение, вне его — одну строку", () => {
+        const h = make({ menuEntries: [{ label: "Stage Changes" }] });
+        publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }, { rel: "c.txt" }]);
+        const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
+        const list = h.component.list;
+
+        // Выделяем a.txt и b.txt (строки 1–2): курсор на a.txt, Shift+Down.
+        list.setCursorTo(rowIdOf("a.txt"));
+        list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "ArrowDown", shiftKey: true }));
+        const rightClickRow = (row: number) => {
+            list.dispatchEvent(
+                new TUIContextMenuEvent({
+                    trigger: "mouse",
+                    button: "right",
+                    screenX: list.globalPosition.x + 2,
+                    screenY: list.globalPosition.y + row,
+                    localX: 2,
+                    localY: row,
+                }),
+            );
+            app.render();
+        };
+
+        // Клик по b.txt (в выделении) — контекст из обеих строк.
+        rightClickRow(2);
+        expect(h.menu.getEntries).toHaveBeenLastCalledWith(
+            { kind: "resource", uris: [uriOf("a.txt"), uriOf("b.txt")], groups: ["worktree"] },
+            expect.any(Function),
+        );
+        expect(h.component.getSelectedChanges().map((c) => c.path)).toEqual(["a.txt", "b.txt"]);
+
+        // Клик по c.txt (вне выделения) — контекст из одной строки.
+        rightClickRow(3);
+        expect(h.menu.getEntries).toHaveBeenLastCalledWith(
+            { kind: "resource", uris: [uriOf("c.txt")], groups: ["worktree"] },
+            expect.any(Function),
+        );
+
+        // Прямой вызов колбэка по строке вне текущего выделения (движок так шлёт
+        // keyboard-trigger) — контекст из этой строки, не из выделения.
+        h.component.list.setCursorTo(rowIdOf("a.txt"));
+        const rowA = h.component.list.getCursorElement()!;
+        h.component.list.setCursorTo(rowIdOf("b.txt"));
+        h.component.list.onContextMenu?.(rowA, 5, 5);
         app.render();
-        expect(h.menu.getEntries).not.toHaveBeenCalled();
-        expect(app.querySelector("PopupMenuElement")).toBeNull();
+        expect(h.menu.getEntries).toHaveBeenLastCalledWith(
+            { kind: "resource", uris: [uriOf("a.txt")], groups: ["worktree"] },
+            expect.any(Function),
+        );
     });
 });

@@ -3,7 +3,7 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { scmUriArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import { scmSingleResource, scmSingleUriArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
@@ -42,7 +42,15 @@ export const scmOpenFileAction: CommandAction = {
     title: "Source Control: Open File",
     shortTitle: "Open File",
     when: "scmViewletVisible",
-    menus: [{ menuId: MenuId.ScmContext, group: "1_open", order: 10, args: scmUriArg }],
+    menus: [
+        {
+            menuId: MenuId.ScmContext,
+            group: "1_open",
+            order: 10,
+            args: scmSingleUriArg,
+            visible: scmSingleResource,
+        },
+    ],
     run(accessor, rawUri) {
         const uri = resolveScmUri(accessor, rawUri);
         if (uri) accessor.get(EditorServiceDIToken).openUri(uri);
@@ -59,7 +67,15 @@ export const scmOpenChangesAction: CommandAction = {
     title: "Source Control: Open Changes",
     shortTitle: "Open Changes",
     when: "scmViewletVisible",
-    menus: [{ menuId: MenuId.ScmContext, group: "1_open", order: 20, args: scmUriArg }],
+    menus: [
+        {
+            menuId: MenuId.ScmContext,
+            group: "1_open",
+            order: 20,
+            args: scmSingleUriArg,
+            visible: scmSingleResource,
+        },
+    ],
     run(accessor, rawUri) {
         const uri = resolveScmUri(accessor, rawUri);
         if (!uri) return;

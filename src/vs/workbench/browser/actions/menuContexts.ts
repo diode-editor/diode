@@ -20,13 +20,40 @@ export const explorerPathArg = (context: unknown): readonly unknown[] => [(conte
 /** Видимость Paste — непустой буфер обмена файлов (императивно, при открытии). */
 export const explorerCanPaste = (context: unknown): boolean => (context as ExplorerMenuContext).canPaste;
 
+/** По чему открыто SCM-меню: файловая строка, папка дерева или заголовок группы. */
+export type ScmMenuTargetKind = "resource" | "folder" | "group";
+
+/**
+ * Контекст SCM-меню (`MenuId.ScmContext` / `MenuId.ScmResourceGroupContext`).
+ * Цели множественные: выделение списка, файлы под папкой или вся группа. Группы
+ * целей (`merge | index | worktree | untracked`, строками — слой) определяют
+ * видимость stage/unstage/discard; команда сама фильтрует цели по применимости.
+ */
 export interface ScmMenuContext {
-    /** URI изменённого файла (строкой — аргументы команд сериализуемы). */
-    readonly uri: string;
+    readonly kind: ScmMenuTargetKind;
+    /** URI целевых файлов (строками — аргументы команд сериализуемы). */
+    readonly uris: readonly string[];
+    /** Уникальные группы целей. */
+    readonly groups: readonly string[];
 }
 
-/** Аргумент SCM-команд — uri строки, по которой открыто меню. */
-export const scmUriArg = (context: unknown): readonly unknown[] => [(context as ScmMenuContext).uri];
+/** Аргумент множественных SCM-команд — все целевые uri. */
+export const scmUrisArg = (context: unknown): readonly unknown[] => [(context as ScmMenuContext).uris];
+
+/** Аргумент одиночных SCM-команд (Open File / Open Changes) — единственная цель. */
+export const scmSingleUriArg = (context: unknown): readonly unknown[] => [(context as ScmMenuContext).uris[0]];
+
+/** Видимость одиночных команд: меню открыто по файловой строке с одной целью. */
+export const scmSingleResource = (context: unknown): boolean => {
+    const ctx = context as ScmMenuContext;
+    return ctx.kind === "resource" && ctx.uris.length === 1;
+};
+
+/** Видимость групповых команд: среди целей есть хотя бы одна из данных групп. */
+export const scmHasAnyGroup =
+    (...groups: readonly string[]) =>
+    (context: unknown): boolean =>
+        (context as ScmMenuContext).groups.some((g) => groups.includes(g));
 
 /**
  * Контекст меню «⋯» view-секции сайдбара (`MenuId.ViewMoreActions`):
