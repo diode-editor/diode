@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -396,6 +397,59 @@ describe("builtin git plugin (integration)", () => {
         };
         expect(root.ok).toBe(false);
         expect(root.message).toContain("initial commit");
+    });
+
+    it("vexx.git.op push/pull против локального bare-remote; vexx.git.query отдаёт refs/remotes", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        makeRepo(dir);
+        // Локальный bare-remote (file-протокол, без auth) + upstream.
+        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-bare-"));
+        git(remoteDir, "init", "-q", "--bare");
+        git(dir, "remote", "add", "origin", remoteDir);
+        const branch = execFileSync("git", ["branch", "--show-current"], { cwd: dir }).toString().trim();
+        git(dir, "push", "-qu", "origin", branch);
+        harness.group.openFile(path.join(dir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        // Новый локальный коммит → push доносит его до remote.
+        git(dir, "add", "-A");
+        git(dir, "commit", "-qm", "feat: second");
+        const pushed = (await harness.commandRegistry.execute("vexx.git.op", { op: "push" })) as { ok: boolean };
+        expect(pushed.ok).toBe(true);
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: remoteDir }).toString().trim()).toBe(
+            "feat: second",
+        );
+
+        // Remote уходит вперёд (через второй клон) → pull подтягивает.
+        const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-clone-"));
+        execFileSync("git", ["clone", "-q", remoteDir, cloneDir]);
+        git(cloneDir, "config", "user.email", "t@example.com");
+        git(cloneDir, "config", "user.name", "Test");
+        fs.writeFileSync(path.join(cloneDir, "third.txt"), "x\n");
+        git(cloneDir, "add", "-A");
+        git(cloneDir, "commit", "-qm", "feat: third");
+        git(cloneDir, "push", "-q");
+
+        const pulled = (await harness.commandRegistry.execute("vexx.git.op", { op: "pull" })) as { ok: boolean };
+        expect(pulled.ok).toBe(true);
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: third");
+
+        // Query: refs содержат ветку и её remote-двойника, remotes — origin.
+        const refs = (await harness.commandRegistry.execute("vexx.git.query", { kind: "refs" })) as {
+            refs: { name: string; kind: string }[];
+        };
+        expect(refs.refs.some((r) => r.kind === "head" && r.name === branch)).toBe(true);
+        expect(refs.refs.some((r) => r.kind === "remote" && r.name === `origin/${branch}`)).toBe(true);
+        const remotes = (await harness.commandRegistry.execute("vexx.git.query", { kind: "remotes" })) as {
+            remotes: string[];
+        };
+        expect(remotes.remotes).toEqual(["origin"]);
+        expect(await harness.commandRegistry.execute("vexx.git.query", { kind: "flying" })).toBeNull();
     });
 
     it("мутации отбрасывают мусорные цели, пустой итог — no-op {ok: true}", async () => {
