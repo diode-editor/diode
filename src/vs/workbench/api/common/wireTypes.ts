@@ -568,6 +568,50 @@ export function parseWireProgressEnd(raw: unknown): IWireProgressEnd | null {
     return { handle: p.handle };
 }
 
+// ─── Output-каналы (window.createOutputChannel → панель Output) ──────────────
+
+/** Уровень строки output-канала (маппится на методы ILogger хоста). */
+export type WireOutputLevel = "trace" | "debug" | "info" | "warn" | "error";
+
+const WIRE_OUTPUT_LEVELS: readonly WireOutputLevel[] = ["trace", "debug", "info", "warn", "error"];
+
+/** Параметры `output.append` (subprocess → host): одна строка канала. */
+export interface IWireOutputAppend {
+    /** Идентификатор канала (`extensions.<slug>`, ключ реестра/логгера). */
+    readonly channel: string;
+    /** Человекочитаемое имя канала (label в селекторе; регистрируется лениво). */
+    readonly label: string;
+    readonly level: WireOutputLevel;
+    readonly value: string;
+}
+
+/** Параметры `output.show` (subprocess → host). */
+export interface IWireOutputShow {
+    readonly channel: string;
+    /** Label канала — show мог прийти до первой строки, канал регистрируется лениво. */
+    readonly label: string;
+}
+
+/** Валидирует `output.append`; `null`, если конверт не распознан. */
+export function parseWireOutputAppend(raw: unknown): IWireOutputAppend | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.channel !== "string" || p.channel === "") return null;
+    if (typeof p.label !== "string" || p.label === "") return null;
+    if (typeof p.level !== "string" || !WIRE_OUTPUT_LEVELS.includes(p.level as WireOutputLevel)) return null;
+    if (typeof p.value !== "string") return null;
+    return { channel: p.channel, label: p.label, level: p.level as WireOutputLevel, value: p.value };
+}
+
+/** Валидирует `output.show`; `null`, если конверт не распознан. */
+export function parseWireOutputShow(raw: unknown): IWireOutputShow | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.channel !== "string" || p.channel === "") return null;
+    if (typeof p.label !== "string" || p.label === "") return null;
+    return { channel: p.channel, label: p.label };
+}
+
 // ─── Diagnostics (LSP) ───────────────────────────────────────────────────────
 
 /**

@@ -29,11 +29,13 @@ import {
     type IWireDocumentSyncSnapshot,
     parseDecorationRanges,
     parseWireDiagnosticsPublish,
+    parseWireEditorEdits,
+    parseWireFileDecorations,
+    parseWireOutputAppend,
+    parseWireOutputShow,
     parseWireProgressEnd,
     parseWireProgressReport,
     parseWireProgressStart,
-    parseWireEditorEdits,
-    parseWireFileDecorations,
     parseWireReadFileResult,
     parseWireSelections,
     requestCompletionItems,
@@ -43,6 +45,7 @@ import {
     type SerializedDecorationRenderOptions,
     themeColorIdOf,
     type WireMarker,
+    type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
 
 /**
@@ -62,9 +65,20 @@ export interface IProgressSink {
     report(handle: number, message?: string, increment?: number): void;
     end(handle: number): void;
 }
+
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
+
+/**
+ * Сток output-каналов расширений (`window.createOutputChannel` →
+ * `output.append`/`output.show`): потребитель (module/харнесс) регистрирует
+ * канал в реестре Output лениво по label и пишет строку логгером уровня `level`.
+ */
+export interface IOutputSink {
+    append(channel: string, label: string, level: WireOutputLevel, value: string): void;
+    show(channel: string, label: string): void;
+}
 
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
 
@@ -185,6 +199,11 @@ export interface IExtensionHostOptions {
      */
     readonly progressSink?: IProgressSink;
     /**
+     * Сток output-каналов расширений (`window.createOutputChannel` → notify
+     * `output.append`/`output.show`). Если не передан — вывод отбрасывается.
+     */
+    readonly outputSink?: IOutputSink;
+    /**
      * Снимок активного документа для document sync. Хост пушит его как
      * `editor.didOpen` при готовности subprocess'а — чтобы `workspace.textDocuments`
      * был заполнен ДО активации расширения (стоковый vscode-languageclient читает
@@ -276,6 +295,7 @@ export class ExtensionHost extends Disposable {
     private readonly activeDocumentProvider: (() => IWireDocumentSyncSnapshot | null) | undefined;
     private readonly diagnosticsSink: DiagnosticsSink | undefined;
     private readonly progressSink: IProgressSink | undefined;
+    private readonly outputSink: IOutputSink | undefined;
     /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
     private readonly activeProgressHandles = new Set<number>();
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
@@ -313,6 +333,7 @@ export class ExtensionHost extends Disposable {
         this.activeDocumentProvider = options.activeDocumentProvider;
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
+        this.outputSink = options.outputSink;
         // Смена темы → пере-резолв держимых декораций в обе поверхности.
         this.register(
             this.themeColorResolver.onDidChange(() => {
@@ -877,6 +898,18 @@ export class ExtensionHost extends Disposable {
             if (end === null) return;
             this.activeProgressHandles.delete(end.handle);
             this.progressSink?.end(end.handle);
+        });
+        // Строка output-канала расширения / просьба показать канал — отдаём
+        // стоку (module ведёт в реестр Output + логгер + команду show).
+        rpc.handleNotification("output.append", (params) => {
+            const append = parseWireOutputAppend(params);
+            if (append === null) return;
+            this.outputSink?.append(append.channel, append.label, append.level, append.value);
+        });
+        rpc.handleNotification("output.show", (params) => {
+            const show = parseWireOutputShow(params);
+            if (show === null) return;
+            this.outputSink?.show(show.channel, show.label);
         });
         // Расширение опубликовало диагностики (createDiagnosticCollection().set)
         // — отдаём их стоку (module ведёт в MarkerService → squiggle + Problems).

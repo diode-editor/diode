@@ -33,6 +33,8 @@ export default defineScenario({
     // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only,
     // как editorconfig-stock / region-folding.
     skipOn: ["win32", "darwin"],
+    // Показ output-канала LS без ухода фокуса через палитру/меню.
+    userKeybindings: [{ key: "alt+t", command: "workbench.action.output.show.extensions.typescript-vexx" }],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
 
@@ -55,5 +57,16 @@ export default defineScenario({
         await editor.sendKey("F12");
         await editor.waitForText((t) => t.includes('return "hi " + name'), { timeoutMs: 60_000 });
         await editor.capture("definition");
+
+        // Output-канал клиента (`window.createOutputChannel` — настоящий):
+        // строки languageclient'а видны отдельным каналом «TypeScript (Vexx)».
+        // Ctrl+K Ctrl+H открывает панель OUTPUT, Alt+T переключает селектор на
+        // канал (команда show.<id> переключает канал, панель открываем штатно).
+        await editor.sendKey("Ctrl+K");
+        await editor.sendKey("Ctrl+H");
+        await editor.waitForText((t) => t.includes("OUTPUT"));
+        await editor.sendKey("Alt+T");
+        await editor.waitForText((t) => t.includes("language server started"), { timeoutMs: 30_000 });
+        await editor.capture("output");
     },
 });

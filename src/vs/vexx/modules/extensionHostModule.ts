@@ -10,6 +10,7 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
 import { activeDocumentSnapshot, bindDocumentSync } from "../../workbench/api/browser/documentSyncAdapter.ts";
+import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/editorDecorationsServiceAdapter.ts";
@@ -25,6 +26,10 @@ import {
     ExtensionHostDIToken,
     type IExtensionHostConfigProvider,
 } from "../../workbench/services/extensions/node/extensionHost.ts";
+import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
+import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
+import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
+import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
 import { StatusBarServiceDIToken } from "../../workbench/services/statusbar/common/statusBarService.ts";
 import { ThemeServiceDIToken } from "../../workbench/services/themes/common/themeTokens.ts";
 
@@ -120,6 +125,17 @@ export const extensionHostModule: ContainerModule = (container) => {
             diagnosticsSink,
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
+            // createOutputChannel расширений → канал в панели Output;
+            // show() открывает панель (как toggleOutputAction) и переключает канал.
+            outputSink: new ExtensionOutputAdapter(
+                container.get(OutputChannelRegistryDIToken),
+                logService,
+                container.get(OutputServiceDIToken),
+                () => {
+                    container.get(PanelServiceDIToken).setActiveView(OUTPUT_VIEW_ID);
+                    container.get(LayoutServiceDIToken).setPanelVisible(true);
+                },
+            ),
         });
 
         // Провайдеры ФС расширений: схемы, объявленные субпроцессом (`git:` у

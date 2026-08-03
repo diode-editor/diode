@@ -101,7 +101,7 @@ go-to-definition работает; сервер-внук корректно уб
 | `window.withProgress` | real | запись статус-бара с анимированным спиннером (`ProgressStatusBarAdapter`); message/increment серверного workDoneProgress обновляют текст; отмена НЕ поддержана — токен никогда не стреляет (`ProgressPart` languageclient'а это переживает); на смерть subprocess'а host сам гасит живые спиннеры |
 | `window.tabGroups` | no-op | пустые группы; закрытие: проекция вкладок группы |
 | `window.showTextDocument` | naive | возвращает активный редактор; закрытие: RPC открытия ресурса |
-| `window.createOutputChannel` | naive | пишет в stdout-логгер хоста (включая LogOutputChannel-методы — ошибки p2c.asDiagnostics не теряются); закрытие: настоящая панель Output |
+| `window.createOutputChannel` | real | канал в панели Output (`extensions.<slug(name)>`, label = name; `ExtensionOutputAdapter`): append/appendLine/LogOutputChannel-методы с уровнями, `show()` открывает панель на канале; люфты — `clear`/`replace` no-op (журнал ретенционный), trace/debug фильтруются уровнем логгера |
 | `env` (appName/language/clipboard/openExternal) | naive | честные значения; клипборд пуст, openExternal отказывает |
 
 ## Отложенное (за рамками итерации)

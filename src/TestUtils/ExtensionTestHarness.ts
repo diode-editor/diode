@@ -24,6 +24,7 @@ import {
     type DiagnosticsSink,
     ExtensionHost,
     type IExtensionHostConfigProvider,
+    type IOutputSink,
     type IProgressSink,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
@@ -111,6 +112,8 @@ export interface IExtensionHarnessOptions {
     readonly diagnosticsSink?: DiagnosticsSink;
     /** Сток прогресса расширений (`window.progress.*`). По умолчанию не подключён. */
     readonly progressSink?: IProgressSink;
+    /** Сток output-каналов расширений (`output.append`/`show`). По умолчанию не подключён. */
+    readonly outputSink?: IOutputSink;
     /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
     /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
@@ -186,6 +189,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         activeDocumentProvider: () => activeDocumentSnapshot(group),
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
         ...(options.progressSink !== undefined ? { progressSink: options.progressSink } : {}),
+        ...(options.outputSink !== undefined ? { outputSink: options.outputSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         ...(options.themeColorResolver !== undefined ? { themeColorResolver: options.themeColorResolver } : {}),

@@ -4,7 +4,7 @@ import { DocumentRegistry } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { Uri } from "./vscodeTypes.ts";
-import { createWindowNamespace } from "./windowNamespace.ts";
+import { createWindowNamespace, slugifyChannelName } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 // Наивная поверхность window, которую трогает vscode-languageclient.
@@ -43,9 +43,11 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         vi.restoreAllMocks();
     });
 
-    it("createOutputChannel даёт LogOutputChannel-методы, пишущие в канал", () => {
-        const { window } = makeWindow();
+    it("createOutputChannel шлёт строки хосту (output.append) с уровнем и label", () => {
+        const { stub, window } = makeWindow();
         const channel = window.createOutputChannel("TS (Vexx)") as unknown as {
+            name: string;
+            appendLine(v: string): void;
             logLevel: number;
             onDidChangeLogLevel: (l: () => void) => { dispose(): void };
             trace(v: unknown): void;
@@ -54,18 +56,63 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
             warn(v: unknown): void;
             error(v: unknown): void;
         };
+        expect(channel.name).toBe("TS (Vexx)");
         expect(channel.logLevel).toBe(3);
         expect(() => channel.onDidChangeLogLevel(() => undefined).dispose()).not.toThrow();
 
+        channel.appendLine("language server started");
         channel.info("converted 3 diagnostics");
         channel.error({ message: "asDiagnostics failed" });
         channel.trace("t");
         channel.debug("d");
         channel.warn("w");
 
-        expect(console.log).toHaveBeenCalledWith("[TS (Vexx)] converted 3 diagnostics");
-        expect(console.log).toHaveBeenCalledWith('[TS (Vexx)] {"message":"asDiagnostics failed"}');
-        expect(console.log).toHaveBeenCalledTimes(5);
+        const appends = stub.notifies.filter((n) => n.method === "output.append");
+        expect(appends.map((n) => n.params)).toEqual([
+            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "info", value: "language server started" },
+            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "info", value: "converted 3 diagnostics" },
+            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "error", value: '{"message":"asDiagnostics failed"}' },
+            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "trace", value: "t" },
+            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "debug", value: "d" },
+            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "warn", value: "w" },
+        ]);
+    });
+
+    it("append буферизуется до перевода строки; dispose доливает остаток; show шлёт output.show", () => {
+        const { stub, window } = makeWindow();
+        const channel = window.createOutputChannel("Buffered");
+
+        channel.append("partial ");
+        expect(stub.notifies.filter((n) => n.method === "output.append")).toHaveLength(0);
+
+        channel.append("line\nnext ");
+        let appends = stub.notifies.filter((n) => n.method === "output.append");
+        expect(appends.map((n) => (n.params as { value: string }).value)).toEqual(["partial line"]);
+
+        // appendLine доливает накопленный хвост отдельной строкой перед своей.
+        channel.appendLine("tail");
+        appends = stub.notifies.filter((n) => n.method === "output.append");
+        expect(appends.map((n) => (n.params as { value: string }).value)).toEqual(["partial line", "next ", "tail"]);
+
+        channel.append("rest");
+        channel.dispose();
+        appends = stub.notifies.filter((n) => n.method === "output.append");
+        expect(appends.at(-1)?.params).toMatchObject({ value: "rest" });
+
+        channel.show();
+        expect(stub.notifies.filter((n) => n.method === "output.show").map((n) => n.params)).toEqual([
+            { channel: "extensions.buffered", label: "Buffered" },
+        ]);
+        // clear/replace/hide — no-op (журнал ретенционный), не бросают.
+        expect(() => channel.clear()).not.toThrow();
+        expect(() => channel.replace("x")).not.toThrow();
+        expect(() => channel.hide()).not.toThrow();
+    });
+
+    it("slugifyChannelName: lower-case, не-алфанумерика в дефис, пустое имя — fallback", () => {
+        expect(slugifyChannelName("TypeScript (Vexx)")).toBe("typescript-vexx");
+        expect(slugifyChannelName("Git: log/История")).toBe("git-log");
+        expect(slugifyChannelName("!!!")).toBe("channel");
     });
 
     it("showTextDocument резолвится активным редактором (или undefined без него)", async () => {

@@ -79,6 +79,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
     it("диагностики и go-to-definition над изменяемым (несохранённым) кодом", { timeout: 180_000 }, async () => {
         const published: { resource: string; markers: readonly WireMarker[] }[] = [];
         const progressEvents: { kind: string; handle: number; title?: string }[] = [];
+        const outputLines: { channel: string; label: string; level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -90,6 +91,10 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 start: (handle, title) => progressEvents.push({ kind: "start", handle, title }),
                 report: (handle) => progressEvents.push({ kind: "report", handle }),
                 end: (handle) => progressEvents.push({ kind: "end", handle }),
+            },
+            outputSink: {
+                append: (channel, label, level, value) => outputLines.push({ channel, label, level, value }),
+                show: () => undefined,
             },
             extensions: [lspClientRegistration()],
         });
@@ -114,6 +119,16 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 const done = progressEvents.some((e) => e.kind === "end" && e.handle === startEvent?.handle);
                 return Promise.resolve(done ? true : null);
             });
+
+            // Output-канал клиента — настоящий: строка о старте сервера доехала
+            // с label канала (селектор Output) и id вида extensions.<slug>.
+            const started = await until("строка о старте сервера в output-канале", () => {
+                const line = outputLines.find((l) => l.value.includes("language server started"));
+                return Promise.resolve(line ?? null);
+            });
+            expect(started.channel).toBe("extensions.typescript-vexx");
+            expect(started.label).toBe("TypeScript (Vexx)");
+            expect(started.level).toBe("info");
 
             // Диагностика от НАСТОЯЩЕГО tsserver'а — она же readiness-сигнал
             // «сервер проиндексировал проект» перед go-to-definition.
