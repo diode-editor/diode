@@ -383,7 +383,7 @@ UI-подтверждения. Ручной прогон после релиза
 - [x] **7. Repo-state + меню-инфра** — `vexx.scm.publishRepoState`, `ScmRepoStateService`,
       when-ключи; `ISubmenuContribution.visible`, `gitMenus.ts`, каркас «⋯».
       Гейт: часть US-30 (структура, пустые подменю скрыты).
-- [ ] **8. Sync** — pull/push/fetch/sync/publish, `gitOpClient.ts` (диалоги
+- [x] **8. Sync** — pull/push/fetch/sync/publish, `gitOpClient.ts` (диалоги
       auth/rejected/no-upstream/conflict), e2e с bare-remote. Гейт: US-21…24, US-32.
 - [ ] **9. Branch** — checkout/create/rename/delete, merge/rebase + abort, ref-пикер
       (`vexx.git.query refs`). Гейт: US-25…28.

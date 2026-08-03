@@ -11,8 +11,11 @@ import { parsePorcelainStatus } from "./lib/porcelain.ts";
 import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
 import type { GitOpResult, IGitCommitParams } from "./lib/protocol.ts";
 import { GIT_OP_COMMAND } from "./lib/protocol.ts";
+import { classifyGitStderr } from "./lib/classifyGitError.ts";
+import { FOR_EACH_REF_FORMAT, parseForEachRefZ, parseStashListZ, STASH_LIST_FORMAT } from "./lib/queryParse.ts";
 import type { IRepoStatePayload } from "./lib/repoState.ts";
 import { parseBranchHeaders, parseRemotes } from "./lib/repoState.ts";
+import { fetchArgs, pullArgs, pushArgs } from "./lib/syncArgs.ts";
 import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
 import { runGit } from "./lib/runGit.ts";
 
@@ -59,6 +62,9 @@ const PUBLISH_LOG_COMMAND = "vexx.scm.publishLog";
  * when-ключи git*-команд.
  */
 const PUBLISH_REPO_STATE_COMMAND = "vexx.scm.publishRepoState";
+
+/** Read-only запрос данных для пикеров ядра: refs / stashes / remotes. */
+const QUERY_COMMAND = "vexx.git.query";
 
 /** Сколько последних коммитов публикуем ядру для view Graph. */
 const LOG_COMMIT_LIMIT = 10;
@@ -243,6 +249,10 @@ class GitDecorations {
         // argv собирает расширение, ядро оперирует именами операций.
         this.disposables.push(
             vscode.commands.registerCommand(GIT_OP_COMMAND, (payload: unknown) => this.enqueueOp(payload)),
+        );
+        // Read-only запросы данных для пикеров (вне очереди мутаций).
+        this.disposables.push(
+            vscode.commands.registerCommand(QUERY_COMMAND, (payload: unknown) => this.query(payload)),
         );
 
         this.watchGitDir();
@@ -516,6 +526,21 @@ class GitDecorations {
                 case "undoCommit":
                     result = await this.opUndoCommit();
                     break;
+                case "pull":
+                    result = await this.runOp(pullArgs(opParams), { network: true });
+                    break;
+                case "push":
+                    result = await this.runOp(pushArgs(opParams), { network: true });
+                    break;
+                case "fetch":
+                    result = await this.runOp(fetchArgs(opParams), { network: true });
+                    break;
+                case "sync": {
+                    // Sync = pull → push; первый фейл прерывает.
+                    result = await this.runOp(pullArgs(opParams), { network: true });
+                    if (result.ok) result = await this.runOp(pushArgs({}), { network: true });
+                    break;
+                }
                 default:
                     result = { ok: false, kind: "git-error", message: `unknown git op: ${String(op)}` };
             }
@@ -577,15 +602,21 @@ class GitDecorations {
         return { ok: true, data: { message: message.replace(/\n+$/, "") } };
     }
 
-    /** Одна операция → envelope; не-нулевой код = git-error с первой строкой stderr. */
-    private async runOp(args: string[]): Promise<GitOpResult> {
-        const result = await this.gitRaw(args);
+    /**
+     * Одна операция → envelope; не-нулевой код классифицируется по stderr
+     * ({@link classifyGitStderr}). Сетевые вызовы — `GIT_TERMINAL_PROMPT=0`
+     * (tty у субпроцесса нет, промпт за credentials должен упасть быстро и
+     * стать `auth`-ошибкой) и увеличенный таймаут.
+     */
+    private async runOp(args: string[], opts?: { network?: boolean }): Promise<GitOpResult> {
+        const result = await this.gitRaw(args, opts);
         if ("error" in result) return { ok: false, kind: "unavailable", message: result.error.message };
         if (result.code !== 0) {
-            const firstLine = result.stderr.trim().split("\n")[0] ?? "";
+            const output = result.stderr.trim() !== "" ? result.stderr : result.stdout;
+            const firstLine = output.trim().split("\n")[0] ?? "";
             return {
                 ok: false,
-                kind: "git-error",
+                kind: classifyGitStderr(`${result.stderr}\n${result.stdout}`),
                 message: firstLine === "" ? `git ${args[0]} exited ${result.code}` : firstLine,
                 stderr: result.stderr,
             };
@@ -594,10 +625,43 @@ class GitDecorations {
     }
 
     /** Сырой запуск git в репо (без деградационного логирования {@link git}). */
-    private gitRaw(args: string[]): Promise<IRunGitResult | IRunGitError> {
-        const opts: IRunGitOptions = { cwd: this.repoRoot };
-        if (this.gitEnv !== undefined) opts.env = this.gitEnv;
-        return runGit(args, opts);
+    private gitRaw(args: string[], opts?: { network?: boolean }): Promise<IRunGitResult | IRunGitError> {
+        const runOpts: IRunGitOptions = { cwd: this.repoRoot };
+        if (opts?.network === true) {
+            runOpts.env = { ...(this.gitEnv ?? process.env), GIT_TERMINAL_PROMPT: "0" };
+            runOpts.timeoutMs = 60_000;
+        } else if (this.gitEnv !== undefined) {
+            runOpts.env = this.gitEnv;
+        }
+        return runGit(args, runOpts);
+    }
+
+    // ─── Read-only запросы для пикеров (vexx.git.query) ──────────────────────
+
+    /** `{kind: refs|stashes|remotes}` → данные пикеров; мусор/деградация — null. */
+    private async query(payload: unknown): Promise<unknown> {
+        if (typeof payload !== "object" || payload === null) return null;
+        const { kind } = payload as { kind?: unknown };
+        if (kind === "refs") {
+            const result = await this.git([
+                "for-each-ref",
+                "--sort=-committerdate",
+                `--format=${FOR_EACH_REF_FORMAT}`,
+                "refs/heads",
+                "refs/remotes",
+                "refs/tags",
+            ]);
+            return result === null ? null : { refs: parseForEachRefZ(result.stdout) };
+        }
+        if (kind === "stashes") {
+            const result = await this.git(["stash", "list", `--format=${STASH_LIST_FORMAT}`]);
+            return result === null ? null : { stashes: parseStashListZ(result.stdout) };
+        }
+        if (kind === "remotes") {
+            const result = await this.git(["remote"]);
+            return result === null ? null : { remotes: parseRemotes(result.stdout) };
+        }
+        return null;
     }
 
     /** Одна git-мутация → envelope: не-нулевой код или несоздавшийся процесс = `{ok: false}`. */
