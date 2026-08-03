@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DocumentRegistry } from "./extHostDocuments.ts";
+import { DocumentRegistry, DocumentSyncTracker, type IDocumentChangeEvent } from "./extHostDocuments.ts";
 import { EndOfLine, Position, Range, Uri } from "./vscodeTypes.ts";
 
 describe("ExtHostDocuments — DocumentRegistry идентичность", () => {
@@ -160,5 +160,59 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
             text: "one\ntwo\nthree\nfour",
         });
         expect(doc.getText(new Range(0, 1, 3, 2))).toBe("ne\ntwo\nthree\nfo");
+    });
+});
+
+describe("ExtHostDocuments — DocumentSyncTracker", () => {
+    function makeTracker() {
+        const registry = new DocumentRegistry();
+        const tracker = new DocumentSyncTracker(registry);
+        const log: string[] = [];
+        const changes: IDocumentChangeEvent[] = [];
+        tracker.onDidOpenEmitter.event((doc) => log.push(`open:${doc.getText()}`));
+        tracker.onDidChangeEmitter.event((e) => {
+            log.push(`change:${e.contentChanges[0].text}`);
+            changes.push(e);
+        });
+        return { registry, tracker, log, changes };
+    }
+    const URI = Uri.file("/a.ts").toString();
+
+    it("неизвестный ресурс — didOpen с полным текстом", () => {
+        const { tracker, log } = makeTracker();
+        const doc = tracker.sync({ uri: URI, languageId: "typescript", text: "a" });
+        expect(log).toEqual(["open:a"]);
+        expect(doc.languageId).toBe("typescript");
+    });
+
+    it("ресурс в реестре (getOrCreate/meta), но didOpen ещё не фаерился — didOpen, не didChange", () => {
+        const { registry, tracker, log } = makeTracker();
+        registry.getOrCreate(Uri.parse(URI)); // мета-путь active-editor-change
+        tracker.sync({ uri: URI, text: "a" });
+        expect(log).toEqual(["open:a"]);
+    });
+
+    it("тот же текст — тихо: мета обновляется, версия и события не трогаются", () => {
+        const { tracker, log } = makeTracker();
+        const doc = tracker.sync({ uri: URI, text: "a", version: 7 });
+        tracker.sync({ uri: URI, text: "a", isDirty: true });
+        expect(log).toEqual(["open:a"]);
+        expect(doc.isDirty).toBe(true);
+        expect(doc.version).toBe(7);
+    });
+
+    it("изменившийся текст — didChange одной full-range правкой от СТАРОГО текста", () => {
+        const { tracker, log, changes } = makeTracker();
+        const doc = tracker.sync({ uri: URI, text: "ab\ncd" });
+        const same = tracker.sync({ uri: URI, text: "x" });
+        expect(same).toBe(doc); // стабильная идентичность документа
+        expect(log).toEqual(["open:ab\ncd", "change:x"]);
+        const change = changes[0].contentChanges[0];
+        // Диапазон посчитан ДО мутации реестра — по тексту "ab\ncd".
+        expect(change.range.start).toMatchObject({ line: 0, character: 0 });
+        expect(change.range.end).toMatchObject({ line: 1, character: 2 });
+        expect(change.rangeOffset).toBe(0);
+        expect(change.rangeLength).toBe(5);
+        expect(changes[0].document.getText()).toBe("x");
     });
 });

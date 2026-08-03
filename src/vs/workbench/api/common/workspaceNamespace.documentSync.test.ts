@@ -1,8 +1,7 @@
+import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
-import { describe, expect, it } from "vitest";
-
-import { DocumentRegistry } from "./extHostDocuments.ts";
+import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { Uri } from "./vscodeTypes.ts";
@@ -11,9 +10,11 @@ import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
 function makeCtx() {
     const stub = makeStubRpc();
+    const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
-        registry: new DocumentRegistry(),
+        registry,
+        documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
     };
     return { stub, ctx, workspace: createWorkspaceNamespace(ctx) };
@@ -105,19 +106,37 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
         expect(change.text).toBe("xyz");
     });
 
-    it("didChange неизвестного ресурса — правка поверх пустого текста", () => {
+    it("didChange неизвестного ресурса — это открытие: didOpen с полным текстом, а не правка", () => {
+        // LSP-клиент обязан послать серверу didOpen раньше любого didChange —
+        // change-событие по неанонсированному документу сервер молча отбросит.
         const { stub, workspace } = makeCtx();
+        const opens: vscode.TextDocument[] = [];
         const changes: vscode.TextDocumentChangeEvent[] = [];
+        workspace.onDidOpenTextDocument((doc) => opens.push(doc));
         workspace.onDidChangeTextDocument((e) => changes.push(e));
 
         stub.fire("editor.didChange", openParams({ version: 3, text: "new" }));
 
+        expect(changes).toHaveLength(0);
+        expect(opens).toHaveLength(1);
+        expect(opens[0].getText()).toBe("new");
+        expect(opens[0].version).toBe(3);
+    });
+
+    it("повторный didOpen с изменившимся текстом — didChange, а не второй didOpen", () => {
+        const { stub, workspace } = makeCtx();
+        const opens: vscode.TextDocument[] = [];
+        const changes: vscode.TextDocumentChangeEvent[] = [];
+        workspace.onDidOpenTextDocument((doc) => opens.push(doc));
+        workspace.onDidChangeTextDocument((e) => changes.push(e));
+
+        stub.fire("editor.didOpen", openParams({ version: 1, text: "old" }));
+        stub.fire("editor.didOpen", openParams({ version: 2, text: "new!" }));
+
+        expect(opens).toHaveLength(1);
         expect(changes).toHaveLength(1);
-        const change = changes[0].contentChanges[0];
-        expect(change.rangeLength).toBe(0);
-        expect(change.range.end.line).toBe(0);
-        expect(change.range.end.character).toBe(0);
-        expect(changes[0].document.version).toBe(3);
+        expect(changes[0].contentChanges[0].rangeLength).toBe(3);
+        expect(changes[0].document.getText()).toBe("new!");
     });
 
     it("невалидные параметры отбрасываются без события", () => {

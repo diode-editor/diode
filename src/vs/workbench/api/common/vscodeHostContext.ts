@@ -1,4 +1,4 @@
-import type { DocumentRegistry } from "./extHostDocuments.ts";
+import type { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
@@ -11,5 +11,7 @@ import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 export interface IVscodeHostContext {
     readonly rpc: RpcEndpoint;
     readonly registry: DocumentRegistry;
+    /** Единственная точка входа текста в {@link registry} (см. DocumentSyncTracker). */
+    readonly documentSync: DocumentSyncTracker;
     readonly configStore: WorkspaceConfigStore;
 }

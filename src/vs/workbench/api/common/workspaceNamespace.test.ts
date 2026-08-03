@@ -5,7 +5,7 @@ import * as path from "node:path";
 import iconv from "iconv-lite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DocumentRegistry } from "./extHostDocuments.ts";
+import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { EndOfLine, Position, Range, TextEdit, Uri } from "./vscodeTypes.ts";
@@ -14,9 +14,11 @@ import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
 function makeCtx() {
     const stub = makeStubRpc();
+    const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
-        registry: new DocumentRegistry(),
+        registry,
+        documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
     };
     return { stub, ctx, workspace: createWorkspaceNamespace(ctx) };
