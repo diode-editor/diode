@@ -5,9 +5,15 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
+import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
+
 import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { ScmChangesServiceDIToken, type IScmChange, type ScmGroupId } from "./changesService.ts";
 import {
+    buildDiscardConfirm,
+    CLEAN_TRANSPORT_COMMAND,
+    gitCleanAction,
+    gitCleanAllAction,
     gitStageAction,
     gitStageAllAction,
     gitUnstageAction,
@@ -36,10 +42,12 @@ interface IHarness {
     accessor: ServiceAccessor;
     executed: [string, unknown[]][];
     notices: string[];
+    confirms: unknown[];
     setChanges(changes: IScmChange[]): void;
     setSelection(changes: IScmChange[]): void;
     setTransport(result: unknown | (() => unknown)): void;
     hasCommand: { value: boolean };
+    confirmAnswer: { value: boolean };
 }
 
 function makeHarness(): IHarness {
@@ -48,9 +56,20 @@ function makeHarness(): IHarness {
     let transportResult: unknown | (() => unknown) = { ok: true };
     const executed: [string, unknown[]][] = [];
     const notices: string[] = [];
+    const confirms: unknown[] = [];
     const hasCommand = { value: true };
+    const confirmAnswer = { value: true };
 
     const services = new Map<unknown, unknown>([
+        [
+            DialogServiceDIToken,
+            {
+                confirm: (options: unknown) => {
+                    confirms.push(options);
+                    return Promise.resolve(confirmAnswer.value);
+                },
+            },
+        ],
         [ScmChangesServiceDIToken, { get changes() { return changes; } }],
         [ChangesComponentDIToken, { getSelectedChanges: () => selection }],
         [
@@ -84,6 +103,7 @@ function makeHarness(): IHarness {
         accessor,
         executed,
         notices,
+        confirms,
         setChanges: (c) => {
             changes = c;
         },
@@ -94,6 +114,7 @@ function makeHarness(): IHarness {
             transportResult = r;
         },
         hasCommand,
+        confirmAnswer,
     };
 }
 
@@ -213,6 +234,103 @@ describe("git.stage / git.unstage", () => {
             expect(placement.visible?.(worktreeCtx)).toBe(false);
             expect(placement.visible?.(indexCtx)).toBe(true);
             expect(placement.visible?.(mixedCtx)).toBe(true);
+        }
+    });
+});
+
+describe("buildDiscardConfirm", () => {
+    const u = (rel: string) => Uri.file(`/repo/${rel}`);
+
+    it("только tracked: обычный confirm, имя файла или количество", () => {
+        expect(buildDiscardConfirm([u("a.ts")], [])).toEqual({
+            title: "Discard Changes",
+            message: "Are you sure you want to discard changes in a.ts?",
+            confirmLabel: "Discard Changes",
+        });
+        expect(buildDiscardConfirm([u("a.ts"), u("b.ts")], []).message).toBe(
+            "Are you sure you want to discard changes in 2 files?",
+        );
+    });
+
+    it("только untracked: warning про необратимое удаление", () => {
+        const single = buildDiscardConfirm([], [u("new.ts")]);
+        expect(single.title).toBe("Delete File");
+        expect(single.warning).toBe(true);
+        expect(single.message).toEqual([
+            "Are you sure you want to DELETE new.ts?",
+            "This is IRREVERSIBLE! The files will be FOREVER LOST if you proceed.",
+        ]);
+        expect(single.confirmLabel).toBe("Delete File");
+
+        const many = buildDiscardConfirm([], [u("a"), u("b")]);
+        expect(many.title).toBe("Delete Files");
+        expect(many.confirmLabel).toBe("Delete Files");
+        expect(many.message[0]).toBe("Are you sure you want to DELETE 2 files?");
+    });
+
+    it("смешанное: warning с обоими количествами", () => {
+        const mixed = buildDiscardConfirm([u("a.ts")], [u("new.ts")]);
+        expect(mixed.warning).toBe(true);
+        expect(mixed.message[0]).toBe(
+            "Are you sure you want to discard changes in 1 tracked file and DELETE 1 untracked file?",
+        );
+        const plural = buildDiscardConfirm([u("a"), u("b")], [u("c"), u("d")]);
+        expect(plural.message[0]).toBe(
+            "Are you sure you want to discard changes in 2 tracked files and DELETE 2 untracked files?",
+        );
+    });
+});
+
+describe("git.clean / git.cleanAll", () => {
+    it("confirm → транспорт с tracked+untracked целями", async () => {
+        const h = makeHarness();
+        h.setChanges([
+            change("a.ts", "worktree"),
+            change("new.ts", "untracked"),
+            change("s.ts", "index"),
+        ]);
+        await gitCleanAction.run(h.accessor, [uriOf("a.ts"), uriOf("new.ts"), uriOf("s.ts")]);
+
+        expect(h.confirms).toHaveLength(1);
+        // Staged-запись (index) discard'ом не трогается.
+        expect(h.executed).toEqual([[CLEAN_TRANSPORT_COMMAND, [[uriOf("a.ts"), uriOf("new.ts")]]]]);
+    });
+
+    it("cancel — транспорт не зовётся", async () => {
+        const h = makeHarness();
+        h.setChanges([change("a.ts", "worktree")]);
+        h.confirmAnswer.value = false;
+
+        await gitCleanAction.run(h.accessor, [uriOf("a.ts")]);
+        expect(h.confirms).toHaveLength(1);
+        expect(h.executed).toEqual([]);
+    });
+
+    it("без применимых целей — no-op без диалога", async () => {
+        const h = makeHarness();
+        h.setChanges([change("s.ts", "index")]);
+        await gitCleanAction.run(h.accessor, [uriOf("s.ts")]);
+        expect(h.confirms).toEqual([]);
+        expect(h.executed).toEqual([]);
+    });
+
+    it("git.cleanAll берёт весь снимок worktree+untracked", async () => {
+        const h = makeHarness();
+        h.setChanges([
+            change("a.ts", "worktree"),
+            change("new.ts", "untracked"),
+            change("s.ts", "index"),
+        ]);
+        await gitCleanAllAction.run(h.accessor);
+        expect(h.executed).toEqual([[CLEAN_TRANSPORT_COMMAND, [[uriOf("a.ts"), uriOf("new.ts")]]]]);
+    });
+
+    it("видимость пунктов меню: только при worktree/untracked в целях", () => {
+        const stagedOnly = { kind: "resource", uris: [], groups: ["index"] };
+        const wt = { kind: "resource", uris: [], groups: ["worktree"] };
+        for (const placement of gitCleanAction.menus!) {
+            expect(placement.visible?.(stagedOnly)).toBe(false);
+            expect(placement.visible?.(wt)).toBe(true);
         }
     });
 });

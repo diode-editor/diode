@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -240,6 +240,50 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.waitForNode("#scmRow-index-c-ts");
         await session.waitForNode("#scmRow-worktree-b-ts");
         expect(git(repo, "diff", "--cached", "--name-only").trim().split("\n").sort()).toEqual(["a.ts", "c.ts"]);
+    }, 120_000);
+
+    it("US-10/US-11: discard tracked откатывает файл, untracked — удаляет; Esc в диалоге = no-op", async () => {
+        const repo = makeRepo({
+            committed: { "app.ts": A },
+            modify: { "app.ts": A_MOD },
+            untracked: { "new.ts": "export {};\n" },
+        });
+        app = await open(repo);
+        const { session } = app;
+
+        await session.key("Alt+C");
+        await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
+
+        // Дискард tracked: сперва Cancel по Esc — файл не тронут.
+        const row = await session.waitForNode("#scmRow-worktree-app-ts");
+        await session.sendMouse({ action: "press", button: "right", x: row.box.x + 2, y: row.box.y });
+        await session.sendMouse({ action: "release", button: "right", x: row.box.x + 2, y: row.box.y });
+        await clickMenuItem(session, "Discard Changes");
+        await session.waitForText((t) => t.includes("Are you sure you want to discard changes in app.ts?"));
+        await session.key("Escape");
+        await session.waitForText((t) => !t.includes("Are you sure"));
+        expect(readFileSync(join(repo, "app.ts"), "utf8")).toBe(A_MOD);
+
+        // Теперь подтверждаем: дефолтный фокус на Cancel, стрелка — на Discard.
+        await session.sendMouse({ action: "press", button: "right", x: row.box.x + 2, y: row.box.y });
+        await session.sendMouse({ action: "release", button: "right", x: row.box.x + 2, y: row.box.y });
+        await clickMenuItem(session, "Discard Changes");
+        await session.waitForText((t) => t.includes("Are you sure you want to discard changes in app.ts?"));
+        await session.key("Left");
+        await session.key("Enter");
+        await session.waitForNoNode("#scmRow-worktree-app-ts");
+        expect(readFileSync(join(repo, "app.ts"), "utf8")).toBe(A);
+
+        // Дискард untracked: warning про удаление, файл исчезает с диска.
+        const newRow = await session.waitForNode("#scmRow-untracked-new-ts");
+        await session.sendMouse({ action: "press", button: "right", x: newRow.box.x + 2, y: newRow.box.y });
+        await session.sendMouse({ action: "release", button: "right", x: newRow.box.x + 2, y: newRow.box.y });
+        await clickMenuItem(session, "Discard Changes");
+        await session.waitForText((t) => t.includes("Are you sure you want to DELETE new.ts?"));
+        await session.key("Left");
+        await session.key("Enter");
+        await session.waitForNoNode("#scmRow-untracked-new-ts");
+        expect(existsSync(join(repo, "new.ts"))).toBe(false);
     }, 120_000);
 
     it("US-12: наборы пунктов контекстного меню по группам; Esc закрывает без действий", async () => {

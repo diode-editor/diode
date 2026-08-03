@@ -46,6 +46,8 @@ import {
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
 import { scmGraphRefreshAction } from "../../contrib/scm/browser/graphActions.ts";
 import {
+    gitCleanAction,
+    gitCleanAllAction,
     gitStageAction,
     gitStageAllAction,
     gitUnstageAction,
@@ -357,4 +359,6 @@ export const builtinActions: readonly CommandAction[] = [
     gitUnstageAction,
     gitStageAllAction,
     gitUnstageAllAction,
+    gitCleanAction,
+    gitCleanAllAction,
 ];
