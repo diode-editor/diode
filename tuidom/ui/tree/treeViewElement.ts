@@ -825,6 +825,5 @@ export class TreeViewElement<T> extends ScrollableElement {
         } else if (event.wheelDirection === "down") {
             this.scrollBy(0, 3);
         }
-        this.markDirty();
     }
 }

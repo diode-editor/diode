@@ -1,3 +1,4 @@
+import type { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import { BodyElement } from "../../../../tuidom/ui/body/bodyElement.ts";
 import { WorkbenchLayoutElement } from "../../../../tuidom/ui/workbenchlayout/workbenchLayoutElement.ts";
 import { registerAction } from "../../platform/actions/common/commandAction.ts";
@@ -274,9 +275,22 @@ export class WorkbenchComponent extends Component {
         // Сама обработка живёт в KeybindingDispatcher; WorkbenchComponent лишь
         // вешает его листенеры на корневое дерево, которым владеет. Фокус-
         // события уходят в WorkbenchContextKeys (пересчёт контекст-ключей).
-        this.view.addEventListener("keydown", this.dispatcher.handleKeyDownCapture, { capture: true });
+        // Страховка dirty-гейта кадра ввода: съеденный кейбинд (defaultPrevented)
+        // мог выполнить команду, меняющую состояние мимо всех markDirty-сеттеров
+        // (scrollLineUp пишет viewState.scrollTop напрямую, unfold — регионы).
+        // «Клавиша съедена ⇒ кадр грязный» восстанавливает прежний контракт
+        // безусловного рендера для всех команд разом.
+        const markIfConsumed =
+            (handler: (event: TUIKeyboardEvent) => void) =>
+            (event: TUIKeyboardEvent): void => {
+                handler(event);
+                if (event.defaultPrevented) this.view.markDirty();
+            };
+        this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDownCapture), {
+            capture: true,
+        });
         this.view.addEventListener("keypress", this.dispatcher.handleKeyPressCapture, { capture: true });
-        this.view.addEventListener("keydown", this.dispatcher.handleKeyDown);
+        this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDown));
         this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
         this.view.addEventListener("focus", this.workbenchContextKeys.handleFocusChange, { capture: true });
         this.view.addEventListener("blur", this.workbenchContextKeys.handleFocusChange, { capture: true });

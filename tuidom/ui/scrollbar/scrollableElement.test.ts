@@ -239,4 +239,32 @@ describe("ScrollableElement", () => {
             expect(lines[1].slice(0, 3)).toBe("123");
         });
     });
+
+    // Кадр ввода рендерится только по dirty-флагу (dirty-гейт TuiApplication),
+    // поэтому смена скролла обязана помечать layout грязным сама.
+    describe("scrollTo и dirty-флаг", () => {
+        it("смена позиции скролла помечает layout грязным", () => {
+            const { widget } = createGrid(5, 3, 20, 20);
+            renderElement(widget, 5, 3);
+            expect(widget.isLayoutDirty).toBe(false);
+
+            widget.scrollTo(0, 4);
+
+            expect(widget.scrollTop).toBe(4);
+            expect(widget.isLayoutDirty).toBe(true);
+        });
+
+        it("no-op скролл (та же позиция после clamp) флаг не трогает", () => {
+            const { widget } = createGrid(5, 3, 20, 20);
+            widget.scrollTo(0, 4);
+            renderElement(widget, 5, 3);
+            expect(widget.isLayoutDirty).toBe(false);
+
+            widget.scrollTo(0, 4);
+            // За пределами контента clamp возвращает ту же позицию.
+            widget.scrollTo(-5, 4);
+
+            expect(widget.isLayoutDirty).toBe(false);
+        });
+    });
 });
