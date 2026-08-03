@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, statSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -103,6 +104,44 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             } finally {
                 await second.dispose();
                 removeTempDir(app.env.root);
+            }
+        });
+
+        it("workspace-версия сервера на голом PATH: JS-энтрипоинт нашим рантаймом, не .bin-шим", { timeout: 300_000 }, async () => {
+            // Регрессия реального отказа: у проекта typescript-language-server в
+            // devDeps → workspace-кандидат побеждает вшитый. Раньше кандидатом
+            // был `.bin`-шим, исполнявшийся напрямую, — его шебанг
+            // `#!/usr/bin/env node` на машине без node давал exit 127 и каскад
+            // EPIPE-рестартов клиента. Теперь кандидат — сам cli.mjs, и он
+            // запускается нашим рантаймом (SEA: vexx-as-node).
+            const root = mkdtempSync(join(tmpdir(), "vexx-e2e-"));
+            const nodeModules = join(root, "workspace", "node_modules");
+            const repoModules = resolve(import.meta.dirname, "..", "node_modules");
+            mkdirSync(join(nodeModules, ".bin"), { recursive: true });
+            for (const pkg of ["typescript-language-server", "typescript"]) {
+                symlinkSync(join(repoModules, pkg), join(nodeModules, pkg));
+            }
+            // Шим — как кладёт npm: симлинк на cli.mjs, исполняемый через шебанг.
+            symlinkSync(
+                join("..", "typescript-language-server", "lib", "cli.mjs"),
+                join(nodeModules, ".bin", "typescript-language-server"),
+            );
+
+            const app = await startHeadlessApp({
+                root,
+                files: WORKSPACE_FILES,
+                open: ["main.ts"],
+                env: { PATH: BARE_PATH },
+            });
+            try {
+                await app.session.waitForNode("EditorElement");
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
+                    { describe: "undercurl squiggle от workspace-сервера", timeoutMs: 180_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
             }
         });
 

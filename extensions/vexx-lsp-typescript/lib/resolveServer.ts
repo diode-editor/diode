@@ -6,7 +6,10 @@
  * node-рантаймом (`runtime.command` = `process.execPath` субпроцесса: в dev и
  * self-extract это настоящий node, в SEA — vexx-бинарь + env
  * `VEXX_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`). Системный node из PATH
- * не требуется. Бинарные кандидаты (шимы `.bin/…`, PATH-имя) — как есть.
+ * не требуется — поэтому кандидаты-пути указывают на JS-энтрипоинты, а НЕ на
+ * `.bin/…`-шимы: шим исполняется напрямую и через свой шебанг
+ * `#!/usr/bin/env node` требует системный node (на машине без него — exit 127).
+ * Как есть исполняются только PATH-имя (последний фолбэк) и не-JS настройка.
  */
 
 /** Описание одного языкового сервера в декларативной таблице клиента. */
@@ -18,8 +21,9 @@ export interface ILanguageServerSpec {
     readonly languageIds: readonly string[];
     /**
      * Кандидаты на исполняемый файл сервера, по приоритету: настройка
-     * (если непустая) → workspace `node_modules/.bin` (оверрайд версии) →
-     * вшитый сервер из поставки (дефолт) → имя в PATH (последний фолбэк).
+     * (если непустая) → workspace `node_modules` (оверрайд версии; JS-энтрипоинт,
+     * не `.bin`-шим — см. шапку) → вшитый сервер из поставки (дефолт) →
+     * имя в PATH (последний фолбэк).
      */
     readonly resolveCandidates: (
         settingPath: string,
@@ -74,7 +78,7 @@ export const LANGUAGE_SERVERS: readonly ILanguageServerSpec[] = [
         languageIds: ["typescript", "typescriptreact", "javascript", "javascriptreact"],
         resolveCandidates: (settingPath, workspaceRoots, bundledServerPath) => [
             ...(settingPath !== "" ? [settingPath] : []),
-            ...workspaceRoots.map((root) => `${root}/node_modules/.bin/typescript-language-server`),
+            ...workspaceRoots.map((root) => `${root}/node_modules/typescript-language-server/lib/cli.mjs`),
             ...(bundledServerPath !== "" ? [bundledServerPath] : []),
             "typescript-language-server",
         ],

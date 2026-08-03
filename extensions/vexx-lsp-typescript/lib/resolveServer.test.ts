@@ -37,16 +37,19 @@ describe("vexx-lsp-typescript — resolveServer", () => {
     it("приоритет: настройка → workspace node_modules → bundled → PATH", () => {
         const resolve = (settingPath: string, exists: (p: string) => boolean) =>
             resolveServerCommand(TS_SPEC, settingPath, ["/ws"], BUNDLED, NODE, exists);
-        const wsShim = "/ws/node_modules/.bin/typescript-language-server";
+        const wsEntry = "/ws/node_modules/typescript-language-server/lib/cli.mjs";
 
         // Настройка задана и существует — побеждает.
         const fromSetting = resolve("/custom/server.mjs", (p) => p === "/custom/server.mjs");
         expect(fromSetting?.command.args[0]).toBe("/custom/server.mjs");
         expect(fromSetting?.isBundled).toBe(false);
 
-        // Настройки нет — workspace-шим, если существует.
-        const fromWorkspace = resolve("", (p) => p === wsShim);
-        expect(fromWorkspace?.command).toMatchObject({ command: wsShim, args: ["--stdio"] });
+        // Настройки нет — воркспейсная версия сервера. Кандидат — JS-энтрипоинт
+        // (НЕ `.bin`-шим!) и запускается нашим рантаймом: шим исполнялся бы
+        // напрямую и через шебанг `#!/usr/bin/env node` требовал системный node
+        // (реальный отказ на машине без node: env: 'node': No such file, 127).
+        const fromWorkspace = resolve("", (p) => p === wsEntry);
+        expect(fromWorkspace?.command).toMatchObject({ command: "/opt/dist/node", args: [wsEntry, "--stdio"] });
         expect(fromWorkspace?.isBundled).toBe(false);
 
         // Дефолт — вшитый сервер из поставки.

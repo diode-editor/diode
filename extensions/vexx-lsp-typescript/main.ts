@@ -42,7 +42,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // ждём публикации кэша (rename атомарен: existsSync entry = готовность).
         const hasEarlierCandidate =
             (settingPath !== "" && existsSync(settingPath)) ||
-            workspaceRoots.some((root) => existsSync(`${root}/node_modules/.bin/typescript-language-server`));
+            workspaceRoots.some((root) =>
+                existsSync(`${root}/node_modules/typescript-language-server/lib/cli.mjs`),
+            );
         if (!hasEarlierCandidate && bundledServerPath !== "" && !existsSync(bundledServerPath)) {
             await waitForFile(bundledServerPath, BUNDLED_WAIT_MS);
         }
