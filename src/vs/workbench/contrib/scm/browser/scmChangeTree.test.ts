@@ -11,6 +11,7 @@ function change(path: string, overrides: Partial<IScmChange> = {}): IScmChange {
         status: "M",
         colorId: "gitDecoration.modifiedResourceForeground",
         path,
+        group: "worktree",
         ...overrides,
     };
 }

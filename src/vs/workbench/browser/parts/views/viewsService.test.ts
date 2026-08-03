@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
+import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -83,6 +84,20 @@ describe("ViewsService", () => {
         const viewlet = registered.get("scm")!.view;
         expect(viewlet).toBeInstanceOf(TitledPanelElement);
         expect((viewlet as TitledPanelElement).getTitle()).toBe("  SOURCE CONTROL");
+        expect(paneViewOf(registered, "scm").getPaneIds()).toEqual(["scm.changes"]);
+    });
+
+    it("header контейнера встаёт над секциями (fit) и не является секцией", () => {
+        const { service, registered } = makeHarness();
+        const header = new TextLabelElement("commit input");
+        header.id = "scmInputBox";
+        service.registerContainer({ id: "scm", title: "  SOURCE CONTROL", header });
+        service.registerView(view("scm.changes", "scm", 10));
+        service.attachContainer("scm");
+
+        const viewlet = registered.get("scm")!.view as TitledPanelElement;
+        // Header в дереве вьюлета, секций не прибавилось.
+        expect(viewlet.querySelector("#scmInputBox")).toBe(header);
         expect(paneViewOf(registered, "scm").getPaneIds()).toEqual(["scm.changes"]);
     });
 

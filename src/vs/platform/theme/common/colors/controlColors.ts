@@ -126,6 +126,11 @@ export const controlColors = {
         defaults: { dark: "#6E6E6E", light: "#767676" },
         description: "Input box foreground color for placeholder text.",
     },
+    "input.selectionBackground": {
+        // Ранее жил только tuidom-дефолтом (styleTokens) — темы не могли переопределить.
+        defaults: { dark: "#264F78", light: "#ADD6FF" },
+        description: "Input box background color for selected text.",
+    },
     "menubar.selectionForeground": {
         defaults: { dark: "#FFFFFF", light: "#000000" },
         description: "Foreground color of the selected menu item in the menubar.",

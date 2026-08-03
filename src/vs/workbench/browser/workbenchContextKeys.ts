@@ -16,6 +16,7 @@ import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetS
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
 import { SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
+import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
 import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
@@ -117,6 +118,7 @@ export class WorkbenchContextKeys extends Disposable {
         // сбрасывается в false, иначе он залипал бы от прошлого редактора.
         this.contextKeys.set("editorReadonly", active instanceof EditorElement && active.readOnly);
         this.contextKeys.set("inputWidgetFocus", active instanceof InputElement);
+        this.contextKeys.set("scmInputFocus", active instanceof ScmCommitInputElement);
         this.contextKeys.set("listFocus", active instanceof TreeViewElement || active instanceof ListViewElement);
         this.inputWidgetService.setActive(active instanceof InputElement ? active : null);
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);

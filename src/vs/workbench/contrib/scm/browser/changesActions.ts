@@ -9,6 +9,7 @@ import { EditorServiceDIToken } from "../../../services/editor/browser/editorSer
 
 import { ChangesComponentDIToken, SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "./changesComponent.ts";
 import { openDiffWithHead } from "./compareWithHeadAction.ts";
+import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 /**
  * Показать Source Control в сайдбаре (VS Code `workbench.view.scm`). У нас нет
@@ -24,6 +25,35 @@ export const showScmAction: CommandAction = {
     keybinding: parseKeybinding("ctrl+shift+g"),
     run(accessor) {
         accessor.get(SidebarServiceDIToken).showViewlet(SCM_VIEWLET_ID);
+    },
+};
+
+/**
+ * Показать Source Control и поставить фокус в commit input box — VS Code
+ * `workbench.scm.focus`. `workbench.view.scm` при этом по-прежнему фокусит
+ * список изменений (сложившийся инвариант e2e).
+ */
+export const scmFocusInputAction: CommandAction = {
+    id: "workbench.scm.focus",
+    title: "Source Control: Focus on Source Control View",
+    run(accessor) {
+        accessor.get(SidebarServiceDIToken).showViewlet(SCM_VIEWLET_ID, false);
+        accessor.get(ScmInputComponentDIToken).focus();
+    },
+};
+
+/**
+ * Фокус из commit input box в список CHANGES — стрелка вниз (InputElement
+ * ArrowDown не обрабатывает, событие доходит до диспетчера кейбиндов).
+ * Обратно — `workbench.scm.focus`.
+ */
+export const scmFocusChangesAction: CommandAction = {
+    id: "scm.action.focusChanges",
+    title: "Source Control: Focus Changes List",
+    keybinding: parseKeybinding("down"),
+    when: "scmInputFocus",
+    run(accessor) {
+        accessor.get(ChangesComponentDIToken).focus();
     },
 };
 

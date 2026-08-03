@@ -36,6 +36,16 @@ export class InputElement extends TUIElement {
         this.style = { fg: "input.foreground", bg: "input.background" };
     }
 
+    /** Наблюдаемость для инспектора/e2e: текст, курсор, выделение, плейсхолдер. */
+    public override inspectState(): Record<string, unknown> {
+        return {
+            value: this.inputState.value,
+            cursorOffset: this.inputState.cursorOffset,
+            hasSelection: this.inputState.hasSelection,
+            showsPlaceholder: this.inputState.value.length === 0 && this.placeholder !== undefined,
+        };
+    }
+
     // ─── Layout ─────────────────────────────────────────────────────────────
 
     public override getMinIntrinsicWidth(_height: number): number {
