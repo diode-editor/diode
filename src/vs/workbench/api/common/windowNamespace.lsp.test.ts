@@ -13,10 +13,6 @@ import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 /** Наивная поверхность window, отсутствующая в активной части vscode.d.ts (runtime опережает декларацию). */
 interface INaiveWindowSurface {
-    withProgress<R>(
-        options: unknown,
-        task: (progress: { report(value: unknown): void }, token: { isCancellationRequested: boolean; onCancellationRequested(l: () => void): unknown }) => Thenable<R>,
-    ): Thenable<R>;
     showTextDocument(doc: unknown): Thenable<unknown>;
     tabGroups: {
         all: readonly unknown[];
@@ -70,17 +66,6 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         expect(console.log).toHaveBeenCalledWith("[TS (Vexx)] converted 3 diagnostics");
         expect(console.log).toHaveBeenCalledWith('[TS (Vexx)] {"message":"asDiagnostics failed"}');
         expect(console.log).toHaveBeenCalledTimes(5);
-    });
-
-    it("withProgress исполняет задачу с no-op прогрессом и не-отменённым токеном", async () => {
-        const { naive } = makeWindow();
-        const result = await naive.withProgress({ location: 15 }, (progress, token) => {
-            progress.report({ message: "indexing" });
-            expect(token.isCancellationRequested).toBe(false);
-            expect(() => token.onCancellationRequested(() => undefined)).not.toThrow();
-            return Promise.resolve(42);
-        });
-        expect(result).toBe(42);
     });
 
     it("showTextDocument резолвится активным редактором (или undefined без него)", async () => {

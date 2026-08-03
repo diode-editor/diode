@@ -29,6 +29,9 @@ import {
     type IWireDocumentSyncSnapshot,
     parseDecorationRanges,
     parseWireDiagnosticsPublish,
+    parseWireProgressEnd,
+    parseWireProgressReport,
+    parseWireProgressStart,
     parseWireEditorEdits,
     parseWireFileDecorations,
     parseWireReadFileResult,
@@ -48,6 +51,17 @@ import {
  * Подключается в module/харнессе к `MarkerService.changeOne`.
  */
 export type DiagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]) => void;
+
+/**
+ * Сток прогресса расширений (`window.withProgress` → `window.progress.*`):
+ * потребитель (module/харнесс) рисует запись статус-бара на `start`, обновляет
+ * на `report` и снимает на `end`. `handle` уникален в рамках subprocess'а.
+ */
+export interface IProgressSink {
+    start(handle: number, title: string): void;
+    report(handle: number, message?: string, increment?: number): void;
+    end(handle: number): void;
+}
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
@@ -165,6 +179,12 @@ export interface IExtensionHostOptions {
      */
     readonly diagnosticsSink?: DiagnosticsSink;
     /**
+     * Сток прогресса из расширений (`window.withProgress` → notify
+     * `window.progress.*`). Если не передан — прогресс отбрасывается. При смерти
+     * subprocess'а host сам шлёт `end` всем живым handle'ам — спиннеры не зависают.
+     */
+    readonly progressSink?: IProgressSink;
+    /**
      * Снимок активного документа для document sync. Хост пушит его как
      * `editor.didOpen` при готовности subprocess'а — чтобы `workspace.textDocuments`
      * был заполнен ДО активации расширения (стоковый vscode-languageclient читает
@@ -255,6 +275,9 @@ export class ExtensionHost extends Disposable {
     private pendingDidChange: IWireDocumentSyncSnapshot | null = null;
     private readonly activeDocumentProvider: (() => IWireDocumentSyncSnapshot | null) | undefined;
     private readonly diagnosticsSink: DiagnosticsSink | undefined;
+    private readonly progressSink: IProgressSink | undefined;
+    /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
+    private readonly activeProgressHandles = new Set<number>();
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
     private fileSystemSchemesValue: readonly string[] = [];
     private readonly fileSystemSchemesListeners: (() => void)[] = [];
@@ -289,6 +312,7 @@ export class ExtensionHost extends Disposable {
         this.themeColorResolver = options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER;
         this.activeDocumentProvider = options.activeDocumentProvider;
         this.diagnosticsSink = options.diagnosticsSink;
+        this.progressSink = options.progressSink;
         // Смена темы → пере-резолв держимых декораций в обе поверхности.
         this.register(
             this.themeColorResolver.onDidChange(() => {
@@ -835,6 +859,25 @@ export class ExtensionHost extends Disposable {
             const uris = raw.map((u) => Uri.parse(u));
             for (const cb of [...this.fileSystemChangeListeners]) cb(uris);
         });
+        // Жизненный цикл withProgress расширения — отдаём стоку (module рисует
+        // запись статус-бара со спиннером и снимает её на end).
+        rpc.handleNotification("window.progress.start", (params) => {
+            const start = parseWireProgressStart(params);
+            if (start === null) return;
+            this.activeProgressHandles.add(start.handle);
+            this.progressSink?.start(start.handle, start.title);
+        });
+        rpc.handleNotification("window.progress.report", (params) => {
+            const report = parseWireProgressReport(params);
+            if (report === null) return;
+            this.progressSink?.report(report.handle, report.message, report.increment);
+        });
+        rpc.handleNotification("window.progress.end", (params) => {
+            const end = parseWireProgressEnd(params);
+            if (end === null) return;
+            this.activeProgressHandles.delete(end.handle);
+            this.progressSink?.end(end.handle);
+        });
         // Расширение опубликовало диагностики (createDiagnosticCollection().set)
         // — отдаём их стоку (module ведёт в MarkerService → squiggle + Problems).
         rpc.handleNotification("diagnostics.publish", (params) => {
@@ -991,6 +1034,9 @@ export class ExtensionHost extends Disposable {
         this.definitionSubscribed = false;
         this.documentSyncSubscribed = false;
         this.pendingDidChange = null;
+        // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.
+        for (const handle of this.activeProgressHandles) this.progressSink?.end(handle);
+        this.activeProgressHandles.clear();
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).
         this.decorationTypes.clear();

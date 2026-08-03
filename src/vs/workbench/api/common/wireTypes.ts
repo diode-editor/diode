@@ -517,6 +517,57 @@ export async function requestDefinition(
     }
 }
 
+// ─── Progress (window.withProgress → статус-бар) ─────────────────────────────
+
+/** Параметры `window.progress.start` (subprocess → host). */
+export interface IWireProgressStart {
+    /** Идентификатор прогресса в рамках subprocess'а (счётчик). */
+    readonly handle: number;
+    readonly title: string;
+}
+
+/** Параметры `window.progress.report`. */
+export interface IWireProgressReport {
+    readonly handle: number;
+    readonly message?: string;
+    /** Дискретный вклад в процентах (суммируется потребителем, кламп 0–100). */
+    readonly increment?: number;
+}
+
+/** Параметры `window.progress.end`. */
+export interface IWireProgressEnd {
+    readonly handle: number;
+}
+
+/** Валидирует `window.progress.start`; `null`, если конверт не распознан. */
+export function parseWireProgressStart(raw: unknown): IWireProgressStart | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    if (typeof p.title !== "string") return null;
+    return { handle: p.handle, title: p.title };
+}
+
+/** Валидирует `window.progress.report`; кривые message/increment отбрасываются по отдельности. */
+export function parseWireProgressReport(raw: unknown): IWireProgressReport | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    return {
+        handle: p.handle,
+        ...(typeof p.message === "string" ? { message: p.message } : {}),
+        ...(isFiniteNumber(p.increment) ? { increment: p.increment } : {}),
+    };
+}
+
+/** Валидирует `window.progress.end`; `null`, если конверт не распознан. */
+export function parseWireProgressEnd(raw: unknown): IWireProgressEnd | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    return { handle: p.handle };
+}
+
 // ─── Diagnostics (LSP) ───────────────────────────────────────────────────────
 
 /**

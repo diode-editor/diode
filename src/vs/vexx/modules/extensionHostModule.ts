@@ -10,6 +10,7 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
 import { activeDocumentSnapshot, bindDocumentSync } from "../../workbench/api/browser/documentSyncAdapter.ts";
+import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/editorDecorationsServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
@@ -24,6 +25,7 @@ import {
     ExtensionHostDIToken,
     type IExtensionHostConfigProvider,
 } from "../../workbench/services/extensions/node/extensionHost.ts";
+import { StatusBarServiceDIToken } from "../../workbench/services/statusbar/common/statusBarService.ts";
 import { ThemeServiceDIToken } from "../../workbench/services/themes/common/themeTokens.ts";
 
 /** `vscode.DiagnosticSeverity` (0=Error…3=Hint) → `MarkerSeverity`. */
@@ -116,6 +118,8 @@ export const extensionHostModule: ContainerModule = (container) => {
             themeColorResolver,
             activeDocumentProvider: () => activeDocumentSnapshot(group),
             diagnosticsSink,
+            // withProgress расширений → запись статус-бара со спиннером.
+            progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
         });
 
         // Провайдеры ФС расширений: схемы, объявленные субпроцессом (`git:` у

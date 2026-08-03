@@ -78,6 +78,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
 
     it("диагностики и go-to-definition над изменяемым (несохранённым) кодом", { timeout: 180_000 }, async () => {
         const published: { resource: string; markers: readonly WireMarker[] }[] = [];
+        const progressEvents: { kind: string; handle: number; title?: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -85,6 +86,11 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 vexx: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
             },
             diagnosticsSink: (_owner, resource, markers) => published.push({ resource, markers }),
+            progressSink: {
+                start: (handle, title) => progressEvents.push({ kind: "start", handle, title }),
+                report: (handle) => progressEvents.push({ kind: "report", handle }),
+                end: (handle) => progressEvents.push({ kind: "end", handle }),
+            },
             extensions: [lspClientRegistration()],
         });
         try {
@@ -98,6 +104,16 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
 
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
+
+            // Прогресс запуска (наш withProgress вокруг client.start()) виден
+            // сразу после активации — и обязан закрыться по готовности сервера.
+            const startEvent = progressEvents.find((e) => e.kind === "start");
+            expect(startEvent?.title).toContain("TypeScript (Vexx)");
+            expect(startEvent?.title).toContain("starting language server");
+            await until("прогресс запуска закрылся (end)", () => {
+                const done = progressEvents.some((e) => e.kind === "end" && e.handle === startEvent?.handle);
+                return Promise.resolve(done ? true : null);
+            });
 
             // Диагностика от НАСТОЯЩЕГО tsserver'а — она же readiness-сигнал
             // «сервер проиндексировал проект» перед go-to-definition.

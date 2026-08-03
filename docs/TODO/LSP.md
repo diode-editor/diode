@@ -36,6 +36,10 @@ go-to-definition работает; сервер-внук корректно уб
    `tsserverPath` — для песочниц без своего TypeScript
    (`initializationOptions.tsserver.path`). Dev-прогон «из коробки»: воркспейс
    с `typescript-language-server` в devDeps работает без настроек.
+5. **[x] видимость запуска** — настоящий `window.withProgress` (спиннер в
+   статус-баре: клиент оборачивает `client.start()` + `progressOnInitialization`
+   для серверного прогресса) и настоящий `window.createOutputChannel`
+   (канал в панели Output).
 
 ## Document sync (шаг 1 — сделано)
 
@@ -94,7 +98,7 @@ go-to-definition работает; сервер-внук корректно уб
 | `workspace.getWorkspaceFolder` | naive | префикс-матч + fallback на первую папку |
 | `workspace.createFileSystemWatcher` | no-op | валидный не-стреляющий watcher; закрытие: мост к `IFileWatcher` ядра |
 | `workspace.onDid/Will{Create,Delete,Rename}Files`, notebook-события | no-op | продюсеры файловых операций ядра → RPC |
-| `window.withProgress` | naive | исполняет задачу без UI; закрытие: статус-бар/нотификации |
+| `window.withProgress` | real | запись статус-бара с анимированным спиннером (`ProgressStatusBarAdapter`); message/increment серверного workDoneProgress обновляют текст; отмена НЕ поддержана — токен никогда не стреляет (`ProgressPart` languageclient'а это переживает); на смерть subprocess'а host сам гасит живые спиннеры |
 | `window.tabGroups` | no-op | пустые группы; закрытие: проекция вкладок группы |
 | `window.showTextDocument` | naive | возвращает активный редактор; закрытие: RPC открытия ресурса |
 | `window.createOutputChannel` | naive | пишет в stdout-логгер хоста (включая LogOutputChannel-методы — ошибки p2c.asDiagnostics не теряются); закрытие: настоящая панель Output |

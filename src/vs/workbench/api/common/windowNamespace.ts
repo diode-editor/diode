@@ -59,6 +59,8 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     const { rpc, registry } = ctx;
 
     let activeEditorUri: string | null = null;
+    // Идентификаторы withProgress-жизненных-циклов (window.progress.*).
+    let nextProgressHandle = 1;
     // Выделения активного редактора: последние из meta / `editor.selectionChanged`
     // либо выставленные самим расширением. Vexx показывает один активный редактор —
     // visibleTextEditors и activeTextEditor всегда указывают на него, так что
@@ -403,15 +405,52 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             onDidChangeTabGroups: new EventEmitter<never>().event,
         },
         showTextDocument: (): Thenable<vscode.TextEditor | undefined> => Promise.resolve(windowNs.activeTextEditor),
+        // Настоящий withProgress: жизненный цикл уезжает хосту нотификациями
+        // window.progress.{start,report,end} — статус-бар показывает спиннер,
+        // пока промис задачи не устаканился. Location игнорируется (в TUI всё —
+        // ProgressLocation.Window); отмены нет — токен никогда не стреляет
+        // (ProgressPart languageclient'а это переживает, см. docs/TODO/LSP.md).
         withProgress: <R>(
-            _options: unknown,
-            task: (progress: { report(value: unknown): void }, token: vscode.CancellationToken) => Thenable<R>,
+            options: vscode.ProgressOptions,
+            task: (
+                progress: vscode.Progress<{ message?: string; increment?: number }>,
+                token: vscode.CancellationToken,
+            ) => Thenable<R>,
         ): Thenable<R> => {
+            const handle = nextProgressHandle++;
             const token: vscode.CancellationToken = {
                 isCancellationRequested: false,
                 onCancellationRequested: new EventEmitter<never>().event,
             } as unknown as vscode.CancellationToken;
-            return Promise.resolve(task({ report: (): void => undefined }, token));
+            rpc.notify("window.progress.start", { handle, title: options.title ?? "" });
+            const progress: vscode.Progress<{ message?: string; increment?: number }> = {
+                report: (value) => {
+                    const v = (typeof value === "object" && value !== null ? value : {}) as {
+                        message?: unknown;
+                        increment?: unknown;
+                    };
+                    rpc.notify("window.progress.report", {
+                        handle,
+                        ...(typeof v.message === "string" ? { message: v.message } : {}),
+                        ...(typeof v.increment === "number" && Number.isFinite(v.increment)
+                            ? { increment: v.increment }
+                            : {}),
+                    });
+                },
+            };
+            const done = (): void => {
+                rpc.notify("window.progress.end", { handle });
+            };
+            return Promise.resolve(task(progress, token)).then(
+                (result) => {
+                    done();
+                    return result;
+                },
+                (err: unknown) => {
+                    done();
+                    throw err;
+                },
+            );
         },
     };
 

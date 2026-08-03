@@ -281,6 +281,75 @@ declare module "vscode" {
 	 * and active editors, as well as, UI elements to show messages, selections, and
 	 * asking for user input.
 	 */
+	/**
+	 * Defines a generalized way of reporting progress updates.
+	 */
+	export interface Progress<T> {
+
+		/**
+		 * Report a progress update.
+		 * @param value A progress item, like a message and/or an
+		 * report on how much work finished
+		 */
+		report(value: T): void;
+	}
+
+	/**
+	 * A location in the editor at which progress information can be shown. It depends on the
+	 * location how progress is visually represented.
+	 */
+	export enum ProgressLocation {
+
+		/**
+		 * Show progress for the source control viewlet, as overlay for the icon and as progress bar
+		 * inside the viewlet (when visible). Neither supports cancellation nor discrete progress nor
+		 * a label to describe the operation.
+		 */
+		SourceControl = 1,
+
+		/**
+		 * Show progress in the status bar of the editor. Neither supports cancellation nor discrete progress.
+		 * Supports rendering of {@link ThemeIcon theme icons} via the `$(<name>)`-syntax in the progress label.
+		 */
+		Window = 10,
+
+		/**
+		 * Show progress as notification with an optional cancel button. Supports to show infinite and discrete
+		 * progress but does not support rendering of icons.
+		 */
+		Notification = 15
+	}
+
+	/**
+	 * Value-object describing where and how progress should show.
+	 */
+	export interface ProgressOptions {
+
+		/**
+		 * The location at which progress should show.
+		 */
+		location: ProgressLocation | {
+			/**
+			 * The identifier of a view for which progress should be shown.
+			 */
+			viewId: string;
+		};
+
+		/**
+		 * A human-readable string which will be used to describe the
+		 * operation.
+		 */
+		title?: string;
+
+		/**
+		 * Controls if a cancel button should show to allow the user to
+		 * cancel the long running operation.  Note that currently only
+		 * `ProgressLocation.Notification` is supporting to show a cancel
+		 * button.
+		 */
+		cancellable?: boolean;
+	}
+
 	export namespace window {
 
 		/**
@@ -357,6 +426,37 @@ declare module "vscode" {
 		 * @returns A new output channel.
 		 */
 		export function createOutputChannel(name: string, languageId?: string): OutputChannel;
+
+		/**
+		 * Show progress in the editor. Progress is shown while running the given callback
+		 * and while the promise it returned isn't resolved nor rejected. The location at which
+		 * progress should show (and other details) is defined via the passed {@linkcode ProgressOptions}.
+		 *
+		 * @param options A {@linkcode ProgressOptions}-object describing the options to use for showing progress, like its location
+		 * @param task A callback returning a promise. Progress state can be reported with
+		 * the provided {@link Progress}-object.
+		 *
+		 * To report discrete progress, use `increment` to indicate how much work has been completed. Each call with
+		 * a `increment` value will be summed up and reflected as overall progress until 100% is reached (a value of
+		 * e.g. `10` accounts for `10%` of work done).
+		 * Note that currently only `ProgressLocation.Notification` is capable of showing discrete progress.
+		 *
+		 * To monitor if the operation has been cancelled by the user, use the provided {@linkcode CancellationToken}.
+		 * Note that currently only `ProgressLocation.Notification` is supporting to show a cancel button to cancel the
+		 * long running operation.
+		 *
+		 * @returns The thenable the task-callback returned.
+		 */
+		export function withProgress<R>(options: ProgressOptions, task: (progress: Progress<{
+			/**
+			 * A progress message that represents a chunk of work
+			 */
+			message?: string;
+			/**
+			 * An increment for discrete progress. Increments will be summed up until 100% is reached
+			 */
+			increment?: number;
+		}>, token: CancellationToken) => Thenable<R>): Thenable<R>;
 
 		/**
 		 * Create a TextEditorDecorationType that can be used to add decorations to text editors.

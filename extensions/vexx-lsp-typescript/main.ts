@@ -40,19 +40,30 @@ export function activate(context: vscode.ExtensionContext): void {
             // Ошибки конвертации (p2c.asDiagnostics и т.п.) клиент пишет ТОЛЬКО
             // сюда — канал обязан быть настоящим, no-op молча терял бы их.
             outputChannel,
+            // Серверный прогресс initialize (если сервер его репортит) — поверх
+            // нашего withProgress ниже, который виден всегда.
+            progressOnInitialization: true,
             ...(tsserverPath !== "" ? { initializationOptions: { tsserver: { path: tsserverPath } } } : {}),
         };
 
         const client = new LanguageClient(spec.id, spec.displayName, serverOptions, clientOptions);
         context.subscriptions.push(client);
         // Fire-and-forget: активация не блокируется на initialize сервера.
-        client.start().then(
-            () => {
-                outputChannel.appendLine(`${spec.id}: language server started (${server.command})`);
-            },
-            (err: unknown) => {
-                outputChannel.appendLine(`${spec.id}: failed to start: ${err instanceof Error ? err.message : String(err)}`);
-            },
+        // Запуск обёрнут в withProgress — спиннер в статус-баре виден независимо
+        // от того, шлёт ли сервер собственный work-done прогресс.
+        void vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Window, title: `${spec.displayName}: starting language server…` },
+            () =>
+                client.start().then(
+                    () => {
+                        outputChannel.appendLine(`${spec.id}: language server started (${server.command})`);
+                    },
+                    (err: unknown) => {
+                        outputChannel.appendLine(
+                            `${spec.id}: failed to start: ${err instanceof Error ? err.message : String(err)}`,
+                        );
+                    },
+                ),
         );
     }
 }
