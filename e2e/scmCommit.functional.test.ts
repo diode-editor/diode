@@ -85,6 +85,81 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForFocus("ScmCommitInputElement");
     }, 120_000);
 
+    it("US-16/US-18: Ctrl+Enter коммитит staged и очищает input; пустое сообщение — отказ", async () => {
+        const repo = makeRepo();
+        gitQ(repo, "add", "-A"); // правка app.ts — в индекс
+        app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
+        const { session } = app;
+
+        await session.key("Alt+M");
+        await session.waitForFocus("ScmCommitInputElement");
+        // Пустое сообщение: notice, git log не вырос.
+        await session.key("Ctrl+Enter");
+        await session.waitForText((t) => t.includes("commit message is empty"));
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("1");
+
+        await session.text("feat: change");
+        await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "feat: change");
+        await session.key("Ctrl+Enter");
+
+        // Input очистился, staged-группа ушла; git подтверждает.
+        await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "");
+        await session.waitForNoNode("#scmGroup-index");
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: repo }).toString().trim()).toBe(
+            "feat: change",
+        );
+        expect(execFileSync("git", ["status", "--porcelain=v1"], { cwd: repo }).toString()).toBe("");
+    }, 120_000);
+
+    it("US-17: пустой индекс — smart commit спрашивает и коммитит всё tracked", async () => {
+        const repo = makeRepo(); // app.ts modified, не staged
+        app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
+        const { session } = app;
+
+        await session.key("Alt+M");
+        await session.waitForFocus("ScmCommitInputElement");
+        await session.text("feat: smart");
+        await session.key("Ctrl+Enter");
+
+        await session.waitForText((t) => t.includes("There are no staged changes to commit."));
+        // Дефолтный фокус на Cancel, стрелка — на Commit All.
+        await session.key("Left");
+        await session.key("Enter");
+
+        await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "");
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: repo }).toString().trim()).toBe("feat: smart");
+    }, 120_000);
+
+    it("US-19/US-20: amend меняет последний коммит; undoCommit возвращает сообщение в input", async () => {
+        const repo = makeRepo();
+        gitQ(repo, "add", "-A");
+        gitQ(repo, "commit", "-qm", "feat: second");
+        app = await useHeadlessApp({
+            open: [repo],
+            keybindings: [...SWITCH_KEYS, { key: "alt+d", command: "git.undoCommit" }, { key: "alt+n", command: "git.commitStagedAmend" }],
+            cols: 100,
+            rows: 30,
+        });
+        const { session } = app;
+
+        await session.key("Alt+M");
+        await session.waitForFocus("ScmCommitInputElement");
+
+        // Amend с новым сообщением (индекс пуст — allowEmpty не нужен: --amend разрешает).
+        await session.text("feat: amended");
+        await session.key("Alt+N");
+        await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "");
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: repo }).toString().trim()).toBe(
+            "feat: amended",
+        );
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("2");
+
+        // Undo: HEAD откатился, сообщение вернулось в input.
+        await session.key("Alt+D");
+        await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "feat: amended");
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("1");
+    }, 120_000);
+
     it("US-15: черновик сообщения переживает рестарт", async () => {
         const repo = makeRepo();
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });

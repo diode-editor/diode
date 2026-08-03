@@ -307,6 +307,97 @@ describe("builtin git plugin (integration)", () => {
         expect(porcelain).toBe("?? first.txt\n");
     });
 
+    it("vexx.git.op commit: staged-файл коммитится с сообщением; amend меняет последний коммит", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        makeRepo(dir);
+        harness.group.openFile(path.join(dir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        git(dir, "add", "-A");
+        const committed = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "commit",
+            params: { message: "feat: change" },
+        })) as { ok: boolean };
+        expect(committed.ok).toBe(true);
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: change");
+        expect(execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString()).toBe("");
+
+        // Amend с новым сообщением: число коммитов не растёт.
+        const amended = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "commit",
+            params: { message: "feat: amended", amend: true, allowEmpty: true },
+        })) as { ok: boolean };
+        expect(amended.ok).toBe(true);
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: amended");
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("2");
+    });
+
+    it("vexx.git.op: пустое сообщение без amend, мусорный запрос и неизвестная операция — {ok: false}", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        const empty = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "commit",
+            params: {},
+        })) as { ok: boolean; message?: string };
+        expect(empty.ok).toBe(false);
+        expect(empty.message).toContain("empty");
+
+        const malformed = (await harness.commandRegistry.execute("vexx.git.op", 42)) as { ok: boolean };
+        expect(malformed.ok).toBe(false);
+        const unknown = (await harness.commandRegistry.execute("vexx.git.op", { op: "fly-to-moon" })) as {
+            ok: boolean;
+            message?: string;
+        };
+        expect(unknown.ok).toBe(false);
+        expect(unknown.message).toContain("unknown git op");
+    });
+
+    it("vexx.git.op undoCommit: reset --soft + сообщение; корневой коммит не откатывается", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        makeRepo(dir);
+        harness.group.openFile(path.join(dir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        // Второй коммит поверх init — его и откатываем.
+        git(dir, "add", "-A");
+        git(dir, "commit", "-qm", "feat: second");
+
+        const undone = (await harness.commandRegistry.execute("vexx.git.op", { op: "undoCommit" })) as {
+            ok: boolean;
+            data?: { message?: string };
+        };
+        expect(undone.ok).toBe(true);
+        expect(undone.data?.message).toBe("feat: second");
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("1");
+        // Изменения остались staged.
+        expect(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: dir }).toString().trim()).not.toBe("");
+
+        // Остался только корневой коммит — второй undo отказывает.
+        const root = (await harness.commandRegistry.execute("vexx.git.op", { op: "undoCommit" })) as {
+            ok: boolean;
+            message?: string;
+        };
+        expect(root.ok).toBe(false);
+        expect(root.message).toContain("initial commit");
+    });
+
     it("мутации отбрасывают мусорные цели, пустой итог — no-op {ok: true}", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,

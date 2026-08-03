@@ -9,7 +9,9 @@ import type { IStatusDecoration } from "./lib/map.ts";
 import { statusToDecoration, xyToResourceStates } from "./lib/map.ts";
 import { parsePorcelainStatus } from "./lib/porcelain.ts";
 import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
-import type { IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
+import type { GitOpResult, IGitCommitParams } from "./lib/protocol.ts";
+import { GIT_OP_COMMAND } from "./lib/protocol.ts";
+import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
 import { runGit } from "./lib/runGit.ts";
 
 /**
@@ -228,6 +230,11 @@ class GitDecorations {
                 this.enqueueMutation((paths) => this.clean(paths), payload),
             ),
         );
+        // Семантический диспетчер операций (commit, дальше — sync/branch/stash):
+        // argv собирает расширение, ядро оперирует именами операций.
+        this.disposables.push(
+            vscode.commands.registerCommand(GIT_OP_COMMAND, (payload: unknown) => this.enqueueOp(payload)),
+        );
 
         this.watchGitDir();
 
@@ -441,6 +448,113 @@ class GitDecorations {
             return this.mutate(["clean", "-q", "-f", "--", ...untracked]);
         }
         return { ok: true };
+    }
+
+    // ─── Диспетчер операций (vexx.git.op) ─────────────────────────────────────
+
+    /**
+     * Ставит операцию в общую очередь мутаций (одна за раз — тот же
+     * `.git/index.lock`). Неизвестная операция или мусорный payload —
+     * `{ok: false}`, не исключение: envelope едет через границу процесса.
+     */
+    private enqueueOp(payload: unknown): Promise<GitOpResult> {
+        const job = async (): Promise<GitOpResult> => {
+            if (this.isDisposed()) return { ok: false, kind: "unavailable", message: "git extension is shutting down" };
+            if (typeof payload !== "object" || payload === null) {
+                return { ok: false, kind: "git-error", message: "malformed git op request" };
+            }
+            const { op, params } = payload as { op?: unknown; params?: unknown };
+            const opParams = typeof params === "object" && params !== null ? (params as Record<string, unknown>) : {};
+            let result: GitOpResult;
+            switch (op) {
+                case "commit":
+                    result = await this.opCommit(opParams);
+                    break;
+                case "undoCommit":
+                    result = await this.opUndoCommit();
+                    break;
+                default:
+                    result = { ok: false, kind: "git-error", message: `unknown git op: ${String(op)}` };
+            }
+            if (!result.ok) log(`op ${String(op)} failed: ${result.message}`);
+            await this.refreshAll();
+            return result;
+        };
+        const next = this.mutationQueue.then(job, job);
+        this.mutationQueue = next.catch(() => undefined);
+        return next;
+    }
+
+    /** `git commit` с флагами из параметров; пустое сообщение допустимо только с amend (`--no-edit`). */
+    private async opCommit(raw: Record<string, unknown>): Promise<GitOpResult> {
+        const params: IGitCommitParams = {
+            message: typeof raw.message === "string" ? raw.message : "",
+            amend: raw.amend === true,
+            all: raw.all === true,
+            noVerify: raw.noVerify === true,
+            allowEmpty: raw.allowEmpty === true,
+        };
+        const args = ["commit"];
+        if (params.amend) args.push("--amend");
+        if (params.all) args.push("--all");
+        if (params.noVerify) args.push("--no-verify");
+        if (params.allowEmpty) args.push("--allow-empty");
+        if (params.message !== "") {
+            args.push("-m", params.message);
+        } else if (params.amend) {
+            args.push("--no-edit");
+        } else {
+            return { ok: false, kind: "git-error", message: "commit message is empty" };
+        }
+        return this.runOp(args);
+    }
+
+    /**
+     * Undo Last Commit: guard — у HEAD есть ровно один родитель (merge-коммит и
+     * корневой не откатываем, как VS Code) → сообщение → `reset --soft HEAD~`.
+     * Сообщение уезжает в data — ядро вернёт его в commit input box.
+     */
+    private async opUndoCommit(): Promise<GitOpResult> {
+        const parents = await this.gitRaw(["rev-list", "--parents", "-1", "HEAD"]);
+        if ("error" in parents || parents.code !== 0) {
+            return { ok: false, kind: "git-error", message: "no commit to undo" };
+        }
+        const tokens = parents.stdout.trim().split(/\s+/).filter((t) => t !== "");
+        if (tokens.length !== 2) {
+            return {
+                ok: false,
+                kind: "git-error",
+                message: tokens.length > 2 ? "cannot undo a merge commit" : "cannot undo the initial commit",
+            };
+        }
+        const messageResult = await this.gitRaw(["log", "-1", "--format=%B"]);
+        const message = "error" in messageResult || messageResult.code !== 0 ? "" : messageResult.stdout;
+        const reset = await this.runOp(["reset", "--soft", "HEAD~"]);
+        if (!reset.ok) return reset;
+        return { ok: true, data: { message: message.replace(/\n+$/, "") } };
+    }
+
+    /** Одна операция → envelope; не-нулевой код = git-error с первой строкой stderr. */
+    private async runOp(args: string[]): Promise<GitOpResult> {
+        const result = await this.gitRaw(args);
+        if ("error" in result) return { ok: false, kind: "unavailable", message: result.error.message };
+        if (result.code !== 0) {
+            const firstLine = result.stderr.trim().split("\n")[0] ?? "";
+            return {
+                ok: false,
+                kind: "git-error",
+                message: firstLine === "" ? `git ${args[0]} exited ${result.code}` : firstLine,
+                stderr: result.stderr,
+            };
+        }
+        return { ok: true };
+    }
+
+    /** Сырой запуск git в репо (без деградационного логирования {@link git}). */
+    private gitRaw(args: string[]): Promise<IRunGitResult | IRunGitError> {
+        const opts: IRunGitOptions = { cwd: this.repoRoot };
+        if (this.gitEnv !== undefined) opts.env = this.gitEnv;
+        return runGit(args, opts);
     }
 
     /** Одна git-мутация → envelope: не-нулевой код или несоздавшийся процесс = `{ok: false}`. */

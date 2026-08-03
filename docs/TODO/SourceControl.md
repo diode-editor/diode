@@ -375,8 +375,11 @@ UI-подтверждения. Ручной прогон после релиза
       `IViewContainerDescriptor` + VFlex в `attachContainer`, `scmInputComponent.ts`,
       ключ `scmInputFocus`, `workbench.scm.focus`/`scm.action.focusChanges`, персист
       черновика, `input.selectionBackground` в реестр цветов. Гейт: US-13…15.
-- [ ] **6. Commit** — диспетчер `vexx.git.op` (первая операция — commit),
+- [x] **6. Commit** — диспетчер `vexx.git.op` (первая операция — commit),
       commit-семейство, Ctrl+Enter, `git.undoCommit`. Гейт: US-16…20.
+      Отклонение от таблицы: noVerify-семейство не гейтится конфигом
+      `git.allowNoVerifyCommit` (when-выражений по конфигу нет) и урезано до
+      трёх команд без Amend-вариантов; Signed-off — отложено.
 - [ ] **7. Repo-state + меню-инфра** — `vexx.scm.publishRepoState`, `ScmRepoStateService`,
       when-ключи; `ISubmenuContribution.visible`, `gitMenus.ts`, каркас «⋯».
       Гейт: часть US-30 (структура, пустые подменю скрыты).
