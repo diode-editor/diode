@@ -95,7 +95,10 @@ export class RenderContext {
      * @param y       Screen row (local coordinates)
      * @param text    Raw text to render
      * @param style   Optional cell style (fg, bg, style flags) applied to every cell
-     * @param options tabSize (default 4) and maxWidth (default: no limit)
+     * @param options tabSize (default 4) and maxWidth (default: no limit);
+     *   displayLine — готовый DisplayLine, чтобы не сегментировать text заново
+     *   на каждом кадре; вызывающий гарантирует, что он построен из тех же
+     *   text/tabSize
      * @returns Number of display columns written
      */
     public drawText(
@@ -106,10 +109,11 @@ export class RenderContext {
         options?: {
             tabSize?: number;
             maxWidth?: number;
+            displayLine?: DisplayLine;
             getStyle?: (offset: number) => { fg?: number; bg?: number; style?: number } | undefined;
         },
     ): number {
-        const dl = new DisplayLine(text, options?.tabSize);
+        const dl = options?.displayLine ?? new DisplayLine(text, options?.tabSize);
         const maxWidth = options?.maxWidth ?? dl.displayWidth;
         let col = 0;
         while (col < maxWidth) {
