@@ -52,6 +52,22 @@ const PUBLISH_LOG_COMMAND = "vexx.scm.publishLog";
 /** Сколько последних коммитов публикуем ядру для view Graph. */
 const LOG_COMMIT_LIMIT = 10;
 
+/**
+ * Команды-транспорты мутаций staging (регистрируем мы, зовёт ядро; user-facing
+ * `git.*`-команды живут в ядре — одноимённая регистрация перезаписала бы их в
+ * CommandRegistry). Аргумент — массив строк-uri; результат — {@link IGitMutationResult}.
+ */
+const STAGE_COMMAND = "vexx.git.stage";
+const UNSTAGE_COMMAND = "vexx.git.unstage";
+const CLEAN_COMMAND = "vexx.git.clean";
+
+/** Результат мутации, уходящий в ядро по возвратному каналу RPC. */
+interface IGitMutationResult {
+    readonly ok: boolean;
+    /** Первая строка stderr — при `ok: false`. */
+    readonly message?: string;
+}
+
 /** A tracked resource: its porcelain code (for untracked detection) + tree decoration. */
 interface IStatusEntry {
     readonly xy: string;
@@ -196,6 +212,23 @@ class GitDecorations {
             }),
         );
 
+        // Мутации staging: ядро ждёт результат по возвратному каналу RPC.
+        this.disposables.push(
+            vscode.commands.registerCommand(STAGE_COMMAND, (payload: unknown) =>
+                this.enqueueMutation((paths) => this.stage(paths), payload),
+            ),
+        );
+        this.disposables.push(
+            vscode.commands.registerCommand(UNSTAGE_COMMAND, (payload: unknown) =>
+                this.enqueueMutation((paths) => this.unstage(paths), payload),
+            ),
+        );
+        this.disposables.push(
+            vscode.commands.registerCommand(CLEAN_COMMAND, (payload: unknown) =>
+                this.enqueueMutation((paths) => this.clean(paths), payload),
+            ),
+        );
+
         this.watchGitDir();
 
         // The plugin owns its disposables; register a single umbrella disposable.
@@ -311,6 +344,116 @@ class GitDecorations {
             /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
             () => undefined,
         );
+    }
+
+    // ─── Мутации staging ──────────────────────────────────────────────────────
+
+    /**
+     * Хвост очереди мутаций. Мутации выполняются строго по одной: параллельные
+     * `add`/`reset`/`checkout` дерутся за `.git/index.lock` (и с фоновым
+     * `git status`, который тоже оппортунистически пишет index).
+     */
+    private mutationQueue: Promise<unknown> = Promise.resolve();
+
+    /**
+     * Ставит мутацию в очередь: валидация payload → git → немедленный refresh
+     * (мимо debounce — список и декорации обязаны отразить мутацию сразу; watcher
+     * `.git` продублирует, дедуп по подписи в ядре погасит). Пустой валидный
+     * итог — no-op `{ok: true}` без git-вызова и refresh.
+     */
+    private enqueueMutation(
+        run: (paths: string[]) => Promise<IGitMutationResult>,
+        payload: unknown,
+    ): Promise<IGitMutationResult> {
+        const job = async (): Promise<IGitMutationResult> => {
+            if (this.isDisposed()) return { ok: false, message: "git extension is shutting down" };
+            const paths = this.parseMutationTargets(payload);
+            if (paths.length === 0) return { ok: true };
+            const result = await run(paths);
+            if (!result.ok) log(`mutation failed: ${result.message ?? "unknown error"}`);
+            await this.refreshAll();
+            return result;
+        };
+        const next = this.mutationQueue.then(job, job);
+        this.mutationQueue = next.catch(() => undefined);
+        return next;
+    }
+
+    /**
+     * Валидация payload из-за границы процесса: массив строк-uri схемы `file`,
+     * путь под корнем репозитория. Мусор молча отбрасывается. Возвращает
+     * repo-относительные пути (для `git … -- <paths>`).
+     */
+    private parseMutationTargets(payload: unknown): string[] {
+        if (!Array.isArray(payload)) return [];
+        const paths: string[] = [];
+        for (const raw of payload) {
+            if (typeof raw !== "string") continue;
+            let relative: string | null;
+            try {
+                const uri = vscode.Uri.parse(raw);
+                if (uri.scheme !== "file") continue;
+                relative = toRepoRelativePath(this.repoRoot, uri.fsPath);
+            } catch {
+                continue;
+            }
+            if (relative === null) continue;
+            paths.push(relative);
+        }
+        return paths;
+    }
+
+    /** `git add -A -- <paths>`: стейджит правки, добавления и удаления. */
+    private async stage(paths: string[]): Promise<IGitMutationResult> {
+        return this.mutate(["add", "-A", "--", ...paths]);
+    }
+
+    /**
+     * `git reset -q HEAD -- <paths>`; в пустом репозитории (unborn HEAD) reset
+     * падает с «ambiguous argument 'HEAD'» — тогда снимаем из индекса напрямую:
+     * `git rm --cached -r -q -- <paths>`.
+     */
+    private async unstage(paths: string[]): Promise<IGitMutationResult> {
+        const result = await this.mutate(["reset", "-q", "HEAD", "--", ...paths]);
+        if (!result.ok && (result.message?.includes("ambiguous argument 'HEAD'") ?? false)) {
+            return this.mutate(["rm", "--cached", "-r", "-q", "--", ...paths]);
+        }
+        return result;
+    }
+
+    /**
+     * Discard: tracked-пути откатываются к индексу (`git checkout -q --`),
+     * untracked — удаляются (`git clean -q -f --`). Разделение — по нашей же
+     * status-карте (снимок последнего `git status`).
+     */
+    private async clean(paths: string[]): Promise<IGitMutationResult> {
+        const tracked: string[] = [];
+        const untracked: string[] = [];
+        for (const rel of paths) {
+            const entry = this.status.get(path.join(this.repoRoot, ...rel.split("/")));
+            (entry?.xy.startsWith("?") === true ? untracked : tracked).push(rel);
+        }
+        if (tracked.length > 0) {
+            const result = await this.mutate(["checkout", "-q", "--", ...tracked]);
+            if (!result.ok) return result;
+        }
+        if (untracked.length > 0) {
+            return this.mutate(["clean", "-q", "-f", "--", ...untracked]);
+        }
+        return { ok: true };
+    }
+
+    /** Одна git-мутация → envelope: не-нулевой код или несоздавшийся процесс = `{ok: false}`. */
+    private async mutate(args: string[]): Promise<IGitMutationResult> {
+        const opts: IRunGitOptions = { cwd: this.repoRoot };
+        if (this.gitEnv !== undefined) opts.env = this.gitEnv;
+        const result = await runGit(args, opts);
+        if ("error" in result) return { ok: false, message: result.error.message };
+        if (result.code !== 0) {
+            const firstLine = result.stderr.trim().split("\n")[0] ?? "";
+            return { ok: false, message: firstLine === "" ? `git ${args[0]} exited ${result.code}` : firstLine };
+        }
+        return { ok: true };
     }
 
     /** Run git in the repo; returns a successful result or `null` (degraded — logged once). */

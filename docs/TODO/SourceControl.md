@@ -363,7 +363,7 @@ UI-подтверждения. Ручной прогон после релиза
 - [x] **1. Группы ресурсов** — протокол `group` в publishChanges, `scmChangeGroups.ts`,
       заголовки-секции в списке, новые id строк, rowMeta. Гейт: US-1; декорации
       файлового дерева не изменились.
-- [ ] **2. Транспорты мутаций** — `vexx.git.stage/unstage/clean` в расширении: мьютекс,
+- [x] **2. Транспорты мутаций** — `vexx.git.stage/unstage/clean` в расширении: мьютекс,
       валидация uri, envelope, refresh после мутации; интеграционные тесты на temp-репо
       (unborn HEAD, clean tracked/untracked).
 - [ ] **3. Stage/Unstage + multi-select + меню v2** — `ScmMenuContext v2` (uris+groups),
