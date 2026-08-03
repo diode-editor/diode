@@ -49,6 +49,7 @@ import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHead
 import { scmGraphRefreshAction } from "../../contrib/scm/browser/graphActions.ts";
 import { BRANCH_ACTIONS } from "../../contrib/scm/browser/branchActions.ts";
 import { COMMIT_ACTIONS } from "../../contrib/scm/browser/commitActions.ts";
+import { STASH_ACTIONS } from "../../contrib/scm/browser/stashActions.ts";
 import { SYNC_ACTIONS } from "../../contrib/scm/browser/syncActions.ts";
 import {
     gitCleanAction,
@@ -371,4 +372,5 @@ export const builtinActions: readonly CommandAction[] = [
     ...COMMIT_ACTIONS,
     ...SYNC_ACTIONS,
     ...BRANCH_ACTIONS,
+    ...STASH_ACTIONS,
 ];

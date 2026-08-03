@@ -387,7 +387,7 @@ UI-подтверждения. Ручной прогон после релиза
       auth/rejected/no-upstream/conflict), e2e с bare-remote. Гейт: US-21…24, US-32.
 - [x] **9. Branch** — checkout/create/rename/delete, merge/rebase + abort, ref-пикер
       (`vexx.git.query refs`). Гейт: US-25…28.
-- [ ] **10. Stash** — stash-семейство + пикер (`vexx.git.query stashes`). Гейт: US-29.
+- [x] **10. Stash** — stash-семейство + пикер (`vexx.git.query stashes`). Гейт: US-29.
 - [ ] **11. Remote/Tags/прочее** — remote/tag-команды, `git.showOutput`,
       noVerify/commitEmpty/cherryPick. Гейт: US-30 полностью.
 - [ ] **12. (Опция) Статус-бар** — `⎇ branch` + ahead/behind, клик → `git.checkout`;

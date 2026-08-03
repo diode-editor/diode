@@ -25,6 +25,7 @@ import { classifyGitStderr } from "./lib/classifyGitError.ts";
 import { FOR_EACH_REF_FORMAT, parseForEachRefZ, parseStashListZ, STASH_LIST_FORMAT } from "./lib/queryParse.ts";
 import type { IRepoStatePayload } from "./lib/repoState.ts";
 import { parseBranchHeaders, parseRemotes } from "./lib/repoState.ts";
+import { stashApplyArgs, stashDropArgs, stashPopArgs, stashPushArgs } from "./lib/stashArgs.ts";
 import { fetchArgs, pullArgs, pushArgs } from "./lib/syncArgs.ts";
 import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
 import { runGit } from "./lib/runGit.ts";
@@ -580,6 +581,21 @@ class GitDecorations {
                     break;
                 case "pushDelete":
                     result = await this.runBuilt(pushDeleteArgs(opParams), { network: true });
+                    break;
+                case "stashPush":
+                    result = await this.runOp(stashPushArgs(opParams));
+                    break;
+                case "stashPop":
+                    result = await this.runBuilt(stashPopArgs(opParams));
+                    break;
+                case "stashApply":
+                    result = await this.runBuilt(stashApplyArgs(opParams));
+                    break;
+                case "stashDrop":
+                    result = await this.runBuilt(stashDropArgs(opParams));
+                    break;
+                case "stashClear":
+                    result = await this.runOp(["stash", "clear"]);
                     break;
                 default:
                     result = { ok: false, kind: "git-error", message: `unknown git op: ${String(op)}` };
