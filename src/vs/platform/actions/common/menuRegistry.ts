@@ -130,7 +130,12 @@ export class MenuRegistry {
             // встраиваются вложенными попапами со своим group/order-слотом.
             if (isSubmenuContribution(item)) {
                 if (resolveSubmenu === undefined) return false;
-                return item.when === undefined || this.contextKeys.evaluate(item.when);
+                if (item.when !== undefined && !this.contextKeys.evaluate(item.when)) return false;
+                // Императивная видимость по контексту открытия — как у пунктов:
+                // подменю секции сайдбара фильтруются по `menuContext.view`
+                // (when-ключ не годится — в сайдбаре видно несколько секций).
+                if (item.visible !== undefined && !item.visible(context)) return false;
+                return true;
             }
             if (item.when !== undefined && !this.contextKeys.evaluate(item.when)) return false;
             if (item.visible !== undefined && !item.visible(context)) return false;

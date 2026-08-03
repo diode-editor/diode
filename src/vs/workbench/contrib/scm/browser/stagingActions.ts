@@ -10,6 +10,7 @@ import { StatusBarServiceDIToken } from "../../../services/statusbar/common/stat
 
 import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { ScmChangesServiceDIToken, type ScmGroupId } from "./changesService.ts";
+import { GitChangesMenu } from "./gitMenus.ts";
 
 /**
  * User-facing staging-команды (`git.*` — номенклатура VS Code). Живут в ядре:
@@ -162,21 +163,23 @@ export const gitUnstageAction: CommandAction = {
     },
 };
 
-/** Stage всего незастейдженного — из палитры (позже — подменю Changes меню «⋯»). */
+/** Stage всего незастейдженного — палитра и подменю Changes меню «⋯». */
 export const gitStageAllAction: CommandAction = {
     id: "git.stageAll",
     title: "Git: Stage All Changes",
     shortTitle: "Stage All Changes",
+    menus: [{ menuId: GitChangesMenu, group: "1_changes", order: 10 }],
     run(accessor) {
         return runGitTransport(accessor, STAGE_TRANSPORT_COMMAND, allTargets(accessor, STAGEABLE_GROUPS));
     },
 };
 
-/** Unstage всего индекса — из палитры (позже — подменю Changes меню «⋯»). */
+/** Unstage всего индекса — палитра и подменю Changes меню «⋯». */
 export const gitUnstageAllAction: CommandAction = {
     id: "git.unstageAll",
     title: "Git: Unstage All Changes",
     shortTitle: "Unstage All Changes",
+    menus: [{ menuId: GitChangesMenu, group: "1_changes", order: 20 }],
     run(accessor) {
         return runGitTransport(accessor, UNSTAGE_TRANSPORT_COMMAND, allTargets(accessor, UNSTAGEABLE_GROUPS));
     },
@@ -273,11 +276,12 @@ export const gitCleanAction: CommandAction = {
     },
 };
 
-/** Discard всего рабочего дерева (tracked + untracked) — из палитры. */
+/** Discard всего рабочего дерева (tracked + untracked) — палитра и подменю Changes. */
 export const gitCleanAllAction: CommandAction = {
     id: "git.cleanAll",
     title: "Git: Discard All Changes",
     shortTitle: "Discard All Changes",
+    menus: [{ menuId: GitChangesMenu, group: "1_changes", order: 30 }],
     run(accessor) {
         return discard(
             accessor,

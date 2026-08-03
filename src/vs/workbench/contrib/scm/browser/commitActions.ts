@@ -4,6 +4,7 @@ import { parseKeybinding } from "../../../../platform/keybinding/common/keybindi
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 
 import { ScmChangesServiceDIToken } from "./changesService.ts";
+import { GitCommitMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
@@ -62,11 +63,18 @@ export async function commit(accessor: ServiceAccessor, flags: ICommitFlags): Pr
     if (result?.ok === true) input.setMessage("");
 }
 
-function commitAction(id: string, title: string, shortTitle: string, flags: ICommitFlags): CommandAction {
+function commitAction(
+    id: string,
+    title: string,
+    shortTitle: string,
+    flags: ICommitFlags,
+    menu?: { group: string; order: number },
+): CommandAction {
     return {
         id,
         title,
         shortTitle,
+        menus: menu === undefined ? undefined : [{ menuId: GitCommitMenu, group: menu.group, order: menu.order }],
         run(accessor) {
             return commit(accessor, flags);
         },
@@ -75,27 +83,32 @@ function commitAction(id: string, title: string, shortTitle: string, flags: ICom
 
 /** Smart commit: индекс, а при пустом индексе — предложение закоммитить всё. Ctrl+Enter в input box. */
 export const gitCommitAction: CommandAction = {
-    ...commitAction("git.commit", "Git: Commit", "Commit", { smart: true }),
+    ...commitAction("git.commit", "Git: Commit", "Commit", { smart: true }, { group: "1_commit", order: 10 }),
     keybinding: { keys: parseKeybinding("ctrl+enter"), when: "scmInputFocus" },
 };
 
-export const gitCommitStagedAction = commitAction("git.commitStaged", "Git: Commit Staged", "Commit Staged", {});
-export const gitCommitAllAction = commitAction("git.commitAll", "Git: Commit All", "Commit All", { all: true });
-export const gitCommitAmendAction = commitAction("git.commitAmend", "Git: Commit (Amend)", "Commit (Amend)", {
-    smart: true,
-    amend: true,
-});
+export const gitCommitStagedAction = commitAction("git.commitStaged", "Git: Commit Staged", "Commit Staged", {}, { group: "2_staged", order: 10 });
+export const gitCommitAllAction = commitAction("git.commitAll", "Git: Commit All", "Commit All", { all: true }, { group: "3_all", order: 10 });
+export const gitCommitAmendAction = commitAction(
+    "git.commitAmend",
+    "Git: Commit (Amend)",
+    "Commit (Amend)",
+    { smart: true, amend: true },
+    { group: "1_commit", order: 20 },
+);
 export const gitCommitStagedAmendAction = commitAction(
     "git.commitStagedAmend",
     "Git: Commit Staged (Amend)",
     "Commit Staged (Amend)",
     { amend: true },
+    { group: "2_staged", order: 20 },
 );
 export const gitCommitAllAmendAction = commitAction(
     "git.commitAllAmend",
     "Git: Commit All (Amend)",
     "Commit All (Amend)",
     { all: true, amend: true },
+    { group: "3_all", order: 20 },
 );
 export const gitCommitNoVerifyAction = commitAction(
     "git.commitNoVerify",
@@ -124,6 +137,7 @@ export const gitUndoCommitAction: CommandAction = {
     id: "git.undoCommit",
     title: "Git: Undo Last Commit",
     shortTitle: "Undo Last Commit",
+    menus: [{ menuId: GitCommitMenu, group: "5_undo", order: 10 }],
     async run(accessor) {
         const result = await runGitOp(accessor, "undoCommit");
         if (result?.ok !== true) return;

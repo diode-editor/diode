@@ -11,6 +11,8 @@ import { parsePorcelainStatus } from "./lib/porcelain.ts";
 import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
 import type { GitOpResult, IGitCommitParams } from "./lib/protocol.ts";
 import { GIT_OP_COMMAND } from "./lib/protocol.ts";
+import type { IRepoStatePayload } from "./lib/repoState.ts";
+import { parseBranchHeaders, parseRemotes } from "./lib/repoState.ts";
 import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
 import { runGit } from "./lib/runGit.ts";
 
@@ -50,6 +52,13 @@ const PUBLISH_CHANGES_COMMAND = "vexx.scm.publishChanges";
  * импортов через границу процесса нет.
  */
 const PUBLISH_LOG_COMMAND = "vexx.scm.publishLog";
+
+/**
+ * Команда ядра для снимка состояния репозитория (ветка/upstream/ahead-behind/
+ * remotes/merge-rebase). Ядро регистрирует (`ScmRepoStateService`) и деривирует
+ * when-ключи git*-команд.
+ */
+const PUBLISH_REPO_STATE_COMMAND = "vexx.scm.publishRepoState";
 
 /** Сколько последних коммитов публикуем ядру для view Graph. */
 const LOG_COMMIT_LIMIT = 10;
@@ -282,6 +291,40 @@ class GitDecorations {
     private async refreshAll(): Promise<void> {
         await this.refreshStatus();
         await this.refreshLog();
+        await this.refreshRepoState();
+    }
+
+    /**
+     * Публикует ядру состояние репозитория: ветка/detached/upstream/ahead-behind
+     * из заголовков `status --porcelain=v2 --branch`, список remotes, и
+     * merge/rebase/cherry-pick — fs-проверками служебных файлов `.git` (git-вызов
+     * для этого не нужен). Best-effort, как остальные publish-каналы.
+     */
+    private async refreshRepoState(): Promise<void> {
+        if (this.isDisposed()) return;
+        const status = await this.git(["status", "--porcelain=v2", "--branch"]);
+        if (status === null) return; // degraded: ядро остаётся при прежнем снимке
+        const remotes = await this.git(["remote"]);
+
+        const payload: IRepoStatePayload = {
+            ...parseBranchHeaders(status.stdout),
+            remotes: remotes === null ? [] : parseRemotes(remotes.stdout),
+            state: this.detectRepoOpState(),
+        };
+        void Promise.resolve(vscode.commands.executeCommand(PUBLISH_REPO_STATE_COMMAND, payload)).catch(
+            /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
+            () => undefined,
+        );
+    }
+
+    /** merge/rebase/cherry-pick по служебным файлам `.git` (как git сам). */
+    private detectRepoOpState(): IRepoStatePayload["state"] {
+        const gitDir = path.join(this.repoRoot, ".git");
+        const exists = (rel: string): boolean => fs.existsSync(path.join(gitDir, rel));
+        if (exists("MERGE_HEAD")) return "merging";
+        if (exists("rebase-merge") || exists("rebase-apply")) return "rebasing";
+        if (exists("CHERRY_PICK_HEAD")) return "cherry-picking";
+        return "idle";
     }
 
     /**

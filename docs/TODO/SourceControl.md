@@ -380,7 +380,7 @@ UI-подтверждения. Ручной прогон после релиза
       Отклонение от таблицы: noVerify-семейство не гейтится конфигом
       `git.allowNoVerifyCommit` (when-выражений по конфигу нет) и урезано до
       трёх команд без Amend-вариантов; Signed-off — отложено.
-- [ ] **7. Repo-state + меню-инфра** — `vexx.scm.publishRepoState`, `ScmRepoStateService`,
+- [x] **7. Repo-state + меню-инфра** — `vexx.scm.publishRepoState`, `ScmRepoStateService`,
       when-ключи; `ISubmenuContribution.visible`, `gitMenus.ts`, каркас «⋯».
       Гейт: часть US-30 (структура, пустые подменю скрыты).
 - [ ] **8. Sync** — pull/push/fetch/sync/publish, `gitOpClient.ts` (диалоги

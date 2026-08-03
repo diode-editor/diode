@@ -5,6 +5,7 @@ import type {
     MenuContribution,
 } from "../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
+import { GIT_MENU_SUBMENUS } from "../../contrib/scm/browser/gitMenus.ts";
 
 import { builtinActions } from "./builtinActions.ts";
 
@@ -51,5 +52,6 @@ const MENUBAR_SUBMENUS: readonly ISubmenuContribution[] = [
  */
 export const MENU_CONTRIBUTIONS: readonly MenuContribution[] = [
     ...MENUBAR_SUBMENUS,
+    ...GIT_MENU_SUBMENUS,
     ...builtinActions.flatMap(menuItemsOfAction),
 ];
