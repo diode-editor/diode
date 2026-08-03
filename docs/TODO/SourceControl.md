@@ -385,7 +385,7 @@ UI-подтверждения. Ручной прогон после релиза
       Гейт: часть US-30 (структура, пустые подменю скрыты).
 - [x] **8. Sync** — pull/push/fetch/sync/publish, `gitOpClient.ts` (диалоги
       auth/rejected/no-upstream/conflict), e2e с bare-remote. Гейт: US-21…24, US-32.
-- [ ] **9. Branch** — checkout/create/rename/delete, merge/rebase + abort, ref-пикер
+- [x] **9. Branch** — checkout/create/rename/delete, merge/rebase + abort, ref-пикер
       (`vexx.git.query refs`). Гейт: US-25…28.
 - [ ] **10. Stash** — stash-семейство + пикер (`vexx.git.query stashes`). Гейт: US-29.
 - [ ] **11. Remote/Tags/прочее** — remote/tag-команды, `git.showOutput`,

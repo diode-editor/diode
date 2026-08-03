@@ -11,6 +11,16 @@ import { parsePorcelainStatus } from "./lib/porcelain.ts";
 import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
 import type { GitOpResult, IGitCommitParams } from "./lib/protocol.ts";
 import { GIT_OP_COMMAND } from "./lib/protocol.ts";
+import {
+    branchCreateArgs,
+    branchDeleteArgs,
+    branchRenameArgs,
+    checkoutArgs,
+    cherryPickArgs,
+    mergeArgs,
+    pushDeleteArgs,
+    rebaseArgs,
+} from "./lib/branchArgs.ts";
 import { classifyGitStderr } from "./lib/classifyGitError.ts";
 import { FOR_EACH_REF_FORMAT, parseForEachRefZ, parseStashListZ, STASH_LIST_FORMAT } from "./lib/queryParse.ts";
 import type { IRepoStatePayload } from "./lib/repoState.ts";
@@ -541,6 +551,36 @@ class GitDecorations {
                     if (result.ok) result = await this.runOp(pushArgs({}), { network: true });
                     break;
                 }
+                case "checkout":
+                    result = await this.runBuilt(checkoutArgs(opParams));
+                    break;
+                case "branchCreate":
+                    result = await this.runBuilt(branchCreateArgs(opParams));
+                    break;
+                case "branchDelete":
+                    result = await this.runBuilt(branchDeleteArgs(opParams));
+                    break;
+                case "branchRename":
+                    result = await this.runBuilt(branchRenameArgs(opParams));
+                    break;
+                case "merge":
+                    result = await this.runBuilt(mergeArgs(opParams));
+                    break;
+                case "mergeAbort":
+                    result = await this.runOp(["merge", "--abort"]);
+                    break;
+                case "rebase":
+                    result = await this.runBuilt(rebaseArgs(opParams));
+                    break;
+                case "rebaseAbort":
+                    result = await this.runOp(["rebase", "--abort"]);
+                    break;
+                case "cherryPick":
+                    result = await this.runBuilt(cherryPickArgs(opParams));
+                    break;
+                case "pushDelete":
+                    result = await this.runBuilt(pushDeleteArgs(opParams), { network: true });
+                    break;
                 default:
                     result = { ok: false, kind: "git-error", message: `unknown git op: ${String(op)}` };
             }
@@ -600,6 +640,14 @@ class GitDecorations {
         const reset = await this.runOp(["reset", "--soft", "HEAD~"]);
         if (!reset.ok) return reset;
         return { ok: true, data: { message: message.replace(/\n+$/, "") } };
+    }
+
+    /** Обёртка над {@link runOp} для builder-ов: `null` от билдера = невалидные параметры. */
+    private runBuilt(args: string[] | null, opts?: { network?: boolean }): Promise<GitOpResult> {
+        if (args === null) {
+            return Promise.resolve({ ok: false, kind: "git-error", message: "invalid git op parameters" });
+        }
+        return this.runOp(args, opts);
     }
 
     /**
