@@ -47,7 +47,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     let testApp: TestApp;
 
     /** Публикует набор изменений так же, как это делает git-расширение. */
-    function publish(entries: { path: string; rel: string; status: string; colorId: string }[]): void {
+    function publish(entries: { path: string; rel: string; status: string; colorId: string; group?: string }[]): void {
         commands.execute(
             PUBLISH_CHANGES_COMMAND,
             entries.map((e) => ({
@@ -55,13 +55,14 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
                 status: e.status,
                 colorId: e.colorId,
                 path: e.rel,
+                group: e.group ?? "worktree",
             })),
         );
     }
 
     /** Активирует строку списка клавиатурным путём: курсор на строку → Enter. */
-    function activate(absolutePath: string): void {
-        changes.list.setCursorTo(Uri.file(absolutePath).toString());
+    function activate(rel: string, group = "worktree"): void {
+        changes.list.setCursorTo(`scmRow-${group}-${rel.replace(/[^A-Za-z0-9_-]+/g, "-")}`);
         changes.list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
     }
 
@@ -130,7 +131,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     it("workbench.view.scm показывает список изменённых файлов в сайдбаре", async () => {
         publish([
             { path: ws.path("a.txt"), rel: "a.txt", status: "M", colorId: MODIFIED },
-            { path: ws.path("nested/b.txt"), rel: "nested/b.txt", status: "U", colorId: UNTRACKED },
+            { path: ws.path("nested/b.txt"), rel: "nested/b.txt", status: "U", colorId: UNTRACKED, group: "untracked" },
         ]);
         commands.execute(SHOW_SCM);
         await settle(0);
@@ -170,7 +171,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         await settle(0);
 
         const panesBefore = editors.editorCount;
-        activate(ws.path("a.txt"));
+        activate("a.txt");
 
         const screen = await waitForScreen((s) => s.includes("a.txt ↔ HEAD"));
         expect(screen).toContain("a.txt ↔ HEAD");
@@ -185,7 +186,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         commands.execute(SHOW_SCM);
         await settle(0);
 
-        activate(ws.path("nested/b.txt"));
+        activate("nested/b.txt");
 
         expect(await waitForScreen((s) => s.includes("b.txt ↔ HEAD"))).toContain("b.txt ↔ HEAD");
         // Файловая вкладка b.txt не появилась — только a.txt из beforeEach и дифф.
@@ -197,11 +198,13 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     });
 
     it("активация untracked-файла открывает сам файл, а не notice", async () => {
-        publish([{ path: ws.path("untracked.txt"), rel: "untracked.txt", status: "U", colorId: UNTRACKED }]);
+        publish([
+            { path: ws.path("untracked.txt"), rel: "untracked.txt", status: "U", colorId: UNTRACKED, group: "untracked" },
+        ]);
         commands.execute(SHOW_SCM);
         await settle(0);
 
-        activate(ws.path("untracked.txt"));
+        activate("untracked.txt", "untracked");
 
         const screen = await waitForScreen((s) => s.includes("brand new"));
         expect(screen).toContain("brand new");

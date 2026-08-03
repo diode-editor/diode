@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { statusToDecoration } from "./map.ts";
+import { statusToDecoration, xyToResourceStates } from "./map.ts";
 
 describe("statusToDecoration", () => {
     it("maps a modified working-tree file (` M`) to the modified decoration", () => {
@@ -79,5 +79,54 @@ describe("statusToDecoration", () => {
             badge: "M",
             colorId: "gitDecoration.modifiedResourceForeground",
         });
+    });
+});
+
+describe("xyToResourceStates", () => {
+    const MODIFIED = "gitDecoration.modifiedResourceForeground";
+    const ADDED = "gitDecoration.addedResourceForeground";
+
+    it("` M` → одна запись worktree", () => {
+        expect(xyToResourceStates(" M")).toEqual([{ group: "worktree", badge: "M", colorId: MODIFIED }]);
+    });
+
+    it("`M ` → одна запись index", () => {
+        expect(xyToResourceStates("M ")).toEqual([{ group: "index", badge: "M", colorId: MODIFIED }]);
+    });
+
+    it("`MM` → две записи: index и worktree, каждая со своей буквой", () => {
+        expect(xyToResourceStates("MM")).toEqual([
+            { group: "index", badge: "M", colorId: MODIFIED },
+            { group: "worktree", badge: "M", colorId: MODIFIED },
+        ]);
+    });
+
+    it("`AM` → добавленный в индексе + изменённый в дереве", () => {
+        expect(xyToResourceStates("AM")).toEqual([
+            { group: "index", badge: "A", colorId: ADDED },
+            { group: "worktree", badge: "M", colorId: MODIFIED },
+        ]);
+    });
+
+    it("`??` → untracked с цветом untracked", () => {
+        expect(xyToResourceStates("??")).toEqual([
+            { group: "untracked", badge: "U", colorId: "gitDecoration.untrackedResourceForeground" },
+        ]);
+    });
+
+    it("unmerged-коды → одна merge-запись с conflicting-цветом", () => {
+        for (const xy of ["DD", "AU", "UD", "UA", "DU", "AA", "UU"]) {
+            expect(xyToResourceStates(xy)).toEqual([
+                { group: "merge", badge: "U", colorId: "gitDecoration.conflictingResourceForeground" },
+            ]);
+        }
+    });
+
+    it("`!!` (ignored) не публикуется вовсе", () => {
+        expect(xyToResourceStates("!!")).toEqual([]);
+    });
+
+    it("неизвестная буква сохраняет саму букву с modified-цветом (`T `)", () => {
+        expect(xyToResourceStates("T ")).toEqual([{ group: "index", badge: "T", colorId: MODIFIED }]);
     });
 });

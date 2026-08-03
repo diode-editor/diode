@@ -138,11 +138,10 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const list = await session.waitForNode("#changesView");
 
-        // Двойной клик по первой строке (app.ts, modified): #changesView — тело
-        // секции CHANGES, строки идут с первого ряда (заголовок рамки рисует
-        // контейнер выше). Четыре события подряд без settle — в окно двойного клика.
+        // Двойной клик по строке app.ts: первый ряд — заголовок группы «Changes»,
+        // файл — ряд ниже. Четыре события подряд без settle — в окно двойного клика.
         const x = list.box.x + 2;
-        const y = list.box.y;
+        const y = list.box.y + 1;
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
         await session.sendMouse({ action: "press", button: "left", x, y });
@@ -165,9 +164,10 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("extra.ts"));
         const list = await session.waitForNode("#changesView");
 
-        // Единственная строка списка — extra.ts (untracked): app.ts закоммичен без правок.
+        // Строки: заголовок «Untracked Changes» и extra.ts под ним (app.ts
+        // закоммичен без правок).
         const x = list.box.x + 2;
-        const y = list.box.y;
+        const y = list.box.y + 1;
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
         await session.sendMouse({ action: "press", button: "left", x, y });
@@ -189,8 +189,9 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const list = await session.waitForNode("#changesList");
 
-        // Глиф Open File — третья колонка справа (глиф · пробел · буква статуса).
-        await session.clickNode("#changesList", { dx: list.box.width - 3, dy: 0 });
+        // Глиф Open File — третья колонка справа (глиф · пробел · буква статуса);
+        // файловая строка — под заголовком группы.
+        await session.clickNode("#changesList", { dx: list.box.width - 3, dy: 1 });
 
         // Открылась файловая вкладка с рабочим содержимым, диффа нет.
         const frame = await session.waitForText((t) => t.includes('"hello " + name')).then(frameToText);
@@ -234,7 +235,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         const list = await session.waitForNode("#changesList");
 
         const x = list.box.x + 2;
-        const y = list.box.y;
+        const y = list.box.y + 1; // файловая строка под заголовком группы
         await session.sendMouse({ action: "press", button: "right", x, y });
         await session.sendMouse({ action: "release", button: "right", x, y });
 
@@ -323,7 +324,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         const list = await session.waitForNode("#changesView");
 
         const x = list.box.x + 2;
-        const y = list.box.y;
+        const y = list.box.y + 1; // файловая строка под заголовком группы
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
         await session.sendMouse({ action: "press", button: "left", x, y });

@@ -180,16 +180,19 @@ describe("builtin git plugin (integration)", () => {
         expect(got).toBe(true);
 
         const set = latest()!;
-        // path — путь относительно корня репо (из porcelain, через `/`), не basename.
+        // path — путь относительно корня репо (из porcelain, через `/`), не basename;
+        // group — раскладка по группам ресурсов (продюсер протокола вкладки Changes).
         expect(set.find((r) => r.uri.endsWith("tracked.txt"))).toMatchObject({
             status: "M",
             colorId: "gitDecoration.modifiedResourceForeground",
             path: "tracked.txt",
+            group: "worktree",
         });
         expect(set.find((r) => r.uri.endsWith("untracked.txt"))).toMatchObject({
             status: "U",
             colorId: "gitDecoration.untrackedResourceForeground",
             path: "untracked.txt",
+            group: "untracked",
         });
     });
 

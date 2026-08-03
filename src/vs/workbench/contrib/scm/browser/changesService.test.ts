@@ -11,12 +11,19 @@ function setup(): { service: ScmChangesService; commands: CommandRegistry } {
     return { service, commands };
 }
 
-const A = { uri: "file:///repo/a.ts", status: "M", colorId: "gitDecoration.modifiedResourceForeground", path: "a.ts" };
+const A = {
+    uri: "file:///repo/a.ts",
+    status: "M",
+    colorId: "gitDecoration.modifiedResourceForeground",
+    path: "a.ts",
+    group: "worktree",
+};
 const B = {
     uri: "file:///repo/src/b.ts",
     status: "U",
     colorId: "gitDecoration.untrackedResourceForeground",
     path: "src/b.ts",
+    group: "untracked",
 };
 
 describe("ScmChangesService", () => {
@@ -28,16 +35,24 @@ describe("ScmChangesService", () => {
         commands.execute(PUBLISH_CHANGES_COMMAND, [A, B]);
 
         expect(changed).toHaveBeenCalledTimes(1);
-        expect(service.changes.map((c) => [c.uri.toString(), c.status, c.colorId, c.path])).toEqual([
-            ["file:///repo/a.ts", "M", "gitDecoration.modifiedResourceForeground", "a.ts"],
-            ["file:///repo/src/b.ts", "U", "gitDecoration.untrackedResourceForeground", "src/b.ts"],
+        expect(service.changes.map((c) => [c.uri.toString(), c.status, c.colorId, c.path, c.group])).toEqual([
+            ["file:///repo/a.ts", "M", "gitDecoration.modifiedResourceForeground", "a.ts", "worktree"],
+            ["file:///repo/src/b.ts", "U", "gitDecoration.untrackedResourceForeground", "src/b.ts", "untracked"],
         ]);
     });
 
-    it("отбрасывает мусорные записи, не-массив трактует как пустой набор", () => {
+    it("отбрасывает мусорные записи (включая мусорную группу), не-массив — пустой набор", () => {
         const { service, commands } = setup();
 
-        commands.execute(PUBLISH_CHANGES_COMMAND, [A, null, 42, { uri: "" }, { uri: "file:///x", status: 1 }]);
+        commands.execute(PUBLISH_CHANGES_COMMAND, [
+            A,
+            null,
+            42,
+            { uri: "" },
+            { uri: "file:///x", status: 1 },
+            { uri: "file:///x", status: "M" }, // без группы
+            { uri: "file:///x", status: "M", group: "outer-space" }, // группа не из enum
+        ]);
         expect(service.changes.map((c) => c.uri.toString())).toEqual(["file:///repo/a.ts"]);
 
         commands.execute(PUBLISH_CHANGES_COMMAND, "not-an-array");
@@ -47,10 +62,11 @@ describe("ScmChangesService", () => {
     it("colorId и path необязательны: без них — пустые строки", () => {
         const { service, commands } = setup();
 
-        commands.execute(PUBLISH_CHANGES_COMMAND, [{ uri: "file:///x", status: "M" }]);
+        commands.execute(PUBLISH_CHANGES_COMMAND, [{ uri: "file:///x", status: "M", group: "index" }]);
 
         expect(service.changes[0].colorId).toBe("");
         expect(service.changes[0].path).toBe("");
+        expect(service.changes[0].group).toBe("index");
     });
 
     it("идентичную повторную публикацию гасит — событие не файрится", () => {

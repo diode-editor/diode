@@ -7,7 +7,7 @@ import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
 import type { IScmChange } from "./changesService.ts";
-import { buildFileRow, buildFolderRow, formatFileRow, type IScmRowStyles } from "./scmChangeRows.ts";
+import { buildFileRow, buildFolderRow, buildGroupRow, formatFileRow, type IScmRowStyles } from "./scmChangeRows.ts";
 
 const MODIFIED = packRgb(226, 192, 141);
 const DIM = packRgb(128, 128, 128);
@@ -22,6 +22,7 @@ function change(overrides: Partial<IScmChange> = {}): IScmChange {
         status: "M",
         colorId: "gitDecoration.modifiedResourceForeground",
         path: "src/a.ts",
+        group: "worktree",
         ...overrides,
     };
 }
@@ -29,13 +30,13 @@ function change(overrides: Partial<IScmChange> = {}): IScmChange {
 const WIDTH = 20;
 
 describe("scmChangeRows — file row", () => {
-    it("row id is the uri string (node identity, as the old provider's getKey)", () => {
-        const parts = buildFileRow(change(), "src/a.ts", STYLES, () => undefined);
-        expect(parts.root.id).toBe(Uri.file("/repo/src/a.ts").toString());
+    it("row id is the caller-provided rowId (id convention lives in the component)", () => {
+        const parts = buildFileRow("scmRow-worktree-src-a-ts", change(), "src/a.ts", STYLES, () => undefined);
+        expect(parts.root.id).toBe("scmRow-worktree-src-a-ts");
     });
 
     it("shows the label, the open glyph and the right-aligned status letter", () => {
-        const parts = buildFileRow(change(), "src/a.ts", STYLES, () => undefined);
+        const parts = buildFileRow("row", change(), "src/a.ts", STYLES, () => undefined);
         const backend = renderElement(parts.root, WIDTH, 1);
 
         expect(backend.getTextAt(new Point(0, 0), 8)).toBe("src/a.ts");
@@ -48,7 +49,7 @@ describe("scmChangeRows — file row", () => {
     });
 
     it("unknown colorId leaves the inherited color (no explicit char styles)", () => {
-        const parts = buildFileRow(change({ colorId: "not-a-color" }), "src/a.ts", STYLES, () => undefined);
+        const parts = buildFileRow("row", change({ colorId: "not-a-color" }), "src/a.ts", STYLES, () => undefined);
         const backend = renderElement(parts.root, WIDTH, 1);
 
         expect(backend.getTextAt(new Point(0, 0), 8)).toBe("src/a.ts");
@@ -57,7 +58,7 @@ describe("scmChangeRows — file row", () => {
     });
 
     it("formatFileRow restyles in place on theme change", () => {
-        const parts = buildFileRow(change(), "src/a.ts", STYLES, () => undefined);
+        const parts = buildFileRow("row", change(), "src/a.ts", STYLES, () => undefined);
         const NEW = packRgb(1, 2, 3);
         formatFileRow(parts, change(), "src/a.ts", {
             statusColors: { "gitDecoration.modifiedResourceForeground": NEW },
@@ -71,7 +72,7 @@ describe("scmChangeRows — file row", () => {
 
     it("glyph consumes click (calls onOpenFile) and dblclick (no-op)", () => {
         const onOpenFile = vi.fn();
-        const parts = buildFileRow(change(), "src/a.ts", STYLES, onOpenFile);
+        const parts = buildFileRow("row", change(), "src/a.ts", STYLES, onOpenFile);
 
         const click = new TUIMouseEvent("click", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 });
         expect(parts.openGlyph.dispatchEvent(click)).toBe(false); // потреблено
@@ -80,6 +81,17 @@ describe("scmChangeRows — file row", () => {
         const dbl = new TUIMouseEvent("dblclick", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 });
         expect(parts.openGlyph.dispatchEvent(dbl)).toBe(false);
         expect(onOpenFile).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("scmChangeRows — group row", () => {
+    it("shows the label and the right-aligned dim counter", () => {
+        const row = buildGroupRow("scmGroup-index", "Staged Changes", 12);
+        expect(row.id).toBe("scmGroup-index");
+
+        const backend = renderElement(row, WIDTH, 1);
+        expect(backend.getTextAt(new Point(0, 0), 14)).toBe("Staged Changes");
+        expect(backend.getTextAt(new Point(WIDTH - 3, 0), 2)).toBe("12");
     });
 });
 

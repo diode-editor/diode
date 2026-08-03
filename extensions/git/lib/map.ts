@@ -38,3 +38,41 @@ function primaryStatusChar(xy: string): string {
     const x = xy[0];
     return x !== " " ? x : xy[1];
 }
+
+/** Группа ресурсов SCM-вьюлета — как resource groups в VS Code. */
+export type ScmGroupId = "merge" | "index" | "worktree" | "untracked";
+
+/** Одна запись для вкладки Changes: группа + буква-бейдж + цвет. */
+export interface IScmResourceState {
+    readonly group: ScmGroupId;
+    readonly badge: string;
+    readonly colorId: string;
+}
+
+/**
+ * Раскладывает porcelain `XY` в записи по группам (0..2): конфликт — одна запись
+ * `merge`, untracked — `untracked`, иначе `X` даёт запись `index`, `Y` — запись
+ * `worktree` (файл `MM` попадает в обе, как в VS Code). Ignored (`!!`) не
+ * публикуется вовсе. Буква и цвет каждой записи — по своей стороне `XY`, а не по
+ * общему приоритету {@link statusToDecoration} (тот остаётся для дерева файлов).
+ */
+export function xyToResourceStates(xy: string): IScmResourceState[] {
+    if (xy === "!!") return [];
+    if (xy === "??") return [{ group: "untracked", badge: "U", colorId: DECORATION_BY_STATUS["?"].colorId }];
+    if (UNMERGED_CODES.has(xy)) {
+        return [{ group: "merge", badge: "U", colorId: DECORATION_BY_STATUS.U.colorId }];
+    }
+    const states: IScmResourceState[] = [];
+    const x = xy[0];
+    const y = xy[1];
+    if (x !== undefined && x !== " ") states.push({ group: "index", ...decorationFor(x) });
+    if (y !== undefined && y !== " ") states.push({ group: "worktree", ...decorationFor(y) });
+    return states;
+}
+
+/** Бейдж и цвет одной стороны `XY`; неизвестная буква — как modified, с самой буквой. */
+function decorationFor(letter: string): { badge: string; colorId: string } {
+    const deco = DECORATION_BY_STATUS[letter];
+    if (deco === undefined) return { badge: letter, colorId: DECORATION_BY_STATUS.M.colorId };
+    return { badge: deco.badge, colorId: deco.colorId };
+}
