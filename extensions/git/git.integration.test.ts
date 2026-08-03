@@ -22,6 +22,12 @@ import type { IExtensionRegistration } from "../../src/vs/workbench/services/ext
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
 
+// Транспорты мутаций (строки дублируются по значению — общих импортов через
+// границу процесса нет, как у PUBLISH_CHANGES_COMMAND).
+const STAGE_COMMAND = "vexx.git.stage";
+const UNSTAGE_COMMAND = "vexx.git.unstage";
+const CLEAN_COMMAND = "vexx.git.clean";
+
 // Any resolvable colour ids the plugin references (git status → tree, diff → gutter).
 const COLORS: Record<string, number> = {
     "editorGutter.addedBackground": 0x00ff00,
@@ -232,6 +238,98 @@ describe("builtin git plugin (integration)", () => {
         const republished = await waitFor(() => latest()?.some((c) => c.subject === "second") ?? false);
         expect(republished).toBe(true);
         expect(latest()!.map((c) => c.subject)).toEqual(["second", "init"]);
+    });
+
+    it("vexx.git.stage/unstage двигают файлы между индексом и деревом, clean откатывает и удаляет", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        const dir = harness.tmpDir;
+        const uriOf = (rel: string): string => Uri.file(path.join(dir, rel)).toString();
+        const porcelain = (): string =>
+            execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString();
+
+        // stage: modified + untracked уходят в индекс.
+        const staged = (await harness.commandRegistry.execute(STAGE_COMMAND, [
+            uriOf("tracked.txt"),
+            uriOf("untracked.txt"),
+        ])) as { ok: boolean };
+        expect(staged.ok).toBe(true);
+        expect(porcelain()).toBe("M  tracked.txt\nA  untracked.txt\n");
+
+        // unstage: обе записи возвращаются в рабочее дерево.
+        const unstaged = (await harness.commandRegistry.execute(UNSTAGE_COMMAND, [
+            uriOf("tracked.txt"),
+            uriOf("untracked.txt"),
+        ])) as { ok: boolean };
+        expect(unstaged.ok).toBe(true);
+        expect(porcelain()).toBe(" M tracked.txt\n?? untracked.txt\n");
+
+        // clean: tracked откатывается к HEAD, untracked удаляется с диска.
+        // status-карта расширения к этому моменту знает оба файла (refresh после unstage).
+        const cleaned = (await harness.commandRegistry.execute(CLEAN_COMMAND, [
+            uriOf("tracked.txt"),
+            uriOf("untracked.txt"),
+        ])) as { ok: boolean };
+        expect(cleaned.ok).toBe(true);
+        expect(porcelain()).toBe("");
+        expect(fs.readFileSync(path.join(dir, "tracked.txt"), "utf8")).toBe(TRACKED_AT_HEAD);
+        expect(fs.existsSync(path.join(dir, "untracked.txt"))).toBe(false);
+    });
+
+    it("unstage в пустом репозитории (unborn HEAD) снимает файл через rm --cached", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        // Репо без единого коммита: файл сразу в индексе.
+        git(dir, "init", "-q");
+        git(dir, "config", "user.email", "t@example.com");
+        git(dir, "config", "user.name", "Test");
+        fs.writeFileSync(path.join(dir, "first.txt"), "hello\n");
+        git(dir, "add", "-A");
+        harness.group.openFile(path.join(dir, "first.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        const result = (await harness.commandRegistry.execute(UNSTAGE_COMMAND, [
+            Uri.file(path.join(dir, "first.txt")).toString(),
+        ])) as { ok: boolean };
+        expect(result.ok).toBe(true);
+        const porcelain = execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString();
+        expect(porcelain).toBe("?? first.txt\n");
+    });
+
+    it("мутации отбрасывают мусорные цели, пустой итог — no-op {ok: true}", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        // Не-массив, не-строки, чужая схема, путь вне репо — всё мимо; git не зовётся.
+        for (const payload of [
+            "not-an-array",
+            [42, null, {}],
+            ["untitled:Untitled-1"],
+            [Uri.file("/definitely/outside/repo.txt").toString()],
+        ]) {
+            const result = (await harness.commandRegistry.execute(STAGE_COMMAND, payload)) as { ok: boolean };
+            expect(result.ok).toBe(true);
+        }
+        // Рабочее дерево нетронуто: modified остался modified, untracked — untracked.
+        const porcelain = execFileSync("git", ["status", "--porcelain=v1"], { cwd: harness.tmpDir }).toString();
+        expect(porcelain).toBe(" M tracked.txt\n?? untracked.txt\n");
     });
 
     it("не отдаёт оригинал для untracked-файла и для файла вне репозитория", async () => {
