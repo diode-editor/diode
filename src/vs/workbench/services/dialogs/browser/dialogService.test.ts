@@ -113,6 +113,18 @@ describe("DialogService — confirm", () => {
         expect(service.getOpenConfirmDialog()).toBeNull();
     });
 
+    it("confirm резолвится true по подтверждению и false по отмене", async () => {
+        const { service } = makeHost();
+
+        const confirmed = service.confirm({ title: "Discard", message: "Sure?", confirmLabel: "Discard" });
+        service.getOpenConfirmDialog()!.onConfirm?.();
+        await expect(confirmed).resolves.toBe(true);
+
+        const cancelled = service.confirm({ title: "Discard", message: "Sure?", confirmLabel: "Discard" });
+        service.getOpenConfirmDialog()!.onCancel?.();
+        await expect(cancelled).resolves.toBe(false);
+    });
+
     it("dispose сервиса не роняет диалоги, показанные ранее", () => {
         const { service } = makeHost();
         service.showConfirmSaveDialog("a.txt", saveCallbacks());

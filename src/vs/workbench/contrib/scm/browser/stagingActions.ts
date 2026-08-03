@@ -4,6 +4,8 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { scmHasAnyGroup, scmUrisArg } from "../../../browser/actions/menuContexts.ts";
+import type { ConfirmDialogOptions } from "../../../browser/parts/dialogs/confirmDialog.ts";
+import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 import { ChangesComponentDIToken } from "./changesComponent.ts";
@@ -17,6 +19,7 @@ import { ScmChangesServiceDIToken, type ScmGroupId } from "./changesService.ts";
  */
 export const STAGE_TRANSPORT_COMMAND = "vexx.git.stage";
 export const UNSTAGE_TRANSPORT_COMMAND = "vexx.git.unstage";
+export const CLEAN_TRANSPORT_COMMAND = "vexx.git.clean";
 
 /** Применимость по группам: stage — всё незастейдженное, unstage — индекс. */
 const STAGEABLE_GROUPS: readonly ScmGroupId[] = ["worktree", "untracked", "merge"];
@@ -176,5 +179,111 @@ export const gitUnstageAllAction: CommandAction = {
     shortTitle: "Unstage All Changes",
     run(accessor) {
         return runGitTransport(accessor, UNSTAGE_TRANSPORT_COMMAND, allTargets(accessor, UNSTAGEABLE_GROUPS));
+    },
+};
+
+// ─── Discard ──────────────────────────────────────────────────────────────────
+
+/** Имя файла для текста диалога — последний сегмент пути uri. */
+function basenameOf(uri: Uri): string {
+    return uri.path.slice(uri.path.lastIndexOf("/") + 1);
+}
+
+/**
+ * Текст подтверждения discard — семантика VS Code: откат tracked обратим
+ * (индекс/HEAD никуда не делись), удаление untracked — нет, поэтому у него
+ * warning-стиль и капс. Дефолтная кнопка везде Cancel (задаёт ConfirmDialog).
+ */
+export function buildDiscardConfirm(tracked: readonly Uri[], untracked: readonly Uri[]): ConfirmDialogOptions {
+    if (untracked.length === 0) {
+        return {
+            title: "Discard Changes",
+            message:
+                tracked.length === 1
+                    ? `Are you sure you want to discard changes in ${basenameOf(tracked[0])}?`
+                    : `Are you sure you want to discard changes in ${tracked.length} files?`,
+            confirmLabel: "Discard Changes",
+        };
+    }
+    if (tracked.length === 0) {
+        return {
+            title: untracked.length === 1 ? "Delete File" : "Delete Files",
+            message: [
+                untracked.length === 1
+                    ? `Are you sure you want to DELETE ${basenameOf(untracked[0])}?`
+                    : `Are you sure you want to DELETE ${untracked.length} files?`,
+                "This is IRREVERSIBLE! The files will be FOREVER LOST if you proceed.",
+            ],
+            confirmLabel: untracked.length === 1 ? "Delete File" : "Delete Files",
+            warning: true,
+        };
+    }
+    return {
+        title: "Discard All Changes",
+        message: [
+            `Are you sure you want to discard changes in ${tracked.length} tracked ` +
+                `${tracked.length === 1 ? "file" : "files"} and DELETE ${untracked.length} untracked ` +
+                `${untracked.length === 1 ? "file" : "files"}?`,
+            "Deleting untracked files is IRREVERSIBLE!",
+        ],
+        confirmLabel: "Discard All Changes",
+        warning: true,
+    };
+}
+
+/** Общий поток discard: резолв целей → подтверждение → транспорт. */
+async function discard(accessor: ServiceAccessor, rawUris: unknown): Promise<void> {
+    const tracked = resolveScmTargets(accessor, rawUris, ["worktree"]);
+    const untracked = resolveScmTargets(accessor, rawUris, ["untracked"]);
+    if (tracked.length === 0 && untracked.length === 0) return;
+
+    const confirmed = await accessor.get(DialogServiceDIToken).confirm(buildDiscardConfirm(tracked, untracked));
+    if (!confirmed) return;
+    await runGitTransport(accessor, CLEAN_TRANSPORT_COMMAND, [...tracked, ...untracked]);
+}
+
+/**
+ * Discard: контекст-меню строки/папки (по выделению) и заголовка группы
+ * («Discard All Changes» — вся группа). Деструктив — всегда с подтверждением;
+ * untracked удаляются с диска (warning-текст).
+ */
+export const gitCleanAction: CommandAction = {
+    id: "git.clean",
+    title: "Git: Discard Changes",
+    shortTitle: "Discard Changes",
+    menus: [
+        {
+            menuId: MenuId.ScmContext,
+            group: "3_discard",
+            order: 10,
+            args: scmUrisArg,
+            visible: scmHasAnyGroup("worktree", "untracked"),
+        },
+        {
+            menuId: MenuId.ScmResourceGroupContext,
+            title: "Discard All Changes",
+            group: "1_actions",
+            order: 20,
+            args: scmUrisArg,
+            visible: scmHasAnyGroup("worktree", "untracked"),
+        },
+    ],
+    run(accessor, rawUris) {
+        return discard(accessor, rawUris);
+    },
+};
+
+/** Discard всего рабочего дерева (tracked + untracked) — из палитры. */
+export const gitCleanAllAction: CommandAction = {
+    id: "git.cleanAll",
+    title: "Git: Discard All Changes",
+    shortTitle: "Discard All Changes",
+    run(accessor) {
+        return discard(
+            accessor,
+            accessor
+                .get(ScmChangesServiceDIToken)
+                .changes.map((c) => c.uri.toString()),
+        );
     },
 };

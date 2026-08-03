@@ -369,7 +369,7 @@ UI-подтверждения. Ручной прогон после релиза
 - [x] **3. Stage/Unstage + multi-select + меню v2** — `ScmMenuContext v2` (uris+groups),
       `MenuId.ScmResourceGroupContext`, `stagingActions.ts`, `getSelectedChanges()`,
       меню на папках и заголовках групп. Гейт: US-2…9, US-12 (без discard).
-- [ ] **4. Discard** — `DialogService.confirm()`, `git.clean/cleanAll` с раздельными
+- [x] **4. Discard** — `DialogService.confirm()`, `git.clean/cleanAll` с раздельными
       текстами tracked/untracked/mixed. Гейт: US-10, US-11.
 - [ ] **5. Commit input box** — `InputElement.inspectState` (tuidom), `header` в
       `IViewContainerDescriptor` + VFlex в `attachContainer`, `scmInputComponent.ts`,
