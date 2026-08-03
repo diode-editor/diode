@@ -5,7 +5,7 @@ import { writeFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 import { buildDistArtifacts } from "./build-dist.mjs";
-import { smokeTestBinary } from "./smoke-binary.mjs";
+import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const dist = join(root, "dist");
@@ -20,7 +20,9 @@ function run(cmd) {
 }
 
 // 1. Собираем dist/main.js + dist/vexx.bundle + dist/node-pty.bundle + dist/rg.bundle (общее с build-selfextract.mjs).
-const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath } = await buildDistArtifacts({ repoRoot: root });
+const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath } = await buildDistArtifacts({
+    repoRoot: root,
+});
 
 // 2. Generate SEA config
 const seaConfig = {
@@ -36,6 +38,9 @@ const seaConfig = {
         // Бинарь ripgrep: loadRipgrep.ts распаковывает этот ассет в tmpdir и
         // запускает оттуда (исполняемый файл нельзя запустить из JS-blob).
         "rg.bundle": ripgrepBundlePath,
+        // typescript-language-server + минимальный TypeScript: loadTsServer.ts
+        // распаковывает в пользовательский кэш при первом использовании LSP.
+        "ts-server.bundle": tsServerBundlePath,
     },
 };
 
@@ -93,6 +98,8 @@ if (isMac) {
 // раньше проверка была только под macOS, смотрела лишь на `error` и запускала
 // бинарь без аргументов, из-за чего segfault уехал в релиз (#143).
 const version = smokeTestBinary(outputPath, { cwd: root });
+smokeTestNodeMode(outputPath);
+console.log("Smoke: node mode (VEXX_RUN_AS_NODE) OK");
 console.error(`[build-sea] Smoke: ${outputPath} --version → ${version}`);
 
 console.log(`\nDone! Binary: ${outputPath}`);

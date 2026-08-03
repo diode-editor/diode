@@ -249,7 +249,7 @@ export interface HeadlessApp {
  * Запускает бинарь headless в изолированном окружении и отдаёт инспектор-сессию.
  * `dispose()` гасит процесс и убирает корень (если не `keepRoot`).
  */
-export async function startHeadlessApp(options: AppEnvOptions = {}): Promise<HeadlessApp> {
+export async function startHeadlessApp(options: AppEnvOptions & { binary?: string } = {}): Promise<HeadlessApp> {
     const env = await prepareAppEnv(options);
     const sessionOpts: HeadlessSessionOptions = {
         args: env.args,
@@ -257,6 +257,7 @@ export async function startHeadlessApp(options: AppEnvOptions = {}): Promise<Hea
         env: env.env,
         ...(options.cols !== undefined ? { cols: options.cols } : {}),
         ...(options.rows !== undefined ? { rows: options.rows } : {}),
+        ...(options.binary !== undefined ? { binary: options.binary } : {}),
     };
     const session = await HeadlessSession.start(sessionOpts);
     return {

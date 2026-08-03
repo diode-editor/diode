@@ -250,6 +250,51 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             await until("диагностика main.ts ушла после фикса", () =>
                 Promise.resolve(markersFor(mainUri).length === 0 ? true : null),
             );
+
+            // Регрессия «Unexpected resource»: фолдинг для файла, который ядро
+            // НИКОГДА не анонсировало didOpen'ом (не открывался в редакторе).
+            // languages.provide* обязан сам провести didOpen через documentSync
+            // ДО вызова провайдера — иначе клиент шлёт серверу foldingRange по
+            // неизвестному документу и получает отказ (фолдов нет).
+            const extraPath = harness.writeFile("extra.ts", "export function block(): void {\n    void 0;\n    void 0;\n}\n");
+            const foldSource = harness.group.foldingRangeSource;
+            const folds = await until("фолды неанонсированного extra.ts", async () => {
+                const found = await foldSource!({
+                    uri: Uri.file(extraPath).toString(),
+                    languageId: "typescript",
+                    text: "export function block(): void {\n    void 0;\n    void 0;\n}\n",
+                });
+                return found.length > 0 ? found : null;
+            });
+            expect(folds[0]).toMatchObject({ startLine: 0 });
+
+            // Регрессия крэша tsserver «reading 'charCount'»: запрос с НОВЫМ
+            // текстом уходит в ТОМ ЖЕ тике, что и правка, — обгоняя
+            // коалесированный (microtask) didChange. Раньше он писал текст в
+            // реестр мимо событий, следующий didChange нёс диапазон от уже
+            // нового текста, и tsserver получал правку за пределами своей копии.
+            harness.group.openFile(mainPath);
+            const editor = harness.group.getActiveEditor();
+            editor?.applyExternalEdits([createTextEdit(createRange(4, 0, 4, 0), "\nconst tail = 1;\n")], "grow");
+            const racing = foldSource!({
+                uri: mainUri,
+                languageId: "typescript",
+                text: editor?.getText() ?? "",
+            });
+            await racing;
+            // Сервер жив и видит согласованный буфер: ломаем типы ещё раз и
+            // ждём диагностику на ПРАВИЛЬНОЙ строке.
+            editor?.applyExternalEdits([createTextEdit(createRange(2, 13, 2, 19), "number")], "break again");
+            const reMarker = await until("диагностика после гонки didChange/фолдинга", () => {
+                const hit = markersFor(mainUri).find((m) => /not assignable to type 'number'/.test(m.message));
+                return Promise.resolve(hit ?? null);
+            });
+            expect(reMarker.startLine).toBe(2);
+            // Канал чист от крэшей tsserver и отказов по неизвестным документам.
+            const serverErrors = outputLines.filter((l) =>
+                /charCount|TypeScript Server Error|Unexpected resource|should be opened/i.test(l.value),
+            );
+            expect(serverErrors).toEqual([]);
         } finally {
             await harness.dispose();
         }

@@ -243,7 +243,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     foldingRegistrations: readonly IFoldingRegistration[];
     definitionRegistrations: readonly IDefinitionRegistration[];
 } {
-    const { rpc, registry } = ctx;
+    const { rpc, documentSync } = ctx;
     const registrations: ICompletionRegistration[] = [];
     const foldingRegistrations: IFoldingRegistration[] = [];
     const definitionRegistrations: IDefinitionRegistration[] = [];
@@ -258,7 +258,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
 
     rpc.handleRequest("languages.provideDefinition", async (params): Promise<WireDefinitionLocation[]> => {
         const p = params as IWireDefinitionParams;
-        const doc: ExtHostTextDocument = registry.upsertFull({
+        const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",
@@ -292,7 +292,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
 
     rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionItem[]> => {
         const p = params as IWireCompletionParams;
-        const doc: ExtHostTextDocument = registry.upsertFull({
+        const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",
@@ -327,7 +327,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
 
     rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[]> => {
         const p = params as IWireFoldingParams;
-        const doc: ExtHostTextDocument = registry.upsertFull({
+        const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",

@@ -1,4 +1,4 @@
-import { EndOfLine, Position, Range, Uri } from "./vscodeTypes.ts";
+import { EndOfLine, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts";
 
 /**
  * Реестр документов на стороне subprocess со СТАБИЛЬНОЙ идентичностью.
@@ -192,5 +192,81 @@ export class DocumentRegistry {
     /** Все известные документы (задел под `workspace.textDocuments`, WP3). */
     public all(): ExtHostTextDocument[] {
         return [...this.documents.values()];
+    }
+}
+
+/** Одна правка контента (`vscode.TextDocumentContentChangeEvent`). */
+export interface IDocumentContentChange {
+    readonly range: Range;
+    readonly rangeOffset: number;
+    readonly rangeLength: number;
+    readonly text: string;
+}
+
+/** Событие правки (`vscode.TextDocumentChangeEvent`). */
+export interface IDocumentChangeEvent {
+    readonly document: ExtHostTextDocument;
+    readonly contentChanges: readonly IDocumentContentChange[];
+    readonly reason: undefined;
+}
+
+/** Позиция конца текста (для full-range change-события document sync). */
+function endOfText(text: string): Position {
+    const lines = text.split("\n");
+    const last = lines.length - 1;
+    return new Position(last, lines[last].length);
+}
+
+/**
+ * ЕДИНСТВЕННАЯ точка входа текста в реестр на путях document sync
+ * (`editor.didOpen`/`didChange`), will-save и `languages.provide*`.
+ *
+ * Инвариант: любой потребитель onDidOpen/onDidChange (стоковый
+ * vscode-languageclient, который транслирует их в LSP didOpen/didChange) видит
+ * КАЖДЫЙ переход текста реестра как событие, а full-range у didChange посчитан
+ * от предыдущего текста реестра. Запись в реестр мимо трекера ломает оба
+ * контракта, и оба ломались по-настоящему: `languages.provide*` писали текст
+ * запроса через `registry.upsertFull` напрямую — (1) провайдер звался до
+ * didOpen, клиент слал серверу запрос по неизвестному документу («Unexpected
+ * resource» у typescript-language-server), (2) обогнавший коалесированный
+ * didChange запрос затирал oldText, следующий didChange нёс диапазон от УЖЕ
+ * нового текста, tsserver получал правку за пределами своей копии и падал
+ * (`Cannot read properties of undefined (reading 'charCount')`).
+ */
+export class DocumentSyncTracker {
+    /** Ресурсы, о которых уже фаерился didOpen (один раз на ресурс — как в VS Code). */
+    private readonly opened = new Set<string>();
+    public readonly onDidOpenEmitter = new EventEmitter<ExtHostTextDocument>();
+    public readonly onDidChangeEmitter = new EventEmitter<IDocumentChangeEvent>();
+
+    public constructor(private readonly registry: DocumentRegistry) {}
+
+    /**
+     * Согласует снапшот с реестром: новый ресурс → didOpen; изменившийся текст →
+     * didChange одной full-range правкой (валидно и для Full, и для Incremental
+     * sync сервера); тот же текст → тихое обновление меты (без churn версии).
+     */
+    public sync(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
+        const prev = this.registry.get(Uri.parse(snapshot.uri));
+        if (prev === undefined || !this.opened.has(snapshot.uri)) {
+            const doc = this.registry.upsertFull(snapshot);
+            this.opened.add(snapshot.uri);
+            this.onDidOpenEmitter.fire(doc);
+            return doc;
+        }
+        const oldText = prev.getText();
+        if (oldText === snapshot.text) {
+            prev.applyMeta(snapshot);
+            return prev;
+        }
+        // Диапазон — ДО upsert'а: реестр мутирует стабильный объект документа.
+        const fullRange = new Range(new Position(0, 0), endOfText(oldText));
+        const doc = this.registry.upsertFull(snapshot);
+        this.onDidChangeEmitter.fire({
+            document: doc,
+            contentChanges: [{ range: fullRange, rangeOffset: 0, rangeLength: oldText.length, text: snapshot.text }],
+            reason: undefined,
+        });
+        return doc;
     }
 }

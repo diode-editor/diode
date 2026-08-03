@@ -46,6 +46,8 @@ export interface HeadlessSessionOptions {
     rows?: number;
     cwd?: string;
     env?: Record<string, string>;
+    /** Нестандартный бинарь (self-extract-сборка); по умолчанию — SEA из getBinaryPath(). */
+    binary?: string;
 }
 
 /**
@@ -64,7 +66,7 @@ export class HeadlessSession {
     private stderr = "";
 
     public static async start(options: HeadlessSessionOptions = {}): Promise<HeadlessSession> {
-        const binary = await getBinaryPath();
+        const binary = options.binary ?? (await getBinaryPath());
         const cols = options.cols ?? 140;
         const rows = options.rows ?? 38;
         const port = await freePort();

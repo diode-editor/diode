@@ -22,6 +22,9 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * @param {string} binaryPath Абсолютный путь к собранному бинарю.
@@ -62,4 +65,65 @@ export function smokeTestBinary(binaryPath, options = {}) {
 /** @param {{ stdout?: string, stderr?: string }} result */
 function describeOutput(result) {
     return `  stdout: ${JSON.stringify(result.stdout ?? "")}\n  stderr: ${JSON.stringify(result.stderr ?? "")}`;
+}
+
+/**
+ * Самотест node-режима (`VEXX_RUN_AS_NODE=1`): бинарь обязан исполнять внешний
+ * JS как node — на этом стоит запуск вшитого language-сервера (SEA-поставка
+ * без node в PATH). Проверяются обе механики загрузки: CJS через createRequire
+ * и динамический `import()` ESM с top-level await из внешнего CJS-шима
+ * (embedder-хук SEA перехватывает только import из вшитого main — runAsNode.ts).
+ *
+ * @param {string} binaryPath Абсолютный путь к собранному бинарю.
+ * @param {{ timeoutMs?: number }} [options]
+ * @throws {Error} Если node-режим не исполняет скрипты или вывод не совпал.
+ */
+export function smokeTestNodeMode(binaryPath, options = {}) {
+    const { timeoutMs = 30_000 } = options;
+    const dir = mkdtempSync(join(tmpdir(), "vexx-smoke-node-"));
+    try {
+        writeFileSync(
+            join(dir, "inner.mjs"),
+            'await new Promise((r) => setTimeout(r, 1));\nconsole.log("SMOKE-ESM-TLA-OK");\n',
+        );
+        writeFileSync(
+            join(dir, "probe.cjs"),
+            '"use strict";\nconsole.log("SMOKE-CJS-OK");\nconst { pathToFileURL } = require("node:url");\nconst { join } = require("node:path");\nimport(pathToFileURL(join(__dirname, "inner.mjs")).href).catch((e) => { console.error(e); process.exit(1); });\n',
+        );
+        const result = spawnSync(binaryPath, [join(dir, "probe.cjs")], {
+            timeout: timeoutMs,
+            stdio: "pipe",
+            encoding: "utf8",
+            env: { ...process.env, VEXX_RUN_AS_NODE: "1" },
+        });
+        if (result.error) {
+            throw new Error(`[smoke:node] cannot execute (${result.error.code ?? "?"}): ${result.error.message}`);
+        }
+        if (result.signal !== null || result.status !== 0) {
+            throw new Error(
+                `[smoke:node] exited status=${String(result.status)} signal=${String(result.signal)}.\n` +
+                    describeOutput(result),
+            );
+        }
+        const out = result.stdout ?? "";
+        if (!out.includes("SMOKE-CJS-OK") || !out.includes("SMOKE-ESM-TLA-OK")) {
+            throw new Error(`[smoke:node] unexpected output.\n${describeOutput(result)}`);
+        }
+
+        // Прямая загрузка ESM с top-level await (пользовательский serverPath =
+        // cli.mjs): runAsNode обязан брать его без внешнего CJS-шима.
+        const direct = spawnSync(binaryPath, [join(dir, "inner.mjs")], {
+            timeout: timeoutMs,
+            stdio: "pipe",
+            encoding: "utf8",
+            env: { ...process.env, VEXX_RUN_AS_NODE: "1" },
+        });
+        if (direct.status !== 0 || !(direct.stdout ?? "").includes("SMOKE-ESM-TLA-OK")) {
+            throw new Error(
+                `[smoke:node] direct ESM-TLA load failed status=${String(direct.status)}.\n${describeOutput(direct)}`,
+            );
+        }
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
 }

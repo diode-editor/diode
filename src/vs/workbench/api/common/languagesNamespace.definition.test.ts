@@ -2,7 +2,7 @@ import type * as vscode from "vscode";
 
 import { describe, expect, it } from "vitest";
 
-import { DocumentRegistry } from "./extHostDocuments.ts";
+import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -10,9 +10,11 @@ import { Location, Position, Range, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stub: IStubRpc } {
+    const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
-        registry: new DocumentRegistry(),
+        registry,
+        documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
     };
     return { ctx, stub };

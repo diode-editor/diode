@@ -39,7 +39,7 @@ import { buildDistArtifacts } from "./build-dist.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
 import { resolveVexxVersion } from "./resolve-version.mjs";
 import { writeSelfExtract } from "./selfextract-format.mjs";
-import { smokeTestBinary } from "./smoke-binary.mjs";
+import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 /**
  * Версия Node, уезжающая в payload. Держи в лок-степе с `node-version` в
@@ -65,13 +65,13 @@ async function main() {
     console.log(`[selfextract] target=${target} version=${version}`);
 
     // 1. dist/main.js + dist/vexx.bundle (общее с build-sea.mjs).
-    const { mainJsPath, bundlePath } = await buildDistArtifacts({ repoRoot: root });
+    const { mainJsPath, bundlePath, tsServerBundlePath } = await buildDistArtifacts({ repoRoot: root });
 
     // 2. node для payload'а.
     const nodeBinary = await resolveNodeBinary({ target, nodeOpt: args.node });
 
     // 3. Стейджим payload и жмём его.
-    const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath });
+    const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath });
 
     // 4. Клеим стаб + payload.
     const key = `${version}-${sha256(payload).slice(0, 12)}`;
@@ -83,6 +83,7 @@ async function main() {
     // 5. Самотест — тот же, что у SEA: бинарь обязан реально стартовать (#143).
     if (target === HOST_TARGET) {
         const reported = smokeTestBinary(outputPath, { cwd: root });
+        smokeTestNodeMode(outputPath);
         console.log(`[selfextract] Smoke: ${outputPath} --version → ${reported}`);
         // Версия, зашитая в main.js, обязана совпадать с версией в ключе кэша: иначе
         // распаковка ведётся в каталог, не соответствующий содержимому payload'а.
@@ -176,11 +177,11 @@ async function downloadNode({ target }) {
 }
 
 /**
- * Стейджит node + main.js + vexx.bundle и возвращает payload.tar.gz байтами.
- * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string }} params
+ * Стейджит node + main.js + vexx.bundle + ts-server.bundle и возвращает payload.tar.gz байтами.
+ * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string }} params
  * @returns {Buffer}
  */
-function buildPayload({ target, nodeBinary, mainJsPath, bundlePath }) {
+function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath }) {
     const stageDir = join(root, "dist", ".selfextract", target);
     rmSync(stageDir, { recursive: true, force: true });
     mkdirSync(stageDir, { recursive: true });
@@ -189,6 +190,9 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath }) {
     chmodSync(join(stageDir, "node"), 0o755);
     cpSync(mainJsPath, join(stageDir, "main.js"));
     cpSync(bundlePath, join(stageDir, "vexx.bundle"));
+    // ts-server.bundle — файлом рядом с main.js: loadTsServer.ts читает его через
+    // entryDir() (единый код-путь с SEA-ассетом) и распаковывает в кэш.
+    cpSync(tsServerBundlePath, join(stageDir, "ts-server.bundle"));
 
     // node-pty стейджим как node_modules/node-pty рядом с main.js: self-extract —
     // НЕ SEA, поэтому loadNodePty.ts идёт dev-путём createRequire(import.meta.url)

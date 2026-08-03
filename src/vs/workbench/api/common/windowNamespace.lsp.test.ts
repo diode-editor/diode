@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DocumentRegistry } from "./extHostDocuments.ts";
+import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { Uri } from "./vscodeTypes.ts";
@@ -25,9 +25,11 @@ interface INaiveWindowSurface {
 
 function makeWindow() {
     const stub = makeStubRpc();
+    const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
-        registry: new DocumentRegistry(),
+        registry,
+        documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
     };
     const window = createWindowNamespace(ctx);

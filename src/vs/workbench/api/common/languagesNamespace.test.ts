@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 
-import { DocumentRegistry } from "./extHostDocuments.ts";
+import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -11,9 +11,11 @@ import type { WireCompletionItem } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stub: IStubRpc } {
+    const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
-        registry: new DocumentRegistry(),
+        registry,
+        documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
     };
     return { ctx, stub };
@@ -273,6 +275,45 @@ describe("LanguagesNamespace", () => {
             uri: Uri.file("/proj/Program.txt").toString(),
         });
         expect(result).toEqual([]);
+    });
+
+    it("provide*-запрос идёт через documentSync: didOpen ДО вызова провайдера, обгон текста — didChange от старого", async () => {
+        // Регрессия двух реальных отказов LSP-клиента (vscode-languageclient
+        // транслирует эти события в didOpen/didChange серверу):
+        // 1) провайдер звался до didOpen → сервер получал foldingRange по
+        //    неизвестному документу («Unexpected resource»);
+        // 2) запрос с обогнавшим текстом писал в реестр мимо событий → следующий
+        //    didChange считал диапазон от УЖЕ нового текста → правка за пределами
+        //    серверной копии (крэш tsserver «reading 'charCount'»).
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const log: string[] = [];
+        ctx.documentSync.onDidOpenEmitter.event((doc) => log.push(`open:${doc.getText()}`));
+        ctx.documentSync.onDidChangeEmitter.event((e) => {
+            const change = e.contentChanges[0];
+            log.push(`change:${change.rangeLength}:${change.range.end.line}.${change.range.end.character}`);
+        });
+        languages.registerFoldingRangeProvider(["csharp"], {
+            provideFoldingRanges: () => {
+                log.push("provider");
+                return [];
+            },
+        } as never);
+
+        const uri = Uri.file("/proj/Program.cs").toString();
+        await stub.callRequest("languages.provideFoldingRanges", { uri, languageId: "csharp", text: "a" });
+        expect(log).toEqual(["open:a", "provider"]);
+
+        // Тот же текст — тихо, без события.
+        log.length = 0;
+        await stub.callRequest("languages.provideFoldingRanges", { uri, languageId: "csharp", text: "a" });
+        expect(log).toEqual(["provider"]);
+
+        // Запрос обогнал didChange: полноправная правка с диапазоном по СТАРОМУ
+        // тексту ("a" → длина 1, конец 0:1), провайдер — после события.
+        log.length = 0;
+        await stub.callRequest("languages.provideFoldingRanges", { uri, languageId: "csharp", text: "ab\ncdd" });
+        expect(log).toEqual(["change:1:0.1", "provider"]);
     });
 
     it("provideFoldingRanges вызывает только матчащие провайдеры и сериализует области", async () => {

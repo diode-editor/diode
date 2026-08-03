@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { commandFor, LANGUAGE_SERVERS, resolveServerCommand } from "./resolveServer.ts";
 
 const TS_SPEC = LANGUAGE_SERVERS[0];
+const NODE = { command: "/opt/dist/node", runAsNodeFlag: false };
+const VEXX_SEA = { command: "/opt/dist/vexx", runAsNodeFlag: true };
+const BUNDLED = "/cache/vexx/ts-server/1.0-abc/typescript-language-server/lib/run-cli.cjs";
 
 describe("vexx-lsp-typescript — resolveServer", () => {
     it("таблица серверов декларативна: typescript-спека покрывает TS/JS-семейство", () => {
@@ -11,42 +14,65 @@ describe("vexx-lsp-typescript — resolveServer", () => {
         expect(TS_SPEC.languageIds).toEqual(["typescript", "typescriptreact", "javascript", "javascriptreact"]);
     });
 
-    it("commandFor: JS-энтрипоинты спавнятся через node из PATH, бинари — как есть", () => {
-        expect(commandFor("/x/cli.mjs")).toEqual({ command: "node", args: ["/x/cli.mjs", "--stdio"] });
-        expect(commandFor("/x/cli.js")).toEqual({ command: "node", args: ["/x/cli.js", "--stdio"] });
-        expect(commandFor("/x/cli.cjs", [])).toEqual({ command: "node", args: ["/x/cli.cjs"] });
-        expect(commandFor("/usr/bin/tsserver-wrap")).toEqual({ command: "/usr/bin/tsserver-wrap", args: ["--stdio"] });
+    it("commandFor: JS-энтрипоинты — нашим рантаймом; env всегда снимает VEXX_EXTENSION_HOST", () => {
+        expect(commandFor("/x/cli.mjs", NODE)).toEqual({
+            command: "/opt/dist/node",
+            args: ["/x/cli.mjs", "--stdio"],
+            env: { VEXX_EXTENSION_HOST: undefined },
+        });
+        expect(commandFor("/x/run-cli.cjs", VEXX_SEA, [])).toEqual({
+            command: "/opt/dist/vexx",
+            args: ["/x/run-cli.cjs"],
+            // SEA: бинарь уходит в node-режим; флаг наследуется внуками
+            // (tsserver форкается сервером через process.execPath).
+            env: { VEXX_EXTENSION_HOST: undefined, VEXX_RUN_AS_NODE: "1" },
+        });
+        expect(commandFor("/usr/bin/tls-wrap", VEXX_SEA)).toEqual({
+            command: "/usr/bin/tls-wrap",
+            args: ["--stdio"],
+            env: { VEXX_EXTENSION_HOST: undefined },
+        });
     });
 
-    it("приоритет: настройка → workspace node_modules → PATH", () => {
-        // Настройка задана и существует — побеждает.
-        expect(resolveServerCommand(TS_SPEC, "/custom/server.mjs", ["/ws"], (p) => p === "/custom/server.mjs")).toEqual({
-            command: "node",
-            args: ["/custom/server.mjs", "--stdio"],
-        });
+    it("приоритет: настройка → workspace node_modules → bundled → PATH", () => {
+        const resolve = (settingPath: string, exists: (p: string) => boolean) =>
+            resolveServerCommand(TS_SPEC, settingPath, ["/ws"], BUNDLED, NODE, exists);
+        const wsEntry = "/ws/node_modules/typescript-language-server/lib/cli.mjs";
 
-        // Настройки нет — берём workspace-шим, если существует.
-        const wsShim = "/ws/node_modules/.bin/typescript-language-server";
-        expect(resolveServerCommand(TS_SPEC, "", ["/ws"], (p) => p === wsShim)).toEqual({
-            command: wsShim,
-            args: ["--stdio"],
-        });
+        // Настройка задана и существует — побеждает.
+        const fromSetting = resolve("/custom/server.mjs", (p) => p === "/custom/server.mjs");
+        expect(fromSetting?.command.args[0]).toBe("/custom/server.mjs");
+        expect(fromSetting?.isBundled).toBe(false);
+
+        // Настройки нет — воркспейсная версия сервера. Кандидат — JS-энтрипоинт
+        // (НЕ `.bin`-шим!) и запускается нашим рантаймом: шим исполнялся бы
+        // напрямую и через шебанг `#!/usr/bin/env node` требовал системный node
+        // (реальный отказ на машине без node: env: 'node': No such file, 127).
+        const fromWorkspace = resolve("", (p) => p === wsEntry);
+        expect(fromWorkspace?.command).toMatchObject({ command: "/opt/dist/node", args: [wsEntry, "--stdio"] });
+        expect(fromWorkspace?.isBundled).toBe(false);
+
+        // Дефолт — вшитый сервер из поставки.
+        const fromBundled = resolve("", (p) => p === BUNDLED);
+        expect(fromBundled?.command.args[0]).toBe(BUNDLED);
+        expect(fromBundled?.command.command).toBe("/opt/dist/node");
+        expect(fromBundled?.isBundled).toBe(true);
 
         // Ничего на диске нет — PATH-кандидат без проверки существования.
-        expect(resolveServerCommand(TS_SPEC, "", ["/ws"], () => false)).toEqual({
-            command: "typescript-language-server",
-            args: ["--stdio"],
-        });
+        const fromPath = resolve("", () => false);
+        expect(fromPath?.command).toMatchObject({ command: "typescript-language-server", args: ["--stdio"] });
+        expect(fromPath?.isBundled).toBe(false);
 
         // Несуществующая настройка пропускается в пользу следующего кандидата.
-        expect(resolveServerCommand(TS_SPEC, "/gone/server", ["/ws"], (p) => p === wsShim)).toEqual({
-            command: wsShim,
-            args: ["--stdio"],
-        });
+        expect(resolve("/gone/server", (p) => p === BUNDLED)?.isBundled).toBe(true);
     });
 
-    it("спека без PATH-fallback'а может не отрезолвиться — null", () => {
-        const spec = { ...TS_SPEC, resolveCandidates: () => ["/nowhere/bin"] };
-        expect(resolveServerCommand(spec, "", [], () => false)).toBeNull();
+    it("пустой bundledServerPath выпадает из кандидатов; спека без PATH-fallback'а может дать null", () => {
+        const noPath = { ...TS_SPEC, resolveCandidates: () => ["/nowhere/bin"] };
+        expect(resolveServerCommand(noPath, "", [], "", NODE, () => false)).toBeNull();
+
+        const resolved = resolveServerCommand(TS_SPEC, "", [], "", NODE, () => false);
+        expect(resolved?.command.command).toBe("typescript-language-server");
+        expect(resolved?.isBundled).toBe(false);
     });
 });

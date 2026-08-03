@@ -56,13 +56,6 @@ function naiveEvent<T = never>(): vscode.Event<T> {
     return new EventEmitter<T>().event;
 }
 
-/** Позиция конца текста (для full-range change-события document sync). */
-function endOfText(text: string): Position {
-    const lines = text.split("\n");
-    const last = lines.length - 1;
-    return new Position(last, lines[last].length);
-}
-
 /** Wire-параметры запроса will-save (host → subprocess). */
 interface IWireWillSaveParams {
     /** Ресурс как `uri.toString()`. */
@@ -101,7 +94,7 @@ interface IWireWorkspaceFolder {
  * на переходах 0↔1 (исполнение will-save — WP6).
  */
 export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode.workspace {
-    const { rpc, registry, configStore } = ctx;
+    const { rpc, registry, documentSync, configStore } = ctx;
 
     let workspaceFolders: IWorkspaceFolder[] = [];
 
@@ -129,9 +122,12 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     });
 
     const onDidChangeConfigurationEmitter = new EventEmitter<vscode.ConfigurationChangeEvent>();
-    const onDidOpenTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
+    // didOpen/didChange живут в DocumentSyncTracker (единая точка входа текста в
+    // реестр — ей пользуются и document sync, и languages.provide*-обработчики).
+    const onDidOpenTextDocumentEmitter = documentSync.onDidOpenEmitter as unknown as EventEmitter<vscode.TextDocument>;
     const onDidCloseTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
-    const onDidChangeTextDocumentEmitter = new EventEmitter<vscode.TextDocumentChangeEvent>();
+    const onDidChangeTextDocumentEmitter =
+        documentSync.onDidChangeEmitter as unknown as EventEmitter<vscode.TextDocumentChangeEvent>;
     const onWillSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocumentWillSaveEvent>();
     const onDidSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
 
@@ -179,39 +175,17 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     }
 
     // ── Document sync (host → subprocess) ───────────────────────────────────
-    // `editor.didOpen` кладёт полный текст в реестр и фаерит onDidOpenTextDocument
-    // (один раз на ресурс — как в VS Code; повторные open'ы только обновляют текст);
-    // `editor.didChange` обновляет текст и фаерит onDidChangeTextDocument с одной
-    // full-range правкой (валидно и для Full, и для Incremental sync сервера).
-    const openedUris = new Set<string>();
-
+    // Оба пути — один `documentSync.sync()`: новый ресурс → didOpen (один раз,
+    // как в VS Code), изменившийся текст → didChange одной full-range правкой,
+    // тот же текст → тихое обновление меты. Никакой записи текста мимо трекера.
     rpc.handleNotification("editor.didOpen", (params) => {
         const snap = parseWireDocumentSyncSnapshot(params);
-        if (snap === null) return;
-        const doc = registry.upsertFull(snap);
-        if (openedUris.has(snap.uri)) return;
-        openedUris.add(snap.uri);
-        onDidOpenTextDocumentEmitter.fire(doc as unknown as vscode.TextDocument);
+        if (snap !== null) documentSync.sync(snap);
     });
 
     rpc.handleNotification("editor.didChange", (params) => {
         const snap = parseWireDocumentSyncSnapshot(params);
-        if (snap === null) return;
-        const oldText = registry.get(Uri.parse(snap.uri))?.getText() ?? "";
-        const doc = registry.upsertFull(snap);
-        const fullRange = new Range(new Position(0, 0), endOfText(oldText));
-        onDidChangeTextDocumentEmitter.fire({
-            document: doc as unknown as vscode.TextDocument,
-            contentChanges: [
-                {
-                    range: fullRange as unknown as vscode.Range,
-                    rangeOffset: 0,
-                    rangeLength: oldText.length,
-                    text: snap.text,
-                },
-            ],
-            reason: undefined,
-        });
+        if (snap !== null) documentSync.sync(snap);
     });
 
     rpc.handleNotification("workspace.initialize", (params) => {
@@ -239,7 +213,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     // одному per-listener таймауту), сериализуем полученные TextEdit[].
     rpc.handleRequest("workspace.willSaveTextDocument", async (params): Promise<WireTextEdit[]> => {
         const p = params as IWireWillSaveParams;
-        const doc = registry.upsertFull({
+        const doc = documentSync.sync({
             uri: p.uri,
             languageId: p.languageId,
             isDirty: p.isDirty,
