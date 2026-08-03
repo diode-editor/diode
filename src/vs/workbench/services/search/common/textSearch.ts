@@ -139,6 +139,16 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 /**
+ * Кап хвоста превью справа от матча. Хвост нужен только для отрисовки строки
+ * результата в сайдбаре (единственный потребитель — formatMatchRow) и не
+ * участвует в математике колонок, поэтому его можно резать смело; без капа
+ * один матч в минифицированном/lock-файле тащит в строку списка сотни
+ * килобайт (docs/TODO/SearchPerformance.md, случай 1). `before` капать
+ * нельзя — от его длины считается startColumn.
+ */
+const MAX_AFTER_CHARS = 256;
+
+/**
  * ripgrep reports submatch offsets as **byte** offsets into the (UTF-8) line, so
  * the split must happen on bytes and re-decode — slicing the JS string directly
  * would be wrong for any non-ASCII line. Also strips a trailing newline from
@@ -148,7 +158,15 @@ function splitPreviewByBytes(lineText: string, startByte: number, endByte: numbe
     const bytes = encoder.encode(lineText);
     const before = decoder.decode(bytes.subarray(0, startByte));
     const inside = decoder.decode(bytes.subarray(startByte, endByte));
-    const after = decoder.decode(bytes.subarray(endByte)).replace(/\r?\n$/, "");
+    let after = decoder.decode(bytes.subarray(endByte)).replace(/\r?\n$/, "");
+    if (after.length > MAX_AFTER_CHARS) {
+        // Режем после декодирования (срез по байтам дал бы U+FFFD посреди
+        // мультибайтового символа) и не разрываем суррогатную пару.
+        let cut = MAX_AFTER_CHARS;
+        const lead = after.charCodeAt(cut - 1);
+        if (lead >= 0xd800 && lead <= 0xdbff) cut--;
+        after = after.slice(0, cut);
+    }
     return { before, inside, after };
 }
 
