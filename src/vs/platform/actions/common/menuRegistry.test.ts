@@ -259,6 +259,42 @@ describe("MenuRegistry", () => {
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:cmd"]);
     });
 
+    it("submenu c резолвером фильтруется по when и императивному visible", () => {
+        const h = setup([{ menuId: MenuId.ViewMoreActions, command: "cmd" }]);
+        h.contextKeys.set("listFocus", false);
+        h.registry.appendMenuItem({
+            menuId: MenuId.ViewMoreActions,
+            submenu: MenuId.MenubarFileMenu,
+            title: "OnlyChanges",
+            visible: (context) => (context as { view?: string })?.view === "changes",
+        });
+        h.registry.appendMenuItem({
+            menuId: MenuId.ViewMoreActions,
+            submenu: MenuId.MenubarEditMenu,
+            title: "WhenGated",
+            when: "listFocus",
+        });
+        const resolver = (entry: { title: string }) => ({
+            type: "submenu" as const,
+            label: entry.title,
+            entries: [],
+        });
+
+        // Контекст другой секции: submenu с visible скрыто; when-гейт тоже false.
+        let titles = h.registry
+            .getMenuItems(MenuId.ViewMoreActions, { view: "graph" }, resolver as never)
+            .map((e) => ("label" in e ? e.label : "—"));
+        expect(titles).toEqual(["Title:cmd"]);
+
+        // Свой контекст + when=true: оба подменю в списке.
+        h.contextKeys.set("listFocus", true);
+        titles = h.registry
+            .getMenuItems(MenuId.ViewMoreActions, { view: "changes" }, resolver as never)
+            .map((e) => ("label" in e ? e.label : "—"));
+        expect(titles).toContain("OnlyChanges");
+        expect(titles).toContain("WhenGated");
+    });
+
     it("onDidChangeMenu: срабатывает на append и на снятие, но не на повторный dispose", () => {
         const h = setup([]);
         const changed: string[] = [];

@@ -32,6 +32,7 @@ import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpe
 import { ChangesComponent, ChangesComponentDIToken, SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
 import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
 import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
+import { ScmRepoStateServiceDIToken } from "../contrib/scm/browser/repoStateService.ts";
 import {
     SEARCH_VIEWLET_ID,
     SearchComponent,
@@ -204,6 +205,9 @@ export class WorkbenchComponent extends Component {
         this.register(accessor.get(GraphViewComponentDIToken));
         // Commit input box — header контейнера Source Control.
         this.scmInputComponent = this.register(accessor.get(ScmInputComponentDIToken));
+        // Repo-state (ветка/remotes/merge-rebase → when-ключи git*): команда
+        // vexx.scm.publishRepoState должна существовать до активации расширения.
+        this.register(accessor.get(ScmRepoStateServiceDIToken));
         this.terminalService = this.register(accessor.get(TerminalServiceDIToken));
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));
         this.register(accessor.get(TerminalPanelComponentDIToken));

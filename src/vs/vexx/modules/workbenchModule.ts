@@ -120,6 +120,7 @@ import {
 } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
 import { ScmInputComponent, ScmInputComponentDIToken } from "../../workbench/contrib/scm/browser/scmInputComponent.ts";
+import { ScmRepoStateService, ScmRepoStateServiceDIToken } from "../../workbench/contrib/scm/browser/repoStateService.ts";
 import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
 import { ScmGraphService, ScmGraphServiceDIToken } from "../../workbench/contrib/scm/browser/graphService.ts";
 import {
@@ -333,6 +334,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(GraphViewComponentDIToken, GraphViewComponent);
     // Commit input box — header контейнера Source Control.
     container.bind(ScmInputComponentDIToken, ScmInputComponent);
+    // Снимок состояния репозитория (ветка/remotes/merge-rebase) → when-ключи git*.
+    container.bind(ScmRepoStateServiceDIToken, ScmRepoStateService);
     // Этап 11: layout-логика (сайдбар/панель + персист layout'а; сам
     // WorkbenchLayoutElement приходит от владельца view через attachLayout),
     // персист открытых редакторов, контекст-ключи workbench'а (замыкают

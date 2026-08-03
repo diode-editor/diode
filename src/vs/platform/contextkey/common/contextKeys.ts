@@ -105,6 +105,13 @@ export interface ContextKeyTypes {
     scmViewletVisible: boolean;
     /** Фокус в commit input box вьюлета Source Control (Vexx; VS Code: scmInputIsInFocus). */
     scmInputFocus: boolean;
+    // -- Git repo-state (Vexx: публикует ScmRepoStateService из vexx.scm.publishRepoState) --
+    gitHasRepo: boolean;
+    gitHasRemotes: boolean;
+    gitHasUpstream: boolean;
+    gitMerging: boolean;
+    gitRebasing: boolean;
+    gitDetached: boolean;
     // sideBarVisible: boolean;
     // sideBarFocus: boolean;
     // panelFocus: boolean;
@@ -247,6 +254,12 @@ export const allContextKeys: ContextKey[] = [
     "searchViewletVisible",
     "scmViewletVisible",
     "scmInputFocus",
+    "gitHasRepo",
+    "gitHasRemotes",
+    "gitHasUpstream",
+    "gitMerging",
+    "gitRebasing",
+    "gitDetached",
     // "sideBarVisible",
     // "sideBarFocus",
     // "panelFocus",
