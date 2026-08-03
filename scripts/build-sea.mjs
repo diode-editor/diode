@@ -5,7 +5,7 @@ import { writeFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 import { buildDistArtifacts } from "./build-dist.mjs";
-import { smokeTestBinary } from "./smoke-binary.mjs";
+import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const dist = join(root, "dist");
@@ -98,6 +98,8 @@ if (isMac) {
 // раньше проверка была только под macOS, смотрела лишь на `error` и запускала
 // бинарь без аргументов, из-за чего segfault уехал в релиз (#143).
 const version = smokeTestBinary(outputPath, { cwd: root });
+smokeTestNodeMode(outputPath);
+console.log("Smoke: node mode (VEXX_RUN_AS_NODE) OK");
 console.error(`[build-sea] Smoke: ${outputPath} --version → ${version}`);
 
 console.log(`\nDone! Binary: ${outputPath}`);

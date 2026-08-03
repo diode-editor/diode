@@ -30,6 +30,23 @@ import { packBundle } from "./pack-assets.mjs";
 /** Файлы typescript/lib, нужные tsserver'у в рантайме (кроме lib.*.d.ts — они по фильтру). */
 const TYPESCRIPT_LIB_FILES = ["tsserver.js", "_tsserver.js", "typescript.js", "typesMap.json", "watchGuard.js"];
 
+/**
+ * CJS-шим запуска сервера под «vexx как node» (SEA). Динамический `import()`
+ * из вшитого SEA-main перехватывается embedder-хуком (умеет только builtin'ы),
+ * а `require(esm)` не берёт cli.mjs из-за top-level await — но `import()` из
+ * ВНЕШНЕГО CJS-файла идёт настоящим ESM-loader'ом (проверено на бинаре).
+ * bundled serverPath указывает на этот шим.
+ */
+const RUN_CLI_CJS = `"use strict";
+// vexx: CJS-шим для SEA-режима — см. scripts/pack-ts-server.mjs.
+const { pathToFileURL } = require("node:url");
+const { join } = require("node:path");
+import(pathToFileURL(join(__dirname, "cli.mjs")).href).catch((err) => {
+    console.error(err);
+    process.exit(1);
+});
+`;
+
 /** Стандартные библиотеки компилятора: lib.d.ts / lib.<target>.d.ts. */
 const TYPESCRIPT_STDLIB_RE = /^lib(\..+)?\.d\.ts$/;
 
@@ -59,6 +76,7 @@ export function buildTsServerBundle({ repoRoot }) {
     /** @type {{ virtualPath: string, data: Buffer }[]} */
     const inputs = [
         { virtualPath: "typescript-language-server/lib/cli.mjs", data: readFileSync(cliPath) },
+        { virtualPath: "typescript-language-server/lib/run-cli.cjs", data: Buffer.from(RUN_CLI_CJS, "utf8") },
         { virtualPath: "typescript-language-server/package.json", data: readFileSync(tlsPackageJson) },
         { virtualPath: "node_modules/typescript/package.json", data: readFileSync(typescriptPackageJson) },
     ];

@@ -58,13 +58,20 @@ import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTo
 import { TokenThemeResolver } from "../workbench/services/themes/common/tokenThemeResolver.ts";
 
 import { createProductionContainer } from "./modules/productionProfile.ts";
+import { runAsNode } from "./runAsNode.ts";
 
 // ── Subprocess branch ─────────────────────────────────────
 // Если форкнул себя ExtensionHost'ом — уходим в subprocess entry до любых
 // TUI/CLI инициализаций. Сигнал — env VEXX_EXTENSION_HOST=1, выставленный
 // `ExtensionHost.ensureSubprocess()`.
+//
+// Node-режим проверяется РАНЬШЕ ext-host'а: language-сервер, запущенный нашим
+// бинарём, не имеет IPC-канала (runExtensionHostSubprocess умер бы с exit 2),
+// а env VEXX_EXTENSION_HOST может протечь от ext-host'а через spawn среды.
 
-if (process.env.VEXX_EXTENSION_HOST === "1") {
+if (process.env.VEXX_RUN_AS_NODE === "1") {
+    runAsNode();
+} else if (process.env.VEXX_EXTENSION_HOST === "1") {
     runExtensionHostSubprocess();
     // runExtensionHostSubprocess() возвращается, но процесс остаётся живым
     // на IPC-канале до disconnect/shutdown. Просто не идём в TUI-ветку.

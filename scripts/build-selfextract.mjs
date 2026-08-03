@@ -39,7 +39,7 @@ import { buildDistArtifacts } from "./build-dist.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
 import { resolveVexxVersion } from "./resolve-version.mjs";
 import { writeSelfExtract } from "./selfextract-format.mjs";
-import { smokeTestBinary } from "./smoke-binary.mjs";
+import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 /**
  * Версия Node, уезжающая в payload. Держи в лок-степе с `node-version` в
@@ -83,6 +83,7 @@ async function main() {
     // 5. Самотест — тот же, что у SEA: бинарь обязан реально стартовать (#143).
     if (target === HOST_TARGET) {
         const reported = smokeTestBinary(outputPath, { cwd: root });
+        smokeTestNodeMode(outputPath);
         console.log(`[selfextract] Smoke: ${outputPath} --version → ${reported}`);
         // Версия, зашитая в main.js, обязана совпадать с версией в ключе кэша: иначе
         // распаковка ведётся в каталог, не соответствующий содержимому payload'а.

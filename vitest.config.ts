@@ -31,6 +31,7 @@ export default defineConfig({
         "src/demos/**",
         "tuidom/demos/**",
         "src/vs/vexx/main.ts",
+        "src/vs/vexx/runAsNode.ts", // node-режим SEA-бинаря (VEXX_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled
         "src/StoryRunner/**",
         "src/vs/workbench/services/extensions/node/__fixtures__/**",
 
