@@ -6,6 +6,8 @@ import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarSer
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import {
+    scmFocusChangesAction,
+    scmFocusInputAction,
     scmOpenChangesAction,
     scmOpenFileAction,
     scmViewAsListAction,
@@ -13,6 +15,7 @@ import {
     showScmAction,
 } from "./changesActions.ts";
 import { ChangesComponentDIToken, SCM_VIEWLET_ID } from "./changesComponent.ts";
+import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 // scm.action.openChanges покрыт сквозными тестами workbench.changes.test.ts
 // (активация строки, untracked-фолбэк); здесь — пути резолва цели и view-mode.
@@ -31,6 +34,30 @@ describe("showScmAction", () => {
         const sidebar = { showViewlet: vi.fn() };
         showScmAction.run(accessorWith(new Map([[SidebarServiceDIToken, sidebar]])));
         expect(sidebar.showViewlet).toHaveBeenCalledWith(SCM_VIEWLET_ID);
+    });
+});
+
+describe("workbench.scm.focus / scm.action.focusChanges", () => {
+    it("workbench.scm.focus показывает вьюлет без reveal-фокуса и фокусит input", () => {
+        const sidebar = { showViewlet: vi.fn() };
+        const input = { focus: vi.fn() };
+        scmFocusInputAction.run(
+            accessorWith(
+                new Map<unknown, unknown>([
+                    [SidebarServiceDIToken, sidebar],
+                    [ScmInputComponentDIToken, input],
+                ]),
+            ),
+        );
+        expect(sidebar.showViewlet).toHaveBeenCalledWith(SCM_VIEWLET_ID, false);
+        expect(input.focus).toHaveBeenCalledTimes(1);
+    });
+
+    it("scm.action.focusChanges висит на Down при scmInputFocus и фокусит список", () => {
+        expect(scmFocusChangesAction.when).toBe("scmInputFocus");
+        const component = { focus: vi.fn() };
+        scmFocusChangesAction.run(accessorWith(new Map<unknown, unknown>([[ChangesComponentDIToken, component]])));
+        expect(component.focus).toHaveBeenCalledTimes(1);
     });
 });
 

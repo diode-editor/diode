@@ -37,6 +37,8 @@ import {
     showCommandsAction,
 } from "../../contrib/quickaccess/browser/quickOpenActions.ts";
 import {
+    scmFocusChangesAction,
+    scmFocusInputAction,
     scmOpenChangesAction,
     scmOpenFileAction,
     scmViewAsListAction,
@@ -354,6 +356,8 @@ export const builtinActions: readonly CommandAction[] = [
     scmOpenChangesAction,
     scmViewAsTreeAction,
     scmViewAsListAction,
+    scmFocusInputAction,
+    scmFocusChangesAction,
     scmGraphRefreshAction,
     gitStageAction,
     gitUnstageAction,

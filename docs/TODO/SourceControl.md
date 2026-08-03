@@ -371,7 +371,7 @@ UI-подтверждения. Ручной прогон после релиза
       меню на папках и заголовках групп. Гейт: US-2…9, US-12 (без discard).
 - [x] **4. Discard** — `DialogService.confirm()`, `git.clean/cleanAll` с раздельными
       текстами tracked/untracked/mixed. Гейт: US-10, US-11.
-- [ ] **5. Commit input box** — `InputElement.inspectState` (tuidom), `header` в
+- [x] **5. Commit input box** — `InputElement.inspectState` (tuidom), `header` в
       `IViewContainerDescriptor` + VFlex в `attachContainer`, `scmInputComponent.ts`,
       ключ `scmInputFocus`, `workbench.scm.focus`/`scm.action.focusChanges`, персист
       черновика, `input.selectionBackground` в реестр цветов. Гейт: US-13…15.

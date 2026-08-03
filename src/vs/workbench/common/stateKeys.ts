@@ -77,6 +77,13 @@ export const SCM_VIEW_MODE_STATE: IStateDescriptor<ScmViewMode> = {
     default: "flat",
 };
 
+/** Черновик сообщения коммита (commit input box) — переживает рестарт. */
+export const SCM_INPUT_MESSAGE_STATE: IStateDescriptor<string> = {
+    key: "workbench.scm.inputMessage",
+    scope: "workspace",
+    default: "",
+};
+
 /** Открытые файлы + активная вкладка. */
 export const OPEN_EDITORS_STATE: IStateDescriptor<IOpenEditorsState> = {
     key: "workbench.editors.openEditors",

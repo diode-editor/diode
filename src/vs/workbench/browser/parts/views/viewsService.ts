@@ -1,4 +1,5 @@
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
+import { vflexFill, vflexFit, VFlexElement } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -21,6 +22,12 @@ export interface IViewContainerDescriptor {
     readonly id: string;
     /** Заголовок рамки вьюлета (например `"  SOURCE CONTROL"`). */
     readonly title: string;
+    /**
+     * Фиксированная зона над секциями (commit input box Source Control — как в
+     * VS Code, где input живёт в теле view над деревом ресурсов). Не секция:
+     * не сворачивается, не участвует в весах и drag-перекидывании строк.
+     */
+    readonly header?: TUIElement;
 }
 
 /**
@@ -124,7 +131,15 @@ export class ViewsService {
             });
         };
         entry.paneView = paneView;
-        entry.view = new TitledPanelElement(title, paneView);
+        let content: TUIElement = paneView;
+        const header = entry.descriptor.header;
+        if (header !== undefined) {
+            const stack = new VFlexElement();
+            stack.addChild(header, { height: vflexFit(), width: "fill" });
+            stack.addChild(paneView, { height: vflexFill(), width: "fill" });
+            content = stack;
+        }
+        entry.view = new TitledPanelElement(title, content);
         entry.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.rebuildPanes(paneView, entry.views);
         this.sidebarService.registerViewlet(containerId, entry.view, () => {

@@ -103,6 +103,8 @@ export interface ContextKeyTypes {
     // notificationToastsVisible: boolean;
     searchViewletVisible: boolean;
     scmViewletVisible: boolean;
+    /** Фокус в commit input box вьюлета Source Control (Vexx; VS Code: scmInputIsInFocus). */
+    scmInputFocus: boolean;
     // sideBarVisible: boolean;
     // sideBarFocus: boolean;
     // panelFocus: boolean;
@@ -244,6 +246,7 @@ export const allContextKeys: ContextKey[] = [
     // "notificationToastsVisible",
     "searchViewletVisible",
     "scmViewletVisible",
+    "scmInputFocus",
     // "sideBarVisible",
     // "sideBarFocus",
     // "panelFocus",
