@@ -16,6 +16,7 @@ import { VEXX_VERSION } from "../base/common/version.ts";
 import { createDefaultAssetAccess } from "../base/node/assets/createDefaultAssetAccess.ts";
 import { FsAssetAccess } from "../base/node/assets/fsAssetAccess.ts";
 import { isPackagedRuntime } from "../base/node/assets/packagedRuntime.ts";
+import { isSeaBinary } from "../base/node/isSea.ts";
 import type { ILanguageService } from "../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../editor/common/languages/tokenizationRegistry.ts";
 import { OscClipboard } from "../platform/clipboard/common/oscClipboard.ts";
@@ -37,6 +38,7 @@ import type {
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
 import { loadUserKeybindings } from "../platform/keybinding/node/keybindingsService.ts";
+import type { ILogger } from "../platform/log/common/iLogger.ts";
 import { LogService } from "../platform/log/common/logService.ts";
 import { RingBufferSink } from "../platform/log/common/ringBufferSink.ts";
 import { FileSink } from "../platform/log/node/fileSink.ts";
@@ -50,6 +52,7 @@ import { ExtensionTokenizationContributor } from "../workbench/services/extensio
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import { ExtensionHostDIToken } from "../workbench/services/extensions/node/extensionHost.ts";
 import { runExtensionHostSubprocess } from "../workbench/services/extensions/node/extensionHostSubprocess.ts";
+import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/extensions/node/loadTsServer.ts";
 import type { IExtensionRegistration } from "../workbench/services/extensions/node/iExtensionEntry.ts";
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
@@ -422,7 +425,10 @@ async function runEditor(): Promise<void> {
                 source,
                 // Синтетический абсолютный путь-идентичность (реального файла под SEA нет).
                 filename: `/${virtualPath}`,
-                configDefaults: flattenConfigDefaults(ext.manifest.contributes?.configuration),
+                configDefaults: {
+                    ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
+                    ...builtinConfigInjection(ext.manifest.name, extensionsLogger),
+                },
                 commandTitles: collectCommandTitles(ext.manifest.contributes?.commands),
                 activationEvents: ext.manifest.activationEvents,
             };
@@ -535,6 +541,32 @@ async function preloadGrammarsForFiles(
  * (`{ "editorconfig.generateAuto": true }`). Ключи `properties` — уже полные
  * dotted-пути настроек. Блок может быть объектом или массивом объектов.
  */
+/**
+ * Синтетические config-дефолты host'а для builtin-расширений (в манифесте их
+ * нет — это внутренний seam, не пользовательские настройки).
+ *
+ * Для `vexx-lsp-typescript` — вшитый language-сервер: целевые пути распаковки
+ * (детерминированы от версии+хэша бандла — их можно раздать ДО распаковки;
+ * готовность клиент проверяет existsSync самого entry, публикация атомарна)
+ * и режим node-рантайма. Сама распаковка стартует здесь же fire-and-forget —
+ * после первого кадра, вне перцептивно-критического пути (VISION).
+ */
+function builtinConfigInjection(manifestName: string, logger: ILogger): Record<string, unknown> {
+    if (manifestName !== "vexx-lsp-typescript") return {};
+    const target = bundledTsServerTarget();
+    if (target === null) return {};
+    void ensureTsServer((err) => {
+        logger.error("bundled ts-server unpack failed", err);
+    });
+    return {
+        "vexx.lsp.typescript.bundledServerPath": target.serverPath,
+        "vexx.lsp.typescript.bundledTsserverPath": target.tsserverPath,
+        // SEA: сервер запускается нашим же бинарём в node-режиме (runAsNode.ts);
+        // dev/self-extract: process.execPath субпроцесса — настоящий node.
+        "vexx.lsp.typescript.serverRuntime": isSeaBinary() ? "vexx-as-node" : "node",
+    };
+}
+
 function flattenConfigDefaults(
     configuration: IConfigurationContribution | readonly IConfigurationContribution[] | undefined,
 ): Record<string, unknown> | undefined {
