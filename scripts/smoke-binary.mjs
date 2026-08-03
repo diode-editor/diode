@@ -109,6 +109,20 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
         if (!out.includes("SMOKE-CJS-OK") || !out.includes("SMOKE-ESM-TLA-OK")) {
             throw new Error(`[smoke:node] unexpected output.\n${describeOutput(result)}`);
         }
+
+        // Прямая загрузка ESM с top-level await (пользовательский serverPath =
+        // cli.mjs): runAsNode обязан брать его без внешнего CJS-шима.
+        const direct = spawnSync(binaryPath, [join(dir, "inner.mjs")], {
+            timeout: timeoutMs,
+            stdio: "pipe",
+            encoding: "utf8",
+            env: { ...process.env, VEXX_RUN_AS_NODE: "1" },
+        });
+        if (direct.status !== 0 || !(direct.stdout ?? "").includes("SMOKE-ESM-TLA-OK")) {
+            throw new Error(
+                `[smoke:node] direct ESM-TLA load failed status=${String(direct.status)}.\n${describeOutput(direct)}`,
+            );
+        }
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }

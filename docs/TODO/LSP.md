@@ -109,22 +109,25 @@ go-to-definition работает; сервер-внук корректно уб
 
 ## Отложенное (за рамками итерации)
 
-- **SEA-упаковка серверов** (следующая итерация): курируемый набор языковых
-  серверов должен приезжать с бинарём (VISION: «батарейки вшиваем»). Текущее
-  требование «сервер в devDeps проекта или PATH» неканонично: ни VS Code
-  (tsserver шипится с редактором), ни neovim (глобальная установка) не ставят
-  сервер в проект; в devDeps реальных проектов живёт `typescript`, но не
-  `typescript-language-server`. Набросок дизайна:
-  - бандл: `typescript-language-server` (esbuild в один файл, ~5 МБ) +
-    `typescript/lib` (tsserver.js + стандартные d.ts, ~50 МБ) в SEA-ассеты,
-    распаковка в кэш при первом обращении (механика ripgrep/node-pty; нужна
-    инвалидация по версии vexx);
-  - node-рантайм: «vexx как node» — ранний branch в `main.ts` (по образцу
-    `VEXX_EXTENSION_HOST=1`), которым СВОЙ бинарь исполняет `cli.mjs` сервера;
-    внешний node в PATH перестаёт быть зависимостью;
-  - резолв становится: настройка → workspace `node_modules/.bin` (оверрайд
-    версии) → **bundled (дефолт)** → PATH; воркспейсный `typescript` сервер
-    уважает сам (`Using Typescript version (workspace)`);
+- **[x] SEA-упаковка серверов — СДЕЛАНО** (итерация «вшитый сервер»):
+  `ts-server.bundle` (~13 МБ: однофайловый `cli.mjs` сервера + минимальный
+  `typescript/lib` без локалей/tsc/ATA) едет в обеих трубах поставки (SEA-ассет /
+  файл рядом с `main.js` в self-extract), распаковывается в XDG-кэш
+  (`~/.cache/vexx/ts-server/<version>-<sha256[0:12]>`) атомарно и
+  конкурентно-безопасно (`extractBundleToCache`: mkdir-lock + tmp + `.vexx-ready`
+  + rename — схема self-extract-стаба). Рантайм «как VS Code»: сервер запускается
+  `process.execPath` субпроцесса (dev/self-extract — настоящий node; SEA —
+  vexx-бинарь в node-режиме `VEXX_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`;
+  динамический `import()` из вшитого SEA-main перехвачен embedder-хуком, а
+  `require(esm)` не берёт top-level await cli.mjs — поэтому в бандле лежит
+  CJS-шим `run-cli.cjs`, чей `import()` идёт настоящим ESM-loader'ом).
+  Резолв: настройка → workspace `node_modules/.bin` → **bundled (дефолт)** → PATH;
+  для bundled — `tsserver.path` из поставки + ATA выключен. Компромисс ленивой
+  распаковки: она стартует fire-and-forget при регистрации builtin'ов (вне
+  критического пути первого кадра), целевые пути детерминированы и раздаются
+  через configDefaults заранее; клиент при гонке коротко поллит готовность (5 с).
+  E2E-пруф — `e2e/lspBundled.test.ts`: SEA и self-extract на голом окружении
+  (PATH без node, воркспейс без node_modules, без настроек).
   - открытые вопросы: размер бинаря (+~55 МБ) vs отдельный распаковываемый
     артефакт; кросс-платформенность кэша; прогон e2e на «голой» машине без
     node_modules/node.

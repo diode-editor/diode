@@ -20,6 +20,11 @@ IO-абстракции (интерфейс + no-op/in-memory заглушка),
 ## Common/Assets/
 Унифицированный доступ к статическим ассетам (грамматики, `onig.wasm`, манифесты builtin-расширений) через один интерфейс `IAssetAccess` над виртуальными POSIX-путями — потребители не знают, откуда физически читаются файлы. Две реализации: `BundleAssetAccess` (in-memory mini-archive) и `FsAssetAccess` (dev, mapping `virtualPrefix → fsRoot`). `CompositeAssetAccess` — longest-prefix роутер, склеивающий builtin- и user-ассеты в одно адресное пространство. Сборка bundle — `scripts/pack-assets.mjs`.
 
+Три вида употребления ассетов:
+- **in-memory** (`vexx.bundle`) — читается целиком, файлы наружу не пишутся (грамматики, код builtin-расширений);
+- **extract-to-tmp** (`rg.bundle`, `node-pty.bundle`) — распаковка в `os.tmpdir()` при первом использовании (`loadRipgrep`/`loadNodePty`; инвалидация по размеру ассета);
+- **extract-to-cache** (`ts-server.bundle`) — распаковка в XDG-кэш (`cachePaths.userCacheDir()` → `~/.cache/vexx/...`), переживает ребут; примитив — `base/node/assets/extractBundleToCache.ts`: версионированный ключ `<version>-<sha256>`, mkdir-lock как мьютекс, публикация атомарным rename с `.vexx-ready` (схема self-extract-стаба), ожидание чужого лока с таймаутом. Потребитель — `loadTsServer.ts` (вшитый language-сервер).
+
 `createDefaultAssetAccess()` выбирает источник **одного и того же** `vexx.bundle` по убыванию приоритета:
 1. **SEA** — бандл внутри бинаря, `node:sea.getAsset("vexx.bundle")`;
 2. **self-extract** — бандл лежит файлом рядом с `main.js` (`BundleFile.ts`; сборка — `scripts/build-selfextract.mjs`);
