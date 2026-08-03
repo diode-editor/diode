@@ -110,8 +110,59 @@ describe("VscodeNamespace — стабильная идентичность acti
             "EndOfLine",
             "FoldingRange",
             "FoldingRangeKind",
+            // Поверхность vscode-languageclient (LSP): он extends-ит эти типы на require.
+            "Location",
+            "Diagnostic",
+            "DiagnosticSeverity",
+            "DiagnosticTag",
+            "CodeLens",
+            "CodeAction",
+            "CodeActionKind",
+            "DocumentLink",
+            "DocumentHighlightKind",
+            "InlayHint",
+            "SymbolInformation",
+            "SymbolKind",
+            "SymbolTag",
+            "CompletionItemTag",
+            "CallHierarchyItem",
+            "TypeHierarchyItem",
+            "CancellationError",
+            "CancellationTokenSource",
+            "LogLevel",
+            "ProgressLocation",
+            "MarkdownString",
+            "Hover",
+            "WorkspaceEdit",
         ]) {
             expect(vscode[name], name).toBeDefined();
         }
+    });
+
+    it("version — валидный VS Code semver в лок-степе с extensions/VSCODE_VERSION", async () => {
+        const { readFile } = await import("node:fs/promises");
+        const pinned = (await readFile(new URL("../../../../../extensions/VSCODE_VERSION", import.meta.url), "utf8")).trim();
+        const { rpc } = makeStubRpc();
+        const vscode = buildVscodeNamespace(rpc).namespace;
+        // vscode-languageclient проверяет semver `^1.91.0` — «vexx-phase-1» его ронял.
+        expect(vscode.version).toBe(pinned);
+        expect(vscode.version).toMatch(/^\d+\.\d+\.\d+$/);
+    });
+
+    it("env — наивные поля, которые читает vscode-languageclient", async () => {
+        const { rpc } = makeStubRpc();
+        const vscode = buildVscodeNamespace(rpc).namespace as unknown as {
+            env: {
+                appName: string;
+                language: string;
+                clipboard: { readText(): Thenable<string>; writeText(t: string): Thenable<void> };
+                openExternal(): Thenable<boolean>;
+            };
+        };
+        expect(vscode.env.appName).toBe("Vexx");
+        expect(vscode.env.language).toBe("en");
+        expect(await vscode.env.clipboard.readText()).toBe("");
+        await vscode.env.clipboard.writeText("x");
+        expect(await vscode.env.openExternal()).toBe(false);
     });
 });

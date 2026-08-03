@@ -13,6 +13,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
+import { activeDocumentSnapshot, bindDocumentSync } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
@@ -20,8 +21,11 @@ import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColor
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import {
+    type DiagnosticsSink,
     ExtensionHost,
     type IExtensionHostConfigProvider,
+    type IOutputSink,
+    type IProgressSink,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
@@ -104,6 +108,12 @@ export interface IExtensionHarnessOptions {
      * {@link NULL_LANGUAGE_SERVICE} (всё — `plaintext`).
      */
     readonly languageService?: ILanguageService;
+    /** Сток диагностик расширений (`diagnostics.publish`). По умолчанию не подключён. */
+    readonly diagnosticsSink?: DiagnosticsSink;
+    /** Сток прогресса расширений (`window.progress.*`). По умолчанию не подключён. */
+    readonly progressSink?: IProgressSink;
+    /** Сток output-каналов расширений (`output.append`/`show`). По умолчанию не подключён. */
+    readonly outputSink?: IOutputSink;
     /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
     /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
@@ -176,6 +186,10 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const host = new ExtensionHost(adapter, commandAdapter, {
         spawnArgs: subprocessSpawnArgsForTests(),
         configuration,
+        activeDocumentProvider: () => activeDocumentSnapshot(group),
+        ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
+        ...(options.progressSink !== undefined ? { progressSink: options.progressSink } : {}),
+        ...(options.outputSink !== undefined ? { outputSink: options.outputSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         ...(options.themeColorResolver !== undefined ? { themeColorResolver: options.themeColorResolver } : {}),
@@ -186,8 +200,12 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     group.onEditorSaved((meta) => {
         host.didSaveTextDocument(meta);
     });
+    // Document sync (LSP): продюсер didOpen/didChange — как в extensionHostModule.
+    bindDocumentSync(group, host);
     // Completion (WP8): источник автодополнений — провайдеры расширений через host.
     group.completionSource = (req) => host.provideCompletionItems(req);
+    // Definition (LSP): источник целей Go to Definition — как в extensionHostModule.
+    group.definitionSource = (req) => host.provideDefinition(req);
     // Folding (#87): источник областей сворачивания — провайдеры расширений через host.
     group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
     host.onFoldingProvidersChanged(() => {

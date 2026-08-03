@@ -3,7 +3,7 @@ import type * as vscode from "vscode";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
-import { DisposableImpl, Position, Selection, Uri } from "./vscodeTypes.ts";
+import { DisposableImpl, EventEmitter, Position, Selection, Uri } from "./vscodeTypes.ts";
 import {
     type IWireEditorEdit,
     type IWireFileDecoration,
@@ -55,10 +55,25 @@ function normalizeChangedUris(changed: undefined | vscode.Uri | vscode.Uri[]): v
  * ссылке), проксирует установку `editor.options` хосту через RPC и стабит
  * оконное состояние / сообщения.
  */
+/**
+ * Имя output-канала → slug для id (`extensions.<slug>`): lower-case,
+ * не-алфанумерика схлопывается в дефис. Полный id без extension id — у
+ * subprocess-неймспейса нет per-call контекста расширения (docs/TODO/Logging.md).
+ */
+export function slugifyChannelName(name: string): string {
+    const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gu, "-")
+        .replace(/^-+|-+$/gu, "");
+    return slug === "" ? "channel" : slug;
+}
+
 export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.window {
     const { rpc, registry } = ctx;
 
     let activeEditorUri: string | null = null;
+    // Идентификаторы withProgress-жизненных-циклов (window.progress.*).
+    let nextProgressHandle = 1;
     // Выделения активного редактора: последние из meta / `editor.selectionChanged`
     // либо выставленные самим расширением. Vexx показывает один активный редактор —
     // visibleTextEditors и activeTextEditor всегда указывают на него, так что
@@ -349,35 +364,126 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             });
         },
 
+        // Настоящий output-канал: строки уезжают хосту (`output.append`) и
+        // попадают в панель Output отдельным каналом с label = name (мост —
+        // ExtensionOutputAdapter). Ошибки vscode-languageclient
+        // (`p2c.asDiagnostics` и т.п.) идут ТОЛЬКО сюда — канал обязан быть
+        // настоящим. `clear`/`replace` — no-op (журнал ретенционный, см.
+        // docs/TODO/LSP.md).
         createOutputChannel: (name: string): vscode.OutputChannel => {
-            // stdout субпроцесса пробрасывается в логгер `extensions.host.stdout`.
-            const log = (value: string): void => {
-                console.log(`[${name}] ${value}`);
+            const channel = "extensions." + slugifyChannelName(name);
+            const send = (level: string, value: string): void => {
+                rpc.notify("output.append", { channel, label: name, level, value });
+            };
+            const logEntry =
+                (level: string) =>
+                (value: unknown): void => {
+                    send(level, typeof value === "string" ? value : JSON.stringify(value));
+                };
+            // append без перевода строки буферизуется до `\n` — панель строчная.
+            let pending = "";
+            const flushPending = (): void => {
+                if (pending === "") return;
+                const value = pending;
+                pending = "";
+                send("info", value);
             };
             return {
                 name,
                 append: (value: string) => {
-                    log(value);
+                    pending += value;
+                    let nl = pending.indexOf("\n");
+                    while (nl !== -1) {
+                        send("info", pending.slice(0, nl));
+                        pending = pending.slice(nl + 1);
+                        nl = pending.indexOf("\n");
+                    }
                 },
                 appendLine: (value: string) => {
-                    log(value);
+                    flushPending();
+                    send("info", value);
                 },
                 replace: () => {
-                    /* no-op */
+                    /* no-op: журнал ретенционный */
                 },
                 clear: () => {
-                    /* no-op */
+                    /* no-op: журнал ретенционный */
                 },
                 show: () => {
-                    /* no-op */
+                    rpc.notify("output.show", { channel, label: name });
                 },
                 hide: () => {
                     /* no-op */
                 },
                 dispose: () => {
-                    /* no-op */
+                    flushPending();
                 },
+                logLevel: 3, // vscode.LogLevel.Info
+                onDidChangeLogLevel: new EventEmitter<never>().event,
+                trace: logEntry("trace"),
+                debug: logEntry("debug"),
+                info: logEntry("info"),
+                warn: logEntry("warn"),
+                error: logEntry("error"),
             } as unknown as vscode.OutputChannel;
+        },
+
+        // ── Наивная поверхность, которую трогает vscode-languageclient
+        // (статусы/шаги закрытия — таблица стабов в docs/TODO/LSP.md). ─────────
+        onDidChangeVisibleTextEditors: new EventEmitter<never>().event,
+        tabGroups: {
+            all: [] as readonly unknown[],
+            activeTabGroup: { tabs: [] as readonly unknown[] },
+            onDidChangeTabs: new EventEmitter<never>().event,
+            onDidChangeTabGroups: new EventEmitter<never>().event,
+        },
+        showTextDocument: (): Thenable<vscode.TextEditor | undefined> => Promise.resolve(windowNs.activeTextEditor),
+        // Настоящий withProgress: жизненный цикл уезжает хосту нотификациями
+        // window.progress.{start,report,end} — статус-бар показывает спиннер,
+        // пока промис задачи не устаканился. Location игнорируется (в TUI всё —
+        // ProgressLocation.Window); отмены нет — токен никогда не стреляет
+        // (ProgressPart languageclient'а это переживает, см. docs/TODO/LSP.md).
+        withProgress: <R>(
+            options: vscode.ProgressOptions,
+            task: (
+                progress: vscode.Progress<{ message?: string; increment?: number }>,
+                token: vscode.CancellationToken,
+            ) => Thenable<R>,
+        ): Thenable<R> => {
+            const handle = nextProgressHandle++;
+            const token: vscode.CancellationToken = {
+                isCancellationRequested: false,
+                onCancellationRequested: new EventEmitter<never>().event,
+            } as unknown as vscode.CancellationToken;
+            rpc.notify("window.progress.start", { handle, title: options.title ?? "" });
+            const progress: vscode.Progress<{ message?: string; increment?: number }> = {
+                report: (value) => {
+                    const v = (typeof value === "object" && value !== null ? value : {}) as {
+                        message?: unknown;
+                        increment?: unknown;
+                    };
+                    rpc.notify("window.progress.report", {
+                        handle,
+                        ...(typeof v.message === "string" ? { message: v.message } : {}),
+                        ...(typeof v.increment === "number" && Number.isFinite(v.increment)
+                            ? { increment: v.increment }
+                            : {}),
+                    });
+                },
+            };
+            const done = (): void => {
+                rpc.notify("window.progress.end", { handle });
+            };
+            return Promise.resolve(task(progress, token)).then(
+                (result) => {
+                    done();
+                    return result;
+                },
+                (err: unknown) => {
+                    done();
+                    throw err;
+                },
+            );
         },
     };
 

@@ -24,9 +24,15 @@ export interface ExtHostDocumentMeta {
     readonly eol?: EndOfLine;
 }
 
-/** Полный снапшот документа (путь will-save; с текстом). */
+/** Полный снапшот документа (пути will-save и document sync; с текстом). */
 export interface ExtHostDocumentSnapshot extends ExtHostDocumentMeta {
     readonly text: string;
+    /**
+     * Явная версия ядрового документа (путь document sync). LSP требует
+     * монотонной версии per-document, поэтому host передаёт `versionId` модели;
+     * без неё версия инкрементируется локально (путь will-save).
+     */
+    readonly version?: number;
 }
 
 /** Строка документа (`vscode.TextLine`). */
@@ -84,12 +90,15 @@ export class ExtHostTextDocument {
         if (meta.eol !== undefined) this.eol = meta.eol;
     }
 
-    /** Обновляет текст + метаданные и инкрементирует версию (will-save). */
+    /**
+     * Обновляет текст + метаданные. Версия — явная из снапшота (document sync,
+     * `versionId` модели побеждает локальный счётчик) либо инкремент (will-save).
+     */
     public applyFull(snapshot: ExtHostDocumentSnapshot): void {
         this.applyMeta(snapshot);
         this.text = snapshot.text;
         this.lineCache = null;
-        this.version += 1;
+        this.version = snapshot.version ?? this.version + 1;
     }
 
     public getText(range?: Range): string {

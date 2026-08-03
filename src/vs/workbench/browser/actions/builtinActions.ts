@@ -28,6 +28,7 @@ import {
     nextMatchAction,
     previousMatchAction,
 } from "../../contrib/find/browser/findActions.ts";
+import { revealDefinitionAction } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import { openKeybindingsAction, openSettingsAction } from "../../contrib/preferences/browser/preferencesActions.ts";
 import {
@@ -243,6 +244,9 @@ export const builtinActions: readonly CommandAction[] = [
     trimTrailingWhitespaceAction,
     insertFinalNewLineAction,
     triggerSuggestAction,
+
+    // Language features (провайдеры расширений через extension host)
+    revealDefinitionAction,
 
     // Clipboard
     clipboardCopyAction,

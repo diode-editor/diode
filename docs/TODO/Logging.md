@@ -24,9 +24,14 @@
   `--log-level=<channel>=<level>` (repeatable, `*=info` по умолчанию), `--log-file=<path>`, `--no-log-file`.
   Парсинг в `CliArgs`, применение до создания sinks.
 
-- [ ] **Phase 7 — Public API для расширений**
-  `vscode.window.createOutputChannel(name)` → обёртка над `createLogger("extensions.<extId>.<name>")`. `OutputChannel.show()` —
-  открывает Output UI и подсвечивает соответствующий канал.
+- [x] **Phase 7 — Public API для расширений** (LSP-итерация, PR #228)
+  `vscode.window.createOutputChannel(name)` — настоящий канал: subprocess шлёт notify
+  `output.append`/`output.show`, хост (`ExtensionOutputAdapter`) лениво регистрирует канал в
+  `OutputChannelRegistry` (label = name) и пишет логгером. **Отступление от исходного плана:**
+  id канала — `extensions.<slug(name)>` без `<extId>` (у subprocess-неймспейса нет per-call
+  контекста расширения; вернуть extId — вместе с Phase 5). `OutputChannel.show()` — команда
+  `workbench.action.output.show.<id>` (панель + переключение канала). `clear`/`replace` —
+  no-op (журнал ретенционный).
 
 ## Принципы
 

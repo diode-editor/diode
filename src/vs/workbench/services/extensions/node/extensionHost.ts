@@ -5,6 +5,7 @@ import { Disposable, type IDisposable } from "../../../../../../tuidom/common/di
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICompletionRequest, ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
+import type { ICoreDefinitionLocation, IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
@@ -25,20 +26,59 @@ import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
+    type IWireDocumentSyncSnapshot,
     parseDecorationRanges,
+    parseWireDiagnosticsPublish,
     parseWireEditorEdits,
     parseWireFileDecorations,
+    parseWireOutputAppend,
+    parseWireOutputShow,
+    parseWireProgressEnd,
+    parseWireProgressReport,
+    parseWireProgressStart,
     parseWireReadFileResult,
     parseWireSelections,
     requestCompletionItems,
+    requestDefinition,
     requestFoldingRanges,
     requestWillSaveEdits,
     type SerializedDecorationRenderOptions,
     themeColorIdOf,
+    type WireMarker,
+    type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
+
+/**
+ * Сток диагностик расширений (`diagnostics.publish`): владелец (коллекция),
+ * ресурс как `uri.toString()` и его полный набор маркеров (замена, не мерж).
+ * Подключается в module/харнессе к `MarkerService.changeOne`.
+ */
+export type DiagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]) => void;
+
+/**
+ * Сток прогресса расширений (`window.withProgress` → `window.progress.*`):
+ * потребитель (module/харнесс) рисует запись статус-бара на `start`, обновляет
+ * на `report` и снимает на `end`. `handle` уникален в рамках subprocess'а.
+ */
+export interface IProgressSink {
+    start(handle: number, title: string): void;
+    report(handle: number, message?: string, increment?: number): void;
+    end(handle: number): void;
+}
+
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
+
+/**
+ * Сток output-каналов расширений (`window.createOutputChannel` →
+ * `output.append`/`output.show`): потребитель (module/харнесс) регистрирует
+ * канал в реестре Output лениво по label и пишет строку логгером уровня `level`.
+ */
+export interface IOutputSink {
+    append(channel: string, label: string, level: WireOutputLevel, value: string): void;
+    show(channel: string, label: string): void;
+}
 
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
 
@@ -102,6 +142,12 @@ export interface IExtensionHostOptions {
      */
     readonly foldingTimeoutMs?: number;
     /**
+     * Тайм-аут на ответ definition-провайдеров (`languages.provideDefinition`),
+     * мс. По истечении Go to Definition остаётся no-op. Default: 5000 — щедрее
+     * остальных: холодный language server индексирует проект секундами.
+     */
+    readonly definitionTimeoutMs?: number;
+    /**
      * Логгер для lifecycle-событий host'а (канал `extensions.host`). Подканалы
      * `extensions.host.rpc` / `.stdout` / `.stderr` берутся из {@link logService}, если передан.
      */
@@ -141,6 +187,30 @@ export interface IExtensionHostOptions {
      * передан — {@link NULL_THEME_COLOR_RESOLVER} (все цвета не резолвятся).
      */
     readonly themeColorResolver?: IThemeColorResolver;
+    /**
+     * Сток диагностик из расширений (`languages.createDiagnosticCollection().set()`
+     * → notify `diagnostics.publish`). Если не передан — диагностики отбрасываются.
+     */
+    readonly diagnosticsSink?: DiagnosticsSink;
+    /**
+     * Сток прогресса из расширений (`window.withProgress` → notify
+     * `window.progress.*`). Если не передан — прогресс отбрасывается. При смерти
+     * subprocess'а host сам шлёт `end` всем живым handle'ам — спиннеры не зависают.
+     */
+    readonly progressSink?: IProgressSink;
+    /**
+     * Сток output-каналов расширений (`window.createOutputChannel` → notify
+     * `output.append`/`output.show`). Если не передан — вывод отбрасывается.
+     */
+    readonly outputSink?: IOutputSink;
+    /**
+     * Снимок активного документа для document sync. Хост пушит его как
+     * `editor.didOpen` при готовности subprocess'а — чтобы `workspace.textDocuments`
+     * был заполнен ДО активации расширения (стоковый vscode-languageclient читает
+     * его на `start()`), — и при появлении первого подписчика document sync
+     * (расширение активировалось уже после открытия файла).
+     */
+    readonly activeDocumentProvider?: () => IWireDocumentSyncSnapshot | null;
 }
 
 /**
@@ -179,6 +249,7 @@ export class ExtensionHost extends Disposable {
             | "willSaveTimeoutMs"
             | "completionTimeoutMs"
             | "foldingTimeoutMs"
+            | "definitionTimeoutMs"
         >
     >;
     private readonly logger: ILogger | undefined;
@@ -215,6 +286,18 @@ export class ExtensionHost extends Disposable {
     private completionSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
     private foldingSubscribed = false;
+    /** Есть ли в субпроцессе зарегистрированные definition-провайдеры (см. `languages.updateSubscriptions`). */
+    private definitionSubscribed = false;
+    /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
+    private documentSyncSubscribed = false;
+    /** Коалесинг didChange в пределах тика (latest-wins) — правка на каждое нажатие не гоняет RPC-шторм. */
+    private pendingDidChange: IWireDocumentSyncSnapshot | null = null;
+    private readonly activeDocumentProvider: (() => IWireDocumentSyncSnapshot | null) | undefined;
+    private readonly diagnosticsSink: DiagnosticsSink | undefined;
+    private readonly progressSink: IProgressSink | undefined;
+    private readonly outputSink: IOutputSink | undefined;
+    /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
+    private readonly activeProgressHandles = new Set<number>();
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
     private fileSystemSchemesValue: readonly string[] = [];
     private readonly fileSystemSchemesListeners: (() => void)[] = [];
@@ -237,6 +320,7 @@ export class ExtensionHost extends Disposable {
             willSaveTimeoutMs: options.willSaveTimeoutMs ?? 1500,
             completionTimeoutMs: options.completionTimeoutMs ?? 1500,
             foldingTimeoutMs: options.foldingTimeoutMs ?? 1500,
+            definitionTimeoutMs: options.definitionTimeoutMs ?? 5000,
         };
         this.logger = options.logger;
         this.rpcLogger = options.rpcLogger;
@@ -246,6 +330,10 @@ export class ExtensionHost extends Disposable {
         this.editorDecorations = options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE;
         this.fileDecorations = options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE;
         this.themeColorResolver = options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER;
+        this.activeDocumentProvider = options.activeDocumentProvider;
+        this.diagnosticsSink = options.diagnosticsSink;
+        this.progressSink = options.progressSink;
+        this.outputSink = options.outputSink;
         // Смена темы → пере-резолв держимых декораций в обе поверхности.
         this.register(
             this.themeColorResolver.onDidChange(() => {
@@ -391,6 +479,64 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
+     * Пушит открытие документа в subprocess (`editor.didOpen`) — там пополняется
+     * `workspace.textDocuments` и фаерится `onDidOpenTextDocument`, на которое
+     * подписан document sync стокового vscode-languageclient. Подпиской НЕ
+     * гейтится (в отличие от didChange): `workspace.textDocuments` обязан нести
+     * полный текст активного документа ещё ДО активации клиента — стоковый
+     * languageclient на `start()` рассылает серверу didOpen для всех документов
+     * реестра, и meta-обёртка с пустым текстом отравила бы сервер. No-op без
+     * subprocess'а и для слишком больших документов.
+     */
+    public didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
+        const rpc = this.rpc;
+        if (rpc === null || this.extensions.size === 0) return;
+        if (!this.fitsDocumentSyncLimit(snapshot)) return;
+        rpc.notify("editor.didOpen", snapshot);
+    }
+
+    /**
+     * Пушит изменение документа (`editor.didChange` → `onDidChangeTextDocument`).
+     * Снапшоты коалесируются в пределах тика (latest-wins): многошаговая правка
+     * даёт одну нотификацию с последним текстом, версии остаются монотонными.
+     */
+    public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
+        const rpc = this.documentSyncRpc(snapshot);
+        if (rpc === null) return;
+        const alreadyScheduled = this.pendingDidChange !== null;
+        this.pendingDidChange = snapshot;
+        if (alreadyScheduled) return;
+        queueMicrotask(() => {
+            const pending = this.pendingDidChange;
+            this.pendingDidChange = null;
+            // Subprocess мог умереть, пока ждали тик (shutdown чистит pending вместе с rpc).
+            if (pending === null) return;
+            rpc.notify("editor.didChange", pending);
+        });
+    }
+
+    /**
+     * Гейт didChange: возвращает rpc, если subprocess жив, подписка document
+     * sync есть и документ подъёмный; иначе `null` (no-op).
+     */
+    private documentSyncRpc(snapshot: IWireDocumentSyncSnapshot): RpcEndpoint | null {
+        const rpc = this.rpc;
+        if (rpc === null || !this.documentSyncSubscribed) return null;
+        if (!this.fitsDocumentSyncLimit(snapshot)) return null;
+        return rpc;
+    }
+
+    /** Защитный лимит на снапшот document sync (8 МБ). */
+    private fitsDocumentSyncLimit(snapshot: IWireDocumentSyncSnapshot): boolean {
+        if (snapshot.text.length <= MAX_WILL_SAVE_TEXT_BYTES) return true;
+        this.logger?.warn("skipping document sync: document too large", {
+            uri: snapshot.uri,
+            length: snapshot.text.length,
+        });
+        return false;
+    }
+
+    /**
      * Запрашивает у субпроцесса элементы автодополнения для позиции курсора
      * (`languages.provideCompletionItems`). Возвращает `[]`, если субпроцесса нет,
      * никто не зарегистрировал провайдеры, документ слишком большой или расширение
@@ -449,6 +595,36 @@ export class ExtensionHost extends Disposable {
                 text: req.text,
             },
             this.options.foldingTimeoutMs,
+        );
+    }
+
+    /**
+     * Запрашивает у субпроцесса цели definition для позиции курсора
+     * (`languages.provideDefinition`). Возвращает `[]`, если субпроцесса нет,
+     * никто не зарегистрировал провайдеры, документ слишком большой или
+     * расширение не ответило за `definitionTimeoutMs`. Подключается в
+     * `EditorService.definitionSource` (wiring в module/харнессе).
+     */
+    public async provideDefinition(req: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]> {
+        const rpc = this.rpc;
+        if (rpc === null || !this.definitionSubscribed) return [];
+        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping definition: document too large", {
+                uri: req.uri,
+                length: req.text.length,
+            });
+            return [];
+        }
+        return requestDefinition(
+            (method, params) => rpc.request(method, params),
+            {
+                uri: req.uri,
+                languageId: req.languageId,
+                text: req.text,
+                line: req.line,
+                character: req.character,
+            },
+            this.options.definitionTimeoutMs,
         );
     }
 
@@ -587,6 +763,11 @@ export class ExtensionHost extends Disposable {
             // Send initial active editor state so that window.activeTextEditor
             // is correct before the first host.activateExtension call.
             rpc.notify("editor.activeEditorChanged", this.editorOptions.getActiveEditorMeta());
+            // Наполняем `workspace.textDocuments` активным документом ДО первой
+            // активации: стоковый vscode-languageclient читает его на start().
+            // Мимо гейта подписки — подписчиков в этот момент ещё нет.
+            const snapshot = this.activeDocumentProvider?.();
+            if (snapshot !== null && snapshot !== undefined) rpc.notify("editor.didOpen", snapshot);
         });
         await this.readyPromise;
         return rpc;
@@ -661,15 +842,24 @@ export class ExtensionHost extends Disposable {
         // Субпроцесс сообщает, есть ли подписчики на will/did-save. Без них хост
         // не гоняет RPC на сохранении (save остаётся синхронным).
         rpc.handleNotification("workspace.updateSubscriptions", (params) => {
-            const p = params as { willSave?: unknown; didSave?: unknown };
+            const p = params as { willSave?: unknown; didSave?: unknown; documentSync?: unknown };
             this.willSaveSubscribed = p.willSave === true;
             this.didSaveSubscribed = p.didSave === true;
+            // didOpen подпиской не гейтится (см. didOpenTextDocument) — реестр
+            // документов субпроцесса всегда несёт полный текст активного, и
+            // доталкивать его на переходе подписки не нужно.
+            this.documentSyncSubscribed = p.documentSync === true;
         });
         // Субпроцесс сообщает, есть ли зарегистрированные completion-провайдеры.
         // Без них хост не гоняет RPC на Ctrl+Space.
         rpc.handleNotification("languages.updateSubscriptions", (params) => {
-            const p = params as { hasCompletionProviders?: unknown; hasFoldingProviders?: unknown };
+            const p = params as {
+                hasCompletionProviders?: unknown;
+                hasFoldingProviders?: unknown;
+                hasDefinitionProviders?: unknown;
+            };
             this.completionSubscribed = p.hasCompletionProviders === true;
+            this.definitionSubscribed = p.hasDefinitionProviders === true;
             const foldingBefore = this.foldingSubscribed;
             this.foldingSubscribed = p.hasFoldingProviders === true;
             // Провайдер folding появился/исчез (обычно — расширение активировалось
@@ -694,6 +884,44 @@ export class ExtensionHost extends Disposable {
             if (raw.length === 0) return;
             const uris = raw.map((u) => Uri.parse(u));
             for (const cb of [...this.fileSystemChangeListeners]) cb(uris);
+        });
+        // Жизненный цикл withProgress расширения — отдаём стоку (module рисует
+        // запись статус-бара со спиннером и снимает её на end).
+        rpc.handleNotification("window.progress.start", (params) => {
+            const start = parseWireProgressStart(params);
+            if (start === null) return;
+            this.activeProgressHandles.add(start.handle);
+            this.progressSink?.start(start.handle, start.title);
+        });
+        rpc.handleNotification("window.progress.report", (params) => {
+            const report = parseWireProgressReport(params);
+            if (report === null) return;
+            this.progressSink?.report(report.handle, report.message, report.increment);
+        });
+        rpc.handleNotification("window.progress.end", (params) => {
+            const end = parseWireProgressEnd(params);
+            if (end === null) return;
+            this.activeProgressHandles.delete(end.handle);
+            this.progressSink?.end(end.handle);
+        });
+        // Строка output-канала расширения / просьба показать канал — отдаём
+        // стоку (module ведёт в реестр Output + логгер + команду show).
+        rpc.handleNotification("output.append", (params) => {
+            const append = parseWireOutputAppend(params);
+            if (append === null) return;
+            this.outputSink?.append(append.channel, append.label, append.level, append.value);
+        });
+        rpc.handleNotification("output.show", (params) => {
+            const show = parseWireOutputShow(params);
+            if (show === null) return;
+            this.outputSink?.show(show.channel, show.label);
+        });
+        // Расширение опубликовало диагностики (createDiagnosticCollection().set)
+        // — отдаём их стоку (module ведёт в MarkerService → squiggle + Problems).
+        rpc.handleNotification("diagnostics.publish", (params) => {
+            const publish = parseWireDiagnosticsPublish(params);
+            if (publish === null) return;
+            this.diagnosticsSink?.(publish.owner, publish.resource, publish.markers);
         });
         rpc.handleNotification("window.showMessage", (params) => {
             const { severity, message } = params as { severity?: unknown; message?: unknown };
@@ -841,6 +1069,12 @@ export class ExtensionHost extends Disposable {
         this.didSaveSubscribed = false;
         this.completionSubscribed = false;
         this.foldingSubscribed = false;
+        this.definitionSubscribed = false;
+        this.documentSyncSubscribed = false;
+        this.pendingDidChange = null;
+        // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.
+        for (const handle of this.activeProgressHandles) this.progressSink?.end(handle);
+        this.activeProgressHandles.clear();
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).
         this.decorationTypes.clear();

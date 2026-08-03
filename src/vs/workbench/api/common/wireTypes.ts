@@ -1,6 +1,7 @@
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type { ICoreCompletionItem } from "../../../editor/common/languages/iCompletionSource.ts";
+import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
@@ -134,6 +135,46 @@ export async function requestWillSaveEdits(
     } finally {
         clearTimeout(timer);
     }
+}
+
+// ─── Document sync (LSP, наивный full-text push) ─────────────────────────────
+
+/**
+ * Снапшот документа для push-синхронизации host → subprocess
+ * (`editor.didOpen` / `editor.didChange`). Наивная модель: полный текст, без
+ * инкрементальных правок — subprocess переводит его в одну full-range правку
+ * `onDidChangeTextDocument`, что валидно и для Full, и для Incremental sync
+ * language-сервера.
+ */
+export interface IWireDocumentSyncSnapshot {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    /**
+     * Версия ядрового документа (`TextDocument.versionId`). Монотонна
+     * per-document — это требование LSP (`TextDocumentItem.version`).
+     */
+    readonly version: number;
+    /** Полный текст документа (LF-канонический). */
+    readonly text: string;
+    readonly isDirty?: boolean;
+}
+
+/** Валидирует параметры `editor.didOpen`/`didChange`; `null`, если форма не распознана. */
+export function parseWireDocumentSyncSnapshot(raw: unknown): IWireDocumentSyncSnapshot | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.uri !== "string" || obj.uri === "") return null;
+    if (typeof obj.languageId !== "string") return null;
+    if (!isFiniteNumber(obj.version)) return null;
+    if (typeof obj.text !== "string") return null;
+    return {
+        uri: obj.uri,
+        languageId: obj.languageId,
+        version: obj.version,
+        text: obj.text,
+        ...(typeof obj.isDirty === "boolean" ? { isDirty: obj.isDirty } : {}),
+    };
 }
 
 // ─── Completion (WP8) ────────────────────────────────────────────────────────
@@ -389,6 +430,257 @@ export async function requestFoldingRanges(
     } finally {
         clearTimeout(timer);
     }
+}
+
+// ─── Definition (LSP) ────────────────────────────────────────────────────────
+
+/**
+ * Wire-форма одной цели definition (subprocess → host). `uri` — цель прыжка
+ * (может отличаться от запрошенного ресурса), `range` — прицельный диапазон
+ * символа (у `LocationLink` хост-сериализатор берёт `targetSelectionRange ??
+ * targetRange`).
+ */
+export interface WireDefinitionLocation {
+    readonly uri: string;
+    readonly range: IWireRange;
+}
+
+/** Параметры запроса definition (host → subprocess) — форма completion-запроса. */
+export interface IWireDefinitionParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    readonly text: string;
+    readonly line: number;
+    readonly character: number;
+}
+
+/** Валидирует одну wire-цель definition; `null`, если форма не распознана. */
+function parseWireDefinitionLocation(raw: unknown): WireDefinitionLocation | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.uri !== "string" || obj.uri === "") return null;
+    const range = parseWireRange(obj.range);
+    if (range === undefined) return null;
+    return { uri: obj.uri, range };
+}
+
+/**
+ * Разбирает сырой ответ definition в массив валидных {@link WireDefinitionLocation}.
+ * Невалидные элементы отбрасываются (drop+skip), а не роняют весь ответ.
+ */
+export function parseWireDefinitionLocations(raw: unknown): WireDefinitionLocation[] {
+    if (!Array.isArray(raw)) return [];
+    const result: WireDefinitionLocation[] = [];
+    for (const item of raw) {
+        const parsed = parseWireDefinitionLocation(item);
+        if (parsed !== null) result.push(parsed);
+    }
+    return result;
+}
+
+/** Переводит wire-цели в core-цели ({@link ICoreDefinitionLocation}). */
+export function wireToCoreDefinitionLocations(wire: readonly WireDefinitionLocation[]): ICoreDefinitionLocation[] {
+    return wire.map((loc) => ({
+        uri: loc.uri,
+        range: createRange(loc.range.startLine, loc.range.startCharacter, loc.range.endLine, loc.range.endCharacter),
+    }));
+}
+
+/**
+ * Запрашивает у subprocess'а цели definition с таймаутом. Возвращает пустой
+ * массив на таймаут, ошибку RPC или невалидный ответ (go-to-definition —
+ * best-effort, не блокирует UI). `request` — голая функция для юнит-тестов через
+ * {@link InProcessChannelPair} без форка subprocess'а.
+ */
+export async function requestDefinition(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireDefinitionParams,
+    timeoutMs: number,
+): Promise<ICoreDefinitionLocation[]> {
+    const TIMEOUT = Symbol("timeout");
+    let timer!: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<typeof TIMEOUT>((resolve) => {
+        timer = setTimeout(() => {
+            resolve(TIMEOUT);
+        }, timeoutMs);
+    });
+    try {
+        const outcome = await Promise.race([
+            request("languages.provideDefinition", params).catch(() => TIMEOUT),
+            timeout,
+        ]);
+        if (outcome === TIMEOUT) return [];
+        return wireToCoreDefinitionLocations(parseWireDefinitionLocations(outcome));
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// ─── Progress (window.withProgress → статус-бар) ─────────────────────────────
+
+/** Параметры `window.progress.start` (subprocess → host). */
+export interface IWireProgressStart {
+    /** Идентификатор прогресса в рамках subprocess'а (счётчик). */
+    readonly handle: number;
+    readonly title: string;
+}
+
+/** Параметры `window.progress.report`. */
+export interface IWireProgressReport {
+    readonly handle: number;
+    readonly message?: string;
+    /** Дискретный вклад в процентах (суммируется потребителем, кламп 0–100). */
+    readonly increment?: number;
+}
+
+/** Параметры `window.progress.end`. */
+export interface IWireProgressEnd {
+    readonly handle: number;
+}
+
+/** Валидирует `window.progress.start`; `null`, если конверт не распознан. */
+export function parseWireProgressStart(raw: unknown): IWireProgressStart | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    if (typeof p.title !== "string") return null;
+    return { handle: p.handle, title: p.title };
+}
+
+/** Валидирует `window.progress.report`; кривые message/increment отбрасываются по отдельности. */
+export function parseWireProgressReport(raw: unknown): IWireProgressReport | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    return {
+        handle: p.handle,
+        ...(typeof p.message === "string" ? { message: p.message } : {}),
+        ...(isFiniteNumber(p.increment) ? { increment: p.increment } : {}),
+    };
+}
+
+/** Валидирует `window.progress.end`; `null`, если конверт не распознан. */
+export function parseWireProgressEnd(raw: unknown): IWireProgressEnd | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    return { handle: p.handle };
+}
+
+// ─── Output-каналы (window.createOutputChannel → панель Output) ──────────────
+
+/** Уровень строки output-канала (маппится на методы ILogger хоста). */
+export type WireOutputLevel = "trace" | "debug" | "info" | "warn" | "error";
+
+const WIRE_OUTPUT_LEVELS: readonly WireOutputLevel[] = ["trace", "debug", "info", "warn", "error"];
+
+/** Параметры `output.append` (subprocess → host): одна строка канала. */
+export interface IWireOutputAppend {
+    /** Идентификатор канала (`extensions.<slug>`, ключ реестра/логгера). */
+    readonly channel: string;
+    /** Человекочитаемое имя канала (label в селекторе; регистрируется лениво). */
+    readonly label: string;
+    readonly level: WireOutputLevel;
+    readonly value: string;
+}
+
+/** Параметры `output.show` (subprocess → host). */
+export interface IWireOutputShow {
+    readonly channel: string;
+    /** Label канала — show мог прийти до первой строки, канал регистрируется лениво. */
+    readonly label: string;
+}
+
+/** Валидирует `output.append`; `null`, если конверт не распознан. */
+export function parseWireOutputAppend(raw: unknown): IWireOutputAppend | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.channel !== "string" || p.channel === "") return null;
+    if (typeof p.label !== "string" || p.label === "") return null;
+    if (typeof p.level !== "string" || !WIRE_OUTPUT_LEVELS.includes(p.level as WireOutputLevel)) return null;
+    if (typeof p.value !== "string") return null;
+    return { channel: p.channel, label: p.label, level: p.level as WireOutputLevel, value: p.value };
+}
+
+/** Валидирует `output.show`; `null`, если конверт не распознан. */
+export function parseWireOutputShow(raw: unknown): IWireOutputShow | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.channel !== "string" || p.channel === "") return null;
+    if (typeof p.label !== "string" || p.label === "") return null;
+    return { channel: p.channel, label: p.label };
+}
+
+// ─── Diagnostics (LSP) ───────────────────────────────────────────────────────
+
+/**
+ * Wire-форма одной диагностики (subprocess → host, notify `diagnostics.publish`).
+ * Range — плоские 0-based поля (как в остальных wire-типах); `severity` —
+ * `vscode.DiagnosticSeverity` (0=Error…3=Hint), маппинг в `MarkerSeverity`
+ * делает потребитель sink'а.
+ */
+export interface WireMarker {
+    readonly severity: number;
+    readonly startLine: number;
+    readonly startCharacter: number;
+    readonly endLine: number;
+    readonly endCharacter: number;
+    readonly message: string;
+    readonly code?: string;
+    readonly source?: string;
+}
+
+/** Разобранные параметры `diagnostics.publish`. */
+export interface IWireDiagnosticsPublish {
+    readonly owner: string;
+    /** Ресурс как `uri.toString()` — ключ MarkerService. */
+    readonly resource: string;
+    readonly markers: readonly WireMarker[];
+}
+
+/** Валидирует один wire-маркер; `null`, если форма не распознана. */
+function parseWireMarker(raw: unknown): WireMarker | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const m = raw as Record<string, unknown>;
+    if (
+        !isFiniteNumber(m.severity) ||
+        !isFiniteNumber(m.startLine) ||
+        !isFiniteNumber(m.startCharacter) ||
+        !isFiniteNumber(m.endLine) ||
+        !isFiniteNumber(m.endCharacter) ||
+        typeof m.message !== "string"
+    ) {
+        return null;
+    }
+    return {
+        severity: m.severity,
+        startLine: m.startLine,
+        startCharacter: m.startCharacter,
+        endLine: m.endLine,
+        endCharacter: m.endCharacter,
+        message: m.message,
+        ...(typeof m.code === "string" ? { code: m.code } : {}),
+        ...(typeof m.source === "string" ? { source: m.source } : {}),
+    };
+}
+
+/**
+ * Разбирает параметры `diagnostics.publish`; `null`, если конверт не распознан.
+ * Невалидные маркеры отбрасываются (drop+skip), а не роняют публикацию.
+ */
+export function parseWireDiagnosticsPublish(raw: unknown): IWireDiagnosticsPublish | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.owner !== "string" || p.owner === "") return null;
+    if (typeof p.resource !== "string" || p.resource === "") return null;
+    if (!Array.isArray(p.markers)) return null;
+    const markers: WireMarker[] = [];
+    for (const item of p.markers) {
+        const parsed = parseWireMarker(item);
+        if (parsed !== null) markers.push(parsed);
+    }
+    return { owner: p.owner, resource: p.resource, markers };
 }
 
 // ─── Editor write (selection + edit, #194) ───────────────────────────────────

@@ -226,6 +226,21 @@ export class Selection extends Range {
     }
 }
 
+/**
+ * `vscode.Location` — позиция внутри ресурса (цель definition/references).
+ * Position в конструкторе сворачивается в пустой Range (контракт vscode.d.ts).
+ */
+export class Location {
+    public uri: Uri;
+    public range: Range;
+
+    public constructor(uri: Uri, rangeOrPosition: Range | Position) {
+        this.uri = uri;
+        this.range =
+            rangeOrPosition instanceof Range ? rangeOrPosition : new Range(rangeOrPosition, rangeOrPosition);
+    }
+}
+
 /** Направление перевода строки. */
 export enum EndOfLine {
     LF = 1,
@@ -502,5 +517,326 @@ export class EventEmitter<T> {
 
     public dispose(): void {
         this.listeners.length = 0;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Value-типы, которых требует стоковый `vscode-languageclient`: многие из них
+// он `extends`-ит уже на этапе require (protocol*-конвертеры), поэтому они
+// обязаны быть конструируемыми классами, а enum'ы — настоящими значениями.
+// Семантика наивная (хранение без поведения) — глубина добавляется по мере
+// закрытия стабов (docs/TODO/LSP.md, таблица стабов).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export enum ProgressLocation {
+    SourceControl = 1,
+    Window = 10,
+    Notification = 15,
+}
+
+export enum LogLevel {
+    Off = 0,
+    Trace = 1,
+    Debug = 2,
+    Info = 3,
+    Warning = 4,
+    Error = 5,
+}
+
+export enum DiagnosticSeverity {
+    Error = 0,
+    Warning = 1,
+    Information = 2,
+    Hint = 3,
+}
+
+export enum DiagnosticTag {
+    Unnecessary = 1,
+    Deprecated = 2,
+}
+
+export enum CompletionItemTag {
+    Deprecated = 1,
+}
+
+export enum DocumentHighlightKind {
+    Text = 0,
+    Read = 1,
+    Write = 2,
+}
+
+export enum SymbolTag {
+    Deprecated = 1,
+}
+
+export enum SymbolKind {
+    File = 0,
+    Module = 1,
+    Namespace = 2,
+    Package = 3,
+    Class = 4,
+    Method = 5,
+    Property = 6,
+    Field = 7,
+    Constructor = 8,
+    Enum = 9,
+    Interface = 10,
+    Function = 11,
+    Variable = 12,
+    Constant = 13,
+    String = 14,
+    Number = 15,
+    Boolean = 16,
+    Array = 17,
+    Object = 18,
+    Key = 19,
+    Null = 20,
+    EnumMember = 21,
+    Struct = 22,
+    Event = 23,
+    Operator = 24,
+    TypeParameter = 25,
+}
+
+/** Иерархический тег вида code-action (`vscode.CodeActionKind` — класс, не enum). */
+export class CodeActionKind {
+    public static readonly Empty = new CodeActionKind("");
+    public static readonly QuickFix = new CodeActionKind("quickfix");
+    public static readonly Refactor = new CodeActionKind("refactor");
+    public static readonly RefactorExtract = new CodeActionKind("refactor.extract");
+    public static readonly RefactorInline = new CodeActionKind("refactor.inline");
+    public static readonly RefactorMove = new CodeActionKind("refactor.move");
+    public static readonly RefactorRewrite = new CodeActionKind("refactor.rewrite");
+    public static readonly Source = new CodeActionKind("source");
+    public static readonly SourceOrganizeImports = new CodeActionKind("source.organizeImports");
+    public static readonly SourceFixAll = new CodeActionKind("source.fixAll");
+    public static readonly Notebook = new CodeActionKind("notebook");
+
+    public readonly value: string;
+
+    public constructor(value: string) {
+        this.value = value;
+    }
+
+    public append(parts: string): CodeActionKind {
+        return new CodeActionKind(this.value ? this.value + "." + parts : parts);
+    }
+
+    public intersects(other: CodeActionKind): boolean {
+        return this.contains(other) || other.contains(this);
+    }
+
+    public contains(other: CodeActionKind): boolean {
+        return this.value === other.value || other.value.startsWith(this.value + ".");
+    }
+}
+
+export class Diagnostic {
+    public range: Range;
+    public message: string;
+    public severity: DiagnosticSeverity;
+    public source?: string;
+    public code?: string | number | { value: string | number; target: Uri };
+    public relatedInformation?: unknown[];
+    public tags?: DiagnosticTag[];
+
+    public constructor(range: Range, message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error) {
+        this.range = range;
+        this.message = message;
+        this.severity = severity;
+    }
+}
+
+export class CodeLens {
+    public range: Range;
+    public command?: unknown;
+
+    public constructor(range: Range, command?: unknown) {
+        this.range = range;
+        this.command = command;
+    }
+
+    public get isResolved(): boolean {
+        return this.command !== undefined;
+    }
+}
+
+export class CodeAction {
+    public title: string;
+    public kind?: CodeActionKind;
+    public edit?: unknown;
+    public diagnostics?: Diagnostic[];
+    public command?: unknown;
+    public isPreferred?: boolean;
+
+    public constructor(title: string, kind?: CodeActionKind) {
+        this.title = title;
+        this.kind = kind;
+    }
+}
+
+export class DocumentLink {
+    public range: Range;
+    public target?: Uri;
+    public tooltip?: string;
+
+    public constructor(range: Range, target?: Uri) {
+        this.range = range;
+        this.target = target;
+    }
+}
+
+export class InlayHint {
+    public position: Position;
+    public label: unknown;
+    public kind?: unknown;
+
+    public constructor(position: Position, label: unknown, kind?: unknown) {
+        this.position = position;
+        this.label = label;
+        this.kind = kind;
+    }
+}
+
+export class SymbolInformation {
+    public name: string;
+    public kind: SymbolKind;
+    public containerName: string;
+    public location: Location;
+
+    public constructor(name: string, kind: SymbolKind, containerName: string, location: Location) {
+        this.name = name;
+        this.kind = kind;
+        this.containerName = containerName;
+        this.location = location;
+    }
+}
+
+export class CallHierarchyItem {
+    public constructor(
+        public kind: SymbolKind,
+        public name: string,
+        public detail: string,
+        public uri: Uri,
+        public range: Range,
+        public selectionRange: Range,
+    ) {}
+}
+
+export class TypeHierarchyItem {
+    public constructor(
+        public kind: SymbolKind,
+        public name: string,
+        public detail: string,
+        public uri: Uri,
+        public range: Range,
+        public selectionRange: Range,
+    ) {}
+}
+
+/** Ошибка отмены (`vscode.CancellationError extends Error`). */
+export class CancellationError extends Error {
+    public constructor() {
+        super("Canceled");
+        this.name = "Canceled";
+    }
+}
+
+/** Источник токенов отмены (клиент создаёт по одному на запрос). */
+export class CancellationTokenSource {
+    private readonly emitter = new EventEmitter<unknown>();
+    private cancelled = false;
+
+    public readonly token: vscode.CancellationToken;
+
+    public constructor() {
+        const self = this;
+        this.token = {
+            get isCancellationRequested(): boolean {
+                return self.cancelled;
+            },
+            onCancellationRequested: this.emitter.event,
+        } as unknown as vscode.CancellationToken;
+    }
+
+    public cancel(): void {
+        if (this.cancelled) return;
+        this.cancelled = true;
+        this.emitter.fire(undefined);
+    }
+
+    public dispose(): void {
+        this.emitter.dispose();
+    }
+}
+
+export class MarkdownString {
+    public value: string;
+    public isTrusted?: boolean;
+    public supportThemeIcons?: boolean;
+
+    public constructor(value = "") {
+        this.value = value;
+    }
+
+    public appendText(value: string): MarkdownString {
+        this.value += value;
+        return this;
+    }
+
+    public appendMarkdown(value: string): MarkdownString {
+        this.value += value;
+        return this;
+    }
+
+    public appendCodeblock(value: string, _language?: string): MarkdownString {
+        this.value += value;
+        return this;
+    }
+}
+
+export class Hover {
+    public contents: unknown[];
+    public range?: Range;
+
+    public constructor(contents: unknown, range?: Range) {
+        this.contents = Array.isArray(contents) ? contents : [contents];
+        this.range = range;
+    }
+}
+
+/** Наивный WorkspaceEdit — хранит правки, применение — за `workspace.applyEdit`. */
+export class WorkspaceEdit {
+    private readonly edits = new Map<string, { range: Range; newText: string }[]>();
+
+    public replace(uri: Uri, range: Range, newText: string): void {
+        this.push(uri, { range, newText });
+    }
+
+    public insert(uri: Uri, position: Position, newText: string): void {
+        this.push(uri, { range: new Range(position, position), newText });
+    }
+
+    public delete(uri: Uri, range: Range): void {
+        this.push(uri, { range, newText: "" });
+    }
+
+    public has(uri: Uri): boolean {
+        return this.edits.has(uri.toString());
+    }
+
+    public get(uri: Uri): { range: Range; newText: string }[] {
+        return this.edits.get(uri.toString()) ?? [];
+    }
+
+    public get size(): number {
+        return this.edits.size;
+    }
+
+    private push(uri: Uri, edit: { range: Range; newText: string }): void {
+        const key = uri.toString();
+        const list = this.edits.get(key) ?? [];
+        list.push(edit);
+        this.edits.set(key, list);
     }
 }

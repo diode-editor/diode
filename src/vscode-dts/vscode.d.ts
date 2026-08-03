@@ -281,6 +281,75 @@ declare module "vscode" {
 	 * and active editors, as well as, UI elements to show messages, selections, and
 	 * asking for user input.
 	 */
+	/**
+	 * Defines a generalized way of reporting progress updates.
+	 */
+	export interface Progress<T> {
+
+		/**
+		 * Report a progress update.
+		 * @param value A progress item, like a message and/or an
+		 * report on how much work finished
+		 */
+		report(value: T): void;
+	}
+
+	/**
+	 * A location in the editor at which progress information can be shown. It depends on the
+	 * location how progress is visually represented.
+	 */
+	export enum ProgressLocation {
+
+		/**
+		 * Show progress for the source control viewlet, as overlay for the icon and as progress bar
+		 * inside the viewlet (when visible). Neither supports cancellation nor discrete progress nor
+		 * a label to describe the operation.
+		 */
+		SourceControl = 1,
+
+		/**
+		 * Show progress in the status bar of the editor. Neither supports cancellation nor discrete progress.
+		 * Supports rendering of {@link ThemeIcon theme icons} via the `$(<name>)`-syntax in the progress label.
+		 */
+		Window = 10,
+
+		/**
+		 * Show progress as notification with an optional cancel button. Supports to show infinite and discrete
+		 * progress but does not support rendering of icons.
+		 */
+		Notification = 15
+	}
+
+	/**
+	 * Value-object describing where and how progress should show.
+	 */
+	export interface ProgressOptions {
+
+		/**
+		 * The location at which progress should show.
+		 */
+		location: ProgressLocation | {
+			/**
+			 * The identifier of a view for which progress should be shown.
+			 */
+			viewId: string;
+		};
+
+		/**
+		 * A human-readable string which will be used to describe the
+		 * operation.
+		 */
+		title?: string;
+
+		/**
+		 * Controls if a cancel button should show to allow the user to
+		 * cancel the long running operation.  Note that currently only
+		 * `ProgressLocation.Notification` is supporting to show a cancel
+		 * button.
+		 */
+		cancellable?: boolean;
+	}
+
 	export namespace window {
 
 		/**
@@ -357,6 +426,37 @@ declare module "vscode" {
 		 * @returns A new output channel.
 		 */
 		export function createOutputChannel(name: string, languageId?: string): OutputChannel;
+
+		/**
+		 * Show progress in the editor. Progress is shown while running the given callback
+		 * and while the promise it returned isn't resolved nor rejected. The location at which
+		 * progress should show (and other details) is defined via the passed {@linkcode ProgressOptions}.
+		 *
+		 * @param options A {@linkcode ProgressOptions}-object describing the options to use for showing progress, like its location
+		 * @param task A callback returning a promise. Progress state can be reported with
+		 * the provided {@link Progress}-object.
+		 *
+		 * To report discrete progress, use `increment` to indicate how much work has been completed. Each call with
+		 * a `increment` value will be summed up and reflected as overall progress until 100% is reached (a value of
+		 * e.g. `10` accounts for `10%` of work done).
+		 * Note that currently only `ProgressLocation.Notification` is capable of showing discrete progress.
+		 *
+		 * To monitor if the operation has been cancelled by the user, use the provided {@linkcode CancellationToken}.
+		 * Note that currently only `ProgressLocation.Notification` is supporting to show a cancel button to cancel the
+		 * long running operation.
+		 *
+		 * @returns The thenable the task-callback returned.
+		 */
+		export function withProgress<R>(options: ProgressOptions, task: (progress: Progress<{
+			/**
+			 * A progress message that represents a chunk of work
+			 */
+			message?: string;
+			/**
+			 * An increment for discrete progress. Increments will be summed up until 100% is reached
+			 */
+			increment?: number;
+		}>, token: CancellationToken) => Thenable<R>): Thenable<R>;
 
 		/**
 		 * Create a TextEditorDecorationType that can be used to add decorations to text editors.
@@ -2047,6 +2147,342 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Represents a location inside a resource, such as a line
+	 * inside a text file.
+	 */
+	export class Location {
+
+		/**
+		 * The resource identifier of this location.
+		 */
+		uri: Uri;
+
+		/**
+		 * The document range of this location.
+		 */
+		range: Range;
+
+		/**
+		 * Creates a new location object.
+		 *
+		 * @param uri The resource identifier.
+		 * @param rangeOrPosition The range or position. Positions will be converted to an empty range.
+		 */
+		constructor(uri: Uri, rangeOrPosition: Range | Position);
+	}
+
+	/**
+	 * Represents the connection of two locations. Provides additional metadata over normal {@link Location locations},
+	 * including an origin range.
+	 */
+	export interface LocationLink {
+		/**
+		 * Span of the origin of this link.
+		 *
+		 * Used as the underlined span for mouse definition hover. Defaults to the word range at
+		 * the definition position.
+		 */
+		originSelectionRange?: Range;
+
+		/**
+		 * The target resource identifier of this link.
+		 */
+		targetUri: Uri;
+
+		/**
+		 * The full target range of this link.
+		 */
+		targetRange: Range;
+
+		/**
+		 * The span of this link.
+		 */
+		targetSelectionRange?: Range;
+	}
+
+	/**
+	 * Represents the severity of diagnostics.
+	 */
+	export enum DiagnosticSeverity {
+
+		/**
+		 * Something not allowed by the rules of a language or other means.
+		 */
+		Error = 0,
+
+		/**
+		 * Something suspicious but allowed.
+		 */
+		Warning = 1,
+
+		/**
+		 * Something to inform about but not a problem.
+		 */
+		Information = 2,
+
+		/**
+		 * Something to hint to a better way of doing it, like proposing
+		 * a refactoring.
+		 */
+		Hint = 3
+	}
+
+	/**
+	 * Represents a related message and source code location for a diagnostic. This should be
+	 * used to point to code locations that cause or related to a diagnostics, e.g. when duplicating
+	 * a symbol in a scope.
+	 */
+	export class DiagnosticRelatedInformation {
+
+		/**
+		 * The location of this related diagnostic information.
+		 */
+		location: Location;
+
+		/**
+		 * The message of this related diagnostic information.
+		 */
+		message: string;
+
+		/**
+		 * Creates a new related diagnostic information object.
+		 *
+		 * @param location The location.
+		 * @param message The message.
+		 */
+		constructor(location: Location, message: string);
+	}
+
+	/**
+	 * Additional metadata about the type of a diagnostic.
+	 */
+	export enum DiagnosticTag {
+		/**
+		 * Unused or unnecessary code.
+		 *
+		 * Diagnostics with this tag are rendered faded out. The amount of fading
+		 * is controlled by the `"editorUnnecessaryCode.opacity"` theme color. For
+		 * example, `"editorUnnecessaryCode.opacity": "#000000c0"` will render the
+		 * code with 75% opacity. For high contrast themes, use the
+		 * `"editorUnnecessaryCode.border"` theme color to underline unnecessary code
+		 * instead of fading it out.
+		 */
+		Unnecessary = 1,
+
+		/**
+		 * Deprecated or obsolete code.
+		 *
+		 * Diagnostics with this tag are rendered with a strike through.
+		 */
+		Deprecated = 2,
+	}
+
+	/**
+	 * Represents a diagnostic, such as a compiler error or warning. Diagnostic objects
+	 * are only valid in the scope of a file.
+	 */
+	export class Diagnostic {
+
+		/**
+		 * The range to which this diagnostic applies.
+		 */
+		range: Range;
+
+		/**
+		 * The human-readable message.
+		 */
+		message: string;
+
+		/**
+		 * The severity, default is {@link DiagnosticSeverity.Error error}.
+		 */
+		severity: DiagnosticSeverity;
+
+		/**
+		 * A human-readable string describing the source of this
+		 * diagnostic, e.g. 'typescript' or 'super lint'.
+		 */
+		source?: string;
+
+		/**
+		 * A code or identifier for this diagnostic.
+		 * Should be used for later processing, e.g. when providing {@link CodeActionContext code actions}.
+		 */
+		code?: string | number | {
+			/**
+			 * A code or identifier for this diagnostic.
+			 * Should be used for later processing, e.g. when providing {@link CodeActionContext code actions}.
+			 */
+			value: string | number;
+
+			/**
+			 * A target URI to open with more information about the diagnostic error.
+			 */
+			target: Uri;
+		};
+
+		/**
+		 * An array of related diagnostic information, e.g. when symbol-names within
+		 * a scope collide all definitions can be marked via this property.
+		 */
+		relatedInformation?: DiagnosticRelatedInformation[];
+
+		/**
+		 * Additional metadata about the diagnostic.
+		 */
+		tags?: DiagnosticTag[];
+
+		/**
+		 * Creates a new diagnostic object.
+		 *
+		 * @param range The range to which this diagnostic applies.
+		 * @param message The human-readable message.
+		 * @param severity The severity, default is {@link DiagnosticSeverity.Error error}.
+		 */
+		constructor(range: Range, message: string, severity?: DiagnosticSeverity);
+	}
+
+	/**
+	 * A diagnostics collection is a container that manages a set of
+	 * {@link Diagnostic diagnostics}. Diagnostics are always scopes to a
+	 * diagnostics collection and a resource.
+	 *
+	 * To get an instance of a `DiagnosticCollection` use
+	 * {@link languages.createDiagnosticCollection createDiagnosticCollection}.
+	 */
+	export interface DiagnosticCollection extends Iterable<[uri: Uri, diagnostics: readonly Diagnostic[]]> {
+
+		/**
+		 * The name of this diagnostic collection, for instance `typescript`. Every diagnostic
+		 * from this collection will be associated with this name. Also, the task framework uses this
+		 * name when defining [problem matchers](https://code.visualstudio.com/docs/editor/tasks#_defining-a-problem-matcher).
+		 */
+		readonly name: string;
+
+		/**
+		 * Assign diagnostics for given resource. Will replace
+		 * existing diagnostics for that resource.
+		 *
+		 * @param uri A resource identifier.
+		 * @param diagnostics Array of diagnostics or `undefined`
+		 */
+		set(uri: Uri, diagnostics: readonly Diagnostic[] | undefined): void;
+
+		/**
+		 * Replace diagnostics for multiple resources in this collection.
+		 *
+		 *  _Note_ that multiple tuples of the same uri will be merged, e.g
+		 * `[[file1, [d1]], [file1, [d2]]]` is equivalent to `[[file1, [d1, d2]]]`.
+		 * If a diagnostics item is `undefined` as in `[file1, undefined]`
+		 * all previous but not subsequent diagnostics are removed.
+		 *
+		 * @param entries An array of tuples, like `[[file1, [d1, d2]], [file2, [d3, d4, d5]]]`, or `undefined`.
+		 */
+		set(entries: ReadonlyArray<[Uri, readonly Diagnostic[] | undefined]>): void;
+
+		/**
+		 * Remove all diagnostics from this collection that belong
+		 * to the provided `uri`. The same as `#set(uri, undefined)`.
+		 *
+		 * @param uri A resource identifier.
+		 */
+		delete(uri: Uri): void;
+
+		/**
+		 * Remove all diagnostics from this collection. The same
+		 * as calling `#set(undefined)`;
+		 */
+		clear(): void;
+
+		/**
+		 * Iterate over each entry in this collection.
+		 *
+		 * @param callback Function to execute for each entry.
+		 * @param thisArg The `this` context used when invoking the handler function.
+		 */
+		forEach(callback: (uri: Uri, diagnostics: readonly Diagnostic[], collection: DiagnosticCollection) => any, thisArg?: any): void;
+
+		/**
+		 * Get the diagnostics for a given resource. *Note* that you cannot
+		 * modify the diagnostics-array returned from this call.
+		 *
+		 * @param uri A resource identifier.
+		 * @returns An immutable array of {@link Diagnostic diagnostics} or `undefined`.
+		 */
+		get(uri: Uri): readonly Diagnostic[] | undefined;
+
+		/**
+		 * Check if this collection contains diagnostics for a
+		 * given resource.
+		 *
+		 * @param uri A resource identifier.
+		 * @returns `true` if this collection has diagnostic for the given resource.
+		 */
+		has(uri: Uri): boolean;
+
+		/**
+		 * Dispose and free associated resources. Calls
+		 * {@link DiagnosticCollection.clear clear}.
+		 */
+		dispose(): void;
+	}
+
+	/**
+	 * An event describing an individual change in the text of a {@link TextDocument document}.
+	 */
+	export interface TextDocumentContentChangeEvent {
+		/**
+		 * The range that got replaced.
+		 */
+		readonly range: Range;
+		/**
+		 * The offset of the range that got replaced.
+		 */
+		readonly rangeOffset: number;
+		/**
+		 * The length of the range that got replaced.
+		 */
+		readonly rangeLength: number;
+		/**
+		 * The new text for the range.
+		 */
+		readonly text: string;
+	}
+
+	/**
+	 * Reasons for why a text document has changed.
+	 */
+	export enum TextDocumentChangeReason {
+		/** The text change is caused by an undo operation. */
+		Undo = 1,
+
+		/** The text change is caused by an redo operation. */
+		Redo = 2,
+	}
+
+	/**
+	 * An event describing a transactional {@link TextDocument document} change.
+	 */
+	export interface TextDocumentChangeEvent {
+
+		/**
+		 * The affected document.
+		 */
+		readonly document: TextDocument;
+
+		/**
+		 * An array of content changes.
+		 */
+		readonly contentChanges: readonly TextDocumentContentChangeEvent[];
+
+		/**
+		 * The reason why the document was changed.
+		 * Is `undefined` if the reason is not known.
+		 */
+		readonly reason: TextDocumentChangeReason | undefined;
+	}
+
+	/**
 	 * An event that is fired when a {@link TextDocument document} will be saved.
 	 *
 	 * To make modifications to the document before it is being saved, call the
@@ -2329,6 +2765,13 @@ declare module "vscode" {
 		 * for a document that has not been shown in an editor.
 		 */
 		export const onDidCloseTextDocument: Event<TextDocument>;
+
+		/**
+		 * An event that is emitted when a {@link TextDocument text document} is changed. This usually happens
+		 * when the {@link TextDocument.getText contents} changes but also when other things like the
+		 * {@link TextDocument.isDirty dirty}-state changes.
+		 */
+		export const onDidChangeTextDocument: Event<TextDocumentChangeEvent>;
 
 		/**
 		 * An event that is emitted when a {@link TextDocument text document} will be saved to disk.
@@ -2956,7 +3399,49 @@ declare module "vscode" {
 	 * the score is only checked to be `>0`, for other features, like {@link languages.registerCompletionItemProvider IntelliSense} the
 	 * score is used for determining the order in which providers are asked to participate.
 	 */
+	/**
+	 * Information about where a symbol is defined.
+	 *
+	 * Provides additional metadata over normal {@link Location} definitions, including the range of
+	 * the defining symbol
+	 */
+	export type DefinitionLink = LocationLink;
+
+	/**
+	 * The definition of a symbol represented as one or many {@link Location locations}.
+	 * For most programming languages there is only one location at which a symbol is
+	 * defined.
+	 */
+	export type Definition = Location | Location[];
+
+	/**
+	 * The definition provider interface defines the contract between extensions and
+	 * the [go to definition](https://code.visualstudio.com/docs/editor/editingevolved#_go-to-definition)
+	 * and peek definition features.
+	 */
+	export interface DefinitionProvider {
+
+		/**
+		 * Provide the definition of the symbol at the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns A definition or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideDefinition(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;
+	}
+
 	export namespace languages {
+
+		/**
+		 * Create a diagnostics collection.
+		 *
+		 * @param name The {@link DiagnosticCollection.name name} of the collection.
+		 * @returns A new diagnostic collection.
+		 */
+		export function createDiagnosticCollection(name?: string): DiagnosticCollection;
 
 		/**
 		 * Register a completion provider.
@@ -2978,6 +3463,19 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerCompletionItemProvider(selector: DocumentSelector, provider: CompletionItemProvider, ...triggerCharacters: string[]): Disposable;
+
+		/**
+		 * Register a definition provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A definition provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDefinitionProvider(selector: DocumentSelector, provider: DefinitionProvider): Disposable;
 
 		/**
 		 * Register a folding range provider.

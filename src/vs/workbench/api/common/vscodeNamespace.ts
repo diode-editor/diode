@@ -6,10 +6,22 @@ import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
+    CallHierarchyItem,
+    CancellationError,
+    CancellationTokenSource,
+    CodeAction,
+    CodeActionKind,
+    CodeLens,
     CompletionItem,
     CompletionItemKind,
+    CompletionItemTag,
     DecorationRangeBehavior,
+    Diagnostic,
+    DiagnosticSeverity,
+    DiagnosticTag,
     DisposableImpl,
+    DocumentHighlightKind,
+    DocumentLink,
     EndOfLine,
     EventEmitter,
     FileChangeType,
@@ -18,14 +30,25 @@ import {
     FileType,
     FoldingRange,
     FoldingRangeKind,
+    Hover,
+    InlayHint,
+    Location,
+    LogLevel,
+    MarkdownString,
     OverviewRulerLane,
     Position,
+    ProgressLocation,
     Range,
     Selection,
+    SymbolInformation,
+    SymbolKind,
+    SymbolTag,
     TextDocumentSaveReason,
     TextEdit,
     ThemeColor,
+    TypeHierarchyItem,
     Uri,
+    WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
@@ -68,8 +91,24 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
     // прокси в host CommandRegistry).
     const commands = buildCommandsNamespace(rpc);
 
+    // Наивный `env` — vscode-languageclient читает language/appName; клипборд и
+    // openExternal честно отказывают (TUI не открывает внешние URL).
+    const env = {
+        appName: "Vexx",
+        appHost: "desktop",
+        language: "en",
+        uriScheme: "vexx",
+        clipboard: {
+            readText: (): Thenable<string> => Promise.resolve(""),
+            writeText: (): Thenable<void> => Promise.resolve(),
+        },
+        openExternal: (): Thenable<boolean> => Promise.resolve(false),
+    } as unknown;
+
     const namespace = {
-        version: "vexx-phase-1",
+        // vscode-languageclient требует валидный VS Code semver (^1.91.0).
+        // Лок-степ с extensions/VSCODE_VERSION — проверяет vscodeNamespace.identity.test.
+        version: "1.127.0",
         Disposable: DisposableImpl,
         // Value-типы — обязательно перечислить поимённо: каст `as unknown as
         // typeof vscode` прячет пропуск, он всплыл бы только рантайм-undefined
@@ -89,6 +128,29 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         CompletionItemKind,
         FoldingRange,
         FoldingRangeKind,
+        Location,
+        Diagnostic,
+        DiagnosticSeverity,
+        DiagnosticTag,
+        CodeLens,
+        CodeAction,
+        CodeActionKind,
+        DocumentLink,
+        DocumentHighlightKind,
+        InlayHint,
+        SymbolInformation,
+        SymbolKind,
+        SymbolTag,
+        CompletionItemTag,
+        CallHierarchyItem,
+        TypeHierarchyItem,
+        CancellationError,
+        CancellationTokenSource,
+        LogLevel,
+        ProgressLocation,
+        MarkdownString,
+        Hover,
+        WorkspaceEdit,
         ThemeColor,
         FileDecoration,
         OverviewRulerLane,
@@ -97,6 +159,7 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         workspace,
         languages,
         commands,
+        env,
     } as unknown as typeof vscode;
 
     return { namespace, configStore: ctx.configStore };

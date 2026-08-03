@@ -1,18 +1,24 @@
 import * as path from "node:path";
 
 import { Uri } from "../../base/common/uri.ts";
+import { createRange } from "../../editor/common/core/iRange.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
+import { activeDocumentSnapshot, bindDocumentSync } from "../../workbench/api/browser/documentSyncAdapter.ts";
+import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
+import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
+import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/editorDecorationsServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
-import { FileSystemProviderRegistryDIToken } from "../../workbench/common/coreTokens.ts";
+import { FileSystemProviderRegistryDIToken, MarkerServiceDIToken } from "../../workbench/common/coreTokens.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 import {
@@ -20,7 +26,26 @@ import {
     ExtensionHostDIToken,
     type IExtensionHostConfigProvider,
 } from "../../workbench/services/extensions/node/extensionHost.ts";
+import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
+import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
+import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
+import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
+import { StatusBarServiceDIToken } from "../../workbench/services/statusbar/common/statusBarService.ts";
 import { ThemeServiceDIToken } from "../../workbench/services/themes/common/themeTokens.ts";
+
+/** `vscode.DiagnosticSeverity` (0=Error…3=Hint) → `MarkerSeverity`. */
+function toMarkerSeverity(severity: number): MarkerSeverity {
+    switch (severity) {
+        case 1:
+            return MarkerSeverity.Warning;
+        case 2:
+            return MarkerSeverity.Info;
+        case 3:
+            return MarkerSeverity.Hint;
+        default:
+            return MarkerSeverity.Error;
+    }
+}
 
 /**
  * DI-модуль extension host'а. Связывает `EditorService` →
@@ -67,6 +92,20 @@ export const extensionHostModule: ContainerModule = (container) => {
                 }),
         };
 
+        // Сток диагностик расширений → MarkerService: потребители (squiggle в
+        // редакторе, панель Problems) слушают onDidChangeMarkers и правок не требуют.
+        const markerService = container.get(MarkerServiceDIToken);
+        const diagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]): void => {
+            const data: IMarkerData[] = markers.map((m) => ({
+                severity: toMarkerSeverity(m.severity),
+                range: createRange(m.startLine, m.startCharacter, m.endLine, m.endCharacter),
+                message: m.message,
+                ...(m.code !== undefined ? { code: m.code } : {}),
+                ...(m.source !== undefined ? { source: m.source } : {}),
+            }));
+            markerService.changeOne(owner, resource, data);
+        };
+
         // Мосты декораций (Chunk 4): gutter change-bar'ы → редакторы группы,
         // файловые декорации → дерево, ThemeColor id → цвет активной темы.
         const editorDecorations = new EditorDecorationsServiceAdapter(group);
@@ -82,6 +121,21 @@ export const extensionHostModule: ContainerModule = (container) => {
             editorDecorations,
             fileDecorations,
             themeColorResolver,
+            activeDocumentProvider: () => activeDocumentSnapshot(group),
+            diagnosticsSink,
+            // withProgress расширений → запись статус-бара со спиннером.
+            progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
+            // createOutputChannel расширений → канал в панели Output;
+            // show() открывает панель (как toggleOutputAction) и переключает канал.
+            outputSink: new ExtensionOutputAdapter(
+                container.get(OutputChannelRegistryDIToken),
+                logService,
+                container.get(OutputServiceDIToken),
+                () => {
+                    container.get(PanelServiceDIToken).setActiveView(OUTPUT_VIEW_ID);
+                    container.get(LayoutServiceDIToken).setPanelVisible(true);
+                },
+            ),
         });
 
         // Провайдеры ФС расширений: схемы, объявленные субпроцессом (`git:` у
@@ -98,9 +152,17 @@ export const extensionHostModule: ContainerModule = (container) => {
             host.didSaveTextDocument(meta);
         });
 
+        // Document sync (LSP): didOpen на смену активного редактора, didChange на
+        // правку его содержимого — стоковый vscode-languageclient видит живой буфер.
+        bindDocumentSync(group, host);
+
         // Completion: провайдеры расширений (languages.provideCompletionItems)
         // подключаются как источник автодополнений группы (читает CompletionService).
         group.completionSource = (req) => host.provideCompletionItems(req);
+
+        // Definition: провайдеры расширений (languages.provideDefinition)
+        // подключаются как источник целей Go to Definition (читает DefinitionService).
+        group.definitionSource = (req) => host.provideDefinition(req);
 
         // Folding: провайдеры расширений (languages.provideFoldingRanges)
         // подключаются как источник областей сворачивания группы (читает
