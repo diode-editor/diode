@@ -392,8 +392,8 @@ UI-подтверждения. Ручной прогон после релиза
       noVerify/commitEmpty/cherryPick. Гейт: US-30 полностью.
       Отклонение: Delete Remote Tag выбирает из локальных тегов (без
       `ls-remote --tags` — сетевой пикер отложен).
-- [ ] **12. (Опция) Статус-бар** — `⎇ branch` + ahead/behind, клик → `git.checkout`;
-      sync-entry (`git.sync` / Publish).
+- [x] **12. Статус-бар** — ветка (+ merge/rebase-суффикс) и счётчики `↓N ↑M` слева,
+      клик → `git.checkout` / `git.sync` (без upstream — `git.publish`).
 
 ## Риски
 
