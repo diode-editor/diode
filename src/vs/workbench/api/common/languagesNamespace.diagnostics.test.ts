@@ -156,6 +156,13 @@ describe("LanguagesNamespace — no-op поверхность для vscode-lang
             expect(() => disposable.dispose(), name).not.toThrow();
         }
         const match = (languages as unknown as { match(selector: unknown, doc: unknown): number }).match;
-        expect(match({ language: "typescript" }, {})).toBeGreaterThan(0);
+        // Настоящий скоринг: markdown-документ НЕ матчится ts-селектору —
+        // vscode-languageclient фильтрует этим документы для синхронизации.
+        const tsDoc = { languageId: "typescript", uri: Uri.file("/a.ts") };
+        const mdDoc = { languageId: "markdown", uri: Uri.file("/a.md") };
+        expect(match({ language: "typescript" }, tsDoc)).toBeGreaterThan(0);
+        expect(match([{ scheme: "file", language: "typescript" }], tsDoc)).toBeGreaterThan(0);
+        expect(match({ language: "typescript" }, mdDoc)).toBe(0);
+        expect(match([{ scheme: "file", language: "typescript" }], mdDoc)).toBe(0);
     });
 });

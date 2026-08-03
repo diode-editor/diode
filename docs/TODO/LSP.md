@@ -49,9 +49,12 @@ go-to-definition работает; сервер-внук корректно уб
 - Продюсер — `bindDocumentSync` (`src/vs/workbench/api/browser/documentSyncAdapter.ts`):
   didOpen на смену активного редактора, didChange на `onDidChangeContent`; проводка в
   `extensionHostModule` и зеркально в `ExtensionTestHarness`.
-- Гейт по подписке: без слушателей `onDidOpen/onDidChangeTextDocument` в субпроцессе
-  RPC не гоняется вовсе (`workspace.updateSubscriptions.documentSync`); переход 0→1
-  доталкивает текущий активный документ (расширение могло активироваться позже открытия).
+- Гейты: `didChange` — по подписке (`workspace.updateSubscriptions.documentSync`,
+  full-text на каждое нажатие без потребителей — расточительно); `didOpen` — БЕЗ
+  гейта подписки: `workspace.textDocuments` обязан нести полный текст активного
+  документа ещё до активации клиента (стоковый languageclient на `start()`
+  рассылает серверу didOpen для документов реестра, отфильтрованных
+  `languages.match`; meta-обёртка с пустым текстом отравила бы сервер).
 - Push активного документа на `host.ready` ДО первой активации — стоковый
   languageclient читает `workspace.textDocuments`/`visibleTextEditors` на `start()`.
 - didChange коалесируется в пределах тика (latest-wins) + лимит снапшота 8 МБ.
@@ -92,7 +95,7 @@ go-to-definition работает; сервер-внук корректно уб
 | `workspace.onDidCloseTextDocument` | no-op | продюсер закрытия вкладки → `editor.didClose` → fire + сброс didOpen-дедупа |
 | `languages.registerDefinitionProvider` | real | — (шаг 2: seam `iDefinitionSource` → RPC `languages.provideDefinition`, таймаут 5000 мс — холодный сервер; UI — `DefinitionService` + F12, кросс-файловая навигация паттерном Problems reveal) |
 | `languages.createDiagnosticCollection` | naive | работает: notify `diagnostics.publish` → `diagnosticsSink` → `MarkerService.changeOne` (squiggle + Problems); наивность — related information не передаётся, маркеры мёртвого subprocess'а не сбрасываются до рестарта |
-| `languages.match` | naive | всегда 10; настоящий скоринг DocumentSelector — при первом потребителе |
+| `languages.match` | real | скоринг через `matchDocumentSelector` (10/0) — vscode-languageclient фильтрует ИМ документы для синхронизации с сервером; наивное «всегда 10» скармливало ts-серверу markdown и роняло его хендлеры |
 | остальные `register*Provider` (26) | no-op | закрытие по образцу definition: core seam + RPC `languages.provideX` + UI-потребитель (hover-виджет, references-панель, rename и т.д.) |
 | `workspace.applyEdit` | no-op | врёт `true`; закрытие: RPC `workspace.applyEdit` → `EditorService`/`BulkEdit` (нужен rename/code actions) |
 | `workspace.getWorkspaceFolder` | naive | префикс-матч + fallback на первую папку |

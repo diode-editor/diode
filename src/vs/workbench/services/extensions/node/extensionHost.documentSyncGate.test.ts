@@ -12,8 +12,10 @@ import { ExtensionHost } from "./extensionHost.ts";
 
 // Детерминированный in-process тест гейтов document sync push'а: вместо форка
 // subprocess'а гоняем `installHostHandlers` на in-process RPC-паре (как
-// extensionHost.decorationsInProcess.test.ts). Так стабильно пробиваются
-// guard-ветки: нет подписки, нет rpc, лимит размера, коалесинг в тик.
+// extensionHost.decorationsInProcess.test.ts). Семантика гейтов:
+// didOpen — без гейта подписки (реестр документов субпроцесса обязан нести
+// полный текст активного ДО активации клиента), didChange — только при
+// подписке (full-text на каждое нажатие без потребителей — расточительно).
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -45,12 +47,9 @@ function makeLogger(): { logger: ILogger; lines: string[] } {
     return { logger, lines };
 }
 
-function makeHost(options: { provider?: () => IWireDocumentSyncSnapshot | null; withRpc?: boolean } = {}) {
+function makeHost(options: { withRpc?: boolean; withExtension?: boolean } = {}) {
     const { logger, lines } = makeLogger();
-    const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
-        logger,
-        ...(options.provider !== undefined ? { activeDocumentProvider: options.provider } : {}),
-    });
+    const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, { logger });
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
@@ -59,6 +58,10 @@ function makeHost(options: { provider?: () => IWireDocumentSyncSnapshot | null; 
         // installHostHandlers не выставляет this.rpc (это делает ensureSubprocess) —
         // подставляем вручную, чтобы host мог слать нотификации субпроцессу.
         (host as unknown as { rpc: RpcEndpoint | null }).rpc = hostRpc;
+    }
+    if (options.withExtension !== false) {
+        // didOpen — no-op без активных расширений; те же тесты без spawn'а.
+        (host as unknown as { extensions: Set<string> }).extensions.add("test.fixture");
     }
     const received: { method: string; params: unknown }[] = [];
     peer.handleNotification("editor.didOpen", (p) => received.push({ method: "editor.didOpen", params: p }));
@@ -76,49 +79,49 @@ async function subscribe(h: ReturnType<typeof makeHost>): Promise<void> {
 }
 
 describe("ExtensionHost — гейты document sync push'а (in-process)", () => {
-    it("без rpc и без подписки push не гоняется; подписка включает его", async () => {
+    it("didOpen шлётся без подписки (нужен только живой subprocess с расширением)", async () => {
         const noRpc = makeHost({ withRpc: false });
         noRpc.host.didOpenTextDocument(snap());
-        noRpc.host.didChangeTextDocument(snap());
         await flushMicrotasks();
         expect(noRpc.received).toHaveLength(0);
 
+        const noExtension = makeHost({ withExtension: false });
+        noExtension.host.didOpenTextDocument(snap());
+        await flushMicrotasks();
+        expect(noExtension.received).toHaveLength(0);
+
         const h = makeHost();
         h.host.didOpenTextDocument(snap());
-        h.host.didChangeTextDocument(snap());
         await flushMicrotasks();
-        expect(h.received).toHaveLength(0);
-
-        await subscribe(h);
-        h.host.didOpenTextDocument(snap());
-        h.host.didChangeTextDocument(snap("hello!", 2));
-        await flushMicrotasks();
-        expect(h.received.map((r) => r.method)).toEqual(["editor.didOpen", "editor.didChange"]);
+        expect(h.received).toEqual([{ method: "editor.didOpen", params: snap() }]);
     });
 
-    it("переход подписки 0→1 доталкивает активный документ провайдера, повторный true — нет", async () => {
-        const h = makeHost({ provider: () => snap("provided", 7) });
-        await subscribe(h);
-        expect(h.received).toEqual([{ method: "editor.didOpen", params: snap("provided", 7) }]);
+    it("didChange гейтится подпиской; подписка включает push", async () => {
+        const h = makeHost();
+        h.host.didChangeTextDocument(snap("a", 2));
+        await flushMicrotasks();
+        expect(h.received.filter((r) => r.method === "editor.didChange")).toHaveLength(0);
 
-        // Подписка уже была — транзишена нет, повторного push'а нет.
         await subscribe(h);
-        expect(h.received).toHaveLength(1);
+        h.host.didChangeTextDocument(snap("ab", 3));
+        await flushMicrotasks();
+        expect(h.received.filter((r) => r.method === "editor.didChange")).toEqual([
+            { method: "editor.didChange", params: snap("ab", 3) },
+        ]);
 
-        // Сброс и новый переход 0→1 — снова push.
+        // Отписка выключает didChange обратно.
         h.peer.notify("workspace.updateSubscriptions", { willSave: false, didSave: false, documentSync: false });
-        await subscribe(h);
-        expect(h.received).toHaveLength(2);
+        await flushMicrotasks();
+        h.host.didChangeTextDocument(snap("abc", 4));
+        await flushMicrotasks();
+        expect(h.received.filter((r) => r.method === "editor.didChange")).toHaveLength(1);
     });
 
-    it("переход 0→1 без активного документа (провайдер вернул null / не передан) — без push'а", async () => {
-        const withNull = makeHost({ provider: () => null });
-        await subscribe(withNull);
-        expect(withNull.received).toHaveLength(0);
-
-        const withoutProvider = makeHost();
-        await subscribe(withoutProvider);
-        expect(withoutProvider.received).toHaveLength(0);
+    it("didChange без rpc — no-op", async () => {
+        const noRpc = makeHost({ withRpc: false });
+        noRpc.host.didChangeTextDocument(snap());
+        await flushMicrotasks();
+        expect(noRpc.received).toHaveLength(0);
     });
 
     it("didChange коалесируется в пределах тика: последний снапшот побеждает", async () => {
@@ -150,15 +153,16 @@ describe("ExtensionHost — гейты document sync push'а (in-process)", () =
         expect(h.received.filter((r) => r.method === "editor.didChange")).toHaveLength(0);
     });
 
-    it("слишком большой документ не пушится и логируется", async () => {
+    it("слишком большой документ не пушится ни didOpen, ни didChange — и логируется", async () => {
         const h = makeHost();
         await subscribe(h);
 
         const huge = "x".repeat(8 * 1024 * 1024 + 1);
         h.host.didOpenTextDocument(snap(huge));
+        h.host.didChangeTextDocument(snap(huge, 2));
         await flushMicrotasks();
 
         expect(h.received).toHaveLength(0);
-        expect(h.logLines.some((line) => line.includes("document too large"))).toBe(true);
+        expect(h.logLines.filter((line) => line.includes("document too large"))).toHaveLength(2);
     });
 });

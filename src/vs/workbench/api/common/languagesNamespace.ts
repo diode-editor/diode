@@ -427,8 +427,11 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
 
     const languagesNs = {
         createDiagnosticCollection,
-        // Наивный score DocumentSelector'а (языковой матч клиент делает сам).
-        match: (): number => 10,
+        // Настоящий match: vscode-languageclient фильтрует ИМ документы для
+        // синхронизации с сервером (textSynchronization.js) — наивный «всегда 10»
+        // скармливал ts-серверу markdown и meta-обёртки, сервер ронял хендлеры.
+        match: (selector: vscode.DocumentSelector, document: vscode.TextDocument): number =>
+            matchDocumentSelector(selector, document as unknown as ExtHostTextDocument) ? 10 : 0,
 
         registerCompletionItemProvider: (
             selector: vscode.DocumentSelector,

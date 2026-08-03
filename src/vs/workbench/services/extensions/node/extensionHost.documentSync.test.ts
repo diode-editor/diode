@@ -114,7 +114,7 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
         }
     });
 
-    it("активация после открытия файла: первый подписчик получает уже открытый документ", async () => {
+    it("активация после открытия файла: workspace.textDocuments уже несёт полный текст", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [
                 extensionFixture("test.noop", "noopExtension.cjs"),
@@ -126,8 +126,11 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            // Subprocess уже поднят (noop активирован eager), файл открывается ДО
-            // активации docSync-расширения — push гейтится отсутствием подписки.
+            // Subprocess уже поднят (noop активирован eager); didOpen НЕ гейтится
+            // подпиской — полный текст доезжает до реестра прямо при открытии.
+            // Стоковый languageclient на start() рассылает серверу didOpen для
+            // документов из workspace.textDocuments — meta-обёртка с пустым
+            // текстом отравила бы сервер.
             const fp = harness.writeFile("late.ts", "export const late = true;\n");
             harness.group.openFile(fp);
             await settle();
@@ -136,15 +139,13 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             await settle();
 
             const log = await dumpLog(harness);
-            // На момент активации в реестре только meta-запись от
-            // editor.activeEditorChanged — ТЕКСТ ещё не доехал (подписки не было)...
             const activateDocs = log.find((e) => e.kind === "activate")?.docs;
             expect(activateDocs).toHaveLength(1);
-            expect(activateDocs?.[0].text).toBe("");
-            // ...но переход подписки 0→1 дотолкал активный документ целиком.
-            const opens = log.filter((e) => e.kind === "open");
-            expect(opens).toHaveLength(1);
-            expect(opens[0].text).toBe("export const late = true;\n");
+            expect(activateDocs?.[0].text).toBe("export const late = true;\n");
+            // Событие onDidOpen отфаерилось в момент открытия (подписчиков ещё не
+            // было) и дедупнуто — поздний подписчик событий не получает, документы
+            // он находит сам в workspace.textDocuments (семантика VS Code).
+            expect(log.filter((e) => e.kind === "open")).toHaveLength(0);
         } finally {
             await harness.dispose();
         }

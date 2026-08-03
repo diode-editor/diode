@@ -481,11 +481,18 @@ export class ExtensionHost extends Disposable {
     /**
      * Пушит открытие документа в subprocess (`editor.didOpen`) — там пополняется
      * `workspace.textDocuments` и фаерится `onDidOpenTextDocument`, на которое
-     * подписан document sync стокового vscode-languageclient. No-op без
-     * subprocess'а, без подписчиков document sync и для слишком больших документов.
+     * подписан document sync стокового vscode-languageclient. Подпиской НЕ
+     * гейтится (в отличие от didChange): `workspace.textDocuments` обязан нести
+     * полный текст активного документа ещё ДО активации клиента — стоковый
+     * languageclient на `start()` рассылает серверу didOpen для всех документов
+     * реестра, и meta-обёртка с пустым текстом отравила бы сервер. No-op без
+     * subprocess'а и для слишком больших документов.
      */
     public didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
-        this.documentSyncRpc(snapshot)?.notify("editor.didOpen", snapshot);
+        const rpc = this.rpc;
+        if (rpc === null || this.extensions.size === 0) return;
+        if (!this.fitsDocumentSyncLimit(snapshot)) return;
+        rpc.notify("editor.didOpen", snapshot);
     }
 
     /**
@@ -509,20 +516,24 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Общий гейт document sync push'а: возвращает rpc, если subprocess жив,
-     * подписка document sync есть и документ подъёмный; иначе `null` (no-op).
+     * Гейт didChange: возвращает rpc, если subprocess жив, подписка document
+     * sync есть и документ подъёмный; иначе `null` (no-op).
      */
     private documentSyncRpc(snapshot: IWireDocumentSyncSnapshot): RpcEndpoint | null {
         const rpc = this.rpc;
         if (rpc === null || !this.documentSyncSubscribed) return null;
-        if (snapshot.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping document sync: document too large", {
-                uri: snapshot.uri,
-                length: snapshot.text.length,
-            });
-            return null;
-        }
+        if (!this.fitsDocumentSyncLimit(snapshot)) return null;
         return rpc;
+    }
+
+    /** Защитный лимит на снапшот document sync (8 МБ). */
+    private fitsDocumentSyncLimit(snapshot: IWireDocumentSyncSnapshot): boolean {
+        if (snapshot.text.length <= MAX_WILL_SAVE_TEXT_BYTES) return true;
+        this.logger?.warn("skipping document sync: document too large", {
+            uri: snapshot.uri,
+            length: snapshot.text.length,
+        });
+        return false;
     }
 
     /**
@@ -834,16 +845,10 @@ export class ExtensionHost extends Disposable {
             const p = params as { willSave?: unknown; didSave?: unknown; documentSync?: unknown };
             this.willSaveSubscribed = p.willSave === true;
             this.didSaveSubscribed = p.didSave === true;
-            const documentSyncBefore = this.documentSyncSubscribed;
+            // didOpen подпиской не гейтится (см. didOpenTextDocument) — реестр
+            // документов субпроцесса всегда несёт полный текст активного, и
+            // доталкивать его на переходе подписки не нужно.
             this.documentSyncSubscribed = p.documentSync === true;
-            // Первый подписчик document sync мог появиться уже ПОСЛЕ открытия
-            // файла (активация по onLanguage идёт в ответ на ту же смену активного
-            // редактора) — доталкиваем текущий активный документ, иначе расширение
-            // не увидит его до следующего переключения.
-            if (!documentSyncBefore && this.documentSyncSubscribed) {
-                const snapshot = this.activeDocumentProvider?.();
-                if (snapshot !== null && snapshot !== undefined) rpc.notify("editor.didOpen", snapshot);
-            }
         });
         // Субпроцесс сообщает, есть ли зарегистрированные completion-провайдеры.
         // Без них хост не гоняет RPC на Ctrl+Space.
