@@ -388,8 +388,10 @@ UI-подтверждения. Ручной прогон после релиза
 - [x] **9. Branch** — checkout/create/rename/delete, merge/rebase + abort, ref-пикер
       (`vexx.git.query refs`). Гейт: US-25…28.
 - [x] **10. Stash** — stash-семейство + пикер (`vexx.git.query stashes`). Гейт: US-29.
-- [ ] **11. Remote/Tags/прочее** — remote/tag-команды, `git.showOutput`,
+- [x] **11. Remote/Tags/прочее** — remote/tag-команды, `git.showOutput`,
       noVerify/commitEmpty/cherryPick. Гейт: US-30 полностью.
+      Отклонение: Delete Remote Tag выбирает из локальных тегов (без
+      `ls-remote --tags` — сетевой пикер отложен).
 - [ ] **12. (Опция) Статус-бар** — `⎇ branch` + ahead/behind, клик → `git.checkout`;
       sync-entry (`git.sync` / Publish).
 

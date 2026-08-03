@@ -25,6 +25,7 @@ import { classifyGitStderr } from "./lib/classifyGitError.ts";
 import { FOR_EACH_REF_FORMAT, parseForEachRefZ, parseStashListZ, STASH_LIST_FORMAT } from "./lib/queryParse.ts";
 import type { IRepoStatePayload } from "./lib/repoState.ts";
 import { parseBranchHeaders, parseRemotes } from "./lib/repoState.ts";
+import { remoteAddArgs, remoteRemoveArgs, tagCreateArgs, tagDeleteArgs } from "./lib/remoteArgs.ts";
 import { stashApplyArgs, stashDropArgs, stashPopArgs, stashPushArgs } from "./lib/stashArgs.ts";
 import { fetchArgs, pullArgs, pushArgs } from "./lib/syncArgs.ts";
 import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
@@ -596,6 +597,23 @@ class GitDecorations {
                     break;
                 case "stashClear":
                     result = await this.runOp(["stash", "clear"]);
+                    break;
+                case "remoteAdd": {
+                    result = await this.runBuilt(remoteAddArgs(opParams));
+                    // Как VS Code: сразу fetch нового remote (best-effort).
+                    if (result.ok) {
+                        result = await this.runBuilt(fetchArgs({ remote: opParams.name }), { network: true });
+                    }
+                    break;
+                }
+                case "remoteRemove":
+                    result = await this.runBuilt(remoteRemoveArgs(opParams));
+                    break;
+                case "tagCreate":
+                    result = await this.runBuilt(tagCreateArgs(opParams));
+                    break;
+                case "tagDelete":
+                    result = await this.runBuilt(tagDeleteArgs(opParams));
                     break;
                 default:
                     result = { ok: false, kind: "git-error", message: `unknown git op: ${String(op)}` };
