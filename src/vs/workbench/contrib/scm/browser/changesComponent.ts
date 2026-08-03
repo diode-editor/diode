@@ -129,9 +129,8 @@ export class ChangesComponent extends Component {
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
             const meta = this.rowMeta.get(element.id!);
-            // Для папок пункты меню бессмысленны — меню только у файловых строк.
-            if (meta?.kind !== "file") return;
-            this.showContextMenu(meta.change.uri.toString(), screenX, screenY);
+            if (meta === undefined) return;
+            this.showContextMenu(meta, screenX, screenY);
         };
 
         this.register(
@@ -153,6 +152,20 @@ export class ChangesComponent extends Component {
         if (id === undefined) return null;
         const meta = this.rowMeta.get(id);
         return meta?.kind === "file" ? meta.change : null;
+    }
+
+    /**
+     * Файловые записи текущего выделения списка (multi-select; пустое выделение —
+     * строка под курсором) в порядке показа — цели групповых staging-команд.
+     */
+    public getSelectedChanges(): readonly IScmChange[] {
+        const changes: IScmChange[] = [];
+        for (const element of this.list.getSelectedElements()) {
+            // Список не принимает строки без id — здесь он гарантированно есть.
+            const meta = this.rowMeta.get(element.id!);
+            if (meta?.kind === "file") changes.push(meta.change);
+        }
+        return changes;
     }
 
     public getViewMode(): ScmViewMode {
@@ -267,13 +280,37 @@ export class ChangesComponent extends Component {
         return files;
     }
 
-    /** Контекстное меню файловой строки — делегат ContextMenuService (как у Explorer). */
-    private showContextMenu(uri: string, screenX: number, screenY: number): void {
-        const context: ScmMenuContext = { uri };
+    /**
+     * Контекстное меню строки — делегат ContextMenuService (как у Explorer).
+     * Цели: файловая строка в текущем выделении → всё выделение, вне его — одна
+     * строка; папка → её файлы; заголовок группы → вся группа (и своя точка меню
+     * `ScmResourceGroupContext`).
+     */
+    private showContextMenu(meta: ScmRowMeta, screenX: number, screenY: number): void {
+        let kind: ScmMenuContext["kind"];
+        let targets: readonly IScmChange[];
+        let menuId = MenuId.ScmContext;
+        if (meta.kind === "file") {
+            kind = "resource";
+            const selected = this.getSelectedChanges();
+            targets = selected.includes(meta.change) ? selected : [meta.change];
+        } else if (meta.kind === "folder") {
+            kind = "folder";
+            targets = meta.changes;
+        } else {
+            kind = "group";
+            targets = meta.changes;
+            menuId = MenuId.ScmResourceGroupContext;
+        }
+        const context: ScmMenuContext = {
+            kind,
+            uris: targets.map((c) => c.uri.toString()),
+            groups: [...new Set(targets.map((c) => c.group))],
+        };
         this.contextMenuService.showContextMenu({
             getOwner: () => this.list,
             getAnchor: () => ({ screenX, screenY }),
-            menuId: MenuId.ScmContext,
+            menuId,
             menuContext: context,
         });
     }

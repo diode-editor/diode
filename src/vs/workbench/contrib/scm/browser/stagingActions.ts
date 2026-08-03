@@ -1,0 +1,180 @@
+import { Uri } from "../../../../base/common/uri.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { scmHasAnyGroup, scmUrisArg } from "../../../browser/actions/menuContexts.ts";
+import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+
+import { ChangesComponentDIToken } from "./changesComponent.ts";
+import { ScmChangesServiceDIToken, type ScmGroupId } from "./changesService.ts";
+
+/**
+ * User-facing staging-команды (`git.*` — номенклатура VS Code). Живут в ядре:
+ * меню, выделение и пикеры — здесь; git исполняет расширение через
+ * команды-транспорты `vexx.git.*` (строки дублируются по значению — общих
+ * импортов через границу процесса нет).
+ */
+export const STAGE_TRANSPORT_COMMAND = "vexx.git.stage";
+export const UNSTAGE_TRANSPORT_COMMAND = "vexx.git.unstage";
+
+/** Применимость по группам: stage — всё незастейдженное, unstage — индекс. */
+const STAGEABLE_GROUPS: readonly ScmGroupId[] = ["worktree", "untracked", "merge"];
+const UNSTAGEABLE_GROUPS: readonly ScmGroupId[] = ["index"];
+
+/** Сколько висит notice об ошибке git-операции в статус-баре. */
+const FAILURE_NOTICE_MS = 5000;
+
+/**
+ * Резолв целей staging-команды: явные uri из меню (аргументом) либо выделение
+ * списка Changes (клавиатура/палитра). В обоих случаях цели фильтруются по
+ * применимости групп (смешанное выделение: stage берёт своё, unstage — своё,
+ * ровно как VS Code) и дедуплицируются (MM-файл — две записи, один uri).
+ */
+export function resolveScmTargets(
+    accessor: ServiceAccessor,
+    raw: unknown,
+    applicable: readonly ScmGroupId[],
+): Uri[] {
+    const changes = accessor.get(ScmChangesServiceDIToken).changes;
+    const applicableUris = new Set(
+        changes.filter((c) => applicable.includes(c.group)).map((c) => c.uri.toString()),
+    );
+
+    const candidates: string[] =
+        Array.isArray(raw) && raw.every((item): item is string => typeof item === "string")
+            ? raw
+            : accessor.get(ChangesComponentDIToken).getSelectedChanges().map((c) => c.uri.toString());
+
+    const seen = new Set<string>();
+    const targets: Uri[] = [];
+    for (const uri of candidates) {
+        if (!applicableUris.has(uri) || seen.has(uri)) continue;
+        seen.add(uri);
+        targets.push(Uri.parse(uri));
+    }
+    return targets;
+}
+
+/** Все применимые файлы из снимка сервиса — цели `git.stageAll`/`git.unstageAll`. */
+function allTargets(accessor: ServiceAccessor, applicable: readonly ScmGroupId[]): Uri[] {
+    return resolveScmTargets(
+        accessor,
+        accessor.get(ScmChangesServiceDIToken).changes.map((c) => c.uri.toString()),
+        applicable,
+    );
+}
+
+/**
+ * Исполняет команду-транспорт расширения и разбирает envelope `{ok|message}`.
+ * Расширение не активно (команды нет) или цели пусты — тихий no-op; ошибка git —
+ * транзиентный notice в статус-баре (тостов нет), список сойдётся refresh-ом.
+ */
+export async function runGitTransport(accessor: ServiceAccessor, commandId: string, uris: Uri[]): Promise<void> {
+    if (uris.length === 0) return;
+    const commands = accessor.get(CommandRegistryDIToken);
+    if (!commands.has(commandId)) return;
+    const result = (await Promise.resolve(
+        commands.execute(
+            commandId,
+            uris.map((u) => u.toString()),
+        ),
+    ).catch(() => null)) as { ok?: boolean; message?: string } | null;
+    if (result?.ok === true) return;
+
+    const message = typeof result?.message === "string" && result.message !== "" ? result.message : "git failed";
+    const handle = accessor.get(StatusBarServiceDIToken).addEntry({
+        id: "scm.staging.notice",
+        text: `Git: ${message}`,
+        alignment: "left",
+        priority: 100,
+    });
+    setTimeout(() => {
+        handle.dispose();
+    }, FAILURE_NOTICE_MS);
+}
+
+/**
+ * Stage: контекст-меню строки/папки (по выделению), заголовка группы (вся
+ * группа — per-placement title «Stage All Changes») и палитра (по выделению).
+ */
+export const gitStageAction: CommandAction = {
+    id: "git.stage",
+    title: "Git: Stage Changes",
+    shortTitle: "Stage Changes",
+    menus: [
+        {
+            menuId: MenuId.ScmContext,
+            group: "2_stage",
+            order: 10,
+            args: scmUrisArg,
+            visible: scmHasAnyGroup(...STAGEABLE_GROUPS),
+        },
+        {
+            menuId: MenuId.ScmResourceGroupContext,
+            title: "Stage All Changes",
+            group: "1_actions",
+            order: 10,
+            args: scmUrisArg,
+            visible: scmHasAnyGroup(...STAGEABLE_GROUPS),
+        },
+    ],
+    run(accessor, rawUris) {
+        return runGitTransport(
+            accessor,
+            STAGE_TRANSPORT_COMMAND,
+            resolveScmTargets(accessor, rawUris, STAGEABLE_GROUPS),
+        );
+    },
+};
+
+/** Unstage: применим только к записям группы index (Staged Changes). */
+export const gitUnstageAction: CommandAction = {
+    id: "git.unstage",
+    title: "Git: Unstage Changes",
+    shortTitle: "Unstage Changes",
+    menus: [
+        {
+            menuId: MenuId.ScmContext,
+            group: "2_stage",
+            order: 20,
+            args: scmUrisArg,
+            visible: scmHasAnyGroup(...UNSTAGEABLE_GROUPS),
+        },
+        {
+            menuId: MenuId.ScmResourceGroupContext,
+            title: "Unstage All Changes",
+            group: "1_actions",
+            order: 10,
+            args: scmUrisArg,
+            visible: scmHasAnyGroup(...UNSTAGEABLE_GROUPS),
+        },
+    ],
+    run(accessor, rawUris) {
+        return runGitTransport(
+            accessor,
+            UNSTAGE_TRANSPORT_COMMAND,
+            resolveScmTargets(accessor, rawUris, UNSTAGEABLE_GROUPS),
+        );
+    },
+};
+
+/** Stage всего незастейдженного — из палитры (позже — подменю Changes меню «⋯»). */
+export const gitStageAllAction: CommandAction = {
+    id: "git.stageAll",
+    title: "Git: Stage All Changes",
+    shortTitle: "Stage All Changes",
+    run(accessor) {
+        return runGitTransport(accessor, STAGE_TRANSPORT_COMMAND, allTargets(accessor, STAGEABLE_GROUPS));
+    },
+};
+
+/** Unstage всего индекса — из палитры (позже — подменю Changes меню «⋯»). */
+export const gitUnstageAllAction: CommandAction = {
+    id: "git.unstageAll",
+    title: "Git: Unstage All Changes",
+    shortTitle: "Unstage All Changes",
+    run(accessor) {
+        return runGitTransport(accessor, UNSTAGE_TRANSPORT_COMMAND, allTargets(accessor, UNSTAGEABLE_GROUPS));
+    },
+};

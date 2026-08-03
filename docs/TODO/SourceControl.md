@@ -366,7 +366,7 @@ UI-подтверждения. Ручной прогон после релиза
 - [x] **2. Транспорты мутаций** — `vexx.git.stage/unstage/clean` в расширении: мьютекс,
       валидация uri, envelope, refresh после мутации; интеграционные тесты на temp-репо
       (unborn HEAD, clean tracked/untracked).
-- [ ] **3. Stage/Unstage + multi-select + меню v2** — `ScmMenuContext v2` (uris+groups),
+- [x] **3. Stage/Unstage + multi-select + меню v2** — `ScmMenuContext v2` (uris+groups),
       `MenuId.ScmResourceGroupContext`, `stagingActions.ts`, `getSelectedChanges()`,
       меню на папках и заголовках групп. Гейт: US-2…9, US-12 (без discard).
 - [ ] **4. Discard** — `DialogService.confirm()`, `git.clean/cleanAll` с раздельными
