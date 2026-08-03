@@ -86,7 +86,10 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     return { component, commands, scm, menu, themeService, executed };
 }
 
-function publish(commands: CommandRegistry, entries: { rel: string; status?: string; colorId?: string }[]): void {
+function publish(
+    commands: CommandRegistry,
+    entries: { rel: string; status?: string; colorId?: string; group?: string }[],
+): void {
     commands.execute(
         PUBLISH_CHANGES_COMMAND,
         entries.map((e) => ({
@@ -94,12 +97,18 @@ function publish(commands: CommandRegistry, entries: { rel: string; status?: str
             status: e.status ?? "M",
             colorId: e.colorId ?? "gitDecoration.modifiedResourceForeground",
             path: e.rel,
+            group: e.group ?? "worktree",
         })),
     );
 }
 
 function uriOf(rel: string): string {
     return Uri.file(`/repo/${rel}`).toString();
+}
+
+/** Id файловой строки по конвенции `scmRow-<group>-<sanitized-path>`. */
+function rowIdOf(rel: string, group = "worktree"): string {
+    return `scmRow-${group}-${rel.replace(/[^A-Za-z0-9_-]+/g, "-")}`;
 }
 
 function frame(h: IHarness, w = 40, ht = 10): string {
@@ -115,7 +124,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         const h = make();
         publish(h.commands, [
             { rel: "nested/b.txt" },
-            { rel: "a.txt", status: "U", colorId: "gitDecoration.untrackedResourceForeground" },
+            { rel: "a.txt", status: "U", colorId: "gitDecoration.untrackedResourceForeground", group: "untracked" },
         ]);
 
         const screen = frame(h);
@@ -124,7 +133,10 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         // Буква статуса и глиф — в строке файла.
         expect(screen).toContain("U");
         expect(screen).toContain(OPEN_FILE_GLYPH);
-        expect(h.component.list.rowCount).toBe(2);
+        // Заголовки групп: untracked-строка и worktree-строка → две секции + 2 файла.
+        expect(screen).toContain("Changes");
+        expect(screen).toContain("Untracked Changes");
+        expect(h.component.list.rowCount).toBe(4);
     });
 
     it("пустой набор — пустой список (рамку SOURCE CONTROL рисует контейнер ViewsService)", () => {
@@ -137,10 +149,24 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }]);
 
-        h.component.list.setCursorTo(uriOf("a.txt"));
+        h.component.list.setCursorTo(rowIdOf("a.txt"));
         pressEnter(h);
 
         expect(h.executed).toEqual([["scm.action.openChanges", [uriOf("a.txt")]]]);
+    });
+
+    it("Enter по заголовку группы сворачивает её вместе с файлами", () => {
+        const h = make();
+        publish(h.commands, [{ rel: "a.txt" }]);
+
+        h.component.list.setCursorTo("scmGroup-worktree");
+        pressEnter(h);
+        expect(frame(h)).not.toContain("a.txt");
+
+        // Свёрнутость группы переживает повторный publish другого набора.
+        publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }]);
+        expect(frame(h)).not.toContain("b.txt");
+        expect(h.executed).toEqual([]);
     });
 
     it("клик по глифу исполняет scm.action.openFile, не трогая курсор", () => {
@@ -152,19 +178,19 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         const list = h.component.list;
         // Глиф — во второй колонке справа (fixed 2 перед статусом fixed 1).
         const glyphX = list.globalPosition.x + list.layoutSize.width - 3;
-        const rowY = list.globalPosition.y + 1; // вторая строка (b.txt)
+        const rowY = list.globalPosition.y + 2; // третья строка (заголовок группы, a.txt, b.txt)
         list.dispatchEvent(
             new TUIMouseEvent("click", {
                 button: "left",
                 screenX: glyphX,
                 screenY: rowY,
                 localX: glyphX - list.globalPosition.x,
-                localY: 1,
+                localY: 2,
             }),
         );
 
         expect(h.executed).toEqual([["scm.action.openFile", [uriOf("b.txt")]]]);
-        expect(list.getCursorElement()?.id).toBe(uriOf("a.txt"));
+        expect(list.getCursorElement()?.id).toBe("scmGroup-worktree");
     });
 
     it("getCursorChange отдаёт изменение под курсором, а на пустом списке — null", () => {
@@ -172,25 +198,81 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.component.getCursorChange()).toBeNull();
 
         publish(h.commands, [{ rel: "a.txt" }]);
-        h.component.list.setCursorTo(uriOf("a.txt"));
+        h.component.list.setCursorTo(rowIdOf("a.txt"));
         expect(h.component.getCursorChange()?.path).toBe("a.txt");
+
+        h.component.list.setCursorTo("scmGroup-worktree");
+        expect(h.component.getCursorChange()).toBeNull();
     });
 
     it("курсор переживает publish, если строка осталась в наборе", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }]);
-        h.component.list.setCursorTo(uriOf("b.txt"));
+        h.component.list.setCursorTo(rowIdOf("b.txt"));
 
         publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }, { rel: "c.txt" }]);
 
-        expect(h.component.list.getCursorElement()?.id).toBe(uriOf("b.txt"));
+        expect(h.component.list.getCursorElement()?.id).toBe(rowIdOf("b.txt"));
+    });
+
+    it("файл в двух группах (MM) — две строки с разными id", () => {
+        const h = make();
+        publish(h.commands, [
+            { rel: "a.txt", group: "index", status: "M" },
+            { rel: "a.txt", group: "worktree", status: "M" },
+        ]);
+
+        const screen = frame(h);
+        expect(screen).toContain("Staged Changes");
+        expect(screen).toContain("Changes");
+        expect(h.component.list.rowCount).toBe(4);
+
+        h.component.list.setCursorTo(rowIdOf("a.txt", "index"));
+        expect(h.component.getCursorChange()?.group).toBe("index");
+        h.component.list.setCursorTo(rowIdOf("a.txt", "worktree"));
+        expect(h.component.getCursorChange()?.group).toBe("worktree");
+    });
+
+    it("коллизия санитизации id (a.b ↔ a-b ↔ a_b-двойник) разводится суффиксом", () => {
+        const h = make();
+        publish(h.commands, [{ rel: "a.b" }, { rel: "a-b" }, { rel: "a?b" }]);
+
+        // Все три строки живы, id уникальны.
+        expect(h.component.list.rowCount).toBe(4);
+        h.component.list.setCursorTo("scmRow-worktree-a-b");
+        expect(h.component.getCursorChange()).not.toBeNull();
+        h.component.list.setCursorTo("scmRow-worktree-a-b_2");
+        expect(h.component.getCursorChange()).not.toBeNull();
+        h.component.list.setCursorTo("scmRow-worktree-a-b_3");
+        expect(h.component.getCursorChange()).not.toBeNull();
+    });
+
+    it("конфликтный файл попадает в группу Merge Changes первой секцией", () => {
+        const h = make();
+        publish(h.commands, [
+            { rel: "a.txt" },
+            { rel: "conflict.txt", group: "merge", status: "U", colorId: "gitDecoration.conflictingResourceForeground" },
+        ]);
+
+        const screen = frame(h);
+        expect(screen).toContain("Merge Changes");
+        // Merge-секция выше worktree-секции.
+        expect(screen.indexOf("Merge Changes")).toBeLessThan(screen.indexOf("conflict.txt"));
+        expect(screen.indexOf("conflict.txt")).toBeLessThan(screen.indexOf("a.txt"));
     });
 });
 
 describe("ChangesComponent — tree-режим", () => {
     it("setViewMode('tree') группирует по папкам с компакцией и collapse работает", () => {
         const h = make();
-        publish(h.commands, [{ rel: "src/vs/a.ts" }, { rel: "src/vs/b.ts" }, { rel: "root.txt" }]);
+        // src/vs — компакт-цепочка; src/vs/sub рядом с файлами ломает компакцию
+        // ниже и гоняет рекурсивный сбор файлов папки (rowMeta папки src/vs).
+        publish(h.commands, [
+            { rel: "src/vs/a.ts" },
+            { rel: "src/vs/b.ts" },
+            { rel: "src/vs/sub/c.ts" },
+            { rel: "root.txt" },
+        ]);
 
         h.component.setViewMode("tree");
         let screen = frame(h);
@@ -199,7 +281,7 @@ describe("ChangesComponent — tree-режим", () => {
         expect(screen).not.toContain("src/vs/a.ts");
 
         // Активация папки сворачивает её вместе с детьми.
-        h.component.list.setCursorTo("dir:src/vs");
+        h.component.list.setCursorTo("scmDir-worktree-src-vs");
         pressEnter(h);
         screen = frame(h);
         expect(screen).not.toContain("a.ts");
@@ -270,15 +352,16 @@ describe("ChangesComponent — тема и контекстное меню", () 
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
 
         const list = h.component.list;
+        // Строка 0 — заголовок группы, файл a.txt — строка 1.
         const rightClick = () => {
             list.dispatchEvent(
                 new TUIContextMenuEvent({
                     trigger: "mouse",
                     button: "right",
                     screenX: list.globalPosition.x + 2,
-                    screenY: list.globalPosition.y,
+                    screenY: list.globalPosition.y + 1,
                     localX: 2,
-                    localY: 0,
+                    localY: 1,
                 }),
             );
             app.render();
@@ -323,6 +406,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         );
 
         // Папка в tree-режиме: меню не собирается вовсе (guard до сервиса).
+        // Строки: заголовок группы (0), папка nested (1), b.txt (2).
         h.component.setViewMode("tree");
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
         (h.menu.getEntries as ReturnType<typeof vi.fn>).mockClear();
@@ -331,9 +415,9 @@ describe("ChangesComponent — тема и контекстное меню", () 
                 trigger: "mouse",
                 button: "right",
                 screenX: list.globalPosition.x + 2,
-                screenY: list.globalPosition.y,
+                screenY: list.globalPosition.y + 1,
                 localX: 2,
-                localY: 0,
+                localY: 1,
             }),
         );
         app.render();

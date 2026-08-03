@@ -6,7 +6,7 @@ import * as vscode from "vscode";
 import { showFileAtRevision, toRepoRelativePath } from "./lib/gitShow.ts";
 import { fromGitUri, GIT_SCHEME, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./lib/gitUri.ts";
 import type { IStatusDecoration } from "./lib/map.ts";
-import { statusToDecoration } from "./lib/map.ts";
+import { statusToDecoration, xyToResourceStates } from "./lib/map.ts";
 import { parsePorcelainStatus } from "./lib/porcelain.ts";
 import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
 import type { IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
@@ -298,12 +298,15 @@ class GitDecorations {
      * (например, при завершении процесса) молча глотаем — это не сбой git.
      */
     private publishChanges(entries: Map<string, IStatusEntry>): void {
-        const resources = [...entries].map(([absPath, entry]) => ({
-            uri: vscode.Uri.file(absPath).toString(),
-            status: entry.deco.badge,
-            colorId: entry.deco.colorId,
-            path: entry.relPath,
-        }));
+        const resources = [...entries].flatMap(([absPath, entry]) =>
+            xyToResourceStates(entry.xy).map((state) => ({
+                uri: vscode.Uri.file(absPath).toString(),
+                status: state.badge,
+                colorId: state.colorId,
+                path: entry.relPath,
+                group: state.group,
+            })),
+        );
         void Promise.resolve(vscode.commands.executeCommand(PUBLISH_CHANGES_COMMAND, resources)).catch(
             /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
             () => undefined,

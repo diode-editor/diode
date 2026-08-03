@@ -71,7 +71,9 @@ export default defineScenario({
 
         // Shift+F10 на сфокусированном списке — контекстное меню SCM (Open File /
         // Open Changes): клавиатурный путь пришёл вместе с единым событием
-        // contextmenu движка, отдельной команды у SCM нет.
+        // contextmenu движка, отдельной команды у SCM нет. Курсор списка стоит на
+        // заголовке группы «Changes» — опускаемся на файловую строку app.ts.
+        await editor.sendKey("ArrowDown");
         await editor.sendKey("Shift+F10");
         await editor.waitForText((t) => t.includes("Open File") && t.includes("Open Changes"));
         await editor.capture("context-menu");
@@ -84,7 +86,7 @@ export default defineScenario({
         // активирует dblclick. Шлём 4 события подряд без settle, чтобы уложиться
         // в окно распознавания двойного клика (300 мс).
         const x = list.box.x + 2;
-        const y = list.box.y;
+        const y = list.box.y + 1; // первая строка — заголовок группы «Changes»
         await editor.sendMouse({ action: "press", button: "left", x, y });
         await editor.sendMouse({ action: "release", button: "left", x, y });
         await editor.sendMouse({ action: "press", button: "left", x, y });
@@ -98,11 +100,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("src/util") && !t.includes("src/util/format.ts"));
         await editor.capture("changes-tree");
 
-        // Контекстное меню строки: правый клик по app.ts (в дереве: src/util,
-        // format.ts, app.ts, extra.ts → третья строка).
+        // Контекстное меню строки: правый клик по app.ts (в дереве: заголовок
+        // Changes, src/util, format.ts, app.ts → четвёртая строка).
         const rows = await editor.waitForNode("#changesList");
         const menuX = rows.box.x + 2;
-        const menuY = rows.box.y + 2;
+        const menuY = rows.box.y + 3;
         await editor.sendMouse({ action: "press", button: "right", x: menuX, y: menuY });
         await editor.sendMouse({ action: "release", button: "right", x: menuX, y: menuY });
         await editor.waitForText((t) => t.includes("Open File") && t.includes("Open Changes"));
@@ -110,8 +112,9 @@ export default defineScenario({
         await editor.sendKey("Escape");
 
         // Инлайн-кнопка Open File (глиф у правого края строки): открывает сам файл,
-        // а не дифф — кликаем по untracked extra.ts (четвёртая строка дерева).
-        await editor.clickNode("#changesList", { dx: rows.box.width - 3, dy: 3 });
+        // а не дифф — кликаем по untracked extra.ts (шестая строка дерева: после
+        // секции Changes идёт заголовок Untracked Changes и сам файл).
+        await editor.clickNode("#changesList", { dx: rows.box.width - 3, dy: 5 });
         await editor.waitForText((t) => t.includes("export const answer = 42;"));
         await editor.capture("open-file-button");
     },
