@@ -20,7 +20,9 @@ function run(cmd) {
 }
 
 // 1. Собираем dist/main.js + dist/vexx.bundle + dist/node-pty.bundle + dist/rg.bundle (общее с build-selfextract.mjs).
-const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath } = await buildDistArtifacts({ repoRoot: root });
+const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath } = await buildDistArtifacts({
+    repoRoot: root,
+});
 
 // 2. Generate SEA config
 const seaConfig = {
@@ -36,6 +38,9 @@ const seaConfig = {
         // Бинарь ripgrep: loadRipgrep.ts распаковывает этот ассет в tmpdir и
         // запускает оттуда (исполняемый файл нельзя запустить из JS-blob).
         "rg.bundle": ripgrepBundlePath,
+        // typescript-language-server + минимальный TypeScript: loadTsServer.ts
+        // распаковывает в пользовательский кэш при первом использовании LSP.
+        "ts-server.bundle": tsServerBundlePath,
     },
 };
 

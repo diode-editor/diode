@@ -15,12 +15,13 @@ import { buildExtensions } from "./build-extensions.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
 import { buildVexxBundle } from "./pack-assets.mjs";
 import { buildRipgrepBundle } from "./pack-ripgrep.mjs";
+import { buildTsServerBundle } from "./pack-ts-server.mjs";
 
 /**
  * Собирает `dist/main.js`, `dist/vexx.bundle` и `dist/node-pty.bundle`.
  *
  * @param {{ repoRoot: string }} params
- * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string }>}
+ * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string }>}
  */
 export async function buildDistArtifacts({ repoRoot }) {
     const distDir = join(repoRoot, "dist");
@@ -61,5 +62,16 @@ export async function buildDistArtifacts({ repoRoot }) {
         `[build-dist] Packed ripgrep (${rgBinaryName}) → ${ripgrepBundlePath} (${(rgBundle.length / 1024 / 1024).toFixed(1)} MB)`,
     );
 
-    return { distDir, mainJsPath: join(distDir, "main.js"), bundlePath, nodePtyBundlePath, ripgrepBundlePath };
+    // 6. Пакуем typescript-language-server + минимальный TypeScript в
+    // dist/ts-server.bundle — «батарейки вшиты»: LSP из коробки без node_modules
+    // в проекте и без node в PATH. SEA вшивает ассетом, self-extract кладёт
+    // файлом рядом с main.js (loadTsServer.ts распаковывает в кэш).
+    const { bundle: tsBundle, fileCount: tsFileCount } = buildTsServerBundle({ repoRoot });
+    const tsServerBundlePath = join(distDir, "ts-server.bundle");
+    writeFileSync(tsServerBundlePath, tsBundle);
+    console.log(
+        `[build-dist] Packed ts-server (${tsFileCount} files) → ${tsServerBundlePath} (${(tsBundle.length / 1024 / 1024).toFixed(1)} MB)`,
+    );
+
+    return { distDir, mainJsPath: join(distDir, "main.js"), bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath };
 }
