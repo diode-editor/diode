@@ -9,8 +9,9 @@ import { ListViewElement } from "./listViewElement.ts";
 // Бенчмарки виртуализирующего списка. Запуск: `npm run test:perf`.
 //
 // Ключевое свойство: стоимость кадра не зависит от числа строк (layout/render
-// трогают только видимое окно), а мутации (append/collapse) платят одной
-// ленивой пересборкой проекции O(N) на кадр.
+// трогают только видимое окно); append-в-хвост дополняет живую проекцию
+// инкрементально, и только collapse/hidden/вставка-в-середину платят ленивой
+// пересборкой проекции O(N) на кадр.
 //
 // NB: фикстуры строятся на верхнем уровне модуля (top-level await), а не в
 // beforeAll — в режиме `vitest bench` тяжёлая инициализация в beforeAll
@@ -66,5 +67,57 @@ describe("ListViewElement — streaming append", () => {
         }
         // Чтение contentHeight материализует проекцию — ровно одна пересборка.
         void list.contentHeight;
+    });
+});
+
+// ─── Кадр между порциями стрима (SearchPerformance.md, случай 6) ─────────────
+//
+// Репро стрима результатов поиска: список уже большой, каждая порция appendRow
+// завершается кадром. Рост списка между сэмплами — сигнал, а не помеха: при
+// полной пересборке проекции стоимость итерации растёт с N, при инкрементальном
+// дополнении остаётся плоской O(окно + порция).
+
+const streamedList = new ListViewElement();
+for (let i = 0; i < 10_000; i++) {
+    streamedList.appendRow(makeRow(`s${i}`));
+}
+const streamedApp = TestApp.createWithContent(streamedList, new Size(60, 40));
+// Валидация дерева O(N) на кадр — оверхед тест-харнеса, в проде её нет; она
+// хоронит измеряемую стоимость кадра (как в searchCursor.bench.ts).
+streamedApp.app.validateTreeAfterRender = false;
+streamedApp.render();
+let streamSeq = 10_000;
+
+const groupedList = new ListViewElement();
+let groupedGroups = 0;
+let groupedSeq = 0;
+for (let g = 0; g < 1_000; g++) {
+    const groupId = `sg${groupedGroups++}`;
+    groupedList.appendRow(makeRow(groupId), { label: groupId });
+    for (let c = 0; c < 9; c++) {
+        groupedList.appendRow(makeRow(`m${groupedSeq++}`), { parentId: groupId });
+    }
+}
+const groupedApp = TestApp.createWithContent(groupedList, new Size(60, 40));
+groupedApp.app.validateTreeAfterRender = false;
+groupedApp.render();
+
+describe("ListViewElement — frame between streamed batches", () => {
+    bench("append 100 top-level rows + frame (10k list)", () => {
+        for (let i = 0; i < 100; i++) {
+            streamedList.appendRow(makeRow(`s${streamSeq++}`));
+        }
+        streamedApp.render();
+    });
+
+    // Паттерн поиска: матчи дописываются в последнюю (раскрытую) группу файла,
+    // время от времени появляется новая группа.
+    bench("append group + 99 children into tail group + frame (10k list)", () => {
+        const groupId = `sg${groupedGroups++}`;
+        groupedList.appendRow(makeRow(groupId), { label: groupId });
+        for (let i = 0; i < 99; i++) {
+            groupedList.appendRow(makeRow(`m${groupedSeq++}`), { parentId: groupId });
+        }
+        groupedApp.render();
     });
 });
