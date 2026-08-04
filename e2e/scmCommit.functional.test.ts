@@ -62,7 +62,8 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
         const input = await session.waitForNode("#scmCommitInput");
         expect((input.state as InputState).showsPlaceholder).toBe(true);
-        expect(frameToText(await session.captureFrame())).toContain("Message (Ctrl+Enter to commit)");
+        // Плейсхолдер клипуется шириной сайдбара — проверяем начало.
+        expect(frameToText(await session.captureFrame())).toContain("Message (Ctrl");
 
         // Input выше заголовка секции CHANGES.
         const changesHeader = await session.waitForNode("#paneHeader-workbench-scm-changes");
@@ -78,7 +79,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
         await session.waitForFocus("ScmCommitInputElement");
 
-        await session.key("Down");
+        await session.key("ArrowDown");
         await session.waitForFocus("ListViewElement");
 
         await session.key("Alt+M");
@@ -93,6 +94,9 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
+        // Расширение активируется асинхронно: ждём публикации staged-группы,
+        // иначе Ctrl+Enter упадёт в no-op (transport-команды ещё нет).
+        await session.waitForNode("#scmGroup-index");
         // Пустое сообщение: notice, git log не вырос.
         await session.key("Ctrl+Enter");
         await session.waitForText((t) => t.includes("commit message is empty"));
@@ -118,12 +122,13 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
+        await session.waitForNode("#scmGroup-worktree"); // расширение активно
         await session.text("feat: smart");
         await session.key("Ctrl+Enter");
 
         await session.waitForText((t) => t.includes("There are no staged changes to commit."));
         // Дефолтный фокус на Cancel, стрелка — на Commit All.
-        await session.key("Left");
+        await session.key("ArrowLeft");
         await session.key("Enter");
 
         await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "");
@@ -144,6 +149,8 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
+        // Расширение активно, когда GRAPH показал последний коммит.
+        await session.waitForText((t) => t.includes("feat: second"));
 
         // Amend с новым сообщением (индекс пуст — allowEmpty не нужен: --amend разрешает).
         await session.text("feat: amended");
@@ -162,7 +169,8 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
 
     it("US-15: черновик сообщения переживает рестарт", async () => {
         const repo = makeRepo();
-        app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
+        app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30, keepRoot: true });
+        const root = app.env.root;
         {
             const { session } = app;
             await session.key("Alt+M");
@@ -173,7 +181,8 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
             app = null;
         }
 
-        app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
+        // Тот же root: user-data-dir (и workspace-стор с черновиком) переживают рестарт.
+        app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30, root });
         const { session } = app;
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));

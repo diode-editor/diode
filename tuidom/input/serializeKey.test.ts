@@ -132,6 +132,12 @@ describe("serializeKey", () => {
         expect(serializeKey("Ctrl+Shift+Tab")).toBe("\x1b[9;6:1u");
     });
 
+    it("serializes Ctrl+Enter (и другие модифицированные Enter) via Kitty CSI-u", () => {
+        expect(serializeKey("Ctrl+Enter")).toBe("\x1b[13;5u");
+        expect(serializeKey("Shift+Enter")).toBe("\x1b[13;2u");
+        expect(serializeKey("Alt+Enter")).toBe("\x1b[13;3u");
+    });
+
     it("serializes Alt+a", () => {
         expect(serializeKey("Alt+a")).toBe("\x1ba");
     });
