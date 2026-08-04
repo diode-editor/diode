@@ -20,9 +20,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Ln 1, Col 1") && t.includes("UTF-8"));
         await editor.capture("normal-width");
 
-        // Узкий терминал: правая группа больше не влезает — обрезается справа.
+        // Узкий терминал: правая группа больше не влезает — обрезается справа
+        // (слева теперь живут ветка и sync-сегмент SCM, ширина плавает по имени
+        // ветки — проверяем сам факт вытеснения, а не конкретный обрезок).
         await editor.resize(40, 16);
-        await editor.waitForText((t) => t.includes("Ln 1, Col 1"));
+        await editor.waitForText((t) => !t.includes("UTF-8"));
         await editor.capture("narrow-overflow");
     },
 });

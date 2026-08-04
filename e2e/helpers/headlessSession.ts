@@ -22,6 +22,8 @@ import { waitUntil } from "./waitFor.ts";
 
 /** Сколько ждём ответа на `TUIDom.shutdown`, прежде чем перейти к SIGKILL. */
 const SHUTDOWN_REPLY_TIMEOUT_MS = 5000;
+/** Сколько ждать самостоятельного выхода процесса после shutdown (до SIGKILL). */
+const EXIT_GRACE_MS = 3000;
 
 /** Modifier flags shared by the mouse convenience verbs. */
 export type MouseModifiers = Pick<SendMouseParams, "shiftKey" | "altKey" | "ctrlKey">;
@@ -334,6 +336,13 @@ export class HeadlessSession {
             this.ws.close();
         } catch {
             // already closed
+        }
+        // Дать процессу выйти самому: на выходе фаерится process.on("exit") с
+        // flushSync стора — мгновенный SIGKILL режет его на медленных раннерах
+        // (терялся персист, например черновик commit-сообщения между рестартами).
+        const exitDeadline = Date.now() + EXIT_GRACE_MS;
+        while (this.child.exitCode === null && Date.now() < exitDeadline) {
+            await sleep(50);
         }
         if (this.child.exitCode === null) this.child.kill("SIGKILL");
     }

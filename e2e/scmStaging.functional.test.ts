@@ -275,7 +275,8 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.key("ArrowLeft");
         await session.key("Enter");
         await session.waitForNoNode("#scmRow-worktree-app-ts");
-        expect(readFileSync(join(repo, "app.ts"), "utf8")).toBe(A);
+        // Windows: git checkout восстанавливает файл с CRLF (autocrlf) — нормализуем.
+        expect(readFileSync(join(repo, "app.ts"), "utf8").replace(/\r\n/g, "\n")).toBe(A);
 
         // Дискард untracked: warning про удаление, файл исчезает с диска.
         const newRow = await session.waitForNode("#scmRow-untracked-new-ts");
