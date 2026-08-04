@@ -61,6 +61,18 @@ describe("TuiApplication — damage-tracking кадра", () => {
         expect(app.backend.getTextAt(new Point(0, 0), 4)).toBe("AAAA");
     });
 
+    it("invalidateScreen: следующий кадр полный — рендер без единого dirty", () => {
+        const panes = new TwoLabelsElement();
+        const app = TestApp.createWithContent(panes, new Size(30, 5));
+
+        const spyA = vi.spyOn(panes.paneA, "render");
+        app.app.invalidateScreen();
+        app.render();
+
+        expect(spyA).toHaveBeenCalledTimes(1);
+        expect(app.backend.getTextAt(new Point(0, 0), 4)).toBe("AAAA");
+    });
+
     it("скрытие освобождает ячейки, показ возвращает контент", () => {
         const panes = new TwoLabelsElement();
         const app = TestApp.createWithContent(panes, new Size(30, 5));

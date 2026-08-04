@@ -532,8 +532,9 @@ export class ListViewElement extends ScrollableElement {
             const host = row.host;
             const hostOffset = new Offset(host.localPosition.dx, host.localPosition.dy);
             const hostClip = new Rect(host.globalPosition, host.layoutSize);
-            const hostContext = context.withOffset(hostOffset).withClip(hostClip);
-            if (!hostContext.clipRect.isEmpty) host.render(hostContext);
+            // Пустым hostClip быть не может: цикл уже ограничен строками клипа,
+            // а по горизонтали строка-хост занимает всю ширину вьюпорта.
+            host.render(context.withOffset(hostOffset).withClip(hostClip));
 
             // 3. Шеврон сворачиваемой строки — поверх, на фоне строки.
             if (this.hasCollapsibleRows && this.rowHasChildren(row.id)) {

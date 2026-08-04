@@ -37,6 +37,12 @@ describe("DamageList", () => {
         expect(out).toEqual(rect(0, 0, 7, 5));
     });
 
+    it("finalize выбрасывает область целиком за экраном (старое место после ресайза)", () => {
+        const list = new DamageList();
+        list.add(rect(200, 50, 10, 5));
+        expect(list.finalize(SCREEN)).toHaveLength(0);
+    });
+
     it("finalize сливает пересекающиеся; впритык — остаются раздельными", () => {
         const list = new DamageList();
         list.add(rect(0, 0, 12, 5));

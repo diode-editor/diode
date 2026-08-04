@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
-import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
+import { BoxConstraints, Offset, Point, Rect, Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { ROOT_STYLE_CONTEXT } from "../../../../tuidom/dom/styles/tuiStyle.ts";
+import { RenderContext } from "../../../../tuidom/dom/tuiElement.ts";
+import { TerminalScreen } from "../../../../tuidom/rendering/terminalScreen.ts";
 import { WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
@@ -74,5 +77,28 @@ describe("EditorElement syntax highlighting", () => {
         doc.applyEdits([{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, text: "if" }]);
         app.render();
         expect(app.backend.getFgAt(new Point(gw, 0))).toBe(KEYWORD_FG);
+    });
+});
+
+describe("EditorElement tokenization — вырожденный вьюпорт", () => {
+    it("нулевая высота: рендер не дёргает tokenizeUpTo (нет видимых строк)", () => {
+        const doc = new TextDocument("if x");
+        const viewState = new EditorViewState(doc);
+        const store = new DocumentTokenStore(doc, new WordTokenizer());
+        viewState.tokenStore = store;
+        const editor = new EditorElement(viewState);
+        editor.tokenStyleResolver = new StubResolver();
+
+        const size = new Size(20, 0);
+        const backendScreen = new TerminalScreen(new Size(20, 1));
+        editor.localPosition = new Offset(0, 0);
+        editor.layout(BoxConstraints.tight(size));
+        editor.performStyleResolution(ROOT_STYLE_CONTEXT);
+        const spy = vi.spyOn(store, "tokenizeUpTo");
+        editor.render(
+            new RenderContext(backendScreen, new Offset(0, 0), new Rect(new Point(0, 0), new Size(20, 1))),
+        );
+
+        expect(spy).not.toHaveBeenCalled();
     });
 });

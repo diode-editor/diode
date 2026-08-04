@@ -565,3 +565,31 @@ describe("QuickPickElement — цвета из var-scope", () => {
         expect(backend.getBgAt(new Point(5, 4))).toBe(packRgb(1, 2, 3));
     });
 });
+
+// ─── Частичный клип (damage-кадр) ───────────────────────────────────────────
+
+describe("QuickPickElement — частичный клип damage-области", () => {
+    it("клип только по нижней рамке: инпут пропускается, рамка рисуется", () => {
+        const picker = new QuickPickElement();
+        picker.items = makeItems(2);
+        const width = 40;
+        const height = picker.getMinIntrinsicHeight(width);
+        const size = new Size(width, height);
+        const backend = new MockTerminalBackend(size);
+        const termScreen = new TerminalScreen(size);
+
+        picker.localPosition = new Offset(0, 0);
+        picker.layout(BoxConstraints.tight(size));
+        picker.performStyleResolution(ROOT_STYLE_CONTEXT);
+
+        // Damage-область — только последняя строка (нижняя рамка): rect
+        // инпута с клипом не пересекается, его render пропускается.
+        const bottomRow = new Rect(new Point(0, height - 1), new Size(width, 1));
+        picker.render(new RenderContext(termScreen, new Offset(0, 0), bottomRow));
+        termScreen.flush(backend);
+
+        expect(backend.getTextAt(new Point(0, height - 1), 1)).toBe("╰");
+        // Строки выше клипа не тронуты.
+        expect(backend.getTextAt(new Point(0, 0), 1)).toBe(" ");
+    });
+});
