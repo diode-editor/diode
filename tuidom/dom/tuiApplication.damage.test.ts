@@ -6,7 +6,7 @@ import { InputElement } from "../ui/inputbox/inputElement.ts";
 import { ListViewElement } from "../ui/list/listViewElement.ts";
 import { TextLabelElement } from "../ui/text/textLabelElement.ts";
 
-import { TUIElement } from "./tuiElement.ts";
+import { type RenderContext, TUIElement } from "./tuiElement.ts";
 
 // Регресс-тесты damage-tracking кадра (docs/TODO/SearchPerformance.md, случай 4;
 // docs/TODO/LongLinePerformance.md, «Глубже»): экран — ретейн-буфер, кадр
@@ -88,20 +88,19 @@ describe("TuiApplication — damage-tracking кадра", () => {
         expect(app.backend.getTextAt(new Point(0, 0), 4)).toBe("AAAA");
     });
 
-    it("wide-char на границе damage-области не рассекается", () => {
-        const panes = new AdjacentLabelsElement();
-        // «AB你好» = 6 колонок: голова 好 в col 4, продолжение в col 5 —
-        // впритык к панели B (col 6). Damage B после дилатации начинается с
-        // col 5 и рассёк бы пару; снап к границам wide-пар тянет кромку до
-        // головы, и 好 перерисовывается целиком.
-        const app = TestApp.createWithContent(panes, new Size(30, 5));
-        expect(app.backend.getTextAt(new Point(0, 0), 6)).toBe("AB你好");
+    it("wide-char хрома родителя на границе damage-области не рассекается", () => {
+        // «abcd你好»: голова 你 в col 4, продолжение в col 5 — кромка rect'а
+        // прозрачного ребёнка (col 5) рассекает пару. Снап Grid.snapToWideChars
+        // тянет кромку области до головы, и 你 перерисовывается целиком; без
+        // него region-clear лечил бы голову в пробел ВНЕ области перерисовки.
+        const chrome = new ChromeContainerElement();
+        const app = TestApp.createWithContent(chrome, new Size(30, 5));
+        expect(app.backend.getTextAt(new Point(0, 0), 8)).toBe("abcd你好");
 
-        panes.paneB.setText("ZZZZ");
+        chrome.ghost.markDirty();
         app.render();
 
-        expect(app.backend.getTextAt(new Point(0, 0), 6)).toBe("AB你好");
-        expect(app.backend.getTextAt(new Point(6, 0), 4)).toBe("ZZZZ");
+        expect(app.backend.getTextAt(new Point(0, 0), 8)).toBe("abcd你好");
     });
 
     it("курсор фокусированного виджета переживает кадр без его damage", () => {
@@ -137,22 +136,28 @@ describe("TuiApplication — damage-tracking кадра", () => {
     });
 });
 
-/** Смежные лейблы: A «AB你好» 6×1 в (0,0), B 8×1 сразу за ним в (6,0). */
-class AdjacentLabelsElement extends TUIElement {
-    public readonly paneA = new TextLabelElement("AB你好");
-    public readonly paneB = new TextLabelElement("BBBB");
+/**
+ * Родитель рисует собственный хром «abcd你好» в строке 0; прозрачный ребёнок
+ * (без своего bg — ничего не пишет) занимает [5..11)×1 поверх продолжения 你.
+ * Модель H3 «хром родителя пересекает rect ребёнка».
+ */
+class ChromeContainerElement extends TUIElement {
+    public readonly ghost = new TUIElement();
 
     public constructor() {
         super();
-        this.appendChild(this.paneA);
-        this.appendChild(this.paneB);
+        this.appendChild(this.ghost);
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        this.layoutChild(this.paneA, 0, 0, BoxConstraints.tight(new Size(6, 1)));
-        this.layoutChild(this.paneB, 6, 0, BoxConstraints.tight(new Size(8, 1)));
+        this.layoutChild(this.ghost, 5, 0, BoxConstraints.tight(new Size(6, 1)));
         return size;
+    }
+
+    public override render(context: RenderContext): void {
+        context.drawText(0, 0, "abcd你好");
+        this.renderChildren(context);
     }
 }
 

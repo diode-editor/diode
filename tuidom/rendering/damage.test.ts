@@ -30,21 +30,22 @@ describe("DamageList", () => {
         expect(list.snapshot()[0]).toEqual(rect(5, 5, 40, 30));
     });
 
-    it("finalize дилатирует ±1 колонку и клипует к экрану", () => {
+    it("finalize клипует к экрану и НЕ дилатирует (сосед не должен рендериться зря)", () => {
         const list = new DamageList();
-        list.add(rect(0, 0, 10, 5));
+        list.add(rect(-3, 0, 10, 5));
         const [out] = list.finalize(SCREEN);
-        // Влево расти некуда (клип), вправо +1.
-        expect(out).toEqual(rect(0, 0, 11, 5));
+        expect(out).toEqual(rect(0, 0, 7, 5));
     });
 
-    it("finalize сливает пересекающиеся (в т.ч. соприкоснувшиеся дилатацией)", () => {
+    it("finalize сливает пересекающиеся; впритык — остаются раздельными", () => {
         const list = new DamageList();
-        list.add(rect(0, 0, 10, 5));
-        list.add(rect(10, 0, 10, 5)); // впритык — дилатация даст пересечение
+        list.add(rect(0, 0, 12, 5));
+        list.add(rect(10, 0, 10, 5)); // пересечение по колонкам 10-11
+        list.add(rect(20, 0, 5, 5)); // впритык к объединению
         const out = list.finalize(SCREEN);
-        expect(out).toHaveLength(1);
-        expect(out[0]).toEqual(rect(0, 0, 21, 5));
+        expect(out).toHaveLength(2);
+        expect(out[0]).toEqual(rect(0, 0, 20, 5));
+        expect(out[1]).toEqual(rect(20, 0, 5, 5));
     });
 
     it("непересекающиеся области остаются раздельными", () => {

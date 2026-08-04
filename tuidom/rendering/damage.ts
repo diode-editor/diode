@@ -31,14 +31,19 @@ export const MAX_DAMAGE_RECTS = 8;
  *
  * `add` поглощает вложенные rect'ы (damage-обход идёт pre-order, родитель
  * раньше детей — вложенные добавления схлопываются дёшево). `finalize` даёт
- * итоговые области прохода отрисовки: дилатация ±1 колонка (запись wide-char
- * ячейки мутирует соседа в Grid.updateCell — голова/продолжение), клип к
- * экрану, слияние пересекающихся, кап {@link MAX_DAMAGE_RECTS} слиянием пары
- * с минимальным приростом площади.
+ * итоговые области прохода отрисовки: клип к экрану, слияние пересекающихся,
+ * кап {@link MAX_DAMAGE_RECTS} слиянием пары с минимальным приростом площади.
+ *
+ * Области НЕ дилатируются: расширение «на всякий случай» заставляло бы
+ * соседний виджет рендериться на каждый чужой кадр (клип срезает запись, но
+ * не работу — редактор сегментирует все видимые строки независимо от ширины
+ * клипа). Wide-char пары на кромке области защищает содержимо-зависимый снап
+ * Grid.snapToWideChars в renderFrame.
  *
  * Инвариант потребителя (renderFrame): множество очищаемых ячеек обязано
  * совпадать с множеством, по которому идёт прунинг прохода, — поэтому и
- * очистка, и клип каждого прохода берут ровно rect'ы из finalize().
+ * очистка, и клип каждого прохода берут ровно rect'ы из finalize() (после
+ * снапа).
  */
 export class DamageList {
     private rects: Rect[] = [];
@@ -66,13 +71,10 @@ export class DamageList {
     }
 
     public finalize(screenBounds: Rect): Rect[] {
-        let out: Rect[] = [];
+        const out: Rect[] = [];
         for (const rect of this.rects) {
-            const dilated = new Rect(
-                new Point(rect.x - 1, rect.y),
-                new Size(rect.width + 2, rect.height),
-            ).intersect(screenBounds);
-            if (!dilated.isEmpty) out.push(dilated);
+            const clipped = rect.intersect(screenBounds);
+            if (!clipped.isEmpty) out.push(clipped);
         }
 
         mergeIntersecting(out);
