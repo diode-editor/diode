@@ -170,11 +170,10 @@ function isAbsoluteLike(p: string): boolean {
 }
 
 /**
- * Изолированное env: HOME/XDG внутрь корня. `$TERM`/`$TMUX` НЕ трогаем — от них
- * зависит детект keyboard-tier (`terminalEnvironmentModel`), а от tier'а — какие
- * аккорды вообще кодируются (палитра, Toggle Terminal). Headless-сценарии
- * написаны против унаследованного окружения; PTY-путь (`VexxSession`) сам
- * форсит `TERM`/снимает `TMUX` там, где ему нужен предсказуемый вывод.
+ * Изолированное env: HOME/XDG внутрь корня. Терминальную идентичность
+ * ($TERM, маркеры kitty/tmux/ssh) здесь не трогаем — её пинует к
+ * детерминированному baseline сам спаун сессии
+ * ({@link import("./hermeticEnv.ts").hermeticSpawnEnv}), последним шагом мержа.
  */
 function buildEnv(home: string, isolateHome: boolean, extra?: Readonly<Record<string, string>>): Record<string, string> {
     const env: Record<string, string> = {};

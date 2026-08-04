@@ -16,6 +16,7 @@ import type {
 
 import { getBinaryPath } from "./buildOnce.ts";
 import { dumpFrame, frameToText } from "./frame.ts";
+import { hermeticSpawnEnv } from "./hermeticEnv.ts";
 import { connectWithRetry, freePort } from "./inspectorClient.ts";
 import { $, $$, focusedLeaf } from "./query.ts";
 import { waitUntil } from "./waitFor.ts";
@@ -77,14 +78,10 @@ export class HeadlessSession {
             `--headless=${String(cols)}x${String(rows)}`,
             `--inspect-tui=127.0.0.1:${String(port)}`,
         ];
-        const env: Record<string, string> = {};
-        for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-        Object.assign(env, options.env ?? {});
-
         const child = spawn(binary, args, {
             stdio: ["ignore", "ignore", "pipe"],
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
-            env,
+            env: hermeticSpawnEnv(options.env),
         });
         const session = new HeadlessSession(child, cols, rows, await connectWithRetry(`ws://127.0.0.1:${String(port)}`, 30_000));
         return session;

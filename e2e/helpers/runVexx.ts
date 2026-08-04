@@ -5,6 +5,7 @@ import type { GetDocumentResult, NodeSnapshot } from "../../tuidom/inspector/pro
 
 import { AnsiScreen } from "./AnsiScreen.ts";
 import { getBinaryPath } from "./buildOnce.ts";
+import { hermeticSpawnEnv } from "./hermeticEnv.ts";
 import { connectWithRetry, freePort, getDocument } from "./inspectorClient.ts";
 
 export interface VexxSessionOptions {
@@ -53,13 +54,10 @@ export class VexxSession {
         const binary = options.binary ?? (await getBinaryPath());
         const cols = options.cols ?? 120;
         const rows = options.rows ?? 32;
-        const env: Record<string, string> = {
-            ...filterEnv(process.env),
-            ...(options.env ?? {}),
-            TERM: "xterm-256color",
-        };
-        // TMUX wrapping kicks in when $TMUX is set — strip it for predictable output.
-        delete env.TMUX;
+        // Терминальная идентичность (TERM, маркеры kitty/tmux/ssh) пинуется к
+        // детерминированному baseline — иначе keyboard-tier и вывод зависят от
+        // машины, на которой гоняется e2e (см. hermeticEnv.ts).
+        const env = hermeticSpawnEnv(options.env);
 
         // Launch exactly like the other e2e tests; when inspecting, the only
         // difference is an injected --inspect-tui flag on a free loopback port.
@@ -282,14 +280,6 @@ export class VexxSession {
             setTimeout(finish, timeoutMs);
         });
     }
-}
-
-function filterEnv(source: NodeJS.ProcessEnv): Record<string, string> {
-    const out: Record<string, string> = {};
-    for (const [key, value] of Object.entries(source)) {
-        if (value !== undefined) out[key] = value;
-    }
-    return out;
 }
 
 function sleep(ms: number): Promise<void> {
