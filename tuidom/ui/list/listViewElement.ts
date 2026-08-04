@@ -502,7 +502,13 @@ export class ListViewElement extends ScrollableElement {
         const { scrollTop, viewportWidth, viewportHeight } = viewport;
         const resolved = this.resolvedStyle;
 
-        for (let screenY = 0; screenY < viewportHeight; screenY++) {
+        // Границы клипа в локальных строках вьюпорта: строки вне клипа не льём
+        // и не рендерим — при частичном damage-кадре список платит только за
+        // пересечение со своим rect'ом.
+        const clipTopY = Math.max(0, context.clipRect.y - context.offset.dy);
+        const clipBottomY = Math.min(viewportHeight, context.clipRect.bottom - context.offset.dy);
+
+        for (let screenY = clipTopY; screenY < clipBottomY; screenY++) {
             const rowIndex = scrollTop + screenY;
 
             // 1. Заливка строки фоном списка (гуттер и область за строками).
@@ -517,7 +523,8 @@ export class ListViewElement extends ScrollableElement {
             const host = row.host;
             const hostOffset = new Offset(host.localPosition.dx, host.localPosition.dy);
             const hostClip = new Rect(host.globalPosition, host.layoutSize);
-            host.render(context.withOffset(hostOffset).withClip(hostClip));
+            const hostContext = context.withOffset(hostOffset).withClip(hostClip);
+            if (!hostContext.clipRect.isEmpty) host.render(hostContext);
 
             // 3. Шеврон сворачиваемой строки — поверх, на фоне строки.
             if (this.hasCollapsibleRows && this.rowHasChildren(row.id)) {

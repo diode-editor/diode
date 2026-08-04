@@ -1198,7 +1198,11 @@ export class TUIElement {
             if (child.hidden) continue;
             const offset = new Offset(child.localPosition.dx, child.localPosition.dy);
             const clip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(offset).withClip(clip));
+            const childContext = context.withOffset(offset).withClip(clip);
+            // Пустой клип — ребёнок целиком вне отрисовываемой области: пропуск
+            // всего поддерева, включая side-эффекты его render.
+            if (childContext.clipRect.isEmpty) continue;
+            child.render(childContext);
         }
     }
 

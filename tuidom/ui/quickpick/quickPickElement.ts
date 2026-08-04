@@ -428,7 +428,8 @@ export class QuickPickElement extends TUIElement {
             this.inputElement.placeholder = this.placeholder;
             const inputClip = new Rect(this.inputElement.globalPosition, this.inputElement.layoutSize);
             const inputOffset = new Offset(this.inputElement.localPosition.dx, this.inputElement.localPosition.dy);
-            this.inputElement.render(context.withOffset(inputOffset).withClip(inputClip));
+            const inputContext = context.withOffset(inputOffset).withClip(inputClip);
+            if (!inputContext.clipRect.isEmpty) this.inputElement.render(inputContext);
         }
 
         // ── Optional message row (InputBox prompt / validation) ───────────────

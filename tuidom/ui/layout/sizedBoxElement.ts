@@ -78,7 +78,9 @@ export class SizedBoxElement extends TUIElement {
         if (this.child) {
             const childOffset = new Offset(this.child.localPosition.dx, this.child.localPosition.dy);
             const childClip = new Rect(this.child.globalPosition, this.child.layoutSize);
-            this.child.render(context.withOffset(childOffset).withClip(childClip));
+            const childContext = context.withOffset(childOffset).withClip(childClip);
+            if (childContext.clipRect.isEmpty) return;
+            this.child.render(childContext);
         }
     }
 }

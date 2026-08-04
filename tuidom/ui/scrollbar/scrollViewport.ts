@@ -72,7 +72,9 @@ export class ScrollViewport extends TUIElement implements IScrollable {
     public override render(context: RenderContext): void {
         const scrollOffset = new Offset(-this.scrollLeft, -this.scrollTop);
         const viewportClip = new Rect(this.globalPosition, this.layoutSize);
-        this.child.render(context.withOffset(scrollOffset).withClip(viewportClip));
+        const childContext = context.withOffset(scrollOffset).withClip(viewportClip);
+        if (childContext.clipRect.isEmpty) return;
+        this.child.render(childContext);
     }
 
     // Хит-тест — базовый: ребёнок размером с вьюпорт берёт точку на себя.

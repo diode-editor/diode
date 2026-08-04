@@ -318,7 +318,9 @@ export class OverlayLayer extends TUIElement {
             const child = item.element;
             const childOffset = new Offset(child.localPosition.dx, child.localPosition.dy);
             const clip = new Rect(child.globalPosition, child.layoutSize);
-            child.render(context.withOffset(childOffset).withClip(clip));
+            const childContext = context.withOffset(childOffset).withClip(clip);
+            if (childContext.clipRect.isEmpty) continue;
+            child.render(childContext);
         }
     }
 
