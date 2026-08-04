@@ -219,8 +219,8 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
 
         // Клик по a.ts, Shift+Down дважды: выделены a, b, c.
         await session.click(rowA.box.x + 2, rowA.box.y);
-        await session.key("Shift+Down");
-        await session.key("Shift+Down");
+        await session.key("Shift+ArrowDown");
+        await session.key("Shift+ArrowDown");
         await session.waitForState("#changesList", (s) => ((s as { selectedIds?: string[] })?.selectedIds?.length ?? 0) === 3);
 
         // Ctrl+клик по b.ts снимает её: остаются a и c.
@@ -232,8 +232,11 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
             return ids.length === 2 && !ids.includes("scmRow-worktree-b-ts");
         });
 
-        // Shift+F10 → Stage Changes по выделению: staged ровно a и c.
-        await session.key("Shift+F10");
+        // Контекстное меню по строке ИЗ выделения (правый клик по a.ts — курсор
+        // после Ctrl+клика стоит на снятой b.ts, keyboard-меню целилось бы в неё):
+        // цели — всё выделение, staged ровно a и c.
+        await session.sendMouse({ action: "press", button: "right", x: rowA.box.x + 2, y: rowA.box.y });
+        await session.sendMouse({ action: "release", button: "right", x: rowA.box.x + 2, y: rowA.box.y });
         await clickMenuItem(session, "Stage Changes");
 
         await session.waitForNode("#scmRow-index-a-ts");
@@ -269,7 +272,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.sendMouse({ action: "release", button: "right", x: row.box.x + 2, y: row.box.y });
         await clickMenuItem(session, "Discard Changes");
         await session.waitForText((t) => t.includes("Are you sure you want to discard changes in app.ts?"));
-        await session.key("Left");
+        await session.key("ArrowLeft");
         await session.key("Enter");
         await session.waitForNoNode("#scmRow-worktree-app-ts");
         expect(readFileSync(join(repo, "app.ts"), "utf8")).toBe(A);
@@ -280,7 +283,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.sendMouse({ action: "release", button: "right", x: newRow.box.x + 2, y: newRow.box.y });
         await clickMenuItem(session, "Discard Changes");
         await session.waitForText((t) => t.includes("Are you sure you want to DELETE new.ts?"));
-        await session.key("Left");
+        await session.key("ArrowLeft");
         await session.key("Enter");
         await session.waitForNoNode("#scmRow-untracked-new-ts");
         expect(existsSync(join(repo, "new.ts"))).toBe(false);

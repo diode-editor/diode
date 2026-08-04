@@ -395,6 +395,19 @@ UI-подтверждения. Ручной прогон после релиза
 - [x] **12. Статус-бар** — ветка (+ merge/rebase-суффикс) и счётчики `↓N ↑M` слева,
       клик → `git.checkout` / `git.sync` (без upstream — `git.publish`).
 
+## Покрытие автоматизацией (снимок на момент реализации)
+
+- **US-1…US-20** — функциональные e2e на SEA-бинаре: `e2e/scmStaging.functional.test.ts`
+  (US-1…12, кроме US-4/US-9 — они покрыты юнитами contextmenu/фильтрации) и
+  `e2e/scmCommit.functional.test.ts` (US-13…20). Демо-кадры —
+  `e2e/scenarios/scmStaging.scenario.ts` (группы, input box, контекст-меню, стейдж).
+- **US-21 (push/pull), запросы пикеров** — интеграционные тесты расширения с локальным
+  bare-remote (`extensions/git/git.integration.test.ts`).
+- **US-22…US-32** — юнит-тесты потоков ядра (реакции no-upstream/rejected/auth/конфликт,
+  пикеры checkout/stash, force-confirm'ы: `syncActions/branchActions/stashActions/
+  remoteTagActions/commitActions/scmStatusBarContribution.test.ts`) + ручной прогон по
+  этому чек-листу. UI-e2e с bare-remote для sync/branch/stash — кандидат в follow-up.
+
 ## Риски
 
 - **Гонки `.git/index.lock`** — фоновый `git status` тоже пишет index; мьютекс мутаций в
