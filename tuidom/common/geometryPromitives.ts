@@ -117,4 +117,28 @@ export class Rect {
     public get isEmpty(): boolean {
         return this.size.width <= 0 || this.size.height <= 0;
     }
+
+    /** Есть ли непустое пересечение (касание рёбрами — не пересечение). */
+    public intersects(other: Rect): boolean {
+        return (
+            this.x < other.right && other.x < this.right && this.y < other.bottom && other.y < this.bottom
+        );
+    }
+
+    /** Минимальный rect, накрывающий оба. */
+    public union(other: Rect): Rect {
+        if (this.isEmpty) return other;
+        if (other.isEmpty) return this;
+        const x = Math.min(this.x, other.x);
+        const y = Math.min(this.y, other.y);
+        const right = Math.max(this.right, other.right);
+        const bottom = Math.max(this.bottom, other.bottom);
+        return new Rect(new Point(x, y), new Size(right - x, bottom - y));
+    }
+
+    /** Содержит ли целиком другой rect (пустой содержится в любом). */
+    public containsRect(other: Rect): boolean {
+        if (other.isEmpty) return true;
+        return other.x >= this.x && other.y >= this.y && other.right <= this.right && other.bottom <= this.bottom;
+    }
 }

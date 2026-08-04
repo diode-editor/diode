@@ -360,6 +360,15 @@ export class ListViewElement extends ScrollableElement {
         return this.focusable ? [this] : [];
     }
 
+    /**
+     * Damage-обход не заходит в строки: их тысячи, офскрин-хосты держат
+     * протухшие layout-позиции (виртуализация), а любая смена состояния списка
+     * (скролл, курсор, данные) метит сам список — повреждается rect вьюпорта.
+     */
+    protected override get paintsSubtreeAtomically(): boolean {
+        return true;
+    }
+
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const rows = this.ensureProjection();

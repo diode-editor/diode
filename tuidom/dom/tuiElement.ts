@@ -1,6 +1,7 @@
 import { DEFAULT_COLOR } from "../common/colorUtils.ts";
 import { DisplayLine } from "../common/displayLine.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../common/geometryPromitives.ts";
+import type { DamageList } from "../rendering/damage.ts";
 import type { CellPatch, ReadonlyCellData } from "../rendering/grid.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 import type { OverlayLayer } from "../ui/contextview/overlayLayer.ts";
@@ -258,6 +259,19 @@ export class TUIElement {
     // Coordinate system
     public localPosition: Offset = new Offset(0, 0);
     public isLayoutDirty = true;
+
+    // ─── Damage-tracking отрисовки (см. docs/LAYOUT.md) ───
+    // Сам элемент просил перерисовку (его markDirty). Снимается в collectDamage.
+    private isPaintDirty = true;
+    // В поддереве есть paint-dirty потомок — путь для damage-обхода (аналог
+    // subtreeStyleDirty). Снимается в collectDamage.
+    private hasPaintDirtyDescendant = false;
+    // Экранный rect на момент последнего damage-обхода; null — не рисовался
+    // или отцеплён. Даёт old-rect повреждение при переезде/скрытии/отцеплении.
+    private lastPaintedRect: Rect | null = null;
+    // Только на корне: rect'ы поддеревьев, отцеплённых с последнего кадра.
+    private pendingDetachDamage: Rect[] = [];
+
     protected _parent: TUIElement | null = null;
     // Якорь дерева: выставляется setAsRoot() (BodyElement, тестовые корни).
     // Сам root НЕ кэшируется — getRoot() выводит его из цепочки родителей.
@@ -908,12 +922,100 @@ export class TUIElement {
      * Batching is handled by TuiApplication.scheduleRender().
      */
     public markDirty(): void {
+        // Paint-dirty — ТОЛЬКО сам элемент: повреждается его rect, а не вся
+        // цепочка предков (иначе любой markDirty = полноэкранный damage).
+        this.isPaintDirty = true;
         this.isLayoutDirty = true;
-        if (this._parent) {
-            this._parent.markDirty();
-        } else if (this.requestRenderCallback) {
-            this.requestRenderCallback();
+        let top: TUIElement = this;
+        for (let current = this._parent; current !== null; current = current._parent) {
+            current.isLayoutDirty = true;
+            current.hasPaintDirtyDescendant = true;
+            top = current;
         }
+        top.requestRenderCallback?.();
+    }
+
+    /**
+     * Пост-layout damage-обход (pre-order): собирает в sink повреждённые
+     * экранные области — rect'ы paint-dirty элементов и old∪new переехавших /
+     * изменивших размер / скрывшихся — и актуализирует lastPaintedRect.
+     * Спуск только по путям hasPaintDirtyDescendant или под переехавшим
+     * предком; устоявшееся поддерево стоит одну проверку флагов.
+     *
+     * Не заходит в скрытые и в не разложенные этим кадром поддеревья
+     * (isLayoutDirty после полного layout корня — виртуализация: контейнер их
+     * не раскладывал ⇒ не рисует ⇒ на экране их нет; чтение layoutSize там
+     * запустило бы lazy-layout с мусорными constraints).
+     */
+    public collectDamage(sink: DamageList, parentOrigin: Point): void {
+        if (this.hidden || this.isLayoutDirty) {
+            if (this.lastPaintedRect !== null) {
+                // Скрылся (или выпал из раскладки) — место под ним перерисовать.
+                sink.add(this.lastPaintedRect);
+                this.clearPaintedRects();
+            }
+            this.isPaintDirty = false;
+            this.hasPaintDirtyDescendant = false;
+            return;
+        }
+        const rect = new Rect(
+            new Point(parentOrigin.x + this.localPosition.dx, parentOrigin.y + this.localPosition.dy),
+            this.allocatedSize,
+        );
+        const old = this.lastPaintedRect;
+        const moved =
+            old === null ||
+            old.x !== rect.x ||
+            old.y !== rect.y ||
+            old.width !== rect.width ||
+            old.height !== rect.height;
+        const atomic = this.paintsSubtreeAtomically;
+
+        if (this.isPaintDirty || moved || (atomic && this.hasPaintDirtyDescendant)) {
+            sink.add(rect);
+            if (old !== null && moved) sink.add(old);
+        }
+        // Спуск: найти paint-dirty потомков и/или обновить их lastPaintedRect
+        // после переезда предка (их экранные rect'ы сменились все разом).
+        const descend = !atomic && (moved || this.hasPaintDirtyDescendant);
+        this.lastPaintedRect = rect;
+        this.isPaintDirty = false;
+        this.hasPaintDirtyDescendant = false;
+        if (descend) this.collectChildrenDamage(sink, rect.origin);
+    }
+
+    /** Обход детей damage-сбора — seam для контейнеров с нестандартной структурой. */
+    protected collectChildrenDamage(sink: DamageList, origin: Point): void {
+        for (const child of this.childrenList) child.collectDamage(sink, origin);
+    }
+
+    /**
+     * true — поддерево рисуется как одно целое: любой paint-dirty потомок
+     * повреждает весь rect элемента, damage-обход внутрь не заходит. Для
+     * виртуализирующих контейнеров (ListViewElement: тысячи строк-детей с
+     * протухшими офскрин-позициями не итерируются) и контейнеров, рисующих
+     * собственный хром по состоянию ребёнка вне его rect'а (ScrollBarDecorator:
+     * бегунок в колонке за пределами ребёнка).
+     */
+    protected get paintsSubtreeAtomically(): boolean {
+        return false;
+    }
+
+    /** Рекурсивно забывает lastPaintedRect поддерева (отцепление/скрытие). */
+    private clearPaintedRects(): void {
+        this.lastPaintedRect = null;
+        for (const child of this.childrenList) child.clearPaintedRects();
+    }
+
+    /**
+     * Только для TuiApplication: забрать rect'ы поддеревьев, отцеплённых от
+     * этого корня с прошлого кадра (закрытие оверлея, смена вкладки).
+     */
+    public takePendingDetachDamage(): Rect[] {
+        if (this.pendingDetachDamage.length === 0) return this.pendingDetachDamage;
+        const out = this.pendingDetachDamage;
+        this.pendingDetachDamage = [];
+        return out;
     }
 
     /**
@@ -929,6 +1031,13 @@ export class TUIElement {
         const oldRoot = this.getRoot(); // снимок ДО мутации — по ещё живой цепочке
         if (parent === null && this._parent !== null) {
             this.releaseFocusIfInside();
+            // Отцепление — место, где поддерево рисовалось, надо перерисовать.
+            // Rect потомков вложены в наш (Н2) — достаточно верхнего. Запись
+            // на СТАРЫЙ корень: только он знает экранные координаты кадра.
+            if (this.lastPaintedRect !== null && oldRoot !== null) {
+                oldRoot.pendingDetachDamage.push(this.lastPaintedRect);
+            }
+            this.clearPaintedRects();
         }
         const oldParent = this._parent;
         this._parent = parent;

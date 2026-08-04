@@ -44,6 +44,16 @@ export class ScrollBarDecorator extends TUIElement {
         this.markDirty();
     }
 
+    /**
+     * Бегунок — хром декоратора, рисуемый по состоянию РЕБЁНКА (scrollTop /
+     * contentHeight) в колонке вне его rect'а. Damage ребёнка обязан повреждать
+     * и колонку скроллбара — атомарность даёт это автоматически ценой +1
+     * строки/колонки к области.
+     */
+    protected override get paintsSubtreeAtomically(): boolean {
+        return true;
+    }
+
     protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
