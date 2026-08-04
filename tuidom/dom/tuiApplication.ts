@@ -2,6 +2,7 @@ import type { ITerminalBackend } from "../backend/iTerminalBackend.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../common/geometryPromitives.ts";
 import type { KeyPressEvent } from "../input/keyEvent.ts";
 import type { MouseToken } from "../input/rawTerminalToken.ts";
+import { DamageList } from "../rendering/damage.ts";
 import { TerminalScreen } from "../rendering/terminalScreen.ts";
 
 import { contextMenuEventFromKeydown } from "./events/contextMenuEventSource.ts";
@@ -35,6 +36,8 @@ export class TuiApplication {
     // Цель keydown, закреплённая за парным keypress того же физического нажатия
     // (см. handleInput).
     private pinnedKeypressTarget: TUIElement | null = null;
+    // Следующий кадр — полный (первый кадр, ресайз, invalidateScreen).
+    private needsFullRepaint = true;
 
     public constructor(backend: ITerminalBackend) {
         this.backend = backend;
@@ -54,27 +57,70 @@ export class TuiApplication {
     private renderFrame(): void {
         if (this.root) {
             this.frameCounter++;
-            this.screen.clear();
 
             // Root at (0, 0) — top-left of screen. globalPosition производный
             // (localPosition корня без родителя), выставлять его не нужно.
             this.root.localPosition = new Offset(0, 0);
 
-            // Perform layout with tight constraints based on screen size
+            // Layout и стили — полные каждый кадр (дёшево, геометрия и
+            // validateTree не зависят от damage); стили гейтятся внутри.
             const constraints = BoxConstraints.tight(this.screen.size);
             this.root.layout(constraints);
-
-            // Resolve styles (top-down cascade)
             this.root.performStyleResolution(ROOT_STYLE_CONTEXT);
 
-            // Render
-            const screenClip = new Rect(new Point(0, 0), this.screen.size);
-            this.root.render(new RenderContext(this.screen, new Offset(0, 0), screenClip));
+            // Damage-обход — всегда: и собирает области, и актуализирует
+            // lastPaintedRect/флаги (даже когда кадр будет полным).
+            const damage = new DamageList();
+            for (const detached of this.root.takePendingDetachDamage()) {
+                damage.add(detached);
+            }
+            this.root.collectDamage(damage, new Point(0, 0));
+
+            const screenBounds = new Rect(new Point(0, 0), this.screen.size);
+            let rects: readonly Rect[];
+            if (this.needsFullRepaint) {
+                this.needsFullRepaint = false;
+                this.screen.clear();
+                rects = [screenBounds];
+            } else {
+                rects = damage.finalize(screenBounds);
+            }
+
+            // Экран — ретейн-буфер: перерисовываются только повреждённые
+            // области. Инвариант: множество очищенных ячеек == множеству,
+            // по которому клипуется (и прунится) проход отрисовки. Внутри
+            // области канонический обход идентичен полному кадру — прозрачные
+            // элементы, хром родителей и оверлеи корректны по построению.
+            for (let rect of rects) {
+                // Кромка области не должна рассекать wide-char пару ретейн-грида:
+                // очистка лечила бы голову вне области перерисовки (см. Grid).
+                rect = this.screen.snapToWideChars(rect);
+                this.screen.clearRect(rect);
+                // Аппаратный курсор ставится только в render его владельца:
+                // позиция в повреждённой области гаснет и пере-ставится тем,
+                // кто её снова нарисует (или остаётся погашенной — паритет с
+                // полным кадром, где clear() гасил её всегда).
+                if (this.screen.cursorPosition !== null && rect.containsPoint(this.screen.cursorPosition)) {
+                    this.screen.clearCursorPosition();
+                }
+                this.root.render(new RenderContext(this.screen, new Offset(0, 0), rect));
+            }
+
+            // Всегда: пустой damage — пустой diff, ноль байт в терминал.
             this.screen.flush(this.backend);
             if (this.validateTreeAfterRender) {
                 assertValidTree(this.root);
             }
         }
+    }
+
+    /**
+     * Принудительно сделать следующий кадр полным (clear + рендер всего
+     * дерева). Для потребителей, меняющих картинку мимо markDirty-контракта
+     * (ресайз, тестовые харнессы).
+     */
+    public invalidateScreen(): void {
+        this.needsFullRepaint = true;
     }
 
     /**
@@ -177,6 +223,7 @@ export class TuiApplication {
 
     private handleResize(size: Size): void {
         this.screen = new TerminalScreen(size);
+        this.needsFullRepaint = true;
         // Mark root as dirty so next render recalculates layout
         if (this.root) {
             this.root.markDirty();

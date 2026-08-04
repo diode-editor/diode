@@ -4,10 +4,11 @@ import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 
 // Страховка dirty-гейта кадра ввода: команда по кейбинду может менять
-// состояние мимо всех markDirty-сеттеров (scrollLineUp пишет
-// viewState.scrollTop напрямую, unfold — регионы). Контракт: «клавиша съедена
-// (defaultPrevented) ⇒ кадр грязный» — восстанавливает прежнее поведение
-// безусловного рендера для всех команд разом.
+// состояние мимо всех markDirty-сеттеров. Контракт: «клавиша съедена
+// (defaultPrevented) ⇒ кадр грязный». Под damage-tracking страховка стала
+// fallback'ом: срабатывает (markDirty корня = полный кадр), только если ни
+// один обработчик ничего не пометил сам — иначе damage остаётся частичным
+// (см. workbench.damageScope.test.ts).
 
 describe("Workbench — съеденный кейбинд помечает кадр грязным", () => {
     let h: IAppHarness;
