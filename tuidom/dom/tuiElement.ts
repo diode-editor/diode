@@ -706,9 +706,32 @@ export class TUIElement {
         this.isStyleDirty = false;
         this.subtreeStyleDirty = false;
 
+        this.performChildrenStyleResolution(this.childStyleContext);
+    }
+
+    /**
+     * Спуск стилевого прохода в детей. Переопределяется виртуализирующим
+     * контейнером, чтобы резолвить только видимое окно строк (зеркально
+     * hitTestChildren/getDepthFirstFocusableOrder); офскрин-строки остаются
+     * style-dirty и дорезолвливаются, когда въезжают в окно — см.
+     * {@link markSubtreeStyleDirty}.
+     */
+    protected performChildrenStyleResolution(context: StyleResolutionContext): void {
         for (const child of this.getChildren()) {
-            child.performStyleResolution(this.childStyleContext);
+            child.performStyleResolution(context);
         }
+    }
+
+    /**
+     * «У потомков могут быть неразрезолвленные стили»: subtreeStyleDirty здесь
+     * и вверх до корня, БЕЗ пометки самих детей и без markDirty. Для
+     * виртуализирующего контейнера, чей performLayout сместил окно: следующий
+     * стилевой проход обязан зайти внутрь и дорезолвить въехавшие строки
+     * (чистые отсеются ранним выходом performStyleResolution).
+     */
+    protected markSubtreeStyleDirty(): void {
+        this.subtreeStyleDirty = true;
+        this.markSubtreeStyleDirtyUp();
     }
 
     private isStyleSelectorActive(selector: StyleStateSelector, ancestorStates: ReadonlySet<string>): boolean {
