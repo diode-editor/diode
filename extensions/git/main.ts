@@ -759,10 +759,18 @@ class GitDecorations {
         return { ok: true };
     }
 
-    /** Run git in the repo; returns a successful result or `null` (degraded — logged once). */
+    /**
+     * Run git in the repo; returns a successful result or `null` (degraded — logged once).
+     *
+     * Read-путь идёт с `GIT_OPTIONAL_LOCKS=0`: `git status` оппортунистически
+     * обновляет index и берёт `.git/index.lock` — фоновые refresh'ы дрались бы
+     * за него с мутациями пользователя (`git add` рядом с работающим редактором
+     * фейлился «Unable to create index.lock»). Цена — status не кэширует
+     * stat-данные в index; для наших размеров репо это незаметно.
+     */
     private async git(args: string[]): Promise<IRunGitResult | null> {
         const opts: IRunGitOptions = { cwd: this.repoRoot };
-        if (this.gitEnv !== undefined) opts.env = this.gitEnv;
+        opts.env = { ...(this.gitEnv ?? process.env), GIT_OPTIONAL_LOCKS: "0" };
         const result = await runGit(args, opts);
         if ("error" in result) {
             if (!this.loggedGitFailure) {
