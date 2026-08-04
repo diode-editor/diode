@@ -40,9 +40,14 @@ clone/init/мультирепо.
   `DD/AU/UD/UA/DU/AA/UU` → merge; `??` → untracked). Порядок и заголовки как в VS Code:
   Merge Changes → Staged Changes → Changes → Untracked Changes, пустые группы скрыты.
 - **Commit input box** — header контейнера Source Control над секциями
-  (`IViewContainerDescriptor.header`), виджет на существующем `InputElement`, черновик
-  персистится (workspace-scope). Ctrl+Enter — commit; в legacy-терминалах Ctrl+Enter
-  неотличим от Enter — команды доступны из палитры, это единственный fallback.
+  (`IViewContainerDescriptor.header`), безрамочный виджет на существующем
+  `InputElement` (фокус — аппаратный курсор, поле выделено фоном `input.background`),
+  черновик персистится (workspace-scope). Ctrl+Enter — commit; в legacy-терминалах
+  Ctrl+Enter неотличим от Enter — команды доступны из палитры, это единственный fallback.
+- **Action button** под полем — широкая primary-кнопка с правилами VS Code:
+  есть изменения → **Commit** (`git.commit`); чисто и у ветки нет upstream →
+  **Publish Branch** (`git.publish`); чисто и есть расхождение → **Sync Changes ↓N ↑M**
+  (`git.sync`); чисто и синхронно → Commit задизейблен; вне репозитория скрыта.
 - **Id строк списка** (e2e-селектор `#id` матчит только `[A-Za-z0-9_-]`):
   `scmGroup-<group>`, `scmRow-<group>-<sanitized-path>`, `scmDir-<group>-<sanitized-path>`.
 
