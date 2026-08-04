@@ -185,7 +185,7 @@ export class ListViewElement extends ScrollableElement {
         siblings.push(id);
         this.appendChild(host);
 
-        this.invalidateProjection();
+        this.appendToProjection(row);
         this.markDirty();
     }
 
@@ -513,6 +513,67 @@ export class ListViewElement extends ScrollableElement {
         this.anchorIndex = this.cursorIndex;
         this.pendingCursorId = null;
         return out;
+    }
+
+    /**
+     * Инкрементальное дополнение живой проекции при appendRow: стрим результатов
+     * (SearchPerformance.md, случай 6) не платит полную пересборку O(N) на кадр.
+     * Быстрые случаи: строка под невидимым/свёрнутым родителем — проекция не
+     * меняется вовсе; строка в хвосте проекции (последний топ-левел или новый
+     * последний ребёнок раскрытой группы, чьё поддерево замыкает проекцию) —
+     * push в конец: индексы существующих строк стабильны, курсор, выделение и
+     * якорь Shift-диапазона не трогаются (полная пересборка якорь сбрасывает —
+     * инкрементальный append его сохраняет). Остальное (вставка в середину) —
+     * фоллбек на полную инвалидацию.
+     */
+    private appendToProjection(row: ListRow): void {
+        const rows = this.visibleRows;
+        if (rows === null) {
+            // Проекция уже грязная — пересборка и так предстоит.
+            this.invalidateProjection();
+            return;
+        }
+        if (row.parentId !== null) {
+            if (!this.visibleIndexById.has(row.parentId)) {
+                // Родитель сам не виден (скрыт или под свёрнутым предком) — строка
+                // невидима, проекция не меняется. Порядок при последующем раскрытии
+                // обеспечит пересборка из setCollapsed/setRowHidden.
+                return;
+            }
+            // Видимый родитель теперь точно с детьми — шеврон обязан появиться
+            // (существенно для первого ребёнка: пересборки, которая выставила бы
+            // hasCollapsibleRows, при инкрементальном пути не будет).
+            this.hasCollapsibleRows = true;
+            if (this.collapsedIds.has(row.parentId)) return; // строка невидима
+            if (!this.isProjectionTail(row.parentId)) {
+                // Вставка в середину проекции — редкий для стрима случай.
+                this.invalidateProjection();
+                return;
+            }
+        }
+        this.visibleIndexById.set(row.id, rows.length);
+        rows.push(row);
+        // Строка попала в разложенное окно (контент короче вьюпорта), но сама ещё
+        // не разложена — делегация кликов не должна доверять её ленивой позиции.
+        // Append за окном делегацию не трогает: гард по концу окна отсеет индекс.
+        if (rows.length - 1 < this.lastLayoutScrollTop + this.lastLayoutViewportHeight) {
+            this.lastLayoutScrollTop = -1;
+        }
+    }
+
+    /**
+     * Замыкает ли поддерево строки текущую проекцию: последняя видимая строка —
+     * она сама или её потомок (walk по цепочке родителей, O(глубины)). Именно
+     * тогда новый последний ребёнок строки встаёт в самый хвост проекции.
+     */
+    private isProjectionTail(id: string): boolean {
+        // Вызывается при видимом родителе — проекция материализована и непуста.
+        let cursor: ListRow | undefined = this.visibleRows![this.visibleRows!.length - 1];
+        while (cursor) {
+            if (cursor.id === id) return true;
+            cursor = cursor.parentId !== null ? this.rowById.get(cursor.parentId) : undefined;
+        }
+        return false;
     }
 
     private invalidateProjection(): void {
