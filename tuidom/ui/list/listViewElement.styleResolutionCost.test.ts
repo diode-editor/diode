@@ -48,16 +48,20 @@ describe("ListViewElement — стоимость стилевого проход
         spy.mockRestore();
     });
 
-    it("получение фокуса каскадно инвалидирует стили всего поддерева — все N строк с лейблами", () => {
+    it("получение фокуса — один markStyleDirty вершины и одна прогулка markDirty до корня", () => {
         const { list, app } = createList();
         app.render();
 
-        const spy = vi.spyOn(TUIElement.prototype, "markStyleDirty");
+        const styleSpy = vi.spyOn(TUIElement.prototype, "markStyleDirty");
+        const dirtySpy = vi.spyOn(TUIElement.prototype, "markDirty");
         list.focus();
 
-        // setStyleState("focus") на списке рекурсивно помечает style-dirty
-        // каждый хост и каждый лейбл: ≥ 2N вызовов на одно переключение фокуса.
-        expect(spy.mock.calls.length).toBeGreaterThanOrEqual(2 * N);
-        spy.mockRestore();
+        // Каскад флагов по поддереву — внутренний (markStyleSubtree); раньше
+        // рекурсия шла через markStyleDirty и гоняла markDirty до корня из
+        // каждого из 2N потомков — O(N×глубина) на переключение фокуса.
+        expect(styleSpy.mock.calls.length).toBe(1);
+        expect(dirtySpy.mock.calls.length).toBeLessThan(10);
+        styleSpy.mockRestore();
+        dirtySpy.mockRestore();
     });
 });

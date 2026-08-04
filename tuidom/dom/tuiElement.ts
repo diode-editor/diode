@@ -652,12 +652,23 @@ export class TUIElement {
      * hidden and thus missed style propagation.
      */
     public markStyleDirty(): void {
-        this.isStyleDirty = true;
-        for (const child of this.getChildren()) {
-            child.markStyleDirty();
-        }
+        this.markStyleSubtree();
         this.markSubtreeStyleDirtyUp();
         this.markDirty();
+    }
+
+    /**
+     * isStyleDirty вглубь по поддереву — БЕЗ подъёма вверх и без markDirty.
+     * Подъём достаточен один раз от вершины каскада (внутренним узлам
+     * subtreeStyleDirty не нужен — они и так isStyleDirty); прежняя рекурсия
+     * через markStyleDirty гоняла markDirty до корня из каждого потомка,
+     * O(N×глубина) на каскад.
+     */
+    private markStyleSubtree(): void {
+        this.isStyleDirty = true;
+        for (const child of this.getChildren()) {
+            child.markStyleSubtree();
+        }
     }
 
     private markSubtreeStyleDirtyUp(): void {
@@ -791,14 +802,36 @@ export class TUIElement {
      * состояний, а `in:`-селекторы потомков видят состояния предков.
      */
     public setStyleState(state: StyleState, active: boolean): void {
+        if (this.applyStyleState(state, active)) {
+            this.markStyleDirty();
+        }
+    }
+
+    /**
+     * Как {@link setStyleState}, но для вызова из performLayout уже идущего
+     * кадра (виртуализирующие контейнеры синхронизируют selected/hover строк в
+     * layout). Стилевой проход идёт сразу после layout и потребит флаги, а
+     * markDirty здесь лишь оставлял бы корень layout-грязным ПОСЛЕ кадра — и
+     * следующее событие ввода рендерило бы пустой кадр (dirty-гейт
+     * TuiApplication).
+     */
+    public setStyleStateDuringLayout(state: StyleState, active: boolean): void {
+        if (this.applyStyleState(state, active)) {
+            this.markStyleSubtree();
+            this.markSubtreeStyleDirtyUp();
+        }
+    }
+
+    /** Мутация набора состояний; true — значение реально изменилось. */
+    private applyStyleState(state: StyleState, active: boolean): boolean {
         const current = this.styleStatesSet?.has(state) === true;
-        if (current === active) return;
+        if (current === active) return false;
         if (active) {
             (this.styleStatesSet ??= new Set()).add(state);
         } else {
             this.styleStatesSet?.delete(state);
         }
-        this.markStyleDirty();
+        return true;
     }
 
     public hasStyleState(state: StyleState): boolean {

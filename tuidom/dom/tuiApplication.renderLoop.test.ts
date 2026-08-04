@@ -57,8 +57,10 @@ describe("TuiApplication — render loop (renderFrame / handleMouse / handleResi
         const app = new TuiApplication(backend);
         const body = new SingleChildBody();
         // Mutate the painted mark when the mouse moves over the body.
+        // markDirty обязателен: кадр после ввода рисуется только по dirty-флагу.
         body.addEventListener("mousemove", () => {
             body.leaf.mark = "Z";
+            body.leaf.markDirty();
         });
         app.root = body;
         app.run();
@@ -80,8 +82,10 @@ describe("TuiApplication — render loop (renderFrame / handleMouse / handleResi
 
         expect(backend.getTextAt(new Point(0, 0), 1)).toBe("A");
 
-        // Change the painted char and drive a key event (synchronous renderFrame).
+        // Change the painted char and drive a key event: mark уже помечен
+        // грязным, поэтому keydown-кадр проходит dirty-гейт и рисуется синхронно.
         body.leaf.mark = "B";
+        body.leaf.markDirty();
         backend.sendKey("x");
 
         // The previous "A" was cleared and replaced by "B" — not overdrawn/left behind.

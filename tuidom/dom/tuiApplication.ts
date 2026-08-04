@@ -140,7 +140,7 @@ export class TuiApplication {
                 this.focusManager.cycleFocus(direction);
             }
 
-            this.renderFrame();
+            this.renderAfterInput();
         }
     }
 
@@ -149,13 +149,28 @@ export class TuiApplication {
             const event = new TUIPasteEvent(text);
             const target = this.focusManager?.activeElement ?? this.root;
             target.dispatchEvent(event);
-            this.renderFrame();
+            this.renderAfterInput();
         }
     }
 
     private handleMouse(token: MouseToken): void {
         if (this.root) {
             this.mouseDispatcher.handleMouseToken(token, this.root);
+            this.renderAfterInput();
+        }
+    }
+
+    /**
+     * Синхронный кадр после события ввода — только если обработчики что-то
+     * пометили грязным. Одно физическое нажатие приходит 2–3 событиями
+     * (keydown + синтезированный keypress, под Kitty ещё keyup) — раньше
+     * каждое рендерило полный кадр, из которых пустые давали чистый diff и
+     * жгли CPU впустую. Стилевые изменения гейт проходят: markStyleDirty
+     * заканчивается markDirty. Синхронность оставлена намеренно: тесты и
+     * обработчики читают экран/геометрию сразу после события.
+     */
+    private renderAfterInput(): void {
+        if (this.root?.isLayoutDirty) {
             this.renderFrame();
         }
     }

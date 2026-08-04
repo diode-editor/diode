@@ -4,8 +4,20 @@ import { OverlayLayer } from "../contextview/overlayLayer.ts";
 import { VFlexElement, vflexFill, vflexFixed } from "../layout/vFlexElement.ts";
 
 export class BodyElement extends TUIElement {
-    public title = "";
+    private titleValue = "";
     public readonly overlayLayer: OverlayLayer;
+
+    public get title(): string {
+        return this.titleValue;
+    }
+
+    public set title(value: string) {
+        if (value === this.titleValue) return;
+        this.titleValue = value;
+        // Заголовок — paint-состояние: кадр ввода рендерится только по
+        // dirty-флагу, мутация обязана помечать его сама.
+        this.markDirty();
+    }
 
     private readonly vflex = new VFlexElement();
     /**

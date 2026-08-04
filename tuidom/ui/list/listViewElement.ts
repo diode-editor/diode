@@ -347,9 +347,10 @@ export class ListViewElement extends ScrollableElement {
             const y = i - start;
             row.host.contentX = this.rowContentX(row);
             // Состояния строк синхронизируются здесь: layout идёт в кадре ДО
-            // резолва стилей, setStyleState — no-op без смены значения.
-            row.host.setStyleState("selected", i === this.cursorIndex || this.selectedIds.has(row.id));
-            row.host.setStyleState("hover", i === this.hoveredIndex);
+            // резолва стилей. Вариант ДЛЯ layout — без markDirty, иначе кадр
+            // оставлял бы корень грязным и следующий ввод рендерил бы пустой кадр.
+            row.host.setStyleStateDuringLayout("selected", i === this.cursorIndex || this.selectedIds.has(row.id));
+            row.host.setStyleStateDuringLayout("hover", i === this.hoveredIndex);
             this.layoutChild(row.host, 0, y, BoxConstraints.tight(new Size(size.width, 1)));
         }
         this.lastLayoutScrollTop = start;

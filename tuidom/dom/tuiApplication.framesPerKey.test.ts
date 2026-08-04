@@ -5,15 +5,12 @@ import { Size } from "../common/geometryPromitives.ts";
 import { ListViewElement } from "../ui/list/listViewElement.ts";
 import { TextLabelElement } from "../ui/text/textLabelElement.ts";
 
-// Репро-тесты диагностики тормозов окна поиска (docs/TODO/SearchPerformance.md).
-//
-// Они ПИННЯТ текущее патологическое поведение: парсер на каждый физический
-// keydown синтезирует парный keypress, а handleInput завершается безусловным
-// синхронным renderFrame() на КАЖДОЕ событие — коалесер scheduleRender() на
-// пути ввода не участвует. Итог: 2 полных кадра на нажатие (3 под Kitty, где
-// добавляется keyup) и по кадру на каждое событие автоповтора без склейки.
-//
-// Фикс (коалесинг кадров ввода / dirty-гейт) обязан поменять эти ассерты.
+// Регресс-тесты диагностики тормозов окна поиска (docs/TODO/SearchPerformance.md,
+// случай 3): одно физическое нажатие приходит 2–3 событиями (keydown +
+// синтезированный keypress, под Kitty ещё keyup), и раньше каждое рендерило
+// полный синхронный кадр. Теперь кадр после события ввода рисуется только
+// если обработчики что-то пометили грязным (dirty-гейт renderAfterInput):
+// одно нажатие — один кадр, пустые события — ноль.
 
 function createFocusedList(rowCount: number): { list: ListViewElement; app: TestApp } {
     const list = new ListViewElement({ typeahead: false });
@@ -24,48 +21,50 @@ function createFocusedList(rowCount: number): { list: ListViewElement; app: Test
     }
     const app = TestApp.createWithContent(list, new Size(30, 10));
     list.focus();
+    // Устаканить кадр после смены фокуса — иначе первое событие ввода рендерит
+    // легитимно отложенную фокус-перерисовку и портит счёт кадров.
+    app.render();
     return { list, app };
 }
 
 describe("TuiApplication — сколько кадров стоит один ввод", () => {
-    it("одно нажатие стрелки рендерит два полных кадра (keydown + синтезированный keypress)", () => {
+    it("одно нажатие стрелки рендерит ровно один кадр (пустой keydown-кадр пропущен)", () => {
         const { list, app } = createFocusedList(5);
         const before = app.app.frameCount;
 
         app.sendKey("ArrowDown");
 
         expect(list.inspectState().cursorId).toBe("r1");
-        expect(app.app.frameCount - before).toBe(2);
+        expect(app.app.frameCount - before).toBe(1);
     });
 
-    it("автоповтор: пачка из 8 стрелок в одном stdin-чанке — 16 синхронных кадров, без склейки", () => {
+    it("автоповтор: пачка из 8 стрелок в одном stdin-чанке — 8 кадров, по одному на движение", () => {
         const { list, app } = createFocusedList(20);
         const before = app.app.frameCount;
 
         app.backend.sendRaw("\x1b[B".repeat(8));
 
         expect(list.inspectState().cursorId).toBe("r8");
-        expect(app.app.frameCount - before).toBe(16);
+        expect(app.app.frameCount - before).toBe(8);
     });
 
-    it("клавиша, которую никто не обработал, всё равно рендерит два полных кадра", () => {
+    it("клавиша, которую никто не обработал, не рендерит ни одного кадра", () => {
         const { app } = createFocusedList(3);
         const before = app.app.frameCount;
 
         app.sendKey("F9");
 
-        expect(app.app.frameCount - before).toBe(2);
+        expect(app.app.frameCount - before).toBe(0);
     });
 
-    it("кадр не гейтится dirty-флагом: не изменившийся лейбл перелейаучивается на каждом кадре", () => {
+    it("не изменившийся лейбл не перелейаучивается на пустом вводе — кадр не рисуется вовсе", () => {
         const label = new TextLabelElement("hello");
         const app = TestApp.createWithContent(label, new Size(20, 3));
         const spy = vi.spyOn(label, "getMaxIntrinsicWidth");
 
         app.sendKey("x");
 
-        // Два кадра (keydown + keypress) — и в каждом полный layout лейбла,
-        // хотя ввод его никак не касался.
-        expect(spy).toHaveBeenCalledTimes(2);
+        expect(spy).not.toHaveBeenCalled();
+        expect(app.app.frameCount).toBe(1);
     });
 });
