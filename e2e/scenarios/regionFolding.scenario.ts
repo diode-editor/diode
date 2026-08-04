@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 
+import { frameToText } from "../helpers/frame.ts";
+
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Folding ranges contributed by a STOCK extension (#194): the real
@@ -30,23 +32,48 @@ export default defineScenario({
 
         // Fold FIRST, and only then shoot the resting frame. The provider
         // activates on onStartupFinished — after the file is already open — so a
-        // frame taken right away can still be indentation-only, and the demo
-        // would silently document nothing. A fold that starts on the `#region`
+        // fold pressed too early collapses the indentation range (the function
+        // body) instead of the region. A fold that starts on the `#region`
         // marker line is something indentation folding can never produce, so it
-        // doubles as proof that the provider's ranges have landed.
+        // doubles as proof that the provider's ranges have landed — retry the
+        // toggle until exactly that fold appears (on slow runners activation
+        // lands seconds later; git-расширение added its own startup git calls,
+        // pushing the window wider).
         // Ctrl+K Ctrl+L: both keys are Ctrl+letter, which the headless key DSL can
         // serialize (Ctrl+Shift+[ cannot).
-        for (let i = 0; i < 5; i++) await editor.sendKey("ArrowDown");
-        await editor.sendKey("Ctrl+K");
-        await editor.sendKey("Ctrl+L");
-        await editor.waitForText((t) => !t.includes("const sum"));
+        // Навигация по статус-бару (Ln N), а не слепым счётом нажатий: нажатия
+        // теряются, пока стартуют расширения/LSP, а collapse уводит курсор в
+        // конец документа.
+        const gotoLine = async (line: number): Promise<void> => {
+            for (let i = 0; i < 20; i++) await editor.sendKey("ArrowUp");
+            for (let i = 0; i < 15; i++) {
+                if (new RegExp(`Ln ${String(line)}, `).test(frameToText(await editor.captureFrame()))) return;
+                await editor.sendKey("ArrowDown");
+            }
+        };
+        const toggleFoldAt = async (line: number): Promise<void> => {
+            await gotoLine(line);
+            await editor.sendKey("Ctrl+K");
+            await editor.sendKey("Ctrl+L");
+        };
+        let regionFolded = false;
+        for (let attempt = 0; attempt < 20 && !regionFolded; attempt++) {
+            await toggleFoldAt(6);
+            const folded = frameToText(await editor.waitForText((t) => !t.includes("const sum")));
+            regionFolded = folded.split("\n").some((l) => l.includes("#region") && l.includes("⋯"));
+            if (!regionFolded) {
+                // Свернулся indentation-фолд (header — строка 5): провайдер ещё
+                // не доехал — развернуть и повторить.
+                await toggleFoldAt(5);
+                await editor.waitForText((t) => t.includes("const sum"));
+            }
+        }
         await editor.capture("region-folded");
 
         // Unfold: the resting frame now provably has the provider region in the
         // model, which is what makes it the assertion — the `#region` header and
         // its body share an indent, and the code must survive intact.
-        await editor.sendKey("Ctrl+K");
-        await editor.sendKey("Ctrl+L");
+        await toggleFoldAt(6);
         await editor.waitForText((t) => t.includes("const sum"));
         await editor.capture("rest");
     },
