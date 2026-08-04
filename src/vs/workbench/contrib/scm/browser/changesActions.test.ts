@@ -6,6 +6,8 @@ import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarSer
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import {
+    scmFocusChangesAction,
+    scmFocusInputAction,
     scmOpenChangesAction,
     scmOpenFileAction,
     scmViewAsListAction,
@@ -13,6 +15,7 @@ import {
     showScmAction,
 } from "./changesActions.ts";
 import { ChangesComponentDIToken, SCM_VIEWLET_ID } from "./changesComponent.ts";
+import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 // scm.action.openChanges покрыт сквозными тестами workbench.changes.test.ts
 // (активация строки, untracked-фолбэк); здесь — пути резолва цели и view-mode.
@@ -34,9 +37,40 @@ describe("showScmAction", () => {
     });
 });
 
+describe("workbench.scm.focus / scm.action.focusChanges", () => {
+    it("workbench.scm.focus показывает вьюлет без reveal-фокуса и фокусит input", () => {
+        const sidebar = { showViewlet: vi.fn() };
+        const input = { focus: vi.fn() };
+        scmFocusInputAction.run(
+            accessorWith(
+                new Map<unknown, unknown>([
+                    [SidebarServiceDIToken, sidebar],
+                    [ScmInputComponentDIToken, input],
+                ]),
+            ),
+        );
+        expect(sidebar.showViewlet).toHaveBeenCalledWith(SCM_VIEWLET_ID, false);
+        expect(input.focus).toHaveBeenCalledTimes(1);
+    });
+
+    it("scm.action.focusChanges висит на Down при scmInputFocus и фокусит список", () => {
+        expect(scmFocusChangesAction.when).toBe("scmInputFocus");
+        const component = { focus: vi.fn() };
+        scmFocusChangesAction.run(accessorWith(new Map<unknown, unknown>([[ChangesComponentDIToken, component]])));
+        expect(component.focus).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe("scm.action.openFile", () => {
-    it("resolves the menu argument from the ScmContext open-context (scmUriArg)", () => {
-        expect(scmOpenFileAction.menus?.[0].args?.({ uri: "file:///repo/a.txt" })).toEqual(["file:///repo/a.txt"]);
+    it("resolves the single target from the ScmContext open-context and hides itself on multi-select", () => {
+        const single = { kind: "resource", uris: ["file:///repo/a.txt"], groups: ["worktree"] };
+        expect(scmOpenFileAction.menus?.[0].args?.(single)).toEqual(["file:///repo/a.txt"]);
+        expect(scmOpenFileAction.menus?.[0].visible?.(single)).toBe(true);
+
+        const multi = { kind: "resource", uris: ["file:///a", "file:///b"], groups: ["worktree"] };
+        expect(scmOpenFileAction.menus?.[0].visible?.(multi)).toBe(false);
+        const folder = { kind: "folder", uris: ["file:///a"], groups: ["worktree"] };
+        expect(scmOpenChangesAction.menus?.[0].visible?.(folder)).toBe(false);
     });
 
     it("opens the explicit uri argument", () => {

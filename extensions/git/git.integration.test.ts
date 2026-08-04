@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +22,12 @@ import { PUBLISH_LOG_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
+
+// Транспорты мутаций (строки дублируются по значению — общих импортов через
+// границу процесса нет, как у PUBLISH_CHANGES_COMMAND).
+const STAGE_COMMAND = "vexx.git.stage";
+const UNSTAGE_COMMAND = "vexx.git.unstage";
+const CLEAN_COMMAND = "vexx.git.clean";
 
 // Any resolvable colour ids the plugin references (git status → tree, diff → gutter).
 const COLORS: Record<string, number> = {
@@ -180,16 +187,19 @@ describe("builtin git plugin (integration)", () => {
         expect(got).toBe(true);
 
         const set = latest()!;
-        // path — путь относительно корня репо (из porcelain, через `/`), не basename.
+        // path — путь относительно корня репо (из porcelain, через `/`), не basename;
+        // group — раскладка по группам ресурсов (продюсер протокола вкладки Changes).
         expect(set.find((r) => r.uri.endsWith("tracked.txt"))).toMatchObject({
             status: "M",
             colorId: "gitDecoration.modifiedResourceForeground",
             path: "tracked.txt",
+            group: "worktree",
         });
         expect(set.find((r) => r.uri.endsWith("untracked.txt"))).toMatchObject({
             status: "U",
             colorId: "gitDecoration.untrackedResourceForeground",
             path: "untracked.txt",
+            group: "untracked",
         });
     });
 
@@ -229,6 +239,242 @@ describe("builtin git plugin (integration)", () => {
         const republished = await waitFor(() => latest()?.some((c) => c.subject === "second") ?? false);
         expect(republished).toBe(true);
         expect(latest()!.map((c) => c.subject)).toEqual(["second", "init"]);
+    });
+
+    it("vexx.git.stage/unstage двигают файлы между индексом и деревом, clean откатывает и удаляет", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        const dir = harness.tmpDir;
+        const uriOf = (rel: string): string => Uri.file(path.join(dir, rel)).toString();
+        const porcelain = (): string =>
+            execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString();
+
+        // stage: modified + untracked уходят в индекс.
+        const staged = (await harness.commandRegistry.execute(STAGE_COMMAND, [
+            uriOf("tracked.txt"),
+            uriOf("untracked.txt"),
+        ])) as { ok: boolean };
+        expect(staged.ok).toBe(true);
+        expect(porcelain()).toBe("M  tracked.txt\nA  untracked.txt\n");
+
+        // unstage: обе записи возвращаются в рабочее дерево.
+        const unstaged = (await harness.commandRegistry.execute(UNSTAGE_COMMAND, [
+            uriOf("tracked.txt"),
+            uriOf("untracked.txt"),
+        ])) as { ok: boolean };
+        expect(unstaged.ok).toBe(true);
+        expect(porcelain()).toBe(" M tracked.txt\n?? untracked.txt\n");
+
+        // clean: tracked откатывается к HEAD, untracked удаляется с диска.
+        // status-карта расширения к этому моменту знает оба файла (refresh после unstage).
+        const cleaned = (await harness.commandRegistry.execute(CLEAN_COMMAND, [
+            uriOf("tracked.txt"),
+            uriOf("untracked.txt"),
+        ])) as { ok: boolean };
+        expect(cleaned.ok).toBe(true);
+        expect(porcelain()).toBe("");
+        expect(fs.readFileSync(path.join(dir, "tracked.txt"), "utf8")).toBe(TRACKED_AT_HEAD);
+        expect(fs.existsSync(path.join(dir, "untracked.txt"))).toBe(false);
+    });
+
+    it("unstage в пустом репозитории (unborn HEAD) снимает файл через rm --cached", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        // Репо без единого коммита: файл сразу в индексе.
+        git(dir, "init", "-q");
+        git(dir, "config", "user.email", "t@example.com");
+        git(dir, "config", "user.name", "Test");
+        fs.writeFileSync(path.join(dir, "first.txt"), "hello\n");
+        git(dir, "add", "-A");
+        harness.group.openFile(path.join(dir, "first.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        const result = (await harness.commandRegistry.execute(UNSTAGE_COMMAND, [
+            Uri.file(path.join(dir, "first.txt")).toString(),
+        ])) as { ok: boolean };
+        expect(result.ok).toBe(true);
+        const porcelain = execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString();
+        expect(porcelain).toBe("?? first.txt\n");
+    });
+
+    it("vexx.git.op commit: staged-файл коммитится с сообщением; amend меняет последний коммит", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        makeRepo(dir);
+        harness.group.openFile(path.join(dir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        git(dir, "add", "-A");
+        const committed = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "commit",
+            params: { message: "feat: change" },
+        })) as { ok: boolean };
+        expect(committed.ok).toBe(true);
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: change");
+        expect(execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString()).toBe("");
+
+        // Amend с новым сообщением: число коммитов не растёт.
+        const amended = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "commit",
+            params: { message: "feat: amended", amend: true, allowEmpty: true },
+        })) as { ok: boolean };
+        expect(amended.ok).toBe(true);
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: amended");
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("2");
+    });
+
+    it("vexx.git.op: пустое сообщение без amend, мусорный запрос и неизвестная операция — {ok: false}", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        const empty = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "commit",
+            params: {},
+        })) as { ok: boolean; message?: string };
+        expect(empty.ok).toBe(false);
+        expect(empty.message).toContain("empty");
+
+        const malformed = (await harness.commandRegistry.execute("vexx.git.op", 42)) as { ok: boolean };
+        expect(malformed.ok).toBe(false);
+        const unknown = (await harness.commandRegistry.execute("vexx.git.op", { op: "fly-to-moon" })) as {
+            ok: boolean;
+            message?: string;
+        };
+        expect(unknown.ok).toBe(false);
+        expect(unknown.message).toContain("unknown git op");
+    });
+
+    it("vexx.git.op undoCommit: reset --soft + сообщение; корневой коммит не откатывается", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        makeRepo(dir);
+        harness.group.openFile(path.join(dir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        // Второй коммит поверх init — его и откатываем.
+        git(dir, "add", "-A");
+        git(dir, "commit", "-qm", "feat: second");
+
+        const undone = (await harness.commandRegistry.execute("vexx.git.op", { op: "undoCommit" })) as {
+            ok: boolean;
+            data?: { message?: string };
+        };
+        expect(undone.ok).toBe(true);
+        expect(undone.data?.message).toBe("feat: second");
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("1");
+        // Изменения остались staged.
+        expect(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: dir }).toString().trim()).not.toBe("");
+
+        // Остался только корневой коммит — второй undo отказывает.
+        const root = (await harness.commandRegistry.execute("vexx.git.op", { op: "undoCommit" })) as {
+            ok: boolean;
+            message?: string;
+        };
+        expect(root.ok).toBe(false);
+        expect(root.message).toContain("initial commit");
+    });
+
+    it("vexx.git.op push/pull против локального bare-remote; vexx.git.query отдаёт refs/remotes", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        makeRepo(dir);
+        // Локальный bare-remote (file-протокол, без auth) + upstream.
+        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-bare-"));
+        git(remoteDir, "init", "-q", "--bare");
+        git(dir, "remote", "add", "origin", remoteDir);
+        const branch = execFileSync("git", ["branch", "--show-current"], { cwd: dir }).toString().trim();
+        git(dir, "push", "-qu", "origin", branch);
+        harness.group.openFile(path.join(dir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        // Новый локальный коммит → push доносит его до remote.
+        git(dir, "add", "-A");
+        git(dir, "commit", "-qm", "feat: second");
+        const pushed = (await harness.commandRegistry.execute("vexx.git.op", { op: "push" })) as { ok: boolean };
+        expect(pushed.ok).toBe(true);
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: remoteDir }).toString().trim()).toBe(
+            "feat: second",
+        );
+
+        // Remote уходит вперёд (через второй клон) → pull подтягивает.
+        const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-clone-"));
+        execFileSync("git", ["clone", "-q", remoteDir, cloneDir]);
+        git(cloneDir, "config", "user.email", "t@example.com");
+        git(cloneDir, "config", "user.name", "Test");
+        fs.writeFileSync(path.join(cloneDir, "third.txt"), "x\n");
+        git(cloneDir, "add", "-A");
+        git(cloneDir, "commit", "-qm", "feat: third");
+        git(cloneDir, "push", "-q");
+
+        const pulled = (await harness.commandRegistry.execute("vexx.git.op", { op: "pull" })) as { ok: boolean };
+        expect(pulled.ok).toBe(true);
+        expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: third");
+
+        // Query: refs содержат ветку и её remote-двойника, remotes — origin.
+        const refs = (await harness.commandRegistry.execute("vexx.git.query", { kind: "refs" })) as {
+            refs: { name: string; kind: string }[];
+        };
+        expect(refs.refs.some((r) => r.kind === "head" && r.name === branch)).toBe(true);
+        expect(refs.refs.some((r) => r.kind === "remote" && r.name === `origin/${branch}`)).toBe(true);
+        const remotes = (await harness.commandRegistry.execute("vexx.git.query", { kind: "remotes" })) as {
+            remotes: string[];
+        };
+        expect(remotes.remotes).toEqual(["origin"]);
+        expect(await harness.commandRegistry.execute("vexx.git.query", { kind: "flying" })).toBeNull();
+    });
+
+    it("мутации отбрасывают мусорные цели, пустой итог — no-op {ok: true}", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        // Не-массив, не-строки, чужая схема, путь вне репо — всё мимо; git не зовётся.
+        for (const payload of [
+            "not-an-array",
+            [42, null, {}],
+            ["untitled:Untitled-1"],
+            [Uri.file("/definitely/outside/repo.txt").toString()],
+        ]) {
+            const result = (await harness.commandRegistry.execute(STAGE_COMMAND, payload)) as { ok: boolean };
+            expect(result.ok).toBe(true);
+        }
+        // Рабочее дерево нетронуто: modified остался modified, untracked — untracked.
+        const porcelain = execFileSync("git", ["status", "--porcelain=v1"], { cwd: harness.tmpDir }).toString();
+        expect(porcelain).toBe(" M tracked.txt\n?? untracked.txt\n");
     });
 
     it("не отдаёт оригинал для untracked-файла и для файла вне репозитория", async () => {

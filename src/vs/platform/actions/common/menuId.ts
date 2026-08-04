@@ -11,6 +11,8 @@ export class MenuId {
     public static readonly EditorContext = new MenuId("EditorContext");
     public static readonly ExplorerContext = new MenuId("ExplorerContext");
     public static readonly ScmContext = new MenuId("ScmContext");
+    /** Контекст-меню заголовка группы ресурсов SCM (VS Code `scm/resourceGroup/context`). */
+    public static readonly ScmResourceGroupContext = new MenuId("ScmResourceGroupContext");
     /** Корень меню-бара: содержит только submenu-пункты (File/Edit/…). */
     /** Контролы активной вкладки в шапке (панель/сайдбар) — VS Code `ViewTitle`. */
     public static readonly ViewTitle = new MenuId("ViewTitle");

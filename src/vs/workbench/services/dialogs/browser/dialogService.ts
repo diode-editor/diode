@@ -154,6 +154,23 @@ export class DialogService extends Disposable {
         dialog.focusDefault();
     }
 
+    /**
+     * Promise-обёртка над {@link showConfirmDialog} — для async-оркестрации:
+     * `true` = подтверждено, `false` = отмена (в т.ч. Escape).
+     */
+    public confirm(options: ConfirmDialogOptions): Promise<boolean> {
+        return new Promise((resolve) => {
+            this.showConfirmDialog(options, {
+                onConfirm: () => {
+                    resolve(true);
+                },
+                onCancel: () => {
+                    resolve(false);
+                },
+            });
+        });
+    }
+
     /** Открыт ли сейчас универсальный confirm-диалог (для тестов/оркестрации). */
     public getOpenConfirmDialog(): ConfirmDialog | null {
         return (this.confirmSession?.isOpen() ?? false) ? this.confirmDialog : null;

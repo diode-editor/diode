@@ -16,11 +16,13 @@ import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.t
 import { SCM_VIEW_MODE_STATE, type ScmViewMode } from "../../../common/stateKeys.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
-import type { IScmChange, ScmChangesService } from "./changesService.ts";
-import { ScmChangesServiceDIToken } from "./changesService.ts";
+import type { IScmChange, ScmChangesService, ScmGroupId } from "./changesService.ts";
+import { SCM_GROUP_IDS, ScmChangesServiceDIToken } from "./changesService.ts";
+import { groupChanges } from "./scmChangeGroups.ts";
 import {
     buildFileRow,
     buildFolderRow,
+    buildGroupRow,
     formatFileRow,
     GIT_STATUS_COLOR_IDS,
     type IScmFileRowParts,
@@ -39,7 +41,17 @@ export const ChangesComponentDIToken = token<ChangesComponent>("ChangesComponent
 /** Метаданные строки списка — мост «id строки → модель» (как rowMeta у поиска). */
 type ScmRowMeta =
     | { readonly kind: "file"; readonly parts: IScmFileRowParts; readonly change: IScmChange; readonly label: string }
-    | { readonly kind: "folder" };
+    | { readonly kind: "folder"; readonly group: ScmGroupId; readonly changes: readonly IScmChange[] }
+    | { readonly kind: "group"; readonly group: ScmGroupId; readonly changes: readonly IScmChange[] };
+
+/**
+ * Санитизация в id-алфавит строк списка (`[A-Za-z0-9_-]`): e2e-селектор `#id`
+ * другого не матчит. Коллизии ("a.b" ↔ "a-b") разводит {@link ChangesComponent}
+ * суффиксом.
+ */
+function sanitizeIdSegment(value: string): string {
+    return value.replace(/[^A-Za-z0-9_-]+/g, "-");
+}
 
 /**
  * View-секция **CHANGES** контейнера Source Control в сайдбаре: список
@@ -117,9 +129,8 @@ export class ChangesComponent extends Component {
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
             const meta = this.rowMeta.get(element.id!);
-            // Для папок пункты меню бессмысленны — меню только у файловых строк.
-            if (meta?.kind !== "file") return;
-            this.showContextMenu(meta.change.uri.toString(), screenX, screenY);
+            if (meta === undefined) return;
+            this.showContextMenu(meta, screenX, screenY);
         };
 
         this.register(
@@ -143,6 +154,20 @@ export class ChangesComponent extends Component {
         return meta?.kind === "file" ? meta.change : null;
     }
 
+    /**
+     * Файловые записи текущего выделения списка (multi-select; пустое выделение —
+     * строка под курсором) в порядке показа — цели групповых staging-команд.
+     */
+    public getSelectedChanges(): readonly IScmChange[] {
+        const changes: IScmChange[] = [];
+        for (const element of this.list.getSelectedElements()) {
+            // Список не принимает строки без id — здесь он гарантированно есть.
+            const meta = this.rowMeta.get(element.id!);
+            if (meta?.kind === "file") changes.push(meta.change);
+        }
+        return changes;
+    }
+
     public getViewMode(): ScmViewMode {
         return this.viewMode;
     }
@@ -163,11 +188,11 @@ export class ChangesComponent extends Component {
         this.rebuild();
     }
 
-    /** Активация строки: папка сворачивается, файл открывает дифф. */
+    /** Активация строки: заголовок группы и папка сворачиваются, файл открывает дифф. */
     private activateRow(id: string): void {
         const meta = this.rowMeta.get(id);
         if (meta === undefined) return;
-        if (meta.kind === "folder") {
+        if (meta.kind !== "file") {
             this.list.toggleCollapsed(id);
             return;
         }
@@ -176,56 +201,116 @@ export class ChangesComponent extends Component {
 
     /**
      * Пересобирает строки из снимка {@link ScmChangesService} (publish, смена
-     * режима, restore). Курсор возвращается на прежнюю строку по id, если она
-     * пережила пересборку; свёрнутость папок при этом сбрасывается — принято
-     * (как у поиска при новом запросе).
+     * режима, restore). Строки секционированы группами ресурсов
+     * ({@link groupChanges}); свёрнутость групп переживает пересборку (снимок до
+     * `clear()`), курсор возвращается на прежнюю строку по id. Свёрнутость папок
+     * при этом сбрасывается — принято (как у поиска при новом запросе).
      */
     private rebuild(): void {
         const cursorId = this.list.getCursorElement()?.id;
+        const collapsedGroups = SCM_GROUP_IDS.filter((id) => this.list.isCollapsed(`scmGroup-${id}`));
         this.list.clear();
         this.rowMeta.clear();
 
-        const changes = this.changesService.changes;
-        if (this.viewMode === "flat") {
-            for (const change of sortChangesFlat(changes)) {
-                this.appendFileRow(change, displayPath(change), undefined);
-            }
-        } else {
-            const emit = (nodes: readonly ScmTreeNode[], parentId: string | undefined): void => {
-                for (const node of nodes) {
-                    if (node.kind === "folder") {
-                        const id = `dir:${node.path}`;
-                        this.list.appendRow(buildFolderRow(id, node.label), { parentId, label: node.label });
-                        this.rowMeta.set(id, { kind: "folder" });
-                        emit(node.children, id);
-                    } else {
-                        this.appendFileRow(node.change, node.name, parentId);
-                    }
+        for (const group of groupChanges(this.changesService.changes)) {
+            const groupRowId = `scmGroup-${group.id}`;
+            this.list.appendRow(buildGroupRow(groupRowId, group.label, group.changes.length), {
+                label: group.label,
+            });
+            this.rowMeta.set(groupRowId, { kind: "group", group: group.id, changes: group.changes });
+
+            if (this.viewMode === "flat") {
+                for (const change of sortChangesFlat(group.changes)) {
+                    this.appendFileRow(group.id, change, displayPath(change), groupRowId);
                 }
-            };
-            emit(buildScmTree(changes), undefined);
+            } else {
+                const emit = (nodes: readonly ScmTreeNode[], parentId: string): void => {
+                    for (const node of nodes) {
+                        if (node.kind === "folder") {
+                            const id = this.uniqueRowId(`scmDir-${group.id}-${sanitizeIdSegment(node.path)}`);
+                            this.list.appendRow(buildFolderRow(id, node.label), { parentId, label: node.label });
+                            this.rowMeta.set(id, {
+                                kind: "folder",
+                                group: group.id,
+                                changes: ChangesComponent.collectFiles(node.children),
+                            });
+                            emit(node.children, id);
+                        } else {
+                            this.appendFileRow(group.id, node.change, node.name, parentId);
+                        }
+                    }
+                };
+                emit(buildScmTree(group.changes), groupRowId);
+            }
         }
 
+        for (const id of collapsedGroups) this.list.setCollapsed(`scmGroup-${id}`, true);
         if (cursorId !== undefined && this.rowMeta.has(cursorId)) {
             this.list.setCursorTo(cursorId);
         }
     }
 
-    private appendFileRow(change: IScmChange, label: string, parentId: string | undefined): void {
-        const parts = buildFileRow(change, label, this.rowStyles, () => {
+    private appendFileRow(group: ScmGroupId, change: IScmChange, label: string, parentId: string): void {
+        const rowId = this.uniqueRowId(`scmRow-${group}-${sanitizeIdSegment(displayPath(change))}`);
+        const parts = buildFileRow(rowId, change, label, this.rowStyles, () => {
             this.commands.execute("scm.action.openFile", change.uri.toString());
         });
         this.list.appendRow(parts.root, { parentId, label });
-        this.rowMeta.set(parts.root.id!, { kind: "file", parts, change, label });
+        this.rowMeta.set(rowId, { kind: "file", parts, change, label });
     }
 
-    /** Контекстное меню файловой строки — делегат ContextMenuService (как у Explorer). */
-    private showContextMenu(uri: string, screenX: number, screenY: number): void {
-        const context: ScmMenuContext = { uri };
+    /** Разводит коллизии санитизации ("a.b" ↔ "a-b") числовым суффиксом. */
+    private uniqueRowId(base: string): string {
+        if (!this.rowMeta.has(base)) return base;
+        let n = 2;
+        while (this.rowMeta.has(`${base}_${n}`)) n++;
+        return `${base}_${n}`;
+    }
+
+    /** Собирает файлы поддерева (для будущих операций над папкой целиком). */
+    private static collectFiles(nodes: readonly ScmTreeNode[]): readonly IScmChange[] {
+        const files: IScmChange[] = [];
+        const walk = (level: readonly ScmTreeNode[]): void => {
+            for (const node of level) {
+                if (node.kind === "folder") walk(node.children);
+                else files.push(node.change);
+            }
+        };
+        walk(nodes);
+        return files;
+    }
+
+    /**
+     * Контекстное меню строки — делегат ContextMenuService (как у Explorer).
+     * Цели: файловая строка в текущем выделении → всё выделение, вне его — одна
+     * строка; папка → её файлы; заголовок группы → вся группа (и своя точка меню
+     * `ScmResourceGroupContext`).
+     */
+    private showContextMenu(meta: ScmRowMeta, screenX: number, screenY: number): void {
+        let kind: ScmMenuContext["kind"];
+        let targets: readonly IScmChange[];
+        let menuId = MenuId.ScmContext;
+        if (meta.kind === "file") {
+            kind = "resource";
+            const selected = this.getSelectedChanges();
+            targets = selected.includes(meta.change) ? selected : [meta.change];
+        } else if (meta.kind === "folder") {
+            kind = "folder";
+            targets = meta.changes;
+        } else {
+            kind = "group";
+            targets = meta.changes;
+            menuId = MenuId.ScmResourceGroupContext;
+        }
+        const context: ScmMenuContext = {
+            kind,
+            uris: targets.map((c) => c.uri.toString()),
+            groups: [...new Set(targets.map((c) => c.group))],
+        };
         this.contextMenuService.showContextMenu({
             getOwner: () => this.list,
             getAnchor: () => ({ screenX, screenY }),
-            menuId: MenuId.ScmContext,
+            menuId,
             menuContext: context,
         });
     }

@@ -3,12 +3,13 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { scmUriArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import { scmSingleResource, scmSingleUriArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import { ChangesComponentDIToken, SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "./changesComponent.ts";
 import { openDiffWithHead } from "./compareWithHeadAction.ts";
+import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 /**
  * Показать Source Control в сайдбаре (VS Code `workbench.view.scm`). У нас нет
@@ -28,6 +29,35 @@ export const showScmAction: CommandAction = {
 };
 
 /**
+ * Показать Source Control и поставить фокус в commit input box — VS Code
+ * `workbench.scm.focus`. `workbench.view.scm` при этом по-прежнему фокусит
+ * список изменений (сложившийся инвариант e2e).
+ */
+export const scmFocusInputAction: CommandAction = {
+    id: "workbench.scm.focus",
+    title: "Source Control: Focus on Source Control View",
+    run(accessor) {
+        accessor.get(SidebarServiceDIToken).showViewlet(SCM_VIEWLET_ID, false);
+        accessor.get(ScmInputComponentDIToken).focus();
+    },
+};
+
+/**
+ * Фокус из commit input box в список CHANGES — стрелка вниз (InputElement
+ * ArrowDown не обрабатывает, событие доходит до диспетчера кейбиндов).
+ * Обратно — `workbench.scm.focus`.
+ */
+export const scmFocusChangesAction: CommandAction = {
+    id: "scm.action.focusChanges",
+    title: "Source Control: Focus Changes List",
+    keybinding: parseKeybinding("down"),
+    when: "scmInputFocus",
+    run(accessor) {
+        accessor.get(ChangesComponentDIToken).focus();
+    },
+};
+
+/**
  * Общий резолв цели SCM-команд: явный uri-аргумент (строкой — из пункта меню или
  * инлайн-кнопки) либо курсорная строка списка Changes (клавиатурный путь).
  */
@@ -42,7 +72,15 @@ export const scmOpenFileAction: CommandAction = {
     title: "Source Control: Open File",
     shortTitle: "Open File",
     when: "scmViewletVisible",
-    menus: [{ menuId: MenuId.ScmContext, group: "1_open", order: 10, args: scmUriArg }],
+    menus: [
+        {
+            menuId: MenuId.ScmContext,
+            group: "1_open",
+            order: 10,
+            args: scmSingleUriArg,
+            visible: scmSingleResource,
+        },
+    ],
     run(accessor, rawUri) {
         const uri = resolveScmUri(accessor, rawUri);
         if (uri) accessor.get(EditorServiceDIToken).openUri(uri);
@@ -59,7 +97,15 @@ export const scmOpenChangesAction: CommandAction = {
     title: "Source Control: Open Changes",
     shortTitle: "Open Changes",
     when: "scmViewletVisible",
-    menus: [{ menuId: MenuId.ScmContext, group: "1_open", order: 20, args: scmUriArg }],
+    menus: [
+        {
+            menuId: MenuId.ScmContext,
+            group: "1_open",
+            order: 20,
+            args: scmSingleUriArg,
+            visible: scmSingleResource,
+        },
+    ],
     run(accessor, rawUri) {
         const uri = resolveScmUri(accessor, rawUri);
         if (!uri) return;

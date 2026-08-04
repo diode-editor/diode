@@ -110,6 +110,12 @@ export function serializeKey(name: string): string {
         return `\x1b[9;${mod.toString()}:1u`;
     }
 
+    // Enter with modifiers in Kitty CSI-u form: CSI 13;{mod}u (Ctrl+Enter = commit).
+    if (remaining === "Enter" && hasModifiers) {
+        const mod = encodeModifier(ctrl, shift, alt, meta);
+        return `\x1b[13;${mod.toString()}u`;
+    }
+
     // Ctrl+letter → control character (0x01–0x1a)
     if (ctrl && !shift && !alt && !meta && remaining.length === 1 && /[a-zA-Z]/.test(remaining)) {
         const code = remaining.toUpperCase().charCodeAt(0) - 0x40;

@@ -41,19 +41,21 @@ export interface IScmFileRowParts {
 }
 
 /**
- * Строит файловую строку. `label` — display-путь (flat) или имя файла (tree).
- * `onOpenFile` вызывается кликом по глифу: глиф потребляет click через
- * `preventDefault()` (контракт делегации ListViewElement), а парный
+ * Строит файловую строку. `rowId` — идентичность строки в списке (id-конвенция
+ * `scmRow-<group>-<path>` живёт у вызывающего), `label` — display-путь (flat)
+ * или имя файла (tree). `onOpenFile` вызывается кликом по глифу: глиф потребляет
+ * click через `preventDefault()` (контракт делегации ListViewElement), а парный
  * dblclick-listener гасит и двойной клик, чтобы тот не активировал строку.
  */
 export function buildFileRow(
+    rowId: string,
     change: IScmChange,
     label: string,
     styles: IScmRowStyles,
     onOpenFile: () => void,
 ): IScmFileRowParts {
     const root = new HFlexElement();
-    root.id = change.uri.toString();
+    root.id = rowId;
 
     const name = new TextLabelElement("");
     const openGlyph = new TextLabelElement("");
@@ -103,4 +105,22 @@ export function buildFolderRow(id: string, label: string): TextLabelElement {
     const row = new TextLabelElement(label);
     row.id = id;
     return row;
+}
+
+/**
+ * Заголовок группы ресурсов (Merge/Staged/Changes/Untracked): метка (fill) +
+ * счётчик у правого края приглушённым. Шеврон сворачивания рисует сам список —
+ * у заголовка есть дети. Цвета — токены темы, рестайл не нужен.
+ */
+export function buildGroupRow(id: string, label: string, count: number): HFlexElement {
+    const root = new HFlexElement();
+    root.id = id;
+
+    const name = new TextLabelElement(label);
+    const counter = new TextLabelElement(String(count));
+    counter.style = { fg: "descriptionForeground" };
+
+    root.addChild(name, { width: hflexFill(), height: 1 });
+    root.addChild(counter, { width: hflexFixed(String(count).length + 1), height: 1 });
+    return root;
 }

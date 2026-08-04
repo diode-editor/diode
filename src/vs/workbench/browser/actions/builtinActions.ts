@@ -37,6 +37,8 @@ import {
     showCommandsAction,
 } from "../../contrib/quickaccess/browser/quickOpenActions.ts";
 import {
+    scmFocusChangesAction,
+    scmFocusInputAction,
     scmOpenChangesAction,
     scmOpenFileAction,
     scmViewAsListAction,
@@ -45,6 +47,19 @@ import {
 } from "../../contrib/scm/browser/changesActions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
 import { scmGraphRefreshAction } from "../../contrib/scm/browser/graphActions.ts";
+import { BRANCH_ACTIONS } from "../../contrib/scm/browser/branchActions.ts";
+import { COMMIT_ACTIONS } from "../../contrib/scm/browser/commitActions.ts";
+import { REMOTE_TAG_ACTIONS } from "../../contrib/scm/browser/remoteTagActions.ts";
+import { STASH_ACTIONS } from "../../contrib/scm/browser/stashActions.ts";
+import { SYNC_ACTIONS } from "../../contrib/scm/browser/syncActions.ts";
+import {
+    gitCleanAction,
+    gitCleanAllAction,
+    gitStageAction,
+    gitStageAllAction,
+    gitUnstageAction,
+    gitUnstageAllAction,
+} from "../../contrib/scm/browser/stagingActions.ts";
 import {
     acceptSelectedSuggestionAction,
     hideSuggestWidgetAction,
@@ -346,5 +361,18 @@ export const builtinActions: readonly CommandAction[] = [
     scmOpenChangesAction,
     scmViewAsTreeAction,
     scmViewAsListAction,
+    scmFocusInputAction,
+    scmFocusChangesAction,
     scmGraphRefreshAction,
+    gitStageAction,
+    gitUnstageAction,
+    gitStageAllAction,
+    gitUnstageAllAction,
+    gitCleanAction,
+    gitCleanAllAction,
+    ...COMMIT_ACTIONS,
+    ...SYNC_ACTIONS,
+    ...BRANCH_ACTIONS,
+    ...STASH_ACTIONS,
+    ...REMOTE_TAG_ACTIONS,
 ];

@@ -32,6 +32,8 @@ import { OutputComponentDIToken } from "../contrib/output/browser/outputComponen
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
 import { ChangesComponent, ChangesComponentDIToken, SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
 import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
+import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
+import { ScmRepoStateServiceDIToken } from "../contrib/scm/browser/repoStateService.ts";
 import {
     SEARCH_VIEWLET_ID,
     SearchComponent,
@@ -119,6 +121,7 @@ export class WorkbenchComponent extends Component {
     private explorerComponent: ExplorerComponent;
     private searchComponent: SearchComponent;
     private changesComponent: ChangesComponent;
+    private scmInputComponent: ScmInputComponent;
     private sidebarService: SidebarService;
     private viewsService: ViewsService;
     private fileOperations: FileOperationsService;
@@ -201,6 +204,11 @@ export class WorkbenchComponent extends Component {
         // `vexx.scm.publishLog`); view записывается в реестр ViewsService здесь,
         // контейнер собирается в setWorkspaceFolder.
         this.register(accessor.get(GraphViewComponentDIToken));
+        // Commit input box — header контейнера Source Control.
+        this.scmInputComponent = this.register(accessor.get(ScmInputComponentDIToken));
+        // Repo-state (ветка/remotes/merge-rebase → when-ключи git*): команда
+        // vexx.scm.publishRepoState должна существовать до активации расширения.
+        this.register(accessor.get(ScmRepoStateServiceDIToken));
         this.terminalService = this.register(accessor.get(TerminalServiceDIToken));
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));
         this.register(accessor.get(TerminalPanelComponentDIToken));
@@ -382,8 +390,13 @@ export class WorkbenchComponent extends Component {
         });
         // Source Control — контейнер view-секций (CHANGES, GRAPH): сборку и
         // регистрацию вьюлета берёт на себя ViewsService; view записались в
-        // реестр из конструкторов компонентов.
-        this.viewsService.registerContainer({ id: SCM_VIEWLET_ID, title: "  SOURCE CONTROL" });
+        // реестр из конструкторов компонентов. Header контейнера — commit
+        // input box (не секция: без заголовка, весов и сворачивания).
+        this.viewsService.registerContainer({
+            id: SCM_VIEWLET_ID,
+            title: "  SOURCE CONTROL",
+            header: this.scmInputComponent.view,
+        });
         this.viewsService.attachContainer(SCM_VIEWLET_ID);
         this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);
         // Открыть per-project стор состояния для этой папки (переключение флашит
@@ -393,6 +406,8 @@ export class WorkbenchComponent extends Component {
         // иначе прочитается global-стор.
         this.searchComponent.restoreViewMode();
         this.changesComponent.restoreViewMode();
+        // Черновик сообщения коммита — из workspace-стора.
+        this.scmInputComponent.restoreDraft();
         // Свёрнутость/веса view-секций — тоже из workspace-стора.
         this.viewsService.restoreViewsState();
         // Fire-and-forget: the index builds in the background so startup and the

@@ -51,6 +51,8 @@ export interface ISubmenuContribution {
     readonly mnemonic?: string;
     /** Условие видимости через контекст-ключи (`ContextKeyService.evaluate`). */
     readonly when?: string;
+    /** Императивная видимость по контексту открытия (как у {@link IMenuContribution}). */
+    readonly visible?: (context: unknown) => boolean;
     readonly group?: string;
     readonly order?: number;
     /**

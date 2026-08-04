@@ -19,6 +19,16 @@ export const PUBLISH_CHANGES_COMMAND = "vexx.scm.publishChanges";
  * разными цветами — их различает только `colorId`, который расширение уже
  * посчитало для дерева.
  */
+/**
+ * Группа ресурсов, в которой живёт запись — как resource groups VS Code
+ * (Merge Changes / Staged Changes / Changes / Untracked Changes). Файл со
+ * статусом `MM` приходит двумя записями: в `index` и в `worktree`.
+ */
+export type ScmGroupId = "merge" | "index" | "worktree" | "untracked";
+
+/** Все группы — и порядок их показа (как в VS Code). */
+export const SCM_GROUP_IDS: readonly ScmGroupId[] = ["merge", "index", "worktree", "untracked"];
+
 export interface IScmChange {
     readonly uri: Uri;
     readonly status: string;
@@ -30,6 +40,7 @@ export interface IScmChange {
      * регистр диска). Пусто — если расширение путь не прислало (тогда basename).
      */
     readonly path: string;
+    readonly group: ScmGroupId;
 }
 
 export const ScmChangesServiceDIToken = token<ScmChangesService>("ScmChangesService");
@@ -86,7 +97,9 @@ export class ScmChangesService extends Disposable {
         // Расширение публикует набор на каждый refresh (в т.ч. на смену активного
         // редактора), поэтому идентичный набор гасим тут — иначе вкладка Changes
         // пересобиралась бы вхолостую.
-        const signature = changes.map((c) => `${c.uri.toString()}\t${c.status}\t${c.colorId}\t${c.path}`).join("\n");
+        const signature = changes
+            .map((c) => `${c.uri.toString()}\t${c.status}\t${c.colorId}\t${c.path}\t${c.group}`)
+            .join("\n");
         if (signature === this.signature) return;
         this.signature = signature;
         this.changeList = changes;
@@ -94,24 +107,29 @@ export class ScmChangesService extends Disposable {
     }
 }
 
-/** Разбирает `[{uri, status}]` из-за границы: тихо пропускает всё, что не подходит. */
+/** Разбирает `[{uri, status, group}]` из-за границы: тихо пропускает всё, что не подходит. */
 function parseChanges(payload: unknown): IScmChange[] {
     if (!Array.isArray(payload)) return [];
     const changes: IScmChange[] = [];
     for (const raw of payload) {
         if (typeof raw !== "object" || raw === null) continue;
-        const { uri, status, colorId, path } = raw as {
+        const { uri, status, colorId, path, group } = raw as {
             uri?: unknown;
             status?: unknown;
             colorId?: unknown;
             path?: unknown;
+            group?: unknown;
         };
         if (typeof uri !== "string" || uri === "" || typeof status !== "string") continue;
+        // Группа обязательна и строго из enum — команды staging решают
+        // применимость по ней, запись с мусорной группой опаснее пропущенной.
+        if (!SCM_GROUP_IDS.includes(group as ScmGroupId)) continue;
         changes.push({
             uri: Uri.parse(uri),
             status,
             colorId: typeof colorId === "string" ? colorId : "",
             path: typeof path === "string" ? path : "",
+            group: group as ScmGroupId,
         });
     }
     return changes;
