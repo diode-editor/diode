@@ -37,8 +37,23 @@ export default defineScenario({
         // Ctrl+K Ctrl+L: both keys are Ctrl+letter, which the headless key DSL can
         // serialize (Ctrl+Shift+[ cannot).
         for (let i = 0; i < 5; i++) await editor.sendKey("ArrowDown");
-        await editor.sendKey("Ctrl+K");
-        await editor.sendKey("Ctrl+L");
+        // Диапазоны провайдера долетают асинхронно, и на медленной машине (CI)
+        // аккорд может прийти раньше них: курсор стоит на строке маркера, где
+        // indentation-фолд невозможен, — аккорд no-op. Ретраим до появления
+        // свёртки: «const sum скрыт» и есть доказательство, что диапазоны
+        // провайдера долетели. Раньше гонку прятала стоимость кадров ввода
+        // (2–3 полных кадра на каждое нажатие давали ext-host фору).
+        let folded = false;
+        for (let attempt = 0; attempt < 10 && !folded; attempt++) {
+            await editor.sendKey("Ctrl+K");
+            await editor.sendKey("Ctrl+L");
+            try {
+                await editor.waitForText((t) => !t.includes("const sum"), { timeoutMs: 1000 });
+                folded = true;
+            } catch {
+                // диапазонов ещё нет — следующая попытка
+            }
+        }
         await editor.waitForText((t) => !t.includes("const sum"));
         await editor.capture("region-folded");
 
