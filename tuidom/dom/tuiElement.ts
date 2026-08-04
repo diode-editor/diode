@@ -95,7 +95,10 @@ export class RenderContext {
      * @param y       Screen row (local coordinates)
      * @param text    Raw text to render
      * @param style   Optional cell style (fg, bg, style flags) applied to every cell
-     * @param options tabSize (default 4) and maxWidth (default: no limit)
+     * @param options tabSize (default 4) and maxWidth (default: no limit);
+     *   displayLine — готовый DisplayLine, чтобы не сегментировать text заново
+     *   на каждом кадре; вызывающий гарантирует, что он построен из тех же
+     *   text/tabSize
      * @returns Number of display columns written
      */
     public drawText(
@@ -106,10 +109,11 @@ export class RenderContext {
         options?: {
             tabSize?: number;
             maxWidth?: number;
+            displayLine?: DisplayLine;
             getStyle?: (offset: number) => { fg?: number; bg?: number; style?: number } | undefined;
         },
     ): number {
-        const dl = new DisplayLine(text, options?.tabSize);
+        const dl = options?.displayLine ?? new DisplayLine(text, options?.tabSize);
         const maxWidth = options?.maxWidth ?? dl.displayWidth;
         let col = 0;
         while (col < maxWidth) {
@@ -648,12 +652,23 @@ export class TUIElement {
      * hidden and thus missed style propagation.
      */
     public markStyleDirty(): void {
-        this.isStyleDirty = true;
-        for (const child of this.getChildren()) {
-            child.markStyleDirty();
-        }
+        this.markStyleSubtree();
         this.markSubtreeStyleDirtyUp();
         this.markDirty();
+    }
+
+    /**
+     * isStyleDirty вглубь по поддереву — БЕЗ подъёма вверх и без markDirty.
+     * Подъём достаточен один раз от вершины каскада (внутренним узлам
+     * subtreeStyleDirty не нужен — они и так isStyleDirty); прежняя рекурсия
+     * через markStyleDirty гоняла markDirty до корня из каждого потомка,
+     * O(N×глубина) на каскад.
+     */
+    private markStyleSubtree(): void {
+        this.isStyleDirty = true;
+        for (const child of this.getChildren()) {
+            child.markStyleSubtree();
+        }
     }
 
     private markSubtreeStyleDirtyUp(): void {
@@ -691,9 +706,32 @@ export class TUIElement {
         this.isStyleDirty = false;
         this.subtreeStyleDirty = false;
 
+        this.performChildrenStyleResolution(this.childStyleContext);
+    }
+
+    /**
+     * Спуск стилевого прохода в детей. Переопределяется виртуализирующим
+     * контейнером, чтобы резолвить только видимое окно строк (зеркально
+     * hitTestChildren/getDepthFirstFocusableOrder); офскрин-строки остаются
+     * style-dirty и дорезолвливаются, когда въезжают в окно — см.
+     * {@link markSubtreeStyleDirty}.
+     */
+    protected performChildrenStyleResolution(context: StyleResolutionContext): void {
         for (const child of this.getChildren()) {
-            child.performStyleResolution(this.childStyleContext);
+            child.performStyleResolution(context);
         }
+    }
+
+    /**
+     * «У потомков могут быть неразрезолвленные стили»: subtreeStyleDirty здесь
+     * и вверх до корня, БЕЗ пометки самих детей и без markDirty. Для
+     * виртуализирующего контейнера, чей performLayout сместил окно: следующий
+     * стилевой проход обязан зайти внутрь и дорезолвить въехавшие строки
+     * (чистые отсеются ранним выходом performStyleResolution).
+     */
+    protected markSubtreeStyleDirty(): void {
+        this.subtreeStyleDirty = true;
+        this.markSubtreeStyleDirtyUp();
     }
 
     private isStyleSelectorActive(selector: StyleStateSelector, ancestorStates: ReadonlySet<string>): boolean {
@@ -787,14 +825,36 @@ export class TUIElement {
      * состояний, а `in:`-селекторы потомков видят состояния предков.
      */
     public setStyleState(state: StyleState, active: boolean): void {
+        if (this.applyStyleState(state, active)) {
+            this.markStyleDirty();
+        }
+    }
+
+    /**
+     * Как {@link setStyleState}, но для вызова из performLayout уже идущего
+     * кадра (виртуализирующие контейнеры синхронизируют selected/hover строк в
+     * layout). Стилевой проход идёт сразу после layout и потребит флаги, а
+     * markDirty здесь лишь оставлял бы корень layout-грязным ПОСЛЕ кадра — и
+     * следующее событие ввода рендерило бы пустой кадр (dirty-гейт
+     * TuiApplication).
+     */
+    public setStyleStateDuringLayout(state: StyleState, active: boolean): void {
+        if (this.applyStyleState(state, active)) {
+            this.markStyleSubtree();
+            this.markSubtreeStyleDirtyUp();
+        }
+    }
+
+    /** Мутация набора состояний; true — значение реально изменилось. */
+    private applyStyleState(state: StyleState, active: boolean): boolean {
         const current = this.styleStatesSet?.has(state) === true;
-        if (current === active) return;
+        if (current === active) return false;
         if (active) {
             (this.styleStatesSet ??= new Set()).add(state);
         } else {
             this.styleStatesSet?.delete(state);
         }
-        this.markStyleDirty();
+        return true;
     }
 
     public hasStyleState(state: StyleState): boolean {

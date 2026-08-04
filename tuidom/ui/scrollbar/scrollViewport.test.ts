@@ -290,4 +290,20 @@ describe("ScrollViewport", () => {
         viewport.scrollBy(0, -2);
         expect(viewport.scrollTop).toBe(6);
     });
+
+    // Симметрия со ScrollableElement: кадр ввода рендерится только по
+    // dirty-флагу, смена скролла помечает layout грязным сама.
+    it("scrollTo помечает layout грязным, no-op — нет", () => {
+        const { viewport } = createViewport(10, 3, 20);
+        viewport.localPosition = new Offset(0, 0);
+        viewport.layout(BoxConstraints.tight(new Size(10, 3)));
+        expect(viewport.isLayoutDirty).toBe(false);
+
+        viewport.scrollTo(0, 3);
+        expect(viewport.isLayoutDirty).toBe(true);
+
+        viewport.layout(BoxConstraints.tight(new Size(10, 3)));
+        viewport.scrollTo(0, 3);
+        expect(viewport.isLayoutDirty).toBe(false);
+    });
 });

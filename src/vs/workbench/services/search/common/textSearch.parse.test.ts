@@ -171,4 +171,35 @@ describe("parseRgMatchLine", () => {
         const line = matchLine({ path: "/a.ts", text: "x\n", lineNumber: 1, submatches: [] });
         expect(parseRgMatchLine(line)).toBeNull();
     });
+
+    // ── Кап хвоста превью (докс: docs/TODO/SearchPerformance.md, случай 1) ────────
+
+    it("режет preview.after до 256 символов — матч в минифицированной строке остаётся ограниченным", () => {
+        const line = matchLine({
+            path: "/a.min.js",
+            text: "x needle " + "y".repeat(100_000) + "\n",
+            lineNumber: 1,
+            submatches: [{ text: "needle", start: 2, end: 8 }],
+        });
+        const m = parseRgMatchLine(line)!.matches[0];
+        expect(m.preview.after.length).toBe(256);
+        expect(m.preview.after.startsWith(" y")).toBe(true);
+        // Колонки не зависят от хвоста — считаются из before/inside.
+        expect(m.startColumn).toBe(2);
+        expect(m.endColumn).toBe(8);
+    });
+
+    it("не разрывает суррогатную пару на границе капа", () => {
+        const tail = "y".repeat(255) + "😀" + "z".repeat(300);
+        const line = matchLine({
+            path: "/a.ts",
+            text: "needle" + tail + "\n",
+            lineNumber: 1,
+            submatches: [{ text: "needle", start: 0, end: 6 }],
+        });
+        const m = parseRgMatchLine(line)!.matches[0];
+        // Высокий суррогат эмодзи попал на границу — срез сдвинут на символ влево.
+        expect(m.preview.after.length).toBe(255);
+        expect(m.preview.after.at(-1)).toBe("y");
+    });
 });

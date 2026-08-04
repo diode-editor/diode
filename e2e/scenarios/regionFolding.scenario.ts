@@ -56,25 +56,45 @@ export default defineScenario({
             await editor.sendKey("Ctrl+K");
             await editor.sendKey("Ctrl+L");
         };
+        // Разворачиваем всегда через unfoldAll (Ctrl+K Ctrl+J): курсорная
+        // навигация ПОВЕРХ свёрнутого региона ненадёжна (прыжки через скрытые
+        // строки + collapse уводит курсор в конец), а gotoLine по статус-бару
+        // на ней флейкает. unfoldAll не требует позиционирования вовсе.
+        const unfoldAll = async (): Promise<void> => {
+            await editor.sendKey("Ctrl+K");
+            await editor.sendKey("Ctrl+J");
+            await editor.waitForText((t) => t.includes("const sum"));
+        };
         let regionFolded = false;
         for (let attempt = 0; attempt < 20 && !regionFolded; attempt++) {
             await toggleFoldAt(6);
-            const folded = frameToText(await editor.waitForText((t) => !t.includes("const sum")));
+            let folded: string;
+            try {
+                // Короткий пойманный wait: аккорд может быть полным no-op
+                // (диапазонов нет вовсе — ни провайдерных, ни indentation на
+                // строке маркера) — это не провал, а «ещё рано», повторяем.
+                // Непойманный 10s-wait ронял сценарий на быстром вводе, который
+                // добегает до аккорда раньше старта ext-host.
+                folded = frameToText(await editor.waitForText((t) => !t.includes("const sum"), { timeoutMs: 1000 }));
+            } catch {
+                continue;
+            }
             regionFolded = folded.split("\n").some((l) => l.includes("#region") && l.includes("⋯"));
             if (!regionFolded) {
-                // Свернулся indentation-фолд (header — строка 5): провайдер ещё
-                // не доехал — развернуть и повторить.
-                await toggleFoldAt(5);
-                await editor.waitForText((t) => t.includes("const sum"));
+                // Свернулся indentation-фолд, а не регион: провайдер ещё не
+                // доехал — развернуть всё и повторить.
+                await unfoldAll();
             }
+        }
+        if (!regionFolded) {
+            throw new Error("region-folding: провайдерный фолд так и не появился за 20 попыток");
         }
         await editor.capture("region-folded");
 
         // Unfold: the resting frame now provably has the provider region in the
         // model, which is what makes it the assertion — the `#region` header and
         // its body share an indent, and the code must survive intact.
-        await toggleFoldAt(6);
-        await editor.waitForText((t) => t.includes("const sum"));
+        await unfoldAll();
         await editor.capture("rest");
     },
 });

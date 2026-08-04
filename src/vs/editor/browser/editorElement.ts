@@ -222,6 +222,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState = viewState;
         this.undoManager = new UndoManager(viewState.document, viewState);
 
+        // Любое движение курсора/правка (печать, paste, мышь, undo, команды —
+        // все проходят через сеттер selections) — грязный кадр. Раньше
+        // перерисовку спасала лишь побочная цепочка «selections → статус-бар →
+        // setText → markDirty», которой нет у standalone-редактора.
+        this.viewState.onDidChangeCursorPosition(() => this.markDirty());
+
         this.addEventListener("keypress", (event) => {
             this.handleKeyPress(event);
         });

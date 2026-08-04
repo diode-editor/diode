@@ -39,8 +39,14 @@ export abstract class ScrollableElement extends TUIElement implements IScrollabl
     public scrollTo(left: number, top: number): void {
         const maxScrollTop = Math.max(0, this.contentHeight - this.layoutSize.height);
         const maxScrollLeft = Math.max(0, this.contentWidth - this.layoutSize.width);
-        this.scrollTop = Math.max(0, Math.min(maxScrollTop, top));
-        this.scrollLeft = Math.max(0, Math.min(maxScrollLeft, left));
+        const top2 = Math.max(0, Math.min(maxScrollTop, top));
+        const left2 = Math.max(0, Math.min(maxScrollLeft, left));
+        if (top2 === this.scrollTop && left2 === this.scrollLeft) return;
+        this.scrollTop = top2;
+        this.scrollLeft = left2;
+        // Скролл меняет картинку — сам помечает кадр грязным, не полагаясь на
+        // markDirty у вызывающих (кадр ввода рендерится только по dirty-флагу).
+        this.markDirty();
     }
 
     public override render(context: RenderContext): void {

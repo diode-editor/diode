@@ -14,10 +14,18 @@ export interface StyledChar {
 export class TextLabelElement extends TUIElement {
     private text: string;
     private charStyles = new Map<number, StyledChar>();
+    // Сегментация — O(длины текста) на каждое построение DisplayLine, а лейбл
+    // строил его дважды за кадр (layout + render). Кэш живёт до setText;
+    // charStyles/цвета на текст не влияют и кэш не трогают.
+    private cachedDisplayLine: DisplayLine | null = null;
 
     public constructor(text: string) {
         super();
         this.text = text;
+    }
+
+    private get displayLine(): DisplayLine {
+        return (this.cachedDisplayLine ??= new DisplayLine(this.text));
     }
 
     public getText(): string {
@@ -26,6 +34,7 @@ export class TextLabelElement extends TUIElement {
 
     public setText(text: string): void {
         this.text = text;
+        this.cachedDisplayLine = null;
         this.markDirty();
     }
 
@@ -44,11 +53,11 @@ export class TextLabelElement extends TUIElement {
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
-        return new DisplayLine(this.text).displayWidth;
+        return this.displayLine.displayWidth;
     }
 
     public override getMaxIntrinsicWidth(_height: number): number {
-        return new DisplayLine(this.text).displayWidth;
+        return this.displayLine.displayWidth;
     }
 
     public override getMinIntrinsicHeight(_width: number): number {
@@ -74,6 +83,7 @@ export class TextLabelElement extends TUIElement {
             { fg: resolved.fg, bg: resolved.bg, style: StyleFlags.None },
             {
                 maxWidth: width,
+                displayLine: this.displayLine,
                 getStyle: (offset) => {
                     const charStyle = this.charStyles.get(offset);
                     if (charStyle === undefined) return undefined;

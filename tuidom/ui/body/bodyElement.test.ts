@@ -217,4 +217,18 @@ describe("BodyElement statusBar integration", () => {
         expect(statusBar.layoutSize.width).toBe(40);
         expect(statusBar.layoutSize.height).toBe(1);
     });
+
+    it("смена title пачкает layout, повторное присвоение того же — нет", () => {
+        const body = new BodyElement();
+        layoutBody(body);
+        expect(body.isLayoutDirty).toBe(false);
+
+        body.title = "hello";
+        expect(body.title).toBe("hello");
+        expect(body.isLayoutDirty).toBe(true);
+
+        layoutBody(body);
+        body.title = "hello";
+        expect(body.isLayoutDirty).toBe(false);
+    });
 });

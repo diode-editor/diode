@@ -2,6 +2,7 @@ import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometry
 import type { TUIEventBase } from "../../dom/events/tuiEventBase.ts";
 import type { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { type TUIContextMenuEvent, TUIMouseEvent, type TUIMouseEventType } from "../../dom/events/tuiMouseEvent.ts";
+import type { StyleResolutionContext } from "../../dom/styles/tuiStyle.ts";
 import type { RenderContext } from "../../dom/tuiElement.ts";
 import { TUIElement } from "../../dom/tuiElement.ts";
 import type { CellPatch } from "../../rendering/grid.ts";
@@ -347,14 +348,33 @@ export class ListViewElement extends ScrollableElement {
             const y = i - start;
             row.host.contentX = this.rowContentX(row);
             // Состояния строк синхронизируются здесь: layout идёт в кадре ДО
-            // резолва стилей, setStyleState — no-op без смены значения.
-            row.host.setStyleState("selected", i === this.cursorIndex || this.selectedIds.has(row.id));
-            row.host.setStyleState("hover", i === this.hoveredIndex);
+            // резолва стилей. Вариант ДЛЯ layout — без markDirty, иначе кадр
+            // оставлял бы корень грязным и следующий ввод рендерил бы пустой кадр.
+            row.host.setStyleStateDuringLayout("selected", i === this.cursorIndex || this.selectedIds.has(row.id));
+            row.host.setStyleStateDuringLayout("hover", i === this.hoveredIndex);
             this.layoutChild(row.host, 0, y, BoxConstraints.tight(new Size(size.width, 1)));
         }
         this.lastLayoutScrollTop = start;
         this.lastLayoutViewportHeight = size.height;
+        // Окно могло сместиться (скролл, пересборка проекции) — стилевой проход
+        // этого же кадра обязан зайти в список и дорезолвить въехавшие строки,
+        // остававшиеся style-dirty за кадром (смена темы/фокуса метит ВСЕ
+        // строки, а резолвится только окно). Чистые строки отсеет ранний выход.
+        this.markSubtreeStyleDirty();
         return size;
+    }
+
+    /**
+     * Стилевой проход виртуализирован, как layout/render/hitTest: резолвится
+     * только видимое окно строк, O(вьюпорта) вместо O(N) на кадр. Офскрин-
+     * строки остаются style-dirty до въезда в окно (см. performLayout).
+     */
+    protected override performChildrenStyleResolution(context: StyleResolutionContext): void {
+        const rows = this.ensureProjection();
+        const end = Math.min(rows.length, this.scrollTop + this.layoutSize.height);
+        for (let i = this.scrollTop; i < end; i++) {
+            rows[i].host.performStyleResolution(context);
+        }
     }
 
     public override inspectState(): Record<string, unknown> {
@@ -851,6 +871,5 @@ export class ListViewElement extends ScrollableElement {
         } else if (event.wheelDirection === "down") {
             this.scrollBy(0, 3);
         }
-        this.markDirty();
     }
 }

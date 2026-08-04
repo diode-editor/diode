@@ -50,6 +50,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [ReadonlyEditor](ReadonlyEditor.md) — режим «только чтение» у редактора (аналог `EditorOption.readOnly`); флаг + гейт команд + замок на вкладке + detached pane готовы; далее — конфиг-слой `files.readonly*`
 - [~] [Logging](Logging.md) — единый ILogService + RingBufferSink/FileSink (Phases 1–3.5 готовы); Output UI готов; далее CLI flags, vscode API
 - [ ] [LongLinePerformance](LongLinePerformance.md) — очень длинные строки (десятки тысяч символов) подвешивают UI: `DisplayLine` разбирает строку целиком, а `contentWidth` — весь документ на каждую правку
+- [x] [SearchPerformance](SearchPerformance.md) — тормоза курсора в дереве результатов поиска устранены: кап `preview.after` у истока, кэш `DisplayLine` в лейбле, dirty-гейт кадра ввода (1 кадр на нажатие), виртуализация стилевого прохода списка; 538 мс → 0.9 мс на итерацию бенча. Открыто: damage-tracking кадра (→ LongLinePerformance)
 - [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (диагностика + бенчмарки готовы; фиксы — далее)
 - [ ] [EnvironmentTuning](EnvironmentTuning.md) — подсказки пользователю по тюнингу окружения (терминал/tmux/ssh); пункты — tmux extended-keys для Ctrl+Tab, лимит inotify (ENOSPC) с уведомлением как в VS Code
 - [~] [Folding](Folding.md) — сворачивание кода (#86, #87); indentation-фолдинг end-to-end готов, далее — API-провайдеры расширений, region-маркеры, hover-контролы
