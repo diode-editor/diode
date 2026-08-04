@@ -21,9 +21,13 @@ export default defineScenario({
         await editor.capture("mojibake-utf8");
 
         // Command palette → Change File Encoding. Ctrl+Shift+P не проходит через
-        // legacy-терминал headless-сессии — используем chord-фоллбэк Ctrl+K Ctrl+P.
+        // legacy-терминал headless-сессии — используем chord-фоллбэк Ctrl+K Ctrl+P
+        // (активен ровно в legacy — герметичный baseline харнесса). Прежде чем
+        // печатать запрос, дожидаемся самой палитры: иначе при неактивном chord'е
+        // текст уйдёт в буфер редактора и следующий waitForText совпадёт с ним.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+P");
+        await editor.waitForNode("#quickInput");
         await editor.sendText("Change File Encoding");
         await editor.waitForText((t) => t.includes("Change File Encoding"));
         await editor.sendKey("Enter");
