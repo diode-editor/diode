@@ -44,6 +44,10 @@ function makeSearchApp(rowCount: number, afterLength: number): TestApp {
         }
     }
     const app = TestApp.createWithContent(list, new Size(45, 35));
+    // Меряем движок, а не харнес: assertValidTree (DFS по всем строкам после
+    // каждого кадра, в проде выключен) на 10k-фикстуре давал ~9 мс/кадр и
+    // хоронил измеряемую стоимость.
+    app.app.validateTreeAfterRender = false;
     list.focus();
     app.render();
     return app;

@@ -1,78 +1,72 @@
 # SearchPerformance — тормоза курсора в дереве результатов поиска
 
-Статус: `[~]` — диагностика сделана, репро-тесты написаны; фиксы впереди.
+Статус: `[x]` — диагностика, репро-тесты и фиксы случаев 1, 2, 3, 5 сделаны
+(2026-08-04). Открытыми остаются случаи 4 (damage-tracking кадра — трекается в
+[LongLinePerformance](LongLinePerformance.md)) и 6 (пересборка проекции на
+каждый матч при стриме — терпимо, см. ниже).
 
-Симптом: заметные лаги при движении курсора (стрелки) по дереву результатов
-в окне поиска. Диагностика (2026-08-03) показала: это не один баг, а
-перемножение нескольких стоимостей. Все случаи закрыты воспроизводимыми
-тестами/бенчами (см. карту ниже) — тесты **пиннят текущее патологическое
-поведение**; каждый фикс обязан поменять соответствующий ассерт.
+Симптом был: заметные лаги при движении курсора (стрелки) по дереву
+результатов в окне поиска. Диагностика показала перемножение четырёх
+стоимостей; каждая закрыта детерминированным регресс-тестом.
 
-## Замер (searchCursor.bench.ts, итерация = ↓ + ↑ = 4 кадра)
+## Замер (searchCursor.bench.ts, итерация = ↓ + ↑)
 
-| фикстура | mean/итерация | ≈ на нажатие |
-| --- | --- | --- |
-| 200 строк, короткий `after` | 7.2 мс | ~3.6 мс |
-| 200 строк, `after` 10k символов | **538 мс** | **~270 мс** |
-| 10k строк, короткий `after` | 39 мс | ~20 мс |
+| фикстура | до | после | прод-эффект |
+| --- | --- | --- | --- |
+| 200 строк, короткий `after` | 7.2 мс | 0.84 мс | ~0.4 мс на нажатие |
+| 200 строк, `after` 10k символов | **538 мс** | **0.88 мс** | длина строки больше не влияет |
+| 10k строк, короткий `after` | 39 мс | 0.72 мс | число строк больше не влияет |
 
-Доминирует длина строки (×75 к базе), затем число строк (×5.4).
+Оговорки к сравнению: «до» — 4 кадра на итерацию и с включённым
+`assertValidTree` тест-харнеса; «после» — 2 кадра, `validateTreeAfterRender`
+в бенче выключен (в проде его нет; на 10k-фикстуре он один давал ~9 мс/кадр
+и хоронил измеряемое). Главные множители («×75 от длины», «×5 от числа
+строк») были стоимостью движка и устранены по-настоящему.
 
-## Случаи и репро
+## Случаи, фиксы, регресс-тесты
 
-1. **Необрезанный хвост строки у истока.** `formatMatchRow`
-   (`src/vs/workbench/contrib/search/browser/searchResultRows.ts`) обрезает
-   только `before` (24 символа); `preview.after` — весь остаток строки файла
-   (`splitPreviewByBytes` в `textSearch.ts`), и rg запускается без
-   `--max-columns`. Один матч в минифицированном/lock-файле кладёт в ряд
-   сотни килобайт.
-   Репро: `searchResultRows.longLines.test.ts`.
+1. **[x] Необрезанный хвост строки у истока.** `preview.after` капается при
+   разборе `rg --json` (`splitPreviewByBytes`, 256 символов, суррогатная
+   граница). `--max-columns` осознанно не используется — менял бы байтовые
+   офсеты сабматчей и выкидывал длинные строки целиком. `before` капать
+   нельзя: от его длины считается `startColumn`.
+   Тесты: `textSearch.parse.test.ts` (кап), `searchResultRows.longLines.test.ts`.
 
-2. **Двойная сегментация всего текста лейбла на каждом кадре.**
-   `TextLabelElement` строит `DisplayLine` (полный `Intl.Segmenter`-проход,
-   слот на графему) в `performLayout` и ещё раз в `drawText`, без `stopAfter`
-   и без кэша. Стоимость одного построения — [LongLinePerformance.md]
-   (LongLinePerformance.md): 10k ≈ 4.9 мс, 200k ≈ 72 мс. Кап `stopAfter`
-   применён только к редакторному шву.
-   Репро: `tuidom/ui/text/textLabelElement.segmentationCost.test.ts`.
+2. **[x] Двойная сегментация текста лейбла на каждом кадре.**
+   `TextLabelElement` кэширует `DisplayLine` до `setText` и передаёт его в
+   `drawText` готовым (`options.displayLine`); интринсики читают кэш. Одна
+   сегментация на смену текста вместо двух на кадр.
+   Тест: `textLabelElement.segmentationCost.test.ts`.
 
-3. **2–3 полных синхронных кадра на одно физическое нажатие.** Парсер на
-   каждый keydown синтезирует keypress (под Kitty ещё keyup), а
-   `TuiApplication.handleInput` завершается безусловным `renderFrame()` на
-   каждое событие; автоповтор не коалесится. Кадры keydown/keyup обычно дают
-   пустой терминальный diff — CPU сожжён впустую.
-   Репро: `tuidom/dom/tuiApplication.framesPerKey.test.ts`.
+3. **[x] 2–3 полных синхронных кадра на нажатие.** Кадр после события ввода
+   рисуется только если обработчики что-то пометили грязным
+   (`renderAfterInput`, dirty-гейт). Подготовка: недостающие `markDirty` на
+   путях ввода — `scrollTo` помечает сам, редактор подписан на
+   `onDidChangeCursorPosition`, воркбенч страхует «keydown съеден ⇒ кадр
+   грязный» (команды вроде `scrollLineUp` мутируют состояние мимо сеттеров).
+   Сопутствующее: `setStyleStateDuringLayout` (синхронизация состояний строк
+   в layout не перепомечает кадр), `markStyleDirty` больше не гоняет
+   `markDirty` из каждого потомка (было O(N×глубина) на фокус списка).
+   Тесты: `tuiApplication.framesPerKey.test.ts`, `workbench.inputDirtyGate.test.ts`,
+   `editorElement.markDirty.test.ts`, scrollTo-тесты scrollable/viewport.
 
-4. **Каждый кадр — полный.** `renderFrame` = `screen.clear()` + layout +
-   render всего дерева воркбенча; `isLayoutDirty` контейнерами не читается,
-   damage-tracking нет (это уже названо в [LongLinePerformance.md]
-   (LongLinePerformance.md)).
-   Репро: последний тест в `tuiApplication.framesPerKey.test.ts`.
+4. **[ ] Каждый кадр — полный** (`screen.clear()` + layout + render всего
+   дерева, damage-tracking нет). Большая механика, трекается в
+   [LongLinePerformance](LongLinePerformance.md). После фиксов 1–3 и 5 кадр
+   списка стоит ~0.4 мс — приемлемо без неё.
 
-5. **O(N) стилевой проход по всем строкам списка.** В `ListViewElement`
-   layout/render/hitTest виртуализированы, а `performStyleResolution` — нет:
-   строки — настоящие дочерние элементы, движение курсора помечает список
-   subtreeStyleDirty, и базовый цикл обходит все N детей. Фокус хуже:
-   `markStyleDirty` рекурсивно помечает все N хостов и лейблов.
-   Репро: `tuidom/ui/list/listViewElement.styleResolutionCost.test.ts`.
-   (Контраст: `TreeViewElement` рисует ряды без дочерних элементов — у
-   эксплорера этой стоимости нет.)
+5. **[x] O(N) стилевой проход по строкам списка.** `ListViewElement`
+   переопределяет новый protected `performChildrenStyleResolution` и резолвит
+   только окно `[scrollTop, scrollTop+высота)` — зеркально
+   `hitTestChildren`/`getDepthFirstFocusableOrder`, `getChildren()` не тронут.
+   Офскрин-строки остаются style-dirty; `performLayout` безусловно поднимает
+   `markSubtreeStyleDirty`, и стилевой проход кадра дорезолвливает въехавшие
+   строки свежим контекстом (смена палитры/фокуса за кадром — регресс-тесты).
+   Тесты: `listViewElement.styleResolutionCost.test.ts`.
 
-6. **Пересборка проекции на каждый матч при стриминге результатов.**
-   `appendRow` → `invalidateProjection()`; кадр во время стрима платит полный
-   DFS + пересборку `visibleIndexById`.
-   Репро (стоимость): существующий `listViewElement.bench.ts`
-   («append 10k rows»).
-
-## Направления фиксов (по соотношению эффорт/эффект)
-
-1. Обрезать `preview.after` (симметрично `trimBefore`) и/или `--max-columns`
-   в rg-аргументы — дёшево, убивает патологию у истока (случай 1).
-2. `stopAfter`/кэш `DisplayLine` в `TextLabelElement`/`drawText` — лечит все
-   лейблы, не только поиск (случай 2).
-3. `handleInput` → `scheduleRender()` вместо синхронного `renderFrame()` —
-   схлопывает кадры нажатия и автоповтора (случай 3).
-4. Переопределить `performStyleResolution` в `ListViewElement` — O(видимого),
-   как остальные проходы (случай 5).
-5. Damage-tracking кадра — большая механика, трекается в
-   [LongLinePerformance.md](LongLinePerformance.md) (случай 4).
+6. **[ ] Пересборка проекции на каждый матч при стриме результатов.**
+   `appendRow` → `invalidateProjection()`; кадр во время стрима платит DFS +
+   пересборку `visibleIndexById`. Ленивая пересборка — одна на кадр
+   (замер: «append 10k rows + one projection rebuild» в
+   `listViewElement.bench.ts`); после фикса 3 кадров стало меньше. Отдельного
+   фикса пока не требует.
