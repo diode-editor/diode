@@ -11,7 +11,12 @@ import { SCM_INPUT_MESSAGE_STATE } from "../../../common/stateKeys.ts";
 
 import { PUBLISH_CHANGES_COMMAND, ScmChangesService } from "./changesService.ts";
 import { PUBLISH_REPO_STATE_COMMAND, ScmRepoStateService } from "./repoStateService.ts";
-import { computeActionButton, ScmCommitInputElement, ScmInputComponent } from "./scmInputComponent.ts";
+import {
+    computeActionButton,
+    SCM_INPUT_HEIGHT,
+    ScmCommitInputElement,
+    ScmInputComponent,
+} from "./scmInputComponent.ts";
 
 function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     const stored = new Map<string, unknown>();
@@ -123,6 +128,18 @@ describe("ScmInputComponent — поле", () => {
         expect(h.component.view.style.bg).toBe("sideBar.background");
     });
 
+    it("между полем и кнопкой — пустая строка, весь блок укладывается в SCM_INPUT_HEIGHT", () => {
+        const h = make();
+        h.publishRepoState();
+        renderElement(h.component.view, 20, SCM_INPUT_HEIGHT, { themeVars: true });
+
+        const inputY = h.component.input.globalPosition.y;
+        const buttonY = h.component.actionButton.globalPosition.y;
+        // Ровно одна свободная строка между ними (обе высотой 1).
+        expect(buttonY - inputY).toBe(2);
+        expect(h.component.view.layoutSize.height).toBe(SCM_INPUT_HEIGHT);
+    });
+
     it("ввод пишет черновик write-through, setMessage заменяет значение и персистит", () => {
         const h = make();
         h.component.input.inputState.insert("fix: typo");
@@ -226,7 +243,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         const h = make();
         h.publishRepoState();
         h.publishChanges(1);
-        const screen = renderElement(h.component.view, 30, 4, { themeVars: true }).screenToString();
+        const screen = renderElement(h.component.view, 30, SCM_INPUT_HEIGHT, { themeVars: true }).screenToString();
         expect(screen).toContain("Message (Ctrl+Enter to comm"); // безрамочный input, клип по ширине
         const buttonLine = screen.split("\n").find((l) => l.includes("Commit"))!;
         // Центрирование: слева и справа от label есть отступ кнопки.
@@ -235,7 +252,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         // Disabled-вид рендерится secondary-цветами без падений.
         h.publishChanges(0);
         expect(h.component.actionButton.isDisabled()).toBe(true);
-        expect(renderElement(h.component.view, 30, 4, { themeVars: true }).screenToString()).toContain("Commit");
+        expect(renderElement(h.component.view, 30, SCM_INPUT_HEIGHT, { themeVars: true }).screenToString()).toContain("Commit");
     });
 
     it("клик мышью активирует включённую кнопку и игнорирует задизейбленную", () => {

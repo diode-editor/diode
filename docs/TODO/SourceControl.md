@@ -3,8 +3,12 @@
 Цель: довести вьюлет Source Control до функциональности VS Code — группы ресурсов,
 stage/unstage/discard (в т.ч. по множественному выделению), встроенный commit input box,
 sync/branch/stash/remote-операции и меню «⋯» с подменю. Всё — через команды
-(`CommandAction`), доступ из палитры и контекстных меню; inline-кнопок на строках нет
-(осознанное отклонение от VS Code: hover в терминале доступен только мыши).
+(`CommandAction`), доступ из палитры и контекстных меню. Инлайн-кнопка на строке ровно
+одна — **Open File**: она раскрывается на строке под указателем мыши или под курсором
+сфокусированного списка (состояние `LIST_ROW_ACTIVE_STATE`), а в покое отдаёт свои
+колонки имени файла. Прятать за одним лишь hover нечего: то же действие есть в
+контекстном меню и палитре, а клавиатурный курсор раскрывает кнопку без мыши.
+Stage/unstage/discard инлайн-кнопок нет — осознанное отклонение от VS Code.
 
 Этот документ — одновременно **спека** (номенклатура команд и меню), **приёмочный
 чек-лист** (user stories US-1…US-32: при реализации каждая закрывается e2e-тестом, после
@@ -39,8 +43,8 @@ clone/init/мультирепо.
   `merge | index | worktree | untracked` (MM — в двух группах; unmerged-коды
   `DD/AU/UD/UA/DU/AA/UU` → merge; `??` → untracked). Порядок и заголовки как в VS Code:
   Merge Changes → Staged Changes → Changes → Untracked Changes, пустые группы скрыты.
-- **Commit input box** — header контейнера Source Control над секциями
-  (`IViewContainerDescriptor.header`), безрамочный виджет на существующем
+- **Commit input box** — в теле view Source Control над списком ресурсов (как в
+  VS Code); собирает `ChangesComponent`. Безрамочный виджет на существующем
   `InputElement` (фокус — аппаратный курсор, поле выделено фоном `input.background`),
   черновик персистится (workspace-scope). Ctrl+Enter — commit; в legacy-терминалах
   Ctrl+Enter неотличим от Enter — команды доступны из палитры, это единственный fallback.
@@ -166,7 +170,7 @@ rejected (non-fast-forward). Pull now?» → `git.pull`; `no-upstream` → «Pub
 | id | title | Поведение |
 |---|---|---|
 | `workbench.scm.focus` | Source Control: Focus on Source Control View | показать вьюлет + фокус в commit input |
-| `scm.action.focusChanges` | — (кейбинд Down при `scmInputFocus`) | фокус из input в список CHANGES |
+| `scm.action.focusChanges` | — (кейбинд Down при `scmInputFocus`) | фокус из input в список изменений |
 | `git.showOutput` | Git: Show Git Output | открыть output-канал ext-host |
 | существующие | `workbench.view.scm` (фокус в список), `scm.action.openFile/openChanges` (visible только при единственной resource-цели), `scm.action.viewAsTree/viewAsList`, `git.refresh` | без изменений поведения |
 
@@ -201,7 +205,7 @@ rejected (non-fast-forward). Pull now?» → `git.pull`; `no-upstream` → «Pub
             Discard All Changes   (группы worktree/untracked)
 ```
 
-### Меню «⋯» секции CHANGES (`MenuId.ViewMoreActions`, visible: секция CHANGES)
+### Меню «⋯» секции SOURCE CONTROL (`MenuId.ViewMoreActions`, visible: эта секция)
 
 Отражение VS Code `scm/title` (минус clone/мультирепо):
 
@@ -292,11 +296,12 @@ UI-подтверждения. Ручной прогон после релиза
 
 ### Commit input box
 
-- **US-13. Input box на месте.** Открыть Source Control. → Над секцией CHANGES — поле с
-  плейсхолдером «Message (Ctrl+Enter to commit)»; поле не участвует в
+- **US-13. Input box на месте.** Открыть Source Control. → В теле секции SOURCE CONTROL,
+  над списком — поле с плейсхолдером «Message (Ctrl+Enter to commit)» и кнопка действия
+  под ним через пустую строку; поле не участвует в
   сворачивании/перетаскивании секций.
 - **US-14. Фокус-переходы.** `workbench.scm.focus` (палитра/кейбинд) → фокус в input;
-  Down → фокус в список CHANGES; Tab циклит по вьюлету; `workbench.view.scm` — фокус в
+  Down → фокус в список изменений; Tab циклит по вьюлету; `workbench.view.scm` — фокус в
   список (как раньше).
 - **US-15. Черновик переживает рестарт.** Набрать «fix: typo» → закрыть приложение →
   открыть тот же workspace. → В input box «fix: typo».
@@ -343,7 +348,7 @@ UI-подтверждения. Ручной прогон после релиза
 - **US-29. Stash-цикл.** Правка → «Git: Stash» (с сообщением) → список чист; «Git: Pop
   Stash...» → пикер показывает стэш с сообщением → правка вернулась, стэша нет
   (`git stash list` пуст). «Git: Drop Stash...» — с подтверждением.
-- **US-30. Меню «⋯».** Открыть «⋯» секции CHANGES. → Структура согласно разделу
+- **US-30. Меню «⋯».** Открыть «⋯» секции SOURCE CONTROL. → Структура согласно разделу
   «Меню»: 1_view/2_git_top/подменю/Show Git Output; подменю раскрываются вложенным
   попапом; в repo без remote нет Pull/Push/Fetch (when); в merge-состоянии в Branch ▸
   есть Abort Merge; у GRAPH-секции меню «⋯» не изменилось (Refresh).

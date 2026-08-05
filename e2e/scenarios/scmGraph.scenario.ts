@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// View-секции сайдбара (PaneView): контейнер Source Control разбит на CHANGES и
+// View-секции сайдбара (PaneView): контейнер Source Control разбит на SOURCE CONTROL и
 // GRAPH — сворачиваемые секции с заголовками и меню «⋯». GRAPH — последние
 // коммиты от git-расширения (пока тривиальный список, настоящий граф позже).
 
@@ -14,7 +14,7 @@ function git(cwd: string, ...args: string[]): void {
 }
 
 /**
- * Репозиторий: три коммита истории + правка на диске (наполняет CHANGES).
+ * Репозиторий: три коммита истории + правка на диске (наполняет список изменений).
  * Subjects короткие — сайдбар в 30 колонок клипует длинные, а сценарий ждёт
  * их точным вхождением в кадр.
  */
@@ -33,7 +33,7 @@ function makeRepo(): { repoDir: string } {
     writeFileSync(join(repoDir, "util.ts"), "export const twice = (n: number) => n * 2;\n");
     git(repoDir, "add", "-A");
     git(repoDir, "commit", "-qm", "feat: утилита");
-    // Правка на диске — секция CHANGES не пустует в кадре.
+    // Правка на диске — секция Source Control не пустует в кадре.
     writeFileSync(appFile, "export const version = 3;\n");
     return { repoDir };
 }
@@ -42,10 +42,11 @@ const { repoDir } = makeRepo();
 
 export default defineScenario({
     name: "scm-graph",
-    title: "View-секции Source Control: CHANGES + GRAPH, сворачивание и меню «⋯»",
+    title: "View-секции Source Control: SOURCE CONTROL + GRAPH, сворачивание и меню «⋯»",
     open: [repoDir],
     cols: 100,
-    rows: 24,
+    // Контролы коммита занимают 5 строк секции — высоту берём с запасом.
+    rows: 30,
     // Нужен extension host — коммиты публикует git-расширение.
     skipOn: ["win32", "darwin"],
     userKeybindings: [{ key: "alt+c", command: "workbench.view.scm" }],
@@ -59,15 +60,14 @@ export default defineScenario({
         await editor.waitForText(
             (t) =>
                 t.includes("SOURCE CONTROL") &&
-                t.includes("CHANGES") &&
                 t.includes("GRAPH") &&
                 t.includes("feat: утилита") &&
                 t.includes("app.ts"),
         );
         await editor.capture("sections");
 
-        // Клик по заголовку CHANGES сворачивает секцию — её список исчезает с
-        // экрана (app.ts виден только там), GRAPH забирает высоту.
+        // Клик по заголовку Source Control сворачивает секцию — вместе со списком
+        // убираются и контролы коммита (app.ts виден только там), GRAPH забирает высоту.
         await editor.clickNode("#paneHeader-workbench-scm-changes", { dx: 3 });
         await editor.waitForText((t) => !t.includes("app.ts") && t.includes("feat: старт"));
         await editor.capture("changes-collapsed");
@@ -79,7 +79,7 @@ export default defineScenario({
         await editor.capture("more-actions-menu");
         await editor.sendKey("Escape");
 
-        // Развернуть CHANGES обратно — секции снова делят высоту.
+        // Развернуть Source Control обратно — секции снова делят высоту.
         await editor.clickNode("#paneHeader-workbench-scm-changes", { dx: 3 });
         await editor.waitForText((t) => t.includes("app.ts") && t.includes("fix: версия"));
     },

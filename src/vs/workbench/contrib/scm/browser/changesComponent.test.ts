@@ -8,6 +8,7 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IMenu, MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
@@ -19,7 +20,9 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { ChangesComponent } from "./changesComponent.ts";
 import { PUBLISH_CHANGES_COMMAND, ScmChangesService } from "./changesService.ts";
-import { buildFolderRow, OPEN_FILE_GLYPH } from "./scmChangeRows.ts";
+import { ScmRepoStateService } from "./repoStateService.ts";
+import { buildFolderRow, OPEN_FILE_BUTTON_WIDTH, OPEN_FILE_GLYPH } from "./scmChangeRows.ts";
+import { ScmInputComponent } from "./scmInputComponent.ts";
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 
@@ -71,12 +74,20 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     const themeService = new ThemeService(theme);
     // Реестр view здесь не участвует — компонент тестируется standalone.
     const viewsService = { registerView: () => {} } as unknown as ViewsService;
+    const state = opts.state ?? NULL_STATE_SERVICE;
+    const scmInput = new ScmInputComponent(
+        state,
+        scm,
+        new ScmRepoStateService(commands, new ContextKeyService()),
+        commands,
+    );
     const component = new ChangesComponent(
         scm,
         commands,
         new ContextMenuService(menuService),
-        opts.state ?? NULL_STATE_SERVICE,
+        state,
         viewsService,
+        scmInput,
     );
 
     const executed: [string, unknown[]][] = [];
@@ -111,8 +122,9 @@ function rowIdOf(rel: string, group = "worktree"): string {
     return `scmRow-${group}-${rel.replace(/[^A-Za-z0-9_-]+/g, "-")}`;
 }
 
+/** Кадр области списка (без контролов коммита — их проверяет scmInputComponent.test). */
 function frame(h: IHarness, w = 40, ht = 10): string {
-    return renderElement(h.component.view, w, ht, { themeVars: true }).screenToString();
+    return renderElement(h.component.listView, w, ht, { themeVars: true }).screenToString();
 }
 
 function pressEnter(h: IHarness): void {
@@ -120,7 +132,7 @@ function pressEnter(h: IHarness): void {
 }
 
 describe("ChangesComponent — flat-режим (по умолчанию)", () => {
-    it("рисует пути, букву статуса у правого края и глиф Open File", () => {
+    it("рисует пути и букву статуса у правого края; кнопки Open File в покое нет", () => {
         const h = make();
         publish(h.commands, [
             { rel: "nested/b.txt" },
@@ -130,13 +142,43 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         const screen = frame(h);
         expect(screen).toContain("a.txt");
         expect(screen).toContain("nested/b.txt");
-        // Буква статуса и глиф — в строке файла.
+        // Буква статуса — в строке файла.
         expect(screen).toContain("U");
-        expect(screen).toContain(OPEN_FILE_GLYPH);
+        // Кнопка перехода к файлу раскрывается только на активной строке.
+        expect(screen).not.toContain(OPEN_FILE_GLYPH);
         // Заголовки групп: untracked-строка и worktree-строка → две секции + 2 файла.
         expect(screen).toContain("Changes");
         expect(screen).toContain("Untracked Changes");
         expect(h.component.list.rowCount).toBe(4);
+    });
+
+    it("кнопка Open File появляется на строке под курсором сфокусированного списка", () => {
+        const h = make();
+        publish(h.commands, [{ rel: "a.txt" }]);
+        const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
+        const screen = (): string => {
+            app.render();
+            return app.backend.screenToString();
+        };
+
+        h.component.list.setCursorTo(rowIdOf("a.txt"));
+        expect(screen()).not.toContain(OPEN_FILE_GLYPH);
+
+        h.component.focus();
+        expect(screen()).toContain(OPEN_FILE_GLYPH);
+
+        h.component.list.blur();
+        expect(screen()).not.toContain(OPEN_FILE_GLYPH);
+    });
+
+    it("контролы коммита живут в теле view над списком", () => {
+        const h = make();
+        TestApp.createWithContent(h.component.view, new Size(40, 12));
+
+        const input = h.component.view.querySelector("#scmInputBox");
+        expect(input).not.toBeNull();
+        // Список — под контролами, а не рядом с ними.
+        expect(h.component.listView.globalPosition.y).toBeGreaterThan(input!.globalPosition.y);
     });
 
     it("пустой набор — пустой список (рамку SOURCE CONTROL рисует контейнер ViewsService)", () => {
@@ -174,17 +216,30 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }]);
 
         const width = 30;
-        TestApp.createWithContent(h.component.view, new Size(width, 10));
+        const app = TestApp.createWithContent(h.component.view, new Size(width, 14));
         const list = h.component.list;
-        // Глиф — во второй колонке справа (fixed 2 перед статусом fixed 1).
-        const glyphX = list.globalPosition.x + list.layoutSize.width - 3;
         const rowY = list.globalPosition.y + 2; // третья строка (заголовок группы, a.txt, b.txt)
+
+        // Кнопка раскрывается по наведению — без mousemove её колонок в строке нет.
+        list.dispatchEvent(
+            new TUIMouseEvent("mousemove", {
+                button: "none",
+                screenX: list.globalPosition.x,
+                screenY: rowY,
+                localX: 0,
+                localY: 2,
+            }),
+        );
+        app.render();
+
+        // Кнопка занимает колонки слева от буквы статуса (fixed 1 у правого края).
+        const buttonX = list.globalPosition.x + list.layoutSize.width - 1 - OPEN_FILE_BUTTON_WIDTH;
         list.dispatchEvent(
             new TUIMouseEvent("click", {
                 button: "left",
-                screenX: glyphX,
+                screenX: buttonX,
                 screenY: rowY,
-                localX: glyphX - list.globalPosition.x,
+                localX: buttonX - list.globalPosition.x,
                 localY: 2,
             }),
         );

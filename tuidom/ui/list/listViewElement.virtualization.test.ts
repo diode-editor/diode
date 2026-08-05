@@ -130,4 +130,20 @@ describe("ListViewElement virtualization", () => {
         app.render();
         expect(kids[0].layoutCalls).toBe(callsBefore);
     });
+
+    it("строки, выпавшие из сузившегося окна, помечаются layout-грязными", () => {
+        // Ленивый layout (например, ScrollBarDecorator спросил contentWidth у
+        // ещё не разложенного списка) проходит по дефолтным 80×24 и раскладывает
+        // все строки; настоящий layout затем оставляет в окне лишь часть.
+        const { list, rows } = makeList(6);
+        expect(list.contentWidth).toBeGreaterThan(0); // дёргаем ленивый путь
+        expect(rows[5].layoutSize.width).toBe(80);
+
+        TestApp.createWithContent(list, new Size(20, 2));
+
+        // Хвост несёт устаревшую геометрию — но помечен грязным, поэтому
+        // инвариант вложенности его не проверяет (и он перелейаутится при въезде).
+        expect(rows[0].getParent()!.isLayoutDirty).toBe(false);
+        expect(rows[5].getParent()!.isLayoutDirty).toBe(true);
+    });
 });

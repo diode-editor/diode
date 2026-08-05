@@ -3,6 +3,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { OPEN_FILE_BUTTON_WIDTH } from "../../src/vs/workbench/contrib/scm/browser/scmChangeRows.ts";
+
 import { defineScenario } from "./framework.ts";
 
 // Вьюлет Source Control в сайдбаре (вместо Explorer, как в VS Code): список
@@ -46,7 +48,9 @@ export default defineScenario({
     title: "Source Control в сайдбаре: список изменений и дифф по клику",
     open: [repoDir],
     cols: 100,
-    rows: 22,
+    // Секция Source Control отдаёт 5 верхних строк контролам коммита — высоты
+    // должно хватать и на них, и на обе группы изменений.
+    rows: 30,
     // Нужен extension host — набор изменений публикует git-расширение.
     skipOn: ["win32", "darwin"],
     // Переключение на Source Control и режимов — через user-кейбинды
@@ -111,11 +115,19 @@ export default defineScenario({
         await editor.capture("context-menu");
         await editor.sendKey("Escape");
 
-        // Инлайн-кнопка Open File (глиф у правого края строки): открывает сам файл,
-        // а не дифф — кликаем по untracked extra.ts (шестая строка дерева: после
-        // секции Changes идёт заголовок Untracked Changes и сам файл).
-        await editor.clickNode("#changesList", { dx: rows.box.width - 3, dy: 5 });
-        await editor.waitForText((t) => t.includes("export const answer = 42;"));
+        // Инлайн-кнопка Open File у правого края строки: раскрывается только на
+        // строке под указателем, поэтому сначала наводим мышь — и снимаем кадр
+        // с раскрытой кнопкой. Целимся в untracked extra.ts (шестая строка
+        // дерева: после секции Changes идёт заголовок Untracked Changes и файл).
+        const buttonRowY = rows.box.y + 5;
+        await editor.sendMouse({ action: "move", button: "none", x: rows.box.x, y: buttonRowY });
         await editor.capture("open-file-button");
+
+        // Клик по кнопке открывает сам файл, а не дифф.
+        const buttonX = rows.box.x + rows.box.width - 1 - OPEN_FILE_BUTTON_WIDTH;
+        await editor.sendMouse({ action: "press", button: "left", x: buttonX, y: buttonRowY });
+        await editor.sendMouse({ action: "release", button: "left", x: buttonX, y: buttonRowY });
+        await editor.waitForText((t) => t.includes("export const answer = 42;"));
+        await editor.capture("open-file");
     },
 });

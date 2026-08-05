@@ -1,4 +1,5 @@
 import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
+import { vflexFill, vflexFit, VFlexElement } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import { ListViewElement } from "../../../../../../tuidom/ui/list/listViewElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
@@ -29,6 +30,8 @@ import {
     type IScmRowStyles,
 } from "./scmChangeRows.ts";
 import { buildScmTree, displayPath, type ScmTreeNode, sortChangesFlat } from "./scmChangeTree.ts";
+import type { ScmInputComponent } from "./scmInputComponent.ts";
+import { SCM_INPUT_HEIGHT, ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 /** Id вьюлета Source Control в сайдбаре (см. {@link SidebarService}). */
 export const SCM_VIEWLET_ID = "scm";
@@ -79,12 +82,18 @@ export class ChangesComponent extends Component {
         ContextMenuServiceDIToken,
         StateServiceDIToken,
         ViewsServiceDIToken,
+        ScmInputComponentDIToken,
     ] as const;
 
     /** Список изменений — доступен тестам и оркестрации (фокус, inspectState). */
     public readonly list = new ListViewElement();
-    /** Тело view-секции CHANGES — вкидывается в контейнер через ViewsService. */
-    public readonly view: PaddingContainerElement;
+    /**
+     * Тело view-секции Source Control — вкидывается в контейнер через
+     * ViewsService: контролы коммита сверху, список изменений под ними.
+     */
+    public readonly view: VFlexElement;
+    /** Область списка (без контролов) — якорь координат для e2e. */
+    public readonly listView: PaddingContainerElement;
 
     private readonly scrollBars: ScrollBarDecorator;
 
@@ -94,7 +103,6 @@ export class ChangesComponent extends Component {
     // рестайл на смену темы не нужен.
     private readonly rowStyles: IScmRowStyles = {
         statusColors: Object.fromEntries(GIT_STATUS_COLOR_IDS.map((id) => [id, id])),
-        dimFg: "descriptionForeground",
     };
 
     public constructor(
@@ -103,24 +111,39 @@ export class ChangesComponent extends Component {
         private readonly contextMenuService: ContextMenuService,
         private readonly stateService: IStateService,
         viewsService: ViewsService,
+        scmInput: ScmInputComponent,
     ) {
         super();
         this.viewMode = this.stateService.get(SCM_VIEW_MODE_STATE);
 
         this.list.id = "changesList";
         this.scrollBars = new ScrollBarDecorator(this.list);
-        this.view = new PaddingContainerElement(this.scrollBars, { left: 1 });
-        this.view.id = "changesView";
-        this.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+        this.listView = new PaddingContainerElement(this.scrollBars, { left: 1 });
+        this.listView.id = "changesView";
+        this.listView.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.list.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+
+        // Контролы коммита — часть тела view, а не «шапка» контейнера над всеми
+        // секциями (как в VS Code, где input живёт в теле Source Control):
+        // свернул секцию — убрались и они.
+        this.view = new VFlexElement();
+        this.view.id = "scmView";
+        this.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+        this.view.addChild(scmInput.view, { height: vflexFit(), width: "fill" });
+        this.view.addChild(this.listView, { height: vflexFill(), width: "fill" });
 
         viewsService.registerView({
             id: SCM_CHANGES_VIEW_ID,
             containerId: SCM_VIEWLET_ID,
-            title: "CHANGES",
+            // «CHANGES» тавтологично группе ресурсов «Changes» внутри секции;
+            // имя view в контейнере Source Control — как в VS Code.
+            title: "SOURCE CONTROL",
             order: 10,
             body: this.view,
             focus: () => this.focus(),
+            // Контролы коммита занимают 5 строк (padding + поле + зазор +
+            // кнопка + padding) — дефолтных трёх на секцию уже не хватает.
+            minBodyHeight: SCM_INPUT_HEIGHT + 3,
         });
 
         this.list.onActivate = (element) => {
