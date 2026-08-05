@@ -35,8 +35,35 @@ import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
  * logical lines may differ from visual lines due to code folding.
  */
 export class EditorViewState {
-    public scrollLeft = 0;
-    public scrollTop = 0;
+    private scrollLeftValue = 0;
+    private scrollTopValue = 0;
+
+    /**
+     * Скролл — аксессоры с уведомлением {@link onDidChangeView}: команды и
+     * колесо пишут scrollTop/scrollLeft напрямую, и редактор обязан узнать об
+     * этом, чтобы пометить себя на перерисовку (damage-tracking кадра рисует
+     * только помеченное — молчаливый скролл оставлял бы экран несвежим).
+     */
+    public get scrollLeft(): number {
+        return this.scrollLeftValue;
+    }
+
+    public set scrollLeft(value: number) {
+        if (this.scrollLeftValue === value) return;
+        this.scrollLeftValue = value;
+        this.fireViewChange();
+    }
+
+    public get scrollTop(): number {
+        return this.scrollTopValue;
+    }
+
+    public set scrollTop(value: number) {
+        if (this.scrollTopValue === value) return;
+        this.scrollTopValue = value;
+        this.fireViewChange();
+    }
+
     public viewportWidth = 80;
     public viewportHeight = 24;
     /**
@@ -62,10 +89,33 @@ export class EditorViewState {
     public readOnly = false;
     private selectionsValue!: ISelection[];
     private cursorChangeListeners: (() => void)[] = [];
-    /** Ranges of all current search matches to highlight (set by the find controller). */
-    public searchMatches: IRange[] = [];
+    /**
+     * Ranges of all current search matches to highlight (set by the find
+     * controller). Аксессоры — по той же причине, что и скролл: подсветка
+     * меняет картинку, {@link onDidChangeView} обязан выстрелить.
+     */
+    public get searchMatches(): IRange[] {
+        return this.searchMatchesValue;
+    }
+
+    public set searchMatches(value: IRange[]) {
+        this.searchMatchesValue = value;
+        this.fireViewChange();
+    }
+
     /** Index into {@link searchMatches} of the active match, or -1 when there is none. */
-    public currentSearchMatchIndex = -1;
+    public get currentSearchMatchIndex(): number {
+        return this.currentSearchMatchIndexValue;
+    }
+
+    public set currentSearchMatchIndex(value: number) {
+        if (this.currentSearchMatchIndexValue === value) return;
+        this.currentSearchMatchIndexValue = value;
+        this.fireViewChange();
+    }
+
+    private searchMatchesValue: IRange[] = [];
+    private currentSearchMatchIndexValue = -1;
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];
     /**
@@ -132,6 +182,36 @@ export class EditorViewState {
     }
 
     /**
+     * Подписка на визуальные изменения view-состояния мимо курсора: скролл,
+     * фолдинг, подсветка поиска. Редактор помечает себя на перерисовку —
+     * контракт damage-tracking «любое видимое изменение проходит через
+     * markDirty» (docs/LAYOUT.md).
+     */
+    public onDidChangeView(listener: () => void): IDisposable {
+        this.viewChangeListeners.push(listener);
+        return {
+            dispose: () => {
+                const i = this.viewChangeListeners.indexOf(listener);
+                if (i >= 0) this.viewChangeListeners.splice(i, 1);
+            },
+        };
+    }
+
+    private viewChangeListeners: (() => void)[] = [];
+
+    private fireViewChange(): void {
+        for (const listener of [...this.viewChangeListeners]) {
+            listener();
+        }
+    }
+
+    /** Единая точка мутации фолдинга: версия для кэшей + уведомление view. */
+    private bumpFoldsVersion(): void {
+        this.foldsVersion++;
+        this.fireViewChange();
+    }
+
+    /**
      * Re-runs indentation detection against the current document content.
      * No-op if `detectIndentation` is false or the document has no indented lines.
      */
@@ -152,7 +232,7 @@ export class EditorViewState {
      */
     public setFoldingRegions(regions: IFoldingRegion[]): void {
         this.foldedRegions = regions;
-        this.foldsVersion++;
+        this.bumpFoldsVersion();
     }
 
     /**
@@ -163,7 +243,7 @@ export class EditorViewState {
         for (const region of this.foldedRegions) {
             if (region.startLine === line) {
                 region.isCollapsed = !region.isCollapsed;
-                this.foldsVersion++;
+                this.bumpFoldsVersion();
                 this.reconcileHiddenCursors();
                 return;
             }
@@ -206,7 +286,7 @@ export class EditorViewState {
         const target = this.innermostRegionContaining(line, (region) => !region.isCollapsed);
         if (target !== undefined) {
             target.isCollapsed = true;
-            this.foldsVersion++;
+            this.bumpFoldsVersion();
             this.reconcileHiddenCursors();
         }
     }
@@ -219,7 +299,7 @@ export class EditorViewState {
         const target = this.innermostRegionContaining(line, (region) => region.isCollapsed);
         if (target !== undefined) {
             target.isCollapsed = false;
-            this.foldsVersion++;
+            this.bumpFoldsVersion();
         }
     }
 
@@ -231,7 +311,7 @@ export class EditorViewState {
         const region = this.foldingRegionContaining(line);
         if (region !== undefined) {
             region.isCollapsed = !region.isCollapsed;
-            this.foldsVersion++;
+            this.bumpFoldsVersion();
             this.reconcileHiddenCursors();
         }
     }
@@ -243,7 +323,7 @@ export class EditorViewState {
         for (const region of this.foldedRegions) {
             region.isCollapsed = true;
         }
-        this.foldsVersion++;
+        this.bumpFoldsVersion();
         this.reconcileHiddenCursors();
     }
 
@@ -254,7 +334,7 @@ export class EditorViewState {
         for (const region of this.foldedRegions) {
             region.isCollapsed = false;
         }
-        this.foldsVersion++;
+        this.bumpFoldsVersion();
     }
 
     /**
@@ -281,7 +361,7 @@ export class EditorViewState {
                 region.isCollapsed = collapsed;
             }
         }
-        this.foldsVersion++;
+        this.bumpFoldsVersion();
         if (collapsed) this.reconcileHiddenCursors();
     }
 
@@ -293,7 +373,7 @@ export class EditorViewState {
         for (const region of this.foldedRegions) {
             region.isCollapsed = this.regionNestingLevel(region) >= level;
         }
-        this.foldsVersion++;
+        this.bumpFoldsVersion();
         this.reconcileHiddenCursors();
     }
 
@@ -1189,7 +1269,7 @@ export class EditorViewState {
         for (const region of this.foldedRegions) {
             if (region.isCollapsed && logicalLine > region.startLine && logicalLine <= region.endLine) {
                 region.isCollapsed = false;
-                this.foldsVersion++;
+                this.bumpFoldsVersion();
             }
         }
     }

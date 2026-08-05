@@ -76,6 +76,8 @@ export class SizedBoxElement extends TUIElement {
 
     public override render(context: RenderContext): void {
         if (this.child) {
+            // Ребёнок tight к собственному rect'у: клип не может опустеть —
+            // пустой контекст отсёк бы уже прунинг renderChildren родителя.
             const childOffset = new Offset(this.child.localPosition.dx, this.child.localPosition.dy);
             const childClip = new Rect(this.child.globalPosition, this.child.layoutSize);
             this.child.render(context.withOffset(childOffset).withClip(childClip));

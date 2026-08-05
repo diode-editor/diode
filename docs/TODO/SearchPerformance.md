@@ -1,8 +1,8 @@
 # SearchPerformance — тормоза курсора в дереве результатов поиска
 
-Статус: `[x]` — диагностика, репро-тесты и фиксы случаев 1, 2, 3, 5, 6 сделаны
-(2026-08-04). Открытым остаётся случай 4 (damage-tracking кадра — трекается в
-[LongLinePerformance](LongLinePerformance.md)).
+Статус: `[x]` — диагностика, репро-тесты и фиксы всех случаев 1–6 сделаны
+(2026-08-04; случай 4 — damage-tracking кадра, механика в `docs/LAYOUT.md`,
+числа в [LongLinePerformance](LongLinePerformance.md)).
 
 Симптом был: заметные лаги при движении курсора (стрелки) по дереву
 результатов в окне поиска. Диагностика показала перемножение четырёх
@@ -49,10 +49,13 @@
    Тесты: `tuiApplication.framesPerKey.test.ts`, `workbench.inputDirtyGate.test.ts`,
    `editorElement.markDirty.test.ts`, scrollTo-тесты scrollable/viewport.
 
-4. **[ ] Каждый кадр — полный** (`screen.clear()` + layout + render всего
-   дерева, damage-tracking нет). Большая механика, трекается в
-   [LongLinePerformance](LongLinePerformance.md). После фиксов 1–3 и 5 кадр
-   списка стоит ~0.4 мс — приемлемо без неё.
+4. **[x] Каждый кадр — полный.** Снято per-widget damage-tracking'ом кадра
+   (2026-08-04): экран — ретейн-буфер, кадр перерисовывает только повреждённые
+   области; клавиша в одном виджете не рендерит чужие поддеревья. Механика — в
+   `docs/LAYOUT.md` («Damage-tracking отрисовки»), числа — в
+   [LongLinePerformance](LongLinePerformance.md). Тесты:
+   `tuiApplication.damage.test.ts`, `workbench.damageScope.test.ts`; бенч —
+   `crossEditorDamage.bench.ts`.
 
 5. **[x] O(N) стилевой проход по строкам списка.** `ListViewElement`
    переопределяет новый protected `performChildrenStyleResolution` и резолвит

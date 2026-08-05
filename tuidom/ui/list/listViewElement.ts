@@ -360,6 +360,15 @@ export class ListViewElement extends ScrollableElement {
         return this.focusable ? [this] : [];
     }
 
+    /**
+     * Damage-обход не заходит в строки: их тысячи, офскрин-хосты держат
+     * протухшие layout-позиции (виртуализация), а любая смена состояния списка
+     * (скролл, курсор, данные) метит сам список — повреждается rect вьюпорта.
+     */
+    protected override get paintsSubtreeAtomically(): boolean {
+        return true;
+    }
+
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const rows = this.ensureProjection();
@@ -502,7 +511,13 @@ export class ListViewElement extends ScrollableElement {
         const { scrollTop, viewportWidth, viewportHeight } = viewport;
         const resolved = this.resolvedStyle;
 
-        for (let screenY = 0; screenY < viewportHeight; screenY++) {
+        // Границы клипа в локальных строках вьюпорта: строки вне клипа не льём
+        // и не рендерим — при частичном damage-кадре список платит только за
+        // пересечение со своим rect'ом.
+        const clipTopY = Math.max(0, context.clipRect.y - context.offset.dy);
+        const clipBottomY = Math.min(viewportHeight, context.clipRect.bottom - context.offset.dy);
+
+        for (let screenY = clipTopY; screenY < clipBottomY; screenY++) {
             const rowIndex = scrollTop + screenY;
 
             // 1. Заливка строки фоном списка (гуттер и область за строками).
@@ -517,6 +532,8 @@ export class ListViewElement extends ScrollableElement {
             const host = row.host;
             const hostOffset = new Offset(host.localPosition.dx, host.localPosition.dy);
             const hostClip = new Rect(host.globalPosition, host.layoutSize);
+            // Пустым hostClip быть не может: цикл уже ограничен строками клипа,
+            // а по горизонтали строка-хост занимает всю ширину вьюпорта.
             host.render(context.withOffset(hostOffset).withClip(hostClip));
 
             // 3. Шеврон сворачиваемой строки — поверх, на фоне строки.

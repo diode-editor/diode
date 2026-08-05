@@ -132,4 +132,38 @@ describe("Rect", () => {
             expect(rect.bottom).toBe(40);
         });
     });
+
+    describe("intersects", () => {
+        it("true при перекрытии, false впритык и на расстоянии", () => {
+            const a = new Rect(new Point(0, 0), new Size(10, 5));
+            expect(a.intersects(new Rect(new Point(5, 2), new Size(10, 5)))).toBe(true);
+            expect(a.intersects(new Rect(new Point(10, 0), new Size(5, 5)))).toBe(false);
+            expect(a.intersects(new Rect(new Point(20, 20), new Size(5, 5)))).toBe(false);
+        });
+    });
+
+    describe("union", () => {
+        it("минимальный накрывающий rect", () => {
+            const a = new Rect(new Point(0, 0), new Size(5, 5));
+            const b = new Rect(new Point(10, 10), new Size(5, 5));
+            expect(a.union(b)).toEqual(new Rect(new Point(0, 0), new Size(15, 15)));
+        });
+
+        it("пустой операнд не влияет на результат", () => {
+            const a = new Rect(new Point(2, 3), new Size(5, 5));
+            const empty = new Rect(new Point(9, 9), new Size(0, 0));
+            expect(a.union(empty)).toBe(a);
+            expect(empty.union(a)).toBe(a);
+        });
+    });
+
+    describe("containsRect", () => {
+        it("вложенный содержится, пересекающийся и внешний — нет, пустой — в любом", () => {
+            const a = new Rect(new Point(0, 0), new Size(10, 10));
+            expect(a.containsRect(new Rect(new Point(2, 2), new Size(5, 5)))).toBe(true);
+            expect(a.containsRect(new Rect(new Point(5, 5), new Size(10, 10)))).toBe(false);
+            expect(a.containsRect(new Rect(new Point(20, 0), new Size(3, 3)))).toBe(false);
+            expect(a.containsRect(new Rect(new Point(50, 50), new Size(0, 5)))).toBe(true);
+        });
+    });
 });

@@ -286,13 +286,16 @@ export class WorkbenchComponent extends Component {
         // Страховка dirty-гейта кадра ввода: съеденный кейбинд (defaultPrevented)
         // мог выполнить команду, меняющую состояние мимо всех markDirty-сеттеров
         // (scrollLineUp пишет viewState.scrollTop напрямую, unfold — регионы).
-        // «Клавиша съедена ⇒ кадр грязный» восстанавливает прежний контракт
-        // безусловного рендера для всех команд разом.
+        // Fallback-вариант под damage-tracking: срабатывает, только если ни один
+        // обработчик ничего не пометил, — иначе markDirty корня превращал бы
+        // каждую съеденную клавишу в полноэкранный damage. Команда, честно
+        // пометившая виджет, даёт частичный кадр; забытый markDirty по-прежнему
+        // даёт полный (rect корня накрывает всё).
         const markIfConsumed =
             (handler: (event: TUIKeyboardEvent) => void) =>
             (event: TUIKeyboardEvent): void => {
                 handler(event);
-                if (event.defaultPrevented) this.view.markDirty();
+                if (event.defaultPrevented && !this.view.isLayoutDirty) this.view.markDirty();
             };
         this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDownCapture), {
             capture: true,

@@ -206,11 +206,51 @@ ScrollBarDecorator → EditorElement
 ```
 TuiApplication.renderFrame():
     root.localPosition = (0, 0)
-    root.layout(tight(screenSize))                 // рекурсивно: размеры + позиции
-    screenClip = Rect((0,0), screenSize)
-    root.render(RenderContext(screen, offset=0, screenClip))  // рекурсивно: отрисовка
-    screen.flush(backend)
+    root.layout(tight(screenSize))                 // рекурсивно: размеры + позиции — ПОЛНЫЙ каждый кадр
+    root.performStyleResolution(ROOT_STYLE_CONTEXT) // top-down каскад, гейтится style-dirty флагами
+    damage = detach-damage корня + root.collectDamage()  // пост-layout обход: повреждённые области
+    for rect of damage.finalize(screen):           // полный кадр: первый, ресайз, invalidateScreen()
+        rect = screen.snapToWideChars(rect)        // кромка не рассекает wide-пару ретейн-грида
+        screen.clearRect(rect)                     // семантика clear() в границах области
+        root.render(RenderContext(screen, offset=0, clip=rect))  // канонический проход, клип = область
+    screen.flush(backend)                          // cell-diff → минимальный ANSI (как раньше)
 ```
+
+## Damage-tracking отрисовки
+
+Экран (`Grid` в `TerminalScreen`) — ретейн-буфер: между кадрами он хранит
+последнюю картинку, и кадр перерисовывает только повреждённые области.
+Layout и стилевой проход остаются полными (дёшево, геометрия всегда свежая) —
+гейтится именно отрисовка.
+
+- **Контракт: любое видимое изменение обязано пройти через `markDirty()`.**
+  Это тот же контракт, что у dirty-гейта кадра ввода: без пометки кадр не
+  нарисуется вовсе, с damage-tracking — не перерисуется именно этот виджет.
+  `markDirty` помечает paint-dirty ТОЛЬКО сам элемент; вверх идёт путь
+  `hasPaintDirtyDescendant` (аналог `subtreeStyleDirty` стилей).
+- **`collectDamage`** (пост-layout, pre-order): rect'ы paint-dirty элементов,
+  old∪new переехавших/изменивших размер (`lastPaintedRect`), старые места
+  скрывшихся; отцепление пишет rect в `pendingDetachDamage` корня прямо в
+  `setParent(null)`. Устоявшееся поддерево стоит одну проверку флагов; скрытые
+  и не разложенные этим кадром (виртуализация) поддеревья не посещаются.
+- **`paintsSubtreeAtomically`** — контейнер, чьё поддерево рисуется как одно
+  целое: любой paint-dirty потомок повреждает весь rect контейнера, обход
+  внутрь не заходит. Так живут `ListViewElement` (тысячи строк с протухшими
+  офскрин-позициями) и `ScrollBarDecorator` (бегунок — хром по состоянию
+  ребёнка вне его rect'а).
+- **Внутри области кадр канонический**: region-clear + обычный обход с клипом
+  = области. Прозрачные элементы, хром родителей, оверлеи и z-порядок
+  корректны по построению — это «clear + полный рендер», ограниченный
+  областью. Ребёнок с пустым клипом пропускается целиком, **включая
+  side-эффекты его render** (курсор, tokenizeUpTo и т.п.).
+- **Курсор** ретейнится между кадрами и гаснет, только если попал в
+  повреждённую область; владелец пере-ставит его при своей отрисовке.
+- **Полный кадр** — первый после запуска, ресайз и явный
+  `TuiApplication.invalidateScreen()` (escape hatch для мутаций мимо
+  контракта markDirty).
+- `frameCount` растёт на каждый `renderFrame`, даже с пустым damage —
+  семантика idle-ожиданий инспектора/e2e не изменилась; пустой damage даёт
+  пустой diff и ноль байт в терминал.
 
 ## Текущие ограничения
 

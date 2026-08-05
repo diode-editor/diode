@@ -1,5 +1,5 @@
 import { DEFAULT_COLOR } from "../common/colorUtils.ts";
-import { Point, Size } from "../common/geometryPromitives.ts";
+import { Point, Rect, Size } from "../common/geometryPromitives.ts";
 import { StyleFlags } from "../common/styleFlags.ts";
 
 import { Cell } from "./cell.ts";
@@ -183,6 +183,55 @@ export class Grid {
     public copyAllCellsFrom(source: Grid): void {
         for (let i = 0, len = this.cells.length; i < len; i++) {
             this.cells[i].copyFrom(source.cells[i]);
+        }
+    }
+
+    /**
+     * Расширяет rect так, чтобы его вертикальные границы не рассекали wide-char
+     * пары ТЕКУЩЕГО содержимого: продолжение (width 0) на левой кромке тянет
+     * внутрь голову слева, голова (width 2) на правой — продолжение справа.
+     * Иначе частичная очистка damage-области лечила бы голову в пробел ВНЕ
+     * области перерисовки — видимая порча соседнего чистого виджета. Одного
+     * прохода достаточно: за расширенной кромкой пара уже целиком внутри.
+     */
+    public snapToWideChars(rect: Rect): Rect {
+        const w = this.size.width;
+        const x0 = Math.max(0, rect.x);
+        const y0 = Math.max(0, rect.y);
+        const x1 = Math.min(w, rect.right);
+        const y1 = Math.min(this.size.height, rect.bottom);
+        let extendLeft = false;
+        let extendRight = false;
+        for (let y = y0; y < y1; y++) {
+            if (x0 > 0 && this.cells[y * w + x0].width === 0) extendLeft = true;
+            if (x1 < w && x1 > 0 && this.cells[y * w + x1 - 1].width === 2) extendRight = true;
+        }
+        if (!extendLeft && !extendRight) return rect;
+        const newX0 = extendLeft ? x0 - 1 : x0;
+        const newX1 = extendRight ? x1 + 1 : x1;
+        return new Rect(new Point(newX0, rect.y), new Size(newX1 - newX0, rect.height));
+    }
+
+    /**
+     * Сбрасывает ячейки rect'а к значениям clear() — через {@link updateCell},
+     * чтобы wide-char пара, пересекающая границу rect'а, чинилась штатной
+     * бухгалтерией головы/продолжения, а не оставляла осиротевшие половинки.
+     */
+    public clearRect(rect: Rect): void {
+        const x0 = Math.max(0, rect.x);
+        const y0 = Math.max(0, rect.y);
+        const x1 = Math.min(this.size.width, rect.right);
+        const y1 = Math.min(this.size.height, rect.bottom);
+        for (let y = y0; y < y1; y++) {
+            for (let x = x0; x < x1; x++) {
+                this.updateCell(new Point(x, y), {
+                    char: " ",
+                    fg: DEFAULT_COLOR,
+                    bg: DEFAULT_COLOR,
+                    style: StyleFlags.None,
+                    width: 1,
+                });
+            }
         }
     }
 

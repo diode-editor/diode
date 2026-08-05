@@ -73,7 +73,7 @@ describe("TuiApplication — render loop (renderFrame / handleMouse / handleResi
         expect(backend.getTextAt(new Point(0, 0), 1)).toBe("Z");
     });
 
-    it("clears stale content on every frame (screen.clear in renderFrame)", () => {
+    it("устаревший контент повреждённой области очищается и перерисовывается (damage-кадр)", () => {
         const backend = new MockTerminalBackend(new Size(5, 2));
         const app = new TuiApplication(backend);
         const body = new SingleChildBody();
@@ -88,7 +88,8 @@ describe("TuiApplication — render loop (renderFrame / handleMouse / handleResi
         body.leaf.markDirty();
         backend.sendKey("x");
 
-        // The previous "A" was cleared and replaced by "B" — not overdrawn/left behind.
+        // Прежняя «A» очищена region-clear'ом damage-области и заменена на
+        // «B» — не оставлена под/рядом с новой отрисовкой.
         expect(backend.getTextAt(new Point(0, 0), 1)).toBe("B");
     });
 

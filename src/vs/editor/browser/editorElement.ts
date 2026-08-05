@@ -227,6 +227,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         // перерисовку спасала лишь побочная цепочка «selections → статус-бар →
         // setText → markDirty», которой нет у standalone-редактора.
         this.viewState.onDidChangeCursorPosition(() => this.markDirty());
+        // Видимые изменения мимо курсора — скролл (scrollLine*, колесо),
+        // фолдинг, подсветка поиска и правки документа напрямую (applyEdits
+        // из расширений/bulkEdit) — тоже обязаны пометить редактор: под
+        // damage-tracking непомеченный виджет не перерисовывается.
+        this.viewState.onDidChangeView(() => this.markDirty());
+        this.viewState.document.onDidChangeContent(() => this.markDirty());
 
         this.addEventListener("keypress", (event) => {
             this.handleKeyPress(event);
