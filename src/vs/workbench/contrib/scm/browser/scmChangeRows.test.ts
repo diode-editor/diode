@@ -69,7 +69,7 @@ describe("scmChangeRows — file row", () => {
 
         // Кнопка занимает колонки слева от буквы статуса.
         const buttonX = WIDTH - 1 - OPEN_FILE_BUTTON_WIDTH;
-        expect(backend.getTextAt(new Point(buttonX, 0), OPEN_FILE_BUTTON_WIDTH)).toBe(`[ ${OPEN_FILE_GLYPH} ]`);
+        expect(backend.getTextAt(new Point(buttonX, 0), OPEN_FILE_BUTTON_WIDTH)).toBe(` ${OPEN_FILE_GLYPH} `);
         expect(parts.openButton.layoutSize.width).toBe(OPEN_FILE_BUTTON_WIDTH);
         // Статус остаётся на своём месте, имя ужимается.
         expect(backend.getTextAt(new Point(WIDTH - 1, 0), 1)).toBe("M");
@@ -122,7 +122,6 @@ describe("scmChangeRows — file row", () => {
 
     it("button stays out of the focus order — list rows are presentational", () => {
         const parts = buildFileRow("row", change(), "src/a.ts", STYLES, () => undefined);
-        expect(parts.openButton.focusable).toBe(false);
         expect(parts.root.getDepthFirstFocusableOrder()).toEqual([]);
     });
 });

@@ -1,6 +1,5 @@
 import type { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import type { StyleColor } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
-import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { HFlexElement, hflexFill, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
 import { LIST_ROW_ACTIVE_STATE } from "../../../../../../tuidom/ui/list/listViewElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
@@ -28,8 +27,8 @@ export interface IScmRowStyles {
 /** nf-cod-go_to_file () — инлайн-кнопка «открыть сам файл» (клик делегирует контейнер). */
 export const OPEN_FILE_GLYPH = "";
 
-/** Ширина кнопки Open File: `[ ` + глиф + ` ]` (см. {@link ButtonElement.render}). */
-export const OPEN_FILE_BUTTON_WIDTH = OPEN_FILE_GLYPH.length + 4;
+/** Ширина кнопки Open File: глиф с воздухом по бокам — зона клика. */
+export const OPEN_FILE_BUTTON_WIDTH = OPEN_FILE_GLYPH.length + 2;
 
 /**
  * Корень файловой строки: HFlex, который отдаёт колонки кнопке Open File только
@@ -44,7 +43,7 @@ export const OPEN_FILE_BUTTON_WIDTH = OPEN_FILE_GLYPH.length + 4;
  * строки прямо перед её раскладкой.
  */
 export class ScmFileRowElement extends HFlexElement {
-    public constructor(private readonly openButton: ButtonElement) {
+    public constructor(private readonly openButton: TextLabelElement) {
         super();
     }
 
@@ -60,15 +59,15 @@ export class ScmFileRowElement extends HFlexElement {
 
 /**
  * Части файловой строки: {@link ScmFileRowElement}-корень (его id — идентичность
- * строки в списке) и три поля — имя (fill), кнопка Open File (fixed, раскрывается
- * по активности строки) и буква статуса (fixed 1, правый край). Части
+ * строки в списке) и три поля — имя (fill), кнопка Open File (раскрывается по
+ * активности строки) и буква статуса (fixed 1, правый край). Части
  * возвращаются вместе, чтобы формат-функция могла перекрашивать строку при смене
  * темы без пересборки.
  */
 export interface IScmFileRowParts {
     readonly root: ScmFileRowElement;
     readonly name: TextLabelElement;
-    readonly openButton: ButtonElement;
+    readonly openButton: TextLabelElement;
     readonly status: TextLabelElement;
 }
 
@@ -88,15 +87,15 @@ export function buildFileRow(
     onOpenFile: () => void,
 ): IScmFileRowParts {
     const name = new TextLabelElement("");
-    const openButton = new ButtonElement(OPEN_FILE_GLYPH);
+    const openButton = new TextLabelElement(` ${OPEN_FILE_GLYPH} `);
     const status = new TextLabelElement("");
 
-    // Строки списка вне Tab-обхода — фокус кнопке всё равно не достанется
-    // (прецедент: тумблеры searchComponent тоже отказываются от focusable).
-    // Поэтому и вид не зависит от состояний кнопки: она видна, только когда
-    // строка активна, и тогда сразу primary — чтобы читаться как действие.
-    openButton.focusable = false;
-    openButton.style = { fg: "button.foreground", bg: "button.background" };
+    // Вид — как у кнопки «⋯» в заголовках view (`PaneHeaderElement`): глиф без
+    // рамки, приглушённый, фон наследует от строки. Своего hover-варианта нет
+    // намеренно: мышь принадлежит списку (строки презентационные), поэтому
+    // `in:hover` был бы истиной для всех раскрытых кнопок разом. Роль
+    // affordance играет само появление кнопки на активной строке.
+    openButton.style = { fg: "descriptionForeground" };
     openButton.addEventListener("click", (event) => {
         event.preventDefault();
         onOpenFile();
@@ -143,7 +142,7 @@ export function buildFolderRow(id: string, label: string): TextLabelElement {
 }
 
 /**
- * Заголовок группы ресурсов (Merge/Staged/Changes/Untracked): метка (fill) +
+ * Заголовок группы ресурсов (Merge/Staged/Changes): метка (fill) +
  * счётчик у правого края приглушённым. Шеврон сворачивания рисует сам список —
  * у заголовка есть дети. Цвета — токены темы, рестайл не нужен.
  */

@@ -42,7 +42,11 @@ clone/init/мультирепо.
 - **Группы ресурсов**: porcelain `xy` → 0..2 записей по группам
   `merge | index | worktree | untracked` (MM — в двух группах; unmerged-коды
   `DD/AU/UD/UA/DU/AA/UU` → merge; `??` → untracked). Порядок и заголовки как в VS Code:
-  Merge Changes → Staged Changes → Changes → Untracked Changes, пустые группы скрыты.
+  Merge Changes → Staged Changes → Changes, пустые группы скрыты. Своего заголовка
+  `untracked` не получает — показывается под «Changes» (как VS Code при
+  `git.untrackedChanges: mixed`): для пользователя «новый файл» и «правка» — одно и то
+  же «ещё не в индексе». Сам id группы в протоколе остаётся: по нему discard выбирает
+  `git clean` вместо `git checkout`, и он же стоит в id строки (`scmRow-untracked-…`).
 - **Commit input box** — в теле view Source Control над списком ресурсов (как в
   VS Code); собирает `ChangesComponent`. Безрамочный виджет на существующем
   `InputElement` (фокус — аппаратный курсор, поле выделено фоном `input.background`),
@@ -259,8 +263,8 @@ UI-подтверждения. Ручной прогон после релиза
 
 - **US-1. Группы ресурсов.** Репо: файл A staged (`git add`), файл B modified, файл C
   untracked, файл D staged+modified (MM). → Открыть Source Control. → Видны группы
-  «Staged Changes 2», «Changes 2», «Untracked Changes 1» (D — и в Staged, и в Changes);
-  порядок групп Merge → Staged → Changes → Untracked; группы сворачиваются
+  «Staged Changes 2» и «Changes 3» (D — и в Staged, и в Changes; untracked-файл C —
+  внутри «Changes»); порядок групп Merge → Staged → Changes; группы сворачиваются
   (Enter/Space/клик на заголовке), счётчик остаётся виден.
 - **US-2. Stage файла из контекстного меню.** Курсор на строке B в Changes → Shift+F10 →
   «Stage Changes» → Enter. → Строка переехала в Staged Changes; `git diff --cached

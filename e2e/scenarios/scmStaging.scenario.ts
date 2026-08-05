@@ -54,7 +54,7 @@ export default defineScenario({
         // Source Control: input box над секциями, три группы со счётчиками.
         await editor.sendKey("Alt+C");
         await editor.waitForText(
-            (t) => t.includes("Staged Changes") && t.includes("Untracked Changes") && t.includes("app.ts"),
+            (t) => t.includes("Staged Changes") && t.includes("Changes") && t.includes("app.ts"),
         );
         await editor.capture("groups");
 

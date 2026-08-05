@@ -166,8 +166,8 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("extra.ts"));
         const list = await session.waitForNode("#changesView");
 
-        // Строки: заголовок «Untracked Changes» и extra.ts под ним (app.ts
-        // закоммичен без правок).
+        // Строки: заголовок «Changes» и extra.ts под ним — untracked едет в общей
+        // группе (app.ts закоммичен без правок).
         const x = list.box.x + 2;
         const y = list.box.y + 1;
         await session.sendMouse({ action: "press", button: "left", x, y });

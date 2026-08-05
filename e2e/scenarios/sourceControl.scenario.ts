@@ -117,9 +117,10 @@ export default defineScenario({
 
         // Инлайн-кнопка Open File у правого края строки: раскрывается только на
         // строке под указателем, поэтому сначала наводим мышь — и снимаем кадр
-        // с раскрытой кнопкой. Целимся в untracked extra.ts (шестая строка
-        // дерева: после секции Changes идёт заголовок Untracked Changes и файл).
-        const buttonRowY = rows.box.y + 5;
+        // с раскрытой кнопкой. Целимся в untracked extra.ts (пятая строка дерева:
+        // заголовок Changes, src/util, format.ts, app.ts, extra.ts — untracked
+        // едет в той же группе).
+        const buttonRowY = rows.box.y + 4;
         await editor.sendMouse({ action: "move", button: "none", x: rows.box.x, y: buttonRowY });
         await editor.capture("open-file-button");
 

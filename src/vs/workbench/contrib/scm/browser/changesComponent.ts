@@ -135,9 +135,7 @@ export class ChangesComponent extends Component {
         viewsService.registerView({
             id: SCM_CHANGES_VIEW_ID,
             containerId: SCM_VIEWLET_ID,
-            // «CHANGES» тавтологично группе ресурсов «Changes» внутри секции;
-            // имя view в контейнере Source Control — как в VS Code.
-            title: "SOURCE CONTROL",
+            title: "CHANGES",
             order: 10,
             body: this.view,
             focus: () => this.focus(),
@@ -244,7 +242,7 @@ export class ChangesComponent extends Component {
 
             if (this.viewMode === "flat") {
                 for (const change of sortChangesFlat(group.changes)) {
-                    this.appendFileRow(group.id, change, displayPath(change), groupRowId);
+                    this.appendFileRow(change, displayPath(change), groupRowId);
                 }
             } else {
                 const emit = (nodes: readonly ScmTreeNode[], parentId: string): void => {
@@ -259,7 +257,7 @@ export class ChangesComponent extends Component {
                             });
                             emit(node.children, id);
                         } else {
-                            this.appendFileRow(group.id, node.change, node.name, parentId);
+                            this.appendFileRow(node.change, node.name, parentId);
                         }
                     }
                 };
@@ -273,8 +271,13 @@ export class ChangesComponent extends Component {
         }
     }
 
-    private appendFileRow(group: ScmGroupId, change: IScmChange, label: string, parentId: string): void {
-        const rowId = this.uniqueRowId(`scmRow-${group}-${sanitizeIdSegment(displayPath(change))}`);
+    /**
+     * Id строки несёт НАСТОЯЩУЮ группу записи, а не заголовок, под которым она
+     * показана: untracked едет под «Changes», но остаётся `scmRow-untracked-…`
+     * — так селектор говорит правду о том, что за файл под курсором.
+     */
+    private appendFileRow(change: IScmChange, label: string, parentId: string): void {
+        const rowId = this.uniqueRowId(`scmRow-${change.group}-${sanitizeIdSegment(displayPath(change))}`);
         const parts = buildFileRow(rowId, change, label, this.rowStyles, () => {
             this.commands.execute("scm.action.openFile", change.uri.toString());
         });

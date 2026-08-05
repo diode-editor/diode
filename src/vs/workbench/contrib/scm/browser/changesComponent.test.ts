@@ -146,10 +146,10 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(screen).toContain("U");
         // Кнопка перехода к файлу раскрывается только на активной строке.
         expect(screen).not.toContain(OPEN_FILE_GLYPH);
-        // Заголовки групп: untracked-строка и worktree-строка → две секции + 2 файла.
+        // Untracked своего заголовка не получает — оба файла под «Changes».
         expect(screen).toContain("Changes");
-        expect(screen).toContain("Untracked Changes");
-        expect(h.component.list.rowCount).toBe(4);
+        expect(screen).not.toContain("Untracked Changes");
+        expect(h.component.list.rowCount).toBe(3);
     });
 
     it("кнопка Open File появляется на строке под курсором сфокусированного списка", () => {
