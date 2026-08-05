@@ -3,7 +3,8 @@ import type { TUIEventBase } from "../../../../../../tuidom/dom/events/tuiEventB
 import { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import { RenderContext, TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
-import { vflexFit, VFlexElement } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
+import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
+import { vflexFit, vflexFixed, VFlexElement } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -19,6 +20,13 @@ import type { ScmRepoStateService } from "./repoStateService.ts";
 import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
 
 export const ScmInputComponentDIToken = token<ScmInputComponent>("ScmInputComponent");
+
+/**
+ * Высота блока контролов коммита в строках: padding сверху, поле, зазор, кнопка,
+ * padding снизу. Знает потребитель — `ChangesComponent` считает от неё
+ * минимальную высоту секции.
+ */
+export const SCM_INPUT_HEIGHT = 5;
 
 /**
  * Маркер-подкласс поля сообщения коммита: по нему `WorkbenchContextKeys`
@@ -160,9 +168,9 @@ export function computeActionButton(
 }
 
 /**
- * Commit input box + action button вьюлета Source Control — header контейнера
- * над секциями (как в VS Code, где input живёт в теле view над деревом
- * ресурсов). Элементы живут полями компонента и не пересоздаются — текст
+ * Commit input box + action button вьюлета Source Control. Живёт в теле view
+ * Source Control над списком изменений (собирает {@link ChangesComponent}) — как
+ * в VS Code. Элементы живут полями компонента и не пересоздаются — текст
  * переживает переключения Explorer ↔ SCM сам по себе; черновик дополнительно
  * персистится по-проектно (write-through на каждый ввод, восстановление —
  * строго после `openWorkspace`).
@@ -203,6 +211,9 @@ export class ScmInputComponent extends Component {
 
         const stack = new VFlexElement();
         stack.addChild(this.input, { height: vflexFit(), width: "fill" });
+        // Пустая строка между полем и кнопкой: понятия gap в layout-модели нет,
+        // зазор — это филлер, красящий фон унаследованными цветами.
+        stack.addChild(new FillerElement(), { height: vflexFixed(1), width: "fill" });
         stack.addChild(this.actionButton, { height: vflexFit(), width: "fill" });
         this.view = new PaddingContainerElement(stack, { left: 1, right: 1, top: 1, bottom: 1 });
         this.view.id = "scmInputBox";

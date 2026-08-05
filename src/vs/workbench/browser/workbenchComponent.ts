@@ -388,14 +388,13 @@ export class WorkbenchComponent extends Component {
         this.sidebarService.registerViewlet(SEARCH_VIEWLET_ID, this.searchComponent.view, () => {
             this.searchComponent.focus();
         });
-        // Source Control — контейнер view-секций (CHANGES, GRAPH): сборку и
-        // регистрацию вьюлета берёт на себя ViewsService; view записались в
-        // реестр из конструкторов компонентов. Header контейнера — commit
-        // input box (не секция: без заголовка, весов и сворачивания).
+        // Source Control — контейнер view-секций (SOURCE CONTROL, GRAPH): сборку
+        // и регистрацию вьюлета берёт на себя ViewsService; view записались в
+        // реестр из конструкторов компонентов. Контролы коммита — внутри тела
+        // первой секции, её собирает ChangesComponent.
         this.viewsService.registerContainer({
             id: SCM_VIEWLET_ID,
             title: "  SOURCE CONTROL",
-            header: this.scmInputComponent.view,
         });
         this.viewsService.attachContainer(SCM_VIEWLET_ID);
         this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);

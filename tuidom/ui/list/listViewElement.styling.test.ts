@@ -6,7 +6,7 @@ import { Point, Size } from "../../common/geometryPromitives.ts";
 import type { MouseToken } from "../../input/rawTerminalToken.ts";
 import { TextLabelElement } from "../text/textLabelElement.ts";
 
-import { ListViewElement } from "./listViewElement.ts";
+import { LIST_ROW_ACTIVE_STATE, ListViewElement } from "./listViewElement.ts";
 
 const ACTIVE_BG = packRgb(4, 57, 94);
 const ACTIVE_FG = packRgb(255, 255, 255);
@@ -118,5 +118,48 @@ describe("ListViewElement styling", () => {
         expect(app.backend.getBgAt(new Point(0, 0))).toBe(ACTIVE_BG);
         expect(app.backend.getBgAt(new Point(0, 1))).toBe(ACTIVE_BG);
         expect(app.backend.getBgAt(new Point(0, 2))).not.toBe(ACTIVE_BG);
+    });
+});
+
+describe("ListViewElement — LIST_ROW_ACTIVE_STATE", () => {
+    /** Состояние стоит на обёртке строки; из строки его видно `hasStyleStateWithin`. */
+    function isRowActive(list: ListViewElement, id: string): boolean {
+        return list.querySelector(`#${id}`)!.hasStyleStateWithin(LIST_ROW_ACTIVE_STATE);
+    }
+
+    it("активна строка под указателем — и только она", () => {
+        const { app, list } = createList();
+        app.backend.simulateMouse(makeMouseToken({ action: "move", x: 3, y: 2 }));
+        app.render();
+
+        expect(isRowActive(list, "b")).toBe(true);
+        expect(isRowActive(list, "a")).toBe(false);
+        expect(isRowActive(list, "c")).toBe(false);
+    });
+
+    it("курсорная строка активна только при сфокусированном списке", () => {
+        const { app, list } = createList();
+        list.setCursorTo("c");
+        app.render();
+        expect(isRowActive(list, "c")).toBe(false);
+
+        list.focus();
+        app.render();
+        expect(isRowActive(list, "c")).toBe(true);
+
+        list.blur();
+        app.render();
+        expect(isRowActive(list, "c")).toBe(false);
+    });
+
+    it("hover на списке не делает активными все строки разом", () => {
+        const { app, list } = createList();
+        // Мышь над строкой b: диспатчер ставит hover на цепочку target→root,
+        // то есть и на сам список — состояние строки от этого не расползается.
+        app.backend.simulateMouse(makeMouseToken({ action: "move", x: 3, y: 2 }));
+        app.render();
+
+        expect(list.hasStyleState("hover")).toBe(true);
+        expect(isRowActive(list, "a")).toBe(false);
     });
 });

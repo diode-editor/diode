@@ -87,20 +87,6 @@ describe("ViewsService", () => {
         expect(paneViewOf(registered, "scm").getPaneIds()).toEqual(["scm.changes"]);
     });
 
-    it("header контейнера встаёт над секциями (fit) и не является секцией", () => {
-        const { service, registered } = makeHarness();
-        const header = new TextLabelElement("commit input");
-        header.id = "scmInputBox";
-        service.registerContainer({ id: "scm", title: "  SOURCE CONTROL", header });
-        service.registerView(view("scm.changes", "scm", 10));
-        service.attachContainer("scm");
-
-        const viewlet = registered.get("scm")!.view as TitledPanelElement;
-        // Header в дереве вьюлета, секций не прибавилось.
-        expect(viewlet.querySelector("#scmInputBox")).toBe(header);
-        expect(paneViewOf(registered, "scm").getPaneIds()).toEqual(["scm.changes"]);
-    });
-
     it("секции идут по order, а не по порядку регистрации", () => {
         const { service, registered } = makeHarness();
         service.registerContainer({ id: "scm", title: "SCM" });

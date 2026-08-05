@@ -21,7 +21,8 @@ export const PUBLISH_CHANGES_COMMAND = "vexx.scm.publishChanges";
  */
 /**
  * Группа ресурсов, в которой живёт запись — как resource groups VS Code
- * (Merge Changes / Staged Changes / Changes / Untracked Changes). Файл со
+ * (merge / index / worktree / untracked; заголовков в списке три — untracked
+ * показывается под «Changes», см. `scmChangeGroups.ts`). Файл со
  * статусом `MM` приходит двумя записями: в `index` и в `worktree`.
  */
 export type ScmGroupId = "merge" | "index" | "worktree" | "untracked";

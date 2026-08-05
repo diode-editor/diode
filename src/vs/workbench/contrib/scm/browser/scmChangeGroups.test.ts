@@ -25,9 +25,18 @@ describe("groupChanges", () => {
 
         expect(groups.map((g) => [g.id, g.label, g.changes.length])).toEqual([
             ["index", "Staged Changes", 1],
-            ["worktree", "Changes", 1],
-            ["untracked", "Untracked Changes", 1],
+            // Untracked своего заголовка не получает — едет под «Changes».
+            ["worktree", "Changes", 2],
         ]);
+    });
+
+    it("untracked показывается под заголовком Changes, сохраняя свою группу в записи", () => {
+        const groups = groupChanges([change("new.ts", "untracked"), change("edited.ts", "worktree")]);
+
+        expect(groups).toHaveLength(1);
+        expect(groups[0].label).toBe("Changes");
+        // Запись помнит настоящую группу — по ней discard выбирает clean vs checkout.
+        expect(groups[0].changes.map((c) => c.group)).toEqual(["untracked", "worktree"]);
     });
 
     it("merge — первой группой, порядок записей внутри группы сохраняется", () => {

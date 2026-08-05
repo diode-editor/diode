@@ -53,7 +53,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         app = null;
     });
 
-    it("US-13: input box с плейсхолдером над секцией CHANGES", async () => {
+    it("US-13: input box с плейсхолдером внутри секции Source Control, над списком", async () => {
         const repo = makeRepo();
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
         const { session } = app;
@@ -65,9 +65,15 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         // Плейсхолдер клипуется шириной сайдбара — проверяем начало.
         expect(frameToText(await session.captureFrame())).toContain("Message (Ctrl");
 
-        // Input выше заголовка секции CHANGES.
+        // Контролы — в теле секции: ниже её заголовка, но выше списка изменений.
         const changesHeader = await session.waitForNode("#paneHeader-workbench-scm-changes");
-        expect(input.box.y).toBeLessThan(changesHeader.box.y);
+        const list = await session.waitForNode("#changesView");
+        expect(input.box.y).toBeGreaterThan(changesHeader.box.y);
+        expect(input.box.y).toBeLessThan(list.box.y);
+
+        // Кнопка действия — под полем, с пустой строкой между ними.
+        const button = await session.waitForNode("#scmActionButton");
+        expect(button.box.y - input.box.y).toBe(2);
     }, 120_000);
 
     it("US-14: workbench.scm.focus фокусит input; Down уводит в список", async () => {

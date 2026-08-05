@@ -5,6 +5,8 @@ import { join } from "node:path";
 
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { OPEN_FILE_BUTTON_WIDTH } from "../src/vs/workbench/contrib/scm/browser/scmChangeRows.ts";
+
 import type { HeadlessApp } from "./helpers/appSession.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
@@ -164,8 +166,8 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("extra.ts"));
         const list = await session.waitForNode("#changesView");
 
-        // Строки: заголовок «Untracked Changes» и extra.ts под ним (app.ts
-        // закоммичен без правок).
+        // Строки: заголовок «Changes» и extra.ts под ним — untracked едет в общей
+        // группе (app.ts закоммичен без правок).
         const x = list.box.x + 2;
         const y = list.box.y + 1;
         await session.sendMouse({ action: "press", button: "left", x, y });
@@ -179,7 +181,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(frame).not.toContain("No changes to compare");
     }, 120_000);
 
-    it("клик по инлайн-глифу строки открывает сам файл, а не дифф", async () => {
+    it("клик по инлайн-кнопке строки открывает сам файл, а не дифф", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD } });
         app = await open(repo);
         const { session } = app;
@@ -189,9 +191,15 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const list = await session.waitForNode("#changesList");
 
-        // Глиф Open File — третья колонка справа (глиф · пробел · буква статуса);
-        // файловая строка — под заголовком группы.
-        await session.clickNode("#changesList", { dx: list.box.width - 3, dy: 1 });
+        // Файловая строка — под заголовком группы. Кнопка Open File раскрывается
+        // только на строке под указателем, поэтому сначала наводим мышь.
+        const rowY = list.box.y + 1;
+        await session.sendMouse({ action: "move", button: "none", x: list.box.x, y: rowY });
+
+        // Кнопка `[  ]` занимает 5 колонок слева от буквы статуса (fixed 1).
+        const buttonX = list.box.x + list.box.width - 1 - OPEN_FILE_BUTTON_WIDTH;
+        await session.sendMouse({ action: "press", button: "left", x: buttonX, y: rowY });
+        await session.sendMouse({ action: "release", button: "left", x: buttonX, y: rowY });
 
         // Открылась файловая вкладка с рабочим содержимым, диффа нет.
         const frame = await session.waitForText((t) => t.includes('"hello " + name')).then(frameToText);

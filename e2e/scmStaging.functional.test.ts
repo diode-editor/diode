@@ -116,16 +116,18 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("Staged Changes"));
         await session.waitForNode("#scmGroup-index");
         await session.waitForNode("#scmGroup-worktree");
-        await session.waitForNode("#scmGroup-untracked");
+        // Untracked своего заголовка не получает — строка едет под «Changes»,
+        // но помнит свою группу в id (по ней discard выбирает clean vs checkout).
+        expect(await session.node("#scmGroup-untracked")).toBeNull();
+        const newRow = await session.waitForNode("#scmRow-untracked-new-ts");
         // MM-файл присутствует в обеих группах.
         await session.waitForNode("#scmRow-index-mm-ts");
         await session.waitForNode("#scmRow-worktree-mm-ts");
-        // Порядок секций: Staged выше Changes, Changes выше Untracked.
+        // Порядок секций: Staged выше Changes, untracked-строка — внутри Changes.
         const staged = (await session.node("#scmGroup-index"))!.box;
         const worktree = (await session.node("#scmGroup-worktree"))!.box;
-        const untracked = (await session.node("#scmGroup-untracked"))!.box;
         expect(staged.y).toBeLessThan(worktree.y);
-        expect(worktree.y).toBeLessThan(untracked.y);
+        expect(worktree.y).toBeLessThan(newRow.box.y);
     }, 120_000);
 
     it("US-2/US-3: stage из контекстного меню, затем unstage — строка мигрирует между группами", async () => {
@@ -194,14 +196,13 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
 
         await session.key("Alt+A"); // git.stageAll
         await session.waitForNoNode("#scmGroup-worktree");
-        await session.waitForNoNode("#scmGroup-untracked");
         await session.waitForNode("#scmGroup-index");
         expect(git(repo, "diff", "--cached", "--name-only").trim().split("\n").sort()).toEqual(["a.ts", "new.ts"]);
 
         await session.key("Alt+U"); // git.unstageAll
         await session.waitForNoNode("#scmGroup-index");
         await session.waitForNode("#scmGroup-worktree");
-        await session.waitForNode("#scmGroup-untracked");
+        await session.waitForNode("#scmRow-untracked-new-ts");
         expect(git(repo, "diff", "--cached", "--name-only").trim()).toBe("");
     }, 120_000);
 

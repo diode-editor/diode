@@ -12,6 +12,20 @@ const DEFAULT_INDENT_SIZE = 2;
 // Окно, в течение которого напечатанные символы складываются в одну последовательность
 // быстрого поиска; после паузы буфер сбрасывается (как в VS Code / файловых менеджерах).
 const TYPEAHEAD_TIMEOUT_MS = 800;
+
+/**
+ * Состояние «строка под указателем ИЛИ под курсором сфокусированного списка» —
+ * то, что в вебе назвали бы «строка в фокусе внимания». Ставится на обёртку
+ * строки, поэтому потомкам доступно селектором `in:rowActive` и методом
+ * {@link TUIElement.hasStyleStateWithin} — так строка раскрывает свои
+ * инлайн-кнопки, ничего не зная про список.
+ *
+ * Почему не `hover`: диспатчер мыши ставит hover на ВСЮ цепочку target→root, а
+ * строки презентационные — target'ом всегда оказывается сам список. То есть
+ * `in:hover` у потомка строки был бы истиной для всех строк разом, стоит мыши
+ * оказаться где угодно над списком.
+ */
+export const LIST_ROW_ACTIVE_STATE = "rowActive";
 const ICON_EXPANDED = ""; //  nf-fa-angle_down — chevron, как в TreeViewElement
 const ICON_COLLAPSED = ""; //  nf-fa-angle_right
 
@@ -99,7 +113,10 @@ class ListRowHostElement extends TUIElement {
  * поддерево видимой строки, и если чей-то listener вызвал `preventDefault()`,
  * клик считается потреблённым — курсор, выделение и активация не трогаются.
  * Так строка может нести инлайн-кнопки (обычные элементы с click-listener'ом),
- * не зная ничего про список. Выделение и hover рисуются пост-оверлеем
+ * не зная ничего про список. Фокуса такая кнопка не берёт (строки вне Tab-обхода),
+ * поэтому «строка в фокусе внимания» выражена состоянием
+ * {@link LIST_ROW_ACTIVE_STATE} на обёртке строки — по нему кнопка решает,
+ * показываться ли ей. Выделение и hover рисуются пост-оверлеем
  * поверх отрендеренной строки: перекрашиваются только ячейки, чьи цвета совпадают
  * с унаследованными fg/bg контейнера, так что собственные цвета строки (подсветка
  * совпадения, приглушённый номер) выделение переживают. Строка, явно выставившая
@@ -150,6 +167,11 @@ export class ListViewElement extends ScrollableElement {
         this.focusable = true;
         this.indentSize = options?.indentSize ?? DEFAULT_INDENT_SIZE;
         this.typeaheadEnabled = options?.typeahead ?? true;
+        // Смена фокуса входит в LIST_ROW_ACTIVE_STATE курсорной строки, а
+        // FocusManager метит поддерево только style-грязным — раскрытие же
+        // меняет ГЕОМЕТРИЮ строки, поэтому нужен пересчёт layout.
+        this.addEventListener("focus", () => this.markDirty());
+        this.addEventListener("blur", () => this.markDirty());
     }
 
     // ─── Rows ───
@@ -343,6 +365,7 @@ export class ListViewElement extends ScrollableElement {
         const rows = this.ensureProjection();
         const start = this.scrollTop;
         const end = Math.min(rows.length, start + size.height);
+        const listFocused = this.isFocused;
         for (let i = start; i < end; i++) {
             const row = rows[i];
             const y = i - start;
@@ -352,8 +375,13 @@ export class ListViewElement extends ScrollableElement {
             // оставлял бы корень грязным и следующий ввод рендерил бы пустой кадр.
             row.host.setStyleStateDuringLayout("selected", i === this.cursorIndex || this.selectedIds.has(row.id));
             row.host.setStyleStateDuringLayout("hover", i === this.hoveredIndex);
+            row.host.setStyleStateDuringLayout(
+                LIST_ROW_ACTIVE_STATE,
+                i === this.hoveredIndex || (i === this.cursorIndex && listFocused),
+            );
             this.layoutChild(row.host, 0, y, BoxConstraints.tight(new Size(size.width, 1)));
         }
+        this.invalidateRowsLeavingWindow(rows, start, end);
         this.lastLayoutScrollTop = start;
         this.lastLayoutViewportHeight = size.height;
         // Окно могло сместиться (скролл, пересборка проекции) — стилевой проход
@@ -362,6 +390,34 @@ export class ListViewElement extends ScrollableElement {
         // строки, а резолвится только окно). Чистые строки отсеет ранний выход.
         this.markSubtreeStyleDirty();
         return size;
+    }
+
+    /**
+     * Строки, которые были в окне прошлого layout и выпали из нынешнего, несут
+     * устаревшую геометрию (прежняя ширина/позиция). Помечаем их
+     * layout-грязными — тем же флагом, с которым живут ни разу не разложенные
+     * строки: он и вернёт им честный layout при въезде в окно, и выведет их
+     * из-под геометрических проверок `validateTree`.
+     *
+     * Окно умеет не только ехать, но и **сжиматься** — например, когда
+     * `ScrollBarDecorator` спрашивает `contentWidth` у ещё не разложенного
+     * списка: ленивый layout проходит по дефолтным 80×24, а следующий за ним
+     * настоящий кладёт лишь пару видимых строк. Без этой уборки хвост остался
+     * бы «чистым» с шириной 80 внутри 28-колоночного списка.
+     *
+     * Цена — O(окна), а не O(N): переcборка проекции сюда не попадает (там
+     * строки и так новые, а `lastLayoutScrollTop` сброшен в -1).
+     */
+    private invalidateRowsLeavingWindow(rows: readonly ListRow[], start: number, end: number): void {
+        if (this.lastLayoutScrollTop < 0) return;
+        const prevEnd = Math.min(rows.length, this.lastLayoutScrollTop + this.lastLayoutViewportHeight);
+        for (let i = this.lastLayoutScrollTop; i < prevEnd; i++) {
+            if (i < start || i >= end) {
+                // Именно флаг, а не markDirty(): тот пошёл бы вверх и оставил
+                // корень грязным после кадра (см. setStyleStateDuringLayout).
+                rows[i].host.isLayoutDirty = true;
+            }
+        }
     }
 
     /**

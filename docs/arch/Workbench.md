@@ -600,14 +600,15 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     тела делят высоту пропорционально весам, граница таскается за заголовок
     нижней секции — паттерн `SashElement`); `viewsService.ts` — реестр
     контейнеров и view-дескрипторов (`{id, containerId, title, order, body,
-    focus}` — `containerId` в реестре закладывает будущий перенос view между
-    контейнерами), сборка контейнера `TitledPanel(PaneView)` и регистрация его
+    focus, minBodyHeight}` — `containerId` в реестре закладывает будущий перенос
+    view между контейнерами), сборка контейнера `TitledPanel(PaneView)` и регистрация его
     прежним `registerViewlet`, персист свёрнутости/весов
     (`workbench.views.state`, write-through по действию пользователя, restore
     после `openWorkspace`) и меню «⋯» (`MenuId.ViewMoreActions`, императивная
     фильтрация `viewMenuVisible` по `menuContext.view` — глобальный when-ключ не
     годится: в сайдбаре видимы несколько секций сразу). Пилот — контейнер
-    Source Control: секции CHANGES (`ChangesComponent`) и GRAPH
+    Source Control: секции SOURCE CONTROL (`ChangesComponent` — контролы
+    коммита `ScmInputComponent` в теле view над списком, как в VS Code) и GRAPH
     (`GraphViewComponent`, последние коммиты от git-расширения командой
     `vexx.scm.publishLog` → `ScmGraphService`).
   - `Services/WorkbenchStateService.ts` — персист открытых редакторов (headless):

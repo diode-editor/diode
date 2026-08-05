@@ -552,3 +552,35 @@ describe("resolveColor — публичный резолв данных", () => 
         expect(() => root.resolveColor("no.such")).toThrow('ContainerElement: неизвестный цветовой токен "no.such"');
     });
 });
+
+describe("hasStyleStateWithin — рантайм-двойник `in:`-селектора", () => {
+    it("видит состояние на себе и на любом предке, но не на потомке", () => {
+        const root = new ContainerElement();
+        const middle = new ContainerElement();
+        const leaf = new ContainerElement();
+        root.addChild(middle);
+        middle.addChild(leaf);
+
+        expect(leaf.hasStyleStateWithin("rowActive")).toBe(false);
+
+        leaf.setStyleState("rowActive", true);
+        expect(leaf.hasStyleStateWithin("rowActive")).toBe(true);
+        leaf.setStyleState("rowActive", false);
+
+        root.setStyleState("rowActive", true);
+        expect(leaf.hasStyleStateWithin("rowActive")).toBe(true);
+        expect(middle.hasStyleStateWithin("rowActive")).toBe(true);
+        // Вверх, а не вниз: у предка состояние потомка не видно.
+        leaf.setStyleState("checked", true);
+        expect(root.hasStyleStateWithin("checked")).toBe(false);
+    });
+
+    it("не требует стилевого прохода — состояние читается сразу после установки", () => {
+        const root = new ContainerElement();
+        const leaf = new ContainerElement();
+        root.addChild(leaf);
+
+        root.setStyleStateDuringLayout("rowActive", true);
+        expect(leaf.hasStyleStateWithin("rowActive")).toBe(true);
+    });
+});

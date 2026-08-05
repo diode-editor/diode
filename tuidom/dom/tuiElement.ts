@@ -861,6 +861,23 @@ export class TUIElement {
         return this.styleStatesSet?.has(state) === true;
     }
 
+    /**
+     * Состояние активно на самом элементе ИЛИ на любом предке — рантайм-двойник
+     * `in:`-селектора для кода, который решает не цветом, а геометрией
+     * (инлайн-кнопка строки списка раскрывается, только когда строка активна).
+     * Селектор в `when` даёт ту же семантику декларативно и дешевле (готовый
+     * `ancestorStates` из контекста резолва); этот метод — для тех, кому
+     * состояние нужно ДО стилевого прохода, прямо в performLayout.
+     */
+    public hasStyleStateWithin(state: StyleState): boolean {
+        let node: TUIElement | null = this;
+        while (node !== null) {
+            if (node.styleStatesSet?.has(state) === true) return true;
+            node = node._parent;
+        }
+        return false;
+    }
+
     /** Активные состояния (порядок вставки) — инспектор/тесты. */
     public get activeStyleStates(): readonly string[] {
         return this.styleStatesSet !== null ? [...this.styleStatesSet] : [];

@@ -1,5 +1,7 @@
+import type { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import type { StyleColor } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import { HFlexElement, hflexFill, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
+import { LIST_ROW_ACTIVE_STATE } from "../../../../../../tuidom/ui/list/listViewElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
 
@@ -20,32 +22,62 @@ export const GIT_STATUS_COLOR_IDS = [
 export interface IScmRowStyles {
     /** `gitDecoration.*` id → цвет (число или имя токена темы). */
     readonly statusColors: Record<string, StyleColor>;
-    /** Глиф инлайн-кнопки Open File. */
-    readonly dimFg: StyleColor;
 }
 
 /** nf-cod-go_to_file () — инлайн-кнопка «открыть сам файл» (клик делегирует контейнер). */
 export const OPEN_FILE_GLYPH = "";
 
+/** Ширина кнопки Open File: глиф с воздухом по бокам — зона клика. */
+export const OPEN_FILE_BUTTON_WIDTH = OPEN_FILE_GLYPH.length + 2;
+
 /**
- * Части файловой строки: `HFlexElement`-корень (его id — идентичность строки в
- * списке) и три поля — имя (fill), глиф Open File (fixed) и буква статуса
- * (fixed 1, правый край). Части возвращаются вместе, чтобы формат-функция могла
- * перекрашивать строку при смене темы без пересборки.
+ * Корень файловой строки: HFlex, который отдаёт колонки кнопке Open File только
+ * пока строка активна — под указателем мыши или под курсором сфокусированного
+ * списка ({@link LIST_ROW_ACTIVE_STATE}). В покое кнопка получает ширину 0
+ * (легальный размер, `HFlexElement` клампит детей по остатку), и всё место
+ * достаётся имени файла.
+ *
+ * Решение живёт в layout, а не в стиле, именно потому, что это про геометрию:
+ * покрасить кнопку «в цвет фона» значило бы держать колонки занятыми впустую.
+ * Состояние читается до стилевого прохода — список выставляет его на обёртке
+ * строки прямо перед её раскладкой.
+ */
+export class ScmFileRowElement extends HFlexElement {
+    public constructor(private readonly openButton: TextLabelElement) {
+        super();
+    }
+
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const revealed = this.hasStyleStateWithin(LIST_ROW_ACTIVE_STATE);
+        this.openButton.layoutStyle = {
+            width: hflexFixed(revealed ? OPEN_FILE_BUTTON_WIDTH : 0),
+            height: 1,
+        };
+        return super.performLayout(constraints);
+    }
+}
+
+/**
+ * Части файловой строки: {@link ScmFileRowElement}-корень (его id — идентичность
+ * строки в списке) и три поля — имя (fill), кнопка Open File (раскрывается по
+ * активности строки) и буква статуса (fixed 1, правый край). Части
+ * возвращаются вместе, чтобы формат-функция могла перекрашивать строку при смене
+ * темы без пересборки.
  */
 export interface IScmFileRowParts {
-    readonly root: HFlexElement;
+    readonly root: ScmFileRowElement;
     readonly name: TextLabelElement;
-    readonly openGlyph: TextLabelElement;
+    readonly openButton: TextLabelElement;
     readonly status: TextLabelElement;
 }
 
 /**
  * Строит файловую строку. `rowId` — идентичность строки в списке (id-конвенция
  * `scmRow-<group>-<path>` живёт у вызывающего), `label` — display-путь (flat)
- * или имя файла (tree). `onOpenFile` вызывается кликом по глифу: глиф потребляет
- * click через `preventDefault()` (контракт делегации ListViewElement), а парный
- * dblclick-listener гасит и двойной клик, чтобы тот не активировал строку.
+ * или имя файла (tree). `onOpenFile` вызывается кликом по кнопке: кнопка
+ * потребляет click через `preventDefault()` (контракт делегации
+ * ListViewElement), а парный dblclick-listener гасит и двойной клик, чтобы тот
+ * не активировал строку.
  */
 export function buildFileRow(
     rowId: string,
@@ -54,25 +86,31 @@ export function buildFileRow(
     styles: IScmRowStyles,
     onOpenFile: () => void,
 ): IScmFileRowParts {
-    const root = new HFlexElement();
-    root.id = rowId;
-
     const name = new TextLabelElement("");
-    const openGlyph = new TextLabelElement("");
+    const openButton = new TextLabelElement(` ${OPEN_FILE_GLYPH} `);
     const status = new TextLabelElement("");
-    openGlyph.addEventListener("click", (event) => {
+
+    // Вид — как у кнопки «⋯» в заголовках view (`PaneHeaderElement`): глиф без
+    // рамки, приглушённый, фон наследует от строки. Своего hover-варианта нет
+    // намеренно: мышь принадлежит списку (строки презентационные), поэтому
+    // `in:hover` был бы истиной для всех раскрытых кнопок разом. Роль
+    // affordance играет само появление кнопки на активной строке.
+    openButton.style = { fg: "descriptionForeground" };
+    openButton.addEventListener("click", (event) => {
         event.preventDefault();
         onOpenFile();
     });
-    openGlyph.addEventListener("dblclick", (event) => {
+    openButton.addEventListener("dblclick", (event) => {
         event.preventDefault();
     });
 
+    const root = new ScmFileRowElement(openButton);
+    root.id = rowId;
     root.addChild(name, { width: hflexFill(), height: 1 });
-    root.addChild(openGlyph, { width: hflexFixed(2), height: 1 });
+    root.addChild(openButton, { width: hflexFixed(0), height: 1 });
     root.addChild(status, { width: hflexFixed(1), height: 1 });
 
-    const parts: IScmFileRowParts = { root, name, openGlyph, status };
+    const parts: IScmFileRowParts = { root, name, openButton, status };
     formatFileRow(parts, change, label, styles);
     return parts;
 }
@@ -86,10 +124,6 @@ export function formatFileRow(parts: IScmFileRowParts, change: IScmChange, label
     if (color !== undefined) {
         for (let i = 0; i < label.length; i++) parts.name.setCharStyle(i, { fg: color });
     }
-
-    parts.openGlyph.setText(`${OPEN_FILE_GLYPH} `);
-    parts.openGlyph.clearCharStyles();
-    parts.openGlyph.setCharStyle(0, { fg: styles.dimFg });
 
     parts.status.setText(change.status);
     parts.status.clearCharStyles();
@@ -108,7 +142,7 @@ export function buildFolderRow(id: string, label: string): TextLabelElement {
 }
 
 /**
- * Заголовок группы ресурсов (Merge/Staged/Changes/Untracked): метка (fill) +
+ * Заголовок группы ресурсов (Merge/Staged/Changes): метка (fill) +
  * счётчик у правого края приглушённым. Шеврон сворачивания рисует сам список —
  * у заголовка есть дети. Цвета — токены темы, рестайл не нужен.
  */
