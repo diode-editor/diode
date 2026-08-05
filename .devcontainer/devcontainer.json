@@ -1,11 +1,17 @@
 {
 	"name": "Vexx Development",
-	"image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+	// Тег без дефиса — у 26.04 в mcr именно такое написание, в отличие от ubuntu-24.04.
+	// Digest здесь от индекса, а не от конкретной архитектуры: так пиннинг сохраняет
+	// multi-arch, и один конфиг работает на aarch64-ноутбуке, x86-удалёнке и в Codespaces.
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu26.04@sha256:1f8bb87ca6d342a587a9163a5a1ea8c487bcd4f149e8483a5ff711f795f0776d",
 	"features": {
 		"ghcr.io/devcontainers/features/github-cli:1": {},
 		"ghcr.io/devcontainers/features/node:1": {
 			"version": "25"
-		}
+		},
+		// claude нужен не для удобства: agents.sh запускает агентов как окна tmux
+		// с интерактивным claude внутри, без него подсистема агентов не работает.
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
 	},
 	"customizations": {
 		"vscode": {
@@ -16,13 +22,11 @@
 			]
 		}
 	},
-	"appPort": ["7777:7777"],
-	"postCreateCommand": "export NVM_DIR=/usr/local/share/nvm && . \"$NVM_DIR/nvm.sh\" && sudo apt-get update && sudo apt-get install -y kitty-terminfo ncurses-term locales tmux curl python3 build-essential && sudo locale-gen en_US.UTF-8 && cp .devcontainer/tmux.conf ~/.tmux.conf && curl -Lo lazygit.tar.gz https://github.com/jesseduffield/lazygit/releases/download/v0.45.2/lazygit_0.45.2_Linux_x86_64.tar.gz && tar xf lazygit.tar.gz lazygit && sudo install lazygit /usr/local/bin && rm lazygit.tar.gz lazygit && npm install -g prettier @anthropic-ai/claude-code && npm install && echo 'Vexx development environment ready!'",
 	"containerEnv": {
 		"LANG": "en_US.UTF-8"
 	},
 	"remoteUser": "vscode",
-	"mounts": [
-		"source=${localWorkspaceFolder}/.git,target=/workspaces/${localWorkspaceFolderBasename}/.git,type=bind,consistency=cached"
-	]
+	// onCreate, а не postCreate: на этапе Codespaces prebuild выполняется именно
+	// onCreateCommand, так что тяжёлая часть попадает в заранее собранный образ.
+	"onCreateCommand": "bash .devcontainer/setup.sh"
 }
