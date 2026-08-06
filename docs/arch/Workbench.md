@@ -592,8 +592,9 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     late-init шов `attachLayout`.
   - `browser/parts/sidebar/sidebarService.ts` — реестр вьюлетов сайдбара и
     переключатель (activity bar'а нет, роль играют команды `workbench.view.*`;
-    показ вьюлета — подмена контента сайдбара через `LayoutService`). Explorer и
-    Search — одно-view вьюлеты, регистрируются напрямую.
+    показ вьюлета — подмена контента сайдбара через `LayoutService`). Explorer —
+    одно-view вьюлет, регистрируется напрямую; Search — merged одно-view
+    контейнер (см. ниже).
   - `browser/parts/views/` — **view-секции внутри вьюлета** (аналог
     PaneView/ViewContainer VS Code): `paneViewElement.ts` + `paneHeaderElement.ts`
     — составной контрол из готовых tuidom-примитивов (стопка сворачиваемых
@@ -603,7 +604,12 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     контейнеров и view-дескрипторов (`{id, containerId, title, order, body,
     focus, minBodyHeight}` — `containerId` в реестре закладывает будущий перенос
     view между контейнерами), сборка контейнера `TitledPanel(PaneView)` и регистрация его
-    прежним `registerViewlet`, персист свёрнутости/весов
+    прежним `registerViewlet` — либо, для контейнера ровно одной view,
+    merged-режим `mergeSingleView` (как VS Code сливает заголовок секции с
+    заголовком контейнера): без рамки TitledPanel, единственная секция
+    несворачиваемая (`IPaneOptions.collapsible: false` — без шеврона, клик и
+    Enter по заголовку no-op), её заголовок несёт название контейнера и «⋯»;
+    потребитель — Search. Персист свёрнутости/весов
     (`workbench.views.state`, write-through по действию пользователя, restore
     после `openWorkspace`) и меню «⋯» (`MenuId.ViewMoreActions`, императивная
     фильтрация `viewMenuVisible` по `menuContext.view` — глобальный when-ключ не
