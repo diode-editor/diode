@@ -273,17 +273,13 @@ export class KeybindingDispatcher extends Disposable {
                 metaKey: event.metaKey,
             };
             this.armory.withTrigger(trigger, () => this.commands.execute(res.commandId));
-            // A key that would otherwise be TYPED into the editor still emits a paired
-            // keypress (preventDefault on keydown does not suppress it — only
-            // swallowNextKeyPress does). When such a key ran a command over a text input
-            // (e.g. Enter → acceptSelectedSuggestion), swallow the keypress so it does
-            // not also insert a newline/character behind the command. Gated on
-            // textInputFocus to keep inputs/lists/find untouched.
-            const wouldType =
-                event.key === "Enter" || (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey);
-            if (wouldType && this.contextKeys.get("textInputFocus") === true) {
-                this.swallowNextKeyPress = true;
-            }
+            // Every keydown emits a paired keypress (preventDefault on keydown does not
+            // suppress it — only swallowNextKeyPress does). Once a command consumed the
+            // keydown, that keypress must not ALSO trigger the focused widget's default
+            // action: Enter would insert a newline behind acceptSelectedSuggestion,
+            // PageDown would move a list cursor a second page after list.focusPageDown.
+            // Consuming the command consumes the whole key.
+            this.swallowNextKeyPress = true;
             return true;
         }
 

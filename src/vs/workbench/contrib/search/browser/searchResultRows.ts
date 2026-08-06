@@ -42,6 +42,13 @@ export function formatFileRow(row: TextLabelElement, relPath: string, count: num
     row.markDirty();
 }
 
+/** Строка папки tree-режима: метка (возможно, компакт-цепочка "src/vs") без счётчика. */
+export function buildFolderRow(id: string, label: string): TextLabelElement {
+    const row = new TextLabelElement(label);
+    row.id = id;
+    return row;
+}
+
 export function buildMatchRow(id: string, match: ITextMatch, styles: ISearchRowStyles): TextLabelElement {
     const row = new TextLabelElement("");
     row.id = id;

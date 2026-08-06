@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MockTerminalBackend } from "../../../../../../tuidom/backend/mockTerminalBackend.ts";
+import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import type { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
@@ -17,6 +20,8 @@ import type {
 } from "../../../services/search/common/textSearch.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { SEARCH_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import type { ExplorerService } from "../../files/browser/explorerService.ts";
 
 import { type ISearchRevealTarget, SearchComponent } from "./searchComponent.ts";
@@ -95,12 +100,22 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     return { service, stored };
 }
 
+/** Реестр view не участвует в юнит-тестах компонента — merged-контейнер собирает workbench. */
+const NULL_VIEWS_SERVICE = { registerView: () => {} } as unknown as ViewsService;
+
 function make(
     search: ITextSearchService,
     explorer: ExplorerService,
-    opts: { reveal?: ISearchRevealTarget; state?: IStateService } = {},
+    opts: { reveal?: ISearchRevealTarget; state?: IStateService; contextKeys?: ContextKeyService } = {},
 ): SearchComponent {
-    return new SearchComponent(search, explorer, opts.reveal ?? fakeReveal().target, opts.state ?? NULL_STATE_SERVICE);
+    return new SearchComponent(
+        search,
+        explorer,
+        opts.reveal ?? fakeReveal().target,
+        opts.state ?? NULL_STATE_SERVICE,
+        opts.contextKeys ?? new ContextKeyService(),
+        NULL_VIEWS_SERVICE,
+    );
 }
 
 function render(component: SearchComponent, w = 40, h = 14): MockTerminalBackend {
@@ -125,10 +140,36 @@ describe("SearchComponent", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("renders the SEARCH title and placeholders before any query", () => {
+    it("по умолчанию — строка запроса и «···», include/exclude скрыты (заголовок SEARCH рисует pane-header)", () => {
         const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
         const screen = render(component).screenToString();
-        expect(screen).toContain("SEARCH");
+        expect(screen).toContain("Search");
+        expect(screen).toContain("···");
+        expect(screen).not.toContain("files to include");
+        expect(screen).not.toContain("files to exclude");
+    });
+
+    it("toggleQueryDetails раскрывает include/exclude с пустой строкой между ними и скрывает обратно", () => {
+        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        // Кнопка «···» — тот же тумблер мышью (4-я кнопка после Aa/\b/.*).
+        const detailsBtn = (component.view.querySelectorAll("ButtonElement") as ButtonElement[])[3];
+        detailsBtn.onActivate?.();
+        expect(component.isQueryDetailsShown()).toBe(true);
+        const screen = render(component).screenToString();
+        expect(screen).toContain("files to include");
+        expect(screen).toContain("files to exclude");
+
+        component.toggleQueryDetails();
+        expect(component.isQueryDetailsShown()).toBe(false);
+        expect(render(component).screenToString()).not.toContain("files to include");
+    });
+
+    it("инпуты не прижаты к краям: слева и справа от строки запроса по колонке отступа", () => {
+        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        const lines = render(component).screenToString().split("\n");
+        const queryLine = lines.find((line) => line.includes("Search"))!;
+        expect(queryLine.startsWith(" ")).toBe(true);
+        expect(queryLine.endsWith(" ")).toBe(true);
     });
 
     it("streams results grouped by file with a count", () => {
@@ -210,6 +251,7 @@ describe("SearchComponent", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
         const component = make(service, fakeExplorer(ROOT));
+        component.toggleQueryDetails(true, false); // include/exclude в дереве только раскрытыми
         const [, include, exclude] = component.view.querySelectorAll("InputElement") as InputElement[];
         const [caseBtn, wordBtn] = component.view.querySelectorAll("ButtonElement") as ButtonElement[];
         include.inputState.value = "*.ts, *.js";
@@ -310,13 +352,21 @@ describe("SearchComponent", () => {
         expect(spy).toHaveBeenCalled();
     });
 
-    describe("tree/flat view modes", () => {
+    describe("list/tree view modes", () => {
         const twoFiles = () => [
             fileMatch("/work/project/a.ts", [
                 [12, "const ", "foo", " = 1"],
                 [20, "", "foo", ""],
             ]),
             fileMatch("/work/project/b.ts", [[3, "let ", "foo", ""]]),
+        ];
+
+        const nestedFiles = () => [
+            fileMatch("/work/project/src/x/a.ts", [
+                [12, "const ", "foo", " = 1"],
+                [20, "", "foo", ""],
+            ]),
+            fileMatch("/work/project/src/y/b.ts", [[3, "let ", "foo", ""]]),
         ];
 
         it("typing letters in the results list does not typeahead-jump between groups", () => {
@@ -327,8 +377,9 @@ describe("SearchComponent", () => {
             expect(component.results.inspectState()).toMatchObject({ cursorId: "file:a.ts" });
         });
 
-        it("collapsing a file group hides its matches (tree mode)", () => {
+        it("list-режим (дефолт): матчи сворачиваются под файл-строкой", () => {
             const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
+            expect(component.getViewMode()).toBe("list");
             typeQuery(component, "foo");
             expect(component.results.contentHeight).toBe(5); // 2 файла + 3 матча
 
@@ -344,56 +395,369 @@ describe("SearchComponent", () => {
             expect(component.results.isCollapsed("file:a.ts")).toBe(true);
         });
 
-        it("switching to flat rebuilds rows from the model without a new search", () => {
-            const { service } = fakeSearch(twoFiles());
+        it("tree-режим строит иерархию каталогов без нового rg; файлы — basename", () => {
+            const { service } = fakeSearch(nestedFiles());
             const spy = vi.spyOn(service, "search");
             const component = make(service, fakeExplorer(ROOT));
             typeQuery(component, "foo");
 
-            component.setViewMode("flat");
+            component.setViewMode("tree");
             expect(spy).toHaveBeenCalledTimes(1); // rg не перезапускался
-            expect(component.getViewMode()).toBe("flat");
-            // Те же строки, но группы больше не сворачиваются (детей нет).
-            expect(component.results.contentHeight).toBe(5);
-            component.results.toggleCollapsed("file:a.ts");
+            // src(1) + x(1) + a.ts(1) + 2 матча + y(1) + b.ts(1) + 1 матч = 8 строк.
+            expect(component.results.contentHeight).toBe(8);
+            const screen = render(component).screenToString();
+            expect(screen).toContain("src");
+            expect(screen).toContain("a.ts");
+            expect(screen).not.toContain("src/x/a.ts");
+
+            // Сворачивание папки прячет всё поддерево.
+            component.results.toggleCollapsed("dir:src");
+            expect(component.results.contentHeight).toBe(1);
+        });
+
+        it("tree-режим: одиночные цепочки папок компактируются в одну строку", () => {
+            const component = make(
+                fakeSearch([fileMatch("/work/project/deep/nested/dir/c.ts", [[1, "", "foo", ""]])]).service,
+                fakeExplorer(ROOT),
+            );
+            typeQuery(component, "foo");
+            component.setViewMode("tree");
+            // Одна папка-цепочка + файл + матч.
+            expect(component.results.contentHeight).toBe(3);
+            expect(render(component).screenToString()).toContain("deep/nested/dir");
+        });
+
+        it("Enter на папке сворачивает её поддерево", () => {
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            component.setViewMode("tree");
+            component.results.setCursorTo("dir:src");
+            component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+            expect(component.results.isCollapsed("dir:src")).toBe(true);
+        });
+
+        it("стрим в tree-режиме пересобирает строки по троттлу", () => {
+            const { service: state } = fakeState();
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT), { state });
+            component.setViewMode("tree");
+            typeQuery(component, "foo");
+            // Результаты уже в модели, но пересборка ждёт троттл.
+            expect(component.results.contentHeight).toBe(0);
+            vi.advanceTimersByTime(100);
+            expect(component.results.contentHeight).toBe(8);
+        });
+
+        it("завершение поиска флашит отложенную пересборку дерева, не дожидаясь троттла", async () => {
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            component.setViewMode("tree");
+            typeQuery(component, "foo");
+            expect(component.results.contentHeight).toBe(0); // троттл ещё ждёт
+
+            // Микротаски: complete-промис синхронного fakeSearch уже зарезолвлен.
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(component.results.contentHeight).toBe(8);
+        });
+
+        it("новый поиск отменяет отложенную пересборку дерева прежнего", () => {
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            component.setViewMode("tree");
+            typeQuery(component, "foo");
+            expect(component.results.contentHeight).toBe(0); // троттл первого поиска ждёт
+
+            // Тумблер перезапускает поиск синхронно (без дебаунса) — cancelSearch
+            // снимает ждущий троттл, второй поиск планирует свой.
+            const [caseBtn] = component.view.querySelectorAll("ButtonElement") as ButtonElement[];
+            caseBtn.onActivate?.();
+            vi.advanceTimersByTime(100);
+            expect(component.results.contentHeight).toBe(8); // строки второго поиска, без дублей
+        });
+
+        it("свёрнутость и курсор переживают смену режима по стабильным id", () => {
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            component.results.toggleCollapsed("file:src/x/a.ts");
+            component.results.setCursorTo("file:src/y/b.ts");
+
+            component.setViewMode("tree");
+            expect(component.results.isCollapsed("file:src/x/a.ts")).toBe(true);
+            expect(component.results.inspectState()).toMatchObject({ cursorId: "file:src/y/b.ts" });
+
+            component.setViewMode("list");
+            expect(component.results.isCollapsed("file:src/x/a.ts")).toBe(true);
+            expect(component.results.inspectState()).toMatchObject({ cursorId: "file:src/y/b.ts" });
+        });
+
+        it("миграция v2 стейта: любое старое значение (tree/flat) приводится к list", () => {
+            expect(SEARCH_VIEW_MODE_STATE.version).toBe(2);
+            expect(SEARCH_VIEW_MODE_STATE.migrate?.("tree", 0)).toBe("list");
+            expect(SEARCH_VIEW_MODE_STATE.migrate?.("flat", 1)).toBe("list");
+        });
+
+        it("свёрнутая папка дерева при уходе в list теряет свёрнутость молча (id умер)", () => {
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            component.setViewMode("tree");
+            component.results.toggleCollapsed("dir:src");
+            expect(component.results.contentHeight).toBe(1);
+
+            component.setViewMode("list"); // dir:-строк больше нет — их collapse отбрасывается
             expect(component.results.contentHeight).toBe(5);
         });
 
         it("setViewMode persists to workspace state; same mode is a no-op", () => {
             const { service: state, stored } = fakeState();
             const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
-            component.setViewMode("flat");
-            expect(stored.get("workbench.search.viewMode")).toBe("flat");
+            component.setViewMode("tree");
+            expect(stored.get("workbench.search.viewMode")).toBe("tree");
 
             stored.clear();
-            component.setViewMode("flat");
+            component.setViewMode("tree");
             expect(stored.size).toBe(0);
         });
 
-        it("restoreViewMode reads the store without writing back", () => {
+        it("restoreViewState reads the store without writing back", () => {
             const { service: state, stored } = fakeState();
-            stored.set("workbench.search.viewMode", "flat");
+            stored.set("workbench.search.viewMode", "tree");
             const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT), { state });
-            // Конструктор уже прочитал flat; вернём tree и проверим restore.
-            component.setViewMode("tree");
-            stored.set("workbench.search.viewMode", "flat");
+            // Конструктор уже прочитал tree; вернём list и проверим restore.
+            component.setViewMode("list");
+            stored.set("workbench.search.viewMode", "tree");
             const writes = vi.spyOn(state, "store");
 
-            component.restoreViewMode();
-            expect(component.getViewMode()).toBe("flat");
+            component.restoreViewState();
+            expect(component.getViewMode()).toBe("tree");
             expect(writes).not.toHaveBeenCalled();
 
-            component.restoreViewMode(); // повтор — no-op
-            expect(component.getViewMode()).toBe("flat");
+            component.restoreViewState(); // повтор — no-op
+            expect(component.getViewMode()).toBe("tree");
+        });
+
+        it("toggleQueryDetails: write-through, фокус в include при раскрытии и в query при скрытии", () => {
+            const { service: state, stored } = fakeState();
+            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
+            const inputs = () => component.view.querySelectorAll("InputElement") as InputElement[];
+
+            const queryFocus = vi.spyOn(inputs()[0], "focus");
+            component.toggleQueryDetails();
+            expect(stored.get("workbench.search.queryDetailsExpanded")).toBe(true);
+            const includeFocus = vi.spyOn(inputs()[1], "focus");
+            expect(includeFocus).not.toHaveBeenCalled();
+
+            component.toggleQueryDetails(true); // повтор show=true — только фокус
+            expect(includeFocus).toHaveBeenCalled();
+
+            component.toggleQueryDetails();
+            expect(stored.get("workbench.search.queryDetailsExpanded")).toBe(false);
+            expect(queryFocus).toHaveBeenCalled();
+        });
+
+        it("restoreViewState раскрывает детали из стора или при непустых полях, без write-through", () => {
+            const { service: state, stored } = fakeState();
+            stored.set("workbench.search.queryDetailsExpanded", true);
+            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
+            expect(component.isQueryDetailsShown()).toBe(true);
+
+            // Скрыли; в сторе false. Непустой exclude заставляет restore раскрыть.
+            component.toggleQueryDetails(false, false);
+            const exclude = component.view.querySelectorAll("InputElement");
+            expect(exclude).toHaveLength(1); // остался только query
+            const writes = vi.spyOn(state, "store");
+            const excludeField = (component as unknown as { excludeInput: InputElement }).excludeInput;
+            excludeField.inputState.value = "dist";
+            component.restoreViewState();
+            expect(component.isQueryDetailsShown()).toBe(true);
+            expect(writes).not.toHaveBeenCalled();
+        });
+
+        it("сетит data-ключ searchViewMode при создании, переключении и restore", () => {
+            const keys = new ContextKeyService();
+            const { service: state, stored } = fakeState();
+            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { contextKeys: keys, state });
+            expect(keys.get("searchViewMode")).toBe("list");
+
+            component.setViewMode("tree");
+            expect(keys.get("searchViewMode")).toBe("tree");
+
+            component.setViewMode("list");
+            stored.set("workbench.search.viewMode", "tree");
+            component.restoreViewState();
+            expect(keys.get("searchViewMode")).toBe("tree");
         });
     });
 
-    it("theme change restyles existing file and match rows in place", () => {
+    describe("Collapse All / Expand All (поэтапный CollapseDeepestExpandedLevel)", () => {
+        const nested = () => [
+            fileMatch("/work/project/src/x/a.ts", [
+                [12, "const ", "foo", " = 1"],
+                [20, "", "foo", ""],
+            ]),
+            fileMatch("/work/project/src/y/b.ts", [[3, "let ", "foo", ""]]),
+        ];
+
+        it("в tree-режиме: первый вызов сворачивает матчи под файлами, второй — всё дерево", () => {
+            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            component.setViewMode("tree");
+            expect(component.results.contentHeight).toBe(8);
+
+            component.collapseDeepestLevel();
+            // Папки раскрыты, файлы свёрнуты: src, x, a.ts, y, b.ts.
+            expect(component.results.contentHeight).toBe(5);
+            expect(component.results.isCollapsed("file:src/x/a.ts")).toBe(true);
+            expect(component.results.isCollapsed("dir:src")).toBe(false);
+
+            component.collapseDeepestLevel();
+            expect(component.results.contentHeight).toBe(1); // только dir:src
+
+            component.collapseDeepestLevel(); // уже всё свёрнуто — no-op
+            expect(component.results.contentHeight).toBe(1);
+        });
+
+        it("в list-режиме сворачивает файл-строки; expandAll возвращает всё", () => {
+            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            expect(component.results.contentHeight).toBe(5);
+
+            component.collapseDeepestLevel();
+            expect(component.results.contentHeight).toBe(2);
+
+            component.expandAll();
+            expect(component.results.contentHeight).toBe(5);
+        });
+
+        it("сетит data-ключи hasSearchResult/viewHasSomeCollapsibleResult (дебаунс)", () => {
+            const keys = new ContextKeyService();
+            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT), { contextKeys: keys });
+            expect(keys.get("hasSearchResult")).toBe(false);
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
+
+            typeQuery(component, "foo");
+            vi.advanceTimersByTime(100); // дебаунс пересчёта ключей
+            expect(keys.get("hasSearchResult")).toBe(true);
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(true);
+
+            component.collapseDeepestLevel(); // list: все файлы свёрнуты — раскрытых не осталось
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
+            expect(keys.get("hasSearchResult")).toBe(true);
+
+            component.expandAll();
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(true);
+        });
+
+        it("сворачивание строки пользователем дёргает пересчёт ключей через onCollapsedChanged", () => {
+            const keys = new ContextKeyService();
+            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT), { contextKeys: keys });
+            typeQuery(component, "foo");
+            component.results.toggleCollapsed("file:src/x/a.ts");
+            component.results.toggleCollapsed("file:src/y/b.ts");
+            vi.advanceTimersByTime(100);
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
+        });
+    });
+
+    describe("кольцо фокуса (Down/Up между инпутами и списком)", () => {
+        function makeFocusable(withDetails: boolean): { component: SearchComponent; app: TestApp } {
+            const component = make(fakeSearch([fileMatch("/work/project/a.ts", [[1, "", "foo", ""]])]).service, fakeExplorer(ROOT));
+            if (withDetails) component.toggleQueryDetails(true, false);
+            const app = TestApp.createWithContent(component.view, new Size(40, 14));
+            return { component, app };
+        }
+
+        it("детали скрыты: query → список; список → query (инпуты за «···» пропускаются)", () => {
+            const { component, app } = makeFocusable(false);
+            component.focus();
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(component.results);
+
+            component.focusSearchFromResults();
+            expect(app.focusedElement?.id).toBe(queryInput(component).id);
+            expect(component.isInputBoxFocused(app.focusedElement)).toBe(true);
+        });
+
+        it("детали раскрыты: query → include → exclude → список; обратно exclude → include → query", () => {
+            const { component, app } = makeFocusable(true);
+            const [query, include, exclude] = component.view.querySelectorAll("InputElement") as InputElement[];
+
+            component.focus();
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(include);
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(exclude);
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(component.results);
+
+            component.focusSearchFromResults();
+            expect(app.focusedElement).toBe(exclude);
+            component.focusPreviousInputBox();
+            expect(app.focusedElement).toBe(include);
+            component.focusPreviousInputBox();
+            expect(app.focusedElement).toBe(query);
+            component.focusPreviousInputBox(); // верх кольца — no-op
+            expect(app.focusedElement).toBe(query);
+        });
+
+        it("вызов кольца без фокуса в инпутах — no-op (не перетягивает фокус)", () => {
+            const { component, app } = makeFocusable(false);
+            component.results.focus();
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(component.results);
+        });
+
+        it("isFirstResultFocused: только активный список с курсором на первой строке", () => {
+            const { component } = makeFocusable(false);
+            (component as unknown as { queryInput: InputElement }).queryInput.inputState.value = "foo";
+            typeQuery(component, "foo");
+
+            expect(component.isFirstResultFocused(component.results)).toBe(true); // курсор на file:a.ts
+            component.results.setCursorTo("match:a.ts:0");
+            expect(component.isFirstResultFocused(component.results)).toBe(false);
+            expect(component.isFirstResultFocused(null)).toBe(false);
+        });
+    });
+
+    it("containsFocus/isInputBoxFocused — по корню view и трём инпутам", () => {
+        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        component.toggleQueryDetails(true, false);
+        const [query, include] = component.view.querySelectorAll("InputElement") as InputElement[];
+
+        expect(component.containsFocus(query)).toBe(true);
+        expect(component.containsFocus(component.results)).toBe(true);
+        expect(component.containsFocus(null)).toBe(false);
+
+        expect(component.isInputBoxFocused(query)).toBe(true);
+        expect(component.isInputBoxFocused(include)).toBe(true);
+        expect(component.isInputBoxFocused(component.results)).toBe(false);
+        expect(component.isInputBoxFocused(null)).toBe(false);
+    });
+
+    it("регистрирует свою view в merged-контейнере Search при создании", () => {
+        const registered: { id: string; containerId: string; focus: () => void }[] = [];
+        const viewsService = {
+            registerView: (d: { id: string; containerId: string; focus: () => void }) => registered.push(d),
+        } as unknown as ViewsService;
         const component = new SearchComponent(
-            fakeSearch([fileMatch("/work/project/a.ts", [[1, "x ", "foo", ""]])]).service,
+            fakeSearch([]).service,
             fakeExplorer(ROOT),
             fakeReveal().target,
             NULL_STATE_SERVICE,
+            new ContextKeyService(),
+            viewsService,
+        );
+        expect(registered).toHaveLength(1);
+        expect(registered[0].id).toBe("workbench.search.results");
+        expect(registered[0].containerId).toBe("search");
+
+        // focus дескриптора ведёт в строку запроса (фокус вьюлета).
+        const spy = vi.spyOn(queryInput(component), "focus");
+        registered[0].focus();
+        expect(spy).toHaveBeenCalled();
+    });
+
+    it("theme change restyles existing file and match rows in place", () => {
+        const component = make(
+            fakeSearch([fileMatch("/work/project/a.ts", [[1, "x ", "foo", ""]])]).service,
+            fakeExplorer(ROOT),
         );
         typeQuery(component, "foo");
         const before = render(component).screenToString();

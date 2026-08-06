@@ -47,6 +47,7 @@ export class PaneHeaderElement extends TUIElement {
     private readonly menuLabel: TextLabelElement;
     private readonly row: HFlexElement;
     private readonly title: string;
+    private readonly collapsible: boolean;
     private expanded = true;
     private dragEnabled = false;
 
@@ -57,9 +58,10 @@ export class PaneHeaderElement extends TUIElement {
     private pressScreenY = 0;
     private pressLocalX = 0;
 
-    public constructor(title: string) {
+    public constructor(title: string, options?: { collapsible?: boolean }) {
         super();
         this.title = title;
+        this.collapsible = options?.collapsible ?? true;
         this.focusable = true;
         this.capturesPointer = true;
         // Цвета покоя наследуются от вьюлета (sideBar.*) — как в VS Code, где
@@ -104,7 +106,7 @@ export class PaneHeaderElement extends TUIElement {
             if (this.dragMoved || event.defaultPrevented) return;
             if (this.isInMenuZone(this.pressLocalX)) {
                 this.onMenu?.({ screenX: this.pressScreenX, screenY: this.pressScreenY });
-            } else {
+            } else if (this.collapsible) {
                 this.onToggle?.();
             }
         });
@@ -139,6 +141,8 @@ export class PaneHeaderElement extends TUIElement {
     }
 
     private composeTitle(): string {
+        // Несворачиваемый заголовок (merged одно-view контейнер) — без шеврона.
+        if (!this.collapsible) return ` ${this.title}`;
         return ` ${this.expanded ? ICON_EXPANDED : ICON_COLLAPSED} ${this.title}`;
     }
 
@@ -182,11 +186,16 @@ export class PaneHeaderElement extends TUIElement {
         const keyEvent = event as TUIKeyboardEvent;
         if (keyEvent.key === "Enter" || keyEvent.key === " ") {
             event.preventDefault();
-            this.onToggle?.();
+            if (this.collapsible) this.onToggle?.();
         }
     }
 
     public override inspectState(): Record<string, unknown> {
-        return { title: this.title, expanded: this.expanded, dragEnabled: this.dragEnabled };
+        return {
+            title: this.title,
+            expanded: this.expanded,
+            dragEnabled: this.dragEnabled,
+            collapsible: this.collapsible,
+        };
     }
 }

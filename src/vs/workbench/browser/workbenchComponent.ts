@@ -388,9 +388,15 @@ export class WorkbenchComponent extends Component {
         this.sidebarService.registerViewlet(EXPLORER_VIEWLET_ID, this.explorerComponent.view, () => {
             this.explorerService.focus();
         });
-        this.sidebarService.registerViewlet(SEARCH_VIEWLET_ID, this.searchComponent.view, () => {
-            this.searchComponent.focus();
+        // Search — merged одно-view контейнер: заголовок секции сливается с
+        // заголовком вьюлета, «⋯»-меню из коробки; view записалась в реестр из
+        // конструктора SearchComponent.
+        this.viewsService.registerContainer({
+            id: SEARCH_VIEWLET_ID,
+            title: "SEARCH",
+            mergeSingleView: true,
         });
+        this.viewsService.attachContainer(SEARCH_VIEWLET_ID);
         // Source Control — контейнер view-секций (SOURCE CONTROL, GRAPH): сборку
         // и регистрацию вьюлета берёт на себя ViewsService; view записались в
         // реестр из конструкторов компонентов. Контролы коммита — внутри тела
@@ -404,9 +410,10 @@ export class WorkbenchComponent extends Component {
         // Открыть per-project стор состояния для этой папки (переключение флашит
         // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.
         this.workbenchState.openWorkspace(dirPath);
-        // Режим дерево/плоско поиска — из workspace-стора; строго после openWorkspace,
-        // иначе прочитается global-стор.
-        this.searchComponent.restoreViewMode();
+        // Состояние view поиска (режим дерево/плоско, раскрытость include/exclude)
+        // — из workspace-стора; строго после openWorkspace, иначе прочитается
+        // global-стор.
+        this.searchComponent.restoreViewState();
         this.changesComponent.restoreViewMode();
         // Черновик сообщения коммита — из workspace-стора.
         this.scmInputComponent.restoreDraft();

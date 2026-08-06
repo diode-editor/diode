@@ -21,6 +21,8 @@ const FILES = {
 const KEYS = [
     { key: "f6", command: "workbench.view.search" },
     { key: "f7", command: "workbench.view.explorer" },
+    // Настоящая клавиша — Ctrl+Shift+J, e2e-DSL её не кодирует (как и Ctrl+Shift+F).
+    { key: "f8", command: "workbench.action.search.toggleQueryDetails" },
 ];
 
 async function openSearch(files: Record<string, string> = FILES): Promise<HeadlessApp> {
@@ -48,8 +50,9 @@ describe("Search panel (functional e2e)", () => {
         const app = await openSearch();
         const { session } = app;
 
-        // Вид Search смонтирован (id="search"), фокус — в input строки запроса.
-        expect(await session.node("#search")).not.toBeNull();
+        // Вид Search смонтирован (тело merged-контейнера, id="searchView"),
+        // фокус — в input строки запроса.
+        expect(await session.node("#searchView")).not.toBeNull();
         expect(await session.focusedType()).toBe("InputElement");
 
         await session.text("foo");
@@ -137,18 +140,18 @@ describe("Search panel (functional e2e)", () => {
     }, 120_000);
 
     // ── E1 / E2: include / exclude globs ────────────────────────────────────
-    // NB: поля include/exclude достижимы ТОЛЬКО клавиатурой (Tab) — клик мышью их
-    // не фокусирует (баг клик-фокуса, см. отчёт). Здесь через Tab проверяем, что
-    // сама фильтрация по globs работает (движок + проводка UI).
-    it("include-glob сужает до .txt, exclude-glob убирает .ts (через Tab)", async () => {
+    // Поля include/exclude спрятаны за «···» (Toggle Search Details; F8 здесь =
+    // Ctrl+Shift+J) — раскрытие уводит фокус в include.
+    it("include-glob сужает до .txt, exclude-glob убирает .ts", async () => {
         const app = await openSearch();
         const { session } = app;
 
         await session.text("foo");
         await session.waitForText((t) => t.includes("results in"));
 
-        // Tab: query → include. *.txt → только beta.txt и unicode.txt.
-        await session.key("Tab");
+        // «···»: детали раскрылись, фокус в include. *.txt → beta.txt и unicode.txt.
+        await session.key("F8");
+        await session.waitForText((t) => t.includes("files to include"));
         await session.text("*.txt");
         await session.waitForText((t) => {
             const c = counts(t);
@@ -185,6 +188,12 @@ describe("Search panel (functional e2e)", () => {
         await session.text("foo");
         await session.waitForText((t) => t.includes("results in"));
 
+        // Раскрыть детали и вернуть фокус в строку запроса (F6 = show search),
+        // чтобы фокус в include пришёл именно от клика.
+        await session.key("F8");
+        await session.waitForText((t) => t.includes("files to include"));
+        await session.key("F6");
+
         await clickText(session, "files to include", { maxX: 60 });
         await session.text("XX");
         const text = frameToText(await session.captureFrame());
@@ -215,6 +224,6 @@ describe("Search panel (functional e2e)", () => {
         const { session } = app;
         await session.key("F7");
         await session.waitForText((t) => t.includes("EXPLORER"));
-        expect(await session.node("#search")).toBeNull();
+        expect(await session.node("#searchView")).toBeNull();
     }, 120_000);
 });

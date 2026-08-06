@@ -19,8 +19,19 @@ export const ViewsServiceDIToken = token<ViewsService>("ViewsService");
 export interface IViewContainerDescriptor {
     /** Id вьюлета сайдбара (например `"scm"` — см. `SCM_VIEWLET_ID`). */
     readonly id: string;
-    /** Заголовок рамки вьюлета (например `"  SOURCE CONTROL"`). */
+    /**
+     * Заголовок рамки вьюлета (например `"  SOURCE CONTROL"`); для merged
+     * контейнера — заголовок единственной секции без ведущих пробелов
+     * (`"SEARCH"`, отступ рисует PaneHeaderElement).
+     */
     readonly title: string;
+    /**
+     * Контейнер ровно одной view: заголовок секции сливается с заголовком
+     * контейнера (как в VS Code) — без рамки TitledPanelElement, единственная
+     * секция несворачиваемая, её заголовок несёт название контейнера и «⋯».
+     * Вторая view в таком контейнере — ошибка.
+     */
+    readonly mergeSingleView?: boolean;
 }
 
 /**
@@ -48,7 +59,8 @@ interface ContainerEntry {
     readonly views: IViewDescriptor[];
     /** Появляются в {@link ViewsService.attachContainer}. */
     paneView: PaneViewElement | null;
-    view: TitledPanelElement | null;
+    /** TitledPanelElement для обычного контейнера, сам PaneViewElement для merged. */
+    view: TUIElement | null;
 }
 
 /**
@@ -95,7 +107,7 @@ export class ViewsService {
         entry.views.push(descriptor);
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
         if (entry.paneView !== null) {
-            this.rebuildPanes(entry.paneView, entry.views);
+            this.rebuildPanes(entry);
         }
     }
 
@@ -124,9 +136,18 @@ export class ViewsService {
             });
         };
         entry.paneView = paneView;
-        entry.view = new TitledPanelElement(title, paneView);
-        entry.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
-        this.rebuildPanes(paneView, entry.views);
+        if (entry.descriptor.mergeSingleView === true) {
+            // Merged: рамки нет, заголовок единственной секции — заголовок
+            // контейнера. Цвета сайдбара — на самом paneView (обычно их несёт
+            // TitledPanelElement).
+            paneView.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+            entry.view = paneView;
+        } else {
+            const framed = new TitledPanelElement(title, paneView);
+            framed.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+            entry.view = framed;
+        }
+        this.rebuildPanes(entry);
         this.sidebarService.registerViewlet(containerId, entry.view, () => {
             this.focusContainer(containerId);
         });
@@ -175,16 +196,27 @@ export class ViewsService {
     }
 
     /** Пересобирает секции по реестру (первый build и поздняя регистрация). */
-    private rebuildPanes(paneView: PaneViewElement, views: readonly IViewDescriptor[]): void {
+    private rebuildPanes(entry: ContainerEntry): void {
+        const paneView = entry.paneView!;
+        const merged = entry.descriptor?.mergeSingleView === true;
+        if (merged && entry.views.length !== 1) {
+            throw new Error(
+                `ViewsService: merged container "${entry.descriptor!.id}" must have exactly one view, ` +
+                    `got ${String(entry.views.length)}`,
+            );
+        }
         for (const paneId of [...paneView.getPaneIds()]) {
             paneView.removePane(paneId);
         }
-        for (const view of views) {
+        for (const view of entry.views) {
             paneView.addPane({
                 id: view.id,
-                title: view.title,
+                // Merged: единственная секция носит заголовок контейнера и не
+                // сворачивается — её заголовок и есть заголовок вьюлета.
+                title: merged ? entry.descriptor!.title : view.title,
                 body: view.body,
                 minBodyHeight: view.minBodyHeight,
+                collapsible: !merged,
             });
         }
     }

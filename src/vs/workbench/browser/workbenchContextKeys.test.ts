@@ -12,6 +12,8 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
+import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
+
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
@@ -54,6 +56,11 @@ function makeHarness() {
         dispatcher as unknown as KeybindingDispatcher,
         { isPanelVisible: () => true, isSidebarVisible: () => true } as unknown as LayoutService,
         { getActiveViewletId: () => "search" } as unknown as SidebarService,
+        {
+            containsFocus: () => false,
+            isInputBoxFocused: () => false,
+            isFirstResultFocused: () => false,
+        } as unknown as SearchComponent,
     );
 
     return {

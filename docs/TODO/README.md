@@ -42,7 +42,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Diff](Diff.md) — дифф-редактор и вкладка Changes. План разбит на 7 этапов, каждый отгружается отдельно. Этапы 0 (вендоринг `DefaultLinesDiffComputer` + корпус на 58 фикстур), 1 (живой гуттер: реестр провайдеров ФС по схеме, `git:` в builtin-расширении, `QuickDiffService` — бары двигаются при наборе, до сохранения) 2 (diff view model: строки вью + свёртка неизменённых кусков) 3 (абстракция editor pane), 5 (inline diff-редактор: вкладка «файл ↔ HEAD» с подсветкой и свёрткой) и 6 (вкладка Changes: вьюлет Source Control в сайдбаре на `ListViewElement` — режимы плоско/дерево, инлайн-кнопка Open File, контекстное меню, активация открывает дифф напрямую одной вкладкой) готовы, этап 4 растворился; следующий — этап 7, side-by-side и раскрытие регионов
 - [x] [SourceControlGraph](SourceControlGraph.md) — панель GRAPH: настоящий граф коммитов (порт pipe-модели lazygit), страница истории с «Load More…», бейджи refs и команды на коммите — включая Reset to Commit, которого в VS Code нет. Реализовано; в документе остались follow-up'ы (пикер ref'ов, compare/diff коммита, действия на бейджах)
 - [~] [SourceControl](SourceControl.md) — полный Source Control как в VS Code: группы ресурсов (Staged/Changes/Merge/Untracked), stage/unstage/discard с multi-select, встроенный commit input box, sync/branch/stash/remote и меню «⋯» с подменю. Спека команд + user stories US-1…32 (приёмочный чек-лист e2e) готовы; реализация — фазы 1–12 по трекеру в документе
-- [~] [Search](Search.md) — поиск по файлам (ripgrep в сайдбаре). Готово: движок rg + пакетирование в SEA, вид Search с тумблерами Aa/`\b`/`.*` и include/exclude, поиск по мере ввода; результаты — интерактивное дерево на виртуализирующем `ListViewElement` (сворачиваемые файл-группы, дерево/плоско командами `search.action.viewAsTree`/`viewAsList` с персистом, Enter/клик открывает файл на позиции матча). Дальше — кнопки тумблера в шапке, кросс-платформенный rg, replace
+- [~] [Search](Search.md) — поиск по файлам (ripgrep в сайдбаре). Готово: движок rg + пакетирование в SEA, поиск по мере ввода с тумблерами Aa/`\b`/`.*`; панель — merged одно-view контейнер с «⋯»-меню (View as List/Tree с галочкой, поэтапный Collapse All/Expand All), include/exclude за «···» (Ctrl+Shift+J), режимы list/tree VS Code-семантики (дерево каталогов со сжатием цепочек), кольцо фокуса Down/Up, Enter/клик открывает файл на позиции матча. Дальше — кросс-платформенный rg, replace
 - [ ] [PieceTree](PieceTree.md) — текстовый бэкенд документа (большие файлы, undo, snapshots)
 - [~] [Extensions](Extensions.md) — VS Code-совместимые расширения (Phases 1, 8 готовы; 6, 9 частично; в работе — active-editor API)
 - [~] [LSP](LSP.md) — стоковые language servers поверх extension host (клиент — builtin `vexx-lsp-typescript` на стоковом `vscode-languageclient`). Платформа готова end-to-end со стоковым `typescript-language-server`: document sync (didOpen/didChange живого буфера), Go to Definition (F12, кросс-файловый), диагностики → MarkerService (squiggle + Problems). Далее — SEA-упаковка курируемых серверов, второй язык (gopls/basedpyright), закрытие остальных стабов (hover, references, rename, …) по таблице в LSP.md
@@ -112,12 +112,12 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ### [ ] View-секции сайдбара — follow-up'ы
 Пилот (контейнер Source Control: CHANGES + GRAPH) готов: `browser/parts/views/`
-(PaneView + ViewsService), см. arch/Workbench.md. Осталось:
+(PaneView + ViewsService), см. arch/Workbench.md. Search мигрирован на
+merged одно-view контейнер (`mergeSingleView`): заголовок секции слит с
+заголовком контейнера, как в VS Code, — вопрос закрыт. Осталось:
 - Перенос view между контейнерами (модель уже допускает: `containerId` в
   реестре view-дескрипторов) + персист размещения.
-- Explorer/Search — миграция на контейнеры; открытый вопрос: показывать ли
-  заголовок секции в одно-view контейнере (VS Code сливает его с заголовком
-  контейнера).
+- Explorer — миграция на merged-контейнер по готовому пути Search.
 - ~~View GRAPH: настоящий граф коммитов (рёбра, ветки) вместо плоского списка~~ —
   сделано, см. [SourceControlGraph](SourceControlGraph.md); осталась активация
   коммита (показ диффа/деталей) — там же в follow-up'ах.

@@ -102,6 +102,18 @@ export interface ContextKeyTypes {
     // notificationCenterVisible: boolean;
     // notificationToastsVisible: boolean;
     searchViewletVisible: boolean;
+    /** Фокус внутри тела вьюлета Search (инпуты или список результатов). */
+    searchViewletFocus: boolean;
+    /** Фокус в одном из инпутов панели поиска (query/include/exclude). */
+    searchInputBoxFocus: boolean;
+    /** Курсор на первой строке списка результатов поиска (возврат Up в инпуты). */
+    firstMatchFocus: boolean;
+    /** Режим отображения результатов поиска: "tree" | "list" (данные, не фокус — сетит SearchComponent). */
+    searchViewMode: string;
+    /** Есть результаты у текущего поиска (данные — сетит SearchComponent). */
+    hasSearchResult: boolean;
+    /** Есть видимая развёрнутая строка результатов — тумблер Collapse All/Expand All. */
+    viewHasSomeCollapsibleResult: boolean;
     scmViewletVisible: boolean;
     /** Фокус в commit input box вьюлета Source Control (Vexx; VS Code: scmInputIsInFocus). */
     scmInputFocus: boolean;
@@ -252,6 +264,12 @@ export const allContextKeys: ContextKey[] = [
     // "notificationCenterVisible",
     // "notificationToastsVisible",
     "searchViewletVisible",
+    "searchViewletFocus",
+    "searchInputBoxFocus",
+    "firstMatchFocus",
+    "searchViewMode",
+    "hasSearchResult",
+    "viewHasSomeCollapsibleResult",
     "scmViewletVisible",
     "scmInputFocus",
     "gitHasRepo",

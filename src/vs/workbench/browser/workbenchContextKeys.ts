@@ -17,7 +17,8 @@ import type { FindService } from "../contrib/find/browser/findService.ts";
 import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
 import { SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
 import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
-import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
+import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
+import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
@@ -60,6 +61,7 @@ export class WorkbenchContextKeys extends Disposable {
         KeybindingDispatcherDIToken,
         LayoutServiceDIToken,
         SidebarServiceDIToken,
+        SearchComponentDIToken,
     ] as const;
 
     private view: BodyElement | null = null;
@@ -75,6 +77,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly dispatcher: KeybindingDispatcher,
         private readonly layoutService: LayoutService,
         private readonly sidebarService: SidebarService,
+        private readonly searchComponent: SearchComponent,
     ) {
         super();
         // Make custom-mode names (mode_<name>) valid `when` identifiers, then keep context
@@ -128,6 +131,10 @@ export class WorkbenchContextKeys extends Disposable {
             "searchViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SEARCH_VIEWLET_ID,
         );
+        // Фокусные ключи поиска: сам компонент знает свои инпуты и корень view.
+        this.contextKeys.set("searchViewletFocus", this.searchComponent.containsFocus(active));
+        this.contextKeys.set("searchInputBoxFocus", this.searchComponent.isInputBoxFocused(active));
+        this.contextKeys.set("firstMatchFocus", this.searchComponent.isFirstResultFocused(active));
         this.contextKeys.set(
             "scmViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SCM_VIEWLET_ID,

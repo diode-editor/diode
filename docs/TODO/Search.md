@@ -18,20 +18,34 @@
   `searchResultRows.ts` (фабрики строк с посимвольной подсветкой) поверх
   виртуализирующего `tuidom/ui/list/ListViewElement` (фокус, курсор,
   клавиатура, hover — от контейнера).
-- **Интерактивные результаты** — сворачиваемые группы файл→матчи (tree-режим),
-  переключение дерево/плоско парой команд `search.action.viewAsTree`/`viewAsList`
-  (`when: searchViewletVisible`, персист `workbench.search.viewMode` по-проектно),
+- **Интерактивные результаты** — режимы VS Code-семантики: `list` — файлы
+  плоским списком, матчи-дети сворачиваются; `tree` — иерархия каталогов со
+  сжатием одиночных цепочек (`searchResultTree.ts`, близнец `scmChangeTree`),
+  стрим в tree-режиме пересобирает строки по троттлу. Пара команд
+  `search.action.viewAsTree`/`viewAsList` живёт в «⋯»-меню заголовка с галочкой
+  активного режима (персист `workbench.search.viewMode` v2 по-проектно).
   Enter/двойной клик по матчу открывает файл на строке/колонке совпадения (шов
   `SearchRevealTargetDIToken` → EditorService, по образцу Problems).
+- **Панель как merged одно-view контейнер** — заголовок SEARCH с «⋯» рисует
+  PaneHeaderElement (`ViewsService.mergeSingleView`); хедер с отступами,
+  include/exclude спрятаны за «···» (`workbench.action.search.toggleQueryDetails`,
+  Ctrl+Shift+J, персист раскрытости по-проектно, автораскрытие при непустых
+  полях).
+- **Collapse All / Expand All** — поэтапный CollapseDeepestExpandedLevel как в
+  VS Code (сначала матчи под файлами, потом всё дерево); пара сменяется в
+  «⋯»-меню по ключам `hasSearchResult`/`viewHasSomeCollapsibleResult`.
+- **Кольцо фокуса** — Down/Up и Ctrl+Down/Ctrl+Up: query → include → exclude →
+  список и обратно (`search.focus.nextInputBox`/`previousInputBox`,
+  `search.action.focusSearchFromResults`, ключи `searchInputBoxFocus`/
+  `firstMatchFocus`).
 - **Сайдбар-своп** — `browser/parts/sidebar/sidebarService.ts`, команды
   `browser/actions/searchActions.ts` + `showExplorerAction`.
 - e2e: сценарий `e2e/scenarios/searchInFiles.scenario.ts` (демо + скриншоты:
-  дерево, collapse, flat, открытие на позиции) + функциональный
-  `e2e/searchInFiles.functional.test.ts`.
+  «⋯»-меню, детали за «···», list/tree, поэтапный collapse, открытие на позиции)
+  + функциональный `e2e/searchInFiles.functional.test.ts`.
 
 ## Дальше (отложено)
 
-- **Кнопки тумблера дерево/плоско в шапке панели** — команды уже есть, нужен UI.
 - **Кросс-платформенный rg** — бандл/распаковка верифицированы на linux-x64; macOS/
   Windows — как у node-pty, отдельной задачей (CI-матрица).
 - Прочее из VS Code: replace, подсветка контекста, `search.exclude`/`files.exclude`
