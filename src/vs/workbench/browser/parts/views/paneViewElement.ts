@@ -18,6 +18,12 @@ export interface IPaneOptions {
     readonly title: string;
     readonly body: TUIElement;
     readonly minBodyHeight?: number;
+    /**
+     * false — секция не сворачивается: без шеврона, клик/Enter по заголовку
+     * ничего не делают (merged одно-view контейнер, как в VS Code). По
+     * умолчанию true.
+     */
+    readonly collapsible?: boolean;
 }
 
 interface PaneRecord {
@@ -25,6 +31,7 @@ interface PaneRecord {
     readonly header: PaneHeaderElement;
     readonly body: TUIElement;
     readonly minBodyHeight: number;
+    readonly collapsible: boolean;
     collapsed: boolean;
     /** Доля высоты среди развёрнутых секций; после drag — фактические строки. */
     weight: number;
@@ -61,13 +68,15 @@ export class PaneViewElement extends TUIElement {
         if (this.findPane(options.id) !== undefined) {
             throw new Error(`PaneViewElement: duplicate pane id "${options.id}"`);
         }
-        const header = new PaneHeaderElement(options.title);
+        const collapsible = options.collapsible ?? true;
+        const header = new PaneHeaderElement(options.title, { collapsible });
         header.id = `paneHeader-${options.id.replaceAll(".", "-")}`;
         const record: PaneRecord = {
             id: options.id,
             header,
             body: options.body,
             minBodyHeight: options.minBodyHeight ?? DEFAULT_MIN_BODY_HEIGHT,
+            collapsible,
             collapsed: false,
             weight: 1,
             lastBodyHeight: 0,
@@ -108,6 +117,7 @@ export class PaneViewElement extends TUIElement {
     /** Пользовательский путь (клик/Enter по заголовку) — с {@link onDidChangeState}. */
     public toggleCollapsed(id: string): void {
         const pane = this.paneOrThrow(id);
+        if (!pane.collapsible) return;
         this.applyCollapsed(pane, !pane.collapsed);
         this.onDidChangeState?.();
     }
@@ -143,6 +153,9 @@ export class PaneViewElement extends TUIElement {
     }
 
     private applyCollapsed(pane: PaneRecord, collapsed: boolean): void {
+        // Несворачиваемая секция игнорирует и протухший персист, и (теоретический)
+        // пользовательский путь — заголовок onToggle и так не шлёт.
+        if (!pane.collapsible) return;
         if (pane.collapsed === collapsed) return;
         pane.collapsed = collapsed;
         pane.header.setExpanded(!collapsed);

@@ -37,6 +37,24 @@ describe("PaneViewElement keyboard", () => {
         expect(view.isCollapsed("b")).toBe(false);
     });
 
+    it("Enter на несворачиваемой секции — no-op, toggleCollapsed не дёргает персист", () => {
+        const view = new PaneViewElement();
+        const body = new FillerElement();
+        body.id = "solo-body";
+        view.addPane({ id: "solo", title: "SOLO", body, collapsible: false });
+        let stateChanges = 0;
+        view.onDidChangeState = () => stateChanges++;
+        const app = TestApp.createWithContent(view, new Size(30, 22));
+
+        view.focusPane("solo");
+        app.sendKey("Enter");
+        expect(view.isCollapsed("solo")).toBe(false);
+
+        view.toggleCollapsed("solo");
+        expect(view.isCollapsed("solo")).toBe(false);
+        expect(stateChanges).toBe(0);
+    });
+
     it("Shift+F10 открывает меню секции с якорем у кнопки ⋯", () => {
         const { app, view, menuRequests } = makeHarness();
         view.focusPane("a");

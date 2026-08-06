@@ -47,7 +47,12 @@ describe("PaneHeaderElement", () => {
         header.setDragEnabled(true);
         expect(header.isExpanded).toBe(false);
         expect(header.isDragEnabled).toBe(true);
-        expect(header.inspectState()).toEqual({ title: "CHANGES", expanded: false, dragEnabled: true });
+        expect(header.inspectState()).toEqual({
+            title: "CHANGES",
+            expanded: false,
+            dragEnabled: true,
+            collapsible: true,
+        });
     });
 
     it("setExpanded в то же состояние — no-op", () => {
@@ -97,5 +102,40 @@ describe("PaneHeaderElement", () => {
         mouse(header, "mousedown", { localX: 2, button: "right" });
         mouse(header, "mouseup", { localX: 2, button: "right" });
         expect(onToggle).not.toHaveBeenCalled();
+    });
+});
+
+describe("PaneHeaderElement — несворачиваемый (collapsible: false)", () => {
+    function makeFixedHeader(): ReturnType<typeof makeHeader> {
+        const header = new PaneHeaderElement("SEARCH", { collapsible: false });
+        const onToggle = vi.fn();
+        const onDrag = vi.fn();
+        const onMenu = vi.fn();
+        header.onToggle = onToggle;
+        header.onDrag = onDrag;
+        header.onMenu = onMenu;
+        header.layout(BoxConstraints.tight(new Size(30, 1)));
+        return { header, onToggle, onDrag, onMenu };
+    }
+
+    it("клик по заголовку вне зоны ⋯ не вызывает onToggle", () => {
+        const { header, onToggle, onMenu } = makeFixedHeader();
+        mouse(header, "mousedown", { localX: 2 });
+        mouse(header, "mouseup", { localX: 2 });
+        expect(onToggle).not.toHaveBeenCalled();
+        expect(onMenu).not.toHaveBeenCalled();
+    });
+
+    it("клик в зону ⋯ по-прежнему открывает меню", () => {
+        const { header, onToggle, onMenu } = makeFixedHeader();
+        mouse(header, "mousedown", { localX: 28 });
+        mouse(header, "mouseup", { localX: 28 });
+        expect(onMenu).toHaveBeenCalledOnce();
+        expect(onToggle).not.toHaveBeenCalled();
+    });
+
+    it("без шеврона в заголовке, inspectState отражает collapsible", () => {
+        const { header } = makeFixedHeader();
+        expect(header.inspectState()).toMatchObject({ title: "SEARCH", collapsible: false });
     });
 });

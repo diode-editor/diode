@@ -233,3 +233,67 @@ describe("ViewsService", () => {
         expect(() => service.attachContainer("missing")).toThrow(/unknown container id/);
     });
 });
+
+describe("ViewsService — merged одно-view контейнер", () => {
+    it("mergeSingleView: без рамки, секция несёт заголовок контейнера и не сворачивается", () => {
+        const { service, registered } = makeHarness();
+        service.registerContainer({ id: "search", title: "SEARCH", mergeSingleView: true });
+        service.registerView(view("search.results", "search", 10));
+        service.attachContainer("search");
+
+        const viewlet = registered.get("search")!.view;
+        expect(viewlet).toBeInstanceOf(PaneViewElement);
+        const paneView = viewlet as PaneViewElement;
+        expect(paneView.getPaneIds()).toEqual(["search.results"]);
+
+        const header = paneView.querySelector("#paneHeader-search-results")!;
+        expect(header.inspectState()).toMatchObject({ title: "SEARCH", collapsible: false });
+
+        // Несворачиваемость: и протухший персист, и программный путь — no-op.
+        paneView.setCollapsed("search.results", true);
+        expect(paneView.isCollapsed("search.results")).toBe(false);
+    });
+
+    it("merged контейнер с двумя view — ошибка при attach", () => {
+        const { service } = makeHarness();
+        service.registerContainer({ id: "search", title: "SEARCH", mergeSingleView: true });
+        service.registerView(view("search.results", "search", 10));
+        service.registerView(view("search.extra", "search", 20));
+        expect(() => service.attachContainer("search")).toThrow(/exactly one view/);
+    });
+
+    it("поздняя вторая view в merged контейнер — ошибка", () => {
+        const { service } = makeHarness();
+        service.registerContainer({ id: "search", title: "SEARCH", mergeSingleView: true });
+        service.registerView(view("search.results", "search", 10));
+        service.attachContainer("search");
+        expect(() => service.registerView(view("search.extra", "search", 20))).toThrow(/exactly one view/);
+    });
+
+    it("меню ⋯ merged-контейнера открывает ViewMoreActions с {view: paneId}", () => {
+        const { service, registered, shown } = makeHarness();
+        service.registerContainer({ id: "search", title: "SEARCH", mergeSingleView: true });
+        service.registerView(view("search.results", "search", 10));
+        service.attachContainer("search");
+
+        const paneView = registered.get("search")!.view as PaneViewElement;
+        paneView.onDidRequestPaneMenu?.("search.results", { screenX: 3, screenY: 1 });
+        expect(shown).toHaveLength(1);
+        expect(shown[0].menuId).toBe(MenuId.ViewMoreActions);
+        expect(shown[0].menuContext).toEqual({ view: "search.results" });
+    });
+
+    it("restoreViewsState с протухшей свёрнутостью не сворачивает merged-секцию", () => {
+        const { service, registered, stored } = makeHarness();
+        stored.set(SIDEBAR_VIEWS_STATE.key, {
+            search: { collapsed: ["search.results"], weights: { "search.results": 5 } },
+        });
+        service.registerContainer({ id: "search", title: "SEARCH", mergeSingleView: true });
+        service.registerView(view("search.results", "search", 10));
+        service.attachContainer("search");
+
+        service.restoreViewsState();
+        const paneView = registered.get("search")!.view as PaneViewElement;
+        expect(paneView.isCollapsed("search.results")).toBe(false);
+    });
+});
