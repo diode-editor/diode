@@ -59,6 +59,25 @@ describe("Workbench — вьюлет Search в сайдбаре", () => {
         expect(testApp.backend.screenToString()).toContain("SEARCH");
     });
 
+    it("Down из строки запроса уводит фокус в список результатов (кольцо, полный путь клавиши)", () => {
+        commands.execute(SHOW_SEARCH);
+        testApp.render();
+        const query = testApp.querySelector("InputElement");
+        expect(testApp.app.focusManager?.activeElement).toBe(query);
+
+        testApp.sendKey("ArrowDown");
+        testApp.render();
+        expect(testApp.app.focusManager?.activeElement?.id).toBe("searchResults");
+    });
+
+    it("Ctrl+Down работает как Down (паритет с VS Code)", () => {
+        commands.execute(SHOW_SEARCH);
+        testApp.render();
+        testApp.sendKey("Ctrl+ArrowDown");
+        testApp.render();
+        expect(testApp.app.focusManager?.activeElement?.id).toBe("searchResults");
+    });
+
     it("переключение Explorer ↔ Search меняет содержимое сайдбара", () => {
         commands.execute(SHOW_SEARCH);
         testApp.render();

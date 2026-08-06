@@ -134,6 +134,7 @@ export class WorkbenchContextKeys extends Disposable {
         // Фокусные ключи поиска: сам компонент знает свои инпуты и корень view.
         this.contextKeys.set("searchViewletFocus", this.searchComponent.containsFocus(active));
         this.contextKeys.set("searchInputBoxFocus", this.searchComponent.isInputBoxFocused(active));
+        this.contextKeys.set("firstMatchFocus", this.searchComponent.isFirstResultFocused(active));
         this.contextKeys.set(
             "scmViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SCM_VIEWLET_ID,

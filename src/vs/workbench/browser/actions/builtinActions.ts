@@ -170,6 +170,11 @@ import {
     listFocusPageUpAction,
 } from "./listActions.ts";
 import {
+    collapseSearchResultsAction,
+    expandSearchResultsAction,
+    focusNextInputBoxAction,
+    focusPreviousInputBoxAction,
+    focusSearchFromResultsAction,
     searchViewAsListAction,
     searchViewAsTreeAction,
     showSearchAction,
@@ -351,6 +356,11 @@ export const builtinActions: readonly CommandAction[] = [
     searchViewAsTreeAction,
     searchViewAsListAction,
     toggleSearchDetailsAction,
+    collapseSearchResultsAction,
+    expandSearchResultsAction,
+    focusNextInputBoxAction,
+    focusPreviousInputBoxAction,
+    focusSearchFromResultsAction,
     revealActiveFileInExplorerAction,
     increaseSidebarWidthAction,
     decreaseSidebarWidthAction,

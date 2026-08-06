@@ -191,6 +191,12 @@ export class SearchComponent extends Component {
     private debounceTimer: ReturnType<typeof setTimeout> | null = null;
     /** Отложенная пересборка строк tree-режима при стриме (см. TREE_REBUILD_THROTTLE_MS). */
     private treeRebuildTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Дебаунс пересчёта data-ключей hasSearchResult/viewHasSomeCollapsibleResult. */
+    private resultKeysTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Родитель каждой строки — видимость/глубина для поэтапного Collapse All. */
+    private rowParents = new Map<string, string | null>();
+    /** Первая строка результатов — ключ firstMatchFocus (возврат Up в инпуты). */
+    private firstRowId: string | null = null;
     /** Bumped per search so a stale in-flight callback/complete is ignored. */
     private searchGen = 0;
 
@@ -246,6 +252,10 @@ export class SearchComponent extends Component {
             // Список не принимает строки без id — здесь он гарантированно есть.
             this.activateRow(element.id!);
         };
+        this.results.onCollapsedChanged = () => {
+            this.scheduleResultKeysUpdate();
+        };
+        this.refreshResultKeys();
         this.scrollBars = new ScrollBarDecorator(this.results);
 
         this.queryRow = this.buildQueryRow();
@@ -277,6 +287,10 @@ export class SearchComponent extends Component {
         this.register({
             dispose: () => {
                 this.cancelSearch();
+                if (this.resultKeysTimer !== null) {
+                    clearTimeout(this.resultKeysTimer);
+                    this.resultKeysTimer = null;
+                }
             },
         });
     }
@@ -288,6 +302,84 @@ export class SearchComponent extends Component {
     /** Focuses the query input (called when the Search view is shown). */
     public focus(): void {
         this.queryInput.focus();
+    }
+
+    /**
+     * Collapse All с VS Code-поведением «поуровнево, с самого глубокого»
+     * (CollapseDeepestExpandedLevel): (1) видны матч-строки → свернуть все
+     * файл-строки (папки остаются раскрытыми); (2) иначе в tree-режиме видно
+     * что-то глубже корня → свернуть всё рекурсивно; (3) иначе свернуть всё.
+     */
+    public collapseDeepestLevel(): void {
+        const anyMatchVisible = [...this.rowMeta].some(
+            ([id, meta]) => meta.kind === "match" && this.isRowVisible(id),
+        );
+        for (const [id, meta] of this.rowMeta) {
+            if (meta.kind === "match") continue;
+            if (anyMatchVisible && meta.kind !== "file") continue; // этап 1: только файлы
+            this.results.setCollapsed(id, true);
+        }
+        this.refreshResultKeys();
+    }
+
+    /** Expand All — развернуть все свёрнутые строки. */
+    public expandAll(): void {
+        for (const id of this.results.getCollapsedIds()) {
+            this.results.setCollapsed(id, false);
+        }
+        this.refreshResultKeys();
+    }
+
+    /**
+     * Кольцо фокуса «вниз» (Down/Ctrl+Down из инпутов): query → include (если
+     * детали раскрыты) → exclude → список результатов; скрытые инпуты
+     * пропускаются (VS Code: focusNextInputBox).
+     */
+    public focusNextInputBox(): void {
+        if (this.queryInput.isFocused) {
+            if (this.detailsExpanded) {
+                this.includeInput.focus();
+            } else {
+                this.results.focus();
+            }
+            return;
+        }
+        if (this.includeInput.isFocused) {
+            this.excludeInput.focus();
+            return;
+        }
+        if (this.excludeInput.isFocused) {
+            this.results.focus();
+        }
+    }
+
+    /** Кольцо фокуса «вверх»: exclude → include → query; из query — no-op (верх кольца). */
+    public focusPreviousInputBox(): void {
+        if (this.excludeInput.isFocused) {
+            this.includeInput.focus();
+            return;
+        }
+        if (this.includeInput.isFocused) {
+            this.queryInput.focus();
+        }
+    }
+
+    /**
+     * Up с первой строки результатов — назад в инпуты: exclude при раскрытых
+     * деталях, иначе query (VS Code: focusSearchFromResults / moveFocusFromResults).
+     */
+    public focusSearchFromResults(): void {
+        if (this.detailsExpanded) {
+            this.excludeInput.focus();
+        } else {
+            this.queryInput.focus();
+        }
+    }
+
+    /** Активен список результатов и курсор на его первой строке (when-ключ `firstMatchFocus`). */
+    public isFirstResultFocused(active: TUIElement | null): boolean {
+        if (active !== this.results || this.firstRowId === null) return false;
+        return this.results.getCursorElement()?.id === this.firstRowId;
     }
 
     /** Активный элемент внутри тела view поиска (when-ключ `searchViewletFocus`). */
@@ -434,8 +526,11 @@ export class SearchComponent extends Component {
         const gen = ++this.searchGen;
         this.groups.clear();
         this.rowMeta.clear();
+        this.rowParents.clear();
+        this.firstRowId = null;
         this.matchCount = 0;
         this.results.clear();
+        this.scheduleResultKeysUpdate();
 
         const root = this.explorerService.getRootPath();
         const query = this.buildQuery();
@@ -488,7 +583,7 @@ export class SearchComponent extends Component {
     private appendFileRow(group: IFileGroup, label: string, parentId?: string): void {
         const id = fileRowId(group);
         const element = buildFileRow(id, label, group.matches.length, this.rowStyles());
-        this.rowMeta.set(id, { kind: "file", element, group });
+        this.registerRow(id, { kind: "file", element, group }, parentId);
         this.results.appendRow(element, { label, parentId });
     }
 
@@ -497,15 +592,31 @@ export class SearchComponent extends Component {
         // пересборками — иначе курсор и свёрнутость не восстановить.
         const id = `match:${group.relPath}:${String(index)}`;
         const element = buildMatchRow(id, match, this.rowStyles());
-        this.rowMeta.set(id, { kind: "match", element, group, match });
+        this.registerRow(id, { kind: "match", element, group, match }, parentId);
         this.results.appendRow(element, { parentId });
     }
 
     private appendFolderRow(path: string, label: string, parentId?: string): void {
         const id = folderRowId(path);
         const element = buildFolderRow(id, label);
-        this.rowMeta.set(id, { kind: "folder", element, path });
+        this.registerRow(id, { kind: "folder", element, path }, parentId);
         this.results.appendRow(element, { label, parentId });
+    }
+
+    /** Общая бухгалтерия строки: метаданные, родитель, первая строка, data-ключи. */
+    private registerRow(id: string, meta: RowMeta, parentId: string | undefined): void {
+        this.rowMeta.set(id, meta);
+        this.rowParents.set(id, parentId ?? null);
+        this.firstRowId ??= id;
+        this.scheduleResultKeysUpdate();
+    }
+
+    /** Видима ли строка: ни один предок не свёрнут. */
+    private isRowVisible(id: string): boolean {
+        for (let parent = this.rowParents.get(id); parent != null; parent = this.rowParents.get(parent)) {
+            if (this.results.isCollapsed(parent)) return false;
+        }
+        return true;
     }
 
     private appendTreeNodes(nodes: readonly SearchTreeNode<IFileGroup>[], parentId: string | undefined): void {
@@ -520,6 +631,23 @@ export class SearchComponent extends Component {
                 });
             }
         }
+    }
+
+    /**
+     * Data-ключи hasSearchResult/viewHasSomeCollapsibleResult — с дебаунсом
+     * (стрим зовёт на каждую строку; скан проекции на каждую был бы O(n²)).
+     */
+    private scheduleResultKeysUpdate(): void {
+        if (this.resultKeysTimer !== null) return;
+        this.resultKeysTimer = setTimeout(() => {
+            this.resultKeysTimer = null;
+            this.refreshResultKeys();
+        }, 100);
+    }
+
+    private refreshResultKeys(): void {
+        this.contextKeys.set("hasSearchResult", this.matchCount > 0);
+        this.contextKeys.set("viewHasSomeCollapsibleResult", this.results.hasVisibleExpandedRow());
     }
 
     private scheduleTreeRebuild(): void {
@@ -549,6 +677,8 @@ export class SearchComponent extends Component {
         const collapsedIds = this.results.getCollapsedIds();
         this.results.clear();
         this.rowMeta.clear();
+        this.rowParents.clear();
+        this.firstRowId = null;
         if (this.viewMode === "list") {
             for (const group of this.groups.values()) {
                 this.appendFileRow(group, group.relPath);

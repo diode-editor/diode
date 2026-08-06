@@ -56,7 +56,11 @@ function makeHarness() {
         dispatcher as unknown as KeybindingDispatcher,
         { isPanelVisible: () => true, isSidebarVisible: () => true } as unknown as LayoutService,
         { getActiveViewletId: () => "search" } as unknown as SidebarService,
-        { containsFocus: () => false, isInputBoxFocused: () => false } as unknown as SearchComponent,
+        {
+            containsFocus: () => false,
+            isInputBoxFocused: () => false,
+            isFirstResultFocused: () => false,
+        } as unknown as SearchComponent,
     );
 
     return {

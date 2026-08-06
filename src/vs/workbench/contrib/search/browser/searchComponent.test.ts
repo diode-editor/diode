@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MockTerminalBackend } from "../../../../../../tuidom/backend/mockTerminalBackend.ts";
+import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import type { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
@@ -542,6 +544,129 @@ describe("SearchComponent", () => {
             stored.set("workbench.search.viewMode", "tree");
             component.restoreViewState();
             expect(keys.get("searchViewMode")).toBe("tree");
+        });
+    });
+
+    describe("Collapse All / Expand All (поэтапный CollapseDeepestExpandedLevel)", () => {
+        const nested = () => [
+            fileMatch("/work/project/src/x/a.ts", [
+                [12, "const ", "foo", " = 1"],
+                [20, "", "foo", ""],
+            ]),
+            fileMatch("/work/project/src/y/b.ts", [[3, "let ", "foo", ""]]),
+        ];
+
+        it("в tree-режиме: первый вызов сворачивает матчи под файлами, второй — всё дерево", () => {
+            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            component.setViewMode("tree");
+            expect(component.results.contentHeight).toBe(8);
+
+            component.collapseDeepestLevel();
+            // Папки раскрыты, файлы свёрнуты: src, x, a.ts, y, b.ts.
+            expect(component.results.contentHeight).toBe(5);
+            expect(component.results.isCollapsed("file:src/x/a.ts")).toBe(true);
+            expect(component.results.isCollapsed("dir:src")).toBe(false);
+
+            component.collapseDeepestLevel();
+            expect(component.results.contentHeight).toBe(1); // только dir:src
+
+            component.collapseDeepestLevel(); // уже всё свёрнуто — no-op
+            expect(component.results.contentHeight).toBe(1);
+        });
+
+        it("в list-режиме сворачивает файл-строки; expandAll возвращает всё", () => {
+            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            expect(component.results.contentHeight).toBe(5);
+
+            component.collapseDeepestLevel();
+            expect(component.results.contentHeight).toBe(2);
+
+            component.expandAll();
+            expect(component.results.contentHeight).toBe(5);
+        });
+
+        it("сетит data-ключи hasSearchResult/viewHasSomeCollapsibleResult (дебаунс)", () => {
+            const keys = new ContextKeyService();
+            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT), { contextKeys: keys });
+            expect(keys.get("hasSearchResult")).toBe(false);
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
+
+            typeQuery(component, "foo");
+            vi.advanceTimersByTime(100); // дебаунс пересчёта ключей
+            expect(keys.get("hasSearchResult")).toBe(true);
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(true);
+
+            component.collapseDeepestLevel(); // list: все файлы свёрнуты — раскрытых не осталось
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
+            expect(keys.get("hasSearchResult")).toBe(true);
+
+            component.expandAll();
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(true);
+        });
+
+        it("сворачивание строки пользователем дёргает пересчёт ключей через onCollapsedChanged", () => {
+            const keys = new ContextKeyService();
+            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT), { contextKeys: keys });
+            typeQuery(component, "foo");
+            component.results.toggleCollapsed("file:src/x/a.ts");
+            component.results.toggleCollapsed("file:src/y/b.ts");
+            vi.advanceTimersByTime(100);
+            expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
+        });
+    });
+
+    describe("кольцо фокуса (Down/Up между инпутами и списком)", () => {
+        function makeFocusable(withDetails: boolean): { component: SearchComponent; app: TestApp } {
+            const component = make(fakeSearch([fileMatch("/work/project/a.ts", [[1, "", "foo", ""]])]).service, fakeExplorer(ROOT));
+            if (withDetails) component.toggleQueryDetails(true, false);
+            const app = TestApp.createWithContent(component.view, new Size(40, 14));
+            return { component, app };
+        }
+
+        it("детали скрыты: query → список; список → query (инпуты за «···» пропускаются)", () => {
+            const { component, app } = makeFocusable(false);
+            component.focus();
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(component.results);
+
+            component.focusSearchFromResults();
+            expect(app.focusedElement?.id).toBe(queryInput(component).id);
+            expect(component.isInputBoxFocused(app.focusedElement)).toBe(true);
+        });
+
+        it("детали раскрыты: query → include → exclude → список; обратно exclude → include → query", () => {
+            const { component, app } = makeFocusable(true);
+            const [query, include, exclude] = component.view.querySelectorAll("InputElement") as InputElement[];
+
+            component.focus();
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(include);
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(exclude);
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(component.results);
+
+            component.focusSearchFromResults();
+            expect(app.focusedElement).toBe(exclude);
+            component.focusPreviousInputBox();
+            expect(app.focusedElement).toBe(include);
+            component.focusPreviousInputBox();
+            expect(app.focusedElement).toBe(query);
+            component.focusPreviousInputBox(); // верх кольца — no-op
+            expect(app.focusedElement).toBe(query);
+        });
+
+        it("isFirstResultFocused: только активный список с курсором на первой строке", () => {
+            const { component } = makeFocusable(false);
+            (component as unknown as { queryInput: InputElement }).queryInput.inputState.value = "foo";
+            typeQuery(component, "foo");
+
+            expect(component.isFirstResultFocused(component.results)).toBe(true); // курсор на file:a.ts
+            component.results.setCursorTo("match:a.ts:0");
+            expect(component.isFirstResultFocused(component.results)).toBe(false);
+            expect(component.isFirstResultFocused(null)).toBe(false);
         });
     });
 

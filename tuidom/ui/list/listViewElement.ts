@@ -263,6 +263,14 @@ export class ListViewElement extends ScrollableElement {
         return [...this.collapsedIds];
     }
 
+    /**
+     * Есть ли в видимой проекции развёрнутая строка с детьми — семантика
+     * VS Code `viewHasSomeCollapsibleResult` (тумблер Collapse All/Expand All).
+     */
+    public hasVisibleExpandedRow(): boolean {
+        return this.ensureProjection().some((row) => this.rowHasChildren(row.id) && !this.collapsedIds.has(row.id));
+    }
+
     public setRowHidden(id: string, hidden: boolean): void {
         const row = this.requireRow(id);
         if (row.hidden === hidden) return;
