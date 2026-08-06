@@ -51,8 +51,16 @@ export interface IGraphLine {
     readonly styles: readonly (string | undefined)[];
 }
 
-/** Цвет линии по коммиту, который её начал (инжектится вызывающим). */
-export type GraphStyleProvider = (commit: IGraphCommit) => string;
+/**
+ * Цвет линии (инжектится вызывающим). `sha` — коммит, в который линия идёт;
+ * `inherited` — цвет линии, которую она продолжает, либо `null` для новой
+ * дорожки (первый коммит списка, второй родитель merge, несвязанный корень).
+ *
+ * Наследование — отклонение от lazygit: там цвет линии берётся у автора
+ * коммита, который её начал, а у нас он живёт на дорожке (модель vscode) — иначе
+ * каждый коммит линейной истории красился бы в свой цвет вместо цвета ветки.
+ */
+export type GraphStyleProvider = (sha: string, inherited: string | null) => string;
 
 /** Пустое дерево git — родитель корневого коммита (`git hash-object -t tree /dev/null`). */
 export const EMPTY_TREE_HASH = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
@@ -144,10 +152,16 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
     // Исходное предположение — коммит ни с чем не связан (бывает только при
     // `git log --all`): такие приклеиваются в дальний конец.
     let pos = maxPos + 1;
+    // Цвет дорожки, которую коммит продолжает: линия, оканчивающаяся на его
+    // колонке, отдаёт свой цвет линии, уходящей к первому родителю.
+    let inherited: string | null = null;
     for (const pipe of currentPipes) {
         if (equalHashes(pipe.toHash, commit.sha)) {
             // Потомок нашёлся — встаём ровно под первым его вхождением.
             pos = pipe.toPos;
+            // Затравочный пайп цвета не несёт: первый коммит списка начинает
+            // дорожку с нуля, а не наследует служебный дефолт.
+            inherited = pipe.fromHash === START_HASH ? null : pipe.style;
             break;
         }
     }
@@ -164,7 +178,7 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
         fromHash: commit.sha,
         toHash,
         kind: PipeKind.Starts,
-        style: getStyle(commit),
+        style: getStyle(commit.sha, inherited),
     });
 
     const traversedSpotsForContinuingPipes = new Set<number>();
@@ -228,7 +242,9 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
                 fromHash: commit.sha,
                 toHash: parent,
                 kind: PipeKind.Starts,
-                style: getStyle(commit),
+                // Влитая ветка — новая дорожка со своим цветом: наследовать ей
+                // не у кого, цвет мержа здесь означал бы «это та же ветка».
+                style: getStyle(parent, null),
             });
             takenSpots.add(availablePos);
         }

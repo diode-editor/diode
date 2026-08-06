@@ -13,7 +13,7 @@ import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { renderCommitGraph } from "../common/commitGraph.ts";
-import { createGraphStyleProvider } from "../common/commitGraphPalette.ts";
+import { createGraphPalette } from "../common/commitGraphPalette.ts";
 
 import { SCM_VIEWLET_ID } from "./changesComponent.ts";
 import type { IScmCommit, ScmGraphService } from "./graphService.ts";
@@ -134,13 +134,14 @@ export class GraphViewComponent extends Component {
         if (this.selectedSha !== null && !commits.some((c) => c.sha === this.selectedSha)) {
             this.selectedSha = null;
         }
-        const getStyle = createGraphStyleProvider(commits);
-        const lines = renderCommitGraph(commits, this.selectedSha, getStyle);
+        const palette = createGraphPalette(commits);
+        const lines = renderCommitGraph(commits, this.selectedSha, palette.styleFor);
         this.graphWidth = graphColumnWidth(lines);
 
         for (let i = 0; i < commits.length; i++) {
             const commit = commits[i];
-            const parts = buildCommitRow(commit, lines[i], this.graphWidth, getStyle(commit));
+            // Цвет бейджей — цвет дорожки коммита, известный уже после укладки.
+            const parts = buildCommitRow(commit, lines[i], this.graphWidth, palette.colorOf(commit.sha));
             this.list.appendRow(parts.root, { label: commit.subject });
             this.rows.set(commit.sha, { commit, graph: parts.graph });
         }
@@ -169,7 +170,7 @@ export class GraphViewComponent extends Component {
         this.selectedSha = selected;
 
         const commits = this.graphService.commits;
-        const lines = renderCommitGraph(commits, selected, createGraphStyleProvider(commits));
+        const lines = renderCommitGraph(commits, selected, createGraphPalette(commits).styleFor);
         for (let i = 0; i < commits.length; i++) {
             const row = this.rows.get(commits[i].sha);
             if (row === undefined) continue;
