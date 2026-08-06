@@ -9,14 +9,12 @@ import type { IScmCommit, IScmCommitRef } from "./graphService.ts";
  * Строки view GRAPH: `[граф][бейджи refs][subject]`. Колонки sha здесь нет —
  * в сайдбаре шириной ~30 хеш вытеснил бы тему коммита, а достать его можно
  * командой Copy Commit ID.
+ *
+ * Графика **не выравнивается в колонку**: у каждой строки своя ширина, и текст
+ * идёт сразу за её последней дорожкой (как в lazygit). Выравнивание по
+ * максимуму превратило бы список в таблицу и в узкой истории с одним-двумя
+ * ветвлениями отодвинуло бы все темы вправо ради пары строк.
  */
-
-/**
- * Потолок ширины графовой колонки. Клетка занимает два знака, так что 14 —
- * это семь дорожек; глубже ветвление в сайдбаре всё равно нечитаемо, а тема
- * коммита важнее.
- */
-export const GRAPH_MAX_WIDTH = 14;
 
 /** Потолок колонки бейджей — дальше они схлопываются в `+N`. */
 export const REFS_MAX_WIDTH = 20;
@@ -37,23 +35,17 @@ export interface IScmGraphRowParts {
 }
 
 /**
- * Ширина графовой колонки — общая для всех строк: у каждой строки она своя,
- * и без выравнивания по максимуму бейджи с темами разъехались бы по вертикали.
+ * Кладёт строку графа в лейбл: её собственный текст плюс цвет каждого символа.
+ *
+ * Ширина строки — `2 * (число дорожек)` и от выделения не зависит: подсветка
+ * меняет символы, но не число клеток. Поэтому лейбл не «прыгает», когда курсор
+ * ходит по списку. Последняя клетка всегда отдаёт пробел-соединитель — он же
+ * служит разделителем до бейджей и темы коммита.
  */
-export function graphColumnWidth(lines: readonly IGraphLine[]): number {
-    let max = 0;
-    for (const line of lines) {
-        if (line.text.length > max) max = line.text.length;
-    }
-    return Math.min(max, GRAPH_MAX_WIDTH);
-}
-
-/** Кладёт строку графа в лейбл: текст по ширине колонки + цвет каждого символа. */
-export function applyGraphLine(label: TextLabelElement, line: IGraphLine, width: number): void {
-    const chars = [...line.text].slice(0, width);
-    label.setText(chars.join("").padEnd(width, " "));
+export function applyGraphLine(label: TextLabelElement, line: IGraphLine): void {
+    label.setText(line.text);
     label.clearCharStyles();
-    for (let i = 0; i < chars.length; i++) {
+    for (let i = 0; i < line.styles.length; i++) {
         const style = line.styles[i];
         if (style !== undefined) label.setCharStyle(i, { fg: style });
     }
@@ -117,22 +109,17 @@ export function buildRefsLabel(
 }
 
 /**
- * Строка коммита: графовая колонка фиксированной ширины, бейджи по содержимому
- * и тема коммита на весь остаток. Id строки — полный sha (идентичность в
- * списке и аргумент команд контекстного меню).
+ * Строка коммита: график по своей ширине, бейджи по содержимому и тема коммита
+ * на весь остаток. Id строки — полный sha (идентичность в списке и аргумент
+ * команд контекстного меню).
  */
-export function buildCommitRow(
-    commit: IScmCommit,
-    line: IGraphLine,
-    graphWidth: number,
-    commitStyle: string,
-): IScmGraphRowParts {
+export function buildCommitRow(commit: IScmCommit, line: IGraphLine, commitStyle: string): IScmGraphRowParts {
     const root = new HFlexElement();
     root.id = commit.sha;
 
     const graph = new TextLabelElement("");
-    applyGraphLine(graph, line, graphWidth);
-    root.addChild(graph, { width: hflexFixed(graphWidth), height: 1 });
+    applyGraphLine(graph, line);
+    root.addChild(graph, { width: hflexFit(), height: 1 });
 
     const refs = buildRefsLabel(commit.refs, commitStyle);
     if (refs.text !== "") {
@@ -152,14 +139,14 @@ export function buildCommitRow(
 
 /**
  * Строка догрузки под последним коммитом — появляется, только пока история
- * продолжается (как «Load More» в vscode). Отступ слева выравнивает её по
- * колонке тем коммитов.
+ * продолжается (как «Load More» в vscode). `indent` — ширина графики последней
+ * строки: так надпись встаёт ровно под её темой, а не липнет к краю.
  */
-export function buildLoadMoreRow(graphWidth: number): HFlexElement {
+export function buildLoadMoreRow(indent: number): HFlexElement {
     const root = new HFlexElement();
     root.id = LOAD_MORE_ROW_ID;
-    root.addChild(new TextLabelElement("".padEnd(graphWidth, " ")), {
-        width: hflexFixed(graphWidth),
+    root.addChild(new TextLabelElement("".padEnd(indent, " ")), {
+        width: hflexFixed(indent),
         height: 1,
     });
     const label = new TextLabelElement(LOAD_MORE_LABEL);

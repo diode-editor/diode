@@ -94,6 +94,27 @@ describe("GraphViewComponent", () => {
         expect(component.list.getCursorElement()?.id).toBe(SHA_B);
     });
 
+    it("тема коммита идёт сразу за графикой своей строки, а не выравнивается в таблицу", () => {
+        const { component, commands } = make();
+        // Сверху линейный коммит (одна дорожка), ниже merge разводит вторую —
+        // ширина графики у строк разная.
+        const SHA_D = "d".repeat(40);
+        publish(commands, [
+            { sha: SHA_A, subject: "tip", parents: [SHA_B] },
+            { sha: SHA_B, subject: "merge", parents: [SHA_C, SHA_D] },
+            { sha: SHA_D, subject: "feature", parents: [SHA_C] },
+            { sha: SHA_C, subject: "base" },
+        ]);
+
+        const lines = renderElement(component.view, 40, 6, { themeVars: true }).screenToString().split("\n");
+        const columnOf = (subject: string): number => lines.find((l) => l.includes(subject))!.indexOf(subject);
+
+        // У «tip» одна дорожка — его тема левее, чем у строк с ветвлением.
+        expect(columnOf("tip")).toBeLessThan(columnOf("merge"));
+        // Строки одной ширины по-прежнему совпадают — это не хаос, а своя ширина.
+        expect(columnOf("base")).toBe(columnOf("merge"));
+    });
+
     it("merge-коммит рисуется своим символом и ветвлением", () => {
         const { component, commands } = make();
         publish(commands, [

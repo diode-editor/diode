@@ -46,8 +46,13 @@ function makeRepo(): { repoDir: string } {
     // Merge без fast-forward — узел ◎ с двумя родителями.
     git(repoDir, "merge", "-q", "--no-ff", "feature", "-m", "merge: ветка");
 
-    // Правка на диске — секция Source Control не пустует в кадре.
+    // Коммит поверх merge: у его строки одна дорожка против двух ниже — в кадре
+    // видно, что тема липнет к своей точке, а не выравнивается по самой широкой.
     writeFileSync(appFile, "export const version = 3;\n");
+    git(repoDir, "commit", "-aqm", "chore: полировка");
+
+    // Правка на диске — секция Source Control не пустует в кадре.
+    writeFileSync(appFile, "export const version = 4;\n");
     return { repoDir };
 }
 

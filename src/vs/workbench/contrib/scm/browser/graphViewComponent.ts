@@ -18,13 +18,7 @@ import { createGraphPalette } from "../common/commitGraphPalette.ts";
 import { SCM_VIEWLET_ID } from "./changesComponent.ts";
 import type { IScmCommit, ScmGraphService } from "./graphService.ts";
 import { ScmGraphServiceDIToken } from "./graphService.ts";
-import {
-    applyGraphLine,
-    buildCommitRow,
-    buildLoadMoreRow,
-    graphColumnWidth,
-    LOAD_MORE_ROW_ID,
-} from "./scmGraphRows.ts";
+import { applyGraphLine, buildCommitRow, buildLoadMoreRow, LOAD_MORE_ROW_ID } from "./scmGraphRows.ts";
 
 /** Id view-секции GRAPH внутри контейнера Source Control (см. {@link ViewsService}). */
 export const SCM_GRAPH_VIEW_ID = "workbench.scm.graph";
@@ -68,7 +62,6 @@ export class GraphViewComponent extends Component {
     public readonly view: PaddingContainerElement;
 
     private readonly rows = new Map<string, IGraphRow>();
-    private graphWidth = 0;
     /** Коммит, чьи линии подсвечены, — курсор списка. */
     private selectedSha: string | null = null;
 
@@ -136,19 +129,19 @@ export class GraphViewComponent extends Component {
         }
         const palette = createGraphPalette(commits);
         const lines = renderCommitGraph(commits, this.selectedSha, palette.styleFor);
-        this.graphWidth = graphColumnWidth(lines);
 
         for (let i = 0; i < commits.length; i++) {
             const commit = commits[i];
             // Цвет бейджей — цвет дорожки коммита, известный уже после укладки.
-            const parts = buildCommitRow(commit, lines[i], this.graphWidth, palette.colorOf(commit.sha));
+            const parts = buildCommitRow(commit, lines[i], palette.colorOf(commit.sha));
             this.list.appendRow(parts.root, { label: commit.subject });
             this.rows.set(commit.sha, { commit, graph: parts.graph });
         }
 
         const loadMore = this.graphService.hasMore;
         if (loadMore) {
-            this.list.appendRow(buildLoadMoreRow(this.graphWidth), { label: "Load More" });
+            // Отступ — по графике последней строки: надпись встаёт под её темой.
+            this.list.appendRow(buildLoadMoreRow(lines.at(-1)?.text.length ?? 0), { label: "Load More" });
         }
 
         // Курсор возвращаем только на строку, которая в списке действительно
@@ -174,7 +167,7 @@ export class GraphViewComponent extends Component {
         for (let i = 0; i < commits.length; i++) {
             const row = this.rows.get(commits[i].sha);
             if (row === undefined) continue;
-            applyGraphLine(row.graph, lines[i], this.graphWidth);
+            applyGraphLine(row.graph, lines[i]);
         }
     }
 

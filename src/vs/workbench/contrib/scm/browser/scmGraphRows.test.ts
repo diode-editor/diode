@@ -10,8 +10,6 @@ import {
     buildCommitRow,
     buildLoadMoreRow,
     buildRefsLabel,
-    GRAPH_MAX_WIDTH,
-    graphColumnWidth,
     LOAD_MORE_ROW_ID,
     REFS_MAX_WIDTH,
 } from "./scmGraphRows.ts";
@@ -38,38 +36,22 @@ function ref(name: string, kind: IScmCommitRef["kind"], current = false): IScmCo
     return { name, kind, current };
 }
 
-describe("graphColumnWidth", () => {
-    it("берёт максимум по строкам — колонки должны совпасть по вертикали", () => {
-        expect(graphColumnWidth([line("○ "), line("◎─╮ "), line("│ ○ ")])).toBe(4);
-    });
-
-    it("зажимается потолком: глубокое ветвление не съедает сайдбар", () => {
-        expect(graphColumnWidth([line("x".repeat(40))])).toBe(GRAPH_MAX_WIDTH);
-    });
-
-    it("пустой граф — нулевая колонка", () => {
-        expect(graphColumnWidth([])).toBe(0);
-    });
-});
-
 describe("applyGraphLine", () => {
-    it("добивает строку до ширины колонки", () => {
+    it("кладёт строку как есть — своей ширины, без добивки до общей колонки", () => {
         const label = new TextLabelElement("");
-        applyGraphLine(label, line("○ "), 6);
-        expect(label.getText()).toBe("○     ");
-    });
+        applyGraphLine(label, line("\u25cb "));
+        expect(label.getText()).toBe("\u25cb ");
 
-    it("обрезает строку по ширине колонки", () => {
-        const label = new TextLabelElement("");
-        applyGraphLine(label, line("◎─╮ │ │ "), 4);
-        expect(label.getText()).toBe("◎─╮ ");
+        // Соседняя строка с двумя дорожками длиннее — и остаётся длиннее.
+        applyGraphLine(label, line("\u2502 \u25cb "));
+        expect(label.getText()).toBe("\u2502 \u25cb ");
     });
 
     it("перерисовка не копит стили от прошлой строки", () => {
         const label = new TextLabelElement("");
-        applyGraphLine(label, { text: "○─╯", styles: ["a", "b", "c"] }, 3);
-        applyGraphLine(label, { text: "○", styles: [undefined] }, 3);
-        expect(label.getText()).toBe("○  ");
+        applyGraphLine(label, { text: "\u25cb\u2500\u256f", styles: ["a", "b", "c"] });
+        applyGraphLine(label, { text: "\u25cb", styles: [undefined] });
+        expect(label.getText()).toBe("\u25cb");
     });
 });
 
@@ -117,18 +99,17 @@ describe("buildRefsLabel", () => {
 
 describe("buildCommitRow", () => {
     it("id строки — полный sha, тема коммита попадает в строку", () => {
-        const parts = buildCommitRow(commit({ sha: "a".repeat(40), subject: "feat: панель" }), line("○ "), 2, COMMIT_STYLE);
+        const parts = buildCommitRow(commit({ sha: "a".repeat(40), subject: "feat: панель" }), line("○ "), COMMIT_STYLE);
         expect(parts.root.id).toBe("a".repeat(40));
         expect(parts.graph.getText()).toBe("○ ");
         expect(parts.subject.getText()).toBe("feat: панель");
     });
 
     it("колонка бейджей появляется только при наличии ref'ов", () => {
-        const bare = buildCommitRow(commit({ sha: "a".repeat(40) }), line("○ "), 2, COMMIT_STYLE);
+        const bare = buildCommitRow(commit({ sha: "a".repeat(40) }), line("○ "), COMMIT_STYLE);
         const tagged = buildCommitRow(
             commit({ sha: "b".repeat(40), refs: [ref("main", "head", true)] }),
             line("○ "),
-            2,
             COMMIT_STYLE,
         );
         expect(tagged.root.getChildren().length).toBe(bare.root.getChildren().length + 1);
