@@ -137,12 +137,34 @@ describe("SearchComponent", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("renders the input placeholders before any query (заголовок SEARCH рисует pane-header контейнера)", () => {
+    it("по умолчанию — строка запроса и «···», include/exclude скрыты (заголовок SEARCH рисует pane-header)", () => {
         const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
         const screen = render(component).screenToString();
         expect(screen).toContain("Search");
+        expect(screen).toContain("···");
+        expect(screen).not.toContain("files to include");
+        expect(screen).not.toContain("files to exclude");
+    });
+
+    it("toggleQueryDetails раскрывает include/exclude с пустой строкой между ними и скрывает обратно", () => {
+        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        component.toggleQueryDetails();
+        expect(component.isQueryDetailsShown()).toBe(true);
+        const screen = render(component).screenToString();
         expect(screen).toContain("files to include");
         expect(screen).toContain("files to exclude");
+
+        component.toggleQueryDetails();
+        expect(component.isQueryDetailsShown()).toBe(false);
+        expect(render(component).screenToString()).not.toContain("files to include");
+    });
+
+    it("инпуты не прижаты к краям: слева и справа от строки запроса по колонке отступа", () => {
+        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        const lines = render(component).screenToString().split("\n");
+        const queryLine = lines.find((line) => line.includes("Search"))!;
+        expect(queryLine.startsWith(" ")).toBe(true);
+        expect(queryLine.endsWith(" ")).toBe(true);
     });
 
     it("streams results grouped by file with a count", () => {
@@ -224,6 +246,7 @@ describe("SearchComponent", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
         const component = make(service, fakeExplorer(ROOT));
+        component.toggleQueryDetails(true, false); // include/exclude в дереве только раскрытыми
         const [, include, exclude] = component.view.querySelectorAll("InputElement") as InputElement[];
         const [caseBtn, wordBtn] = component.view.querySelectorAll("ButtonElement") as ButtonElement[];
         include.inputState.value = "*.ts, *.js";
@@ -384,7 +407,7 @@ describe("SearchComponent", () => {
             expect(stored.size).toBe(0);
         });
 
-        it("restoreViewMode reads the store without writing back", () => {
+        it("restoreViewState reads the store without writing back", () => {
             const { service: state, stored } = fakeState();
             stored.set("workbench.search.viewMode", "flat");
             const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT), { state });
@@ -393,12 +416,49 @@ describe("SearchComponent", () => {
             stored.set("workbench.search.viewMode", "flat");
             const writes = vi.spyOn(state, "store");
 
-            component.restoreViewMode();
+            component.restoreViewState();
             expect(component.getViewMode()).toBe("flat");
             expect(writes).not.toHaveBeenCalled();
 
-            component.restoreViewMode(); // повтор — no-op
+            component.restoreViewState(); // повтор — no-op
             expect(component.getViewMode()).toBe("flat");
+        });
+
+        it("toggleQueryDetails: write-through, фокус в include при раскрытии и в query при скрытии", () => {
+            const { service: state, stored } = fakeState();
+            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
+            const inputs = () => component.view.querySelectorAll("InputElement") as InputElement[];
+
+            const queryFocus = vi.spyOn(inputs()[0], "focus");
+            component.toggleQueryDetails();
+            expect(stored.get("workbench.search.queryDetailsExpanded")).toBe(true);
+            const includeFocus = vi.spyOn(inputs()[1], "focus");
+            expect(includeFocus).not.toHaveBeenCalled();
+
+            component.toggleQueryDetails(true); // повтор show=true — только фокус
+            expect(includeFocus).toHaveBeenCalled();
+
+            component.toggleQueryDetails();
+            expect(stored.get("workbench.search.queryDetailsExpanded")).toBe(false);
+            expect(queryFocus).toHaveBeenCalled();
+        });
+
+        it("restoreViewState раскрывает детали из стора или при непустых полях, без write-through", () => {
+            const { service: state, stored } = fakeState();
+            stored.set("workbench.search.queryDetailsExpanded", true);
+            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
+            expect(component.isQueryDetailsShown()).toBe(true);
+
+            // Скрыли; в сторе false. Непустой exclude заставляет restore раскрыть.
+            component.toggleQueryDetails(false, false);
+            const exclude = component.view.querySelectorAll("InputElement");
+            expect(exclude).toHaveLength(1); // остался только query
+            const writes = vi.spyOn(state, "store");
+            const excludeField = (component as unknown as { excludeInput: InputElement }).excludeInput;
+            excludeField.inputState.value = "dist";
+            component.restoreViewState();
+            expect(component.isQueryDetailsShown()).toBe(true);
+            expect(writes).not.toHaveBeenCalled();
         });
 
         it("сетит data-ключ searchViewMode при создании, переключении и restore", () => {
@@ -412,9 +472,24 @@ describe("SearchComponent", () => {
 
             component.setViewMode("tree");
             stored.set("workbench.search.viewMode", "flat");
-            component.restoreViewMode();
+            component.restoreViewState();
             expect(keys.get("searchViewMode")).toBe("flat");
         });
+    });
+
+    it("containsFocus/isInputBoxFocused — по корню view и трём инпутам", () => {
+        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        component.toggleQueryDetails(true, false);
+        const [query, include] = component.view.querySelectorAll("InputElement") as InputElement[];
+
+        expect(component.containsFocus(query)).toBe(true);
+        expect(component.containsFocus(component.results)).toBe(true);
+        expect(component.containsFocus(null)).toBe(false);
+
+        expect(component.isInputBoxFocused(query)).toBe(true);
+        expect(component.isInputBoxFocused(include)).toBe(true);
+        expect(component.isInputBoxFocused(component.results)).toBe(false);
+        expect(component.isInputBoxFocused(null)).toBe(false);
     });
 
     it("регистрирует свою view в merged-контейнере Search при создании", () => {

@@ -169,7 +169,12 @@ import {
     listFocusPageDownAction,
     listFocusPageUpAction,
 } from "./listActions.ts";
-import { searchViewAsListAction, searchViewAsTreeAction, showSearchAction } from "./searchActions.ts";
+import {
+    searchViewAsListAction,
+    searchViewAsTreeAction,
+    showSearchAction,
+    toggleSearchDetailsAction,
+} from "./searchActions.ts";
 import { closeActiveEditorAction, nextEditorInGroupAction, previousEditorInGroupAction } from "./tabActions.ts";
 import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whitespaceActions.ts";
 
@@ -345,6 +350,7 @@ export const builtinActions: readonly CommandAction[] = [
     showSearchAction,
     searchViewAsTreeAction,
     searchViewAsListAction,
+    toggleSearchDetailsAction,
     revealActiveFileInExplorerAction,
     increaseSidebarWidthAction,
     decreaseSidebarWidthAction,

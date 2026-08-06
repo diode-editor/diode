@@ -3,7 +3,9 @@ import { INHERITED_BG, INHERITED_FG } from "../../../../../../tuidom/dom/styles/
 import { RenderContext, TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
 import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
+import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
+import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
 import { VStackElement } from "../../../../../../tuidom/ui/layout/vStackElement.ts";
 import { ListViewElement } from "../../../../../../tuidom/ui/list/listViewElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
@@ -19,7 +21,7 @@ import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
-import { SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
+import { SEARCH_QUERY_DETAILS_STATE, SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type {
     IFileMatch,
     ISearchHandle,
@@ -67,13 +69,13 @@ export const SearchRevealTargetDIToken = token<ISearchRevealTarget>("SearchRevea
 
 /** Debounce before a query/toggle change spawns ripgrep (avoids a process per keystroke). */
 const SEARCH_DEBOUNCE_MS = 150;
-/** Fixed rows of the header block above the results list. */
-const HEADER_HEIGHT = 4;
 
 /** Toggle button glyphs (TUI analogues of VS Code's case/word/regex icons). */
 const CASE_GLYPH = "Aa";
 const WORD_GLYPH = "\\b";
 const REGEX_GLYPH = ".*";
+/** Кнопка под строкой запроса — тумблер блока include/exclude (VS Code: Toggle Search Details). */
+const DETAILS_GLYPH = "···";
 
 /** Одна файл-группа накопленной модели результатов (порядок — порядок стрима). */
 interface IFileGroup {
@@ -93,9 +95,10 @@ type RowMeta =
       };
 
 /**
- * Pins a fixed-height header on top and gives the remaining height to the
+ * Pins a natural-height header on top and gives the remaining height to the
  * results list. VStack can't do this (its rows are all fixed height), so the
- * Search view uses this tiny two-slot vertical layout instead.
+ * Search view uses this tiny two-slot vertical layout instead. Высота хедера —
+ * интринсик (сумма его строк): блок include/exclude скрывается и раскрывается.
  */
 class SearchViewElement extends TUIElement {
     public constructor(
@@ -109,7 +112,7 @@ class SearchViewElement extends TUIElement {
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        const headerHeight = Math.min(size.height, HEADER_HEIGHT);
+        const headerHeight = Math.min(size.height, this.header.getMaxIntrinsicHeight(size.width));
         const resultsHeight = Math.max(0, size.height - headerHeight);
 
         this.layoutChild(this.header, 0, 0, BoxConstraints.tight(new Size(size.width, headerHeight)));
@@ -147,8 +150,14 @@ export class SearchComponent extends Component {
     private readonly caseButton = new ButtonElement(CASE_GLYPH);
     private readonly wordButton = new ButtonElement(WORD_GLYPH);
     private readonly regexButton = new ButtonElement(REGEX_GLYPH);
+    private readonly detailsButton = new ButtonElement(DETAILS_GLYPH);
     private readonly countLabel = new TextLabelElement("");
     private readonly gaps: TextLabelElement[] = [];
+    private readonly headerStack = new VStackElement();
+    private readonly queryRow: HFlexElement;
+    private readonly detailsRow: HFlexElement;
+    /** Пустая строка-зазор между include и exclude в раскрытых деталях. */
+    private readonly detailsGapRow = new FillerElement();
     /**
      * Результаты — виртуализирующий список; публичен для команд list-навигации и
      * тестов. Typeahead выключен: в панели поиска набор букв — это уточнение
@@ -161,6 +170,8 @@ export class SearchComponent extends Component {
     private wholeWord = false;
     private regex = false;
 
+    /** Раскрыт ли блок include/exclude (VS Code: query details). */
+    private detailsExpanded: boolean;
     private viewMode: SearchViewMode;
     private groups = new Map<string, IFileGroup>();
     private rowMeta = new Map<string, RowMeta>();
@@ -183,6 +194,7 @@ export class SearchComponent extends Component {
         super();
 
         this.viewMode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
+        this.detailsExpanded = this.stateService.get(SEARCH_QUERY_DETAILS_STATE);
         // Data-ключ для toggled в меню «⋯»: ContextMenuService не дёргает
         // updateContextKeys, поэтому ключ сетится в момент изменения (прецедент
         // activeOutputChannel).
@@ -213,6 +225,10 @@ export class SearchComponent extends Component {
             this.regex = !this.regex;
             this.onToggleChanged();
         });
+        this.configureToggle(this.detailsButton, () => {
+            this.toggleQueryDetails();
+        });
+        this.detailsButton.setChecked(this.detailsExpanded);
 
         this.results.id = "searchResults";
         this.results.onActivate = (element) => {
@@ -221,13 +237,14 @@ export class SearchComponent extends Component {
         };
         this.scrollBars = new ScrollBarDecorator(this.results);
 
-        const header = new VStackElement();
-        header.addChild(this.buildQueryRow(), { width: "fill", height: 1 });
-        header.addChild(this.includeInput, { width: "fill", height: 1 });
-        header.addChild(this.excludeInput, { width: "fill", height: 1 });
-        header.addChild(this.countLabel, { width: "fill", height: 1 });
+        this.queryRow = this.buildQueryRow();
+        this.detailsRow = this.buildDetailsRow();
+        this.rebuildHeader();
+        // Инпуты и счётчик не прижаты к краям панели — отступы по колонке слева
+        // и справа (прецедент: ChangesComponent паддит список изменений).
+        const paddedHeader = new PaddingContainerElement(this.headerStack, { left: 1, right: 1 });
 
-        this.root = new SearchViewElement(header, this.scrollBars);
+        this.root = new SearchViewElement(paddedHeader, this.scrollBars);
         this.root.id = "searchView";
         this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.countLabel.setColors("descriptionForeground", INHERITED_BG);
@@ -262,6 +279,19 @@ export class SearchComponent extends Component {
         this.queryInput.focus();
     }
 
+    /** Активный элемент внутри тела view поиска (when-ключ `searchViewletFocus`). */
+    public containsFocus(active: TUIElement | null): boolean {
+        for (let element = active; element !== null; element = element.getParent()) {
+            if (element === this.root) return true;
+        }
+        return false;
+    }
+
+    /** Активный элемент — один из инпутов поиска (when-ключ `searchInputBoxFocus`). */
+    public isInputBoxFocused(active: TUIElement | null): boolean {
+        return active === this.queryInput || active === this.includeInput || active === this.excludeInput;
+    }
+
     public getViewMode(): SearchViewMode {
         return this.viewMode;
     }
@@ -275,13 +305,79 @@ export class SearchComponent extends Component {
         this.rebuildRows();
     }
 
-    /** Восстанавливает вид из workspace-стора (зовётся после `openWorkspace`, без write-through). */
-    public restoreViewMode(): void {
+    /**
+     * Восстанавливает состояние view из workspace-стора: режим дерево/плоско и
+     * раскрытость блока include/exclude. Зовётся после `openWorkspace`, без
+     * write-through. Детали раскрываются и при непустых полях (паритет VS Code:
+     * непустые паттерны не должны прятаться).
+     */
+    public restoreViewState(): void {
         const mode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
-        if (mode === this.viewMode) return;
-        this.viewMode = mode;
-        this.contextKeys.set("searchViewMode", mode);
-        this.rebuildRows();
+        if (mode !== this.viewMode) {
+            this.viewMode = mode;
+            this.contextKeys.set("searchViewMode", mode);
+            this.rebuildRows();
+        }
+        const expanded =
+            this.stateService.get(SEARCH_QUERY_DETAILS_STATE) ||
+            this.includeInput.inputState.value !== "" ||
+            this.excludeInput.inputState.value !== "";
+        if (expanded !== this.detailsExpanded) {
+            this.detailsExpanded = expanded;
+            this.detailsButton.setChecked(expanded);
+            this.rebuildHeader();
+        }
+    }
+
+    /** Раскрыт ли блок include/exclude — кольцо фокуса пропускает скрытые инпуты. */
+    public isQueryDetailsShown(): boolean {
+        return this.detailsExpanded;
+    }
+
+    /**
+     * Тумблер блока include/exclude (VS Code: Toggle Search Details,
+     * Ctrl+Shift+J). Раскрытие уводит фокус в include, скрытие возвращает его в
+     * строку запроса; `moveFocus: false` — только смена раскрытости (restore).
+     */
+    public toggleQueryDetails(show?: boolean, moveFocus = true): void {
+        const next = show ?? !this.detailsExpanded;
+        if (next !== this.detailsExpanded) {
+            this.detailsExpanded = next;
+            this.stateService.store(SEARCH_QUERY_DETAILS_STATE, next);
+            this.detailsButton.setChecked(next);
+            this.rebuildHeader();
+        }
+        if (!moveFocus) return;
+        if (next) {
+            this.includeInput.focus();
+        } else {
+            this.queryInput.focus();
+        }
+    }
+
+    /**
+     * Пересобирает строки хедера под текущую раскрытость деталей. Строка «···»
+     * (правый край) — одновременно вертикальный зазор между строкой запроса и
+     * остальным блоком; между include и exclude — пустая строка-Filler.
+     */
+    private rebuildHeader(): void {
+        const rows: TUIElement[] = [this.queryRow, this.detailsRow];
+        if (this.detailsExpanded) {
+            rows.push(this.includeInput, this.detailsGapRow, this.excludeInput);
+        }
+        rows.push(this.countLabel);
+        for (const row of rows) {
+            row.layoutStyle = { width: "fill", height: 1 };
+        }
+        this.headerStack.replaceChildren(rows);
+        this.headerStack.markDirty();
+    }
+
+    private buildDetailsRow(): HFlexElement {
+        const row = new HFlexElement();
+        row.addChild(new FillerElement(), { width: hflexFill(), height: 1 });
+        row.addChild(this.detailsButton, { width: hflexFit(), height: 1 });
+        return row;
     }
 
     private buildQueryRow(): HFlexElement {

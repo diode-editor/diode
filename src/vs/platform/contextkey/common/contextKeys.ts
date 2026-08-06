@@ -102,6 +102,10 @@ export interface ContextKeyTypes {
     // notificationCenterVisible: boolean;
     // notificationToastsVisible: boolean;
     searchViewletVisible: boolean;
+    /** Фокус внутри тела вьюлета Search (инпуты или список результатов). */
+    searchViewletFocus: boolean;
+    /** Фокус в одном из инпутов панели поиска (query/include/exclude). */
+    searchInputBoxFocus: boolean;
     /** Режим отображения результатов поиска: "tree" | "flat" (данные, не фокус — сетит SearchComponent). */
     searchViewMode: string;
     scmViewletVisible: boolean;
@@ -254,6 +258,8 @@ export const allContextKeys: ContextKey[] = [
     // "notificationCenterVisible",
     // "notificationToastsVisible",
     "searchViewletVisible",
+    "searchViewletFocus",
+    "searchInputBoxFocus",
     "searchViewMode",
     "scmViewletVisible",
     "scmInputFocus",

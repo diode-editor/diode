@@ -68,6 +68,13 @@ export const SEARCH_VIEW_MODE_STATE: IStateDescriptor<SearchViewMode> = {
     default: "tree",
 };
 
+/** Раскрыт ли блок «files to include/exclude» панели поиска (Toggle Search Details). */
+export const SEARCH_QUERY_DETAILS_STATE: IStateDescriptor<boolean> = {
+    key: "workbench.search.queryDetailsExpanded",
+    scope: "workspace",
+    default: false,
+};
+
 /** Режим списка изменений Source Control: плоско (как VS Code list) или дерево папок. */
 export type ScmViewMode = "tree" | "flat";
 

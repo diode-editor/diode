@@ -410,9 +410,10 @@ export class WorkbenchComponent extends Component {
         // Открыть per-project стор состояния для этой папки (переключение флашит
         // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.
         this.workbenchState.openWorkspace(dirPath);
-        // Режим дерево/плоско поиска — из workspace-стора; строго после openWorkspace,
-        // иначе прочитается global-стор.
-        this.searchComponent.restoreViewMode();
+        // Состояние view поиска (режим дерево/плоско, раскрытость include/exclude)
+        // — из workspace-стора; строго после openWorkspace, иначе прочитается
+        // global-стор.
+        this.searchComponent.restoreViewState();
         this.changesComponent.restoreViewMode();
         // Черновик сообщения коммита — из workspace-стора.
         this.scmInputComponent.restoreDraft();

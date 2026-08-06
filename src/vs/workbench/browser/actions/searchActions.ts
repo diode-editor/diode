@@ -51,6 +51,21 @@ export const searchViewAsTreeAction: CommandAction = {
     },
 };
 
+/**
+ * Тумблер блока «files to include/exclude» под строкой запроса (VS Code:
+ * Toggle Search Details, та же Ctrl+Shift+J). Кнопка «···» в панели — та же
+ * команда мышью.
+ */
+export const toggleSearchDetailsAction: CommandAction = {
+    id: "workbench.action.search.toggleQueryDetails",
+    title: "Search: Toggle Search Details",
+    when: "searchViewletFocus",
+    keybinding: parseKeybinding("ctrl+shift+j"),
+    run(accessor) {
+        accessor.get(SearchComponentDIToken).toggleQueryDetails();
+    },
+};
+
 export const searchViewAsListAction: CommandAction = {
     id: "search.action.viewAsList",
     title: "Search: View as List",
