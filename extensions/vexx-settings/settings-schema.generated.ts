@@ -27,6 +27,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {"key":"git.gutter.enabled","type":"boolean","default":true,"description":"Show dirty-diff change bars in the editor gutter."},
     {"key":"git.path","type":"string","default":"","description":"Path to a git binary to prefer (its directory is prepended to PATH). Empty uses git from PATH."},
     {"key":"git.refreshDebounce","type":"number","default":200,"description":"Debounce, in milliseconds, before recomputing git status and diff after a change."},
+    {"key":"scm.graph.pageSize","type":"number","default":50,"description":"The number of commits to load in the Source Control Graph view at a time (clamped to 1..1000)."},
     {"key":"terminal.capabilities","type":"object","default":{},"description":"Force individual terminal capabilities on or off; empty uses detection."},
     {"key":"terminal.customModes","type":"object","default":{},"description":"Declare custom manual-only terminal modes usable in when-clauses."},
     {"key":"terminal.modes","type":"object","default":{},"description":"Force terminal modes on or off; wins over auto-detection."},

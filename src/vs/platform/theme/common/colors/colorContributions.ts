@@ -6,6 +6,7 @@ import { controlColors } from "./controlColors.ts";
 import { diffColors } from "./diffColors.ts";
 import { editorColors } from "./editorColors.ts";
 import { gitColors } from "./gitColors.ts";
+import { scmGraphColors } from "./scmGraphColors.ts";
 import { workbenchColors } from "./workbenchColors.ts";
 
 /**
@@ -33,6 +34,7 @@ export const COLOR_CONTRIBUTIONS = {
     ...editorColors,
     ...workbenchColors,
     ...gitColors,
+    ...scmGraphColors,
     ...diffColors,
 } as const satisfies ColorContribution;
 

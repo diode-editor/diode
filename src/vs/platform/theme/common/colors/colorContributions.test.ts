@@ -9,6 +9,7 @@ import { controlColors } from "./controlColors.ts";
 import { diffColors } from "./diffColors.ts";
 import { editorColors } from "./editorColors.ts";
 import { gitColors } from "./gitColors.ts";
+import { scmGraphColors } from "./scmGraphColors.ts";
 import { workbenchColors } from "./workbenchColors.ts";
 
 /**
@@ -66,7 +67,15 @@ describe("default color registry coverage", () => {
     }
 
     it("group files declare disjoint key sets (a spread would silently override a duplicate)", () => {
-        const groups = [baseColors, controlColors, editorColors, diffColors, workbenchColors, gitColors];
+        const groups = [
+            baseColors,
+            controlColors,
+            editorColors,
+            diffColors,
+            workbenchColors,
+            gitColors,
+            scmGraphColors,
+        ];
         const totalKeys = groups.reduce((sum, group) => sum + Object.keys(group).length, 0);
         expect(Object.keys(COLOR_CONTRIBUTIONS)).toHaveLength(totalKeys);
     });

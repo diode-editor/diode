@@ -26,6 +26,7 @@ import { FOR_EACH_REF_FORMAT, parseForEachRefZ, parseStashListZ, STASH_LIST_FORM
 import type { IRepoStatePayload } from "./lib/repoState.ts";
 import { parseBranchHeaders, parseRemotes } from "./lib/repoState.ts";
 import { remoteAddArgs, remoteRemoveArgs, tagCreateArgs, tagDeleteArgs } from "./lib/remoteArgs.ts";
+import { resetArgs, revertArgs } from "./lib/resetArgs.ts";
 import { stashApplyArgs, stashDropArgs, stashPopArgs, stashPushArgs } from "./lib/stashArgs.ts";
 import { fetchArgs, pullArgs, pushArgs } from "./lib/syncArgs.ts";
 import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
@@ -78,8 +79,13 @@ const PUBLISH_REPO_STATE_COMMAND = "vexx.scm.publishRepoState";
 /** Read-only запрос данных для пикеров ядра: refs / stashes / remotes. */
 const QUERY_COMMAND = "vexx.git.query";
 
-/** Сколько последних коммитов публикуем ядру для view Graph. */
-const LOG_COMMIT_LIMIT = 10;
+/**
+ * Страница истории для view Graph — сколько коммитов публикуем за раз. Как в
+ * vscode: дефолт 50, настройка `scm.graph.pageSize`, потолок 1000; дальше
+ * история догружается по «Load More» (операция `logLoadMore`).
+ */
+const LOG_PAGE_SIZE_DEFAULT = 50;
+const LOG_PAGE_SIZE_MAX = 1000;
 
 /**
  * Команды-транспорты мутаций staging (регистрируем мы, зовёт ядро; user-facing
@@ -118,6 +124,14 @@ class GitDecorations {
     private readonly fileChangeEmitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     /** Ставится при регистрации провайдера; зовётся из watcher'а `.git`. */
     private onGitDirChanged: (() => void) | undefined;
+
+    /**
+     * Сколько коммитов сейчас показывает граф; 0 — «страница по умолчанию»
+     * (значение настройки). Растёт по операции `logLoadMore`.
+     */
+    private logLimit = 0;
+    /** Upstream текущей ветки — второй ref истории графа (режим `auto` vscode). */
+    private upstreamRef: string | null = null;
 
     private refreshTimer: ReturnType<typeof setTimeout> | undefined;
     private gitDirWatcher: fs.FSWatcher | undefined;
@@ -310,10 +324,14 @@ class GitDecorations {
         }, this.config().debounce);
     }
 
+    /**
+     * Порядок важен: состояние репозитория обновляется до лога — из него
+     * приезжает upstream, который {@link refreshLog} добавляет вторым ref'ом.
+     */
     private async refreshAll(): Promise<void> {
         await this.refreshStatus();
-        await this.refreshLog();
         await this.refreshRepoState();
+        await this.refreshLog();
     }
 
     /**
@@ -333,6 +351,7 @@ class GitDecorations {
             remotes: remotes === null ? [] : parseRemotes(remotes.stdout),
             state: this.detectRepoOpState(),
         };
+        this.upstreamRef = payload.upstream;
         void Promise.resolve(vscode.commands.executeCommand(PUBLISH_REPO_STATE_COMMAND, payload)).catch(
             /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
             () => undefined,
@@ -349,17 +368,55 @@ class GitDecorations {
         return "idle";
     }
 
+    /** Страница истории из настройки `scm.graph.pageSize`, зажатая в 1..1000. */
+    private logPageSize(): number {
+        const raw = vscode.workspace.getConfiguration("scm").get<number>("graph.pageSize", LOG_PAGE_SIZE_DEFAULT);
+        const n = typeof raw === "number" ? raw : Number(raw);
+        if (!Number.isFinite(n)) return LOG_PAGE_SIZE_DEFAULT;
+        return Math.min(Math.max(Math.floor(n), 1), LOG_PAGE_SIZE_MAX);
+    }
+
+    /** Текущий предел истории: накопленный по «Load More» либо одна страница. */
+    private currentLogLimit(): number {
+        return this.logLimit > 0 ? this.logLimit : this.logPageSize();
+    }
+
     /**
-     * Публикует ядру последние коммиты (view Graph). Деградация — пустой
+     * Ref'ы истории графа — режим `auto` vscode: текущая ветка плюс её upstream,
+     * чтобы в графе были видны и ещё не влитые коммиты remote.
+     * `--ignore-missing` страхует от исчезнувшего upstream-ref'а: без него
+     * `git log` вышел бы ненулевым и граф опустел бы целиком.
+     */
+    private logRefArgs(): string[] {
+        const refs = ["HEAD"];
+        if (this.upstreamRef !== null && this.upstreamRef !== "") refs.push(this.upstreamRef);
+        return ["--ignore-missing", ...refs];
+    }
+
+    /**
+     * Публикует ядру страницу истории (view Graph). Деградация — пустой
      * список: git недоступен или пустой репозиторий без HEAD (git log выходит
      * ненулевым). Best-effort, как {@link publishChanges}: повторную идентичную
      * публикацию гасит ядро, ошибку канала глотаем.
+     *
+     * Просим на коммит больше предела: лишний в граф не идёт, он лишь отвечает
+     * на вопрос «есть ли что грузить дальше» — по нему ядро рисует строку
+     * «Load More…».
      */
     private async refreshLog(): Promise<void> {
         if (this.isDisposed()) return;
-        const result = await this.git(["log", "-n", String(LOG_COMMIT_LIMIT), ...LOG_FORMAT_ARGS]);
-        const commits = result === null ? [] : parseLogZ(result.stdout);
-        void Promise.resolve(vscode.commands.executeCommand(PUBLISH_LOG_COMMAND, commits)).catch(
+        const limit = this.currentLogLimit();
+        const result = await this.git([
+            "log",
+            "-n",
+            String(limit + 1),
+            ...LOG_FORMAT_ARGS,
+            ...this.logRefArgs(),
+        ]);
+        const page = result === null ? [] : parseLogZ(result.stdout);
+        const hasMore = page.length > limit;
+        const payload = { commits: hasMore ? page.slice(0, limit) : page, hasMore };
+        void Promise.resolve(vscode.commands.executeCommand(PUBLISH_LOG_COMMAND, payload)).catch(
             /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
             () => undefined,
         );
@@ -579,6 +636,18 @@ class GitDecorations {
                     break;
                 case "cherryPick":
                     result = await this.runBuilt(cherryPickArgs(opParams));
+                    break;
+                case "reset":
+                    result = await this.runBuilt(resetArgs(opParams));
+                    break;
+                case "revert":
+                    result = await this.runBuilt(revertArgs(opParams));
+                    break;
+                case "logLoadMore":
+                    // Не мутация, но идёт общей очередью: следующая страница
+                    // уедет ядру тем же refreshAll в конце операции.
+                    this.logLimit = this.currentLogLimit() + this.logPageSize();
+                    result = { ok: true };
                     break;
                 case "pushDelete":
                     result = await this.runBuilt(pushDeleteArgs(opParams), { network: true });
