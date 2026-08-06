@@ -8,13 +8,16 @@ import { VStackElement } from "../../../../../../tuidom/ui/layout/vStackElement.
 import { ListViewElement } from "../../../../../../tuidom/ui/list/listViewElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
-import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { Component } from "../../../browser/component.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type {
@@ -38,8 +41,11 @@ import {
 
 export const SearchComponentDIToken = token<SearchComponent>("SearchComponent");
 
-/** Id вьюлета Search в сайдбаре (совпадает с `view.id` и id команды `workbench.view.search`). */
+/** Id вьюлета Search в сайдбаре (он же id merged-контейнера, см. `workbench.view.search`). */
 export const SEARCH_VIEWLET_ID = "search";
+
+/** Id единственной view merged-контейнера Search (контекст меню «⋯», конвенция SCM). */
+export const SEARCH_VIEW_ID = "workbench.search.results";
 
 /** Редактор, в котором раскрывается позиция результата поиска. */
 export interface ISearchRevealEditor {
@@ -120,9 +126,9 @@ class SearchViewElement extends TUIElement {
  * `tree` view mode file groups are collapsible; the `flat` mode shows the same
  * grouped rows without collapsing (`search.action.viewAsTree`/`viewAsList`,
  * persisted per workspace). Enter/double-click on a match opens the file at the
- * match position via the {@link ISearchRevealTarget} seam. Framing mirrors
- * {@link import("../../files/browser/explorerComponent.ts").ExplorerComponent}
- * (TitledPanel + `sideBar.*` colors).
+ * match position via the {@link ISearchRevealTarget} seam. Living в сайдбаре как
+ * merged одно-view контейнер ({@link ViewsService}, mergeSingleView): заголовок
+ * `SEARCH` с меню «⋯» рисует PaneHeaderElement, тело — {@link SearchViewElement}.
  */
 export class SearchComponent extends Component {
     public static dependencies = [
@@ -130,9 +136,11 @@ export class SearchComponent extends Component {
         ExplorerServiceDIToken,
         SearchRevealTargetDIToken,
         StateServiceDIToken,
+        ContextKeyServiceDIToken,
+        ViewsServiceDIToken,
     ] as const;
 
-    private readonly root: TitledPanelElement;
+    private readonly root: SearchViewElement;
     private readonly queryInput = new InputElement();
     private readonly includeInput = new InputElement();
     private readonly excludeInput = new InputElement();
@@ -169,10 +177,16 @@ export class SearchComponent extends Component {
         private readonly explorerService: ExplorerService,
         private readonly revealTarget: ISearchRevealTarget,
         private readonly stateService: IStateService,
+        private readonly contextKeys: ContextKeyService,
+        viewsService: ViewsService,
     ) {
         super();
 
         this.viewMode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
+        // Data-ключ для toggled в меню «⋯»: ContextMenuService не дёргает
+        // updateContextKeys, поэтому ключ сетится в момент изменения (прецедент
+        // activeOutputChannel).
+        this.contextKeys.set("searchViewMode", this.viewMode);
 
         this.queryInput.placeholder = "Search";
         this.includeInput.placeholder = "files to include";
@@ -213,11 +227,24 @@ export class SearchComponent extends Component {
         header.addChild(this.excludeInput, { width: "fill", height: 1 });
         header.addChild(this.countLabel, { width: "fill", height: 1 });
 
-        this.root = new TitledPanelElement("  SEARCH", new SearchViewElement(header, this.scrollBars));
-        this.root.id = "search";
+        this.root = new SearchViewElement(header, this.scrollBars);
+        this.root.id = "searchView";
         this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.countLabel.setColors("descriptionForeground", INHERITED_BG);
         for (const gap of this.gaps) gap.setColors(INHERITED_FG, INHERITED_BG);
+
+        // Тело единственной view merged-контейнера Search: заголовок секции —
+        // заголовок вьюлета, «⋯»-меню приходит от PaneHeaderElement.
+        viewsService.registerView({
+            id: SEARCH_VIEW_ID,
+            containerId: SEARCH_VIEWLET_ID,
+            title: "SEARCH",
+            order: 10,
+            body: this.root,
+            focus: () => {
+                this.focus();
+            },
+        });
 
         this.register({
             dispose: () => {
@@ -243,6 +270,7 @@ export class SearchComponent extends Component {
     public setViewMode(mode: SearchViewMode): void {
         if (mode === this.viewMode) return;
         this.viewMode = mode;
+        this.contextKeys.set("searchViewMode", mode);
         this.stateService.store(SEARCH_VIEW_MODE_STATE, mode);
         this.rebuildRows();
     }
@@ -252,6 +280,7 @@ export class SearchComponent extends Component {
         const mode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
         if (mode === this.viewMode) return;
         this.viewMode = mode;
+        this.contextKeys.set("searchViewMode", mode);
         this.rebuildRows();
     }
 

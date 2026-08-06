@@ -34,6 +34,8 @@ export interface CommandMenuPlacement {
     readonly when?: string;
     /** Императивная видимость по контексту открытия (см. `IMenuContribution.visible`). */
     readonly visible?: (context: unknown) => boolean;
+    /** When-выражение «пункт сейчас включён» — галочка в иконной колонке (см. `IMenuContribution.toggled`). */
+    readonly toggled?: string;
     readonly group?: string;
     readonly order?: number;
     readonly icon?: string;

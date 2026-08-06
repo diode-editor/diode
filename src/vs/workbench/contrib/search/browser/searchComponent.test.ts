@@ -6,6 +6,7 @@ import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonEle
 import type { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
@@ -17,6 +18,7 @@ import type {
 } from "../../../services/search/common/textSearch.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import type { ExplorerService } from "../../files/browser/explorerService.ts";
 
 import { type ISearchRevealTarget, SearchComponent } from "./searchComponent.ts";
@@ -95,12 +97,22 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     return { service, stored };
 }
 
+/** Реестр view не участвует в юнит-тестах компонента — merged-контейнер собирает workbench. */
+const NULL_VIEWS_SERVICE = { registerView: () => {} } as unknown as ViewsService;
+
 function make(
     search: ITextSearchService,
     explorer: ExplorerService,
-    opts: { reveal?: ISearchRevealTarget; state?: IStateService } = {},
+    opts: { reveal?: ISearchRevealTarget; state?: IStateService; contextKeys?: ContextKeyService } = {},
 ): SearchComponent {
-    return new SearchComponent(search, explorer, opts.reveal ?? fakeReveal().target, opts.state ?? NULL_STATE_SERVICE);
+    return new SearchComponent(
+        search,
+        explorer,
+        opts.reveal ?? fakeReveal().target,
+        opts.state ?? NULL_STATE_SERVICE,
+        opts.contextKeys ?? new ContextKeyService(),
+        NULL_VIEWS_SERVICE,
+    );
 }
 
 function render(component: SearchComponent, w = 40, h = 14): MockTerminalBackend {
@@ -125,10 +137,12 @@ describe("SearchComponent", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("renders the SEARCH title and placeholders before any query", () => {
+    it("renders the input placeholders before any query (заголовок SEARCH рисует pane-header контейнера)", () => {
         const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
         const screen = render(component).screenToString();
-        expect(screen).toContain("SEARCH");
+        expect(screen).toContain("Search");
+        expect(screen).toContain("files to include");
+        expect(screen).toContain("files to exclude");
     });
 
     it("streams results grouped by file with a count", () => {
@@ -386,14 +400,50 @@ describe("SearchComponent", () => {
             component.restoreViewMode(); // повтор — no-op
             expect(component.getViewMode()).toBe("flat");
         });
+
+        it("сетит data-ключ searchViewMode при создании, переключении и restore", () => {
+            const keys = new ContextKeyService();
+            const { service: state, stored } = fakeState();
+            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { contextKeys: keys, state });
+            expect(keys.get("searchViewMode")).toBe("tree");
+
+            component.setViewMode("flat");
+            expect(keys.get("searchViewMode")).toBe("flat");
+
+            component.setViewMode("tree");
+            stored.set("workbench.search.viewMode", "flat");
+            component.restoreViewMode();
+            expect(keys.get("searchViewMode")).toBe("flat");
+        });
     });
 
-    it("theme change restyles existing file and match rows in place", () => {
+    it("регистрирует свою view в merged-контейнере Search при создании", () => {
+        const registered: { id: string; containerId: string; focus: () => void }[] = [];
+        const viewsService = {
+            registerView: (d: { id: string; containerId: string; focus: () => void }) => registered.push(d),
+        } as unknown as ViewsService;
         const component = new SearchComponent(
-            fakeSearch([fileMatch("/work/project/a.ts", [[1, "x ", "foo", ""]])]).service,
+            fakeSearch([]).service,
             fakeExplorer(ROOT),
             fakeReveal().target,
             NULL_STATE_SERVICE,
+            new ContextKeyService(),
+            viewsService,
+        );
+        expect(registered).toHaveLength(1);
+        expect(registered[0].id).toBe("workbench.search.results");
+        expect(registered[0].containerId).toBe("search");
+
+        // focus дескриптора ведёт в строку запроса (фокус вьюлета).
+        const spy = vi.spyOn(queryInput(component), "focus");
+        registered[0].focus();
+        expect(spy).toHaveBeenCalled();
+    });
+
+    it("theme change restyles existing file and match rows in place", () => {
+        const component = make(
+            fakeSearch([fileMatch("/work/project/a.ts", [[1, "x ", "foo", ""]])]).service,
+            fakeExplorer(ROOT),
         );
         typeQuery(component, "foo");
         const before = render(component).screenToString();

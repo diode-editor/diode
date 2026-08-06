@@ -388,9 +388,15 @@ export class WorkbenchComponent extends Component {
         this.sidebarService.registerViewlet(EXPLORER_VIEWLET_ID, this.explorerComponent.view, () => {
             this.explorerService.focus();
         });
-        this.sidebarService.registerViewlet(SEARCH_VIEWLET_ID, this.searchComponent.view, () => {
-            this.searchComponent.focus();
+        // Search — merged одно-view контейнер: заголовок секции сливается с
+        // заголовком вьюлета, «⋯»-меню из коробки; view записалась в реестр из
+        // конструктора SearchComponent.
+        this.viewsService.registerContainer({
+            id: SEARCH_VIEWLET_ID,
+            title: "SEARCH",
+            mergeSingleView: true,
         });
+        this.viewsService.attachContainer(SEARCH_VIEWLET_ID);
         // Source Control — контейнер view-секций (SOURCE CONTROL, GRAPH): сборку
         // и регистрацию вьюлета берёт на себя ViewsService; view записались в
         // реестр из конструкторов компонентов. Контролы коммита — внутри тела

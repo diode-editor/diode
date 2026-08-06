@@ -102,6 +102,8 @@ export interface ContextKeyTypes {
     // notificationCenterVisible: boolean;
     // notificationToastsVisible: boolean;
     searchViewletVisible: boolean;
+    /** Режим отображения результатов поиска: "tree" | "flat" (данные, не фокус — сетит SearchComponent). */
+    searchViewMode: string;
     scmViewletVisible: boolean;
     /** Фокус в commit input box вьюлета Source Control (Vexx; VS Code: scmInputIsInFocus). */
     scmInputFocus: boolean;
@@ -252,6 +254,7 @@ export const allContextKeys: ContextKey[] = [
     // "notificationCenterVisible",
     // "notificationToastsVisible",
     "searchViewletVisible",
+    "searchViewMode",
     "scmViewletVisible",
     "scmInputFocus",
     "gitHasRepo",
