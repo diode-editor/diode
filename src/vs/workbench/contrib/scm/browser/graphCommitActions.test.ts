@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { ScmGraphMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ClipboardDIToken } from "../../../common/coreTokens.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
@@ -160,15 +161,41 @@ describe("команды коммита в графе", () => {
         expect(h.notices.join()).toContain("cherry pick resulted in conflicts");
     });
 
-    it("Revert кладёт обратный коммит, прочие ошибки показывает как есть", async () => {
+    it("Cherry Pick: прочие ошибки показывает как есть, успех молчит", async () => {
+        const failing = makeHarness();
+        failing.setOpResults([{ ok: false, kind: "git-error", message: "bad object" }]);
+        await graphCherryPickAction.run(failing.accessor, SHA);
+        expect(failing.notices.join()).toContain("bad object");
+
+        const ok = makeHarness();
+        await graphCherryPickAction.run(ok.accessor, SHA);
+        expect(ok.notices).toEqual([]);
+    });
+
+    it("Revert кладёт обратный коммит; конфликт и прочие ошибки — разные notice", async () => {
         const h = makeHarness();
         await graphRevertAction.run(h.accessor, SHA);
         expect(h.ops).toEqual([{ op: "revert", params: { ref: SHA } }]);
+        expect(h.notices).toEqual([]);
+
+        const conflicting = makeHarness();
+        conflicting.setOpResults([{ ok: false, kind: "conflict", message: "raw stderr" }]);
+        await graphRevertAction.run(conflicting.accessor, SHA);
+        expect(conflicting.notices.join()).toContain("revert resulted in conflicts");
 
         const failing = makeHarness();
         failing.setOpResults([{ ok: false, kind: "git-error", message: "bad object" }]);
         await graphRevertAction.run(failing.accessor, SHA);
         expect(failing.notices.join()).toContain("bad object");
+    });
+
+    it("без git-расширения операции молчат: notice показывать не о чем", async () => {
+        // `runGitOp` отдаёт null, когда моста нет, — вызывающий не должен падать.
+        const h = makeHarness();
+        h.setOpResults([null]);
+        await graphCherryPickAction.run(h.accessor, SHA);
+        await graphRevertAction.run(h.accessor, SHA);
+        expect(h.notices).toEqual([]);
     });
 
     it("Reset предлагает три режима, mixed идёт без подтверждения", async () => {
@@ -211,6 +238,14 @@ describe("команды коммита в графе", () => {
         expect(h.dialogs).toEqual([]);
     });
 
+    it("нераспознанный ответ пикера до git не доезжает", async () => {
+        const h = makeHarness();
+        h.setPicks(["Rebase"]);
+        await graphResetAction.run(h.accessor, SHA);
+        expect(h.ops).toEqual([]);
+        expect(h.dialogs).toEqual([]);
+    });
+
     it("Copy Commit ID и Copy Commit Message кладут значения в буфер", async () => {
         const h = makeHarness();
         await graphCopyCommitIdAction.run(h.accessor, SHA);
@@ -233,6 +268,18 @@ describe("команды коммита в графе", () => {
         for (const action of GRAPH_COMMIT_ACTIONS) {
             expect(action.menus, action.id).toHaveLength(1);
             expect(action.menus![0].args, action.id).toBeDefined();
+        }
+    });
+
+    it("аргумент резолвится из контекста меню: sha всем, кроме Copy Commit Message", () => {
+        const context: ScmGraphMenuContext = { sha: SHA, shortSha: SHA.slice(0, 8), subject: "feat: панель" };
+        const argOf = (action: (typeof GRAPH_COMMIT_ACTIONS)[number]): unknown =>
+            action.menus![0].args!(context)[0];
+
+        expect(argOf(graphCopyCommitMessageAction)).toBe("feat: панель");
+        for (const action of GRAPH_COMMIT_ACTIONS) {
+            if (action === graphCopyCommitMessageAction) continue;
+            expect(argOf(action), action.id).toBe(SHA);
         }
     });
 });

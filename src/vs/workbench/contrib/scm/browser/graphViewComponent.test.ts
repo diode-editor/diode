@@ -20,7 +20,7 @@ interface ISetup {
     component: GraphViewComponent;
     commands: CommandRegistry;
     registered: IViewDescriptor[];
-    shownMenus: { menuId: unknown; menuContext: unknown }[];
+    shownMenus: { menuId: unknown; menuContext: unknown; owner: unknown; anchor: unknown }[];
 }
 
 function make(): ISetup {
@@ -32,10 +32,21 @@ function make(): ISetup {
             registered.push(descriptor);
         },
     } as unknown as ViewsService;
-    const shownMenus: { menuId: unknown; menuContext: unknown }[] = [];
+    const shownMenus: { menuId: unknown; menuContext: unknown; owner: unknown; anchor: unknown }[] = [];
     const contextMenuService = {
-        showContextMenu: (delegate: { menuId?: unknown; menuContext?: unknown }) => {
-            shownMenus.push({ menuId: delegate.menuId, menuContext: delegate.menuContext });
+        // Делегат резолвят при открытии — фейк дёргает его так же, как настоящий сервис.
+        showContextMenu: (delegate: {
+            menuId?: unknown;
+            menuContext?: unknown;
+            getOwner: () => unknown;
+            getAnchor: () => unknown;
+        }) => {
+            shownMenus.push({
+                menuId: delegate.menuId,
+                menuContext: delegate.menuContext,
+                owner: delegate.getOwner(),
+                anchor: delegate.getAnchor(),
+            });
         },
     } as unknown as ContextMenuService;
     const component = new GraphViewComponent(graphService, viewsService, contextMenuService, commands);
@@ -189,6 +200,9 @@ describe("GraphViewComponent", () => {
             shortSha: SHA_A.slice(0, 8),
             subject: "feat: панель",
         } satisfies ScmGraphMenuContext);
+        // Владелец меню — список, якорь — точка клика: по ним сервис его позиционирует.
+        expect(shownMenus[0].owner).toBe(component.list);
+        expect(shownMenus[0].anchor).toEqual({ screenX: 5, screenY: 5 });
     });
 
     it("контекстное меню на строке Load More не открывается", () => {
@@ -217,6 +231,38 @@ describe("GraphViewComponent", () => {
         component.list.setCursorTo(SHA_A);
         expect(component.list.getCursorElement()?.id).toBe(SHA_A);
         expect(rowBefore?.id).toBe(SHA_A);
+    });
+
+    it("выделенный коммит, ушедший из страницы, подсветку не залипляет", () => {
+        const { component, commands } = make();
+        publish(commands, [
+            { sha: SHA_A, subject: "first", parents: [SHA_B] },
+            { sha: SHA_B, subject: "second" },
+        ]);
+        component.list.setCursorTo(SHA_A);
+        component.list.onSelect?.(component.list.getCursorElement()!);
+
+        // Новая страница без прежнего выделения — например после reset или checkout.
+        publish(commands, [{ sha: SHA_C, subject: "third" }]);
+        expect(component.list.rowCount).toBe(1);
+
+        // Выделение сброшено: тот же коммит, вернувшись, подсветку не унаследует.
+        publish(commands, [
+            { sha: SHA_A, subject: "first", parents: [SHA_B] },
+            { sha: SHA_B, subject: "second" },
+        ]);
+        expect(component.list.rowCount).toBe(2);
+    });
+
+    it("курсор на исчезнувшем коммите не переезжает на строку догрузки", () => {
+        const { component, commands } = make();
+        publish(commands, [{ sha: SHA_A, subject: "first" }], true);
+        component.list.setCursorTo(SHA_A);
+
+        // Страница целиком сменилась (checkout другой ветки), история всё ещё длиннее.
+        publish(commands, [{ sha: SHA_C, subject: "third" }], true);
+        expect(component.list.rowCount).toBe(2);
+        expect(component.list.getCursorElement()?.id).not.toBe(LOAD_MORE_ROW_ID);
     });
 
     it("перепубликация пересобирает строки, курсор переживает её по sha", () => {

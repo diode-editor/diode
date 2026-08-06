@@ -88,9 +88,10 @@ export function parseDecorations(raw: string): ILogRef[] {
             continue;
         }
 
+        // Пустым имя тут быть не может: токен уже обрезан, поэтому не кончается
+        // пробелом, а голый `HEAD` отсеян выше.
         const current = token.startsWith("HEAD -> ");
         const name = current ? token.slice("HEAD -> ".length) : token;
-        if (name === "") continue;
         // Remote-ветку от локальной отличаем по слэшу: `%D` печатает короткие
         // имена, и `origin/main` — единственная форма с разделителем.
         const kind = !current && name.includes("/") ? "remote" : "head";

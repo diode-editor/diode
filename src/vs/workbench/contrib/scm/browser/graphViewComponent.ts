@@ -32,11 +32,12 @@ export const GRAPH_LOAD_MORE_COMMAND = "scm.graph.loadMore";
 
 export const GraphViewComponentDIToken = token<GraphViewComponent>("GraphViewComponent");
 
-/** Одна строка списка: её коммит и графовый лейбл (перекрашивается при выделении). */
-interface IGraphRow {
-    readonly commit: IScmCommit;
-    readonly graph: TextLabelElement;
-}
+/**
+ * Графовые лейблы строк в порядке коммитов — их перекрашивает смена выделения.
+ * Параллельны снимку сервиса, поэтому индексируются им же, а не sha: один и тот
+ * же коммит `git log` печатает дважды, когда в него приходят две ветки.
+ */
+type GraphLabels = TextLabelElement[];
 
 /**
  * View-секция **GRAPH** контейнера Source Control: история репозитория с
@@ -61,7 +62,9 @@ export class GraphViewComponent extends Component {
     /** Тело view-секции GRAPH — вкидывается в контейнер через ViewsService. */
     public readonly view: PaddingContainerElement;
 
-    private readonly rows = new Map<string, IGraphRow>();
+    private graphLabels: GraphLabels = [];
+    /** sha → коммит: цель команд контекстного меню. */
+    private readonly commitsBySha = new Map<string, IScmCommit>();
     /** Коммит, чьи линии подсвечены, — курсор списка. */
     private selectedSha: string | null = null;
 
@@ -88,7 +91,8 @@ export class GraphViewComponent extends Component {
         });
 
         this.list.onSelect = (element) => {
-            this.setSelected(element.id ?? null);
+            // Список не принимает строки без id — здесь он гарантированно есть.
+            this.setSelected(element.id!);
         };
         this.list.onActivate = (element) => {
             // Строка догрузки — единственная активируемая: у коммитов действия
@@ -96,9 +100,9 @@ export class GraphViewComponent extends Component {
             if (element.id === LOAD_MORE_ROW_ID) void this.commands.execute(GRAPH_LOAD_MORE_COMMAND);
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
-            const row = this.rows.get(element.id ?? "");
-            if (row === undefined) return;
-            this.showContextMenu(row.commit, screenX, screenY);
+            const commit = this.commitsBySha.get(element.id!);
+            if (commit === undefined) return;
+            this.showContextMenu(commit, screenX, screenY);
         };
 
         this.register(
@@ -120,34 +124,36 @@ export class GraphViewComponent extends Component {
     private rebuild(): void {
         const cursorId = this.list.getCursorElement()?.id;
         this.list.clear();
-        this.rows.clear();
+        this.commitsBySha.clear();
+        this.graphLabels = [];
 
         const commits = this.graphService.commits;
         // Коммит выделения мог уехать из страницы — иначе подсветка залипнет.
-        if (this.selectedSha !== null && !commits.some((c) => c.sha === this.selectedSha)) {
-            this.selectedSha = null;
-        }
+        if (!commits.some((c) => c.sha === this.selectedSha)) this.selectedSha = null;
         const palette = createGraphPalette(commits);
         const lines = renderCommitGraph(commits, this.selectedSha, palette.styleFor);
 
+        let lastGraphWidth = 0;
         for (let i = 0; i < commits.length; i++) {
             const commit = commits[i];
             // Цвет бейджей — цвет дорожки коммита, известный уже после укладки.
             const parts = buildCommitRow(commit, lines[i], palette.colorOf(commit.sha));
             this.list.appendRow(parts.root, { label: commit.subject });
-            this.rows.set(commit.sha, { commit, graph: parts.graph });
+            this.commitsBySha.set(commit.sha, commit);
+            this.graphLabels.push(parts.graph);
+            lastGraphWidth = lines[i].text.length;
         }
 
         const loadMore = this.graphService.hasMore;
         if (loadMore) {
             // Отступ — по графике последней строки: надпись встаёт под её темой.
-            this.list.appendRow(buildLoadMoreRow(lines.at(-1)?.text.length ?? 0), { label: "Load More" });
+            this.list.appendRow(buildLoadMoreRow(lastGraphWidth), { label: "Load More" });
         }
 
         // Курсор возвращаем только на строку, которая в списке действительно
         // есть: догрузка последней страницы убирает «Load More…» из-под него.
         if (cursorId === undefined) return;
-        if (this.rows.has(cursorId) || (loadMore && cursorId === LOAD_MORE_ROW_ID)) {
+        if (this.commitsBySha.has(cursorId) || (loadMore && cursorId === LOAD_MORE_ROW_ID)) {
             this.list.setCursorTo(cursorId);
         }
     }
@@ -157,17 +163,16 @@ export class GraphViewComponent extends Component {
      * только графовые лейблы, и точечный `markDirty` внутри них оставляет
      * остальной кадр нетронутым.
      */
-    private setSelected(sha: string | null): void {
-        const selected = sha !== null && this.rows.has(sha) ? sha : null;
+    private setSelected(sha: string): void {
+        // Курсор на строке «Load More…» подсветку снимает: коммита за ней нет.
+        const selected = this.commitsBySha.has(sha) ? sha : null;
         if (selected === this.selectedSha) return;
         this.selectedSha = selected;
 
         const commits = this.graphService.commits;
         const lines = renderCommitGraph(commits, selected, createGraphPalette(commits).styleFor);
-        for (let i = 0; i < commits.length; i++) {
-            const row = this.rows.get(commits[i].sha);
-            if (row === undefined) continue;
-            applyGraphLine(row.graph, lines[i]);
+        for (let i = 0; i < this.graphLabels.length; i++) {
+            applyGraphLine(this.graphLabels[i], lines[i]);
         }
     }
 

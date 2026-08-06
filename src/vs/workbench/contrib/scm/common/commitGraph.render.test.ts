@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { IPipe } from "./commitGraph.ts";
-import { GRAPH_HIGHLIGHT_STYLE, PipeKind, renderPipeSet } from "./commitGraph.ts";
+import { getBoxDrawingChars, GRAPH_HIGHLIGHT_STYLE, PipeKind, renderPipeSet } from "./commitGraph.ts";
 
 /**
  * Кейсы `TestRenderPipeSet` из lazygit — они проверяют не только символы, но и
@@ -241,6 +241,19 @@ describe("renderPipeSet — символы и цвета", () => {
         );
     });
 
+    it("клетка, которой не коснулась ни одна линия, остаётся пустой", () => {
+        // Дырка между дорожками: колонка 1 не занята и не пересечена.
+        check(
+            [
+                pipe(0, 0, "a1", "a2", PipeKind.Continues, RED),
+                pipe(2, 2, "c1", "c2", PipeKind.Continues, GREEN),
+            ],
+            null,
+            "○   │",
+            [RED, undefined, undefined, undefined, GREEN],
+        );
+    });
+
     it("без выделенного коммита подсветки нет", () => {
         const line = renderPipeSet(
             [
@@ -252,5 +265,37 @@ describe("renderPipeSet — символы и цвета", () => {
         );
         expect(line.text).toBe("○ ");
         expect(line.styles).toEqual([GREEN, undefined]);
+    });
+});
+
+describe("getBoxDrawingChars", () => {
+    /** Таблица lazygit целиком: `up down left right` → узел + соединитель справа. */
+    const TABLE: readonly [boolean, boolean, boolean, boolean, string, string][] = [
+        [true, true, true, true, "│", "─"],
+        [true, true, true, false, "│", " "],
+        [true, true, false, true, "│", "─"],
+        [true, true, false, false, "│", " "],
+        [true, false, true, true, "┴", "─"],
+        [true, false, true, false, "╯", " "],
+        [true, false, false, true, "╰", "─"],
+        [true, false, false, false, "╵", " "],
+        [false, true, true, true, "┬", "─"],
+        [false, true, true, false, "╮", " "],
+        [false, true, false, true, "╭", "─"],
+        [false, true, false, false, "╷", " "],
+        [false, false, true, true, "─", "─"],
+        [false, false, true, false, "─", " "],
+        [false, false, false, true, "╶", "─"],
+        [false, false, false, false, " ", " "],
+    ];
+
+    it("покрывает все 16 комбинаций направлений", () => {
+        expect(TABLE).toHaveLength(16);
+        for (const [up, down, left, right, box, connector] of TABLE) {
+            expect(getBoxDrawingChars(up, down, left, right), `${up} ${down} ${left} ${right}`).toEqual([
+                box,
+                connector,
+            ]);
+        }
     });
 });

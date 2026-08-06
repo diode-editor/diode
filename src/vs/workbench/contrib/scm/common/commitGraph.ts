@@ -342,8 +342,13 @@ class Cell {
     }
 }
 
-/** Символы клетки по её четырём направлениям: узел/угол и соединитель справа. */
-function getBoxDrawingChars(up: boolean, down: boolean, left: boolean, right: boolean): [string, string] {
+/**
+ * Символы клетки по её четырём направлениям: узел/угол и соединитель справа.
+ * Экспортируется ради теста: таблица исчерпывающая (16 комбинаций), а фикстуры
+ * lazygit задевают не все — проверять её целиком проще и честнее, чем городить
+ * pipe-набор под каждую редкую комбинацию.
+ */
+export function getBoxDrawingChars(up: boolean, down: boolean, left: boolean, right: boolean): [string, string] {
     if (up && down && left && right) return ["│", "─"];
     if (up && down && left && !right) return ["│", " "];
     if (up && down && !left && right) return ["│", "─"];

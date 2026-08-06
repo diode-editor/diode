@@ -58,6 +58,15 @@ describe("createGraphPalette", () => {
     it("colorOf до укладки — дефолтный цвет", () => {
         expect(createGraphPalette([commit("a")]).colorOf("a")).toBe(GRAPH_DEFAULT_STYLE);
     });
+
+    it("повторный sha в странице берётся по первому вхождению", () => {
+        // `git log` печатает коммит дважды, когда в него приходят две ветки.
+        const palette = createGraphPalette([
+            commit("a", [{ kind: "head", current: true }]),
+            commit("a", []),
+        ]);
+        expect(palette.styleFor("a", null)).toBe(GRAPH_CURRENT_REF_STYLE);
+    });
 });
 
 describe("цвета на уложенном графе", () => {
