@@ -1,8 +1,9 @@
 name: Nightly
 
-# Ночная сборка по принципу "плавающего тега" (как в yazi):
-# тег `nightly` всегда указывает на свежий коммит, поэтому URL на
-# скачивание артефактов остаётся неизменным.
+# Ночная сборка на статическом теге `nightly`: релиз обновляется подменой
+# ассетов (upload --clobber), сам тег не двигается — иначе force-push тега
+# ломал бы `git fetch` у всех чекаутов («would clobber existing tag»).
+# URL на скачивание артефактов при этом остаётся неизменным.
 on:
   schedule:
     # Каждую ночь в 03:00 UTC.
@@ -47,27 +48,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           short_sha="${{ needs.prepare.outputs.short_sha }}"
+          title="Nightly ($short_sha)"
+          notes="Ночная сборка из коммита $short_sha ($(date -u +'%Y-%m-%d %H:%M') UTC)."
 
-          # Удаляем предыдущий nightly-релиз вместе с его тегом.
-          # `|| true` — на случай самого первого запуска, когда релиза ещё нет.
-          gh release delete nightly --cleanup-tag --yes || true
-
-          # Настраиваем git, чтобы можно было создать аннотированный тег.
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Создаём аннотированный тег. В отличие от легковесного тега (который
-          # gh создаёт сам и датирует датой коммита), у аннотированного тега
-          # дата — это момент его создания, т.е. время запуска workflow.
-          # Благодаря этому nightly-релиз всегда оказывается наверху списка,
-          # даже если новых коммитов не было.
-          git tag -fa nightly -m "Nightly build tag"
-          git push origin refs/tags/nightly --force
-
-          # Создаём prerelease. Без `--target` — gh подхватит уже отправленный
-          # аннотированный тег `nightly` с актуальной датой.
-          gh release create nightly \
-            --prerelease \
-            --title "Nightly ($short_sha)" \
-            --notes "Ночная сборка из коммита $short_sha ($(date -u +'%Y-%m-%d %H:%M') UTC)." \
-            artifacts/*
+          if gh release view nightly >/dev/null 2>&1; then
+            # Обычный путь: релиз есть — обновляем метаданные и подменяем ассеты.
+            # Тег не трогаем, поэтому fetch у чекаутов больше не конфликтует.
+            gh release edit nightly --prerelease --title "$title" --notes "$notes"
+            gh release upload nightly artifacts/* --clobber
+          else
+            # Первый запуск (или релиз удалили руками): gh создаст релиз на
+            # существующем теге nightly, а если тега нет — лёгкий тег на HEAD.
+            gh release create nightly \
+              --prerelease \
+              --title "$title" \
+              --notes "$notes" \
+              artifacts/*
+          fi
