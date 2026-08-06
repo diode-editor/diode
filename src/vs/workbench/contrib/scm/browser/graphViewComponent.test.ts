@@ -1,22 +1,29 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
-import type { IViewDescriptor } from "../../../browser/parts/views/viewsService.ts";
+import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import type { ScmGraphMenuContext } from "../../../browser/actions/menuContexts.ts";
+import type { IViewDescriptor, ViewsService } from "../../../browser/parts/views/viewsService.ts";
 
 import { SCM_VIEWLET_ID } from "./changesComponent.ts";
 import { PUBLISH_LOG_COMMAND, ScmGraphService } from "./graphService.ts";
-import { GraphViewComponent, SCM_GRAPH_VIEW_ID } from "./graphViewComponent.ts";
+import { GRAPH_LOAD_MORE_COMMAND, GraphViewComponent, SCM_GRAPH_VIEW_ID } from "./graphViewComponent.ts";
+import { LOAD_MORE_LABEL, LOAD_MORE_ROW_ID } from "./scmGraphRows.ts";
 
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
+const SHA_C = "c".repeat(40);
 
-function make(): {
+interface ISetup {
     component: GraphViewComponent;
     commands: CommandRegistry;
     registered: IViewDescriptor[];
-} {
+    shownMenus: { menuId: unknown; menuContext: unknown }[];
+}
+
+function make(): ISetup {
     const commands = new CommandRegistry();
     const graphService = new ScmGraphService(commands);
     const registered: IViewDescriptor[] = [];
@@ -25,15 +32,36 @@ function make(): {
             registered.push(descriptor);
         },
     } as unknown as ViewsService;
-    const component = new GraphViewComponent(graphService, viewsService);
-    return { component, commands, registered };
+    const shownMenus: { menuId: unknown; menuContext: unknown }[] = [];
+    const contextMenuService = {
+        showContextMenu: (delegate: { menuId?: unknown; menuContext?: unknown }) => {
+            shownMenus.push({ menuId: delegate.menuId, menuContext: delegate.menuContext });
+        },
+    } as unknown as ContextMenuService;
+    const component = new GraphViewComponent(graphService, viewsService, contextMenuService, commands);
+    return { component, commands, registered, shownMenus };
 }
 
-function publish(commands: CommandRegistry, entries: { sha: string; subject: string }[]): void {
-    commands.execute(
-        PUBLISH_LOG_COMMAND,
-        entries.map((e) => ({ sha: e.sha, shortSha: e.sha.slice(0, 8), subject: e.subject })),
-    );
+interface IEntry {
+    sha: string;
+    subject: string;
+    parents?: string[];
+    refs?: { name: string; kind: string; current: boolean }[];
+}
+
+function publish(commands: CommandRegistry, entries: IEntry[], hasMore = false): void {
+    commands.execute(PUBLISH_LOG_COMMAND, {
+        commits: entries.map((e) => ({
+            sha: e.sha,
+            shortSha: e.sha.slice(0, 8),
+            parents: e.parents ?? [],
+            refs: e.refs ?? [],
+            author: "Eugene",
+            timestamp: 1700000000,
+            subject: e.subject,
+        })),
+        hasMore,
+    });
 }
 
 describe("GraphViewComponent", () => {
@@ -48,21 +76,126 @@ describe("GraphViewComponent", () => {
         });
     });
 
-    it("рисует короткий sha и subject коммита; id строки — полный sha", () => {
+    it("рисует граф и subject коммита, sha в кадр не выводит; id строки — полный sha", () => {
         const { component, commands } = make();
         publish(commands, [
-            { sha: SHA_A, subject: "feat: панель" },
+            { sha: SHA_A, subject: "feat: панель", parents: [SHA_B] },
             { sha: SHA_B, subject: "fix: сэш" },
         ]);
 
         expect(component.list.rowCount).toBe(2);
         const screen = renderElement(component.view, 40, 6, { themeVars: true }).screenToString();
-        expect(screen).toContain("aaaaaaaa");
+        expect(screen).toContain("○");
         expect(screen).toContain("feat: панель");
-        expect(screen).toContain("bbbbbbbb");
         expect(screen).toContain("fix: сэш");
+        // Колонки sha в графе нет — хеш достают командой Copy Commit ID.
+        expect(screen).not.toContain("aaaaaaaa");
         component.list.setCursorTo(SHA_B);
         expect(component.list.getCursorElement()?.id).toBe(SHA_B);
+    });
+
+    it("merge-коммит рисуется своим символом и ветвлением", () => {
+        const { component, commands } = make();
+        publish(commands, [
+            { sha: SHA_A, subject: "merge", parents: [SHA_B, SHA_C] },
+            { sha: SHA_C, subject: "feature" },
+            { sha: SHA_B, subject: "base" },
+        ]);
+
+        const screen = renderElement(component.view, 40, 6, { themeVars: true }).screenToString();
+        expect(screen).toContain("◎─╮");
+    });
+
+    it("бейджи ветки и тега попадают в строку перед темой коммита", () => {
+        const { component, commands } = make();
+        publish(commands, [
+            {
+                sha: SHA_A,
+                subject: "feat: панель",
+                refs: [
+                    { name: "v1.0", kind: "tag", current: false },
+                    { name: "main", kind: "head", current: true },
+                ],
+            },
+        ]);
+
+        const screen = renderElement(component.view, 40, 4, { themeVars: true }).screenToString();
+        // Текущая ветка идёт первой, тег за ней, тема — последней.
+        expect(screen).toMatch(/main.*v1\.0.*feat: панель/);
+    });
+
+    it("строка Load More появляется, пока история продолжается, и зовёт команду догрузки", () => {
+        const { component, commands } = make();
+        const loadMore = vi.fn();
+        commands.register(GRAPH_LOAD_MORE_COMMAND, loadMore);
+
+        publish(commands, [{ sha: SHA_A, subject: "first" }], true);
+        expect(component.list.rowCount).toBe(2);
+        const screen = renderElement(component.view, 40, 6, { themeVars: true }).screenToString();
+        expect(screen).toContain(LOAD_MORE_LABEL);
+
+        component.list.setCursorTo(LOAD_MORE_ROW_ID);
+        component.list.onActivate?.(component.list.getCursorElement()!);
+        expect(loadMore).toHaveBeenCalledTimes(1);
+
+        // История закончилась — строка уходит.
+        publish(commands, [{ sha: SHA_A, subject: "first" }], false);
+        expect(component.list.rowCount).toBe(1);
+    });
+
+    it("активация строки коммита команду догрузки не зовёт", () => {
+        const { component, commands } = make();
+        const loadMore = vi.fn();
+        commands.register(GRAPH_LOAD_MORE_COMMAND, loadMore);
+        publish(commands, [{ sha: SHA_A, subject: "first" }], true);
+
+        component.list.setCursorTo(SHA_A);
+        component.list.onActivate?.(component.list.getCursorElement()!);
+        expect(loadMore).not.toHaveBeenCalled();
+    });
+
+    it("контекстное меню строки открывается с sha коммита в контексте", () => {
+        const { component, commands, shownMenus } = make();
+        publish(commands, [{ sha: SHA_A, subject: "feat: панель" }]);
+
+        component.list.setCursorTo(SHA_A);
+        component.list.onContextMenu?.(component.list.getCursorElement()!, 5, 5);
+
+        expect(shownMenus).toHaveLength(1);
+        expect(shownMenus[0].menuId).toBe(MenuId.ScmGraphContext);
+        expect(shownMenus[0].menuContext).toEqual({
+            sha: SHA_A,
+            shortSha: SHA_A.slice(0, 8),
+            subject: "feat: панель",
+        } satisfies ScmGraphMenuContext);
+    });
+
+    it("контекстное меню на строке Load More не открывается", () => {
+        const { component, commands, shownMenus } = make();
+        publish(commands, [{ sha: SHA_A, subject: "first" }], true);
+
+        component.list.setCursorTo(LOAD_MORE_ROW_ID);
+        component.list.onContextMenu?.(component.list.getCursorElement()!, 5, 5);
+        expect(shownMenus).toHaveLength(0);
+    });
+
+    it("выделение коммита подсвечивает его линии, не пересобирая строки", () => {
+        const { component, commands } = make();
+        publish(commands, [
+            { sha: SHA_A, subject: "first", parents: [SHA_B] },
+            { sha: SHA_B, subject: "second", parents: [SHA_C] },
+            { sha: SHA_C, subject: "third" },
+        ]);
+        const rowBefore = component.list.getCursorElement();
+
+        component.list.setCursorTo(SHA_A);
+        component.list.onSelect?.(component.list.getCursorElement()!);
+
+        expect(component.list.rowCount).toBe(3);
+        // Строки те же объекты — перерисовался только графовый лейбл.
+        component.list.setCursorTo(SHA_A);
+        expect(component.list.getCursorElement()?.id).toBe(SHA_A);
+        expect(rowBefore?.id).toBe(SHA_A);
     });
 
     it("перепубликация пересобирает строки, курсор переживает её по sha", () => {
@@ -74,7 +207,7 @@ describe("GraphViewComponent", () => {
         component.list.setCursorTo(SHA_B);
 
         publish(commands, [
-            { sha: "c".repeat(40), subject: "third" },
+            { sha: SHA_C, subject: "third" },
             { sha: SHA_B, subject: "second" },
         ]);
         expect(component.list.rowCount).toBe(2);
@@ -84,7 +217,7 @@ describe("GraphViewComponent", () => {
     it("пустая публикация очищает список", () => {
         const { component, commands } = make();
         publish(commands, [{ sha: SHA_A, subject: "first" }]);
-        commands.execute(PUBLISH_LOG_COMMAND, []);
+        publish(commands, []);
         expect(component.list.rowCount).toBe(0);
     });
 

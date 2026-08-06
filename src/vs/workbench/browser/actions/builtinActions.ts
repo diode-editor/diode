@@ -46,7 +46,8 @@ import {
     showScmAction,
 } from "../../contrib/scm/browser/changesActions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
-import { scmGraphRefreshAction } from "../../contrib/scm/browser/graphActions.ts";
+import { GRAPH_VIEW_ACTIONS } from "../../contrib/scm/browser/graphActions.ts";
+import { GRAPH_COMMIT_ACTIONS } from "../../contrib/scm/browser/graphCommitActions.ts";
 import { BRANCH_ACTIONS } from "../../contrib/scm/browser/branchActions.ts";
 import { COMMIT_ACTIONS } from "../../contrib/scm/browser/commitActions.ts";
 import { REMOTE_TAG_ACTIONS } from "../../contrib/scm/browser/remoteTagActions.ts";
@@ -363,7 +364,8 @@ export const builtinActions: readonly CommandAction[] = [
     scmViewAsListAction,
     scmFocusInputAction,
     scmFocusChangesAction,
-    scmGraphRefreshAction,
+    ...GRAPH_VIEW_ACTIONS,
+    ...GRAPH_COMMIT_ACTIONS,
     gitStageAction,
     gitUnstageAction,
     gitStageAllAction,

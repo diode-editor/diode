@@ -24,4 +24,19 @@ describe("remoteArgs", () => {
         expect(tagDeleteArgs({ name: "v1.0" })).toEqual(["tag", "-d", "v1.0"]);
         expect(tagDeleteArgs({ name: "-d" })).toBeNull();
     });
+
+    it("тег на конкретном коммите — ref последним аргументом", () => {
+        const sha = "a".repeat(40);
+        expect(tagCreateArgs({ name: "v1.0", ref: sha })).toEqual(["tag", "v1.0", sha]);
+        expect(tagCreateArgs({ name: "v1.0", message: "release", ref: sha })).toEqual([
+            "tag",
+            "-a",
+            "v1.0",
+            "-m",
+            "release",
+            sha,
+        ]);
+        // Мусорный ref не превращается в аргумент: тег просто встанет на HEAD.
+        expect(tagCreateArgs({ name: "v1.0", ref: "--force" })).toEqual(["tag", "v1.0"]);
+    });
 });

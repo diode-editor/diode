@@ -153,8 +153,10 @@ describe("FileSearchService — integration against real project", () => {
             // Ранее тут стояло «ScrollContainerElement.ts в топ-10». Это кодировало
             // размер репозитория, а не качество ранжирования: любой новый файл с более
             // плотным «sc» (напр. settingsContext.ts) сдвигает индекс, ничего не ломая.
-            // Сверяем счёт, а не позицию.
-            const results = service.search("co");
+            // Сверяем счёт, а не позицию — и берём выдачу с запасом: дефолтные 50
+            // строк это тот же размер репозитория, только с другой стороны (пачка
+            // новых `commit*`-файлов вытолкнула обоих участников сравнения).
+            const results = service.search("co", 1000);
             const registry = scoreOf(results, "commandRegistry.ts");
             const action = scoreOf(results, "commandAction.ts");
             expect(registry).toBeDefined();

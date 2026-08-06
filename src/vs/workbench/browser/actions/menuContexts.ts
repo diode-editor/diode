@@ -2,7 +2,8 @@
  * Конвенции контекста открытия меню (`context` в `MenuRegistry.getMenuItems`):
  * - `MenuId.EditorContext`, меню-бар → `undefined`;
  * - `MenuId.ExplorerContext` → {@link ExplorerMenuContext};
- * - `MenuId.ScmContext` → {@link ScmMenuContext}.
+ * - `MenuId.ScmContext` → {@link ScmMenuContext};
+ * - `MenuId.ScmGraphContext` → {@link ScmGraphMenuContext}.
  *
  * Хелперы ниже используются в co-located размещениях экшенов
  * (`CommandAction.menus`) для резолва аргументов и императивной видимости.
@@ -54,6 +55,25 @@ export const scmHasAnyGroup =
     (...groups: readonly string[]) =>
     (context: unknown): boolean =>
         (context as ScmMenuContext).groups.some((g) => groups.includes(g));
+
+/**
+ * Контекст меню коммита в графе (`MenuId.ScmGraphContext`). Цель всегда одна —
+ * строка, по которой открыли меню; множественного выделения у истории нет.
+ */
+export interface ScmGraphMenuContext {
+    /** Полный sha — аргумент git-операций. */
+    readonly sha: string;
+    readonly shortSha: string;
+    readonly subject: string;
+}
+
+/** Аргумент команд графа — sha коммита под меню. */
+export const scmGraphShaArg = (context: unknown): readonly unknown[] => [(context as ScmGraphMenuContext).sha];
+
+/** Аргумент Copy Commit Message — тема коммита под меню. */
+export const scmGraphSubjectArg = (context: unknown): readonly unknown[] => [
+    (context as ScmGraphMenuContext).subject,
+];
 
 /**
  * Контекст меню «⋯» view-секции сайдбара (`MenuId.ViewMoreActions`):

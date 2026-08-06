@@ -201,7 +201,8 @@ shortTitle → title» фиксируется при деривации). Явн
 состава). Реестр — чистая функция реестров команд/кейбиндов/контекст-ключей;
 состояние открытия (буфер обмена файлов, путь узла) приходит параметром
 `context`, не через DI. Конвенция контекста: `EditorContext`, меню-бар →
-`undefined`; `ExplorerContext → { path, canPaste }` (хелперы —
+`undefined`; `ExplorerContext → { path, canPaste }`; `ScmGraphContext →
+{ sha, shortSha, subject }` — коммит под меню в графе (хелперы —
 `Menus/menuContexts.ts`).
 
 **MenuService (потребление).** `MenuService.createMenu(menuId) → IMenu` (аналог

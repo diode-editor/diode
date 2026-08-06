@@ -13,12 +13,18 @@ export function remoteRemoveArgs(params: Record<string, unknown>): string[] | nu
     return name === null ? null : ["remote", "remove", name];
 }
 
-/** Аннотированный тег при непустом сообщении, иначе lightweight. */
+/**
+ * Аннотированный тег при непустом сообщении, иначе lightweight. Необязательный
+ * `ref` ставит тег на конкретный коммит (граф) — без него git берёт HEAD.
+ */
 export function tagCreateArgs(params: Record<string, unknown>): string[] | null {
     const name = safeRefArg(params.name);
     if (name === null) return null;
     const message = typeof params.message === "string" ? params.message.trim() : "";
-    return message === "" ? ["tag", name] : ["tag", "-a", name, "-m", message];
+    const args = message === "" ? ["tag", name] : ["tag", "-a", name, "-m", message];
+    const ref = safeRefArg(params.ref);
+    if (ref !== null) args.push(ref);
+    return args;
 }
 
 export function tagDeleteArgs(params: Record<string, unknown>): string[] | null {

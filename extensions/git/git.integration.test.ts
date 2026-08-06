@@ -222,23 +222,81 @@ describe("builtin git plugin (integration)", () => {
         interface Commit {
             sha: string;
             shortSha: string;
+            parents: string[];
+            refs: { name: string; kind: string; current: boolean }[];
+            author: string;
+            timestamp: number;
             subject: string;
         }
-        const latest = (): Commit[] | undefined => published.at(-1) as Commit[] | undefined;
-        const got = await waitFor(() => latest()?.some((c) => c.subject === "init") ?? false);
+        interface LogPayload {
+            commits: Commit[];
+            hasMore: boolean;
+        }
+        const latest = (): LogPayload | undefined => published.at(-1) as LogPayload | undefined;
+        const got = await waitFor(() => latest()?.commits.some((c) => c.subject === "init") ?? false);
         expect(got).toBe(true);
         const initial = latest()!;
-        expect(initial).toHaveLength(1);
-        expect(initial[0].sha).toMatch(/^[0-9a-f]{40}$/);
-        expect(initial[0].shortSha).toMatch(/^[0-9a-f]{4,}$/);
+        expect(initial.commits).toHaveLength(1);
+        expect(initial.hasMore).toBe(false);
+        expect(initial.commits[0].sha).toMatch(/^[0-9a-f]{40}$/);
+        expect(initial.commits[0].shortSha).toMatch(/^[0-9a-f]{4,}$/);
+        // Корневой коммит — без родителей; ветка приезжает бейджем с current.
+        expect(initial.commits[0].parents).toEqual([]);
+        expect(initial.commits[0].refs).toContainEqual(
+            expect.objectContaining({ kind: "head", current: true }),
+        );
+        expect(initial.commits[0].author).not.toBe("");
+        expect(initial.commits[0].timestamp).toBeGreaterThan(0);
 
         // Новый коммит + ручной git.refresh (команда расширения) → перепубликация.
         git(harness.tmpDir, "add", "-A");
         git(harness.tmpDir, "commit", "-qm", "second");
         await harness.commandRegistry.execute("git.refresh");
-        const republished = await waitFor(() => latest()?.some((c) => c.subject === "second") ?? false);
+        const republished = await waitFor(() => latest()?.commits.some((c) => c.subject === "second") ?? false);
         expect(republished).toBe(true);
-        expect(latest()!.map((c) => c.subject)).toEqual(["second", "init"]);
+        expect(latest()!.commits.map((c) => c.subject)).toEqual(["second", "init"]);
+        // Потомок ссылается на родителя — материал для укладки графа.
+        expect(latest()!.commits[0].parents).toEqual([latest()!.commits[1].sha]);
+    });
+
+    it("страница истории ограничена, logLoadMore догружает следующую", async () => {
+        const published: unknown[] = [];
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+            // Страница в два коммита: гонять 50 коммитов ради пагинации незачем.
+            configuration: { scm: { graph: { pageSize: 2 } } },
+        });
+        harness.commandRegistry.register(PUBLISH_LOG_COMMAND, (payload) => {
+            published.push(payload);
+        });
+        makeRepo(harness.tmpDir);
+        for (const subject of ["c2", "c3", "c4"]) {
+            fs.writeFileSync(path.join(harness.tmpDir, "tracked.txt"), `${subject}\n`);
+            git(harness.tmpDir, "commit", "-aqm", subject);
+        }
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        interface LogPayload {
+            commits: { subject: string }[];
+            hasMore: boolean;
+        }
+        const latest = (): LogPayload | undefined => published.at(-1) as LogPayload | undefined;
+
+        const paged = await waitFor(() => latest()?.commits.length === 2);
+        expect(paged).toBe(true);
+        expect(latest()!.commits.map((c) => c.subject)).toEqual(["c4", "c3"]);
+        // Историю есть куда листать — ядро покажет строку «Load More…».
+        expect(latest()!.hasMore).toBe(true);
+
+        await harness.commandRegistry.execute("vexx.git.op", { op: "logLoadMore" });
+        const loaded = await waitFor(() => latest()?.commits.length === 4);
+        expect(loaded).toBe(true);
+        expect(latest()!.commits.map((c) => c.subject)).toEqual(["c4", "c3", "c2", "init"]);
+        // Дальше истории нет — строка догрузки исчезает.
+        expect(latest()!.hasMore).toBe(false);
     });
 
     it("vexx.git.stage/unstage двигают файлы между индексом и деревом, clean откатывает и удаляет", async () => {
@@ -397,6 +455,51 @@ describe("builtin git plugin (integration)", () => {
         };
         expect(root.ok).toBe(false);
         expect(root.message).toContain("initial commit");
+    });
+
+    it("vexx.git.op reset/revert: hard-сброс двигает HEAD, revert кладёт обратный коммит", async () => {
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        const dir = harness.tmpDir;
+        makeRepo(dir);
+        harness.group.openFile(path.join(dir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        const root = execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir }).toString().trim();
+        fs.writeFileSync(path.join(dir, "tracked.txt"), "second\n");
+        git(dir, "commit", "-aqm", "feat: second");
+
+        // Revert второго коммита — HEAD растёт, содержимое возвращается к root.
+        const reverted = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "revert",
+            params: { ref: "HEAD" },
+        })) as { ok: boolean };
+        expect(reverted.ok).toBe(true);
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("3");
+        expect(fs.readFileSync(path.join(dir, "tracked.txt"), "utf8")).toBe(TRACKED_AT_HEAD);
+
+        // Reset --hard на корневой коммит стирает оба коммита сверху.
+        const reset = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "reset",
+            params: { ref: root, mode: "hard" },
+        })) as { ok: boolean };
+        expect(reset.ok).toBe(true);
+        expect(execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir }).toString().trim()).toBe(root);
+        // Untracked-файл репозитория `--hard` не трогает — смотрим только на отслеживаемое.
+        expect(
+            execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { cwd: dir }).toString().trim(),
+        ).toBe("");
+
+        // Мусорный режим до git не доезжает.
+        const bogus = (await harness.commandRegistry.execute("vexx.git.op", {
+            op: "reset",
+            params: { ref: root, mode: "--force" },
+        })) as { ok: boolean; message?: string };
+        expect(bogus.ok).toBe(false);
+        expect(bogus.message).toContain("invalid git op parameters");
     });
 
     it("vexx.git.op push/pull против локального bare-remote; vexx.git.query отдаёт refs/remotes", async () => {

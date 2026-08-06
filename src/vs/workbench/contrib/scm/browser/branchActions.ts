@@ -41,19 +41,37 @@ async function pickRef(
     return ref === undefined ? null : { name: ref.name, kind: ref.kind };
 }
 
-/** Ввод имени новой ветки (валидацию имени делает git — ошибка придёт notice-ом). */
-function inputBranchName(accessor: ServiceAccessor, title: string, value?: string): Promise<string | undefined> {
+/**
+ * Ввод имени ref'а (ветки, тега) — валидацию имени делает git, ошибка придёт
+ * notice-ом. Общий с командами графа: там так же спрашивают имя тега.
+ */
+export function inputRefName(
+    accessor: ServiceAccessor,
+    title: string,
+    placeholder: string,
+    value?: string,
+): Promise<string | undefined> {
     return accessor.get(QuickInputServiceDIToken).input({
         title,
-        placeholder: "Branch name",
+        placeholder,
         value,
-        validateInput: (v) => (v.trim() === "" ? "Branch name is empty" : null),
+        validateInput: (v) => (v.trim() === "" ? `${placeholder} is empty` : null),
     });
 }
 
-/** Создание ветки: ввод имени → `checkout -b <name> [<base>]`. */
-async function createBranch(accessor: ServiceAccessor, base?: string): Promise<void> {
-    const name = await inputBranchName(accessor, base === undefined ? "Create Branch" : `Create Branch From ${base}`);
+/** Ввод имени новой ветки. */
+function inputBranchName(accessor: ServiceAccessor, title: string, value?: string): Promise<string | undefined> {
+    return inputRefName(accessor, title, "Branch name", value);
+}
+
+/**
+ * Создание ветки: ввод имени → `checkout -b <name> [<base>]`. `baseLabel` —
+ * что показать в заголовке вместо самого base (граф передаёт короткий sha:
+ * сорок знаков в заголовке нечитаемы).
+ */
+export async function createBranch(accessor: ServiceAccessor, base?: string, baseLabel?: string): Promise<void> {
+    const title = base === undefined ? "Create Branch" : `Create Branch From ${baseLabel ?? base}`;
+    const name = await inputBranchName(accessor, title);
     if (name === undefined || name.trim() === "") return;
     await runGitOp(accessor, "branchCreate", base === undefined ? { name: name.trim() } : { name: name.trim(), base });
 }
