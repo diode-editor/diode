@@ -61,9 +61,20 @@ export default defineScenario({
         // строки + collapse уводит курсор в конец), а gotoLine по статус-бару
         // на ней флейкает. unfoldAll не требует позиционирования вовсе.
         const unfoldAll = async (): Promise<void> => {
-            await editor.sendKey("Ctrl+K");
-            await editor.sendKey("Ctrl+J");
-            await editor.waitForText((t) => t.includes("const sum"));
+            // Аккорд, как и fold-цикл выше, может потеряться, пока ext-host/LSP
+            // заняты — один непойманный 10s-wait ронял сценарий на медленном
+            // раннере. Повторяем аккорд с коротким пойманным ожиданием.
+            for (let attempt = 0; attempt < 10; attempt++) {
+                await editor.sendKey("Ctrl+K");
+                await editor.sendKey("Ctrl+J");
+                try {
+                    await editor.waitForText((t) => t.includes("const sum"), { timeoutMs: 1000 });
+                    return;
+                } catch {
+                    // Ещё свёрнуто — жмём аккорд заново.
+                }
+            }
+            throw new Error("region-folding: unfoldAll не развернул документ за 10 попыток");
         };
         let regionFolded = false;
         for (let attempt = 0; attempt < 20 && !regionFolded; attempt++) {
