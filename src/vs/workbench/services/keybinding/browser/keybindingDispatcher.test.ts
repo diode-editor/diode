@@ -293,7 +293,7 @@ describe("KeybindingDispatcher — swallow печатающих клавиш и 
         expect(press.defaultPrevented).toBe(true);
     });
 
-    it("Ctrl+комбинация не взводит swallow (keypress не будет)", () => {
+    it("любая сработавшая команда глотает парный keypress (Ctrl+комбинация)", () => {
         const h = createHarness();
         h.bind("ctrl+s", "test.save");
         h.contextKeys.set("textInputFocus", true);
@@ -301,6 +301,29 @@ describe("KeybindingDispatcher — swallow печатающих клавиш и 
         h.dispatcher.dispatchKeyDown(keyDown({ key: "s", ctrlKey: true }));
 
         const press = new TUIKeyboardEvent("keypress", { key: "s" });
+        h.dispatcher.handleKeyPressCapture(press);
+        expect(press.defaultPrevented).toBe(true);
+    });
+
+    it("PageDown-команда глотает парный keypress — дефолт виджета не сработает вторым", () => {
+        const h = createHarness();
+        h.bind("pagedown", "list.focusPageDown", "listFocus");
+        h.contextKeys.set("listFocus", true);
+
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "PageDown" }));
+
+        const press = new TUIKeyboardEvent("keypress", { key: "PageDown" });
+        h.dispatcher.handleKeyPressCapture(press);
+        expect(press.defaultPrevented).toBe(true);
+    });
+
+    it("клавиша без биндинга не взводит swallow", () => {
+        const h = createHarness();
+        h.contextKeys.set("listFocus", true);
+
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "PageDown" }));
+
+        const press = new TUIKeyboardEvent("keypress", { key: "PageDown" });
         h.dispatcher.handleKeyPressCapture(press);
         expect(press.defaultPrevented).toBe(false);
     });

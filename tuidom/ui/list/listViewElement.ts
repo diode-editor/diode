@@ -786,9 +786,10 @@ export class ListViewElement extends ScrollableElement {
             case " ":
                 this.toggleCursorRow();
                 break;
-            // Page/Home/End дублируются здесь при живых глобальных командах list.*
-            // (workbench перехватывает их раньше performDefaultAction): standalone-
-            // использование контейнера вне workbench не должно терять навигацию.
+            // Page/Home/End дублируются здесь при живых глобальных командах list.*:
+            // в workbench команда съедает keydown, а диспатчер гасит парный keypress,
+            // так что сюда клавиша не доходит; standalone-использование контейнера
+            // вне workbench не должно терять навигацию.
             case "PageDown":
                 this.focusPageDown();
                 break;
