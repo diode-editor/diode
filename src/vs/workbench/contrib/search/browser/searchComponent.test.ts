@@ -151,7 +151,9 @@ describe("SearchComponent", () => {
 
     it("toggleQueryDetails раскрывает include/exclude с пустой строкой между ними и скрывает обратно", () => {
         const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
-        component.toggleQueryDetails();
+        // Кнопка «···» — тот же тумблер мышью (4-я кнопка после Aa/\b/.*).
+        const detailsBtn = (component.view.querySelectorAll("ButtonElement") as ButtonElement[])[3];
+        detailsBtn.onActivate?.();
         expect(component.isQueryDetailsShown()).toBe(true);
         const screen = render(component).screenToString();
         expect(screen).toContain("files to include");
@@ -445,6 +447,32 @@ describe("SearchComponent", () => {
             expect(component.results.contentHeight).toBe(8);
         });
 
+        it("завершение поиска флашит отложенную пересборку дерева, не дожидаясь троттла", async () => {
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            component.setViewMode("tree");
+            typeQuery(component, "foo");
+            expect(component.results.contentHeight).toBe(0); // троттл ещё ждёт
+
+            // Микротаски: complete-промис синхронного fakeSearch уже зарезолвлен.
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(component.results.contentHeight).toBe(8);
+        });
+
+        it("новый поиск отменяет отложенную пересборку дерева прежнего", () => {
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            component.setViewMode("tree");
+            typeQuery(component, "foo");
+            expect(component.results.contentHeight).toBe(0); // троттл первого поиска ждёт
+
+            // Тумблер перезапускает поиск синхронно (без дебаунса) — cancelSearch
+            // снимает ждущий троттл, второй поиск планирует свой.
+            const [caseBtn] = component.view.querySelectorAll("ButtonElement") as ButtonElement[];
+            caseBtn.onActivate?.();
+            vi.advanceTimersByTime(100);
+            expect(component.results.contentHeight).toBe(8); // строки второго поиска, без дублей
+        });
+
         it("свёрнутость и курсор переживают смену режима по стабильным id", () => {
             const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
             typeQuery(component, "foo");
@@ -464,6 +492,17 @@ describe("SearchComponent", () => {
             expect(SEARCH_VIEW_MODE_STATE.version).toBe(2);
             expect(SEARCH_VIEW_MODE_STATE.migrate?.("tree", 0)).toBe("list");
             expect(SEARCH_VIEW_MODE_STATE.migrate?.("flat", 1)).toBe("list");
+        });
+
+        it("свёрнутая папка дерева при уходе в list теряет свёрнутость молча (id умер)", () => {
+            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            typeQuery(component, "foo");
+            component.setViewMode("tree");
+            component.results.toggleCollapsed("dir:src");
+            expect(component.results.contentHeight).toBe(1);
+
+            component.setViewMode("list"); // dir:-строк больше нет — их collapse отбрасывается
+            expect(component.results.contentHeight).toBe(5);
         });
 
         it("setViewMode persists to workspace state; same mode is a no-op", () => {
@@ -656,6 +695,13 @@ describe("SearchComponent", () => {
             expect(app.focusedElement).toBe(query);
             component.focusPreviousInputBox(); // верх кольца — no-op
             expect(app.focusedElement).toBe(query);
+        });
+
+        it("вызов кольца без фокуса в инпутах — no-op (не перетягивает фокус)", () => {
+            const { component, app } = makeFocusable(false);
+            component.results.focus();
+            component.focusNextInputBox();
+            expect(app.focusedElement).toBe(component.results);
         });
 
         it("isFirstResultFocused: только активный список с курсором на первой строке", () => {

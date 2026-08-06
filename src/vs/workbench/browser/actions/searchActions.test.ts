@@ -5,7 +5,17 @@ import { SEARCH_VIEWLET_ID } from "../../contrib/search/browser/searchComponent.
 import { SearchComponentDIToken } from "../../contrib/search/browser/searchComponent.ts";
 import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
 
-import { searchViewAsListAction, searchViewAsTreeAction, showSearchAction } from "./searchActions.ts";
+import {
+    collapseSearchResultsAction,
+    expandSearchResultsAction,
+    focusNextInputBoxAction,
+    focusPreviousInputBoxAction,
+    focusSearchFromResultsAction,
+    searchViewAsListAction,
+    searchViewAsTreeAction,
+    showSearchAction,
+    toggleSearchDetailsAction,
+} from "./searchActions.ts";
 
 describe("showSearchAction", () => {
     it("is bound to the Search view id, the View menu, and Ctrl+Shift+F", () => {
@@ -51,5 +61,53 @@ describe("search view-mode actions", () => {
 
         searchViewAsListAction.run(accessorWithComponent(component));
         expect(component.setViewMode).toHaveBeenCalledWith("list");
+    });
+});
+
+describe("collapse/expand, кольцо фокуса и детали — делегируют в SearchComponent", () => {
+    function accessorWith(component: object): ServiceAccessor {
+        return {
+            get(token: unknown) {
+                if (token === SearchComponentDIToken) return component;
+                throw new Error("unexpected token");
+            },
+        } as unknown as ServiceAccessor;
+    }
+
+    it("collapseSearchResults → collapseDeepestLevel, expandSearchResults → expandAll", () => {
+        const component = { collapseDeepestLevel: vi.fn(), expandAll: vi.fn() };
+        collapseSearchResultsAction.run(accessorWith(component));
+        expect(component.collapseDeepestLevel).toHaveBeenCalledOnce();
+        expandSearchResultsAction.run(accessorWith(component));
+        expect(component.expandAll).toHaveBeenCalledOnce();
+    });
+
+    it("пара Collapse/Expand в «⋯»-меню сменяется по viewHasSomeCollapsibleResult", () => {
+        expect(collapseSearchResultsAction.menus?.[0].when).toBe("!hasSearchResult || viewHasSomeCollapsibleResult");
+        expect(expandSearchResultsAction.menus?.[0].when).toBe("hasSearchResult && !viewHasSomeCollapsibleResult");
+    });
+
+    it("кольцо фокуса: next/previous из инпутов, возврат с первой строки результатов", () => {
+        const component = {
+            focusNextInputBox: vi.fn(),
+            focusPreviousInputBox: vi.fn(),
+            focusSearchFromResults: vi.fn(),
+        };
+        focusNextInputBoxAction.run(accessorWith(component));
+        expect(component.focusNextInputBox).toHaveBeenCalledOnce();
+        focusPreviousInputBoxAction.run(accessorWith(component));
+        expect(component.focusPreviousInputBox).toHaveBeenCalledOnce();
+        focusSearchFromResultsAction.run(accessorWith(component));
+        expect(component.focusSearchFromResults).toHaveBeenCalledOnce();
+
+        expect(focusNextInputBoxAction.when).toBe("searchViewletVisible && searchInputBoxFocus");
+        expect(focusSearchFromResultsAction.when).toBe("searchViewletVisible && firstMatchFocus");
+    });
+
+    it("toggleQueryDetails зовёт тумблер деталей (Ctrl+Shift+J, when searchViewletFocus)", () => {
+        const component = { toggleQueryDetails: vi.fn() };
+        toggleSearchDetailsAction.run(accessorWith(component));
+        expect(component.toggleQueryDetails).toHaveBeenCalledOnce();
+        expect(toggleSearchDetailsAction.when).toBe("searchViewletFocus");
     });
 });

@@ -67,7 +67,10 @@ export default defineScenario({
         // Tree-режим (F8): иерархия каталогов, одиночные цепочки сжаты в «a/b/c»,
         // файлы — basename. Метка «contrib/search/browser» — компакт-цепочка,
         // в list-режиме такой контиг не влезает в клип узкого сайдбара.
+        // Home прижимает курсор и вьюпорт к вершине дерева: порядок стрима rg
+        // платформозависим, и сохранённый по id курсор может утащить скролл вниз.
         await driver.sendKey("F8");
+        await driver.sendKey("Home");
         await driver.waitForText((t) => t.includes("contrib/search/browser"));
         await driver.capture("tree");
 
