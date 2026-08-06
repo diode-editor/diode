@@ -50,6 +50,6 @@ describe("search view-mode actions", () => {
         expect(component.setViewMode).toHaveBeenCalledWith("tree");
 
         searchViewAsListAction.run(accessorWithComponent(component));
-        expect(component.setViewMode).toHaveBeenCalledWith("flat");
+        expect(component.setViewMode).toHaveBeenCalledWith("list");
     });
 });

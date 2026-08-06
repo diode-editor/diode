@@ -258,6 +258,11 @@ export class ListViewElement extends ScrollableElement {
         return this.collapsedIds.has(id);
     }
 
+    /** Снимок свёрнутых строк — восстановление состояния после полной пересборки. */
+    public getCollapsedIds(): readonly string[] {
+        return [...this.collapsedIds];
+    }
+
     public setRowHidden(id: string, hidden: boolean): void {
         const row = this.requireRow(id);
         if (row.hidden === hidden) return;

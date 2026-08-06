@@ -59,13 +59,21 @@ export const PANEL_ACTIVE_VIEW_STATE: IStateDescriptor<string> = {
     default: "",
 };
 
-/** Режим отображения результатов поиска: дерево (сворачиваемые группы) или плоско. */
-export type SearchViewMode = "tree" | "flat";
+/**
+ * Режим отображения результатов поиска: `list` — файлы плоским списком (матчи
+ * сворачиваются под файлом), `tree` — иерархия каталогов (как в VS Code).
+ */
+export type SearchViewMode = "tree" | "list";
 
 export const SEARCH_VIEW_MODE_STATE: IStateDescriptor<SearchViewMode> = {
     key: "workbench.search.viewMode",
     scope: "workspace",
-    default: "tree",
+    default: "list",
+    // v2: семантика сменилась — прежний "tree" (файл → матчи) стал "list", а
+    // "tree" теперь иерархия каталогов; старый "flat" умер. Любое старое
+    // значение приводится к "list".
+    version: 2,
+    migrate: () => "list",
 };
 
 /** Раскрыт ли блок «files to include/exclude» панели поиска (Toggle Search Details). */

@@ -77,10 +77,10 @@ export const searchViewAsListAction: CommandAction = {
             group: "1_view",
             order: 10,
             visible: viewMenuVisible(SEARCH_VIEW_ID),
-            toggled: "searchViewMode == 'flat'",
+            toggled: "searchViewMode == 'list'",
         },
     ],
     run(accessor) {
-        accessor.get(SearchComponentDIToken).setViewMode("flat");
+        accessor.get(SearchComponentDIToken).setViewMode("list");
     },
 };

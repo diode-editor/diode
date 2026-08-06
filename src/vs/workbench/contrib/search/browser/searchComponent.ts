@@ -35,11 +35,13 @@ import { ExplorerServiceDIToken } from "../../files/browser/explorerService.ts";
 
 import {
     buildFileRow,
+    buildFolderRow,
     buildMatchRow,
     formatFileRow,
     formatMatchRow,
     type ISearchRowStyles,
 } from "./searchResultRows.ts";
+import { buildSearchTree, type SearchTreeNode } from "./searchResultTree.ts";
 
 export const SearchComponentDIToken = token<SearchComponent>("SearchComponent");
 
@@ -69,6 +71,12 @@ export const SearchRevealTargetDIToken = token<ISearchRevealTarget>("SearchRevea
 
 /** Debounce before a query/toggle change spawns ripgrep (avoids a process per keystroke). */
 const SEARCH_DEBOUNCE_MS = 150;
+/**
+ * Троттл полной пересборки строк в tree-режиме при стриме результатов: новый
+ * файл может расколоть компакт-цепочку папок, а ListViewElement умеет только
+ * append — проще пересобрать целиком, но не чаще раза в интервал.
+ */
+const TREE_REBUILD_THROTTLE_MS = 100;
 
 /** Toggle button glyphs (TUI analogues of VS Code's case/word/regex icons). */
 const CASE_GLYPH = "Aa";
@@ -86,6 +94,7 @@ interface IFileGroup {
 
 /** Метаданные строки списка — для активации и рестайла при смене темы. */
 type RowMeta =
+    | { readonly kind: "folder"; readonly element: TextLabelElement; readonly path: string }
     | { readonly kind: "file"; readonly element: TextLabelElement; readonly group: IFileGroup }
     | {
           readonly kind: "match";
@@ -125,10 +134,12 @@ class SearchViewElement extends TUIElement {
  * Search view (left sidebar): a query input + case/whole-word/regex toggles,
  * files-to-include/exclude inputs, a result count, and the streamed results
  * list. Search-as-you-type (debounced) drives {@link TextSearchService}; results
- * stream into a virtualised {@link ListViewElement} grouped by file. In the
- * `tree` view mode file groups are collapsible; the `flat` mode shows the same
- * grouped rows without collapsing (`search.action.viewAsTree`/`viewAsList`,
- * persisted per workspace). Enter/double-click on a match opens the file at the
+ * stream into a virtualised {@link ListViewElement}. Режим `list` — файлы
+ * плоским списком (матчи сворачиваются под файлом, инкрементальный стрим);
+ * режим `tree` — иерархия каталогов с компакцией одиночных цепочек
+ * ({@link buildSearchTree}), пересборка строк по троттлу
+ * (`search.action.viewAsTree`/`viewAsList`, персист по-проектно).
+ * Enter/double-click on a match opens the file at the
  * match position via the {@link ISearchRevealTarget} seam. Living в сайдбаре как
  * merged одно-view контейнер ({@link ViewsService}, mergeSingleView): заголовок
  * `SEARCH` с меню «⋯» рисует PaneHeaderElement, тело — {@link SearchViewElement}.
@@ -175,11 +186,11 @@ export class SearchComponent extends Component {
     private viewMode: SearchViewMode;
     private groups = new Map<string, IFileGroup>();
     private rowMeta = new Map<string, RowMeta>();
-    /** Сквозной счётчик матч-строк — гарантия уникальности id в пределах поиска. */
-    private matchSeq = 0;
     private matchCount = 0;
     private handle: ISearchHandle | null = null;
     private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Отложенная пересборка строк tree-режима при стриме (см. TREE_REBUILD_THROTTLE_MS). */
+    private treeRebuildTimer: ReturnType<typeof setTimeout> | null = null;
     /** Bumped per search so a stale in-flight callback/complete is ignored. */
     private searchGen = 0;
 
@@ -423,7 +434,6 @@ export class SearchComponent extends Component {
         const gen = ++this.searchGen;
         this.groups.clear();
         this.rowMeta.clear();
-        this.matchSeq = 0;
         this.matchCount = 0;
         this.results.clear();
 
@@ -439,64 +449,134 @@ export class SearchComponent extends Component {
             if (gen === this.searchGen) this.onResult(match, root);
         });
         void this.handle.complete.then(() => {
-            if (gen === this.searchGen) this.updateCount(false);
+            if (gen === this.searchGen) {
+                this.flushTreeRebuild();
+                this.updateCount(false);
+            }
         });
     }
 
     private onResult(match: IFileMatch, root: string): void {
         const relPath = labelFor(match.absolutePath, root);
         let group = this.groups.get(relPath);
+        const isNewGroup = group === undefined;
         if (group === undefined) {
             group = { absolutePath: match.absolutePath, relPath, matches: [] };
             this.groups.set(relPath, group);
-            this.appendFileRow(group);
         }
         for (const m of match.matches) {
             group.matches.push(m);
-            this.appendMatchRow(group, m);
             this.matchCount++;
         }
-        // Файл-строка группы гарантированно добавлена выше — обновляем её счётчик.
-        const fileMeta = this.rowMeta.get(fileRowId(group)) as Extract<RowMeta, { kind: "file" }>;
-        formatFileRow(fileMeta.element, group.relPath, group.matches.length, this.rowStyles());
+        if (this.viewMode === "list") {
+            // Плоский список растёт инкрементально: файл-строка при первом матче
+            // файла, дальше — только его матчи и счётчик.
+            if (isNewGroup) this.appendFileRow(group, group.relPath);
+            for (let i = group.matches.length - match.matches.length; i < group.matches.length; i++) {
+                this.appendMatchRow(group, group.matches[i], i, fileRowId(group));
+            }
+            const fileMeta = this.rowMeta.get(fileRowId(group)) as Extract<RowMeta, { kind: "file" }>;
+            formatFileRow(fileMeta.element, group.relPath, group.matches.length, this.rowStyles());
+        } else {
+            // Дерево пересобирается целиком (компакт-цепочки может расколоть
+            // новый файл) — по троттлу, финальный flush на завершении поиска.
+            this.scheduleTreeRebuild();
+        }
         this.updateCount(true);
     }
 
-    private appendFileRow(group: IFileGroup): void {
+    private appendFileRow(group: IFileGroup, label: string, parentId?: string): void {
         const id = fileRowId(group);
-        const element = buildFileRow(id, group.relPath, group.matches.length, this.rowStyles());
+        const element = buildFileRow(id, label, group.matches.length, this.rowStyles());
         this.rowMeta.set(id, { kind: "file", element, group });
-        this.results.appendRow(element, { label: group.relPath });
+        this.results.appendRow(element, { label, parentId });
     }
 
-    private appendMatchRow(group: IFileGroup, match: ITextMatch): void {
-        const id = `match:${this.matchSeq++}:${group.relPath}:${match.lineNumber}:${match.startColumn}`;
+    private appendMatchRow(group: IFileGroup, match: ITextMatch, index: number, parentId: string): void {
+        // Индекс в группе вместо сквозного счётчика: id стабилен между полными
+        // пересборками — иначе курсор и свёрнутость не восстановить.
+        const id = `match:${group.relPath}:${String(index)}`;
         const element = buildMatchRow(id, match, this.rowStyles());
         this.rowMeta.set(id, { kind: "match", element, group, match });
-        // Вся разница режимов: в дереве матчи — дети файл-строки (шевроны,
-        // сворачивание), в плоском — самостоятельные строки без гуттера.
-        this.results.appendRow(element, this.viewMode === "tree" ? { parentId: fileRowId(group) } : undefined);
+        this.results.appendRow(element, { parentId });
     }
 
-    /** Пересобирает строки списка из накопленной модели (смена режима/восстановление). */
-    private rebuildRows(): void {
-        this.results.clear();
-        this.rowMeta.clear();
-        this.matchSeq = 0;
-        for (const group of this.groups.values()) {
-            this.appendFileRow(group);
-            for (const match of group.matches) {
-                this.appendMatchRow(group, match);
+    private appendFolderRow(path: string, label: string, parentId?: string): void {
+        const id = folderRowId(path);
+        const element = buildFolderRow(id, label);
+        this.rowMeta.set(id, { kind: "folder", element, path });
+        this.results.appendRow(element, { label, parentId });
+    }
+
+    private appendTreeNodes(nodes: readonly SearchTreeNode<IFileGroup>[], parentId: string | undefined): void {
+        for (const node of nodes) {
+            if (node.kind === "folder") {
+                this.appendFolderRow(node.path, node.label, parentId);
+                this.appendTreeNodes(node.children, folderRowId(node.path));
+            } else {
+                this.appendFileRow(node.item, node.name, parentId);
+                node.item.matches.forEach((match, index) => {
+                    this.appendMatchRow(node.item, match, index, fileRowId(node.item));
+                });
             }
         }
     }
 
-    /** Enter/двойной клик: файл-строка сворачивается, матч открывается на позиции. */
+    private scheduleTreeRebuild(): void {
+        if (this.treeRebuildTimer !== null) return;
+        this.treeRebuildTimer = setTimeout(() => {
+            this.treeRebuildTimer = null;
+            this.rebuildRows();
+        }, TREE_REBUILD_THROTTLE_MS);
+    }
+
+    /** Пересборка «сейчас», если троттл ещё ждёт (завершение поиска). */
+    private flushTreeRebuild(): void {
+        if (this.treeRebuildTimer === null) return;
+        clearTimeout(this.treeRebuildTimer);
+        this.treeRebuildTimer = null;
+        this.rebuildRows();
+    }
+
+    /**
+     * Пересобирает строки списка из накопленной модели (смена режима, стрим в
+     * tree-режиме, восстановление). Свёрнутость и курсор переживают пересборку
+     * по стабильным id; свёрнутая компакт-цепочка при расколе теряет
+     * свёрнутость — её id умирает вместе с цепочкой.
+     */
+    private rebuildRows(): void {
+        const cursorId = this.results.getCursorElement()?.id ?? null;
+        const collapsedIds = this.results.getCollapsedIds();
+        this.results.clear();
+        this.rowMeta.clear();
+        if (this.viewMode === "list") {
+            for (const group of this.groups.values()) {
+                this.appendFileRow(group, group.relPath);
+                group.matches.forEach((match, index) => {
+                    this.appendMatchRow(group, match, index, fileRowId(group));
+                });
+            }
+        } else {
+            this.appendTreeNodes(buildSearchTree(this.groups.values()), undefined);
+        }
+        for (const id of collapsedIds) {
+            if (this.rowMeta.has(id)) this.results.setCollapsed(id, true);
+        }
+        if (cursorId !== null && this.rowMeta.has(cursorId)) {
+            this.results.setCursorTo(cursorId);
+        }
+    }
+
+    /** Enter/двойной клик: папка/файл сворачиваются, матч открывается на позиции. */
     private activateRow(rowId: string): void {
         const meta = this.rowMeta.get(rowId);
         /* v8 ignore start -- defensive: every appended row has meta under its id */
         if (meta === undefined) return;
         /* v8 ignore stop */
+        if (meta.kind === "folder") {
+            this.results.toggleCollapsed(folderRowId(meta.path));
+            return;
+        }
         if (meta.kind === "file") {
             this.results.toggleCollapsed(fileRowId(meta.group));
             return;
@@ -540,6 +620,10 @@ export class SearchComponent extends Component {
             clearTimeout(this.debounceTimer);
             this.debounceTimer = null;
         }
+        if (this.treeRebuildTimer !== null) {
+            clearTimeout(this.treeRebuildTimer);
+            this.treeRebuildTimer = null;
+        }
         this.handle?.cancel();
         this.handle = null;
     }
@@ -556,6 +640,10 @@ export class SearchComponent extends Component {
 
 function fileRowId(group: IFileGroup): string {
     return `file:${group.relPath}`;
+}
+
+function folderRowId(path: string): string {
+    return `dir:${path}`;
 }
 
 /** Splits a comma-separated glob field into trimmed, non-empty globs. */
