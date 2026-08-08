@@ -24,6 +24,14 @@ export class DocumentTokenStore extends Disposable {
     private cachedTokens: (ILineTokens | undefined)[] = [];
     private endStates: (IState | undefined)[] = [];
     private invalidLineIndexInternal = 0;
+    /**
+     * Первая строка, которую ни разу не токенизировали. `tokenizeUpTo` зовут с
+     * низом вьюпорта, поэтому хвост документа обычно нетронут, и записи
+     * `[tokenizedFrontier .. lineCount)` пусты по построению. Инвариант —
+     * `invalidLineIndex <= tokenizedFrontier`: строки за фронтиром нельзя
+     * объявлять валидными, даже когда end-state сошёлся.
+     */
+    private tokenizedFrontier = 0;
 
     public constructor(document: ITextDocument, support: ITokenizationSupport) {
         super();
@@ -33,6 +41,7 @@ export class DocumentTokenStore extends Disposable {
         this.cachedTokens.length = document.lineCount;
         this.endStates.length = document.lineCount;
         this.invalidLineIndexInternal = 0;
+        this.tokenizedFrontier = 0;
 
         this.register(
             document.onDidChangeContent((change) => {
@@ -61,6 +70,7 @@ export class DocumentTokenStore extends Disposable {
         this.endStates.length = 0;
         this.endStates.length = this.document.lineCount;
         this.invalidLineIndexInternal = 0;
+        this.tokenizedFrontier = 0;
     }
 
     /** Returns cached tokens for `line`, or `undefined` if not yet tokenized. */
@@ -85,8 +95,8 @@ export class DocumentTokenStore extends Disposable {
      * Synchronously tokenizes lines `[invalidLineIndex .. targetLine]` (inclusive).
      *
      * If a freshly-computed end state matches the previously cached one, we
-     * stop early — subsequent lines are guaranteed to produce the same tokens.
-     * This is the standard TextMate optimisation.
+     * stop early — lines below it up to {@link tokenizedFrontier} are guaranteed
+     * to produce the same tokens. This is the standard TextMate optimisation.
      */
     public tokenizeUpTo(targetLine: number): void {
         const last = Math.min(targetLine, this.document.lineCount - 1);
@@ -98,9 +108,11 @@ export class DocumentTokenStore extends Disposable {
             state = this.support.getInitialState();
         } else {
             // endStates[line - 1] — состояние строки прямо перед грязным регионом.
-            // Оно инвариантно закэшировано к моменту входа в цикл (правка только
-            // опускает invalidLineIndex до startLine, не трогая строку startLine-1),
-            // поэтому ?? fallback ниже недостижим.
+            // Оно инвариантно закэшировано к моменту входа в цикл: правка только
+            // опускает invalidLineIndex до startLine, не трогая строку startLine-1,
+            // а invalidLineIndex не уходит за tokenizedFrontier — поэтому ??
+            // fallback ниже недостижим. Когда он был достижим, хвост файла
+            // токенизировался с начального состояния и красился «с чистого листа».
             /* v8 ignore start */
             state = this.endStates[line - 1] ?? this.support.getInitialState();
             /* v8 ignore stop */
@@ -115,14 +127,16 @@ export class DocumentTokenStore extends Disposable {
             state = result.endState;
 
             if (previousEndState?.equals(result.endState)) {
-                // Subsequent lines were already tokenized starting from this same
-                // end state, so their cached tokens are still valid — jump to EOF.
-                this.invalidLineIndexInternal = this.document.lineCount;
+                // Ниже уже токенизировали с этого же end-state — их кэш валиден.
+                // Но только до фронтира: хвост за ним не считали ни разу, и
+                // объявить его валидным значит навсегда оставить без подсветки.
+                this.invalidLineIndexInternal = this.tokenizedFrontier;
                 return;
             }
         }
 
         this.invalidLineIndexInternal = Math.max(this.invalidLineIndexInternal, line);
+        this.tokenizedFrontier = Math.max(this.tokenizedFrontier, line);
     }
 
     /** For tests: the cached end state of `line` (after tokenization). */
@@ -153,6 +167,15 @@ export class DocumentTokenStore extends Disposable {
         for (let i = startLine; i <= newEndLine && i < this.cachedTokens.length; i++) {
             this.cachedTokens[i] = undefined;
             this.endStates[i] = undefined;
+        }
+
+        // Двигаем фронтир вместе с текстом: правка целиком внутри посчитанной
+        // части сдвигает его на дельту строк, правка, вылезающая за него,
+        // опускает его на начало изменения (дальше уже ничего не считали).
+        if (oldEndLine < this.tokenizedFrontier) {
+            this.tokenizedFrontier += lineDelta;
+        } else if (startLine < this.tokenizedFrontier) {
+            this.tokenizedFrontier = startLine;
         }
 
         if (startLine < this.invalidLineIndexInternal) {
