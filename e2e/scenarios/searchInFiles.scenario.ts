@@ -20,7 +20,7 @@ async function typeText(driver: { sendKey(name: string): Promise<void> }, text: 
 
 export default defineScenario({
     name: "searchInFiles",
-    title: "Поиск по файлам: «⋯»-меню, детали за «···», режимы list/tree, Collapse All",
+    title: "Поиск по файлам: кнопки и «⋯»-меню заголовка, детали за «···», режимы list/tree, Collapse All",
     open: [repoRoot],
     cols: 100,
     rows: 30,
@@ -74,11 +74,12 @@ export default defineScenario({
         await driver.waitForText((t) => t.includes("contrib/search/browser"));
         await driver.capture("tree");
 
-        // Меню «⋯» заголовка SEARCH (правые 3 колонки): View as List / View as
-        // Tree (галочка на активном) и Collapse All.
+        // Меню «⋯» заголовка SEARCH (правые 3 колонки): режимы View as List /
+        // View as Tree с галочкой на активном. Collapse All в меню больше нет —
+        // он стал inline-кнопкой заголовка, слева от «⋯» через разделитель.
         const header = await driver.waitForNode("#paneHeader-workbench-search-results");
         await driver.clickNode("#paneHeader-workbench-search-results", { dx: header.box.width - 2 });
-        await driver.waitForText((t) => t.includes("View as List") && t.includes("Collapse All"));
+        await driver.waitForText((t) => t.includes("View as List") && t.includes("View as Tree"));
         await driver.capture("more-actions-menu");
         await driver.sendKey("Escape");
 

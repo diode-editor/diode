@@ -2,6 +2,7 @@ import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { VFlexElement, vflexFill, vflexFixed } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { isSubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { IMenuEntryGroup } from "../../../../platform/actions/common/menuRegistry.ts";
 import { CHECKED_ICON, joinMenuGroups } from "../../../../platform/actions/common/menuRegistry.ts";
@@ -451,6 +452,40 @@ export class ViewsService {
         return viewId === null ? this.containerTitleGroups(entry.descriptor!.id) : this.viewTitleGroups(viewId);
     }
 
+    /**
+     * Есть ли у «⋯» что открывать — вопрос СТАТИЧЕСКИЙ, без учёта `when`.
+     * Кнопка живёт в заголовке постоянно, а `when`-ключи меняются без событий
+     * (`gitHasRepo` становится истинным, когда расширение опубликует репозиторий);
+     * спроси мы «пусто ли меню сейчас» — кнопка исчезла бы навсегда, потому что
+     * заголовок пересобирается только со сменой состава секций.
+     */
+    private hasOverflow(menuId: MenuId, context: unknown): boolean {
+        // Пункт группы `navigation` с иконкой уезжает в кнопку, а не в попап.
+        return this.menuService.hasItems(menuId, context, (item) => {
+            if (isSubmenuContribution(item)) return true;
+            return item.group !== NAVIGATION_GROUP || item.icon === undefined;
+        });
+    }
+
+    /** Откроет ли «⋯» секции хоть что-нибудь (см. {@link hasOverflow}). */
+    private paneMenuPossible(entry: ContainerEntry, viewId: string): boolean {
+        const viewContext: ViewMenuContext = { view: viewId };
+        if (this.hasOverflow(MenuId.ViewTitle, viewContext)) return true;
+        if (!this.isMerged(entry)) return false;
+        // Merged: в «⋯» секции уезжает подменю контейнера — его команды целиком
+        // (включая inline-группу, рисовать её негде) и переключатель секций.
+        const containerContext: ViewContainerMenuContext = { container: entry.descriptor!.id };
+        return this.menuService.hasItems(MenuId.ViewContainerTitle, containerContext) || entry.views.length >= 2;
+    }
+
+    /** То же для заголовка контейнера: его команды плюс переключатель секций. */
+    private titleMenuPossible(entry: ContainerEntry): boolean {
+        const viewId = this.headerTargetView(entry);
+        if (viewId !== null) return this.paneMenuPossible(entry, viewId);
+        const context: ViewContainerMenuContext = { container: entry.descriptor!.id };
+        return this.hasOverflow(MenuId.ViewContainerTitle, context) || entry.views.length >= 2;
+    }
+
     private titleMenuEntries(entry: ContainerEntry): MenuEntry[] {
         const viewId = this.headerTargetView(entry);
         return viewId === null ? this.containerMenuEntries(entry) : this.paneMenuEntries(entry, viewId);
@@ -467,7 +502,7 @@ export class ViewsService {
             paneView.setPaneTitleWidget(record.id, record.id === headerViewId ? null : record.titleWidget);
             // Пустое меню кнопкой не показываем: «⋯», которая ничего не
             // открывает, выглядит как сломанная (так было у Explorer'а).
-            paneView.setPaneMenuVisible(record.id, this.paneMenuEntries(entry, record.id).length > 0);
+            paneView.setPaneMenuVisible(record.id, this.paneMenuPossible(entry, record.id));
         }
         // Заголовок создан в attachContainer до первой пересборки секций.
         const header = entry.header!;
@@ -476,7 +511,7 @@ export class ViewsService {
         if (!this.isPanel(entry)) return;
         const widget = headerViewId === null ? null : this.recordOrThrow(headerViewId).record.titleWidget;
         header.setTitleWidget(widget);
-        const hasMenu = this.titleMenuEntries(entry).length > 0;
+        const hasMenu = this.titleMenuPossible(entry);
         header.setMenuVisible(hasMenu);
         // Пустой полосе в таб-строке места не даём — вкладка выглядит как раньше.
         const empty = actions.length === 0 && widget === null && !hasMenu;

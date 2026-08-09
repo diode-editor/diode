@@ -2,6 +2,7 @@ import { Disposable, type IDisposable } from "../../../../../tuidom/common/dispo
 import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
+import type { MenuContribution } from "./iMenuContribution.ts";
 import type { MenuId } from "./menuId.ts";
 import type { IMenuEntryGroup, ISubmenuEntry, MenuRegistry, SubmenuResolver } from "./menuRegistry.ts";
 import { joinMenuGroups, MenuRegistryDIToken } from "./menuRegistry.ts";
@@ -48,6 +49,11 @@ export class MenuService {
      */
     public getEntries(menuId: MenuId, context?: unknown): MenuEntry[] {
         return joinMenuGroups(this.getEntryGroups(menuId, context));
+    }
+
+    /** Есть ли у точки пункты без учёта `when` (см. `MenuRegistry.hasItems`). */
+    public hasItems(menuId: MenuId, context?: unknown, predicate?: (item: MenuContribution) => boolean): boolean {
+        return this.registry.hasItems(menuId, context, predicate);
     }
 
     /** То же, но с сохранением групп (см. `MenuRegistry.getMenuItemGroups`). */

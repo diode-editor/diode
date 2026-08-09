@@ -184,6 +184,21 @@ export class MenuRegistry {
         return result;
     }
 
+    /**
+     * Есть ли у точки пункты В ПРИНЦИПЕ — с учётом `visible` (он адресует пункт
+     * конкретной view), но БЕЗ `when`. Нужно постоянному UI: кнопка «⋯» живёт в
+     * заголовке всё время, а `when`-ключи меняются без событий (меню у нас
+     * пересобираются при открытии). Спрашивать «пусто ли меню сейчас» значит
+     * навсегда спрятать кнопку, если в момент сборки ключ был ложным.
+     */
+    public hasItems(menuId: MenuId, context?: unknown, predicate?: (item: MenuContribution) => boolean): boolean {
+        return this.items.some((item) => {
+            if (item.menuId !== menuId) return false;
+            if (item.visible !== undefined && !item.visible(context)) return false;
+            return predicate?.(item) ?? true;
+        });
+    }
+
     public getMenuItems(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[] {
         return joinMenuGroups(this.getMenuItemGroups(menuId, context, resolveSubmenu));
     }

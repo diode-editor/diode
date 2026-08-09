@@ -102,8 +102,10 @@ export default defineScenario({
         await editor.sendKey("Escape");
 
         // Кнопка «⋯» заголовка GRAPH (правые 3 колонки) открывает меню секции.
+        // Refresh из него переехал в inline-кнопку заголовка, в меню осталась
+        // подгрузка следующей страницы истории.
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: header.box.width - 2 });
-        await editor.waitForText((t) => t.includes("Refresh"));
+        await editor.waitForText((t) => t.includes("Load More"));
         await editor.capture("more-actions-menu");
         await editor.sendKey("Escape");
 
