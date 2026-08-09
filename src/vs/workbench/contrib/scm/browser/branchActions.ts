@@ -86,7 +86,7 @@ export const gitCheckoutAction: CommandAction = {
     shortTitle: "Checkout to...",
     when: "gitHasRepo",
     menus: [
-        { menuId: MenuId.ViewMoreActions, group: "2_git_top", order: 30, visible: inChangesMenu, when: "gitHasRepo" },
+        { menuId: MenuId.ViewTitle, group: "2_git_top", order: 30, visible: inChangesMenu, when: "gitHasRepo" },
     ],
     async run(accessor) {
         const refs = await queryRefs(accessor);

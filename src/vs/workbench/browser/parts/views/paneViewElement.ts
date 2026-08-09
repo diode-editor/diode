@@ -3,6 +3,7 @@ import { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 
 import type { IPaneMenuAnchor } from "./paneHeaderElement.ts";
 import { PaneHeaderElement } from "./paneHeaderElement.ts";
+import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 
 /** Секция под заголовком короче этого не имеет смысла — кламп drag и раздачи высот. */
 const DEFAULT_MIN_BODY_HEIGHT = 3;
@@ -61,6 +62,8 @@ export class PaneViewElement extends TUIElement {
     public onDidChangeState?: () => void;
     /** Запрос меню «⋯» секции (клик по кнопке, правый клик, Shift+F10). */
     public onDidRequestPaneMenu?: (paneId: string, anchor: IPaneMenuAnchor) => void;
+    /** Клик по inline-кнопке заголовка секции. */
+    public onDidRequestPaneAction?: (paneId: string, actionId: string) => void;
 
     private panes: PaneRecord[] = [];
 
@@ -85,6 +88,7 @@ export class PaneViewElement extends TUIElement {
         header.onToggle = () => this.toggleCollapsed(record.id);
         header.onDrag = (boundaryScreenY) => this.dragBoundary(record, boundaryScreenY);
         header.onMenu = (anchor) => this.onDidRequestPaneMenu?.(record.id, anchor);
+        header.onAction = (actionId) => this.onDidRequestPaneAction?.(record.id, actionId);
         this.panes.push(record);
         this.appendChild(header);
         this.appendChild(options.body);
@@ -115,6 +119,16 @@ export class PaneViewElement extends TUIElement {
         body.hidden = pane.collapsed;
         this.appendChild(body);
         this.markDirty();
+    }
+
+    /** Inline-кнопки в заголовке секции (группа `navigation` её меню). */
+    public setPaneActions(id: string, actions: readonly IViewTitleAction[]): void {
+        this.paneOrThrow(id).header.setActions(actions);
+    }
+
+    /** Произвольный контрол в заголовке секции (переключатель каналов Output). */
+    public setPaneTitleWidget(id: string, widget: TUIElement | null): void {
+        this.paneOrThrow(id).header.setTitleWidget(widget);
     }
 
     public getPaneIds(): readonly string[] {

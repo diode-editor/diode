@@ -3,8 +3,8 @@ import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.t
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { MenuId } from "./menuId.ts";
-import type { ISubmenuEntry, MenuRegistry, SubmenuResolver } from "./menuRegistry.ts";
-import { MenuRegistryDIToken } from "./menuRegistry.ts";
+import type { IMenuEntryGroup, ISubmenuEntry, MenuRegistry, SubmenuResolver } from "./menuRegistry.ts";
+import { joinMenuGroups, MenuRegistryDIToken } from "./menuRegistry.ts";
 
 export const MenuServiceDIToken = token<MenuService>("MenuService");
 
@@ -21,6 +21,8 @@ export interface IMenu extends IDisposable {
      * С `resolveSubmenu` submenu-записи встраиваются вложенными попапами.
      */
     getEntries(context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[];
+    /** Те же пункты, разложенные по группам (см. `MenuRegistry.getMenuItemGroups`). */
+    getEntryGroups(context?: unknown, resolveSubmenu?: SubmenuResolver): IMenuEntryGroup[];
     /** Submenu-записи меню (см. `MenuRegistry.getSubmenus`). */
     getSubmenus(): ISubmenuEntry[];
     /** Подписка на смену состава этой точки (append/снятие пункта в реестре). */
@@ -39,6 +41,32 @@ export class MenuService {
 
     public createMenu(menuId: MenuId): IMenu {
         return new Menu(this.registry, menuId);
+    }
+
+    /**
+     * Пункты точки, готовые к показу в попапе: submenu-записи резолвятся во
+     * вложенные попапы (eager, на момент вызова — `when` учитывается сейчас).
+     * Разовый резолв без подписки — для тех, кто собирает меню при открытии.
+     */
+    public getEntries(menuId: MenuId, context?: unknown): MenuEntry[] {
+        return joinMenuGroups(this.getEntryGroups(menuId, context));
+    }
+
+    /** То же, но с сохранением групп (см. `MenuRegistry.getMenuItemGroups`). */
+    public getEntryGroups(menuId: MenuId, context?: unknown): IMenuEntryGroup[] {
+        const seen = new Set<MenuId>([menuId]);
+        return this.registry.getMenuItemGroups(menuId, context, this.submenuResolver(context, seen));
+    }
+
+    /** Пустые подменю выбрасываются; `seen` рвёт циклы `MenuId` (как `submenuIds` в vscode `menu.ts`). */
+    private submenuResolver(context: unknown, seen: Set<MenuId>): SubmenuResolver {
+        return (submenu) => {
+            if (seen.has(submenu.submenu)) return null;
+            seen.add(submenu.submenu);
+            const entries = this.registry.getMenuItems(submenu.submenu, context, this.submenuResolver(context, seen));
+            if (entries.length === 0) return null;
+            return { type: "submenu", label: submenu.title, entries };
+        };
     }
 }
 
@@ -62,6 +90,10 @@ class Menu extends Disposable implements IMenu {
 
     public getEntries(context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[] {
         return this.registry.getMenuItems(this.menuId, context, resolveSubmenu);
+    }
+
+    public getEntryGroups(context?: unknown, resolveSubmenu?: SubmenuResolver): IMenuEntryGroup[] {
+        return this.registry.getMenuItemGroups(this.menuId, context, resolveSubmenu);
     }
 
     public getSubmenus(): ISubmenuEntry[] {

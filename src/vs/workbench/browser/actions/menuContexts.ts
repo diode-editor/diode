@@ -76,7 +76,7 @@ export const scmGraphSubjectArg = (context: unknown): readonly unknown[] => [
 ];
 
 /**
- * Контекст меню «⋯» view-секции сайдбара (`MenuId.ViewMoreActions`):
+ * Контекст меню «⋯» view-секции сайдбара (`MenuId.ViewTitle`):
  * пункты фильтруются императивно по id секции — глобальный when-ключ здесь
  * не годится, в сайдбаре видимы несколько секций одновременно.
  */

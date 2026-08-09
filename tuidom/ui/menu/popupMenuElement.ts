@@ -14,6 +14,12 @@ export interface MenuItemEntry {
     label: string;
     shortcut?: string;
     icon?: string;
+    /**
+     * Стабильный ключ пункта (у нас — id команды). Попапу не нужен; его читают
+     * потребители, которые рисуют тот же пункт не строкой меню, а кнопкой
+     * (inline-действия в заголовке view).
+     */
+    id?: string;
     onSelect?: () => void;
 }
 

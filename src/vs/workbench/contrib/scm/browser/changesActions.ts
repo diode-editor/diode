@@ -119,7 +119,7 @@ export const scmOpenChangesAction: CommandAction = {
  * Режим списка изменений: дерево папок (с компакцией цепочек) или плоский
  * список путей. Пара команд вместо тоггла — как у поиска и VS Code; выбор
  * персистится по-проектно. Живут и в меню «⋯» секции CHANGES
- * (`MenuId.ViewMoreActions`, фильтр — императивный `viewMenuVisible`).
+ * (`MenuId.ViewTitle`, фильтр — императивный `viewMenuVisible`).
  */
 export const scmViewAsTreeAction: CommandAction = {
     id: "scm.action.viewAsTree",
@@ -128,7 +128,7 @@ export const scmViewAsTreeAction: CommandAction = {
     when: "scmViewletVisible",
     menus: [
         {
-            menuId: MenuId.ViewMoreActions,
+            menuId: MenuId.ViewTitle,
             group: "1_view",
             order: 10,
             visible: viewMenuVisible(SCM_CHANGES_VIEW_ID),
@@ -146,7 +146,7 @@ export const scmViewAsListAction: CommandAction = {
     when: "scmViewletVisible",
     menus: [
         {
-            menuId: MenuId.ViewMoreActions,
+            menuId: MenuId.ViewTitle,
             group: "1_view",
             order: 20,
             visible: viewMenuVisible(SCM_CHANGES_VIEW_ID),

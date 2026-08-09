@@ -1,8 +1,13 @@
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
 import { VFlexElement, vflexFill, vflexFixed } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
+import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import type { IMenuEntryGroup } from "../../../../platform/actions/common/menuRegistry.ts";
+import { CHECKED_ICON, joinMenuGroups } from "../../../../platform/actions/common/menuRegistry.ts";
+import type { MenuService } from "../../../../platform/actions/common/menuService.ts";
+import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -15,8 +20,15 @@ import { SidebarServiceDIToken } from "../sidebar/sidebarService.ts";
 
 import { PaneViewElement } from "./paneViewElement.ts";
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
+import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 
 export const ViewsServiceDIToken = token<ViewsService>("ViewsService");
+
+/** Спец-группа VS Code: её пункты рисуются кнопками в заголовке, а не в попапе. */
+const NAVIGATION_GROUP = "navigation";
+
+/** Подменю-переключатель видимости секций (VS Code: «Views»). */
+const VIEWS_SUBMENU_LABEL = "Views";
 
 /**
  * Где живёт контейнер (аналог `ViewContainerLocation` VS Code): вьюлет левого
@@ -123,17 +135,23 @@ interface ContainerEntry {
  *
  * Сервис же владеет обвязкой секций: персист свёрнутости/весов/скрытости
  * (write-through по действию пользователя, restore — строго после
- * `openWorkspace`) и меню «⋯» (`MenuId.ViewMoreActions` с императивной
+ * `openWorkspace`) и меню «⋯» (`MenuId.ViewTitle` с императивной
  * фильтрацией по `menuContext.view`).
  */
 export class ViewsService {
-    public static dependencies = [SidebarServiceDIToken, ContextMenuServiceDIToken, StateServiceDIToken] as const;
+    public static dependencies = [
+        SidebarServiceDIToken,
+        ContextMenuServiceDIToken,
+        MenuServiceDIToken,
+        StateServiceDIToken,
+    ] as const;
 
     private readonly containers = new Map<string, ContainerEntry>();
 
     public constructor(
         private readonly sidebarService: SidebarService,
         private readonly contextMenuService: ContextMenuService,
+        private readonly menuService: MenuService,
         private readonly stateService: IStateService,
     ) {}
 
@@ -191,7 +209,11 @@ export class ViewsService {
      * Output и подобные): escape-hatch для того, что не выражается пунктом меню.
      */
     public setViewTitleWidget(viewId: string, widget: TUIElement | null): void {
-        this.recordOrThrow(viewId).record.titleWidget = widget;
+        const { entry, record } = this.recordOrThrow(viewId);
+        if (record.titleWidget === widget) return;
+        record.titleWidget = widget;
+        if (entry.paneView === null || entry.hidden.has(viewId)) return;
+        entry.paneView.setPaneTitleWidget(viewId, widget);
     }
 
     /** Контрол заголовка view, если он задан (читает отрисовка заголовка). */
@@ -249,25 +271,27 @@ export class ViewsService {
         paneView.id = `viewContainer-${containerId}`;
         paneView.onDidChangeState = () => this.persistContainerState(containerId, entry);
         paneView.onDidRequestPaneMenu = (paneId, anchor) => {
-            const context: ViewMenuContext = { view: paneId };
             this.contextMenuService.showContextMenu({
                 getOwner: () => paneView,
                 getAnchor: () => anchor,
-                menuId: MenuId.ViewMoreActions,
-                menuContext: context,
+                getEntries: () => this.paneMenuEntries(entry, paneId),
             });
+        };
+        paneView.onDidRequestPaneAction = (paneId, actionId) => {
+            runAction(this.viewTitleGroups(paneId), actionId);
         };
         entry.paneView = paneView;
         const header = new ViewContainerHeaderElement(entry.descriptor.title);
         header.id = `viewContainerHeader-${containerId.replaceAll(".", "-")}`;
         header.onMenu = (anchor) => {
-            const context: ViewContainerMenuContext = { container: containerId };
             this.contextMenuService.showContextMenu({
                 getOwner: () => header,
                 getAnchor: () => anchor,
-                menuId: MenuId.ViewContainerTitle,
-                menuContext: context,
+                getEntries: () => this.containerMenuEntries(entry),
             });
+        };
+        header.onAction = (actionId) => {
+            runAction(this.containerTitleGroups(containerId), actionId);
         };
         entry.header = header;
         const root = new VFlexElement();
@@ -319,6 +343,79 @@ export class ViewsService {
         const visible = this.visibleViews(entry);
         const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible[0];
         target?.focus();
+    }
+
+    // ─── Меню и inline-действия заголовков ───
+
+    private viewTitleGroups(viewId: string): IMenuEntryGroup[] {
+        const context: ViewMenuContext = { view: viewId };
+        return this.menuService.getEntryGroups(MenuId.ViewTitle, context);
+    }
+
+    private containerTitleGroups(containerId: string): IMenuEntryGroup[] {
+        const context: ViewContainerMenuContext = { container: containerId };
+        return this.menuService.getEntryGroups(MenuId.ViewContainerTitle, context);
+    }
+
+    /** Попап «⋯» секции. Merged — сюда же уезжает меню контейнера, подменю. */
+    private paneMenuEntries(entry: ContainerEntry, viewId: string): MenuEntry[] {
+        const entries = overflowEntries(this.viewTitleGroups(viewId));
+        if (!this.isMerged(entry)) return entries;
+        const container = this.containerSubmenu(entry);
+        if (container === null) return entries;
+        return entries.length > 0 ? [...entries, { type: "separator" }, container] : [container];
+    }
+
+    /** Попап «⋯» контейнера: его команды + переключатель видимости секций. */
+    private containerMenuEntries(entry: ContainerEntry): MenuEntry[] {
+        const entries = overflowEntries(this.containerTitleGroups(entry.descriptor!.id));
+        const views = this.viewsSubmenu(entry);
+        if (views === null) return entries;
+        return entries.length > 0 ? [...entries, { type: "separator" }, views] : [views];
+    }
+
+    /**
+     * Меню контейнера, свёрнутое в подменю: у merged-контейнера своего
+     * заголовка нет, поэтому его команды (включая inline-группу — рисовать её
+     * негде) и переключатель секций живут в «⋯» единственной секции.
+     */
+    private containerSubmenu(entry: ContainerEntry): MenuSubmenuEntry | null {
+        const own = joinMenuGroups(this.containerTitleGroups(entry.descriptor!.id));
+        const views = this.viewsSubmenu(entry);
+        const entries = views === null ? own : own.length > 0 ? [...own, { type: "separator" as const }, views] : [views];
+        if (entries.length === 0) return null;
+        return { type: "submenu", label: entry.descriptor!.title, entries };
+    }
+
+    /**
+     * Подменю «Views» — чекбоксы видимости секций. Пункты динамические (их нет
+     * в реестре меню), поэтому собираются здесь, а не контрибуцией.
+     */
+    private viewsSubmenu(entry: ContainerEntry): MenuSubmenuEntry | null {
+        if (entry.views.length < 2) return null;
+        return {
+            type: "submenu",
+            label: VIEWS_SUBMENU_LABEL,
+            entries: entry.views.map((record) => {
+                const visible = !entry.hidden.has(record.id);
+                return {
+                    label: record.title,
+                    id: record.id,
+                    icon: visible ? CHECKED_ICON : undefined,
+                    onSelect: () => this.setViewVisible(record.id, !visible),
+                };
+            }),
+        };
+    }
+
+    /** Пере-резолвит inline-кнопки заголовков контейнера и его видимых секций. */
+    private refreshTitleActions(entry: ContainerEntry): void {
+        const paneView = entry.paneView!;
+        for (const record of this.visibleViews(entry)) {
+            paneView.setPaneActions(record.id, inlineActions(this.viewTitleGroups(record.id)));
+            paneView.setPaneTitleWidget(record.id, record.titleWidget);
+        }
+        entry.header?.setActions(inlineActions(this.containerTitleGroups(entry.descriptor!.id)));
     }
 
     /**
@@ -406,6 +503,7 @@ export class ViewsService {
         for (const view of visible) {
             paneView.setCollapsed(view.id, collapsed.has(view.id));
         }
+        this.refreshTitleActions(entry);
         this.syncContainerFrame(entry);
     }
 
@@ -430,6 +528,43 @@ export class ViewsService {
  */
 function containerPaneTitle(entry: ContainerEntry): string {
     return (entry.descriptor?.title ?? "").trimStart();
+}
+
+/**
+ * Inline-кнопки заголовка: группа `navigation`, у пунктов которой есть иконка.
+ * Пункт без иконки кнопкой не нарисовать (в 30 колонок сайдбара не влезет
+ * подпись), поэтому он остаётся в «⋯» — как и submenu-записи навигации.
+ */
+function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAction[] {
+    const navigation = groups.find((group) => group.group === NAVIGATION_GROUP);
+    if (navigation === undefined) return [];
+    return navigation.entries.filter(isInlineItem).map((entry) => ({ id: entry.id, icon: entry.icon }));
+}
+
+/** Пункты попапа «⋯»: всё, что не уехало в inline-кнопки. */
+function overflowEntries(groups: readonly IMenuEntryGroup[]): MenuEntry[] {
+    const rest = groups.map((group) =>
+        group.group === NAVIGATION_GROUP
+            ? { group: group.group, entries: group.entries.filter((entry) => !isInlineItem(entry)) }
+            : group,
+    );
+    return joinMenuGroups(rest.filter((group) => group.entries.length > 0));
+}
+
+/** Клик по inline-кнопке исполняет тот же пункт, что нарисовал кнопку. */
+function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
+    for (const group of groups) {
+        for (const entry of group.entries) {
+            if (isInlineItem(entry) && entry.id === actionId) {
+                entry.onSelect?.();
+                return;
+            }
+        }
+    }
+}
+
+function isInlineItem(entry: MenuEntry): entry is MenuItemEntry & { id: string; icon: string } {
+    return entry.type === undefined && typeof entry.id === "string" && typeof entry.icon === "string";
 }
 
 /** Пустое состояние секции: строка-подсказка с отступом (аналог viewsWelcome). */

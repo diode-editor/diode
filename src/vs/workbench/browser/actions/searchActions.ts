@@ -9,6 +9,11 @@ import {
 import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
 import { viewMenuVisible } from "./menuContexts.ts";
 
+/** nf-cod-collapse_all — inline-кнопка заголовка Search. */
+const COLLAPSE_ALL_ICON = "\ueac5";
+/** nf-cod-expand_all — она же в обратном состоянии. */
+const EXPAND_ALL_ICON = "\ueb95";
+
 /**
  * Показать вьюлет Search в сайдбаре (Ctrl+Shift+F) — сделать его активным, раскрыть
  * сайдбар и сфокусировать строку запроса. Как и Explorer/SCM, переключение идёт
@@ -30,7 +35,7 @@ export const showSearchAction: CommandAction = {
  * Режим отображения результатов: дерево (сворачиваемые файл-группы) или плоский
  * список. Пара команд вместо тоггла — как у VS Code (`search.action.viewAsTree`/
  * `viewAsList`); выбор персистится по-проектно. Живут и в меню «⋯» заголовка
- * Search (`MenuId.ViewMoreActions`) с галочкой активного режима (`toggled`).
+ * Search (`MenuId.ViewTitle`) с галочкой активного режима (`toggled`).
  */
 export const searchViewAsTreeAction: CommandAction = {
     id: "search.action.viewAsTree",
@@ -39,7 +44,7 @@ export const searchViewAsTreeAction: CommandAction = {
     when: "searchViewletVisible",
     menus: [
         {
-            menuId: MenuId.ViewMoreActions,
+            menuId: MenuId.ViewTitle,
             group: "1_view",
             order: 20,
             visible: viewMenuVisible(SEARCH_VIEW_ID),
@@ -52,8 +57,9 @@ export const searchViewAsTreeAction: CommandAction = {
 };
 
 /**
- * Collapse All / Expand All результатов — пара в «⋯»-меню, один слот
- * (group/order): сменяются по viewHasSomeCollapsibleResult, как в VS Code.
+ * Collapse All / Expand All результатов — пара в группе `navigation`, один слот
+ * (group/order): сменяются по viewHasSomeCollapsibleResult, как в VS Code, и
+ * потому дают ровно одну кнопку в заголовке Search.
  * Collapse — поэтапный CollapseDeepestExpandedLevel (сначала матчи под
  * файлами, потом всё дерево).
  */
@@ -64,9 +70,10 @@ export const collapseSearchResultsAction: CommandAction = {
     when: "searchViewletVisible",
     menus: [
         {
-            menuId: MenuId.ViewMoreActions,
-            group: "2_collapse",
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
             order: 10,
+            icon: COLLAPSE_ALL_ICON,
             visible: viewMenuVisible(SEARCH_VIEW_ID),
             when: "!hasSearchResult || viewHasSomeCollapsibleResult",
         },
@@ -83,9 +90,10 @@ export const expandSearchResultsAction: CommandAction = {
     when: "searchViewletVisible",
     menus: [
         {
-            menuId: MenuId.ViewMoreActions,
-            group: "2_collapse",
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
             order: 10,
+            icon: EXPAND_ALL_ICON,
             visible: viewMenuVisible(SEARCH_VIEW_ID),
             when: "hasSearchResult && !viewHasSomeCollapsibleResult",
         },
@@ -157,7 +165,7 @@ export const searchViewAsListAction: CommandAction = {
     when: "searchViewletVisible",
     menus: [
         {
-            menuId: MenuId.ViewMoreActions,
+            menuId: MenuId.ViewTitle,
             group: "1_view",
             order: 10,
             visible: viewMenuVisible(SEARCH_VIEW_ID),

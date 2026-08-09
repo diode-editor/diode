@@ -26,6 +26,24 @@ export const CHECKED_ICON = "\u2713"; // ✓
 
 export const MenuRegistryDIToken = token<MenuRegistry>("MenuRegistry");
 
+/** Непустая группа пунктов одной точки меню (см. {@link MenuRegistry.getMenuItemGroups}). */
+export interface IMenuEntryGroup {
+    /** Ключ группы; `navigation` — спец-группа VS Code, всегда первая. */
+    readonly group: string;
+    readonly entries: readonly MenuEntry[];
+}
+
+/** Склеивает группы в плоский список, разделяя их сепараторами. */
+export function joinMenuGroups(groups: readonly IMenuEntryGroup[]): MenuEntry[] {
+    const result: MenuEntry[] = [];
+    for (const group of groups) {
+        // Разделитель — только между непустыми группами (без ведущих/хвостовых).
+        if (result.length > 0) result.push({ type: "separator" });
+        result.push(...group.entries);
+    }
+    return result;
+}
+
 /**
  * Резолвер submenu-записи во вложенный `MenuSubmenuEntry` (для контекстных
  * меню). `null` — подменю выбрасывается (пустое или цикл `MenuId`).
@@ -122,7 +140,13 @@ export class MenuRegistry {
         }
     }
 
-    public getMenuItems(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[] {
+    /**
+     * То же, что {@link getMenuItems}, но без склейки: пункты остаются
+     * разложенными по группам. Нужно потребителям, которые рисуют группы
+     * по-разному — заголовок view показывает `navigation` inline-кнопками, а
+     * остальные группы уводит в попап «⋯».
+     */
+    public getMenuItemGroups(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): IMenuEntryGroup[] {
         const visible = this.items.filter((item) => {
             if (item.menuId !== menuId) return false;
             // Без резолвера submenu-записи в обычных меню не рендерим — их
@@ -142,7 +166,7 @@ export class MenuRegistry {
             return true;
         });
 
-        const result: MenuEntry[] = [];
+        const result: IMenuEntryGroup[] = [];
         for (const bucket of collectSorted(visible)) {
             const groupEntries: MenuEntry[] = [];
             for (const item of bucket) {
@@ -155,11 +179,13 @@ export class MenuRegistry {
                 }
             }
             if (groupEntries.length === 0) continue;
-            // Разделитель — только между непустыми группами (без ведущих/хвостовых).
-            if (result.length > 0) result.push({ type: "separator" });
-            result.push(...groupEntries);
+            result.push({ group: bucket[0].group ?? "", entries: groupEntries });
         }
         return result;
+    }
+
+    public getMenuItems(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[] {
+        return joinMenuGroups(this.getMenuItemGroups(menuId, context, resolveSubmenu));
     }
 
     /**
@@ -192,6 +218,7 @@ export class MenuRegistry {
         const resolvedArgs = item.args ? item.args(context) : [];
         return {
             label,
+            id: item.command,
             shortcut: this.resolveShortcut(item),
             // `toggled` рисуется отметкой в колонке иконки — так VS Code помечает
             // включённый пункт (например текущий канал Output).

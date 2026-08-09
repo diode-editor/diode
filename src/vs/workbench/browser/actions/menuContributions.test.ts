@@ -95,27 +95,27 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
         expect(labels(MenuId.ExplorerContext, { path: "/ws/a.txt", canPaste: false })).not.toContain("Paste");
     });
 
-    it("ViewMoreActions: пункты фильтруются по id view из menuContext", () => {
+    it("ViewTitle: пункты фильтруются по id view из menuContext", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("scmViewletVisible", true);
         // Без репозитория git-топ (Pull/Push/Checkout/Fetch) скрыт when-гейтами;
         // Show Git Output безусловен.
-        expect(labels(MenuId.ViewMoreActions, { view: "workbench.scm.changes" }, contextKeys)).toEqual([
+        expect(labels(MenuId.ViewTitle, { view: "workbench.scm.changes" }, contextKeys)).toEqual([
             "View as Tree",
             "View as List",
             "─",
             "Show Git Output",
         ]);
-        expect(labels(MenuId.ViewMoreActions, { view: "workbench.scm.graph" }, contextKeys)).toEqual(["Refresh"]);
-        expect(labels(MenuId.ViewMoreActions, { view: "ghost" }, contextKeys)).toEqual([]);
+        expect(labels(MenuId.ViewTitle, { view: "workbench.scm.graph" }, contextKeys)).toEqual(["Refresh"]);
+        expect(labels(MenuId.ViewTitle, { view: "ghost" }, contextKeys)).toEqual([]);
     });
 
-    it("ViewMoreActions CHANGES: repo-state включает git-топ (подменю — только с резолвером)", () => {
+    it("ViewTitle CHANGES: repo-state включает git-топ (подменю — только с резолвером)", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("scmViewletVisible", true);
         contextKeys.set("gitHasRepo", true);
         contextKeys.set("gitHasRemotes", true);
-        expect(labels(MenuId.ViewMoreActions, { view: "workbench.scm.changes" }, contextKeys)).toEqual([
+        expect(labels(MenuId.ViewTitle, { view: "workbench.scm.changes" }, contextKeys)).toEqual([
             "View as Tree",
             "View as List",
             "─",
