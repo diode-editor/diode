@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
 import { PUBLISH_REPO_STATE_COMMAND, ScmRepoStateService } from "./repoStateService.ts";
@@ -27,7 +28,7 @@ function setup(): {
     click: (id: string) => void;
 } {
     const commands = new CommandRegistry();
-    const statusBar = new StatusBarService();
+    const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const repoState = new ScmRepoStateService(commands, new ContextKeyService());
     const contribution = new ScmStatusBarContribution(statusBar, repoState, commands);
     const executed: string[] = [];

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { NULL_STATE_SERVICE } from "../../../platform/state/common/nullStateService.ts";
 import { StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
 
 import { ProgressStatusBarAdapter } from "./progressStatusBarAdapter.ts";
@@ -15,7 +16,7 @@ describe("ProgressStatusBarAdapter", () => {
 
     beforeEach(() => {
         vi.useFakeTimers();
-        statusBar = new StatusBarService();
+        statusBar = new StatusBarService(NULL_STATE_SERVICE);
         adapter = new ProgressStatusBarAdapter(statusBar, 100);
     });
 

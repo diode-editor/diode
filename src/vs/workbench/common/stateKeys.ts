@@ -125,3 +125,16 @@ export const SIDEBAR_VIEWS_STATE: IStateDescriptor<Record<string, IViewContainer
     scope: "workspace",
     default: {},
 };
+
+/**
+ * Id записей статус-бара, скрытых пользователем через контекстное меню полосы.
+ *
+ * Единственный `global` в этом файле — сознательное отступление от
+ * «состояние UI по-проектно»: состав полосы это вкус пользователя, а не свойство
+ * проекта, и VS Code хранит его так же (application-scope memento).
+ */
+export const STATUS_BAR_HIDDEN_STATE: IStateDescriptor<readonly string[]> = {
+    key: "workbench.statusbar.hidden",
+    scope: "global",
+    default: [],
+};

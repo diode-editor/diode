@@ -52,6 +52,7 @@ export class ScmStatusBarContribution extends Disposable {
         if (this.branchHandle === null) {
             this.branchHandle = this.statusBar.addEntry({
                 id: "status.scm.branch",
+                name: "Source Control",
                 text: branchText,
                 alignment: "left",
                 priority: 1000,
@@ -74,6 +75,7 @@ export class ScmStatusBarContribution extends Disposable {
         if (this.syncHandle === null) {
             this.syncHandle = this.statusBar.addEntry({
                 id: "status.scm.sync",
+                name: "Source Control Sync",
                 text: syncText,
                 alignment: "left",
                 priority: 999,

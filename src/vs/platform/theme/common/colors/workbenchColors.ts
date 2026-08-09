@@ -71,6 +71,20 @@ export const workbenchColors = {
         defaults: { dark: "#FFFFFF", light: "#3B3B3B" },
         description: "Status Bar foreground color.",
     },
+    "statusBarItem.hoverBackground": {
+        // Upstream-дефолт — белый с альфой 0.12; здесь он запечён поверх
+        // statusBar.background своего вида. Темы везут значение с альфой
+        // (Dark Modern — "#F1F1F133"), поэтому blendOver.
+        defaults: { dark: "#1E92D2", light: "#E4E4E4" },
+        blendOver: "statusBar.background",
+        description: "Status Bar item background color when hovering.",
+    },
+    "statusBarItem.hoverForeground": {
+        // Совпадает с дефолтами statusBar.foreground: тема, не задающая
+        // hoverForeground, не должна менять цвет текста под курсором.
+        defaults: { dark: "#FFFFFF", light: "#3B3B3B" },
+        description: "Status Bar item foreground color when hovering.",
+    },
     "titleBar.activeBackground": {
         defaults: null,
         description: "Title Bar background when the window is active.",

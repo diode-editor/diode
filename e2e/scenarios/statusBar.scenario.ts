@@ -2,10 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Демо статус-бара после пересборки на примитивы (HFlex + TextLabel + Filler):
-// обычная ширина — левые сегменты слева, правые прижаты к правому краю с
-// клеткой паддинга; узкий терминал — flex-семантика переполнения (середина
-// схлопывается, правая группа теряет выравнивание и обрезается краем экрана).
+// Демо статус-бара: обычная ширина — левые сегменты слева, правые прижаты к
+// правому краю с клеткой паддинга; наведение — подсветка кликабельного
+// сегмента; правый клик — переключатель видимости сегментов; узкий терминал —
+// flex-семантика переполнения (середина схлопывается, правая группа теряет
+// выравнивание и обрезается краем экрана).
 
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 
@@ -19,6 +20,21 @@ export default defineScenario({
         // Правые сегменты появляются после открытия файла.
         await editor.waitForText((t) => t.includes("Ln 1, Col 1") && t.includes("UTF-8"));
         await editor.capture("normal-width");
+
+        // Наведение на кликабельный сегмент (ветка SCM) — блок подсвечивается
+        // statusBarItem.hoverBackground вместе с краевыми пробелами.
+        const branch = await editor.waitForNode("#statusBarItem-status-scm-branch");
+        await editor.sendMouse({ action: "move", button: "none", x: branch.box.x + 2, y: branch.box.y });
+        await editor.capture("segment-hover");
+
+        // Правый клик по полосе — переключатель видимости сегментов: галочки у
+        // видимых, «Hide 'X'» для сегмента под курсором. Меню флипается вверх,
+        // полоса — нижний ряд.
+        await editor.sendMouse({ action: "press", button: "right", x: branch.box.x + 2, y: branch.box.y });
+        await editor.sendMouse({ action: "release", button: "right", x: branch.box.x + 2, y: branch.box.y });
+        await editor.waitForText((t) => t.includes("Hide 'Source Control'"));
+        await editor.capture("visibility-menu");
+        await editor.sendKey("Escape");
 
         // Узкий терминал: правая группа больше не влезает — обрезается справа
         // (слева теперь живут ветка и sync-сегмент SCM, ширина плавает по имени

@@ -208,7 +208,7 @@ const KNOWN_OUTPUT_CHANNELS: readonly (readonly [id: string, label: string])[] =
 ];
 
 export const workbenchModule: ContainerModule = (container) => {
-    container.bind(StatusBarServiceDIToken, () => new StatusBarService());
+    container.bind(StatusBarServiceDIToken, StatusBarService);
     // Клавиатурный диспатчер: чорды/armory/swallow + chord-хинт в статус-баре.
     // View-хуки (updateContextKeys, hasKeyboardCapturingOverlay) подключает владелец
     // корневого дерева — WorkbenchComponent.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { builtinThemes } from "../../../../workbench/services/themes/common/themes/builtinThemes.ts";
+import type { ColorContribution } from "../colorRegistry.ts";
 import { WorkbenchTheme } from "../workbenchTheme.ts";
 
 import { baseColors } from "./baseColors.ts";
@@ -36,6 +37,8 @@ const REQUIRED_COLORS: (keyof IWorkbenchColors)[] = [
     "sideBar.foreground",
     "statusBar.background",
     "statusBar.foreground",
+    "statusBarItem.hoverBackground",
+    "statusBarItem.hoverForeground",
     "list.activeSelectionBackground",
     "list.activeSelectionForeground",
     "list.inactiveSelectionBackground",
@@ -65,6 +68,22 @@ describe("default color registry coverage", () => {
             }
         });
     }
+
+    /**
+     * Инвариант, на который опирается композитинг в `WorkbenchTheme`: и сам
+     * blendOver-цвет, и его подложка обязаны иметь дефолты. Иначе наложение
+     * получило бы `undefined` и выдало NaN вместо цвета.
+     */
+    it("blendOver-цвета и их подложки объявлены с дефолтами", () => {
+        const contributions: ColorContribution = COLOR_CONTRIBUTIONS;
+        for (const [key, definition] of Object.entries(contributions)) {
+            if (definition.blendOver === undefined) continue;
+            expect(definition.defaults, `"${key}" без дефолтов`).not.toBeNull();
+            const backdrop = contributions[definition.blendOver];
+            expect(backdrop, `подложка "${definition.blendOver}" не зарегистрирована`).toBeDefined();
+            expect(backdrop.defaults, `подложка "${definition.blendOver}" без дефолтов`).not.toBeNull();
+        }
+    });
 
     it("group files declare disjoint key sets (a spread would silently override a duplicate)", () => {
         const groups = [
