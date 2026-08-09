@@ -58,6 +58,12 @@ export class ViewContainerHeaderElement extends TUIElement {
                 this.onAction?.(zone.actionId);
             }
         });
+        this.addEventListener("mousemove", (event) => {
+            this.row.setHoveredZone(this.row.hitZone(event.localX));
+        });
+        this.addEventListener("mouseleave", () => {
+            this.row.setHoveredZone(null);
+        });
         this.addEventListener("contextmenu", (event) => {
             event.preventDefault();
             const menuEvent = event as TUIContextMenuEvent;

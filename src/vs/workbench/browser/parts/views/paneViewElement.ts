@@ -141,6 +141,11 @@ export class PaneViewElement extends TUIElement {
         this.paneOrThrow(id).header.setTitleWidget(widget);
     }
 
+    /** Прятать ли «⋯» секции — когда её меню пустое, кнопке нечего открывать. */
+    public setPaneMenuVisible(id: string, visible: boolean): void {
+        this.paneOrThrow(id).header.setMenuVisible(visible);
+    }
+
     public getPaneIds(): readonly string[] {
         return this.panes.map((p) => p.id);
     }

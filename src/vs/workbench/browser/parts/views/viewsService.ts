@@ -465,6 +465,9 @@ export class ViewsService {
             // Виджет уехавшей в таб-строку секции забирает заголовок контейнера —
             // у контрола один родитель, держать его в двух местах нельзя.
             paneView.setPaneTitleWidget(record.id, record.id === headerViewId ? null : record.titleWidget);
+            // Пустое меню кнопкой не показываем: «⋯», которая ничего не
+            // открывает, выглядит как сломанная (так было у Explorer'а).
+            paneView.setPaneMenuVisible(record.id, this.paneMenuEntries(entry, record.id).length > 0);
         }
         // Заголовок создан в attachContainer до первой пересборки секций.
         const header = entry.header!;

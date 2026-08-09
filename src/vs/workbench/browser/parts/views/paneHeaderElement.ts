@@ -74,6 +74,7 @@ export class PaneHeaderElement extends TUIElement {
             this.pressLocalX = event.localX;
         });
         this.addEventListener("mousemove", (event) => {
+            this.row.setHoveredZone(this.row.hitZone(event.localX));
             if (!this.pressed) return;
             if (!this.dragMoved && event.screenY === this.pressScreenY) return;
             // Любой сдвиг по Y — это drag: отпускание больше не считается кликом,
@@ -93,6 +94,9 @@ export class PaneHeaderElement extends TUIElement {
             } else if (this.collapsible) {
                 this.onToggle?.();
             }
+        });
+        this.addEventListener("mouseleave", () => {
+            this.row.setHoveredZone(null);
         });
         this.addEventListener("contextmenu", (event) => {
             event.preventDefault();
@@ -125,6 +129,11 @@ export class PaneHeaderElement extends TUIElement {
     /** Произвольный контрол в заголовке (переключатель каналов Output). */
     public setTitleWidget(widget: TUIElement | null): void {
         this.row.setTitleWidget(widget);
+    }
+
+    /** Прятать ли «⋯» (см. {@link ViewTitleRowElement.setMenuVisible}). */
+    public setMenuVisible(visible: boolean): void {
+        this.row.setMenuVisible(visible);
     }
 
     /** Контейнер отключает drag, когда выше/ниже нет развёрнутой секции. */

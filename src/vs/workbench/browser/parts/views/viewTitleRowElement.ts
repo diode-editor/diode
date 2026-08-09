@@ -16,6 +16,14 @@ const MENU_ICON = "⋯"; // ⋯
  */
 const BUTTON_WIDTH = 3;
 
+/**
+ * Разделитель между соседними кнопками — тонкая вертикальная черта. Рамка
+ * вокруг каждой кнопки в одну строку читается слишком тяжело, а без границы
+ * глиф не выглядит нажимаемым; черта даёт ровно тот минимум, который делает
+ * ряд похожим на панель инструментов.
+ */
+const SEPARATOR = "\u2502"; // │
+
 /** Inline-кнопка заголовка — пункт меню группы `navigation`, у которого есть иконка. */
 export interface IViewTitleAction {
     /** Что вернёт {@link ViewTitleRowElement.hitZone}; обычно id команды. */
@@ -139,6 +147,19 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 
     /**
+     * Подсветить кнопку под курсором. Лейблы не участвуют в хит-тесте (мышь
+     * забирает заголовок), поэтому движок сам им `hover` не выставит — состояние
+     * ставит владелец по mousemove, зону считает {@link hitZone}.
+     */
+    public setHoveredZone(zone: ViewTitleZone | null): void {
+        const hoveredAction = zone?.kind === "action" ? zone.actionId : null;
+        this.actionLabels.forEach((label, i) => {
+            label.setStyleState("hover", this.actions[i].id === hoveredAction);
+        });
+        this.menuLabel.setStyleState("hover", zone?.kind === "menu");
+    }
+
+    /**
      * Хит-тест ТОЛЬКО виджета заголовка. Лейблы строки презентационные (их
      * клики считает {@link hitZone}), а виджет — настоящий интерактивный
      * контрол (селектор каналов Output), и мышь обязана доходить до него:
@@ -168,18 +189,37 @@ export class ViewTitleRowElement extends HFlexElement {
             this.titleWidget.layoutStyle = { width: hflexFit(), height: 1 };
             children.push(this.titleWidget);
         }
-        children.push(...this.actionLabels);
-        if (this.menuVisible) children.push(this.menuLabel);
+        // Черта — только МЕЖДУ соседними контролами: ведущая/хвостовая
+        // превратила бы ряд в рамку, а это и есть тот перебор с акцентом.
+        const controls: TUIElement[] = [...this.actionLabels];
+        if (this.menuVisible) controls.push(this.menuLabel);
+        controls.forEach((control, index) => {
+            if (index > 0) children.push(separatorLabel());
+            children.push(control);
+        });
         this.replaceChildren(children);
     }
 }
 
-/** Кнопка приглушена, но видима всегда (hover в TUI ненадёжен — мыши может не быть). */
+/**
+ * Кнопка приглушена, но видима всегда (мыши может не быть вовсе). Фон в покое —
+ * фон заголовка (наследуется каскадом), под курсором — свой: `hover` ставит
+ * владелец через {@link ViewTitleRowElement.setHoveredZone}, потому что сами
+ * лейблы в хит-тесте не участвуют.
+ */
 function buttonStyle(): TUIElement["style"] {
     return {
         fg: "descriptionForeground",
-        when: [{ states: ["in:hover"], bg: "toolbar.hoverBackground" }],
+        when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }],
     };
+}
+
+/** Разделитель между кнопками — та же приглушённая палитра, что у пунктов меню. */
+function separatorLabel(): TextLabelElement {
+    const label = new TextLabelElement(SEPARATOR);
+    label.style = { fg: "menu.separatorBackground" };
+    label.layoutStyle = { width: hflexFixed(1), height: 1 };
+    return label;
 }
 
 function buttonLabel(icon: string): string {

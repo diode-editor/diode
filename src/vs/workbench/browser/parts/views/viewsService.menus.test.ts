@@ -73,13 +73,13 @@ function submenu(entries: readonly MenuEntry[], label: string): MenuSubmenuEntry
     return found as MenuSubmenuEntry;
 }
 
-/** Иконки inline-кнопок заголовка секции: лейблы между названием и «⋯». */
+/** Иконки inline-кнопок заголовка секции: лейблы без названия, «⋯» и разделителей. */
 function buttonIcons(h: IViewsHarness, viewId: string): string[] {
     const header = h.paneView("scm").querySelector(`#paneHeader-${viewId.replaceAll(".", "-")}`)!;
-    return header
-        .querySelectorAll("TextLabelElement")
-        .slice(1, -1)
-        .map((label) => (label as TextLabelElement).getText().trim());
+    const [, ...rest] = header.querySelectorAll("TextLabelElement");
+    return rest
+        .map((label) => (label as TextLabelElement).getText().trim())
+        .filter((text) => text !== "\u2502" && text !== "⋯");
 }
 
 function entriesOf(submenuEntry: MenuSubmenuEntry): MenuEntry[] {

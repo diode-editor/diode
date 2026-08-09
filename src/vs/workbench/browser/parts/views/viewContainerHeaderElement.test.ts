@@ -5,6 +5,7 @@ import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../../../tuidom/dom
 import type { MouseToken } from "../../../../../../tuidom/input/rawTerminalToken.ts";
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
@@ -42,7 +43,7 @@ function makeHeader(width = 30): {
 
 function mouse(
     header: ViewContainerHeaderElement,
-    type: "mousedown" | "mouseup",
+    type: "mousedown" | "mouseup" | "mousemove" | "mouseleave",
     init: { localX?: number; button?: "left" | "right" } = {},
 ): void {
     header.dispatchEvent(
@@ -151,6 +152,19 @@ describe("ViewContainerHeaderElement", () => {
         expect(hit).toBe(widget);
         // Лейблы по-прежнему презентационные — клик по названию берёт заголовок.
         expect(app.root.elementFromPoint(new Point(header.globalPosition.x, header.globalPosition.y))).toBe(header);
+    });
+
+    it("наведение подсвечивает кнопку под курсором, уход — гасит", () => {
+        const { header } = makeHeader();
+        const bg = (x: number): number =>
+            renderElement(header, 30, 1, { themeVars: true }).getBgAt(new Point(x, 0));
+        const restBg = bg(25);
+
+        mouse(header, "mousemove", { localX: 25 });
+        expect(bg(25)).not.toBe(restBg);
+
+        mouse(header, "mouseleave");
+        expect(bg(25)).toBe(restBg);
     });
 
     it("Shift+F10 якорит меню к кнопке ⋯, правый клик — к курсору", () => {

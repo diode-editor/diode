@@ -93,10 +93,11 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         service.setRootPath(ws.dir);
         attach();
         const header = h.paneView(EXPLORER_VIEWLET_ID).querySelector("#paneHeader-workbench-explorer-fileView")!;
-        const buttons = header
-            .querySelectorAll("TextLabelElement")
-            .slice(1, -1)
-            .map((label) => (label as TextLabelElement).getText().trim());
+        const [, ...rest] = header.querySelectorAll("TextLabelElement");
+        const buttons = rest
+            .map((label) => (label as TextLabelElement).getText().trim())
+            .filter((text) => text !== "\u2502");
+        // New File / New Folder / Refresh Explorer; «⋯» скрыта — меню пустое.
         expect(buttons).toEqual(["", "", ""]);
     });
 

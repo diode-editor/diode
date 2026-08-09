@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
+import { Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 import type { MouseToken } from "../../../../../../tuidom/input/rawTerminalToken.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -232,6 +232,35 @@ describe("PaneViewElement mouse", () => {
         app.backend.simulateMouse(token({ action: "press", x: x + 1, y: pos.y + 1 }));
         app.backend.simulateMouse(token({ action: "release", x: x + 1, y: pos.y + 1 }));
         expect(actions).toEqual([["a", "cmd.refresh"]]);
+    });
+
+    it("наведение подсвечивает кнопку под курсором, уход — гасит", () => {
+        const { app, view, headerPos } = makeHarness();
+        view.setPaneActions("a", [{ id: "cmd.refresh", icon: "R" }]);
+        app.render();
+        const pos = headerPos("a");
+        // Кнопка — 3 колонки у правого края (ширина 30), «⋯» левее неё нет:
+        // у секции стенда меню пустое.
+        const buttonX = pos.x + 30 - 2;
+        const restBg = app.backend.getBgAt(new Point(buttonX, pos.y));
+
+        app.backend.simulateMouse(token({ action: "move", x: buttonX + 1, y: pos.y + 1 }));
+        app.render();
+        const hoverBg = app.backend.getBgAt(new Point(buttonX, pos.y));
+        expect(hoverBg).not.toBe(restBg);
+
+        // Курсор ушёл на название — подсветка снялась.
+        app.backend.simulateMouse(token({ action: "move", x: pos.x + 3, y: pos.y + 1 }));
+        app.render();
+        expect(app.backend.getBgAt(new Point(buttonX, pos.y))).toBe(restBg);
+
+        // ...и то же самое, когда курсор уходит с заголовка совсем (mouseleave).
+        app.backend.simulateMouse(token({ action: "move", x: buttonX + 1, y: pos.y + 1 }));
+        app.render();
+        expect(app.backend.getBgAt(new Point(buttonX, pos.y))).not.toBe(restBg);
+        app.backend.simulateMouse(token({ action: "move", x: buttonX + 1, y: pos.y + 3 }));
+        app.render();
+        expect(app.backend.getBgAt(new Point(buttonX, pos.y))).toBe(restBg);
     });
 
     it("дети заголовка презентационные — хит-тест отдаёт заголовок", () => {

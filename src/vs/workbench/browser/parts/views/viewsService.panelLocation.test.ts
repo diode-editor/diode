@@ -140,8 +140,8 @@ describe("ViewsService — полоса контролов в таб-строк�
 
         const actions = h.tabActions(OUTPUT)!;
         const labels = actions.querySelectorAll("TextLabelElement").map((l) => (l as TextLabelElement).getText().trim());
-        // Пустое название, кнопка, «⋯».
-        expect(labels).toEqual(["", "C", "⋯"]);
+        // Пустое название, кнопка, разделитель, «⋯».
+        expect(labels).toEqual(["", "C", "\u2502", "⋯"]);
 
         h.header(OUTPUT)!.onMenu?.({ screenX: 0, screenY: 0 });
         expect(h.shown.at(-1)!.getEntries!().map((e) => (e.type === "separator" ? "---" : e.label))).toEqual([

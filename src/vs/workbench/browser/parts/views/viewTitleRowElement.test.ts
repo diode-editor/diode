@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
+import { BoxConstraints, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+
+import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
 import { ViewTitleRowElement } from "./viewTitleRowElement.ts";
 
@@ -59,10 +63,13 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         ]);
         layout(row);
 
-        // Ширина 30: ⋯ занимает 27..29, кнопки — 24..26 и 21..23.
+        // Ширина 30: ⋯ занимает 27..29, перед ней разделитель на 26, кнопка
+        // 23..25, ещё разделитель на 22 и кнопка 19..21.
         expect(row.hitZone(28)).toEqual({ kind: "menu" });
-        expect(row.hitZone(25)).toEqual({ kind: "action", actionId: "cmd.collapse" });
-        expect(row.hitZone(22)).toEqual({ kind: "action", actionId: "cmd.refresh" });
+        expect(row.hitZone(24)).toEqual({ kind: "action", actionId: "cmd.collapse" });
+        expect(row.hitZone(20)).toEqual({ kind: "action", actionId: "cmd.refresh" });
+        // Разделитель — не кнопка: клик по нему достаётся заголовку.
+        expect(row.hitZone(26)).toEqual({ kind: "title" });
         expect(row.hitZone(2)).toEqual({ kind: "title" });
         expect(row.menuAnchorX).toBe(27);
     });
@@ -78,15 +85,15 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
         layout(row);
-        expect(row.hitZone(25)).toEqual({ kind: "action", actionId: "cmd.refresh" });
+        expect(row.hitZone(24)).toEqual({ kind: "action", actionId: "cmd.refresh" });
 
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
         layout(row);
-        expect(row.hitZone(25)).toEqual({ kind: "action", actionId: "cmd.refresh" });
+        expect(row.hitZone(24)).toEqual({ kind: "action", actionId: "cmd.refresh" });
 
         row.setActions([]);
         layout(row);
-        expect(row.hitZone(25)).toEqual({ kind: "title" });
+        expect(row.hitZone(24)).toEqual({ kind: "title" });
         expect(row.hitZone(28)).toEqual({ kind: "menu" });
     });
 });
@@ -100,6 +107,7 @@ describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
 
         row.setMenuVisible(false);
         layout(row);
+        // Кнопка осталась одна — уехала к правому краю, разделителя больше нет.
         expect(row.hitZone(28)).toEqual({ kind: "action", actionId: "cmd.clear" });
         // Повтор того же состояния — no-op.
         row.setMenuVisible(false);
@@ -114,6 +122,44 @@ describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
         row.setMenuVisible(true);
         layout(row);
         expect(row.hitZone(28)).toEqual({ kind: "menu" });
+    });
+});
+
+describe("ViewTitleRowElement — подсветка под курсором", () => {
+    const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
+    const HOVER_BG = theme.getColor("toolbar.hoverBackground")!;
+
+    /** Фон колонки после рендера строки (движок сам hover лейблам не ставит). */
+    function bgAt(row: ViewTitleRowElement, x: number): number {
+        return renderElement(row, 30, 1, { themeVars: true }).getBgAt(new Point(x, 0));
+    }
+
+    it("подсвечивается ровно та кнопка, над которой курсор", () => {
+        const row = new ViewTitleRowElement("CHANGES");
+        row.setActions([
+            { id: "cmd.refresh", icon: "R" },
+            { id: "cmd.collapse", icon: "C" },
+        ]);
+        layout(row);
+        const restBg = bgAt(row, 20);
+        expect(restBg).not.toBe(HOVER_BG);
+
+        row.setHoveredZone(row.hitZone(20));
+        expect(bgAt(row, 20)).toBe(HOVER_BG);
+        // Соседняя кнопка и разделитель остаются в покое.
+        expect(bgAt(row, 24)).toBe(restBg);
+        expect(bgAt(row, 22)).toBe(restBg);
+
+        row.setHoveredZone(row.hitZone(28));
+        expect(bgAt(row, 28)).toBe(HOVER_BG);
+        expect(bgAt(row, 20)).toBe(restBg);
+
+        // Курсор на названии — не подсвечено ничего.
+        row.setHoveredZone(row.hitZone(2));
+        expect(bgAt(row, 28)).toBe(restBg);
+
+        row.setHoveredZone(null);
+        expect(bgAt(row, 28)).toBe(restBg);
     });
 });
 
