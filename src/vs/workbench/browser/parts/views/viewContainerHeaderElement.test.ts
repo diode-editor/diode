@@ -2,9 +2,27 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import type { MouseToken } from "../../../../../../tuidom/input/rawTerminalToken.ts";
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
+import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
+
+/** Мышиный токен движка (координаты 1-based, как в терминале). */
+function token(overrides: Partial<MouseToken>): MouseToken {
+    return {
+        kind: "mouse",
+        action: "press",
+        button: "left",
+        x: 1,
+        y: 1,
+        shiftKey: false,
+        altKey: false,
+        ctrlKey: false,
+        raw: "",
+        ...overrides,
+    };
+}
 
 function makeHeader(width = 30): {
     header: ViewContainerHeaderElement;
@@ -86,6 +104,35 @@ describe("ViewContainerHeaderElement", () => {
         expect(header.querySelector("#channel-picker")).toBe(widget);
         // Название пустое (1 колонка отступа) + кнопка; «⋯» убрана.
         expect(header.getMaxIntrinsicWidth(1)).toBe(1 + 3);
+    });
+
+    it("перехваченный кем-то mouseup меню не открывает", () => {
+        const { header, onMenu } = makeHeader();
+        mouse(header, "mousedown", { localX: 28 });
+        const up = new TUIMouseEvent("mouseup", {
+            button: "left",
+            screenX: 28,
+            screenY: 0,
+            localX: 28,
+            localY: 0,
+        });
+        up.preventDefault();
+        header.dispatchEvent(up);
+        expect(onMenu).not.toHaveBeenCalled();
+    });
+
+    it("клик через приложение доходит до заголовка, а не до его лейблов", () => {
+        // Хит-тест детей отключён — иначе pointer capture у секции не работал бы;
+        // проверяем настоящим кликом через дерево, а не dispatchEvent'ом.
+        const header = new ViewContainerHeaderElement("SOURCE CONTROL");
+        const onMenu = vi.fn();
+        header.onMenu = onMenu;
+        const app = TestApp.createWithContent(header, new Size(30, 1));
+        app.render();
+
+        app.backend.simulateMouse(token({ action: "press", x: 29, y: 1 }));
+        app.backend.simulateMouse(token({ action: "release", x: 29, y: 1 }));
+        expect(onMenu).toHaveBeenCalledOnce();
     });
 
     it("Shift+F10 якорит меню к кнопке ⋯, правый клик — к курсору", () => {

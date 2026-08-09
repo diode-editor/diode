@@ -9,6 +9,7 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import type { IContextMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
+import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import type { IPanelView } from "../panel/panelService.ts";
 import { PanelService } from "../panel/panelService.ts";
 import type { SidebarService } from "../sidebar/sidebarService.ts";
@@ -66,15 +67,16 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     );
 
     const stored = new Map<string, unknown>();
+    // Стор в памяти поверх null-сервиса: свои только get/store, остальное —
+    // общие no-op'ы, чтобы не плодить их копии.
     const state: IStateService = {
+        ...NULL_STATE_SERVICE,
         get<T>(descriptor: IStateDescriptor<T>): T {
             return stored.has(descriptor.key) ? (stored.get(descriptor.key) as T) : descriptor.default;
         },
         store<T>(descriptor: IStateDescriptor<T>, value: T): void {
             stored.set(descriptor.key, value);
         },
-        openWorkspace: () => {},
-        flushSync: () => {},
     };
 
     const panelView = (containerId: string): IPanelView | undefined =>

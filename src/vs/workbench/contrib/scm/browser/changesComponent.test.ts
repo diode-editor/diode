@@ -35,7 +35,6 @@ function fakeMenu(entries: FakeMenuEntry[] = []): { service: MenuService; menu: 
         getEntries: vi.fn(() =>
             entries.map((e) => ("type" in e ? { type: "separator" as const } : { type: "item" as const, ...e })),
         ),
-        getEntryGroups: () => [],
         getSubmenus: () => [],
         onDidChange: () => ({ dispose: () => undefined }),
         dispose: () => undefined,

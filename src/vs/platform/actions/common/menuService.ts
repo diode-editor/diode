@@ -21,8 +21,6 @@ export interface IMenu extends IDisposable {
      * С `resolveSubmenu` submenu-записи встраиваются вложенными попапами.
      */
     getEntries(context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[];
-    /** Те же пункты, разложенные по группам (см. `MenuRegistry.getMenuItemGroups`). */
-    getEntryGroups(context?: unknown, resolveSubmenu?: SubmenuResolver): IMenuEntryGroup[];
     /** Submenu-записи меню (см. `MenuRegistry.getSubmenus`). */
     getSubmenus(): ISubmenuEntry[];
     /** Подписка на смену состава этой точки (append/снятие пункта в реестре). */
@@ -90,10 +88,6 @@ class Menu extends Disposable implements IMenu {
 
     public getEntries(context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[] {
         return this.registry.getMenuItems(this.menuId, context, resolveSubmenu);
-    }
-
-    public getEntryGroups(context?: unknown, resolveSubmenu?: SubmenuResolver): IMenuEntryGroup[] {
-        return this.registry.getMenuItemGroups(this.menuId, context, resolveSubmenu);
     }
 
     public getSubmenus(): ISubmenuEntry[] {

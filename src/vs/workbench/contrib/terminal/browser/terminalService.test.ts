@@ -235,6 +235,14 @@ describe("TerminalService — instance title", () => {
         h.service.dispose();
     });
 
+    it("reveal контейнера панели лениво спавнит шелл (шов focus дескриптора)", () => {
+        const h = buildHarness();
+        expect(h.created).toHaveLength(0);
+        h.views.service.focusContainer(TERMINAL_VIEW_ID);
+        expect(h.created).toHaveLength(1);
+        h.service.dispose();
+    });
+
     it("uses the basename of $SHELL", () => {
         vi.stubEnv("SHELL", "/usr/bin/zsh");
         const h = buildHarness();

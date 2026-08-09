@@ -157,9 +157,22 @@ describe("ViewsService — попап «⋯» контейнера", () => {
     it("команды контейнера и подменю-переключатель секций", () => {
         const h = scmHarness();
         h.header("scm")!.onMenu?.({ screenX: 1, screenY: 0 });
+        expect(h.shown.at(-1)!.getAnchor()).toEqual({ screenX: 1, screenY: 0 });
+        expect(h.shown.at(-1)!.getOwner()).toBe(h.header("scm"));
         const entries = lastEntries(h);
         expect(labels(entries)).toEqual(["Checkout to…", "---", "Views"]);
         expect(labels(entriesOf(submenu(entries, "Views")))).toEqual(["SCM.CHANGES", "SCM.GRAPH"]);
+    });
+
+    it("контейнер без своих команд показывает один переключатель секций", () => {
+        const h = makeViewsHarness([]);
+        h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
+        h.service.registerView(testView(CHANGES, "scm", 10));
+        h.service.registerView(testView(GRAPH, "scm", 20));
+        h.service.attachContainer("scm");
+
+        h.header("scm")!.onMenu?.({ screenX: 1, screenY: 0 });
+        expect(labels(lastEntries(h))).toEqual(["Views"]);
     });
 
     it("видимые секции помечены галочкой, скрытые — нет", () => {
@@ -182,6 +195,34 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         (graphItem as { onSelect?: () => void }).onSelect?.();
         expect(h.service.isViewVisible(GRAPH)).toBe(false);
         expect(h.paneView("scm").getPaneIds()).toEqual([CHANGES]);
+    });
+
+    it("контейнер с одной секцией: в «⋯» только его команды, без подменю Views", () => {
+        const h = makeViewsHarness(CONTRIBUTIONS);
+        h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
+        h.service.registerView(testView(CHANGES, "scm", 10));
+        h.service.registerView(testView(GRAPH, "scm", 20));
+        h.service.attachContainer("scm");
+        h.service.setViewVisible(GRAPH, false);
+        // Секция скрыта, но зарегистрирована — переключатель нужен, чтобы её вернуть.
+        h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
+        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual([
+            "Checkout to…",
+            "---",
+            "Views",
+        ]);
+    });
+
+    it("merged без команд контейнера: в подменю только переключатель секций", () => {
+        const h = makeViewsHarness([]);
+        h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
+        h.service.registerView(testView(CHANGES, "scm", 10));
+        h.service.registerView(testView(GRAPH, "scm", 20));
+        h.service.attachContainer("scm");
+        h.service.setViewVisible(GRAPH, false);
+
+        h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
+        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual(["Views"]);
     });
 
     it("контейнер с одной зарегистрированной секцией переключателя не показывает", () => {

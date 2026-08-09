@@ -125,7 +125,9 @@ export class ViewTitleRowElement extends HFlexElement {
         for (let i = 0; i < this.actionLabels.length; i++) {
             if (inZone(this.actionLabels[i], localX)) return { kind: "action", actionId: this.actions[i].id };
         }
-        if (inZone(this.menuLabel, localX)) return { kind: "menu" };
+        // Скрытая «⋯» зоны не имеет: она осталась вне дерева со старым layout'ом,
+        // и без этой проверки её прошлые колонки продолжали бы «кликаться».
+        if (this.menuVisible && inZone(this.menuLabel, localX)) return { kind: "menu" };
         return { kind: "title" };
     }
 

@@ -126,6 +126,14 @@ describe("ProblemsComponent", () => {
         expect(component.tree.isFocused).toBe(true);
     });
 
+    it("reveal контейнера панели ведёт фокус в дерево (шов focus дескриптора)", async () => {
+        markerService.changeOne("settings", RESOURCE, [warning("x")]);
+        await settle(0);
+        testApp.render();
+        views.service.focusContainer(PROBLEMS_VIEW_ID);
+        expect(component.tree.isFocused).toBe(true);
+    });
+
     it("focus is a no-op when there are no problems (tree detached)", () => {
         // With no markers the tree is not attached to the panel; focus must not throw.
         expect(() => {

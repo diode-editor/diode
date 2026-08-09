@@ -219,6 +219,21 @@ describe("PaneViewElement mouse", () => {
         expect(weights.a + weights.b).toBe(19); // фактические высоты развёрнутых (22 − 3 заголовка)
     });
 
+    it("клик по inline-кнопке заголовка репортится наверх с id секции", () => {
+        const { app, view, headerPos } = makeHarness();
+        const actions: [string, string][] = [];
+        view.onDidRequestPaneAction = (paneId, actionId) => actions.push([paneId, actionId]);
+        view.setPaneActions("a", [{ id: "cmd.refresh", icon: "R" }]);
+        app.render();
+
+        // Кнопка — 3 колонки левее «⋯» у правого края (ширина 30).
+        const pos = headerPos("a");
+        const x = pos.x + 30 - 3 - 2;
+        app.backend.simulateMouse(token({ action: "press", x: x + 1, y: pos.y + 1 }));
+        app.backend.simulateMouse(token({ action: "release", x: x + 1, y: pos.y + 1 }));
+        expect(actions).toEqual([["a", "cmd.refresh"]]);
+    });
+
     it("дети заголовка презентационные — хит-тест отдаёт заголовок", () => {
         const { app, headerPos } = makeHarness();
         const pos = headerPos("a");

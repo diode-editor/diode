@@ -115,10 +115,13 @@ interface ContainerEntry {
     paneView: PaneViewElement | null;
     header: ViewContainerHeaderElement | null;
     /**
-     * Корень контейнера — стабильный: merged-режим меняет НАБОР детей
-     * (заголовок то есть, то нет), а не сам элемент, иначе место держало бы
-     * ссылку на устаревший корень.
+     * Стопка «заголовок + секции» сайдбар-контейнера. Стабильна: merged-режим
+     * меняет НАБОР детей (заголовок то есть, то нет), а не сам элемент, иначе
+     * место держало бы ссылку на устаревший корень. У панельного контейнера
+     * стопки нет — там заголовок живёт в таб-строке.
      */
+    stack: VFlexElement | null;
+    /** Что отдано месту (стопка в сайдбаре, сам PaneView в панели); null — не приаттачен. */
     view: TUIElement | null;
 }
 
@@ -312,14 +315,15 @@ export class ViewsService {
             this.rebuildPanes(entry);
             return;
         }
-        const root = new VFlexElement();
+        const stack = new VFlexElement();
         // Id корня = id контейнера: стабильный селектор места для e2e/инспектора
         // (`#explorer`, `#scm`, `#search`).
-        root.id = domId;
-        root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
-        entry.view = root;
+        stack.id = domId;
+        stack.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+        entry.stack = stack;
+        entry.view = stack;
         this.rebuildPanes(entry);
-        this.sidebarService.registerViewlet(containerId, root, () => {
+        this.sidebarService.registerViewlet(containerId, stack, () => {
             this.focusContainer(containerId);
         });
     }
@@ -386,11 +390,14 @@ export class ViewsService {
         return entries.length > 0 ? [...entries, { type: "separator" }, container] : [container];
     }
 
-    /** Попап «⋯» контейнера: его команды + переключатель видимости секций. */
+    /**
+     * Попап «⋯» контейнера: его команды + переключатель видимости секций.
+     * Свой заголовок есть только у НЕ merged контейнера, а это две и больше
+     * секций — значит переключатель здесь всегда.
+     */
     private containerMenuEntries(entry: ContainerEntry): MenuEntry[] {
         const entries = overflowEntries(this.containerTitleGroups(entry.descriptor!.id));
-        const views = this.viewsSubmenu(entry);
-        if (views === null) return entries;
+        const views = this.viewsSubmenu(entry)!;
         return entries.length > 0 ? [...entries, { type: "separator" }, views] : [views];
     }
 
@@ -435,7 +442,8 @@ export class ViewsService {
      */
     private headerTargetView(entry: ContainerEntry): string | null {
         if (!this.isPanel(entry) || !this.isMerged(entry)) return null;
-        return this.visibleViews(entry)[0]?.id ?? null;
+        // merged — это ровно одна видимая секция, так что индекс 0 существует.
+        return this.visibleViews(entry)[0].id;
     }
 
     private titleGroups(entry: ContainerEntry): IMenuEntryGroup[] {
@@ -458,8 +466,8 @@ export class ViewsService {
             // у контрола один родитель, держать его в двух местах нельзя.
             paneView.setPaneTitleWidget(record.id, record.id === headerViewId ? null : record.titleWidget);
         }
-        const header = entry.header;
-        if (header === null) return;
+        // Заголовок создан в attachContainer до первой пересборки секций.
+        const header = entry.header!;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
         if (!this.isPanel(entry)) return;
@@ -479,13 +487,13 @@ export class ViewsService {
      * ({@link refreshTitleActions}).
      */
     private syncContainerFrame(entry: ContainerEntry): void {
-        const root = entry.view;
-        if (root === null || this.isPanel(entry)) return;
+        const stack = entry.stack;
+        if (stack === null) return;
         const paneView = entry.paneView!;
         const header = entry.header!;
         header.layoutStyle = { height: vflexFixed(1), width: "fill" };
         paneView.layoutStyle = { height: vflexFill(), width: "fill" };
-        (root as VFlexElement).replaceChildren(this.isMerged(entry) ? [paneView] : [header, paneView]);
+        stack.replaceChildren(this.isMerged(entry) ? [paneView] : [header, paneView]);
     }
 
     private containerOrThrow(id: string): ContainerEntry {
@@ -505,7 +513,15 @@ export class ViewsService {
     private ensureEntry(containerId: string): ContainerEntry {
         let entry = this.containers.get(containerId);
         if (entry === undefined) {
-            entry = { descriptor: null, views: [], hidden: new Set(), paneView: null, header: null, view: null };
+            entry = {
+                descriptor: null,
+                views: [],
+                hidden: new Set(),
+                paneView: null,
+                header: null,
+                stack: null,
+                view: null,
+            };
             this.containers.set(containerId, entry);
         }
         return entry;
@@ -591,7 +607,7 @@ export class ViewsService {
  * они остались от старого формата, срезаем — отступ рисует сам заголовок.
  */
 function containerPaneTitle(entry: ContainerEntry): string {
-    return (entry.descriptor?.title ?? "").trimStart();
+    return entry.descriptor!.title.trimStart();
 }
 
 /**

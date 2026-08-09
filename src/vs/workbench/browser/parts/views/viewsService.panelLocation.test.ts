@@ -25,6 +25,11 @@ function panelHarness(views: string[], contributions: MenuContribution[] = []): 
 }
 
 describe("ViewsService — контейнер в нижней панели", () => {
+    it("стенд знает только приаттаченные контейнеры", () => {
+        const h = makeViewsHarness();
+        expect(() => h.root("ghost")).toThrow(/is not attached anywhere/);
+    });
+
     it("контейнер регистрируется вкладкой панели, контент — стопка секций", () => {
         const h = panelHarness(["output.view"]);
         const tab = h.panelService.getViews().find((v) => v.id === OUTPUT);
@@ -44,6 +49,35 @@ describe("ViewsService — контейнер в нижней панели", () 
         expect(paneView.getPaneIds()).toEqual(["output.view", "output.extra"]);
         expect(paneView.querySelector("#paneHeader-output-view")!.hidden).toBe(false);
         expect(paneView.querySelector("#paneHeader-output-view")!.inspectState()).toMatchObject({ collapsible: true });
+    });
+
+    it("reveal контейнера ведёт фокус в его единственную секцию", () => {
+        const h = panelHarness(["output.view"]);
+        // Дескриптор стенда несёт focus по умолчанию — важно, что место зовёт его.
+        expect(() => h.service.focusContainer(OUTPUT)).not.toThrow();
+    });
+
+    it("секция без текста подсказки рисует пустую строку, а не падает", () => {
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerView(testView("output.view", OUTPUT, 10, { body: null }));
+        h.service.attachContainer(OUTPUT);
+
+        const placeholder = h.paneView(OUTPUT).querySelector("#viewPlaceholder-output-view") as TextLabelElement;
+        expect(placeholder.getText()).toBe("");
+    });
+
+    it("виджет заголовка, выставленный до attach, доезжает до таб-строки", () => {
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerView(testView("output.view", OUTPUT, 10));
+        const widget = new FillerElement();
+        widget.id = "channel-picker";
+        // Контейнера ещё нет — сервис только запоминает виджет.
+        h.service.setViewTitleWidget("output.view", widget);
+        h.service.attachContainer(OUTPUT);
+
+        expect(h.tabActions(OUTPUT)!.querySelector("#channel-picker")).toBe(widget);
     });
 
     it("пустая секция рисует подсказку вместо тела", () => {

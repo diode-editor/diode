@@ -106,6 +106,11 @@ describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
         layout(row);
         expect(row.hitZone(28)).toEqual({ kind: "action", actionId: "cmd.clear" });
 
+        // Колонки, где «⋯» была до скрытия, больше не кликаются как меню.
+        row.setActions([]);
+        layout(row);
+        expect(row.hitZone(28)).toEqual({ kind: "title" });
+
         row.setMenuVisible(true);
         layout(row);
         expect(row.hitZone(28)).toEqual({ kind: "menu" });
