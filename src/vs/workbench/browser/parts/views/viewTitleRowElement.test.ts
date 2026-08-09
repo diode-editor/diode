@@ -91,6 +91,27 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
     });
 });
 
+describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
+    it("setMenuVisible(false) убирает кнопку и её зону, true — возвращает", () => {
+        const row = new ViewTitleRowElement("OUTPUT", { chevron: false });
+        row.setActions([{ id: "cmd.clear", icon: "C" }]);
+        layout(row);
+        expect(row.hitZone(28)).toEqual({ kind: "menu" });
+
+        row.setMenuVisible(false);
+        layout(row);
+        expect(row.hitZone(28)).toEqual({ kind: "action", actionId: "cmd.clear" });
+        // Повтор того же состояния — no-op.
+        row.setMenuVisible(false);
+        layout(row);
+        expect(row.hitZone(28)).toEqual({ kind: "action", actionId: "cmd.clear" });
+
+        row.setMenuVisible(true);
+        layout(row);
+        expect(row.hitZone(28)).toEqual({ kind: "menu" });
+    });
+});
+
 describe("ViewTitleRowElement — виджет заголовка", () => {
     it("виджет встаёт между названием и кнопками и снимается обратно", () => {
         const row = new ViewTitleRowElement("OUTPUT", { chevron: false });

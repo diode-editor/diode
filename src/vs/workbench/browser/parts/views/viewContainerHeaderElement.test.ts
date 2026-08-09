@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
 
@@ -71,6 +72,20 @@ describe("ViewContainerHeaderElement", () => {
         mouse(header, "mousedown", { localX: 28, button: "right" });
         mouse(header, "mouseup", { localX: 28, button: "right" });
         expect(onMenu).not.toHaveBeenCalled();
+    });
+
+    it("полоса контролов: виджет, скрытая «⋯» и интринсик-ширина по содержимому", () => {
+        const header = new ViewContainerHeaderElement("");
+        const widget = new FillerElement();
+        widget.id = "channel-picker";
+        header.setActions([{ id: "out.clear", icon: "C" }]);
+        header.setTitleWidget(widget);
+        header.setMenuVisible(false);
+        header.layout(BoxConstraints.tight(new Size(30, 1)));
+
+        expect(header.querySelector("#channel-picker")).toBe(widget);
+        // Название пустое (1 колонка отступа) + кнопка; «⋯» убрана.
+        expect(header.getMaxIntrinsicWidth(1)).toBe(1 + 3);
     });
 
     it("Shift+F10 якорит меню к кнопке ⋯, правый клик — к курсору", () => {
