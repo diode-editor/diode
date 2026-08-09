@@ -3,16 +3,9 @@ import type { TUIEventBase } from "../../../../../../tuidom/dom/events/tuiEventB
 import type { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
 import type { TUIContextMenuEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
-import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 
-const ICON_EXPANDED = ""; //  nf-fa-angle_down — как в ListViewElement/TreeViewElement
-const ICON_COLLAPSED = ""; //  nf-fa-angle_right
-
-/** Кнопка «⋯» — правые 3 колонки заголовка (пробел-глиф-пробел, чтобы hover-фон читался как кнопка). */
-const MENU_LABEL = " ⋯ ";
-const MENU_ZONE_WIDTH = 3;
+import type { IViewTitleAction } from "./viewTitleRowElement.ts";
+import { ViewTitleRowElement } from "./viewTitleRowElement.ts";
 
 /** Экранная точка для якоря меню секции (куда откроется popup). */
 export interface IPaneMenuAnchor {
@@ -21,34 +14,33 @@ export interface IPaneMenuAnchor {
 }
 
 /**
- * Заголовок view-секции сайдбара ({@link PaneViewElement}): шеврон + название +
- * всегда видимая кнопка «⋯» справа. Composed из готовых контролов (HFlex,
- * TextLabel, Filler), но дети — презентационные: хит-тест всегда возвращает сам
- * заголовок (как строки ListViewElement), потому что pointer capture работает
- * только когда захватчик — цель хит-теста.
+ * Заголовок view-секции сайдбара ({@link PaneViewElement}): общая строка
+ * заголовка ({@link ViewTitleRowElement}) плюс жесты секции. Дети —
+ * презентационные: хит-тест всегда возвращает сам заголовок (как строки
+ * ListViewElement), потому что pointer capture работает только когда захватчик
+ * — цель хит-теста; попадание по кнопке считает {@link ViewTitleRowElement.hitZone}.
  *
  * Заголовок — одновременно и drag-handle границы над собой (аналог
  * {@link SashElement}, отдельный сэш-ряд съел бы строку): пока зажата левая
  * кнопка, capture шлёт move/up сюда, и сдвиг по Y репортится наверх через
- * {@link onDrag}. Клик без сдвига — {@link onToggle} (или {@link onMenu}, если
- * попал в зону «⋯»); работать надо на сырых mousedown/up, потому что capture
- * синтезирует `click` даже после drag. Клавиатура: Enter/Space — toggle,
- * Shift+F10/правый клик — единое событие `contextmenu` движка → {@link onMenu}.
+ * {@link onDrag}. Клик без сдвига — {@link onToggle} (либо {@link onAction} /
+ * {@link onMenu}, если попал в кнопку); работать надо на сырых mousedown/up,
+ * потому что capture синтезирует `click` даже после drag. Клавиатура:
+ * Enter/Space — toggle, Shift+F10/правый клик — единое событие `contextmenu`
+ * движка → {@link onMenu}.
  */
 export class PaneHeaderElement extends TUIElement {
-    /** Клик по заголовку вне зоны «⋯» (без drag) — свернуть/развернуть секцию. */
+    /** Клик по заголовку вне кнопок (без drag) — свернуть/развернуть секцию. */
     public onToggle?: () => void;
     /** Перетаскивание границы: абсолютная экранная строка, куда тянут верх заголовка. */
     public onDrag?: (boundaryScreenY: number) => void;
     /** Запрос меню секции (кнопка «⋯», правый клик или Shift+F10). */
     public onMenu?: (anchor: IPaneMenuAnchor) => void;
+    /** Клик по inline-кнопке заголовка. */
+    public onAction?: (actionId: string) => void;
 
-    private readonly titleLabel: TextLabelElement;
-    private readonly menuLabel: TextLabelElement;
-    private readonly row: HFlexElement;
-    private readonly title: string;
+    private readonly row: ViewTitleRowElement;
     private readonly collapsible: boolean;
-    private expanded = true;
     private dragEnabled = false;
 
     // Состояние нажатия для различения click/drag (см. док-коммент класса).
@@ -60,7 +52,6 @@ export class PaneHeaderElement extends TUIElement {
 
     public constructor(title: string, options?: { collapsible?: boolean }) {
         super();
-        this.title = title;
         this.collapsible = options?.collapsible ?? true;
         this.focusable = true;
         this.capturesPointer = true;
@@ -70,18 +61,8 @@ export class PaneHeaderElement extends TUIElement {
         // выродился бы в чёрный.
         this.style = { when: [{ states: ["focus"], bg: "list.hoverBackground" }] };
 
-        this.titleLabel = new TextLabelElement(this.composeTitle());
-        this.menuLabel = new TextLabelElement(MENU_LABEL);
-        // «⋯» приглушена, но видима всегда (hover в TUI ненадёжен — мыши может
-        // не быть); подсветка фоном — когда курсор где-то на заголовке (in:hover).
-        this.menuLabel.style = {
-            fg: "descriptionForeground",
-            when: [{ states: ["in:hover"], bg: "toolbar.hoverBackground" }],
-        };
-        this.row = new HFlexElement();
-        this.row.addChild(this.titleLabel, { width: hflexFit(), height: 1 });
-        this.row.addChild(new FillerElement(), { width: hflexFill(), height: 1 });
-        this.row.addChild(this.menuLabel, { width: hflexFixed(MENU_ZONE_WIDTH), height: 1 });
+        // Несворачиваемый заголовок (merged одно-view контейнер) — без шеврона.
+        this.row = new ViewTitleRowElement(title, { chevron: this.collapsible });
         this.appendChild(this.row);
 
         this.addEventListener("mousedown", (event) => {
@@ -104,8 +85,11 @@ export class PaneHeaderElement extends TUIElement {
             if (!this.pressed) return;
             this.pressed = false;
             if (this.dragMoved || event.defaultPrevented) return;
-            if (this.isInMenuZone(this.pressLocalX)) {
+            const zone = this.row.hitZone(this.pressLocalX);
+            if (zone.kind === "menu") {
                 this.onMenu?.({ screenX: this.pressScreenX, screenY: this.pressScreenY });
+            } else if (zone.kind === "action") {
+                this.onAction?.(zone.actionId);
             } else if (this.collapsible) {
                 this.onToggle?.();
             }
@@ -122,13 +106,25 @@ export class PaneHeaderElement extends TUIElement {
     }
 
     public get isExpanded(): boolean {
-        return this.expanded;
+        return this.row.isExpanded;
     }
 
     public setExpanded(expanded: boolean): void {
-        if (this.expanded === expanded) return;
-        this.expanded = expanded;
-        this.titleLabel.setText(this.composeTitle());
+        this.row.setExpanded(expanded);
+    }
+
+    public setTitle(title: string): void {
+        this.row.setTitle(title);
+    }
+
+    /** Inline-кнопки заголовка (группа `navigation` меню секции). */
+    public setActions(actions: readonly IViewTitleAction[]): void {
+        this.row.setActions(actions);
+    }
+
+    /** Произвольный контрол в заголовке (переключатель каналов Output). */
+    public setTitleWidget(widget: TUIElement | null): void {
+        this.row.setTitleWidget(widget);
     }
 
     /** Контейнер отключает drag, когда выше/ниже нет развёрнутой секции. */
@@ -140,23 +136,9 @@ export class PaneHeaderElement extends TUIElement {
         return this.dragEnabled;
     }
 
-    private composeTitle(): string {
-        // Несворачиваемый заголовок (merged одно-view контейнер) — без шеврона.
-        if (!this.collapsible) return ` ${this.title}`;
-        return ` ${this.expanded ? ICON_EXPANDED : ICON_COLLAPSED} ${this.title}`;
-    }
-
-    private isInMenuZone(localX: number): boolean {
-        // Позиция «⋯» известна из последнего layout; на узком заголовке HFlex
-        // клипует её в ноль — зона исчезает вместе с кнопкой.
-        if (this.menuLabel.layoutSize.width === 0) return false;
-        const zoneStart = this.menuLabel.localPosition.dx;
-        return localX >= zoneStart && localX < zoneStart + MENU_ZONE_WIDTH;
-    }
-
     private menuZoneAnchor(): IPaneMenuAnchor {
         return {
-            screenX: this.globalPosition.x + this.menuLabel.localPosition.dx,
+            screenX: this.globalPosition.x + this.row.menuAnchorX,
             screenY: this.globalPosition.y,
         };
     }
@@ -192,8 +174,8 @@ export class PaneHeaderElement extends TUIElement {
 
     public override inspectState(): Record<string, unknown> {
         return {
-            title: this.title,
-            expanded: this.expanded,
+            title: this.row.getTitle(),
+            expanded: this.row.isExpanded,
             dragEnabled: this.dragEnabled,
             collapsible: this.collapsible,
         };

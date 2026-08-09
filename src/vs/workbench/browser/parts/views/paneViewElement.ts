@@ -29,7 +29,8 @@ export interface IPaneOptions {
 interface PaneRecord {
     readonly id: string;
     readonly header: PaneHeaderElement;
-    readonly body: TUIElement;
+    /** Меняется на месте через {@link PaneViewElement.setPaneBody} — без пересборки секций. */
+    body: TUIElement;
     readonly minBodyHeight: number;
     readonly collapsible: boolean;
     collapsed: boolean;
@@ -98,6 +99,21 @@ export class PaneViewElement extends TUIElement {
         this.removeChild(pane.body);
         this.panes = this.panes.filter((p) => p !== pane);
         this.syncPanes();
+        this.markDirty();
+    }
+
+    /**
+     * Подменяет тело секции на месте: свёрнутость, вес и позиция секции
+     * сохраняются (пересборка через remove/add их бы сбросила). Нужен фичам,
+     * которые переключают контент между «есть данные» и placeholder'ом.
+     */
+    public setPaneBody(id: string, body: TUIElement): void {
+        const pane = this.paneOrThrow(id);
+        if (pane.body === body) return;
+        this.removeChild(pane.body);
+        pane.body = body;
+        body.hidden = pane.collapsed;
+        this.appendChild(body);
         this.markDirty();
     }
 

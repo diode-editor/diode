@@ -26,6 +26,12 @@ export class MenuId {
      * (см. `viewMenuVisible`).
      */
     public static readonly ViewMoreActions = new MenuId("ViewMoreActions");
+    /**
+     * Меню «⋯» заголовка КОНТЕЙНЕРА view-секций («активити») — VS Code
+     * `ViewContainerTitle`. Фильтруется императивно по `menuContext.container`
+     * (см. `containerMenuVisible`), как и `ViewMoreActions` по view.
+     */
+    public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
     public static readonly MenubarMainMenu = new MenuId("MenubarMainMenu");
     public static readonly MenubarFileMenu = new MenuId("MenubarFileMenu");
     public static readonly MenubarEditMenu = new MenuId("MenubarEditMenu");
