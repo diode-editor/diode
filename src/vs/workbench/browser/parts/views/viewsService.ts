@@ -226,10 +226,11 @@ export class ViewsService {
 
     /** Снимок секций контейнера в порядке отображения (для меню-переключателя). */
     public getContainerViews(containerId: string): readonly IViewSnapshot[] {
-        return this.containerOrThrow(containerId).views.map((v) => ({
+        const entry = this.containerOrThrow(containerId);
+        return entry.views.map((v) => ({
             id: v.id,
             title: v.title,
-            visible: !this.containerOrThrow(containerId).hidden.has(v.id),
+            visible: !entry.hidden.has(v.id),
             canToggleVisibility: v.canToggleVisibility,
         }));
     }
@@ -248,7 +249,7 @@ export class ViewsService {
         const { entry, record } = this.recordOrThrow(viewId);
         if (!record.canToggleVisibility) return;
         if (entry.hidden.has(viewId) === !visible) return;
-        if (!visible && entry.views.filter((v) => !entry.hidden.has(v.id)).length <= 1) return;
+        if (!visible && this.visibleViews(entry).length <= 1) return;
         if (visible) {
             entry.hidden.delete(viewId);
         } else {
@@ -271,7 +272,10 @@ export class ViewsService {
         }
         if (entry.view !== null) return;
         const paneView = new PaneViewElement();
-        paneView.id = `viewContainer-${containerId}`;
+        // Точки в id контейнера меняем на дефисы: селекторы инспектора/e2e их не
+        // поддерживают (`workbench.panel.output` → `#viewContainer-workbench-panel-output`).
+        const domId = containerId.replaceAll(".", "-");
+        paneView.id = `viewContainer-${domId}`;
         paneView.onDidChangeState = () => this.persistContainerState(containerId, entry);
         paneView.onDidRequestPaneMenu = (paneId, anchor) => {
             this.contextMenuService.showContextMenu({
@@ -288,7 +292,7 @@ export class ViewsService {
         // полосой контролов в таб-строке, поэтому названия не несёт.
         const panel = entry.descriptor.location === "panel";
         const header = new ViewContainerHeaderElement(panel ? "" : entry.descriptor.title);
-        header.id = `viewContainerHeader-${containerId.replaceAll(".", "-")}`;
+        header.id = `viewContainerHeader-${domId}`;
         header.onMenu = (anchor) => {
             this.contextMenuService.showContextMenu({
                 getOwner: () => header,
@@ -311,7 +315,7 @@ export class ViewsService {
         const root = new VFlexElement();
         // Id корня = id контейнера: стабильный селектор места для e2e/инспектора
         // (`#explorer`, `#scm`, `#search`).
-        root.id = containerId.replaceAll(".", "-");
+        root.id = domId;
         root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         entry.view = root;
         this.rebuildPanes(entry);

@@ -88,7 +88,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     };
     const paneViewOf = (containerId: string): PaneViewElement => {
         const element = root(containerId);
-        const selector = `#viewContainer-${containerId}`;
+        const selector = `#viewContainer-${containerId.replaceAll(".", "-")}`;
         // В панели корень контейнера — сам PaneViewElement, в сайдбаре он лежит
         // под стопкой с заголовком.
         return (element.id === selector.slice(1) ? element : element.querySelector(selector)) as PaneViewElement;

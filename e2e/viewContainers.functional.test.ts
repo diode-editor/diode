@@ -18,7 +18,11 @@ const FILES = {
 const KEYS = [
     { key: "f6", command: "workbench.view.search" },
     { key: "f7", command: "workbench.view.explorer" },
+    // Настоящая клавиша — Ctrl+J, e2e-DSL её не кодирует.
+    { key: "f8", command: "workbench.action.togglePanel" },
 ];
+
+const PROBLEMS_CONTAINER = "workbench.panel.markers.view";
 
 async function openApp(): Promise<HeadlessApp> {
     const app = await useHeadlessApp({ files: FILES, keybindings: KEYS, cols: 100, rows: 30 });
@@ -28,7 +32,7 @@ async function openApp(): Promise<HeadlessApp> {
 
 /** Id секций контейнера — из inspectState его PaneViewElement. */
 async function paneIds(app: HeadlessApp, containerId: string): Promise<string[]> {
-    const node = await app.session.node(`#viewContainer-${containerId}`);
+    const node = await app.session.node(`#viewContainer-${containerId.replaceAll(".", "-")}`);
     const state = node?.state as { panes?: { id: string }[] } | undefined;
     return (state?.panes ?? []).map((p) => p.id);
 }
@@ -80,16 +84,23 @@ describe("View containers (functional e2e)", () => {
         expect(await session.node("#explorer")).not.toBeNull();
     });
 
-    it("вкладки нижней панели — контейнеры того же реестра, без своих заголовков", async () => {
+    it("вкладка нижней панели — контейнер того же реестра, без своего заголовка", async () => {
         const app = await openApp();
         const { session } = app;
 
-        // Ctrl+J недоступен в DSL — панель показывает команда Problems (Ctrl+Shift+M
-        // тоже вне DSL), поэтому используем таб-строку: она смонтирована всегда.
-        const panel = await session.node("#panel");
-        expect(panel).not.toBeNull();
+        // Панель монтируется только видимой — сперва показываем её.
+        await session.key("F8");
+        await session.waitForText((t) => t.includes("PROBLEMS") && t.includes("TERMINAL"));
 
-        const ids = await paneIds(app, "workbench.panel.markers.view");
-        expect(ids).toEqual(["workbench.panel.markers.view"]);
+        // Вкладка PROBLEMS — контейнер с единственной секцией; её заголовок скрыт,
+        // роль заголовка играет таб.
+        expect(await paneIds(app, PROBLEMS_CONTAINER)).toEqual([PROBLEMS_CONTAINER]);
+
+        // Пустое состояние рисует сама секция, а не таб-строка; строки заголовка
+        // у секции нет — подсказка стоит первой строкой контента вкладки.
+        const placeholder = await session.node("#viewPlaceholder-workbench-panel-markers-view");
+        const tabs = await session.node("#panel");
+        expect(placeholder).not.toBeNull();
+        expect(placeholder!.box.y).toBe(tabs!.box.y + 2);
     });
 });
