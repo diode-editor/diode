@@ -181,7 +181,12 @@ import {
     showSearchAction,
     toggleSearchDetailsAction,
 } from "./searchActions.ts";
-import { closeActiveEditorAction, nextEditorInGroupAction, previousEditorInGroupAction } from "./tabActions.ts";
+import {
+    closeActiveEditorAction,
+    nextEditorInGroupAction,
+    openPreviousRecentlyUsedEditorInGroupAction,
+    previousEditorInGroupAction,
+} from "./tabActions.ts";
 import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whitespaceActions.ts";
 
 /**
@@ -306,6 +311,7 @@ export const builtinActions: readonly CommandAction[] = [
     // Tabs
     nextEditorInGroupAction,
     previousEditorInGroupAction,
+    openPreviousRecentlyUsedEditorInGroupAction,
     closeActiveEditorAction,
 
     // Input widget

@@ -89,9 +89,25 @@ describe("TerminalEnvironmentModel", () => {
             expect(detectExtendedKeysHint({ TERM: "xterm-kitty" })).toBe(true);
             expect(detectExtendedKeysHint({ TERM: "foot" })).toBe(true);
             expect(detectExtendedKeysHint({ TERM_PROGRAM: "WezTerm" })).toBe(true);
-            // $TERM masked (tmux) but the terminal's env flag survives.
-            expect(detectExtendedKeysHint({ TERM: "tmux-256color", KITTY_WINDOW_ID: "1" })).toBe(true);
+            // $TERM masked (ssh), но env-флаг терминала пережил проброс.
+            expect(detectExtendedKeysHint({ TERM: "screen-256color", KITTY_WINDOW_ID: "1" })).toBe(true);
             expect(detectExtendedKeysHint({ TERM: "xterm-256color" })).toBe(false);
+        });
+
+        // Под мультиплексором расширенные клавиши доходят, только если их пропускает
+        // сам tmux; env-флаг хост-терминала об этом ничего не говорит. Завышенный
+        // хинт стоил и комбинации (Ctrl+Shift+F приезжал как Ctrl+F), и legacy-фоллбэка.
+        it("не верит env-флагам терминала внутри tmux", () => {
+            expect(
+                detectExtendedKeysHint({ TERM: "tmux-256color", TERM_PROGRAM: "tmux", KITTY_WINDOW_ID: "1", TMUX: "/tmp/tmux-1000/default,1,0" }),
+            ).toBe(false);
+            expect(detectExtendedKeysHint({ TERM: "tmux-256color", WEZTERM_PANE: "0", TMUX: "/tmp/tmux-1000/default,1,0" })).toBe(false);
+        });
+
+        // Явный $TERM внутри tmux — это уже настройка пользователя (`default-terminal`),
+        // а не унаследованный флаг: ей верим.
+        it("верит явному $TERM даже внутри tmux", () => {
+            expect(detectExtendedKeysHint({ TERM: "xterm-kitty", TMUX: "/tmp/tmux-1000/default,1,0" })).toBe(true);
         });
     });
 });

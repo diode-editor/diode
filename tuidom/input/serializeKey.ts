@@ -59,6 +59,14 @@ const csiTildeKeys: Record<string, number> = {
     F12: 24,
 };
 
+/** Клавиши, чей Ctrl-вариант терминал шлёт кодами 0x1c–0x1f (зеркало `tokenize`). */
+const ctrlSymbolCodes: Record<string, number> = {
+    "\\": 0x1c,
+    "]": 0x1d,
+    "6": 0x1e,
+    "/": 0x1f,
+};
+
 function encodeModifier(ctrl: boolean, shift: boolean, alt: boolean, meta: boolean): number {
     let mod = 1;
     if (shift) mod += 1;
@@ -125,6 +133,13 @@ export function serializeKey(name: string): string {
     if (ctrl && !shift && !alt && !meta && remaining.length === 1 && /[a-zA-Z]/.test(remaining)) {
         const code = remaining.toUpperCase().charCodeAt(0) - 0x40;
         return String.fromCharCode(code);
+    }
+
+    // Ctrl+\ ] 6 / → control-коды 0x1c–0x1f. Парно с разбором в `tokenize`:
+    // это единственные не-буквенные комбинации, которые терминал вообще умеет
+    // передать без расширенного протокола.
+    if (ctrl && !shift && !alt && !meta && remaining in ctrlSymbolCodes) {
+        return String.fromCharCode(ctrlSymbolCodes[remaining]);
     }
 
     // Alt+single character → ESC prefix

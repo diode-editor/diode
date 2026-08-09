@@ -57,6 +57,18 @@ describe("tokenize", () => {
         expect(tokens).toEqual([{ kind: "ctrl-char", letter: " ", raw: "\x00" }]);
     });
 
+    // 0x1c–0x1f — единственные control-коды вне Ctrl+A..Z, что приходят с обычной
+    // клавиатуры; раньше они уходили в unknown-byte и не доходили до биндов.
+    it("tokenizes Ctrl+6 (0x1e) as ctrl-char with digit", () => {
+        expect(tokenize("\x1e")).toEqual([{ kind: "ctrl-char", letter: "6", raw: "\x1e" }]);
+    });
+
+    it("tokenizes the remaining 0x1c–0x1f control codes as their symbols", () => {
+        expect(tokenize("\x1c")).toEqual([{ kind: "ctrl-char", letter: "\\", raw: "\x1c" }]);
+        expect(tokenize("\x1d")).toEqual([{ kind: "ctrl-char", letter: "]", raw: "\x1d" }]);
+        expect(tokenize("\x1f")).toEqual([{ kind: "ctrl-char", letter: "/", raw: "\x1f" }]);
+    });
+
     // ─── StandaloneEscToken ───
 
     it("tokenizes standalone Escape as standalone-esc", () => {
@@ -533,11 +545,6 @@ describe("tokenize", () => {
         expect(tokens[0]).toEqual({ kind: "standalone-esc", raw: "\x1b" });
         // 0x00 is then tokenized on its own as Ctrl+Space.
         expect(tokens[1]).toEqual({ kind: "ctrl-char", letter: " ", raw: "\x00" });
-    });
-
-    it("unknown control byte 0x1c (FS) → unknown-byte token", () => {
-        const tokens = tokenize("\x1c");
-        expect(tokens).toEqual([{ kind: "unknown-byte", byte: 0x1c, raw: "\x1c" }]);
     });
 
     it("CSI with an intermediate byte (0x20–0x2f) before the final byte is consumed", () => {

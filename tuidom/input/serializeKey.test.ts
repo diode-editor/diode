@@ -48,6 +48,15 @@ describe("serializeKey", () => {
         expect(serializeKey("Ctrl+Z")).toBe("\x1a");
     });
 
+    // ─── Ctrl+символ (0x1c–0x1f) ───
+
+    it("serializes Ctrl+6 and the other 0x1c–0x1f combinations", () => {
+        expect(serializeKey("Ctrl+6")).toBe("\x1e");
+        expect(serializeKey("Ctrl+\\")).toBe("\x1c");
+        expect(serializeKey("Ctrl+]")).toBe("\x1d");
+        expect(serializeKey("Ctrl+/")).toBe("\x1f");
+    });
+
     // ─── Arrow keys ───
 
     it("serializes ArrowUp", () => {

@@ -716,6 +716,13 @@ hide-toggle (`isHiddenByDefault`). См.
   Default-бинды задают tier-зависимые fallback'и через per-binding `when`;
   пользовательские — через `keybindings.json` (VS Code-семантика `-command`
   для unbind).
+- Tier определяется по env, но **под мультиплексором env-флаги хост-терминала
+  (`KITTY_WINDOW_ID` и родня) не считаются доказательством**: расширенные клавиши
+  доходят, только если их пропускает сам tmux (`extended-keys on`). Внутри tmux
+  ждём подтверждения — probe `CSI ? u` или реально увиденный CSI-u ввод
+  (`noteExtendedKeysObserved`). Иначе tier завышался, Ctrl+Shift+F приезжал
+  неотличимым от Ctrl+F, а legacy-фоллбэки были выключены — то есть терялись
+  и комбинация, и запасной путь.
 - Экшены объявляются `CommandAction`/`registerAction` в `Workbench/Actions/`;
   упорядоченный список — `builtinActions.ts`, регистрирует `WorkbenchComponent`
   одним циклом. Порядок важен: резолвер берёт последний зарегистрированный

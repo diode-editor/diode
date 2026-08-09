@@ -2,7 +2,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
-import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { scmSingleResource, scmSingleUriArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
@@ -22,7 +22,10 @@ export const showScmAction: CommandAction = {
     title: "View: Show Source Control",
     shortTitle: "Source Control",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 15 }],
-    keybinding: parseKeybinding("ctrl+shift+g"),
+    // Парно с Search (см. searchActions): аккорд работает на любом терминале,
+    // канонический Ctrl+Shift+G объявлен там, где терминал способен его передать.
+    keybinding: parseChord("ctrl+k g"),
+    keybindings: [{ keys: parseKeybinding("ctrl+shift+g"), when: "tier != 'legacy'" }],
     run(accessor) {
         accessor.get(SidebarServiceDIToken).showViewlet(SCM_VIEWLET_ID);
     },

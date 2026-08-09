@@ -1,6 +1,6 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
     SEARCH_VIEW_ID,
     SEARCH_VIEWLET_ID,
@@ -25,7 +25,13 @@ export const showSearchAction: CommandAction = {
     title: "View: Show Search",
     shortTitle: "Search",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 12 }],
-    keybinding: parseKeybinding("ctrl+shift+f"),
+    // Leader-аккорд — основной рабочий путь: на legacy-терминале Ctrl+Shift+F
+    // неотличим от Ctrl+F, а на «полном» терминале комбинацию может перехватить
+    // сам эмулятор (у kitty Ctrl+Shift+* — его собственные шорткаты). Поэтому
+    // аккорд безусловен, а канонический бинд объявлен там, где терминал вообще
+    // способен его передать, — иначе подсказка в меню обещала бы нерабочее.
+    keybinding: parseChord("ctrl+k f"),
+    keybindings: [{ keys: parseKeybinding("ctrl+shift+f"), when: "tier != 'legacy'" }],
     run(accessor) {
         accessor.get(SidebarServiceDIToken).showViewlet(SEARCH_VIEWLET_ID);
     },

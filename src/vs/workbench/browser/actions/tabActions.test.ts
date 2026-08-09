@@ -10,7 +10,12 @@ import {
 } from "../../../platform/keybinding/common/modifierReleaseArmory.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
-import { closeActiveEditorAction, nextEditorInGroupAction, previousEditorInGroupAction } from "./tabActions.ts";
+import {
+    closeActiveEditorAction,
+    nextEditorInGroupAction,
+    openPreviousRecentlyUsedEditorInGroupAction,
+    previousEditorInGroupAction,
+} from "./tabActions.ts";
 
 interface GroupStub {
     activeIndex: number;
@@ -113,6 +118,33 @@ describe("TabActions", () => {
 
         armory.fireRelease("Control");
         expect(endMruCycle).not.toHaveBeenCalled();
+    });
+
+    // Ctrl+6 задуман работающим и на legacy-терминале, где keyup модификатора не
+    // приходит вовсе, — поэтому шаг фиксируется сразу, без hold-сессии.
+    it("openPreviousRecentlyUsedEditorInGroup toggles and commits the step immediately", () => {
+        const calls: string[] = [];
+        const group: GroupStub = {
+            activeIndex: 0,
+            editorCount: 3,
+            activateTab: vi.fn(),
+            cycleMru: (direction) => calls.push(`cycle:${String(direction)}`),
+            endMruCycle: () => calls.push("end"),
+            closeTab: vi.fn(),
+        };
+
+        const { commands, keybindings, accessor, armory } = setupActionTest(group);
+        registerAction(commands, keybindings, accessor, openPreviousRecentlyUsedEditorInGroupAction);
+
+        armory.withTrigger({ ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, () => {
+            commands.execute("workbench.action.openPreviousRecentlyUsedEditorInGroup");
+        });
+
+        expect(calls).toEqual(["cycle:1", "end"]);
+
+        // Ничего не взведено: отпускание Ctrl не должно дёргать фиксацию повторно.
+        armory.fireRelease("Control");
+        expect(calls).toEqual(["cycle:1", "end"]);
     });
 
     it("closeActiveEditor closes currently active tab", () => {

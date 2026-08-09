@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../../base/common/uri.ts";
-import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
+import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { Container, type ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
@@ -34,6 +38,32 @@ describe("showScmAction", () => {
         const sidebar = { showViewlet: vi.fn() };
         showScmAction.run(accessorWith(new Map([[SidebarServiceDIToken, sidebar]])));
         expect(sidebar.showViewlet).toHaveBeenCalledWith(SCM_VIEWLET_ID);
+    });
+
+    // Парно с Search: аккорд работает всегда, подсказка следует за терминалом.
+    it("аккорд Ctrl+K G работает всегда, подсказка зависит от терминала", () => {
+        const commands = new CommandRegistry();
+        const keybindings = new KeybindingRegistry();
+        const accessor = new Container();
+        accessor.bind(SidebarServiceDIToken, () => ({ showViewlet: vi.fn() }) as never);
+        registerAction(commands, keybindings, accessor, showScmAction);
+
+        const ctx = new ContextKeyService();
+        ctx.set("tier", "legacy");
+        const legacy = keybindings.getKeybindingForCommand("workbench.view.scm", ctx);
+        expect(legacy && formatKeybinding(legacy)).toBe("Ctrl+K G");
+
+        ctx.set("tier", "kitty");
+        const modern = keybindings.getKeybindingForCommand("workbench.view.scm", ctx);
+        expect(modern && formatKeybinding(modern)).toBe("Ctrl+Shift+G");
+
+        // …и аккорд по-прежнему резолвится на kitty — эмулятор мог занять Ctrl+Shift+G.
+        expect(
+            keybindings.resolveKey({ key: "k", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, ctx).kind,
+        ).toBe("chord");
+        expect(
+            keybindings.resolveKey({ key: "g", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }, ctx),
+        ).toEqual({ kind: "command", commandId: "workbench.view.scm" });
     });
 });
 

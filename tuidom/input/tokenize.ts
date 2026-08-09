@@ -19,12 +19,26 @@ import type { MouseAction, MouseButton } from "./rawTerminalToken.ts";
  * - Standard CSI letter/tilde, SS3
  * - Legacy ESC-prefixed, control chars, printable chars
  */
+/**
+ * Control-коды 0x1c–0x1f и клавиши, которые их порождают. Терминал шлёт их для
+ * Ctrl+\, Ctrl+], Ctrl+6 (традиционное Ctrl+^) и Ctrl+/ (традиционное Ctrl+_) —
+ * это ровно те комбинации вне Ctrl+A..Z, что доступны даже на legacy-терминале,
+ * где Ctrl+Shift+* и Ctrl+Tab неотличимы от своих простых версий.
+ */
+const ctrlSymbolByByte: Partial<Record<number, string>> = {
+    0x1c: "\\",
+    0x1d: "]",
+    0x1e: "6",
+    0x1f: "/",
+};
+
 export function tokenize(data: string): RawTerminalToken[] {
     const tokens: RawTerminalToken[] = [];
     let i = 0;
 
     while (i < data.length) {
         const code = data.charCodeAt(i);
+        const ctrlSymbol = ctrlSymbolByByte[code];
 
         if (code === 0x1b) {
             // Escape: could be standalone, CSI, SS3, or Alt+key
@@ -133,8 +147,16 @@ export function tokenize(data: string): RawTerminalToken[] {
             const letter = String.fromCharCode(code + 0x60);
             tokens.push({ kind: "ctrl-char", letter, raw: data[i] });
             i++;
-        } else if (code >= 0x20) {
-            // Printable character or Kitty PUA functional key
+        } else if (ctrlSymbol !== undefined) {
+            // Ctrl+\ ] 6 / — единственные control-коды за пределами Ctrl+A..Z,
+            // которые терминал шлёт с обычной клавиатуры (0x1c–0x1f). Без них
+            // Ctrl+6 и Ctrl+/ уходили в unknown-byte и не доходили ни до одного бинда.
+            tokens.push({ kind: "ctrl-char", letter: ctrlSymbol, raw: data[i] });
+            i++;
+        } else {
+            // Printable character or Kitty PUA functional key. Ветки выше разбирают
+            // весь диапазон < 0x20 (0x00, 0x01–0x1a, ESC, 0x1c–0x1f), поэтому сюда
+            // попадает только `code >= 0x20`.
             const kittyKey = kittyCodepointMap[code];
             if (kittyKey) {
                 tokens.push({
@@ -147,10 +169,6 @@ export function tokenize(data: string): RawTerminalToken[] {
             } else {
                 tokens.push({ kind: "char", char: data[i], codepoint: code, raw: data[i] });
             }
-            i++;
-        } else {
-            // Unknown control character
-            tokens.push({ kind: "unknown-byte", byte: code, raw: data[i] });
             i++;
         }
     }

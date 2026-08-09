@@ -47,6 +47,28 @@ export const previousEditorInGroupAction: CommandAction = {
     },
 };
 
+/**
+ * Тумблер двух последних редакторов (VS Code `openPreviousRecentlyUsedEditorInGroup`,
+ * у него без дефолтного бинда). Шаг по MRU с немедленной фиксацией — в отличие от
+ * Ctrl+Tab здесь нет «hold-сессии»: терминал сообщает об отпускании модификатора
+ * только в kitty-протоколе, а Ctrl+6 задуман как работающий везде. Комбинация
+ * выбрана под терминал: 0x1e доходит даже на legacy, где Ctrl+Tab неотличим от Tab,
+ * и совпадает с вимовским Ctrl+^ («alternate file»).
+ */
+export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
+    id: "workbench.action.openPreviousRecentlyUsedEditorInGroup",
+    title: "Open Previous Recently Used Editor In Group",
+    shortTitle: "Alternate Editor",
+    menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 15 }],
+    keybinding: parseKeybinding("ctrl+6"),
+    when: "textInputFocus && editorTabsMultiple",
+    run(accessor) {
+        const group = accessor.get(EditorServiceDIToken);
+        group.cycleMru(1);
+        group.endMruCycle();
+    },
+};
+
 export const closeActiveEditorAction: CommandAction = {
     id: "workbench.action.closeActiveEditor",
     title: "Close Active Editor",

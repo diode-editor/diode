@@ -119,9 +119,18 @@ export function detectKittyGraphicsHint(env: NodeJS.ProcessEnv = process.env): b
  * the provisional value used at startup before (and if) an async probe confirms it.
  * Note: inside tmux/ssh $TERM is often masked, so this may under-report; the async
  * probe upgrades it.
+ *
+ * Внутри tmux env-флаги хост-терминала ничего не доказывают: kitty пробрасывает
+ * `KITTY_WINDOW_ID` через ssh и в сессию tmux, но расширенные клавиши до нас
+ * доходят только если сам tmux их пропускает (`extended-keys on`, tmux ≥ 3.2).
+ * По умолчанию он этого не делает — и Ctrl+Shift+F приезжает неотличимым от
+ * Ctrl+F. Поверив флагу, мы завышали tier и выключали legacy-фоллбэки, то есть
+ * теряли и комбинацию, и запасной путь к команде. Поэтому под мультиплексором
+ * ждём подтверждения: probe (`CSI ? u`) или реально увиденный расширенный ввод.
  */
 export function detectExtendedKeysHint(env: NodeJS.ProcessEnv = process.env): boolean {
     const haystack = termHaystack(env);
     if (EXTENDED_KEYS_TERM_HINTS.some((h) => haystack.includes(h))) return true;
+    if (isInsideTmux(env)) return false;
     return EXTENDED_KEYS_ENV_FLAGS.some((flag) => env[flag] != null && env[flag] !== "");
 }

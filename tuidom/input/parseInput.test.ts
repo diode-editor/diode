@@ -89,6 +89,19 @@ describe("parseInput", () => {
         expect(events).toEqual([kp(" ", "\x00", { ctrlKey: true, code: "Space" })]);
     });
 
+    // Символьные control-коды: `code` — как в UI Events (Digit6/Slash/…), потому что
+    // физических клавиш `Key6`/`Key\` не существует.
+    it("parses Ctrl+6 (0x1e)", () => {
+        const events = parseInput("\x1e");
+        expect(events).toEqual([kp("6", "\x1e", { ctrlKey: true, code: "Digit6" })]);
+    });
+
+    it("parses Ctrl+/ (0x1f) and the bracket/backslash control codes", () => {
+        expect(parseInput("\x1f")).toEqual([kp("/", "\x1f", { ctrlKey: true, code: "Slash" })]);
+        expect(parseInput("\x1c")).toEqual([kp("\\", "\x1c", { ctrlKey: true, code: "Backslash" })]);
+        expect(parseInput("\x1d")).toEqual([kp("]", "\x1d", { ctrlKey: true, code: "BracketRight" })]);
+    });
+
     // ─── Mixed input ───
 
     it("parses mixed input: printable + control", () => {

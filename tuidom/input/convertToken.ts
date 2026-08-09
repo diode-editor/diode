@@ -22,6 +22,28 @@ function kittyEventType(eventType: number): "keypress" | "keydown" | "keyup" {
     }
 }
 
+/**
+ * Физическая клавиша для control-кода: буквы дают `KeyA`…`KeyZ`, а пробел и
+ * символы из 0x1c–0x1f — свои `code` из UI Events, как в браузере (`Key\` и
+ * `Key6` там не существуют).
+ */
+function ctrlCharCode(letter: string): string {
+    switch (letter) {
+        case " ":
+            return "Space";
+        case "\\":
+            return "Backslash";
+        case "]":
+            return "BracketRight";
+        case "6":
+            return "Digit6";
+        case "/":
+            return "Slash";
+        default:
+            return `Key${letter.toUpperCase()}`;
+    }
+}
+
 export function convertTokenToKeyPressEvent(token: RawKeyToken): KeyPressEvent {
     switch (token.kind) {
         case "csi-u": {
@@ -93,7 +115,7 @@ export function convertTokenToKeyPressEvent(token: RawKeyToken): KeyPressEvent {
         case "ctrl-char":
             return createKeyPressEvent(token.letter, token.raw, {
                 ctrlKey: true,
-                code: token.letter === " " ? "Space" : `Key${token.letter.toUpperCase()}`,
+                code: ctrlCharCode(token.letter),
             });
 
         case "unknown-byte":
