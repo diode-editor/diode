@@ -8,14 +8,17 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
+import { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
-import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { TerminalEnvironmentService } from "../../../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvStatusContribution } from "../../../services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
-import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
-import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import type { IActiveEditorStatus, IActiveEditorStatusSource } from "../editor/editorStatusContribution.ts";
 import { EditorStatusContribution } from "../editor/editorStatusContribution.ts";
 
@@ -113,9 +116,18 @@ export interface IStatusSegment {
 }
 
 /**
+ * Текст сегмента без краевых пробелов, которыми компонент обкладывает запись
+ * (они — часть блока подсветки, а не содержимого). Тесты состава смотрят на
+ * содержимое; за сами пробелы отвечает пофреймовый render-тест.
+ */
+function segmentText(label: TextLabelElement): string {
+    return label.getText().slice(1, -1);
+}
+
+/**
  * Сегменты полосы в порядке отрисовки: обход детей hflex — лейблы до
  * fill-ребёнка (centerFill) относятся к левой стороне, после — к правой.
- * Паддинги и разделители (Filler) пропускаются.
+ * Паддинги (Filler) пропускаются.
  */
 export function statusSegments(view: HFlexElement): IStatusSegment[] {
     const segments: IStatusSegment[] = [];
@@ -126,7 +138,7 @@ export function statusSegments(view: HFlexElement): IStatusSegment[] {
             continue;
         }
         if (child instanceof TextLabelElement) {
-            segments.push({ text: child.getText(), side });
+            segments.push({ text: segmentText(child), side });
         }
     }
     return segments;
@@ -141,7 +153,7 @@ export function statusTexts(view: HFlexElement): string[] {
 export function clickSegment(view: HFlexElement, text: string): void {
     const label = view
         .getChildren()
-        .find((child): child is TextLabelElement => child instanceof TextLabelElement && child.getText() === text);
+        .find((child): child is TextLabelElement => child instanceof TextLabelElement && segmentText(child) === text);
     if (!label) throw new Error(`status bar has no segment "${text}"`);
     label.dispatchEvent(new TUIMouseEvent("click", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }));
 }
@@ -149,6 +161,7 @@ export function clickSegment(view: HFlexElement, text: string): void {
 export interface StatusBarHarness {
     component: StatusBarComponent;
     statusBarService: StatusBarService;
+    contextMenuService: ContextMenuService;
     source: FakeActiveEditorSource;
     commands: CommandRegistry;
     terminalEnv: TerminalEnvironmentService;
@@ -163,13 +176,26 @@ export interface StatusBarHarness {
  * чтобы сегмент детерминированно резолвился в "legacy").
  */
 export function createStatusBarHarness(languageService: ILanguageService = NULL_LANGUAGE_SERVICE): StatusBarHarness {
-    const statusBarService = new StatusBarService();
-    const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
+    const statusBarService = new StatusBarService(NULL_STATE_SERVICE);
     const commands = new CommandRegistry();
+    // Меню полосы реестровых пунктов не берёт (только свои от делегата),
+    // поэтому реестр — пустой.
+    const contextMenuService = new ContextMenuService(
+        new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), [])),
+    );
     const terminalEnv = new TerminalEnvironmentService(new MockTerminalBackend(), NULL_CONFIGURATION_SERVICE);
     const source = new FakeActiveEditorSource();
     const terminalContribution = new TerminalEnvStatusContribution(statusBarService, terminalEnv);
     const editorContribution = new EditorStatusContribution(statusBarService, source, languageService, commands);
-    const component = new StatusBarComponent(statusBarService, themeService);
-    return { component, statusBarService, source, commands, terminalEnv, editorContribution, terminalContribution };
+    const component = new StatusBarComponent(statusBarService, contextMenuService);
+    return {
+        component,
+        statusBarService,
+        contextMenuService,
+        source,
+        commands,
+        terminalEnv,
+        editorContribution,
+        terminalContribution,
+    };
 }

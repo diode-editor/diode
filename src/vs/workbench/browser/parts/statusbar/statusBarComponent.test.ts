@@ -204,7 +204,7 @@ describe("StatusBarComponent", () => {
                 .getChildren()
                 .find(
                     (child): child is TextLabelElement =>
-                        child instanceof TextLabelElement && child.getText() === "temp",
+                        child instanceof TextLabelElement && child.getText() === " temp ",
                 );
             expect(label).toBeDefined();
 
@@ -226,7 +226,7 @@ describe("StatusBarComponent", () => {
 
             const childrenBefore = component.view.getChildren();
             const labelBefore = childrenBefore.find(
-                (child) => "getText" in child && (child as { getText(): string }).getText() === "Ln 1, Col 1",
+                (child) => "getText" in child && (child as { getText(): string }).getText() === " Ln 1, Col 1 ",
             );
             expect(labelBefore).toBeDefined();
 
@@ -234,7 +234,7 @@ describe("StatusBarComponent", () => {
 
             // Тот же массив детей и тот же экземпляр лейбла — изменился только текст.
             expect(component.view.getChildren()).toEqual(childrenBefore);
-            expect((labelBefore as { getText(): string }).getText()).toBe("Ln 1, Col 2");
+            expect((labelBefore as { getText(): string }).getText()).toBe(" Ln 1, Col 2 ");
         });
 
         it("adding and removing a segment rebuilds the row, reusing pooled labels", () => {
@@ -242,8 +242,8 @@ describe("StatusBarComponent", () => {
             const countBefore = component.view.getChildren().length;
 
             const hint = statusBarService.addEntry({ id: "hint", text: "hint", alignment: "left", priority: 50 });
-            // Новый левый сегмент → +лейбл и +разделитель.
-            expect(component.view.getChildren().length).toBe(countBefore + 2);
+            // Новый левый сегмент → +лейбл (разделителей нет, воздух в самом лейбле).
+            expect(component.view.getChildren().length).toBe(countBefore + 1);
             const labelsAfterAdd = component.view.getChildren();
 
             hint.dispose();

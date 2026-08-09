@@ -1,6 +1,9 @@
+import { blendRgb } from "../../../../../tuidom/common/colorUtils.ts";
+
+import type { ColorContribution } from "./colorRegistry.ts";
 import { themeKindOf } from "./colorRegistry.ts";
-import { defaultWorkbenchColors, type IWorkbenchColors } from "./colors/colorContributions.ts";
-import { parseHexColor } from "./colorUtils.ts";
+import { COLOR_CONTRIBUTIONS, defaultWorkbenchColors, type IWorkbenchColors } from "./colors/colorContributions.ts";
+import { parseHexAlpha, parseHexColor } from "./colorUtils.ts";
 import type { IEditorTokenTheme } from "./iEditorTokenTheme.ts";
 import type { IThemeFile } from "./iThemeFile.ts";
 
@@ -36,6 +39,8 @@ export class WorkbenchTheme {
      * its built-in defaults. See {@link defaultWorkbenchColors}.
      *
      * All hex color strings are converted to packed 24-bit RGB integers.
+     * Colors declared with `blendOver` are composited onto their backdrop —
+     * see {@link blendTransparentColors}.
      */
     public static fromThemeFile(json: IThemeFile): WorkbenchTheme {
         const merged = { ...defaultWorkbenchColors(themeKindOf(json.type)), ...json.colors };
@@ -43,6 +48,7 @@ export class WorkbenchTheme {
         for (const [key, value] of Object.entries(merged)) {
             (colors as Record<string, number>)[key] = parseHexColor(value);
         }
+        blendTransparentColors(colors, merged);
 
         const tokenTheme: IEditorTokenTheme = {
             rules: json.tokenColors ?? [],
@@ -80,5 +86,27 @@ export class WorkbenchTheme {
             );
         }
         return color;
+    }
+}
+
+/**
+ * Второй проход по разобранной палитре: цвета, объявленные с `blendOver`,
+ * накладываются на свою подложку долей альфы из исходной hex-строки.
+ * Непрозрачное значение (и отсутствующая подложка) — no-op, поэтому запечённые
+ * дефолты проходят насквозь; смысл прохода — темы, привезённые из upstream с
+ * `#RRGGBBAA` (Dark Modern, Light Modern), где отброшенная альфа дала бы
+ * нечитаемый фон.
+ */
+function blendTransparentColors(colors: IWorkbenchColors, source: Readonly<Record<string, string>>): void {
+    const table = colors as Record<string, number>;
+    const contributions: ColorContribution = COLOR_CONTRIBUTIONS;
+    for (const [key, definition] of Object.entries(contributions)) {
+        const backdrop = definition.blendOver;
+        if (backdrop === undefined) continue;
+        // Обе стороны наложения обязаны иметь дефолты — это инвариант реестра,
+        // его сторожит colorContributions.test.ts, поэтому здесь их не проверяем.
+        const alpha = parseHexAlpha(source[key]);
+        if (alpha === 0xff) continue;
+        table[key] = blendRgb(table[key], table[backdrop], alpha / 0xff);
     }
 }

@@ -23,3 +23,17 @@ export function unpackG(color: number): number {
 export function unpackB(color: number): number {
     return color & 0xff;
 }
+
+/**
+ * Накладывает полупрозрачный `fg` на непрозрачную подложку `bg` и возвращает
+ * непрозрачный результат: терминал альфы не умеет, поэтому композитинг
+ * выполняется заранее (`alpha` — доля 0..1).
+ */
+export function blendRgb(fg: number, bg: number, alpha: number): number {
+    const mix = (f: number, b: number): number => Math.round(f * alpha + b * (1 - alpha));
+    return packRgb(
+        mix(unpackR(fg), unpackR(bg)),
+        mix(unpackG(fg), unpackG(bg)),
+        mix(unpackB(fg), unpackB(bg)),
+    );
+}

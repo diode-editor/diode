@@ -120,11 +120,18 @@ export class EditorStatusContribution extends Disposable {
         const editor = this.source.getActiveEditor();
 
         this.cursorHandle = this.setSegment(this.cursorHandle, this.cursorPositionText(editor), (text) =>
-            this.statusBar.addEntry({ id: "status.editor.selection", text, alignment: "right", priority: 100 }),
+            this.statusBar.addEntry({
+                id: "status.editor.selection",
+                name: "Editor Selection",
+                text,
+                alignment: "right",
+                priority: 100,
+            }),
         );
         this.encodingHandle = this.setSegment(this.encodingHandle, this.encodingSegment(editor), (text) =>
             this.statusBar.addEntry({
                 id: "status.editor.encoding",
+                name: "Editor Encoding",
                 text,
                 alignment: "right",
                 priority: 90,
@@ -134,6 +141,7 @@ export class EditorStatusContribution extends Disposable {
         this.eolHandle = this.setSegment(this.eolHandle, this.eolSegment(editor), (text) =>
             this.statusBar.addEntry({
                 id: "status.editor.eol",
+                name: "Editor End of Line",
                 text,
                 alignment: "right",
                 priority: 80,
@@ -141,7 +149,13 @@ export class EditorStatusContribution extends Disposable {
             }),
         );
         this.languageHandle = this.setSegment(this.languageHandle, this.languageSegment(editor), (text) =>
-            this.statusBar.addEntry({ id: "status.editor.mode", text, alignment: "right", priority: 70 }),
+            this.statusBar.addEntry({
+                id: "status.editor.mode",
+                name: "Editor Language",
+                text,
+                alignment: "right",
+                priority: 70,
+            }),
         );
     }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { packRgb } from "../../../../../tuidom/common/colorUtils.ts";
 
-import { parseHexColor } from "./colorUtils.ts";
+import { parseHexAlpha, parseHexColor } from "./colorUtils.ts";
 
 describe("parseHexColor", () => {
     it("parses #RRGGBB", () => {
@@ -40,5 +40,23 @@ describe("parseHexColor", () => {
         expect(() => parseHexColor("FFFFFF")).toThrow("must start with #");
         expect(() => parseHexColor("#FF")).toThrow("unexpected length");
         expect(() => parseHexColor("#FFFFFFFFF")).toThrow("unexpected length");
+    });
+});
+
+describe("parseHexAlpha", () => {
+    it("reads the alpha byte of #RRGGBBAA", () => {
+        expect(parseHexAlpha("#F1F1F133")).toBe(0x33);
+        expect(parseHexAlpha("#00000000")).toBe(0);
+        expect(parseHexAlpha("#FFFFFFFF")).toBe(0xff);
+    });
+
+    it("expands the alpha nibble of #RGBA", () => {
+        expect(parseHexAlpha("#FFF8")).toBe(0x88);
+        expect(parseHexAlpha("#FFF0")).toBe(0);
+    });
+
+    it("reports opaque for notations without alpha", () => {
+        expect(parseHexAlpha("#1E1E1E")).toBe(0xff);
+        expect(parseHexAlpha("#FFF")).toBe(0xff);
     });
 });

@@ -31,6 +31,7 @@ export class TerminalEnvStatusContribution extends Disposable {
         this.handle = this.register(
             statusBar.addEntry({
                 id: "status.terminalEnvironment",
+                name: "Terminal Environment",
                 text: this.segmentText(),
                 alignment: "left",
                 priority: 100,

@@ -45,3 +45,21 @@ export function parseHexColor(hex: string): number {
             throw new Error(`Invalid hex color: "${hex}" (unexpected length ${body.length.toString()})`);
     }
 }
+
+/**
+ * Альфа-канал hex-строки как 0–255 (255 для форм без альфы). Нужен цветам с
+ * `blendOver`: сам цвет парсится непрозрачным, а долю наложения берём отсюда.
+ *
+ * Формат не валидирует — вызывается после {@link parseHexColor}.
+ */
+export function parseHexAlpha(hex: string): number {
+    const body = hex.slice(1);
+    switch (body.length) {
+        case 4:
+            return parseInt(body[3] + body[3], 16);
+        case 8:
+            return parseInt(body.slice(6, 8), 16);
+        default:
+            return 0xff;
+    }
+}

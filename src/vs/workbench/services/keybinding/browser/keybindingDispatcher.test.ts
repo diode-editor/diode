@@ -10,6 +10,7 @@ import {
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ModifierReleaseArmory } from "../../../../platform/keybinding/common/modifierReleaseArmory.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
+import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { StatusBarService } from "../../statusbar/common/statusBarService.ts";
 
 import type { IExtendedKeysObserver } from "./keybindingDispatcher.ts";
@@ -23,7 +24,7 @@ function createHarness() {
     const keybindings = new KeybindingRegistry();
     const contextKeys = new ContextKeyService();
     const commands = new CommandRegistry();
-    const statusBar = new StatusBarService();
+    const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const armory = new ModifierReleaseArmory();
     const extendedKeysCalls: string[] = [];
     let extendedKeys = false;
