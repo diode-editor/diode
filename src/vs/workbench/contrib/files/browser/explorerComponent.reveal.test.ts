@@ -22,6 +22,7 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 describe("ExplorerService — revealPath (через дерево ExplorerComponent)", () => {
     let ws: ITempWorkspace;
@@ -47,7 +48,13 @@ describe("ExplorerService — revealPath (через дерево ExplorerCompon
                 ),
             ),
         );
-        component = new ExplorerComponent(service, new CommandRegistry(), clipboard, contextMenuService);
+        component = new ExplorerComponent(
+            service,
+            new CommandRegistry(),
+            clipboard,
+            contextMenuService,
+            makeViewsHarness().service,
+        );
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(40, 15));
         await service.refresh();

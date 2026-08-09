@@ -19,6 +19,7 @@ import { ViewsService } from "./viewsService.ts";
 /** Общий стенд тестов ViewsService: реальные реестры меню, фейки места и стора. */
 export interface IViewsHarness {
     readonly service: ViewsService;
+    readonly menuService: MenuService;
     readonly commands: CommandRegistry;
     readonly contextKeys: ContextKeyService;
     /** Делегаты, с которыми открывали контекст-меню (последний — самый свежий). */
@@ -69,6 +70,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     const root = (containerId: string): TUIElement => registered.get(containerId)!.view;
     return {
         service: new ViewsService(sidebar, contextMenu, menuService, state),
+        menuService,
         commands,
         contextKeys,
         shown,

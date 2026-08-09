@@ -1,11 +1,14 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { explorerPathArg } from "../../../browser/actions/menuContexts.ts";
+import { explorerPathArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 
-import { ExplorerComponentDIToken } from "./explorerComponent.ts";
+import { EXPLORER_VIEW_ID, ExplorerComponentDIToken } from "./explorerComponent.ts";
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
+
+/** nf-cod-refresh — inline-кнопка заголовка Explorer'а. */
+const REFRESH_ICON = "\ueb37";
 
 /**
  * Удаление файла/каталога из explorer'а: подтверждение + запись в историю отмены
@@ -49,7 +52,16 @@ export const refreshExplorerAction: CommandAction = {
     id: "workbench.files.action.refreshFilesExplorer",
     title: "File: Refresh Explorer",
     shortTitle: "Refresh Explorer",
-    menus: [{ menuId: MenuId.ExplorerContext, group: "5_refresh", order: 10 }],
+    menus: [
+        { menuId: MenuId.ExplorerContext, group: "5_refresh", order: 10 },
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: 30,
+            icon: REFRESH_ICON,
+            visible: viewMenuVisible(EXPLORER_VIEW_ID),
+        },
+    ],
     run(accessor) {
         void accessor.get(ExplorerServiceDIToken).refresh();
     },

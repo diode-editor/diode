@@ -21,6 +21,7 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 /** Собирает ContextMenuService для explorer-меню поверх переданного CommandRegistry. */
 function makeContextMenuService(commands: CommandRegistry): ContextMenuService {
@@ -49,7 +50,7 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         opened.push(filePath as string);
     });
     const service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
-    const component = new ExplorerComponent(service, commands, clipboard, makeContextMenuService(commands));
+    const component = new ExplorerComponent(service, commands, clipboard, makeContextMenuService(commands), makeViewsHarness().service);
     return {
         service,
         component,
@@ -83,9 +84,9 @@ describe("ExplorerComponent", () => {
         ws.dispose();
     });
 
-    it("creates a view element (id 'explorer')", () => {
+    it("creates a view body element (id 'explorerView')", () => {
         expect(h.component.view).toBeDefined();
-        expect(h.component.view.id).toBe("explorer");
+        expect(h.component.view.id).toBe("explorerView");
     });
 
     it("shows root directory contents after refresh", () => {
@@ -315,6 +316,7 @@ describe("ExplorerComponent — root assigned after construction", () => {
             new CommandRegistry(),
             clipboard,
             makeContextMenuService(new CommandRegistry()),
+            makeViewsHarness().service,
         );
         const app = TestApp.createWithContent(component.view, new Size(30, 10));
         await service.refresh();
@@ -344,6 +346,13 @@ describe("ExplorerComponent — root assigned after construction", () => {
     });
 });
 
+/**
+ * Строка ниже единственного файла воркспейса: у строки 0 стоит курсор дерева, а
+ * заголовка в теле секции больше нет (его рисует контейнер) — фон сайдбара
+ * проверяем на пустой строке.
+ */
+const EMPTY_ROW_SCREEN_Y = 5;
+
 describe("ExplorerComponent with ThemeService", () => {
     let ws: ITempWorkspace;
 
@@ -370,8 +379,9 @@ describe("ExplorerComponent with ThemeService", () => {
         app.render();
 
         const expectedBg = themeService.theme.getColor("sideBar.background")!;
-        // Top-left cell of the sidebar view must use the sidebar background
-        expect(app.backend.getBgAt(new Point(0, 0))).toBe(expectedBg);
+        // Пустая строка под файлами: у строки 0 теперь курсор дерева — заголовок
+        // контейнера рисует ViewsService, а не тело секции.
+        expect(app.backend.getBgAt(new Point(0, EMPTY_ROW_SCREEN_Y))).toBe(expectedBg);
 
         h.dispose();
     });
@@ -394,7 +404,7 @@ describe("ExplorerComponent with ThemeService", () => {
         await h.service.refresh();
         app.render();
 
-        expect(app.backend.getBgAt(new Point(0, 0))).toBe(newBg);
+        expect(app.backend.getBgAt(new Point(0, EMPTY_ROW_SCREEN_Y))).toBe(newBg);
 
         h.dispose();
     });

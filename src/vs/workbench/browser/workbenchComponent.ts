@@ -382,12 +382,16 @@ export class WorkbenchComponent extends Component {
         this.explorerService.setRootPath(dirPath);
         // Новые терминалы спавнятся в папке воркспейса.
         this.terminalService.setWorkingDirectory(dirPath);
-        // Регистрируем вьюлеты сайдбара (view Explorer'а валиден после setRootPath)
-        // и показываем Explorer по умолчанию, не трогая видимость сайдбара — её
-        // восстанавливает персист layout'а.
-        this.sidebarService.registerViewlet(EXPLORER_VIEWLET_ID, this.explorerComponent.view, () => {
-            this.explorerService.focus();
+        // Собираем контейнеры сайдбара и показываем Explorer по умолчанию, не
+        // трогая видимость сайдбара — её восстанавливает персист layout'а.
+        // Все три идут одним путём: view записались в реестр из конструкторов
+        // компонентов, ViewsService строит контейнер и отдаёт его сайдбару.
+        this.viewsService.registerContainer({
+            id: EXPLORER_VIEWLET_ID,
+            title: "EXPLORER",
+            location: "sidebar",
         });
+        this.viewsService.attachContainer(EXPLORER_VIEWLET_ID);
         // Search — контейнер с единственной view: заголовок секции сам сливается
         // с заголовком контейнера (merged выводится из числа видимых секций),
         // «⋯»-меню из коробки; view записалась в реестр из конструктора

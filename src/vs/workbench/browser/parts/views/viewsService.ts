@@ -295,7 +295,9 @@ export class ViewsService {
         };
         entry.header = header;
         const root = new VFlexElement();
-        root.id = `viewContainerRoot-${containerId.replaceAll(".", "-")}`;
+        // Id корня = id контейнера: стабильный селектор места для e2e/инспектора
+        // (`#explorer`, `#scm`, `#search`).
+        root.id = containerId.replaceAll(".", "-");
         root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         entry.view = root;
         this.rebuildPanes(entry);
