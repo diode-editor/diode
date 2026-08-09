@@ -5,8 +5,8 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
 import { Component } from "../../../browser/component.ts";
-import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
-import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { MarkerServiceDIToken } from "../../../common/coreTokens.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
@@ -39,12 +39,12 @@ export const ProblemsComponentDIToken = token<ProblemsComponent>("ProblemsCompon
  * Компонент Problems-вкладки нижней панели: дерево «файл → маркеры»
  * ({@link TreeViewElement} поверх `ProblemsTreeDataProvider`) — второй
  * потребитель общего {@link MarkerService} (первый — editor squiggles).
- * Регистрирует вкладку PROBLEMS в {@link PanelService}; пока маркеров нет,
+ * Регистрирует вкладку PROBLEMS в {@link ViewsService} (контейнер в панели); пока маркеров нет,
  * контент вкладки — null (панель рендерит placeholder). Активация маркера
  * раскрывает его позицию через шов {@link IMarkerRevealTarget}.
  */
 export class ProblemsComponent extends Component {
-    public static dependencies = [MarkerServiceDIToken, PanelServiceDIToken, MarkerRevealTargetDIToken] as const;
+    public static dependencies = [MarkerServiceDIToken, ViewsServiceDIToken, MarkerRevealTargetDIToken] as const;
 
     /** The Problems tree — доступен тестам и оркестрации (фокус, выделение). */
     public readonly tree: TreeViewElement<ProblemNode>;
@@ -56,7 +56,7 @@ export class ProblemsComponent extends Component {
 
     public constructor(
         private readonly markerService: MarkerService,
-        private readonly panelService: PanelService,
+        private readonly viewsService: ViewsService,
         private readonly revealTarget: IMarkerRevealTarget,
     ) {
         super();
@@ -73,12 +73,21 @@ export class ProblemsComponent extends Component {
         this.view = new ScrollBarDecorator(this.tree);
         this.view.id = "problemsView";
 
-        this.panelService.addView({
+        // Вкладка панели — такой же контейнер view, как вьюлет сайдбара:
+        // одна секция без своего заголовка (его роль играет таб).
+        this.viewsService.registerContainer({ id: PROBLEMS_VIEW_ID, title: "PROBLEMS", location: "panel" });
+        this.viewsService.registerView({
             id: PROBLEMS_VIEW_ID,
+            containerId: PROBLEMS_VIEW_ID,
             title: "PROBLEMS",
-            content: null,
+            order: 10,
+            body: null,
             placeholder: "No problems have been detected in the workspace.",
+            focus: () => {
+                this.focus();
+            },
         });
+        this.viewsService.attachContainer(PROBLEMS_VIEW_ID);
 
         this.tree.onActivate = (node) => {
             this.revealMarker(node);
@@ -108,7 +117,7 @@ export class ProblemsComponent extends Component {
 
         const shouldShowTree = markers.length > 0;
         if (shouldShowTree !== this.treeShown) {
-            this.panelService.setViewContent(PROBLEMS_VIEW_ID, shouldShowTree ? this.view : null);
+            this.viewsService.setViewBody(PROBLEMS_VIEW_ID, shouldShowTree ? this.view : null);
             this.treeShown = shouldShowTree;
         }
         if (shouldShowTree) void this.refreshTree();

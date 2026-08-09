@@ -1,3 +1,4 @@
+import type { TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
@@ -24,6 +25,7 @@ import { OutputServiceDIToken } from "../services/output/common/outputService.ts
 
 import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
+import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 import { WorkbenchStateServiceDIToken } from "./workbenchStateService.ts";
 
 const TOGGLE_OUTPUT = "workbench.action.output.toggleOutput";
@@ -147,6 +149,20 @@ describe("Workbench — Output panel", () => {
         panelService.activateView(OUTPUT_VIEW_ID);
 
         expect(frame()).toContain("vexx starting");
+    });
+
+    it("reveal контейнера панели наполняет вкладку (шов focus дескриптора)", () => {
+        // Тот же шов, что у Explorer/Search: место просит контейнер отдать фокус,
+        // контейнер зовёт focus своей единственной секции — та поднимает редактор
+        // канала и подменяет тело view (до этого секция рисует подсказку).
+        const outputTab = (): TUIElement =>
+            h.container.get(PanelServiceDIToken).getViews().find((v) => v.id === OUTPUT_VIEW_ID)!.content!;
+        const placeholder = "#viewPlaceholder-workbench-panel-output";
+        expect(outputTab().querySelector(placeholder)).not.toBeNull();
+
+        h.container.get(ViewsServiceDIToken).focusContainer(OUTPUT_VIEW_ID);
+
+        expect(outputTab().querySelector(placeholder)).toBeNull();
     });
 
     it("активация соседней вкладки панели Output не трогает", () => {

@@ -144,4 +144,31 @@ describe("PaneViewElement layout", () => {
         const { view } = makeView([{ id: "a" }]);
         expect(() => view.isCollapsed("ghost")).toThrow(/unknown pane id/);
     });
+
+    it("setPaneBody подменяет тело, сохраняя свёрнутость; то же тело — no-op", () => {
+        const { view, bodies } = makeView([{ id: "a" }, { id: "b" }]);
+        view.setCollapsed("a", true);
+
+        const next = new FillerElement();
+        next.id = "a-next";
+        view.setPaneBody("a", next);
+        expect(view.querySelector("#a-next")).toBe(next);
+        expect(view.querySelector("#a-body")).toBeNull();
+        // Скрытость свёрнутой секции переезжает на новое тело.
+        expect(next.hidden).toBe(true);
+
+        view.setPaneBody("a", next);
+        expect(view.querySelector("#a-next")).toBe(next);
+        expect(bodies.get("b")!.hidden).toBe(false);
+    });
+
+    it("секция без своей строки заголовка не занимает под неё строку", () => {
+        const view = new PaneViewElement();
+        const body = new FillerElement();
+        body.id = "solo-body";
+        view.addPane({ id: "solo", title: "SOLO", body, headerVisible: false });
+        layout(view, 20, 5);
+        expect(body.layoutSize.height).toBe(5);
+        expect(view.querySelector("#paneHeader-solo")!.hidden).toBe(true);
+    });
 });

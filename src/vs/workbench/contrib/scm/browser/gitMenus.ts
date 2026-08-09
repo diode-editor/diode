@@ -23,11 +23,11 @@ const inChangesMenu = viewMenuVisible(SCM_CHANGES_VIEW_ID);
 
 /** Submenu-каркас «⋯» CHANGES: группа 3_git_menus между 2_git_top и 9_footer. */
 export const GIT_MENU_SUBMENUS: readonly ISubmenuContribution[] = [
-    { menuId: MenuId.ViewMoreActions, submenu: GitCommitMenu, title: "Commit", group: "3_git_menus", order: 10, visible: inChangesMenu },
-    { menuId: MenuId.ViewMoreActions, submenu: GitChangesMenu, title: "Changes", group: "3_git_menus", order: 20, visible: inChangesMenu },
-    { menuId: MenuId.ViewMoreActions, submenu: GitPullPushMenu, title: "Pull, Push", group: "3_git_menus", order: 30, visible: inChangesMenu },
-    { menuId: MenuId.ViewMoreActions, submenu: GitBranchMenu, title: "Branch", group: "3_git_menus", order: 40, visible: inChangesMenu },
-    { menuId: MenuId.ViewMoreActions, submenu: GitRemotesMenu, title: "Remote", group: "3_git_menus", order: 50, visible: inChangesMenu },
-    { menuId: MenuId.ViewMoreActions, submenu: GitStashMenu, title: "Stash", group: "3_git_menus", order: 60, visible: inChangesMenu },
-    { menuId: MenuId.ViewMoreActions, submenu: GitTagsMenu, title: "Tags", group: "3_git_menus", order: 70, visible: inChangesMenu },
+    { menuId: MenuId.ViewTitle, submenu: GitCommitMenu, title: "Commit", group: "3_git_menus", order: 10, visible: inChangesMenu },
+    { menuId: MenuId.ViewTitle, submenu: GitChangesMenu, title: "Changes", group: "3_git_menus", order: 20, visible: inChangesMenu },
+    { menuId: MenuId.ViewTitle, submenu: GitPullPushMenu, title: "Pull, Push", group: "3_git_menus", order: 30, visible: inChangesMenu },
+    { menuId: MenuId.ViewTitle, submenu: GitBranchMenu, title: "Branch", group: "3_git_menus", order: 40, visible: inChangesMenu },
+    { menuId: MenuId.ViewTitle, submenu: GitRemotesMenu, title: "Remote", group: "3_git_menus", order: 50, visible: inChangesMenu },
+    { menuId: MenuId.ViewTitle, submenu: GitStashMenu, title: "Stash", group: "3_git_menus", order: 60, visible: inChangesMenu },
+    { menuId: MenuId.ViewTitle, submenu: GitTagsMenu, title: "Tags", group: "3_git_menus", order: 70, visible: inChangesMenu },
 ];

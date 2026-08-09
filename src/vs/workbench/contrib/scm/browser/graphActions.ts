@@ -6,8 +6,11 @@ import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { runGitOp } from "./gitOpClient.ts";
 import { GRAPH_LOAD_MORE_COMMAND, SCM_GRAPH_VIEW_ID } from "./graphViewComponent.ts";
 
+/** nf-cod-refresh — inline-кнопка заголовка секции GRAPH. */
+const REFRESH_ICON = "\ueb37";
+
 /**
- * Ручное обновление view GRAPH — пункт Refresh в меню «⋯» секции. Делегирует
+ * Ручное обновление view GRAPH — Refresh кнопкой в заголовке секции. Делегирует
  * команде `git.refresh` расширения (паттерн {@link CommandOriginalResourceProvider}):
  * до активации расширения команды нет — тогда тихий no-op, как у quickDiff.
  */
@@ -18,9 +21,10 @@ export const scmGraphRefreshAction: CommandAction = {
     when: "scmViewletVisible",
     menus: [
         {
-            menuId: MenuId.ViewMoreActions,
-            group: "1_actions",
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
             order: 10,
+            icon: REFRESH_ICON,
             visible: viewMenuVisible(SCM_GRAPH_VIEW_ID),
         },
     ],
@@ -42,7 +46,7 @@ export const scmGraphLoadMoreAction: CommandAction = {
     when: "gitHasRepo",
     menus: [
         {
-            menuId: MenuId.ViewMoreActions,
+            menuId: MenuId.ViewTitle,
             group: "1_actions",
             order: 20,
             visible: viewMenuVisible(SCM_GRAPH_VIEW_ID),

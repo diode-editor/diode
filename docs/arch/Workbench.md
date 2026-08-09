@@ -221,10 +221,17 @@ top-уровень — `getSubmenus(MenubarMainMenu)`, entries каждого м
 (данные, co-located на экшене). Command+keybinding — `Actions/` (поведение).
 Event-проводка — `Contributions/`.
 
-Осознанно не перенесено из vscode: `alt`-пункты (альтернатива по Alt), user
-hide-toggle (`isHiddenByDefault`), submenu-записи внутри попапов (PopupMenu не
-рендерит вложенные меню — submenu потребляет только меню-бар). См.
+Осознанно не перенесено из vscode: `alt`-пункты (альтернатива по Alt) и user
+hide-toggle (`isHiddenByDefault`). См.
 [TODO](../TODO/WorkbenchContributions.md).
+
+**Группы и вложенность.** `MenuRegistry.getMenuItemGroups` отдаёт пункты
+разложенными по группам (склейка сепараторами — `joinMenuGroups`): это нужно
+потребителям, которые рисуют группы по-разному — заголовок view показывает
+`navigation` inline-кнопками, а остальное уводит в «⋯». Вложенные submenu в
+попапах поддержаны: `MenuService.getEntries/getEntryGroups` резолвят их
+рекурсивно (`seen` рвёт циклы `MenuId`), `PopupMenuElement` рисует
+`type: "submenu"` дочерним попапом.
 
 ## Текущие обитатели
 
@@ -412,8 +419,10 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     `ActiveEditorStatusSourceDIToken` в `Modules/WorkbenchModule.ts`.
     Chord-хинт публикует `KeybindingDispatcher` как обычную запись сервиса.
 - **Panel-кластер (этап 6)** — нижняя панель и её вкладки:
-  - `Services/PanelService.ts` — реестр вкладок нижней Panel (id, title, content,
-    placeholder), активная вкладка и **видимость** панели. События:
+  - `Services/PanelService.ts` — таб-строка нижней Panel: набор вкладок, активная
+    вкладка и **видимость** панели. Вкладки заводит только `ViewsService`
+    (контейнер с `location: "panel"` = вкладка), фичи в этот реестр не ходят.
+    События:
     `onDidChangeViews`, `onDidChangeActiveView`, `onDidActivateView`
     (пользовательская активация — клик по табу; программный `setActiveView` его
     **не** порождает — на нём висят ленивые фичи), `onDidChangeVisibility`
@@ -426,21 +435,21 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
   - `Components/Panel/ProblemsComponent.ts` — `ThemedComponent`; дерево
     «файл → маркеры» (`TreeViewElement` поверх `ProblemsTreeDataProvider`,
     `view` = `ScrollBarDecorator`, `view.id = "problemsView"`; стили —
-    `getProblemsTreeStyles` + `getScrollBarStyles`). Регистрирует вкладку
-    PROBLEMS (`PROBLEMS_VIEW_ID`); пока маркеров нет — контент null (панель
-    рендерит placeholder). Reveal маркера — через **интерфейсный шов**
+    `getProblemsTreeStyles` + `getScrollBarStyles`). Регистрирует контейнер и
+    view PROBLEMS (`PROBLEMS_VIEW_ID`, `location: "panel"`); пока маркеров нет —
+    тело view `null` и секция рисует placeholder. Reveal маркера — через **интерфейсный шов**
     `IMarkerRevealTarget` (`openUri` + `getActiveEditor` с
     `goToPosition`/`revealRange`); `EditorService` соответствует
     структурно, биндинг `MarkerRevealTargetDIToken` — в `Modules/WorkbenchModule.ts`.
   - `Services/Terminal/TerminalService.ts` — headless-оркестратор терминала:
     инстансы (id/title/session), lazy spawn через `TerminalSessionFactory`,
-    регистрация вкладки TERMINAL (`TERMINAL_VIEW_ID`) + подписка на её
-    активацию, чистка PTY при выходе шелла/dispose. События:
+    регистрация контейнера/view TERMINAL (`TERMINAL_VIEW_ID`, `location: "panel"`)
+    + подписка на её активацию, чистка PTY при выходе шелла/dispose. События:
     `onDidOpenInstance`/`onDidCloseInstance`/`onDidChangeActiveInstance`/
     `onDidRequestFocus`.
   - `Components/Panel/TerminalPanelComponent.ts` — view-владелец терминала:
     строит `TerminalViewElement` по каждому инстансу, вкидывает виджет
-    активного в TERMINAL-вкладку (через `PanelService.setViewContent`), красит
+    активного в TERMINAL-вкладку (через `ViewsService.setViewBody`), красит
     виджеты (`getTerminalViewStyles`). **Не** наследник `Component`: корневого
     контрола нет — его UI это несколько виджетов. ВАЖНО: у `TUIElement` нет
     unmount-хуков, поэтому компонент **обязан** сам dispose'ить виджеты — при
@@ -592,32 +601,64 @@ hide-toggle (`isHiddenByDefault`), submenu-записи внутри попап�
     late-init шов `attachLayout`.
   - `browser/parts/sidebar/sidebarService.ts` — реестр вьюлетов сайдбара и
     переключатель (activity bar'а нет, роль играют команды `workbench.view.*`;
-    показ вьюлета — подмена контента сайдбара через `LayoutService`). Explorer —
-    одно-view вьюлет, регистрируется напрямую; Search — merged одно-view
-    контейнер (см. ниже).
-  - `browser/parts/views/` — **view-секции внутри вьюлета** (аналог
-    PaneView/ViewContainer VS Code): `paneViewElement.ts` + `paneHeaderElement.ts`
-    — составной контрол из готовых tuidom-примитивов (стопка сворачиваемых
-    секций; заголовок = 1 строка с шевроном, названием и кнопкой «⋯»; развёрнутые
-    тела делят высоту пропорционально весам, граница таскается за заголовок
-    нижней секции — паттерн `SashElement`); `viewsService.ts` — реестр
-    контейнеров и view-дескрипторов (`{id, containerId, title, order, body,
-    focus, minBodyHeight}` — `containerId` в реестре закладывает будущий перенос
-    view между контейнерами), сборка контейнера `TitledPanel(PaneView)` и регистрация его
-    прежним `registerViewlet` — либо, для контейнера ровно одной view,
-    merged-режим `mergeSingleView` (как VS Code сливает заголовок секции с
-    заголовком контейнера): без рамки TitledPanel, единственная секция
-    несворачиваемая (`IPaneOptions.collapsible: false` — без шеврона, клик и
-    Enter по заголовку no-op), её заголовок несёт название контейнера и «⋯»;
-    потребитель — Search. Персист свёрнутости/весов
-    (`workbench.views.state`, write-through по действию пользователя, restore
-    после `openWorkspace`) и меню «⋯» (`MenuId.ViewMoreActions`, императивная
-    фильтрация `viewMenuVisible` по `menuContext.view` — глобальный when-ключ не
-    годится: в сайдбаре видимы несколько секций сразу). Пилот — контейнер
-    Source Control: секции SOURCE CONTROL (`ChangesComponent` — контролы
-    коммита `ScmInputComponent` в теле view над списком, как в VS Code) и GRAPH
-    (`GraphViewComponent`, последние коммиты от git-расширения командой
-    `vexx.scm.publishLog` → `ScmGraphService`).
+    показ вьюлета — подмена контента сайдбара через `LayoutService`). Своих
+    вьюлетов ему больше никто не приносит: единственный регистратор —
+    `ViewsService` (см. ниже).
+  - `browser/parts/views/` — **общая модель container↔view** (аналог
+    ViewContainer/PaneView/ViewsService VS Code). Ей подчиняются ВСЕ панели с
+    содержимым: Explorer, Search, Source Control в сайдбаре и Problems, Output,
+    Terminal в нижней панели.
+
+    **Дескрипторы (`viewsService.ts`).** Контейнер — «активити»:
+    `{id, title, location: "sidebar" | "panel", order?}`. View — секция внутри
+    него: `{id, containerId, title, order, body, placeholder?, focus,
+    minBodyHeight?, canToggleVisibility?}`. `containerId` — реестровая связь, а
+    не свойство контрола: перенос view между контейнерами ляжет сменой поля.
+    `body === null` рисует `placeholder` (аналог `viewsWelcome`); тело и виджет
+    заголовка меняются на месте (`setViewBody`/`setViewTitleWidget`), поэтому
+    место держит одну и ту же ссылку на корень контейнера всю жизнь.
+
+    **Merged выводится, а не объявляется.** Контейнер с ровно одной ВИДИМОЙ
+    секцией сливает заголовки (как VS Code): в сайдбаре заголовка контейнера нет
+    вовсе, а единственная секция несёт его название и не сворачивается; в панели
+    у секции нет и своей строки заголовка — им служит таб
+    (`IPaneOptions.headerVisible: false`). Скрыли предпоследнюю секцию —
+    контейнер сам стал merged, вернули — заголовки разъехались.
+
+    **Видимость секций** — `setViewVisible`/`isViewVisible`/`getContainerViews`;
+    последнюю видимую скрыть нельзя. Персист (`workbench.views.state`,
+    write-through по действию пользователя, restore строго после
+    `openWorkspace`) хранит свёрнутость, веса и скрытость.
+
+    **Отрисовка заголовка — одна на всех:** `viewTitleRowElement.ts` (название +
+    шеврон? + виджет + inline-кнопки + «⋯», плюс арифметика зон — хит-тест
+    детей отключён, иначе не работает pointer capture у drag границы). На нём
+    собраны `paneHeaderElement.ts` (заголовок секции: toggle, drag границы,
+    Shift+F10) и `viewContainerHeaderElement.ts` (заголовок активити; в панели
+    он же — полоса контролов в таб-строке, без названия).
+    `paneViewElement.ts` — стопка секций: развёрнутые тела делят высоту по весам,
+    граница таскается за заголовок нижней секции (паттерн `SashElement`).
+
+    **Меню.** Одна точка на view — `MenuId.ViewTitle`: группа `navigation` с
+    иконкой рисуется inline-кнопкой, остальное уходит в попап «⋯» и там не
+    дублируется. У контейнера своя точка `MenuId.ViewContainerTitle`. Обе
+    фильтруются императивно (`viewMenuVisible` / `containerMenuVisible` по
+    `menuContext`) — глобальный when-ключ не годится: в сайдбаре видимы
+    несколько секций сразу. Состав попапов собирает `ViewsService`:
+    | Заголовок | «⋯» |
+    | --- | --- |
+    | секции (2+ видимых) | overflow этой view |
+    | контейнера (2+ видимых) | его команды + подменю **Views** с чекбоксами видимости секций |
+    | merged (одна видимая) | overflow view + подменю с названием контейнера (его команды + Views) |
+
+    Пункты «Views» динамические, поэтому идут не контрибуцией, а собственным
+    списком `MenuEntry` через `getEntries` делегата контекст-меню.
+
+    Потребители: Explorer (одна секция), Search (одна), Source Control (две —
+    CHANGES с контролами коммита `ScmInputComponent` в теле view и GRAPH),
+    Problems / Output / Terminal (`location: "panel"`, по одной секции;
+    переключатель каналов Output — `setViewTitleWidget`, он и уезжает в
+    таб-строку).
   - `Services/WorkbenchStateService.ts` — персист открытых редакторов (headless):
     `openWorkspace` (per-project стор), `captureOpenEditors` (write-through —
     собственная подписка на `EditorService.onActiveEditorChanged`),

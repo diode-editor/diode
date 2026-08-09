@@ -260,16 +260,16 @@ describe("MenuRegistry", () => {
     });
 
     it("submenu c резолвером фильтруется по when и императивному visible", () => {
-        const h = setup([{ menuId: MenuId.ViewMoreActions, command: "cmd" }]);
+        const h = setup([{ menuId: MenuId.ViewTitle, command: "cmd" }]);
         h.contextKeys.set("listFocus", false);
         h.registry.appendMenuItem({
-            menuId: MenuId.ViewMoreActions,
+            menuId: MenuId.ViewTitle,
             submenu: MenuId.MenubarFileMenu,
             title: "OnlyChanges",
             visible: (context) => (context as { view?: string })?.view === "changes",
         });
         h.registry.appendMenuItem({
-            menuId: MenuId.ViewMoreActions,
+            menuId: MenuId.ViewTitle,
             submenu: MenuId.MenubarEditMenu,
             title: "WhenGated",
             when: "listFocus",
@@ -282,14 +282,14 @@ describe("MenuRegistry", () => {
 
         // Контекст другой секции: submenu с visible скрыто; when-гейт тоже false.
         let titles = h.registry
-            .getMenuItems(MenuId.ViewMoreActions, { view: "graph" }, resolver as never)
+            .getMenuItems(MenuId.ViewTitle, { view: "graph" }, resolver as never)
             .map((e) => ("label" in e ? e.label : "—"));
         expect(titles).toEqual(["Title:cmd"]);
 
         // Свой контекст + when=true: оба подменю в списке.
         h.contextKeys.set("listFocus", true);
         titles = h.registry
-            .getMenuItems(MenuId.ViewMoreActions, { view: "changes" }, resolver as never)
+            .getMenuItems(MenuId.ViewTitle, { view: "changes" }, resolver as never)
             .map((e) => ("label" in e ? e.label : "—"));
         expect(titles).toContain("OnlyChanges");
         expect(titles).toContain("WhenGated");

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 
 import { PaneHeaderElement } from "./paneHeaderElement.ts";
 
@@ -137,5 +138,35 @@ describe("PaneHeaderElement — несворачиваемый (collapsible: fal
     it("без шеврона в заголовке, inspectState отражает collapsible", () => {
         const { header } = makeFixedHeader();
         expect(header.inspectState()).toMatchObject({ title: "SEARCH", collapsible: false });
+    });
+});
+
+describe("PaneHeaderElement — inline-кнопки и виджет", () => {
+    it("клик по кнопке зовёт onAction, а не сворачивание", () => {
+        const { header, onToggle } = makeHeader();
+        const onAction = vi.fn();
+        header.onAction = onAction;
+        header.setActions([{ id: "explorer.newFile", icon: "N" }]);
+        header.layout(BoxConstraints.tight(new Size(30, 1)));
+
+        mouse(header, "mousedown", { localX: 25 });
+        mouse(header, "mouseup", { localX: 25 });
+        expect(onAction).toHaveBeenCalledWith("explorer.newFile");
+        expect(onToggle).not.toHaveBeenCalled();
+    });
+
+    it("setTitle меняет надпись секции", () => {
+        const { header } = makeHeader();
+        header.setTitle("SOURCE CONTROL");
+        expect(header.inspectState()).toMatchObject({ title: "SOURCE CONTROL" });
+    });
+
+    it("виджет заголовка попадает в дерево заголовка", () => {
+        const { header } = makeHeader();
+        const widget = new FillerElement();
+        widget.id = "channel-picker";
+        header.setTitleWidget(widget);
+        header.layout(BoxConstraints.tight(new Size(30, 1)));
+        expect(header.querySelector("#channel-picker")).toBe(widget);
     });
 });

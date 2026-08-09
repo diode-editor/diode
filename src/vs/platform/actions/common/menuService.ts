@@ -2,9 +2,10 @@ import { Disposable, type IDisposable } from "../../../../../tuidom/common/dispo
 import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
+import type { MenuContribution } from "./iMenuContribution.ts";
 import type { MenuId } from "./menuId.ts";
-import type { ISubmenuEntry, MenuRegistry, SubmenuResolver } from "./menuRegistry.ts";
-import { MenuRegistryDIToken } from "./menuRegistry.ts";
+import type { IMenuEntryGroup, ISubmenuEntry, MenuRegistry, SubmenuResolver } from "./menuRegistry.ts";
+import { joinMenuGroups, MenuRegistryDIToken } from "./menuRegistry.ts";
 
 export const MenuServiceDIToken = token<MenuService>("MenuService");
 
@@ -39,6 +40,37 @@ export class MenuService {
 
     public createMenu(menuId: MenuId): IMenu {
         return new Menu(this.registry, menuId);
+    }
+
+    /**
+     * Пункты точки, готовые к показу в попапе: submenu-записи резолвятся во
+     * вложенные попапы (eager, на момент вызова — `when` учитывается сейчас).
+     * Разовый резолв без подписки — для тех, кто собирает меню при открытии.
+     */
+    public getEntries(menuId: MenuId, context?: unknown): MenuEntry[] {
+        return joinMenuGroups(this.getEntryGroups(menuId, context));
+    }
+
+    /** Есть ли у точки пункты без учёта `when` (см. `MenuRegistry.hasItems`). */
+    public hasItems(menuId: MenuId, context?: unknown, predicate?: (item: MenuContribution) => boolean): boolean {
+        return this.registry.hasItems(menuId, context, predicate);
+    }
+
+    /** То же, но с сохранением групп (см. `MenuRegistry.getMenuItemGroups`). */
+    public getEntryGroups(menuId: MenuId, context?: unknown): IMenuEntryGroup[] {
+        const seen = new Set<MenuId>([menuId]);
+        return this.registry.getMenuItemGroups(menuId, context, this.submenuResolver(context, seen));
+    }
+
+    /** Пустые подменю выбрасываются; `seen` рвёт циклы `MenuId` (как `submenuIds` в vscode `menu.ts`). */
+    private submenuResolver(context: unknown, seen: Set<MenuId>): SubmenuResolver {
+        return (submenu) => {
+            if (seen.has(submenu.submenu)) return null;
+            seen.add(submenu.submenu);
+            const entries = this.registry.getMenuItems(submenu.submenu, context, this.submenuResolver(context, seen));
+            if (entries.length === 0) return null;
+            return { type: "submenu", label: submenu.title, entries };
+        };
     }
 }
 

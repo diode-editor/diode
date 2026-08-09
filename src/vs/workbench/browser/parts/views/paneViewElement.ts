@@ -3,6 +3,7 @@ import { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 
 import type { IPaneMenuAnchor } from "./paneHeaderElement.ts";
 import { PaneHeaderElement } from "./paneHeaderElement.ts";
+import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 
 /** Секция под заголовком короче этого не имеет смысла — кламп drag и раздачи высот. */
 const DEFAULT_MIN_BODY_HEIGHT = 3;
@@ -24,14 +25,22 @@ export interface IPaneOptions {
      * умолчанию true.
      */
     readonly collapsible?: boolean;
+    /**
+     * false — у секции нет своей строки заголовка вовсе. Так рисуется
+     * единственная секция вкладки нижней панели: её заголовок — сам таб.
+     * По умолчанию true.
+     */
+    readonly headerVisible?: boolean;
 }
 
 interface PaneRecord {
     readonly id: string;
     readonly header: PaneHeaderElement;
-    readonly body: TUIElement;
+    /** Меняется на месте через {@link PaneViewElement.setPaneBody} — без пересборки секций. */
+    body: TUIElement;
     readonly minBodyHeight: number;
     readonly collapsible: boolean;
+    readonly headerVisible: boolean;
     collapsed: boolean;
     /** Доля высоты среди развёрнутых секций; после drag — фактические строки. */
     weight: number;
@@ -60,6 +69,8 @@ export class PaneViewElement extends TUIElement {
     public onDidChangeState?: () => void;
     /** Запрос меню «⋯» секции (клик по кнопке, правый клик, Shift+F10). */
     public onDidRequestPaneMenu?: (paneId: string, anchor: IPaneMenuAnchor) => void;
+    /** Клик по inline-кнопке заголовка секции. */
+    public onDidRequestPaneAction?: (paneId: string, actionId: string) => void;
 
     private panes: PaneRecord[] = [];
 
@@ -69,7 +80,9 @@ export class PaneViewElement extends TUIElement {
             throw new Error(`PaneViewElement: duplicate pane id "${options.id}"`);
         }
         const collapsible = options.collapsible ?? true;
+        const headerVisible = options.headerVisible ?? true;
         const header = new PaneHeaderElement(options.title, { collapsible });
+        header.hidden = !headerVisible;
         header.id = `paneHeader-${options.id.replaceAll(".", "-")}`;
         const record: PaneRecord = {
             id: options.id,
@@ -77,6 +90,7 @@ export class PaneViewElement extends TUIElement {
             body: options.body,
             minBodyHeight: options.minBodyHeight ?? DEFAULT_MIN_BODY_HEIGHT,
             collapsible,
+            headerVisible,
             collapsed: false,
             weight: 1,
             lastBodyHeight: 0,
@@ -84,6 +98,7 @@ export class PaneViewElement extends TUIElement {
         header.onToggle = () => this.toggleCollapsed(record.id);
         header.onDrag = (boundaryScreenY) => this.dragBoundary(record, boundaryScreenY);
         header.onMenu = (anchor) => this.onDidRequestPaneMenu?.(record.id, anchor);
+        header.onAction = (actionId) => this.onDidRequestPaneAction?.(record.id, actionId);
         this.panes.push(record);
         this.appendChild(header);
         this.appendChild(options.body);
@@ -99,6 +114,36 @@ export class PaneViewElement extends TUIElement {
         this.panes = this.panes.filter((p) => p !== pane);
         this.syncPanes();
         this.markDirty();
+    }
+
+    /**
+     * Подменяет тело секции на месте: свёрнутость, вес и позиция секции
+     * сохраняются (пересборка через remove/add их бы сбросила). Нужен фичам,
+     * которые переключают контент между «есть данные» и placeholder'ом.
+     */
+    public setPaneBody(id: string, body: TUIElement): void {
+        const pane = this.paneOrThrow(id);
+        if (pane.body === body) return;
+        this.removeChild(pane.body);
+        pane.body = body;
+        body.hidden = pane.collapsed;
+        this.appendChild(body);
+        this.markDirty();
+    }
+
+    /** Inline-кнопки в заголовке секции (группа `navigation` её меню). */
+    public setPaneActions(id: string, actions: readonly IViewTitleAction[]): void {
+        this.paneOrThrow(id).header.setActions(actions);
+    }
+
+    /** Произвольный контрол в заголовке секции (переключатель каналов Output). */
+    public setPaneTitleWidget(id: string, widget: TUIElement | null): void {
+        this.paneOrThrow(id).header.setTitleWidget(widget);
+    }
+
+    /** Прятать ли «⋯» секции — когда её меню пустое, кнопке нечего открывать. */
+    public setPaneMenuVisible(id: string, visible: boolean): void {
+        this.paneOrThrow(id).header.setMenuVisible(visible);
     }
 
     public getPaneIds(): readonly string[] {
@@ -222,15 +267,17 @@ export class PaneViewElement extends TUIElement {
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        const avail = Math.max(0, size.height - this.panes.length);
+        const headerRows = this.panes.filter((p) => p.headerVisible).length;
+        const avail = Math.max(0, size.height - headerRows);
         const heights = this.computeBodyHeights(avail);
 
         let y = 0;
         for (let i = 0; i < this.panes.length; i++) {
             const pane = this.panes[i];
             // Заголовки раскладываются всегда: при нехватке высоты хвостовые
-            // клипуются нулевой высотой (инвариант вложенности).
-            const headerHeight = Math.max(0, Math.min(1, size.height - y));
+            // клипуются нулевой высотой (инвариант вложенности). Секция без
+            // заголовка (вкладка панели) строки под него не занимает.
+            const headerHeight = pane.headerVisible ? Math.max(0, Math.min(1, size.height - y)) : 0;
             this.layoutChild(pane.header, 0, y, BoxConstraints.tight(new Size(size.width, headerHeight)));
             y += headerHeight;
             if (pane.collapsed) {

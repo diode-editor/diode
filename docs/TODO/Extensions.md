@@ -62,6 +62,31 @@
 - [ ] ESM-расширения (`import * as vscode from "vscode"` через ESM loader hooks).
 - [ ] Restart subprocess'а при крэше (сейчас при exit'е extension host'а все RPC падают).
 
+## Phase 8b — UI-вклады: `contributes.viewsContainers` / `contributes.views`
+
+Ядро под это готово: `ViewsService` — общая модель container↔view с местами
+(`location: "sidebar" | "panel"`), заголовками, «⋯»-меню и переключателем
+видимости секций (см. [docs/arch/Workbench.md](../arch/Workbench.md), раздел
+`browser/parts/views/`). Ей уже подчиняются все встроенные панели, так что
+контрибьютор расширений ложится на готовый контракт
+(`registerContainer`/`registerView`/`setViewBody`) без переделки модели.
+
+- [ ] Типы `IViewContribution` / `IViewContainerContribution` + раскомментировать
+      `views`/`viewsContainers` в `iExtensionManifest.ts`.
+- [ ] `extensionViewsContributor.ts` рядом с `extensionKeybindingContributor.ts`
+      (декларативно, без host'а): контейнер + пустые секции с `body: null` и
+      welcome-текстом; вызов — из `main.ts` рядом с регистрацией кейбиндов.
+- [ ] Команда показа контейнера расширения (`workbench.view.<id>`) —
+      activity bar'а нет, переключатель командный.
+- [ ] Активация `onView:<id>` (Phase 7 закрывает `onCommand:*`, это следующее).
+- [ ] TreeView-API поверх RPC: `window.registerTreeDataProvider`/`createTreeView`,
+      `views.getChildren`/`getTreeItem` (pull, как у completion), рендер в
+      `TreeViewElement`; раскомментировать закрытие типов в `vscode.d.ts`
+      (`TreeDataProvider`, `TreeItem`, `TreeItemCollapsibleState`, `TreeView*`).
+- [ ] `contributes.menus` для `view/title` и `view/item/context` — точки
+      `MenuId.ViewTitle` / `MenuId.ViewContainerTitle` и императивная фильтрация
+      по `menuContext` уже есть.
+
 ## Phase 9 — Внешние расширения
 
 Инфраструктура сканирования user-префикса + `CompositeAssetAccess` + `mergeExtensions` готова (см. [docs/arch/Extensions.md](../arch/Extensions.md)). Остаётся:

@@ -76,7 +76,7 @@ export const scmGraphSubjectArg = (context: unknown): readonly unknown[] => [
 ];
 
 /**
- * Контекст меню «⋯» view-секции сайдбара (`MenuId.ViewMoreActions`):
+ * Контекст меню «⋯» view-секции сайдбара (`MenuId.ViewTitle`):
  * пункты фильтруются императивно по id секции — глобальный when-ключ здесь
  * не годится, в сайдбаре видимы несколько секций одновременно.
  */
@@ -90,3 +90,19 @@ export const viewMenuVisible =
     (viewId: string) =>
     (context: unknown): boolean =>
         (context as ViewMenuContext | undefined)?.view === viewId;
+
+/**
+ * Контекст меню «⋯» заголовка КОНТЕЙНЕРА (`MenuId.ViewContainerTitle`).
+ * Фильтрация та же императивная, что у секций: в сайдбаре одновременно живут
+ * несколько контейнеров, и глобальный when-ключ их не различает.
+ */
+export interface ViewContainerMenuContext {
+    /** Id контейнера, чьё меню открыто (см. `IViewContainerDescriptor.id`). */
+    readonly container: string;
+}
+
+/** Видимость пункта меню «⋯» — только в меню своего контейнера. */
+export const containerMenuVisible =
+    (containerId: string) =>
+    (context: unknown): boolean =>
+        (context as ViewContainerMenuContext | undefined)?.container === containerId;

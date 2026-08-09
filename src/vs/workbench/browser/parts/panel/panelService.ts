@@ -19,7 +19,10 @@ export interface IPanelView {
     readonly id: string;
     readonly title: string;
     readonly content: TUIElement | null;
-    /** Контролы вкладки в шапке панели (VS Code `MenuId.ViewTitle`). */
+    /**
+     * Полоса контролов вкладки в шапке панели: та же строка заголовка view, что
+     * в сайдбаре, только без названия (см. `ViewContainerHeaderElement`).
+     */
     readonly actions: TUIElement | null;
     readonly placeholder?: string;
 }
@@ -33,13 +36,15 @@ interface PanelViewRecord {
 }
 
 /**
- * Реестр вкладок нижней **Panel** (VS Code `ViewContainerLocation.Panel`) +
- * её видимость. Логика без view: вкладки регистрируют фичи (Problems, Terminal),
- * контент подменяют они же (`setViewContent`), а `PanelComponent` подписан на
- * `onDidChange*` и отражает реестр в `PanelContainerElement`. Видимость — тоже
- * здесь: toggle-команды зовут {@link setVisible}, владелец layout'а (сейчас
- * `WorkbenchComponent`) подписан на {@link onDidChangeVisibility} и двигает
- * `WorkbenchLayoutElement` + контекст-ключ `panelVisible`.
+ * Таб-строка нижней **Panel** (VS Code `ViewContainerLocation.Panel`) + её
+ * видимость. Логика без view: вкладку заводит `ViewsService` — вкладка это
+ * контейнер с `location: "panel"`, и он же подменяет её контент и контролы
+ * шапки; фичи в этот реестр не ходят, они регистрируют свои view.
+ * `PanelComponent` подписан на `onDidChange*` и отражает реестр в
+ * `PanelContainerElement`. Видимость — тоже здесь: toggle-команды зовут
+ * {@link setVisible}, владелец layout'а (сейчас `WorkbenchComponent`) подписан
+ * на {@link onDidChangeVisibility} и двигает `WorkbenchLayoutElement` +
+ * контекст-ключ `panelVisible`.
  */
 export class PanelService {
     public static dependencies = [] as const;

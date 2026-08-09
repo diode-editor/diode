@@ -112,6 +112,11 @@ export interface IViewContainerViewsState {
     readonly collapsed: readonly string[];
     /** Веса (доли высоты) секций; после drag — фактические строки. */
     readonly weights: Readonly<Record<string, number>>;
+    /**
+     * Id секций, скрытых пользователем через «⋯» контейнера. Поля может не
+     * быть — стор прошлых версий читается как «ничего не скрыто».
+     */
+    readonly hidden?: readonly string[];
 }
 
 /** Свёрнутость и веса view-секций сайдбара, по контейнерам. */

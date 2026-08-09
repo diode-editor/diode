@@ -20,6 +20,7 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 function makeMove(x: number, y: number): MouseToken {
     return {
@@ -35,10 +36,11 @@ function makeMove(x: number, y: number): MouseToken {
     };
 }
 
-// The explorer is drawn inside a TitledPanelElement (title on the first row) with
-// a one-column left padding, so the first file row sits at screen y=1, the second
-// at y=2, and so on. Mouse tokens are 1-based, hence token.y = screenY + 1.
-const SECOND_ROW_SCREEN_Y = 2;
+// The test mounts the view body alone (the container header lives in ViewsService),
+// so the first file row sits at screen y=0 and the second at y=1. The tree keeps a
+// one-column left padding. Mouse tokens are 1-based, hence token.y = screenY + 1.
+const FIRST_ROW_SCREEN_Y = 0;
+const SECOND_ROW_SCREEN_Y = 1;
 
 describe("ExplorerComponent hover", () => {
     let ws: ITempWorkspace;
@@ -62,7 +64,13 @@ describe("ExplorerComponent hover", () => {
                 ),
             ),
         );
-        component = new ExplorerComponent(service, new CommandRegistry(), clipboard, contextMenuService);
+        component = new ExplorerComponent(
+            service,
+            new CommandRegistry(),
+            clipboard,
+            contextMenuService,
+            makeViewsHarness().service,
+        );
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(30, 10));
         await service.refresh();
@@ -113,7 +121,7 @@ describe("ExplorerComponent hover", () => {
 
         // The first row still carries the selection background (inactive, tree unfocused),
         // proving the hover did not steal the cursor.
-        const cursorBg = app.backend.getBgAt(new Point(2, 1));
+        const cursorBg = app.backend.getBgAt(new Point(2, FIRST_ROW_SCREEN_Y));
         expect(cursorBg).toBe(theme.getColor("list.inactiveSelectionBackground"));
     });
 

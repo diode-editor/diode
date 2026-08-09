@@ -1,8 +1,8 @@
 import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
 import { TerminalViewElement } from "../../../../../../tuidom/ui/terminal/terminalViewElement.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
-import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 
 import type { ITerminalInstance, TerminalService } from "./terminalService.ts";
 import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
@@ -23,23 +23,23 @@ export const TerminalPanelComponentDIToken = token<TerminalPanelComponent>("Term
 /**
  * View-владелец встроенного терминала: по каждому инстансу {@link TerminalService}
  * строит `TerminalViewElement`, вкидывает виджет активного инстанса в
- * TERMINAL-вкладку (через {@link PanelService.setViewContent}) и красит виджеты
+ * TERMINAL-вкладку (через {@link ViewsService.setViewBody}) и красит виджеты
  * темой (`getTerminalViewStyles`).
  *
  * Не наследник `Component`: собственного корневого контрола нет — UI компонента
- * это НЕСКОЛЬКО виджетов, попадающих в панель по одному через PanelService.
+ * это НЕСКОЛЬКО виджетов, попадающих в панель по одному через ViewsService.
  * ВАЖНО: у TUIElement нет unmount-хуков, поэтому компонент обязан сам
  * dispose'ить виджеты — при закрытии инстанса и при своём dispose().
  */
 export class TerminalPanelComponent extends Disposable {
-    public static dependencies = [TerminalServiceDIToken, PanelServiceDIToken, TerminalFocusFallbackDIToken] as const;
+    public static dependencies = [TerminalServiceDIToken, ViewsServiceDIToken, TerminalFocusFallbackDIToken] as const;
 
     private widgets = new Map<number, TerminalViewElement>();
     private activeWidget: TerminalViewElement | null = null;
 
     public constructor(
         terminalService: TerminalService,
-        private readonly panelService: PanelService,
+        private readonly viewsService: ViewsService,
         private readonly focusFallback: ITerminalFocusFallback,
     ) {
         super();
@@ -107,7 +107,7 @@ export class TerminalPanelComponent extends Disposable {
             /* v8 ignore stop */
             this.activeWidget = widget;
         }
-        this.panelService.setViewContent(TERMINAL_VIEW_ID, this.activeWidget);
+        this.viewsService.setViewBody(TERMINAL_VIEW_ID, this.activeWidget);
         if (!hadFocus) return;
         // Следующий терминал есть — фокус идёт в него; не осталось ни одного —
         // возвращаем его редактору, как VS Code при выходе последнего шелла.

@@ -15,17 +15,21 @@ export class MenuId {
     public static readonly ScmResourceGroupContext = new MenuId("ScmResourceGroupContext");
     /** Контекст-меню коммита в графе (VS Code `scm/historyItem/context`). */
     public static readonly ScmGraphContext = new MenuId("ScmGraphContext");
-    /** Корень меню-бара: содержит только submenu-пункты (File/Edit/…). */
-    /** Контролы активной вкладки в шапке (панель/сайдбар) — VS Code `ViewTitle`. */
+    /**
+     * Действия заголовка ОДНОЙ view — VS Code `ViewTitle`. Группа `navigation`
+     * рисуется inline-кнопками в заголовке, остальные группы уезжают в попап
+     * «⋯». Пункты фильтруются императивно по `menuContext.view`
+     * (см. `viewMenuVisible`): глобальный when-ключ не годится — в сайдбаре
+     * одновременно видно несколько секций.
+     */
     public static readonly ViewTitle = new MenuId("ViewTitle");
     /**
-     * Меню «⋯» view-секции сайдбара — overflow-часть VS Code `ViewTitle`.
-     * Отдельная точка: `ViewTitle` фильтруется глобальным when-ключом `view`
-     * (= активная вкладка нижней панели), а в сайдбаре видимы несколько секций
-     * сразу — пункты фильтруются императивно по `menuContext.view`
-     * (см. `viewMenuVisible`).
+     * Меню «⋯» заголовка КОНТЕЙНЕРА view-секций («активити») — VS Code
+     * `ViewContainerTitle`. Фильтруется императивно по `menuContext.container`
+     * (см. `containerMenuVisible`), как `ViewTitle` по view.
      */
-    public static readonly ViewMoreActions = new MenuId("ViewMoreActions");
+    public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
+    /** Корень меню-бара: содержит только submenu-пункты (File/Edit/…). */
     public static readonly MenubarMainMenu = new MenuId("MenubarMainMenu");
     public static readonly MenubarFileMenu = new MenuId("MenubarFileMenu");
     public static readonly MenubarEditMenu = new MenuId("MenubarEditMenu");

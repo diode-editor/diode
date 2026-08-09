@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
 import type { PanelContainerElement } from "../../../../tuidom/ui/panel/panelContainerElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
@@ -71,18 +72,20 @@ describe("Workbench — integrated terminal", () => {
 
     it("Create New Terminal opens a second instance", () => {
         h.commands.execute(TOGGLE_TERMINAL); // first terminal
-        // Дети панели теперь включают скрытые вкладки — виджет активной ищем по флагу.
-        const visibleWidget = (): unknown =>
-            panel()
-                .getChildren()
-                .find((c) => !c.hidden);
-        const firstWidget = visibleWidget();
+        // Виджет активного терминала — тело единственной секции вкладки TERMINAL.
+        const activeWidget = (): TUIElement => {
+            const widgets = panel().querySelectorAll("TerminalViewElement");
+            expect(widgets).toHaveLength(1);
+            return widgets[0];
+        };
+        const firstWidget = activeWidget();
 
         h.commands.execute(NEW_TERMINAL); // second terminal becomes active
         expect(panel().getActiveViewId()).toBe(TERMINAL_VIEW_ID);
         expect(terminal.hasOpenTerminals).toBe(true);
-        const secondWidget = visibleWidget();
-        expect(secondWidget).not.toBe(firstWidget);
+        // Сравниваем булевым выражением, а не `toBe`: провалившийся `toBe` на узле
+        // TUI-дерева печатает весь граф и валит воркер по памяти.
+        expect(activeWidget() === firstWidget).toBe(false);
     });
 
     it("Toggle Terminal after the shell exited spawns a new one instead of hiding the panel", () => {

@@ -152,7 +152,7 @@ export const gitPullAction: CommandAction = {
     shortTitle: "Pull",
     when: "gitHasRemotes",
     menus: [
-        { menuId: MenuId.ViewMoreActions, group: "2_git_top", order: 10, visible: inChangesMenu, when: "gitHasRemotes" },
+        { menuId: MenuId.ViewTitle, group: "2_git_top", order: 10, visible: inChangesMenu, when: "gitHasRemotes" },
         { menuId: GitPullPushMenu, group: "2_pull", order: 10, when: "gitHasRemotes" },
     ],
     run(accessor) {
@@ -199,7 +199,7 @@ export const gitPushAction: CommandAction = {
     shortTitle: "Push",
     when: "gitHasRemotes",
     menus: [
-        { menuId: MenuId.ViewMoreActions, group: "2_git_top", order: 20, visible: inChangesMenu, when: "gitHasRemotes" },
+        { menuId: MenuId.ViewTitle, group: "2_git_top", order: 20, visible: inChangesMenu, when: "gitHasRemotes" },
         { menuId: GitPullPushMenu, group: "3_push", order: 10, when: "gitHasRemotes" },
     ],
     run(accessor) {
@@ -290,7 +290,7 @@ export const gitFetchAction: CommandAction = {
     shortTitle: "Fetch",
     when: "gitHasRemotes",
     menus: [
-        { menuId: MenuId.ViewMoreActions, group: "2_git_top", order: 40, visible: inChangesMenu, when: "gitHasRemotes" },
+        { menuId: MenuId.ViewTitle, group: "2_git_top", order: 40, visible: inChangesMenu, when: "gitHasRemotes" },
         { menuId: GitPullPushMenu, group: "4_fetch", order: 10, when: "gitHasRemotes" },
     ],
     run(accessor) {

@@ -13,10 +13,13 @@ import type { TerminalSessionFactory } from "../common/terminalSessionFactory.ts
 
 import { TerminalPanelComponent } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 
 function buildHarness() {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
-    const panelService = new PanelService();
+    const views = makeViewsHarness();
+    const panelService = views.panelService;
     const panelComponent = new PanelComponent(panelService);
     const sessions: FakeTerminalSurface[] = [];
     const factory: TerminalSessionFactory = () => {
@@ -24,9 +27,9 @@ function buildHarness() {
         sessions.push(surface);
         return surface;
     };
-    const service = new TerminalService(panelService, factory);
+    const service = new TerminalService(panelService, views.service, factory);
     const focusFallback = { focusEditor: vi.fn() };
-    const component = new TerminalPanelComponent(service, panelService, focusFallback);
+    const component = new TerminalPanelComponent(service, views.service, focusFallback);
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const dispose = (): void => {
         component.dispose();
@@ -36,6 +39,8 @@ function buildHarness() {
         themeService,
         panelService,
         panelComponent,
+        /** Виджеты терминала внутри вкладки: тело секции — это активный виджет. */
+        widgets: (): TUIElement[] => views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement"),
         service,
         component,
         testApp,
@@ -55,7 +60,7 @@ describe("TerminalPanelComponent", () => {
     });
 
     it("keeps the placeholder until the first open (lazy)", () => {
-        expect(h.panelComponent.view.getChildren()).toEqual([]);
+        expect(h.widgets()).toEqual([]);
         h.testApp.render();
         expect(h.testApp.backend.screenToString()).toContain("No active terminal.");
         h.dispose();
@@ -63,7 +68,7 @@ describe("TerminalPanelComponent", () => {
 
     it("builds a widget for the spawned session and injects it into the panel", () => {
         h.service.openTerminal();
-        const content = h.panelComponent.view.getChildren();
+        const content = h.widgets();
         expect(content).toHaveLength(1);
         expect(content[0]).toBeInstanceOf(TerminalViewElement);
         h.dispose();
@@ -72,7 +77,7 @@ describe("TerminalPanelComponent", () => {
     it("focuses the terminal widget on open", () => {
         h.service.openTerminal();
         h.testApp.render();
-        const widget = h.panelComponent.view.getChildren()[0] as TerminalViewElement;
+        const widget = h.widgets()[0] as TerminalViewElement;
         expect(widget.isFocused).toBe(true);
         h.dispose();
     });
@@ -85,7 +90,7 @@ describe("TerminalPanelComponent", () => {
 
         h.service.openTerminal();
         h.testApp.render();
-        const widget = h.panelComponent.view.getChildren()[0] as TerminalViewElement;
+        const widget = h.widgets()[0] as TerminalViewElement;
         widget.blur();
         h.testApp.render();
         expect(widget.isFocused).toBe(false);
@@ -98,14 +103,14 @@ describe("TerminalPanelComponent", () => {
 
     it("disposes the widget and restores the placeholder when the shell exits", () => {
         h.service.openTerminal();
-        expect(h.panelComponent.view.getChildren()).toHaveLength(1);
+        expect(h.widgets()).toHaveLength(1);
         const disposeSpy = vi.spyOn(TerminalViewElement.prototype, "dispose");
 
         h.created[0].emitExit(0);
 
         // Инстанс снят: виджет dispose'нут, контент вкладки снова null → placeholder.
         expect(disposeSpy).toHaveBeenCalledTimes(1);
-        expect(h.panelComponent.view.getChildren()).toEqual([]);
+        expect(h.widgets()).toEqual([]);
         h.testApp.render();
         expect(h.testApp.backend.screenToString()).toContain("No active terminal.");
         disposeSpy.mockRestore();
@@ -114,32 +119,32 @@ describe("TerminalPanelComponent", () => {
 
     it("shows the widget of a newly created second terminal", () => {
         h.service.openTerminal();
-        const first = h.panelComponent.view.getChildren()[0];
+        const first = h.widgets()[0];
         h.service.newTerminal();
-        const second = h.panelComponent.view.getChildren()[0];
+        const second = h.widgets()[0];
         expect(second).not.toBe(first);
         h.dispose();
     });
 
     it("falls back to the previous terminal's widget when the active one exits", () => {
         h.service.newTerminal(); // #1
-        const firstWidget = h.panelComponent.view.getChildren()[0];
+        const firstWidget = h.widgets()[0];
         h.service.newTerminal(); // #2 active
 
         h.created[1].emitExit(0);
 
-        expect(h.panelComponent.view.getChildren()[0]).toBe(firstWidget);
+        expect(h.widgets()[0]).toBe(firstWidget);
         h.dispose();
     });
 
     it("keeps the active widget when a NON-active terminal exits", () => {
         h.service.newTerminal(); // #1
         h.service.newTerminal(); // #2 — активный
-        const activeWidget = h.panelComponent.view.getChildren()[0];
+        const activeWidget = h.widgets()[0];
 
         h.created[0].emitExit(0); // выходит НЕактивный #1
 
-        expect(h.panelComponent.view.getChildren()[0]).toBe(activeWidget);
+        expect(h.widgets()[0]).toBe(activeWidget);
         h.dispose();
     });
 
@@ -157,7 +162,7 @@ describe("TerminalPanelComponent", () => {
 
     it("hands focus to the remaining terminal when the focused one exits", () => {
         h.service.newTerminal(); // #1
-        const firstWidget = h.panelComponent.view.getChildren()[0] as TerminalViewElement;
+        const firstWidget = h.widgets()[0] as TerminalViewElement;
         h.service.newTerminal(); // #2 — активный и в фокусе
         h.testApp.render();
 
@@ -172,7 +177,7 @@ describe("TerminalPanelComponent", () => {
     it("leaves focus alone when a terminal exits while it was not focused", () => {
         h.service.openTerminal();
         h.testApp.render();
-        (h.panelComponent.view.getChildren()[0] as TerminalViewElement).blur();
+        (h.widgets()[0] as TerminalViewElement).blur();
 
         h.created[0].emitExit(0);
 
@@ -186,7 +191,7 @@ describe("TerminalPanelComponent", () => {
         h.panelComponent.view.setActiveView(TERMINAL_VIEW_ID);
         h.panelComponent.view.onActivateView?.(TERMINAL_VIEW_ID);
 
-        const content = h.panelComponent.view.getChildren();
+        const content = h.widgets();
         expect(content).toHaveLength(1);
         expect(content[0]).toBeInstanceOf(TerminalViewElement);
         h.testApp.render();
@@ -196,15 +201,14 @@ describe("TerminalPanelComponent", () => {
 
     it("adopts instances created before the component existed", () => {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
-        const panelService = new PanelService();
-        const panelComponent = new PanelComponent(panelService);
-        const service = new TerminalService(panelService, () => new FakeTerminalSurface());
+        const views = makeViewsHarness();
+        const panelComponent = new PanelComponent(views.panelService);
+        const service = new TerminalService(views.panelService, views.service, () => new FakeTerminalSurface());
         service.openTerminal(); // инстанс существует ДО компонента
 
-        const component = new TerminalPanelComponent(service, panelService, { focusEditor: vi.fn() });
+        const component = new TerminalPanelComponent(service, views.service, { focusEditor: vi.fn() });
 
-        expect(panelComponent.view.getChildren()).toHaveLength(1);
-        expect(panelComponent.view.getChildren()[0]).toBeInstanceOf(TerminalViewElement);
+        expect(views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement")).toHaveLength(1);
         component.dispose();
         service.dispose();
         panelComponent.dispose();

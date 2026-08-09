@@ -39,7 +39,14 @@ function fakeMenu(entries: FakeMenuEntry[] = []): { service: MenuService; menu: 
         onDidChange: () => ({ dispose: () => undefined }),
         dispose: () => undefined,
     };
-    return { service: { createMenu: () => menu } as unknown as MenuService, menu };
+    const service = {
+        createMenu: () => menu,
+        // Живой резолв точки: сервис ходит в то же меню, что и `createMenu`, —
+        // так ассерты на аргументы `getEntries` остаются про контекст открытия.
+        getEntries: (_menuId: unknown, context: unknown) => menu.getEntries(context, () => null),
+        getEntryGroups: () => [],
+    } as unknown as MenuService;
+    return { service, menu };
 }
 
 /** In-memory стейт: get отдаёт сохранённое или дефолт, store записывает. */

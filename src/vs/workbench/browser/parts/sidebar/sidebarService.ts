@@ -12,12 +12,16 @@ interface ISidebarViewlet {
 }
 
 /**
- * Реестр вьюлетов сайдбара (левой панели) и переключатель между ними — Explorer
- * и Source Control. Заменяет захардкоженный Explorer: у нас нет activity bar, роль
- * переключателя играют команды (`workbench.view.explorer` / `workbench.view.scm`),
- * а показ вьюлета — это подмена контента сайдбара через {@link LayoutService}
- * (`setSidebarContent`). Аналог `IViewletService`/`ActivityBar` в VS Code, только
- * без визуального бара.
+ * Реестр вьюлетов сайдбара (левой панели) и переключатель между ними — Explorer,
+ * Search, Source Control. У нас нет activity bar: роль переключателя играют
+ * команды (`workbench.view.explorer` / `workbench.view.search` /
+ * `workbench.view.scm`), а показ вьюлета — это подмена контента сайдбара через
+ * {@link LayoutService} (`setSidebarContent`). Аналог `IViewletService`/
+ * `ActivityBar` в VS Code, только без визуального бара.
+ *
+ * Вьюлет = контейнер view-секций, и регистрирует их сюда **только**
+ * `ViewsService` (`attachContainer` для `location: "sidebar"`): фичи приносят
+ * не контрол, а дескриптор своей view.
  */
 export class SidebarService {
     public static dependencies = [LayoutServiceDIToken] as const;

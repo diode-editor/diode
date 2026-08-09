@@ -5,6 +5,7 @@ import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuReg
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import { OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
 import type { OutputService } from "../../../services/output/common/outputService.ts";
@@ -47,7 +48,11 @@ export class OutputChannelActions extends Disposable implements IWorkbenchContri
                 title: "Switch Output",
                 group: "navigation",
                 order: 1,
-                when: `view == '${OUTPUT_VIEW_ID}'`,
+                // Фильтр по контексту открытия, а не по глобальному ключу `view`:
+                // `ViewTitle` — общая точка всех view, и when-ключ активной
+                // вкладки панели протащил бы этот пункт в меню каждой секции
+                // сайдбара.
+                visible: viewMenuVisible(OUTPUT_VIEW_ID),
                 isSelection: true,
             }),
         );

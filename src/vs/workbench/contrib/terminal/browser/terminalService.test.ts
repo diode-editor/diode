@@ -5,9 +5,11 @@ import { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import type { ITerminalSessionOptions, TerminalSessionFactory } from "../common/terminalSessionFactory.ts";
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 function buildHarness() {
-    const panelService = new PanelService();
+    const views = makeViewsHarness();
+    const panelService = views.panelService;
     const sessions: FakeTerminalSurface[] = [];
     const factoryOptions: ITerminalSessionOptions[] = [];
     // Локальная фабрика, записывающая созданные сессии — так тест видит инстансы.
@@ -17,8 +19,8 @@ function buildHarness() {
         sessions.push(surface);
         return surface;
     };
-    const service = new TerminalService(panelService, factory);
-    return { panelService, service, created: sessions, factoryOptions };
+    const service = new TerminalService(panelService, views.service, factory);
+    return { panelService, views, service, created: sessions, factoryOptions };
 }
 
 describe("TerminalService — instances", () => {
@@ -26,7 +28,8 @@ describe("TerminalService — instances", () => {
         const h = buildHarness();
         const tab = h.panelService.getViews().find((v) => v.id === TERMINAL_VIEW_ID);
         expect(tab?.title).toBe("TERMINAL");
-        expect(tab?.placeholder).toBe("No active terminal.");
+        // Тела у секции ещё нет — вкладка рисует пустое состояние.
+        expect(h.views.paneView(TERMINAL_VIEW_ID).querySelector("#viewPlaceholder-terminal")).not.toBeNull();
         expect(h.created).toHaveLength(0);
         expect(h.service.hasOpenTerminals).toBe(false);
         expect(h.service.getActiveInstance()).toBeNull();
@@ -229,6 +232,14 @@ describe("TerminalService — instance title", () => {
         const h = buildHarness();
         h.service.openTerminal();
         expect(h.service.getInstances()[0].title).toBe("bash (1)");
+        h.service.dispose();
+    });
+
+    it("reveal контейнера панели лениво спавнит шелл (шов focus дескриптора)", () => {
+        const h = buildHarness();
+        expect(h.created).toHaveLength(0);
+        h.views.service.focusContainer(TERMINAL_VIEW_ID);
+        expect(h.created).toHaveLength(1);
         h.service.dispose();
     });
 

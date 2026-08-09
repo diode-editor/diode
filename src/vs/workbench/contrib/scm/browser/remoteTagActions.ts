@@ -127,7 +127,7 @@ export const gitShowOutputAction: CommandAction = {
     id: "git.showOutput",
     title: "Git: Show Git Output",
     shortTitle: "Show Git Output",
-    menus: [{ menuId: MenuId.ViewMoreActions, group: "9_footer", order: 10, visible: inChangesMenu }],
+    menus: [{ menuId: MenuId.ViewTitle, group: "9_footer", order: 10, visible: inChangesMenu }],
     run(accessor) {
         const commands = accessor.get(CommandRegistryDIToken);
         if (commands.has(GIT_OUTPUT_SHOW_COMMAND)) commands.execute(GIT_OUTPUT_SHOW_COMMAND);

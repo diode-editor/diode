@@ -1,6 +1,5 @@
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
-import { TitledPanelElement } from "../../../../../../tuidom/ui/titledpanel/titledPanelElement.ts";
 import { TreeViewElement } from "../../../../../../tuidom/ui/tree/treeViewElement.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
@@ -10,6 +9,8 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
@@ -19,24 +20,30 @@ import type { FileTreeNode } from "./fileTreeDataProvider.ts";
 
 export const ExplorerComponentDIToken = token<ExplorerComponent>("ExplorerComponent");
 
-/** Id вьюлета Explorer в сайдбаре (см. {@link SidebarService}). */
+/** Id контейнера Explorer в сайдбаре (см. {@link SidebarService}). */
 export const EXPLORER_VIEWLET_ID = "explorer";
+
+/** Id единственной view контейнера — дерева файлов (VS Code `workbench.explorer.fileView`). */
+export const EXPLORER_VIEW_ID = "workbench.explorer.fileView";
 
 interface ExplorerViewParts {
     readonly tree: TreeViewElement<FileTreeNode>;
     readonly scrollBars: ScrollBarDecorator;
-    readonly root: TitledPanelElement;
 }
 
 /**
  * Компонент Explorer'а (сайдбар с деревом файлов): владеет `TreeViewElement`
- * поверх провайдера {@link ExplorerService} (обёрнутым в скроллбар и рамку
- * EXPLORER), перестраивает дерево по смене корня воркспейса и регистрирует его
- * в сервисе (шов `IExplorerView`). Активация файла уходит в команду
- * `workbench.openFile`; правый клик/Shift+F10 (единое событие "contextmenu"
- * движка) открывают контекстное меню через `ContextMenuService` — делегат с
- * точкой `MenuId.ExplorerContext`, пункты исполняют команды
- * `explorer.*`/`fileOperations.*`.
+ * поверх провайдера {@link ExplorerService} (обёрнутым в скроллбар),
+ * перестраивает дерево по смене корня воркспейса и регистрирует его в сервисе
+ * (шов `IExplorerView`). Заголовок, «⋯»-меню и сворачивание даёт общая модель
+ * view-контейнеров ({@link ViewsService}) — компонент отдаёт ей только тело
+ * секции ({@link ViewsService.setViewBody}), поэтому смена корня не пересоздаёт
+ * вьюлет и не рвёт ссылку, которую держит сайдбар.
+ *
+ * Активация файла уходит в команду `workbench.openFile`; правый клик/Shift+F10
+ * (единое событие "contextmenu" движка) открывают контекстное меню через
+ * `ContextMenuService` — делегат с точкой `MenuId.ExplorerContext`, пункты
+ * исполняют команды `explorer.*`/`fileOperations.*`.
  */
 export class ExplorerComponent extends Component {
     public static dependencies = [
@@ -44,6 +51,7 @@ export class ExplorerComponent extends Component {
         CommandRegistryDIToken,
         FileClipboardDIToken,
         ContextMenuServiceDIToken,
+        ViewsServiceDIToken,
     ] as const;
 
     private parts: ExplorerViewParts | null = null;
@@ -53,8 +61,22 @@ export class ExplorerComponent extends Component {
         private readonly commands: CommandRegistry,
         private readonly fileClipboard: IFileClipboard,
         private readonly contextMenuService: ContextMenuService,
+        private readonly viewsService: ViewsService,
     ) {
         super();
+        // Пустое тело до первого setRootPath: пока папка не открыта, секция
+        // рисует подсказку — как view welcome в VS Code.
+        viewsService.registerView({
+            id: EXPLORER_VIEW_ID,
+            containerId: EXPLORER_VIEWLET_ID,
+            title: "EXPLORER",
+            order: 10,
+            body: null,
+            placeholder: "No folder opened.",
+            focus: () => {
+                this.explorerService.focus();
+            },
+        });
         this.register(
             explorerService.onDidChangeRoot(() => {
                 this.rebuild();
@@ -65,9 +87,9 @@ export class ExplorerComponent extends Component {
         }
     }
 
-    /** Корневой контрол. До первого setRootPath сервиса дерева ещё нет (как и раньше у контроллера). */
+    /** Тело секции. До первого setRootPath сервиса дерева ещё нет (как и раньше у контроллера). */
     public get view(): TUIElement {
-        return this.parts?.root as TUIElement;
+        return this.parts?.scrollBars as TUIElement;
     }
 
     /** Пересоздаёт дерево под новый провайдер сервиса и регистрирует его как view сервиса. */
@@ -80,10 +102,9 @@ export class ExplorerComponent extends Component {
         // паддинг-контейнере: так подсветка курсора заливает строку от края панели.
         const tree = new TreeViewElement<FileTreeNode>(provider, { leftPadding: 1 });
         const scrollBars = new ScrollBarDecorator(tree);
-        const root = new TitledPanelElement("  EXPLORER", scrollBars);
-        root.id = EXPLORER_VIEWLET_ID;
-        root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
-        this.parts = { tree, scrollBars, root };
+        scrollBars.id = "explorerView";
+        scrollBars.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+        this.parts = { tree, scrollBars };
 
         tree.onExpandedChanged = (node, expanded) => {
             if (expanded) {
@@ -102,6 +123,7 @@ export class ExplorerComponent extends Component {
         };
 
         this.explorerService.attachView(tree);
+        this.viewsService.setViewBody(EXPLORER_VIEW_ID, scrollBars);
     }
 
     private showContextMenu(
