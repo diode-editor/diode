@@ -9,6 +9,8 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import type { IContextMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
+import type { IPanelView } from "../panel/panelService.ts";
+import { PanelService } from "../panel/panelService.ts";
 import type { SidebarService } from "../sidebar/sidebarService.ts";
 
 import type { PaneViewElement } from "./paneViewElement.ts";
@@ -19,18 +21,25 @@ import { ViewsService } from "./viewsService.ts";
 /** Общий стенд тестов ViewsService: реальные реестры меню, фейки места и стора. */
 export interface IViewsHarness {
     readonly service: ViewsService;
+    /** Настоящий реестр вкладок нижней панели — для контейнеров location: "panel". */
+    readonly panelService: PanelService;
     readonly menuService: MenuService;
     readonly commands: CommandRegistry;
     readonly contextKeys: ContextKeyService;
     /** Делегаты, с которыми открывали контекст-меню (последний — самый свежий). */
     readonly shown: IContextMenuDelegate[];
     readonly stored: Map<string, unknown>;
-    /** Корневой контрол контейнера, отданный месту. */
+    /** Корневой контрол контейнера, отданный месту (сайдбару или панели). */
     root(containerId: string): TUIElement;
+    /** Полоса контролов в таб-строке панели (`null` — контейнеру нечего показывать). */
+    tabActions(containerId: string): TUIElement | null;
     /** Как место отдаёт контейнеру фокус. */
     focus(containerId: string): void;
     paneView(containerId: string): PaneViewElement;
-    /** Заголовок контейнера; `null` — контейнер merged, своего заголовка у него нет. */
+    /**
+     * Строка заголовка контейнера: в сайдбаре — над секциями (`null`, если
+     * контейнер merged), в панели — полоса контролов таб-строки.
+     */
     header(containerId: string): ViewContainerHeaderElement | null;
 }
 
@@ -49,6 +58,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         },
     } as unknown as ContextMenuService;
 
+    const panelService = new PanelService();
     const commands = new CommandRegistry();
     const contextKeys = new ContextKeyService();
     const menuService = new MenuService(
@@ -67,9 +77,25 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         flushSync: () => {},
     };
 
-    const root = (containerId: string): TUIElement => registered.get(containerId)!.view;
+    const panelView = (containerId: string): IPanelView | undefined =>
+        panelService.getViews().find((v) => v.id === containerId);
+    const root = (containerId: string): TUIElement => {
+        const viewlet = registered.get(containerId);
+        if (viewlet !== undefined) return viewlet.view;
+        const panel = panelView(containerId);
+        if (panel?.content != null) return panel.content;
+        throw new Error(`makeViewsHarness: container "${containerId}" is not attached anywhere`);
+    };
+    const paneViewOf = (containerId: string): PaneViewElement => {
+        const element = root(containerId);
+        const selector = `#viewContainer-${containerId}`;
+        // В панели корень контейнера — сам PaneViewElement, в сайдбаре он лежит
+        // под стопкой с заголовком.
+        return (element.id === selector.slice(1) ? element : element.querySelector(selector)) as PaneViewElement;
+    };
     return {
-        service: new ViewsService(sidebar, contextMenu, menuService, state),
+        service: new ViewsService(sidebar, panelService, contextMenu, menuService, state),
+        panelService,
         menuService,
         commands,
         contextKeys,
@@ -77,11 +103,13 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         stored,
         root,
         focus: (containerId) => registered.get(containerId)!.focus(),
-        paneView: (containerId) => root(containerId).querySelector(`#viewContainer-${containerId}`) as PaneViewElement,
-        header: (containerId) =>
-            root(containerId).querySelector(
-                `#viewContainerHeader-${containerId.replaceAll(".", "-")}`,
-            ) as ViewContainerHeaderElement | null,
+        tabActions: (containerId) => panelView(containerId)?.actions ?? null,
+        paneView: paneViewOf,
+        header: (containerId) => {
+            const selector = `#viewContainerHeader-${containerId.replaceAll(".", "-")}`;
+            const inTree = root(containerId).querySelector(selector);
+            return (inTree ?? panelView(containerId)?.actions ?? null) as ViewContainerHeaderElement | null;
+        },
     };
 }
 

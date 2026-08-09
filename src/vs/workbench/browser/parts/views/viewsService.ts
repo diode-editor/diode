@@ -1,5 +1,4 @@
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
 import { VFlexElement, vflexFill, vflexFixed } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
@@ -15,6 +14,8 @@ import type { IStateService } from "../../../../platform/state/common/iStateServ
 import type { ViewContainerMenuContext, ViewMenuContext } from "../../actions/menuContexts.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SIDEBAR_VIEWS_STATE, type IViewContainerViewsState } from "../../../common/stateKeys.ts";
+import type { PanelService } from "../panel/panelService.ts";
+import { PanelServiceDIToken } from "../panel/panelService.ts";
 import type { SidebarService } from "../sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "../sidebar/sidebarService.ts";
 
@@ -118,7 +119,7 @@ interface ContainerEntry {
      * (заголовок то есть, то нет), а не сам элемент, иначе место держало бы
      * ссылку на устаревший корень.
      */
-    view: VFlexElement | null;
+    view: TUIElement | null;
 }
 
 /**
@@ -141,6 +142,7 @@ interface ContainerEntry {
 export class ViewsService {
     public static dependencies = [
         SidebarServiceDIToken,
+        PanelServiceDIToken,
         ContextMenuServiceDIToken,
         MenuServiceDIToken,
         StateServiceDIToken,
@@ -150,6 +152,7 @@ export class ViewsService {
 
     public constructor(
         private readonly sidebarService: SidebarService,
+        private readonly panelService: PanelService,
         private readonly contextMenuService: ContextMenuService,
         private readonly menuService: MenuService,
         private readonly stateService: IStateService,
@@ -213,7 +216,7 @@ export class ViewsService {
         if (record.titleWidget === widget) return;
         record.titleWidget = widget;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
-        entry.paneView.setPaneTitleWidget(viewId, widget);
+        this.refreshTitleActions(entry);
     }
 
     /** Контрол заголовка view, если он задан (читает отрисовка заголовка). */
@@ -281,19 +284,30 @@ export class ViewsService {
             runAction(this.viewTitleGroups(paneId), actionId);
         };
         entry.paneView = paneView;
-        const header = new ViewContainerHeaderElement(entry.descriptor.title);
+        // В панели заголовка-строки нет — та же строка заголовка работает
+        // полосой контролов в таб-строке, поэтому названия не несёт.
+        const panel = entry.descriptor.location === "panel";
+        const header = new ViewContainerHeaderElement(panel ? "" : entry.descriptor.title);
         header.id = `viewContainerHeader-${containerId.replaceAll(".", "-")}`;
         header.onMenu = (anchor) => {
             this.contextMenuService.showContextMenu({
                 getOwner: () => header,
                 getAnchor: () => anchor,
-                getEntries: () => this.containerMenuEntries(entry),
+                getEntries: () => this.titleMenuEntries(entry),
             });
         };
         header.onAction = (actionId) => {
-            runAction(this.containerTitleGroups(containerId), actionId);
+            runAction(this.titleGroups(entry), actionId);
         };
         entry.header = header;
+        if (panel) {
+            entry.view = paneView;
+            // Вкладку заводим ДО сборки секций: полоса контролов таб-строки
+            // ставится через реестр панели, а он игнорирует незнакомый id.
+            this.panelService.addView({ id: containerId, title: entry.descriptor.title, content: paneView });
+            this.rebuildPanes(entry);
+            return;
+        }
         const root = new VFlexElement();
         // Id корня = id контейнера: стабильный селектор места для e2e/инспектора
         // (`#explorer`, `#scm`, `#search`).
@@ -410,28 +424,64 @@ export class ViewsService {
         };
     }
 
+    /**
+     * Что представляет строка заголовка контейнера. В панели у merged-контейнера
+     * своего заголовка нет — роль заголовка играет таб, поэтому полоса контролов
+     * таб-строки несёт действия ЕДИНСТВЕННОЙ секции (как в VS Code).
+     */
+    private headerTargetView(entry: ContainerEntry): string | null {
+        if (!this.isPanel(entry) || !this.isMerged(entry)) return null;
+        return this.visibleViews(entry)[0]?.id ?? null;
+    }
+
+    private titleGroups(entry: ContainerEntry): IMenuEntryGroup[] {
+        const viewId = this.headerTargetView(entry);
+        return viewId === null ? this.containerTitleGroups(entry.descriptor!.id) : this.viewTitleGroups(viewId);
+    }
+
+    private titleMenuEntries(entry: ContainerEntry): MenuEntry[] {
+        const viewId = this.headerTargetView(entry);
+        return viewId === null ? this.containerMenuEntries(entry) : this.paneMenuEntries(entry, viewId);
+    }
+
     /** Пере-резолвит inline-кнопки заголовков контейнера и его видимых секций. */
     private refreshTitleActions(entry: ContainerEntry): void {
         const paneView = entry.paneView!;
+        const headerViewId = this.headerTargetView(entry);
         for (const record of this.visibleViews(entry)) {
             paneView.setPaneActions(record.id, inlineActions(this.viewTitleGroups(record.id)));
-            paneView.setPaneTitleWidget(record.id, record.titleWidget);
+            // Виджет уехавшей в таб-строку секции забирает заголовок контейнера —
+            // у контрола один родитель, держать его в двух местах нельзя.
+            paneView.setPaneTitleWidget(record.id, record.id === headerViewId ? null : record.titleWidget);
         }
-        entry.header?.setActions(inlineActions(this.containerTitleGroups(entry.descriptor!.id)));
+        const header = entry.header;
+        if (header === null) return;
+        const actions = inlineActions(this.titleGroups(entry));
+        header.setActions(actions);
+        if (!this.isPanel(entry)) return;
+        const widget = headerViewId === null ? null : this.recordOrThrow(headerViewId).record.titleWidget;
+        header.setTitleWidget(widget);
+        const hasMenu = this.titleMenuEntries(entry).length > 0;
+        header.setMenuVisible(hasMenu);
+        // Пустой полосе в таб-строке места не даём — вкладка выглядит как раньше.
+        const empty = actions.length === 0 && widget === null && !hasMenu;
+        this.panelService.setViewActions(entry.descriptor!.id, empty ? null : header);
     }
 
     /**
-     * Держит набор детей корня: merged-контейнер обходится без собственного
-     * заголовка (его роль играет заголовок единственной секции).
+     * Держит набор детей корня сайдбар-контейнера: merged обходится без
+     * собственного заголовка (его роль играет заголовок единственной секции).
+     * В панели корня-стопки нет — там заголовок живёт в таб-строке
+     * ({@link refreshTitleActions}).
      */
     private syncContainerFrame(entry: ContainerEntry): void {
         const root = entry.view;
-        if (root === null) return;
+        if (root === null || this.isPanel(entry)) return;
         const paneView = entry.paneView!;
         const header = entry.header!;
         header.layoutStyle = { height: vflexFixed(1), width: "fill" };
         paneView.layoutStyle = { height: vflexFill(), width: "fill" };
-        root.replaceChildren(this.isMerged(entry) ? [paneView] : [header, paneView]);
+        (root as VFlexElement).replaceChildren(this.isMerged(entry) ? [paneView] : [header, paneView]);
     }
 
     private containerOrThrow(id: string): ContainerEntry {
@@ -466,6 +516,10 @@ export class ViewsService {
         return this.visibleViews(entry).length === 1;
     }
 
+    private isPanel(entry: ContainerEntry): boolean {
+        return entry.descriptor?.location === "panel";
+    }
+
     /** Тело секции: собственное либо (при `body === null`) пустое состояние. */
     private bodyOf(record: ViewRecord): TUIElement {
         if (record.body !== null) return record.body;
@@ -490,15 +544,19 @@ export class ViewsService {
         }
         const visible = this.visibleViews(entry);
         const merged = visible.length === 1;
+        // В панели заголовок merged-секции — сам таб, поэтому строки под него нет.
+        const headerVisible = !(merged && this.isPanel(entry));
         for (const view of visible) {
             paneView.addPane({
                 id: view.id,
-                // Merged: единственная секция носит заголовок контейнера и не
-                // сворачивается — её заголовок и есть заголовок контейнера.
-                title: merged ? containerPaneTitle(entry) : view.title,
+                // Merged в сайдбаре: единственная секция носит заголовок
+                // контейнера и не сворачивается — её заголовок и есть заголовок
+                // контейнера.
+                title: merged && !this.isPanel(entry) ? containerPaneTitle(entry) : view.title,
                 body: this.bodyOf(view),
                 minBodyHeight: view.minBodyHeight,
                 collapsible: !merged,
+                headerVisible,
             });
         }
         paneView.setWeights(weights);
@@ -569,9 +627,14 @@ function isInlineItem(entry: MenuEntry): entry is MenuItemEntry & { id: string; 
     return entry.type === undefined && typeof entry.id === "string" && typeof entry.icon === "string";
 }
 
-/** Пустое состояние секции: строка-подсказка с отступом (аналог viewsWelcome). */
+/**
+ * Пустое состояние секции: строка-подсказка без собственных отступов (аналог
+ * viewsWelcome). Отступы даёт место: в панели контент и так начинается со
+ * второй колонки под таб-строкой, а лишняя колонка обрезала бы подсказку на
+ * узкой панели.
+ */
 function createViewPlaceholder(text: string): TUIElement {
     const label = new TextLabelElement(text);
     label.style = { fg: "descriptionForeground" };
-    return new PaddingContainerElement(label, { left: 1, top: 1, right: 1 });
+    return label;
 }

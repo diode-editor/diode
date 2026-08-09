@@ -25,6 +25,12 @@ export interface IPaneOptions {
      * умолчанию true.
      */
     readonly collapsible?: boolean;
+    /**
+     * false — у секции нет своей строки заголовка вовсе. Так рисуется
+     * единственная секция вкладки нижней панели: её заголовок — сам таб.
+     * По умолчанию true.
+     */
+    readonly headerVisible?: boolean;
 }
 
 interface PaneRecord {
@@ -34,6 +40,7 @@ interface PaneRecord {
     body: TUIElement;
     readonly minBodyHeight: number;
     readonly collapsible: boolean;
+    readonly headerVisible: boolean;
     collapsed: boolean;
     /** Доля высоты среди развёрнутых секций; после drag — фактические строки. */
     weight: number;
@@ -73,7 +80,9 @@ export class PaneViewElement extends TUIElement {
             throw new Error(`PaneViewElement: duplicate pane id "${options.id}"`);
         }
         const collapsible = options.collapsible ?? true;
+        const headerVisible = options.headerVisible ?? true;
         const header = new PaneHeaderElement(options.title, { collapsible });
+        header.hidden = !headerVisible;
         header.id = `paneHeader-${options.id.replaceAll(".", "-")}`;
         const record: PaneRecord = {
             id: options.id,
@@ -81,6 +90,7 @@ export class PaneViewElement extends TUIElement {
             body: options.body,
             minBodyHeight: options.minBodyHeight ?? DEFAULT_MIN_BODY_HEIGHT,
             collapsible,
+            headerVisible,
             collapsed: false,
             weight: 1,
             lastBodyHeight: 0,
@@ -252,15 +262,17 @@ export class PaneViewElement extends TUIElement {
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        const avail = Math.max(0, size.height - this.panes.length);
+        const headerRows = this.panes.filter((p) => p.headerVisible).length;
+        const avail = Math.max(0, size.height - headerRows);
         const heights = this.computeBodyHeights(avail);
 
         let y = 0;
         for (let i = 0; i < this.panes.length; i++) {
             const pane = this.panes[i];
             // Заголовки раскладываются всегда: при нехватке высоты хвостовые
-            // клипуются нулевой высотой (инвариант вложенности).
-            const headerHeight = Math.max(0, Math.min(1, size.height - y));
+            // клипуются нулевой высотой (инвариант вложенности). Секция без
+            // заголовка (вкладка панели) строки под него не занимает.
+            const headerHeight = pane.headerVisible ? Math.max(0, Math.min(1, size.height - y)) : 0;
             this.layoutChild(pane.header, 0, y, BoxConstraints.tight(new Size(size.width, headerHeight)));
             y += headerHeight;
             if (pane.collapsed) {

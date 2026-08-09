@@ -76,6 +76,21 @@ export class ViewContainerHeaderElement extends TUIElement {
         this.row.setActions(actions);
     }
 
+    /** Произвольный контрол слева от кнопок (переключатель каналов Output). */
+    public setTitleWidget(widget: TUIElement | null): void {
+        this.row.setTitleWidget(widget);
+    }
+
+    /** Прятать ли «⋯» (см. {@link ViewTitleRowElement.setMenuVisible}). */
+    public setMenuVisible(visible: boolean): void {
+        this.row.setMenuVisible(visible);
+    }
+
+    /** Ширина содержимого: полосе контролов в таб-строке панели её назначает контейнер. */
+    public override getMaxIntrinsicWidth(height: number): number {
+        return this.row.getMaxIntrinsicWidth(height);
+    }
+
     public override getMinIntrinsicHeight(_width: number): number {
         return 1;
     }

@@ -66,8 +66,8 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
     it("до открытия папки секция рисует подсказку, после — дерево", () => {
         attach();
         const paneView = h.paneView(EXPLORER_VIEWLET_ID);
-        const placeholder = paneView.querySelector("#viewPlaceholder-workbench-explorer-fileView")!;
-        expect((placeholder.querySelector("TextLabelElement") as TextLabelElement).getText()).toBe("No folder opened.");
+        const placeholder = paneView.querySelector("#viewPlaceholder-workbench-explorer-fileView") as TextLabelElement;
+        expect(placeholder.getText()).toBe("No folder opened.");
 
         service.setRootPath(ws.dir);
         expect(paneView.querySelector("#explorerView")).toBe(component.view);

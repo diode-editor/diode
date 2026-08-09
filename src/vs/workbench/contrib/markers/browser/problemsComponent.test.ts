@@ -14,8 +14,10 @@ import { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { type IMarkerRevealEditor, ProblemsComponent } from "./problemsComponent.ts";
+import { type IMarkerRevealEditor, PROBLEMS_VIEW_ID, ProblemsComponent } from "./problemsComponent.ts";
 import type { ProblemNode } from "./problemsTreeDataProvider.ts";
+import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 const RESOURCE = "/ws/settings.json";
 
@@ -38,6 +40,7 @@ function makeRevealTarget() {
 
 describe("ProblemsComponent", () => {
     let markerService: MarkerService;
+    let views: IViewsHarness;
     let panelService: PanelService;
     let panelComponent: PanelComponent;
     let component: ProblemsComponent;
@@ -47,10 +50,11 @@ describe("ProblemsComponent", () => {
     beforeEach(() => {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
         markerService = new MarkerService();
-        panelService = new PanelService();
+        views = makeViewsHarness();
+        panelService = views.panelService;
         panelComponent = new PanelComponent(panelService);
         revealTarget = makeRevealTarget();
-        component = new ProblemsComponent(markerService, panelService, revealTarget);
+        component = new ProblemsComponent(markerService, views.service, revealTarget);
         testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     });
 
@@ -59,15 +63,15 @@ describe("ProblemsComponent", () => {
         expect(panelService.getActiveViewId()).toBe("workbench.panel.markers.view");
     });
 
-    it("shows the placeholder (no content) until markers appear, then the tree", async () => {
-        // No markers → Problems view content is null → panel renders its placeholder.
-        expect(panelComponent.view.getChildren()).toEqual([]);
+    it("shows the placeholder (no view body) until markers appear, then the tree", async () => {
+        // Маркеров нет → у view нет тела → секция рисует своё пустое состояние.
+        expect(views.paneView(PROBLEMS_VIEW_ID).querySelector("#problemsView")).toBeNull();
         testApp.render();
         expect(testApp.backend.screenToString()).toContain("No problems have been detected in the workspace.");
 
         markerService.changeOne("settings", RESOURCE, [warning("Unknown Setting: x", 1)]);
-        // Content is swapped synchronously on the marker change.
-        expect(panelComponent.view.getChildren()).toHaveLength(1);
+        // Тело подменяется синхронно на смене маркеров.
+        expect(views.paneView(PROBLEMS_VIEW_ID).querySelector("#problemsView")).toBe(component.view);
 
         await settle(0);
         testApp.render();
@@ -79,10 +83,10 @@ describe("ProblemsComponent", () => {
 
     it("falls back to the placeholder when the markers clear", () => {
         markerService.changeOne("settings", RESOURCE, [warning("x")]);
-        expect(panelComponent.view.getChildren()).toHaveLength(1);
+        expect(views.paneView(PROBLEMS_VIEW_ID).querySelector("#problemsView")).toBe(component.view);
 
         markerService.changeOne("settings", RESOURCE, []);
-        expect(panelComponent.view.getChildren()).toEqual([]);
+        expect(views.paneView(PROBLEMS_VIEW_ID).querySelector("#problemsView")).toBeNull();
     });
 
     it("reveals a marker's location through the reveal seam on activation", () => {

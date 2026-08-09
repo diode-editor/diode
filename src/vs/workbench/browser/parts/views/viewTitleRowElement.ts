@@ -59,6 +59,7 @@ export class ViewTitleRowElement extends HFlexElement {
     private actions: readonly IViewTitleAction[] = [];
     private actionLabels: TextLabelElement[] = [];
     private titleWidget: TUIElement | null = null;
+    private menuVisible = true;
 
     public constructor(title: string, options?: IViewTitleRowOptions) {
         super();
@@ -94,6 +95,17 @@ export class ViewTitleRowElement extends HFlexElement {
     public setActions(actions: readonly IViewTitleAction[]): void {
         if (sameActions(this.actions, actions)) return;
         this.actions = [...actions];
+        this.syncChildren();
+    }
+
+    /**
+     * Прятать ли кнопку «⋯». Заголовки сайдбара держат её всегда, а полоса
+     * контролов в таб-строке панели — только когда в меню есть что показать:
+     * там она стоит в одном ряду с табами и пустой кнопкой только мешает.
+     */
+    public setMenuVisible(visible: boolean): void {
+        if (this.menuVisible === visible) return;
+        this.menuVisible = visible;
         this.syncChildren();
     }
 
@@ -142,7 +154,8 @@ export class ViewTitleRowElement extends HFlexElement {
             this.titleWidget.layoutStyle = { width: hflexFit(), height: 1 };
             children.push(this.titleWidget);
         }
-        children.push(...this.actionLabels, this.menuLabel);
+        children.push(...this.actionLabels);
+        if (this.menuVisible) children.push(this.menuLabel);
         this.replaceChildren(children);
     }
 }

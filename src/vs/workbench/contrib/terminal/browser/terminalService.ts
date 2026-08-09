@@ -15,6 +15,8 @@ import type { ITerminalSurface } from "../../../../../../tuidom/common/iTerminal
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { type TerminalSessionFactory, TerminalSessionFactoryDIToken } from "../common/terminalSessionFactory.ts";
 
 /** VS Code view id of the integrated Terminal view living in the bottom Panel. */
@@ -49,7 +51,7 @@ interface TerminalInstanceRecord extends ITerminalInstance {
  * `onDidCloseInstance` / `onDidChangeActiveInstance` / `onDidRequestFocus`.
  */
 export class TerminalService extends Disposable {
-    public static dependencies = [PanelServiceDIToken, TerminalSessionFactoryDIToken] as const;
+    public static dependencies = [PanelServiceDIToken, ViewsServiceDIToken, TerminalSessionFactoryDIToken] as const;
 
     private instances: TerminalInstanceRecord[] = [];
     private activeId: number | null = null;
@@ -63,17 +65,25 @@ export class TerminalService extends Disposable {
 
     public constructor(
         panelService: PanelService,
+        viewsService: ViewsService,
         private readonly factory: TerminalSessionFactory,
     ) {
         super();
         // Вкладка TERMINAL присутствует всегда; шелл спавнится лениво при её
-        // активации, поэтому по умолчанию тут placeholder.
-        panelService.addView({
+        // активации, поэтому по умолчанию у view нет тела и она рисует подсказку.
+        viewsService.registerContainer({ id: TERMINAL_VIEW_ID, title: "TERMINAL", location: "panel" });
+        viewsService.registerView({
             id: TERMINAL_VIEW_ID,
+            containerId: TERMINAL_VIEW_ID,
             title: "TERMINAL",
-            content: null,
+            order: 10,
+            body: null,
             placeholder: "No active terminal.",
+            focus: () => {
+                this.ensureAndFocus();
+            },
         });
+        viewsService.attachContainer(TERMINAL_VIEW_ID);
         // Клик по вкладке TERMINAL лениво спавнит шелл и фокусирует его; чужие
         // вкладки игнорируем.
         this.register(

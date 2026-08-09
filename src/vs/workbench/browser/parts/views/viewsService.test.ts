@@ -251,10 +251,8 @@ describe("ViewsService — тело и виджет заголовка view", ()
         h.service.attachContainer("panelish");
 
         const paneView = h.paneView("panelish");
-        const placeholder = paneView.querySelector("#viewPlaceholder-problems-view")!;
-        expect((placeholder.querySelector("TextLabelElement") as TextLabelElement).getText()).toBe(
-            "No problems have been detected.",
-        );
+        const placeholder = paneView.querySelector("#viewPlaceholder-problems-view") as TextLabelElement;
+        expect(placeholder.getText()).toBe("No problems have been detected.");
 
         const tree = new FillerElement();
         tree.id = "problems-tree";

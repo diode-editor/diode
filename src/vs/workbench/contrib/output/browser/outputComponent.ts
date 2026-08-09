@@ -6,12 +6,12 @@ import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.
 import { CHECKED_ICON } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { IMenu, MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
-import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { OUTPUT_LANGUAGE_ID, OUTPUT_URI_SCHEME, OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
@@ -31,15 +31,15 @@ export const OutputComponentDIToken = token<OutputComponent>("OutputComponent");
  * языком `log`: выделение, копирование, Ctrl+F и подсветка достаются даром.
  *
  * Не `Component`: собственного корневого контрола нет — редактор попадает в
- * панель через `PanelService.setViewContent`, ровно как виджет терминала.
+ * панель через `ViewsService.setViewBody`, ровно как виджет терминала.
  */
 export class OutputComponent extends Disposable {
     public static dependencies = [
         OutputServiceDIToken,
         PanelServiceDIToken,
+        ViewsServiceDIToken,
         EditorServiceDIToken,
         MenuServiceDIToken,
-        ContextKeyServiceDIToken,
         ThemeServiceDIToken,
     ] as const;
 
@@ -54,9 +54,9 @@ export class OutputComponent extends Disposable {
     public constructor(
         private readonly outputService: OutputService,
         private readonly panelService: PanelService,
+        private readonly viewsService: ViewsService,
         private readonly editorService: EditorService,
         menuService: MenuService,
-        private readonly contextKeys: ContextKeyService,
         private readonly themeService: ThemeService,
     ) {
         super();
@@ -74,12 +74,22 @@ export class OutputComponent extends Disposable {
             // `workbench.action.output.show.<id>`, и путь должен быть один.
             this.channelEntries()[index]?.onSelect?.();
         };
-        this.panelService.addView({
+        // Вкладка панели — контейнер с единственной секцией: заголовка у неё
+        // нет (его роль играет таб), а переключатель каналов уезжает в
+        // таб-строку через `setViewTitleWidget`.
+        this.viewsService.registerContainer({ id: OUTPUT_VIEW_ID, title: "OUTPUT", location: "panel" });
+        this.viewsService.registerView({
             id: OUTPUT_VIEW_ID,
+            containerId: OUTPUT_VIEW_ID,
             title: "OUTPUT",
-            content: null,
+            order: 10,
+            body: null,
             placeholder: "No output yet.",
+            focus: () => {
+                this.focus();
+            },
         });
+        this.viewsService.attachContainer(OUTPUT_VIEW_ID);
 
         this.register(
             this.outputService.onDidChangeActiveChannel(() => {
@@ -120,8 +130,6 @@ export class OutputComponent extends Disposable {
     private syncActiveChannel(): void {
         const channelId = this.outputService.getActiveChannelId();
         if (channelId === null) return;
-        // Контекст-ключ `view` включает when у submenu — без него шапка пуста.
-        this.contextKeys.set("view", OUTPUT_VIEW_ID);
         this.syncSelector();
         const pane = this.ensurePane();
         if (this.loadedChannelId !== channelId) {
@@ -148,7 +156,7 @@ export class OutputComponent extends Disposable {
         // так что искать активный канал повторно не нужно.
         const activeIndex = items.findIndex((item) => item.icon === CHECKED_ICON);
         this.selector.setOptions(options, activeIndex);
-        this.panelService.setViewActions(OUTPUT_VIEW_ID, options.length > 0 ? this.selector : null);
+        this.viewsService.setViewTitleWidget(OUTPUT_VIEW_ID, options.length > 0 ? this.selector : null);
     }
 
     private ensurePane(): TextEditorPane {
@@ -161,7 +169,7 @@ export class OutputComponent extends Disposable {
         );
         pane.readOnly = true;
         this.pane = pane;
-        this.panelService.setViewContent(OUTPUT_VIEW_ID, pane.view);
+        this.viewsService.setViewBody(OUTPUT_VIEW_ID, pane.view);
         return pane;
     }
 
