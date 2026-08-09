@@ -157,10 +157,11 @@ export class PaneHeaderElement extends TUIElement {
         return size;
     }
 
-    protected override hitTestChildren(_point: Point): TUIElement | null {
-        // Дети презентационные: вся мышь принадлежит заголовку — иначе pointer
+    protected override hitTestChildren(point: Point): TUIElement | null {
+        // Лейблы презентационные: их мышь принадлежит заголовку — иначе pointer
         // capture (drag границы) не сработает, когда нажатие пришлось на лейбл.
-        return null;
+        // Виджет заголовка — исключение: это настоящий контрол, ему мышь нужна.
+        return this.row.hitTestWidget(point);
     }
 
     protected override performDefaultAction(event: TUIEventBase): void {

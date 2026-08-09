@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
+import { BoxConstraints, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { MouseToken } from "../../../../../../tuidom/input/rawTerminalToken.ts";
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
+import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
@@ -133,6 +134,23 @@ describe("ViewContainerHeaderElement", () => {
         app.backend.simulateMouse(token({ action: "press", x: 29, y: 1 }));
         app.backend.simulateMouse(token({ action: "release", x: 29, y: 1 }));
         expect(onMenu).toHaveBeenCalledOnce();
+    });
+
+    it("виджет в заголовке кликается: мышь доходит до него, а не до заголовка", () => {
+        // Регрессия: заголовок забирал мышь у ВСЕХ детей, и селектор каналов
+        // Output рисовался, но не нажимался.
+        const header = new ViewContainerHeaderElement("");
+        // Виджет с ненулевой интринсик-шириной — филлер схлопнулся бы в ноль.
+        const widget = new TextLabelElement("bootstrap");
+        widget.id = "channel-picker";
+        header.setTitleWidget(widget);
+        const app = TestApp.createWithContent(header, new Size(30, 1));
+        app.render();
+
+        const hit = app.root.elementFromPoint(new Point(widget.globalPosition.x, widget.globalPosition.y));
+        expect(hit).toBe(widget);
+        // Лейблы по-прежнему презентационные — клик по названию берёт заголовок.
+        expect(app.root.elementFromPoint(new Point(header.globalPosition.x, header.globalPosition.y))).toBe(header);
     });
 
     it("Shift+F10 якорит меню к кнопке ⋯, правый клик — к курсору", () => {

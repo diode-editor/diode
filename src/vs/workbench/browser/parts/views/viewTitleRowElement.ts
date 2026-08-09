@@ -1,3 +1,4 @@
+import type { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
@@ -43,10 +44,11 @@ export interface IViewTitleRowOptions {
  * [ ␣шеврон? ␣НАЗВАНИЕ ][ fill ][ виджет? ][ inline-кнопки ][ ⋯ ]
  * ```
  *
- * Жестов у строки нет — их ведёт владелец: у него `hitTestChildren` возвращает
- * `null` (иначе pointer capture для drag границы не сработает), поэтому
- * попадание по кнопке считается арифметикой зон, а не хит-тестом ребёнка.
- * {@link hitZone} и есть эта арифметика.
+ * Жестов у строки нет — их ведёт владелец: мышь по лейблам он забирает себе
+ * (иначе pointer capture для drag границы не сработает), поэтому попадание по
+ * кнопке считается арифметикой зон, а не хит-тестом ребёнка — {@link hitZone}
+ * и есть эта арифметика. Исключение — {@link hitTestWidget}: виджет заголовка
+ * настоящий контрол, клики обязаны доходить до него.
  */
 export class ViewTitleRowElement extends HFlexElement {
     private readonly titleLabel: TextLabelElement;
@@ -134,6 +136,16 @@ export class ViewTitleRowElement extends HFlexElement {
     /** Локальная X кнопки «⋯» — якорь меню, открытого с клавиатуры. */
     public get menuAnchorX(): number {
         return this.menuLabel.localPosition.dx;
+    }
+
+    /**
+     * Хит-тест ТОЛЬКО виджета заголовка. Лейблы строки презентационные (их
+     * клики считает {@link hitZone}), а виджет — настоящий интерактивный
+     * контрол (селектор каналов Output), и мышь обязана доходить до него:
+     * иначе он рисуется, но не нажимается.
+     */
+    public hitTestWidget(point: Point): TUIElement | null {
+        return this.titleWidget?.elementFromPoint(point) ?? null;
     }
 
     private composeTitle(): string {

@@ -13,9 +13,10 @@ import { ViewTitleRowElement } from "./viewTitleRowElement.ts";
  * только надпись: контейнеру нужны inline-действия и меню «⋯» с
  * переключателем видимости секций.
  *
- * Хит-тест детей так же отключён, как у {@link PaneHeaderElement} — попадание
- * по кнопке считает {@link ViewTitleRowElement.hitZone}; так у обоих заголовков
- * одна геометрия кнопок и одна точка правды о зонах.
+ * Мышь по лейблам принадлежит заголовку, как у {@link PaneHeaderElement} —
+ * попадание по кнопке считает {@link ViewTitleRowElement.hitZone}, и у обоих
+ * заголовков одна геометрия кнопок. Исключение — виджет заголовка: он
+ * настоящий контрол (селектор каналов Output), клики обязаны доходить до него.
  */
 export class ViewContainerHeaderElement extends TUIElement {
     /** Запрос меню контейнера (кнопка «⋯», правый клик или Shift+F10). */
@@ -105,8 +106,10 @@ export class ViewContainerHeaderElement extends TUIElement {
         return size;
     }
 
-    protected override hitTestChildren(_point: Point): TUIElement | null {
-        return null;
+    protected override hitTestChildren(point: Point): TUIElement | null {
+        // Лейблы презентационные (их клики считает hitZone), но виджет в
+        // заголовке — настоящий контрол, и мышь должна доходить до него.
+        return this.row.hitTestWidget(point);
     }
 
     public override inspectState(): Record<string, unknown> {
