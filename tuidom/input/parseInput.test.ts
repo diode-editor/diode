@@ -62,6 +62,18 @@ describe("parseInput", () => {
         expect(events).toEqual([kp("Backspace", "\x7f")]);
     });
 
+    // Ctrl+Backspace приезжает в CSI-u двумя кодировками: kitty шлёт DEL (127),
+    // xterm-совместимые в modifyOtherKeys — BS (8). Без второй ключ приходил сырым
+    // «\b» и не совпадал ни с одним биндом (delete word left молчал).
+    it("parses Ctrl+Backspace in both CSI-u encodings", () => {
+        expect(parseInput("\x1b[127;5u")).toEqual([
+            kp("Backspace", "\x1b[127;5u", { ctrlKey: true, code: "Backspace", type: "keydown" }),
+        ]);
+        expect(parseInput("\x1b[8;5u")).toEqual([
+            kp("Backspace", "\x1b[8;5u", { ctrlKey: true, code: "Backspace", type: "keydown" }),
+        ]);
+    });
+
     it("parses Escape (0x1b standalone)", () => {
         const events = parseInput("\x1b");
         expect(events).toEqual([kp("Escape", "\x1b")]);

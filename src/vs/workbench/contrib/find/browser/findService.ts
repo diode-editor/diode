@@ -118,16 +118,84 @@ export class FindService extends Disposable {
     }
 
     public next(): void {
-        if (this.matches.length === 0) return;
-        this.setCurrent((this.currentIndex + 1) % this.matches.length);
+        this.navigate(1);
     }
 
     public prev(): void {
-        if (this.matches.length === 0) return;
-        this.setCurrent((this.currentIndex - 1 + this.matches.length) % this.matches.length);
+        this.navigate(-1);
     }
 
     // ─── Private ─────────────────────────────────────────────────────────────
+
+    /**
+     * Шаг по совпадениям. В VS Code «Find Next» живёт от фокуса в редакторе, а не
+     * от видимости виджета: состояние поиска переживает закрытие, и F3 продолжает
+     * ходить по последнему запросу (`NextMatchFindAction`, `kbExpr: EditorContextKeys.focus`).
+     *
+     * При открытом виджете фокус в его инпуте, курсор редактора не трогаем — его
+     * поставит `close()`. При закрытом фокус в тексте, поэтому совпадение сразу
+     * становится выделением: иначе «нашлось» было бы видно только подсветкой,
+     * а курсор остался бы на месте.
+     */
+    private navigate(direction: 1 | -1): void {
+        if (this.component.isOpen()) {
+            if (this.matches.length === 0) return;
+            this.setCurrent(this.step(direction));
+            return;
+        }
+
+        const startedNewSession = this.matches.length === 0 || this.target !== this.editorService.getActiveEditor();
+        if (startedNewSession && !this.startDetachedSession()) return;
+        if (this.matches.length === 0) return;
+
+        // Первое нажатие приводит на ближайшее совпадение от курсора (его выбрал
+        // recompute), дальнейшие — шагают. Назад шагаем сразу: ближайшее «вперёд»
+        // для Shift+F3 было бы движением не в ту сторону.
+        const index = startedNewSession && direction === 1 ? this.currentIndex : this.step(direction);
+        this.setCurrent(index);
+        this.selectMatch(index);
+    }
+
+    private step(direction: 1 | -1): number {
+        return (this.currentIndex + direction + this.matches.length) % this.matches.length;
+    }
+
+    /**
+     * Поднимает поисковую сессию без показа виджета. Запрос помнит сам компонент,
+     * поэтому обычно достаточно перецелиться на активный редактор и пересчитать.
+     * Пустой запрос сеем из однострочного выделения (upstream
+     * `seedSearchStringFromSelection`); если и его нет — искать нечего, открываем
+     * виджет и спрашиваем. Возвращает false, когда навигацию продолжать не надо.
+     */
+    private startDetachedSession(): boolean {
+        const editor = this.editorService.getActiveEditor();
+        if (!editor) return false;
+
+        if (this.component.getQuery().length === 0) {
+            const selected = editor.viewState.getSelectedText();
+            if (selected.length === 0 || selected.includes("\n")) {
+                this.open();
+                return false;
+            }
+            this.component.setQuery(selected);
+        }
+
+        this.target = editor;
+        this.recompute();
+        return true;
+    }
+
+    /** Ставит выделение на совпадение — курсор идёт за поиском, как в VS Code. */
+    private selectMatch(index: number): void {
+        const editor = this.target;
+        /* v8 ignore start -- navigate() доходит сюда только с поднятой сессией, цель есть */
+        if (!editor) return;
+        /* v8 ignore stop */
+        const match = this.matches[index];
+        editor.viewState.selections = [
+            createSelection(match.start.line, match.start.character, match.end.line, match.end.character),
+        ];
+    }
 
     /**
      * Recomputes matches for the current query, seeds the current index from the

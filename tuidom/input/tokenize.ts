@@ -186,6 +186,9 @@ export function tokenize(data: string): RawTerminalToken[] {
  */
 export const kittyCodepointMap: Partial<Record<number, { key: string; code?: string }>> = {
     // Standard keys with CSI u encoding
+    // 8 (BS) — как Ctrl+Backspace шлют xterm-совместимые в modifyOtherKeys: без него
+    // ключ приезжал сырым «\b» и не совпадал ни с одним биндом. 127 (DEL) — форма kitty.
+    8: { key: "Backspace", code: "Backspace" },
     9: { key: "Tab" },
     13: { key: "Enter" },
     27: { key: "Escape" },

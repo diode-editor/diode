@@ -144,6 +144,77 @@ describe("FindService", () => {
         expect(editor.viewState.currentSearchMatchIndex).toBe(1);
     });
 
+    // F3 в VS Code живёт от фокуса в редакторе (`EditorContextKeys.focus`), а не от
+    // видимости виджета: закрыли поиск — навигация по последнему запросу продолжается.
+    describe("навигация с закрытым виджетом", () => {
+        it("next() ищет по последнему запросу и не показывает виджет", () => {
+            const { find, component, editor } = setup("foo bar foo baz foo");
+            find.open();
+            typeQuery(component, "foo");
+            find.close();
+            editor.viewState.selections = [createSelection(0, 0, 0, 0)];
+
+            find.next();
+
+            expect(find.isVisible()).toBe(false);
+            // Первое нажатие приводит на ближайшее совпадение от курсора…
+            expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+            expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 3 });
+
+            // …дальнейшие шагают дальше и тянут курсор за собой.
+            find.next();
+            expect(editor.viewState.currentSearchMatchIndex).toBe(1);
+            expect(editor.viewState.selections[0].anchor).toEqual({ line: 0, character: 8 });
+        });
+
+        it("prev() с закрытым виджетом идёт назад с заворотом", () => {
+            const { find, component, editor } = setup("foo bar foo baz foo");
+            find.open();
+            typeQuery(component, "foo");
+            find.close();
+            editor.viewState.selections = [createSelection(0, 0, 0, 0)];
+
+            find.prev();
+
+            expect(find.isVisible()).toBe(false);
+            expect(editor.viewState.currentSearchMatchIndex).toBe(2);
+        });
+
+        it("пустой запрос сеется из выделения — виджет по-прежнему не нужен", () => {
+            const { find, component, editor } = setup("foo bar foo");
+            editor.viewState.selections = [createSelection(0, 4, 0, 7)]; // "bar"
+
+            find.next();
+
+            expect(component.getQuery()).toBe("bar");
+            expect(find.isVisible()).toBe(false);
+            expect(editor.viewState.searchMatches).toHaveLength(1);
+        });
+
+        it("запрос без совпадений — тихий no-op, виджет не всплывает", () => {
+            const { find, component, editor } = setup("foo bar foo");
+            find.open();
+            typeQuery(component, "zzz");
+            find.close();
+            editor.viewState.selections = [createSelection(0, 0, 0, 0)];
+
+            find.next();
+
+            expect(find.isVisible()).toBe(false);
+            expect(editor.viewState.searchMatches).toEqual([]);
+            expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 0 });
+        });
+
+        it("без запроса и без выделения открывает виджет — искать нечего", () => {
+            const { find, editor } = setup("foo bar foo");
+            editor.viewState.selections = [createSelection(0, 0, 0, 0)];
+
+            find.next();
+
+            expect(find.isVisible()).toBe(true);
+        });
+    });
+
     it("right-aligns the widget one column shy of the group's edge", () => {
         const { find, groupComponent, testApp } = setup("foo bar foo");
         find.open();

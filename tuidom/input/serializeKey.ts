@@ -129,6 +129,14 @@ export function serializeKey(name: string): string {
         return "\x00";
     }
 
+    // Backspace с модификаторами — CSI 127;{mod}u (форма kitty). Легаси-байт 0x08
+    // здесь не годится: он неотличим от Ctrl+H, и бинд `ctrl+backspace` по нему
+    // не сматчится — ровно поэтому Ctrl+Backspace и не работал.
+    if (remaining === "Backspace" && hasModifiers) {
+        const mod = encodeModifier(ctrl, shift, alt, meta);
+        return `\x1b[127;${mod.toString()}u`;
+    }
+
     // Ctrl+letter → control character (0x01–0x1a)
     if (ctrl && !shift && !alt && !meta && remaining.length === 1 && /[a-zA-Z]/.test(remaining)) {
         const code = remaining.toUpperCase().charCodeAt(0) - 0x40;

@@ -27,9 +27,13 @@ export const nextMatchAction: CommandAction = {
     title: "Find: Next Match",
     shortTitle: "Find Next",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "3_find", order: 20 }],
-    keybinding: parseKeybinding("enter"),
-    keybindings: [parseKeybinding("f3")],
-    when: "findWidgetVisible",
+    // F3 — от фокуса в тексте, как `EditorContextKeys.focus` у upstream: поиск
+    // продолжается по последнему запросу и с закрытым виджетом. Enter остаётся
+    // привязанным к открытому виджету — в тексте он печатает перевод строки.
+    keybindings: [
+        { keys: parseKeybinding("enter"), when: "findWidgetVisible" },
+        { keys: parseKeybinding("f3"), when: "textInputFocus || findWidgetVisible" },
+    ],
     run(accessor) {
         accessor.get(FindServiceDIToken).next();
     },
@@ -40,9 +44,10 @@ export const previousMatchAction: CommandAction = {
     title: "Find: Previous Match",
     shortTitle: "Find Previous",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "3_find", order: 30 }],
-    keybinding: parseKeybinding("shift+enter"),
-    keybindings: [parseKeybinding("shift+f3")],
-    when: "findWidgetVisible",
+    keybindings: [
+        { keys: parseKeybinding("shift+enter"), when: "findWidgetVisible" },
+        { keys: parseKeybinding("shift+f3"), when: "textInputFocus || findWidgetVisible" },
+    ],
     run(accessor) {
         accessor.get(FindServiceDIToken).prev();
     },

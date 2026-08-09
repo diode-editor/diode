@@ -48,6 +48,11 @@ describe("serializeKey", () => {
         expect(serializeKey("Ctrl+Z")).toBe("\x1a");
     });
 
+    it("serializes Ctrl+Backspace as CSI-u (0x08 неотличим от Ctrl+H)", () => {
+        expect(serializeKey("Ctrl+Backspace")).toBe("\x1b[127;5u");
+        expect(serializeKey("Backspace")).toBe("\x7f");
+    });
+
     // ─── Ctrl+символ (0x1c–0x1f) ───
 
     it("serializes Ctrl+6 and the other 0x1c–0x1f combinations", () => {
