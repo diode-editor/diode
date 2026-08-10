@@ -399,6 +399,69 @@ describe("Workbench — дифф без открытого файла (openDiffW
     });
 });
 
+describe("Workbench — дифф на широком терминале (side-by-side)", () => {
+    let ws: ITempWorkspace;
+
+    beforeEach(() => {
+        ws = createTempWorkspace({ prefix: "vexx-diff-wide-", files: { "a.txt": AT_HEAD } });
+    });
+
+    afterEach(() => {
+        ws.dispose();
+    });
+
+    /** Тот же стенд, что и в основном блоке, но терминал шире порога режима. */
+    async function mountWide() {
+        const { container, bindApp } = createTestContainer();
+        const registry = new FileSystemProviderRegistry();
+        registry.registerProvider("git", {
+            readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
+            onDidChangeFile: () => ({ dispose: () => undefined }),
+        });
+        container.bind(FileSystemProviderRegistryDIToken, () => registry);
+        const workbench = container.get(WorkbenchComponentDIToken);
+        const commands = container.get(CommandRegistryDIToken);
+        const editors = container.get(EditorServiceDIToken);
+        commands.register(ORIGINAL_RESOURCE_COMMAND, (raw) =>
+            Uri.from({ scheme: "git", path: String(raw), query: '{"ref":"HEAD"}' }).toString(),
+        );
+        workbench.setWorkspaceFolder(ws.dir);
+        workbench.mount();
+        const app = TestApp.create(workbench.view, new Size(150, 16));
+        bindApp(app.app);
+        commands.execute("workbench.openFile", ws.path("a.txt"));
+        await settle(0);
+        return { workbench, commands, editors, app };
+    }
+
+    it("команда открывает две колонки с подписями сторон и выровненной правкой", async () => {
+        const { workbench, commands, editors, app } = await mountWide();
+        const editor = editors.getActiveEditor();
+        editor?.goToPosition(1, 0);
+        editor?.viewState.type("XX");
+
+        commands.execute(COMPARE);
+        await settle(10);
+        app.render();
+
+        const lines = app.backend
+            .screenToString()
+            .split("\n")
+            .map((l) => l.replace(/\s+$/, ""));
+        // Заголовок сторон: слева HEAD, справа имя файла, между ними
+        // разделитель. Строку табов («a.txt ↔ HEAD ×») отсекаем по «↔».
+        const header = lines.find((l) => l.includes("HEAD") && l.includes("│") && !l.includes("↔"));
+        expect(header).toBeDefined();
+        expect(header).toContain("a.txt");
+        expect(header?.indexOf("HEAD")).toBeLessThan(header?.indexOf("a.txt") ?? -1);
+        // Правка стоит парой на одной строке: слева -bravo, справа +XXbravo.
+        const pair = lines.find((l) => l.includes("- bravo"));
+        expect(pair).toBeDefined();
+        expect(pair).toContain("+ XXbravo");
+        workbench.dispose();
+    });
+});
+
 describe("Workbench — вкладка diff, вырожденные случаи", () => {
     it("без активного редактора команда просто ничего не делает", async () => {
         const ws = createTempWorkspace({ prefix: "vexx-diff-empty-", files: {} });

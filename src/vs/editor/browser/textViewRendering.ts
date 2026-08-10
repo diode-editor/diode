@@ -38,6 +38,12 @@ export interface ITextViewportGeometry {
     viewLineCount: number;
     contentCols: number;
     gutterW: number;
+    /**
+     * Экранный сдвиг первой строки вьюпорта вниз — у поверхности со своей
+     * шапкой (заголовок сторон side-by-side диффа) текст начинается не с
+     * нулевой строки виджета. Отсутствие = 0.
+     */
+    originY?: number;
 }
 
 /**
@@ -71,7 +77,7 @@ export function forEachRangeCell(
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
 
         for (let screenX = screenXStart; screenX < screenXEnd; screenX++) {
-            visit(geo.gutterW + screenX, screenY);
+            visit(geo.gutterW + screenX, screenY + (geo.originY ?? 0));
         }
     }
 }

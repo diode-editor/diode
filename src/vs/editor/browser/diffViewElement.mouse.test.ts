@@ -6,6 +6,7 @@ import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { isSelectionCollapsed } from "../common/core/iSelection.ts";
 import type { IDiffViewRow } from "../common/diff/diffViewModel.ts";
 import { createDiffViewState } from "../common/diff/diffViewText.ts";
+import { buildSideBySideRows, createSideBySideViewStates } from "../common/diff/sideBySideRows.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
 
 import type { IDiffRowSource } from "./diffViewElement.ts";
@@ -28,7 +29,15 @@ const SIDES = {
 
 function createElement(): { element: DiffViewElement; app: TestApp } {
     const element = new DiffViewElement();
-    element.setRows(ROWS, NO_TOKENS, createDiffViewState(ROWS, SIDES, 4));
+    const sideRows = buildSideBySideRows(ROWS);
+    element.setDiff({
+        rows: ROWS,
+        sideRows,
+        source: NO_TOKENS,
+        inlineViewState: createDiffViewState(ROWS, SIDES, 4),
+        sideViewStates: createSideBySideViewStates(sideRows, SIDES, 4),
+        labels: { original: "HEAD", modified: "file" },
+    });
     const app = TestApp.createWithContent(element, new Size(40, 5));
     app.render();
     return { element, app };

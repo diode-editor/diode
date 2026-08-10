@@ -64,6 +64,8 @@ export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri): Pro
     const input = {
         uri: Uri.from({ scheme: DIFF_SCHEME, path: uri.path, query: "HEAD" }),
         label: `${label} ↔ HEAD`,
+        originalLabel: "HEAD",
+        modifiedLabel: label,
         originalText,
         modifiedText,
         languageId,
