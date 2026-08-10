@@ -61,7 +61,7 @@ export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
     shortTitle: "Alternate Editor",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 15 }],
     keybinding: parseKeybinding("ctrl+6"),
-    when: "textInputFocus && editorTabsMultiple",
+    when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
         const group = accessor.get(EditorServiceDIToken);
         group.cycleMru(1);
