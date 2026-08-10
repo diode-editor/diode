@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
 import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { DiffInnerRanges } from "../common/diff/diffInnerRanges.ts";
 import type { IDiffViewRow } from "../common/diff/diffViewModel.ts";
 import { createDiffViewState } from "../common/diff/diffViewText.ts";
 import { buildSideBySideRows, createSideBySideViewStates } from "../common/diff/sideBySideRows.ts";
@@ -64,6 +65,7 @@ function createElement(
         inlineViewState: createDiffViewState(rows, sides, 4),
         sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
         labels: { original: "HEAD", modified: "file" },
+        innerRanges: new DiffInnerRanges([]),
     });
     const app = TestApp.createWithContent(element, size);
     app.render();

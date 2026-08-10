@@ -4,6 +4,7 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import type { IDiffRowSource } from "../../../../editor/browser/diffViewElement.ts";
 import { DiffViewElement } from "../../../../editor/browser/diffViewElement.ts";
 import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
+import { DiffInnerRanges } from "../../../../editor/common/diff/diffInnerRanges.ts";
 import { DiffViewModel } from "../../../../editor/common/diff/diffViewModel.ts";
 import type { DiffSide } from "../../../../editor/common/diff/diffViewText.ts";
 import { createDiffViewState } from "../../../../editor/common/diff/diffViewText.ts";
@@ -162,6 +163,7 @@ export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSo
             inlineViewState: createDiffViewState(model.rows, sides, DIFF_TAB_SIZE),
             sideViewStates: createSideBySideViewStates(sideRows, sides, DIFF_TAB_SIZE),
             labels: { original: input.originalLabel, modified: input.modifiedLabel },
+            innerRanges: new DiffInnerRanges(diff.changes),
         });
     }
 

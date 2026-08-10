@@ -4,6 +4,7 @@ import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { isSelectionCollapsed } from "../common/core/iSelection.ts";
+import { DiffInnerRanges } from "../common/diff/diffInnerRanges.ts";
 import type { IDiffViewRow } from "../common/diff/diffViewModel.ts";
 import { createDiffViewState } from "../common/diff/diffViewText.ts";
 import { buildSideBySideRows, createSideBySideViewStates } from "../common/diff/sideBySideRows.ts";
@@ -47,6 +48,7 @@ function createElement(): { element: DiffViewElement; app: TestApp } {
         inlineViewState: createDiffViewState(ROWS, SIDES, 4),
         sideViewStates: createSideBySideViewStates(sideRows, SIDES, 4),
         labels: { original: "HEAD", modified: "file" },
+        innerRanges: new DiffInnerRanges([]),
     });
     const app = TestApp.createWithContent(element, new Size(WIDTH, 6));
     app.render();
@@ -188,6 +190,7 @@ describe("DiffViewElement side-by-side — протяжка и копирова�
             inlineViewState: createDiffViewState(rows, sides, 4),
             sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
             labels: { original: "HEAD", modified: "file" },
+            innerRanges: new DiffInnerRanges([]),
         });
 
         // Выделить в левой стороне все три строки вью (средняя — филлер).
