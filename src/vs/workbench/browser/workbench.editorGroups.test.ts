@@ -4,9 +4,12 @@ import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+
+import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 /**
  * Сплиты области редактора (фаза 3): полоса групп, split/focus-команды,
@@ -485,6 +488,84 @@ describe("Workbench — editor groups (сплиты)", () => {
         service().activeGroup.closeTab(0);
         expect(service().groups.length).toBe(1);
         expect(find.widgetIfExists(collapsedGroup.id)).toBeNull();
+    });
+
+    it("US-35: статус-бар следует за активной группой (Ln/Col из её редактора)", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.commands.execute("workbench.action.splitEditor");
+        // Группа 2: каретка на 21-й строке (1-based в статус-баре).
+        service().getActiveEditor()!.viewState.goToPosition(20, 5);
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).toContain("Ln 21, Col 6");
+
+        // Группа 1: каретка осталась на 41-й строке из US-1-подобного сетапа.
+        h.commands.execute("workbench.action.focusFirstEditorGroup");
+        service().getActiveEditor()!.viewState.goToPosition(2, 0);
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).toContain("Ln 3, Col 1");
+
+        // Переключение группы без движения каретки — статус-бар пересчитан.
+        h.commands.execute("workbench.action.focusSecondEditorGroup");
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).toContain("Ln 21, Col 6");
+    });
+
+    it("US-37: сквиглы диагностик приходят в обе вью документа", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.commands.execute("workbench.action.splitEditor");
+        const groups = service().groups;
+        // getEditors() — шов диагностик: обязан отдавать вкладки ВСЕХ групп.
+        const editors = service().getEditors();
+        expect(editors.length).toBe(2);
+        expect(service().groupOf(editors[0]) === groups[0]).toBe(true);
+        expect(service().groupOf(editors[1]) === groups[1]).toBe(true);
+    });
+
+    it("US-38: фокус в панели не меняет активную группу; focusActiveEditorGroup возвращает", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.commands.execute("workbench.action.splitEditor");
+        const active = service().activeGroup;
+
+        h.commands.execute("workbench.action.togglePanel");
+        h.testApp.render();
+        expect(service().activeGroup === active).toBe(true);
+
+        h.commands.execute("workbench.action.focusActiveEditorGroup");
+        const focused = h.testApp.focusedElement;
+        expect(focused).not.toBeNull();
+        expect(focused!.getAncestorPath().includes(active.activePane!.view)).toBe(true);
+    });
+
+    it("US-40: detached-редактор (Output) не попадает в группы и ViewColumn", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        const detached = service().openDetached(
+            service().getActiveEditor()!.uri.with({ scheme: "output", path: "test" }),
+            "plaintext",
+        );
+        expect(service().groups.length).toBe(1);
+        expect(service().groupOf(detached)).toBeNull();
+        expect(service().getPanes().includes(detached)).toBe(false);
+    });
+
+    it("контекст-ключи групп: multipleEditorGroups и activeEditorGroup*", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        const keys = h.container.get(ContextKeyServiceDIToken);
+        h.container.get(WorkbenchContextKeysDIToken).update();
+        expect(keys.evaluate("multipleEditorGroups")).toBe(false);
+        expect(keys.evaluate("activeEditorGroupIndex == 1")).toBe(true);
+        expect(keys.evaluate("activeEditorGroupLast")).toBe(true);
+
+        h.commands.execute("workbench.action.splitEditor");
+        h.container.get(WorkbenchContextKeysDIToken).update();
+        expect(keys.evaluate("multipleEditorGroups")).toBe(true);
+        expect(keys.evaluate("activeEditorGroupIndex == 2")).toBe(true);
+        expect(keys.evaluate("activeEditorGroupLast")).toBe(true);
+        expect(keys.evaluate("activeEditorGroupEmpty")).toBe(false);
+
+        h.commands.execute("workbench.action.focusFirstEditorGroup");
+        h.container.get(WorkbenchContextKeysDIToken).update();
+        expect(keys.evaluate("activeEditorGroupIndex == 1")).toBe(true);
+        expect(keys.evaluate("activeEditorGroupLast")).toBe(false);
     });
 
     it("группы делят полосу поровну после сплита (лэйаут кадра)", () => {

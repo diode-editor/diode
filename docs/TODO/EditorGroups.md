@@ -448,16 +448,34 @@ terminal, custom) — кандидат на **bounded member-level uncommenting*
 
 Каждая фаза шипается отдельно (зелёный CI, без полусделанного видимого поведения):
 
-1. **Общий документ + undo на документ** (невидимая) — US-26…32, дедуп US-49.
-2. **Извлечение `EditorGroup` + `EditorPartComponent`** (невидимая, одна группа).
-3. **`EditorPartElement` + вторая группа + split/focus** — US-1,2,4,8,9-14,47.
-4. **Перенос/join/resize/maximize/ось + openToSide** — US-5,6,7,15-24,48,50.
-5. **Find на группу + suggest-позиционирование** — US-33,34.
-6. **Персист раскладки** — US-41,42,43.
-7. **Полировка**: контекст-ключи `activeEditorGroup*`, верификация US-35…46, доки.
+1. [x] **Общий документ + undo на документ** (невидимая) — US-26…31, дедуп US-49.
+2. [x] **Извлечение `EditorGroup` + `EditorPartComponent`** (невидимая, одна группа).
+3. [x] **`EditorPartElement` + вторая группа + split/focus** — US-1,2,4,8,9-14,47.
+4. [x] **Перенос/join/resize/maximize/ось + openToSide** — US-5,7,15-24,48,50.
+5. [x] **Find на группу + suggest-позиционирование** — US-33,34.
+6. [x] **Персист раскладки** — US-41,42,43.
+7. [x] **Полировка**: контекст-ключи `activeEditorGroup*`, верификация US-35…40, доки.
 
-API — двумя фазами: **API-A** (параллельно 1-2): d.ts + runtime-типы, didOpen на
-каждое открытие + `editor.didClose` + Map-коалесинг didChange, snapshot-протокол
-`editor.layoutChanged` + `editor.showTextDocument/closeTabs/closeGroups` поверх
-одногрупповой заглушки, `vscode.diff`; **API-B** (после фазы 3): настоящий
+API — двумя фазами: **API-A** (независимо от мультигрупп): d.ts + runtime-типы,
+didOpen на каждое открытие + `editor.didClose` + Map-коалесинг didChange,
+snapshot-протокол `editor.layoutChanged` + `editor.showTextDocument/closeTabs/
+closeGroups` поверх одногрупповой заглушки, `vscode.diff`; **API-B**: настоящий
 layout-адаптер, ViewColumn-резолв, groupId-таргетинг, полный AS-11.
+
+## Follow-up'ы (осознанные люфты реализации)
+
+- **US-6: Quick Open `Ctrl+Enter`** (открыть выбранный файл beside) — требует
+  альтернативного accept в контракте QuickAccess (`accept(item, {alternate})`
+  через `QuickPickElement.onAcceptAlternate`); Explorer `Ctrl+Enter` и
+  `revealDefinitionAside` уже работают через `openUri({group: "beside"})`.
+- **US-32: read-only на документ.** Флаг живёт на view-state вкладки; две вкладки
+  одного документа могут разъехаться по read-only (гейты правок при этом общие —
+  модель одна). Перенос флага на модель — вместе с конфиг-слоем `files.readonly*`
+  ([ReadonlyEditor](ReadonlyEditor.md)).
+- **Дубль-работа при N вью документа**: `DocumentTokenStore` и folding-пересчёт —
+  пер-компонент; консолидация в модель — по перф-сигналу.
+- **US-44/45 (деградация хоткеев по tier)** — механика биндов с `when: tier == …`
+  и чордов работает (юниты `commandAction`/`keybindingRegistry`); живая проверка
+  на настоящем legacy-терминале — при ручном прогоне чек-листа.
+- **Сплит untitled/дифф-вкладки** дублем не делится (реестр моделей — только
+  `file:`): новая группа при сплите таких вкладок открывается пустой.

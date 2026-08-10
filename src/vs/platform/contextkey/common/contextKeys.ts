@@ -154,9 +154,12 @@ export interface ContextKeyTypes {
     // textCompareEditorActive: boolean;
     // editorIsOpen: boolean;
     // groupEditorsCount: number;
-    // activeEditorGroupEmpty: boolean;
-    // activeEditorGroupIndex: number;
-    // activeEditorGroupLast: boolean;
+    /** True while the active editor group has no tabs. */
+    activeEditorGroupEmpty: boolean;
+    /** 1-based index (ViewColumn) of the active editor group. */
+    activeEditorGroupIndex: number;
+    /** True while the active editor group is the last in the strip. */
+    activeEditorGroupLast: boolean;
     /** True while the editor area is split into more than one group. */
     multipleEditorGroups: boolean;
     // activeEditor: string;
@@ -310,9 +313,9 @@ export const allContextKeys: ContextKey[] = [
     // "textCompareEditorActive",
     // "editorIsOpen",
     // "groupEditorsCount",
-    // "activeEditorGroupEmpty",
-    // "activeEditorGroupIndex",
-    // "activeEditorGroupLast",
+    "activeEditorGroupEmpty",
+    "activeEditorGroupIndex",
+    "activeEditorGroupLast",
     "multipleEditorGroups",
     // "activeEditor",
     // "activeEditorIsDirty",

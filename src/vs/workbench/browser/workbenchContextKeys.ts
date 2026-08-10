@@ -135,6 +135,13 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);
         this.contextKeys.set("multipleEditorGroups", this.editorService.groups.length > 1);
+        this.contextKeys.set("activeEditorGroupEmpty", editorCount === 0);
+        this.contextKeys.set("activeEditorGroupIndex", this.editorService.viewColumnOf(this.editorService.activeGroup));
+        this.contextKeys.set(
+            "activeEditorGroupLast",
+            this.editorService.activeGroup ===
+                this.editorService.groups[this.editorService.groups.length - 1],
+        );
         // Фокус в дереве Explorer — по пути предков до его view (id
         // "explorerView" ставит ExplorerComponent): нового шва к компоненту не нужно.
         this.contextKeys.set(
