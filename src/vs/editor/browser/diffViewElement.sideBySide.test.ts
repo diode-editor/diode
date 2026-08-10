@@ -5,6 +5,7 @@ import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { DefaultLinesDiffComputer } from "../common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
+import { DiffInnerRanges } from "../common/diff/diffInnerRanges.ts";
 import { DiffViewModel } from "../common/diff/diffViewModel.ts";
 import type { IDiffViewSides } from "../common/diff/diffViewText.ts";
 import { createDiffViewState } from "../common/diff/diffViewText.ts";
@@ -22,11 +23,16 @@ const LINE_NO = packRgb(0x85, 0x85, 0x85);
 const COLLAPSED_FG = packRgb(0x8c, 0x8c, 0x8c);
 const FILLER_FG = packRgb(0x41, 0x41, 0x41);
 
+const ADDED_TEXT_BG = packRgb(0x37, 0x41, 0x21);
+const REMOVED_TEXT_BG = packRgb(0x66, 0x22, 0x22);
+
 const STYLE_VARS = {
     "editorGutter.background": BG,
     "editorLineNumber.foreground": LINE_NO,
     "diffEditor.insertedLineBackground": ADDED_BG,
     "diffEditor.removedLineBackground": REMOVED_BG,
+    "diffEditor.insertedTextBackground": ADDED_TEXT_BG,
+    "diffEditor.removedTextBackground": REMOVED_TEXT_BG,
     "diffEditor.unchangedRegionForeground": COLLAPSED_FG,
     "diffEditor.diagonalFill": FILLER_FG,
 };
@@ -41,6 +47,11 @@ const NO_TOKENS: IDiffRowSource = {
  * незачем, а сам порог проверяется отдельным кейсом против константы.
  */
 const TEST_MIN_COLS = 30;
+
+// Геометрия при ширине 41 и однозначных номерах: левая колонка 0..19 (текст
+// с 5), разделитель 20, правая 21..40 (текст с 26).
+const LEFT_TEXT_X_HINT = 5;
+const RIGHT_TEXT_X_HINT = 26;
 
 function makeElement(
     original: string[],
@@ -69,6 +80,7 @@ function makeElement(
         inlineViewState: createDiffViewState(model.rows, sides, 4),
         sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
         labels: options.labels ?? { original: "HEAD", modified: "a.txt" },
+        innerRanges: new DiffInnerRanges(diff.changes),
     });
     return element;
 }
@@ -147,6 +159,30 @@ describe("DiffViewElement side-by-side — раскладка (US-13, US-14, US-
         // Заголовок и unchanged — дефолт.
         expect(bgAt(0, 0)).toBe(BG);
         expect(bgAt(0, 1)).toBe(BG);
+    });
+
+    it("intra-line: изменённый фрагмент ярче фона строки в обеих колонках (US-18)", () => {
+        // «b» → «bXX»: фон строки — *LineBackground, фрагмент — *TextBackground.
+        const app = render(makeElement(["a", "b suffix", "c"], ["a", "bXX suffix", "c"]));
+        const bgAt = (x: number, y: number) => app.backend.getBgAt(new Point(x, y));
+
+        // Правая колонка (текст с 26): «XX» подсвечен ярким, начало строки — фоном строки.
+        expect(bgAt(RIGHT_TEXT_X_HINT + 1, 2)).toBe(ADDED_TEXT_BG);
+        expect(bgAt(RIGHT_TEXT_X_HINT + 6, 2)).toBe(ADDED_BG);
+        // Левая колонка: удалённого фрагмента в «b» нет как текста, но строка
+        // изменена — интра-спан оригинала где-то в строке; фон строки removed.
+        expect(bgAt(LEFT_TEXT_X_HINT + 7, 2)).toBe(REMOVED_BG);
+    });
+
+    it("intra-line подсвечивается и в inline-режиме", () => {
+        const element = makeElement(["a", "b suffix", "c"], ["a", "bXX suffix", "c"]);
+        const app = render(element, new Size(TEST_MIN_COLS - 1, 6));
+        expect(element.mode).toBe("inline");
+        const bgAt = (x: number, y: number) => app.backend.getBgAt(new Point(x, y));
+
+        // Добавленная строка (экранная 2): «XX» ярче фона строки.
+        expect(bgAt(element.gutterWidth + 1, 2)).toBe(ADDED_TEXT_BG);
+        expect(bgAt(element.gutterWidth + 6, 2)).toBe(ADDED_BG);
     });
 
     it("длинные подписи сторон обрезаются по своей колонке", () => {

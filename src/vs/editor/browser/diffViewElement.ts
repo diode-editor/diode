@@ -1,4 +1,5 @@
 import type { IDisposable } from "../../../../tuidom/common/disposable.ts";
+import type { DisplayLine } from "../../../../tuidom/common/displayLine.ts";
 import type { BoxConstraints, Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { Size as SizeClass } from "../../../../tuidom/common/geometryPromitives.ts";
 import type { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
@@ -11,6 +12,7 @@ import {
     selectionToRange,
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
+import { DiffInnerRanges } from "../common/diff/diffInnerRanges.ts";
 import type { DiffSide } from "../common/diff/diffViewText.ts";
 import { collapsedRowLabel, ELLIPSIS, rowLine, rowSide } from "../common/diff/diffViewText.ts";
 import type { IDiffViewRow } from "../common/diff/diffViewModel.ts";
@@ -70,6 +72,8 @@ export interface IDiffViewInput {
     readonly sideViewStates: Record<DiffSide, EditorViewState>;
     /** Подписи над колонками side-by-side (US-14): `HEAD` / имя файла. */
     readonly labels: Record<DiffSide, string>;
+    /** Intra-line отрезки изменений (US-18): яркий фрагмент поверх фона строки. */
+    readonly innerRanges: DiffInnerRanges;
 }
 
 // Отступы гуттера повторяют редактор (`editorElement.ts`: GUTTER_LEFT_PADDING и
@@ -136,6 +140,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
         modified: createEmptyViewState(),
     };
     private labelsValue: Record<DiffSide, string> = { original: "", modified: "" };
+    private innerRanges = new DiffInnerRanges([]);
     private viewStateListeners: IDisposable[] = [];
     private lineWidthCaches: { inline: LineWidthCache | null; original: LineWidthCache | null; modified: LineWidthCache | null } =
         { inline: null, original: null, modified: null };
@@ -180,6 +185,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
         this.inlineViewState = input.inlineViewState;
         this.sideViewStates = input.sideViewStates;
         this.labelsValue = input.labels;
+        this.innerRanges = input.innerRanges;
         this.numberWidth = computeNumberWidth(input.rows);
         this.sideNumberWidths = {
             original: computeSideNumberWidth(input.sideRows, "original"),
@@ -754,6 +760,44 @@ export class DiffViewElement extends TUIElement implements IScrollable {
             // полоса изменения рвётся на подсвеченных словах.
             allowTokenBg: false,
         });
+        if (changed) {
+            this.paintInnerSpans(context, screenY, side, line, text, displayLine, {
+                gutterW: column.textX,
+                contentCols: column.contentCols,
+                scrollLeft,
+            });
+        }
+    }
+
+    /**
+     * Intra-line подсветка (US-18): яркий фон изменённого фрагмента поверх
+     * тусклого фона всей строки. Отрезки в офсетах символов — переводятся в
+     * дисплейные колонки той же {@link DisplayLine}, что рисовала текст,
+     * поэтому табы и широкие символы не разъезжаются.
+     */
+    private paintInnerSpans(
+        context: RenderContext,
+        screenY: number,
+        side: DiffSide,
+        line: number,
+        text: string,
+        displayLine: DisplayLine,
+        geo: { gutterW: number; contentCols: number; scrollLeft: number },
+    ): void {
+        const spans = this.innerRanges.get(side, line);
+        if (spans.length === 0) return;
+        const bg = this.styleVar(
+            side === "original" ? "diffEditor.removedTextBackground" : "diffEditor.insertedTextBackground",
+        );
+        for (const span of spans) {
+            const startCol = displayLine.offsetToColumn(span.start);
+            const endCol = span.end >= text.length ? displayLine.displayWidth : displayLine.offsetToColumn(span.end);
+            const from = Math.max(0, startCol - geo.scrollLeft);
+            const to = Math.min(geo.contentCols, endCol - geo.scrollLeft);
+            for (let x = from; x < to; x++) {
+                context.setCell(geo.gutterW + x, screenY, { bg });
+            }
+        }
     }
 
     private inlineBackgroundOf(row: IDiffViewRow): number {
@@ -817,6 +861,12 @@ export class DiffViewElement extends TUIElement implements IScrollable {
             // полоса изменения рвётся на подсвеченных словах.
             allowTokenBg: false,
         });
+        // Intra-line и в inline: после авто-фолбэка на узком терминале
+        // пользователь не должен терять посимвольную подсветку.
+        if (row.kind === "added" || row.kind === "deleted") {
+            const spanSide: DiffSide = row.kind === "deleted" ? "original" : "modified";
+            this.paintInnerSpans(context, screenY, spanSide, rowLine(row), text, displayLine, geo);
+        }
     }
 
     private handleWheel(event: TUIMouseEvent): void {

@@ -6,6 +6,7 @@ import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent
 import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { DefaultLinesDiffComputer } from "../common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
+import { DiffInnerRanges } from "../common/diff/diffInnerRanges.ts";
 import { DiffViewModel } from "../common/diff/diffViewModel.ts";
 import type { IDiffViewSides } from "../common/diff/diffViewText.ts";
 import { createDiffViewState } from "../common/diff/diffViewText.ts";
@@ -66,6 +67,7 @@ function diffInput(rows: DiffViewElement["rows"], sides: IDiffViewSides, source:
         inlineViewState: createDiffViewState(rows, sides, 4),
         sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
         labels: { original: "HEAD", modified: "file" },
+        innerRanges: new DiffInnerRanges([]),
     };
 }
 
