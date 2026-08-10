@@ -49,6 +49,7 @@ function createElement(): { element: DiffViewElement; app: TestApp } {
         sideViewStates: createSideBySideViewStates(sideRows, SIDES, 4),
         labels: { original: "HEAD", modified: "file" },
         innerRanges: new DiffInnerRanges([]),
+        identical: false,
     });
     const app = TestApp.createWithContent(element, new Size(WIDTH, 6));
     app.render();
@@ -191,6 +192,7 @@ describe("DiffViewElement side-by-side — протяжка и копирова�
             sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
             labels: { original: "HEAD", modified: "file" },
             innerRanges: new DiffInnerRanges([]),
+            identical: false,
         });
 
         // Выделить в левой стороне все три строки вью (средняя — филлер).
