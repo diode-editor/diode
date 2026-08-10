@@ -4,7 +4,11 @@ import { createRequire } from "node:module";
 import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
-import type { ICompletionRequest, ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
+import type {
+    ICompletionRequest,
+    ICoreCompletionResult,
+    ICoreResolvedCompletion,
+} from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
@@ -39,6 +43,7 @@ import {
     parseWireReadFileResult,
     parseWireSelections,
     requestCompletionItems,
+    requestResolveCompletionItem,
     requestDefinition,
     requestFoldingRanges,
     requestWillSaveEdits,
@@ -84,6 +89,9 @@ export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
 
 /** Порог, выше которого снапшот документа не гоняется через will-save RPC (8 MB). */
 const MAX_WILL_SAVE_TEXT_BYTES = 8 * 1024 * 1024;
+
+/** Ответ «автодополнений нет» — общий для всех ранних выходов completion. */
+const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
 
 /** Папка воркспейса, проецируемая в subprocess (`workspace.workspaceFolders`). */
 export interface IWorkspaceFolderInfo {
@@ -284,6 +292,8 @@ export class ExtensionHost extends Disposable {
     private didSaveSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные completion-провайдеры (см. `languages.updateSubscriptions`). */
     private completionSubscribed = false;
+    /** Триггер-символы completion-провайдеров субпроцесса (см. `languages.updateSubscriptions`). */
+    private completionTriggerCharactersValue: readonly string[] = [];
     /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
     private foldingSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные definition-провайдеры (см. `languages.updateSubscriptions`). */
@@ -304,6 +314,7 @@ export class ExtensionHost extends Disposable {
     private readonly fileSystemChangeListeners: ((uris: readonly Uri[]) => void)[] = [];
     /** Слушатели смены наличия folding-провайдеров (для пере-пересчёта фолдов открытых редакторов). */
     private readonly foldingProvidersChangedListeners: (() => void)[] = [];
+    private readonly completionTriggerCharactersListeners: ((characters: readonly string[]) => void)[] = [];
 
     public constructor(
         editorOptions: IEditorOptionsService,
@@ -543,16 +554,16 @@ export class ExtensionHost extends Disposable {
      * не ответило за `completionTimeoutMs`. Подключается в
      * `EditorService.completionSource` (wiring в module/харнессе).
      */
-    public async provideCompletionItems(req: ICompletionRequest): Promise<readonly ICoreCompletionItem[]> {
+    public async provideCompletionItems(req: ICompletionRequest): Promise<ICoreCompletionResult> {
         const rpc = this.rpc;
-        if (rpc === null || !this.completionSubscribed) return [];
+        if (rpc === null || !this.completionSubscribed) return EMPTY_COMPLETION_RESULT;
         /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping completion: document too large", {
                 uri: req.uri,
                 length: req.text.length,
             });
-            return [];
+            return EMPTY_COMPLETION_RESULT;
         }
         /* v8 ignore stop */
         return requestCompletionItems(
@@ -563,9 +574,36 @@ export class ExtensionHost extends Disposable {
                 text: req.text,
                 line: req.line,
                 character: req.character,
+                ...(req.triggerKind !== undefined ? { triggerKind: req.triggerKind } : {}),
+                ...(req.triggerCharacter !== undefined ? { triggerCharacter: req.triggerCharacter } : {}),
             },
             this.options.completionTimeoutMs,
         );
+    }
+
+    /**
+     * Догружает detail/documentation/additionalTextEdits пункта автодополнения
+     * (`languages.resolveCompletionItem`). У стокового LSP-стека это ЕДИНСТВЕННЫЙ
+     * путь к описанию и авто-импорту: `typescript-language-server` присылает их
+     * не в списке, а по запросу выбранного пункта. `null` — резолвить нечего или
+     * расширение не ответило за `completionTimeoutMs`.
+     */
+    public async resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
+        const rpc = this.rpc;
+        if (rpc === null || !this.completionSubscribed) return null;
+        return requestResolveCompletionItem(
+            (method, params) => rpc.request(method, params),
+            id,
+            this.options.completionTimeoutMs,
+        );
+    }
+
+    /**
+     * Символы, после набора которых ядро обязано само открыть попап (`.` у
+     * tsserver) — объединение `triggerCharacters` всех регистраций субпроцесса.
+     */
+    public get completionTriggerCharacters(): readonly string[] {
+        return this.completionTriggerCharactersValue;
     }
 
     /**
@@ -647,6 +685,21 @@ export class ExtensionHost extends Disposable {
 
     private fireFoldingProvidersChanged(): void {
         for (const cb of [...this.foldingProvidersChangedListeners]) cb();
+    }
+
+    /**
+     * Триггер-символы completion сменились: language server объявляет их при
+     * регистрации провайдера, то есть уже ПОСЛЕ активации расширения — ядро
+     * обязано подхватить их на лету, иначе `.` не откроет попап до рестарта.
+     */
+    public onCompletionTriggerCharactersChanged(cb: (characters: readonly string[]) => void): { dispose(): void } {
+        this.completionTriggerCharactersListeners.push(cb);
+        return {
+            dispose: (): void => {
+                const idx = this.completionTriggerCharactersListeners.indexOf(cb);
+                if (idx >= 0) this.completionTriggerCharactersListeners.splice(idx, 1);
+            },
+        };
     }
 
     // ─── Провайдеры ФС расширений (мост под IFileSystemProviderRegistry) ──────
@@ -857,8 +910,18 @@ export class ExtensionHost extends Disposable {
                 hasCompletionProviders?: unknown;
                 hasFoldingProviders?: unknown;
                 hasDefinitionProviders?: unknown;
+                completionTriggerCharacters?: unknown;
             };
             this.completionSubscribed = p.hasCompletionProviders === true;
+            const triggerBefore = this.completionTriggerCharactersValue;
+            this.completionTriggerCharactersValue = Array.isArray(p.completionTriggerCharacters)
+                ? p.completionTriggerCharacters.filter((char): char is string => typeof char === "string")
+                : [];
+            if (triggerBefore.join("") !== this.completionTriggerCharactersValue.join("")) {
+                for (const cb of [...this.completionTriggerCharactersListeners]) {
+                    cb(this.completionTriggerCharactersValue);
+                }
+            }
             this.definitionSubscribed = p.hasDefinitionProviders === true;
             const foldingBefore = this.foldingSubscribed;
             this.foldingSubscribed = p.hasFoldingProviders === true;

@@ -22,7 +22,7 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
             await settle();
 
             // Через group.completionSource (wiring харнесса) — как это делает ядро.
-            const items = await harness.group.completionSource!(REQ);
+            const { items } = await harness.group.completionSource!(REQ);
             expect(items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
 
             const style = items.find((i) => i.label === "indent_style");
@@ -47,8 +47,8 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
         });
         try {
             await settle();
-            const items = await harness.host.provideCompletionItems({ ...REQ, languageId: "typescript" });
-            expect(items).toEqual([]);
+            const result = await harness.host.provideCompletionItems({ ...REQ, languageId: "typescript" });
+            expect(result).toEqual({ items: [], isIncomplete: false });
         } finally {
             await harness.dispose();
         }
@@ -59,14 +59,14 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
             initialFile: { name: "main.ts", content: "x\n" },
         });
         try {
-            const items = await harness.host.provideCompletionItems({
+            const result = await harness.host.provideCompletionItems({
                 uri: Uri.file("/proj/main.ts").toString(),
                 languageId: "typescript",
                 text: "x",
                 line: 0,
                 character: 1,
             });
-            expect(items).toEqual([]);
+            expect(result).toEqual({ items: [], isIncomplete: false });
         } finally {
             await harness.dispose();
         }

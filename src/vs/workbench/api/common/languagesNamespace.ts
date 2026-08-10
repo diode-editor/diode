@@ -3,8 +3,24 @@ import type * as vscode from "vscode";
 import { matchDocumentSelector } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
-import { DisposableImpl, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts";
-import type { WireCompletionItem, WireDefinitionLocation, WireFoldingRange, WireMarker } from "./wireTypes.ts";
+import {
+    CompletionTriggerKind,
+    DisposableImpl,
+    EventEmitter,
+    Position,
+    Range,
+    SnippetString,
+    Uri,
+} from "./vscodeTypes.ts";
+import type {
+    WireCompletionItem,
+    WireCompletionResult,
+    WireDefinitionLocation,
+    WireFoldingRange,
+    WireMarker,
+    WireResolvedCompletionItem,
+    WireTextEdit,
+} from "./wireTypes.ts";
 
 /** `vscode.Diagnostic` (утиный тип) → {@link WireMarker}; кривые поля — к дефолтам. */
 function toWireMarker(diag: unknown): WireMarker {
@@ -56,7 +72,20 @@ interface IWireCompletionParams {
     readonly text?: string;
     readonly line?: number;
     readonly character?: number;
+    /** `CompletionTriggerKind`; по умолчанию `Invoke`. */
+    readonly triggerKind?: number;
+    /** Символ-триггер, если запрос спровоцирован набором (`.`). */
+    readonly triggerCharacter?: string;
 }
+
+/** Элемент кэша ответов completion — оригинальный объект провайдера + его владелец. */
+interface ICachedCompletion {
+    readonly item: vscode.CompletionItem;
+    readonly provider: vscode.CompletionItemProvider;
+}
+
+/** Сколько последних ответов completion держим ради resolve. */
+const COMPLETION_CACHE_DEPTH = 2;
 
 /** Wire-параметры запроса folding (host → subprocess). */
 interface IWireFoldingParams {
@@ -136,10 +165,52 @@ function readLabel(item: vscode.CompletionItem): string | undefined {
     return undefined;
 }
 
-/** Читает `insertText` (строка или `SnippetString { value }`); fallback — label. */
+/**
+ * Читает `labelDetails` (`labelDetailsSupport` объявляет за нас стоковый
+ * languageclient): сигнатура рядом с лейблом (`(a: string): void`) и описание
+ * источника (модуль авто-импорта).
+ */
+function readLabelDetails(item: vscode.CompletionItem): { detail?: string; description?: string } {
+    const label = (item as { label?: unknown }).label;
+    if (typeof label !== "object" || label === null) return {};
+    const parts = label as { detail?: unknown; description?: unknown };
+    return {
+        ...(typeof parts.detail === "string" ? { detail: parts.detail } : {}),
+        ...(typeof parts.description === "string" ? { description: parts.description } : {}),
+    };
+}
+
+/**
+ * Вырезает сниппет-синтаксис: `${1:name}` → `name`, `${1|a,b|}` → `a`,
+ * `$1`/`$0` → ``, `\$` → `$`.
+ *
+ * Сниппет-сессий (табстопы) у нас нет, и заводить их в этой итерации мы не
+ * стали — но и пускать `${1:name}` в буфер пользователя нельзя. Это страховка,
+ * а не поддержка сниппетов.
+ */
+export function stripSnippetPlaceholders(value: string): string {
+    // Экранированный `\$` прячем ПЕРВЫМ: иначе `\$5` разбирается как плейсхолдер
+    // `$5`, и от него остаётся осиротевший обратный слэш.
+    const ESCAPED_DOLLAR = "\u0000";
+    return value
+        .replace(/\\\$/g, ESCAPED_DOLLAR)
+        // `split(",", 1).join("")` вместо `[0]`: даёт первый вариант без ветки
+        // «а вдруг массив пуст» (её не бывает, а покрытие требовало бы теста).
+        .replace(/\$\{(\d+)\|([^|]*)\|\}/g, (_all, _index: string, choices: string) => choices.split(",", 1).join(""))
+        .replace(/\$\{\d+:([^}]*)\}/g, "$1")
+        .replace(/\$\{\d+\}/g, "")
+        .replace(/\$\d+/g, "")
+        .replaceAll(ESCAPED_DOLLAR, "$");
+}
+
+/**
+ * Читает `insertText` (строка или `SnippetString { value }`); fallback — label.
+ * У сниппет-пунктов плейсхолдеры вырезаются — см. {@link stripSnippetPlaceholders}.
+ */
 function readInsertText(item: vscode.CompletionItem, label: string): string {
     const insert = (item as { insertText?: unknown }).insertText;
     if (typeof insert === "string") return insert;
+    if (insert instanceof SnippetString) return stripSnippetPlaceholders(insert.value);
     if (typeof insert === "object" && insert !== null && typeof (insert as { value?: unknown }).value === "string") {
         return (insert as { value: string }).value;
     }
@@ -175,10 +246,14 @@ function readRange(item: vscode.CompletionItem): WireCompletionItem["range"] {
     };
 }
 
-/** Сериализует `vscode.CompletionItem` в wire-форму (subprocess → host). */
-function serializeCompletionItem(item: vscode.CompletionItem): WireCompletionItem | null {
+/**
+ * Сериализует `vscode.CompletionItem` в wire-форму (subprocess → host).
+ * `id` — ключ элемента в кэше ответа, по нему host потом просит resolve.
+ */
+function serializeCompletionItem(item: vscode.CompletionItem, id: string): WireCompletionItem | null {
     const label = readLabel(item);
     if (label === undefined || label === "") return null;
+    const labelDetails = readLabelDetails(item);
     const command = (item as { command?: { command?: unknown; arguments?: unknown } }).command;
     const kind = (item as { kind?: unknown }).kind;
     const detail = (item as { detail?: unknown }).detail;
@@ -189,6 +264,9 @@ function serializeCompletionItem(item: vscode.CompletionItem): WireCompletionIte
     return {
         label,
         insertText: readInsertText(item, label),
+        id,
+        ...(labelDetails.detail !== undefined ? { labelDetail: labelDetails.detail } : {}),
+        ...(labelDetails.description !== undefined ? { labelDescription: labelDetails.description } : {}),
         ...(typeof kind === "number" ? { kind } : {}),
         ...(typeof detail === "string" ? { detail } : {}),
         ...(documentation !== undefined ? { documentation } : {}),
@@ -206,12 +284,30 @@ function serializeCompletionItem(item: vscode.CompletionItem): WireCompletionIte
     };
 }
 
-/** Нормализует результат провайдера в массив `CompletionItem`. */
-function normalizeResult(result: unknown): readonly vscode.CompletionItem[] {
-    if (result === undefined || result === null) return [];
-    if (Array.isArray(result)) return result as vscode.CompletionItem[];
+/**
+ * Нормализует результат провайдера в элементы + флаг «список неполный».
+ * `isIncomplete` — не косметика: на нём стоит решение ядра перезапросить
+ * провайдеров при доборе символа вместо локальной фильтрации (у tsserver
+ * список почти всегда неполный).
+ */
+function normalizeResult(result: unknown): { items: readonly vscode.CompletionItem[]; isIncomplete: boolean } {
+    if (result === undefined || result === null) return { items: [], isIncomplete: false };
+    if (Array.isArray(result)) return { items: result as vscode.CompletionItem[], isIncomplete: false };
     const items = (result as { items?: unknown }).items;
-    return Array.isArray(items) ? (items as vscode.CompletionItem[]) : [];
+    const isIncomplete = (result as { isIncomplete?: unknown }).isIncomplete === true;
+    return { items: Array.isArray(items) ? (items as vscode.CompletionItem[]) : [], isIncomplete };
+}
+
+/**
+ * Сериализует `vscode.TextEdit` (утиный тип) в общую wire-форму правки
+ * ({@link WireTextEdit}, та же, что у save-участников); `null` — форма чужая.
+ */
+function serializeTextEdit(edit: unknown): WireTextEdit | null {
+    if (typeof edit !== "object" || edit === null) return null;
+    const e = edit as { range?: unknown; newText?: unknown };
+    const range = serializeDefinitionRange(e.range);
+    if (range === null || typeof e.newText !== "string") return null;
+    return { range, text: e.newText };
 }
 
 /** Сериализует `vscode.FoldingRange` в wire-форму; `null`, если форма битая. */
@@ -248,11 +344,40 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     const foldingRegistrations: IFoldingRegistration[] = [];
     const definitionRegistrations: IDefinitionRegistration[] = [];
 
+    // Кэш ответов completion для resolve. Держим последние COMPLETION_CACHE_DEPTH
+    // ответов: пользователь резолвит пункт из текущего списка, а гонка «ответ
+    // пришёл, попап уже перезапросил» стоит одного лишнего ведра.
+    const completionCache = new Map<number, readonly ICachedCompletion[]>();
+    let nextCacheId = 1;
+
+    function rememberCompletions(cacheId: number, items: readonly ICachedCompletion[]): void {
+        completionCache.set(cacheId, items);
+        // Вытесняем самые старые вёдра (Map хранит порядок вставки).
+        const excess = completionCache.size - COMPLETION_CACHE_DEPTH;
+        for (const key of [...completionCache.keys()].slice(0, excess)) completionCache.delete(key);
+    }
+
+    /** Достаёт элемент по id вида `"<cacheId>.<index>"`; `null` — ведро вытеснено. */
+    function findCachedCompletion(id: string): ICachedCompletion | null {
+        const [rawCacheId, rawIndex] = id.split(".");
+        const bucket = completionCache.get(Number(rawCacheId));
+        return bucket?.[Number(rawIndex)] ?? null;
+    }
+
     function pushSubscriptions(): void {
+        const triggerCharacters = new Set<string>();
+        for (const reg of registrations) {
+            for (const char of reg.triggerCharacters) triggerCharacters.add(char);
+        }
         rpc.notify("languages.updateSubscriptions", {
             hasCompletionProviders: registrations.length > 0,
             hasFoldingProviders: foldingRegistrations.length > 0,
             hasDefinitionProviders: definitionRegistrations.length > 0,
+            // Символы, после которых ядро обязано само открыть попап («.» у
+            // tsserver). Сервер объявляет их в completionProvider, стоковый
+            // клиент передаёт их в registerCompletionItemProvider — до этой
+            // задачи мы их хранили и не читали.
+            completionTriggerCharacters: [...triggerCharacters],
         });
     }
 
@@ -290,7 +415,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         return locations;
     });
 
-    rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionItem[]> => {
+    rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult> => {
         const p = params as IWireCompletionParams;
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
@@ -299,9 +424,15 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         });
         const position = new Position(p.line ?? 0, p.character ?? 0);
         const token = neverCancelledToken();
-        const context = { triggerKind: 1, triggerCharacter: undefined } as unknown as vscode.CompletionContext;
+        const context = {
+            triggerKind: p.triggerKind ?? CompletionTriggerKind.Invoke,
+            triggerCharacter: p.triggerCharacter,
+        } as unknown as vscode.CompletionContext;
 
+        const cacheId = nextCacheId++;
+        const cached: ICachedCompletion[] = [];
         const items: WireCompletionItem[] = [];
+        let isIncomplete = false;
         for (const reg of registrations) {
             if (!matchDocumentSelector(reg.selector, doc)) continue;
             let result: unknown;
@@ -317,12 +448,59 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             } catch {
                 continue; // сбойный провайдер не роняет остальные
             }
-            for (const item of normalizeResult(result)) {
-                const wire = serializeCompletionItem(item);
-                if (wire !== null) items.push(wire);
+            const normalized = normalizeResult(result);
+            if (normalized.isIncomplete) isIncomplete = true;
+            for (const item of normalized.items) {
+                // id выдаём ДО сериализации: resolve обязан получить тот же самый
+                // объект, который вернул провайдер (у languageclient это
+                // ProtocolCompletionItem с приватным `data` для completionItem/resolve).
+                const id = `${String(cacheId)}.${String(cached.length)}`;
+                const wire = serializeCompletionItem(item, id);
+                if (wire === null) continue;
+                cached.push({ item, provider: reg.provider });
+                items.push(wire);
             }
         }
-        return items;
+        rememberCompletions(cacheId, cached);
+        return { items, isIncomplete };
+    });
+
+    /**
+     * `languages.resolveCompletionItem`: догружает detail/documentation/
+     * additionalTextEdits выбранного пункта. Стоковый languageclient объявляет
+     * серверу `resolveSupport` именно на эти три свойства — у tsserver в первом
+     * ответе их нет вовсе.
+     */
+    rpc.handleRequest("languages.resolveCompletionItem", async (params): Promise<WireResolvedCompletionItem | null> => {
+        const id = (params as { id?: unknown }).id;
+        if (typeof id !== "string") return null;
+        const entry = findCachedCompletion(id);
+        if (entry === null) return null;
+        const resolve = entry.provider.resolveCompletionItem?.bind(entry.provider);
+        if (resolve === undefined) return null;
+
+        let resolved: unknown;
+        try {
+            resolved = await Promise.resolve(resolve(entry.item, neverCancelledToken()));
+        } catch {
+            return null; // сбойный resolve не должен ронять попап
+        }
+        const item = (resolved ?? entry.item) as vscode.CompletionItem;
+        const detail = (item as { detail?: unknown }).detail;
+        const documentation = readDocumentation(item);
+        const rawEdits = (item as { additionalTextEdits?: unknown }).additionalTextEdits;
+        const additionalEdits: WireTextEdit[] = [];
+        if (Array.isArray(rawEdits)) {
+            for (const edit of rawEdits) {
+                const wire = serializeTextEdit(edit);
+                if (wire !== null) additionalEdits.push(wire);
+            }
+        }
+        return {
+            ...(typeof detail === "string" ? { detail } : {}),
+            ...(documentation !== undefined ? { documentation } : {}),
+            ...(additionalEdits.length > 0 ? { additionalEdits } : {}),
+        };
     });
 
     rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[]> => {
@@ -440,12 +618,15 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         ): vscode.Disposable => {
             const registration: ICompletionRegistration = { selector, provider, triggerCharacters };
             registrations.push(registration);
-            if (registrations.length === 1) pushSubscriptions();
+            // Сигналим не только на переходе 0↔1: у второго провайдера могут
+            // быть СВОИ триггер-символы (второй language server), и без пуша
+            // ядро о них не узнало бы до перезапуска.
+            if (registrations.length === 1 || triggerCharacters.length > 0) pushSubscriptions();
             return new DisposableImpl(() => {
                 const idx = registrations.indexOf(registration);
                 if (idx >= 0) {
                     registrations.splice(idx, 1);
-                    if (registrations.length === 0) pushSubscriptions();
+                    if (registrations.length === 0 || triggerCharacters.length > 0) pushSubscriptions();
                 }
             }) as unknown as vscode.Disposable;
         },

@@ -37,7 +37,12 @@ describe("LanguagesNamespace — registerDefinitionProvider", () => {
         expect(subs()).toEqual([
             {
                 method: "languages.updateSubscriptions",
-                params: { hasCompletionProviders: false, hasFoldingProviders: false, hasDefinitionProviders: true },
+                params: {
+                    hasCompletionProviders: false,
+                    hasFoldingProviders: false,
+                    hasDefinitionProviders: true,
+                    completionTriggerCharacters: [],
+                },
             },
         ]);
 
@@ -52,6 +57,7 @@ describe("LanguagesNamespace — registerDefinitionProvider", () => {
             hasCompletionProviders: false,
             hasFoldingProviders: false,
             hasDefinitionProviders: false,
+            completionTriggerCharacters: [],
         });
         // Повторный dispose — идемпотентен, без лишних нотификаций.
         second.dispose();

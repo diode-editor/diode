@@ -7,7 +7,7 @@ import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CompletionItem, CompletionItemKind, Range } from "./vscodeTypes.ts";
-import type { WireCompletionItem } from "./wireTypes.ts";
+import type { WireCompletionItem, WireCompletionResult } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stub: IStubRpc } {
@@ -61,14 +61,24 @@ describe("LanguagesNamespace", () => {
         const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         // Только переход 0→1 шлёт notif (второй провайдер не шлёт).
         expect(subs).toHaveLength(1);
-        expect(subs[0].params).toEqual({ hasCompletionProviders: true, hasFoldingProviders: false, hasDefinitionProviders: false });
+        expect(subs[0].params).toEqual({
+            hasCompletionProviders: true,
+            hasFoldingProviders: false,
+            hasDefinitionProviders: false,
+            completionTriggerCharacters: [],
+        });
 
         d1.dispose(); // ещё остаётся d2 — notif нет
         expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toHaveLength(1);
         d2.dispose(); // 1→0 — notif {false}
         const after = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         expect(after).toHaveLength(2);
-        expect(after[1].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: false, hasDefinitionProviders: false });
+        expect(after[1].params).toEqual({
+            hasCompletionProviders: false,
+            hasFoldingProviders: false,
+            hasDefinitionProviders: false,
+            completionTriggerCharacters: [],
+        });
     });
 
     it("provideCompletionItems вызывает только матчащие провайдеры и сериализует items", async () => {
@@ -90,14 +100,14 @@ describe("LanguagesNamespace", () => {
         const result = (await stub.callRequest(
             "languages.provideCompletionItems",
             COMPLETION_PARAMS,
-        )) as WireCompletionItem[];
+        )) as WireCompletionResult;
 
-        expect(result).toHaveLength(1);
-        expect(result[0].label).toBe("indent_style");
-        expect(result[0].insertText).toBe("indent_style"); // fallback на label
-        expect(result[0].kind).toBe(CompletionItemKind.Property);
-        expect(result[0].detail).toBe("EditorConfig");
-        expect(result[0].command?.command).toBe("editorconfig._triggerSuggestAfterDelay");
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0].label).toBe("indent_style");
+        expect(result.items[0].insertText).toBe("indent_style"); // fallback на label
+        expect(result.items[0].kind).toBe(CompletionItemKind.Property);
+        expect(result.items[0].detail).toBe("EditorConfig");
+        expect(result.items[0].command?.command).toBe("editorconfig._triggerSuggestAfterDelay");
     });
 
     it("provideCompletionItems: CompletionList и Range, сбойный провайдер не роняет остальные", async () => {
@@ -120,11 +130,11 @@ describe("LanguagesNamespace", () => {
         const result = (await stub.callRequest(
             "languages.provideCompletionItems",
             COMPLETION_PARAMS,
-        )) as WireCompletionItem[];
+        )) as WireCompletionResult;
 
-        expect(result).toHaveLength(1);
-        expect(result[0].insertText).toBe("root = true");
-        expect(result[0].range).toEqual({ startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 });
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0].insertText).toBe("root = true");
+        expect(result.items[0].range).toEqual({ startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 });
     });
 
     it("provideCompletionItems без матчащих провайдеров → пустой массив", async () => {
@@ -134,7 +144,7 @@ describe("LanguagesNamespace", () => {
             provideCompletionItems: () => [new CompletionItem("x")],
         } as never);
         const result = await stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS);
-        expect(result).toEqual([]);
+        expect(result).toEqual({ items: [], isIncomplete: false });
     });
 
     it("сериализует разнообразные формы полей и отбрасывает элементы без label", async () => {
@@ -173,17 +183,17 @@ describe("LanguagesNamespace", () => {
         const result = (await stub.callRequest(
             "languages.provideCompletionItems",
             COMPLETION_PARAMS,
-        )) as WireCompletionItem[];
+        )) as WireCompletionResult;
 
-        expect(result.map((r) => r.label)).toEqual(["objlabel", "d", "e"]);
-        const a = result[0];
+        expect(result.items.map((r) => r.label)).toEqual(["objlabel", "d", "e"]);
+        const a = result.items[0];
         expect(a.insertText).toBe("snippet");
         expect(a.documentation).toBe("md");
         expect(a.sortText).toBe("0");
         expect(a.filterText).toBe("f");
         expect(a.range).toEqual({ startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 });
         expect(a.command).toEqual({ command: "c", arguments: [1] });
-        const d = result[1];
+        const d = result.items[1];
         expect(d.insertText).toBe("d"); // fallback на label
         expect(d.documentation).toBeUndefined();
         expect(d.range).toBeUndefined();
@@ -202,9 +212,9 @@ describe("LanguagesNamespace", () => {
         // Параметры только с fileName — остальные поля резолвятся дефолтами.
         const result = (await stub.callRequest("languages.provideCompletionItems", {
             uri: Uri.file("/proj/.editorconfig").toString(),
-        })) as WireCompletionItem[];
-        expect(result).toHaveLength(1);
-        expect(result[0].documentation).toBe("root docs");
+        })) as WireCompletionResult;
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0].documentation).toBe("root docs");
     });
 
     it("normalizeResult: undefined и {items: не-массив} → пусто", async () => {
@@ -213,14 +223,20 @@ describe("LanguagesNamespace", () => {
         nsU.languages.registerCompletionItemProvider({ language: "editorconfig" }, {
             provideCompletionItems: () => undefined,
         } as never);
-        expect(await undef.stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS)).toEqual([]);
+        expect(await undef.stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS)).toEqual({
+            items: [],
+            isIncomplete: false,
+        });
 
         const bad = makeCtx();
         const nsB = createLanguagesNamespace(bad.ctx);
         nsB.languages.registerCompletionItemProvider({ language: "editorconfig" }, {
             provideCompletionItems: () => ({ items: 5 }),
         } as never);
-        expect(await bad.stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS)).toEqual([]);
+        expect(await bad.stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS)).toEqual({
+            items: [],
+            isIncomplete: false,
+        });
     });
 
     it("registerFoldingRangeProvider сохраняет регистрацию и сигналит subscription", () => {
@@ -233,7 +249,12 @@ describe("LanguagesNamespace", () => {
         // Только переход 0→1 шлёт notif (второй провайдер не шлёт).
         const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         expect(subs).toHaveLength(1);
-        expect(subs[0].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: true, hasDefinitionProviders: false });
+        expect(subs[0].params).toEqual({
+            hasCompletionProviders: false,
+            hasFoldingProviders: true,
+            hasDefinitionProviders: false,
+            completionTriggerCharacters: [],
+        });
 
         d1.dispose(); // ещё остаётся d2 — notif нет
         expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toHaveLength(1);
@@ -241,7 +262,12 @@ describe("LanguagesNamespace", () => {
         d2.dispose(); // 1→0 — notif {false}
         expect(foldingRegistrations).toHaveLength(0);
         const after = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
-        expect(after[1].params).toEqual({ hasCompletionProviders: false, hasFoldingProviders: false, hasDefinitionProviders: false });
+        expect(after[1].params).toEqual({
+            hasCompletionProviders: false,
+            hasFoldingProviders: false,
+            hasDefinitionProviders: false,
+            completionTriggerCharacters: [],
+        });
     });
 
     it("provideFoldingRanges: провайдер вернул не массив → пропускается", async () => {

@@ -412,6 +412,13 @@ export enum CompletionItemKind {
     Issue = 26,
 }
 
+/** Чем спровоцирован запрос автодополнения (`CompletionContext.triggerKind`). */
+export enum CompletionTriggerKind {
+    Invoke = 0,
+    TriggerCharacter = 1,
+    TriggerForIncompleteCompletions = 2,
+}
+
 /** Элемент автодополнения. Сериализуется хостом в `WireCompletionItem` (WP8). */
 export class CompletionItem {
     public label: string;
@@ -428,6 +435,45 @@ export class CompletionItem {
     public constructor(label: string, kind?: CompletionItemKind) {
         this.label = label;
         this.kind = kind;
+    }
+}
+
+/**
+ * Список автодополнений с флагом «неполный» (`vscode.CompletionList`).
+ *
+ * Не украшение API: стоковый `vscode-languageclient` конструирует его на КАЖДЫЙ
+ * ответ сервера (`protocolConverter.asCompletionResult`), а
+ * `typescript-language-server` всегда отвечает списком. Без этого класса
+ * конвертация ответа падала целиком, и ошибка уходила только в
+ * `client.outputChannel` — LSP-пунктов в попапе не было вовсе.
+ */
+export class CompletionList<T extends CompletionItem = CompletionItem> {
+    public items: T[];
+    public isIncomplete: boolean;
+
+    public constructor(items: T[] = [], isIncomplete = false) {
+        this.items = items;
+        this.isIncomplete = isIncomplete;
+    }
+}
+
+/**
+ * Текст вставки со сниппет-синтаксисом (`vscode.SnippetString`). Сниппет-сессий
+ * (табстопы, Tab-переходы) у нас нет — класс нужен как носитель значения:
+ * languageclient оборачивает в него `insertText` пунктов с
+ * `insertTextFormat = Snippet`, а хост-сериализатор читает `.value` и вырезает
+ * плейсхолдеры, чтобы синтаксис сниппета не попал в буфер.
+ */
+export class SnippetString {
+    public value: string;
+
+    public constructor(value = "") {
+        this.value = value;
+    }
+
+    public appendText(value: string): SnippetString {
+        this.value += value;
+        return this;
     }
 }
 

@@ -68,6 +68,7 @@ import {
     selectNextSuggestionAction,
     selectPrevPageSuggestionAction,
     selectPrevSuggestionAction,
+    toggleSuggestionDetailsAction,
     triggerSuggestAction,
 } from "../../contrib/suggest/browser/suggestActions.ts";
 import { newTerminalAction, toggleTerminalAction } from "../../contrib/terminal/browser/terminalActions.ts";
@@ -346,6 +347,9 @@ export const builtinActions: readonly CommandAction[] = [
     selectPrevPageSuggestionAction,
     acceptSelectedSuggestionAction,
     hideSuggestWidgetAction,
+    // Ctrl+Space при открытом попапе — тумблер панели описания (перебивает
+    // triggerSuggest, потому что зарегистрирован после него).
+    toggleSuggestionDetailsAction,
 
     // Layout / Panel / Terminal (этап 11: run-обработчики поверх LayoutService/
     // PanelService/TerminalService). Ключи не пересекаются с editor/find/suggest-

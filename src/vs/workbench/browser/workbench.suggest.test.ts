@@ -82,6 +82,21 @@ describe("Workbench — suggest widget keyboard integration", () => {
         expect(ctx.testApp.focusedElement?.constructor.name).toBe("EditorElement");
     });
 
+    it("Ctrl+Space при открытом попапе переключает панель описания, а не перезапрашивает список", async () => {
+        ctx = createSuggestApp("indent_style indent_size i");
+        await open();
+        expect(ctx.completion.isOpen()).toBe(true);
+        // Дефолт — панель свёрнута (как в VS Code).
+        expect(ctx.component.detailsVisible).toBe(false);
+
+        ctx.testApp.sendKey("Ctrl+Space");
+        expect(ctx.component.detailsVisible).toBe(true);
+
+        ctx.testApp.sendKey("Ctrl+Space");
+        expect(ctx.component.detailsVisible).toBe(false);
+        expect(ctx.completion.isOpen()).toBe(true);
+    });
+
     it("ArrowDown при закрытом попапе двигает курсор редактора (cursorDown)", () => {
         ctx = createSuggestApp("aa\nbb");
         expect(ctx.completion.isOpen()).toBe(false);

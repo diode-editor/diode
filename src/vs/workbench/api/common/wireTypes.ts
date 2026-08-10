@@ -1,6 +1,11 @@
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
-import type { ICoreCompletionItem } from "../../../editor/common/languages/iCompletionSource.ts";
+import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import type {
+    ICoreCompletionItem,
+    ICoreCompletionResult,
+    ICoreResolvedCompletion,
+} from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
@@ -106,6 +111,29 @@ export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
     );
 }
 
+/** Маркер «ответ не пришёл вовремя» для {@link raceWithTimeout}. */
+const TIMED_OUT = Symbol("timeout");
+
+/**
+ * Общий гонщик RPC-ответа с таймаутом для всех pull-запросов к субпроцессу
+ * (will-save, completion, resolve, folding, definition): расширение не отвечает
+ * или отвечает ошибкой — вызывающий получает {@link TIMED_OUT} и откатывается на
+ * пустой результат, а UI никогда не блокируется навсегда.
+ */
+async function raceWithTimeout(pending: Promise<unknown>, timeoutMs: number): Promise<unknown> {
+    let timer!: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
+        timer = setTimeout(() => {
+            resolve(TIMED_OUT);
+        }, timeoutMs);
+    });
+    try {
+        return await Promise.race([pending.catch(() => TIMED_OUT), timeout]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 /**
  * Запрашивает у subprocess'а правки will-save с таймаутом. Возвращает пустой
  * массив на таймаут, ошибку RPC или невалидный ответ — сохранение никогда не
@@ -118,23 +146,9 @@ export async function requestWillSaveEdits(
     params: IWireWillSaveParams,
     timeoutMs: number,
 ): Promise<ISaveEdit[]> {
-    const TIMEOUT = Symbol("timeout");
-    let timer!: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<typeof TIMEOUT>((resolve) => {
-        timer = setTimeout(() => {
-            resolve(TIMEOUT);
-        }, timeoutMs);
-    });
-    try {
-        const outcome = await Promise.race([
-            request("workspace.willSaveTextDocument", params).catch(() => TIMEOUT),
-            timeout,
-        ]);
-        if (outcome === TIMEOUT) return [];
-        return wireToSaveEdits(parseWireTextEdits(outcome));
-    } finally {
-        clearTimeout(timer);
-    }
+    const outcome = await raceWithTimeout(request("workspace.willSaveTextDocument", params), timeoutMs);
+    if (outcome === TIMED_OUT) return [];
+    return wireToSaveEdits(parseWireTextEdits(outcome));
 }
 
 // ─── Document sync (LSP, наивный full-text push) ─────────────────────────────
@@ -194,6 +208,16 @@ interface IWireRange {
 export interface WireCompletionItem {
     readonly label: string;
     readonly insertText: string;
+    /**
+     * Ключ элемента в кэше субпроцесса (`"<cacheId>.<index>"`) для
+     * `languages.resolveCompletionItem`. Нет id — пункт нерезолвимый
+     * (word-based, провайдер без `resolveCompletionItem`).
+     */
+    readonly id?: string;
+    /** `labelDetails.detail` — сигнатура рядом с лейблом (`(a: string): void`). */
+    readonly labelDetail?: string;
+    /** `labelDetails.description` — источник (модуль авто-импорта). */
+    readonly labelDescription?: string;
     readonly kind?: number;
     readonly detail?: string;
     readonly documentation?: string;
@@ -201,6 +225,24 @@ export interface WireCompletionItem {
     readonly range?: IWireRange;
     readonly sortText?: string;
     readonly filterText?: string;
+}
+
+/**
+ * Ответ на `languages.provideCompletionItems`. `isIncomplete` доезжает из
+ * `CompletionList` провайдера: у tsserver список почти всегда неполный, и
+ * добор символа обязан перезапросить сервер, а не фильтровать локально.
+ */
+export interface WireCompletionResult {
+    readonly items: readonly WireCompletionItem[];
+    readonly isIncomplete: boolean;
+}
+
+/** Ответ на `languages.resolveCompletionItem` — догруженные поля пункта. */
+export interface WireResolvedCompletionItem {
+    readonly detail?: string;
+    readonly documentation?: string;
+    /** Правки-спутники (авто-импорт): применяются вместе со вставкой. */
+    readonly additionalEdits?: readonly WireTextEdit[];
 }
 
 /** Параметры запроса completion (host → subprocess). */
@@ -253,6 +295,9 @@ function parseWireCompletionItem(raw: unknown): WireCompletionItem | null {
     return {
         label: obj.label,
         insertText,
+        ...(typeof obj.id === "string" && obj.id !== "" ? { id: obj.id } : {}),
+        ...(typeof obj.labelDetail === "string" ? { labelDetail: obj.labelDetail } : {}),
+        ...(typeof obj.labelDescription === "string" ? { labelDescription: obj.labelDescription } : {}),
         ...(isFiniteNumber(obj.kind) ? { kind: obj.kind } : {}),
         ...(typeof obj.detail === "string" ? { detail: obj.detail } : {}),
         ...(typeof obj.documentation === "string" ? { documentation: obj.documentation } : {}),
@@ -277,11 +322,55 @@ export function parseWireCompletionItems(raw: unknown): WireCompletionItem[] {
     return result;
 }
 
+/**
+ * Разбирает ответ `languages.provideCompletionItems`. Понимает и голый массив —
+ * форму до появления `isIncomplete` (расширение из чужой поставки, старый
+ * subprocess): такой ответ считается полным списком.
+ */
+export function parseWireCompletionResult(raw: unknown): WireCompletionResult {
+    if (Array.isArray(raw)) return { items: parseWireCompletionItems(raw), isIncomplete: false };
+    if (typeof raw !== "object" || raw === null) return { items: [], isIncomplete: false };
+    const obj = raw as Record<string, unknown>;
+    return {
+        items: parseWireCompletionItems(obj.items),
+        isIncomplete: obj.isIncomplete === true,
+    };
+}
+
+/** Разбирает ответ `languages.resolveCompletionItem`; `null` — резолва нет. */
+export function parseWireResolvedCompletionItem(raw: unknown): ICoreResolvedCompletion | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    const additionalEdits: ITextEdit[] = [];
+    if (Array.isArray(obj.additionalEdits)) {
+        for (const edit of obj.additionalEdits) {
+            if (typeof edit !== "object" || edit === null) continue;
+            const e = edit as Record<string, unknown>;
+            const range = parseWireRange(e.range);
+            if (range === undefined || typeof e.text !== "string") continue;
+            additionalEdits.push(
+                createTextEdit(
+                    createRange(range.startLine, range.startCharacter, range.endLine, range.endCharacter),
+                    e.text,
+                ),
+            );
+        }
+    }
+    return {
+        ...(typeof obj.detail === "string" ? { detail: obj.detail } : {}),
+        ...(typeof obj.documentation === "string" ? { documentation: obj.documentation } : {}),
+        ...(additionalEdits.length > 0 ? { additionalEdits } : {}),
+    };
+}
+
 /** Переводит wire-элементы в core-элементы ({@link ICoreCompletionItem}). */
 export function wireToCoreCompletionItems(wire: readonly WireCompletionItem[]): ICoreCompletionItem[] {
     return wire.map((item) => ({
         label: item.label,
         insertText: item.insertText,
+        ...(item.id !== undefined ? { id: item.id } : {}),
+        ...(item.labelDetail !== undefined ? { labelDetail: item.labelDetail } : {}),
+        ...(item.labelDescription !== undefined ? { labelDescription: item.labelDescription } : {}),
         ...(item.kind !== undefined ? { kind: item.kind } : {}),
         ...(item.detail !== undefined ? { detail: item.detail } : {}),
         ...(item.documentation !== undefined ? { documentation: item.documentation } : {}),
@@ -318,24 +407,26 @@ export async function requestCompletionItems(
     request: (method: string, params: unknown) => Promise<unknown>,
     params: IWireCompletionParams,
     timeoutMs: number,
-): Promise<ICoreCompletionItem[]> {
-    const TIMEOUT = Symbol("timeout");
-    let timer!: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<typeof TIMEOUT>((resolve) => {
-        timer = setTimeout(() => {
-            resolve(TIMEOUT);
-        }, timeoutMs);
-    });
-    try {
-        const outcome = await Promise.race([
-            request("languages.provideCompletionItems", params).catch(() => TIMEOUT),
-            timeout,
-        ]);
-        if (outcome === TIMEOUT) return [];
-        return wireToCoreCompletionItems(parseWireCompletionItems(outcome));
-    } finally {
-        clearTimeout(timer);
-    }
+): Promise<ICoreCompletionResult> {
+    const outcome = await raceWithTimeout(request("languages.provideCompletionItems", params), timeoutMs);
+    if (outcome === TIMED_OUT) return { items: [], isIncomplete: false };
+    const parsed = parseWireCompletionResult(outcome);
+    return { items: wireToCoreCompletionItems(parsed.items), isIncomplete: parsed.isIncomplete };
+}
+
+/**
+ * Просит субпроцесс догрузить detail/documentation/additionalTextEdits пункта
+ * (`languages.resolveCompletionItem`). `null` — таймаут, ошибка RPC или
+ * провайдер без resolve: попап просто останется с тем, что уже есть.
+ */
+export async function requestResolveCompletionItem(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    id: string,
+    timeoutMs: number,
+): Promise<ICoreResolvedCompletion | null> {
+    const outcome = await raceWithTimeout(request("languages.resolveCompletionItem", { id }), timeoutMs);
+    if (outcome === TIMED_OUT) return null;
+    return parseWireResolvedCompletionItem(outcome);
 }
 
 // ─── Folding (#87) ───────────────────────────────────────────────────────────
@@ -413,23 +504,9 @@ export async function requestFoldingRanges(
     params: IWireFoldingParams,
     timeoutMs: number,
 ): Promise<IFoldingRegion[]> {
-    const TIMEOUT = Symbol("timeout");
-    let timer!: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<typeof TIMEOUT>((resolve) => {
-        timer = setTimeout(() => {
-            resolve(TIMEOUT);
-        }, timeoutMs);
-    });
-    try {
-        const outcome = await Promise.race([
-            request("languages.provideFoldingRanges", params).catch(() => TIMEOUT),
-            timeout,
-        ]);
-        if (outcome === TIMEOUT) return [];
-        return wireToCoreFoldingRegions(parseWireFoldingRanges(outcome));
-    } finally {
-        clearTimeout(timer);
-    }
+    const outcome = await raceWithTimeout(request("languages.provideFoldingRanges", params), timeoutMs);
+    if (outcome === TIMED_OUT) return [];
+    return wireToCoreFoldingRegions(parseWireFoldingRanges(outcome));
 }
 
 // ─── Definition (LSP) ────────────────────────────────────────────────────────
@@ -498,23 +575,9 @@ export async function requestDefinition(
     params: IWireDefinitionParams,
     timeoutMs: number,
 ): Promise<ICoreDefinitionLocation[]> {
-    const TIMEOUT = Symbol("timeout");
-    let timer!: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<typeof TIMEOUT>((resolve) => {
-        timer = setTimeout(() => {
-            resolve(TIMEOUT);
-        }, timeoutMs);
-    });
-    try {
-        const outcome = await Promise.race([
-            request("languages.provideDefinition", params).catch(() => TIMEOUT),
-            timeout,
-        ]);
-        if (outcome === TIMEOUT) return [];
-        return wireToCoreDefinitionLocations(parseWireDefinitionLocations(outcome));
-    } finally {
-        clearTimeout(timer);
-    }
+    const outcome = await raceWithTimeout(request("languages.provideDefinition", params), timeoutMs);
+    if (outcome === TIMED_OUT) return [];
+    return wireToCoreDefinitionLocations(parseWireDefinitionLocations(outcome));
 }
 
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────

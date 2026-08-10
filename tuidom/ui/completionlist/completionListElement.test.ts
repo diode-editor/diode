@@ -221,6 +221,79 @@ describe("CompletionListElement", () => {
     });
 });
 
+describe("CompletionListElement — данные источника (filterText/sortText/labelDetail)", () => {
+    // Форма ответа tsserver после точки: лейбл без точки, а фильтрация и
+    // сортировка идут по своим полям (`.getTime`, `11`).
+    const DOT_ITEMS: CompletionListItem[] = [
+        { label: "toISOString", filterText: ".toISOString", sortText: "11", kind: 1 },
+        { label: "getTime", filterText: ".getTime", sortText: "11", kind: 1 },
+        { label: "valueOfPrivate", filterText: ".valueOfPrivate", sortText: "99", kind: 1 },
+    ];
+
+    it("фильтрует по filterText, а не по лейблу", () => {
+        const w = makeWidget(DOT_ITEMS);
+        // Префикс от провайдерского range начинается с точки — по лейблам он не
+        // нашёл бы ничего, и список схлопнулся бы.
+        w.setFilter(".get");
+        expect(w.items.map((i) => i.label)).toEqual(["getTime"]);
+    });
+
+    it("сортирует по sortText, а совпадения с начала поднимает выше", () => {
+        const w = makeWidget([
+            { label: "zeta", sortText: "01" },
+            { label: "alpha", sortText: "02" },
+            { label: "in_the_middle_zz", sortText: "00" },
+        ]);
+        w.setFilter("");
+        expect(w.items.map((i) => i.label)).toEqual(["in_the_middle_zz", "zeta", "alpha"]);
+
+        w.setFilter("z");
+        // `zeta` совпал с начала — он выше, хотя sortText у него больше.
+        expect(w.items.map((i) => i.label)).toEqual(["zeta", "in_the_middle_zz"]);
+    });
+
+    it("без sortText порядок источника сохраняется", () => {
+        const w = makeWidget(ITEMS);
+        w.setFilter("in");
+        expect(w.items.map((i) => i.label)).toEqual(["indent_style", "indent_size", "insert_final_newline"]);
+    });
+
+    it("рисует сигнатуру labelDetail сразу за лейблом", () => {
+        const w = makeWidget([{ label: "getTime", labelDetail: "(): number", kind: 1 }]);
+        expect(renderToString(w)).toContain("getTime (): number");
+    });
+
+    it("сигнатура невыбранного ряда приглушена", () => {
+        const w = makeWidget([
+            { label: "getTime", labelDetail: "(): number", kind: 1 },
+            { label: "getDate", labelDetail: "(): number", kind: 1 },
+        ]);
+        w.setStyleVars({
+            "editorSuggestWidget.detailForeground": packRgb(7, 7, 7),
+            "editorSuggestWidget.selectedForeground": packRgb(9, 9, 9),
+        });
+        const backend = renderElement(w, w.getMaxIntrinsicWidth(0), w.getMaxIntrinsicHeight(0), {
+            resolveStyles: true,
+        });
+        // Ряд 2 (index 1) не выбран → сигнатура рисуется dim-токеном.
+        const detailX = 5 + "getDate".length + 1;
+        expect(backend.getFgAt(new Point(detailX, 2))).toBe(packRgb(7, 7, 7));
+    });
+
+    it("сигнатура не рисуется, когда лейбл усечён или места под неё нет", () => {
+        // Лейбл шире доступного места → усечён, сигнатуре рядом с ним не место
+        // (обрезанная сигнатура вводит в заблуждение).
+        const truncated = makeWidget([{ label: "a".repeat(80), labelDetail: "(): number", kind: 1 }]);
+        expect(renderToString(truncated)).not.toContain("(): number");
+
+        // Лейбл влез впритык — на сигнатуру не осталось ни ячейки.
+        const tight = new CompletionListElement();
+        tight.preferredWidth = 20;
+        tight.setItems([{ label: "b".repeat(13), labelDetail: "(): number", kind: 1 }]);
+        expect(renderToString(tight)).not.toContain("():");
+    });
+});
+
 describe("CompletionListElement — цвета из var-scope", () => {
     it("перекрашивает выбранный ряд и фон токенами", () => {
         const w = makeWidget(ITEMS);

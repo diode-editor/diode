@@ -1,10 +1,11 @@
 # LSP — стоковые language servers поверх extension host
 
-Статус: **[~] платформа готова** — document sync + definition (F12) + диагностики
-работают со стоковым `typescript-language-server` end-to-end (юнит-интеграция
-`extensionHost.typescriptLsp.test.ts`, e2e `e2e/gotoDefinition.test.ts`,
-скриншот-сценарий `goto-definition`). Открыто — «Отложенное» ниже
-(SEA-упаковка серверов, второй язык, закрытие остальных стабов).
+Статус: **[~] платформа готова** — document sync + definition (F12) + диагностики +
+автодополнение (Ctrl+Space, триггер-символы, панель описания, авто-импорт) работают со
+стоковым `typescript-language-server` end-to-end (юнит-интеграция
+`extensionHost.typescriptLsp.test.ts` и `extensionHost.typescriptLsp.completion.test.ts`,
+e2e `e2e/gotoDefinition.test.ts`, скриншот-сценарии `goto-definition`, `lsp-completion`).
+Открыто — «Отложенное» ниже (второй язык, закрытие остальных стабов).
 
 ## Архитектура (проверена спайком, ветка `worktree-lsp-spike`)
 
@@ -72,6 +73,36 @@ go-to-definition работает; сервер-внук корректно уб
 - Расширение без подписок document sync видит текст только по save/completion/folding
   pull-путям (статус-кво до этой задачи).
 
+## Автодополнение (итерация «suggest × LSP»)
+
+Стек целиком: попап у каретки ← `CompletionService` ← `EditorService.completionSource`
+← host ← RPC ← провайдеры субпроцесса ← `vscode-languageclient` ← сервер.
+
+- **Класс-ловушка.** `protocolConverter` клиента делает `new code.CompletionList(items,
+  isIncomplete)` на каждый ответ-список (а `typescript-language-server` всегда отвечает
+  списком). Пока `CompletionList`/`SnippetString` не были экспортированы из
+  `vscodeNamespace`, конвертация падала целиком — LSP-пунктов не было вовсе, а
+  единственный след уходил в `client.outputChannel`. Пруф — прогон
+  `extensionHost.typescriptLsp.completion.test.ts` без экспорта: таймаут 60 с вместо ответа.
+- **Dot-accessor.** После `.` tsserver отдаёт пункты вида `label: "getTime"`,
+  `insertText`/`filterText`: `.getTime`, а `range` накрывает саму точку. Отсюда два
+  требования к ядру: границу префикса брать из провайдерского `range` (свой `wordStart`
+  включает `.` и `-` — префиксом стало бы `d.`), а фильтровать по `filterText`.
+  Пересчитывать провайдерскую границу при доборе символов нельзя — попап закрывался
+  на первом же символе.
+- **Описание и авто-импорт — только через resolve.** Клиент объявляет серверу
+  `resolveSupport: [documentation, detail, additionalTextEdits]`; в первом ответе их нет.
+  Кэш ответов живёт в субпроцессе (последние 2 ведра, id = `"<cacheId>.<index>"`) —
+  резолвить нужно ТОТ ЖЕ объект, который вернул провайдер (у клиента это
+  `ProtocolCompletionItem` с приватным `data`). Accept ждёт resolve до 300 мс, потом
+  вставляет без импорта — молчащий сервер не морозит правку.
+- **Сниппеты не поддержаны** (осознанно): `SnippetString` нужен только как транспорт,
+  плейсхолдеры вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в
+  буфер. Настоящие табстопы — отдельная задача.
+- **Люфты**: отмены RPC нет (таймаут + счётчик `requestSeq` против устаревших ответов);
+  markdown-документация показывается как текст (рендерера markdown в tuidom нет);
+  на каждый запрос уходит полный текст документа.
+
 ## Ключевые грабли (из спайка, помнить при продуктивизации)
 
 - `vscode-languageclient` шлёт `didOpen` серверу только для документов из
@@ -94,9 +125,10 @@ go-to-definition работает; сервер-внук корректно уб
 | `workspace.onDidChangeTextDocument` | real | — (шаг 1; одна full-range правка) |
 | `workspace.onDidCloseTextDocument` | no-op | продюсер закрытия вкладки → `editor.didClose` → fire + сброс didOpen-дедупа |
 | `languages.registerDefinitionProvider` | real | — (шаг 2: seam `iDefinitionSource` → RPC `languages.provideDefinition`, таймаут 5000 мс — холодный сервер; UI — `DefinitionService` + F12, кросс-файловая навигация паттерном Problems reveal) |
+| `languages.registerCompletionItemProvider` | real | seam `iCompletionSource` → RPC `languages.provideCompletionItems` (ответ `{items, isIncomplete}`) + `languages.resolveCompletionItem` (описание, авто-импорт); `triggerCharacters` доезжают через `languages.updateSubscriptions`; UI — попап с панелью описания. **Грабля**: конвертер клиента конструирует `new code.CompletionList(...)` на КАЖДЫЙ ответ, а `new code.SnippetString(...)` — на сниппет-пункт; без этих классов в стабе конвертация падала целиком, и ошибка была видна только в `client.outputChannel` (0 пунктов, тишина) |
 | `languages.createDiagnosticCollection` | naive | работает: notify `diagnostics.publish` → `diagnosticsSink` → `MarkerService.changeOne` (squiggle + Problems); наивность — related information не передаётся, маркеры мёртвого subprocess'а не сбрасываются до рестарта |
 | `languages.match` | real | скоринг через `matchDocumentSelector` (10/0) — vscode-languageclient фильтрует ИМ документы для синхронизации с сервером; наивное «всегда 10» скармливало ts-серверу markdown и роняло его хендлеры |
-| остальные `register*Provider` (26) | no-op | закрытие по образцу definition: core seam + RPC `languages.provideX` + UI-потребитель (hover-виджет, references-панель, rename и т.д.) |
+| остальные `register*Provider` (25) | no-op | закрытие по образцу definition: core seam + RPC `languages.provideX` + UI-потребитель (hover-виджет, references-панель, rename и т.д.) |
 | `workspace.applyEdit` | no-op | врёт `true`; закрытие: RPC `workspace.applyEdit` → `EditorService`/`BulkEdit` (нужен rename/code actions) |
 | `workspace.getWorkspaceFolder` | naive | префикс-матч + fallback на первую папку |
 | `workspace.createFileSystemWatcher` | no-op | валидный не-стреляющий watcher; закрытие: мост к `IFileWatcher` ядра |
