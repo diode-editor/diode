@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
+import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
 import type { FindContext } from "./workbench.find.testUtils.ts";
 import { createFindApp, disposeFindApp, type } from "./workbench.find.testUtils.ts";
 
-/** Current text of the find widget's query input. */
+/** Current text of the active group's find widget query input. */
 function query(ctx: FindContext): string {
-    return ctx.harness.container.get(FindComponentDIToken).getQuery();
+    const groupId = ctx.harness.container.get(EditorServiceDIToken).activeGroup.id;
+    return ctx.harness.container.get(FindComponentDIToken).widgetFor(groupId)!.getQuery();
 }
 
 describe("Workbench — find query is selected on open", () => {

@@ -104,6 +104,11 @@ export class EditorPartComponent extends Component {
         return component.view;
     }
 
+    /** OverlayHost конкретной группы (find-виджет группы); `null` — группы нет. */
+    public groupOverlayHost(groupId: GroupId): OverlayHostElement | null {
+        return this.groupComponents.get(groupId)?.view ?? null;
+    }
+
     /**
      * Приводит полосу контролов к списку групп сервиса. Доли: сплит — источник
      * делится пополам с новой группой; удаление — доля уходит в нормировку;

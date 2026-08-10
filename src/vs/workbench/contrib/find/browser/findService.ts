@@ -1,3 +1,4 @@
+import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
@@ -6,20 +7,37 @@ import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import { findMatches } from "../../../../editor/contrib/find/findMatches.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import type { EditorGroup, GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
-import type { FindComponent } from "./findComponent.ts";
+import type { FindComponent, FindWidget } from "./findComponent.ts";
 import { FindComponentDIToken } from "./findComponent.ts";
 
 export const FindServiceDIToken = token<FindService>("FindService");
 
+/** Состояние поисковой сессии одной группы (виджет может быть и закрыт — F3). */
+interface IFindSession {
+    matches: IRange[];
+    currentIndex: number;
+    /**
+     * Редактор, по которому идёт сессия. Пиним его на открытии и НЕ перерешаем:
+     * виджет забирает фокус себе, а `getActiveEditor()` следует за фокусом — со
+     * второго же вызова поиск уезжал бы на другой редактор. Именно так `Ctrl+F`
+     * из панели Output искал по файлу за ней.
+     */
+    target: TextEditorPane | null;
+    /** Смена активной вкладки СВОЕЙ группы закрывает её сессию. */
+    paneSubscription: IDisposable | null;
+}
+
 /**
- * Drives find-in-file: owns the query → matches → current-index state and
- * pushes it to the active editor for highlighting + reveal. The widget and its
- * overlay session live in {@link FindComponent}; the service wires the widget
- * callbacks and follows the active editor via {@link EditorService} (switching
- * editors closes the widget — find operates on the active editor only).
+ * Drives find-in-file: owns the per-group query → matches → current-index state
+ * and pushes it to the group's editor for highlighting + reveal. Виджеты и их
+ * overlay-сессии живут в {@link FindComponent} — по одному на группу (US-33):
+ * find в группе A остаётся открытым со своим запросом, пока пользователь ищет
+ * в группе B; Escape закрывает только виджет своей группы. Команды (Ctrl+F, F3,
+ * Escape) оперируют активной группой.
  */
 export class FindService extends Disposable {
     public static dependencies = [FindComponentDIToken, EditorServiceDIToken] as const;
@@ -27,84 +45,126 @@ export class FindService extends Disposable {
     private readonly component: FindComponent;
     private readonly editorService: EditorService;
 
-    private matches: IRange[] = [];
-    private currentIndex = -1;
-    /**
-     * Редактор, по которому идёт текущая сессия поиска. Пиним его на открытии и
-     * НЕ перерешаем: виджет забирает фокус себе, а `getActiveEditor()` следует за
-     * фокусом — со второго же вызова поиск уезжал бы на другой редактор. Именно
-     * так `Ctrl+F` из панели Output искал по файлу за ней.
-     */
-    private target: TextEditorPane | null = null;
+    private readonly sessions = new Map<GroupId, IFindSession>();
 
     public constructor(component: FindComponent, editorService: EditorService) {
         super();
         this.component = component;
         this.editorService = editorService;
-        component.onQueryChange = () => {
-            this.recompute();
+        component.onQueryChange = (groupId) => {
+            this.recompute(groupId);
         };
-        component.onNext = () => {
-            this.next();
+        component.onNext = (groupId) => {
+            this.navigate(groupId, 1);
         };
-        component.onPrev = () => {
-            this.prev();
+        component.onPrev = (groupId) => {
+            this.navigate(groupId, -1);
         };
-        component.onClose = () => {
-            this.close();
+        component.onClose = (groupId) => {
+            this.closeGroup(groupId);
         };
-        // Find оперирует только активным редактором — смена активного закрывает
-        // виджет (раньше эту подписку держал корневой контроллер).
+        // Схлопнутая группа забирает сессию и виджет с собой.
         this.register(
-            this.editorService.onActiveEditorChanged(() => {
-                this.close();
+            this.editorService.onDidGroupsChange((event) => {
+                if (event.kind !== "removed") return;
+                this.dropSession(event.group.id);
+                this.component.disposeWidget(event.group.id);
             }),
         );
+        this.register({
+            dispose: () => {
+                for (const groupId of [...this.sessions.keys()]) this.dropSession(groupId);
+            },
+        });
     }
 
+    /** Открыт ли find-виджет АКТИВНОЙ группы (контекст-ключ findWidgetVisible). */
     public isVisible(): boolean {
-        return this.component.isOpen();
+        return this.component.isOpen(this.editorService.activeGroup.id);
     }
 
+    /** Ctrl+F: открывает/фокусирует find активной группы. */
     public open(): void {
-        if (this.component.isOpen()) {
+        const group = this.editorService.activeGroup;
+        const widget = this.component.widgetFor(group.id);
+        if (widget === null) return;
+        if (widget.isOpen()) {
             // Повторный Ctrl+F на уже открытом виджете: вернуть фокус и выделить
             // весь запрос, чтобы его можно было сразу перепечатать (VS Code).
-            this.component.focus();
-            this.component.selectQuery();
+            widget.focus();
+            widget.selectQuery();
             return;
         }
 
+        const session = this.sessionFor(group);
         // Цель сессии фиксируем ДО показа виджета: показ уводит фокус в его инпут.
-        this.target = this.editorService.getActiveEditor();
+        session.target = this.editorService.getActiveEditor();
 
         // Seed the query from a single-line, non-empty selection (VS Code behaviour).
-        const editor = this.target;
+        const editor = session.target;
         if (editor) {
             const selected = editor.viewState.getSelectedText();
             if (selected.length > 0 && !selected.includes("\n")) {
-                this.component.setQuery(selected);
+                widget.setQuery(selected);
             }
         }
 
-        this.recompute();
-        this.component.show();
+        this.recompute(group.id);
+        widget.show();
         // Выделить сохранённый/засеянный запрос целиком — готов к перезаписи
         // первым же нажатием. Для пустого запроса selectAll — no-op.
-        this.component.selectQuery();
+        widget.selectQuery();
     }
 
+    /** Escape/крестик: закрывает find активной группы. */
     public close(): void {
-        if (!this.component.isOpen()) return;
+        this.closeGroup(this.editorService.activeGroup.id);
+    }
+
+    public next(): void {
+        this.navigate(this.editorService.activeGroup.id, 1);
+    }
+
+    public prev(): void {
+        this.navigate(this.editorService.activeGroup.id, -1);
+    }
+
+    // ─── Private ─────────────────────────────────────────────────────────────
+
+    /** Сессия группы (создаётся лениво) с подпиской «смена вкладки → закрыть». */
+    private sessionFor(group: EditorGroup): IFindSession {
+        const existing = this.sessions.get(group.id);
+        if (existing !== undefined) return existing;
+        const session: IFindSession = { matches: [], currentIndex: -1, target: null, paneSubscription: null };
+        // Find оперирует зафиксированной целью — смена активной вкладки ЭТОЙ
+        // группы закрывает её сессию (чужие группы не влияют — US-33).
+        session.paneSubscription = group.onDidChangeActivePane((pane) => {
+            if (pane !== session.target) this.closeGroup(group.id);
+        });
+        this.sessions.set(group.id, session);
+        return session;
+    }
+
+    private dropSession(groupId: GroupId): void {
+        const session = this.sessions.get(groupId);
+        if (session === undefined) return;
+        session.paneSubscription?.dispose();
+        this.sessions.delete(groupId);
+    }
+
+    private closeGroup(groupId: GroupId): void {
+        const widget = this.component.widgetIfExists(groupId);
+        const session = this.sessions.get(groupId);
+        if (widget === null || session === undefined || !widget.isOpen()) return;
 
         // Закрываем сессию по её же цели: активный редактор к этому моменту —
         // уже другой (фокус в инпуте виджета), и подсветку сняли бы не с того.
-        const editor = this.target;
-        this.target = null;
+        const editor = session.target;
+        session.target = null;
         if (editor) {
             // Leave the cursor on the current match (VS Code behaviour), then clear highlights.
-            if (this.currentIndex >= 0 && this.currentIndex < this.matches.length) {
-                const m = this.matches[this.currentIndex];
+            if (session.currentIndex >= 0 && session.currentIndex < session.matches.length) {
+                const m = session.matches[session.currentIndex];
                 editor.viewState.selections = [
                     createSelection(m.start.line, m.start.character, m.end.line, m.end.character),
                 ];
@@ -112,20 +172,10 @@ export class FindService extends Disposable {
             editor.setSearchDecorations([], -1);
         }
 
-        this.matches = [];
-        this.currentIndex = -1;
-        this.component.hide();
+        session.matches = [];
+        session.currentIndex = -1;
+        widget.hide();
     }
-
-    public next(): void {
-        this.navigate(1);
-    }
-
-    public prev(): void {
-        this.navigate(-1);
-    }
-
-    // ─── Private ─────────────────────────────────────────────────────────────
 
     /**
      * Шаг по совпадениям. В VS Code «Find Next» живёт от фокуса в редакторе, а не
@@ -137,61 +187,70 @@ export class FindService extends Disposable {
      * становится выделением: иначе «нашлось» было бы видно только подсветкой,
      * а курсор остался бы на месте.
      */
-    private navigate(direction: 1 | -1): void {
-        if (this.component.isOpen()) {
-            if (this.matches.length === 0) return;
-            this.setCurrent(this.step(direction));
+    private navigate(groupId: GroupId, direction: 1 | -1): void {
+        const widget = this.component.widgetFor(groupId);
+        if (widget === null) return;
+        const group = this.editorService.groups.find((candidate) => candidate.id === groupId);
+        /* v8 ignore next -- виджет существует только у живой группы */
+        if (group === undefined) return;
+        const session = this.sessionFor(group);
+
+        if (widget.isOpen()) {
+            if (session.matches.length === 0) return;
+            this.setCurrent(groupId, this.step(session, direction));
             return;
         }
 
-        const startedNewSession = this.matches.length === 0 || this.target !== this.editorService.getActiveEditor();
-        if (startedNewSession && !this.startDetachedSession()) return;
-        if (this.matches.length === 0) return;
+        const startedNewSession =
+            session.matches.length === 0 || session.target !== this.editorService.getActiveEditor();
+        if (startedNewSession && !this.startDetachedSession(group, widget)) return;
+        if (session.matches.length === 0) return;
 
         // Первое нажатие приводит на ближайшее совпадение от курсора (его выбрал
         // recompute), дальнейшие — шагают. Назад шагаем сразу: ближайшее «вперёд»
         // для Shift+F3 было бы движением не в ту сторону.
-        const index = startedNewSession && direction === 1 ? this.currentIndex : this.step(direction);
-        this.setCurrent(index);
-        this.selectMatch(index);
+        const index = startedNewSession && direction === 1 ? session.currentIndex : this.step(session, direction);
+        this.setCurrent(groupId, index);
+        this.selectMatch(session, index);
     }
 
-    private step(direction: 1 | -1): number {
-        return (this.currentIndex + direction + this.matches.length) % this.matches.length;
+    private step(session: IFindSession, direction: 1 | -1): number {
+        return (session.currentIndex + direction + session.matches.length) % session.matches.length;
     }
 
     /**
-     * Поднимает поисковую сессию без показа виджета. Запрос помнит сам компонент,
+     * Поднимает поисковую сессию без показа виджета. Запрос помнит сам виджет,
      * поэтому обычно достаточно перецелиться на активный редактор и пересчитать.
      * Пустой запрос сеем из однострочного выделения (upstream
      * `seedSearchStringFromSelection`); если и его нет — искать нечего, открываем
      * виджет и спрашиваем. Возвращает false, когда навигацию продолжать не надо.
      */
-    private startDetachedSession(): boolean {
+    private startDetachedSession(group: EditorGroup, widget: FindWidget): boolean {
         const editor = this.editorService.getActiveEditor();
         if (!editor) return false;
 
-        if (this.component.getQuery().length === 0) {
+        if (widget.getQuery().length === 0) {
             const selected = editor.viewState.getSelectedText();
             if (selected.length === 0 || selected.includes("\n")) {
                 this.open();
                 return false;
             }
-            this.component.setQuery(selected);
+            widget.setQuery(selected);
         }
 
-        this.target = editor;
-        this.recompute();
+        const session = this.sessionFor(group);
+        session.target = editor;
+        this.recompute(group.id);
         return true;
     }
 
     /** Ставит выделение на совпадение — курсор идёт за поиском, как в VS Code. */
-    private selectMatch(index: number): void {
-        const editor = this.target;
+    private selectMatch(session: IFindSession, index: number): void {
+        const editor = session.target;
         /* v8 ignore start -- navigate() доходит сюда только с поднятой сессией, цель есть */
         if (!editor) return;
         /* v8 ignore stop */
-        const match = this.matches[index];
+        const match = session.matches[index];
         editor.viewState.selections = [
             createSelection(match.start.line, match.start.character, match.end.line, match.end.character),
         ];
@@ -201,38 +260,45 @@ export class FindService extends Disposable {
      * Recomputes matches for the current query, seeds the current index from the
      * cursor, and refreshes the editor highlights + counter.
      */
-    private recompute(): void {
-        const editor = this.target;
+    private recompute(groupId: GroupId): void {
+        const widget = this.component.widgetIfExists(groupId);
+        const session = this.sessions.get(groupId);
+        if (widget === null || session === undefined) return;
+        const editor = session.target;
         if (!editor) {
-            this.matches = [];
-            this.currentIndex = -1;
-            this.component.setCounter(0, 0);
+            session.matches = [];
+            session.currentIndex = -1;
+            widget.setCounter(0, 0);
             return;
         }
 
-        this.matches = findMatches(editor.viewState.document, this.component.getQuery());
+        session.matches = findMatches(editor.viewState.document, widget.getQuery());
 
-        if (this.matches.length === 0) {
-            this.currentIndex = -1;
+        if (session.matches.length === 0) {
+            session.currentIndex = -1;
         } else {
-            this.currentIndex = this.pickCurrentIndex(this.matches, editor.viewState.selections[0].active);
+            session.currentIndex = this.pickCurrentIndex(session.matches, editor.viewState.selections[0].active);
         }
 
-        editor.setSearchDecorations(this.matches, this.currentIndex);
-        if (this.currentIndex >= 0) {
-            editor.revealRange(this.matches[this.currentIndex]);
+        editor.setSearchDecorations(session.matches, session.currentIndex);
+        if (session.currentIndex >= 0) {
+            editor.revealRange(session.matches[session.currentIndex]);
         }
-        this.component.setCounter(this.currentIndex + 1, this.matches.length);
+        widget.setCounter(session.currentIndex + 1, session.matches.length);
     }
 
-    private setCurrent(index: number): void {
-        this.currentIndex = index;
+    private setCurrent(groupId: GroupId, index: number): void {
+        const widget = this.component.widgetIfExists(groupId);
+        const session = this.sessions.get(groupId);
+        /* v8 ignore next -- вызывается только по живой сессии */
+        if (widget === null || session === undefined) return;
+        session.currentIndex = index;
         // `matches` и `target` живут и умирают вместе (см. recompute/close), а
         // сюда попадают только при непустом списке совпадений — значит цель есть.
-        const editor = this.target!;
-        editor.setSearchDecorations(this.matches, index);
-        editor.revealRange(this.matches[index]);
-        this.component.setCounter(index + 1, this.matches.length);
+        const editor = session.target!;
+        editor.setSearchDecorations(session.matches, index);
+        editor.revealRange(session.matches[index]);
+        widget.setCounter(index + 1, session.matches.length);
     }
 
     /** First match starting at or after `cursor`, wrapping to the first match. */

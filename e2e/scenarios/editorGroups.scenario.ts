@@ -42,7 +42,20 @@ export default defineScenario({
         await editor.sendMouse({ action: "release", button: "left", x: sashX + 20, y: midY });
         await editor.capture("sash-resized");
 
-        // Тумблер оси через палитру (Shift+Alt+0 living только на kitty/csi-u;
+        // Find в каждой группе — свой виджет со своим запросом (US-33): открываем
+        // в правой, переключаемся в левую, открываем второй — оба на экране.
+        await editor.sendKey("Ctrl+K");
+        await editor.sendKey("2");
+        await editor.sendKey("Ctrl+F");
+        await editor.sendText("beta");
+        await editor.sendKey("Ctrl+K");
+        await editor.sendKey("1");
+        await editor.sendKey("Ctrl+F");
+        await editor.sendText("greet");
+        await editor.capture("two-find-widgets");
+        await editor.sendKey("Escape");
+
+        // Тумблер оси через палитру (Shift+Alt+0 живёт только на kitty/csi-u;
         // headless-инспектор шлёт клавиши мимо терминала, но палитра — путь,
         // который есть везде): те же группы становятся рядами (US-19).
         await editor.sendKey("Ctrl+P");

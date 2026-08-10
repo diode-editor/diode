@@ -4,6 +4,7 @@ import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 
+import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
@@ -436,6 +437,54 @@ describe("Workbench — editor groups (сплиты)", () => {
         dialog!.onDontSave?.();
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(service().groups[0].editorCount).toBe(0);
+    });
+
+    it("US-33: у каждой группы свой find-виджет с независимым запросом; Escape локален", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.commands.execute("workbench.action.splitEditor");
+        h.testApp.render();
+        const find = h.container.get(FindComponentDIToken);
+        const groups = service().groups;
+
+        // Find в группе 2 (активной) с запросом "line".
+        h.commands.execute("actions.find");
+        const widgetB = find.widgetFor(groups[1].id)!;
+        widgetB.setQuery("line");
+        widgetB.onQueryChange?.("line");
+        expect(find.isOpen(groups[1].id)).toBe(true);
+
+        // Переключение в группу 1 НЕ закрывает find группы 2 (пер-группные сессии).
+        h.commands.execute("workbench.action.focusFirstEditorGroup");
+        expect(find.isOpen(groups[1].id)).toBe(true);
+
+        // Find в группе 1 — свой виджет со своим запросом.
+        h.commands.execute("actions.find");
+        const widgetA = find.widgetFor(groups[0].id)!;
+        widgetA.setQuery("alpha-only");
+        widgetA.onQueryChange?.("alpha-only");
+        expect(find.isOpen(groups[0].id)).toBe(true);
+        expect(widgetB.getQuery()).toBe("line");
+
+        // Escape (закрытие) — только у активной группы.
+        h.commands.execute("closeFindWidget");
+        expect(find.isOpen(groups[0].id)).toBe(false);
+        expect(find.isOpen(groups[1].id)).toBe(true);
+    });
+
+    it("схлопывание группы забирает её find-виджет и сессию", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.commands.execute("workbench.action.splitEditor");
+        h.testApp.render();
+        const find = h.container.get(FindComponentDIToken);
+        const collapsedGroup = service().activeGroup;
+
+        h.commands.execute("actions.find");
+        expect(find.isOpen(collapsedGroup.id)).toBe(true);
+
+        // Закрываем единственную вкладку — группа схлопывается вместе с виджетом.
+        service().activeGroup.closeTab(0);
+        expect(service().groups.length).toBe(1);
+        expect(find.widgetIfExists(collapsedGroup.id)).toBeNull();
     });
 
     it("группы делят полосу поровну после сплита (лэйаут кадра)", () => {

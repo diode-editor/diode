@@ -250,15 +250,9 @@ export class WorkbenchComponent extends Component {
         // в локальном слое группы редакторов. Закрытие при смене активного
         // редактора сервисы делают сами (подписки на onActiveEditorChanged).
         suggestComponent.attachHost(this.view);
-        findComponent.attachHost(this.editorPartComponent.activeGroupOverlayHost());
-        // Find живёт в активной группе: смена группы перевешивает его сессию на
-        // её локальный overlay-слой (сам виджет к этому моменту закрыт —
-        // FindService закрывается по смене активного редактора).
-        this.register(
-            this.editorService.onDidActiveGroupChange(() => {
-                findComponent.attachHost(this.editorPartComponent.activeGroupOverlayHost());
-            }),
-        );
+        // Find-виджеты — по одному на группу, на локальном overlay-слое каждой;
+        // компонент создаёт их лениво по первому Ctrl+F в группе.
+        findComponent.hostProvider = (groupId) => this.editorPartComponent.groupOverlayHost(groupId);
         for (const action of builtinActions) {
             this.register(registerAction(commands, keybindings, accessor, action));
         }

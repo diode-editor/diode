@@ -430,10 +430,12 @@ describe("Workbench — Output: регрессии", () => {
         // `vexx starting` есть только в логе, `Alpha` — только в файле.
         outputPane();
         const find = h.container.get(FindComponentDIToken);
+        const groupId = h.container.get(EditorServiceDIToken).activeGroup.id;
 
         h.commands.execute("actions.find");
-        find.setQuery("vexx starting");
-        find.onQueryChange?.("vexx starting");
+        const widget = find.widgetFor(groupId)!;
+        widget.setQuery("vexx starting");
+        widget.onQueryChange?.("vexx starting");
 
         // Смотрим на кадр, как и репортёр: счётчик виджета — наблюдаемый результат.
         h.testApp.render();
