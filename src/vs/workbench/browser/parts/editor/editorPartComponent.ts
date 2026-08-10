@@ -27,10 +27,20 @@ export class EditorPartComponent extends Component {
     public readonly view: EditorPartElement;
     private readonly groupComponents = new Map<GroupId, EditorGroupComponent>();
 
+    /**
+     * Смена раскладки полосы действием пользователя (drag саша, resize-команды,
+     * тумблер оси) — для персиста (`WorkbenchStateService`). Не файрится при
+     * программном ресторе.
+     */
+    public onDidChangeGroupLayout?: () => void;
+
     public constructor(private readonly editorService: EditorService) {
         super();
         this.view = new EditorPartElement();
         this.view.id = "editorPart";
+        this.view.onDidChangeWeights = () => {
+            this.onDidChangeGroupLayout?.();
+        };
         this.register(
             editorService.onDidGroupsChange((event) => {
                 this.syncGroups(event);
@@ -70,6 +80,23 @@ export class EditorPartComponent extends Component {
     /** Тумблер оси полосы (US-19): группы и доли сохраняются. */
     public toggleOrientation(): void {
         this.view.orientation = this.view.orientation === "columns" ? "rows" : "columns";
+        this.onDidChangeGroupLayout?.();
+    }
+
+    /** Текущие доли групп (для персиста). */
+    public get weights(): readonly number[] {
+        return this.view.weights;
+    }
+
+    /** Влезет ли полоса из `count` групп (рестор в маленьком терминале — US-43). */
+    public canFitGroups(count: number): boolean {
+        return this.view.canFit(count);
+    }
+
+    /** Применяет сохранённую раскладку (рестор): ось + доли, без событий персиста. */
+    public applyPersistedLayout(orientation: EditorPartOrientation, weights: readonly number[]): void {
+        this.view.orientation = orientation;
+        this.view.setWeights(weights);
     }
 
     /** Выравнивает доли групп (Reset Editor Group Sizes). */

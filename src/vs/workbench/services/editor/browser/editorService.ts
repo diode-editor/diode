@@ -438,11 +438,12 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public focusGroup(
         target: GroupId | { index: number } | { direction: "next" | "previous" | "cycle" },
+        { focus = true }: { focus?: boolean } = {},
     ): void {
         const group = this.resolveGroupTarget(target);
         if (group === null) return;
         this.makeGroupActive(group);
-        this.focusGroupContent(group);
+        if (focus) this.focusGroupContent(group);
     }
 
     private resolveGroupTarget(

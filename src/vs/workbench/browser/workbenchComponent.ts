@@ -233,6 +233,12 @@ export class WorkbenchComponent extends Component {
         // Персист открытых редакторов (write-through подписан на EditorService
         // внутри сервиса; layout персистит LayoutService через onDidChangeLayout).
         this.workbenchState = this.register(accessor.get(WorkbenchStateServiceDIToken));
+        // Персист раскладки групп: срез view-части (ось/доли/вместимость) +
+        // write-through по действиям пользователя (drag саша, resize, тумблер оси).
+        this.workbenchState.attachEditorLayout(this.editorPartComponent);
+        this.editorPartComponent.onDidChangeGroupLayout = () => {
+            this.workbenchState.captureOpenEditors();
+        };
 
         this.view = new BodyElement();
         this.view.id = "workbench";

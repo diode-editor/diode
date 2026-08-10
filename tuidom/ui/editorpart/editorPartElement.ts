@@ -92,6 +92,15 @@ export class EditorPartElement extends TUIElement {
     }
 
     /**
+     * Задаёт доли программно (рестор персиста). Невалидные/чужой длины веса
+     * нормализуются в равные; событие не файрится — это не действие пользователя.
+     */
+    public setWeights(weights: readonly number[]): void {
+        this.weightsValue = this.normalizeWeights([...weights]);
+        this.markDirty();
+    }
+
+    /**
      * Меняет основной размер группы `index` на `deltaCells` ячеек за счёт соседа
      * справа/снизу (последняя группа растёт за счёт соседа слева/сверху) —
      * increase/decreaseEditorWidth/Height. Кламп по минимуму обеих.

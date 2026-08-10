@@ -107,7 +107,19 @@ main.ts: build container ─► process.on("exit", stateService.flushSync)
   DI — TUIDom чист) фаерит на drag сэша и на команды (toggle/resize);
   `LayoutService.attachLayout` подписывает его на `captureLayout()`. Открытые
   файлы — собственная подписка `WorkbenchStateService` на
-  `EditorService.onActiveEditorChanged` → `captureOpenEditors()`.
+  `EditorService.onActiveEditorChanged` + `onDidGroupsChange` →
+  `captureOpenEditors()`; раскладка полосы групп (drag саша групп, resize,
+  тумблер оси) приходит хуком `EditorPartComponent.onDidChangeGroupLayout`.
+- **Полоса групп редакторов** (сплиты): снимок `workbench.editors.groups`
+  (`{orientation, groups: [{files, activeIndex}], weights, activeGroup}`,
+  default `null`). Ось/доли/вместимость приходят срезом
+  `IEditorGroupsLayoutView` (`attachEditorLayout`, реализует
+  `EditorPartComponent` структурно). Плоский `workbench.editors.openEditors`
+  продолжает писаться снимком активной группы — сессия совместима со сборками
+  до сплитов в обе стороны (unknown-key preservation хранит групповой ключ при
+  откате). Рестор: `null` → конверсия плоского ключа в одну группу; пропавшие
+  файлы пропускаются, опустевшие группы схлопываются, лишние для текущего
+  терминала группы сливаются в последнюю влезающую (`canFitGroups`).
 - **Активная вкладка нижней панели** живёт не в layout-элементе, а в
   `PanelService`, поэтому у неё свой write-through: подписка `LayoutService` на
   `onDidChangeActiveView` → `PANEL_ACTIVE_VIEW_STATE`. На restore вкладка
