@@ -486,19 +486,30 @@ hide-toggle (`isHiddenByDefault`). См.
     (`isModified` = versionId + EOL-ось), осями encoding/EOL/language, записью
     на диск (`save`/`saveAs`/`saveWithEncoding` + save-участник с клампом правок),
     перечиткой (`revertToDisk`/`reopenWithEncoding` → событие
-    `onDidReloadDocument`) и слежением за файлом на диске через `IFileWatcher`
-    (авто-перечитка чистого буфера / `hasDiskConflict` у «грязного»); undo-роутинг
-    в `UndoRedoService` (`undoContext` + `attachUndoRouting`; движок
-    `UndoManager` остаётся в `src/vs/editor`). **Не** singleton-сервис: экземпляр на
-    файл, создаёт владелец. Правки, которые модель применяет сама (участник,
-    `setEol`, `applyExternalEdits`), идут через шов `ITextFileEditTarget` —
-    его прикрепляет парный компонент.
+    `onDidReloadDocument` с reason `disk`/`owned`) и слежением за файлом на диске
+    через `IFileWatcher` (авто-перечитка чистого буфера / `hasDiskConflict` у
+    «грязного»). **Владеет движком undo**: `UndoManager` (класс — в
+    `src/vs/editor`) — один на документ, пересоздаётся с ним; модель сама
+    роутит шаги в `UndoRedoService` (`undoContext`), а `undo/redo(view)`
+    принимают «действующую вью», которой восстанавливается снимок выделений.
+    **Не** singleton-сервис: экземпляр на файл, но один при любом числе вкладок —
+    реестр `TextFileModelRegistry` (`acquire(uri)` → ref-count-ссылка, вкладка
+    владеет ссылкой, модель умирает с последней; untitled/synthetic — мимо
+    реестра). Правки, которые модель применяет сама (участник, `setEol`,
+    `applyExternalEdits`), идут через шов `ITextFileEditTarget` — прикрепляет
+    каждый парный компонент (целей может быть несколько — сплит-вью; действующую
+    передаёт вызывающий, `markDirty` вещается всем).
   - `Components/Editor/EditorComponent.ts` — `ThemedComponent`; владеет
     `EditorElement` + view-state + токен-кешем (`view` = `ScrollBarDecorator`),
-    принимает модель в конструктор: по `onDidReloadDocument` пересобирает
-    view-state/`EditorElement` (перенося стили/контекст-меню/undo-роутинг), по
+    принимает модель в конструктор (модель может делиться несколькими
+    компонентами — по вью на группу): по `onDidReloadDocument` пересобирает
+    view-state/`EditorElement` (перенося стили/контекст-меню; при
+    `reason === "disk"` — ещё каретку и скролл), по
     `onDidChangeLanguage` и `TokenizationRegistry.onDidChange` пересаживает
     токенизатор, по контенту пересчитывает folding-регионы (микротаск-коалесинг).
+    Чужие правки документа (другая вью, undo, владелец буфера) строчно ремапят
+    выделения/фолды/скролл каждой вью — `EditorViewState.remapForDocumentChange`
+    по `onDidChangeContent` (свои мутаторы гейтятся и пересчитывают себя точно).
     Здесь же view-API: курсор/reveal/goToPosition, декорации (search/markers/
     gutter change-bars), folding-команды, контекст-меню редактора,
     `updateStyles()` → `getEditorStyles` + `editor.style={fg,bg}` +

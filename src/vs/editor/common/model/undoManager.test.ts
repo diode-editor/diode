@@ -9,7 +9,7 @@ import { UndoManager } from "./undoManager.ts";
 function setup(text: string) {
     const doc = new TextDocument(text);
     const viewState = new EditorViewState(doc);
-    const undoManager = new UndoManager(doc, viewState);
+    const undoManager = new UndoManager(doc);
     return { doc, viewState, undoManager };
 }
 
@@ -44,7 +44,7 @@ describe("UndoManager", () => {
         undoManager.pushUndoElement(element!);
         expect(doc.getText()).toBe("hello world");
 
-        expect(undoManager.undo()).toBe(true);
+        expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.getText()).toBe(original);
     });
 
@@ -57,7 +57,7 @@ describe("UndoManager", () => {
         undoManager.pushUndoElement(element!);
         expect(doc.getText()).toBe("hell");
 
-        expect(undoManager.undo()).toBe(true);
+        expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.getText()).toBe("hello");
     });
 
@@ -68,7 +68,7 @@ describe("UndoManager", () => {
         const element = viewState.type("X");
         undoManager.pushUndoElement(element!);
 
-        undoManager.undo();
+        undoManager.undo(viewState);
         expect(viewState.selections).toEqual(selectionsBefore);
     });
 
@@ -79,10 +79,10 @@ describe("UndoManager", () => {
         undoManager.pushUndoElement(element!);
         const afterText = doc.getText();
 
-        undoManager.undo();
+        undoManager.undo(viewState);
         expect(doc.getText()).toBe("hello");
 
-        expect(undoManager.redo()).toBe(true);
+        expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.getText()).toBe(afterText);
     });
 
@@ -91,7 +91,7 @@ describe("UndoManager", () => {
 
         const e1 = viewState.type("A");
         undoManager.pushUndoElement(e1!);
-        undoManager.undo();
+        undoManager.undo(viewState);
         expect(undoManager.canRedo).toBe(true);
 
         const e2 = viewState.type("B");
@@ -112,10 +112,10 @@ describe("UndoManager", () => {
 
         expect(doc.getText()).toBe("AB");
 
-        expect(undoManager.undo()).toBe(true);
+        expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.getText()).toBe(afterA);
 
-        expect(undoManager.undo()).toBe(true);
+        expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.getText()).toBe(original);
     });
 
@@ -128,7 +128,7 @@ describe("UndoManager", () => {
         // External edit that changes versionId
         doc.applyEdits([{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "!" }]);
 
-        expect(undoManager.undo()).toBe(false);
+        expect(undoManager.undo(viewState)).toBe(false);
     });
 
     it("versionId is correct through apply-undo-redo cycle", () => {
@@ -139,10 +139,10 @@ describe("UndoManager", () => {
         undoManager.pushUndoElement(element!);
         expect(doc.versionId).toBe(1);
 
-        undoManager.undo();
+        undoManager.undo(viewState);
         expect(doc.versionId).toBe(2);
 
-        undoManager.redo();
+        undoManager.redo(viewState);
         expect(doc.versionId).toBe(3);
     });
 
@@ -157,7 +157,7 @@ describe("UndoManager", () => {
 
         expect(doc.getText()).not.toBe(originalText);
 
-        undoManager.undo();
+        undoManager.undo(viewState);
 
         expect(doc.getText()).toBe(originalText);
         expect(doc.lineCount).toBe(originalLineCount);

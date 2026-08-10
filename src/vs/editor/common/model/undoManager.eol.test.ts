@@ -11,7 +11,7 @@ import { UndoManager } from "./undoManager.ts";
 function setup(text: string) {
     const doc = new TextDocument(text);
     const viewState = new EditorViewState(doc);
-    const undoManager = new UndoManager(doc, viewState);
+    const undoManager = new UndoManager(doc);
     return { doc, viewState, undoManager };
 }
 
@@ -40,10 +40,10 @@ describe("UndoManager EOL changes", () => {
         undoManager.pushUndoElement(eolElement(doc, viewState, EndOfLine.LF, EndOfLine.CRLF));
         expect(doc.eol).toBe(EndOfLine.CRLF);
 
-        expect(undoManager.undo()).toBe(true);
+        expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.eol).toBe(EndOfLine.LF);
 
-        expect(undoManager.redo()).toBe(true);
+        expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.eol).toBe(EndOfLine.CRLF);
     });
 
@@ -54,8 +54,8 @@ describe("UndoManager EOL changes", () => {
         doc.setEol(EndOfLine.CRLF);
         undoManager.pushUndoElement(eolElement(doc, viewState, EndOfLine.LF, EndOfLine.CRLF));
 
-        undoManager.undo();
-        undoManager.redo();
+        undoManager.undo(viewState);
+        undoManager.redo(viewState);
 
         expect(doc.getText()).toBe("a\nb");
         expect(doc.versionId).toBe(versionBefore);
@@ -76,20 +76,20 @@ describe("UndoManager EOL changes", () => {
         expect(doc.eol).toBe(EndOfLine.CRLF);
 
         // undo text edit -> content back, eol untouched
-        expect(undoManager.undo()).toBe(true);
+        expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.getText()).toBe("hello");
         expect(doc.eol).toBe(EndOfLine.CRLF);
 
         // undo eol change -> eol back to LF
-        expect(undoManager.undo()).toBe(true);
+        expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.eol).toBe(EndOfLine.LF);
 
         // redo eol change
-        expect(undoManager.redo()).toBe(true);
+        expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.eol).toBe(EndOfLine.CRLF);
 
         // redo text edit
-        expect(undoManager.redo()).toBe(true);
+        expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.getText()).toBe("hello world");
         expect(doc.eol).toBe(EndOfLine.CRLF);
     });

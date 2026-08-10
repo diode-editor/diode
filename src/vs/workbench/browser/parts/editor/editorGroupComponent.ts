@@ -14,6 +14,7 @@ import {} from "../../../services/themes/common/themeTokens.ts";
 import { Component } from "../../component.ts";
 
 import type { IEditorPane } from "./iEditorPane.ts";
+import { TextEditorPane } from "./textEditorPane.ts";
 
 export const EditorGroupComponentDIToken = token<EditorGroupComponent>("EditorGroupComponent");
 
@@ -61,7 +62,12 @@ export class EditorGroupComponent extends Component {
             /* v8 ignore start -- индекс из tab strip всегда указывает на существующую вкладку; null — недостижимый инвариант-гард */
             if (editor === null) return;
             /* v8 ignore stop */
-            if (editor.isModified && this.editorService.onRequestConfirmClose) {
+            // Диалог — только у последней вкладки документа: пока он виден где-то
+            // ещё, несохранённые правки живут в общей модели и не теряются.
+            const needsConfirm =
+                editor.isModified &&
+                (!(editor instanceof TextEditorPane) || this.editorService.isLastPaneForDocument(editor));
+            if (needsConfirm && this.editorService.onRequestConfirmClose) {
                 this.editorService.onRequestConfirmClose(index);
             } else {
                 this.editorService.closeTab(index);

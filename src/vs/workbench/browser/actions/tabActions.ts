@@ -83,8 +83,10 @@ export const closeActiveEditorAction: CommandAction = {
         // Закрываем вкладку по `activeIndex`, поэтому и dirty спрашиваем у НЕЁ:
         // focus-aware `getActiveEditor()` при фокусе в панели вернул бы Output
         // (он никогда не modified) — и изменённая вкладка закрылась бы молча.
+        // Диалог — только у последней вкладки документа: пока он виден где-то
+        // ещё, несохранённые правки живут в общей модели и не теряются.
         const editor = group.getEditor(group.activeIndex);
-        if (editor?.isModified && group.onRequestConfirmClose) {
+        if (editor?.isModified && group.isLastPaneForDocument(editor) && group.onRequestConfirmClose) {
             group.onRequestConfirmClose(group.activeIndex);
         } else {
             group.closeTab(group.activeIndex);

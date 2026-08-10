@@ -29,6 +29,7 @@ import {
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
 import { TextFileModel } from "../../textfile/common/textFileModel.ts";
+import { TextFileModelRegistry } from "../../textfile/common/textFileModelRegistry.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 
@@ -63,6 +64,12 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     ] as const;
 
     private panes: IEditorPane[] = [];
+    /**
+     * Реестр моделей открытых файлов: один {@link TextFileModel} на ресурс при
+     * любом числе показывающих его вкладок; вкладка владеет ссылкой, модель
+     * умирает с последней. Безымянные и синтетические буферы — мимо реестра.
+     */
+    private readonly modelRegistry = new TextFileModelRegistry((uri) => this.createFileModel(uri));
     /**
      * Редакторы вне таб-строки (нижняя Panel: Output). Держим отдельным списком
      * именно затем, чтобы весь код вкладок — `getEditors`, `editorCount`,
@@ -385,9 +392,12 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * `TextEditorPane.model`. Владелец же и решает, куда вставить `pane.view`.
      */
     public openDetached(uri: Uri, languageId: string): TextEditorPane {
-        const editor = this.createAndWireEditor();
+        // Синтетический ресурс уникален по построению — модель мимо реестра.
+        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        this.wireModel(model);
+        model.openSynthetic(uri, languageId);
+        const editor = this.createPaneForModel(model);
         editor.detached = true;
-        editor.model.openSynthetic(uri, languageId);
         this.applyConfigurationToEditor(editor);
         this.detachedPanes.push(editor);
         return editor;
@@ -443,12 +453,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             return;
         }
 
-        const editor = this.createAndWireEditor();
-        // Наблюдатель проставлен в createAndWireEditor до openFile, чтобы слежение
-        // началось с первой загрузки.
-        editor.openFile(uri);
-        // Конфиг применяем после openFile: загрузка пересоздаёт view-state, и
-        // настройки отступов надо писать уже в новое состояние.
+        // Модель приходит из реестра уже загруженной (фабрика ставит watcher до
+        // openFile); вкладка владеет ссылкой, а не самой моделью.
+        const ref = this.modelRegistry.acquire(uri);
+        const editor = this.createPaneForModel(ref.model, ref);
         this.applyConfigurationToEditor(editor);
         this.panes.push(editor);
         this.activateTab(this.panes.length - 1, { focus });
@@ -460,7 +468,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * `filePath` остаётся `null`, путь запрашивается при первом сохранении (Save As).
      */
     public newUntitled({ focus = true }: { focus?: boolean } = {}): void {
-        const editor = this.createAndWireEditor();
+        // Безымянный буфер уникален по построению — модель мимо реестра,
+        // вкладка владеет ею единолично.
+        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        this.wireModel(model);
+        const editor = this.createPaneForModel(model);
         // Файл не грузим (view-state из конструктора не пересоздаётся) — конфиг
         // применяем сразу.
         this.applyConfigurationToEditor(editor);
@@ -471,36 +483,54 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     /**
-     * Создаёт пару {@link TextFileModel} + {@link EditorComponent} (обёрнутую в
-     * транзитный {@link TextEditorPane}) и навешивает общую обвязку группы (watcher,
-     * save-участник, подписки на изменения → {@link onDidChangeEditors},
-     * `onDidSave`, `onEditorCreate`) — всё, кроме загрузки файла и применения
-     * конфига (их порядок относительно openFile важен, поэтому они на стороне
-     * вызывающего). Общая часть {@link openFile} и {@link newUntitled}.
+     * Фабрика реестра моделей: модель файла + модельная обвязка + загрузка.
+     * Наблюдатель ставится до openFile ({@link wireModel}), чтобы слежение
+     * началось с первой загрузки.
      */
-    private createAndWireEditor(): TextEditorPane {
+    private createFileModel(uri: Uri): TextFileModel {
         const model = new TextFileModel(this.languageService, this.undoRedoService);
+        this.wireModel(model);
+        model.openFile(uri);
+        return model;
+    }
+
+    /**
+     * Модельная обвязка — ставится один раз на документ, а не на вкладку:
+     * watcher, save-участник и событие сохранения принадлежат файлу, сколько бы
+     * вью его ни показывало.
+     */
+    private wireModel(model: TextFileModel): void {
+        model.fileWatcher = this.fileWatcher;
+        model.saveParticipant = this.saveParticipantValue;
+        model.onDidSave = () => {
+            // saveAs мог сменить ресурс — реестр перепривязывает ключ.
+            this.modelRegistry.handleUriChanged(model);
+            this.fireEditorsChanged();
+            this.fireModelSaved(model);
+        };
+    }
+
+    /**
+     * Создаёт view-часть вкладки поверх модели ({@link EditorComponent} +
+     * транзитный {@link TextEditorPane}) и навешивает вкладочную обвязку
+     * (контекст-меню, подписки → {@link onDidChangeEditors}, folding-источник,
+     * `onEditorCreate`). `modelOwnership` — ссылка реестра, которой владеет
+     * вкладка; без неё вкладка владеет моделью единолично (untitled, detached).
+     */
+    private createPaneForModel(model: TextFileModel, modelOwnership?: IDisposable): TextEditorPane {
         const component = new EditorComponent(
             this.tokenizationRegistry,
             this.tokenStyleResolver,
             model,
         );
-        const editor = new TextEditorPane(model, component);
+        const editor = new TextEditorPane(model, component, modelOwnership);
         // Политика контекстного меню редактора слушает "contextmenu" на обвязке
         // пары: ScrollBarDecorator переживает пересоздание EditorElement при
         // перечитке, сам элемент контроллер берёт из цели события.
         this.contextMenuController.attach(component.view);
         this.wirePane(editor);
-        // Наблюдатель ставим до возможного openFile, чтобы слежение началось с
-        // первой загрузки.
-        editor.fileWatcher = this.fileWatcher;
-        editor.saveParticipant = this.saveParticipantValue;
         editor.foldingRangeSource = this.foldingRangeSourceValue;
         this.onEditorCreate?.(editor);
-        editor.onDidSave = () => {
-            this.fireEditorsChanged();
-            this.fireEditorSaved(editor);
-        };
         return editor;
     }
 
@@ -694,15 +724,35 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public collectDirty(): readonly IShutdownDirtyItem[] {
         const items: IShutdownDirtyItem[] = [];
+        // Дедуп по модели: документ, открытый в нескольких вкладках, — одни
+        // несохранённые правки и ОДИН диалог, а не по числу вкладок.
+        const seenModels = new Set<TextFileModel>();
         for (const editor of this.textPanes()) {
             if (!editor.isModified) continue;
+            if (seenModels.has(editor.model)) continue;
+            seenModels.add(editor.model);
             items.push({
                 name: this.displayName(editor),
-                isStillDirty: () => this.panes.includes(editor),
+                isStillDirty: () =>
+                    this.textPanes().some((pane) => pane.model === editor.model),
                 save: () => editor.save({ overwrite: true }),
             });
         }
         return items;
+    }
+
+    /**
+     * Правда, если `editor` — последняя вкладка, показывающая свой документ:
+     * закрытие потеряет несохранённые правки, нужен confirm-диалог. Пока документ
+     * виден где-то ещё, вкладка закрывается молча — правки живут в общей модели
+     * (семантика VS Code для сплитов).
+     */
+    public isLastPaneForDocument(editor: TextEditorPane): boolean {
+        let count = 0;
+        for (const pane of this.panes) {
+            if (pane instanceof TextEditorPane && pane.model === editor.model) count++;
+        }
+        return count <= 1;
     }
 
     /**
@@ -762,9 +812,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         });
     }
 
-    private fireEditorSaved(editor: TextEditorPane): void {
+    private fireModelSaved(model: TextFileModel): void {
         // Ресурс есть у любого редактора — гейт на "путь не задан" больше не нужен.
-        const meta: IEditorSavedMeta = { uri: editor.uri.toString(), languageId: editor.languageId };
+        const meta: IEditorSavedMeta = { uri: model.uri.toString(), languageId: model.languageId };
         for (const cb of [...this.editorSavedListeners]) {
             cb(meta);
         }

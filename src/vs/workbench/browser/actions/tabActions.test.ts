@@ -26,6 +26,8 @@ interface GroupStub {
     closeTab: (index: number) => void;
     /** Закрываемую вкладку экшен берёт по индексу, а не через focus-aware активный редактор. */
     getEditor?: (index: number) => { isModified: boolean } | null;
+    /** Диалог показывается только последней вкладке документа; в стабе — всегда последняя. */
+    isLastPaneForDocument?: (editor: { isModified: boolean }) => boolean;
     onRequestConfirmClose?: (index: number) => void;
 }
 
@@ -174,6 +176,7 @@ describe("TabActions", () => {
             activateTab: vi.fn(),
             closeTab,
             getEditor: () => ({ isModified: true }),
+            isLastPaneForDocument: () => true,
             onRequestConfirmClose,
         };
 
@@ -194,6 +197,7 @@ describe("TabActions", () => {
             activateTab: vi.fn(),
             closeTab,
             getEditor: () => ({ isModified: true }),
+            isLastPaneForDocument: () => true,
             // onRequestConfirmClose intentionally absent → else branch.
         };
 
