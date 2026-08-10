@@ -92,6 +92,18 @@ export const SCM_VIEW_MODE_STATE: IStateDescriptor<ScmViewMode> = {
     default: "flat",
 };
 
+/**
+ * Развёрнута ли панель описания в suggest-попапе (тумблер
+ * `toggleSuggestionDetails`). Как в VS Code — по умолчанию свёрнута, и выбор
+ * пользователя переживает рестарт. Область global: это привычка человека, а не
+ * свойство проекта.
+ */
+export const SUGGEST_DETAILS_VISIBLE_STATE: IStateDescriptor<boolean> = {
+    key: "editor.suggest.showDetails",
+    scope: "global",
+    default: false,
+};
+
 /** Черновик сообщения коммита (commit input box) — переживает рестарт. */
 export const SCM_INPUT_MESSAGE_STATE: IStateDescriptor<string> = {
     key: "workbench.scm.inputMessage",

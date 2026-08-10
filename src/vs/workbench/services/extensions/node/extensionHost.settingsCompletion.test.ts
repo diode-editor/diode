@@ -49,7 +49,7 @@ describe("vexx-settings — автодополнение ключей в setting
             await settle();
             expect(harness.host.hasExtension("vexx.settings")).toBe(true);
 
-            const items = await harness.group.completionSource!(SETTINGS_REQ);
+            const { items } = await harness.group.completionSource!(SETTINGS_REQ);
             const labels = items.map((i) => i.label);
             // Ключи из app-дефолтов и из contributes.configuration builtin'ов.
             expect(labels).toContain("editor.tabSize");
@@ -73,11 +73,11 @@ describe("vexx-settings — автодополнение ключей в setting
         try {
             await harness.host.activateByEvent("onLanguage:json");
             await settle();
-            const items = await harness.host.provideCompletionItems({
+            const result = await harness.host.provideCompletionItems({
                 ...SETTINGS_REQ,
                 uri: Uri.file("/proj/other.json").toString(),
             });
-            expect(items).toEqual([]);
+            expect(result).toEqual({ items: [], isIncomplete: false });
         } finally {
             await harness.dispose();
         }
@@ -108,13 +108,14 @@ describe("vexx-settings — кавычки и значения (e2e через s
         try {
             await harness.host.activateByEvent("onLanguage:json");
             await settle();
-            return await harness.host.provideCompletionItems({
+            const result = await harness.host.provideCompletionItems({
                 uri: Uri.file("/proj/.vexx/settings.json").toString(),
                 languageId: "json",
                 text,
                 line,
                 character,
             });
+            return result.items;
         } finally {
             await harness.dispose();
         }

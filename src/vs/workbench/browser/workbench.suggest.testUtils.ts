@@ -5,6 +5,7 @@ import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
+import type { SuggestComponent } from "../contrib/suggest/browser/suggestComponent.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
 
 import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
@@ -19,6 +20,8 @@ export interface SuggestHandle {
 
 export interface SuggestContext {
     testApp: TestApp;
+    /** Сам компонент попапа — для проверок панели описания. */
+    component: SuggestComponent;
     workbench: WorkbenchComponent;
     contextKeys: ContextKeyService;
     activeEditor: () => TextEditorPane;
@@ -37,7 +40,8 @@ export function createSuggestApp(text: string): SuggestContext {
 
     // Тот же синглтон-инстанс, что резолвил Workbench (контейнер кэширует).
     const service = harness.container.get(CompletionServiceDIToken);
-    const view = harness.container.get(SuggestComponentDIToken).view;
+    const component = harness.container.get(SuggestComponentDIToken);
+    const view = component.view;
     const completion: SuggestHandle = {
         trigger: () => service.trigger(),
         isOpen: () => service.isOpen(),
@@ -46,6 +50,7 @@ export function createSuggestApp(text: string): SuggestContext {
 
     return {
         testApp: harness.testApp,
+        component,
         workbench: harness.workbench,
         contextKeys: harness.container.get(ContextKeyServiceDIToken),
         activeEditor: () => harness.activeEditor(),

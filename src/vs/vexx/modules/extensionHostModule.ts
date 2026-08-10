@@ -157,8 +157,16 @@ export const extensionHostModule: ContainerModule = (container) => {
         bindDocumentSync(group, host);
 
         // Completion: провайдеры расширений (languages.provideCompletionItems)
-        // подключаются как источник автодополнений группы (читает CompletionService).
+        // подключаются как источник автодополнений группы (читает CompletionService),
+        // resolve — как источник описаний и правок авто-импорта выбранного пункта.
         group.completionSource = (req) => host.provideCompletionItems(req);
+        group.completionResolver = (id) => host.resolveCompletionItem(id);
+        // Триггер-символы объявляет сервер уже после активации — держим их
+        // актуальными на каждом обновлении подписок субпроцесса.
+        group.completionTriggerCharacters = host.completionTriggerCharacters;
+        host.onCompletionTriggerCharactersChanged((characters) => {
+            group.completionTriggerCharacters = characters;
+        });
 
         // Definition: провайдеры расширений (languages.provideDefinition)
         // подключаются как источник целей Go to Definition (читает DefinitionService).

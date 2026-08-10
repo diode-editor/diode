@@ -2,7 +2,7 @@ import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
+import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -120,6 +120,20 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * `CompletionService` при триггере; в редакторы не раздаётся (group-level).
      */
     public completionSource?: CompletionSource;
+
+    /**
+     * Ленивая догрузка выбранного пункта автодополнения (`resolveCompletionItem`
+     * провайдера). Отдельный seam, а не поле пункта: у стокового LSP-стека
+     * описание и авто-импорт приходят ТОЛЬКО по запросу конкретного пункта, уже
+     * после показа списка.
+     */
+    public completionResolver?: CompletionResolver;
+
+    /**
+     * Символы, после набора которых попап открывается сам (`.` у tsserver) —
+     * их объявляет language server, а host передаёт сюда.
+     */
+    public completionTriggerCharacters: readonly string[] = [];
 
     /**
      * Definition-источник (host/харнесс подключает сюда провайдеры расширений

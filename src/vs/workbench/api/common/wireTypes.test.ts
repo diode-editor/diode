@@ -9,12 +9,15 @@ import type { WireCompletionItem, WireTextEdit } from "./wireTypes.ts";
 import {
     parseWireCompletionItems,
     parseWireEditorEdits,
+    parseWireCompletionResult,
     parseWireFoldingRanges,
     parseWireReadFileResult,
+    parseWireResolvedCompletionItem,
     parseWireSelections,
     parseWireTextEdits,
     requestCompletionItems,
     requestFoldingRanges,
+    requestResolveCompletionItem,
     requestWillSaveEdits,
     wireToCoreCompletionItems,
     wireToCoreFoldingRegions,
@@ -112,7 +115,7 @@ describe("WireTypes — requestWillSaveEdits (InProcessChannelPair)", () => {
         }
     });
 
-    it("возвращает [] по таймауту, если participant никогда не резолвится", async () => {
+    it("возвращает пустой результат по таймауту, если participant никогда не резолвится", async () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("workspace.willSaveTextDocument", () => new Promise(() => {}));
@@ -123,7 +126,7 @@ describe("WireTypes — requestWillSaveEdits (InProcessChannelPair)", () => {
         }
     });
 
-    it("возвращает [] при ошибке RPC-хендлера", async () => {
+    it("возвращает пустой результат при ошибке RPC-хендлера", async () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("workspace.willSaveTextDocument", () => {
@@ -201,6 +204,24 @@ describe("WireTypes — parseWireCompletionItems", () => {
     it("не-массив → []", () => {
         expect(parseWireCompletionItems(undefined)).toEqual([]);
     });
+
+    it("labelDetails доезжают до core-элемента", () => {
+        const [core] = wireToCoreCompletionItems([
+            { label: "getTime", insertText: ".getTime", id: "1.0", labelDetail: "(): number", labelDescription: "lib" },
+        ]);
+        expect(core).toMatchObject({ id: "1.0", labelDetail: "(): number", labelDescription: "lib" });
+    });
+
+    it("id/labelDetails: пустой id и нестроковые поля отбрасываются", () => {
+        const parsed = parseWireCompletionItems([
+            { label: "a", id: "", labelDetail: 5, labelDescription: null },
+            { label: "b", id: "1.0", labelDetail: "(): void", labelDescription: "lib.d.ts" },
+        ]);
+        expect(parsed[0].id).toBeUndefined();
+        expect(parsed[0].labelDetail).toBeUndefined();
+        expect(parsed[0].labelDescription).toBeUndefined();
+        expect(parsed[1]).toMatchObject({ id: "1.0", labelDetail: "(): void", labelDescription: "lib.d.ts" });
+    });
 });
 
 describe("WireTypes — wireToCoreCompletionItems", () => {
@@ -270,35 +291,118 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
             sub.handleRequest("languages.provideCompletionItems", () => [
                 { label: "indent_style", insertText: "indent_style", kind: 9 },
             ]);
-            const items = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
-            expect(items).toEqual([{ label: "indent_style", insertText: "indent_style", kind: 9 }]);
+            // Голый массив — форма ответа до появления isIncomplete; читаем её
+            // как полный список (расширение из чужой поставки не обязано знать
+            // про новую форму).
+            const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
+            expect(result).toEqual({
+                items: [{ label: "indent_style", insertText: "indent_style", kind: 9 }],
+                isIncomplete: false,
+            });
         } finally {
             dispose();
         }
     });
 
-    it("возвращает [] по таймауту", async () => {
+    it("возвращает пустой результат по таймауту", async () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("languages.provideCompletionItems", () => new Promise(() => {}));
-            const items = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 30);
-            expect(items).toEqual([]);
+            const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 30);
+            expect(result).toEqual({ items: [], isIncomplete: false });
         } finally {
             dispose();
         }
     });
 
-    it("возвращает [] при ошибке RPC-хендлера", async () => {
+    it("возвращает пустой результат при ошибке RPC-хендлера", async () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("languages.provideCompletionItems", () => {
                 throw new Error("boom");
             });
-            const items = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
-            expect(items).toEqual([]);
+            const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
+            expect(result).toEqual({ items: [], isIncomplete: false });
         } finally {
             dispose();
         }
+    });
+});
+
+describe("WireTypes — resolveCompletionItem", () => {
+    function connectPair(): { host: RpcEndpoint; sub: RpcEndpoint; dispose: () => void } {
+        const [a, b] = createInProcessChannelPair();
+        const host = new RpcEndpoint(a);
+        const sub = new RpcEndpoint(b);
+        return {
+            host,
+            sub,
+            dispose: () => {
+                host.dispose();
+                sub.dispose();
+            },
+        };
+    }
+
+    it("парсит detail/documentation и правки-спутники", () => {
+        const parsed = parseWireResolvedCompletionItem({
+            detail: "(alias) greet",
+            documentation: "Greets someone.",
+            additionalEdits: [
+                { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "import x\n" },
+            ],
+        });
+        expect(parsed?.detail).toBe("(alias) greet");
+        expect(parsed?.documentation).toBe("Greets someone.");
+        expect(parsed?.additionalEdits).toEqual([
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "import x\n" },
+        ]);
+    });
+
+    it("нестроковые detail/documentation отбрасываются", () => {
+        expect(parseWireResolvedCompletionItem({ detail: 5, documentation: {} })).toEqual({});
+        expect(parseWireResolvedCompletionItem({ detail: "d" })).toEqual({ detail: "d" });
+        expect(parseWireResolvedCompletionItem({ documentation: "doc" })).toEqual({ documentation: "doc" });
+    });
+
+    it("битые правки отбрасываются поштучно, не-объект → null", () => {
+        const parsed = parseWireResolvedCompletionItem({
+            additionalEdits: [null, { range: { startLine: "x" }, text: "a" }, { range: {}, text: 1 }],
+        });
+        expect(parsed).toEqual({});
+        expect(parseWireResolvedCompletionItem(null)).toBeNull();
+        expect(parseWireResolvedCompletionItem("nope")).toBeNull();
+    });
+
+    it("сквозь RPC: ответ доезжает, таймаут даёт null", async () => {
+        const { host, sub, dispose } = connectPair();
+        try {
+            sub.handleRequest("languages.resolveCompletionItem", () => ({ detail: "resolved" }));
+            const resolved = await requestResolveCompletionItem((m, p) => host.request(m, p), "1.0", 1000);
+            expect(resolved?.detail).toBe("resolved");
+        } finally {
+            dispose();
+        }
+
+        const slow = connectPair();
+        try {
+            slow.sub.handleRequest("languages.resolveCompletionItem", () => new Promise(() => {}));
+            expect(await requestResolveCompletionItem((m, p) => slow.host.request(m, p), "1.0", 30)).toBeNull();
+        } finally {
+            slow.dispose();
+        }
+    });
+});
+
+describe("WireTypes — parseWireCompletionResult", () => {
+    it("не-объект и не-массив → пустой полный список", () => {
+        expect(parseWireCompletionResult(null)).toEqual({ items: [], isIncomplete: false });
+        expect(parseWireCompletionResult(42)).toEqual({ items: [], isIncomplete: false });
+    });
+
+    it("флаг isIncomplete читается только как true", () => {
+        expect(parseWireCompletionResult({ items: [], isIncomplete: "yes" }).isIncomplete).toBe(false);
+        expect(parseWireCompletionResult({ items: [], isIncomplete: true }).isIncomplete).toBe(true);
     });
 });
 

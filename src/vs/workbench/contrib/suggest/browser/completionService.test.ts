@@ -6,8 +6,13 @@ import { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
+import type {
+    ICoreCompletionItem,
+    ICoreCompletionResult,
+} from "../../../../editor/common/languages/iCompletionSource.ts";
+import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 
@@ -95,6 +100,11 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
     };
 }
 
+/** Ответ источника «полным списком» — форма {@link ICoreCompletionResult}. */
+function completionResult(items: readonly ICoreCompletionItem[], isIncomplete = false): ICoreCompletionResult {
+    return { items, isIncomplete };
+}
+
 function makeGroup(
     editor: TextEditorPane,
     source: EditorService["completionSource"],
@@ -105,13 +115,33 @@ function makeGroup(
         getActiveEditor: () => editor,
         onActiveEditorChanged: () => ({ dispose: () => {} }),
         completionSource: source,
+        completionTriggerCharacters: [],
         editorCount: all.length,
         getEditor: (i: number) => all[i] ?? null,
     } as unknown as EditorService;
 }
 
+/**
+ * Состояние в памяти: NULL_STATE_SERVICE всегда отдаёт дефолт и не годится там,
+ * где проверяется «выбор пользователя переживает рестарт».
+ */
+function makeStateService(): IStateService {
+    const store = new Map<string, unknown>();
+    return {
+        get: <T,>(descriptor: IStateDescriptor<T>): T => (store.get(descriptor.key) as T | undefined) ?? descriptor.default,
+        store: <T,>(descriptor: IStateDescriptor<T>, value: T): void => {
+            store.set(descriptor.key, value);
+        },
+        openWorkspace: () => undefined,
+        flushSync: () => undefined,
+    };
+}
+
 /** Пара component+service с фейковым CommandRegistry (шпион `execute`). */
-function createService(group: EditorService): {
+function createService(
+    group: EditorService,
+    state: IStateService = makeStateService(),
+): {
     service: CompletionService;
     component: SuggestComponent;
     execute: ReturnType<typeof vi.fn>;
@@ -119,13 +149,13 @@ function createService(group: EditorService): {
     const execute = vi.fn();
     const commands = { execute } as unknown as CommandRegistry;
     const component = new SuggestComponent();
-    const service = new CompletionService(component, group, commands);
+    const service = new CompletionService(component, group, commands, state);
     return { service, component, execute };
 }
 
 function setup(items: readonly ICoreCompletionItem[], lineContent = "ind", character = 3, docText = lineContent) {
     const fake = makeEditor(lineContent, character, docText);
-    const source = vi.fn(() => Promise.resolve(items));
+    const source = vi.fn(() => Promise.resolve(completionResult(items)));
     const group = makeGroup(fake.editor, source);
 
     const { service, component, execute } = createService(group);
@@ -189,7 +219,554 @@ describe("CompletionService", () => {
             text: "ind",
             line: 0,
             character: 3,
+            triggerKind: CompletionTriggerKind.Invoke,
         });
+    });
+
+    describe("панель описания", () => {
+        const RESOLVABLE: ICoreCompletionItem[] = [
+            { label: "indent_style", insertText: "indent_style", id: "1.0", kind: 9 },
+            { label: "indent_size", insertText: "indent_size", id: "1.1", kind: 9 },
+        ];
+
+        function setupWithResolver(
+            resolver: EditorService["completionResolver"],
+            state = makeStateService(),
+        ): ReturnType<typeof createService> & { fake: FakeEditor; body: BodyElement } {
+            const fake = makeEditor("ind", 3, "ind");
+            const group = makeGroup(
+                fake.editor,
+                vi.fn(() => Promise.resolve(completionResult(RESOLVABLE))),
+            );
+            (group as { completionResolver: EditorService["completionResolver"] }).completionResolver = resolver;
+            const created = createService(group, state);
+            const body = new BodyElement();
+            TestApp.create(body, new Size(120, 24));
+            created.component.attachHost(body);
+            return { ...created, fake, body };
+        }
+
+        it("по умолчанию скрыта и описание не запрашивается", async () => {
+            const resolver = vi.fn(() => Promise.resolve({ detail: "(property) indent_style" }));
+            const { service, component } = setupWithResolver(resolver);
+
+            await service.trigger();
+
+            expect(component.detailsVisible).toBe(false);
+            expect(resolver).not.toHaveBeenCalled();
+            expect(component.widget.showsDetails).toBe(false);
+        });
+
+        it("тумблер разворачивает панель и догружает описание выбранного пункта", async () => {
+            const resolver = vi.fn(() => Promise.resolve({ detail: "(property) indent_style" }));
+            const { service, component } = setupWithResolver(resolver);
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+
+            expect(component.detailsVisible).toBe(true);
+            expect(resolver).toHaveBeenCalledWith("1.0");
+            expect(component.widget.showsDetails).toBe(true);
+            expect(component.details.linesFor(40).join(" ")).toContain("(property) indent_style");
+        });
+
+        it("переход по списку показывает описание нового пункта", async () => {
+            const resolver = vi.fn((id: string) => Promise.resolve({ detail: `detail for ${id}` }));
+            const { service, component } = setupWithResolver(resolver);
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+            service.selectNext();
+            await flushTimers();
+
+            expect(resolver).toHaveBeenCalledWith("1.1");
+            expect(component.details.linesFor(40).join(" ")).toContain("detail for 1.1");
+        });
+
+        it("состояние тумблера переживает пересоздание сервиса", async () => {
+            const state = makeStateService();
+            const first = setupWithResolver(vi.fn(() => Promise.resolve(null)), state);
+            await first.service.trigger();
+            first.service.toggleDetails();
+            expect(first.component.detailsVisible).toBe(true);
+
+            const second = setupWithResolver(vi.fn(() => Promise.resolve(null)), state);
+            expect(second.component.detailsVisible).toBe(true);
+        });
+
+        it("у края экрана панель уезжает влево от списка", async () => {
+            const fake = makeEditor("ind", 3, "ind");
+            const group = makeGroup(
+                fake.editor,
+                vi.fn(() => Promise.resolve(completionResult(RESOLVABLE))),
+            );
+            (group as { completionResolver: EditorService["completionResolver"] }).completionResolver = () =>
+                Promise.resolve({ detail: "(property) indent_style" });
+            const { service, component } = createService(group);
+            const body = new BodyElement();
+            // Узкий экран: справа от каретки (screenX=5) виджет с панелью не влезает.
+            TestApp.create(body, new Size(30, 24));
+            component.attachHost(body);
+
+            service.toggleDetails();
+            await service.trigger();
+            await flushTimers();
+
+            expect(component.widget.detailsSide).toBe("left");
+        });
+
+        it("без прикреплённого хоста сторона панели не пересчитывается", () => {
+            const fake = makeEditor("ind", 3, "ind");
+            const { component } = createService(makeGroup(fake.editor, undefined));
+            component.openAt({ screenX: 5, screenY: 5, preferBelow: true }); // хост не привязан
+            expect(component.widget.detailsSide).toBe("right");
+        });
+
+        it("пустой выбор очищает панель", async () => {
+            const { service, component } = setupWithResolver(() => Promise.resolve({ detail: "d" }));
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+            expect(component.details.isEmpty).toBe(false);
+
+            // Фильтр, не совпавший ни с чем: выбранного пункта больше нет.
+            component.view.setFilter("zzzz");
+            expect(component.details.isEmpty).toBe(true);
+        });
+
+        it("повторный переход на пункт берёт описание из кэша, параллельные запросы склеиваются", async () => {
+            const resolver = vi.fn(() => Promise.resolve({ detail: "cached" }));
+            const { service, component } = setupWithResolver(resolver);
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+            service.selectNext();
+            await flushTimers();
+            service.selectPrevious(); // назад на первый — уже в кэше
+            await flushTimers();
+
+            expect(resolver).toHaveBeenCalledTimes(2); // по одному разу на пункт
+        });
+
+        it("источник без резолвера панель не ломает", async () => {
+            const fake = makeEditor("ind", 3, "ind");
+            const group = makeGroup(
+                fake.editor,
+                vi.fn(() => Promise.resolve(completionResult(RESOLVABLE))),
+            );
+            const { service, component } = createService(group); // completionResolver не задан
+            const body = new BodyElement();
+            TestApp.create(body, new Size(120, 24));
+            component.attachHost(body);
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+
+            expect(component.widget.showsDetails).toBe(false);
+        });
+
+        it("сигнатура из labelDetail показывается, пустая документация игнорируется", async () => {
+            const fake = makeEditor("ind", 3, "ind");
+            const items: ICoreCompletionItem[] = [
+                { label: "indent_style", insertText: "indent_style", labelDetail: "(property)", documentation: "" },
+            ];
+            const { service, component } = createService(
+                makeGroup(
+                    fake.editor,
+                    vi.fn(() => Promise.resolve(completionResult(items))),
+                ),
+            );
+            const body = new BodyElement();
+            TestApp.create(body, new Size(120, 24));
+            component.attachHost(body);
+
+            service.toggleDetails();
+            await service.trigger();
+
+            // Пункт без id и без резолвера: описание берётся из самого пункта.
+            expect(component.details.linesFor(40).join(" ")).toContain("(property)");
+            expect(component.details.linesFor(40).join(" ")).not.toContain("undefined");
+        });
+
+        it("accept с уже догруженным описанием берёт правки из кэша, без повторного resolve", async () => {
+            const resolver = vi.fn(() =>
+                Promise.resolve({
+                    detail: "(property) indent_style",
+                    additionalEdits: [
+                        {
+                            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                            text: "# header\n",
+                        },
+                    ],
+                }),
+            );
+            const { service, component, fake } = setupWithResolver(resolver);
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers(); // описание догрузилось и легло в кэш
+
+            service.acceptSelected();
+            await flushTimers();
+
+            expect(resolver).toHaveBeenCalledTimes(1); // второй раз не ходили
+            const [edits] = fake.applyExternalEdits.mock.calls[0];
+            expect(edits).toHaveLength(2);
+            expect(edits[1].text).toBe("# header\n");
+            expect(component.detailsVisible).toBe(true);
+        });
+
+        it("резолвер вернул null — в кэш ничего не кладём и панель пуста", async () => {
+            const resolver = vi.fn(() => Promise.resolve(null));
+            const { service, component } = setupWithResolver(resolver);
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+            service.selectNext();
+            service.selectPrevious();
+            await flushTimers();
+
+            // Каждый показ пункта пробует резолв заново (кэшируем только успех).
+            expect(resolver.mock.calls.length).toBeGreaterThan(1);
+            expect(component.details.isEmpty).toBe(true);
+        });
+
+        it("сбойный резолвер не роняет попап", async () => {
+            const { service, component } = setupWithResolver(() => Promise.reject(new Error("boom")));
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+
+            expect(service.isOpen()).toBe(true);
+            expect(component.details.isEmpty).toBe(true);
+        });
+
+        it("ушли на другой пункт, пока грузилось описание — старое не показываем", async () => {
+            let release: ((value: { detail: string }) => void) | null = null;
+            const resolver = vi.fn((id: string) =>
+                id === "1.0"
+                    ? new Promise<{ detail: string }>((res) => {
+                          release = res;
+                      })
+                    : Promise.resolve({ detail: "detail for 1.1" }),
+            );
+            const { service, component } = setupWithResolver(resolver);
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+            service.selectNext(); // ушли на второй пункт
+            await flushTimers();
+            expect(component.details.linesFor(40).join(" ")).toContain("detail for 1.1");
+
+            release!({ detail: "detail for 1.0" });
+            await flushTimers();
+
+            // Запоздалый ответ по первому пункту не подменяет описание второго.
+            expect(component.details.linesFor(40).join(" ")).toContain("detail for 1.1");
+        });
+
+        it("документация из самого пункта показывается без резолвера", async () => {
+            const fake = makeEditor("ind", 3, "ind");
+            const items: ICoreCompletionItem[] = [
+                {
+                    label: "indent_style",
+                    insertText: "indent_style",
+                    detail: "EditorConfig",
+                    documentation: "Отступы: tab или space.",
+                },
+            ];
+            const { service, component } = createService(
+                makeGroup(
+                    fake.editor,
+                    vi.fn(() => Promise.resolve(completionResult(items))),
+                ),
+            );
+            const body = new BodyElement();
+            TestApp.create(body, new Size(120, 24));
+            component.attachHost(body);
+
+            service.toggleDetails();
+            await service.trigger();
+
+            const text = component.details.linesFor(40).join(" ");
+            expect(text).toContain("EditorConfig");
+            expect(text).toContain("Отступы");
+        });
+
+        it("нет описания — панель не показывается даже при включённом тумблере", async () => {
+            const { service, component } = setupWithResolver(vi.fn(() => Promise.resolve(null)));
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+
+            expect(component.detailsVisible).toBe(true);
+            expect(component.widget.showsDetails).toBe(false);
+        });
+    });
+
+    describe("вставка с правками-спутниками (авто-импорт)", () => {
+        const IMPORTABLE: ICoreCompletionItem[] = [{ label: "greet", insertText: "greet", id: "1.0", kind: 2 }];
+        const IMPORT_EDIT: ITextEdit = {
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+            text: 'import { greet } from "./defs";\n',
+        };
+
+        function setupImportable(resolver: EditorService["completionResolver"]): {
+            service: CompletionService;
+            fake: FakeEditor;
+        } {
+            const fake = makeEditor("gree", 4, "gree");
+            const group = makeGroup(
+                fake.editor,
+                vi.fn(() => Promise.resolve(completionResult(IMPORTABLE))),
+            );
+            (group as { completionResolver: EditorService["completionResolver"] }).completionResolver = resolver;
+            const { service, component } = createService(group);
+            const body = new BodyElement();
+            TestApp.create(body, new Size(120, 24));
+            component.attachHost(body);
+            return { service, fake };
+        }
+
+        it("accept ждёт resolve и применяет импорт одной транзакцией со вставкой", async () => {
+            const { service, fake } = setupImportable(() =>
+                Promise.resolve({ detail: "greet", additionalEdits: [IMPORT_EDIT] }),
+            );
+
+            await service.trigger();
+            service.acceptSelected();
+            await flushTimers();
+
+            // Панель описания скрыта (дефолт), то есть resolve к моменту accept не
+            // случился — вставка обязана дождаться его сама, иначе импорт теряется.
+            expect(fake.applyExternalEdits).toHaveBeenCalledTimes(1);
+            const [edits, label] = fake.applyExternalEdits.mock.calls[0];
+            expect(label).toBe("Accept Completion");
+            expect(edits).toHaveLength(2);
+            expect(edits[1].text).toContain("import { greet }");
+        });
+
+        it("молчащий resolve не блокирует вставку", async () => {
+            const { service, fake } = setupImportable(() => new Promise(() => {}));
+
+            await service.trigger();
+            service.acceptSelected();
+            await new Promise((res) => setTimeout(res, 350)); // дольше ACCEPT_RESOLVE_TIMEOUT_MS
+
+            const [edits] = fake.applyExternalEdits.mock.calls[0];
+            expect(edits).toHaveLength(1);
+            expect(edits[0].text).toBe("greet");
+        });
+    });
+
+    it("набор триггер-символа источника открывает попап как TriggerCharacter", async () => {
+        const fake = makeEditor("d", 1, "d");
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        const group = makeGroup(fake.editor, source);
+        (group as { completionTriggerCharacters: readonly string[] }).completionTriggerCharacters = ["."];
+        const { service, component } = createService(group);
+        service.autoSuggestDelayMs = 0;
+        const body = new BodyElement();
+        TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+
+        fake.type("d.", 2);
+        await flushTimers();
+
+        expect(source).toHaveBeenCalledWith(
+            expect.objectContaining({
+                triggerKind: CompletionTriggerKind.TriggerCharacter,
+                triggerCharacter: ".",
+            }),
+        );
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("триггер-символом считается только одиночная вставка нужного символа", async () => {
+        const fake = makeEditor("d", 1, "d");
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        const group = makeGroup(fake.editor, source);
+        (group as { completionTriggerCharacters: readonly string[] }).completionTriggerCharacters = ["."];
+        const { service, component } = createService(group);
+        service.autoSuggestDelayMs = 0;
+        const body = new BodyElement();
+        TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+
+        // Вставка блока (не одиночный символ) — не триггер.
+        fake.type("d.foo.", 6);
+        await flushTimers();
+        expect(service.isOpen()).toBe(false);
+
+        // Одиночный символ, но не из списка триггеров, и не word-символ.
+        fake.type("d.foo.)", 7);
+        await flushTimers();
+        expect(service.isOpen()).toBe(false);
+        expect(source).not.toHaveBeenCalled();
+    });
+
+    it("расходящиеся range провайдеров → префикс считает ядро", async () => {
+        // Два пункта с разными началами range: общей границы нет, значит
+        // провайдеру верить нельзя и работает свой wordStart (иначе префикс
+        // был бы случайным).
+        const items: ICoreCompletionItem[] = [
+            {
+                label: "indent_style",
+                insertText: "indent_style",
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+            },
+            {
+                label: "indent_size",
+                insertText: "indent_size",
+                range: { start: { line: 0, character: 1 }, end: { line: 0, character: 3 } },
+            },
+        ];
+        const { service, component, fake } = setup(items);
+        await service.trigger();
+
+        expect(service.isOpen()).toBe(true);
+        service.acceptSelected();
+        const [edits] = fake.applyExternalEdits.mock.calls[0];
+        // Диапазон взят у самого пункта (он задан), а префикс — от wordStart.
+        expect(edits[0].range.start).toEqual({ line: 0, character: 0 });
+        expect(component.view.items).toHaveLength(2);
+    });
+
+    it("серверные filterText/sortText и единый range доезжают до виджета", async () => {
+        // Форма ответа tsserver после точки: общий range у всех пунктов, лейбл
+        // без точки, фильтрация и сортировка — по своим полям.
+        const items: ICoreCompletionItem[] = [
+            {
+                label: "toISOString",
+                insertText: ".toISOString",
+                filterText: ".toISOString",
+                sortText: "11",
+                range: { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } },
+            },
+            {
+                label: "getTime",
+                insertText: ".getTime",
+                filterText: ".getTime",
+                sortText: "11",
+                range: { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } },
+            },
+        ];
+        const { service, component } = setup(items, "d.", 2, "d.");
+        await service.trigger();
+
+        expect(component.view.items[0].filterText).toBe(".toISOString");
+        expect(component.view.items[0].sortText).toBe("11");
+        // Префикс — от границы сервера (`.`), поэтому оба пункта видны, а
+        // словами из буфера список не разбавлен. При равном sortText порядок
+        // остаётся серверным (сервер уже отсортировал).
+        expect(component.view.items.map((i) => i.label)).toEqual(["toISOString", "getTime"]);
+    });
+
+    it("триггер-символ при открытом попапе переоткрывает список, отменяя отложенный запрос", async () => {
+        const fake = makeEditor("d", 1, "d");
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        const group = makeGroup(fake.editor, source);
+        (group as { completionTriggerCharacters: readonly string[] }).completionTriggerCharacters = ["."];
+        const { service, component } = createService(group);
+        service.autoSuggestDelayMs = 5;
+        const body = new BodyElement();
+        TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+
+        await service.trigger(); // попап открыт
+        expect(service.isOpen()).toBe(true);
+
+        fake.type("di", 2); // запланировали авто-suggest…
+        fake.type("di.", 3); // …и тут же набрали триггер-символ
+        await flushTimers();
+
+        expect(source).toHaveBeenLastCalledWith(
+            expect.objectContaining({ triggerKind: CompletionTriggerKind.TriggerCharacter, triggerCharacter: "." }),
+        );
+    });
+
+    it("явный Ctrl+Space отменяет уже запланированный авто-запрос", async () => {
+        const { service, source, fake } = setup(ITEMS);
+        service.autoSuggestDelayMs = 50; // достаточно, чтобы успеть отменить
+
+        fake.type("inde", 4); // запланировали авто-suggest
+        await service.trigger(); // ручной триггер отменяет отложенный
+        await flushTimers();
+
+        expect(source).toHaveBeenCalledTimes(1); // отложенный не выстрелил вторым
+    });
+
+    it("range провайдера, начинающийся ПОСЛЕ каретки, отдаёт префикс ядру", async () => {
+        // Такой range не описывает набранное слово (он правее каретки) — доверять
+        // ему как границе префикса нельзя.
+        const items: ICoreCompletionItem[] = [
+            {
+                label: "indent_style",
+                insertText: "indent_style",
+                range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } },
+            },
+        ];
+        const { service, component } = setup(items);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+        expect(component.view.items).toHaveLength(1);
+    });
+
+    it("неполный список перезапрашивается при доборе символа, а не сужается локально", async () => {
+        const fake = makeEditor("ind", 3, "ind");
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS, true)));
+        const { service, component } = createService(makeGroup(fake.editor, source));
+        service.autoSuggestDelayMs = 0;
+        const body = new BodyElement();
+        TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+
+        await service.trigger();
+        expect(source).toHaveBeenCalledTimes(1);
+
+        fake.type("inde", 4);
+        await flushTimers();
+
+        // Сервер отфильтровал список под ПРЕЖНИЙ префикс — сужать его локально
+        // нельзя, подходящих пунктов в нём может не быть вовсе.
+        expect(source).toHaveBeenCalledTimes(2);
+    });
+
+    it("устаревший ответ источника не перекрывает свежий", async () => {
+        const fake = makeEditor("ind", 3, "ind");
+        let resolveSlow: ((value: ICoreCompletionResult) => void) | null = null;
+        const source = vi
+            .fn<() => Promise<ICoreCompletionResult>>()
+            .mockImplementationOnce(
+                () =>
+                    new Promise<ICoreCompletionResult>((res) => {
+                        resolveSlow = res;
+                    }),
+            )
+            .mockImplementation(() => Promise.resolve(completionResult(ITEMS)));
+        const { service, component } = createService(makeGroup(fake.editor, source));
+        const body = new BodyElement();
+        TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+
+        const slow = service.trigger();
+        await service.trigger(); // свежий запрос обгоняет медленный
+        expect(service.isOpen()).toBe(true);
+
+        service.hide();
+        resolveSlow!(completionResult(ITEMS));
+        await slow;
+
+        // Медленный ответ пришёл последним — но он устарел и попап не поднимает.
+        expect(service.isOpen()).toBe(false);
     });
 
     it("accept вставляет элемент, заменяя префикс, и исполняет item.command через CommandRegistry", async () => {
@@ -315,7 +892,7 @@ describe("CompletionService", () => {
     it("word-based: собирает слова из всех открытых редакторов и дедупит с провайдерами", async () => {
         const fake = makeEditor("", 0, "alpha beta");
         const other = makeEditor("", 0, "beta gamma indent_style");
-        const source = vi.fn(() => Promise.resolve(ITEMS));
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const { service, component } = createService(makeGroup(fake.editor, source, [other.editor]));
         const body = new BodyElement();
         TestApp.create(body, new Size(80, 24));
@@ -330,6 +907,7 @@ describe("CompletionService", () => {
         const group = {
             getActiveEditor: () => null,
             onActiveEditorChanged: () => ({ dispose: () => {} }),
+            completionTriggerCharacters: [],
         } as unknown as EditorService;
         const { service, component } = createService(group);
         const body = new BodyElement();
@@ -354,7 +932,7 @@ describe("CompletionService", () => {
         const { service, component } = createService(
             makeGroup(
                 fake.editor,
-                vi.fn(() => Promise.resolve(ITEMS)),
+                vi.fn(() => Promise.resolve(completionResult(ITEMS))),
             ),
         );
         const body = new BodyElement();
@@ -367,7 +945,7 @@ describe("CompletionService", () => {
     it("безымянный буфер уходит в запрос как untitled:-ресурс, а не пустой строкой", async () => {
         const fake = makeEditor("ind", 3, "ind");
         (fake.editor as unknown as { uri: Uri }).uri = Uri.parse("untitled:Untitled-1");
-        const source = vi.fn(() => Promise.resolve(ITEMS));
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const { service, component } = createService(makeGroup(fake.editor, source));
         const body = new BodyElement();
         TestApp.create(body, new Size(80, 24));
@@ -382,6 +960,7 @@ describe("CompletionService", () => {
             getActiveEditor: () => fake.editor,
             onActiveEditorChanged: () => ({ dispose: () => {} }),
             completionSource: undefined,
+            completionTriggerCharacters: [],
             editorCount: 2, // но getEditor(1) === null
             getEditor: (i: number) => (i === 0 ? fake.editor : null),
         } as unknown as EditorService;
@@ -532,7 +1111,8 @@ describe("CompletionService", () => {
                 activeCb = cb;
                 return { dispose: () => {} };
             },
-            completionSource: vi.fn(() => Promise.resolve(ITEMS)),
+            completionSource: vi.fn(() => Promise.resolve(completionResult(ITEMS))),
+            completionTriggerCharacters: [],
             editorCount: 1,
             getEditor: (i: number) => (i === 0 ? fake.editor : null),
         } as unknown as EditorService;
@@ -553,6 +1133,7 @@ describe("CompletionService", () => {
             getActiveEditor: () => ref,
             onActiveEditorChanged: () => ({ dispose: () => {} }),
             completionSource: undefined,
+            completionTriggerCharacters: [],
             editorCount: 1,
             getEditor: () => fake.editor,
         } as unknown as EditorService;
@@ -603,7 +1184,8 @@ describe("CompletionService", () => {
         const group = {
             getActiveEditor: () => ref,
             onActiveEditorChanged: () => ({ dispose: () => {} }),
-            completionSource: vi.fn(() => Promise.resolve(ITEMS)),
+            completionSource: vi.fn(() => Promise.resolve(completionResult(ITEMS))),
+            completionTriggerCharacters: [],
             editorCount: 1,
             getEditor: () => fake.editor,
         } as unknown as EditorService;

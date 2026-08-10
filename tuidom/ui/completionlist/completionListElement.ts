@@ -14,6 +14,8 @@ import { kindIcon } from "./completionItemKindIcon.ts";
 const LABEL_X = 5;
 const RIGHT_PAD = 1;
 const MIN_WIDTH = 16;
+/** Сколько пунктов участвует в измерении ширины (ответы LSP — тысячи пунктов). */
+const WIDTH_SAMPLE_LIMIT = 200;
 
 /**
  * Элемент списка автодополнения (payload `data` непрозрачен для TUIDom — там
@@ -22,7 +24,18 @@ const MIN_WIDTH = 16;
 export interface CompletionListItem {
     readonly label: string;
     readonly detail?: string;
+    /** Сигнатура сразу за лейблом (`(a: string): void`), приглушённая. */
+    readonly labelDetail?: string;
     readonly kind?: number;
+    /**
+     * Текст, по которому пункт фильтруется, если он отличается от лейбла.
+     * Не косметика: tsserver отдаёт после точки dot-accessor-пункты
+     * (`label: "getTime"`, `filterText: ".getTime"`), и фильтрация по лейблу
+     * не нашла бы ни одного при префиксе `.`.
+     */
+    readonly filterText?: string;
+    /** Ключ сортировки источника (у LSP — `sortText`); при равенстве порядок исходный. */
+    readonly sortText?: string;
     readonly data?: unknown;
 }
 
@@ -44,12 +57,20 @@ export class CompletionListElement extends TUIElement {
     public preferredWidth = 40;
 
     public onAccept: ((item: CompletionListItem) => void) | null = null;
+    /**
+     * Сменился выбранный пункт (клавиатурой, мышью или пере-фильтрацией).
+     * По нему владелец догружает описание для панели — у LSP-источников оно
+     * приходит отдельным запросом на конкретный пункт.
+     */
+    public onSelectionChanged: ((item: CompletionListItem | null) => void) | null = null;
 
     private allItems: readonly CompletionListItem[] = [];
     private filteredItems: readonly CompletionListItem[] = [];
     private filterValue = "";
     private selectedIndexValue = 0;
     private scrollOffset = 0;
+    /** Кэш {@link contentWidth}; сбрасывается сменой отфильтрованного списка. */
+    private contentWidthCache: number | null = null;
 
     public constructor() {
         super();
@@ -104,16 +125,29 @@ export class CompletionListElement extends TUIElement {
 
     private applyFilter(keepLastNonEmpty: boolean): void {
         const needle = this.filterValue.toLowerCase();
-        const next =
+        const matched =
             needle === ""
-                ? this.allItems
+                ? [...this.allItems]
                 : this.allItems.filter((item) => matchText(item).toLowerCase().includes(needle));
         // «Последний непустой»: при доборе не сворачиваем список до нуля.
-        if (keepLastNonEmpty && next.length === 0 && this.filteredItems.length > 0) return;
-        this.filteredItems = next;
+        if (keepLastNonEmpty && matched.length === 0 && this.filteredItems.length > 0) return;
+
+        // Порядок: сначала совпадения с НАЧАЛА (их пользователь и набирает),
+        // потом совпадения внутри слова; внутри группы — по ключу источника
+        // (`sortText`). Сортировка стабильная, поэтому пункты без ключа
+        // сохраняют исходный порядок провайдера.
+        this.filteredItems = matched.sort((a, b) => {
+            const rank = matchRank(a, needle) - matchRank(b, needle);
+            if (rank !== 0) return rank;
+            const aKey = a.sortText ?? "";
+            const bKey = b.sortText ?? "";
+            return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
+        });
+        this.contentWidthCache = null;
         this.selectedIndexValue = 0;
         this.scrollOffset = 0;
         this.markDirty();
+        this.fireSelectionChanged();
     }
 
     // ─── Sizing ──────────────────────────────────────────────────────────────
@@ -122,14 +156,28 @@ export class CompletionListElement extends TUIElement {
         return Math.min(this.filteredItems.length, this.maxVisibleItems);
     }
 
+    /**
+     * Ширина содержимого. Считается один раз на смену списка и кэшируется:
+     * layout зовут на каждый кадр, а список от language server'а — это сотни
+     * и тысячи пунктов. По той же причине меряем только первые
+     * {@link WIDTH_SAMPLE_LIMIT} — попап всё равно упирается в `preferredWidth`.
+     */
     private get contentWidth(): number {
+        if (this.contentWidthCache !== null) return this.contentWidthCache;
         let max = 0;
-        for (const item of this.filteredItems) {
+        const sample = Math.min(this.filteredItems.length, WIDTH_SAMPLE_LIMIT);
+        for (let i = 0; i < sample; i++) {
+            const item = this.filteredItems[i];
             const labelW = new DisplayLine(item.label).displayWidth;
+            const labelDetailW =
+                item.labelDetail !== undefined && item.labelDetail !== ""
+                    ? 1 + new DisplayLine(item.labelDetail).displayWidth
+                    : 0;
             const detailW =
                 item.detail !== undefined && item.detail !== "" ? 2 + new DisplayLine(item.detail).displayWidth : 0;
-            max = Math.max(max, labelW + detailW);
+            max = Math.max(max, labelW + labelDetailW + detailW);
         }
+        this.contentWidthCache = max;
         return max;
     }
 
@@ -227,6 +275,25 @@ export class CompletionListElement extends TUIElement {
         const labelNatural = new DisplayLine(item.label).displayWidth;
         const labelText = labelNatural <= labelAvail ? item.label : truncateEnd(item.label, labelAvail);
         context.drawText(LABEL_X, rowY, labelText, { fg: rowFg, bg: rowBg }, { maxWidth: labelAvail });
+
+        // Сигнатура вплотную за лейблом (labelDetails.detail у LSP) — приглушённо
+        // и только если влезает целиком: обрезанная сигнатура вводит в заблуждение.
+        if (item.labelDetail !== undefined && item.labelDetail !== "" && labelNatural <= labelAvail) {
+            const detailX = LABEL_X + labelNatural + 1;
+            const available = contentRight - rightWidth - detailX;
+            if (available > 0) {
+                context.drawText(
+                    detailX,
+                    rowY,
+                    item.labelDetail,
+                    {
+                        fg: isSelected ? rowFg : this.styleVar("editorSuggestWidget.detailForeground"),
+                        bg: rowBg,
+                    },
+                    { maxWidth: available },
+                );
+            }
+        }
     }
 
     // ─── Navigation (driven by CompletionService via commands) ─────────────
@@ -265,6 +332,7 @@ export class CompletionListElement extends TUIElement {
         if (index === null || index === this.selectedIndexValue) return;
         this.selectedIndexValue = index;
         this.markDirty();
+        this.fireSelectionChanged();
     }
 
     private handleClick(event: TUIMouseEvent): void {
@@ -282,6 +350,11 @@ export class CompletionListElement extends TUIElement {
         this.selectedIndexValue = next;
         this.ensureVisible(next);
         this.markDirty();
+        this.fireSelectionChanged();
+    }
+
+    private fireSelectionChanged(): void {
+        this.onSelectionChanged?.(this.getSelectedItem());
     }
 
     private ensureVisible(index: number): void {
@@ -293,7 +366,16 @@ export class CompletionListElement extends TUIElement {
     }
 }
 
-/** Текст, по которому фильтруем: label (detail не участвует в фильтрации). */
+/**
+ * Текст, по которому фильтруем: `filterText` источника, иначе label (правый
+ * `detail` в фильтрации не участвует).
+ */
 function matchText(item: CompletionListItem): string {
-    return item.label;
+    return item.filterText ?? item.label;
+}
+
+/** 0 — совпадение с начала, 1 — где-то внутри (при пустом фильтре все равны). */
+function matchRank(item: CompletionListItem, needle: string): number {
+    if (needle === "") return 0;
+    return matchText(item).toLowerCase().startsWith(needle) ? 0 : 1;
 }

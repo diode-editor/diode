@@ -15,6 +15,8 @@ import {
     CompletionItem,
     CompletionItemKind,
     CompletionItemTag,
+    CompletionList,
+    CompletionTriggerKind,
     DecorationRangeBehavior,
     Diagnostic,
     DiagnosticSeverity,
@@ -40,6 +42,7 @@ import {
     ProgressLocation,
     Range,
     Selection,
+    SnippetString,
     SymbolInformation,
     SymbolKind,
     SymbolTag,
@@ -122,6 +125,11 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         Uri,
         EventEmitter,
         CompletionItem,
+        // CompletionList/SnippetString конструирует сам languageclient на каждом
+        // ответе сервера — без них конвертация completion падала молча.
+        CompletionList,
+        CompletionTriggerKind,
+        SnippetString,
         EndOfLine,
         TextDocumentSaveReason,
         FileChangeType,

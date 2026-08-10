@@ -202,8 +202,14 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     });
     // Document sync (LSP): продюсер didOpen/didChange — как в extensionHostModule.
     bindDocumentSync(group, host);
-    // Completion (WP8): источник автодополнений — провайдеры расширений через host.
+    // Completion (WP8): источник автодополнений — провайдеры расширений через host,
+    // resolve — догрузка описания/авто-импорта выбранного пункта.
     group.completionSource = (req) => host.provideCompletionItems(req);
+    group.completionResolver = (id) => host.resolveCompletionItem(id);
+    group.completionTriggerCharacters = host.completionTriggerCharacters;
+    host.onCompletionTriggerCharactersChanged((characters) => {
+        group.completionTriggerCharacters = characters;
+    });
     // Definition (LSP): источник целей Go to Definition — как в extensionHostModule.
     group.definitionSource = (req) => host.provideDefinition(req);
     // Folding (#87): источник областей сворачивания — провайдеры расширений через host.

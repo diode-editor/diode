@@ -116,6 +116,11 @@ export function serializeKey(name: string): string {
         return `\x1b[13;${mod.toString()}u`;
     }
 
+    // Ctrl+Space → NUL: именно так его шлёт терминал (см. tokenize.ts, 0x00).
+    if (ctrl && !shift && !alt && !meta && remaining === "Space") {
+        return "\x00";
+    }
+
     // Ctrl+letter → control character (0x01–0x1a)
     if (ctrl && !shift && !alt && !meta && remaining.length === 1 && /[a-zA-Z]/.test(remaining)) {
         const code = remaining.toUpperCase().charCodeAt(0) - 0x40;

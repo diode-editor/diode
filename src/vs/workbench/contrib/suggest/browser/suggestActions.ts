@@ -76,6 +76,23 @@ export const acceptSelectedSuggestionAction: CommandAction = {
     },
 };
 
+/**
+ * Разворачивает/сворачивает панель описания у попапа. Кейбинд тот же Ctrl+Space,
+ * что и у `editor.action.triggerSuggest`, — и это намеренно, как в VS Code:
+ * `when: suggestWidgetVisible` вместе с регистрацией в хвосте suggest-экшенов
+ * даёт ему победу ровно пока попап открыт (`KeybindingRegistry.resolveKey`
+ * выбирает последний зарегистрированный с проходящим `when`).
+ */
+export const toggleSuggestionDetailsAction: CommandAction = {
+    id: "toggleSuggestionDetails",
+    title: "Suggest: Toggle Details",
+    keybinding: parseKeybinding("ctrl+space"),
+    when: "suggestWidgetVisible",
+    run(accessor) {
+        accessor.get(CompletionServiceDIToken).toggleDetails();
+    },
+};
+
 export const hideSuggestWidgetAction: CommandAction = {
     id: "hideSuggestWidget",
     title: "Suggest: Close",

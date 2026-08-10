@@ -7,7 +7,10 @@ import {
     CodeAction,
     CodeActionKind,
     CodeLens,
+    CompletionItem,
     CompletionItemTag,
+    CompletionList,
+    CompletionTriggerKind,
     Diagnostic,
     DiagnosticSeverity,
     DiagnosticTag,
@@ -22,6 +25,7 @@ import {
     ProgressLocation,
     Range,
     SymbolInformation,
+    SnippetString,
     SymbolKind,
     SymbolTag,
     TypeHierarchyItem,
@@ -142,7 +146,28 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(edit.get(Uri.file("/proj/b.ts"))[0].newText).toBe("");
     });
 
+    it("CompletionList: items/isIncomplete как есть, дефолты — пустой полный список", () => {
+        const item = new CompletionItem("greet");
+        const list = new CompletionList([item], true);
+        expect(list.items).toEqual([item]);
+        expect(list.isIncomplete).toBe(true);
+
+        const empty = new CompletionList();
+        expect(empty.items).toEqual([]);
+        expect(empty.isIncomplete).toBe(false);
+    });
+
+    it("SnippetString: хранит значение, appendText конкатенирует и возвращает this", () => {
+        const snippet = new SnippetString("foo(");
+        expect(snippet.appendText("$1)")).toBe(snippet);
+        expect(snippet.value).toBe("foo($1)");
+        expect(new SnippetString().value).toBe("");
+    });
+
     it("enum'ы совпадают с числовыми значениями VS Code", () => {
+        expect(CompletionTriggerKind.Invoke).toBe(0);
+        expect(CompletionTriggerKind.TriggerCharacter).toBe(1);
+        expect(CompletionTriggerKind.TriggerForIncompleteCompletions).toBe(2);
         expect(DiagnosticSeverity.Hint).toBe(3);
         expect(DiagnosticTag.Deprecated).toBe(2);
         expect(CompletionItemTag.Deprecated).toBe(1);

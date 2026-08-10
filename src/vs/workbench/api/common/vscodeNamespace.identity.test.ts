@@ -125,6 +125,13 @@ describe("VscodeNamespace — стабильная идентичность acti
             "SymbolKind",
             "SymbolTag",
             "CompletionItemTag",
+            // Конвертер completion'ов конструирует их на КАЖДЫЙ ответ сервера
+            // (`new code.CompletionList(...)`, `new code.SnippetString(...)`);
+            // пропуск ронял конвертацию целиком, а ошибка видна только в
+            // outputChannel клиента — попап молча оставался без LSP-пунктов.
+            "CompletionList",
+            "CompletionTriggerKind",
+            "SnippetString",
             "CallHierarchyItem",
             "TypeHierarchyItem",
             "CancellationError",

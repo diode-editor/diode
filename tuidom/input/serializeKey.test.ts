@@ -36,6 +36,10 @@ describe("serializeKey", () => {
         expect(serializeKey("Ctrl+C")).toBe("\x03");
     });
 
+    it("serializes Ctrl+Space as NUL (как его шлёт терминал)", () => {
+        expect(serializeKey("Ctrl+Space")).toBe("\x00");
+    });
+
     it("serializes Ctrl+A", () => {
         expect(serializeKey("Ctrl+A")).toBe("\x01");
     });
