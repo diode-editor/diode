@@ -2,11 +2,19 @@ import type { CommandAction } from "../../../platform/actions/common/commandActi
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ILogServiceDIToken } from "../../../platform/log/common/iLogServiceDIToken.ts";
+import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerService.ts";
+import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
+import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
 import { EditorPartComponentDIToken } from "../parts/editor/editorPartComponent.ts";
+import { TextEditorPane } from "../parts/editor/textEditorPane.ts";
 
 /** Kitty/CSI-u — единственные tier'ы, где Ctrl+цифра доходит до приложения. */
 const EXTENDED_TIERS = "tier == 'kitty' || tier == 'csi-u'";
+
+/** Шаг команд Increase/Decrease Editor Width/Height, в ячейках (как у сайдбара). */
+const GROUP_RESIZE_STEP = 3;
 
 /**
  * Приводит ось полосы к нужной для направленного сплита (`Split Editor Up` в
@@ -223,6 +231,248 @@ export const focusActiveEditorGroupAction: CommandAction = {
     },
 };
 
+// ─── Перенос вкладок и групп ─────────────────────────────────────────────────
+
+export const moveEditorToNextGroupAction: CommandAction = {
+    id: "workbench.action.moveEditorToNextGroup",
+    title: "View: Move Editor into Next Group",
+    when: "editorGroupHasEditors",
+    keybinding: { keys: parseKeybinding("ctrl+alt+right"), when: EXTENDED_TIERS },
+    // Ctrl+K ←/→ заняты word-motion-фолбэками legacy — чорд с Alt (см. EditorGroups.md).
+    keybindings: [parseChord("ctrl+k alt+right")],
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).moveActiveEditorToGroup("next");
+    },
+};
+
+export const moveEditorToPreviousGroupAction: CommandAction = {
+    id: "workbench.action.moveEditorToPreviousGroup",
+    title: "View: Move Editor into Previous Group",
+    when: "editorGroupHasEditors",
+    keybinding: { keys: parseKeybinding("ctrl+alt+left"), when: EXTENDED_TIERS },
+    keybindings: [parseChord("ctrl+k alt+left")],
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).moveActiveEditorToGroup("previous");
+    },
+};
+
+export const copyEditorToNextGroupAction: CommandAction = {
+    id: "workbench.action.copyEditorToNextGroup",
+    title: "View: Duplicate Editor into Next Group",
+    when: "editorGroupHasEditors",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).copyActiveEditorToGroup("next");
+    },
+};
+
+export const copyEditorToPreviousGroupAction: CommandAction = {
+    id: "workbench.action.copyEditorToPreviousGroup",
+    title: "View: Duplicate Editor into Previous Group",
+    when: "editorGroupHasEditors",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).copyActiveEditorToGroup("previous");
+    },
+};
+
+export const moveActiveEditorGroupLeftAction: CommandAction = {
+    id: "workbench.action.moveActiveEditorGroupLeft",
+    title: "View: Move Editor Group Left",
+    when: "multipleEditorGroups",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).moveActiveGroup("previous");
+    },
+};
+
+export const moveActiveEditorGroupRightAction: CommandAction = {
+    id: "workbench.action.moveActiveEditorGroupRight",
+    title: "View: Move Editor Group Right",
+    when: "multipleEditorGroups",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).moveActiveGroup("next");
+    },
+};
+
+export const joinTwoGroupsAction: CommandAction = {
+    id: "workbench.action.joinTwoGroups",
+    title: "View: Join Editor Group with Next Group",
+    when: "multipleEditorGroups",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).joinTwoGroups();
+    },
+};
+
+export const joinAllGroupsAction: CommandAction = {
+    id: "workbench.action.joinAllGroups",
+    title: "View: Join All Editor Groups",
+    when: "multipleEditorGroups",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).joinAllGroups();
+    },
+};
+
+export const editorLayoutSingleAction: CommandAction = {
+    id: "workbench.action.editorLayoutSingle",
+    title: "View: Single Column Editor Layout",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).joinAllGroups();
+    },
+};
+
+// ─── Раскладка и размер ──────────────────────────────────────────────────────
+
+export const toggleEditorGroupLayoutAction: CommandAction = {
+    id: "workbench.action.toggleEditorGroupLayout",
+    title: "View: Toggle Vertical/Horizontal Editor Layout",
+    keybinding: { keys: parseKeybinding("shift+alt+0"), when: EXTENDED_TIERS },
+    run(accessor) {
+        accessor.get(EditorPartComponentDIToken).toggleOrientation();
+    },
+};
+
+export const evenEditorWidthsAction: CommandAction = {
+    id: "workbench.action.evenEditorWidths",
+    title: "View: Reset Editor Group Sizes",
+    when: "multipleEditorGroups",
+    run(accessor) {
+        accessor.get(EditorPartComponentDIToken).evenWeights();
+    },
+};
+
+/** Фабрика resize-команд: ширина валидна в колоночной полосе, высота — в рядной. */
+function resizeGroupAction(id: string, title: string, axis: "columns" | "rows", delta: number): CommandAction {
+    return {
+        id,
+        title,
+        when: "multipleEditorGroups",
+        run(accessor) {
+            const part = accessor.get(EditorPartComponentDIToken);
+            if (part.orientation !== axis) return;
+            part.nudgeActiveGroup(delta);
+        },
+    };
+}
+
+export const increaseEditorWidthAction = resizeGroupAction(
+    "workbench.action.increaseEditorWidth",
+    "View: Increase Editor Width",
+    "columns",
+    GROUP_RESIZE_STEP,
+);
+export const decreaseEditorWidthAction = resizeGroupAction(
+    "workbench.action.decreaseEditorWidth",
+    "View: Decrease Editor Width",
+    "columns",
+    -GROUP_RESIZE_STEP,
+);
+export const increaseEditorHeightAction = resizeGroupAction(
+    "workbench.action.increaseEditorHeight",
+    "View: Increase Editor Height",
+    "rows",
+    GROUP_RESIZE_STEP,
+);
+export const decreaseEditorHeightAction = resizeGroupAction(
+    "workbench.action.decreaseEditorHeight",
+    "View: Decrease Editor Height",
+    "rows",
+    -GROUP_RESIZE_STEP,
+);
+
+export const toggleMaximizeEditorGroupAction: CommandAction = {
+    id: "workbench.action.toggleMaximizeEditorGroup",
+    title: "View: Toggle Maximize Editor Group",
+    when: "multipleEditorGroups",
+    run(accessor) {
+        accessor.get(EditorPartComponentDIToken).toggleMaximizeActiveGroup();
+    },
+};
+
+// ─── Закрытие ────────────────────────────────────────────────────────────────
+
+/**
+ * Последовательно закрывает вкладки группы с confirm-диалогом по каждому
+ * несохранённому документу (последняя вкладка документа). Cancel прерывает всю
+ * серию (US-48/49-семантика quit-флоу). Возвращает true, если группа закрыта
+ * целиком.
+ */
+async function closeGroupEditorsWithConfirm(
+    accessor: ServiceAccessor,
+    service: EditorService,
+    group: EditorGroup,
+): Promise<boolean> {
+    const dialogs = accessor.get(DialogServiceDIToken);
+    while (group.editorCount > 0) {
+        const index = group.editorCount - 1;
+        const pane = group.getPane(index);
+        /* v8 ignore next -- editorCount > 0 гарантирует вкладку */
+        if (pane === null) return false;
+        const needsConfirm =
+            pane.isModified && (!(pane instanceof TextEditorPane) || service.isLastPaneForDocument(pane));
+        if (needsConfirm && pane instanceof TextEditorPane) {
+            const choice = await dialogs.confirmSave(service.displayName(pane));
+            if (choice === "cancel") return false;
+            if (choice === "save") await pane.save({ overwrite: true });
+        }
+        group.closeTab(index);
+    }
+    return true;
+}
+
+export const closeEditorsInGroupAction: CommandAction = {
+    id: "workbench.action.closeEditorsInGroup",
+    title: "View: Close All Editors in Group",
+    keybinding: parseChord("ctrl+k w"),
+    when: "editorGroupHasEditors",
+    run(accessor) {
+        const service = accessor.get(EditorServiceDIToken);
+        void closeGroupEditorsWithConfirm(accessor, service, service.activeGroup);
+    },
+};
+
+export const closeEditorsAndGroupAction: CommandAction = {
+    id: "workbench.action.closeEditorsAndGroup",
+    title: "View: Close Editor Group",
+    run(accessor) {
+        // Схлопывание группы — следствие опустения; отдельного сноса не нужно.
+        const service = accessor.get(EditorServiceDIToken);
+        void closeGroupEditorsWithConfirm(accessor, service, service.activeGroup);
+    },
+};
+
+export const closeAllEditorsAction: CommandAction = {
+    id: "workbench.action.closeAllEditors",
+    title: "View: Close All Editors",
+    keybinding: parseChord("ctrl+k ctrl+w"),
+    when: "editorGroupHasEditors",
+    run(accessor) {
+        const service = accessor.get(EditorServiceDIToken);
+        void (async () => {
+            // Идём по группам с вкладками (не по активной: она может быть пустой,
+            // а пустая группа не схлопывается сама — уже-пустое не «опустело»).
+            // Cancel в любом диалоге прерывает серию.
+            for (;;) {
+                const group = service.groups.find((candidate) => candidate.editorCount > 0);
+                if (group === undefined) return;
+                const done = await closeGroupEditorsWithConfirm(accessor, service, group);
+                if (!done) return;
+            }
+        })();
+    },
+};
+
+// ─── Open to the Side ────────────────────────────────────────────────────────
+
+export const explorerOpenToSideAction: CommandAction = {
+    id: "explorer.openToSide",
+    title: "File: Open to the Side",
+    keybinding: parseKeybinding("ctrl+enter"),
+    when: "filesExplorerFocus",
+    run(accessor) {
+        const filePath = accessor.get(ExplorerServiceDIToken).getSelectedFilePath();
+        if (filePath === null) return;
+        accessor.get(EditorServiceDIToken).openFile(filePath, { group: "beside" });
+    },
+};
+
 export const EDITOR_GROUP_ACTIONS: readonly CommandAction[] = [
     splitEditorAction,
     splitEditorRightAction,
@@ -247,4 +497,24 @@ export const EDITOR_GROUP_ACTIONS: readonly CommandAction[] = [
     focusBelowGroupAction,
     navigateEditorGroupsAction,
     focusActiveEditorGroupAction,
+    moveEditorToNextGroupAction,
+    moveEditorToPreviousGroupAction,
+    copyEditorToNextGroupAction,
+    copyEditorToPreviousGroupAction,
+    moveActiveEditorGroupLeftAction,
+    moveActiveEditorGroupRightAction,
+    joinTwoGroupsAction,
+    joinAllGroupsAction,
+    editorLayoutSingleAction,
+    toggleEditorGroupLayoutAction,
+    evenEditorWidthsAction,
+    increaseEditorWidthAction,
+    decreaseEditorWidthAction,
+    increaseEditorHeightAction,
+    decreaseEditorHeightAction,
+    toggleMaximizeEditorGroupAction,
+    closeEditorsInGroupAction,
+    closeEditorsAndGroupAction,
+    closeAllEditorsAction,
+    explorerOpenToSideAction,
 ];

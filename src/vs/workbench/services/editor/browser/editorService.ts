@@ -472,6 +472,142 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.makeGroupActive(group);
     }
 
+    /**
+     * Переносит активную вкладку в соседнюю группу; у единственной группы
+     * создаёт соседку и переносит (US-50). Фокус едет со вкладкой; опустевшая
+     * группа-источник схлопывается сама. Ресурс уже открыт в целевой группе —
+     * переносимая вкладка сливается с существующей (пер-группный дедуп).
+     */
+    public moveActiveEditorToGroup(
+        direction: "next" | "previous",
+        { focus = true }: { focus?: boolean } = {},
+    ): void {
+        const source = this.activeGroupValue;
+        const index = source.activeIndex;
+        if (source.activePane === null) return;
+        const target = this.neighborOrNewGroup(direction);
+        if (target === null) return;
+
+        // detachPane может схлопнуть опустевший источник (collapse внутри) —
+        // целевая группа взята по ссылке заранее и переживает перестройку полосы.
+        const pane = source.detachPane(index);
+        /* v8 ignore next -- activePane проверен выше, индекс валиден */
+        if (pane === null) return;
+        this.activeGroupValue = target;
+        const existing = target.findPaneIndex(pane.uri);
+        if (existing >= 0) {
+            pane.dispose();
+            target.activateTab(existing, { focus });
+        } else {
+            target.insertPane(pane);
+            target.activateTab(target.editorCount - 1, { focus });
+        }
+        this.fireActiveGroupChanged(target);
+    }
+
+    /**
+     * Копия активной вкладки в соседнюю группу (US-17): общий документ через
+     * реестр, каретка/скролл скопированы. Только файловые вкладки — untitled и
+     * дифф не дублируются. Ресурс уже в целевой — просто активируется там.
+     */
+    public copyActiveEditorToGroup(
+        direction: "next" | "previous",
+        { focus = true }: { focus?: boolean } = {},
+    ): void {
+        const sourcePane = this.activeGroupValue.activePane;
+        if (!(sourcePane instanceof TextEditorPane) || sourcePane.uri.scheme !== "file") return;
+        const target = this.neighborOrNewGroup(direction);
+        if (target === null) return;
+
+        this.activeGroupValue = target;
+        const existing = target.findPaneIndex(sourcePane.uri);
+        if (existing >= 0) {
+            target.activateTab(existing, { focus });
+        } else {
+            const ref = this.modelRegistry.acquire(sourcePane.uri);
+            const copy = this.createPaneForModel(ref.model, ref);
+            this.applyConfigurationToEditor(copy);
+            copy.viewState.selections = sourcePane.viewState.cloneSelections();
+            copy.viewState.scrollTop = sourcePane.viewState.scrollTop;
+            copy.viewState.scrollLeft = sourcePane.viewState.scrollLeft;
+            target.insertPane(copy);
+            target.activateTab(target.editorCount - 1, { focus });
+        }
+        this.fireActiveGroupChanged(target);
+    }
+
+    /**
+     * Вливает СЛЕДУЮЩУЮ группу в активную (VS Code `joinTwoGroups`): вкладки
+     * переезжают в конец, дубликаты ресурса схлопываются (решение постановки
+     * №5), опустевший сосед схлопывается сам. У края полосы — no-op.
+     */
+    public joinTwoGroups(): void {
+        const target = this.activeGroupValue;
+        const source = this.resolveGroupTarget({ direction: "next" });
+        if (source === null || source === target) return;
+        this.mergeGroupInto(source, target);
+    }
+
+    /** Сливает все группы в первую; активная вкладка бывшей активной группы выживает (US-21). */
+    public joinAllGroups(): void {
+        if (this.groupsList.length < 2) return;
+        const rememberedUri = this.activeGroupValue.activePane?.uri ?? null;
+        const target = this.groupsList[0];
+        this.activeGroupValue = target;
+        while (this.groupsList.length > 1) {
+            this.mergeGroupInto(this.groupsList[1], target);
+        }
+        if (rememberedUri !== null) {
+            const index = target.findPaneIndex(rememberedUri);
+            if (index >= 0) target.activateTab(index);
+        }
+        this.fireActiveGroupChanged(target);
+    }
+
+    /** Переставляет активную группу по полосе (US-18); у края — no-op. */
+    public moveActiveGroup(direction: "next" | "previous"): void {
+        const from = this.groupsList.indexOf(this.activeGroupValue);
+        const to = direction === "next" ? from + 1 : from - 1;
+        if (to < 0 || to >= this.groupsList.length) return;
+        const [group] = this.groupsList.splice(from, 1);
+        this.groupsList.splice(to, 0, group);
+        this.fireGroupsChanged({ kind: "moved", group, index: to });
+    }
+
+    /** Переливает вкладки source в target (дедуп по ресурсу) до схлопывания source. */
+    private mergeGroupInto(source: EditorGroup, target: EditorGroup): void {
+        if (source.editorCount === 0) {
+            // Пустой сосед: некому схлопнуть его событием — снимаем явно.
+            this.collapseGroup(source);
+            return;
+        }
+        while (source.editorCount > 0) {
+            const pane = source.detachPane(0);
+            /* v8 ignore next -- editorCount > 0 гарантирует вкладку */
+            if (pane === null) break;
+            if (target.findPaneIndex(pane.uri) >= 0) pane.dispose();
+            else target.insertPane(pane);
+        }
+    }
+
+    /**
+     * Сосед активной группы по направлению; у единственной группы создаёт его
+     * (с проверкой места), у края многогрупповой полосы — `null`.
+     */
+    private neighborOrNewGroup(direction: "next" | "previous"): EditorGroup | null {
+        const existing = this.resolveGroupTarget({ direction });
+        if (existing !== null && existing !== this.activeGroupValue) return existing;
+        if (this.groupsList.length > 1) return null;
+        if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
+            this.logger.info("new group refused — not enough space");
+            return null;
+        }
+        const index = direction === "next" ? 1 : 0;
+        const group = this.createGroup(index);
+        this.fireGroupsChanged({ kind: "added", group, index, source: this.activeGroupValue });
+        return group;
+    }
+
     /** Смена активной группы + фасадные события (без передачи фокуса). */
     private makeGroupActive(group: EditorGroup): void {
         if (group === this.activeGroupValue) return;
@@ -717,30 +853,51 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * перед `Uri.file`: пути приходят относительными, а `Uri.file` их НЕ резолвит —
      * просто префиксует слэшем, и резолвить после подъёма было бы уже поздно.
      */
-    public openFile(filePath: string, options: { focus?: boolean } = {}): void {
+    public openFile(filePath: string, options: { focus?: boolean; group?: "beside" } = {}): void {
         this.openUri(Uri.file(path.resolve(filePath)), options);
     }
 
-    /** Открывает ресурс по uri — вход для тех, у кого он уже есть (диагностики). */
-    public openUri(uri: Uri, { focus = true }: { focus?: boolean } = {}): void {
+    /**
+     * Открывает ресурс по uri — вход для тех, у кого он уже есть (диагностики).
+     * `group: "beside"` — открытие в соседней справа группе (Open to the Side,
+     * Go to Definition to the Side); соседки нет — она создаётся (при нехватке
+     * места — фолбэк в активную, с записью в лог).
+     */
+    public openUri(uri: Uri, { focus = true, group: where }: { focus?: boolean; group?: "beside" } = {}): void {
         // Идентичность вкладки — по ресурсу целиком В ПРЕДЕЛАХ группы, а не по
         // имени файла: два разных файла с одинаковым basename должны открываться
         // в отдельных вкладках, а тот же ресурс в другой группе — своей вкладкой
         // (общая модель через реестр).
-        const group = this.activeGroupValue;
+        const group = where === "beside" ? this.resolveBesideGroup() : this.activeGroupValue;
+        const wasActive = group === this.activeGroupValue;
+        this.activeGroupValue = group;
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
-            this.activateTab(existingIndex, { focus });
-            return;
+            group.activateTab(existingIndex, { focus });
+        } else {
+            // Модель приходит из реестра уже загруженной (фабрика ставит watcher
+            // до openFile); вкладка владеет ссылкой, а не самой моделью.
+            const ref = this.modelRegistry.acquire(uri);
+            const editor = this.createPaneForModel(ref.model, ref);
+            this.applyConfigurationToEditor(editor);
+            group.insertPane(editor);
+            group.activateTab(group.editorCount - 1, { focus });
         }
+        if (!wasActive) this.fireActiveGroupChanged(group);
+    }
 
-        // Модель приходит из реестра уже загруженной (фабрика ставит watcher до
-        // openFile); вкладка владеет ссылкой, а не самой моделью.
-        const ref = this.modelRegistry.acquire(uri);
-        const editor = this.createPaneForModel(ref.model, ref);
-        this.applyConfigurationToEditor(editor);
-        group.insertPane(editor);
-        group.activateTab(group.editorCount - 1, { focus });
+    /** Группа справа от активной; нет — создаётся (нет места — фолбэк в активную). */
+    private resolveBesideGroup(): EditorGroup {
+        const index = this.groupsList.indexOf(this.activeGroupValue);
+        const next = this.groupsList[index + 1];
+        if (next !== undefined) return next;
+        if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
+            this.logger.info("open beside refused — not enough space, opening in the active group");
+            return this.activeGroupValue;
+        }
+        const group = this.createGroup(index + 1);
+        this.fireGroupsChanged({ kind: "added", group, index: index + 1, source: this.activeGroupValue });
+        return group;
     }
 
     /**

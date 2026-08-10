@@ -81,7 +81,8 @@ export interface ContextKeyTypes {
     // -- Explorer contexts --
     // explorerViewletVisible: boolean;
     // explorerViewletFocus: boolean;
-    // filesExplorerFocus: boolean;
+    /** True while the Explorer file tree has keyboard focus. */
+    filesExplorerFocus: boolean;
     // openEditorsFocus: boolean;
     // explorerResourceIsFolder: boolean;
 
@@ -247,7 +248,7 @@ export const allContextKeys: ContextKey[] = [
     // -- Explorer contexts --
     // "explorerViewletVisible",
     // "explorerViewletFocus",
-    // "filesExplorerFocus",
+    "filesExplorerFocus",
     // "openEditorsFocus",
     // "explorerResourceIsFolder",
 

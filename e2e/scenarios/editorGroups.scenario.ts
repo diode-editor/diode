@@ -41,5 +41,14 @@ export default defineScenario({
         await editor.sendMouse({ action: "move", button: "left", x: sashX + 20, y: midY });
         await editor.sendMouse({ action: "release", button: "left", x: sashX + 20, y: midY });
         await editor.capture("sash-resized");
+
+        // Тумблер оси через палитру (Shift+Alt+0 living только на kitty/csi-u;
+        // headless-инспектор шлёт клавиши мимо терминала, но палитра — путь,
+        // который есть везде): те же группы становятся рядами (US-19).
+        await editor.sendKey("Ctrl+P");
+        await editor.waitForNode("#quickInput");
+        await editor.sendText(">Toggle Vertical/Horizontal");
+        await editor.sendKey("Enter");
+        await editor.capture("rows-layout");
     },
 });

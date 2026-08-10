@@ -40,6 +40,15 @@ export class EditorPartComponent extends Component {
         editorService.focusGroupContentHook = (group) => {
             this.groupComponents.get(group.id)?.focusContent();
         };
+        // Максимизация следует за активной группой: работать в невидимой группе
+        // нельзя, поэтому смена активной перемаксимизирует полосу на неё.
+        this.register(
+            editorService.onDidActiveGroupChange(() => {
+                if (this.view.maximizedIndex !== null) {
+                    this.view.maximizedIndex = this.activeGroupIndex();
+                }
+            }),
+        );
         this.register({
             dispose: () => {
                 for (const component of this.groupComponents.values()) component.dispose();
@@ -56,6 +65,31 @@ export class EditorPartComponent extends Component {
 
     public set orientation(value: EditorPartOrientation) {
         this.view.orientation = value;
+    }
+
+    /** Тумблер оси полосы (US-19): группы и доли сохраняются. */
+    public toggleOrientation(): void {
+        this.view.orientation = this.view.orientation === "columns" ? "rows" : "columns";
+    }
+
+    /** Выравнивает доли групп (Reset Editor Group Sizes). */
+    public evenWeights(): void {
+        this.view.evenWeights();
+    }
+
+    /** Меняет основной размер активной группы на `deltaCells` за счёт соседа. */
+    public nudgeActiveGroup(deltaCells: number): void {
+        this.view.nudgeWeight(this.activeGroupIndex(), deltaCells);
+    }
+
+    /** Тумблер максимизации активной группы (US-24). */
+    public toggleMaximizeActiveGroup(): void {
+        const index = this.activeGroupIndex();
+        this.view.maximizedIndex = this.view.maximizedIndex === index ? null : index;
+    }
+
+    private activeGroupIndex(): number {
+        return this.editorService.groups.indexOf(this.editorService.activeGroup);
     }
 
     /**

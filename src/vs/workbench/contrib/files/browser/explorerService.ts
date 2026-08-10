@@ -148,6 +148,12 @@ export class ExplorerService extends Disposable {
         return this.view?.getSelectedNodes().map((node) => node.path) ?? [];
     }
 
+    /** Путь выбранного ФАЙЛА под курсором; каталог или пустое дерево — `null` (Open to the Side). */
+    public getSelectedFilePath(): string | null {
+        const node = this.view?.getSelectedNode() ?? null;
+        return node !== null && !node.isDirectory ? node.path : null;
+    }
+
     /**
      * Каталог, в который должна выполняться вставка: сам узел под курсором, если это
      * папка, иначе — его родитель. При пустом дереве — корень.

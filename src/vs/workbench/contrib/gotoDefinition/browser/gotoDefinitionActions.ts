@@ -1,5 +1,5 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
-import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";
 
@@ -15,5 +15,16 @@ export const revealDefinitionAction: CommandAction = {
     when: "textInputFocus",
     run(accessor) {
         void accessor.get(DefinitionServiceDIToken).revealDefinition();
+    },
+};
+
+/** То же, но цель открывается в соседней группе (VS Code `Ctrl+K F12`). */
+export const revealDefinitionAsideAction: CommandAction = {
+    id: "editor.action.revealDefinitionAside",
+    title: "Go to Definition to the Side",
+    keybinding: parseChord("ctrl+k f12"),
+    when: "textInputFocus",
+    run(accessor) {
+        void accessor.get(DefinitionServiceDIToken).revealDefinition({ toSide: true });
     },
 };
