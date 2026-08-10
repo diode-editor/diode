@@ -8,7 +8,7 @@ import type { IDiffViewRow } from "../common/diff/diffViewModel.ts";
 import type { ILineTokens } from "../common/languages/iLineTokens.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 
-import { packStyleFlags, TokenIndex } from "./editorElement.ts";
+import { packStyleFlags, TokenIndex } from "./tokenIndex.ts";
 
 /** Сторона диффа, с которой берётся строка. */
 export type DiffSide = "original" | "modified";
