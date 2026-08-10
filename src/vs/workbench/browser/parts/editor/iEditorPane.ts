@@ -1,6 +1,7 @@
 import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
+import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 
 /**
  * Что группе редакторов нужно от **любой** открытой панели, независимо от её
@@ -35,6 +36,25 @@ export interface IEditorPane extends IDisposable {
 
     /** Запрещена ли правка (метка-замок во вкладке). */
     readonly readOnly: boolean;
+
+    /**
+     * Текстовая проекция панели: каретка, выделение, скролл. Есть у текстовой
+     * вкладки и у диффа, но не обязана быть у панели любого вида (картинка,
+     * настройки) — поэтому необязательное поле, а не обещание всем врать.
+     *
+     * Через него работают команды курсора: им нужен только `EditorViewState`,
+     * а не текстовая вкладка целиком (`EditorService.getActiveViewState`).
+     */
+    readonly viewState?: EditorViewState;
+
+    /**
+     * Текст текущего выделения — то, что уедет в буфер по Copy. Пустая строка,
+     * если выделять нечего или у панели нет понятия выделения. Отдельно от
+     * `viewState.getSelectedText()`, потому что панель вправе решить иначе:
+     * дифф, например, выбрасывает из результата строки-плейсхолдеры свёрнутых
+     * кусков — это не текст файла.
+     */
+    getSelectedText(): string;
 
     /**
      * Изменилось что-то, видимое во вкладке: маркер правки, метка. Группа по

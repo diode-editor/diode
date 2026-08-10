@@ -7,6 +7,7 @@ import { ListViewElement } from "../../../../tuidom/ui/list/listViewElement.ts";
 import { TerminalViewElement } from "../../../../tuidom/ui/terminal/terminalViewElement.ts";
 import { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
 import { EditorElement } from "../../editor/browser/editorElement.ts";
+import { isTextViewElement } from "../../editor/browser/iTextViewElement.ts";
 import { registerContextKeys } from "../../platform/contextkey/common/contextKeys.ts";
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
@@ -115,11 +116,18 @@ export class WorkbenchContextKeys extends Disposable {
         const editorCount = this.editorService.editorCount;
 
         this.contextKeys.set("textInputFocus", active instanceof EditorElement);
-        // Парный к textInputFocus: мутирующие команды висят на
+        // Шире, чем textInputFocus: сюда попадает и дифф. Разница ровно в том,
+        // нужен ли команде буфер файла (правка, фолдинг, suggest, find — им
+        // нужен) или достаточно EditorViewState (каретка, выделение, копия).
+        // Расширять сам textInputFocus нельзя: команды на нём ходят через
+        // getActiveEditor(), который на диффе даёт null, — они бы молча ничего
+        // не делали, съедая при этом клавишу (swallowNextKeyPress).
+        this.contextKeys.set("textViewFocus", isTextViewElement(active));
+        // Парный к textViewFocus: мутирующие команды висят на
         // `textInputFocus && !editorReadonly` — наш аналог `EditorContextKeys.writable`
-        // (в VS Code это `readOnly.toNegated()`). Без фокуса в редакторе ключ
+        // (в VS Code это `readOnly.toNegated()`). Без фокуса в тексте ключ
         // сбрасывается в false, иначе он залипал бы от прошлого редактора.
-        this.contextKeys.set("editorReadonly", active instanceof EditorElement && active.readOnly);
+        this.contextKeys.set("editorReadonly", isTextViewElement(active) && active.readOnly);
         this.contextKeys.set("inputWidgetFocus", active instanceof InputElement);
         this.contextKeys.set("scmInputFocus", active instanceof ScmCommitInputElement);
         this.contextKeys.set("listFocus", active instanceof TreeViewElement || active instanceof ListViewElement);

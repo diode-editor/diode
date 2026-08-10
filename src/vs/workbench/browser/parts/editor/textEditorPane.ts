@@ -239,6 +239,10 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         return this.component.viewState;
     }
 
+    public getSelectedText(): string {
+        return this.component.viewState.getSelectedText();
+    }
+
     /**
      * Режим «только чтение» вкладки (VS Code `EditorOption.readOnly`). Правки
      * документа блокирует сам `EditorViewState`; здесь флаг нужен ещё и для

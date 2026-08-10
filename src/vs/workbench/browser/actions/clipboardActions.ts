@@ -8,15 +8,16 @@ export const clipboardCopyAction: CommandAction = {
     id: "editor.action.clipboardCopyAction",
     title: "Copy",
     keybinding: parseKeybinding("ctrl+c"),
-    when: "textInputFocus",
+    // Шире, чем у Cut/Paste: копировать можно и из read-only диффа.
+    when: "textViewFocus",
     menus: [
         { menuId: MenuId.EditorContext, group: "1_clipboard", order: 10 },
         { menuId: MenuId.MenubarEditMenu, group: "2_clipboard", order: 20 },
     ],
     async run(accessor) {
-        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        if (!editor) return;
-        const text = editor.viewState.getSelectedText();
+        // Через панель, а не через viewState: что считать выделенным, решает
+        // она (дифф выбрасывает строки-плейсхолдеры свёрнутых кусков).
+        const text = accessor.get(EditorServiceDIToken).getActivePane()?.getSelectedText() ?? "";
         if (text !== "") {
             await accessor.get(ClipboardDIToken).writeText(text);
         }

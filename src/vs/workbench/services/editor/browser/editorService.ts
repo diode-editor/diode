@@ -8,6 +8,7 @@ import type { FoldingRangeSource } from "../../../../editor/common/languages/iFo
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
@@ -344,6 +345,17 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     public getActiveEditor(): TextEditorPane | null {
         const pane = this.getActivePane();
         return pane instanceof TextEditorPane ? pane : null;
+    }
+
+    /**
+     * Текстовая поверхность активной панели — редактора ИЛИ диффа, — либо
+     * `null`, если у панели её нет. Уже, чем {@link getActiveEditor}: командам
+     * курсора, выделения и копирования нужен только `EditorViewState`, а не
+     * текстовая вкладка со своими save/EOL/кодировкой. Именно за счёт этого
+     * дифф ходит кареткой тем же кодом, что и редактор, оставаясь read-only.
+     */
+    public getActiveViewState(): EditorViewState | null {
+        return this.getActivePane()?.viewState ?? null;
     }
 
     /** Текстовая вкладка без учёта detached-панелей (см. {@link getActiveTabPane}). */
