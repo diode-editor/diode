@@ -28,7 +28,9 @@ interface GroupStub {
     getEditor?: (index: number) => { isModified: boolean } | null;
     /** Диалог показывается только последней вкладке документа; в стабе — всегда последняя. */
     isLastPaneForDocument?: (editor: { isModified: boolean }) => boolean;
-    onRequestConfirmClose?: (index: number) => void;
+    /** Координата confirm-close — (группа, индекс); в стабе группа — маркер-объект. */
+    activeGroup?: unknown;
+    onRequestConfirmClose?: (group: unknown, index: number) => void;
 }
 
 function setupActionTest(group: GroupStub) {
@@ -177,6 +179,7 @@ describe("TabActions", () => {
             closeTab,
             getEditor: () => ({ isModified: true }),
             isLastPaneForDocument: () => true,
+            activeGroup: { marker: "group" },
             onRequestConfirmClose,
         };
 
@@ -185,7 +188,7 @@ describe("TabActions", () => {
 
         commands.execute("workbench.action.closeActiveEditor");
 
-        expect(onRequestConfirmClose).toHaveBeenCalledWith(2);
+        expect(onRequestConfirmClose).toHaveBeenCalledWith(group.activeGroup, 2);
         expect(closeTab).not.toHaveBeenCalled();
     });
 

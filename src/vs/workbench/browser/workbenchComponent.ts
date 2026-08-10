@@ -63,6 +63,7 @@ import { builtinActions } from "./actions/builtinActions.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
 import { EditorPartComponent, EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
+import { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import { PanelComponentDIToken } from "./parts/panel/panelComponent.ts";
 import { QuickInputComponentDIToken } from "./parts/quickinput/quickInputComponent.ts";
 import type { QuickInputService } from "./parts/quickinput/quickInputService.ts";
@@ -250,6 +251,14 @@ export class WorkbenchComponent extends Component {
         // редактора сервисы делают сами (подписки на onActiveEditorChanged).
         suggestComponent.attachHost(this.view);
         findComponent.attachHost(this.editorPartComponent.activeGroupOverlayHost());
+        // Find живёт в активной группе: смена группы перевешивает его сессию на
+        // её локальный overlay-слой (сам виджет к этому моменту закрыт —
+        // FindService закрывается по смене активного редактора).
+        this.register(
+            this.editorService.onDidActiveGroupChange(() => {
+                findComponent.attachHost(this.editorPartComponent.activeGroupOverlayHost());
+            }),
+        );
         for (const action of builtinActions) {
             this.register(registerAction(commands, keybindings, accessor, action));
         }
@@ -305,11 +314,13 @@ export class WorkbenchComponent extends Component {
         this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
         this.view.addEventListener("focus", this.workbenchContextKeys.handleFocusChange, { capture: true });
         this.view.addEventListener("blur", this.workbenchContextKeys.handleFocusChange, { capture: true });
-        this.editorService.onRequestConfirmClose = (index) => {
+        this.editorService.onRequestConfirmClose = (group, index) => {
             // Здесь именно текстовая панель: диалог предлагает СОХРАНИТЬ, а
             // сохраняться умеет только она. Не-текстовая вкладка сюда не попадает —
             // у неё isModified === false, и группа закрывает её напрямую.
-            const editor = this.editorService.getEditor(index);
+            // Координата — (группа, индекс): крестик работает и в неактивной группе.
+            const pane = group.getPane(index);
+            const editor = pane instanceof TextEditorPane ? pane : null;
             /* v8 ignore start -- defensive: the callback is only invoked synchronously with a valid tab index, so the editor always exists */
             if (!editor) return;
             /* v8 ignore stop */
@@ -319,11 +330,11 @@ export class WorkbenchComponent extends Component {
                     // user's edits even against an external change (overwrite),
                     // so choosing Save never silently drops their work.
                     void editor.save({ overwrite: true }).then(() => {
-                        this.editorService.closeTab(index);
+                        group.closeTab(index);
                     });
                 },
                 onDontSave: () => {
-                    this.editorService.closeTab(index);
+                    group.closeTab(index);
                 },
                 /* v8 ignore start -- placeholder no-op: cancelling keeps the editor open, nothing to do */
                 onCancel: () => {

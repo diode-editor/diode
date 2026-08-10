@@ -134,6 +134,7 @@ export class WorkbenchContextKeys extends Disposable {
         this.inputWidgetService.setActive(active instanceof InputElement ? active : null);
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);
+        this.contextKeys.set("multipleEditorGroups", this.editorService.groups.length > 1);
         this.contextKeys.set("panelVisible", this.layoutService.isPanelVisible());
         this.contextKeys.set(
             "searchViewletVisible",

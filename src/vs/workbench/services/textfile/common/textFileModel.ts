@@ -168,6 +168,29 @@ export class TextFileModel extends Disposable {
     }
 
     public onDidSave?: () => void;
+    private saveListeners: (() => void)[] = [];
+
+    /**
+     * Событие «документ записан на диск» (save/saveAs) — многоподписочное, в
+     * отличие от слота {@link onDidSave} (тот занят владельцем-сервисом).
+     * Слушают вкладки: сохранение меняет вид вкладки (гаснет маркер
+     * изменённости, после saveAs меняется имя) — у каждой из N вкладок
+     * документа.
+     */
+    public onDidSaveDocument(listener: () => void): IDisposable {
+        this.saveListeners.push(listener);
+        return {
+            dispose: () => {
+                const i = this.saveListeners.indexOf(listener);
+                if (i >= 0) this.saveListeners.splice(i, 1);
+            },
+        };
+    }
+
+    private fireSaved(): void {
+        this.onDidSave?.();
+        for (const listener of [...this.saveListeners]) listener();
+    }
 
     /**
      * Наблюдатель за файлами (инъектируется группой перед openFile). Когда задан,
@@ -526,7 +549,7 @@ export class TextFileModel extends Disposable {
         this.savedVersionId = this.doc.versionId;
         this.savedEol = this.doc.eol;
         this.setDiskConflict(false);
-        this.onDidSave?.();
+        this.fireSaved();
         return "saved";
     }
 
@@ -669,7 +692,7 @@ export class TextFileModel extends Disposable {
         this.savedEol = this.doc.eol;
         this.setDiskConflict(false);
         this.startWatchingFile(newPath);
-        this.onDidSave?.();
+        this.fireSaved();
     }
 
     /** Читает stat файла (mtime + размер) или `null`, если файла нет/недоступен. */

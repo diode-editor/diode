@@ -156,7 +156,8 @@ export interface ContextKeyTypes {
     // activeEditorGroupEmpty: boolean;
     // activeEditorGroupIndex: number;
     // activeEditorGroupLast: boolean;
-    // multipleEditorGroups: boolean;
+    /** True while the editor area is split into more than one group. */
+    multipleEditorGroups: boolean;
     // activeEditor: string;
     // activeEditorIsDirty: boolean;
     // activeEditorIsNotPreview: boolean;
@@ -311,7 +312,7 @@ export const allContextKeys: ContextKey[] = [
     // "activeEditorGroupEmpty",
     // "activeEditorGroupIndex",
     // "activeEditorGroupLast",
-    // "multipleEditorGroups",
+    "multipleEditorGroups",
     // "activeEditor",
     // "activeEditorIsDirty",
     // "activeEditorIsNotPreview",

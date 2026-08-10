@@ -1,3 +1,4 @@
+import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import * as fs from "node:fs";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import * as path from "node:path";
@@ -43,6 +44,7 @@ function createEditorService(
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
+        NULL_LOG_SERVICE,
     );
 }
 

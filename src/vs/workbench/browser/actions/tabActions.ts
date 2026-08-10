@@ -87,7 +87,7 @@ export const closeActiveEditorAction: CommandAction = {
         // ещё, несохранённые правки живут в общей модели и не теряются.
         const editor = group.getEditor(group.activeIndex);
         if (editor?.isModified && group.isLastPaneForDocument(editor) && group.onRequestConfirmClose) {
-            group.onRequestConfirmClose(group.activeIndex);
+            group.onRequestConfirmClose(group.activeGroup, group.activeIndex);
         } else {
             group.closeTab(group.activeIndex);
         }

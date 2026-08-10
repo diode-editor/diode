@@ -163,8 +163,15 @@ export class FindComponent extends Component {
 
     // ─── Overlay-сессия ───────────────────────────────────────────────────────
 
-    /** Прикрепляет виджет к overlay-слою группы редакторов (до первого показа). */
+    /**
+     * Прикрепляет виджет к overlay-слою группы редакторов (до первого показа).
+     * Повторный вызов с ДРУГИМ хостом перевешивает сессию: со сплитами find
+     * живёт в активной группе, и показ на новой группе обязан пересоздать
+     * сессию на её локальном слое (один host — одна сессия).
+     */
     public attachHost(host: OverlayHostElement): void {
+        if (this.host === host) return;
+        this.session?.dispose();
         this.host = host;
         this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,

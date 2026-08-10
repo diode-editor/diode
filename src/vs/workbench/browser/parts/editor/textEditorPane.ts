@@ -73,6 +73,10 @@ export class TextEditorPane extends Disposable implements IEditorPane {
             this.onDidChangeEol(cb),
             this.onDidChangeDiskState(cb),
             this.onDidChangeReadOnly(cb),
+            // Сохранение меняет вид вкладки: гаснет маркер изменённости, после
+            // saveAs — имя. Событие модели, а не слот onDidSave: у документа
+            // может быть несколько вкладок, и перерисоваться обязана каждая.
+            this.model.onDidSaveDocument(cb),
         ];
         return {
             dispose: () => {

@@ -1,3 +1,4 @@
+import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -48,8 +49,9 @@ function createEditorGroup(
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
+        NULL_LOG_SERVICE,
     );
-    const component = new EditorGroupComponent(service);
+    const component = new EditorGroupComponent(service.activeGroup, service);
     return { service, component };
 }
 
@@ -156,10 +158,11 @@ describe("EditorGroupComponent", () => {
             return component.view.getContent()!.getChildren()[1];
         }
 
-        it("view is a single overlay host with the editorGroup id", () => {
+        it("view is a single overlay host with a stable per-group id", () => {
             const { component } = createEditorGroup();
             expect(component.view).toBeInstanceOf(OverlayHostElement);
-            expect(component.view.id).toBe("editorGroup");
+            // id несёт id группы (стабилен), а не ViewColumn (пересчитывается).
+            expect(component.view.id).toBe(`editorGroup-${String(component.group.id)}`);
         });
 
         it("shows the view of the active editor after a tab switch", () => {
@@ -299,7 +302,7 @@ describe("EditorGroupComponent", () => {
             editor.viewState.insertText("y"); // mark modified
 
             let confirmedIndex = -1;
-            service.onRequestConfirmClose = (index) => {
+            service.onRequestConfirmClose = (_group, index) => {
                 confirmedIndex = index;
             };
 

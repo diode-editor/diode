@@ -181,6 +181,7 @@ import {
     showSearchAction,
     toggleSearchDetailsAction,
 } from "./searchActions.ts";
+import { EDITOR_GROUP_ACTIONS } from "./editorGroupActions.ts";
 import {
     closeActiveEditorAction,
     nextEditorInGroupAction,
@@ -313,6 +314,9 @@ export const builtinActions: readonly CommandAction[] = [
     previousEditorInGroupAction,
     openPreviousRecentlyUsedEditorInGroupAction,
     closeActiveEditorAction,
+
+    // Editor groups (сплиты)
+    ...EDITOR_GROUP_ACTIONS,
 
     // Input widget
     inputCursorLeftAction,

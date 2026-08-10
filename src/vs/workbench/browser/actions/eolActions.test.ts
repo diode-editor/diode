@@ -1,3 +1,4 @@
+import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -36,6 +37,7 @@ function openEditor(content: string) {
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
+        NULL_LOG_SERVICE,
     );
     const filePath = ws.writeFile("doc.txt", content);
     ctrl.openFile(filePath);

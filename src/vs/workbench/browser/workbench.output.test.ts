@@ -516,7 +516,7 @@ describe("Workbench — Output: потребители, которым нужн�
         tab.viewState.type("X");
         expect(tab.isModified).toBe(true);
         let asked = -1;
-        editorService.onRequestConfirmClose = (index) => {
+        editorService.onRequestConfirmClose = (_group, index) => {
             asked = index;
         };
 

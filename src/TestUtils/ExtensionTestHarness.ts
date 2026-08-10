@@ -1,3 +1,4 @@
+import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -167,8 +168,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
+        NULL_LOG_SERVICE,
     );
-    const groupComponent = new EditorGroupComponent(group);
+    const groupComponent = new EditorGroupComponent(group.activeGroup, group);
 
     const adapter = new EditorOptionsServiceAdapter(group);
     const commandRegistry = new CommandRegistry();

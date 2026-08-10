@@ -47,7 +47,7 @@ function makeHarness() {
 
     const service = new WorkbenchContextKeys(
         contextKeys,
-        { editorCount: 0 } as unknown as EditorService,
+        { editorCount: 0, groups: [] } as unknown as EditorService,
         { isVisible: () => false } as unknown as FindService,
         { isOpen: () => false, onFocusChanged } as unknown as CompletionService,
         { hasOpenTerminals: false } as unknown as TerminalService,
