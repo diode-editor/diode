@@ -11,7 +11,19 @@ export interface ContextKeyTypes {
     // -- Editor contexts --
     // editorFocus: boolean;
     // editorTextFocus: boolean;
+    /**
+     * Фокус в **редактируемом** текстовом виджете. На этом ключе висит всё,
+     * что осмысленно только над буфером файла: правка, фолдинг, suggest,
+     * find, goto-definition. Дифф под него НЕ попадает — см. {@link textViewFocus}.
+     */
     textInputFocus: boolean;
+    /**
+     * Фокус в любой текстовой поверхности — редакторе ИЛИ инлайн-диффе (Vexx;
+     * ближайший аналог в VS Code — `editorTextFocus`, который у них тоже
+     * истинен в дифф-редакторе). Здесь живут команды, которым нужен только
+     * `EditorViewState`: движение каретки, выделение, копирование.
+     */
+    textViewFocus: boolean;
     inputWidgetFocus: boolean;
     editorGroupHasEditors: boolean;
     editorTabsMultiple: boolean;
@@ -181,6 +193,7 @@ export const allContextKeys: ContextKey[] = [
     // "editorFocus",
     // "editorTextFocus",
     "textInputFocus",
+    "textViewFocus",
     "inputWidgetFocus",
     "editorGroupHasEditors",
     "editorTabsMultiple",

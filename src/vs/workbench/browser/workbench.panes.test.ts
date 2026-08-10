@@ -41,6 +41,10 @@ class TextOnlyPane implements IEditorPane {
         // Нечего фокусировать — панель не принимает ввод.
     }
 
+    public getSelectedText(): string {
+        return ""; // понятия выделения у панели нет
+    }
+
     public dispose(): void {
         // view не отцепляем: пока группа держит его как content, setParent(null)
         // оставил бы полуприкреплённое состояние (ловит validateTree). Отцепляет

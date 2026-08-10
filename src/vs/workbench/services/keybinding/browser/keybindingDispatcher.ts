@@ -48,7 +48,7 @@ const CHORD_NOT_FOUND_MS = 4000;
 // focus-scoped commands may run; everything else (workbench/navigation commands, which carry
 // no focus-scoped `when`) is suppressed so a shortcut can't act on a panel behind the
 // still-visible overlay. See dispatchKeyDown.
-const FOCUS_SCOPED_CONTEXT_KEYS = ["inputWidgetFocus", "textInputFocus", "listFocus"] as const;
+const FOCUS_SCOPED_CONTEXT_KEYS = ["inputWidgetFocus", "textInputFocus", "textViewFocus", "listFocus"] as const;
 
 function isFocusScopedWhen(when: string | undefined): boolean {
     return when !== undefined && FOCUS_SCOPED_CONTEXT_KEYS.some((key) => when.includes(key));

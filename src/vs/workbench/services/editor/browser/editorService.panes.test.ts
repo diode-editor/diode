@@ -71,6 +71,10 @@ class FakePane implements IEditorPane {
         // Фокус фейковой панели никуда не ведёт — важно лишь, что группа его зовёт.
     }
 
+    public getSelectedText(): string {
+        return ""; // понятия выделения у панели нет
+    }
+
     public dispose(): void {
         this.disposed = true;
     }

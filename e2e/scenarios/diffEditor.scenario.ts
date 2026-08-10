@@ -60,5 +60,13 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("↔ HEAD"));
         await editor.capture("diff");
+
+        // Дифф — текстовая поверхность: каретка ходит, текст выделяется. Ведём
+        // её на строку с правкой и выделяем поперёк границы `-`/`+`, чтобы на
+        // кадре была видна подсветка выделения поверх фона added/deleted.
+        for (let i = 0; i < 4; i++) await editor.sendKey("ArrowDown");
+        await editor.sendKey("Shift+ArrowDown");
+        await editor.sendKey("Shift+End");
+        await editor.capture("diff-selection");
     },
 });

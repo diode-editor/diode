@@ -7,6 +7,7 @@ import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { DefaultLinesDiffComputer } from "../common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
 import { DiffViewModel } from "../common/diff/diffViewModel.ts";
+import { createDiffViewState } from "../common/diff/diffViewText.ts";
 import { createLineTokens, createToken } from "../common/languages/iLineTokens.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
 
@@ -29,10 +30,9 @@ const STYLE_VARS = {
     "diffEditor.unchangedRegionForeground": COLLAPSED_FG,
 };
 
-/** Источник строк без токенов — подсветка проверяется отдельным тестом. */
-function plainSource(original: string[], modified: string[]): IDiffRowSource {
+/** Источник без токенов — подсветка проверяется отдельным тестом. */
+function plainSource(): IDiffRowSource {
     return {
-        getLine: (side, line) => (side === "original" ? original : modified)[line] ?? "",
         getLineTokens: () => undefined,
         resolveTokenStyle: () => EMPTY_RESOLVED_TOKEN_STYLE,
     };
@@ -51,10 +51,20 @@ function makeElement(
     const model = new DiffViewModel(diff.changes, original.length, modified.length, {
         hideUnchangedRegions: options.collapsed === true,
     });
+    return buildElement(model.rows, original, modified, options.source ?? plainSource());
+}
+
+/** Элемент со своим набором строк вью и синтетическим документом под ним. */
+function buildElement(
+    rows: DiffViewElement["rows"],
+    original: string[],
+    modified: string[],
+    source: IDiffRowSource,
+): DiffViewElement {
     const element = new DiffViewElement();
     element.setStyleVars(STYLE_VARS);
     element.style = { fg: FG, bg: BG };
-    element.setRows(model.rows, options.source ?? plainSource(original, modified));
+    element.setRows(rows, source, createDiffViewState(rows, { original, modified }, 4));
     return element;
 }
 
@@ -167,10 +177,7 @@ describe("DiffViewElement — свёрнутые куски", () => {
             contextLineCount: 0,
             minimumHiddenLineCount: 1,
         });
-        const element = new DiffViewElement();
-        element.setStyleVars(STYLE_VARS);
-        element.style = { fg: FG, bg: BG };
-        element.setRows(model.rows, plainSource(original, modified));
+        const element = buildElement(model.rows, original, modified, plainSource());
 
         expect(screenLines(render(element))).toContain("  ⋯ ⋯    ⋯ 1 unchanged line");
     });
@@ -181,7 +188,6 @@ describe("DiffViewElement — подсветка синтаксиса", () => {
         const original = ["const a = 1;"];
         const modified = ["const a = 2;"];
         const source: IDiffRowSource = {
-            getLine: (side, line) => (side === "original" ? original : modified)[line] ?? "",
             // Первые пять символов — ключевое слово.
             getLineTokens: () => createLineTokens([createToken(0, ["keyword"]), createToken(5, ["text"])]),
             resolveTokenStyle: (scopes) =>
@@ -273,7 +279,7 @@ describe("DiffViewElement — события", () => {
         expect(element.scrollTop).toBe(0);
     });
 
-    it("горизонтальное колесо игнорируется", () => {
+    it("горизонтальное колесо прокрутку не трогает", () => {
         const { element } = mounted();
 
         wheel(element, "left");
@@ -281,42 +287,18 @@ describe("DiffViewElement — события", () => {
         expect(element.scrollTop).toBe(0);
     });
 
-    it("стрелки листают по строке", () => {
-        const { element } = mounted();
-
-        key(element, "ArrowDown");
-        expect(element.scrollTop).toBe(1);
-
-        key(element, "ArrowUp");
-        expect(element.scrollTop).toBe(0);
-    });
-
-    it("PageDown/PageUp листают на экран без одной строки", () => {
+    it("клавиши элемент не обрабатывает — навигация идёт командами", () => {
+        // Каретка и скролл живут на командах курсора (`when: textViewFocus`),
+        // а не на собственном обработчике: иначе клавиша сработала бы дважды —
+        // диспетчер выполняет команду и съедает keypress (swallowNextKeyPress).
         const { element } = mounted(30, 5);
 
-        key(element, "PageDown");
-        expect(element.scrollTop).toBe(4);
-
-        key(element, "PageUp");
-        expect(element.scrollTop).toBe(0);
-    });
-
-    it("Home и End прыгают к краям", () => {
-        const { element } = mounted(30, 5);
-
-        key(element, "End");
-        expect(element.scrollTop).toBe(25);
-
-        key(element, "Home");
-        expect(element.scrollTop).toBe(0);
-    });
-
-    it("прочие клавиши не трогают прокрутку", () => {
-        const { element } = mounted();
-
-        key(element, "a");
+        for (const name of ["ArrowDown", "PageDown", "End", "Home", "a"]) {
+            key(element, name);
+        }
 
         expect(element.scrollTop).toBe(0);
+        expect(element.viewState.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 });
 
@@ -362,14 +344,43 @@ describe("DiffViewElement — размеры и сложные символы", 
 });
 
 describe("DiffViewElement — горизонтальная прокрутка", () => {
-    it("пока не реализована: scrollLeft всегда 0, длинные строки обрезаются", () => {
-        const long = "x".repeat(200);
-        const element = makeElement([long], [long]);
+    it("scrollLeft сдвигает содержимое, гуттер остаётся на месте", () => {
+        const line = "abcdefghijklmnopqrstuvwxyz";
+        const element = makeElement([line], [line]);
         const app = render(element, new Size(20, 3));
 
-        expect(element.scrollLeft).toBe(0);
-        // Виден только влезающий кусок — обрезка по правому краю, без переноса.
-        expect(app.backend.getTextAt(new Point(9, 0), 11)).toBe("x".repeat(11));
+        expect(app.backend.getTextAt(new Point(9, 0), 5)).toBe("abcde");
+
+        element.viewState.scrollLeft = 4;
+        app.render();
+
+        expect(element.scrollLeft).toBe(4);
+        expect(app.backend.getTextAt(new Point(9, 0), 5)).toBe("efghi");
+        // Номер строки не уехал вместе с текстом.
+        expect(app.backend.getTextAt(new Point(2, 0), 1)).toBe("1");
+    });
+
+    it("contentWidth считает самую длинную строку вместе с гуттером", () => {
+        const element = makeElement(["short", "x".repeat(120)], ["short", "x".repeat(120)]);
+
+        expect(element.contentWidth).toBe(element.gutterWidth + 120);
+    });
+
+    it("новый снимок пересчитывает contentWidth, а не берёт его от прошлого", () => {
+        const element = makeElement(["x".repeat(120)], ["x".repeat(120)]);
+        expect(element.contentWidth).toBe(element.gutterWidth + 120);
+
+        const short = ["ab"];
+        element.setRows(
+            [{ kind: "unchanged", originalLine: 0, modifiedLine: 0 }],
+            plainSource(),
+            createDiffViewState([{ kind: "unchanged", originalLine: 0, modifiedLine: 0 }], {
+                original: short,
+                modified: short,
+            }, 4),
+        );
+
+        expect(element.contentWidth).toBe(element.gutterWidth + 2);
     });
 });
 
@@ -378,7 +389,6 @@ describe("DiffViewElement — токены без покрытия строки"
         const original = ["abc"];
         const modified = ["abd"];
         const source: IDiffRowSource = {
-            getLine: (side, line) => (side === "original" ? original : modified)[line] ?? "",
             // Пустой список токенов: подсветке нечего сказать про эту строку.
             getLineTokens: () => createLineTokens([]),
             resolveTokenStyle: () => ({ ...EMPTY_RESOLVED_TOKEN_STYLE, fg: KEYWORD }),

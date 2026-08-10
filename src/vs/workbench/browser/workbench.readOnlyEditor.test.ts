@@ -191,7 +191,8 @@ describe("Workbench — read-only editor", () => {
             expect(resolve("ArrowRight")).toEqual({
                 kind: "command",
                 commandId: "cursorRight",
-                when: "textInputFocus",
+                // Шире, чем textInputFocus: тем же кейбиндом ходит каретка в диффе.
+                when: "textViewFocus",
             });
             expect(resolve("c", true)).toMatchObject({
                 kind: "command",

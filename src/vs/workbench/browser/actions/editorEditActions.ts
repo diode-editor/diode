@@ -118,9 +118,12 @@ export const selectAllAction: CommandAction = {
     id: "editor.action.selectAll",
     title: "Select All",
     keybinding: parseKeybinding("ctrl+a"),
-    when: "textInputFocus",
+    // Единственная команда в этом файле без гейта `!editorReadonly`: выделение
+    // ничего не меняет. Отсюда и `textViewFocus` — Ctrl+A + Ctrl+C на диффе
+    // копирует его целиком.
+    when: "textViewFocus",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "1_select", order: 10 }],
     run(accessor) {
-        accessor.get(EditorServiceDIToken).getActiveEditor()?.viewState.selectAll();
+        accessor.get(EditorServiceDIToken).getActiveViewState()?.selectAll();
     },
 };

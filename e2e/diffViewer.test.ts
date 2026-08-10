@@ -173,8 +173,8 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    // ── B. Скролл диффа (карта 5) ───────────────────────────────────────────
-    it("дифф скроллится клавишами (дифф выше вьюпорта)", async () => {
+    // ── B. Каретка ведёт вьюпорт (карта 5) ──────────────────────────────────
+    it("дифф листается курсором (дифф выше вьюпорта)", async () => {
         // Коммитим одну строку, а в буфер добавляем 80 уникальных — добавленные
         // строки не сворачиваются, дифф гарантированно выше 24-строчного экрана.
         const r = repo({ "long.txt": "HEADLINE\n" });
@@ -192,15 +192,19 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             const top = frameToText(await s.captureFrame());
             expect(top).toContain("row000");
             expect(top).not.toContain("row079"); // за пределами экрана в начале
-            // Скроллим вниз.
+            // Каретка уезжает вниз, вьюпорт следует за ней.
             for (let i = 0; i < 20; i++) await s.key("PageDown");
             const bottom = frameToText(await s.captureFrame());
             expect(bottom).toContain("row079");
-            // Home возвращает наверх.
-            await s.key("Home");
+            // Ctrl+Home возвращает наверх. Именно Ctrl+Home, а не Home: с
+            // появлением каретки Home стал «в начало строки», как в VS Code.
+            await s.key("Ctrl+Home");
             const backTop = frameToText(await s.captureFrame());
             expect(backTop).toContain("row000");
             expect(backTop).not.toContain("row079");
+            expect((await s.node("DiffViewElement"))?.state?.selections).toEqual([
+                { anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 }, collapsed: true },
+            ]);
         } finally {
             await teardown();
         }
@@ -286,6 +290,108 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             const openedDiff = strip.some((t) => t.label.includes("↔ HEAD"));
             // Закоммиченный файл ИМЕЕТ версию в git — сообщение «has no version in git» было бы неверным.
             expect(openedDiff).toBe(true);
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    // ── D. Дифф как текстовая поверхность: каретка, выделение, копирование ───
+
+    /** Правит буфер и открывает дифф; фокус остаётся в дифф-панели. */
+    async function openDiffFor(s: HeadlessSession, edit: string): Promise<void> {
+        await s.waitForText((t) => t.includes("greet"));
+        await s.key("Ctrl+End");
+        await s.key("ArrowUp");
+        await s.key("ArrowUp");
+        await s.key("End");
+        await s.text(edit);
+        await s.waitForText((t) => t.includes(edit.trim()));
+        await s.waitForText((t) => t.includes("┋") || t.includes("┃"), { timeoutMs: 15_000 });
+        await invokeCompare(s);
+        await s.waitForText((t) => t.includes("↔ HEAD"), { timeoutMs: 15_000 });
+        await s.waitForFocus("DiffViewElement");
+    }
+
+    const selectionOf = async (s: HeadlessSession) => (await s.node("DiffViewElement"))?.state;
+
+    it("каретка в диффе ходит стрелками", async () => {
+        const r = repo({ "greeting.js": TRACKED });
+        const s = await open([r.dir, r.file("greeting.js")], r.dir);
+        try {
+            await openDiffFor(s, " // moved");
+
+            expect((await selectionOf(s))?.selections).toEqual([
+                { anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 }, collapsed: true },
+            ]);
+
+            await s.key("ArrowDown");
+            await s.key("ArrowRight");
+            await s.key("ArrowRight");
+
+            const state = await selectionOf(s);
+            expect(state?.selections).toEqual([
+                { anchor: { line: 1, character: 2 }, active: { line: 1, character: 2 }, collapsed: true },
+            ]);
+            // И правка по-прежнему невозможна.
+            expect(state?.readOnly).toBe(true);
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    it("Shift+End выделяет строку, Ctrl+C кладёт в буфер текст без гуттера", async () => {
+        const r = repo({ "greeting.js": TRACKED });
+        const s = await open([r.dir, r.file("greeting.js")], r.dir);
+        try {
+            await openDiffFor(s, " // ZZQQ");
+
+            // Кликом ставим каретку на добавленную строку — ту, что нарисована с
+            // маркером `+` и двумя номерами слева.
+            const frame = frameToText(await s.captureFrame()).split("\n");
+            const row = frame.findIndex((line) => line.includes("ZZQQ"));
+            expect(row).toBeGreaterThan(0);
+            expect(frame[row]).toMatch(/\+/u); // именно добавленная строка, с маркером
+            // Координаты берём от самой панели: слева сайдбар, и абсолютный x=20
+            // попал бы в дерево файлов, уведя фокус из диффа.
+            const view = await s.waitForNode("DiffViewElement");
+            await s.click(view.box.x + view.box.width - 2, row);
+
+            await s.key("Home");
+            await s.key("Shift+End");
+            expect((await selectionOf(s))?.hasSelection).toBe(true);
+            await s.key("Ctrl+C");
+
+            // Вставляем в инпут Quick Open: он пуст и отдаёт своё содержимое
+            // посимвольно, поэтому проверяет буфер точнее любого кадра.
+            await s.key("Ctrl+P");
+            await s.key("Ctrl+V");
+            const input = await s.waitForNode("InputElement");
+
+            // Ровно текст строки: ни номеров строк, ни маркера `+` — они в
+            // гуттере, а не в документе. Home встал на первый непробельный, как
+            // в редакторе, поэтому отступа тоже нет.
+            expect(input.state?.value).toBe('return "hi " + name; // ZZQQ');
+            await s.key("Escape");
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    it("протяжка мышью выделяет строки диффа", async () => {
+        const r = repo({ "greeting.js": TRACKED });
+        const s = await open([r.dir, r.file("greeting.js")], r.dir);
+        try {
+            await openDiffFor(s, " // dragme");
+
+            const node = await s.waitForNode("DiffViewElement");
+            const x = node.box.x + 20;
+            const y = node.box.y;
+            await s.sendMouse({ action: "press", button: "left", x, y });
+            await s.sendMouse({ action: "move", button: "left", x: x + 5, y: y + 2 });
+            await s.sendMouse({ action: "release", button: "left", x: x + 5, y: y + 2 });
+            await s.waitForIdle();
+
+            expect((await selectionOf(s))?.hasSelection).toBe(true);
         } finally {
             await teardown();
         }

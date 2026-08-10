@@ -28,7 +28,7 @@ export const nextEditorInGroupAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 10 }],
     keybinding: parseKeybinding("ctrl+tab"),
     keybindings: [parseKeybinding("ctrl+pagedown"), parseKeybinding("alt+pagedown")],
-    when: "textInputFocus && editorTabsMultiple",
+    when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, 1);
     },
@@ -41,7 +41,7 @@ export const previousEditorInGroupAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 20 }],
     keybinding: parseKeybinding("ctrl+shift+tab"),
     keybindings: [parseKeybinding("ctrl+pageup"), parseKeybinding("alt+pageup")],
-    when: "textInputFocus && editorTabsMultiple",
+    when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, -1);
     },
@@ -53,7 +53,7 @@ export const closeActiveEditorAction: CommandAction = {
     shortTitle: "Close Editor",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "5_close", order: 10 }],
     keybinding: parseKeybinding("ctrl+w"),
-    when: "textInputFocus && editorGroupHasEditors",
+    when: "textViewFocus && editorGroupHasEditors",
     run(accessor) {
         const group = accessor.get(EditorServiceDIToken);
         if (group.editorCount === 0 || group.activeIndex < 0) return;

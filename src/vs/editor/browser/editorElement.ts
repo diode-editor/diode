@@ -17,7 +17,6 @@ import {
     selectionToRange,
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
-import type { ILineTokens, IToken } from "../common/languages/iLineTokens.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../common/languages/iTokenStyleResolver.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
@@ -30,7 +29,17 @@ import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.t
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
-const SELECTION_BG = packRgb(38, 79, 120);
+import { TokenIndex } from "./tokenIndex.ts";
+import type { ITextViewportGeometry } from "./textViewRendering.ts";
+import {
+    caretLocalCell,
+    docPositionAt,
+    forEachRangeCell,
+    paintRangeBackground,
+    paintTextLine,
+    SELECTION_BG,
+} from "./textViewRendering.ts";
+
 // Find-in-file highlights: all matches get a dim background; the current match a brighter one.
 const FIND_MATCH_BG = packRgb(98, 91, 23);
 const FIND_MATCH_CURRENT_BG = packRgb(168, 109, 0);
@@ -66,16 +75,6 @@ const INDENT_GUIDE = "│"; // U+2502 box drawings light vertical
  * меню). Основные fg/bg редактора сюда не входят — они задаются через
  * `editor.style = { fg, bg }` (система наследования TUIStyle).
  */
-/** Viewport geometry shared by the range-background highlight passes. */
-interface RangeHighlightGeometry {
-    scrollTop: number;
-    scrollLeft: number;
-    visibleLines: number;
-    viewLineCount: number;
-    contentCols: number;
-    gutterW: number;
-}
-
 /**
  * TUI element that renders a text editor backed by EditorViewState.
  * Handles keyboard input (printable chars, Enter, Backspace, Delete)
@@ -182,22 +181,9 @@ export class EditorElement extends TUIElement implements IScrollable {
      * completion-попапа (та же математика, что в {@link render}).
      */
     public getCaretScreenCell(): Point | null {
-        const gutterW = this.gutterWidth;
-        const scrollTop = this.viewState.scrollTop;
-        const scrollLeft = this.viewState.scrollLeft;
-        const visibleLines = this.layoutSize.height;
-
-        const primary = this.viewState.selections[0];
-        const cursorVisualLine = this.viewState.logicalToVisualLine(primary.active.line);
-        const cursorLineContent = this.viewState.getViewLine(cursorVisualLine);
-        const cursorDl = this.viewState.displayLineFor(cursorLineContent);
-        const localX = cursorDl.offsetToColumn(primary.active.character) - scrollLeft + gutterW;
-        const localY = cursorVisualLine - scrollTop;
-
-        if (localX < gutterW || localX >= this.layoutSize.width || localY < 0 || localY >= visibleLines) {
-            return null;
-        }
-        return new Point(this.globalPosition.x + localX, this.globalPosition.y + localY);
+        const local = caretLocalCell(this.viewState, this.gutterWidth, this.layoutSize);
+        if (local === null) return null;
+        return new Point(this.globalPosition.x + local.x, this.globalPosition.y + local.y);
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
@@ -391,49 +377,18 @@ export class EditorElement extends TUIElement implements IScrollable {
             const lineTokens = this.viewState.getViewLineTokens(viewLine);
             const tokenIndex = lineTokens ? new TokenIndex(lineTokens, lineContent.length) : null;
 
-            let screenX = 0;
-            while (screenX < contentCols) {
-                const displayCol = scrollLeft + screenX;
-                const char = dl.charAtColumn(displayCol);
-                if (char === "") {
-                    // Continuation column of a wide char — skip, already handled by Grid
-                    screenX++;
-                    continue;
-                }
-                const slot = dl.graphemeAtColumn(displayCol);
-                const width = slot ? slot.displayWidth : 1;
-
-                // Resolve style for this offset.
-                let fg = editorFg;
-                let bg = editorBg;
-                let style: number = StyleFlags.None;
-                if (tokenIndex && slot) {
-                    const offset = slot.offset;
-                    const token = tokenIndex.tokenAt(offset);
-                    if (token) {
-                        const resolved = resolveStyle(token.scopes);
-                        if (resolved.fg !== undefined) fg = resolved.fg;
-                        if (resolved.bg !== undefined) bg = resolved.bg;
-                        style = packStyleFlags(resolved);
-                    }
-                }
-
-                if (slot?.grapheme === "\t") {
-                    // Tab: render each column as an individual space so Grid/TerminalRenderer
-                    // tracks the cursor correctly (they only support width=1 and width=2).
-                    for (let i = 0; i < width && screenX + i < contentCols; i++) {
-                        context.setCell(gutterW + screenX + i, screenY, { char: " ", fg, bg, style });
-                    }
-                    screenX += width;
-                } else if (width === 2 && screenX + 1 >= contentCols) {
-                    // Wide char doesn't fit at the right edge — render space instead
-                    context.setCell(gutterW + screenX, screenY, { char: " ", fg, bg, style, width: 1 });
-                    screenX++;
-                } else {
-                    context.setCell(gutterW + screenX, screenY, { char, fg, bg, style, width });
-                    screenX += width;
-                }
-            }
+            paintTextLine(context, {
+                displayLine: dl,
+                tokenIndex,
+                resolveStyle,
+                screenY,
+                gutterW,
+                contentCols,
+                scrollLeft,
+                fg: editorFg,
+                bg: editorBg,
+                allowTokenBg: true,
+            });
 
             // Extremely long line: rendering stopped at STOP_RENDERING_LINE_AFTER.
             // Draw a labelled "Long line trimmed" button at the cut point when it
@@ -468,7 +423,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
 
         // Shared geometry for the range-background highlight passes below.
-        const geometry: RangeHighlightGeometry = {
+        const geometry: ITextViewportGeometry = {
             scrollTop,
             scrollLeft,
             visibleLines,
@@ -486,7 +441,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         // painted first so selections and search matches win where they overlap).
         const occurrenceBg = this.styleVar("editor.wordHighlightBackground");
         for (const range of this.getOccurrenceHighlights()) {
-            this.paintRangeBackground(context, range, occurrenceBg, geometry);
+            paintRangeBackground(context, this.viewState, range, occurrenceBg, geometry);
         }
 
         // Highlight all search matches except the current one (drawn under selections).
@@ -494,18 +449,18 @@ export class EditorElement extends TUIElement implements IScrollable {
         const currentMatchIndex = this.viewState.currentSearchMatchIndex;
         for (let i = 0; i < searchMatches.length; i++) {
             if (i === currentMatchIndex) continue;
-            this.paintRangeBackground(context, searchMatches[i], FIND_MATCH_BG, geometry);
+            paintRangeBackground(context, this.viewState, searchMatches[i], FIND_MATCH_BG, geometry);
         }
 
         // Highlight selections
         for (const sel of this.viewState.selections) {
             if (isSelectionCollapsed(sel)) continue;
-            this.paintRangeBackground(context, selectionToRange(sel), SELECTION_BG, geometry);
+            paintRangeBackground(context, this.viewState, selectionToRange(sel), SELECTION_BG, geometry);
         }
 
         // Highlight the current search match on top (wins over other matches and selection).
         if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {
-            this.paintRangeBackground(context, searchMatches[currentMatchIndex], FIND_MATCH_CURRENT_BG, geometry);
+            paintRangeBackground(context, this.viewState, searchMatches[currentMatchIndex], FIND_MATCH_CURRENT_BG, geometry);
         }
 
         // Diagnostic squiggles on top of the content — painted last (after the
@@ -515,21 +470,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
 
         // Position hardware cursor at the primary selection's active position
-        const primary = this.viewState.selections[0];
-        const cursorVisualLine = this.viewState.logicalToVisualLine(primary.active.line);
-        const cursorLineContent = this.viewState.getViewLine(cursorVisualLine);
-        const cursorDl = this.viewState.displayLineFor(cursorLineContent);
-        const cursorScreenX = cursorDl.offsetToColumn(primary.active.character) - scrollLeft + gutterW;
-        const cursorScreenY = cursorVisualLine - scrollTop;
-
-        if (
-            this.isFocused &&
-            cursorScreenX >= gutterW &&
-            cursorScreenX < this.layoutSize.width &&
-            cursorScreenY >= 0 &&
-            cursorScreenY < visibleLines
-        ) {
-            context.setCursorPosition(cursorScreenX, cursorScreenY);
+        const caret = caretLocalCell(this.viewState, gutterW, this.layoutSize);
+        if (this.isFocused && caret !== null) {
+            context.setCursorPosition(caret.x, caret.y);
         }
     }
 
@@ -547,7 +490,7 @@ export class EditorElement extends TUIElement implements IScrollable {
      */
     private paintIndentGuides(
         context: RenderContext,
-        geo: RangeHighlightGeometry,
+        geo: ITextViewportGeometry,
         editorBg: number,
         primaryLine: number,
     ): void {
@@ -611,17 +554,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * Paints a solid background colour over the cells covered by `range` within
-     * the visible viewport. Only `bg` is set, so the glyph and fg underneath are
-     * preserved. Used by both the selection and search-match highlight passes.
-     */
-    private paintRangeBackground(context: RenderContext, range: IRange, bg: number, geo: RangeHighlightGeometry): void {
-        this.forEachRangeCell(range, geo, (screenX, screenY) => {
-            context.setCell(screenX, screenY, { bg });
-        });
-    }
-
-    /**
      * Paints a diagnostic squiggle over the cells covered by a marker: sets the
      * severity foreground colour and an undercurl (SGR 4:3, wavy underline).
      * Terminals without undercurl support still show the colour, keeping the
@@ -631,47 +563,12 @@ export class EditorElement extends TUIElement implements IScrollable {
     private paintMarkerDecoration(
         context: RenderContext,
         decoration: IMarkerDecoration,
-        geo: RangeHighlightGeometry,
+        geo: ITextViewportGeometry,
     ): void {
         const fg = this.severityForeground(decoration.severity);
-        this.forEachRangeCell(decoration.range, geo, (screenX, screenY) => {
+        forEachRangeCell(this.viewState, decoration.range, geo, (screenX, screenY) => {
             context.setCell(screenX, screenY, { fg, style: StyleFlags.Undercurl });
         });
-    }
-
-    /**
-     * Walks every screen cell covered by `range` within the visible viewport and
-     * invokes `visit(screenX, screenY)` (absolute grid coordinates). Shared by the
-     * background-highlight and diagnostic-squiggle passes so the viewport/column
-     * math lives in one place.
-     */
-    private forEachRangeCell(
-        range: IRange,
-        geo: RangeHighlightGeometry,
-        visit: (screenX: number, screenY: number) => void,
-    ): void {
-        for (let screenY = 0; screenY < geo.visibleLines; screenY++) {
-            const viewLine = geo.scrollTop + screenY;
-            if (viewLine >= geo.viewLineCount) break;
-
-            const logLine = this.viewState.visualToLogicalLine(viewLine);
-            if (logLine < range.start.line || logLine > range.end.line) continue;
-
-            const lineContent = this.viewState.getViewLine(viewLine);
-            const dl = this.viewState.displayLineFor(lineContent);
-            const startChar = logLine === range.start.line ? range.start.character : 0;
-            const endChar = logLine === range.end.line ? range.end.character : lineContent.length + 1;
-
-            const startCol = logLine === range.start.line ? dl.offsetToColumn(startChar) : 0;
-            const endCol = logLine === range.end.line ? dl.offsetToColumn(endChar) : dl.displayWidth + 1;
-
-            const screenXStart = Math.max(0, startCol - geo.scrollLeft);
-            const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
-
-            for (let screenX = screenXStart; screenX < screenXEnd; screenX++) {
-                visit(geo.gutterW + screenX, screenY);
-            }
-        }
     }
 
     private severityForeground(severity: MarkerSeverity): number {
@@ -759,19 +656,7 @@ export class EditorElement extends TUIElement implements IScrollable {
      * меню ставит каретку на позицию клика). Клик по гуттеру маппится в колонку 0.
      */
     public docPositionAt(localX: number, localY: number): { line: number; character: number } {
-        const gutterW = this.gutterWidth;
-        const viewLineCount = this.viewState.getViewLineCount();
-        /* v8 ignore start -- unreachable: a TextDocument always has at least one line and a fold header is never hidden, so getViewLineCount() is never 0 */
-        if (viewLineCount === 0) return { line: 0, character: 0 };
-        /* v8 ignore stop */
-
-        const viewLine = Math.min(this.viewState.scrollTop + localY, viewLineCount - 1);
-        const logLine = this.viewState.visualToLogicalLine(viewLine);
-        const displayCol = localX < gutterW ? 0 : localX - gutterW + this.viewState.scrollLeft;
-        const lineContent = this.viewState.document.getLineContent(logLine);
-        const dl = this.viewState.displayLineFor(lineContent);
-        const charOffset = dl.columnToOffset(displayCol);
-        return { line: logLine, character: charOffset };
+        return docPositionAt(this.viewState, this.gutterWidth, localX, localY);
     }
 
     private handleMouseDown(event: TUIMouseEvent): void {
@@ -879,50 +764,5 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (element) {
             this.undoManager.pushUndoElement(element);
         }
-    }
-}
-
-/** Экспортирован для переиспользования в `diffViewElement` — подсветка там та же. */
-export function packStyleFlags(style: ResolvedTokenStyle): number {
-    let flags = 0;
-    if (style.bold) flags |= StyleFlags.Bold;
-    if (style.italic) flags |= StyleFlags.Italic;
-    if (style.underline) flags |= StyleFlags.Underline;
-    if (style.strikethrough) flags |= StyleFlags.Strikethrough;
-    return flags;
-}
-
-/**
- * Linear cursor over a sorted token array, optimised for left-to-right
- * scans (which is how the renderer walks columns). Falls back to binary
- * search when the offset rewinds.
- *
- * Exported for unit testing: the renderer only ever scans forward, so the
- * rewind path is unreachable through rendering alone.
- */
-export class TokenIndex {
-    private readonly tokens: readonly IToken[];
-    private readonly lineLength: number;
-    private cursor = 0;
-
-    public constructor(lineTokens: ILineTokens, lineLength: number) {
-        this.tokens = lineTokens.tokens;
-        this.lineLength = lineLength;
-    }
-
-    /** Token covering `[token.startIndex .. nextToken.startIndex)` for `offset`. */
-    public tokenAt(offset: number): IToken | undefined {
-        if (this.tokens.length === 0 || offset >= this.lineLength) return undefined;
-
-        // Fast path: forward scan.
-        let i = this.cursor;
-        if (i >= this.tokens.length || this.tokens[i].startIndex > offset) {
-            i = 0; // rewind
-        }
-        while (i + 1 < this.tokens.length && this.tokens[i + 1].startIndex <= offset) {
-            i++;
-        }
-        this.cursor = i;
-        return this.tokens[i];
     }
 }

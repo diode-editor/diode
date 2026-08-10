@@ -1,32 +1,43 @@
-import { DisplayLine } from "../../../../tuidom/common/displayLine.ts";
-import { StyleFlags } from "../../../../tuidom/common/styleFlags.ts";
-import type { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
+import type { IDisposable } from "../../../../tuidom/common/disposable.ts";
 import type { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { RenderContext, TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
 import type { IScrollable } from "../../../../tuidom/ui/scrollbar/iScrollable.ts";
+import {
+    createCursorSelection,
+    createSelection,
+    isSelectionCollapsed,
+    selectionToRange,
+} from "../common/core/iSelection.ts";
+import { findWordRangeAt } from "../common/core/wordClassification.ts";
+import type { DiffSide } from "../common/diff/diffViewText.ts";
+import { ELLIPSIS, rowLine, rowSide } from "../common/diff/diffViewText.ts";
 import type { IDiffViewRow } from "../common/diff/diffViewModel.ts";
 import type { ILineTokens } from "../common/languages/iLineTokens.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
+import { TextDocument } from "../common/model/textDocument.ts";
+import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
 
-import { packStyleFlags, TokenIndex } from "./editorElement.ts";
-
-/** Сторона диффа, с которой берётся строка. */
-export type DiffSide = "original" | "modified";
+import type { ITextViewportGeometry } from "./textViewRendering.ts";
+import {
+    caretLocalCell,
+    docPositionAt,
+    paintRangeBackground,
+    paintTextLine,
+    SELECTION_BG,
+} from "./textViewRendering.ts";
+import { TokenIndex } from "./tokenIndex.ts";
 
 /**
- * Текст и токены для отрисовки — реализует владелец элемента (панель), потому
- * что документами и токен-сторами владеет он. Элемент про `TextDocument` и
- * тем более про git ничего не знает.
+ * Токены для подсветки — реализует владелец элемента (панель), потому что
+ * токен-сторами сторон владеет он. Текст элемент берёт не отсюда, а из
+ * синтетического документа (см. {@link DiffViewElement}).
  */
 export interface IDiffRowSource {
-    getLine(side: DiffSide, line: number): string;
-    /** Токены строки; `undefined` — рисуем без подсветки. */
+    /** Токены строки на своей стороне; `undefined` — рисуем без подсветки. */
     getLineTokens(side: DiffSide, line: number): ILineTokens | undefined;
     resolveTokenStyle(scopes: readonly string[]): ResolvedTokenStyle;
 }
-
-/** Символ-плейсхолдер свёрнутого куска — он же метка в обеих колонках номеров. */
-const ELLIPSIS = "⋯";
 
 // Отступы гуттера повторяют редактор (`editorElement.ts`: GUTTER_LEFT_PADDING и
 // FOLD_GAP_LEFT/RIGHT вокруг колонки чевронов), чтобы дифф читался как та же
@@ -35,22 +46,35 @@ const ELLIPSIS = "⋯";
 const GUTTER_LEFT_PADDING = 2;
 const GUTTER_RIGHT_PADDING = 2;
 
+/** Пустой документ до первого `setRows` — чтобы `viewState` никогда не был null. */
+function createEmptyViewState(): EditorViewState {
+    const viewState = new EditorViewState(new TextDocument("", "plaintext"));
+    viewState.readOnly = true;
+    return viewState;
+}
+
 /**
  * Отрисовка inline-диффа: список {@link IDiffViewRow} с гуттером на два номера
  * строки (оригинал / изменённый) и маркером `-`/`+`.
  *
- * Парный к `editorElement.ts`, но **read-only**: ни курсора, ни выделения, ни
- * undo, ни folding — из-за них у редактора почти тысяча строк, а здесь их нет.
- * Общее с редактором — подсветка: те же `TokenIndex` и `packStyleFlags`, тот же
- * поцельный обход с `DisplayLine`, который корректно ведёт себя с широкими
- * символами и табами.
+ * Это **текстовая поверхность, но не редактор**: каретка ходит, текст
+ * выделяется и копируется, а правка запрещена — ровно как дифф в VS Code.
+ * Достигается тем, что элемент работает поверх настоящего
+ * {@link EditorViewState} с `readOnly = true`, только документ у него
+ * синтетический: строка i — это текст i-й строки вью (у свёрнутого куска —
+ * его плейсхолдер). Поэтому движение каретки, выделение, навигация по словам,
+ * страницы и горизонтальная прокрутка — не вторая реализация, а тот же код,
+ * что у редактора; своими остаются лишь гуттер на два номера, фон
+ * added/deleted и подсветка по сторонам.
  */
 export class DiffViewElement extends TUIElement implements IScrollable {
     private rowsValue: readonly IDiffViewRow[] = [];
     private source: IDiffRowSource | null = null;
-    private scrollTopValue = 0;
+    private viewStateValue: EditorViewState = createEmptyViewState();
+    private viewStateListeners: IDisposable[] = [];
+    private lineWidthCache: LineWidthCache | null = null;
     private numberWidth = 1;
-    public tabSize = 4;
+    private dragAnchor: { line: number; character: number } | null = null;
 
     public constructor() {
         super();
@@ -58,21 +82,62 @@ export class DiffViewElement extends TUIElement implements IScrollable {
         this.addEventListener("wheel", (event) => {
             this.handleWheel(event);
         });
-        this.addEventListener("keypress", (event) => {
-            this.handleKeyPress(event);
+        this.addEventListener("mousedown", (event) => {
+            this.handleMouseDown(event);
+        });
+        this.addEventListener("dblclick", (event) => {
+            this.handleDoubleClick(event);
+        });
+        this.addEventListener("mousemove", (event) => {
+            this.handleMouseMove(event);
+        });
+        this.addEventListener("mouseup", () => {
+            this.dragAnchor = null;
         });
     }
 
-    public setRows(rows: readonly IDiffViewRow[], source: IDiffRowSource): void {
+    /**
+     * Новый снимок диффа. `viewState` строит панель — она же владеет текстами
+     * сторон, из которых собран синтетический документ ({@link buildDiffViewText}).
+     */
+    public setRows(rows: readonly IDiffViewRow[], source: IDiffRowSource, viewState: EditorViewState): void {
+        for (const listener of this.viewStateListeners) listener.dispose();
         this.rowsValue = rows;
         this.source = source;
+        this.viewStateValue = viewState;
         this.numberWidth = computeNumberWidth(rows);
-        this.scrollTopValue = 0;
+        // Кэш ширин привязывается к документу навсегда, а документ у диффа
+        // меняется на каждый снимок — иначе горизонтальный скроллбар залипнет
+        // от прошлого.
+        this.lineWidthCache = null;
+        this.viewStateListeners = [
+            viewState.onDidChangeCursorPosition(() => {
+                this.markDirty();
+            }),
+            viewState.onDidChangeView(() => {
+                this.markDirty();
+            }),
+        ];
         this.markDirty();
     }
 
     public get rows(): readonly IDiffViewRow[] {
         return this.rowsValue;
+    }
+
+    /** Состояние текстовой поверхности: каретка, выделение, скролл. */
+    public get viewState(): EditorViewState {
+        return this.viewStateValue;
+    }
+
+    /** Правка запрещена по устройству панели; парный ключ — `editorReadonly`. */
+    public get readOnly(): boolean {
+        return this.viewStateValue.readOnly;
+    }
+
+    /** Ширину таба задаёт снимок (`createDiffViewState`) — здесь только чтение. */
+    public get tabSize(): number {
+        return this.viewStateValue.tabSize;
     }
 
     /** Ширина гуттера: `отступ + номер + зазор + номер + зазор + маркер + отступ`. */
@@ -83,30 +148,74 @@ export class DiffViewElement extends TUIElement implements IScrollable {
     }
 
     public get contentHeight(): number {
-        return this.rowsValue.length;
+        return this.viewStateValue.getViewLineCount();
     }
 
     public get contentWidth(): number {
-        return this.layoutSize.width;
+        if (this.lineWidthCache === null) {
+            this.lineWidthCache = new LineWidthCache(this.viewStateValue.document, this.tabSize);
+        }
+        this.lineWidthCache.setTabSize(this.tabSize);
+        return this.gutterWidth + this.lineWidthCache.getMaxWidth();
     }
 
     public get scrollTop(): number {
-        return this.scrollTopValue;
+        return this.viewStateValue.scrollTop;
+    }
+
+    public get scrollLeft(): number {
+        return this.viewStateValue.scrollLeft;
+    }
+
+    public scrollBy(lines: number): void {
+        const viewState = this.viewStateValue;
+        const maxTop = Math.max(0, viewState.getViewLineCount() - this.layoutSize.height);
+        viewState.scrollTop = Math.min(Math.max(0, viewState.scrollTop + lines), maxTop);
     }
 
     /**
-     * Горизонтальной прокрутки пока нет: длинные строки обрезаются по правому
-     * краю. Реализуется вместе с раскрытием свёрнутых кусков — оба жеста про
-     * «показать больше» и просятся в один шаг (docs/TODO/Diff.md).
+     * Текст текущего выделения — то, что уедет в буфер обмена. Отдельно от
+     * `EditorViewState.getSelectedText()`, потому что строки-плейсхолдеры
+     * («⋯ N unchanged lines») из результата выпадают целиком: это не текст
+     * файла, и вставлять его некуда. Номера строк и маркеры `-`/`+` не
+     * попадают и подавно — они в гуттере, а не в тексте.
      */
-    public readonly scrollLeft = 0;
+    public getSelectedText(): string {
+        const selection = this.viewStateValue.selections[0];
+        if (isSelectionCollapsed(selection)) return "";
 
-    public scrollBy(lines: number): void {
-        const maxTop = Math.max(0, this.rowsValue.length - this.layoutSize.height);
-        const next = Math.min(Math.max(0, this.scrollTopValue + lines), maxTop);
-        if (next === this.scrollTopValue) return;
-        this.scrollTopValue = next;
-        this.markDirty();
+        const range = selectionToRange(selection);
+        const parts: string[] = [];
+        for (let line = range.start.line; line <= range.end.line; line++) {
+            if (this.rowsValue[line].kind === "collapsed") continue;
+            const text = this.viewStateValue.document.getLineContent(line);
+            const from = line === range.start.line ? range.start.character : 0;
+            const to = line === range.end.line ? range.end.character : text.length;
+            parts.push(text.slice(from, to));
+        }
+        return parts.join("\n");
+    }
+
+    /** Позиция в строках вью под локальной точкой; гуттер маппится в колонку 0. */
+    public docPositionAt(localX: number, localY: number): { line: number; character: number } {
+        return docPositionAt(this.viewStateValue, this.gutterWidth, localX, localY);
+    }
+
+    public override inspectState(): Record<string, unknown> {
+        const viewState = this.viewStateValue;
+        const selections = viewState.selections.map((s) => ({
+            anchor: { line: s.anchor.line, character: s.anchor.character },
+            active: { line: s.active.line, character: s.active.character },
+            collapsed: s.anchor.line === s.active.line && s.anchor.character === s.active.character,
+        }));
+        return {
+            readOnly: viewState.readOnly,
+            rowCount: this.rowsValue.length,
+            scrollTop: viewState.scrollTop,
+            scrollLeft: viewState.scrollLeft,
+            selections,
+            hasSelection: selections.some((s) => !s.collapsed),
+        };
     }
 
     public override getMinIntrinsicWidth(): number {
@@ -126,12 +235,20 @@ export class DiffViewElement extends TUIElement implements IScrollable {
     }
 
     public render(context: RenderContext): void {
+        const viewState = this.viewStateValue;
         const gutterW = this.gutterWidth;
         const contentCols = Math.max(0, this.layoutSize.width - gutterW);
         const height = this.layoutSize.height;
+        // Без этого cursorPageUp/Down и revealPosition считают по дефолтным 80×24.
+        viewState.viewportWidth = contentCols;
+        viewState.viewportHeight = height;
+
+        const scrollTop = viewState.scrollTop;
+        const scrollLeft = viewState.scrollLeft;
+        const viewLineCount = viewState.getViewLineCount();
 
         for (let screenY = 0; screenY < height; screenY++) {
-            const row = this.rowsValue.at(this.scrollTopValue + screenY);
+            const row = this.rowsValue.at(scrollTop + screenY);
             const bg = row === undefined ? this.resolvedStyle.bg : this.backgroundOf(row);
 
             // Фон на всю ширину — иначе цвет строки обрывался бы по концу текста.
@@ -141,7 +258,32 @@ export class DiffViewElement extends TUIElement implements IScrollable {
             if (row === undefined) continue;
 
             this.renderGutter(context, screenY, row, bg);
-            this.renderContent(context, screenY, row, gutterW, contentCols, bg);
+            this.renderContent(context, screenY, scrollTop + screenY, row, {
+                gutterW,
+                contentCols,
+                scrollLeft,
+                bg,
+            });
+        }
+
+        // Выделение — поверх фона added/deleted и поверх токенов: красится только
+        // `bg`, поэтому глиф и его цвет остаются на месте.
+        const geometry: ITextViewportGeometry = {
+            scrollTop,
+            scrollLeft,
+            visibleLines: height,
+            viewLineCount,
+            contentCols,
+            gutterW,
+        };
+        for (const selection of viewState.selections) {
+            if (isSelectionCollapsed(selection)) continue;
+            paintRangeBackground(context, viewState, selectionToRange(selection), SELECTION_BG, geometry);
+        }
+
+        const caret = caretLocalCell(viewState, gutterW, this.layoutSize);
+        if (this.isFocused && caret !== null) {
+            context.setCursorPosition(caret.x, caret.y);
         }
     }
 
@@ -174,115 +316,84 @@ export class DiffViewElement extends TUIElement implements IScrollable {
     private renderContent(
         context: RenderContext,
         screenY: number,
+        viewLine: number,
         row: IDiffViewRow,
-        gutterW: number,
-        contentCols: number,
-        bg: number,
+        geo: { gutterW: number; contentCols: number; scrollLeft: number; bg: number },
     ): void {
-        if (row.kind === "collapsed") {
-            const label = `${ELLIPSIS} ${String(row.hiddenLineCount)} unchanged line${row.hiddenLineCount === 1 ? "" : "s"}`;
-            context.drawText(
-                gutterW,
-                screenY,
-                label,
-                { fg: this.styleVar("diffEditor.unchangedRegionForeground"), bg },
-                {
-                    maxWidth: contentCols,
-                },
-            );
-            return;
-        }
-
-        const side: DiffSide = row.kind === "deleted" ? "original" : "modified";
-        const line = row.kind === "deleted" ? row.originalLine : row.modifiedLine;
         const source = this.source;
         /* v8 ignore start -- defensive: строки без источника не выставляются (setRows принимает их вместе) */
         if (source === null) return;
         /* v8 ignore stop */
 
-        const text = source.getLine(side, line);
-        const displayLine = new DisplayLine(text, this.tabSize);
-        const tokens = source.getLineTokens(side, line);
-        const tokenIndex = tokens ? new TokenIndex(tokens, text.length) : null;
+        const viewState = this.viewStateValue;
+        const text = viewState.getViewLine(viewLine);
+        const displayLine = viewState.displayLineFor(text);
 
-        // Поцельный обход, как в редакторе: только так корректно отрабатывают
-        // широкие символы, табы и горизонтальный скролл по ДИСПЛЕЙНЫМ колонкам.
-        let screenX = 0;
-        while (screenX < contentCols) {
-            const displayCol = screenX;
-            const char = displayLine.charAtColumn(displayCol);
-            /* v8 ignore start -- недостижимо без горизонтальной прокрутки: обход всегда перешагивает продолжающую колонку широкого символа. Станет достижимым вместе со scrollLeft */
-            if (char === "") {
-                screenX++;
-                continue;
-            }
-            /* v8 ignore stop */
-            const slot = displayLine.graphemeAtColumn(displayCol);
-            const width = slot ? slot.displayWidth : 1;
+        // Плейсхолдер («⋯ 12 unchanged lines») — такая же строка документа, но
+        // стороны у него нет: рисуем своим цветом и без подсветки.
+        const side = rowSide(row);
+        const tokens = side === null ? undefined : source.getLineTokens(side, rowLine(row));
 
-            let fg = this.resolvedStyle.fg;
-            let style: number = StyleFlags.None;
-            if (tokenIndex && slot) {
-                const token = tokenIndex.tokenAt(slot.offset);
-                if (token) {
-                    const resolved = source.resolveTokenStyle(token.scopes);
-                    if (resolved.fg !== undefined) fg = resolved.fg;
-                    style = packStyleFlags(resolved);
-                }
-            }
-
-            if (slot?.grapheme === "\t") {
-                for (let i = 0; i < width && screenX + i < contentCols; i++) {
-                    context.setCell(gutterW + screenX + i, screenY, { char: " ", fg, bg, style, width: 1 });
-                }
-                screenX += width;
-                continue;
-            }
-            if (width === 2 && screenX + 1 >= contentCols) {
-                // Широкий символ не влезает у правого края — рисуем пробел.
-                context.setCell(gutterW + screenX, screenY, { char: " ", fg, bg, style, width: 1 });
-                screenX += 1;
-                continue;
-            }
-            context.setCell(gutterW + screenX, screenY, { char, fg, bg, style, width });
-            screenX += width;
-        }
+        paintTextLine(context, {
+            displayLine,
+            tokenIndex: tokens ? new TokenIndex(tokens, text.length) : null,
+            resolveStyle: (scopes) => source.resolveTokenStyle(scopes),
+            screenY,
+            gutterW: geo.gutterW,
+            contentCols: geo.contentCols,
+            scrollLeft: geo.scrollLeft,
+            fg: side === null ? this.styleVar("diffEditor.unchangedRegionForeground") : this.resolvedStyle.fg,
+            bg: geo.bg,
+            // Фон строки added/deleted должен побеждать фон токена, иначе
+            // полоса изменения рвётся на подсвеченных словах.
+            allowTokenBg: false,
+        });
     }
 
     private handleWheel(event: TUIMouseEvent): void {
-        // Горизонтальные направления игнорируем: длинные строки листаются
-        // стрелками через scrollLeft, а колесом вбок в терминале почти не крутят.
         if (event.wheelDirection === "up") this.scrollBy(-3);
         else if (event.wheelDirection === "down") this.scrollBy(3);
         else return;
         event.stopPropagation();
     }
 
-    private handleKeyPress(event: TUIKeyboardEvent): void {
-        const page = Math.max(1, this.layoutSize.height - 1);
-        switch (event.key) {
-            case "ArrowDown":
-                this.scrollBy(1);
-                break;
-            case "ArrowUp":
-                this.scrollBy(-1);
-                break;
-            case "PageDown":
-                this.scrollBy(page);
-                break;
-            case "PageUp":
-                this.scrollBy(-page);
-                break;
-            case "Home":
-                this.scrollBy(-this.rowsValue.length);
-                break;
-            case "End":
-                this.scrollBy(this.rowsValue.length);
-                break;
-            default:
-                return;
+    private handleMouseDown(event: TUIMouseEvent): void {
+        // Правый клик каретку не трогает: политика у контроллера контекстного меню.
+        if (event.button !== "left") return;
+
+        const pos = this.docPositionAt(event.localX, event.localY);
+        const viewState = this.viewStateValue;
+        if (event.shiftKey) {
+            const anchor = viewState.selections[0].anchor;
+            this.dragAnchor = { line: anchor.line, character: anchor.character };
+            viewState.selections = [createSelection(anchor.line, anchor.character, pos.line, pos.character)];
+        } else {
+            this.dragAnchor = { line: pos.line, character: pos.character };
+            viewState.selections = [createCursorSelection(pos.line, pos.character)];
         }
-        event.stopPropagation();
+    }
+
+    /** Двойной клик выделяет слово под курсором (поведение VS Code). */
+    private handleDoubleClick(event: TUIMouseEvent): void {
+        if (event.button !== "left") return;
+        // Гуттер — не текст: docPositionAt схлопнул бы позицию в колонку 0 и
+        // выделил первое слово строки, по которой не кликали.
+        if (event.localX < this.gutterWidth) return;
+
+        const pos = this.docPositionAt(event.localX, event.localY);
+        const word = findWordRangeAt(this.viewStateValue.document.getLineContent(pos.line), pos.character);
+        if (word === null) return; // пробел или пунктуация — каретку не трогаем
+
+        this.dragAnchor = null;
+        this.viewStateValue.selections = [createSelection(pos.line, word.start, pos.line, word.end)];
+    }
+
+    private handleMouseMove(event: TUIMouseEvent): void {
+        if (this.dragAnchor === null) return;
+        const pos = this.docPositionAt(event.localX, event.localY);
+        this.viewStateValue.selections = [
+            createSelection(this.dragAnchor.line, this.dragAnchor.character, pos.line, pos.character),
+        ];
     }
 }
 

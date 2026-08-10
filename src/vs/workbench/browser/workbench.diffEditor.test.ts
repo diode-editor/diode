@@ -6,9 +6,10 @@ import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { FileSystemProviderRegistry } from "../../platform/files/common/fileSystemProviderRegistry.ts";
 import { createTestContainer } from "../../vexx/modules/testProfile.ts";
-import { FileSystemProviderRegistryDIToken } from "../common/coreTokens.ts";
+import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../common/coreTokens.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { COMPARE_NOTICE_MS, openDiffWithHead } from "../contrib/scm/browser/compareWithHeadAction.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
@@ -32,11 +33,14 @@ describe("Workbench — вкладка diff", () => {
     let commands: CommandRegistry;
     let editors: EditorService;
     let testApp: TestApp;
+    let container: ReturnType<typeof createTestContainer>["container"];
 
     beforeEach(async () => {
         ws = createTempWorkspace({ prefix: "vexx-diff-", files: { "a.txt": AT_HEAD } });
 
-        const { container, bindApp } = createTestContainer();
+        const testContainer = createTestContainer();
+        const bindApp = testContainer.bindApp;
+        container = testContainer.container;
         const registry = new FileSystemProviderRegistry();
         registry.registerProvider("git", {
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
@@ -173,6 +177,71 @@ describe("Workbench — вкладка diff", () => {
         expect(bareEditors.editorCount).toBe(1);
         expect(app.backend.screenToString()).toContain("No changes to compare");
         bare.dispose();
+    });
+
+    // ─── Дифф как текстовая поверхность ───────────────────────────────────────
+
+    /** Открывает дифф с правкой в буфере и уводит в него фокус. */
+    async function openDiff(): Promise<void> {
+        editBuffer();
+        commands.execute(COMPARE);
+        await settle(10);
+        editors.getActivePane()?.focusEditor();
+        testApp.render();
+    }
+
+    it("активная панель отдаёт текстовую поверхность, а текстовым редактором не притворяется", async () => {
+        await openDiff();
+
+        expect(editors.getActiveViewState()).not.toBeNull();
+        expect(editors.getActiveViewState()?.readOnly).toBe(true);
+        // Текстовые потребители (save, EOL, кодировка, find) диффа не видят.
+        expect(editors.getActiveEditor()).toBeNull();
+    });
+
+    it("фокус в диффе даёт textViewFocus, но не textInputFocus", async () => {
+        await openDiff();
+        const contextKeys = container.get(ContextKeyServiceDIToken);
+
+        expect(contextKeys.evaluate("textViewFocus")).toBe(true);
+        expect(contextKeys.evaluate("textInputFocus")).toBe(false);
+        expect(contextKeys.evaluate("editorReadonly")).toBe(true);
+    });
+
+    it("команды курсора двигают каретку по диффу", async () => {
+        await openDiff();
+
+        commands.execute("cursorDown");
+        commands.execute("cursorDown");
+        commands.execute("cursorEnd");
+
+        const active = editors.getActiveViewState()?.selections[0].active;
+        expect(active?.line).toBe(2);
+        expect(active?.character).toBeGreaterThan(0);
+    });
+
+    it("Ctrl+A и Copy кладут в буфер текст диффа без номеров строк и маркеров", async () => {
+        await openDiff();
+
+        commands.execute("editor.action.selectAll");
+        await commands.execute("editor.action.clipboardCopyAction");
+
+        const copied = await container.get(ClipboardDIToken).readText();
+        expect(copied).toContain("XXbravo");
+        // Гуттер остался в гуттере.
+        expect(copied).not.toMatch(/^\s*\d+\s+\d+\s+[-+]/mu);
+        // И плейсхолдеры свёрнутых кусков — не текст файла.
+        expect(copied).not.toContain("unchanged line");
+    });
+
+    it("команды правки на диффе ничего не делают", async () => {
+        await openDiff();
+        const before = editors.getActiveViewState()?.document.getText();
+
+        commands.execute("deleteLeft");
+        await commands.execute("editor.action.clipboardPasteAction");
+
+        expect(editors.getActiveViewState()?.document.getText()).toBe(before);
     });
 });
 

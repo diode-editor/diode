@@ -1,16 +1,19 @@
 import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
-import type { DiffSide, IDiffRowSource } from "../../../../editor/browser/diffViewElement.ts";
+import type { IDiffRowSource } from "../../../../editor/browser/diffViewElement.ts";
 import { DiffViewElement } from "../../../../editor/browser/diffViewElement.ts";
 import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
 import { DiffViewModel } from "../../../../editor/common/diff/diffViewModel.ts";
+import type { DiffSide } from "../../../../editor/common/diff/diffViewText.ts";
+import { createDiffViewState } from "../../../../editor/common/diff/diffViewText.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
 import type { ILineTokens } from "../../../../editor/common/languages/iLineTokens.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
+import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { Component } from "../../component.ts";
 
@@ -18,6 +21,16 @@ import type { IEditorPane } from "./iEditorPane.ts";
 
 /** Максимум времени на дифф; сверх — грубый результат вместо залипшей вкладки. */
 const MAX_DIFF_COMPUTATION_MS = 2000;
+
+/** Разбор текста на строки: EOL любого вида, как в `TextDocument`. */
+const EOL_SPLIT = /\r\n|\n/;
+
+/**
+ * Ширина таба в диффе. Константа, а не настройка: панель не подписана на
+ * конфигурацию (её `applyConfigurationToEditor` обслуживает только текстовые
+ * вкладки), и до этой правки элемент точно так же держал зашитую четвёрку.
+ */
+const DIFF_TAB_SIZE = 4;
 
 export interface IDiffEditorPaneInput {
     /** Ресурс вкладки — он же её идентичность в группе. */
@@ -99,8 +112,12 @@ export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSo
 
     /** Документы, токенизация, дифф и строки вью из одного снимка. */
     private buildFrom(input: IDiffEditorPaneInput): void {
-        const originalLines = input.originalText.split("\n");
-        const modifiedLines = input.modifiedText.split("\n");
+        // Разбор по EOL любого вида: с `split("\n")` на CRLF-файле в строках
+        // остаются хвостовые `\r`, которые `TextDocument` потом съедает своим
+        // разбором — синтетическая строка вью оказывается короче нарисованной,
+        // и колонки каретки в конце строки уезжают.
+        const originalLines = input.originalText.split(EOL_SPLIT);
+        const modifiedLines = input.modifiedText.split(EOL_SPLIT);
 
         this.documents = {
             original: new TextDocument(input.originalText, input.languageId),
@@ -125,7 +142,16 @@ export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSo
         const model = new DiffViewModel(diff.changes, originalLines.length, modifiedLines.length, {
             hideUnchangedRegions: true,
         });
-        this.element.setRows(model.rows, this);
+
+        // Синтетический документ вью: строка i — текст i-й строки диффа. Он даёт
+        // элементу каретку, выделение и копирование от обычного редактора и
+        // служит единственным источником правды о нарисованном тексте.
+        const viewState = createDiffViewState(
+            model.rows,
+            { original: originalLines, modified: modifiedLines },
+            DIFF_TAB_SIZE,
+        );
+        this.element.setRows(model.rows, this, viewState);
     }
 
     // ─── IEditorPane ──────────────────────────────────────────────────────────
@@ -139,11 +165,20 @@ export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSo
         this.element.focus();
     }
 
-    // ─── IDiffRowSource: текст и токены для отрисовки ─────────────────────────
-
-    public getLine(side: DiffSide, line: number): string {
-        return this.documents[side].getLineContent(line);
+    /**
+     * Текстовая проекция панели: каретка, выделение и скролл диффа. Через неё
+     * работают команды курсора — им нужен только `EditorViewState`, а не
+     * текстовая вкладка (см. `EditorService.getActiveViewState`).
+     */
+    public get viewState(): EditorViewState {
+        return this.element.viewState;
     }
+
+    public getSelectedText(): string {
+        return this.element.getSelectedText();
+    }
+
+    // ─── IDiffRowSource: токены для отрисовки ─────────────────────────────────
 
     public getLineTokens(side: DiffSide, line: number): ILineTokens | undefined {
         const store = this.tokenStores[side];
