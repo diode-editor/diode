@@ -54,6 +54,7 @@ const EXCEPTIONS = [
     ["src/vs/workbench/browser/", "src/vs/workbench/services/search/node/"],
     ["src/vs/workbench/browser/", "src/vs/workbench/services/terminalEnvironment/node/"],
     ["src/vs/workbench/contrib/quickaccess/browser/", "src/vs/workbench/services/search/node/"],
+    ["src/vs/workbench/contrib/diff/browser/", "src/vs/workbench/services/search/node/"],
     ["src/vs/workbench/contrib/files/browser/", "src/vs/workbench/contrib/bulkEdit/node/"],
     ["src/vs/workbench/services/keybinding/browser/", "src/vs/workbench/services/terminalEnvironment/node/"],
     // Мост тема→стили держит unthemed-дефолты у виджета редактора; разнос —

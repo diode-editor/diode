@@ -7,6 +7,7 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { createTestContainer } from "../../../../vexx/modules/testProfile.ts";
+import { LanguageServiceDIToken } from "../../../common/coreTokens.ts";
 import { DiffEditorPane } from "../../../browser/parts/editor/diffEditorPane.ts";
 import type { WorkbenchComponent } from "../../../browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../../../browser/workbenchComponent.ts";
@@ -142,6 +143,73 @@ describe("openDiffPair", () => {
 
         expect(result).toBe("opened");
         expect(app.backend.screenToString()).toMatch(/\+ {2}alpha/u);
+    });
+
+    it("пара без единого uri (текст ↔ текст) живёт на синтетическом пути", async () => {
+        const result = await openDiffPair(container, {
+            original: { text: "one\n", label: "L", identity: "l" },
+            modified: { label: "R", identity: "r" },
+        });
+        await settle(10);
+        app.render();
+
+        // Правая сторона без текста и uri — легитимно пустая; вкладка `L ↔ R`.
+        expect(result).toBe("opened");
+        expect(app.backend.screenToString()).toContain("L ↔ R");
+        expect(app.backend.screenToString()).toContain("-  one");
+    });
+
+    it("файл слева и текст справа: путь вкладки берётся у левой стороны", async () => {
+        const result = await openDiffPair(container, {
+            original: fileSide("a.txt"),
+            modified: { text: "alpha\n", label: "snippet", identity: "snippet" },
+        });
+        await settle(10);
+
+        expect(result).toBe("opened");
+        const pane = editors.getPanes().find((p) => p instanceof DiffEditorPane);
+        expect(pane?.uri.path.endsWith("a.txt")).toBe(true);
+    });
+
+    it("сторона со схемой без провайдера — отказ", async () => {
+        const result = await openDiffPair(container, {
+            original: { uri: Uri.from({ scheme: "weird", path: "/x" }), label: "x", identity: "weird:/x" },
+            modified: fileSide("a.txt"),
+        });
+
+        expect(result).toBe("unreadable");
+    });
+
+    it("язык подсветки берётся по расширению файла, когда буфер не открыт", async () => {
+        // Свой контейнер: языковой сервис подменяется ДО первого get (кеш DI).
+        const { writeFileSync } = await import("node:fs");
+        writeFileSync(ws.path("c.ts"), "const x = 1;\n");
+        writeFileSync(ws.path("d.ts"), "const x = 2;\n");
+        const local = createTestContainer();
+        const asked: string[] = [];
+        local.container.bind(LanguageServiceDIToken, () => ({
+            getLanguageIdForResource: (filePath: string) => {
+                asked.push(filePath);
+                return filePath.endsWith(".ts") ? "typescript" : undefined;
+            },
+            getLanguageDisplayName: () => undefined,
+            getExtensionForLanguage: () => undefined,
+        }));
+        const bench = local.container.get(WorkbenchComponentDIToken);
+        bench.setWorkspaceFolder(ws.dir);
+        bench.mount();
+        const localApp = TestApp.create(bench.view, new Size(100, 16));
+        local.bindApp(localApp.app);
+
+        const result = await openDiffPair(local.container, {
+            original: fileSide("c.ts"),
+            modified: fileSide("d.ts"),
+        });
+        await settle(10);
+
+        expect(result).toBe("opened");
+        expect(asked.some((p) => p.endsWith("d.ts"))).toBe(true);
+        bench.dispose();
     });
 
     it("несохранённые правки открытого буфера видны в диффе", async () => {

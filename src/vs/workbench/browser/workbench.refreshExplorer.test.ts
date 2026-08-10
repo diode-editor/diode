@@ -62,7 +62,7 @@ describe("Workbench — Refresh Explorer", () => {
         // Menu order (no clipboard): New File, New Folder, Copy, Cut, Copy Path,
         // Copy Relative Path, Rename, Delete, Refresh Explorer (separators skipped) —
         // 8 steps down, then Enter.
-        for (let i = 0; i < 8; i++) h.testApp.sendKey("ArrowDown");
+        for (let i = 0; i < 9; i++) h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
         await flushMicrotasks();
         h.testApp.render();

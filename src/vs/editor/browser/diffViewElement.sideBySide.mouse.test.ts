@@ -204,6 +204,35 @@ describe("DiffViewElement side-by-side — протяжка и копирова�
     });
 });
 
+describe("DiffViewElement — identical (US-11)", () => {
+    it("мышь на вкладке идентичных сторон каретку не трогает", () => {
+        const element = new DiffViewElement();
+        element.sideBySideMinCols = 30;
+        const rows: IDiffViewRow[] = [{ kind: "unchanged", originalLine: 0, modifiedLine: 0 }];
+        const sides = { original: ["same"], modified: ["same"] };
+        const sideRows = buildSideBySideRows(rows);
+        element.setDiff({
+            rows,
+            sideRows,
+            source: NO_TOKENS,
+            inlineViewState: createDiffViewState(rows, sides, 4),
+            sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
+            labels: { original: "L", modified: "R" },
+            innerRanges: new DiffInnerRanges([]),
+            identical: true,
+        });
+        const app = TestApp.createWithContent(element, new Size(WIDTH, 6));
+        app.render();
+        const before = element.viewState.selections[0].active;
+
+        mouseDown(element, RIGHT_TEXT_X + 2, 2);
+        doubleClick(element, RIGHT_TEXT_X + 2, 2);
+
+        expect(element.viewState.selections[0].active).toEqual(before);
+        expect(isSelectionCollapsed(element.viewState.selections[0])).toBe(true);
+    });
+});
+
 describe("DiffViewElement side-by-side — двойной клик", () => {
     it("выделяет слово в правой стороне", () => {
         const { element } = createElement();

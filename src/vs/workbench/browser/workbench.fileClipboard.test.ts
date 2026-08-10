@@ -161,13 +161,14 @@ describe("File explorer context menu — clipboard entries", () => {
     });
 
     // Order (empty clipboard): New File, New Folder, (sep), Copy, Cut, (sep),
-    // Copy Path, Copy Relative Path, (sep), Delete.
+    // Select for Compare, (sep), Copy Path, Copy Relative Path, (sep), Delete.
     it("Copy Path entry puts the clicked file's absolute path on the clipboard", async () => {
         rightClickRow(1); // a.txt
         expect(h.testApp.backend.screenToString()).toContain("Copy Path");
         h.testApp.sendKey("ArrowDown"); // New Folder
         h.testApp.sendKey("ArrowDown"); // Copy
         h.testApp.sendKey("ArrowDown"); // Cut
+        h.testApp.sendKey("ArrowDown"); // Select for Compare
         h.testApp.sendKey("ArrowDown"); // Copy Path
         h.testApp.sendKey("Enter");
         h.testApp.render();
@@ -182,6 +183,7 @@ describe("File explorer context menu — clipboard entries", () => {
         h.testApp.sendKey("ArrowDown"); // New Folder
         h.testApp.sendKey("ArrowDown"); // Copy
         h.testApp.sendKey("ArrowDown"); // Cut
+        h.testApp.sendKey("ArrowDown"); // Select for Compare
         h.testApp.sendKey("ArrowDown"); // Copy Path
         h.testApp.sendKey("ArrowDown"); // Copy Relative Path
         h.testApp.sendKey("Enter");
