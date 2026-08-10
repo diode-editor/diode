@@ -28,8 +28,6 @@ import {
 } from "./textViewRendering.ts";
 import { TokenIndex } from "./tokenIndex.ts";
 
-export type { DiffSide };
-
 /**
  * Токены для подсветки — реализует владелец элемента (панель), потому что
  * токен-сторами сторон владеет он. Текст элемент берёт не отсюда, а из

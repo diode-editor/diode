@@ -17,7 +17,6 @@ import {
     selectionToRange,
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
-import type { ILineTokens } from "../common/languages/iLineTokens.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../common/languages/iTokenStyleResolver.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
