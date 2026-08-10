@@ -59,7 +59,7 @@ export default defineScenario({
         // переключаем его на команды префиксом `>`: Ctrl+Shift+P в key-DSL e2e не
         // сериализуется (то же ограничение, что у folding-сценария).
         await editor.sendKey("Ctrl+P");
-        await editor.sendText(">Compare Active File");
+        await editor.sendText(">Compare Active File with HEAD");
         await editor.waitForText((t) => t.includes("Compare Active File with HEAD"));
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("↔ HEAD"));

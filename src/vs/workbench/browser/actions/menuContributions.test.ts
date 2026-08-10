@@ -81,6 +81,8 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
             "Cut",
             "Paste",
             "─",
+            "Select for Compare",
+            "─",
             "Copy Path",
             "Copy Relative Path",
             "─",
@@ -89,6 +91,17 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
             "─",
             "Refresh Explorer",
         ]);
+    });
+
+    it("ExplorerContext: «Compare with Selected» появляется после Select for Compare", () => {
+        const contextKeys = new ContextKeyService();
+        expect(labels(MenuId.ExplorerContext, { path: "/ws/a.txt", canPaste: true }, contextKeys)).not.toContain(
+            "Compare with Selected",
+        );
+        contextKeys.set("resourceSelectedForCompare", true);
+        expect(labels(MenuId.ExplorerContext, { path: "/ws/a.txt", canPaste: true }, contextKeys)).toContain(
+            "Compare with Selected",
+        );
     });
 
     it("ExplorerContext: пустой буфер обмена прячет Paste", () => {

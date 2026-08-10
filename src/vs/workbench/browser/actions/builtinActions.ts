@@ -45,6 +45,14 @@ import {
     scmViewAsTreeAction,
     showScmAction,
 } from "../../contrib/scm/browser/changesActions.ts";
+import {
+    compareFilesAction,
+    compareFileWithAction,
+    compareWithClipboardAction,
+    compareWithRevisionAction,
+    compareWithSavedAction,
+    selectForCompareAction,
+} from "../../contrib/diff/browser/compareActions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
 import { GRAPH_VIEW_ACTIONS } from "../../contrib/scm/browser/graphActions.ts";
 import { GRAPH_COMMIT_ACTIONS } from "../../contrib/scm/browser/graphCommitActions.ts";
@@ -380,6 +388,14 @@ export const builtinActions: readonly CommandAction[] = [
     toggleOutputAction,
     toggleTerminalAction,
     newTerminalAction,
+
+    // Сравнение файлов (семейство diff, docs/TODO/DiffViewer.md)
+    compareWithSavedAction,
+    compareWithClipboardAction,
+    compareFileWithAction,
+    selectForCompareAction,
+    compareFilesAction,
+    compareWithRevisionAction,
 
     // SCM
     compareWithHeadAction,

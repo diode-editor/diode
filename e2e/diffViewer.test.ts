@@ -52,7 +52,7 @@ const TRACKED = [
 /** Вызвать команду через палитру — ровно как пользователь. */
 async function invokeCompare(session: HeadlessSession): Promise<void> {
     await session.key("Ctrl+P");
-    await session.text(">Compare Active File");
+    await session.text(">Compare Active File with HEAD");
     await session.waitForText((t) => t.includes("Compare Active File with HEAD"));
     await session.key("Enter");
 }
@@ -392,6 +392,55 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             await s.waitForIdle();
 
             expect((await selectionOf(s))?.hasSelection).toBe(true);
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    // ── F. Семейство команд сравнения (US-3, US-6) ───────────────────────────
+    it("Compare with Saved: вкладка «(on disk) ↔ файл» по несохранённой правке", async () => {
+        const r = repo({ "notes.txt": "alpha\nbravo\ncharlie\n" });
+        const s = await open([r.dir, r.file("notes.txt")], r.dir);
+        try {
+            await s.waitForText((t) => t.includes("charlie"));
+            await s.key("ArrowDown");
+            await s.text("XX");
+            await s.waitForText((t) => t.includes("XXbravo"));
+
+            await s.key("Ctrl+P");
+            await s.text(">Compare Active File with Saved");
+            await s.waitForText((t) => t.includes("Compare Active File with Saved"));
+            await s.key("Enter");
+            await s.waitForText((t) => t.includes("(on disk) ↔ notes.txt"), { timeoutMs: 15_000 });
+
+            const frame = frameToText(await s.captureFrame());
+            expect(frame).toContain("-  bravo");
+            expect(frame).toContain("+  XXbravo");
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    it("Compare Active File With...: пикер открывает дифф двух файлов", async () => {
+        const r = repo({ "left.txt": "alpha\nLEFT\n", "right.txt": "alpha\nRIGHT\n" });
+        const s = await open([r.dir, r.file("left.txt")], r.dir);
+        try {
+            await s.waitForText((t) => t.includes("LEFT"));
+
+            await s.key("Ctrl+P");
+            await s.text(">Compare Active File With...");
+            await s.waitForText((t) => t.includes("Compare Active File With..."));
+            await s.key("Enter");
+            // Пикер второй стороны: сузить до right.txt и подтвердить.
+            await s.waitForText((t) => t.includes("Select a file to compare with"), { timeoutMs: 15_000 });
+            await s.text("right");
+            await s.waitForText((t) => t.includes("right.txt"));
+            await s.key("Enter");
+            await s.waitForText((t) => t.includes("left.txt ↔ right.txt"), { timeoutMs: 15_000 });
+
+            const frame = frameToText(await s.captureFrame());
+            expect(frame).toContain("-  LEFT");
+            expect(frame).toContain("+  RIGHT");
         } finally {
             await teardown();
         }

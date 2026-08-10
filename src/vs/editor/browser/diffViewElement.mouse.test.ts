@@ -39,6 +39,7 @@ function createElement(): { element: DiffViewElement; app: TestApp } {
         sideViewStates: createSideBySideViewStates(sideRows, SIDES, 4),
         labels: { original: "HEAD", modified: "file" },
         innerRanges: new DiffInnerRanges([]),
+        identical: false,
     });
     const app = TestApp.createWithContent(element, new Size(40, 5));
     app.render();

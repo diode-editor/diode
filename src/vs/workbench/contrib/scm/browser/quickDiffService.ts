@@ -47,7 +47,8 @@ export interface IQuickDiffEditorSource {
  * ресурс и читает его через {@link IFileSystemProviderRegistry}, не зная про git.
  */
 export interface IOriginalResourceProvider {
-    provideOriginalResource(uri: Uri): Promise<Uri | null>;
+    /** `ref` — ревизия оригинала; не задан — `HEAD` (обычный quick diff). */
+    provideOriginalResource(uri: Uri, ref?: string): Promise<Uri | null>;
 }
 
 export const QuickDiffEditorSourceDIToken = token<IQuickDiffEditorSource>("QuickDiffEditorSource");

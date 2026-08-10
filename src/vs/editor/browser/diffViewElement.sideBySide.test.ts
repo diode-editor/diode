@@ -81,6 +81,7 @@ function makeElement(
         sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
         labels: options.labels ?? { original: "HEAD", modified: "a.txt" },
         innerRanges: new DiffInnerRanges(diff.changes),
+        identical: diff.changes.length === 0,
     });
     return element;
 }
@@ -187,7 +188,7 @@ describe("DiffViewElement side-by-side — раскладка (US-13, US-14, US-
 
     it("длинные подписи сторон обрезаются по своей колонке", () => {
         const app = render(
-            makeElement(["a"], ["a"], {
+            makeElement(["a"], ["b"], {
                 labels: { original: "o".repeat(40), modified: "m".repeat(40) },
             }),
         );
