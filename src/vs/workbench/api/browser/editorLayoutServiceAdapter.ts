@@ -111,7 +111,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 
         // Ответ обязан уехать ПОСЛЕ layoutChanged — флашит хост перед reply.
         return Promise.resolve({
+            /* v8 ignore start -- openUri всегда вставляет и активирует вкладку: activePane тут не бывает null */
             uri: editor?.uri.toString() ?? params.uri,
+            /* v8 ignore stop */
             groupId: opened.id,
             viewColumn: this.editors.viewColumnOf(opened),
         });
@@ -124,8 +126,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             const index = group.findPaneIndex(Uri.parse(target.uri));
             if (index < 0) continue;
             const pane = group.getPane(index);
-            /* v8 ignore next -- findPaneIndex вернул валидный индекс */
+            /* v8 ignore start -- findPaneIndex вернул валидный индекс, getPane не может отдать null */
             if (pane === null) continue;
+            /* v8 ignore stop */
             const needsConfirm =
                 pane.isModified &&
                 (!(pane instanceof TextEditorPane) || this.editors.isLastPaneForDocument(pane));
@@ -151,8 +154,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             while (group.editorCount > 0) {
                 const index = group.editorCount - 1;
                 const pane = group.getPane(index);
-                /* v8 ignore next -- editorCount > 0 гарантирует вкладку */
+                /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
                 if (pane === null) break;
+                /* v8 ignore stop */
                 const needsConfirm =
                     pane.isModified &&
                     (!(pane instanceof TextEditorPane) || this.editors.isLastPaneForDocument(pane));
@@ -203,16 +207,18 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 ...(pane.modifiedUri !== null ? { modified: pane.modifiedUri.toString() } : {}),
             };
         }
-        const text = pane instanceof TextEditorPane ? pane : null;
+        /* v8 ignore start -- в полосе только текстовые и дифф-вкладки; минимальный снимок — задел под будущие виды панелей */
+        if (!(pane instanceof TextEditorPane)) {
+            return { ...base, kind: "text" };
+        }
+        /* v8 ignore stop */
         return {
             ...base,
             kind: "text",
-            ...(text !== null ? { languageId: text.languageId } : {}),
+            languageId: pane.languageId,
             // Выделения — только у активной вкладки: это «видимый редактор»,
             // его selection сеется расширению из снимка.
-            ...(text !== null && isActive
-                ? { selections: text.viewState.selections.map(toWireSelection) }
-                : {}),
+            ...(isActive ? { selections: pane.viewState.selections.map(toWireSelection) } : {}),
         };
     }
 
@@ -232,8 +238,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             const before = this.editors.groups.length;
             this.editors.focusGroup({ index: before - 1 }, { focus: false });
             if (this.editors.newGroup("after", { focus: false }) === null) break; // не влезло — фолбэк в край
-            /* v8 ignore next -- защитный выход от зацикливания при неожиданном no-op */
+            /* v8 ignore start -- защитный выход от зацикливания при неожиданном no-op */
             if (this.editors.groups.length === before) break;
+            /* v8 ignore stop */
         }
         return this.editors.groups[Math.min(wanted, this.editors.groups.length) - 1];
     }

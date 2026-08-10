@@ -403,8 +403,9 @@ async function closeGroupEditorsWithConfirm(
     while (group.editorCount > 0) {
         const index = group.editorCount - 1;
         const pane = group.getPane(index);
-        /* v8 ignore next -- editorCount > 0 гарантирует вкладку */
+        /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
         if (pane === null) return false;
+        /* v8 ignore stop */
         const needsConfirm =
             pane.isModified && (!(pane instanceof TextEditorPane) || service.isLastPaneForDocument(pane));
         if (needsConfirm && pane instanceof TextEditorPane) {

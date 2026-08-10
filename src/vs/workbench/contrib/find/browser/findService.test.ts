@@ -108,6 +108,18 @@ describe("FindService", () => {
         expect(find.isVisible()).toBe(false);
     });
 
+    it("повторная активация той же вкладки не закрывает сессию поиска", () => {
+        const { find, group } = setup("foo bar foo");
+        find.open();
+        expect(find.isVisible()).toBe(true);
+
+        // activateTab файрит onDidChangeActivePane безусловно; цель сессии не
+        // изменилась — find обязан пережить событие.
+        group.activeGroup.activateTab(0);
+
+        expect(find.isVisible()).toBe(true);
+    });
+
     it("an outside pointer press does NOT close the widget", () => {
         // Unlike QuickPick, the find widget is non-modal and stays open when the
         // user clicks into the editor (so they can keep navigating matches).
@@ -356,6 +368,30 @@ describe("FindService", () => {
             component.widgetIfExists(group.activeGroup.id)?.hide();
         }).not.toThrow();
         expect(find.isVisible()).toBe(false);
+    });
+
+    it("next()/prev() до присоединения view-слоя — no-op: виджета нет и не создать", () => {
+        // Хоста нет — widgetFor вернёт null, навигация тихо выходит.
+        const { group } = makeGroup();
+        const component = new FindComponent();
+        const find = new FindService(component, group);
+
+        expect(() => {
+            find.next();
+            find.prev();
+        }).not.toThrow();
+        expect(find.isVisible()).toBe(false);
+    });
+
+    it("ввод запроса до первого open() — no-op: сессии ещё нет", () => {
+        // Виджет создан лениво (setup), но сессию заводит только open()/навигация —
+        // recompute по onQueryChange обязан тихо выйти, не трогая редактор.
+        const { widget, editor } = setup("foo bar foo");
+
+        typeQuery(widget, "foo");
+
+        expect(editor.viewState.searchMatches).toEqual([]);
+        expect(editor.viewState.currentSearchMatchIndex).toBe(-1);
     });
 
     it("next() tolerates the active editor disappearing after matches were found", () => {

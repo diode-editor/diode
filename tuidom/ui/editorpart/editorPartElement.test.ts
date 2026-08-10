@@ -242,6 +242,106 @@ describe("EditorPartElement", () => {
         expect(b.layoutSize).toEqual(new Size(90, 10));
     });
 
+    it("невалидный maximizedIndex клампится в null, повтор того же значения — no-op", () => {
+        const part = new EditorPartElement();
+        const [a, b] = panels(2);
+        part.setViews([a, b]);
+
+        // Вне диапазона и отрицательный — клампятся в null; полоса уже в null —
+        // ранний выход без каких-либо перестроек детей.
+        part.maximizedIndex = 5;
+        expect(part.maximizedIndex).toBe(null);
+        part.maximizedIndex = -1;
+        expect(part.maximizedIndex).toBe(null);
+
+        part.maximizedIndex = 1;
+        expect(part.maximizedIndex).toBe(1);
+        // Повторная установка того же индекса — no-op (ранний return).
+        part.maximizedIndex = 1;
+        expect(part.maximizedIndex).toBe(1);
+        expect(a.hidden).toBe(true);
+    });
+
+    it("evenWeights на пустой полосе — no-op без события", () => {
+        const part = new EditorPartElement();
+        let fired = 0;
+        part.onDidChangeWeights = () => fired++;
+
+        part.evenWeights();
+
+        expect(fired).toBe(0);
+        expect(part.weights).toEqual([]);
+    });
+
+    it("nudgeWeight: одна группа, кривой индекс и вызов до layout — no-op", () => {
+        const part = new EditorPartElement();
+        let fired = 0;
+        part.onDidChangeWeights = () => fired++;
+
+        // Одна группа: соседа нет, двигать нечего.
+        const [single] = panels(1);
+        part.setViews([single]);
+        part.nudgeWeight(0, 5);
+        expect(fired).toBe(0);
+
+        const [a, b] = panels(2);
+        part.setViews([a, b]);
+        // Индекс вне диапазона.
+        part.nudgeWeight(-1, 5);
+        part.nudgeWeight(2, 5);
+        // До первого layout размеров нет — двигать не от чего.
+        part.nudgeWeight(0, 5);
+        expect(fired).toBe(0);
+        expect(part.weights).toEqual([0.5, 0.5]);
+    });
+
+    it("canFit при вырожденном нулевом основном размере не отказывает — рестор решает сам", () => {
+        const part = new EditorPartElement();
+        part.setViews(panels(2));
+        layoutAt(part, 0, 20);
+
+        expect(part.canFit(100)).toBe(true);
+    });
+
+    it("setViews([]) опустошает полосу, layout пустой полосы — no-op", () => {
+        const part = new EditorPartElement();
+        part.setViews(panels(2));
+        layoutAt(part, 80, 30);
+
+        part.setViews([]);
+        expect(part.weights).toEqual([]);
+
+        // Пустая полоса укладывается без детей и не падает.
+        layoutAt(part, 80, 30);
+        expect(part.getChildren()).toEqual([]);
+    });
+
+    it("drag саша до первого layout — no-op без события", () => {
+        const part = new EditorPartElement();
+        part.setViews(panels(2));
+        let fired = 0;
+        part.onDidChangeWeights = () => fired++;
+
+        const sash = part.getChildren().find((c) => c.constructor.name === "SashElement")!;
+        sash.dispatchEvent(new TUIMouseEvent("mousedown", { button: "left", screenX: 40, screenY: 5, localX: 0, localY: 5 }));
+        sash.dispatchEvent(new TUIMouseEvent("mousemove", { button: "left", screenX: 50, screenY: 5, localX: 0, localY: 5 }));
+        sash.dispatchEvent(new TUIMouseEvent("mouseup", { button: "left", screenX: 50, screenY: 5, localX: 0, localY: 5 }));
+
+        expect(fired).toBe(0);
+        expect(part.weights).toEqual([0.5, 0.5]);
+    });
+
+    it("в тесноте нечётный остаток достаётся первым группам", () => {
+        const part = new EditorPartElement();
+        const [a, b] = panels(2);
+        part.setViews([a, b]);
+        // 31 < 2×20 — display-only равное деление, остаток 1 уходит первой группе.
+        layoutAt(part, 31, 20);
+
+        expect(a.layoutSize.width).toBe(16);
+        expect(b.layoutSize.width).toBe(15);
+    });
+
     it("inspectState отдаёт ось, веса и максимизацию", () => {
         const part = new EditorPartElement();
         const [a, b] = panels(2);

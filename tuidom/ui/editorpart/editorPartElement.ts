@@ -223,8 +223,9 @@ export class EditorPartElement extends TUIElement {
      */
     private computeSizes(mainSize: number): number[] {
         const count = this.views.length;
-        /* v8 ignore next -- performLayout не зовёт с пустой полосой */
+        /* v8 ignore start -- performLayout не зовёт с пустой полосой */
         if (count === 0) return [];
+        /* v8 ignore stop */
         const min = this.minMainSize();
 
         if (mainSize < count * min) {
@@ -247,8 +248,9 @@ export class EditorPartElement extends TUIElement {
         for (let i = 0; i < count; i++) {
             while (sizes[i] < min) {
                 const largest = sizes.indexOf(Math.max(...sizes));
-                /* v8 ignore next -- защитный выход: mainSize >= count*min гарантирует донора */
+                /* v8 ignore start -- защитный выход: mainSize >= count*min гарантирует донора */
                 if (largest === i || sizes[largest] <= min) break;
+                /* v8 ignore stop */
                 sizes[largest]--;
                 sizes[i]++;
             }

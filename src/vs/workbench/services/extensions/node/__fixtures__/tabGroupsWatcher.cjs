@@ -5,7 +5,8 @@
  * активации и события onDidChangeTabs/TabGroups/VisibleTextEditors; команды —
  * `test.tabs.dump` (лог), `test.tabs.snapshot` (текущий tabGroups),
  * `test.tabs.show {uri, viewColumn, preserveFocus}` (показ документа, отдаёт
- * {uri, viewColumn} открытого редактора).
+ * {uri, viewColumn} открытого редактора), `test.tabs.close {label}` (закрыть
+ * вкладку по метке), `test.tabs.closeGroup {viewColumn}` (закрыть группу).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -70,6 +71,22 @@ exports.activate = function activate(context) {
     context.subscriptions.push(
         vscode.commands.registerCommand("test.tabs.snapshot", function () {
             return { groups: groupsSnapshot(), visible: vscode.window.visibleTextEditors.length };
+        }),
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand("test.tabs.close", function (params) {
+            var tabs = vscode.window.tabGroups.all
+                .reduce(function (all, group) { return all.concat(group.tabs); }, [])
+                .filter(function (tab) { return tab.label === params.label; });
+            return vscode.window.tabGroups.close(tabs.length === 1 ? tabs[0] : tabs);
+        }),
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand("test.tabs.closeGroup", function (params) {
+            var group = vscode.window.tabGroups.all.find(function (g) {
+                return g.viewColumn === params.viewColumn;
+            });
+            return vscode.window.tabGroups.close(group);
         }),
     );
     context.subscriptions.push(

@@ -320,7 +320,10 @@ export class WorkbenchComponent extends Component {
             // у неё isModified === false, и группа закрывает её напрямую.
             // Координата — (группа, индекс): крестик работает и в неактивной группе.
             const pane = group.getPane(index);
-            const editor = pane instanceof TextEditorPane ? pane : null;
+            const editor =
+                pane instanceof TextEditorPane
+                    ? pane
+                    : /* v8 ignore next -- defensive: не-текстовая вкладка не бывает изменённой и сюда не попадает */ null;
             /* v8 ignore start -- defensive: the callback is only invoked synchronously with a valid tab index, so the editor always exists */
             if (!editor) return;
             /* v8 ignore stop */

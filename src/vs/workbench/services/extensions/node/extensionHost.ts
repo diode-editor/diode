@@ -219,18 +219,11 @@ export interface IExtensionHostOptions {
      */
     readonly outputSink?: IOutputSink;
     /**
-     * Снимок активного документа для document sync. Хост пушит его как
-     * `editor.didOpen` при готовности subprocess'а — чтобы `workspace.textDocuments`
-     * был заполнен ДО активации расширения (стоковый vscode-languageclient читает
-     * его на `start()`), — и при появлении первого подписчика document sync
-     * (расширение активировалось уже после открытия файла).
-     */
-    readonly activeDocumentProvider?: () => IWireDocumentSyncSnapshot | null;
-    /**
      * Снимки ВСЕХ открытых документов для наполнения `workspace.textDocuments`
      * на `host.ready` (по одному на документ; см. `openDocumentSnapshots`).
-     * Приоритетнее {@link activeDocumentProvider}, который остаётся для
-     * харнессов, живущих одним активным документом.
+     * Хост пушит их как `editor.didOpen` при готовности subprocess'а — чтобы
+     * реестр был заполнен ДО активации расширения (стоковый
+     * vscode-languageclient читает его на `start()`).
      */
     readonly openDocumentsProvider?: () => IWireDocumentSyncSnapshot[];
     /**
@@ -327,7 +320,6 @@ export class ExtensionHost extends Disposable {
      * одно из сообщений.
      */
     private readonly pendingDidChange = new Map<string, IWireDocumentSyncSnapshot>();
-    private readonly activeDocumentProvider: (() => IWireDocumentSyncSnapshot | null) | undefined;
     private readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
     private readonly editorLayout: IEditorLayoutService;
     private readonly diagnosticsSink: DiagnosticsSink | undefined;
@@ -368,7 +360,6 @@ export class ExtensionHost extends Disposable {
         this.editorDecorations = options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE;
         this.fileDecorations = options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE;
         this.themeColorResolver = options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER;
-        this.activeDocumentProvider = options.activeDocumentProvider;
         this.openDocumentsProvider = options.openDocumentsProvider;
         this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
         this.diagnosticsSink = options.diagnosticsSink;
@@ -864,13 +855,8 @@ export class ExtensionHost extends Disposable {
             // Наполняем `workspace.textDocuments` открытыми документами ДО первой
             // активации: стоковый vscode-languageclient читает его на start().
             // Мимо гейта подписки — подписчиков в этот момент ещё нет.
-            const openDocuments = this.openDocumentsProvider?.();
-            if (openDocuments !== undefined) {
-                for (const snapshot of openDocuments) rpc.notify("editor.didOpen", snapshot);
-            } else {
-                const snapshot = this.activeDocumentProvider?.();
-                if (snapshot !== null && snapshot !== undefined) rpc.notify("editor.didOpen", snapshot);
-            }
+            const openDocuments = this.openDocumentsProvider?.() ?? [];
+            for (const snapshot of openDocuments) rpc.notify("editor.didOpen", snapshot);
         });
         await this.readyPromise;
         return rpc;

@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { Uri } from "../../../base/common/uri.ts";
 import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
@@ -12,6 +13,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/comm
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
+import { DiffEditorPane, type IDiffEditorPaneInput } from "../../browser/parts/editor/diffEditorPane.ts";
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
@@ -83,6 +85,17 @@ describe("EditorLayoutServiceAdapter", () => {
 
         expect(pushes.length).toBe(1);
         expect(pushes[0].groups.length).toBe(2);
+    });
+
+    it("onDidChangeLayout: повторный dispose подписки — идемпотентный no-op", () => {
+        const pushes: IWireEditorLayout[] = [];
+        const subscription = adapter.onDidChangeLayout((layout) => pushes.push(layout));
+        subscription.dispose();
+        subscription.dispose(); // слушатель уже снят — второй dispose ничего не ломает
+
+        service.openFile(ws.path("a.ts"));
+        adapter.flushPendingLayout();
+        expect(pushes).toHaveLength(0);
     });
 
     it("flushPendingLayout доставляет отложенный снимок синхронно (инвариант перед метой)", () => {
@@ -169,5 +182,114 @@ describe("EditorLayoutServiceAdapter", () => {
             adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] }),
         ).resolves.toBe(false);
         expect(group.editorCount).toBe(1);
+    });
+
+    it("closeTabs: uri, которого нет в группе, пропускается — идемпотентный успех", async () => {
+        service.openFile(ws.path("a.ts"));
+        const group = service.activeGroup;
+
+        await expect(
+            adapter.closeTabs({ tabs: [{ groupId: group.id, uri: Uri.file(ws.path("b.ts")).toString() }] }),
+        ).resolves.toBe(true);
+        expect(group.editorCount).toBe(1);
+    });
+
+    it("closeTabs несохранённой вкладки при подключённом confirm-флоу — диалог пользователю и false", async () => {
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        editor.viewState.type("dirty");
+        const group = service.activeGroup;
+        const confirms: { index: number; sameGroup: boolean }[] = [];
+        service.onRequestConfirmClose = (g, index) => confirms.push({ index, sameGroup: g === group });
+
+        await expect(
+            adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] }),
+        ).resolves.toBe(false);
+        // Решение за пользователем: адаптер лишь поднял confirm той же группы/вкладки.
+        expect(confirms).toEqual([{ index: 0, sameGroup: true }]);
+        expect(group.editorCount).toBe(1);
+    });
+
+    it("closeGroups: неизвестная группа пропускается — идемпотентный успех", async () => {
+        service.openFile(ws.path("a.ts"));
+
+        await expect(adapter.closeGroups({ groupIds: [999] })).resolves.toBe(true);
+        expect(service.groups.length).toBe(1);
+    });
+
+    it("closeGroups с несохранённой вкладкой — false; confirm-флоу поднимается, если подключён", async () => {
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        editor.viewState.type("dirty");
+        const group = service.activeGroup;
+
+        // Без confirm-обработчика — просто отказ, вкладка на месте.
+        await expect(adapter.closeGroups({ groupIds: [group.id] })).resolves.toBe(false);
+        expect(group.editorCount).toBe(1);
+
+        // С обработчиком — диалог пользователю и тот же отказ.
+        const confirms: number[] = [];
+        service.onRequestConfirmClose = (_g, index) => confirms.push(index);
+        await expect(adapter.closeGroups({ groupIds: [group.id] })).resolves.toBe(false);
+        expect(confirms).toEqual([0]);
+        expect(group.editorCount).toBe(1);
+    });
+
+    it("снимок: дифф-вкладка несёт kind=diff и uri сторон (если они есть)", () => {
+        service.openFile(ws.path("a.ts"));
+        const diffInput: IDiffEditorPaneInput = {
+            uri: Uri.parse("vexx-diff:/a.ts?vs=HEAD"),
+            label: "a.ts (diff)",
+            originalLabel: "HEAD",
+            modifiedLabel: "a.ts",
+            originalText: "alpha",
+            modifiedText: "alpha!",
+            languageId: "plaintext",
+            originalUri: Uri.parse("git:/a.ts"),
+            modifiedUri: Uri.file(ws.path("a.ts")),
+        };
+        service.openPane(new DiffEditorPane(new TokenizationRegistry(), NULL_TOKEN_STYLE_RESOLVER, diffInput));
+        // Стороны опциональны (HEAD-версии может не существовать как ресурса).
+        service.openPane(
+            new DiffEditorPane(new TokenizationRegistry(), NULL_TOKEN_STYLE_RESOLVER, {
+                ...diffInput,
+                uri: Uri.parse("vexx-diff:/bare.ts"),
+                originalUri: undefined,
+                modifiedUri: undefined,
+            }),
+        );
+
+        const tabs = adapter.getLayoutSnapshot().groups[0].tabs;
+        expect(tabs.map((tab) => tab.kind)).toEqual(["text", "diff", "diff"]);
+        expect(tabs[1].original).toBe("git:/a.ts");
+        expect(tabs[1].modified).toBe(Uri.file(ws.path("a.ts")).toString());
+        expect(tabs[2].original).toBeUndefined();
+        expect(tabs[2].modified).toBeUndefined();
+    });
+
+    it("showTextDocument: Beside при нехватке места — фолбэк в активную группу", async () => {
+        service.openFile(ws.path("a.ts"));
+        service.canAddGroupHook = () => false;
+
+        const result = await adapter.showTextDocument({
+            uri: Uri.file(ws.path("b.ts")).toString(),
+            viewColumn: -2,
+        });
+        expect(result.viewColumn).toBe(1);
+        expect(service.groups.length).toBe(1);
+        expect(service.activeGroup.editorCount).toBe(2);
+    });
+
+    it("showTextDocument: ViewColumn за краем при нехватке места — открытие в последней группе", async () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        service.canAddGroupHook = () => false;
+
+        const result = await adapter.showTextDocument({
+            uri: Uri.file(ws.path("b.ts")).toString(),
+            viewColumn: 5,
+        });
+        expect(result.viewColumn).toBe(2);
+        expect(service.groups.length).toBe(2);
     });
 });

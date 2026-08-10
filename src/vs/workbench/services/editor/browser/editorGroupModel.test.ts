@@ -145,6 +145,13 @@ describe("EditorGroup", () => {
         expect(editorsFired).toBe(before);
     });
 
+    it("detachPane с невалидным индексом — null, группа не тронута", () => {
+        const { group } = groupWith("/a.ts");
+        expect(group.detachPane(-1)).toBeNull();
+        expect(group.detachPane(1)).toBeNull();
+        expect(group.editorCount).toBe(1);
+    });
+
     it("изменение состояния вкладки перерисовывает табы группы", () => {
         const { group, panes } = groupWith("/a.ts");
         let editorsFired = 0;
@@ -166,6 +173,25 @@ describe("EditorGroup", () => {
         group.dispose();
         expect(panes[0].disposed).toBe(true);
         expect(panes[1].disposed).toBe(true);
+    });
+
+    it("повторный dispose подписок группы — no-op, чужие слушатели живы", () => {
+        const { group } = groupWith("/a.ts", "/b.ts");
+        let editorsFired = 0;
+        let paneFired = 0;
+        const editorsFirst = group.onDidChangeEditors(() => {});
+        group.onDidChangeEditors(() => editorsFired++);
+        const paneFirst = group.onDidChangeActivePane(() => {});
+        group.onDidChangeActivePane(() => paneFired++);
+
+        editorsFirst.dispose();
+        editorsFirst.dispose(); // indexOf === -1 — второй слушатель не снят
+        paneFirst.dispose();
+        paneFirst.dispose();
+
+        group.activateTab(1);
+        expect(editorsFired).toBe(1);
+        expect(paneFired).toBe(1);
     });
 
     it("MRU: серия заморожена, endMruCycle коммитит выбор", () => {

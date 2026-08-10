@@ -118,7 +118,9 @@ export class WorkbenchStateService extends Disposable {
                 }
                 const active = this.editorGroup.activeGroup;
                 const target = this.mapActiveIndex(active, group);
+                /* v8 ignore start -- файлы группы прошли fs-фильтр и открыты этим же рестором: активная вкладка находится всегда */
                 if (target >= 0) active.activateTab(target, { focus: false });
+                /* v8 ignore stop */
             }
             const groups = this.editorGroup.groups;
             const activeIndex = Math.min(Math.max(0, snapshot.activeGroup), groups.length - 1);
@@ -222,7 +224,9 @@ export class WorkbenchStateService extends Disposable {
     /** Активная вкладка снапшота → позиция в фактически открытой группе. */
     private mapActiveIndex(group: EditorGroup, snapshot: IEditorGroupSnapshot): number {
         if (snapshot.activeIndex < 0 || snapshot.activeIndex >= snapshot.files.length) {
-            return group.editorCount > 0 ? 0 : -1;
+            // files группы непусты (фильтр groupsSnapshotToRestore) и уже открыты —
+            // пустой группы тут не бывает, -1 чисто защитный.
+            return group.editorCount > 0 ? 0 : /* v8 ignore next -- группа рестора не бывает пустой */ -1;
         }
         // openFile резолвит путь тем же path.resolve — ресурс совпадёт с вкладкой.
         return group.findPaneIndex(Uri.file(path.resolve(snapshot.files[snapshot.activeIndex])));

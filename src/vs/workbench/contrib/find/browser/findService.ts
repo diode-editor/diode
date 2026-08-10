@@ -191,8 +191,9 @@ export class FindService extends Disposable {
         const widget = this.component.widgetFor(groupId);
         if (widget === null) return;
         const group = this.editorService.groups.find((candidate) => candidate.id === groupId);
-        /* v8 ignore next -- виджет существует только у живой группы */
+        /* v8 ignore start -- виджет существует только у живой группы */
         if (group === undefined) return;
+        /* v8 ignore stop */
         const session = this.sessionFor(group);
 
         if (widget.isOpen()) {
@@ -290,8 +291,9 @@ export class FindService extends Disposable {
     private setCurrent(groupId: GroupId, index: number): void {
         const widget = this.component.widgetIfExists(groupId);
         const session = this.sessions.get(groupId);
-        /* v8 ignore next -- вызывается только по живой сессии */
+        /* v8 ignore start -- вызывается только по живой сессии */
         if (widget === null || session === undefined) return;
+        /* v8 ignore stop */
         session.currentIndex = index;
         // `matches` и `target` живут и умирают вместе (см. recompute/close), а
         // сюда попадают только при непустом списке совпадений — значит цель есть.

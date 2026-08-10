@@ -150,6 +150,49 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
     });
 });
 
+describe("WorkspaceNamespace — document sync (editor.didClose)", () => {
+    it("закрытие открытого документа фаерит onDidCloseTextDocument и ставит isClosed", () => {
+        const { stub, ctx, workspace } = makeCtx();
+        const closed: vscode.TextDocument[] = [];
+        workspace.onDidCloseTextDocument((doc) => closed.push(doc));
+
+        stub.fire("editor.didOpen", openParams());
+        stub.fire("editor.didClose", { uri: URI });
+
+        expect(closed).toHaveLength(1);
+        expect(closed[0].isClosed).toBe(true);
+        // Документ остаётся в реестре — расширения вправе держать ссылку.
+        expect(ctx.registry.get(Uri.parse(URI)) === (closed[0] as unknown)).toBe(true);
+    });
+
+    it("невалидный uri и не открытый ресурс игнорируются без события", () => {
+        const { stub, workspace } = makeCtx();
+        const closed: vscode.TextDocument[] = [];
+        workspace.onDidCloseTextDocument((doc) => closed.push(doc));
+
+        stub.fire("editor.didClose", {});
+        stub.fire("editor.didClose", { uri: 42 });
+        stub.fire("editor.didClose", { uri: "" });
+        // Ресурс, который никогда не открывался, — close возвращает null.
+        stub.fire("editor.didClose", { uri: "file:///never-opened.ts" });
+
+        expect(closed).toHaveLength(0);
+    });
+
+    it("после didClose повторное открытие фаерит didOpen заново (LSP-контракт)", () => {
+        const { stub, workspace } = makeCtx();
+        const opened: vscode.TextDocument[] = [];
+        workspace.onDidOpenTextDocument((doc) => opened.push(doc));
+
+        stub.fire("editor.didOpen", openParams());
+        stub.fire("editor.didClose", { uri: URI });
+        stub.fire("editor.didOpen", openParams({ version: 2 }));
+
+        expect(opened).toHaveLength(2);
+        expect(opened[1].isClosed).toBe(false);
+    });
+});
+
 describe("WorkspaceNamespace — document sync (updateSubscriptions)", () => {
     function syncNotifies(stub: ReturnType<typeof makeCtx>["stub"]): unknown[] {
         return stub.notifies.filter((n) => n.method === "workspace.updateSubscriptions").map((n) => n.params);

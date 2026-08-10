@@ -30,7 +30,7 @@ interface IDumpDoc {
 }
 
 interface IDumpEntry {
-    kind: "activate" | "open" | "change";
+    kind: "activate" | "open" | "change" | "close";
     uri?: string;
     version?: number;
     text?: string;
@@ -109,6 +109,25 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             expect(log.find((e) => e.kind === "activate")?.docs).toHaveLength(0);
             const opens = log.filter((e) => e.kind === "open");
             expect(opens.map((e) => e.text)).toEqual(["first content", "second content"]);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    it("закрытие последней вкладки документа доезжает как didClose", async () => {
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: "main.ts", content: "const a = 1;\n" },
+            extensions: [extensionFixture("test.docSync", "recordsDocumentSync.cjs")],
+        });
+        try {
+            await settle();
+            harness.group.activeGroup.closeTab(0);
+            await settle();
+
+            const log = await dumpLog(harness);
+            const closes = log.filter((e) => e.kind === "close");
+            expect(closes).toHaveLength(1);
+            expect(closes[0].uri?.endsWith("main.ts")).toBe(true);
         } finally {
             await harness.dispose();
         }

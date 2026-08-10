@@ -21,9 +21,8 @@ import type { IWireEditorEdit, IWireSelection } from "../common/wireTypes.ts";
 export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private readonly group: EditorService;
 
-    /** Группа вкладки (для меты/таргетинга); фолбэк — активная. */
-    private groupIdOf(editor: TextEditorPane | null): number | null {
-        if (editor === null) return null;
+    /** Группа вкладки (для меты/таргетинга); вкладка уже закрыта — фолбэк активная. */
+    private groupIdOf(editor: TextEditorPane): number {
         return this.group.groupOf(editor)?.id ?? this.group.activeGroup.id;
     }
     /**
@@ -92,7 +91,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
                 cb({
                     uri: current.uri.toString(),
                     selections: wireSelectionsOf(current),
-                    groupId: this.groupIdOf(current) ?? undefined,
+                    groupId: this.groupIdOf(current),
                 });
             });
         });

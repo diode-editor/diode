@@ -67,6 +67,8 @@ export const vscodeDiffCommand: CommandAction = {
                 // сторон обновляет вкладку на месте (снимок), а не плодит новые.
                 uri: right.with({ scheme: "vexx-diff", query: `vs:${left.toString()}` }),
                 label: title,
+                originalLabel: basename(left),
+                modifiedLabel: basename(right),
                 originalText,
                 modifiedText,
                 languageId,

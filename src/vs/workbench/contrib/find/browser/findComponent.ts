@@ -157,7 +157,8 @@ export class FindWidget extends Disposable {
 
     /** Прикрепляет виджет к overlay-слою СВОЕЙ группы (один раз, до первого показа). */
     public attachHost(host: OverlayHostElement): void {
-        /* v8 ignore next -- компонент прикрепляет хост ровно один раз на виджет */
+        // Повторное прикрепление того же хоста — no-op: живая overlay-сессия
+        // не пересоздаётся (и не закрывается под пользователем).
         if (this.host === host) return;
         this.session?.dispose();
         this.host = host;
@@ -211,7 +212,7 @@ export class FindWidget extends Disposable {
 
     private updatePosition(): void {
         const group = this.host;
-        /* v8 ignore next -- show() зовётся только после attachHost */
+        // Без прикреплённого хоста позиционировать не в чем — show() тогда no-op.
         if (group === null) return;
         const groupWidth = group.layoutSize.width;
         const widgetW = Math.min(60, Math.max(28, groupWidth - 2));

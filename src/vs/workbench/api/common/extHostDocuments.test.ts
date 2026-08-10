@@ -215,4 +215,47 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         expect(change.rangeLength).toBe(5);
         expect(changes[0].document.getText()).toBe("x");
     });
+
+    it("close открытого документа: isClosed, событие, документ остаётся в реестре", () => {
+        const { registry, tracker } = makeTracker();
+        const closed: string[] = [];
+        tracker.onDidCloseEmitter.event((doc) => closed.push(doc.getText()));
+        const doc = tracker.sync({ uri: URI, text: "a" });
+
+        const result = tracker.close(Uri.parse(URI));
+
+        expect(result === doc).toBe(true);
+        expect(doc.isClosed).toBe(true);
+        expect(closed).toEqual(["a"]);
+        // Расширения вправе держать ссылку на закрытый документ — реестр его не теряет.
+        expect(registry.get(Uri.parse(URI)) === doc).toBe(true);
+    });
+
+    it("close незнакомого ресурса — null без события", () => {
+        const { tracker } = makeTracker();
+        const closed: string[] = [];
+        tracker.onDidCloseEmitter.event((doc) => closed.push(doc.getText()));
+
+        expect(tracker.close(Uri.parse(URI))).toBeNull();
+        expect(closed).toEqual([]);
+    });
+
+    it("close ресурса из реестра без didOpen (мета-путь) — null", () => {
+        const { registry, tracker } = makeTracker();
+        registry.getOrCreate(Uri.parse(URI)); // мета-путь active-editor-change, didOpen не фаерился
+
+        expect(tracker.close(Uri.parse(URI))).toBeNull();
+    });
+
+    it("воскрешение после close: снова didOpen тем же объектом, isClosed снят", () => {
+        const { tracker, log } = makeTracker();
+        const doc = tracker.sync({ uri: URI, text: "a" });
+        tracker.close(Uri.parse(URI));
+
+        const revived = tracker.sync({ uri: URI, text: "b" });
+
+        expect(revived === doc).toBe(true);
+        expect(doc.isClosed).toBe(false);
+        expect(log).toEqual(["open:a", "open:b"]);
+    });
 });

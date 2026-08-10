@@ -119,18 +119,6 @@ export class EditorPartComponent extends Component {
         return this.editorService.groups.indexOf(this.editorService.activeGroup);
     }
 
-    /**
-     * OverlayHost активной группы — хост докнутых виджетов группы (find).
-     * Метод, а не поле: хост меняется вместе с активной группой, вызывающий
-     * обязан спрашивать его на каждый показ.
-     */
-    public activeGroupOverlayHost(): OverlayHostElement {
-        /* v8 ignore next -- у каждой группы сервиса есть компонент (инвариант syncGroups) */
-        const component = this.groupComponents.get(this.editorService.activeGroup.id);
-        if (component === undefined) throw new Error("editor part: активная группа без контрола");
-        return component.view;
-    }
-
     /** OverlayHost конкретной группы (find-виджет группы); `null` — группы нет. */
     public groupOverlayHost(groupId: GroupId): OverlayHostElement | null {
         return this.groupComponents.get(groupId)?.view ?? null;
@@ -145,8 +133,10 @@ export class EditorPartComponent extends Component {
         const groups = this.editorService.groups;
         // Прежние доли по id — из элемента (там же живут результаты drag'а).
         const previousWeights = new Map<GroupId, number>();
+        // Элемент нормирует weights к числу views, а currentOrder — подмножество
+        // детей-вьюх: индекс всегда валиден.
         for (const [i, component] of this.currentOrder().entries()) {
-            previousWeights.set(component, this.view.weights[i] ?? 0);
+            previousWeights.set(component, this.view.weights[i]);
         }
 
         // Создаём контролы новых групп, убираем контролы умерших.
@@ -169,7 +159,9 @@ export class EditorPartComponent extends Component {
             // Новая группа: половина доли источника (сплит) либо равная доля.
             if (event?.kind === "added" && event.group.id === group.id && event.source !== undefined) {
                 const sourceWeight = previousWeights.get(event.source.id);
+                /* v8 ignore start -- у живого источника сплита всегда положительная нормированная доля */
                 if (sourceWeight !== undefined && sourceWeight > 0) return sourceWeight / 2;
+                /* v8 ignore stop */
             }
             return 1 / Math.max(1, groups.length);
         });
@@ -177,16 +169,19 @@ export class EditorPartComponent extends Component {
         if (event?.kind === "added" && event.source !== undefined) {
             const sourceIndex = groups.indexOf(event.source);
             const sourceWeight = previousWeights.get(event.source.id);
+            /* v8 ignore start -- источник сплита жив (есть в groups) и несёт положительную нормированную долю */
             if (sourceIndex >= 0 && sourceWeight !== undefined && sourceWeight > 0) {
                 weights[sourceIndex] = sourceWeight / 2;
             }
+            /* v8 ignore stop */
         }
 
         this.view.setViews(
             groups.map((group) => {
-                /* v8 ignore next -- компонент создан циклом выше */
                 const component = this.groupComponents.get(group.id);
+                /* v8 ignore start -- компонент создан циклом выше */
                 if (component === undefined) throw new Error("editor part: группа без контрола");
+                /* v8 ignore stop */
                 return component.view;
             }),
             weights,

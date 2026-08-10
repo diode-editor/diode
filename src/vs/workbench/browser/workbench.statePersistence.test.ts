@@ -7,7 +7,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
 import { loadState, StateService } from "../../platform/state/node/stateService.ts";
-import { OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
+import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
 /**
@@ -189,6 +189,30 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
+    it("getOpenEditorsToRestore дедупит файл, открытый в двух группах", () => {
+        const state1 = newState();
+        const h1: IAppHarness = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            stateService: state1,
+            size: new Size(140, 40),
+        });
+        h1.workbench.openFile(ws.path("a.ts"));
+        h1.commands.execute("workbench.action.splitEditor"); // группа 2: копия a
+        h1.workbench.openFile(ws.path("b.ts"));
+        state1.flushSync();
+        h1.dispose();
+
+        const state2 = newState();
+        const h2: IAppHarness = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            stateService: state2,
+            size: new Size(140, 40),
+        });
+        // a.ts живёт в обеих группах — прогреву грамматик он нужен один раз.
+        expect(h2.workbench.getOpenEditorsToRestore()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
+        h2.dispose();
+    });
+
     it("сессия до сплитов (плоский ключ) поднимается одной группой", () => {
         // Пишем ТОЛЬКО плоский ключ — как это делала сборка до сплитов.
         const state1 = newState();
@@ -204,6 +228,44 @@ describe("Workbench — session state persistence", () => {
         expect(service.groups.length).toBe(1);
         expect(service.getOpenFilePaths()).toEqual([ws.path("a.ts"), ws.path("c.ts")]);
         expect(service.activeIndex).toBe(1);
+        h2.dispose();
+    });
+
+    it("битый снимок групп: недостающая доля становится 1, вместо удалённой активной вкладки — первая", () => {
+        // Снимок пишем руками: доли короче списка групп (такое оставляет старая
+        // сборка или рука в JSON), активный файл группы 2 удалён с диска.
+        const state1 = newState();
+        state1.openWorkspace(ws.dir);
+        state1.store(EDITOR_GROUPS_STATE, {
+            orientation: "columns",
+            groups: [
+                { files: [ws.path("a.ts")], activeIndex: 0 },
+                { files: [ws.path("b.ts"), ws.path("a.ts"), ws.path("c.ts")], activeIndex: 0 },
+            ],
+            weights: [0.5], // доля второй группы потеряна
+            activeGroup: 1,
+        });
+        state1.flushSync();
+        fs.rmSync(ws.path("b.ts")); // активный файл группы 2 исчез
+
+        const state2 = newState();
+        const h2: IAppHarness = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            stateService: state2,
+            size: new Size(140, 40),
+        });
+        h2.workbench.restoreOpenEditors();
+
+        const service = h2.container.get(EditorServiceDIToken);
+        expect(service.groups.length).toBe(2);
+        // b.ts выпал; активной группы 2 стала ПЕРВАЯ уцелевшая вкладка, а не
+        // последняя открытая.
+        expect(service.groups[1].getPanes().map((p) => p.uri.fsPath)).toEqual([ws.path("a.ts"), ws.path("c.ts")]);
+        expect(service.groups[1].activePane!.uri.fsPath).toBe(ws.path("a.ts"));
+        // Потерянная доля добита единицей: после нормировки группа 2 шире первой.
+        const part = (h2.workbench as unknown as { editorPartComponent: { weights: readonly number[] } })
+            .editorPartComponent;
+        expect(part.weights[1]).toBeGreaterThan(part.weights[0]);
         h2.dispose();
     });
 

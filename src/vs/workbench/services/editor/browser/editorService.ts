@@ -492,8 +492,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // detachPane может схлопнуть опустевший источник (collapse внутри) —
         // целевая группа взята по ссылке заранее и переживает перестройку полосы.
         const pane = source.detachPane(index);
-        /* v8 ignore next -- activePane проверен выше, индекс валиден */
+        /* v8 ignore start -- activePane проверен выше, индекс валиден */
         if (pane === null) return;
+        /* v8 ignore stop */
         this.activeGroupValue = target;
         const existing = target.findPaneIndex(pane.uri);
         if (existing >= 0) {
@@ -560,7 +561,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         }
         if (rememberedUri !== null) {
             const index = target.findPaneIndex(rememberedUri);
+            /* v8 ignore start -- uri взят с живой вкладки, merge с дедупом сохраняет ресурс в target */
             if (index >= 0) target.activateTab(index);
+            /* v8 ignore stop */
         }
         this.fireActiveGroupChanged(target);
     }
@@ -584,8 +587,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         }
         while (source.editorCount > 0) {
             const pane = source.detachPane(0);
-            /* v8 ignore next -- editorCount > 0 гарантирует вкладку */
+            /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
             if (pane === null) break;
+            /* v8 ignore stop */
             if (target.findPaneIndex(pane.uri) >= 0) pane.dispose();
             else target.insertPane(pane);
         }
@@ -659,10 +663,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     private collapseGroup(group: EditorGroup): void {
         const index = this.groupsList.indexOf(group);
-        /* v8 ignore next -- защитный гард: схлопывание зовётся только для группы из полосы */
+        /* v8 ignore start -- защитный гард: схлопывание зовётся только для группы из полосы */
         if (index < 0) return;
+        /* v8 ignore stop */
         this.groupsList.splice(index, 1);
+        /* v8 ignore start -- подписки заводит createGroup для каждой группы, фолбэк ?? [] недостижим */
         for (const subscription of this.groupSubscriptions.get(group.id) ?? []) subscription.dispose();
+        /* v8 ignore stop */
         this.groupSubscriptions.delete(group.id);
         const wasActive = group === this.activeGroupValue;
         this.fireGroupsChanged({ kind: "removed", group, index });

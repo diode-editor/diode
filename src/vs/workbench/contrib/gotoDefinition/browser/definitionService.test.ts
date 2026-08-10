@@ -74,6 +74,22 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 1, character: 4 });
     });
 
+    it("Ctrl+K F12 (revealDefinitionAside): цель открывается в соседней группе", async () => {
+        const defsUri = Uri.file(ws.path("defs.ts")).toString();
+        const mainUri = Uri.file(ws.path("main.ts")).toString();
+        group().definitionSource = () => Promise.resolve([{ uri: defsUri, range: createRange(0, 16, 0, 23) }]);
+
+        h.commands.execute("editor.action.revealDefinitionAside");
+        await flushMicrotasks();
+
+        // Цель — в группе справа; исходная группа не тронута.
+        const groups = group().groups;
+        expect(groups.length).toBe(2);
+        expect(groups[0].activePane?.uri.toString()).toBe(mainUri);
+        expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri);
+        expect(caret()).toMatchObject({ line: 0, character: 16 });
+    });
+
     it("нет источника / пустой результат / нет активного редактора — no-op", async () => {
         // Нет источника.
         await service().revealDefinition();

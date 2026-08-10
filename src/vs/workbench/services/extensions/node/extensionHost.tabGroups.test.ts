@@ -84,6 +84,53 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
         }
     });
 
+    it("AS-16: tabGroups.close(tab) из расширения закрывает вкладку ядра", async () => {
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: "main.ts", content: "const a = 1;\n" },
+            extensions: [extensionFixture("test.tabs", "tabGroupsWatcher.cjs")],
+        });
+        try {
+            await settle();
+            harness.group.openFile(harness.writeFile("second.ts", "const b = 2;\n"));
+            await settle();
+            expect(harness.group.activeGroup.editorCount).toBe(2);
+
+            const result = await harness.commandRegistry.execute("test.tabs.close", { label: "second.ts" });
+            await settle();
+
+            expect(result).toBe(true);
+            expect(harness.group.activeGroup.editorCount).toBe(1);
+            // Свежий снимок уехал расширению ДО ответа: вкладки в tabGroups больше нет.
+            const after = await snapshot(harness);
+            expect(after.groups[0].tabs.map((tab) => tab.label)).toEqual(["main.ts"]);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    it("AS-17: tabGroups.close(group) из расширения схлопывает группу", async () => {
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: "main.ts", content: "const a = 1;\n" },
+            extensions: [extensionFixture("test.tabs", "tabGroupsWatcher.cjs")],
+        });
+        try {
+            await settle();
+            harness.group.splitActiveGroup();
+            await settle();
+            expect(harness.group.groups.length).toBe(2);
+
+            const result = await harness.commandRegistry.execute("test.tabs.closeGroup", { viewColumn: 2 });
+            await settle();
+
+            expect(result).toBe(true);
+            expect(harness.group.groups.length).toBe(1);
+            const after = await snapshot(harness);
+            expect(after.groups.length).toBe(1);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
     it("AS-1/2/4: showTextDocument из расширения — Beside создаёт группу, дедуп и preserveFocus работают", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },

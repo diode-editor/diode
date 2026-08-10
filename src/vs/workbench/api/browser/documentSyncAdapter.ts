@@ -1,4 +1,3 @@
-import type { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type { TextFileModel } from "../../services/textfile/common/textFileModel.ts";
 import type { ExtensionHost } from "../../services/extensions/node/extensionHost.ts";
@@ -13,11 +12,6 @@ export function documentSyncSnapshotOfModel(model: TextFileModel): IWireDocument
         text: model.getText(),
         isDirty: model.isModified,
     };
-}
-
-/** Снапшот документа редактора для document sync push'а (`editor.didOpen`/`didChange`). */
-export function documentSyncSnapshotOf(editor: TextEditorPane): IWireDocumentSyncSnapshot {
-    return documentSyncSnapshotOfModel(editor.model);
 }
 
 /**

@@ -4,6 +4,7 @@ import type { MockTerminalBackend } from "../../../../../../tuidom/backend/mockT
 import { BoxConstraints, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
+import { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
 import type { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -156,6 +157,41 @@ describe("FindWidget — counter", () => {
         const y = rows.findIndex((row) => row.includes("No results"));
         const x = rows[y].indexOf("No results");
         expect(backend.getFgAt(new Point(x, y))).toBe(theme.getRequiredColor("editorError.foreground"));
+    });
+});
+
+describe("FindWidget — overlay-сессия", () => {
+    it("show() до attachHost — no-op: виджет не открывается и не падает", () => {
+        const component = make();
+
+        expect(() => {
+            component.show();
+        }).not.toThrow();
+
+        expect(component.isOpen()).toBe(false);
+    });
+
+    it("повторный attachHost с тем же хостом — no-op, живая сессия не пересоздаётся", () => {
+        const component = make();
+        const host = new OverlayHostElement();
+        component.attachHost(host);
+        component.show();
+        expect(component.isOpen()).toBe(true);
+
+        // Тот же хост второй раз: без guard'а сессия была бы пересоздана закрытой.
+        component.attachHost(host);
+
+        expect(component.isOpen()).toBe(true);
+    });
+
+    it("hide() без открытой сессии — no-op", () => {
+        const component = make();
+
+        expect(() => {
+            component.hide();
+        }).not.toThrow();
+
+        expect(component.isOpen()).toBe(false);
     });
 });
 

@@ -66,6 +66,7 @@ function makeHost(options: { withRpc?: boolean; withExtension?: boolean } = {}) 
     const received: { method: string; params: unknown }[] = [];
     peer.handleNotification("editor.didOpen", (p) => received.push({ method: "editor.didOpen", params: p }));
     peer.handleNotification("editor.didChange", (p) => received.push({ method: "editor.didChange", params: p }));
+    peer.handleNotification("editor.didClose", (p) => received.push({ method: "editor.didClose", params: p }));
     return { host, peer, received, logLines: lines };
 }
 
@@ -151,6 +152,30 @@ describe("ExtensionHost — гейты document sync push'а (in-process)", () =
         await flushMicrotasks();
 
         expect(h.received.filter((r) => r.method === "editor.didChange")).toHaveLength(0);
+    });
+
+    it("didClose шлётся без подписки и отменяет отложенный didChange того же документа", async () => {
+        const h = makeHost();
+        await subscribe(h);
+
+        // Правка ждала коалесинг-тик, но документ успели закрыть: didChange по
+        // закрытому документу субпроцессу не шлётся, только didClose.
+        h.host.didChangeTextDocument(snap("stale", 2));
+        h.host.didCloseTextDocument("file:///a.ts");
+        await flushMicrotasks();
+
+        expect(h.received).toEqual([{ method: "editor.didClose", params: { uri: "file:///a.ts" } }]);
+    });
+
+    it("didClose без rpc или без активных расширений — no-op", async () => {
+        const noRpc = makeHost({ withRpc: false });
+        noRpc.host.didCloseTextDocument("file:///a.ts");
+        const noExtension = makeHost({ withExtension: false });
+        noExtension.host.didCloseTextDocument("file:///a.ts");
+        await flushMicrotasks();
+
+        expect(noRpc.received).toHaveLength(0);
+        expect(noExtension.received).toHaveLength(0);
     });
 
     it("слишком большой документ не пушится ни didOpen, ни didChange — и логируется", async () => {

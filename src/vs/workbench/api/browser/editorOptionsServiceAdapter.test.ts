@@ -390,6 +390,48 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(seen).toHaveLength(0);
     });
 
+    it("вкладка вне полосы (groupOf → null) — groupId падает на активную группу", async () => {
+        // Вкладку успели закрыть, пока нотификация ждала microtask-флаш: её
+        // группы больше нет, и мета/нотификация несут координату активной.
+        const listeners: (() => void)[] = [];
+        const editor = {
+            uri: Uri.file("/a/b.ts"),
+            languageId: "typescript",
+            isModified: false,
+            encoding: "utf8",
+            eol: 1,
+            viewState: { selections: [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 1 } }] },
+        };
+        const group = {
+            ...GROUP_SURFACE,
+            groupOf: () => null,
+            activeGroup: { id: 7 },
+            viewColumnOf: () => 2,
+            getActiveTabEditor: () => editor,
+            onDidChangeActiveEditorSelection: (cb: (e: unknown) => void) => {
+                listeners.push(() => {
+                    cb(editor);
+                });
+                return { dispose: () => undefined };
+            },
+        } as unknown as EditorService;
+        const adapter = new EditorOptionsServiceAdapter(group);
+
+        expect(adapter.getActiveEditorMeta()).toMatchObject({ groupId: 7, viewColumn: 2 });
+
+        const seen: { groupId?: number }[] = [];
+        adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
+        for (const fire of listeners) fire();
+        await Promise.resolve();
+        expect(seen).toEqual([
+            {
+                uri: Uri.file("/a/b.ts").toString(),
+                selections: [{ anchorLine: 0, anchorCharacter: 0, activeLine: 0, activeCharacter: 1 }],
+                groupId: 7,
+            },
+        ]);
+    });
+
     it("getActiveEditorMeta() — selection null, когда выделений нет", () => {
         const group = {
             ...GROUP_SURFACE,

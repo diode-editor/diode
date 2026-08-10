@@ -130,4 +130,25 @@ describe("TextFileModelRegistry", () => {
         expect(disposeSpy).toHaveBeenCalledTimes(1);
         refB.dispose();
     });
+
+    it("модель без ключа (после коллизии) уезжает на свободный путь и снова индексируется", async () => {
+        const uriA = fileUri("a.txt", "aaa");
+        const uriB = fileUri("b.txt", "bbb");
+        const refA = registry.acquire(uriA);
+        const refB = registry.acquire(uriB);
+
+        // Коллизия: ключ занят B, модель A остаётся без ключа.
+        await refA.model.saveAs(uriB.fsPath);
+        registry.handleUriChanged(refA.model);
+
+        // Второй переезд — уже с key === null: старого ключа снимать не с чего,
+        // свободный путь снова индексирует модель.
+        const freePath = ws.path("c.txt");
+        await refA.model.saveAs(freePath);
+        registry.handleUriChanged(refA.model);
+
+        expect(registry.get(Uri.file(freePath)) === refA.model).toBe(true);
+        refA.dispose();
+        refB.dispose();
+    });
 });
