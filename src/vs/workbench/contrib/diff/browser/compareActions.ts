@@ -111,7 +111,7 @@ async function compareWithSelected(accessor: ServiceAccessor, filePath: unknown)
     if (result === "unreadable") showCompareNotice(accessor, "Cannot compare: file is not readable");
 }
 
-// ─── Compare Active File With… (US-3, US-9) ──────────────────────────────────
+// ─── Compare Active File With... (US-3, US-9) ──────────────────────────────────
 
 /**
  * Пикер второй стороны: открытые вкладки (сверху — они «под рукой», и среди
@@ -153,7 +153,7 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
     });
 
     const picked = await accessor.get(QuickInputServiceDIToken).quickPick({
-        title: "Compare Active File With…",
+        title: "Compare Active File With...",
         placeholder: "Select a file to compare with",
         items: unique,
     });
@@ -271,7 +271,7 @@ export const compareFilesAction: CommandAction = {
 
 export const compareFileWithAction: CommandAction = {
     id: "workbench.files.action.compareFileWith",
-    title: "File: Compare Active File With…",
+    title: "File: Compare Active File With...",
     run(accessor) {
         void compareActiveFileWith(accessor);
     },

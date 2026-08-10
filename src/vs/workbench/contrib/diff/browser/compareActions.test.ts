@@ -165,7 +165,7 @@ describe("Команды сравнения файлов", () => {
         });
     });
 
-    describe("Compare Active File With… (US-3, US-9)", () => {
+    describe("Compare Active File With... (US-3, US-9)", () => {
         it("пикер открывает дифф с выбранным файлом, активный — слева", async () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
@@ -173,7 +173,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.files.action.compareFileWith");
             await settleUntilDiff();
 
-            const picker = quickPickByTitle(h.testApp, "Compare Active File With…");
+            const picker = quickPickByTitle(h.testApp, "Compare Active File With...");
             const items = picker.items;
             const bIndex = items.findIndex((i) => i.label === "b.txt");
             expect(bIndex).toBeGreaterThanOrEqual(0);
@@ -286,7 +286,7 @@ describe("Команды сравнения файлов", () => {
         });
     });
 
-    describe("Compare Active File With… — состав пикера", () => {
+    describe("Compare Active File With... — состав пикера", () => {
         it("открытая вкладка показывается один раз с бейджем open (US-9)", async () => {
             h.commands.execute("workbench.openFile", ws.path("b.txt"));
             await settle(0);
@@ -296,7 +296,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.files.action.compareFileWith");
             await settleUntilDiff();
 
-            const picker = quickPickByTitle(h.testApp, "Compare Active File With…");
+            const picker = quickPickByTitle(h.testApp, "Compare Active File With...");
             const bItems = picker.items.filter((i) => i.label === "b.txt");
             // b.txt открыт и есть в индексе поиска — но в списке он один, с бейджем.
             expect(bItems).toHaveLength(1);
@@ -314,7 +314,7 @@ describe("Команды сравнения файлов", () => {
             // Файл пропадает МЕЖДУ открытием пикера и выбором — список его ещё помнит.
             const { rmSync } = await import("node:fs");
             rmSync(ws.path("b.txt"));
-            const picker = quickPickByTitle(h.testApp, "Compare Active File With…");
+            const picker = quickPickByTitle(h.testApp, "Compare Active File With...");
             picker.setActiveIndex(picker.items.findIndex((i) => i.label === "b.txt"));
             h.testApp.sendKey("Enter");
             await settleUntilDiff();
