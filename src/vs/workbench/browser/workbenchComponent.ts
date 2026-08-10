@@ -62,7 +62,7 @@ import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 import { builtinActions } from "./actions/builtinActions.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
-import { EditorGroupComponent, EditorGroupComponentDIToken } from "./parts/editor/editorGroupComponent.ts";
+import { EditorPartComponent, EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
 import { PanelComponentDIToken } from "./parts/panel/panelComponent.ts";
 import { QuickInputComponentDIToken } from "./parts/quickinput/quickInputComponent.ts";
 import type { QuickInputService } from "./parts/quickinput/quickInputService.ts";
@@ -114,7 +114,7 @@ export class WorkbenchComponent extends Component {
     public readonly workbenchLayout: WorkbenchLayoutElement;
 
     private editorService: EditorService;
-    private editorGroupComponent: EditorGroupComponent;
+    private editorPartComponent: EditorPartComponent;
     private dialogService: DialogService;
     private lifecycleService: LifecycleService;
     private explorerService: ExplorerService;
@@ -158,7 +158,7 @@ export class WorkbenchComponent extends Component {
         this.editorService = this.register(editorService);
         // Editor-кластер: компонент группового контрола (tab strip + контент
         // активного редактора) поверх EditorService.
-        this.editorGroupComponent = this.register(accessor.get(EditorGroupComponentDIToken));
+        this.editorPartComponent = this.register(accessor.get(EditorPartComponentDIToken));
         // Explorer-кластер: сервис (корень/провайдер/reveal) и компонент
         // (дерево + контекст-меню). WorkbenchComponent владеет их жизнью.
         this.explorerService = this.register(accessor.get(ExplorerServiceDIToken));
@@ -226,7 +226,7 @@ export class WorkbenchComponent extends Component {
         this.contributionsRegistry = this.register(accessor.get(WorkbenchContributionsRegistryDIToken));
 
         this.workbenchLayout = new WorkbenchLayoutElement();
-        this.workbenchLayout.setCenterContent(this.editorGroupComponent.view);
+        this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
         this.workbenchLayout.setBottomPanel(panelComponent.view);
         this.layoutService.attachLayout(this.workbenchLayout);
         // Персист открытых редакторов (write-through подписан на EditorService
@@ -249,7 +249,7 @@ export class WorkbenchComponent extends Component {
         // в локальном слое группы редакторов. Закрытие при смене активного
         // редактора сервисы делают сами (подписки на onActiveEditorChanged).
         suggestComponent.attachHost(this.view);
-        findComponent.attachHost(this.editorGroupComponent.view);
+        findComponent.attachHost(this.editorPartComponent.activeGroupOverlayHost());
         for (const action of builtinActions) {
             this.register(registerAction(commands, keybindings, accessor, action));
         }

@@ -12,9 +12,9 @@ import { QuitHandlerDIToken } from "../../workbench/browser/actions/appActions.t
 import { MENU_CONTRIBUTIONS } from "../../workbench/browser/actions/menuContributions.ts";
 import { MenuBarComponent, MenuBarComponentDIToken } from "../../workbench/browser/menuBarComponent.ts";
 import {
-    EditorGroupComponent,
-    EditorGroupComponentDIToken,
-} from "../../workbench/browser/parts/editor/editorGroupComponent.ts";
+    EditorPartComponent,
+    EditorPartComponentDIToken,
+} from "../../workbench/browser/parts/editor/editorPartComponent.ts";
 import {
     ActiveEditorStatusSourceDIToken,
     EditorStatusContribution,
@@ -250,10 +250,11 @@ export const workbenchModule: ContainerModule = (container) => {
     // Выход из приложения (Ctrl+Q / меню / палитра → quitAction) — структурно
     // выполняет WorkbenchComponent (confirm-save + teardown + exit).
     container.bind(QuitHandlerDIToken, () => container.get(WorkbenchComponentDIToken));
-    // Editor-кластер (этап 9b): логика группы редакторов (открытые TextEditorPane-пары,
-    // активная вкладка, MRU) + компонент группового контрола (tab strip + контент).
+    // Editor-кластер (этап 9b): логика полосы групп редакторов (открытые
+    // TextEditorPane-пары, активная вкладка, MRU) + часть «область редактора»
+    // (по групповому контролу tab strip + контент на группу).
     container.bind(EditorServiceDIToken, EditorService);
-    container.bind(EditorGroupComponentDIToken, EditorGroupComponent);
+    container.bind(EditorPartComponentDIToken, EditorPartComponent);
     // Find/Suggest-кластер (этап 10): компоненты владеют виджетами и
     // overlay-сессиями (suggest — глобальный body-слой у каретки, find —
     // локальный слой группы; host'ы прикрепляет WorkbenchComponent через attachHost),

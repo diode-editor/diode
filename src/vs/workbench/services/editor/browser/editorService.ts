@@ -26,6 +26,7 @@ import {
     TokenizationRegistryDIToken,
     TokenStyleResolverDIToken,
 } from "../../../common/coreTokens.ts";
+import { EditorGroup } from "./editorGroupModel.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
 import { TextFileModel } from "../../textfile/common/textFileModel.ts";
@@ -63,7 +64,15 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         ContextMenuControllerDIToken,
     ] as const;
 
-    private panes: IEditorPane[] = [];
+    /**
+     * Полоса групп в порядке ViewColumn − 1. Пока сплитов нет — ровно одна;
+     * вкладочная поверхность сервиса (activeIndex, activateTab, closeTab, MRU)
+     * делегирует в активную группу.
+     */
+    private groupsList: EditorGroup[] = [];
+    private activeGroupValue!: EditorGroup;
+    /** Монотонный счётчик стабильных id групп (не переиспользуется). */
+    private groupIdCounter = 0;
     /**
      * Реестр моделей открытых файлов: один {@link TextFileModel} на ресурс при
      * любом числе показывающих его вкладок; вкладка владеет ссылкой, модель
@@ -73,28 +82,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /**
      * Редакторы вне таб-строки (нижняя Panel: Output). Держим отдельным списком
      * именно затем, чтобы весь код вкладок — `getEditors`, `editorCount`,
-     * `getOpenFilePaths`, `collectDirty` — продолжал ходить по `this.panes` и
+     * `getOpenFilePaths`, `collectDirty` — продолжал ходить по группам и
      * не знал о них вовсе. Виден detached-редактор ровно в одном месте:
      * {@link getActivePane}, когда фокус внутри него.
      */
     private detachedPanes: TextEditorPane[] = [];
-    private activeIndexValue = -1;
-
-    /**
-     * Порядок редакторов от самого недавно использованного к самому давнему
-     * (mru[0] — активный/последний). Отдельно от `editors`, который хранит
-     * позиционный порядок вкладок в strip'е. Питает MRU-переключение Ctrl+Tab.
-     */
-    private mruOrder: IEditorPane[] = [];
-    /**
-     * Идёт ли сейчас серия Ctrl+Tab. Пока серия активна, список MRU заморожен
-     * (`mruCycleList`), а выбор не коммитится в начало `mruOrder` — иначе нельзя
-     * было бы уйти глубже второй вкладки. Любое обычное переключение или
-     * структурное изменение завершает серию.
-     */
-    private cyclingActive = false;
-    private mruCycleList: IEditorPane[] = [];
-    private mruCyclePointer = 0;
     private themeService: ThemeService;
     private tokenizationRegistry: TokenizationRegistry;
     private tokenStyleResolver: ITokenStyleResolver;
@@ -263,6 +255,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.undoRedoService = undoRedoService;
         this.fileWatcher = fileWatcher;
         this.contextMenuController = contextMenuController;
+        // Полоса групп начинается с единственной — она же активная.
+        this.activeGroupValue = this.createGroup();
         // Live-reload: при изменении `editor.*` настроек перепримeняем их ко всем
         // открытым редакторам группы (не только к вновь создаваемым).
         this.register(
@@ -275,12 +269,63 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         );
     }
 
-    public get activeIndex(): number {
-        return this.activeIndexValue;
+    // ─── Группы: полоса и активная группа ─────────────────────────────────────
+
+    /** Полоса групп в порядке ViewColumn − 1. */
+    public get groups(): readonly EditorGroup[] {
+        return this.groupsList;
     }
 
+    /** Активная группа — та, по чьим вкладкам работает фасад сервиса. */
+    public get activeGroup(): EditorGroup {
+        return this.activeGroupValue;
+    }
+
+    /** Группа, содержащая вкладку, либо `null` (detached-панели групп не имеют). */
+    public groupOf(pane: IEditorPane): EditorGroup | null {
+        for (const group of this.groupsList) {
+            if (group.getPanes().includes(pane)) return group;
+        }
+        return null;
+    }
+
+    /** Номер колонки группы (1..N) — производный от позиции в полосе. */
+    public viewColumnOf(group: EditorGroup): number {
+        return this.groupsList.indexOf(group) + 1;
+    }
+
+    /**
+     * Создаёт группу, включает её в полосу и переподнимает её события на
+     * фасадные: view-слой (`EditorGroupComponent`) слушает саму группу, а
+     * потребители «активного редактора» — сервис.
+     */
+    private createGroup(): EditorGroup {
+        const group = new EditorGroup(++this.groupIdCounter);
+        this.register(group);
+        this.groupsList.push(group);
+        this.register(
+            group.onDidChangeEditors(() => {
+                this.fireEditorsChanged();
+            }),
+        );
+        this.register(
+            group.onDidChangeActivePane((pane) => {
+                // Смена вкладки НЕактивной группы не трогает активный редактор
+                // воркбенча (в фазе одной группы недостижимо, но контракт таков).
+                if (group === this.activeGroupValue) this.fireActiveEditorChanged(pane);
+            }),
+        );
+        return group;
+    }
+
+    /** Позиция активной вкладки активной группы. */
+    public get activeIndex(): number {
+        return this.activeGroupValue.activeIndex;
+    }
+
+    /** Число вкладок активной группы. */
     public get editorCount(): number {
-        return this.panes.length;
+        return this.activeGroupValue.editorCount;
     }
 
     // ─── Панели: generic-поверхность для группы и вкладок ─────────────────────
@@ -311,8 +356,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      *   панели не должен подменять расширению активный текстовый редактор.
      */
     public getActiveTabPane(): IEditorPane | null {
-        if (this.activeIndexValue < 0 || this.activeIndexValue >= this.panes.length) return null;
-        return this.panes[this.activeIndexValue];
+        return this.activeGroupValue.activePane;
     }
 
     /**
@@ -329,30 +373,29 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     public getPane(index: number): IEditorPane | null {
-        if (index < 0 || index >= this.panes.length) return null;
-        return this.panes[index];
+        return this.activeGroupValue.getPane(index);
     }
 
-    /** Открытые панели в позиционном порядке вкладок (живой снимок для view-синхронизации). */
+    /** Открытые панели активной группы в позиционном порядке вкладок. */
     public getPanes(): readonly IEditorPane[] {
-        return this.panes;
+        return this.activeGroupValue.getPanes();
     }
 
     /**
      * Открывает готовую панель не-текстового вида (дифф и т.п.). Идентичность —
-     * по ресурсу, как и у файлов: повторный вызов переключает на существующую
-     * вкладку, а не заводит вторую.
+     * по ресурсу в пределах группы, как и у файлов: повторный вызов переключает
+     * на существующую вкладку, а не заводит вторую.
      */
     public openPane(pane: IEditorPane, { focus = true }: { focus?: boolean } = {}): void {
-        const existingIndex = this.panes.findIndex((p) => p.uri.toString() === pane.uri.toString());
+        const group = this.activeGroupValue;
+        const existingIndex = group.findPaneIndex(pane.uri);
         if (existingIndex >= 0) {
             pane.dispose();
             this.activateTab(existingIndex, { focus });
             return;
         }
-        this.wirePane(pane);
-        this.panes.push(pane);
-        this.activateTab(this.panes.length - 1, { focus });
+        group.insertPane(pane);
+        group.activateTab(group.editorCount - 1, { focus });
     }
 
     // ─── Текстовая поверхность: сужение generic-списка ────────────────────────
@@ -398,6 +441,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         model.openSynthetic(uri, languageId);
         const editor = this.createPaneForModel(model);
         editor.detached = true;
+        // Вкладочные панели обвязывает группа; detached — сам сервис.
+        this.wirePane(editor);
         this.applyConfigurationToEditor(editor);
         this.detachedPanes.push(editor);
         return editor;
@@ -409,13 +454,19 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         return pane instanceof TextEditorPane ? pane : null;
     }
 
-    /** Открытые текстовые редакторы — без панелей других видов. */
+    /** Открытые текстовые редакторы ВСЕХ групп — без панелей других видов. */
     public getEditors(): readonly TextEditorPane[] {
         return this.textPanes();
     }
 
+    /** Текстовые вкладки всех групп в порядке полосы (декорации, конфиг, персист). */
     private textPanes(): TextEditorPane[] {
-        return this.panes.filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane);
+        return this.allPanes().filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane);
+    }
+
+    /** Вкладки всех групп в порядке полосы. */
+    private allPanes(): IEditorPane[] {
+        return this.groupsList.flatMap((group) => [...group.getPanes()]);
     }
 
     /**
@@ -444,10 +495,12 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
 
     /** Открывает ресурс по uri — вход для тех, у кого он уже есть (диагностики). */
     public openUri(uri: Uri, { focus = true }: { focus?: boolean } = {}): void {
-        // Идентичность вкладки — по ресурсу целиком, а не по имени файла: два разных
-        // файла с одинаковым basename (например, два index.ts из разных папок)
-        // должны открываться в отдельных вкладках, а не переключать на первую.
-        const existingIndex = this.panes.findIndex((e) => e.uri.toString() === uri.toString());
+        // Идентичность вкладки — по ресурсу целиком В ПРЕДЕЛАХ группы, а не по
+        // имени файла: два разных файла с одинаковым basename должны открываться
+        // в отдельных вкладках, а тот же ресурс в другой группе — своей вкладкой
+        // (общая модель через реестр).
+        const group = this.activeGroupValue;
+        const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
             this.activateTab(existingIndex, { focus });
             return;
@@ -458,8 +511,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const ref = this.modelRegistry.acquire(uri);
         const editor = this.createPaneForModel(ref.model, ref);
         this.applyConfigurationToEditor(editor);
-        this.panes.push(editor);
-        this.activateTab(this.panes.length - 1, { focus });
+        group.insertPane(editor);
+        group.activateTab(group.editorCount - 1, { focus });
     }
 
     /**
@@ -476,10 +529,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // Файл не грузим (view-state из конструктора не пересоздаётся) — конфиг
         // применяем сразу.
         this.applyConfigurationToEditor(editor);
-        // Номер выдаём до push: пока редактора нет в списке вкладок, его никто не видит.
+        // Номер выдаём до вставки: пока редактора нет в списке вкладок, его никто не видит.
         editor.setUntitled(++this.untitledCounter);
-        this.panes.push(editor);
-        this.activateTab(this.panes.length - 1, { focus });
+        const group = this.activeGroupValue;
+        group.insertPane(editor);
+        group.activateTab(group.editorCount - 1, { focus });
     }
 
     /**
@@ -528,20 +582,15 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // пары: ScrollBarDecorator переживает пересоздание EditorElement при
         // перечитке, сам элемент контроллер берёт из цели события.
         this.contextMenuController.attach(component.view);
-        this.wirePane(editor);
         editor.foldingRangeSource = this.foldingRangeSourceValue;
         this.onEditorCreate?.(editor);
         return editor;
     }
 
     /**
-     * Общая для панелей любого вида обвязка: владение временем жизни и
-     * перерисовка таб-стрипа по изменению видимого во вкладке.
-     *
-     * Раньше группа подписывалась на три текстовых события по отдельности
-     * (контент, EOL, состояние файла на диске). Теперь панель сводит их в
-     * {@link IEditorPane.onDidChangeState} сама — группе незачем знать, что такое
-     * EOL и бывает ли у вкладки файл на диске.
+     * Обвязка detached-панели: владение временем жизни и перерисовка таб-стрипа
+     * по изменению видимого. Вкладочные панели обвязывает сама группа в
+     * `insertPane` — этот путь остался только для панелей вне таб-строки.
      */
     private wirePane(pane: IEditorPane): void {
         this.register(pane);
@@ -552,128 +601,29 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         );
     }
 
-    public activateTab(index: number, { focus = true, mru = false }: { focus?: boolean; mru?: boolean } = {}): void {
-        if (index < 0 || index >= this.panes.length) return;
-
-        // Обычное переключение завершает серию Ctrl+Tab и коммитит в MRU:
-        // сперва — недавно выбранную в серии вкладку, затем целевую.
-        if (!mru) {
-            if (this.cyclingActive) {
-                this.commitActiveToMru();
-                this.cyclingActive = false;
-            }
-            this.moveToMruFront(this.panes[index]);
-        }
-
-        this.activeIndexValue = index;
-
-        const editor = this.panes[index];
-        // Компонент вставляет view активного редактора и перерисовывает табы —
-        // до фокуса: фокусировать можно только элемент, стоящий в дереве.
-        this.fireEditorsChanged();
-        if (focus) this.focusEditor();
-        this.fireActiveEditorChanged(editor);
+    /** Переключение вкладки активной группы (порядок событий — контракт группы). */
+    public activateTab(index: number, options: { focus?: boolean; mru?: boolean } = {}): void {
+        this.activeGroupValue.activateTab(index, options);
     }
 
-    /**
-     * Переключение вкладок по принципу MRU (Ctrl+Tab / Ctrl+Shift+Tab).
-     * `direction === 1` идёт к более давним вкладкам, `-1` — к более недавним.
-     * Пока серия нажатий не прервана, порядок MRU заморожен, что позволяет
-     * проходить по стеку глубже двух вкладок.
-     */
+    /** MRU-переключение вкладок активной группы (Ctrl+Tab / Ctrl+Shift+Tab). */
     public cycleMru(direction: 1 | -1): void {
-        if (this.panes.length < 2) return;
-
-        if (!this.cyclingActive) {
-            this.commitActiveToMru();
-            this.mruCycleList = this.mruOrder.filter((e) => this.panes.includes(e));
-            this.mruCyclePointer = 0;
-            this.cyclingActive = true;
-        }
-
-        const length = this.mruCycleList.length;
-        /* v8 ignore start -- defensive: cyclingActive is cleared on any structural change, so the frozen list always has ≥2 open editors here */
-        if (length < 2) {
-            this.cyclingActive = false;
-            return;
-        }
-        /* v8 ignore stop */
-
-        this.mruCyclePointer = (this.mruCyclePointer + direction + length) % length;
-        const target = this.mruCycleList[this.mruCyclePointer];
-        const targetIndex = this.panes.indexOf(target);
-        /* v8 ignore start -- defensive: closing a tab clears cyclingActive, so the frozen target is always still open */
-        if (targetIndex < 0) {
-            this.cyclingActive = false;
-            return;
-        }
-        /* v8 ignore stop */
-        this.activateTab(targetIndex, { mru: true });
+        this.activeGroupValue.cycleMru(direction);
     }
 
-    /**
-     * Завершает серию Ctrl+Tab (вызывается по отпусканию Ctrl): фиксирует
-     * выбранный в серии редактор в начале MRU-стека. Благодаря этому быстрые
-     * нажатия Ctrl+Tab с отпусканием Ctrl тумблерят два последних редактора
-     * (каждая серия — один шаг), а удержание Ctrl с повторными Tab проходит
-     * вглубь стека (серия не завершается, список заморожен).
-     */
+    /** Завершает серию Ctrl+Tab активной группы (по отпусканию Ctrl). */
     public endMruCycle(): void {
-        if (!this.cyclingActive) return;
-        this.commitActiveToMru();
-        this.cyclingActive = false;
+        this.activeGroupValue.endMruCycle();
     }
 
-    /** Снимок MRU-порядка (mru[0] — самый недавний). Для тестов и диагностики. */
+    /** Снимок MRU-порядка активной группы (mru[0] — самый недавний). */
     public getMruOrder(): IEditorPane[] {
-        return [...this.mruOrder];
+        return this.activeGroupValue.getMruOrder();
     }
 
-    private moveToMruFront(editor: IEditorPane): void {
-        const index = this.mruOrder.indexOf(editor);
-        if (index >= 0) this.mruOrder.splice(index, 1);
-        this.mruOrder.unshift(editor);
-    }
-
-    /** Продвигает активный редактор в начало MRU-стека (фиксирует выбор серии). */
-    private commitActiveToMru(): void {
-        const current = this.getActivePane();
-        /* v8 ignore start -- defensive: коммит вызывается только когда есть активный редактор */
-        if (current) this.moveToMruFront(current);
-        /* v8 ignore stop */
-    }
-
+    /** Закрывает вкладку активной группы (события и фокус — контракт группы). */
     public closeTab(index: number): void {
-        if (index < 0 || index >= this.panes.length) return;
-
-        // Структурное изменение делает замороженный список серии невалидным.
-        this.cyclingActive = false;
-
-        const editor = this.panes[index];
-        this.panes.splice(index, 1);
-        const mruIndex = this.mruOrder.indexOf(editor);
-        /* v8 ignore start -- defensive: каждый открытый редактор присутствует в mruOrder */
-        if (mruIndex >= 0) this.mruOrder.splice(mruIndex, 1);
-        /* v8 ignore stop */
-        editor.dispose();
-
-        if (this.panes.length === 0) {
-            this.activeIndexValue = -1;
-            // Компонент снимает view закрытого редактора (фокус гаснет вместе с ним).
-            this.fireEditorsChanged();
-            this.fireActiveEditorChanged(null);
-        } else if (index <= this.activeIndexValue) {
-            this.activeIndexValue = Math.max(0, this.activeIndexValue - 1);
-            const activeEditor = this.panes[this.activeIndexValue];
-            this.moveToMruFront(activeEditor);
-            this.fireEditorsChanged();
-            this.focusEditor();
-            this.fireActiveEditorChanged(activeEditor);
-        } else {
-            // Закрыли вкладку после активной: активный редактор не меняется,
-            // компоненту достаточно перерисовать табы.
-            this.fireEditorsChanged();
-        }
+        this.activeGroupValue.closeTab(index);
     }
 
     public async activate(): Promise<void> {
@@ -749,8 +699,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public isLastPaneForDocument(editor: TextEditorPane): boolean {
         let count = 0;
-        for (const pane of this.panes) {
-            if (pane instanceof TextEditorPane && pane.model === editor.model) count++;
+        for (const pane of this.textPanes()) {
+            if (pane.model === editor.model) count++;
         }
         return count <= 1;
     }

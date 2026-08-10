@@ -7,16 +7,12 @@ import { EditorTabStripElement } from "../../../../../../tuidom/ui/editorgroup/e
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 import { VFlexElement, vflexFill, vflexFixed } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
-import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 import { Component } from "../../component.ts";
 
 import type { IEditorPane } from "./iEditorPane.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
-
-export const EditorGroupComponentDIToken = token<EditorGroupComponent>("EditorGroupComponent");
 
 /**
  * Компонент группы редакторов: собирает группу из примитивов tuidom —
@@ -28,10 +24,11 @@ export const EditorGroupComponentDIToken = token<EditorGroupComponent>("EditorGr
  * занимает филлер, крашеный editor.background. Клики по табам возвращаются в
  * сервис (`activateTab`/`closeTab`; закрытие «грязной» вкладки — через
  * `onRequestConfirmClose`).
+ *
+ * Не DI-сервис: инстансы создаёт {@link EditorPartComponent} — по контролу на
+ * группу полосы.
  */
 export class EditorGroupComponent extends Component {
-    public static dependencies = [EditorServiceDIToken] as const;
-
     public readonly view: OverlayHostElement;
 
     private readonly vflex = new VFlexElement();
