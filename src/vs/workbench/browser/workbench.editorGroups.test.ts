@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
+import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 
@@ -248,6 +248,22 @@ describe("Workbench — editor groups (сплиты)", () => {
         // Полоса рядная; Split Right поперёк — отклонён.
         h.commands.execute("workbench.action.splitEditorRight");
         expect(service().groups.length).toBe(2);
+    });
+
+    it("rows: саш занимает свою строку — таб нижней группы достижим мышью", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.commands.execute("workbench.action.splitEditorDown");
+        h.testApp.render();
+
+        // Первая строка нижней группы — её таб-стрип; раньше саш ложился поверх
+        // и, будучи последним в hit-test, забирал точку себе (табы недоступны).
+        const bottom = h.testApp.querySelector("#editorGroup-2")!;
+        const tabStrip = bottom.querySelector("EditorTabStripElement")!;
+        const point = new Point(tabStrip.globalPosition.x + 2, tabStrip.globalPosition.y);
+        let hit = h.testApp.root.elementFromPoint(point);
+        expect(hit?.constructor.name).not.toBe("SashElement");
+        while (hit !== null && hit !== tabStrip) hit = hit.getParent();
+        expect(hit === tabStrip).toBe(true);
     });
 
     it("US-15: перенос вкладки в соседнюю группу — фокус едет со вкладкой", () => {

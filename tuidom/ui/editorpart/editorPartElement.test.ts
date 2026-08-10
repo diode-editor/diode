@@ -72,7 +72,7 @@ describe("EditorPartElement", () => {
         expect(b.layoutSize.width).toBe(30);
     });
 
-    it("ряды: группы делят высоту, ширина общая", () => {
+    it("ряды: группы делят высоту, саш — поверх последней строки верхней", () => {
         const part = new EditorPartElement();
         const [a, b] = panels(2);
         part.setViews([a, b]);
@@ -80,7 +80,12 @@ describe("EditorPartElement", () => {
         layoutAt(part, 80, 30);
 
         expect(a.layoutSize).toEqual(new Size(80, 15));
+        expect(b.layoutSize).toEqual(new Size(80, 15));
         expect(b.localPosition).toEqual(new Offset(0, 15));
+        // Саш лежит на последней строке ВЕРХНЕЙ группы, не на первой нижней —
+        // та занята табами, и наложение отняло бы у них мышь.
+        const sash = part.getChildren().find((c) => c.constructor.name === "SashElement")!;
+        expect(sash.localPosition).toEqual(new Offset(0, 14));
     });
 
     it("саш лежит на границе групп и укладывается при каждом layout", () => {
@@ -97,6 +102,36 @@ describe("EditorPartElement", () => {
         // Ресайз двигает границу — и саш обязан переехать (stale layoutSize ломает hit-test).
         layoutAt(part, 60, 30);
         expect(sash!.localPosition).toEqual(new Offset(30, 0));
+    });
+
+    it("вырожденная нулевая высота в rows — саш клампится в строку 0", () => {
+        const part = new EditorPartElement();
+        const [a, b] = panels(2);
+        part.setViews([a, b]);
+        part.orientation = "rows";
+        layoutAt(part, 80, 0);
+
+        const sash = part.getChildren().find((c) => c.constructor.name === "SashElement")!;
+        expect(sash.localPosition).toEqual(new Offset(0, 0));
+    });
+
+    it("drag горизонтального саша в rows: курсор на строке Y — верхняя группа Y+1 строк", () => {
+        const part = new EditorPartElement();
+        const [a, b, c] = panels(3);
+        part.setViews([a, b, c]);
+        part.orientation = "rows";
+        layoutAt(part, 80, 30);
+        expect([a, b, c].map((v) => v.layoutSize.height)).toEqual([10, 10, 10]);
+
+        const lower = part.getChildren().filter((ch) => ch.constructor.name === "SashElement")[1];
+        expect(lower.localPosition).toEqual(new Offset(0, 19));
+        lower.dispatchEvent(new TUIMouseEvent("mousedown", { button: "left", screenX: 5, screenY: 19, localX: 5, localY: 0 }));
+        lower.dispatchEvent(new TUIMouseEvent("mousemove", { button: "left", screenX: 5, screenY: 24, localX: 5, localY: 0 }));
+        lower.dispatchEvent(new TUIMouseEvent("mouseup", { button: "left", screenX: 5, screenY: 24, localX: 5, localY: 0 }));
+
+        layoutAt(part, 80, 30);
+        expect(b.layoutSize.height).toBe(15);
+        expect(c.layoutSize.height).toBe(5);
     });
 
     it("drag саша перераспределяет веса пары и зовёт onDidChangeWeights", () => {

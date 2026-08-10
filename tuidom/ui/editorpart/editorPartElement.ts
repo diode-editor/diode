@@ -15,8 +15,11 @@ export const MIN_GROUP_MAIN_ROWS = 5;
  * сведённого к одному ряду/колонке): N вью групп + N−1 сашей между ними.
  * Пропорции — нормированные веса, переживают ресайз терминала; политику весов
  * при сплите/схлопывании задаёт владелец (`EditorPartComponent`) через
- * {@link setViews}. Саши лежат ПОВЕРХ граничной ячейки следующей группы
- * (пуш последними — hit-test), каждый укладывается явно в каждом layout.
+ * {@link setViews}. Саши лежат ПОВЕРХ граничной ячейки (пуш последними —
+ * hit-test): в columns — поверх первой колонки следующей группы, в rows —
+ * поверх ПОСЛЕДНЕЙ строки предыдущей: первая строка нижней группы это её
+ * табы, и наложение отняло бы у них мышь, а нижняя строка редактора менее
+ * ценна. Каждый саш укладывается явно в каждом layout.
  *
  * Деградация «не влезаем»: контейнер уже, чем N×минимум, — display-only равное
  * деление без мутации весов; при возврате размера пропорции восстанавливаются.
@@ -201,7 +204,10 @@ export class EditorPartElement extends TUIElement {
         for (let i = 0; i < index; i++) offset += sizes[i];
         const min = this.minMainSize();
         const pair = sizes[index] + sizes[index + 1];
-        const target = Math.max(min, Math.min(boundaryScreen - origin - offset, pair - min));
+        // В rows саш лежит на последней строке верхней группы (не на первой
+        // нижней) — курсор на строке Y означает размер верхней Y+1.
+        const inset = this.orientationValue === "rows" ? 1 : 0;
+        const target = Math.max(min, Math.min(boundaryScreen - origin - offset + inset, pair - min));
         sizes[index] = target;
         sizes[index + 1] = pair - target;
         this.weightsValue = this.normalizeWeights(sizes);
@@ -285,12 +291,15 @@ export class EditorPartElement extends TUIElement {
             this.layoutChild(view, columns ? offset : 0, columns ? 0 : offset, BoxConstraints.tight(size));
             offset += sizes[i];
 
-            // Саш i лежит на границе групп i/i+1 — первая ячейка следующей
-            // группы. Явная укладка каждый layout: ленивый layoutSize со старым
-            // боксом ломает hit-test (контракт WorkbenchLayoutElement).
+            // Саш i на границе групп i/i+1: в columns — поверх первой колонки
+            // следующей группы, в rows — поверх последней строки предыдущей
+            // (первая строка нижней это её табы). Явная укладка каждый layout:
+            // ленивый layoutSize со старым боксом ломает hit-test (контракт
+            // WorkbenchLayoutElement).
             if (i < this.sashes.length) {
                 const sashSize = columns ? new Size(1, containerSize.height) : new Size(containerSize.width, 1);
-                this.layoutChild(this.sashes[i], columns ? offset : 0, columns ? 0 : offset, BoxConstraints.tight(sashSize));
+                const sashMain = columns ? offset : Math.max(0, offset - 1);
+                this.layoutChild(this.sashes[i], columns ? sashMain : 0, columns ? 0 : sashMain, BoxConstraints.tight(sashSize));
             }
         }
         return containerSize;
