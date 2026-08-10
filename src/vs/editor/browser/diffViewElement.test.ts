@@ -6,8 +6,11 @@ import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent
 import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { DefaultLinesDiffComputer } from "../common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
+import { DiffInnerRanges } from "../common/diff/diffInnerRanges.ts";
 import { DiffViewModel } from "../common/diff/diffViewModel.ts";
+import type { IDiffViewSides } from "../common/diff/diffViewText.ts";
 import { createDiffViewState } from "../common/diff/diffViewText.ts";
+import { buildSideBySideRows, createSideBySideViewStates } from "../common/diff/sideBySideRows.ts";
 import { createLineTokens, createToken } from "../common/languages/iLineTokens.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
 
@@ -54,6 +57,20 @@ function makeElement(
     return buildElement(model.rows, original, modified, options.source ?? plainSource());
 }
 
+/** Полный вход `setDiff` из строк вью и текстов сторон — общий для тестов диффа. */
+function diffInput(rows: DiffViewElement["rows"], sides: IDiffViewSides, source: IDiffRowSource) {
+    const sideRows = buildSideBySideRows(rows);
+    return {
+        rows,
+        sideRows,
+        source,
+        inlineViewState: createDiffViewState(rows, sides, 4),
+        sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
+        labels: { original: "HEAD", modified: "file" },
+        innerRanges: new DiffInnerRanges([]),
+    };
+}
+
 /** Элемент со своим набором строк вью и синтетическим документом под ним. */
 function buildElement(
     rows: DiffViewElement["rows"],
@@ -64,7 +81,7 @@ function buildElement(
     const element = new DiffViewElement();
     element.setStyleVars(STYLE_VARS);
     element.style = { fg: FG, bg: BG };
-    element.setRows(rows, source, createDiffViewState(rows, { original, modified }, 4));
+    element.setDiff(diffInput(rows, { original, modified }, source));
     return element;
 }
 
@@ -371,13 +388,12 @@ describe("DiffViewElement — горизонтальная прокрутка", 
         expect(element.contentWidth).toBe(element.gutterWidth + 120);
 
         const short = ["ab"];
-        element.setRows(
-            [{ kind: "unchanged", originalLine: 0, modifiedLine: 0 }],
-            plainSource(),
-            createDiffViewState([{ kind: "unchanged", originalLine: 0, modifiedLine: 0 }], {
-                original: short,
-                modified: short,
-            }, 4),
+        element.setDiff(
+            diffInput(
+                [{ kind: "unchanged", originalLine: 0, modifiedLine: 0 }],
+                { original: short, modified: short },
+                plainSource(),
+            ),
         );
 
         expect(element.contentWidth).toBe(element.gutterWidth + 2);

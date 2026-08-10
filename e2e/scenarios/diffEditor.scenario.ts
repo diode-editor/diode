@@ -5,8 +5,10 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Вкладка с inline-диффом: «Git: Compare Active File with HEAD». Слева от текста
-// номера строк обеих сторон, дальше `-`/`+`, неизменённые куски свёрнуты.
+// Вкладка диффа: «Git: Compare Active File with HEAD». Терминал шире порога
+// SIDE_BY_SIDE_MIN_COLS, поэтому кадры показывают side-by-side: две колонки с
+// подписями сторон (HEAD | имя файла), пер-сторонние номера, маркеры `-`/`+`,
+// филлеры напротив односторонних правок; неизменённые куски свёрнуты.
 // Правку НЕ сохраняем — дифф считается против буфера, а не против файла на диске.
 
 function git(cwd: string, ...args: string[]): void {
@@ -34,7 +36,9 @@ export default defineScenario({
     name: "diff-editor",
     title: "Вкладка diff: изменения файла против HEAD",
     open: [repoDir, trackedFile],
-    cols: 100,
+    // Шире порога side-by-side (120): кадр галереи показывает две колонки. При
+    // 100 колонках дифф молча рисовался бы inline — и демо врало бы о дефолте.
+    cols: 132,
     rows: 22,
     // Нужен extension host — версию из HEAD отдаёт git-расширение.
     skipOn: ["win32", "darwin"],
@@ -62,8 +66,9 @@ export default defineScenario({
         await editor.capture("diff");
 
         // Дифф — текстовая поверхность: каретка ходит, текст выделяется. Ведём
-        // её на строку с правкой и выделяем поперёк границы `-`/`+`, чтобы на
-        // кадре была видна подсветка выделения поверх фона added/deleted.
+        // её вниз и выделяем полторы строки, чтобы на кадре была видна
+        // подсветка выделения поверх фона изменённых строк — в side-by-side
+        // выделение живёт в активной (правой) колонке и не перетекает в левую.
         for (let i = 0; i < 4; i++) await editor.sendKey("ArrowDown");
         await editor.sendKey("Shift+ArrowDown");
         await editor.sendKey("Shift+End");

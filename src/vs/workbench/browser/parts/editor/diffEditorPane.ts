@@ -4,9 +4,11 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import type { IDiffRowSource } from "../../../../editor/browser/diffViewElement.ts";
 import { DiffViewElement } from "../../../../editor/browser/diffViewElement.ts";
 import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
+import { DiffInnerRanges } from "../../../../editor/common/diff/diffInnerRanges.ts";
 import { DiffViewModel } from "../../../../editor/common/diff/diffViewModel.ts";
 import type { DiffSide } from "../../../../editor/common/diff/diffViewText.ts";
 import { createDiffViewState } from "../../../../editor/common/diff/diffViewText.ts";
+import { buildSideBySideRows, createSideBySideViewStates } from "../../../../editor/common/diff/sideBySideRows.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
 import type { ILineTokens } from "../../../../editor/common/languages/iLineTokens.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -37,6 +39,10 @@ export interface IDiffEditorPaneInput {
     readonly uri: Uri;
     /** Метка вкладки (напр. `a.ts ↔ HEAD`). */
     readonly label: string;
+    /** Подпись левой колонки side-by-side (напр. `HEAD`). */
+    readonly originalLabel: string;
+    /** Подпись правой колонки side-by-side (обычно имя файла). */
+    readonly modifiedLabel: string;
     readonly originalText: string;
     readonly modifiedText: string;
     /** Язык для подсветки обеих сторон. */
@@ -155,15 +161,22 @@ export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSo
             hideUnchangedRegions: true,
         });
 
-        // Синтетический документ вью: строка i — текст i-й строки диффа. Он даёт
-        // элементу каретку, выделение и копирование от обычного редактора и
-        // служит единственным источником правды о нарисованном тексте.
-        const viewState = createDiffViewState(
-            model.rows,
-            { original: originalLines, modified: modifiedLines },
-            DIFF_TAB_SIZE,
-        );
-        this.element.setRows(model.rows, this, viewState);
+        // Синтетические документы вью: у inline строка i — текст i-й строки
+        // диффа, у side-by-side у каждой стороны свой документ по спаренным
+        // строкам. Они дают элементу каретку, выделение и копирование от
+        // обычного редактора и служат единственным источником правды о
+        // нарисованном тексте.
+        const sides = { original: originalLines, modified: modifiedLines };
+        const sideRows = buildSideBySideRows(model.rows);
+        this.element.setDiff({
+            rows: model.rows,
+            sideRows,
+            source: this,
+            inlineViewState: createDiffViewState(model.rows, sides, DIFF_TAB_SIZE),
+            sideViewStates: createSideBySideViewStates(sideRows, sides, DIFF_TAB_SIZE),
+            labels: { original: input.originalLabel, modified: input.modifiedLabel },
+            innerRanges: new DiffInnerRanges(diff.changes),
+        });
     }
 
     // ─── IEditorPane ──────────────────────────────────────────────────────────

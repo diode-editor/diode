@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
 import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { DiffInnerRanges } from "../common/diff/diffInnerRanges.ts";
 import type { IDiffViewRow } from "../common/diff/diffViewModel.ts";
 import { createDiffViewState } from "../common/diff/diffViewText.ts";
+import { buildSideBySideRows, createSideBySideViewStates } from "../common/diff/sideBySideRows.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
 
 import type { IDiffRowSource } from "./diffViewElement.ts";
@@ -55,7 +57,16 @@ function createElement(
     const element = new DiffViewElement();
     element.setStyleVars(STYLE_VARS);
     element.style = { fg: FG, bg: BG };
-    element.setRows(rows, NO_TOKENS, createDiffViewState(rows, sides, 4));
+    const sideRows = buildSideBySideRows(rows);
+    element.setDiff({
+        rows,
+        sideRows,
+        source: NO_TOKENS,
+        inlineViewState: createDiffViewState(rows, sides, 4),
+        sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
+        labels: { original: "HEAD", modified: "file" },
+        innerRanges: new DiffInnerRanges([]),
+    });
     const app = TestApp.createWithContent(element, size);
     app.render();
     return { element, app };
@@ -192,7 +203,10 @@ describe("DiffViewElement — inspectState", () => {
 
         expect(element.inspectState()).toEqual({
             readOnly: true,
+            mode: "inline",
+            activeSide: "modified",
             rowCount: 4,
+            sideRowCount: 3,
             scrollTop: 0,
             scrollLeft: 0,
             hasSelection: true,

@@ -73,8 +73,8 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         return r;
     }
 
-    async function open(openArgs: string[], cwd: string): Promise<HeadlessSession> {
-        app = await startHeadlessApp({ open: openArgs, cwd, cols: 100, rows: 24 });
+    async function open(openArgs: string[], cwd: string, cols = 100): Promise<HeadlessSession> {
+        app = await startHeadlessApp({ open: openArgs, cwd, cols, rows: 24 });
         return app.session;
     }
 
@@ -392,6 +392,39 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             await s.waitForIdle();
 
             expect((await selectionOf(s))?.hasSelection).toBe(true);
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    // ── E. Side-by-side: широкий терминал и авто-фолбэк (US-1, US-21, US-23) ──
+    it("широкий терминал даёт side-by-side, resize переключает режимы без потери каретки", async () => {
+        const r = repo({ "greeting.js": TRACKED });
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
+        try {
+            await openDiffFor(s, " // wide");
+
+            // Широкий терминал — две колонки с подписями сторон.
+            expect((await selectionOf(s))?.mode).toBe("side-by-side");
+            const frame = frameToText(await s.captureFrame());
+            expect(frame).toContain("HEAD");
+            expect(frame).toContain("│");
+
+            // Каретка на добавленной строке правой стороны.
+            await s.key("ArrowDown");
+            const before = await selectionOf(s);
+            expect(before?.activeSide).toBe("modified");
+            const caretBefore = (before?.selections as { active: { line: number } }[])[0].active.line;
+
+            // Узкий терминал — авто-фолбэк в inline (US-21).
+            await s.resize(100, 24);
+            expect((await selectionOf(s))?.mode).toBe("inline");
+
+            // Обратно — side-by-side, каретка вернулась на свою строку (US-23).
+            await s.resize(140, 24);
+            const after = await selectionOf(s);
+            expect(after?.mode).toBe("side-by-side");
+            expect((after?.selections as { active: { line: number } }[])[0].active.line).toBe(caretBefore);
         } finally {
             await teardown();
         }
