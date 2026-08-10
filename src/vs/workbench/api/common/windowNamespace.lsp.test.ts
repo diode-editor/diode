@@ -117,12 +117,16 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         expect(slugifyChannelName("!!!")).toBe("channel");
     });
 
-    it("showTextDocument резолвится активным редактором (или undefined без него)", async () => {
+    it("showTextDocument шлёт editor.showTextDocument; без ответа хоста — фолбэк в активный редактор", async () => {
         const { stub, window, naive } = makeWindow();
-        await expect(naive.showTextDocument({})).resolves.toBeUndefined();
-
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/f.ts").toString() });
-        await expect(naive.showTextDocument({})).resolves.toBe(window.activeTextEditor);
+
+        // Стаб-RPC отвечает undefined — реальный адрес открытия даёт хост
+        // (см. windowNamespace.showTextDocument.test.ts).
+        await expect(naive.showTextDocument(Uri.file("/f.ts"))).resolves.toBe(window.activeTextEditor);
+        const request = stub.requests.pop();
+        expect(request?.method).toBe("editor.showTextDocument");
+        expect(request?.params).toMatchObject({ uri: Uri.file("/f.ts").toString() });
     });
 
     it("tabGroups и onDidChangeVisibleTextEditors — валидные наивные объекты", () => {

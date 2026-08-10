@@ -24,6 +24,8 @@ export interface IActiveEditorSelections {
     readonly uri: string;
     /** Все выделения, первое — первичное. */
     readonly selections: readonly IWireSelection[];
+    /** Группа редактора (стабильный id) — субпроцесс адресует per-editor кэш. */
+    readonly groupId?: number;
 }
 
 /**
@@ -42,6 +44,10 @@ export interface IActiveEditorMeta {
     readonly eol: 1 | 2 | null;
     /** Первичное выделение активного редактора; `null` — нет редактора. */
     readonly selection: IWireSelection | null;
+    /** Группа активного редактора (стабильный id); нет редактора — отсутствует. */
+    readonly groupId?: number;
+    /** Номер колонки группы (1..N, производный). */
+    readonly viewColumn?: number;
 }
 
 import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
@@ -72,7 +78,7 @@ export interface IEditorOptionsService {
      * No-op, если активного редактора нет либо его uri не совпадает с `uri`
      * (редактор сменился, пока RPC ехал).
      */
-    setActiveEditorSelections(uri: string, selections: readonly IWireSelection[]): void;
+    setActiveEditorSelections(uri: string, selections: readonly IWireSelection[], groupId?: number): void;
     /**
      * Применяет правки к активному редактору одним undoable-батчем
      * (`TextEditor.edit`). Возвращает `false`, если активного редактора нет,

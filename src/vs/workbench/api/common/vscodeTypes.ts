@@ -886,3 +886,76 @@ export class WorkspaceEdit {
         this.edits.set(key, list);
     }
 }
+
+/**
+ * Колонка редактора (`vscode.ViewColumn`): символические `Active`/`Beside` для
+ * открытия и разрешённые 1..9 у существующих редакторов (полоса групп Vexx).
+ */
+export enum ViewColumn {
+    Active = -1,
+    Beside = -2,
+    One = 1,
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5,
+    Six = 6,
+    Seven = 7,
+    Eight = 8,
+    Nine = 9,
+}
+
+// ─── TabInput* (vscode.window.tabGroups) ─────────────────────────────────────
+// Все семь видов — runtime-классами, хотя Vexx производит только текст и дифф:
+// расширения перебирают вкладки instanceof-каскадом по ВСЕМ видам, и
+// `tab.input instanceof vscode.TabInputNotebook` при отсутствующем классе — это
+// TypeError, а не false. Классы тривиальны (Uri + string), несуществующие виды
+// вкладок просто никогда не встречаются в снимке.
+
+/** Вкладка с текстовым ресурсом. */
+export class TabInputText {
+    public constructor(public readonly uri: Uri) {}
+}
+
+/** Вкладка-дифф двух текстовых ресурсов. */
+export class TabInputTextDiff {
+    public constructor(
+        public readonly original: Uri,
+        public readonly modified: Uri,
+    ) {}
+}
+
+/** Вкладка custom-редактора (Vexx не производит). */
+export class TabInputCustom {
+    public constructor(
+        public readonly uri: Uri,
+        public readonly viewType: string,
+    ) {}
+}
+
+/** Вкладка webview (Vexx не производит). */
+export class TabInputWebview {
+    public constructor(public readonly viewType: string) {}
+}
+
+/** Вкладка notebook (Vexx не производит). */
+export class TabInputNotebook {
+    public constructor(
+        public readonly uri: Uri,
+        public readonly notebookType: string,
+    ) {}
+}
+
+/** Вкладка-дифф notebook'ов (Vexx не производит). */
+export class TabInputNotebookDiff {
+    public constructor(
+        public readonly original: Uri,
+        public readonly modified: Uri,
+        public readonly notebookType: string,
+    ) {}
+}
+
+/** Вкладка терминала (Vexx не производит). */
+export class TabInputTerminal {
+    public constructor() {}
+}

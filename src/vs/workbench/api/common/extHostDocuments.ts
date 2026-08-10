@@ -49,7 +49,12 @@ export interface TextLine {
 export class ExtHostTextDocument {
     /** Идентичность ресурса — источник правды, как в `vscode.TextDocument.uri`. */
     public readonly uri: Uri;
-    public readonly isClosed = false;
+    /**
+     * Закрыт ли документ (последняя вкладка ресурса закрыта — `editor.didClose`).
+     * Мутирует {@link DocumentSyncTracker}: закрытие взводит, повторное открытие
+     * того же ресурса «воскрешает» тот же объект (идентичность стабильна).
+     */
+    public isClosed = false;
 
     /** Отражает кодировку ядрового документа: обновляется из меты/снапшотов. */
     public encoding = "utf8";
@@ -238,6 +243,7 @@ export class DocumentSyncTracker {
     private readonly opened = new Set<string>();
     public readonly onDidOpenEmitter = new EventEmitter<ExtHostTextDocument>();
     public readonly onDidChangeEmitter = new EventEmitter<IDocumentChangeEvent>();
+    public readonly onDidCloseEmitter = new EventEmitter<ExtHostTextDocument>();
 
     public constructor(private readonly registry: DocumentRegistry) {}
 
@@ -250,6 +256,8 @@ export class DocumentSyncTracker {
         const prev = this.registry.get(Uri.parse(snapshot.uri));
         if (prev === undefined || !this.opened.has(snapshot.uri)) {
             const doc = this.registry.upsertFull(snapshot);
+            // Воскрешение после didClose: тот же объект, isClosed снят.
+            doc.isClosed = false;
             this.opened.add(snapshot.uri);
             this.onDidOpenEmitter.fire(doc);
             return doc;
@@ -267,6 +275,21 @@ export class DocumentSyncTracker {
             contentChanges: [{ range: fullRange, rangeOffset: 0, rangeLength: oldText.length, text: snapshot.text }],
             reason: undefined,
         });
+        return doc;
+    }
+
+    /**
+     * Закрытие документа (`editor.didClose`): сброс didOpen-дедупа (следующее
+     * открытие того же ресурса снова фаерит didOpen — сервер получает свежий
+     * didOpen после didClose, как требует LSP) + `isClosed` + событие. Документ
+     * остаётся в реестре — расширения вправе держать ссылку на закрытый документ.
+     */
+    public close(uri: Uri): ExtHostTextDocument | null {
+        const doc = this.registry.get(uri);
+        if (doc === undefined || !this.opened.has(uri.toString())) return null;
+        this.opened.delete(uri.toString());
+        doc.isClosed = true;
+        this.onDidCloseEmitter.fire(doc);
         return doc;
     }
 }

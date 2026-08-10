@@ -28,7 +28,7 @@ import {
     nextMatchAction,
     previousMatchAction,
 } from "../../contrib/find/browser/findActions.ts";
-import { revealDefinitionAction } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
+import { revealDefinitionAction, revealDefinitionAsideAction } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import { openKeybindingsAction, openSettingsAction } from "../../contrib/preferences/browser/preferencesActions.ts";
 import {
@@ -182,6 +182,7 @@ import {
     toggleSearchDetailsAction,
 } from "./searchActions.ts";
 import { EDITOR_GROUP_ACTIONS } from "./editorGroupActions.ts";
+import { vscodeDiffCommand } from "../parts/editor/vscodeDiffCommand.ts";
 import {
     closeActiveEditorAction,
     nextEditorInGroupAction,
@@ -280,6 +281,7 @@ export const builtinActions: readonly CommandAction[] = [
 
     // Language features (провайдеры расширений через extension host)
     revealDefinitionAction,
+    revealDefinitionAsideAction,
 
     // Clipboard
     clipboardCopyAction,
@@ -387,6 +389,7 @@ export const builtinActions: readonly CommandAction[] = [
 
     // SCM
     compareWithHeadAction,
+    vscodeDiffCommand,
     showScmAction,
     scmOpenFileAction,
     scmOpenChangesAction,

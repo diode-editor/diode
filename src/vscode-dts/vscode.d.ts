@@ -143,6 +143,13 @@ declare module "vscode" {
 		options: TextEditorOptions;
 
 		/**
+		 * The column in which this editor shows. Will be `undefined` in case this
+		 * isn't one of the main editors, e.g. an embedded editor, or when the editor
+		 * column is larger than three.
+		 */
+		readonly viewColumn: ViewColumn | undefined;
+
+		/**
 		 * Perform an edit on the document associated with this text editor.
 		 *
 		 * The given callback-function is invoked with an {@link TextEditorEdit edit-builder} which must
@@ -351,6 +358,56 @@ declare module "vscode" {
 	}
 
 	export namespace window {
+
+		/**
+		 * Represents the grid widget within the main editor area
+		 */
+		export const tabGroups: TabGroups;
+
+		/**
+		 * An {@link Event} which fires when the array of {@link window.visibleTextEditors visible editors}
+		 * has changed.
+		 */
+		export const onDidChangeVisibleTextEditors: Event<readonly TextEditor[]>;
+
+		/**
+		 * An {@link Event} which fires when the view column of an editor has changed.
+		 */
+		export const onDidChangeTextEditorViewColumn: Event<TextEditorViewColumnChangeEvent>;
+
+		/**
+		 * Show the given document in a text editor. A {@link ViewColumn column} can be provided
+		 * to control where the editor is being shown. Might change the {@link window.activeTextEditor active editor}.
+		 *
+		 * @param document A text document to be shown.
+		 * @param column A view column in which the {@link TextEditor editor} should be shown. The default is the {@link ViewColumn.Active active}.
+		 * Columns that do not exist will be created as needed up to the maximum of {@linkcode ViewColumn.Nine}. Use {@linkcode ViewColumn.Beside}
+		 * to open the editor to the side of the currently active one.
+		 * @param preserveFocus When `true` the editor will not take focus.
+		 * @returns A promise that resolves to an {@link TextEditor editor}.
+		 */
+		export function showTextDocument(document: TextDocument, column?: ViewColumn, preserveFocus?: boolean): Thenable<TextEditor>;
+
+		/**
+		 * Show the given document in a text editor. {@link TextDocumentShowOptions Options} can be provided
+		 * to control options of the editor is being shown. Might change the {@link window.activeTextEditor active editor}.
+		 *
+		 * @param document A text document to be shown.
+		 * @param options {@link TextDocumentShowOptions Editor options} to configure the behavior of showing the {@link TextEditor editor}.
+		 * @returns A promise that resolves to an {@link TextEditor editor}.
+		 */
+		export function showTextDocument(document: TextDocument, options?: TextDocumentShowOptions): Thenable<TextEditor>;
+
+		/**
+		 * A short-hand for `openTextDocument(uri).then(document => showTextDocument(document, options))`.
+		 *
+		 * @see {@link workspace.openTextDocument}
+		 *
+		 * @param uri A resource identifier.
+		 * @param options {@link TextDocumentShowOptions Editor options} to configure the behavior of showing the {@link TextEditor editor}.
+		 * @returns A promise that resolves to an {@link TextEditor editor}.
+		 */
+		export function showTextDocument(uri: Uri, options?: TextDocumentShowOptions): Thenable<TextEditor>;
 
 		/**
 		 * The currently active editor or `undefined`. The active editor is the one
@@ -4020,6 +4077,396 @@ declare module "vscode" {
 		provideFileDecoration(uri: Uri, token: CancellationToken): ProviderResult<FileDecoration>;
 	}
 
+
+	/**
+	 * Represents an event describing the change of a {@link TextEditor.viewColumn text editor's view column}.
+	 */
+	export interface TextEditorViewColumnChangeEvent {
+		/**
+		 * The {@link TextEditor text editor} for which the view column has changed.
+		 */
+		readonly textEditor: TextEditor;
+		/**
+		 * The new value for the {@link TextEditor.viewColumn text editor's view column}.
+		 */
+		readonly viewColumn: ViewColumn;
+	}
+
+	/**
+	 * Represents options to configure the behavior of showing a {@link TextDocument document} in an {@link TextEditor editor}.
+	 */
+	export interface TextDocumentShowOptions {
+		/**
+		 * An optional view column in which the {@link TextEditor editor} should be shown.
+		 * The default is the {@link ViewColumn.Active active}. Columns that do not exist
+		 * will be created as needed up to the maximum of {@linkcode ViewColumn.Nine}.
+		 * Use {@linkcode ViewColumn.Beside} to open the editor to the side of the currently
+		 * active one.
+		 */
+		viewColumn?: ViewColumn;
+
+		/**
+		 * An optional flag that when `true` will stop the {@link TextEditor editor} from taking focus.
+		 */
+		preserveFocus?: boolean;
+
+		/**
+		 * An optional flag that controls if an {@link TextEditor editor}-tab shows as preview. Preview tabs will
+		 * be replaced and reused until set to stay - either explicitly or through editing.
+		 *
+		 * *Note* that the flag is ignored if a user has disabled preview editors in settings.
+		 */
+		preview?: boolean;
+
+		/**
+		 * An optional selection to apply for the document in the {@link TextEditor editor}.
+		 */
+		selection?: Range;
+	}
+
+	/**
+	 * Denotes a location of an editor in the window. Editors can be arranged in a grid
+	 * and each column represents one editor location in that grid by counting the editors
+	 * in order of their appearance.
+	 */
+	export enum ViewColumn {
+		/**
+		 * A *symbolic* editor column representing the currently active column. This value
+		 * can be used when opening editors, but the *resolved* {@link TextEditor.viewColumn viewColumn}-value
+		 * of editors will always be `One`, `Two`, `Three`,... or `undefined` but never `Active`.
+		 */
+		Active = -1,
+		/**
+		 * A *symbolic* editor column representing the column to the side of the active one. This value
+		 * can be used when opening editors, but the *resolved* {@link TextEditor.viewColumn viewColumn}-value
+		 * of editors will always be `One`, `Two`, `Three`,... or `undefined` but never `Beside`.
+		 */
+		Beside = -2,
+		/**
+		 * The first editor column.
+		 */
+		One = 1,
+		/**
+		 * The second editor column.
+		 */
+		Two = 2,
+		/**
+		 * The third editor column.
+		 */
+		Three = 3,
+		/**
+		 * The fourth editor column.
+		 */
+		Four = 4,
+		/**
+		 * The fifth editor column.
+		 */
+		Five = 5,
+		/**
+		 * The sixth editor column.
+		 */
+		Six = 6,
+		/**
+		 * The seventh editor column.
+		 */
+		Seven = 7,
+		/**
+		 * The eighth editor column.
+		 */
+		Eight = 8,
+		/**
+		 * The ninth editor column.
+		 */
+		Nine = 9
+	}
+
+	/**
+	 * The tab represents a single text based resource.
+	 */
+	export class TabInputText {
+		/**
+		 * The uri represented by the tab.
+		 */
+		readonly uri: Uri;
+		/**
+		 * Constructs a text tab input with the given URI.
+		 * @param uri The URI of the tab.
+		 */
+		constructor(uri: Uri);
+	}
+
+	/**
+	 * The tab represents two text based resources
+	 * being rendered as a diff.
+	 */
+	export class TabInputTextDiff {
+		/**
+		 * The uri of the original text resource.
+		 */
+		readonly original: Uri;
+		/**
+		 * The uri of the modified text resource.
+		 */
+		readonly modified: Uri;
+		/**
+		 * Constructs a new text diff tab input with the given URIs.
+		 * @param original The uri of the original text resource.
+		 * @param modified The uri of the modified text resource.
+		 */
+		constructor(original: Uri, modified: Uri);
+	}
+
+	/**
+	 * The tab represents a custom editor.
+	 */
+	export class TabInputCustom {
+		/**
+		 * The uri that the tab is representing.
+		 */
+		readonly uri: Uri;
+		/**
+		 * The type of custom editor.
+		 */
+		readonly viewType: string;
+		/**
+		 * Constructs a custom editor tab input.
+		 * @param uri The uri of the tab.
+		 * @param viewType The viewtype of the custom editor.
+		 */
+		constructor(uri: Uri, viewType: string);
+	}
+
+	/**
+	 * The tab represents a webview.
+	 */
+	export class TabInputWebview {
+		/**
+		 * The type of webview. Maps to {@linkcode WebviewPanel.viewType WebviewPanel's viewType}
+		 */
+		readonly viewType: string;
+		/**
+		 * Constructs a webview tab input with the given view type.
+		 * @param viewType The type of webview. Maps to {@linkcode WebviewPanel.viewType WebviewPanel's viewType}
+		 */
+		constructor(viewType: string);
+	}
+
+	/**
+	 * The tab represents a notebook.
+	 */
+	export class TabInputNotebook {
+		/**
+		 * The uri that the tab is representing.
+		 */
+		readonly uri: Uri;
+		/**
+		 * The type of notebook. Maps to {@linkcode NotebookDocument.notebookType NotebookDocuments's notebookType}
+		 */
+		readonly notebookType: string;
+		/**
+		 * Constructs a new tab input for a notebook.
+		 * @param uri The uri of the notebook.
+		 * @param notebookType The type of notebook. Maps to {@linkcode NotebookDocument.notebookType NotebookDocuments's notebookType}
+		 */
+		constructor(uri: Uri, notebookType: string);
+	}
+
+	/**
+	 * The tabs represents two notebooks in a diff configuration.
+	 */
+	export class TabInputNotebookDiff {
+		/**
+		 * The uri of the original notebook.
+		 */
+		readonly original: Uri;
+		/**
+		 * The uri of the modified notebook.
+		 */
+		readonly modified: Uri;
+		/**
+		 * The type of notebook. Maps to {@linkcode NotebookDocument.notebookType NotebookDocuments's notebookType}
+		 */
+		readonly notebookType: string;
+		/**
+		 * Constructs a notebook diff tab input.
+		 * @param original The uri of the original unmodified notebook.
+		 * @param modified The uri of the modified notebook.
+		 * @param notebookType The type of notebook. Maps to {@linkcode NotebookDocument.notebookType NotebookDocuments's notebookType}
+		 */
+		constructor(original: Uri, modified: Uri, notebookType: string);
+	}
+
+	/**
+	 * The tab represents a terminal in the editor area.
+	 */
+	export class TabInputTerminal {
+		/**
+		 * Constructs a terminal tab input.
+		 */
+		constructor();
+	}
+
+	/**
+	 * Represents a tab within a {@link TabGroup group of tabs}.
+	 * Tabs are merely the graphical representation within the editor area.
+	 * A backing editor is not a guarantee.
+	 */
+	export interface Tab {
+
+		/**
+		 * The text displayed on the tab.
+		 */
+		readonly label: string;
+
+		/**
+		 * The group which the tab belongs to.
+		 */
+		readonly group: TabGroup;
+
+		/**
+		 * Defines the structure of the tab i.e. text, notebook, custom, etc.
+		 * Resource and other useful properties are defined on the tab kind.
+		 */
+		readonly input: TabInputText | TabInputTextDiff | TabInputCustom | TabInputWebview | TabInputNotebook | TabInputNotebookDiff | TabInputTerminal | unknown;
+
+		/**
+		 * Whether or not the tab is currently active.
+		 * This is dictated by being the selected tab in the group.
+		 */
+		readonly isActive: boolean;
+
+		/**
+		 * Whether or not the dirty indicator is present on the tab.
+		 */
+		readonly isDirty: boolean;
+
+		/**
+		 * Whether or not the tab is pinned (pin icon is present).
+		 */
+		readonly isPinned: boolean;
+
+		/**
+		 * Whether or not the tab is in preview mode.
+		 */
+		readonly isPreview: boolean;
+	}
+
+	/**
+	 * An event describing change to tabs.
+	 */
+	export interface TabChangeEvent {
+		/**
+		 * The tabs that have been opened.
+		 */
+		readonly opened: readonly Tab[];
+		/**
+		 * The tabs that have been closed.
+		 */
+		readonly closed: readonly Tab[];
+		/**
+		 * Tabs that have changed, e.g have changed
+		 * their {@link Tab.isActive active} state.
+		 */
+		readonly changed: readonly Tab[];
+	}
+
+	/**
+	 * An event describing changes to tab groups.
+	 */
+	export interface TabGroupChangeEvent {
+		/**
+		 * Tab groups that have been opened.
+		 */
+		readonly opened: readonly TabGroup[];
+		/**
+		 * Tab groups that have been closed.
+		 */
+		readonly closed: readonly TabGroup[];
+		/**
+		 * Tab groups that have changed, e.g have changed
+		 * their {@link TabGroup.isActive active} state.
+		 */
+		readonly changed: readonly TabGroup[];
+	}
+
+	/**
+	 * Represents a group of tabs. A tab group itself consists of multiple tabs.
+	 */
+	export interface TabGroup {
+		/**
+		 * Whether or not the group is currently active.
+		 *
+		 * *Note* that only one tab group is active at a time, but that multiple tab
+		 * groups can have an {@link activeTab active tab}.
+		 *
+		 * @see {@link Tab.isActive}
+		 */
+		readonly isActive: boolean;
+
+		/**
+		 * The view column of the group.
+		 */
+		readonly viewColumn: ViewColumn;
+
+		/**
+		 * The active {@link Tab tab} in the group. This is the tab whose contents are currently
+		 * being rendered.
+		 *
+		 * *Note* that there can be one active tab per group but there can only be one {@link TabGroups.activeTabGroup active group}.
+		 */
+		readonly activeTab: Tab | undefined;
+
+		/**
+		 * The list of tabs contained within the group.
+		 * This can be empty if the group has no tabs open.
+		 */
+		readonly tabs: readonly Tab[];
+	}
+
+	/**
+	 * Represents the main editor area which consists of multiple groups which contain tabs.
+	 */
+	export interface TabGroups {
+		/**
+		 * All the groups within the group container.
+		 */
+		readonly all: readonly TabGroup[];
+
+		/**
+		 * The currently active group.
+		 */
+		readonly activeTabGroup: TabGroup;
+
+		/**
+		 * An {@link Event event} which fires when {@link TabGroup tab groups} have changed.
+		 */
+		readonly onDidChangeTabGroups: Event<TabGroupChangeEvent>;
+
+		/**
+		 * An {@link Event event} which fires when {@link Tab tabs} have changed.
+		 */
+		readonly onDidChangeTabs: Event<TabChangeEvent>;
+
+		/**
+		 * Closes the tab. This makes the tab object invalid and the tab
+		 * should no longer be used for further actions.
+		 * Note: In the case of a dirty tab, a confirmation dialog will be shown which may be cancelled. If cancelled the tab is still valid
+		 *
+		 * @param tab The tab to close.
+		 * @param preserveFocus When `true` focus will remain in its current position. If `false` it will jump to the next tab.
+		 * @returns A promise that resolves to `true` when all tabs have been closed.
+		 */
+		close(tab: Tab | readonly Tab[], preserveFocus?: boolean): Thenable<boolean>;
+
+		/**
+		 * Closes the tab group. This makes the tab group object invalid and the tab group
+		 * should no longer be used for further actions.
+		 * @param tabGroup The tab group to close.
+		 * @param preserveFocus When `true` focus will remain in its current position.
+		 * @returns A promise that resolves to `true` when all tab groups have been closed.
+		 */
+		close(tabGroup: TabGroup | readonly TabGroup[], preserveFocus?: boolean): Thenable<boolean>;
+	}
 }
 
 /**

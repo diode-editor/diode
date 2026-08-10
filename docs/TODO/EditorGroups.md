@@ -456,11 +456,19 @@ terminal, custom) — кандидат на **bounded member-level uncommenting*
 6. [x] **Персист раскладки** — US-41,42,43.
 7. [x] **Полировка**: контекст-ключи `activeEditorGroup*`, верификация US-35…40, доки.
 
-API — двумя фазами: **API-A** (независимо от мультигрупп): d.ts + runtime-типы,
-didOpen на каждое открытие + `editor.didClose` + Map-коалесинг didChange,
-snapshot-протокол `editor.layoutChanged` + `editor.showTextDocument/closeTabs/
-closeGroups` поверх одногрупповой заглушки, `vscode.diff`; **API-B**: настоящий
-layout-адаптер, ViewColumn-резолв, groupId-таргетинг, полный AS-11.
+- [x] **API** (фазы A+B слились — ядро было готово раньше): d.ts-раскомментирование
+  (`ViewColumn`, `TextDocumentShowOptions`, `TextEditor.viewColumn`,
+  `showTextDocument` ×3, `onDidChangeVisibleTextEditors`,
+  `onDidChangeTextEditorViewColumn`, `Tab`/`TabGroup`/`TabGroups` + все семь
+  `TabInput*`; гейт `--verify-active` зелёный) + runtime-типы; snapshot-протокол
+  `editor.layoutChanged` (субпроцесс диффит и производит все четыре события API;
+  layout всегда раньше `activeEditorChanged` и раньше ответов show/close);
+  `editor.showTextDocument`/`closeTabs`/`closeGroups`; document sync
+  пер-МОДЕЛЬ (AS-11: правка любой группы уезжает didChange'ем) + `editor.didClose`
+  (люфт LSP.md закрыт) + Map-коалесинг didChange; `TextEditor` identity
+  `(groupId, uri)`, `viewColumn` — геттер от снимка; таргетинг
+  setSelection/setOptions/setDecorations по группе; `vscode.diff`
+  (+`originalUri`/`modifiedUri` у дифф-вкладок → честный `TabInputTextDiff`).
 
 ## Follow-up'ы (осознанные люфты реализации)
 

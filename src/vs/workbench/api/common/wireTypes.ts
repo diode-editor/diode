@@ -1,3 +1,4 @@
+import { Uri } from "../../../base/common/uri.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
@@ -189,6 +190,168 @@ export function parseWireDocumentSyncSnapshot(raw: unknown): IWireDocumentSyncSn
         text: obj.text,
         ...(typeof obj.isDirty === "boolean" ? { isDirty: obj.isDirty } : {}),
     };
+}
+
+// ─── Editor layout (полоса групп, window.tabGroups) ──────────────────────────
+
+/**
+ * Снимок одной вкладки в `editor.layoutChanged`. Метаданные без текста;
+ * `selections` — только у активной вкладки группы (видимый редактор:
+ * `visibleTextEditors[i].selection` сеется отсюда).
+ */
+export interface IWireTabSnapshot {
+    /** Идентичность вкладки в группе — `uri.toString()` панели. */
+    readonly uri: string;
+    readonly label: string;
+    /** Активная вкладка СВОЕЙ группы. */
+    readonly isActive: boolean;
+    readonly isDirty: boolean;
+    readonly kind: "text" | "diff";
+    /** kind=diff: uri original-стороны. */
+    readonly original?: string;
+    /** kind=diff: uri modified-стороны. */
+    readonly modified?: string;
+    readonly languageId?: string;
+    readonly selections?: readonly IWireSelection[];
+}
+
+/** Снимок группы: стабильный id + производный номер колонки + вкладки. */
+export interface IWireTabGroupSnapshot {
+    readonly groupId: number;
+    readonly viewColumn: number;
+    readonly isActive: boolean;
+    readonly tabs: readonly IWireTabSnapshot[];
+}
+
+/**
+ * Снимок полосы групп (`editor.layoutChanged`, host → subprocess). Subprocess
+ * диффит его с прошлым и сам производит события API
+ * (`onDidChangeVisibleTextEditors`/`onDidChangeTabs`/`onDidChangeTabGroups`/
+ * `onDidChangeTextEditorViewColumn`) — гранулярных сообщений в проводе нет,
+ * состояние восстановимо идемпотентно (паттерн `vexx.scm.publishChanges`).
+ */
+export interface IWireEditorLayout {
+    readonly groups: readonly IWireTabGroupSnapshot[];
+}
+
+/** Валидирует `editor.layoutChanged`; `null`, если форма не распознана. */
+export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (!Array.isArray(obj.groups)) return null;
+    const groups: IWireTabGroupSnapshot[] = [];
+    for (const rawGroup of obj.groups as unknown[]) {
+        if (typeof rawGroup !== "object" || rawGroup === null) return null;
+        const g = rawGroup as Record<string, unknown>;
+        if (!isFiniteNumber(g.groupId) || !isFiniteNumber(g.viewColumn)) return null;
+        if (typeof g.isActive !== "boolean" || !Array.isArray(g.tabs)) return null;
+        const tabs: IWireTabSnapshot[] = [];
+        for (const rawTab of g.tabs as unknown[]) {
+            if (typeof rawTab !== "object" || rawTab === null) return null;
+            const t = rawTab as Record<string, unknown>;
+            if (typeof t.uri !== "string" || t.uri === "") return null;
+            if (typeof t.label !== "string") return null;
+            if (typeof t.isActive !== "boolean" || typeof t.isDirty !== "boolean") return null;
+            if (t.kind !== "text" && t.kind !== "diff") return null;
+            tabs.push({
+                uri: t.uri,
+                label: t.label,
+                isActive: t.isActive,
+                isDirty: t.isDirty,
+                kind: t.kind,
+                ...(typeof t.original === "string" ? { original: t.original } : {}),
+                ...(typeof t.modified === "string" ? { modified: t.modified } : {}),
+                ...(typeof t.languageId === "string" ? { languageId: t.languageId } : {}),
+                ...(Array.isArray(t.selections) ? { selections: parseWireSelections(t.selections) } : {}),
+            });
+        }
+        groups.push({ groupId: g.groupId, viewColumn: g.viewColumn, isActive: g.isActive, tabs });
+    }
+    return { groups };
+}
+
+/** Параметры `editor.showTextDocument` (subprocess → host, request). */
+export interface IWireShowTextDocumentParams {
+    readonly uri: string;
+    /** `vscode.ViewColumn`: -1 Active (дефолт), -2 Beside, 1..9. */
+    readonly viewColumn?: number;
+    readonly preserveFocus?: boolean;
+    readonly selection?: IWireSelection;
+}
+
+/** Результат `editor.showTextDocument`: где фактически открыто. */
+export interface IWireShowTextDocumentResult {
+    readonly uri: string;
+    readonly groupId: number;
+    readonly viewColumn: number;
+}
+
+/** Валидирует параметры `editor.showTextDocument`. */
+export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocumentParams | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.uri !== "string" || obj.uri === "") return null;
+    const selections = Array.isArray(obj.selection) ? null : obj.selection;
+    return {
+        uri: obj.uri,
+        ...(isFiniteNumber(obj.viewColumn) ? { viewColumn: obj.viewColumn } : {}),
+        ...(typeof obj.preserveFocus === "boolean" ? { preserveFocus: obj.preserveFocus } : {}),
+        ...(typeof selections === "object" && selections !== null
+            ? { selection: parseWireSelections([selections])[0] }
+            : {}),
+    };
+}
+
+/** Параметры `editor.closeTabs`: адресация вкладок парой (группа, ресурс). */
+export interface IWireCloseTabsParams {
+    readonly tabs: readonly { readonly groupId: number; readonly uri: string }[];
+}
+
+/** Валидирует параметры `editor.closeTabs`. */
+export function parseWireCloseTabsParams(raw: unknown): IWireCloseTabsParams | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (!Array.isArray(obj.tabs)) return null;
+    const tabs: { groupId: number; uri: string }[] = [];
+    for (const rawTab of obj.tabs as unknown[]) {
+        if (typeof rawTab !== "object" || rawTab === null) return null;
+        const t = rawTab as Record<string, unknown>;
+        if (!isFiniteNumber(t.groupId) || typeof t.uri !== "string") return null;
+        tabs.push({ groupId: t.groupId, uri: t.uri });
+    }
+    return { tabs };
+}
+
+/** Параметры `editor.closeGroups`. */
+export interface IWireCloseGroupsParams {
+    readonly groupIds: readonly number[];
+}
+
+/** Валидирует параметры `editor.closeGroups`. */
+export function parseWireCloseGroupsParams(raw: unknown): IWireCloseGroupsParams | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (!Array.isArray(obj.groupIds) || !(obj.groupIds as unknown[]).every((id) => isFiniteNumber(id))) return null;
+    return { groupIds: obj.groupIds as number[] };
+}
+
+/**
+ * Поднимает uri из JSON-аргумента команды (`vscode.diff` и т.п.): расширение
+ * передаёт `vscode.Uri`, который сериализуется его `toJSON()` в компоненты
+ * (`{$mid: 1, scheme, path, …}`); строка тоже принимается. Мусор — `null`.
+ */
+export function reviveWireUri(raw: unknown): Uri | null {
+    if (typeof raw === "string" && raw !== "") return Uri.parse(raw);
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.scheme !== "string" || obj.scheme === "") return null;
+    return Uri.from({
+        scheme: obj.scheme,
+        ...(typeof obj.authority === "string" ? { authority: obj.authority } : {}),
+        ...(typeof obj.path === "string" ? { path: obj.path } : {}),
+        ...(typeof obj.query === "string" ? { query: obj.query } : {}),
+        ...(typeof obj.fragment === "string" ? { fragment: obj.fragment } : {}),
+    });
 }
 
 // ─── Completion (WP8) ────────────────────────────────────────────────────────

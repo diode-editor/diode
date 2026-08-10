@@ -67,6 +67,10 @@ export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri): Pro
         originalText,
         modifiedText,
         languageId,
+        // Стороны для TabInputTextDiff: HEAD-версия — не файл на диске, ресурс
+        // обозначаем той же diff-схемой; modified — сам файл.
+        originalUri: Uri.from({ scheme: DIFF_SCHEME, path: uri.path, query: "HEAD~" }),
+        modifiedUri: uri,
     };
 
     // Дифф — снимок, а идентичность вкладки (`vexx-diff:<path>?HEAD`) от содержимого

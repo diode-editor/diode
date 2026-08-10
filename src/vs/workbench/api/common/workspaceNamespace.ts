@@ -188,6 +188,16 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         if (snap !== null) documentSync.sync(snap);
     });
 
+    // Последняя вкладка ресурса закрыта: сброс didOpen-дедупа + isClosed +
+    // onDidCloseTextDocument (сервер получает LSP didClose и снова didOpen при
+    // повторном открытии — люфт из docs/TODO/LSP.md закрыт).
+    rpc.handleNotification("editor.didClose", (params) => {
+        const p = params as { uri?: unknown };
+        if (typeof p.uri !== "string" || p.uri === "") return;
+        const doc = documentSync.close(Uri.parse(p.uri));
+        if (doc !== null) onDidCloseTextDocumentEmitter.fire(doc as unknown as vscode.TextDocument);
+    });
+
     rpc.handleNotification("workspace.initialize", (params) => {
         const p = params as { configuration?: unknown; workspaceFolders?: IWireWorkspaceFolder[] };
         configStore.setSnapshot(p.configuration);
