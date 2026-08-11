@@ -446,6 +446,47 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
+    // ── G. Open File at Revision (DiffEditable PR-1) ─────────────────────────
+    it("Open File at Revision: read-only вкладка с контентом ветки", async () => {
+        const r = repo({ "story.txt": "alpha\nbravo\n" });
+        git(r.dir, "branch", "old-branch");
+        writeFileSync(r.file("story.txt"), "alpha\nbravo\ncharlie\n");
+        git(r.dir, "add", "-A");
+        git(r.dir, "commit", "-qm", "second");
+        const s = await open([r.dir, r.file("story.txt")], r.dir);
+        try {
+            await s.waitForText((t) => t.includes("charlie"));
+            // Дождаться активации git-расширения (иначе пикер пуст).
+            await s.key("End");
+            await s.text("Z");
+            await s.waitForText((t) => t.includes("┋") || t.includes("┃"), { timeoutMs: 15_000 });
+            await s.key("Ctrl+Z");
+
+            await s.key("Ctrl+P");
+            await s.text(">Open File at Revision");
+            await s.waitForText((t) => t.includes("Open File at Revision"));
+            await s.key("Enter");
+            await s.waitForText((t) => t.includes("Pick a branch or tag"), { timeoutMs: 15_000 });
+            await s.text("old-branch");
+            await s.key("Enter");
+            await s.waitForText((t) => t.includes("story.txt (old-branch)"), { timeoutMs: 15_000 });
+
+            const frame = frameToText(await s.captureFrame());
+            // Контент ветки: третьей строки нет.
+            expect(frame).toContain("bravo");
+            expect(frame).not.toContain("charlie");
+            // Вкладка read-only — с замком в табе.
+            const strip = await tabs(s);
+            const revTab = strip.find((t) => t.label.includes("(old-branch)"));
+            expect(revTab?.readOnly).toBe(true);
+            // Ввод не меняет содержимое.
+            await s.text("EDIT");
+            expect(frameToText(await s.captureFrame())).not.toContain("EDIT");
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
     // ── E. Side-by-side: широкий терминал и авто-фолбэк (US-1, US-21, US-23) ──
     it("широкий терминал даёт side-by-side, resize переключает режимы без потери каретки", async () => {
         const r = repo({ "greeting.js": TRACKED });

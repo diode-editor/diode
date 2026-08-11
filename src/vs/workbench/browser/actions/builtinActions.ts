@@ -51,6 +51,7 @@ import {
     compareWithClipboardAction,
     compareWithRevisionAction,
     compareWithSavedAction,
+    openFileAtRevisionAction,
     selectForCompareAction,
 } from "../../contrib/diff/browser/compareActions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
@@ -401,6 +402,7 @@ export const builtinActions: readonly CommandAction[] = [
     selectForCompareAction,
     compareFilesAction,
     compareWithRevisionAction,
+    openFileAtRevisionAction,
 
     // SCM
     compareWithHeadAction,

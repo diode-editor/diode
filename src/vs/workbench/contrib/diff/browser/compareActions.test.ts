@@ -249,8 +249,90 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("vexx.scm.compareWithRevision");
             await settleUntilDiff();
 
-            expect(h.testApp.backend.screenToString()).toContain("No refs to compare");
+            expect(h.testApp.backend.screenToString()).toContain("No refs to pick from");
             expect(diffPanes()).toHaveLength(0);
+        });
+
+        it("Open File at Revision: read-only вкладка `имя (ref)` с контентом ревизии", async () => {
+            stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
+            h.container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
+                readFile: () => Promise.resolve(new TextEncoder().encode("alpha\nDEV\n")),
+                onDidChangeFile: () => ({ dispose: () => undefined }),
+            });
+            h.commands.execute("workbench.openFile", ws.path("a.txt"));
+            await settle(0);
+
+            h.commands.execute("vexx.scm.openFileAtRevision");
+            await settle(50);
+            h.testApp.render();
+            quickPickByTitle(h.testApp, "Open File at Revision");
+            h.testApp.sendKey("Enter");
+            await settle(50);
+            h.testApp.render();
+
+            const editors = h.container.get(EditorServiceDIToken);
+            const snapshot = editors.getActiveTabEditor();
+            expect(snapshot?.label).toBe("a.txt (dev)");
+            expect(snapshot?.readOnly).toBe(true);
+            expect(snapshot?.getText()).toBe("alpha\nDEV\n");
+            expect(h.testApp.backend.screenToString()).toContain("DEV");
+
+            // Повторный вызов той же ревизии — та же вкладка, не дубль.
+            const countBefore = editors.editorCount;
+            h.commands.execute("vexx.scm.openFileAtRevision");
+            await settle(50);
+            h.testApp.render();
+            // Активная вкладка — снимок; команда гейтится текстовым РЕДАКТИРУЕМЫМ
+            // файлом? Нет: снимок тоже TextEditorPane — вернёмся в исходный файл.
+            h.testApp.sendKey("Escape");
+            editors.activateTab(0);
+            h.commands.execute("vexx.scm.openFileAtRevision");
+            await settle(50);
+            h.testApp.render();
+            h.testApp.sendKey("Enter");
+            await settle(50);
+            expect(editors.editorCount).toBe(countBefore);
+        });
+
+        it("Open File at Revision: провайдер оригинала бросил — нотис «no version in git»", async () => {
+            stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
+            h.commands.register(ORIGINAL_RESOURCE_COMMAND, () => {
+                throw new Error("git exploded");
+            });
+            h.commands.execute("workbench.openFile", ws.path("a.txt"));
+            await settle(0);
+            const countBefore = h.container.get(EditorServiceDIToken).editorCount;
+
+            h.commands.execute("vexx.scm.openFileAtRevision");
+            await settle(50);
+            h.testApp.render();
+            h.testApp.sendKey("Enter");
+            await settle(50);
+            h.testApp.render();
+
+            expect(h.testApp.backend.screenToString()).toContain("no version in git");
+            expect(h.container.get(EditorServiceDIToken).editorCount).toBe(countBefore);
+        });
+
+        it("Open File at Revision: файла нет на ревизии — нотис, вкладки нет", async () => {
+            stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
+            h.container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
+                readFile: () => Promise.reject(new Error("not found")),
+                onDidChangeFile: () => ({ dispose: () => undefined }),
+            });
+            h.commands.execute("workbench.openFile", ws.path("a.txt"));
+            await settle(0);
+            const countBefore = h.container.get(EditorServiceDIToken).editorCount;
+
+            h.commands.execute("vexx.scm.openFileAtRevision");
+            await settle(50);
+            h.testApp.render();
+            h.testApp.sendKey("Enter");
+            await settle(50);
+            h.testApp.render();
+
+            expect(h.testApp.backend.screenToString()).toContain("does not exist on dev");
+            expect(h.container.get(EditorServiceDIToken).editorCount).toBe(countBefore);
         });
     });
 
@@ -260,9 +342,11 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.files.action.compareWithClipboard");
             h.commands.execute("workbench.files.action.compareFileWith");
             h.commands.execute("vexx.scm.compareWithRevision");
+            h.commands.execute("vexx.scm.openFileAtRevision");
             await settle(10);
 
             expect(diffPanes()).toHaveLength(0);
+            expect(h.container.get(EditorServiceDIToken).editorCount).toBe(0);
         });
 
         it("selectForCompare без пути не взводит ключ, compareFiles без пути — no-op", async () => {
