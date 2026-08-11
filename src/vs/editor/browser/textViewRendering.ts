@@ -206,7 +206,9 @@ export function docPositionAt(
     /* v8 ignore stop */
 
     const viewLine = Math.min(viewState.scrollTop + localY, viewLineCount - 1);
-    const logLine = viewState.visualToLogicalLine(viewLine);
+    // Клик по строке-зоне (виртуальной) маппится в ближайшую документную — как
+    // клик по view zone в VS Code отдаёт соседнюю позицию, а не падает.
+    const logLine = viewState.docLineForViewLine(viewLine);
     const displayCol = localX < gutterW ? 0 : localX - gutterW + viewState.scrollLeft;
     const lineContent = viewState.document.getLineContent(logLine);
     const dl = viewState.displayLineFor(lineContent);

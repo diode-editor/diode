@@ -28,6 +28,8 @@ import type { ITextDocument } from "../model/iTextDocument.ts";
 import type { IUndoElement } from "../model/iUndoElement.ts";
 import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
 
+import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
+
 /**
  * Represents the view state for one editor pane.
  * Multiple EditorViewStates can reference the same ITextDocument (split view).
@@ -119,6 +121,7 @@ export class EditorViewState {
     private currentSearchMatchIndexValue = -1;
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];
+    private viewZonesValue: readonly IViewZone[] = [];
     /**
      * Optional per-document token cache. The renderer is responsible for
      * calling `tokenStore.tokenizeUpTo(visibleBottom)` before reading tokens.
@@ -129,6 +132,8 @@ export class EditorViewState {
     private visibleLinesCacheDocVersion = -1;
     private foldsVersion = 0;
     private visibleLinesCacheFoldsVersion = -1;
+    private zonesVersion = 0;
+    private visibleLinesCacheZonesVersion = -1;
 
     /**
      * Взведён, пока правку применяет СОБСТВЕННЫЙ мутатор этого view-state
@@ -193,12 +198,14 @@ export class EditorViewState {
         }
 
         // Скролл: правка целиком выше вьюпорта сдвигает содержимое — держим на
-        // экране те же строки. Только без свёрнутых регионов: с ними логический
-        // сдвиг не равен визуальному, и честный пересчёт не стоит своей цены.
+        // экране те же строки. Только без свёрнутых регионов и зон: с ними
+        // логический сдвиг не равен визуальному, и честный пересчёт не стоит
+        // своей цены.
         if (
             lineDelta !== 0 &&
             this.scrollTopValue > 0 &&
             !this.foldedRegions.some((region) => region.isCollapsed) &&
+            this.viewZonesValue.length === 0 &&
             change.oldEndLine < this.scrollTopValue
         ) {
             this.scrollTop = Math.max(0, this.scrollTopValue + lineDelta);
@@ -304,6 +311,71 @@ export class EditorViewState {
             this.insertSpaces = result.insertSpaces;
             this.tabSize = result.tabSize;
         }
+    }
+
+    // ─── View zones API ─────────────────────────────────────
+
+    /** Текущие зоны — нормализованные (см. {@link setViewZones}). */
+    public get viewZones(): readonly IViewZone[] {
+        return this.viewZonesValue;
+    }
+
+    /**
+     * Заменяет весь набор зон. Вход нормализуется: пустые зоны выбрасываются,
+     * якоря клампятся в `[-1, lineCount-1]`, зоны с одинаковым якорем сливаются
+     * (размеры суммируются), порядок — по якорю. Повторная установка того же
+     * набора — no-op без события: сеттер зовут на каждый пересчёт диффа, и
+     * лишний {@link onDidChangeView} дёргал бы перерисовку впустую.
+     */
+    public setViewZones(zones: readonly IViewZone[]): void {
+        const byAnchor = new Map<number, number>();
+        for (const zone of zones) {
+            if (zone.size <= 0) continue;
+            const anchor = Math.min(Math.max(-1, zone.afterLine), this.document.lineCount - 1);
+            byAnchor.set(anchor, (byAnchor.get(anchor) ?? 0) + zone.size);
+        }
+        const normalized: IViewZone[] = [...byAnchor.entries()]
+            .sort((a, b) => a[0] - b[0])
+            .map(([afterLine, size]) => ({ afterLine, size }));
+
+        const same =
+            normalized.length === this.viewZonesValue.length &&
+            normalized.every(
+                (zone, i) =>
+                    zone.afterLine === this.viewZonesValue[i].afterLine && zone.size === this.viewZonesValue[i].size,
+            );
+        if (same) return;
+
+        this.viewZonesValue = normalized;
+        this.zonesVersion++;
+        this.fireViewChange();
+    }
+
+    /** Вид строки вью: документная, виртуальная (зона) или за концом вью. */
+    public viewLineKind(viewLine: number): ViewLineKind {
+        const row = this.buildVisibleLines().at(viewLine);
+        if (viewLine < 0 || row === undefined) return "none";
+        return row >= 0 ? "doc" : "zone";
+    }
+
+    /**
+     * Ближайшая документная строка для строки вью — hit-test кликов и якорь
+     * прогрева токенов: сама строка, у зоны — её якорь (первая видимая
+     * документная строка выше), у зоны перед началом файла — первая видимая
+     * строка ниже. `viewLine` клампится в границы вью.
+     */
+    public docLineForViewLine(viewLine: number): number {
+        const rows = this.buildVisibleLines();
+        const clamped = Math.min(Math.max(0, viewLine), rows.length - 1);
+        for (let i = clamped; i >= 0; i--) {
+            if (rows[i] >= 0) return rows[i];
+        }
+        for (let i = clamped + 1; i < rows.length; i++) {
+            if (rows[i] >= 0) return rows[i];
+        }
+        /* v8 ignore start -- недостижимо: документ не бывает пустым, хотя бы одна doc-строка во вью есть */
+        return 0;
+        /* v8 ignore stop */
     }
 
     // ─── Folding API ────────────────────────────────────────
@@ -590,6 +662,9 @@ export class EditorViewState {
      * Returns -1 if the line is hidden inside a collapsed region.
      */
     public logicalToVisualLine(logicalLine: number): number {
+        // Гард от отрицательного аргумента: строки-зоны кодируются в проекции
+        // отрицательными числами, и `indexOf(-2)` нашёл бы зону вместо «нет».
+        if (logicalLine < 0) return -1;
         const visible = this.buildVisibleLines();
         const idx = visible.indexOf(logicalLine);
         return idx;
@@ -597,14 +672,17 @@ export class EditorViewState {
 
     /**
      * Translates a visual (screen) line number to a logical (document) line number.
-     * Returns -1 if the visual line is out of range.
+     * Returns -1 if the visual line is out of range OR is a view zone row —
+     * виртуальной строке документная не соответствует ({@link viewLineKind}
+     * различает эти случаи, {@link docLineForViewLine} даёт ближайшую строку).
      */
     public visualToLogicalLine(visualLine: number): number {
         const visible = this.buildVisibleLines();
         if (visualLine < 0 || visualLine >= visible.length) {
             return -1;
         }
-        return visible[visualLine];
+        const row = visible[visualLine];
+        return row >= 0 ? row : -1;
     }
 
     /**
@@ -1029,26 +1107,7 @@ export class EditorViewState {
      * Preserves idealColumn for vertical navigation.
      */
     public cursorPageDown(inSelectionMode = false): void {
-        const pageSize = Math.max(1, this.viewportHeight - 1);
-        this.selections = this.selections.map((sel) => {
-            const pos = sel.active;
-            let ideal = getIdealColumn(sel);
-            if (sel.idealColumn === undefined) {
-                const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
-                ideal = currentDl.offsetToColumn(pos.character);
-            }
-            let targetLine = pos.line;
-            for (let i = 0; i < pageSize; i++) {
-                const next = this.nextVisibleLine(targetLine);
-                if (next < 0) break;
-                targetLine = next;
-            }
-            const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
-            const newChar = targetDl.columnToOffset(ideal);
-            return this.buildSelection(sel, targetLine, newChar, ideal, inSelectionMode);
-        });
-        this.normalizeSelections();
-        this.ensureCursorVisible();
+        this.cursorPage(1, inSelectionMode);
     }
 
     /**
@@ -1056,6 +1115,17 @@ export class EditorViewState {
      * Preserves idealColumn for vertical navigation.
      */
     public cursorPageUp(inSelectionMode = false): void {
+        this.cursorPage(-1, inSelectionMode);
+    }
+
+    /**
+     * Страница считается в СТРОКАХ ВЬЮ, а не в видимых документных: зоны тоже
+     * занимают экран, и шаг «по документным» уводил бы каретку на страницу
+     * дальше видимого. Целевая строка вью может оказаться зоной — берётся
+     * ближайшая документная ({@link docLineForViewLine}). Без зон поведение
+     * тождественно прежнему пошаговому обходу видимых строк.
+     */
+    private cursorPage(direction: 1 | -1, inSelectionMode: boolean): void {
         const pageSize = Math.max(1, this.viewportHeight - 1);
         this.selections = this.selections.map((sel) => {
             const pos = sel.active;
@@ -1064,12 +1134,15 @@ export class EditorViewState {
                 const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
                 ideal = currentDl.offsetToColumn(pos.character);
             }
-            let targetLine = pos.line;
-            for (let i = 0; i < pageSize; i++) {
-                const prev = this.previousVisibleLine(targetLine);
-                if (prev < 0) break;
-                targetLine = prev;
-            }
+            const currentView = this.logicalToVisualLine(pos.line);
+            /* v8 ignore start -- defensive: скрытая каретка выправляется reconcileHiddenCursors до команд */
+            if (currentView < 0) return sel;
+            /* v8 ignore stop */
+            const targetView = Math.min(
+                Math.max(0, currentView + direction * pageSize),
+                this.getViewLineCount() - 1,
+            );
+            const targetLine = this.docLineForViewLine(targetView);
             const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
             const newChar = targetDl.columnToOffset(ideal);
             return this.buildSelection(sel, targetLine, newChar, ideal, inSelectionMode);
@@ -1470,7 +1543,8 @@ export class EditorViewState {
         if (
             this.visibleLinesCache !== null &&
             this.visibleLinesCacheDocVersion === this.document.versionId &&
-            this.visibleLinesCacheFoldsVersion === this.foldsVersion
+            this.visibleLinesCacheFoldsVersion === this.foldsVersion &&
+            this.visibleLinesCacheZonesVersion === this.zonesVersion
         ) {
             return this.visibleLinesCache;
         }
@@ -1507,10 +1581,13 @@ export class EditorViewState {
             }
         }
 
-        this.visibleLinesCache = visible;
+        const rows = this.viewZonesValue.length === 0 ? visible : insertViewZones(visible, this.viewZonesValue);
+
+        this.visibleLinesCache = rows;
         this.visibleLinesCacheDocVersion = this.document.versionId;
         this.visibleLinesCacheFoldsVersion = this.foldsVersion;
-        return visible;
+        this.visibleLinesCacheZonesVersion = this.zonesVersion;
+        return rows;
     }
 
     /**
@@ -1520,12 +1597,16 @@ export class EditorViewState {
         const visible = this.buildVisibleLines();
         const currentIdx = visible.indexOf(logicalLine);
         if (currentIdx > 0) {
-            return visible[currentIdx - 1];
+            // Соседний ряд может быть зоной (< 0) — каретка её проскакивает.
+            for (let i = currentIdx - 1; i >= 0; i--) {
+                if (visible[i] >= 0) return visible[i];
+            }
+            return -1;
         }
         // If current line is not in visible list (hidden), find the last visible line before it
         if (currentIdx === -1) {
             for (let i = visible.length - 1; i >= 0; i--) {
-                if (visible[i] < logicalLine) {
+                if (visible[i] >= 0 && visible[i] < logicalLine) {
                     return visible[i];
                 }
             }
@@ -1539,15 +1620,17 @@ export class EditorViewState {
     private nextVisibleLine(logicalLine: number): number {
         const visible = this.buildVisibleLines();
         const currentIdx = visible.indexOf(logicalLine);
-        if (currentIdx >= 0 && currentIdx < visible.length - 1) {
-            return visible[currentIdx + 1];
+        if (currentIdx >= 0) {
+            // Соседний ряд может быть зоной (< 0) — каретка её проскакивает.
+            for (let i = currentIdx + 1; i < visible.length; i++) {
+                if (visible[i] >= 0) return visible[i];
+            }
+            return -1;
         }
         // If current line is not in visible list (hidden), find the first visible line after it
-        if (currentIdx === -1) {
-            for (const vLine of visible) {
-                if (vLine > logicalLine) {
-                    return vLine;
-                }
+        for (const vLine of visible) {
+            if (vLine >= 0 && vLine > logicalLine) {
+                return vLine;
             }
         }
         return -1;
@@ -1580,6 +1663,7 @@ export class EditorViewState {
      * и {@link remapForDocumentChange} (чужие правки, границы из события документа).
      */
     private adjustFoldingRegionsForLineChange(editStartLine: number, editEndLine: number, lineDelta: number): void {
+        this.adjustViewZonesForLineChange(editStartLine, editEndLine, lineDelta);
         this.foldedRegions = this.foldedRegions.filter((region) => {
             // Edit completely after the region → no change
             if (editStartLine > region.endLine) {
@@ -1616,6 +1700,26 @@ export class EditorViewState {
 
             return true;
             /* v8 ignore stop */
+        });
+    }
+
+    /**
+     * Строчный сдвиг якорей зон под правку — зоны переживают правки документа
+     * между пересчётами владельца (дифф пересчитает их сам по debounce, но до
+     * этого проекция обязана оставаться целостной). Кэш и событие не трогаем:
+     * правка уже меняет versionId документа (кэш пересоберётся) и уже
+     * уведомляет рендер своим событием.
+     */
+    private adjustViewZonesForLineChange(editStartLine: number, editEndLine: number, lineDelta: number): void {
+        if (this.viewZonesValue.length === 0 || lineDelta === 0) return;
+        this.viewZonesValue = this.viewZonesValue.map((zone) => {
+            if (zone.afterLine > editEndLine) {
+                return { afterLine: zone.afterLine + lineDelta, size: zone.size };
+            }
+            if (zone.afterLine < editStartLine) return zone;
+            // Якорь внутри изменённого диапазона: кламп к его новому концу.
+            const clamped = Math.max(editStartLine - 1, Math.min(zone.afterLine, editEndLine + lineDelta));
+            return clamped === zone.afterLine ? zone : { afterLine: clamped, size: zone.size };
         });
     }
 
@@ -1803,4 +1907,45 @@ function findWordBoundaryRight(line: string, offset: number): number {
         pos++;
     }
     return pos;
+}
+
+/**
+ * Кодировка строки-зоны в проекции вью: документные строки — их индексы
+ * (`>= 0`), виртуальные — отрицательные числа, несущие якорь зоны
+ * (`-(afterLine + 3)`, чтобы `-1` остался сентинелом «не найдено», а якорь
+ * `-1` «перед первой строкой» кодировался `-2`). Кодировка числом, а не
+ * объектом: проекция — массив длиной с документ, аллокация объекта на строку
+ * ударила бы по большим файлам.
+ */
+function encodeViewZoneRow(afterLine: number): number {
+    return -(afterLine + 3);
+}
+
+/**
+ * Вставка виртуальных строк зон в проекцию видимых документных строк. Зона
+ * встаёт ПОСЛЕ последней видимой строки с `docLine <= afterLine`: если якорь
+ * скрыт свёрткой, зона выживает после заголовка свернувшего региона — дифф
+ * сворачивает unchanged-куски и обязан не терять выравнивание (upstream решает
+ * то же самое флагом `showInHiddenAreas`). Якорь `-1` (и якорь ниже первой
+ * видимой строки) даёт зону перед началом вью.
+ */
+function insertViewZones(visible: readonly number[], zones: readonly IViewZone[]): number[] {
+    const rows: number[] = [];
+    let zi = 0;
+    /* v8 ignore start -- ?? недостижим: видимый список пуст не бывает — фолд не прячет собственный заголовок */
+    const firstVisible = visible[0] ?? Number.MAX_SAFE_INTEGER;
+    /* v8 ignore stop */
+    while (zi < zones.length && zones[zi].afterLine < firstVisible) {
+        for (let k = 0; k < zones[zi].size; k++) rows.push(encodeViewZoneRow(zones[zi].afterLine));
+        zi++;
+    }
+    for (let i = 0; i < visible.length; i++) {
+        rows.push(visible[i]);
+        const next = i + 1 < visible.length ? visible[i + 1] : Number.MAX_SAFE_INTEGER;
+        while (zi < zones.length && zones[zi].afterLine >= visible[i] && zones[zi].afterLine < next) {
+            for (let k = 0; k < zones[zi].size; k++) rows.push(encodeViewZoneRow(zones[zi].afterLine));
+            zi++;
+        }
+    }
+    return rows;
 }
