@@ -19,7 +19,8 @@ import {
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
-import type { UndoManager } from "../../../../editor/common/model/undoManager.ts";
+import type { IUndoViewBinding } from "../../../../editor/common/model/undoManager.ts";
+import { UndoManager } from "../../../../editor/common/model/undoManager.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
@@ -31,6 +32,9 @@ import type { ISaveEdit, ISaveSnapshot, SaveParticipant } from "./iSaveParticipa
  * параллельные правки); повторить с `{ overwrite: true }`.
  */
 export type SaveOutcome = "saved" | "conflict" | "no-file";
+
+/** Причина пересоздания документа — см. {@link TextFileModel.onDidReloadDocument}. */
+export type DocumentReloadReason = "disk" | "owned";
 
 /** Снимок метаданных файла на диске для детекта внешних изменений (mtime + размер). */
 interface IDiskStat {
@@ -49,16 +53,16 @@ let nextUndoContextId = 1;
 const UNTITLED_PLACEHOLDER_URI = Uri.from({ scheme: "untitled", path: "Untitled" });
 
 /**
- * Швы модели к редактирующей поверхности (view). Правки, которые модель применяет
- * сама (save-участник, смена EOL, программные батчи), обязаны идти через view-state
- * редактора — там живут выделения и inverse-edits для undo. Устанавливает владелец
- * view (`EditorComponent.attachEditTarget` в своём конструкторе); модель без
- * прикреплённой цели не используется — пара создаётся атомарно.
+ * Шов модели к одной редактирующей поверхности (view). Правки, которые модель
+ * применяет сама (save-участник, смена EOL, программные батчи), идут через
+ * view-state **действующей** вью — там живут выделения и inverse-edits для undo.
+ * Прикрепляет каждый парный `EditorComponent` в своём конструкторе; целей может
+ * быть несколько (один документ в нескольких группах): действующую передаёт
+ * вызывающий, `markDirty` вещается всем.
  */
 export interface ITextFileEditTarget {
     cloneSelections(): ISelection[];
     applyEdits(edits: readonly ITextEdit[], label: string): IUndoElement | undefined;
-    pushUndo(element: IUndoElement | undefined): void;
     markDirty(): void;
 }
 
@@ -87,7 +91,7 @@ export class TextFileModel extends Disposable {
     private encodingChangeListeners: (() => void)[] = [];
     private contentSubscription: IDisposable | null = null;
     private contentChangeListeners: (() => void)[] = [];
-    private reloadListeners: (() => void)[] = [];
+    private reloadListeners: ((reason: DocumentReloadReason) => void)[] = [];
     /**
      * Идентичность ресурса этой модели — первичное состояние, из которого выводится
      * всё остальное (путь, имя, признак безымянности). Не `null`: у свежей модели
@@ -109,10 +113,24 @@ export class TextFileModel extends Disposable {
     private readonly languageService: ILanguageService;
     private readonly undoRedoService: UndoRedoService;
     /**
-     * Шов к редактирующей поверхности; прикрепляет парный `EditorComponent` в своём
-     * конструкторе — модель никогда не живёт без него (см. {@link ITextFileEditTarget}).
+     * Редактирующие поверхности прикреплённых вью (см. {@link ITextFileEditTarget}).
+     * Порядок — порядок прикрепления; первый служит целью по умолчанию для
+     * программных путей без действующей вью (save-участник).
      */
-    private editTarget!: ITextFileEditTarget;
+    private editTargets: ITextFileEditTarget[] = [];
+    /**
+     * Движок undo текущего документа — история одна на документ, сколько бы вью
+     * его ни показывало. Пересоздаётся вместе с документом (перечитка с диска
+     * сбрасывает историю); роутинг шагов в {@link UndoRedoService} модель ставит
+     * сама в {@link createUndoManager}.
+     */
+    private undoManagerValue!: UndoManager;
+    /**
+     * Вью, инициировавшая текущий undo/redo (ей восстанавливается снимок
+     * выделений). Живёт только на время синхронного окна вызова: обёртка-элемент
+     * в `UndoRedoService` исполняется до первого await внутри `undo(context)`.
+     */
+    private actingView: IUndoViewBinding | null = null;
 
     public get isModified(): boolean {
         return this.doc.versionId !== this.savedVersionId || this.doc.eol !== this.savedEol;
@@ -150,6 +168,29 @@ export class TextFileModel extends Disposable {
     }
 
     public onDidSave?: () => void;
+    private saveListeners: (() => void)[] = [];
+
+    /**
+     * Событие «документ записан на диск» (save/saveAs) — многоподписочное, в
+     * отличие от слота {@link onDidSave} (тот занят владельцем-сервисом).
+     * Слушают вкладки: сохранение меняет вид вкладки (гаснет маркер
+     * изменённости, после saveAs меняется имя) — у каждой из N вкладок
+     * документа.
+     */
+    public onDidSaveDocument(listener: () => void): IDisposable {
+        this.saveListeners.push(listener);
+        return {
+            dispose: () => {
+                const i = this.saveListeners.indexOf(listener);
+                if (i >= 0) this.saveListeners.splice(i, 1);
+            },
+        };
+    }
+
+    private fireSaved(): void {
+        this.onDidSave?.();
+        for (const listener of [...this.saveListeners]) listener();
+    }
 
     /**
      * Наблюдатель за файлами (инъектируется группой перед openFile). Когда задан,
@@ -202,12 +243,14 @@ export class TextFileModel extends Disposable {
     }
 
     /**
-     * Событие «документ пересоздан после чтения с диска» (openFile / revertToDisk /
-     * reopenWithEncoding). Парный `EditorComponent` пересобирает по нему view-state,
-     * токен-кеш и `EditorElement` — undo, курсор и скролл сбрасываются, как при
-     * открытии файла заново.
+     * Событие «документ пересоздан» (openFile / revertToDisk / reopenWithEncoding /
+     * смена Output-канала). Парный `EditorComponent` пересобирает по нему view-state,
+     * токен-кеш и `EditorElement` — undo и курсор сбрасываются, как при открытии
+     * файла заново. `reason` различает перечитку того же файла с диска (`"disk"` —
+     * вью сохраняет скролл: содержимое то же по смыслу) от смены содержимого
+     * владельцем (`"owned"` — скролл сбрасывается: содержимое другое).
      */
-    public onDidReloadDocument(listener: () => void): IDisposable {
+    public onDidReloadDocument(listener: (reason: DocumentReloadReason) => void): IDisposable {
         this.reloadListeners.push(listener);
         return {
             dispose: () => {
@@ -215,6 +258,10 @@ export class TextFileModel extends Disposable {
                 if (i >= 0) this.reloadListeners.splice(i, 1);
             },
         };
+    }
+
+    private fireDocumentReloaded(reason: DocumentReloadReason): void {
+        for (const listener of [...this.reloadListeners]) listener(reason);
     }
 
     /** Language id открытого документа (`plaintext`, если язык не определён). */
@@ -308,6 +355,7 @@ export class TextFileModel extends Disposable {
         this.doc = new TextDocument("");
         this.savedEol = this.doc.eol;
         this.bindDocumentListeners();
+        this.createUndoManager();
 
         this.register({
             dispose: () => {
@@ -327,10 +375,61 @@ export class TextFileModel extends Disposable {
 
     /**
      * Прикрепляет редактирующую поверхность (см. {@link ITextFileEditTarget}).
-     * Вызывает парный `EditorComponent` в своём конструкторе.
+     * Вызывает каждый парный `EditorComponent` в своём конструкторе; возвращённый
+     * disposable снимает цель, когда вью закрывается раньше модели (сплиты).
      */
-    public attachEditTarget(target: ITextFileEditTarget): void {
-        this.editTarget = target;
+    public attachEditTarget(target: ITextFileEditTarget): IDisposable {
+        this.editTargets.push(target);
+        return {
+            dispose: () => {
+                const i = this.editTargets.indexOf(target);
+                if (i >= 0) this.editTargets.splice(i, 1);
+            },
+        };
+    }
+
+    /** Общий движок undo документа (для `EditorElement` прикреплённых вью). */
+    public get undoManager(): UndoManager {
+        return this.undoManagerValue;
+    }
+
+    /** Перерисовка всех прикреплённых вью (dirty-маркер, EOL — видимое меняется везде). */
+    private broadcastMarkDirty(): void {
+        for (const target of [...this.editTargets]) target.markDirty();
+    }
+
+    /**
+     * Пересоздаёт движок undo под текущий документ и подключает его к общей
+     * истории: каждый шаг регистрирует обёртку в `UndoRedoService` под контекстом
+     * модели. Обёртка — токен порядка: её undo/redo делегируют в {@link UndoManager}
+     * (LIFO 1:1, поэтому стеки идут в ногу) и передают действующую вью
+     * ({@link actingView}), взведённую публичными {@link undo}/{@link redo}.
+     *
+     * Пересоздание документа (перечитка с диска, смена Output-канала) очищает
+     * бакет: накопленные шаги адресуют умерший документ, их version-гейт всё
+     * равно отбросил бы каждый молча.
+     */
+    private createUndoManager(): void {
+        this.undoRedoService.clear(this.undoContext);
+        this.undoManagerValue = new UndoManager(this.doc);
+        this.undoManagerValue.onDidPush = (element) => {
+            const filePath = this.filePath;
+            this.undoRedoService.pushElement(
+                {
+                    label: element.label,
+                    resources: filePath === null ? [] : [filePath],
+                    undo: () => {
+                        this.undoManagerValue.undo(this.actingView);
+                        this.broadcastMarkDirty();
+                    },
+                    redo: () => {
+                        this.undoManagerValue.redo(this.actingView);
+                        this.broadcastMarkDirty();
+                    },
+                },
+                this.undoContext,
+            );
+        };
     }
 
     /**
@@ -370,7 +469,8 @@ export class TextFileModel extends Disposable {
         this.savedEol = this.doc.eol;
         this.diskConflictValue = false;
         this.bindDocumentListeners();
-        for (const listener of [...this.reloadListeners]) listener();
+        this.createUndoManager();
+        this.fireDocumentReloaded("owned");
     }
 
     /**
@@ -394,7 +494,7 @@ export class TextFileModel extends Disposable {
         // Правка владельца не должна пачкать буфер: у синтетического ресурса нет
         // диска, и «несохранённых изменений» у него быть не может.
         this.savedVersionId = this.doc.versionId;
-        this.editTarget.markDirty();
+        this.broadcastMarkDirty();
     }
 
     /** Заменяет содержимое буфера целиком (смена активного Output-канала). */
@@ -403,7 +503,8 @@ export class TextFileModel extends Disposable {
         this.savedVersionId = this.doc.versionId;
         this.savedEol = this.doc.eol;
         this.bindDocumentListeners();
-        for (const listener of [...this.reloadListeners]) listener();
+        this.createUndoManager();
+        this.fireDocumentReloaded("owned");
     }
 
     /**
@@ -424,7 +525,8 @@ export class TextFileModel extends Disposable {
         this.savedEol = this.doc.eol;
         this.diskConflictValue = false;
         this.bindDocumentListeners();
-        for (const listener of [...this.reloadListeners]) listener();
+        this.createUndoManager();
+        this.fireDocumentReloaded("disk");
     }
 
     public async save(options?: { overwrite?: boolean }): Promise<SaveOutcome> {
@@ -447,7 +549,7 @@ export class TextFileModel extends Disposable {
         this.savedVersionId = this.doc.versionId;
         this.savedEol = this.doc.eol;
         this.setDiskConflict(false);
-        this.onDidSave?.();
+        this.fireSaved();
         return "saved";
     }
 
@@ -539,16 +641,19 @@ export class TextFileModel extends Disposable {
     /**
      * Changes the document's end-of-line sequence. The change is undoable and
      * marks the buffer dirty (EOL is tracked as a separate axis from content —
-     * see {@link isModified}).
+     * see {@link isModified}). `target` — действующая вью (её выделения попадают
+     * в снимок undo-шага); программные пути (save-участник) её не передают —
+     * берётся первая прикреплённая.
      */
-    public setEol(eol: EndOfLine): void {
+    public setEol(eol: EndOfLine, target?: ITextFileEditTarget): void {
         const previous = this.doc.eol;
         if (previous === eol) return;
 
-        const selections = this.editTarget.cloneSelections();
+        const acting = target ?? this.editTargets[0];
+        const selections = acting?.cloneSelections() ?? [];
         const version = this.doc.versionId;
         this.doc.setEol(eol);
-        this.editTarget.pushUndo({
+        this.undoManagerValue.pushUndoElement({
             label: "Change End of Line Sequence",
             versionBefore: version,
             versionAfter: version,
@@ -559,7 +664,7 @@ export class TextFileModel extends Disposable {
             eolBefore: previous,
             eolAfter: eol,
         });
-        this.editTarget.markDirty();
+        this.broadcastMarkDirty();
     }
 
     /**
@@ -587,7 +692,7 @@ export class TextFileModel extends Disposable {
         this.savedEol = this.doc.eol;
         this.setDiskConflict(false);
         this.startWatchingFile(newPath);
-        this.onDidSave?.();
+        this.fireSaved();
     }
 
     /** Читает stat файла (mtime + размер) или `null`, если файла нет/недоступен. */
@@ -659,67 +764,53 @@ export class TextFileModel extends Disposable {
      * A seam for edits that don't originate from user input — editor commands
      * (trim-trailing-whitespace, insert-final-newline) and save participants.
      * Pushes an undo element (if anything changed) and repaints. Document
-     * dirtiness follows automatically from the version bump.
+     * dirtiness follows automatically from the version bump. `target` —
+     * действующая вью: её view-state применяет правки (и пересчитывает свои
+     * выделения точно); остальные вью ремапятся по событию документа.
      */
-    public applyExternalEdits(edits: readonly ITextEdit[], label: string): void {
-        this.editTarget.pushUndo(this.editTarget.applyEdits(edits, label));
-        this.editTarget.markDirty();
+    public applyExternalEdits(edits: readonly ITextEdit[], label: string, target?: ITextFileEditTarget): void {
+        const acting = target ?? this.editTargets[0];
+        if (acting === undefined) return;
+        const element = acting.applyEdits(edits, label);
+        if (element) this.undoManagerValue.pushUndoElement(element);
+        this.broadcastMarkDirty();
     }
 
-    public undo(): void {
-        void this.undoRedoService.undo(this.undoContext);
+    /** Откат шага истории; `view` — действующая вью (восстановление выделений в неё). */
+    public undo(view?: IUndoViewBinding): void {
+        this.actingView = view ?? null;
+        try {
+            // Обёртка-элемент читает actingView синхронно: UndoRedoService зовёт
+            // element.undo() до первого await внутри undo(context).
+            void this.undoRedoService.undo(this.undoContext);
+        } finally {
+            this.actingView = null;
+        }
     }
 
-    public redo(): void {
-        void this.undoRedoService.redo(this.undoContext);
+    /** Повтор откаченного шага; `view` — как в {@link undo}. */
+    public redo(view?: IUndoViewBinding): void {
+        this.actingView = view ?? null;
+        try {
+            void this.undoRedoService.redo(this.undoContext);
+        } finally {
+            this.actingView = null;
+        }
     }
 
     /**
-     * Контекст-бакет истории отмены этого редактора — непрозрачный идентификатор,
-     * выданный при создании. Намеренно НЕ путь и НЕ uri: история принадлежит
-     * редактору, а не ресурсу, поэтому ключ обязан быть стабильным на всём времени
-     * жизни. Путь бакетом быть не может — на нём ломались два бага: все безымянные
-     * буферы сходились в общий бакет `"untitled"`, а `saveAs` менял ключ и осиротлял
-     * уже накопленную историю.
+     * Контекст-бакет истории отмены этого **документа** — непрозрачный
+     * идентификатор, выданный при создании модели. Намеренно НЕ путь и НЕ uri:
+     * ключ обязан быть стабильным на всём времени жизни. Путь бакетом быть не
+     * может — на нём ломались два бага: все безымянные буферы сходились в общий
+     * бакет `"untitled"`, а `saveAs` менял ключ и осиротлял уже накопленную
+     * историю. Модель одна на документ (реестр в `EditorService`), поэтому ключ
+     * per-модель и есть ключ per-документ — сплит-вью делят историю через неё.
      *
-     * Ограничение: корректно, пока редактор и документ соотносятся 1:1 (дедуп вкладок
-     * в `EditorService.openFile` это держит). Появятся сплиты — два редактора
-     * на один документ по семантике VS Code обязаны делить историю, и ключ переедет
-     * на документ.
+     * Ключ бакета и `resources` обёртки-элемента — разные вещи: первый адресует
+     * историю, второй перечисляет затронутые пути и у безымянного буфера пуст.
      */
     public readonly undoContext = `editor-${nextUndoContextId++}`;
-
-    /**
-     * Подключает редактор к общей истории: каждый шаг `UndoManager` регистрирует
-     * обёртку в `UndoRedoService` под контекстом этой модели. Обёртка — токен порядка:
-     * её undo/redo делегируют в `UndoManager` (LIFO 1:1, поэтому стеки идут в ногу).
-     * Движок undo (`UndoManager`) остаётся во view-слое (`EditorElement`); парный
-     * `EditorComponent` перепривязывает роутинг при каждом пересоздании редактора.
-     *
-     * Ключ бакета ({@link undoContext}) и `resources` — разные вещи: первый адресует
-     * историю и привязан к редактору, второй перечисляет затронутые пути и у безымянного
-     * буфера пуст.
-     */
-    public attachUndoRouting(undoManager: UndoManager, markDirty: () => void): void {
-        undoManager.onDidPush = (element) => {
-            const filePath = this.filePath;
-            this.undoRedoService.pushElement(
-                {
-                    label: element.label,
-                    resources: filePath === null ? [] : [filePath],
-                    undo: () => {
-                        undoManager.undo();
-                        markDirty();
-                    },
-                    redo: () => {
-                        undoManager.redo();
-                        markDirty();
-                    },
-                },
-                this.undoContext,
-            );
-        };
-    }
 
     /**
      * Language detection is delegated to the {@link ILanguageService}

@@ -1,3 +1,4 @@
+import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
 import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { INHERITED_BG } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
 import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
@@ -9,14 +10,10 @@ import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../..
 import { SizedBoxElement } from "../../../../../../tuidom/ui/layout/sizedBoxElement.ts";
 import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { Component } from "../../../browser/component.ts";
+import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 
 export const FindComponentDIToken = token<FindComponent>("FindComponent");
 
-/**
- * Packed-цвета find-виджета. Единственный источник значений —
- * (ключи VS Code `editorWidget.*`, `descriptionForeground`, `editorError.foreground`).
- */
 // Навигационные / close-глифы, выровнены по правому краю строки запроса.
 const PREV_GLYPH = "↑";
 const NEXT_GLYPH = "↓";
@@ -28,28 +25,23 @@ const BUTTON_GAP = 1; // зазор между соседними кнопкам
 const COUNTER_GAP = 2; // зазор между счётчиком и рядом кнопок
 
 /**
- * Компонент find-виджета: композиционный корень, собранный из примитивов
+ * Find-виджет ОДНОЙ группы редакторов: композиционный корень из примитивов
  * ({@link SizedBoxElement} → {@link BoxContainerElement} → {@link HFlexElement}
  * со строкой запроса, счётчиком совпадений и кнопками ↑ ↓ ✕). Ручного рендера
  * нет — рамку, фон и раскладку дают примитивы, цвета приходят из активной темы
- * токенами темы (`editorWidget.*`), которые резолвит каскад (Н3).
+ * токенами (`editorWidget.*`), которые резолвит каскад (Н3).
  *
  * Дерево строится ОДИН раз в конструкторе и дальше мутируется на месте
  * (`setQuery`/`setCounter` меняют только текст/цвет счётчика и его зазор) — так
  * строка запроса ({@link InputElement}) никогда не переподключается к дереву и
  * не теряет фокус между нажатиями. Виджет НЕ владеет навигационными клавишами:
  * open/next/prev/close ведут зарегистрированные команды; клик по кнопке зовёт
- * колбэк. Кнопки non-focusable (`focusable = false`) — клик не уводит фокус из
- * строки запроса. Логика поиска (query → matches → index) живёт в
- * {@link import("./findService.ts").FindService}.
+ * колбэк. Кнопки non-focusable — клик не уводит фокус из строки запроса.
  *
- * Overlay-хост ({@link OverlayHostElement} группы редакторов) приходит
- * через late-init шов {@link attachHost} — его зовёт владелец корневой view
- * (WorkbenchComponent) после постройки дерева, как у QuickInputComponent.
+ * Overlay-сессия живёт на локальном слое СВОЕЙ группы ({@link attachHost}) —
+ * виджет докается в её правый верхний угол и живёт/умирает вместе с группой.
  */
-export class FindComponent extends Component {
-    public static dependencies = [] as const;
-
+export class FindWidget extends Disposable {
     public readonly view: SizedBoxElement;
 
     public onQueryChange: ((query: string) => void) | null = null;
@@ -163,8 +155,12 @@ export class FindComponent extends Component {
 
     // ─── Overlay-сессия ───────────────────────────────────────────────────────
 
-    /** Прикрепляет виджет к overlay-слою группы редакторов (до первого показа). */
+    /** Прикрепляет виджет к overlay-слою СВОЕЙ группы (один раз, до первого показа). */
     public attachHost(host: OverlayHostElement): void {
+        // Повторное прикрепление того же хоста — no-op: живая overlay-сессия
+        // не пересоздаётся (и не закрывается под пользователем).
+        if (this.host === host) return;
+        this.session?.dispose();
         this.host = host;
         this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,
@@ -216,6 +212,7 @@ export class FindComponent extends Component {
 
     private updatePosition(): void {
         const group = this.host;
+        // Без прикреплённого хоста позиционировать не в чем — show() тогда no-op.
         if (group === null) return;
         const groupWidth = group.layoutSize.width;
         const widgetW = Math.min(60, Math.max(28, groupWidth - 2));
@@ -224,5 +221,62 @@ export class FindComponent extends Component {
         const px = Math.max(0, groupWidth - widgetW - 1); // right-align with a 1-col margin to the group's edge
         const py = 1; // хост — группа редакторов, её ряд 0 занимает tab strip
         this.session?.setPosition(new Point(px, py));
+    }
+}
+
+/**
+ * Менеджер find-виджетов полосы групп: по {@link FindWidget} на группу, ленивое
+ * создание при первом Ctrl+F в группе. Хосты виджетов выдаёт
+ * {@link hostProvider} (ставит WorkbenchComponent — срез
+ * `EditorPartComponent.groupOverlayHost`); колбэки каждого виджета поднимаются
+ * в {@link import("./findService.ts").FindService} с координатой группы.
+ * Схлопнутая группа забирает свой виджет с собой ({@link disposeWidget} зовёт
+ * FindService по `onDidGroupsChange`).
+ */
+export class FindComponent extends Disposable {
+    public static dependencies = [] as const;
+
+    /** Хост overlay-слоя группы; `null` — группа неизвестна view-слою (тесты без view). */
+    public hostProvider: ((groupId: GroupId) => OverlayHostElement | null) | null = null;
+
+    public onQueryChange: ((groupId: GroupId, query: string) => void) | null = null;
+    public onNext: ((groupId: GroupId) => void) | null = null;
+    public onPrev: ((groupId: GroupId) => void) | null = null;
+    public onClose: ((groupId: GroupId) => void) | null = null;
+
+    private readonly widgets = new Map<GroupId, FindWidget>();
+
+    /** Виджет группы, создавая при первом обращении; `null` — хост недоступен. */
+    public widgetFor(groupId: GroupId): FindWidget | null {
+        const existing = this.widgets.get(groupId);
+        if (existing !== undefined) return existing;
+        const host = this.hostProvider?.(groupId) ?? null;
+        if (host === null) return null;
+        const widget = this.register(new FindWidget());
+        widget.attachHost(host);
+        widget.onQueryChange = (query) => this.onQueryChange?.(groupId, query);
+        widget.onNext = () => this.onNext?.(groupId);
+        widget.onPrev = () => this.onPrev?.(groupId);
+        widget.onClose = () => this.onClose?.(groupId);
+        this.widgets.set(groupId, widget);
+        return widget;
+    }
+
+    /** Виджет группы БЕЗ создания (закрытие/опрос состояния). */
+    public widgetIfExists(groupId: GroupId): FindWidget | null {
+        return this.widgets.get(groupId) ?? null;
+    }
+
+    /** Открыт ли виджет группы. */
+    public isOpen(groupId: GroupId): boolean {
+        return this.widgets.get(groupId)?.isOpen() ?? false;
+    }
+
+    /** Забирает виджет схлопнутой группы (его overlay-слой умер вместе с ней). */
+    public disposeWidget(groupId: GroupId): void {
+        const widget = this.widgets.get(groupId);
+        if (widget === undefined) return;
+        this.widgets.delete(groupId);
+        widget.dispose();
     }
 }

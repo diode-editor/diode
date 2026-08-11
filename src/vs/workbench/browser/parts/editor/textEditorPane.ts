@@ -44,13 +44,21 @@ export class TextEditorPane extends Disposable implements IEditorPane {
      */
     public detached = false;
 
+    /**
+     * @param modelOwnership — чем панель владеет вместо самой модели: ссылка
+     * реестра моделей (`TextFileModelRegistry.acquire`). Закрытие вкладки
+     * освобождает ссылку, а модель умирает только с последней из них — так две
+     * вкладки одного файла в разных группах переживают закрытие любой одной.
+     * Без параметра панель владеет моделью единолично (untitled, detached).
+     */
     public constructor(
         public readonly model: TextFileModel,
         public readonly component: EditorComponent,
+        modelOwnership?: IDisposable,
     ) {
         super();
         this.register(component);
-        this.register(model);
+        this.register(modelOwnership ?? model);
     }
 
     /**
@@ -65,6 +73,10 @@ export class TextEditorPane extends Disposable implements IEditorPane {
             this.onDidChangeEol(cb),
             this.onDidChangeDiskState(cb),
             this.onDidChangeReadOnly(cb),
+            // Сохранение меняет вид вкладки: гаснет маркер изменённости, после
+            // saveAs — имя. Событие модели, а не слот onDidSave: у документа
+            // может быть несколько вкладок, и перерисоваться обязана каждая.
+            this.model.onDidSaveDocument(cb),
         ];
         return {
             dispose: () => {
@@ -184,7 +196,7 @@ export class TextEditorPane extends Disposable implements IEditorPane {
 
     public setEol(eol: EndOfLine): void {
         if (this.readOnly) return;
-        this.model.setEol(eol);
+        this.model.setEol(eol, this.component.editTarget);
     }
 
     public setLanguage(languageId: string): void {
@@ -196,17 +208,18 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     }
 
     public applyExternalEdits(edits: readonly ITextEdit[], label: string): void {
-        this.model.applyExternalEdits(edits, label);
+        this.model.applyExternalEdits(edits, label, this.component.editTarget);
     }
 
     public undo(): void {
         if (this.readOnly) return;
-        this.model.undo();
+        // Действующая вью — эта: ей восстанавливается снимок выделений шага.
+        this.model.undo(this.component.viewState);
     }
 
     public redo(): void {
         if (this.readOnly) return;
-        this.model.redo();
+        this.model.redo(this.component.viewState);
     }
 
     public onDidChangeContent(listener: () => void): IDisposable {

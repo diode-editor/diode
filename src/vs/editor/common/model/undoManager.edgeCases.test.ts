@@ -9,7 +9,7 @@ import { UndoManager } from "./undoManager.ts";
 function setup(text: string) {
     const doc = new TextDocument(text);
     const viewState = new EditorViewState(doc);
-    const undoManager = new UndoManager(doc, viewState);
+    const undoManager = new UndoManager(doc);
     return { doc, viewState, undoManager };
 }
 
@@ -20,14 +20,14 @@ describe("UndoManager redo guard and version bookkeeping", () => {
 
         const element = viewState.type(" world");
         undoManager.pushUndoElement(element!);
-        undoManager.undo();
+        undoManager.undo(viewState);
         expect(undoManager.canRedo).toBe(true);
 
         // An external edit bumps the document version away from the redo element's
         // expected versionAfter → redo must refuse (UndoManager.ts:76).
         doc.applyEdits([{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "!" }]);
 
-        expect(undoManager.redo()).toBe(false);
+        expect(undoManager.redo(viewState)).toBe(false);
         // Document is left untouched by the refused redo.
         expect(doc.getText()).toBe("!hello");
     });
@@ -42,17 +42,17 @@ describe("UndoManager redo guard and version bookkeeping", () => {
         expect(doc.getText()).toBe("AB");
 
         // Undo both → redo stack now holds two elements.
-        undoManager.undo();
-        undoManager.undo();
+        undoManager.undo(viewState);
+        undoManager.undo(viewState);
         expect(doc.getText()).toBe("");
 
         // First redo replays "A". Because the redo stack still has another entry,
         // its versionAfter is rewritten to the current doc version (UndoManager.ts:94),
         // which keeps the SECOND redo valid.
-        expect(undoManager.redo()).toBe(true);
+        expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.getText()).toBe("A");
 
-        expect(undoManager.redo()).toBe(true);
+        expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.getText()).toBe("AB");
         expect(undoManager.canRedo).toBe(false);
     });
@@ -67,12 +67,12 @@ describe("UndoManager redo guard and version bookkeeping", () => {
         undoManager.pushUndoElement(e2!);
         expect(doc.getText()).toBe("x12");
 
-        undoManager.undo();
-        undoManager.undo();
+        undoManager.undo(viewState);
+        undoManager.undo(viewState);
         expect(doc.getText()).toBe("x");
 
-        undoManager.redo();
-        undoManager.redo();
+        undoManager.redo(viewState);
+        undoManager.redo(viewState);
         expect(doc.getText()).toBe("x12");
     });
 });

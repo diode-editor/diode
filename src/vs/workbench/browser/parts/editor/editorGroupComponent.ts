@@ -7,30 +7,31 @@ import { EditorTabStripElement } from "../../../../../../tuidom/ui/editorgroup/e
 import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
 import { VFlexElement, vflexFill, vflexFixed } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
-import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 import { Component } from "../../component.ts";
 
-import type { IEditorPane } from "./iEditorPane.ts";
-
-export const EditorGroupComponentDIToken = token<EditorGroupComponent>("EditorGroupComponent");
+import { TextEditorPane } from "./textEditorPane.ts";
 
 /**
- * Компонент группы редакторов: собирает группу из примитивов tuidom —
+ * Компонент одной группы редакторов: собирает группу из примитивов tuidom —
  * {@link OverlayHostElement} (локальный OverlayLayer для find-виджета) поверх
  * VFlex [tab strip (1 ряд), контент-слот (остаток)] — и отражает в ней
- * состояние {@link EditorService} — по {@link EditorService.onDidChangeEditors}
- * вставляет view активного {@link TextEditorPane} и перерисовывает табы (метки с
- * разводкой тёзок, иконки, маркер изменённости, активная вкладка). Пустой слот
- * занимает филлер, крашеный editor.background. Клики по табам возвращаются в
- * сервис (`activateTab`/`closeTab`; закрытие «грязной» вкладки — через
- * `onRequestConfirmClose`).
+ * состояние СВОЕЙ {@link EditorGroup} — по {@link EditorGroup.onDidChangeEditors}
+ * вставляет view активной вкладки и перерисовывает табы (метки с разводкой
+ * тёзок, иконки, маркер изменённости, активная вкладка). Пустой слот занимает
+ * филлер, крашеный editor.background; у пустой группы он focusable — «фокус в
+ * группе» существует и без вкладок (US-4/47). Клики по табам возвращаются в
+ * группу (`activateTab`/`closeTab`; закрытие «грязной» вкладки — через
+ * `EditorService.onRequestConfirmClose` с координатой группы). Любой фокус
+ * внутри поддерева группы (клик в текст, таб, филлер) капчурится и делает
+ * группу активной ({@link EditorService.notifyGroupFocused}).
+ *
+ * Не DI-сервис: инстансы создаёт {@link EditorPartComponent} — по контролу на
+ * группу полосы.
  */
 export class EditorGroupComponent extends Component {
-    public static dependencies = [EditorServiceDIToken] as const;
-
     public readonly view: OverlayHostElement;
 
     private readonly vflex = new VFlexElement();
@@ -40,39 +41,68 @@ export class EditorGroupComponent extends Component {
     /** Текущий житель контент-слота: view активной pane либо emptyFiller. */
     private contentSlot: TUIElement;
 
-    public constructor(private readonly editorService: EditorService) {
+    public constructor(
+        public readonly group: EditorGroup,
+        private readonly editorService: EditorService,
+    ) {
         super();
         this.view = new OverlayHostElement();
-        this.view.id = "editorGroup";
+        // Стабильный e2e-селектор: editorGroup-<id> (id группы, не ViewColumn —
+        // номер колонки пересчитывается при схлопывании).
+        this.view.id = `editorGroup-${String(group.id)}`;
         // emptyFiller наследует editor.background от view через каскад.
         this.view.style = { fg: "editor.foreground", bg: "editor.background" };
         this.tabStrip.layoutStyle = { height: vflexFixed(1), width: "fill" };
         this.contentSlot = this.emptyFiller;
         this.syncSlot(this.emptyFiller);
         this.view.setContent(this.vflex);
+        // Фокус в поддереве группы = группа активна. Capture: до того, как фокус
+        // обработают вложенные виджеты; сам фокус уже уехал — только события.
+        this.view.addEventListener(
+            "focus",
+            () => {
+                this.editorService.notifyGroupFocused(this.group);
+            },
+            { capture: true },
+        );
         this.tabStrip.onTabActivate = (index) => {
-            this.editorService.activateTab(index);
+            this.group.activateTab(index);
         };
         this.tabStrip.onTabClose = (index) => {
             // Индекс приходит из tab strip и всегда указывает на существующую вкладку.
             // Именно getPane, а не getEditor: закрывать надо вкладку любого вида,
             // иначе не-текстовую панель (дифф) нельзя было бы закрыть крестиком.
-            const editor = this.editorService.getPane(index);
+            const editor = this.group.getPane(index);
             /* v8 ignore start -- индекс из tab strip всегда указывает на существующую вкладку; null — недостижимый инвариант-гард */
             if (editor === null) return;
             /* v8 ignore stop */
-            if (editor.isModified && this.editorService.onRequestConfirmClose) {
-                this.editorService.onRequestConfirmClose(index);
+            // Диалог — только у последней вкладки документа: пока он виден где-то
+            // ещё, несохранённые правки живут в общей модели и не теряются.
+            const needsConfirm =
+                editor.isModified &&
+                (!(editor instanceof TextEditorPane) || this.editorService.isLastPaneForDocument(editor));
+            if (needsConfirm && this.editorService.onRequestConfirmClose) {
+                this.editorService.onRequestConfirmClose(this.group, index);
             } else {
-                this.editorService.closeTab(index);
+                this.group.closeTab(index);
             }
         };
         this.register(
-            this.editorService.onDidChangeEditors(() => {
-                this.syncFromService();
+            this.group.onDidChangeEditors(() => {
+                this.syncFromGroup();
             }),
         );
-        this.syncFromService();
+        this.syncFromGroup();
+    }
+
+    /**
+     * Фокус содержимого группы: активная вкладка либо филлер пустой группы.
+     * Зовёт `EditorPartComponent` по фокус-командам и после сплита.
+     */
+    public focusContent(): void {
+        const pane = this.group.activePane;
+        if (pane !== null) pane.focusEditor();
+        else this.emptyFiller.focus();
     }
 
     /** Вставляет жителя контент-слота: [tabStrip, слот] одним replaceChildren. */
@@ -82,15 +112,15 @@ export class EditorGroupComponent extends Component {
         this.contentSlot = slot;
     }
 
-    /** Приводит контрол к состоянию сервиса: контент активного редактора + табы. */
-    private syncFromService(): void {
-        // Именно ВКЛАДКА: `getActivePane()` следует за фокусом и при работе в
-        // нижней панели вернул бы её detached-редактор — группа вставила бы его
-        // вместо файла, и область редактора оказывалась пустой.
-        const activeView = this.editorService.getActiveTabPane()?.view ?? null;
+    /** Приводит контрол к состоянию группы: контент активной вкладки + табы. */
+    private syncFromGroup(): void {
+        const activeView = this.group.activePane?.view ?? null;
         const next = activeView ?? this.emptyFiller;
+        // Пустая группа — легальный адресат фокуса (Ctrl+P откроет файл в неё);
+        // при появлении вкладки филлер из фокус-порядка уходит.
+        this.emptyFiller.focusable = this.group.editorCount === 0;
         // Guard от повторной вставки того же view: replaceChildren перевешивает
-        // parent, а активный редактор меняется реже, чем файрится onDidChangeEditors.
+        // parent, а активная вкладка меняется реже, чем файрится onDidChangeEditors.
         if (this.contentSlot !== next) {
             this.syncSlot(next);
         }
@@ -98,7 +128,7 @@ export class EditorGroupComponent extends Component {
     }
 
     private syncTabs(): void {
-        const editors = this.editorService.getPanes();
+        const editors = this.group.getPanes();
         const labels = this.computeTabLabels();
         const tabs: TabInfo[] = editors.map((editor, i) => {
             const fi = getFileIcon(this.editorService.displayName(editor));
@@ -112,16 +142,17 @@ export class EditorGroupComponent extends Component {
         });
 
         this.tabStrip.setTabs(tabs);
-        this.tabStrip.activeIndex = this.editorService.activeIndex;
+        this.tabStrip.activeIndex = this.group.activeIndex;
     }
 
     /**
      * Метки вкладок: обычно это имя файла, но если несколько открытых файлов
-     * делят один basename, к ним добавляется минимальный различающий суффикс
-     * родительского пути (как в VS Code), чтобы вкладки нельзя было спутать.
+     * ЭТОЙ группы делят один basename, к ним добавляется минимальный различающий
+     * суффикс родительского пути (как в VS Code), чтобы вкладки нельзя было
+     * спутать. Дизамбигуация пер-стрип: чужие группы свои метки разводят сами.
      */
     private computeTabLabels(): string[] {
-        const editors = this.editorService.getPanes();
+        const editors = this.group.getPanes();
         const names = editors.map((editor) => this.editorService.displayName(editor));
         const groups = new Map<string, number[]>();
         names.forEach((name, i) => {
@@ -164,3 +195,4 @@ export class EditorGroupComponent extends Component {
         return labels;
     }
 }
+

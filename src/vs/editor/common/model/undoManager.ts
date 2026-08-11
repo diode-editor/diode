@@ -1,7 +1,6 @@
 import type { EndOfLine } from "../core/endOfLine.ts";
 import type { ISelection } from "../core/iSelection.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
-import type { EditorViewState } from "../viewModel/editorViewState.ts";
 
 import type { ITextDocument } from "./iTextDocument.ts";
 import type { IUndoElement } from "./iUndoElement.ts";
@@ -18,22 +17,39 @@ interface MutableUndoElement {
     eolAfter?: EndOfLine;
 }
 
+/**
+ * «Действующая вью» шага undo/redo — та, в которую восстанавливается снимок
+ * выделений из элемента истории. Остальные вью документа своё состояние
+ * ремапят сами по `onDidChangeContent` (см. `EditorViewState`), поэтому
+ * менеджеру от вью нужен ровно один метод. `EditorViewState` подходит
+ * структурно.
+ */
+export interface IUndoViewBinding {
+    restoreSelections(selections: readonly ISelection[]): void;
+}
+
+/**
+ * Движок undo одного документа: стеки с реальными пейлоадами (правки + EOL +
+ * снимки выделений). Один на документ, а не на вью: история принадлежит
+ * документу (семантика VS Code), и при нескольких редакторах на один документ
+ * все правки обязаны сходиться в единственный стек — иначе version-гейт в
+ * {@link undo} молча отбрасывал бы шаги, сделанные «чужой» вью. Владелец —
+ * `TextFileModel` (пересоздаёт вместе с документом).
+ */
 export class UndoManager {
     private undoStack: MutableUndoElement[] = [];
     private redoStack: MutableUndoElement[] = [];
     private readonly doc: ITextDocument;
-    private readonly viewState: EditorViewState;
 
     /**
      * Вызывается после каждого `pushUndoElement` — единая точка-чока для всех правок
-     * (набор текста, удаления, вставка). Контроллер вешает сюда регистрацию шага в общий
-     * `UndoRedoService`. Editor-слой при этом не зависит от Workbench.
+     * (набор текста, удаления, вставка). Владелец-модель вешает сюда регистрацию шага
+     * в общий `UndoRedoService`. Editor-слой при этом не зависит от Workbench.
      */
     public onDidPush: ((element: IUndoElement) => void) | null = null;
 
-    public constructor(doc: ITextDocument, viewState: EditorViewState) {
+    public constructor(doc: ITextDocument) {
         this.doc = doc;
-        this.viewState = viewState;
     }
 
     public get canUndo(): boolean {
@@ -50,7 +66,12 @@ export class UndoManager {
         this.onDidPush?.(element);
     }
 
-    public undo(): boolean {
+    /**
+     * Откатывает верхний шаг. `view` — действующая вью: ей восстанавливается
+     * снимок выделений шага; без неё (программный undo без редактора) документ
+     * откатывается, а выделения остаются на ремапе самих вью.
+     */
+    public undo(view: IUndoViewBinding | null = null): boolean {
         const element = this.undoStack.pop();
         if (!element) return false;
 
@@ -58,12 +79,11 @@ export class UndoManager {
             return false;
         }
 
+        // applyEdits файрит onDidChangeContent — по нему ВСЕ вью документа
+        // (включая действующую) сдвигают свои фолды/выделения/скролл; отдельного
+        // прохода по фолдам здесь больше нет.
         const { appliedVersion, inverseEdits } = this.doc.applyEdits(element.backwardEdits);
-        // Shift folding regions for the undone edits (the normal edit path does
-        // this via EditorViewState.applyEdits, which undo bypasses) so the caret
-        // reveal below and the later recompute see correct region boundaries.
-        this.viewState.adjustFoldingRegionsForEdits(element.backwardEdits);
-        this.viewState.restoreSelections(element.beforeSelections);
+        view?.restoreSelections(element.beforeSelections);
         if (element.eolBefore !== undefined) {
             this.doc.setEol(element.eolBefore);
         }
@@ -89,7 +109,8 @@ export class UndoManager {
         return true;
     }
 
-    public redo(): boolean {
+    /** Повторяет откаченный шаг; `view` — как в {@link undo}. */
+    public redo(view: IUndoViewBinding | null = null): boolean {
         const element = this.redoStack.pop();
         if (!element) return false;
 
@@ -98,8 +119,7 @@ export class UndoManager {
         }
 
         const { appliedVersion, inverseEdits } = this.doc.applyEdits(element.backwardEdits);
-        this.viewState.adjustFoldingRegionsForEdits(element.backwardEdits);
-        this.viewState.restoreSelections(element.beforeSelections);
+        view?.restoreSelections(element.beforeSelections);
         if (element.eolBefore !== undefined) {
             this.doc.setEol(element.eolBefore);
         }

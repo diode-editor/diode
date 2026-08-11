@@ -1,3 +1,4 @@
+import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
@@ -34,6 +35,7 @@ function createGroup(): EditorService {
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
+        NULL_LOG_SERVICE,
     );
 }
 

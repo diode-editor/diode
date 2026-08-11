@@ -22,6 +22,7 @@ import { createTextEdit } from "../core/iTextEdit.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { computeNewLinePlan } from "../languages/autoIndent.ts";
 import type { ILineTokens } from "../languages/iLineTokens.ts";
+import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import { detectIndentation } from "../model/indentationDetector.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 import type { IUndoElement } from "../model/iUndoElement.ts";
@@ -129,10 +130,91 @@ export class EditorViewState {
     private foldsVersion = 0;
     private visibleLinesCacheFoldsVersion = -1;
 
+    /**
+     * Взведён, пока правку применяет СОБСТВЕННЫЙ мутатор этого view-state
+     * (type/deleteLeft/…): они пересчитывают свои выделения и фолды точно, и
+     * ремап по {@link remapForDocumentChange} для них был бы вторым сдвигом.
+     * Чужие правки (другая вью того же документа, undo/redo, владелец
+     * синтетического буфера) приходят с опущенным флагом и ремапятся.
+     */
+    private applyingOwnEdits = false;
+    private readonly docContentSubscription: IDisposable;
+
     public constructor(document: ITextDocument, selections?: ISelection[]) {
         this.document = document;
+        this.docContentSubscription = document.onDidChangeContent((change) => {
+            if (!this.applyingOwnEdits) this.remapForDocumentChange(change);
+        });
         this.selections = selections && selections.length > 0 ? selections : [createCursorSelection(0, 0)];
         this.runDetectIndentation();
+    }
+
+    /** Отписка от документа. Зовёт владелец view-state при пересоздании/закрытии вью. */
+    public dispose(): void {
+        this.docContentSubscription.dispose();
+    }
+
+    /**
+     * Применяет собственные правки к документу под гейтом {@link applyingOwnEdits}.
+     * Единственная законная дверь мутаторов view-state к `document.applyEdits`.
+     */
+    private applyDocumentEdits(edits: readonly ITextEdit[]): ReturnType<ITextDocument["applyEdits"]> {
+        this.applyingOwnEdits = true;
+        try {
+            return this.document.applyEdits(edits);
+        } finally {
+            this.applyingOwnEdits = false;
+        }
+    }
+
+    /**
+     * Сдвигает состояние этой вью под правку, применённую МИМО неё: другой вью
+     * того же документа, undo/redo или владельцем синтетического буфера. Ремап
+     * строчный — {@link IDocumentContentChange} несёт только границы строк;
+     * позиции внутри изменённого диапазона клампятся к его концу (колоночный
+     * дрейф на изменённой строке принят осознанно).
+     */
+    private remapForDocumentChange(change: IDocumentContentChange): void {
+        const lineDelta = change.newEndLine - change.oldEndLine;
+
+        this.adjustFoldingRegionsForLineChange(change.startLine, change.oldEndLine, lineDelta);
+
+        const remapped = this.selectionsValue.map((sel) => {
+            const anchor = this.remapPosition(sel.anchor, change, lineDelta);
+            const active = this.remapPosition(sel.active, change, lineDelta);
+            return anchor === sel.anchor && active === sel.active
+                ? sel
+                : { anchor, active, idealColumn: sel.idealColumn };
+        });
+        // Присваиваем только при реальном сдвиге: setter файрит cursor-change, и
+        // холостой выстрел на каждую чужую правку дёргал бы статус-бар и host.
+        if (remapped.some((sel, i) => sel !== this.selectionsValue[i])) {
+            this.selections = remapped;
+        }
+
+        // Скролл: правка целиком выше вьюпорта сдвигает содержимое — держим на
+        // экране те же строки. Только без свёрнутых регионов: с ними логический
+        // сдвиг не равен визуальному, и честный пересчёт не стоит своей цены.
+        if (
+            lineDelta !== 0 &&
+            this.scrollTopValue > 0 &&
+            !this.foldedRegions.some((region) => region.isCollapsed) &&
+            change.oldEndLine < this.scrollTopValue
+        ) {
+            this.scrollTop = Math.max(0, this.scrollTopValue + lineDelta);
+        }
+    }
+
+    /** Строчный ремап одной позиции; возвращает исходный объект, если сдвига нет. */
+    private remapPosition(pos: IPosition, change: IDocumentContentChange, lineDelta: number): IPosition {
+        if (pos.line > change.oldEndLine) {
+            return lineDelta === 0 ? pos : { line: pos.line + lineDelta, character: pos.character };
+        }
+        if (pos.line < change.startLine) return pos;
+        // Позиция внутри изменённого диапазона: кламп к границам нового текста.
+        const line = Math.min(pos.line, change.newEndLine);
+        const character = Math.min(pos.character, this.document.getLineLength(line));
+        return line === pos.line && character === pos.character ? pos : { line, character };
     }
 
     /**
@@ -554,7 +636,7 @@ export class EditorViewState {
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
         const edits = this.buildEditsFromSelections(text);
-        const { appliedVersion, inverseEdits } = this.document.applyEdits(edits);
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
         this.selections = this.computeSelectionsAfterEdits(edits);
         this.ensureCursorVisible();
@@ -582,7 +664,7 @@ export class EditorViewState {
         if (this.readOnly || edits.length === 0) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
-        const { appliedVersion, inverseEdits } = this.document.applyEdits(edits);
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
         this.selections = this.computeSelectionsAfterEdits(edits);
         this.ensureCursorVisible();
@@ -616,7 +698,7 @@ export class EditorViewState {
             });
         });
         const edits = sorted.map((sel, i) => createTextEdit(selectionToRange(sel), plans[i].editText));
-        const { appliedVersion, inverseEdits } = this.document.applyEdits(edits);
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
         // computeSelectionsAfterEdits lands the cursor at the end of the inserted
         // text. For a block expansion the closer occupies the last inserted line,
@@ -673,7 +755,7 @@ export class EditorViewState {
         if (edits.length > 0) {
             const beforeSelections = this.cloneSelections();
             const versionBefore = this.document.versionId;
-            const { appliedVersion, inverseEdits } = this.document.applyEdits(edits);
+            const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
             this.adjustFoldingRegionsForEdits(edits);
             this.selections = this.computeSelectionsAfterEdits(edits);
             this.ensureCursorVisible();
@@ -1034,7 +1116,7 @@ export class EditorViewState {
         if (edits.length > 0) {
             const beforeSelections = this.cloneSelections();
             const versionBefore = this.document.versionId;
-            const { appliedVersion, inverseEdits } = this.document.applyEdits(edits);
+            const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
             this.adjustFoldingRegionsForEdits(edits);
             this.selections = this.computeSelectionsAfterEdits(edits);
             this.ensureCursorVisible();
@@ -1079,7 +1161,7 @@ export class EditorViewState {
         if (edits.length > 0) {
             const beforeSelections = this.cloneSelections();
             const versionBefore = this.document.versionId;
-            const { appliedVersion, inverseEdits } = this.document.applyEdits(edits);
+            const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
             this.adjustFoldingRegionsForEdits(edits);
             this.selections = this.computeSelectionsAfterEdits(edits);
             this.ensureCursorVisible();
@@ -1124,7 +1206,7 @@ export class EditorViewState {
         if (edits.length > 0) {
             const beforeSelections = this.cloneSelections();
             const versionBefore = this.document.versionId;
-            const { appliedVersion, inverseEdits } = this.document.applyEdits(edits);
+            const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
             this.adjustFoldingRegionsForEdits(edits);
             this.selections = this.computeSelectionsAfterEdits(edits);
             this.ensureCursorVisible();
@@ -1204,7 +1286,7 @@ export class EditorViewState {
 
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
-        const { appliedVersion, inverseEdits } = this.document.applyEdits(edits);
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
         this.selections = this.selections.map((sel) => this.remapSelectionForIndent(sel, perLine));
         this.ensureCursorVisible();
@@ -1488,45 +1570,53 @@ export class EditorViewState {
             const insertedLineCount = edit.text.split("\n").length;
             const deletedLineCount = editEndLine - editStartLine;
             const lineDelta = insertedLineCount - 1 - deletedLineCount;
-
-            this.foldedRegions = this.foldedRegions.filter((region) => {
-                // Edit completely after the region → no change
-                if (editStartLine > region.endLine) {
-                    return true;
-                }
-
-                // Edit completely before the region → shift both boundaries
-                if (editEndLine < region.startLine) {
-                    region.startLine += lineDelta;
-                    region.endLine += lineDelta;
-                    return true;
-                }
-
-                // Edit starts before region starts and ends inside/after region → remove
-                if (editStartLine <= region.startLine && editEndLine >= region.startLine) {
-                    return false;
-                }
-
-                // Edit is completely inside the region → adjust endLine
-                if (editStartLine > region.startLine && editEndLine <= region.endLine) {
-                    region.endLine += lineDelta;
-                    return region.endLine > region.startLine; // remove if region became empty
-                }
-
-                // Edit starts inside region and extends beyond → remove
-                /* v8 ignore start -- the fall-through else and the final `return true` are unreachable: reaching here needs editStartLine>endLine, but that case already returned at the "completely after" check */
-                if (
-                    editStartLine > region.startLine &&
-                    editStartLine <= region.endLine &&
-                    editEndLine > region.endLine
-                ) {
-                    return false;
-                }
-
-                return true;
-                /* v8 ignore stop */
-            });
+            this.adjustFoldingRegionsForLineChange(editStartLine, editEndLine, lineDelta);
         }
+    }
+
+    /**
+     * Строчный сдвиг фолдов под одну правку `[editStartLine..editEndLine] → +lineDelta`.
+     * Общее ядро {@link adjustFoldingRegionsForEdits} (свои правки, точные границы)
+     * и {@link remapForDocumentChange} (чужие правки, границы из события документа).
+     */
+    private adjustFoldingRegionsForLineChange(editStartLine: number, editEndLine: number, lineDelta: number): void {
+        this.foldedRegions = this.foldedRegions.filter((region) => {
+            // Edit completely after the region → no change
+            if (editStartLine > region.endLine) {
+                return true;
+            }
+
+            // Edit completely before the region → shift both boundaries
+            if (editEndLine < region.startLine) {
+                region.startLine += lineDelta;
+                region.endLine += lineDelta;
+                return true;
+            }
+
+            // Edit starts before region starts and ends inside/after region → remove
+            if (editStartLine <= region.startLine && editEndLine >= region.startLine) {
+                return false;
+            }
+
+            // Edit is completely inside the region → adjust endLine
+            if (editStartLine > region.startLine && editEndLine <= region.endLine) {
+                region.endLine += lineDelta;
+                return region.endLine > region.startLine; // remove if region became empty
+            }
+
+            // Edit starts inside region and extends beyond → remove
+            /* v8 ignore start -- the fall-through else and the final `return true` are unreachable: reaching here needs editStartLine>endLine, but that case already returned at the "completely after" check */
+            if (
+                editStartLine > region.startLine &&
+                editStartLine <= region.endLine &&
+                editEndLine > region.endLine
+            ) {
+                return false;
+            }
+
+            return true;
+            /* v8 ignore stop */
+        });
     }
 
     /**

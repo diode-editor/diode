@@ -11,8 +11,18 @@ import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
  * панели не должен подменять расширению `activeTextEditor`. Здесь нам нужен
  * случай «нет активного редактора».
  */
+/** Групповой срез фасада: одна группа (id 1, колонка 1) — мета и таргетинг. */
+const GROUP_SURFACE = {
+    groupOf: () => ({ id: 1 }),
+    activeGroup: { id: 1 },
+    viewColumnOf: () => 1,
+    groups: [] as unknown[],
+    getEditors: () => [] as unknown[],
+};
+
 function groupWithNoActiveEditor(): EditorService {
     return {
+        ...GROUP_SURFACE,
         getActiveTabEditor: () => null,
     } as unknown as EditorService;
 }
@@ -77,6 +87,7 @@ describe("EditorOptionsServiceAdapter", () => {
 
     it("getActiveEditorMeta() reports uri/languageId/isDirty (nulls when no editor)", () => {
         const withEditor = {
+            ...GROUP_SURFACE,
             getActiveTabEditor: () => ({
                 uri: Uri.file("/a/b.ts"),
                 languageId: "typescript",
@@ -92,6 +103,8 @@ describe("EditorOptionsServiceAdapter", () => {
             encoding: "windows1251",
             eol: 2,
             selection: null,
+            groupId: 1,
+            viewColumn: 1,
         });
         expect(new EditorOptionsServiceAdapter(groupWithNoActiveEditor()).getActiveEditorMeta()).toEqual({
             uri: null,
@@ -107,6 +120,7 @@ describe("EditorOptionsServiceAdapter", () => {
         let registered: ((editor: unknown) => void) | undefined;
         const groupDisposable = { dispose: vi.fn() };
         const group = {
+            ...GROUP_SURFACE,
             onActiveEditorChanged: (cb: (editor: unknown) => void) => {
                 registered = cb;
                 return groupDisposable;
@@ -143,6 +157,8 @@ describe("EditorOptionsServiceAdapter", () => {
                 encoding: "utf8",
                 eol: 1,
                 selection: { anchorLine: 0, anchorCharacter: 2, activeLine: 1, activeCharacter: 4 },
+                groupId: 1,
+                viewColumn: 1,
             },
             { uri: null, languageId: null, isDirty: false, encoding: null, eol: null, selection: null },
         ]);
@@ -180,7 +196,7 @@ describe("EditorOptionsServiceAdapter", () => {
             model: { document: { lineCount: 3, getLineLength: () => 10 } },
             applyExternalEdits,
         };
-        const group = { getActiveTabEditor: () => editor } as unknown as EditorService;
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
         const adapter = new EditorOptionsServiceAdapter(group);
 
         const edit = { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" };
@@ -197,7 +213,7 @@ describe("EditorOptionsServiceAdapter", () => {
             model: { document: { lineCount: 3, getLineLength: () => 10 } },
             applyExternalEdits: vi.fn(),
         };
-        const group = { getActiveTabEditor: () => editor } as unknown as EditorService;
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
         const adapter = new EditorOptionsServiceAdapter(group);
         expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), [])).toBe(false);
         expect(new EditorOptionsServiceAdapter(groupWithNoActiveEditor()).setActiveEditorSelections("x", [])).toBeUndefined();
@@ -222,7 +238,7 @@ describe("EditorOptionsServiceAdapter", () => {
             focusEditor: vi.fn(),
             applyExternalEdits,
         };
-        const group = { getActiveTabEditor: () => editor } as unknown as EditorService;
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
         const adapter = new EditorOptionsServiceAdapter(group);
         const uri = Uri.file("/a/b.ts").toString();
 
@@ -271,6 +287,7 @@ describe("EditorOptionsServiceAdapter", () => {
             },
         };
         const group = {
+            ...GROUP_SURFACE,
             getActiveTabEditor: () => editor,
             onDidChangeActiveEditorSelection: (cb: (e: unknown) => void) => {
                 const wrapped = (): void => {
@@ -302,6 +319,7 @@ describe("EditorOptionsServiceAdapter", () => {
             {
                 uri: Uri.file("/a/b.ts").toString(),
                 selections: [{ anchorLine: 3, anchorCharacter: 1, activeLine: 3, activeCharacter: 5 }],
+                groupId: 1,
             },
         ]);
     });
@@ -372,8 +390,51 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(seen).toHaveLength(0);
     });
 
+    it("вкладка вне полосы (groupOf → null) — groupId падает на активную группу", async () => {
+        // Вкладку успели закрыть, пока нотификация ждала microtask-флаш: её
+        // группы больше нет, и мета/нотификация несут координату активной.
+        const listeners: (() => void)[] = [];
+        const editor = {
+            uri: Uri.file("/a/b.ts"),
+            languageId: "typescript",
+            isModified: false,
+            encoding: "utf8",
+            eol: 1,
+            viewState: { selections: [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 1 } }] },
+        };
+        const group = {
+            ...GROUP_SURFACE,
+            groupOf: () => null,
+            activeGroup: { id: 7 },
+            viewColumnOf: () => 2,
+            getActiveTabEditor: () => editor,
+            onDidChangeActiveEditorSelection: (cb: (e: unknown) => void) => {
+                listeners.push(() => {
+                    cb(editor);
+                });
+                return { dispose: () => undefined };
+            },
+        } as unknown as EditorService;
+        const adapter = new EditorOptionsServiceAdapter(group);
+
+        expect(adapter.getActiveEditorMeta()).toMatchObject({ groupId: 7, viewColumn: 2 });
+
+        const seen: { groupId?: number }[] = [];
+        adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
+        for (const fire of listeners) fire();
+        await Promise.resolve();
+        expect(seen).toEqual([
+            {
+                uri: Uri.file("/a/b.ts").toString(),
+                selections: [{ anchorLine: 0, anchorCharacter: 0, activeLine: 0, activeCharacter: 1 }],
+                groupId: 7,
+            },
+        ]);
+    });
+
     it("getActiveEditorMeta() — selection null, когда выделений нет", () => {
         const group = {
+            ...GROUP_SURFACE,
             getActiveTabEditor: () => ({
                 uri: Uri.file("/a/b.ts"),
                 languageId: "typescript",

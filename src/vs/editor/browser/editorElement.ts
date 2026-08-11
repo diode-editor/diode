@@ -82,7 +82,12 @@ const INDENT_GUIDE = "│"; // U+2502 box drawings light vertical
  */
 export class EditorElement extends TUIElement implements IScrollable {
     public readonly viewState: EditorViewState;
-    public readonly undoManager: UndoManager;
+    /**
+     * Движок undo. По умолчанию — собственный (standalone-редакторы, демо, дифф);
+     * редактор файла получает сюда общий менеджер своего документа от
+     * `EditorComponent` — история одна на документ, сколько бы вью его ни казало.
+     */
+    public undoManager: UndoManager;
     /**
      * Resolves TextMate scopes to {@link ResolvedTokenStyle}. Defaults to a
      * no-op resolver; concrete implementations live in the Theme layer (or
@@ -206,7 +211,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         super();
         this.focusable = true;
         this.viewState = viewState;
-        this.undoManager = new UndoManager(viewState.document, viewState);
+        this.undoManager = new UndoManager(viewState.document);
 
         // Любое движение курсора/правка (печать, paste, мышь, undo, команды —
         // все проходят через сеттер selections) — грязный кадр. Раньше

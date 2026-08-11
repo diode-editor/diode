@@ -134,6 +134,20 @@ export class WorkbenchContextKeys extends Disposable {
         this.inputWidgetService.setActive(active instanceof InputElement ? active : null);
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);
+        this.contextKeys.set("multipleEditorGroups", this.editorService.groups.length > 1);
+        this.contextKeys.set("activeEditorGroupEmpty", editorCount === 0);
+        this.contextKeys.set("activeEditorGroupIndex", this.editorService.viewColumnOf(this.editorService.activeGroup));
+        this.contextKeys.set(
+            "activeEditorGroupLast",
+            this.editorService.activeGroup ===
+                this.editorService.groups[this.editorService.groups.length - 1],
+        );
+        // Фокус в дереве Explorer — по пути предков до его view (id
+        // "explorerView" ставит ExplorerComponent): нового шва к компоненту не нужно.
+        this.contextKeys.set(
+            "filesExplorerFocus",
+            active !== null && active.getAncestorPath().some((element) => element.id === "explorerView"),
+        );
         this.contextKeys.set("panelVisible", this.layoutService.isPanelVisible());
         this.contextKeys.set(
             "searchViewletVisible",

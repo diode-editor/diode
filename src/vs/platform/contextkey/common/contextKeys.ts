@@ -81,7 +81,8 @@ export interface ContextKeyTypes {
     // -- Explorer contexts --
     // explorerViewletVisible: boolean;
     // explorerViewletFocus: boolean;
-    // filesExplorerFocus: boolean;
+    /** True while the Explorer file tree has keyboard focus. */
+    filesExplorerFocus: boolean;
     // openEditorsFocus: boolean;
     // explorerResourceIsFolder: boolean;
 
@@ -155,10 +156,14 @@ export interface ContextKeyTypes {
     // textCompareEditorActive: boolean;
     // editorIsOpen: boolean;
     // groupEditorsCount: number;
-    // activeEditorGroupEmpty: boolean;
-    // activeEditorGroupIndex: number;
-    // activeEditorGroupLast: boolean;
-    // multipleEditorGroups: boolean;
+    /** True while the active editor group has no tabs. */
+    activeEditorGroupEmpty: boolean;
+    /** 1-based index (ViewColumn) of the active editor group. */
+    activeEditorGroupIndex: number;
+    /** True while the active editor group is the last in the strip. */
+    activeEditorGroupLast: boolean;
+    /** True while the editor area is split into more than one group. */
+    multipleEditorGroups: boolean;
     // activeEditor: string;
     // activeEditorIsDirty: boolean;
     // activeEditorIsNotPreview: boolean;
@@ -248,7 +253,7 @@ export const allContextKeys: ContextKey[] = [
     // -- Explorer contexts --
     // "explorerViewletVisible",
     // "explorerViewletFocus",
-    // "filesExplorerFocus",
+    "filesExplorerFocus",
     // "openEditorsFocus",
     // "explorerResourceIsFolder",
 
@@ -311,10 +316,10 @@ export const allContextKeys: ContextKey[] = [
     // "textCompareEditorActive",
     // "editorIsOpen",
     // "groupEditorsCount",
-    // "activeEditorGroupEmpty",
-    // "activeEditorGroupIndex",
-    // "activeEditorGroupLast",
-    // "multipleEditorGroups",
+    "activeEditorGroupEmpty",
+    "activeEditorGroupIndex",
+    "activeEditorGroupLast",
+    "multipleEditorGroups",
     // "activeEditor",
     // "activeEditorIsDirty",
     // "activeEditorIsNotPreview",

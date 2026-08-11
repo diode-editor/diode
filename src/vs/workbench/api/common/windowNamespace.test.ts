@@ -87,7 +87,7 @@ describe("WindowNamespace", () => {
         window.activeTextEditor!.options = { tabSize: 2, insertSpaces: true };
         expect(stub.requests).toContainEqual({
             method: "editor.setOptions",
-            params: { tabSize: 2, insertSpaces: true },
+            params: { tabSize: 2, insertSpaces: true, uri: Uri.file("/a.ts").toString(), groupId: 1 },
         });
     });
 
@@ -97,7 +97,7 @@ describe("WindowNamespace", () => {
         window.activeTextEditor!.options = { indentSize: 3 } as never;
         expect(stub.requests).toContainEqual({
             method: "editor.setOptions",
-            params: { indentSize: 3 },
+            params: { indentSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
         });
     });
 
@@ -166,12 +166,18 @@ describe("WindowNamespace", () => {
         window.activeTextEditor!.options = { tabSize: "6", insertSpaces: "false" } as never;
         expect(stub.requests.at(-1)).toEqual({
             method: "editor.setOptions",
-            params: { tabSize: 6, insertSpaces: false },
+            params: { tabSize: 6, insertSpaces: false, uri: Uri.file("/a.ts").toString(), groupId: 1 },
         });
         window.activeTextEditor!.options = { insertSpaces: "auto" } as never;
-        expect(stub.requests.at(-1)).toEqual({ method: "editor.setOptions", params: { insertSpaces: true } });
+        expect(stub.requests.at(-1)).toEqual({
+            method: "editor.setOptions",
+            params: { insertSpaces: true, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+        });
         window.activeTextEditor!.options = { indentSize: "3" } as never;
-        expect(stub.requests.at(-1)).toEqual({ method: "editor.setOptions", params: { indentSize: 3 } });
+        expect(stub.requests.at(-1)).toEqual({
+            method: "editor.setOptions",
+            params: { indentSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+        });
     });
 
     it("options с мусорными строками деградирует безопасно", () => {
@@ -179,7 +185,10 @@ describe("WindowNamespace", () => {
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         // tabSize невалидна → 4; indentSize невалидна → не форвардится
         window.activeTextEditor!.options = { tabSize: "bad", indentSize: "bad" } as never;
-        expect(stub.requests.at(-1)).toEqual({ method: "editor.setOptions", params: { tabSize: 4 } });
+        expect(stub.requests.at(-1)).toEqual({
+            method: "editor.setOptions",
+            params: { tabSize: 4, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+        });
     });
 
     it("присвоение options не-объекта и других свойств отклоняется", () => {
@@ -260,6 +269,7 @@ describe("WindowNamespace", () => {
                     { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } },
                     { start: { line: 4, character: 2 }, end: { line: 4, character: 5 } },
                 ],
+                groupId: 1,
             },
         });
     });
@@ -393,6 +403,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(notif?.params).toEqual({
             uri: URI,
             selections: [{ anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 4 }],
+            groupId: 1,
         });
         // Кэш обновлён — последующее чтение отражает установленное.
         expect(editor.selection.active).toEqual({ line: 1, character: 4 });

@@ -22,7 +22,7 @@ export class DefinitionService {
      * Раскрывает определение символа под кареткой активного редактора. No-op,
      * если нет активного редактора, источника или провайдеры ничего не вернули.
      */
-    public async revealDefinition(): Promise<void> {
+    public async revealDefinition({ toSide = false }: { toSide?: boolean } = {}): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
         const source = this.group.definitionSource;
@@ -38,12 +38,16 @@ export class DefinitionService {
         });
         const target = locations[0];
         if (target === undefined) return;
-        this.revealLocation(target);
+        this.revealLocation(target, toSide);
     }
 
     /** Довозит каретку до цели: кросс-файлово — через открытие ресурса группой. */
-    private revealLocation(location: ICoreDefinitionLocation): void {
-        if (this.group.getActiveEditor()?.uri.toString() !== location.uri) {
+    private revealLocation(location: ICoreDefinitionLocation, toSide: boolean): void {
+        if (toSide) {
+            // Соседняя группа (Ctrl+K F12): исходная группа не меняется — цель
+            // открывается/активируется в группе справа.
+            this.group.openUri(Uri.parse(location.uri), { group: "beside" });
+        } else if (this.group.getActiveEditor()?.uri.toString() !== location.uri) {
             this.group.openUri(Uri.parse(location.uri));
         }
         const editor = this.group.getActiveEditor();

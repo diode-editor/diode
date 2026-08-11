@@ -486,19 +486,30 @@ hide-toggle (`isHiddenByDefault`). См.
     (`isModified` = versionId + EOL-ось), осями encoding/EOL/language, записью
     на диск (`save`/`saveAs`/`saveWithEncoding` + save-участник с клампом правок),
     перечиткой (`revertToDisk`/`reopenWithEncoding` → событие
-    `onDidReloadDocument`) и слежением за файлом на диске через `IFileWatcher`
-    (авто-перечитка чистого буфера / `hasDiskConflict` у «грязного»); undo-роутинг
-    в `UndoRedoService` (`undoContext` + `attachUndoRouting`; движок
-    `UndoManager` остаётся в `src/vs/editor`). **Не** singleton-сервис: экземпляр на
-    файл, создаёт владелец. Правки, которые модель применяет сама (участник,
-    `setEol`, `applyExternalEdits`), идут через шов `ITextFileEditTarget` —
-    его прикрепляет парный компонент.
+    `onDidReloadDocument` с reason `disk`/`owned`) и слежением за файлом на диске
+    через `IFileWatcher` (авто-перечитка чистого буфера / `hasDiskConflict` у
+    «грязного»). **Владеет движком undo**: `UndoManager` (класс — в
+    `src/vs/editor`) — один на документ, пересоздаётся с ним; модель сама
+    роутит шаги в `UndoRedoService` (`undoContext`), а `undo/redo(view)`
+    принимают «действующую вью», которой восстанавливается снимок выделений.
+    **Не** singleton-сервис: экземпляр на файл, но один при любом числе вкладок —
+    реестр `TextFileModelRegistry` (`acquire(uri)` → ref-count-ссылка, вкладка
+    владеет ссылкой, модель умирает с последней; untitled/synthetic — мимо
+    реестра). Правки, которые модель применяет сама (участник, `setEol`,
+    `applyExternalEdits`), идут через шов `ITextFileEditTarget` — прикрепляет
+    каждый парный компонент (целей может быть несколько — сплит-вью; действующую
+    передаёт вызывающий, `markDirty` вещается всем).
   - `Components/Editor/EditorComponent.ts` — `ThemedComponent`; владеет
     `EditorElement` + view-state + токен-кешем (`view` = `ScrollBarDecorator`),
-    принимает модель в конструктор: по `onDidReloadDocument` пересобирает
-    view-state/`EditorElement` (перенося стили/контекст-меню/undo-роутинг), по
+    принимает модель в конструктор (модель может делиться несколькими
+    компонентами — по вью на группу): по `onDidReloadDocument` пересобирает
+    view-state/`EditorElement` (перенося стили/контекст-меню; при
+    `reason === "disk"` — ещё каретку и скролл), по
     `onDidChangeLanguage` и `TokenizationRegistry.onDidChange` пересаживает
     токенизатор, по контенту пересчитывает folding-регионы (микротаск-коалесинг).
+    Чужие правки документа (другая вью, undo, владелец буфера) строчно ремапят
+    выделения/фолды/скролл каждой вью — `EditorViewState.remapForDocumentChange`
+    по `onDidChangeContent` (свои мутаторы гейтятся и пересчитывают себя точно).
     Здесь же view-API: курсор/reveal/goToPosition, декорации (search/markers/
     gutter change-bars), folding-команды, контекст-меню редактора,
     `updateStyles()` → `getEditorStyles` + `editor.style={fg,bg}` +
@@ -510,26 +521,44 @@ hide-toggle (`isHiddenByDefault`). См.
     (экшены, Find/Completion, host-адаптеры, швы `IActiveEditorStatus`/
     `IDiagnosticsEditor`/`IMarkerRevealEditor`/`IGotoLineEditor` — выполняются
     структурно делегатами в модель/компонент).
-  - `Services/EditorService.ts` (этап 9b, растворённый `EditorGroupController`) —
-    логика группы редакторов без view: создаёт/хранит пары `EditorPane`,
-    активная вкладка + MRU-порядок (Ctrl+Tab: `cycleMru`/`endMruCycle`,
-    заморозка серии), `openFile`/`openUri`/`newUntitled`/`closeTab`/
-    `activateTab`, `displayName`/`suggestedSaveName`, применение
-    `editor.*`-настроек (включая live-reload), группа-уровневые швы host'а
+  - `Services/EditorService.ts` (этап 9b; со сплитов — фасад активной группы +
+    менеджер полосы, аналог IEditorService+IEditorGroupsService) — логика без
+    view. Пер-группная модель извлечена в `editorGroupModel.ts` (`EditorGroup`:
+    вкладки, активная, MRU-серии Ctrl+Tab, `insertPane`/`detachPane` без
+    dispose, пер-группный дедуп `findPaneIndex`; контракт порядка событий
+    `onDidChangeEditors` → фокус → `onDidChangeActivePane`). Сервис владеет
+    полосой (`groups`/`activeGroup`/`viewColumnOf`/`groupOf`), операциями
+    сплитов (`splitActiveGroup`/`newGroup`/`focusGroup`/`moveActiveEditorToGroup`/
+    `copyActiveEditorToGroup`/`joinTwoGroups`/`joinAllGroups`/`moveActiveGroup`;
+    отказ по месту — `canAddGroupHook` + лог), схлопыванием опустевших групп,
+    реестром моделей (`TextFileModelRegistry`: одна `TextFileModel` на ресурс,
+    вкладка владеет ref-count-ссылкой), `openFile`/`openUri` (`{group:"beside"}` —
+    Open to the Side), `newUntitled`, `displayName`/`suggestedSaveName`,
+    применение `editor.*`-настроек, группа-уровневые швы host'а
     (`saveParticipant`, `completionSource`), `IShutdownParticipant`
-    (`collectDirty`). События: `onActiveEditorChanged`, `onEditorSaved`,
-    `onDidChangeEditors` (канал синхронизации view; файрится до
-    `onActiveEditorChanged`, чтобы контент стоял в дереве к моменту фокуса).
-  - `Components/Editor/EditorGroupComponent.ts` — `ThemedComponent`; **композиционный
-    корень** из примитивов tuidom: `view` = `OverlayHostElement` (локальный
-    OverlayLayer для find-виджета; `view.id = "editorGroup"`) поверх `VFlexElement`
-    [`EditorTabStripElement` (1 ряд), контент-слот (остаток; пустой — фон-филлер
-    `editor.background`)]: по `onDidChangeEditors`
-    вставляет view активного `EditorPane` и перерисовывает табы (метки с
-    минимальной разводкой тёзок по родительским каталогам, иконки, маркер
-    изменённости — `getTabStripStyles`); клики по табам возвращает в сервис
-    (`activateTab`/`closeTab`, закрытие «грязной» вкладки — через
-    `EditorService.onRequestConfirmClose`).
+    (`collectDirty` — дедуп по документу). События: `onActiveEditorChanged`
+    (смена вкладки активной группы ЛИБО активной группы), `onEditorSaved`,
+    `onDidChangeEditors` (агрегат групп), `onDidActiveGroupChange`,
+    `onDidGroupsChange({kind: added|removed|moved})`.
+  - `parts/editor/editorPartComponent.ts` — часть «область редактора» (аналог
+    `EditorPart`): владеет `tuidom/ui/editorpart/EditorPartElement` (полоса N
+    вью + N−1 сашей, нормированные веса, min-клампы 20×5, максимизация,
+    `canFit`) и по `EditorGroupComponent` на группу; политика долей (сплит
+    делит долю источника пополам); хуки сервису (`canAddGroupHook`,
+    `focusGroupContentHook`) и персисту (`onDidChangeGroupLayout`,
+    `IEditorGroupsLayoutView` для `WorkbenchStateService`).
+  - `Components/Editor/EditorGroupComponent.ts` — контрол ОДНОЙ группы;
+    **композиционный корень** из примитивов tuidom: `view` = `OverlayHostElement`
+    (локальный OverlayLayer для find-виджета группы; `view.id =
+    "editorGroup-<groupId>"`) поверх `VFlexElement` [`EditorTabStripElement`
+    (1 ряд), контент-слот (остаток; пустой — фон-филлер `editor.background`,
+    focusable у пустой группы)]: по `group.onDidChangeEditors` вставляет view
+    активной вкладки и перерисовывает табы (метки с минимальной разводкой тёзок
+    пер-стрип, иконки, маркер изменённости — `getTabStripStyles`); клики по
+    табам возвращает в группу (`activateTab`/`closeTab`, закрытие «грязной»
+    вкладки — `EditorService.onRequestConfirmClose(group, index)`); любой фокус
+    в поддереве капчурится → `notifyGroupFocused` (клик мышью делает группу
+    активной).
 - **Find/Suggest-кластер (этап 10)** — поиск по файлу и автодополнение поверх
   активного редактора (`EditorService`):
   - `Components/Editor/FindComponent.ts` — `ThemedComponent`; **композиционный

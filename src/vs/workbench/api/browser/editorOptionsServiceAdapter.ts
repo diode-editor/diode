@@ -3,7 +3,7 @@ import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
-import type { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
+import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type {
     IActiveEditorMeta,
@@ -20,6 +20,11 @@ import type { IWireEditorEdit, IWireSelection } from "../common/wireTypes.ts";
  */
 export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private readonly group: EditorService;
+
+    /** Группа вкладки (для меты/таргетинга); вкладка уже закрыта — фолбэк активная. */
+    private groupIdOf(editor: TextEditorPane): number {
+        return this.group.groupOf(editor)?.id ?? this.group.activeGroup.id;
+    }
     /**
      * Выделение, которое прямо сейчас ставит сам субпроцесс
      * (`TextEditor.selection =`). Присваивание фаерит cursor-change, и без этого
@@ -55,13 +60,22 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     }
 
     public getActiveEditorMeta(): IActiveEditorMeta {
-        return metaOf(this.group.getActiveTabEditor());
+        const editor = this.group.getActiveTabEditor();
+        return this.metaOfEditor(editor);
     }
 
     public onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable {
         return this.group.onActiveEditorChanged((editor) => {
-            cb(metaOf(editor));
+            cb(this.metaOfEditor(editor));
         });
+    }
+
+    /** Мета + координата группы (groupId/viewColumn) для субпроцесса. */
+    private metaOfEditor(editor: TextEditorPane | null): IActiveEditorMeta {
+        const base = metaOf(editor);
+        if (editor === null) return base;
+        const owner = this.group.groupOf(editor) ?? this.group.activeGroup;
+        return { ...base, groupId: owner.id, viewColumn: this.group.viewColumnOf(owner) };
     }
 
     public onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable {
@@ -74,13 +88,17 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
                 // Активный редактор мог смениться, пока мы ждали тик: шлём выделения
                 // того, кто активен сейчас (его uri и едет в payload).
                 const current = this.group.getActiveTabEditor() ?? editor;
-                cb({ uri: current.uri.toString(), selections: wireSelectionsOf(current) });
+                cb({
+                    uri: current.uri.toString(),
+                    selections: wireSelectionsOf(current),
+                    groupId: this.groupIdOf(current),
+                });
             });
         });
     }
 
-    public setActiveEditorSelections(uri: string, selections: readonly IWireSelection[]): void {
-        const editor = this.activeEditorFor(uri);
+    public setActiveEditorSelections(uri: string, selections: readonly IWireSelection[], groupId?: number): void {
+        const editor = this.editorFor(uri, groupId);
         if (editor === null || selections.length === 0) return;
         const doc = editor.model.document;
         const mapped: ISelection[] = selections.map((sel) => {
@@ -98,7 +116,9 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     }
 
     public applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean {
-        const editor = this.activeEditorFor(uri);
+        // Правка адресует ДОКУМЕНТ (модель общая для всех вкладок ресурса) —
+        // достаточно найти любую вкладку с этим uri в любой группе.
+        const editor = this.anyEditorFor(uri);
         // Read-only: правка не состоится (её отобьёт `EditorViewState`), поэтому
         // честно отвечаем `false` — у расширения `TextEditor.edit()` резолвится
         // этим значением, и врать ему об успехе нельзя. Так же ведёт себя VS Code.
@@ -113,11 +133,28 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return true;
     }
 
-    /** Активный редактор, если его uri совпадает с ожидаемым (иначе `null`). */
-    private activeEditorFor(uri: string): TextEditorPane | null {
+    /**
+     * Редактор-адресат: с `groupId` — вкладка ресурса в ТОЙ группе (AS-10:
+     * выделение ставится конкретной вью); без — активная вкладка с этим uri.
+     */
+    private editorFor(uri: string, groupId?: number): TextEditorPane | null {
+        if (groupId !== undefined) {
+            const target = this.group.groups.find((candidate) => candidate.id === groupId);
+            if (target === undefined) return null;
+            const index = target.findPaneIndex(Uri.parse(uri));
+            const pane = index >= 0 ? target.getPane(index) : null;
+            return pane instanceof TextEditorPane ? pane : null;
+        }
         const editor = this.group.getActiveTabEditor();
         if (editor === null || editor.uri.toString() !== uri) return null;
         return editor;
+    }
+
+    /** Любая текстовая вкладка ресурса (модель у всех одна). */
+    private anyEditorFor(uri: string): TextEditorPane | null {
+        const active = this.group.getActiveTabEditor();
+        if (active !== null && active.uri.toString() === uri) return active;
+        return this.group.getEditors().find((editor) => editor.uri.toString() === uri) ?? null;
     }
 }
 

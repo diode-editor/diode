@@ -1,3 +1,4 @@
+import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { describe, expect, it, vi } from "vitest";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 
@@ -33,6 +34,7 @@ function createEditorService(): EditorService {
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
+        NULL_LOG_SERVICE,
     );
 }
 

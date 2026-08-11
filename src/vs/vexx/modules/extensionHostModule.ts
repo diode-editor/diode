@@ -9,11 +9,12 @@ import type { ContainerModule } from "../../platform/instantiation/common/diCont
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
-import { activeDocumentSnapshot, bindDocumentSync } from "../../workbench/api/browser/documentSyncAdapter.ts";
+import { bindDocumentSync, openDocumentSnapshots } from "../../workbench/api/browser/documentSyncAdapter.ts";
 import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/editorDecorationsServiceAdapter.ts";
+import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
@@ -112,6 +113,11 @@ export const extensionHostModule: ContainerModule = (container) => {
         const fileDecorations = new FileDecorationsServiceAdapter(explorer);
         const themeColorResolver = new ThemeColorResolverAdapter(container.get(ThemeServiceDIToken));
 
+        // Полоса групп: снимки layoutChanged + showTextDocument/close для
+        // window.tabGroups (владение — у хоста через register не оформляем:
+        // адаптер живёт, пока жив модуль, как остальные адаптеры здесь).
+        const editorLayout = new EditorLayoutServiceAdapter(group);
+
         const host = new ExtensionHost(adapter, commandAdapter, {
             logger,
             rpcLogger,
@@ -121,7 +127,8 @@ export const extensionHostModule: ContainerModule = (container) => {
             editorDecorations,
             fileDecorations,
             themeColorResolver,
-            activeDocumentProvider: () => activeDocumentSnapshot(group),
+            openDocumentsProvider: () => openDocumentSnapshots(group),
+            editorLayout,
             diagnosticsSink,
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),

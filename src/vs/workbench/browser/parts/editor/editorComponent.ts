@@ -16,18 +16,23 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
-import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
+import type {
+    DocumentReloadReason,
+    ITextFileEditTarget,
+    TextFileModel,
+} from "../../../services/textfile/common/textFileModel.ts";
 import { Component } from "../../component.ts";
 
 /**
- * View-обвязка одного открытого файла: владеет `EditorElement` (+ его view-state и
- * токен-кешем) и скроллбаром ({@link view} — `ScrollBarDecorator`). Парная модель
- * ({@link TextFileModel}) приходит в конструктор; компонент подписывается на её
- * события: пересоздание документа (перечитка с диска) пересобирает view-state и
- * `EditorElement`, смена языка / догрузившаяся грамматика пересаживают токенизатор,
- * правки контента планируют пересчёт folding-регионов. Undo-движок (`UndoManager`)
- * живёт в `EditorElement`; его роутинг в общую историю компонент перепривязывает к
- * модели при каждом пересоздании редактора (`TextFileModel.attachUndoRouting`).
+ * View-обвязка одной вью открытого файла: владеет `EditorElement` (+ его
+ * view-state и токен-кешем) и скроллбаром ({@link view} — `ScrollBarDecorator`).
+ * Модель ({@link TextFileModel}) приходит в конструктор и может делиться
+ * несколькими компонентами (один документ в нескольких группах); компонент
+ * подписывается на её события: пересоздание документа (перечитка с диска)
+ * пересобирает view-state и `EditorElement`, смена языка / догрузившаяся
+ * грамматика пересаживают токенизатор, правки контента планируют пересчёт
+ * folding-регионов. Undo-движок (`UndoManager`) живёт на модели — один на
+ * документ; компонент лишь выдаёт его своему `EditorElement`.
  */
 /**
  * Union of indentation folds and extension-provider folds. At most one region
@@ -69,11 +74,22 @@ export class EditorComponent extends Component {
     private foldingRequestSeq = 0;
     private componentDisposed = false;
     /**
+     * Редактирующая поверхность этой вью, прикреплённая к модели (см.
+     * {@link TextFileModel.attachEditTarget}). Хранится, чтобы pane мог передать
+     * её моделью как «действующую вью» (setEol, applyExternalEdits).
+     */
+    private readonly editTargetValue: ITextFileEditTarget;
+    /**
      * Подписчики на смену курсора/выделения. Держим их здесь, а не на view-state:
      * при перечитке файла с диска view-state пересоздаётся, а подписчик (extension
      * host, который проецирует выделение в субпроцесс) должен это пережить.
      */
     private readonly selectionListeners: (() => void)[] = [];
+
+    /** Редактирующая поверхность этой вью — для acting-view путей модели. */
+    public get editTarget(): ITextFileEditTarget {
+        return this.editTargetValue;
+    }
     /** Текущая подписка на view-state; перевешивается при его пересоздании. */
     private viewStateCursorSubscription?: IDisposable;
 
@@ -130,28 +146,29 @@ export class EditorComponent extends Component {
         this.editor.tokenStyleResolver = tokenStyleResolver;
         this.editor.focusable = true;
         this.applyEditorStyle();
-        this.attachUndoRouting();
+        // История одна на документ: элемент получает общий движок модели вместо
+        // собственного (одна и та же замена повторяется при пересоздании — см.
+        // rebuildForReloadedDocument).
+        this.editor.undoManager = model.undoManager;
         this.attachSelectionForwarding();
         this.view = new ScrollBarDecorator(this.editor);
 
-        // Шов модели к редактирующей поверхности: правки, которые модель применяет
-        // сама (save-участник, setEol, applyExternalEdits), идут через актуальные
-        // view-state/редактор — замыкание читает поля компонента, поэтому переживает
-        // пересоздание EditorElement при перечитке.
-        model.attachEditTarget({
+        // Шов модели к редактирующей поверхности этой вью: правки, которые модель
+        // применяет сама (save-участник, setEol, applyExternalEdits), идут через
+        // актуальные view-state/редактор — замыкание читает поля компонента, поэтому
+        // переживает пересоздание EditorElement при перечитке.
+        this.editTargetValue = {
             cloneSelections: () => this.editorViewState.cloneSelections(),
             applyEdits: (edits, label) => this.editorViewState.applyEdits(edits, label),
-            pushUndo: (element) => {
-                this.pushUndo(element);
-            },
             markDirty: () => {
                 this.editor.markDirty();
             },
-        });
+        };
+        this.register(model.attachEditTarget(this.editTargetValue));
 
         this.register(
-            model.onDidReloadDocument(() => {
-                this.rebuildForReloadedDocument();
+            model.onDidReloadDocument((reason) => {
+                this.rebuildForReloadedDocument(reason);
             }),
         );
         // Смена языка (setLanguage / saveAs с новым расширением) пересаживает
@@ -178,6 +195,7 @@ export class EditorComponent extends Component {
             dispose: () => {
                 this.componentDisposed = true;
                 this.viewStateCursorSubscription?.dispose();
+                this.editorViewState.dispose();
             },
         });
         this.recomputeFoldingRegions();
@@ -185,20 +203,27 @@ export class EditorComponent extends Component {
 
     /**
      * Пересобирает view поверх пересозданного документа модели (перечитка с диска):
-     * свежие view-state/токен-кеш/EditorElement — undo, курсор и скролл сбрасываются,
-     * как при открытии файла заново. Стили и контекст-меню переносятся из кэша,
-     * undo-роутинг перепривязывается к новому `UndoManager`.
+     * свежие view-state/токен-кеш/EditorElement — undo и курсор сбрасываются, как
+     * при открытии файла заново. Стили и контекст-меню переносятся из кэша;
+     * движок undo берётся у модели (она пересоздала его вместе с документом).
+     * При перечитке того же файла с диска (`reason === "disk"`) скролл
+     * сохраняется — внешняя правка не должна уводить вьюпорт в начало; смена
+     * содержимого владельцем (Output-канал) скролл сбрасывает.
      */
-    private rebuildForReloadedDocument(): void {
+    private rebuildForReloadedDocument(reason: DocumentReloadReason): void {
         // Read-only — свойство редактора, а не документа: перечитка не должна его
         // снимать. Без переноса «Reopen with Encoding» на read-only вкладке молча
         // возвращал её в редактируемое состояние.
         const wasReadOnly = this.editorViewState.readOnly;
+        const previousScrollTop = this.editorViewState.scrollTop;
+        const previousScrollLeft = this.editorViewState.scrollLeft;
+        const previousSelections = this.editorViewState.cloneSelections();
         // Фокус переносим на новый виджет: старый уходит с дерева, и `FocusManager`
         // остаётся указывать в никуда — клавиатура переставала доходить куда-либо
         // вовсе. Заметнее всего это было на смене канала Output, где пересборка
         // происходит на каждое переключение.
         const hadFocus = holdsFocus(this.editor);
+        this.editorViewState.dispose();
         this.editorViewState = new EditorViewState(this.model.document);
         this.editorViewState.readOnly = wasReadOnly;
         this.tokenStore.dispose();
@@ -207,26 +232,44 @@ export class EditorComponent extends Component {
             this.ensureTokenizerForLanguage(this.model.languageId),
         );
         this.editorViewState.tokenStore = this.tokenStore;
+        if (reason === "disk") {
+            // Каретка переживает перечитку того же файла (как revert в VS Code);
+            // кламп — файл мог укоротиться.
+            this.editorViewState.selections = previousSelections.map((sel) => ({
+                anchor: this.clampToDocument(sel.anchor),
+                active: this.clampToDocument(sel.active),
+            }));
+        }
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = this.tokenStyleResolver;
         this.editor.focusable = true;
         this.applyEditorStyle();
-        this.attachUndoRouting();
+        this.editor.undoManager = this.model.undoManager;
         // Курсор сброшен на (0,0) вместе с view-state — перевешиваем форвардинг и
         // сообщаем подписчикам, иначе extension host остался бы со старым выделением.
         this.attachSelectionForwarding();
         for (const cb of [...this.selectionListeners]) cb();
         this.view.setChild(this.editor);
         this.recomputeFoldingRegions();
+        if (reason === "disk") {
+            // Скролл — ПОСЛЕ пересчёта фолдов: тот заканчивается reveal'ом каретки
+            // и перетёр бы восстановленную позицию вьюпорта. Кламп — по новому
+            // числу строк.
+            this.editorViewState.scrollTop = Math.min(
+                previousScrollTop,
+                Math.max(0, this.editorViewState.getViewLineCount() - 1),
+            );
+            this.editorViewState.scrollLeft = previousScrollLeft;
+        }
         if (hadFocus) this.editor.focus();
     }
 
-    /** Подключает undo-движок текущего `EditorElement` к общей истории модели. */
-    private attachUndoRouting(): void {
-        const editor = this.editor;
-        this.model.attachUndoRouting(editor.undoManager, () => {
-            editor.markDirty();
-        });
+    /** Кламп позиции к границам текущего документа модели. */
+    private clampToDocument(pos: { line: number; character: number }): { line: number; character: number } {
+        const doc = this.model.document;
+        const line = Math.max(0, Math.min(pos.line, doc.lineCount - 1));
+        const character = Math.max(0, Math.min(pos.character, doc.getLineLength(line)));
+        return { line, character };
     }
 
     /** Цвета редактора — токены (Н3); ставятся при создании EditorElement. */

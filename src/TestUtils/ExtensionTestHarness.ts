@@ -1,3 +1,4 @@
+import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -13,7 +14,8 @@ import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
-import { activeDocumentSnapshot, bindDocumentSync } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
+import { bindDocumentSync, openDocumentSnapshots } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
+import { EditorLayoutServiceAdapter } from "../vs/workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
@@ -167,8 +169,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
+        NULL_LOG_SERVICE,
     );
-    const groupComponent = new EditorGroupComponent(group);
+    const groupComponent = new EditorGroupComponent(group.activeGroup, group);
 
     const adapter = new EditorOptionsServiceAdapter(group);
     const commandRegistry = new CommandRegistry();
@@ -183,10 +186,13 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         getWorkspaceFolders: () => folders,
         onDidChange: () => ({ dispose: () => undefined }),
     };
+    // Полоса групп — зеркально extensionHostModule (правило двух сим-точек).
+    const editorLayout = new EditorLayoutServiceAdapter(group);
     const host = new ExtensionHost(adapter, commandAdapter, {
         spawnArgs: subprocessSpawnArgsForTests(),
         configuration,
-        activeDocumentProvider: () => activeDocumentSnapshot(group),
+        openDocumentsProvider: () => openDocumentSnapshots(group),
+        editorLayout,
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
         ...(options.progressSink !== undefined ? { progressSink: options.progressSink } : {}),
         ...(options.outputSink !== undefined ? { outputSink: options.outputSink } : {}),

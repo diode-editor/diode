@@ -28,12 +28,19 @@ import {
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
+import {
+    type IEditorLayoutService,
+    NULL_EDITOR_LAYOUT_SERVICE,
+} from "../../../api/common/iEditorLayoutService.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
     type IWireDocumentSyncSnapshot,
     parseDecorationRanges,
+    parseWireCloseGroupsParams,
+    parseWireCloseTabsParams,
     parseWireDiagnosticsPublish,
     parseWireEditorEdits,
+    parseWireShowTextDocumentParams,
     parseWireFileDecorations,
     parseWireOutputAppend,
     parseWireOutputShow,
@@ -212,13 +219,19 @@ export interface IExtensionHostOptions {
      */
     readonly outputSink?: IOutputSink;
     /**
-     * Снимок активного документа для document sync. Хост пушит его как
-     * `editor.didOpen` при готовности subprocess'а — чтобы `workspace.textDocuments`
-     * был заполнен ДО активации расширения (стоковый vscode-languageclient читает
-     * его на `start()`), — и при появлении первого подписчика document sync
-     * (расширение активировалось уже после открытия файла).
+     * Снимки ВСЕХ открытых документов для наполнения `workspace.textDocuments`
+     * на `host.ready` (по одному на документ; см. `openDocumentSnapshots`).
+     * Хост пушит их как `editor.didOpen` при готовности subprocess'а — чтобы
+     * реестр был заполнен ДО активации расширения (стоковый
+     * vscode-languageclient читает его на `start()`).
      */
-    readonly activeDocumentProvider?: () => IWireDocumentSyncSnapshot | null;
+    readonly openDocumentsProvider?: () => IWireDocumentSyncSnapshot[];
+    /**
+     * Полоса групп редакторов для `window.tabGroups`/`showTextDocument`
+     * (снимки `editor.layoutChanged` + исполнение show/close). Если не передан —
+     * {@link NULL_EDITOR_LAYOUT_SERVICE}: `tabGroups` в субпроцессе пуст.
+     */
+    readonly editorLayout?: IEditorLayoutService;
 }
 
 /**
@@ -300,9 +313,15 @@ export class ExtensionHost extends Disposable {
     private definitionSubscribed = false;
     /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
     private documentSyncSubscribed = false;
-    /** Коалесинг didChange в пределах тика (latest-wins) — правка на каждое нажатие не гоняет RPC-шторм. */
-    private pendingDidChange: IWireDocumentSyncSnapshot | null = null;
-    private readonly activeDocumentProvider: (() => IWireDocumentSyncSnapshot | null) | undefined;
+    /**
+     * Коалесинг didChange в пределах тика (latest-wins ПО ДОКУМЕНТУ) — правка на
+     * каждое нажатие не гоняет RPC-шторм. Map, а не один слот: с per-document
+     * sync два документа, изменившиеся в один тик (bulk-правки), потеряли бы
+     * одно из сообщений.
+     */
+    private readonly pendingDidChange = new Map<string, IWireDocumentSyncSnapshot>();
+    private readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
+    private readonly editorLayout: IEditorLayoutService;
     private readonly diagnosticsSink: DiagnosticsSink | undefined;
     private readonly progressSink: IProgressSink | undefined;
     private readonly outputSink: IOutputSink | undefined;
@@ -341,7 +360,8 @@ export class ExtensionHost extends Disposable {
         this.editorDecorations = options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE;
         this.fileDecorations = options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE;
         this.themeColorResolver = options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER;
-        this.activeDocumentProvider = options.activeDocumentProvider;
+        this.openDocumentsProvider = options.openDocumentsProvider;
+        this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
         this.outputSink = options.outputSink;
@@ -514,16 +534,28 @@ export class ExtensionHost extends Disposable {
     public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
         const rpc = this.documentSyncRpc(snapshot);
         if (rpc === null) return;
-        const alreadyScheduled = this.pendingDidChange !== null;
-        this.pendingDidChange = snapshot;
+        const alreadyScheduled = this.pendingDidChange.size > 0;
+        this.pendingDidChange.set(snapshot.uri, snapshot);
         if (alreadyScheduled) return;
         queueMicrotask(() => {
-            const pending = this.pendingDidChange;
-            this.pendingDidChange = null;
-            // Subprocess мог умереть, пока ждали тик (shutdown чистит pending вместе с rpc).
-            if (pending === null) return;
-            rpc.notify("editor.didChange", pending);
+            const pending = [...this.pendingDidChange.values()];
+            this.pendingDidChange.clear();
+            for (const item of pending) {
+                rpc.notify("editor.didChange", item);
+            }
         });
+    }
+
+    /**
+     * Пушит закрытие документа (`editor.didClose` → `onDidCloseTextDocument` +
+     * сброс didOpen-дедупа в субпроцессе). Не гейтится подпиской — симметрично
+     * didOpen: bookkeeping открытых документов у реестра всегда честный.
+     */
+    public didCloseTextDocument(uri: string): void {
+        const rpc = this.rpc;
+        if (rpc === null || this.extensions.size === 0) return;
+        this.pendingDidChange.delete(uri);
+        rpc.notify("editor.didClose", { uri });
     }
 
     /**
@@ -813,14 +845,18 @@ export class ExtensionHost extends Disposable {
                     workspaceFolders: this.configuration.getWorkspaceFolders(),
                 });
             }
+            // Полоса групп — ДО меты активного редактора: `visibleTextEditors`/
+            // `tabGroups` обязаны существовать к моменту активации (стоковый
+            // languageclient читает их на start()).
+            rpc.notify("editor.layoutChanged", this.editorLayout.getLayoutSnapshot());
             // Send initial active editor state so that window.activeTextEditor
             // is correct before the first host.activateExtension call.
             rpc.notify("editor.activeEditorChanged", this.editorOptions.getActiveEditorMeta());
-            // Наполняем `workspace.textDocuments` активным документом ДО первой
+            // Наполняем `workspace.textDocuments` открытыми документами ДО первой
             // активации: стоковый vscode-languageclient читает его на start().
             // Мимо гейта подписки — подписчиков в этот момент ещё нет.
-            const snapshot = this.activeDocumentProvider?.();
-            if (snapshot !== null && snapshot !== undefined) rpc.notify("editor.didOpen", snapshot);
+            const openDocuments = this.openDocumentsProvider?.() ?? [];
+            for (const snapshot of openDocuments) rpc.notify("editor.didOpen", snapshot);
         });
         await this.readyPromise;
         return rpc;
@@ -839,9 +875,13 @@ export class ExtensionHost extends Disposable {
         // (`TextEditor.selection(s) =`). Fire-and-forget со стороны расширения,
         // но обрабатывается в порядке прихода (до последующего executeCommand).
         rpc.handleNotification("editor.setSelection", (params): void => {
-            const p = params as { uri?: unknown; selections?: unknown };
+            const p = params as { uri?: unknown; selections?: unknown; groupId?: unknown };
             if (typeof p.uri !== "string") return;
-            this.editorOptions.setActiveEditorSelections(p.uri, parseWireSelections(p.selections));
+            this.editorOptions.setActiveEditorSelections(
+                p.uri,
+                parseWireSelections(p.selections),
+                typeof p.groupId === "number" ? p.groupId : undefined,
+            );
         });
         // Сабпроцесс просит применить правки `TextEditor.edit` одним undoable-батчем.
         rpc.handleRequest("editor.applyEdit", (params): unknown => {
@@ -877,8 +917,42 @@ export class ExtensionHost extends Disposable {
             this.proxyCommands.get(id)?.dispose();
             this.proxyCommands.delete(id);
         });
+        // Полоса групп: снимки по изменениям (коалесинг в адаптере). Инвариант
+        // порядка: layoutChanged всегда раньше связанного activeEditorChanged —
+        // подписка на layout стоит первой, а мета дополнительно флашит отложенный
+        // снимок, чтобы `visibleTextEditors` не отставал от `activeTextEditor`.
+        this.register(
+            this.editorLayout.onDidChangeLayout((layout) => {
+                rpc.notify("editor.layoutChanged", layout);
+            }),
+        );
+        // `window.showTextDocument`: открыть/активировать ресурс в колонке;
+        // ответ уезжает ПОСЛЕ layoutChanged (flush перед reply) — после `await`
+        // расширение видит свежий `tabGroups`.
+        rpc.handleRequest("editor.showTextDocument", async (params): Promise<unknown> => {
+            const parsed = parseWireShowTextDocumentParams(params);
+            if (parsed === null) throw new Error("editor.showTextDocument: malformed params");
+            const result = await this.editorLayout.showTextDocument(parsed);
+            this.editorLayout.flushPendingLayout();
+            return result;
+        });
+        rpc.handleRequest("editor.closeTabs", async (params): Promise<unknown> => {
+            const parsed = parseWireCloseTabsParams(params);
+            if (parsed === null) throw new Error("editor.closeTabs: malformed params");
+            const result = await this.editorLayout.closeTabs(parsed);
+            this.editorLayout.flushPendingLayout();
+            return result;
+        });
+        rpc.handleRequest("editor.closeGroups", async (params): Promise<unknown> => {
+            const parsed = parseWireCloseGroupsParams(params);
+            if (parsed === null) throw new Error("editor.closeGroups: malformed params");
+            const result = await this.editorLayout.closeGroups(parsed);
+            this.editorLayout.flushPendingLayout();
+            return result;
+        });
         this.register(
             this.editorOptions.onActiveEditorChanged((meta) => {
+                this.editorLayout.flushPendingLayout();
                 rpc.notify("editor.activeEditorChanged", meta);
             }),
         );
@@ -1134,7 +1208,7 @@ export class ExtensionHost extends Disposable {
         this.foldingSubscribed = false;
         this.definitionSubscribed = false;
         this.documentSyncSubscribed = false;
-        this.pendingDidChange = null;
+        this.pendingDidChange.clear();
         // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.
         for (const handle of this.activeProgressHandles) this.progressSink?.end(handle);
         this.activeProgressHandles.clear();

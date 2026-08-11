@@ -118,6 +118,32 @@ export const OPEN_EDITORS_STATE: IStateDescriptor<IOpenEditorsState> = {
     default: { files: [], activeIndex: -1 },
 };
 
+/** Снимок одной группы редакторов: файлы вкладок + активная (индекс в `files`). */
+export interface IEditorGroupSnapshot {
+    readonly files: readonly string[];
+    readonly activeIndex: number;
+}
+
+/** Полоса групп редакторов: ось, группы, доли, активная группа (индекс). */
+export interface IEditorGroupsState {
+    readonly orientation: "columns" | "rows";
+    readonly groups: readonly IEditorGroupSnapshot[];
+    readonly weights: readonly number[];
+    readonly activeGroup: number;
+}
+
+/**
+ * Раскладка полосы групп редакторов (сплиты). `null` — снимка нет: рестор
+ * падает назад на плоский {@link OPEN_EDITORS_STATE} (сессии до сплитов;
+ * тот продолжает писаться плоским снимком активной группы — откат на старую
+ * сборку ничего не теряет, unknown-key preservation хранит этот ключ).
+ */
+export const EDITOR_GROUPS_STATE: IStateDescriptor<IEditorGroupsState | null> = {
+    key: "workbench.editors.groups",
+    scope: "workspace",
+    default: null,
+};
+
 /** Состояние view-секций одного контейнера сайдбара (см. `ViewsService`). */
 export interface IViewContainerViewsState {
     /** Id свёрнутых секций. */

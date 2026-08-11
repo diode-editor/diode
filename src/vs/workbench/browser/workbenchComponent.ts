@@ -63,7 +63,8 @@ import { registerVscodeDiffCommand } from "../contrib/diff/browser/compareAction
 import { builtinActions } from "./actions/builtinActions.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
-import { EditorGroupComponent, EditorGroupComponentDIToken } from "./parts/editor/editorGroupComponent.ts";
+import { EditorPartComponent, EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
+import { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import { PanelComponentDIToken } from "./parts/panel/panelComponent.ts";
 import { QuickInputComponentDIToken } from "./parts/quickinput/quickInputComponent.ts";
 import type { QuickInputService } from "./parts/quickinput/quickInputService.ts";
@@ -115,7 +116,7 @@ export class WorkbenchComponent extends Component {
     public readonly workbenchLayout: WorkbenchLayoutElement;
 
     private editorService: EditorService;
-    private editorGroupComponent: EditorGroupComponent;
+    private editorPartComponent: EditorPartComponent;
     private dialogService: DialogService;
     private lifecycleService: LifecycleService;
     private explorerService: ExplorerService;
@@ -159,7 +160,7 @@ export class WorkbenchComponent extends Component {
         this.editorService = this.register(editorService);
         // Editor-кластер: компонент группового контрола (tab strip + контент
         // активного редактора) поверх EditorService.
-        this.editorGroupComponent = this.register(accessor.get(EditorGroupComponentDIToken));
+        this.editorPartComponent = this.register(accessor.get(EditorPartComponentDIToken));
         // Explorer-кластер: сервис (корень/провайдер/reveal) и компонент
         // (дерево + контекст-меню). WorkbenchComponent владеет их жизнью.
         this.explorerService = this.register(accessor.get(ExplorerServiceDIToken));
@@ -227,12 +228,18 @@ export class WorkbenchComponent extends Component {
         this.contributionsRegistry = this.register(accessor.get(WorkbenchContributionsRegistryDIToken));
 
         this.workbenchLayout = new WorkbenchLayoutElement();
-        this.workbenchLayout.setCenterContent(this.editorGroupComponent.view);
+        this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
         this.workbenchLayout.setBottomPanel(panelComponent.view);
         this.layoutService.attachLayout(this.workbenchLayout);
         // Персист открытых редакторов (write-through подписан на EditorService
         // внутри сервиса; layout персистит LayoutService через onDidChangeLayout).
         this.workbenchState = this.register(accessor.get(WorkbenchStateServiceDIToken));
+        // Персист раскладки групп: срез view-части (ось/доли/вместимость) +
+        // write-through по действиям пользователя (drag саша, resize, тумблер оси).
+        this.workbenchState.attachEditorLayout(this.editorPartComponent);
+        this.editorPartComponent.onDidChangeGroupLayout = () => {
+            this.workbenchState.captureOpenEditors();
+        };
 
         this.view = new BodyElement();
         this.view.id = "workbench";
@@ -250,7 +257,9 @@ export class WorkbenchComponent extends Component {
         // в локальном слое группы редакторов. Закрытие при смене активного
         // редактора сервисы делают сами (подписки на onActiveEditorChanged).
         suggestComponent.attachHost(this.view);
-        findComponent.attachHost(this.editorGroupComponent.view);
+        // Find-виджеты — по одному на группу, на локальном overlay-слое каждой;
+        // компонент создаёт их лениво по первому Ctrl+F в группе.
+        findComponent.hostProvider = (groupId) => this.editorPartComponent.groupOverlayHost(groupId);
         for (const action of builtinActions) {
             this.register(registerAction(commands, keybindings, accessor, action));
         }
@@ -309,11 +318,16 @@ export class WorkbenchComponent extends Component {
         this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
         this.view.addEventListener("focus", this.workbenchContextKeys.handleFocusChange, { capture: true });
         this.view.addEventListener("blur", this.workbenchContextKeys.handleFocusChange, { capture: true });
-        this.editorService.onRequestConfirmClose = (index) => {
+        this.editorService.onRequestConfirmClose = (group, index) => {
             // Здесь именно текстовая панель: диалог предлагает СОХРАНИТЬ, а
             // сохраняться умеет только она. Не-текстовая вкладка сюда не попадает —
             // у неё isModified === false, и группа закрывает её напрямую.
-            const editor = this.editorService.getEditor(index);
+            // Координата — (группа, индекс): крестик работает и в неактивной группе.
+            const pane = group.getPane(index);
+            const editor =
+                pane instanceof TextEditorPane
+                    ? pane
+                    : /* v8 ignore next -- defensive: не-текстовая вкладка не бывает изменённой и сюда не попадает */ null;
             /* v8 ignore start -- defensive: the callback is only invoked synchronously with a valid tab index, so the editor always exists */
             if (!editor) return;
             /* v8 ignore stop */
@@ -323,11 +337,11 @@ export class WorkbenchComponent extends Component {
                     // user's edits even against an external change (overwrite),
                     // so choosing Save never silently drops their work.
                     void editor.save({ overwrite: true }).then(() => {
-                        this.editorService.closeTab(index);
+                        group.closeTab(index);
                     });
                 },
                 onDontSave: () => {
-                    this.editorService.closeTab(index);
+                    group.closeTab(index);
                 },
                 /* v8 ignore start -- placeholder no-op: cancelling keeps the editor open, nothing to do */
                 onCancel: () => {

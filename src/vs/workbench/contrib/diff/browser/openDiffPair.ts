@@ -87,6 +87,10 @@ export async function openDiffPair(accessor: ServiceAccessor, options: IOpenDiff
         originalText,
         modifiedText,
         languageId: resolveLanguageId(accessor, options),
+        // Стороны вкладки — для TabInputTextDiff в API расширений; сторона без
+        // uri (Clipboard) остаётся без ресурса.
+        ...(options.original.uri !== undefined ? { originalUri: options.original.uri } : {}),
+        ...(options.modified.uri !== undefined ? { modifiedUri: options.modified.uri } : {}),
     };
 
     // Дифф — снимок, а идентичность вкладки от содержимого не зависит: группа

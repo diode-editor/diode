@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
@@ -404,6 +406,56 @@ describe("Команды сравнения файлов", () => {
             await settle(10);
 
             expect(diffPanes()).toHaveLength(0);
+        });
+
+        it("аргументы одним массивом (мост субпроцесса) и uri JSON-компонентами", async () => {
+            // Из расширения команда едет через commands.executeCommand: args —
+            // один массив, uri сериализованы их `toJSON()` в компоненты.
+            h.commands.execute("vscode.diff", [
+                { scheme: "file", path: ws.path("a.txt") },
+                { scheme: "file", path: ws.path("b.txt") },
+                "Мой дифф",
+            ]);
+            await settleUntilDiff();
+
+            expect(tabLabels(h.testApp).some((l) => l.includes("Мой дифф"))).toBe(true);
+        });
+
+        it("недоступный ресурс — пустая сторона, вкладка всё равно открывается", async () => {
+            h.commands.execute("vscode.diff", "untitled:missing", Uri.file(ws.path("b.txt")).toString());
+            await settleUntilDiff();
+
+            const pane = diffPanes()[0] as DiffEditorPane;
+            expect(pane.originalUri?.toString()).toBe("untitled:missing");
+            // Левая сторона пуста — правый текст видится добавленным.
+            expect(pane.viewState.document.getText()).toContain("BRAVO");
+        });
+
+        it("ресурсы сторон доезжают до вкладки (TabInputTextDiff)", async () => {
+            const left = Uri.file(ws.path("a.txt"));
+            const right = Uri.file(ws.path("b.txt"));
+            h.commands.execute("vscode.diff", left.toString(), right.toString());
+            await settleUntilDiff();
+
+            const pane = diffPanes()[0] as DiffEditorPane;
+            expect(pane.originalUri?.toString()).toBe(left.toString());
+            expect(pane.modifiedUri?.toString()).toBe(right.toString());
+        });
+
+        it("повторный diff той же пары обновляет вкладку на месте, не плодя новых", async () => {
+            const left = Uri.file(ws.path("a.txt")).toString();
+            const right = Uri.file(ws.path("b.txt")).toString();
+            h.commands.execute("vscode.diff", left, right);
+            await settleUntilDiff();
+            expect(diffPanes()).toHaveLength(1);
+
+            fs.writeFileSync(ws.path("b.txt"), "alpha\nCHARLIE\n");
+            h.commands.execute("vscode.diff", left, right);
+            await settle(50);
+            h.testApp.render();
+
+            expect(diffPanes()).toHaveLength(1);
+            expect((diffPanes()[0] as DiffEditorPane).viewState.document.getText()).toContain("CHARLIE");
         });
     });
 });

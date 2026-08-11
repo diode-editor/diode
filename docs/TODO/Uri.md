@@ -43,7 +43,8 @@ git-версии (`git:`), output-каналы (`output:`), diff, webview, remot
       только в ядре; `workspace.fs` для него честно отказывает.
 - [ ] **`getLanguageIdForResource(string)`** — язык безымянных буферов. Отдельная фича:
       `untitled:Untitled-3` не имеет расширения → `plaintext` (это и текущее поведение).
-- [ ] **Сплит-вью и undo.** Ключ истории per-editor корректен, пока editor↔document 1:1
-      (дедуп вкладок это держит). Появятся сплиты — по семантике VS Code два редактора на
-      один документ обязаны делить историю, и `undoContext` переедет на документ.
+- [x] **Сплит-вью и undo.** Сделано в [EditorGroups](EditorGroups.md), фаза 1:
+      `TextFileModelRegistry` (одна модель на ресурс, ref-count), `UndoManager` на
+      модели (один на документ), действующая вью — параметр undo/redo, чужие вью
+      ремапят selections/folds/scroll по `onDidChangeContent`.
 - [ ] **`SaveOutcome "no-file"` → `"untitled"`** — косметика, потребитель один.

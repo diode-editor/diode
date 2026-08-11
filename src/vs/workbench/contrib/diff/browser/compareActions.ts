@@ -7,6 +7,7 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { reviveWireUri } from "../../../api/common/wireTypes.ts";
 import { explorerPathArg } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { DiffEditorPane } from "../../../browser/parts/editor/diffEditorPane.ts";
@@ -201,22 +202,23 @@ async function compareWithRevision(accessor: ServiceAccessor): Promise<void> {
 
 // ─── vscode.diff (US-12) ─────────────────────────────────────────────────────
 
-/** Uri из аргумента команды: через RPC от расширения приедет строкой. */
-function uriArg(raw: unknown): Uri | null {
-    if (typeof raw === "string" && raw !== "") return Uri.parse(raw);
-    if (raw instanceof Uri) return raw;
-    return null;
-}
-
-async function vscodeDiff(accessor: ServiceAccessor, left: unknown, right: unknown, title: unknown): Promise<void> {
-    const leftUri = uriArg(left);
-    const rightUri = uriArg(right);
-    if (leftUri === null || rightUri === null) return;
+async function vscodeDiff(accessor: ServiceAccessor, ...args: unknown[]): Promise<void> {
+    // Из субпроцесса аргументы приходят одним массивом (мост
+    // `commands.executeCommand` передаёт `args` как есть), из ядра — varargs;
+    // uri там сериализованы `Uri.toJSON()` в компоненты (`{$mid, scheme, path}`)
+    // либо строками — {@link reviveWireUri} понимает оба вида (и сам Uri).
+    const list = args.length === 1 && Array.isArray(args[0]) ? (args[0] as unknown[]) : args;
+    const left = reviveWireUri(list[0]);
+    const right = reviveWireUri(list[1]);
+    if (left === null || right === null) return;
+    const title = typeof list[2] === "string" && list[2] !== "" ? list[2] : undefined;
 
     await openDiffPair(accessor, {
-        original: { uri: leftUri, label: compareLabelOf(leftUri), identity: leftUri.toString() },
-        modified: { uri: rightUri, label: compareLabelOf(rightUri), identity: rightUri.toString() },
-        ...(typeof title === "string" && title !== "" ? { title } : {}),
+        // Недоступный ресурс — легитимно пустая сторона: расширения зовут diff
+        // и для ещё не существующих файлов (превью создаваемого файла).
+        original: { uri: left, label: compareLabelOf(left), identity: left.toString(), onMissing: "empty" },
+        modified: { uri: right, label: compareLabelOf(right), identity: right.toString(), onMissing: "empty" },
+        ...(title !== undefined ? { title } : {}),
     });
 }
 
@@ -297,5 +299,5 @@ export function registerVscodeDiffCommand(
     commands: { register(id: string, handler: (...args: unknown[]) => unknown): IDisposable },
     accessor: ServiceAccessor,
 ): IDisposable {
-    return commands.register("vscode.diff", (left, right, title) => vscodeDiff(accessor, left, right, title));
+    return commands.register("vscode.diff", (...args) => vscodeDiff(accessor, ...args));
 }

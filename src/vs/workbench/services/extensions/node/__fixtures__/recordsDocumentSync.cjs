@@ -3,7 +3,7 @@
 /**
  * Фикстура document sync: записывает снимок `workspace.textDocuments` на момент
  * активации (так стоковый vscode-languageclient читает документы на `start()`)
- * и события onDidOpen/onDidChangeTextDocument. Лог отдаётся командой
+ * и события onDidOpen/onDidChange/onDidCloseTextDocument. Лог отдаётся командой
  * `test.docSync.dump` — host читает его через commandRegistry.execute.
  */
 exports.activate = function activate(context) {
@@ -30,6 +30,11 @@ exports.activate = function activate(context) {
                 rangeLength: e.contentChanges[0].rangeLength,
                 newText: e.contentChanges[0].text,
             });
+        }),
+    );
+    context.subscriptions.push(
+        vscode.workspace.onDidCloseTextDocument(function (doc) {
+            log.push({ kind: "close", uri: doc.uri.toString() });
         }),
     );
     context.subscriptions.push(

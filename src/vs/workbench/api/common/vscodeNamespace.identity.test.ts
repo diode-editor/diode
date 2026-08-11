@@ -85,7 +85,12 @@ describe("VscodeNamespace — стабильная идентичность acti
         fireActiveEditorChanged("/f.ts");
         const editor = vscode.window.activeTextEditor!;
         editor.options = { tabSize: 2, insertSpaces: true };
-        expect(request).toHaveBeenCalledWith("editor.setOptions", { tabSize: 2, insertSpaces: true });
+        expect(request).toHaveBeenCalledWith("editor.setOptions", {
+            tabSize: 2,
+            insertSpaces: true,
+            uri: Uri.file("/f.ts").toString(),
+            groupId: 1,
+        });
     });
 
     it("отсутствие активного ресурса → activeTextEditor undefined", () => {
@@ -141,6 +146,16 @@ describe("VscodeNamespace — стабильная идентичность acti
             "MarkdownString",
             "Hover",
             "WorkspaceEdit",
+            // Полоса групп (EditorGroups): instanceof-каскад по TabInput* — типовой
+            // код расширений, отсутствующий класс дал бы TypeError, не false.
+            "ViewColumn",
+            "TabInputText",
+            "TabInputTextDiff",
+            "TabInputCustom",
+            "TabInputWebview",
+            "TabInputNotebook",
+            "TabInputNotebookDiff",
+            "TabInputTerminal",
         ]) {
             expect(vscode[name], name).toBeDefined();
         }

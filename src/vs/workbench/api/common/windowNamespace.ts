@@ -3,14 +3,48 @@ import type * as vscode from "vscode";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
-import { DisposableImpl, EventEmitter, Position, Selection, Uri } from "./vscodeTypes.ts";
+import {
+    DisposableImpl,
+    EventEmitter,
+    Position,
+    Selection,
+    TabInputText,
+    TabInputTextDiff,
+    Uri,
+} from "./vscodeTypes.ts";
 import {
     type IWireEditorEdit,
+    type IWireEditorLayout,
     type IWireFileDecoration,
     type IWireSelection,
+    type IWireTabGroupSnapshot,
+    type IWireTabSnapshot,
+    parseWireEditorLayout,
     parseWireSelections,
     serializeDecorationRenderOptions,
 } from "./wireTypes.ts";
+
+/**
+ * Событие на listener-массиве (паттерн `onDidChangeActiveTextEditor`): подписка
+ * с thisArgs/disposables, отписка сплайсом. Файрит {@link createWindowNamespace}
+ * из layout-диффера.
+ */
+function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T> {
+    return ((
+        listener: (e: T) => unknown,
+        thisArgs?: unknown,
+        disposables?: vscode.Disposable[],
+    ): vscode.Disposable => {
+        const bound: (e: T) => unknown = thisArgs != null ? (e) => listener.call(thisArgs, e) : listener;
+        listeners.push(bound);
+        const disposable = new DisposableImpl(() => {
+            const idx = listeners.indexOf(bound);
+            if (idx >= 0) listeners.splice(idx, 1);
+        });
+        if (disposables !== undefined) disposables.push(disposable as unknown as vscode.Disposable);
+        return disposable as unknown as vscode.Disposable;
+    }) as vscode.Event<T>;
+}
 
 /** Wire-форма диапазона декорации (nested `start`/`end`, совпадает с `IRange`). */
 interface IWireRange {
@@ -72,22 +106,57 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     const { rpc, registry } = ctx;
 
     let activeEditorUri: string | null = null;
+    /** Группа активного редактора (из меты); null — до первой меты с группой. */
+    let activeEditorGroupId: number | null = null;
     // Идентификаторы withProgress-жизненных-циклов (window.progress.*).
     let nextProgressHandle = 1;
     // Выделения активного редактора: последние из meta / `editor.selectionChanged`
-    // либо выставленные самим расширением. Vexx показывает один активный редактор —
-    // visibleTextEditors и activeTextEditor всегда указывают на него, так что
-    // состояние глобальное. Первое выделение — первичное (`TextEditor.selection`).
+    // либо выставленные самим расширением. Первое выделение — первичное
+    // (`TextEditor.selection`).
     let activeSelections: readonly IWireSelection[] = [];
-    // Ключ — сам ExtHostTextDocument (стабилен по ресурсу), поэтому
-    // editor.document === registry.getOrCreate(uri) по построению.
-    const editorCache = new WeakMap<ExtHostTextDocument, vscode.TextEditor>();
+    /**
+     * Текущий снимок полосы групп (`editor.layoutChanged`). Единственный
+     * источник правды для `visibleTextEditors`/`tabGroups`/`viewColumn`:
+     * subprocess диффит его с прошлым и сам производит события API.
+     */
+    let layout: IWireEditorLayout = { groups: [] };
+    /**
+     * Выделения видимых редакторов по ключу `groupId:uri` — сеются из снимков
+     * (у активной вкладки каждой группы) и из `editor.selectionChanged`.
+     */
+    const selectionsByEditor = new Map<string, readonly IWireSelection[]>();
+    /**
+     * Идентичность `TextEditor` = (группа, документ): один файл в двух группах —
+     * два разных редактора с одним `document` (AS-7). Ключ — groupId, не
+     * viewColumn: номер колонки пересчитывается при схлопывании, а объект
+     * редактора обязан пережить перенумерацию (AS-9). Прюнится по снимкам.
+     */
+    const editorCache = new Map<number, Map<string, vscode.TextEditor>>();
     const activeEditorListeners: ((editor: vscode.TextEditor | undefined) => void)[] = [];
+    const visibleEditorsListeners: ((editors: readonly vscode.TextEditor[]) => void)[] = [];
+    const viewColumnListeners: ((e: vscode.TextEditorViewColumnChangeEvent) => void)[] = [];
+    const tabsListeners: ((e: vscode.TabChangeEvent) => void)[] = [];
+    const tabGroupsListeners: ((e: vscode.TabGroupChangeEvent) => void)[] = [];
 
     // Монотонный ключ типа декорации + маппинг type-объект → числовой ключ.
     // Ключ живёт локально в субпроцессе; хост знает тип только по числу.
     let nextDecorationKey = 1;
     const decorationTypeKeys = new WeakMap<object, number>();
+
+    function selectionKey(groupId: number, uri: string): string {
+        return `${String(groupId)}:${uri}`;
+    }
+
+    /** Группа снимка по id; `null` — группы нет в текущей полосе. */
+    function layoutGroup(groupId: number): IWireTabGroupSnapshot | null {
+        return layout.groups.find((group) => group.groupId === groupId) ?? null;
+    }
+
+    /** Группа активного редактора: из меты либо активная группа снимка. */
+    function effectiveActiveGroupId(): number {
+        if (activeEditorGroupId !== null) return activeEditorGroupId;
+        return layout.groups.find((group) => group.isActive)?.groupId ?? 1;
+    }
 
     rpc.handleNotification("editor.activeEditorChanged", (params) => {
         const meta = params as {
@@ -97,8 +166,10 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             encoding?: string | null;
             eol?: number | null;
             selection?: IWireSelection | null;
+            groupId?: number | null;
         };
         activeEditorUri = meta.uri;
+        activeEditorGroupId = typeof meta.groupId === "number" ? meta.groupId : null;
         activeSelections = meta.selection == null ? [] : [meta.selection];
         let editor: vscode.TextEditor | undefined;
         if (meta.uri != null) {
@@ -109,7 +180,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 encoding: meta.encoding ?? undefined,
                 eol: meta.eol === 1 || meta.eol === 2 ? meta.eol : undefined,
             });
-            editor = getEditorFor(doc);
+            editor = getEditorFor(doc, effectiveActiveGroupId());
         }
         for (const listener of [...activeEditorListeners]) {
             listener(editor);
@@ -120,17 +191,208 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     // Слушателей активного редактора не трогаем: активный редактор не сменился
     // (иначе пришёл бы `editor.activeEditorChanged`).
     rpc.handleNotification("editor.selectionChanged", (params) => {
-        const p = params as { uri?: unknown; selections?: unknown };
-        if (typeof p.uri !== "string" || p.uri !== activeEditorUri) return;
-        activeSelections = parseWireSelections(p.selections);
+        const p = params as { uri?: unknown; selections?: unknown; groupId?: unknown };
+        if (typeof p.uri !== "string") return;
+        const selections = parseWireSelections(p.selections);
+        const groupId = typeof p.groupId === "number" ? p.groupId : effectiveActiveGroupId();
+        selectionsByEditor.set(selectionKey(groupId, p.uri), selections);
+        if (p.uri === activeEditorUri) activeSelections = selections;
     });
 
-    function getEditorFor(doc: ExtHostTextDocument): vscode.TextEditor {
-        const cached = editorCache.get(doc);
+    // Снимок полосы: диффим с прошлым и производим события API сами — в проводе
+    // гранулярных сообщений нет (см. IWireEditorLayout).
+    rpc.handleNotification("editor.layoutChanged", (params) => {
+        const parsed = parseWireEditorLayout(params);
+        if (parsed === null) return;
+        const previous = layout;
+        layout = parsed;
+        applyLayoutDiff(previous, parsed);
+    });
+
+    /** Ключи вкладок снимка: `groupId:uri`. */
+    function tabKeys(snapshot: IWireEditorLayout): Map<string, { group: IWireTabGroupSnapshot; tab: IWireTabSnapshot }> {
+        const keys = new Map<string, { group: IWireTabGroupSnapshot; tab: IWireTabSnapshot }>();
+        for (const group of snapshot.groups) {
+            for (const tab of group.tabs) {
+                keys.set(selectionKey(group.groupId, tab.uri), { group, tab });
+            }
+        }
+        return keys;
+    }
+
+    /** Пары (groupId, uri) видимых ТЕКСТОВЫХ редакторов снимка. */
+    function visiblePairs(snapshot: IWireEditorLayout): string[] {
+        const pairs: string[] = [];
+        for (const group of snapshot.groups) {
+            const active = group.tabs.find((tab) => tab.isActive);
+            if (active !== undefined && active.kind === "text") {
+                pairs.push(selectionKey(group.groupId, active.uri));
+            }
+        }
+        return pairs;
+    }
+
+    function applyLayoutDiff(previous: IWireEditorLayout, next: IWireEditorLayout): void {
+        const prevTabs = tabKeys(previous);
+        const nextTabs = tabKeys(next);
+
+        // Сев выделений видимых редакторов (активная вкладка каждой группы).
+        for (const group of next.groups) {
+            for (const tab of group.tabs) {
+                if (tab.selections !== undefined) {
+                    selectionsByEditor.set(selectionKey(group.groupId, tab.uri), tab.selections);
+                }
+            }
+        }
+
+        // Прюнинг кэшей по умершим парам и группам: застрявшая у расширения
+        // ссылка на редактор мёртвой группы даёт viewColumn === undefined, не TypeError.
+        const aliveGroups = new Set(next.groups.map((group) => group.groupId));
+        for (const [groupId, editors] of [...editorCache]) {
+            if (!aliveGroups.has(groupId)) {
+                editorCache.delete(groupId);
+                continue;
+            }
+            for (const uri of [...editors.keys()]) {
+                if (!nextTabs.has(selectionKey(groupId, uri))) editors.delete(uri);
+            }
+        }
+        for (const key of [...selectionsByEditor.keys()]) {
+            if (!nextTabs.has(key)) selectionsByEditor.delete(key);
+        }
+
+        // onDidChangeTabGroups: added/removed/changed(isActive|viewColumn).
+        const prevGroups = new Map(previous.groups.map((group) => [group.groupId, group]));
+        const openedGroups = next.groups.filter((group) => !prevGroups.has(group.groupId));
+        const closedGroups = previous.groups.filter((group) => !aliveGroups.has(group.groupId));
+        const changedGroups = next.groups.filter((group) => {
+            const before = prevGroups.get(group.groupId);
+            return before !== undefined && (before.isActive !== group.isActive || before.viewColumn !== group.viewColumn);
+        });
+        if (openedGroups.length > 0 || closedGroups.length > 0 || changedGroups.length > 0) {
+            const event = {
+                opened: openedGroups.map(makeTabGroup),
+                closed: closedGroups.map(makeTabGroup),
+                changed: changedGroups.map(makeTabGroup),
+            } as unknown as vscode.TabGroupChangeEvent;
+            for (const listener of [...tabGroupsListeners]) listener(event);
+        }
+
+        // onDidChangeTabs: added/removed/changed(isActive|isDirty|label).
+        const openedTabs: vscode.Tab[] = [];
+        const closedTabs: vscode.Tab[] = [];
+        const changedTabs: vscode.Tab[] = [];
+        for (const [key, { group, tab }] of nextTabs) {
+            const before = prevTabs.get(key);
+            if (before === undefined) openedTabs.push(makeTab(group, tab));
+            else if (
+                before.tab.isActive !== tab.isActive ||
+                before.tab.isDirty !== tab.isDirty ||
+                before.tab.label !== tab.label
+            ) {
+                changedTabs.push(makeTab(group, tab));
+            }
+        }
+        for (const [key, { group, tab }] of prevTabs) {
+            if (!nextTabs.has(key)) closedTabs.push(makeTab(group, tab));
+        }
+        if (openedTabs.length > 0 || closedTabs.length > 0 || changedTabs.length > 0) {
+            const event = {
+                opened: openedTabs,
+                closed: closedTabs,
+                changed: changedTabs,
+            } as unknown as vscode.TabChangeEvent;
+            for (const listener of [...tabsListeners]) listener(event);
+        }
+
+        // onDidChangeVisibleTextEditors: сменился набор видимых пар.
+        const prevVisible = visiblePairs(previous);
+        const nextVisible = visiblePairs(next);
+        if (prevVisible.length !== nextVisible.length || prevVisible.some((pair, i) => pair !== nextVisible[i])) {
+            const editors = windowNs.visibleTextEditors;
+            for (const listener of [...visibleEditorsListeners]) listener(editors);
+        }
+
+        // onDidChangeTextEditorViewColumn: выжившие редакторы со сменившейся колонкой.
+        for (const group of next.groups) {
+            const before = prevGroups.get(group.groupId);
+            if (before === undefined || before.viewColumn === group.viewColumn) continue;
+            const editors = editorCache.get(group.groupId);
+            if (editors === undefined) continue;
+            for (const editor of editors.values()) {
+                const event = {
+                    textEditor: editor,
+                    viewColumn: group.viewColumn,
+                } as unknown as vscode.TextEditorViewColumnChangeEvent;
+                for (const listener of [...viewColumnListeners]) listener(event);
+            }
+        }
+    }
+
+    function getEditorFor(doc: ExtHostTextDocument, groupId: number): vscode.TextEditor {
+        let groupEditors = editorCache.get(groupId);
+        if (groupEditors === undefined) {
+            groupEditors = new Map();
+            editorCache.set(groupId, groupEditors);
+        }
+        const key = doc.uri.toString();
+        const cached = groupEditors.get(key);
         if (cached !== undefined) return cached;
-        const editor = makeEditorProxy(doc);
-        editorCache.set(doc, editor);
+        const editor = makeEditorProxy(doc, groupId);
+        groupEditors.set(key, editor);
         return editor;
+    }
+
+    /** `Tab` для `window.tabGroups` — снимок на момент вызова (идентичность не гарантируется). */
+    function makeTab(group: IWireTabGroupSnapshot, tab: IWireTabSnapshot): vscode.Tab {
+        const input =
+            tab.kind === "diff" && tab.original !== undefined && tab.modified !== undefined
+                ? new TabInputTextDiff(Uri.parse(tab.original), Uri.parse(tab.modified))
+                : tab.kind === "diff"
+                  ? undefined
+                  : new TabInputText(Uri.parse(tab.uri));
+        return {
+            label: tab.label,
+            input,
+            isActive: tab.isActive,
+            isDirty: tab.isDirty,
+            isPinned: false,
+            isPreview: false,
+            group: makeTabGroup(group),
+            // Внутренняя адресация для tabGroups.close (не часть vscode API).
+            _vexxGroupId: group.groupId,
+            _vexxUri: tab.uri,
+        } as unknown as vscode.Tab;
+    }
+
+    function makeTabGroup(group: IWireTabGroupSnapshot): vscode.TabGroup {
+        const active = group.tabs.find((tab) => tab.isActive);
+        return {
+            isActive: group.isActive,
+            viewColumn: group.viewColumn,
+            activeTab: active !== undefined ? makeTabOnly(group, active) : undefined,
+            tabs: group.tabs.map((tab) => makeTabOnly(group, tab)),
+        } as unknown as vscode.TabGroup;
+    }
+
+    /** Tab без обратной ссылки на группу (обрыв рекурсии makeTab ↔ makeTabGroup). */
+    function makeTabOnly(group: IWireTabGroupSnapshot, tab: IWireTabSnapshot): vscode.Tab {
+        const input =
+            tab.kind === "diff" && tab.original !== undefined && tab.modified !== undefined
+                ? new TabInputTextDiff(Uri.parse(tab.original), Uri.parse(tab.modified))
+                : tab.kind === "diff"
+                  ? undefined
+                  : new TabInputText(Uri.parse(tab.uri));
+        return {
+            label: tab.label,
+            input,
+            isActive: tab.isActive,
+            isDirty: tab.isDirty,
+            isPinned: false,
+            isPreview: false,
+            _vexxGroupId: group.groupId,
+            _vexxUri: tab.uri,
+        } as unknown as vscode.Tab;
     }
 
     function toSelection(s: IWireSelection): vscode.Selection {
@@ -140,44 +402,55 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         ) as unknown as vscode.Selection;
     }
 
-    /** Первичное выделение; до первой синхронизации — пустое в начале документа. */
-    function currentSelection(): vscode.Selection {
-        const primary = activeSelections[0];
-        if (primary === undefined) {
-            return new Selection(new Position(0, 0), new Position(0, 0)) as unknown as vscode.Selection;
-        }
-        return toSelection(primary);
-    }
-
-    /** Все выделения; пустой кэш даёт одно вырожденное — как у VS Code. */
-    function currentSelections(): readonly vscode.Selection[] {
-        if (activeSelections.length === 0) return [currentSelection()];
-        return activeSelections.map(toSelection);
+    /** Выделения редактора (группа, документ): у активного — активные, у видимых — из снимка. */
+    function editorSelections(groupId: number, uri: string): readonly IWireSelection[] {
+        if (uri === activeEditorUri && groupId === effectiveActiveGroupId()) return activeSelections;
+        return selectionsByEditor.get(selectionKey(groupId, uri)) ?? [];
     }
 
     /** Отправляет хосту новые выделения и кэширует их локально. */
-    function pushSelections(document: ExtHostTextDocument, selections: readonly vscode.Selection[]): void {
+    function pushSelections(
+        document: ExtHostTextDocument,
+        groupId: number,
+        selections: readonly vscode.Selection[],
+    ): void {
         const wire = selections.map(toWireSelection);
         if (wire.length === 0) return;
-        activeSelections = wire;
-        rpc.notify("editor.setSelection", { uri: document.uri.toString(), selections: wire });
+        selectionsByEditor.set(selectionKey(groupId, document.uri.toString()), wire);
+        if (document.uri.toString() === activeEditorUri && groupId === effectiveActiveGroupId()) {
+            activeSelections = wire;
+        }
+        rpc.notify("editor.setSelection", { uri: document.uri.toString(), selections: wire, groupId });
     }
 
-    function makeEditorProxy(document: ExtHostTextDocument): vscode.TextEditor {
+    function makeEditorProxy(document: ExtHostTextDocument, groupId: number): vscode.TextEditor {
+        const primarySelection = (): vscode.Selection => {
+            const primary = editorSelections(groupId, document.uri.toString())[0];
+            if (primary === undefined) {
+                return new Selection(new Position(0, 0), new Position(0, 0)) as unknown as vscode.Selection;
+            }
+            return toSelection(primary);
+        };
         const editorData = {
             options: {} as vscode.TextEditorOptions,
             document,
+            /** Колонка — всегда от текущего снимка: перенумерация не рвёт объект (AS-9). */
+            get viewColumn(): number | undefined {
+                return layoutGroup(groupId)?.viewColumn;
+            },
             get selection(): vscode.Selection {
-                return currentSelection();
+                return primarySelection();
             },
             set selection(value: vscode.Selection) {
-                pushSelections(document, [value]);
+                pushSelections(document, groupId, [value]);
             },
             get selections(): readonly vscode.Selection[] {
-                return currentSelections();
+                const all = editorSelections(groupId, document.uri.toString());
+                if (all.length === 0) return [primarySelection()];
+                return all.map(toSelection);
             },
             set selections(value: readonly vscode.Selection[]) {
-                pushSelections(document, value);
+                pushSelections(document, groupId, value);
             },
             // `TextEditor.edit`: собирает правки из callback'а в TextEditorEdit и
             // отправляет их хосту одним undoable-батчем. Возвращает Thenable<boolean>.
@@ -220,6 +493,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     key,
                     uri: document.uri.toString(),
                     ranges: normalizeDecorationRanges(rangesOrOptions),
+                    groupId,
                 });
             },
         };
@@ -241,7 +515,11 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     }
                     target.options = { ...target.options, ...patch };
                     if (Object.keys(normalized).length > 0) {
-                        void rpc.request("editor.setOptions", normalized);
+                        void rpc.request("editor.setOptions", {
+                            ...normalized,
+                            uri: document.uri.toString(),
+                            groupId,
+                        });
                     }
                     return true;
                 }
@@ -285,15 +563,24 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     const windowNs = {
         get activeTextEditor(): vscode.TextEditor | undefined {
             if (activeEditorUri === null) return undefined;
-            return getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)));
+            return getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)), effectiveActiveGroupId());
         },
 
-        // Vexx показывает один активный редактор за раз — видимые редакторы это
-        // ровно активный (либо пусто). Достаточно для расширений, которые ищут
-        // редактор документа среди visibleTextEditors (напр. maptz.regionfolder).
+        // Видимые редакторы — активная ТЕКСТОВАЯ вкладка каждой группы полосы:
+        // один файл в двух группах — два разных TextEditor с одним document (AS-7).
+        // Пустой снимок (до первого layoutChanged) деградирует в «только активный».
         get visibleTextEditors(): readonly vscode.TextEditor[] {
-            if (activeEditorUri === null) return [];
-            return [getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)))];
+            if (layout.groups.length === 0) {
+                if (activeEditorUri === null) return [];
+                return [getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)), effectiveActiveGroupId())];
+            }
+            const editors: vscode.TextEditor[] = [];
+            for (const group of layout.groups) {
+                const active = group.tabs.find((tab) => tab.isActive);
+                if (active === undefined || active.kind !== "text") continue;
+                editors.push(getEditorFor(registry.getOrCreate(Uri.parse(active.uri)), group.groupId));
+            }
+            return editors;
         },
 
         // Оконное состояние. В TUI мы всегда «сфокусированы»; событие
@@ -428,16 +715,96 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             } as unknown as vscode.OutputChannel;
         },
 
-        // ── Наивная поверхность, которую трогает vscode-languageclient
-        // (статусы/шаги закрытия — таблица стабов в docs/TODO/LSP.md). ─────────
-        onDidChangeVisibleTextEditors: new EventEmitter<never>().event,
+        onDidChangeVisibleTextEditors: makeListenerEvent(visibleEditorsListeners),
+        onDidChangeTextEditorViewColumn: makeListenerEvent(viewColumnListeners),
+
+        // `window.tabGroups`: живой снимок полосы групп (из `editor.layoutChanged`).
+        // `Tab.isPinned`/`isPreview` — честные false (фич нет); `isDirty` настоящий.
+        // Идентичность Tab-объектов между снимками не гарантируется — расширения
+        // сравнивают по `input.uri` (осознанное отклонение).
         tabGroups: {
-            all: [] as readonly unknown[],
-            activeTabGroup: { tabs: [] as readonly unknown[] },
-            onDidChangeTabs: new EventEmitter<never>().event,
-            onDidChangeTabGroups: new EventEmitter<never>().event,
+            get all(): readonly vscode.TabGroup[] {
+                return layout.groups.map(makeTabGroup);
+            },
+            get activeTabGroup(): vscode.TabGroup {
+                const active = layout.groups.find((group) => group.isActive) ?? layout.groups[0];
+                if (active === undefined) {
+                    return {
+                        isActive: true,
+                        viewColumn: 1,
+                        activeTab: undefined,
+                        tabs: [],
+                    } as unknown as vscode.TabGroup;
+                }
+                return makeTabGroup(active);
+            },
+            onDidChangeTabs: makeListenerEvent(tabsListeners),
+            onDidChangeTabGroups: makeListenerEvent(tabGroupsListeners),
+            close: (
+                tabOrTabs: vscode.Tab | readonly vscode.Tab[] | vscode.TabGroup | readonly vscode.TabGroup[],
+                _preserveFocus?: boolean,
+            ): Thenable<boolean> => {
+                const items = Array.isArray(tabOrTabs) ? tabOrTabs : [tabOrTabs];
+                if (items.length === 0) return Promise.resolve(true);
+                // Tab отличаем от TabGroup по внутренней адресации _vexxUri.
+                if ((items[0] as { _vexxUri?: unknown })._vexxUri !== undefined) {
+                    const tabs = (items as vscode.Tab[]).map((tab) => ({
+                        groupId: (tab as unknown as { _vexxGroupId: number })._vexxGroupId,
+                        uri: (tab as unknown as { _vexxUri: string })._vexxUri,
+                    }));
+                    return rpc.request("editor.closeTabs", { tabs }) as Promise<boolean>;
+                }
+                const groupIds = (items as vscode.TabGroup[]).map((group) => {
+                    const snapshot = layout.groups.find((g) => g.viewColumn === group.viewColumn);
+                    return snapshot?.groupId ?? -1;
+                });
+                return rpc.request("editor.closeGroups", { groupIds }) as Promise<boolean>;
+            },
+        } as unknown as vscode.TabGroups,
+
+        // `window.showTextDocument` (3 перегрузки): нормализуем в один запрос
+        // хосту; к моменту резолва `editor.layoutChanged` уже применён (хост
+        // флашит его перед ответом), так что редактор существует в снимке.
+        showTextDocument: (
+            documentOrUri: vscode.TextDocument | vscode.Uri,
+            columnOrOptions?: vscode.ViewColumn | vscode.TextDocumentShowOptions,
+            preserveFocus?: boolean,
+        ): Thenable<vscode.TextEditor> => {
+            const uri =
+                documentOrUri instanceof Uri
+                    ? (documentOrUri as Uri)
+                    : (documentOrUri as vscode.TextDocument).uri;
+            const options: vscode.TextDocumentShowOptions =
+                typeof columnOrOptions === "number"
+                    ? { viewColumn: columnOrOptions, preserveFocus }
+                    : (columnOrOptions ?? {});
+            const selection = options.selection;
+            const params = {
+                uri: uri.toString(),
+                ...(options.viewColumn !== undefined ? { viewColumn: options.viewColumn } : {}),
+                ...(options.preserveFocus !== undefined ? { preserveFocus: options.preserveFocus } : {}),
+                ...(selection !== undefined
+                    ? {
+                          selection: {
+                              anchorLine: selection.start.line,
+                              anchorCharacter: selection.start.character,
+                              activeLine: selection.end.line,
+                              activeCharacter: selection.end.character,
+                          },
+                      }
+                    : {}),
+            };
+            return (rpc.request("editor.showTextDocument", params) as Promise<{ uri: string; groupId: number }>).then(
+                (result) => {
+                    // Защитный фолбэк (харнессы со стаб-RPC отвечают undefined):
+                    // без результата отдаём активный редактор — прежняя семантика.
+                    if (result === null || typeof result !== "object") {
+                        return windowNs.activeTextEditor as vscode.TextEditor;
+                    }
+                    return getEditorFor(registry.getOrCreate(Uri.parse(result.uri)), result.groupId);
+                },
+            );
         },
-        showTextDocument: (): Thenable<vscode.TextEditor | undefined> => Promise.resolve(windowNs.activeTextEditor),
         // Настоящий withProgress: жизненный цикл уезжает хосту нотификациями
         // window.progress.{start,report,end} — статус-бар показывает спиннер,
         // пока промис задачи не устаканился. Location игнорируется (в TUI всё —

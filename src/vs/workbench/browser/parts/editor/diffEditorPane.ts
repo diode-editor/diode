@@ -47,6 +47,13 @@ export interface IDiffEditorPaneInput {
     readonly modifiedText: string;
     /** Язык для подсветки обеих сторон. */
     readonly languageId: string;
+    /**
+     * Ресурсы сторон — для `TabInputTextDiff` у расширений (`window.tabGroups`).
+     * Опциональны: сторона может не существовать как ресурс (HEAD-версия) —
+     * тогда во вкладке расширение видит дифф без исходных uri.
+     */
+    readonly originalUri?: Uri;
+    readonly modifiedUri?: Uri;
 }
 
 /**
@@ -67,6 +74,9 @@ export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSo
     public readonly isModified = false;
     /** Правка невозможна по устройству панели — вкладка носит метку-замок. */
     public readonly readOnly = true;
+    /** Ресурсы сторон для `TabInputTextDiff` (см. {@link IDiffEditorPaneInput}). */
+    public readonly originalUri: Uri | null;
+    public readonly modifiedUri: Uri | null;
 
     private readonly element: DiffViewElement;
     private documents!: Record<DiffSide, TextDocument>;
@@ -82,6 +92,8 @@ export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSo
         super();
         this.uri = input.uri;
         this.label = input.label;
+        this.originalUri = input.originalUri ?? null;
+        this.modifiedUri = input.modifiedUri ?? null;
         this.tokenStyleResolver = tokenStyleResolver;
         this.tokenizationRegistry = tokenizationRegistry;
 

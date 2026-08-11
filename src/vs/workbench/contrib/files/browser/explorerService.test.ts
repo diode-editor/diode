@@ -162,6 +162,26 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         ws.dispose();
     });
 
+    it("getSelectedFilePath: файл → путь, каталог и пустое дерево → null (Open to the Side)", () => {
+        const service = createService();
+
+        // Без view выбранного узла нет.
+        expect(service.getSelectedFilePath()).toBeNull();
+
+        service.attachView(
+            fakeView({ getSelectedNode: () => ({ name: "a.ts", path: "/root/dir/a.ts", isDirectory: false }) }),
+        );
+        expect(service.getSelectedFilePath()).toBe("/root/dir/a.ts");
+
+        // Каталог — не файл: открывать «в сторону» нечего.
+        service.attachView(
+            fakeView({ getSelectedNode: () => ({ name: "dir", path: "/root/dir", isDirectory: true }) }),
+        );
+        expect(service.getSelectedFilePath()).toBeNull();
+
+        service.dispose();
+    });
+
     it("revealPath builds the ancestor chain and passes it to the view", async () => {
         const ws = createTempWorkspace({ prefix: "vexx-explorer-svc-reveal-" });
         const service = createService();

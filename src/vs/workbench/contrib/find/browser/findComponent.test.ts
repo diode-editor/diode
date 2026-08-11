@@ -4,6 +4,7 @@ import type { MockTerminalBackend } from "../../../../../../tuidom/backend/mockT
 import { BoxConstraints, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
 import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
+import { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
 import type { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -11,13 +12,13 @@ import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { FindComponent } from "./findComponent.ts";
+import { FindWidget } from "./findComponent.ts";
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const WIDTH = 44;
 
-function make(): FindComponent {
-    return new FindComponent();
+function make(): FindWidget {
+    return new FindWidget();
 }
 
 /**
@@ -25,16 +26,16 @@ function make(): FindComponent {
  * `resolveStyles` is needed so the counter `TextLabel` resolves its themed fg
  * (per-element style inheritance; the real app runs this in its render pipeline).
  */
-function render(component: FindComponent, width = WIDTH): MockTerminalBackend {
+function render(component: FindWidget, width = WIDTH): MockTerminalBackend {
     return renderElement(component.view, width, 3, { resolveStyles: true });
 }
 
 /** The three nav buttons in tree order: [prev, next, close]. */
-function buttons(component: FindComponent): ButtonElement[] {
+function buttons(component: FindWidget): ButtonElement[] {
     return component.view.querySelectorAll("ButtonElement") as ButtonElement[];
 }
 
-function input(component: FindComponent): InputElement {
+function input(component: FindWidget): InputElement {
     return component.view.querySelector("InputElement") as InputElement;
 }
 
@@ -43,12 +44,12 @@ function mouse(type: "click" | "mouseenter" | "mouseleave"): TUIMouseEvent {
 }
 
 /** Resolves the element at a screen point and dispatches a left click on it. */
-function clickAt(component: FindComponent, x: number, y: number): void {
+function clickAt(component: FindWidget, x: number, y: number): void {
     const target = component.view.elementFromPoint(new Point(x, y));
     target?.dispatchEvent(mouse("click"));
 }
 
-describe("FindComponent — root sizing", () => {
+describe("FindWidget — root sizing", () => {
     it("renders at the preferred width and a fixed 3-row height", () => {
         const component = make();
         const size = component.view.layout(BoxConstraints.loose(new Size(80, 10)));
@@ -62,7 +63,7 @@ describe("FindComponent — root sizing", () => {
     });
 });
 
-describe("FindComponent — button clicks", () => {
+describe("FindWidget — button clicks", () => {
     it("invokes onPrev / onNext / onClose when the matching button is clicked", () => {
         const component = make();
         const onPrev = vi.fn();
@@ -101,7 +102,7 @@ describe("FindComponent — button clicks", () => {
     });
 });
 
-describe("FindComponent — hover", () => {
+describe("FindWidget — hover", () => {
     it("highlights a button on mouseenter and reverts on mouseleave", () => {
         const component = make();
         render(component);
@@ -119,7 +120,7 @@ describe("FindComponent — hover", () => {
     });
 });
 
-describe("FindComponent — theme colors", () => {
+describe("FindWidget — theme colors", () => {
     it("paints the border and background from editorWidget.* keys", () => {
         const component = make();
         const backend = render(component);
@@ -130,7 +131,7 @@ describe("FindComponent — theme colors", () => {
     });
 });
 
-describe("FindComponent — counter", () => {
+describe("FindWidget — counter", () => {
     it("shows nothing while the query is empty", () => {
         const component = make();
         component.setCounter(1, 3);
@@ -159,7 +160,42 @@ describe("FindComponent — counter", () => {
     });
 });
 
-describe("FindComponent — focus", () => {
+describe("FindWidget — overlay-сессия", () => {
+    it("show() до attachHost — no-op: виджет не открывается и не падает", () => {
+        const component = make();
+
+        expect(() => {
+            component.show();
+        }).not.toThrow();
+
+        expect(component.isOpen()).toBe(false);
+    });
+
+    it("повторный attachHost с тем же хостом — no-op, живая сессия не пересоздаётся", () => {
+        const component = make();
+        const host = new OverlayHostElement();
+        component.attachHost(host);
+        component.show();
+        expect(component.isOpen()).toBe(true);
+
+        // Тот же хост второй раз: без guard'а сессия была бы пересоздана закрытой.
+        component.attachHost(host);
+
+        expect(component.isOpen()).toBe(true);
+    });
+
+    it("hide() без открытой сессии — no-op", () => {
+        const component = make();
+
+        expect(() => {
+            component.hide();
+        }).not.toThrow();
+
+        expect(component.isOpen()).toBe(false);
+    });
+});
+
+describe("FindWidget — focus", () => {
     it("focus() delegates to the query input", () => {
         const component = make();
         const testApp = TestApp.createWithContent(component.view, new Size(80, 24));

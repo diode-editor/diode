@@ -26,7 +26,11 @@ interface GroupStub {
     closeTab: (index: number) => void;
     /** Закрываемую вкладку экшен берёт по индексу, а не через focus-aware активный редактор. */
     getEditor?: (index: number) => { isModified: boolean } | null;
-    onRequestConfirmClose?: (index: number) => void;
+    /** Диалог показывается только последней вкладке документа; в стабе — всегда последняя. */
+    isLastPaneForDocument?: (editor: { isModified: boolean }) => boolean;
+    /** Координата confirm-close — (группа, индекс); в стабе группа — маркер-объект. */
+    activeGroup?: unknown;
+    onRequestConfirmClose?: (group: unknown, index: number) => void;
 }
 
 function setupActionTest(group: GroupStub) {
@@ -174,6 +178,8 @@ describe("TabActions", () => {
             activateTab: vi.fn(),
             closeTab,
             getEditor: () => ({ isModified: true }),
+            isLastPaneForDocument: () => true,
+            activeGroup: { marker: "group" },
             onRequestConfirmClose,
         };
 
@@ -182,7 +188,7 @@ describe("TabActions", () => {
 
         commands.execute("workbench.action.closeActiveEditor");
 
-        expect(onRequestConfirmClose).toHaveBeenCalledWith(2);
+        expect(onRequestConfirmClose).toHaveBeenCalledWith(group.activeGroup, 2);
         expect(closeTab).not.toHaveBeenCalled();
     });
 
@@ -194,6 +200,7 @@ describe("TabActions", () => {
             activateTab: vi.fn(),
             closeTab,
             getEditor: () => ({ isModified: true }),
+            isLastPaneForDocument: () => true,
             // onRequestConfirmClose intentionally absent → else branch.
         };
 
