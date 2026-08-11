@@ -12,10 +12,11 @@ import { explorerPathArg } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { DiffEditorPane } from "../../../browser/parts/editor/diffEditorPane.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
-import { ClipboardDIToken } from "../../../common/coreTokens.ts";
+import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { FileSearchServiceDIToken } from "../../../services/search/node/fileSearchService.ts";
 import { openDiffWithHead } from "../../scm/browser/compareWithHeadAction.ts";
+import { OriginalResourceProviderDIToken } from "../../scm/browser/quickDiffService.ts";
 import { ScmRepoStateServiceDIToken } from "../../scm/browser/repoStateService.ts";
 import { queryRefs } from "../../scm/browser/syncActions.ts";
 
@@ -172,19 +173,19 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
 
 // ─── Compare Active File with Revision… (US-7) ───────────────────────────────
 
-async function compareWithRevision(accessor: ServiceAccessor): Promise<void> {
-    const editors = accessor.get(EditorServiceDIToken);
-    const active = editors.getActiveEditor();
-    if (active === null) return;
-
+/**
+ * Пикер ревизии: ветки и теги репозитория, текущая ветка помечена. `null` —
+ * отмена; пустой список ref'ов показывает нотис сам.
+ */
+async function pickRevisionRef(accessor: ServiceAccessor, title: string): Promise<string | null> {
     const refs = await queryRefs(accessor);
     if (refs.length === 0) {
-        showCompareNotice(accessor, "No refs to compare with: the repository has no branches or tags");
-        return;
+        showCompareNotice(accessor, "No refs to pick from: the repository has no branches or tags");
+        return null;
     }
     const currentBranch = accessor.get(ScmRepoStateServiceDIToken).state.branch;
     const picked = await accessor.get(QuickInputServiceDIToken).quickPick({
-        title: "Compare Active File with Revision",
+        title,
         placeholder: "Pick a branch or tag",
         items: refs.map((r) => ({
             label: r.name,
@@ -192,12 +193,65 @@ async function compareWithRevision(accessor: ServiceAccessor): Promise<void> {
             ...(r.name === currentBranch ? { badge: "current" } : {}),
         })),
     });
-    if (picked === undefined) return;
+    return picked?.label ?? null;
+}
 
-    const result = await openDiffWithHead(accessor, active.uri, picked.label);
+async function compareWithRevision(accessor: ServiceAccessor): Promise<void> {
+    const editors = accessor.get(EditorServiceDIToken);
+    const active = editors.getActiveEditor();
+    if (active === null) return;
+
+    const ref = await pickRevisionRef(accessor, "Compare Active File with Revision");
+    if (ref === null) return;
+
+    const result = await openDiffWithHead(accessor, active.uri, ref);
     if (result === "no-original") {
         showCompareNotice(accessor, "Cannot compare: the file has no version in git");
     }
+}
+
+// ─── Open File at Revision… (DiffEditable PR-1) ──────────────────────────────
+
+/**
+ * Открывает файл на выбранной ревизии обычной **read-only текстовой вкладкой**
+ * (`a.ts (ref)` с замком): контент читается `git:`-провайдером, вкладка-снимок
+ * живёт мимо диска и персиста сессии. Первая видимая ступень editable-диффа
+ * (docs/TODO/DiffEditable.md, PR-1) и давний хвост задачи из Uri.md.
+ */
+async function openFileAtRevision(accessor: ServiceAccessor): Promise<void> {
+    const editors = accessor.get(EditorServiceDIToken);
+    const active = editors.getActiveEditor();
+    if (active === null) return;
+
+    const ref = await pickRevisionRef(accessor, "Open File at Revision");
+    if (ref === null) return;
+
+    let revisionUri: Uri | null;
+    try {
+        revisionUri = await accessor.get(OriginalResourceProviderDIToken).provideOriginalResource(active.uri, ref);
+    } catch {
+        revisionUri = null;
+    }
+    const providers = accessor.get(FileSystemProviderRegistryDIToken);
+    if (revisionUri === null || !providers.hasProvider(revisionUri.scheme)) {
+        showCompareNotice(accessor, "Cannot open: the file has no version in git");
+        return;
+    }
+
+    let text: string;
+    try {
+        text = new TextDecoder().decode(await providers.readFile(revisionUri));
+    } catch {
+        // Файла на этой ревизии нет — честный нотис, а не пустая вкладка.
+        showCompareNotice(accessor, `Cannot open: the file does not exist on ${ref}`);
+        return;
+    }
+
+    editors.openTextSnapshot(revisionUri, {
+        text,
+        languageId: active.languageId,
+        label: `${compareLabelOf(active.uri)} (${ref})`,
+    });
 }
 
 // ─── vscode.diff (US-12) ─────────────────────────────────────────────────────
@@ -285,6 +339,15 @@ export const compareWithRevisionAction: CommandAction = {
     when: "gitHasRepo",
     run(accessor) {
         void compareWithRevision(accessor);
+    },
+};
+
+export const openFileAtRevisionAction: CommandAction = {
+    id: "vexx.scm.openFileAtRevision",
+    title: "Git: Open File at Revision...",
+    when: "gitHasRepo",
+    run(accessor) {
+        void openFileAtRevision(accessor);
     },
 };
 

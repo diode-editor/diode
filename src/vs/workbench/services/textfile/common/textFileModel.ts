@@ -448,6 +448,12 @@ export class TextFileModel extends Disposable {
      * после подъёма было бы поздно.
      */
     public openFile(uri: Uri): void {
+        // Гейт по схеме: `fsPath` у не-file uri не бросает, а отдаёт путь как
+        // есть — без гейта `git:`-ресурс молча показал бы рабочее дерево и
+        // повесил watcher на чужой путь. Не-file буферы — `openSynthetic`.
+        if (uri.scheme !== "file") {
+            throw new Error(`TextFileModel.openFile: ожидается file:-uri, получен ${uri.scheme}:`);
+        }
         this.uriValue = uri;
         const filePath = uri.fsPath;
         this.loadDocumentFromDisk(filePath);

@@ -820,6 +820,46 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         return editor;
     }
 
+    /**
+     * Открывает **вкладку-снимок**: текстовую read-only вкладку с содержимым,
+     * которого нет на диске (файл на ревизии из `git:`-провайдера). Модель
+     * синтетическая — контент даёт вызывающий, а не файловая система, поэтому
+     * ни watcher'а, ни save (`"no-file"`), ни персиста сессии у неё нет.
+     * Идентичность — по ресурсу в пределах группы, как у всех вкладок:
+     * повторный вызов с тем же uri обновляет содержимое существующей вкладки
+     * и активирует её (ветка на том же ресурсе могла сдвинуться).
+     */
+    public openTextSnapshot(
+        uri: Uri,
+        { text, languageId, label, focus = true }: { text: string; languageId: string; label: string; focus?: boolean },
+    ): TextEditorPane {
+        const group = this.activeGroupValue;
+        const existingIndex = group.findPaneIndex(uri);
+        if (existingIndex >= 0) {
+            const existing = group.getPane(existingIndex);
+            /* v8 ignore start -- defensive: снимок по этому uri открывает только этот метод, вид панели известен */
+            if (existing instanceof TextEditorPane) {
+                /* v8 ignore stop */
+                existing.model.replaceOwnedContent(text);
+                this.activateTab(existingIndex, { focus });
+                return existing;
+            }
+        }
+
+        // Снимок уникален по построению (uri несёт ревизию) — модель мимо реестра.
+        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        this.wireModel(model);
+        model.openSynthetic(uri, languageId);
+        model.replaceOwnedContent(text);
+        const editor = this.createPaneForModel(model);
+        editor.labelOverride = label;
+        this.applyConfigurationToEditor(editor);
+        editor.readOnly = true;
+        group.insertPane(editor);
+        group.activateTab(group.editorCount - 1, { focus });
+        return editor;
+    }
+
     /** Текстовый редактор по позиции вкладки; `null`, если там панель другого вида. */
     public getEditor(index: number): TextEditorPane | null {
         const pane = this.getPane(index);

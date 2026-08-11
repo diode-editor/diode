@@ -92,10 +92,17 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     }
 
     /**
+     * Метка вкладки, когда ресурс её не выражает: `a.ts (dev)` у снимка ревизии —
+     * из `git:`-uri с JSON-query такую не вывести. Задаёт владелец при открытии.
+     */
+    public labelOverride: string | null = null;
+
+    /**
      * Имя файла, либо `Untitled-N` для безымянного буфера: у `untitled:`-ресурса
      * метка уже лежит в самом пути, отдельного поля-счётчика для неё не нужно.
      */
     public get label(): string {
+        if (this.labelOverride !== null) return this.labelOverride;
         const uri = this.model.uri;
         return uri.scheme === "file" ? path.basename(uri.fsPath) : uri.path;
     }
