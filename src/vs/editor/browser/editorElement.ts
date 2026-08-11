@@ -163,6 +163,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             selections,
             hasSelection: selections.some((s) => !s.collapsed),
             foldedRegions: vs.foldedRegions.map((r) => ({ startLine: r.startLine, endLine: r.endLine })),
+            viewZones: vs.viewZones.map((z) => ({ afterLine: z.afterLine, size: z.size })),
         };
     }
 
@@ -301,11 +302,14 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         // Bring the token cache up to the bottom of the viewport before reading.
         const tokenStore = this.viewState.tokenStore;
-        if (tokenStore) {
-            const lastVisibleLogical = this.viewState.visualToLogicalLine(
-                Math.min(scrollTop + visibleLines - 1, viewLineCount - 1),
+        if (tokenStore && visibleLines > 0) {
+            // Нижняя строка вьюпорта может быть зоной (у неё документной нет) —
+            // прогреваем до ближайшей документной, иначе подсветка хвоста
+            // вьюпорта молча отстанет. docLineForViewLine всегда отдаёт
+            // валидную строку — гард не нужен.
+            tokenStore.tokenizeUpTo(
+                this.viewState.docLineForViewLine(Math.min(scrollTop + visibleLines - 1, viewLineCount - 1)),
             );
-            if (lastVisibleLogical >= 0) tokenStore.tokenizeUpTo(lastVisibleLogical);
         }
 
         // Frame-local cache of resolved styles to avoid re-walking the rule list
@@ -321,6 +325,19 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         for (let screenY = 0; screenY < visibleLines; screenY++) {
             const viewLine = scrollTop + screenY;
+
+            // --- View zone row: виртуальная строка без документной — пустой
+            // гуттер и пустой контент (декорациями её наполнит владелец зон,
+            // например филлеры диффа). Номера строк не тратит.
+            if (this.viewState.viewLineKind(viewLine) === "zone") {
+                for (let x = 0; x < gutterW; x++) {
+                    context.setCell(x, screenY, { char: " ", bg: gutBg });
+                }
+                for (let x = 0; x < contentCols; x++) {
+                    context.setCell(gutterW + x, screenY, { char: " ", fg: editorFg, bg: editorBg });
+                }
+                continue;
+            }
 
             // --- Gutter ---
             if (viewLine < viewLineCount) {
@@ -515,6 +532,9 @@ export class EditorElement extends TUIElement implements IScrollable {
             const viewLine = geo.scrollTop + screenY;
             if (viewLine >= geo.viewLineCount) break;
             const logLine = this.viewState.visualToLogicalLine(viewLine);
+            // Строка-зона: документной строки нет — гайды через неё не рисуем
+            // (сентинел -1 сломал бы и мапу, и min/max).
+            if (logLine < 0) continue;
             screenYByLogical.set(logLine, screenY);
             if (minLog < 0) minLog = logLine;
             maxLog = logLine;
