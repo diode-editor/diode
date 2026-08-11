@@ -359,6 +359,17 @@ export class EditorViewState {
     }
 
     /**
+     * Якорь зоны, которой принадлежит строка вью, либо `null`, если строка не
+     * зона. Адресация зон-декораций (филлеры и плашки диффа): владелец задаёт
+     * их тем же `afterLine`, что и сами зоны.
+     */
+    public zoneAnchorForViewLine(viewLine: number): number | null {
+        const row = this.buildVisibleLines().at(viewLine);
+        if (viewLine < 0 || row === undefined || row >= 0) return null;
+        return decodeViewZoneAnchor(row);
+    }
+
+    /**
      * Ближайшая документная строка для строки вью — hit-test кликов и якорь
      * прогрева токенов: сама строка, у зоны — её якорь (первая видимая
      * документная строка выше), у зоны перед началом файла — первая видимая
@@ -1919,6 +1930,12 @@ function findWordBoundaryRight(line: string, offset: number): number {
  */
 function encodeViewZoneRow(afterLine: number): number {
     return -(afterLine + 3);
+}
+
+/** Обратное к {@link encodeViewZoneRow}: якорь зоны из закодированного ряда. */
+function decodeViewZoneAnchor(row: number): number {
+    // `-3 - row`, а не `-(row + 3)`: последнее для якоря 0 дало бы -0.
+    return -3 - row;
 }
 
 /**

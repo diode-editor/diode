@@ -487,6 +487,44 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
+    // ── H. Дифф v2: два настоящих редактора (DiffEditable PR-3) ─────────────
+    it("v2: вкладка из двух редакторов — выравнивание, плашки, каретка в стороне", async () => {
+        const r = repo({ "greeting.js": TRACKED });
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
+        try {
+            await s.waitForText((t) => t.includes("greet"));
+            await s.key("Ctrl+End");
+            await s.key("ArrowUp");
+            await s.key("ArrowUp");
+            await s.key("End");
+            await s.text(" // v2");
+            await s.waitForText((t) => t.includes("// v2"));
+            await s.waitForText((t) => t.includes("┋") || t.includes("┃"), { timeoutMs: 15_000 });
+
+            await s.key("Ctrl+P");
+            await s.text(">Compare Active File with HEAD (v2)");
+            await s.waitForText((t) => t.includes("(v2)"));
+            await s.key("Enter");
+            await s.waitForText((t) => t.includes("↔ HEAD"), { timeoutMs: 15_000 });
+
+            const frame = frameToText(await s.captureFrame());
+            // Пара изменённых строк на одной высоте по обе стороны разделителя.
+            const pair = frame.split("\n").find((l) => l.includes('"hi "') && l.includes("// v2"));
+            expect(pair).toBeDefined();
+            expect(pair).toContain("│");
+            // Парная плашка свёртки.
+            const plaque = frame.split("\n").find((l) => l.includes("unchanged lines"));
+            expect(plaque?.split("│").filter((p) => p.includes("unchanged lines"))).toHaveLength(2);
+
+            // Каретка живёт в стороне: стрелка вниз двигает выделение.
+            await s.key("ArrowDown");
+            const editorNodes = await s.nodes("EditorElement");
+            expect(editorNodes.length).toBeGreaterThanOrEqual(2);
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
     // ── E. Side-by-side: широкий терминал и авто-фолбэк (US-1, US-21, US-23) ──
     it("широкий терминал даёт side-by-side, resize переключает режимы без потери каретки", async () => {
         const r = repo({ "greeting.js": TRACKED });

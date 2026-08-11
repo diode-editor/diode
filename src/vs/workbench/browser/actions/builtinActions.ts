@@ -54,6 +54,7 @@ import {
     openFileAtRevisionAction,
     selectForCompareAction,
 } from "../../contrib/diff/browser/compareActions.ts";
+import { compareWithHeadV2Action } from "../../contrib/diff/browser/diffV2Actions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
 import { GRAPH_VIEW_ACTIONS } from "../../contrib/scm/browser/graphActions.ts";
 import { GRAPH_COMMIT_ACTIONS } from "../../contrib/scm/browser/graphCommitActions.ts";
@@ -406,6 +407,7 @@ export const builtinActions: readonly CommandAction[] = [
 
     // SCM
     compareWithHeadAction,
+    compareWithHeadV2Action,
     showScmAction,
     scmOpenFileAction,
     scmOpenChangesAction,

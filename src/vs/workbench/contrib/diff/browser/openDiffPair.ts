@@ -1,5 +1,6 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { IDiffEditorPaneInput } from "../../../browser/parts/editor/diffEditorPane.ts";
 import { DiffEditorPane } from "../../../browser/parts/editor/diffEditorPane.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import {
@@ -74,24 +75,8 @@ export type OpenDiffPairResult = "opened" | "unreadable";
 export async function openDiffPair(accessor: ServiceAccessor, options: IOpenDiffPairOptions): Promise<OpenDiffPairResult> {
     const editors = accessor.get(EditorServiceDIToken);
 
-    const originalText = await resolveSideText(accessor, options.original);
-    if (originalText === null) return "unreadable";
-    const modifiedText = await resolveSideText(accessor, options.modified);
-    if (modifiedText === null) return "unreadable";
-
-    const input = {
-        uri: pairUri(options),
-        label: options.title ?? `${options.original.label} ↔ ${options.modified.label}`,
-        originalLabel: options.original.label,
-        modifiedLabel: options.modified.label,
-        originalText,
-        modifiedText,
-        languageId: resolveLanguageId(accessor, options),
-        // Стороны вкладки — для TabInputTextDiff в API расширений; сторона без
-        // uri (Clipboard) остаётся без ресурса.
-        ...(options.original.uri !== undefined ? { originalUri: options.original.uri } : {}),
-        ...(options.modified.uri !== undefined ? { modifiedUri: options.modified.uri } : {}),
-    };
+    const input = await computeDiffInput(accessor, options);
+    if (input === null) return "unreadable";
 
     // Дифф — снимок, а идентичность вкладки от содержимого не зависит: группа
     // дедупит её по `uri`. Поэтому если вкладка той же пары уже открыта,
@@ -108,6 +93,36 @@ export async function openDiffPair(accessor: ServiceAccessor, options: IOpenDiff
         new DiffEditorPane(accessor.get(TokenizationRegistryDIToken), accessor.get(TokenStyleResolverDIToken), input),
     );
     return "opened";
+}
+
+/**
+ * Резолв обеих сторон в готовый вход панели, без открытия вкладки. `null` —
+ * сторона не читается по её политике. Общая часть смотрелки и диффа v2, и
+ * будущего живого пересчёта (PR-4): refresh обязан считать заново, минуя
+ * активацию вкладки.
+ */
+export async function computeDiffInput(
+    accessor: ServiceAccessor,
+    options: IOpenDiffPairOptions,
+): Promise<IDiffEditorPaneInput | null> {
+    const originalText = await resolveSideText(accessor, options.original);
+    if (originalText === null) return null;
+    const modifiedText = await resolveSideText(accessor, options.modified);
+    if (modifiedText === null) return null;
+
+    return {
+        uri: pairUri(options),
+        label: options.title ?? `${options.original.label} ↔ ${options.modified.label}`,
+        originalLabel: options.original.label,
+        modifiedLabel: options.modified.label,
+        originalText,
+        modifiedText,
+        languageId: resolveLanguageId(accessor, options),
+        // Стороны вкладки — для TabInputTextDiff в API расширений; сторона без
+        // uri (Clipboard) остаётся без ресурса.
+        ...(options.original.uri !== undefined ? { originalUri: options.original.uri } : {}),
+        ...(options.modified.uri !== undefined ? { modifiedUri: options.modified.uri } : {}),
+    };
 }
 
 /**
