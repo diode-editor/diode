@@ -23,6 +23,7 @@ import { UndoRedoService, UndoRedoServiceDIToken } from "../../../../platform/un
 import type { IActivatable } from "../../../browser/iActivatable.ts";
 import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
+import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import {
     LanguageServiceDIToken,
@@ -780,6 +781,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public getActiveEditor(): TextEditorPane | null {
         const pane = this.getActivePane();
+        // Стороны диффа v2 — настоящие текстовые панели: команды курсора,
+        // фолдинга и статус-бар работают в активной стороне, а не глохнут
+        // (резолвнувшаяся команда съедает клавишу — молчаливый null онемел бы
+        // всю вкладку).
+        if (pane instanceof DiffEditorPane2) return pane.activeTextPane;
         return pane instanceof TextEditorPane ? pane : null;
     }
 

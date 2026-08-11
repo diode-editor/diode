@@ -117,6 +117,16 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.docLineForViewLine(-5)).toBe(0);
     });
 
+    it("zoneAnchorForViewLine: якорь у зоны, null у документной и за концом", () => {
+        const state = makeState("a\nb");
+        state.setViewZones([{ afterLine: 0, size: 1 }]);
+
+        expect(state.zoneAnchorForViewLine(1)).toBe(0);
+        expect(state.zoneAnchorForViewLine(0)).toBeNull();
+        expect(state.zoneAnchorForViewLine(99)).toBeNull();
+        expect(state.zoneAnchorForViewLine(-1)).toBeNull();
+    });
+
     it("docLineForViewLine перешагивает многострочную зону до начала файла", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: -1, size: 2 }]);

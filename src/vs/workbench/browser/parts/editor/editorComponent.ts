@@ -9,6 +9,7 @@ import type { FoldingRangeSource } from "../../../../editor/common/languages/iFo
 import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
@@ -66,6 +67,11 @@ export class EditorComponent extends Component {
      * `languages.provideFoldingRanges`). Undefined ⇒ только indentation-фолды.
      */
     private foldingRangeSourceValue?: FoldingRangeSource;
+    /**
+     * Регионы фолдинга задаёт владелец вью (панель диффа), авто-пересчёт
+     * (indentation + провайдер) выключен. Ставится до первого пересчёта.
+     */
+    public foldingOwnedExternally = false;
     /**
      * Монотонный номер folding-запроса: асинхронный ответ провайдера применяется
      * только если запрос ещё актуален (не устарел из-за нового пересчёта после
@@ -392,6 +398,16 @@ export class EditorComponent extends Component {
         this.editor.markDirty();
     }
 
+    /**
+     * Внешние декорации владельца вью (панель диффа): фоны added/removed-строк,
+     * intra-line спаны, маркеры `-`/`+`, наполнение зон. Цвета — токены темы,
+     * резолвятся при отрисовке.
+     */
+    public setDecorations(decorations: IExternalDecorations): void {
+        this.editor.decorations = decorations;
+        this.editor.markDirty();
+    }
+
     /** Scrolls a range into view (expanding folds if needed) and repaints. */
     public revealRange(range: IRange): void {
         this.editorViewState.revealRange(range);
@@ -468,6 +484,10 @@ export class EditorComponent extends Component {
      * Collapsed state is carried across by start line on every apply.
      */
     private recomputeFoldingRegions(): void {
+        // Регионы задаёт владелец вью (панель диффа: свёртка unchanged-кусков) —
+        // авто-пересчёт indentation-фолдов и провайдера перетёр бы их, а его
+        // ensurePrimaryCursorVisible разъезжал бы синхронный скролл сторон.
+        if (this.foldingOwnedExternally) return;
         // Snapshot which start lines are collapsed BEFORE we touch the regions.
         // The indentation apply below may momentarily be empty (a file with no
         // indentation folds), which would wipe the collapsed set before the async

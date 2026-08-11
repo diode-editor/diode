@@ -19,6 +19,8 @@ import {
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../common/languages/iTokenStyleResolver.ts";
+import type { IExternalDecorations, IViewZoneDecoration } from "../common/model/iEditorDecoration.ts";
+import { EMPTY_EXTERNAL_DECORATIONS } from "../common/model/iEditorDecoration.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
@@ -110,6 +112,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     public markerDecorations: readonly IMarkerDecoration[] = NO_MARKER_DECORATIONS;
     /** Gutter change-bar decorations (SCM/git dirty-diff) for the open document (pushed by the controller). */
     public gutterChangeDecorations: readonly IGutterChangeDecoration[] = NO_GUTTER_CHANGE_DECORATIONS;
+    /** Внешние декорации владельца вью (дифф): фоны строк/диапазонов, маркеры, зоны. */
+    public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
 
     private lineWidthCache: LineWidthCache | null = null;
     private occurrenceCache: { versionId: number; line: number; character: number; ranges: IRange[] } | null = null;
@@ -173,7 +177,18 @@ export class EditorElement extends TUIElement implements IScrollable {
         // file folded to <100 view lines would truncate "150" to "15").
         const lineCount = this.viewState.document.lineCount;
         const digitCount = Math.max(1, Math.floor(Math.log10(lineCount)) + 1);
-        return GUTTER_LEFT_PADDING + digitCount + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT;
+        return (
+            GUTTER_LEFT_PADDING + digitCount + this.gutterMarkerColumns + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT
+        );
+    }
+
+    /**
+     * Колонка под внешние гуттер-маркеры (`-`/`+` диффа) сразу после цифр —
+     * появляется только когда маркеры заданы: у обычного редактора гуттер не
+     * ширится впустую.
+     */
+    private get gutterMarkerColumns(): number {
+        return (this.decorations.gutterMarkers?.length ?? 0) > 0 ? 1 : 0;
     }
 
     /** Gutter column holding the fold chevron; {@link FOLD_GAP_RIGHT} blanks follow it. */
@@ -280,7 +295,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         const lnActiveFg = this.styleVar("editorLineNumber.activeForeground");
 
         const primaryLine = this.viewState.selections[0].active.line;
-        const digitCount = gutterW - GUTTER_LEFT_PADDING - FOLD_GAP_LEFT - 1 - FOLD_GAP_RIGHT;
+        const digitCount =
+            gutterW - GUTTER_LEFT_PADDING - this.gutterMarkerColumns - FOLD_GAP_LEFT - 1 - FOLD_GAP_RIGHT;
         const foldFg = this.styleVar("editorGutter.foldingControlForeground");
 
         // Fold-region headers by their (logical) start line, so the gutter can draw
@@ -298,6 +314,24 @@ export class EditorElement extends TUIElement implements IScrollable {
             for (let line = decoration.range.start.line; line <= decoration.range.end.line; line++) {
                 gutterChangeByLine.set(line, { color: decoration.color, dashed: decoration.dashed === true });
             }
+        }
+
+        // Внешние декорации — flatten раз за кадр, цвета резолвятся здесь же
+        // (styleVar), чтобы строки платили за поиск токена не по разу.
+        const lineBgByLine = new Map<number, number>();
+        for (const decoration of this.decorations.lineBackgrounds ?? []) {
+            const bg = this.styleVar(decoration.colorToken);
+            for (let line = decoration.startLine; line <= decoration.endLine; line++) {
+                lineBgByLine.set(line, bg);
+            }
+        }
+        const gutterMarkerByLine = new Map<number, string>();
+        for (const marker of this.decorations.gutterMarkers ?? []) {
+            gutterMarkerByLine.set(marker.line, marker.char);
+        }
+        const zoneDecorationByAnchor = new Map<number, IViewZoneDecoration>();
+        for (const zone of this.decorations.zones ?? []) {
+            zoneDecorationByAnchor.set(zone.afterLine, zone);
         }
 
         // Bring the token cache up to the bottom of the viewport before reading.
@@ -333,8 +367,19 @@ export class EditorElement extends TUIElement implements IScrollable {
                 for (let x = 0; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", bg: gutBg });
                 }
+                const anchor = this.viewState.zoneAnchorForViewLine(viewLine);
+                /* v8 ignore start -- ветка null недостижима: в ветке зоны якорь есть by construction */
+                const zoneDecoration = anchor === null ? undefined : zoneDecorationByAnchor.get(anchor);
+                /* v8 ignore stop */
+                const zoneFg =
+                    zoneDecoration?.colorToken !== undefined ? this.styleVar(zoneDecoration.colorToken) : editorFg;
+                const fill = zoneDecoration?.fillChar ?? " ";
                 for (let x = 0; x < contentCols; x++) {
-                    context.setCell(gutterW + x, screenY, { char: " ", fg: editorFg, bg: editorBg });
+                    context.setCell(gutterW + x, screenY, { char: fill, fg: zoneFg, bg: editorBg });
+                }
+                if (zoneDecoration?.text !== undefined) {
+                    const text = zoneDecoration.text.slice(0, Math.max(0, contentCols));
+                    context.drawText(gutterW, screenY, text, { fg: zoneFg, bg: editorBg });
                 }
                 continue;
             }
@@ -345,14 +390,17 @@ export class EditorElement extends TUIElement implements IScrollable {
                 const lineNumStr = String(logLine + 1).padStart(digitCount, " ");
                 const isActive = logLine === primaryLine;
                 const numFg = isActive ? lnActiveFg : lnFg;
+                // Фон диффовой строки идёт и под номером (как в VS Code) —
+                // декорация строки перекрывает фон гуттера.
+                const rowGutBg = lineBgByLine.get(logLine) ?? gutBg;
 
                 // Left padding
                 for (let x = 0; x < GUTTER_LEFT_PADDING; x++) {
-                    context.setCell(x, screenY, { char: " ", fg: numFg, bg: gutBg });
+                    context.setCell(x, screenY, { char: " ", fg: numFg, bg: rowGutBg });
                 }
                 // Line number digits
                 for (let d = 0; d < digitCount; d++) {
-                    context.setCell(GUTTER_LEFT_PADDING + d, screenY, { char: lineNumStr[d], fg: numFg, bg: gutBg });
+                    context.setCell(GUTTER_LEFT_PADDING + d, screenY, { char: lineNumStr[d], fg: numFg, bg: rowGutBg });
                 }
                 // Fold control column plus a blank gap before the text (the gap
                 // also separates the line number from the content). On a foldable
@@ -360,7 +408,19 @@ export class EditorElement extends TUIElement implements IScrollable {
                 // = collapsed).
                 const foldCol = this.foldControlColumn;
                 for (let x = GUTTER_LEFT_PADDING + digitCount; x < gutterW; x++) {
-                    context.setCell(x, screenY, { char: " ", fg: numFg, bg: gutBg });
+                    context.setCell(x, screenY, { char: " ", fg: numFg, bg: rowGutBg });
+                }
+                // Внешний гуттер-маркер (`-`/`+` диффа) — в своей колонке сразу
+                // после цифр (колонка существует, только когда маркеры заданы).
+                if (this.gutterMarkerColumns > 0) {
+                    const marker = gutterMarkerByLine.get(logLine);
+                    if (marker !== undefined) {
+                        context.setCell(GUTTER_LEFT_PADDING + digitCount, screenY, {
+                            char: marker,
+                            fg: editorFg,
+                            bg: rowGutBg,
+                        });
+                    }
                 }
                 // Change bar in the left fold column (immediately left of the
                 // chevron), painted after the fold-area blanks so it survives.
@@ -368,7 +428,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 const change = gutterChangeByLine.get(logLine);
                 if (change !== undefined) {
                     const char = change.dashed ? GUTTER_CHANGE_BAR_DASHED : GUTTER_CHANGE_BAR;
-                    context.setCell(foldCol - 1, screenY, { char, fg: change.color, bg: gutBg });
+                    context.setCell(foldCol - 1, screenY, { char, fg: change.color, bg: rowGutBg });
                 }
                 const foldState = foldHeaderByLine.get(logLine);
                 // Collapsed regions always show their chevron; expanded ones only
@@ -376,7 +436,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 const showChevron = foldState === true || (foldState === false && this.foldGutterHovered);
                 if (showChevron) {
                     const icon = foldState ? FOLD_ICON_COLLAPSED : FOLD_ICON_EXPANDED;
-                    context.setCell(foldCol, screenY, { char: icon, fg: foldFg, bg: gutBg });
+                    context.setCell(foldCol, screenY, { char: icon, fg: foldFg, bg: rowGutBg });
                 }
             } else {
                 // Past end of document — empty gutter
@@ -399,6 +459,10 @@ export class EditorElement extends TUIElement implements IScrollable {
             const lineTokens = this.viewState.getViewLineTokens(viewLine);
             const tokenIndex = lineTokens ? new TokenIndex(lineTokens, lineContent.length) : null;
 
+            // Фон декорированной строки должен побеждать фон токена, иначе
+            // полоса added/removed рвётся на подсвеченных словах (та же
+            // политика, что у диффовой смотрелки).
+            const decoratedBg = lineBgByLine.get(this.viewState.visualToLogicalLine(viewLine));
             paintTextLine(context, {
                 displayLine: dl,
                 tokenIndex,
@@ -408,8 +472,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                 contentCols,
                 scrollLeft,
                 fg: editorFg,
-                bg: editorBg,
-                allowTokenBg: true,
+                bg: decoratedBg ?? editorBg,
+                allowTokenBg: decoratedBg === undefined,
             });
 
             // Extremely long line: rendering stopped at STOP_RENDERING_LINE_AFTER.
@@ -458,6 +522,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         // whitespace before the range-highlight passes below — those set only
         // `bg`, so a selection/search background composes over the guide glyph.
         this.paintIndentGuides(context, geometry, editorBg, primaryLine);
+
+        // Intra-line подсветка диффа: яркий фон изменённого фрагмента поверх
+        // фона строки; слабее occurrence/selection — те побеждают в наложении.
+        for (const decoration of this.decorations.rangeBackgrounds ?? []) {
+            paintRangeBackground(context, this.viewState, decoration.range, this.styleVar(decoration.colorToken), geometry);
+        }
 
         // Highlight all occurrences of the word under the cursor (weakest layer,
         // painted first so selections and search matches win where they overlap).
