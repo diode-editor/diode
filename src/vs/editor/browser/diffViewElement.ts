@@ -74,7 +74,15 @@ export interface IDiffViewInput {
     readonly labels: Record<DiffSide, string>;
     /** Intra-line отрезки изменений (US-18): яркий фрагмент поверх фона строки. */
     readonly innerRanges: DiffInnerRanges;
+    /**
+     * Стороны совпадают (US-11): вместо диффа рисуется центрированное
+     * сообщение — пустой дифф выглядел бы как сломанная вкладка.
+     */
+    readonly identical: boolean;
 }
+
+/** Текст сообщения идентичных сторон — общий у рендера и тестов. */
+export const IDENTICAL_NOTICE = "The files are identical";
 
 // Отступы гуттера повторяют редактор (`editorElement.ts`: GUTTER_LEFT_PADDING и
 // FOLD_GAP_LEFT/RIGHT вокруг колонки чевронов), чтобы дифф читался как та же
@@ -141,6 +149,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
     };
     private labelsValue: Record<DiffSide, string> = { original: "", modified: "" };
     private innerRanges = new DiffInnerRanges([]);
+    private identicalValue = false;
     private viewStateListeners: IDisposable[] = [];
     private lineWidthCaches: { inline: LineWidthCache | null; original: LineWidthCache | null; modified: LineWidthCache | null } =
         { inline: null, original: null, modified: null };
@@ -186,6 +195,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
         this.sideViewStates = input.sideViewStates;
         this.labelsValue = input.labels;
         this.innerRanges = input.innerRanges;
+        this.identicalValue = input.identical;
         this.numberWidth = computeNumberWidth(input.rows);
         this.sideNumberWidths = {
             original: computeSideNumberWidth(input.sideRows, "original"),
@@ -408,6 +418,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
             activeSide: this.activeSideValue,
             rowCount: this.rowsValue.length,
             sideRowCount: this.sideRowsValue.length,
+            identical: this.identicalValue,
             scrollTop: viewState.scrollTop,
             scrollLeft: viewState.scrollLeft,
             selections,
@@ -521,8 +532,30 @@ export class DiffViewElement extends TUIElement implements IScrollable {
     }
 
     public render(context: RenderContext): void {
+        if (this.identicalValue) {
+            this.renderIdenticalNotice(context);
+            return;
+        }
         if (this.modeValue === "side-by-side") this.renderSideBySide(context);
         else this.renderInline(context);
+    }
+
+    /** US-11: стороны совпадают — по центру вкладки сообщение вместо диффа. */
+    private renderIdenticalNotice(context: RenderContext): void {
+        const { width, height } = this.layoutSize;
+        const bg = this.resolvedStyle.bg;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                context.setCell(x, y, { char: " ", bg, width: 1 });
+            }
+        }
+        const text = IDENTICAL_NOTICE.slice(0, Math.max(0, width));
+        context.drawText(
+            Math.max(0, Math.floor((width - text.length) / 2)),
+            Math.floor(height / 2),
+            text,
+            { fg: this.styleVar("diffEditor.unchangedRegionForeground"), bg },
+        );
     }
 
     private renderInline(context: RenderContext): void {
@@ -877,6 +910,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
     }
 
     private handleMouseDown(event: TUIMouseEvent): void {
+        if (this.identicalValue) return; // текста нет — нечего выделять
         // Правый клик каретку не трогает: политика у контроллера контекстного меню.
         if (event.button !== "left") return;
         if (event.localY < this.headerRows) return; // заголовок сторон — не текст
@@ -906,6 +940,7 @@ export class DiffViewElement extends TUIElement implements IScrollable {
 
     /** Двойной клик выделяет слово под курсором (поведение VS Code). */
     private handleDoubleClick(event: TUIMouseEvent): void {
+        if (this.identicalValue) return;
         if (event.button !== "left") return;
         if (event.localY < this.headerRows) return;
         // Гуттер — не текст: docPositionAt схлопнул бы позицию в колонку 0 и

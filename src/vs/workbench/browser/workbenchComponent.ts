@@ -59,6 +59,7 @@ import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironme
 import type { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
+import { registerVscodeDiffCommand } from "../contrib/diff/browser/compareActions.ts";
 import { builtinActions } from "./actions/builtinActions.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
@@ -262,6 +263,9 @@ export class WorkbenchComponent extends Component {
         for (const action of builtinActions) {
             this.register(registerAction(commands, keybindings, accessor, action));
         }
+        // `vscode.diff` — программный вход с контрактом VS Code: без title,
+        // мимо палитры; ext-host исполняет её по id через мост команд.
+        this.register(registerVscodeDiffCommand(commands, accessor));
         // Apply user keybindings AFTER all defaults so they take precedence (the registry
         // resolves the last-registered matching binding) and so `-command` unbinds can remove defaults.
         this.dispatcher.applyUserKeybindings(userKeybindings);

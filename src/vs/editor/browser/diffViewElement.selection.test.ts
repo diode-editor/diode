@@ -66,6 +66,7 @@ function createElement(
         sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
         labels: { original: "HEAD", modified: "file" },
         innerRanges: new DiffInnerRanges([]),
+        identical: false,
     });
     const app = TestApp.createWithContent(element, size);
     app.render();
@@ -205,6 +206,7 @@ describe("DiffViewElement — inspectState", () => {
             readOnly: true,
             mode: "inline",
             activeSide: "modified",
+            identical: false,
             rowCount: 4,
             sideRowCount: 3,
             scrollTop: 0,

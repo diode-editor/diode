@@ -68,6 +68,7 @@ function diffInput(rows: DiffViewElement["rows"], sides: IDiffViewSides, source:
         sideViewStates: createSideBySideViewStates(sideRows, sides, 4),
         labels: { original: "HEAD", modified: "file" },
         innerRanges: new DiffInnerRanges([]),
+        identical: false,
     };
 }
 

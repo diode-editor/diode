@@ -188,7 +188,7 @@ describe("Workbench — Rename via context menu", () => {
         // Clipboard is empty (no Paste), so the order is New File, New Folder, (sep),
         // Copy, Cut, (sep), Copy Path, Copy Relative Path, (sep), Rename — six
         // ArrowDowns land on Rename (separators are skipped).
-        for (let i = 0; i < 6; i++) h.testApp.sendKey("ArrowDown");
+        for (let i = 0; i < 7; i++) h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
         h.testApp.render();
 

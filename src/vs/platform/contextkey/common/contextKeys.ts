@@ -130,6 +130,8 @@ export interface ContextKeyTypes {
     scmViewletVisible: boolean;
     /** Фокус в commit input box вьюлета Source Control (Vexx; VS Code: scmInputIsInFocus). */
     scmInputFocus: boolean;
+    /** Файл отложен командой «Select for Compare» — открывает «Compare with Selected». */
+    resourceSelectedForCompare: boolean;
     // -- Git repo-state (Vexx: публикует ScmRepoStateService из vexx.scm.publishRepoState) --
     gitHasRepo: boolean;
     gitHasRemotes: boolean;
@@ -290,6 +292,7 @@ export const allContextKeys: ContextKey[] = [
     "viewHasSomeCollapsibleResult",
     "scmViewletVisible",
     "scmInputFocus",
+    "resourceSelectedForCompare",
     "gitHasRepo",
     "gitHasRemotes",
     "gitHasUpstream",

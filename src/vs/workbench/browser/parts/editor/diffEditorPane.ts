@@ -176,6 +176,7 @@ export class DiffEditorPane extends Component implements IEditorPane, IDiffRowSo
             sideViewStates: createSideBySideViewStates(sideRows, sides, DIFF_TAB_SIZE),
             labels: { original: input.originalLabel, modified: input.modifiedLabel },
             innerRanges: new DiffInnerRanges(diff.changes),
+            identical: diff.changes.length === 0,
         });
     }
 

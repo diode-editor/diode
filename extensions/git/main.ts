@@ -168,15 +168,19 @@ class GitDecorations {
         // Аналог `QuickDiffProvider.provideOriginalResource`: решение «есть ли
         // оригинал» принимает расширение — только оно знает про untracked и репо.
         this.disposables.push(
-            vscode.commands.registerCommand(ORIGINAL_RESOURCE_COMMAND, (rawUri: unknown) => {
+            vscode.commands.registerCommand(ORIGINAL_RESOURCE_COMMAND, (rawUri: unknown, rawRef?: unknown) => {
                 if (typeof rawUri !== "string") return null;
                 const uri = vscode.Uri.parse(rawUri);
                 if (uri.scheme !== "file") return null;
                 const absPath = uri.fsPath;
                 if (toRepoRelativePath(this.repoRoot, absPath) === null) return null;
-                // Untracked: в HEAD версии нет, сравнивать не с чем.
-                if (this.status.get(absPath)?.xy.startsWith("?") === true) return null;
-                return vscode.Uri.parse(rawUri).with(toGitUri(uri, "HEAD")).toString();
+                const ref = typeof rawRef === "string" && rawRef !== "" ? rawRef : "HEAD";
+                // Untracked: в HEAD версии нет, сравнивать не с чем. Для явно
+                // запрошенного ref проверка неприменима — статус рабочего дерева
+                // ничего не говорит о наличии файла в произвольной ревизии
+                // («файла на ref нет» ядро увидит пустой стороной при чтении).
+                if (rawRef === undefined && this.status.get(absPath)?.xy.startsWith("?") === true) return null;
+                return vscode.Uri.parse(rawUri).with(toGitUri(uri, ref)).toString();
             }),
         );
 
