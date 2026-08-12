@@ -4,9 +4,9 @@ import type { IViewZone } from "../viewModel/iViewZone.ts";
 
 import type { DiffInnerRanges } from "./diffInnerRanges.ts";
 import type { IUnchangedRegion } from "./diffViewModel.ts";
-import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 import type { DiffSide } from "./diffViewText.ts";
 import { collapsedRowLabel } from "./diffViewText.ts";
+import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 
 /**
  * Раскладка диффа v2 (docs/TODO/DiffEditable.md, PR-3): из результата движка
@@ -22,6 +22,9 @@ import { collapsedRowLabel } from "./diffViewText.ts";
 
 /** Заполнитель зоны-филлера — тот же, что был у рисованной смотрелки. */
 export const DIFF_FILLER_CHAR = "░";
+
+/** Текст плашки при пустом диффе (US-11): весь файл — один unchanged-кусок. */
+export const IDENTICAL_NOTICE = "The files are identical";
 
 export interface IDiffV2SideLayout {
     readonly zones: readonly IViewZone[];
@@ -57,7 +60,10 @@ function computeSide(
     const zoneDecorations: IViewZoneDecoration[] = [];
     const lineBackgrounds: { startLine: number; endLine: number; colorToken: string }[] = [];
     const gutterMarkers: { line: number; char: string }[] = [];
-    const rangeBackgrounds: { range: { start: { line: number; character: number }; end: { line: number; character: number } }; colorToken: string }[] = [];
+    const rangeBackgrounds: {
+        range: { start: { line: number; character: number }; end: { line: number; character: number } };
+        colorToken: string;
+    }[] = [];
 
     const lineToken = side === "original" ? "diffEditor.removedLineBackground" : "diffEditor.insertedLineBackground";
     const marker = side === "original" ? "-" : "+";
@@ -96,6 +102,18 @@ function computeSide(
                 }
             }
         }
+    }
+
+    // Пустой дифф (US-11): нотис-зона перед первой строкой обеих сторон —
+    // содержимое видно, сообщение говорит главное. Живой дифф вернёт зоны
+    // изменений, как только стороны разойдутся.
+    if (changes.length === 0) {
+        zones.push({ afterLine: -1, size: 1 });
+        zoneDecorations.push({
+            afterLine: -1,
+            text: IDENTICAL_NOTICE,
+            colorToken: "diffEditor.unchangedRegionForeground",
+        });
     }
 
     const foldingRegions: IFoldingRegion[] = [];

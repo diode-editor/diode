@@ -25,9 +25,9 @@ interface GroupStub {
     endMruCycle?: () => void;
     closeTab: (index: number) => void;
     /** Закрываемую вкладку экшен берёт по индексу, а не через focus-aware активный редактор. */
-    getEditor?: (index: number) => { isModified: boolean } | null;
-    /** Диалог показывается только последней вкладке документа; в стабе — всегда последняя. */
-    isLastPaneForDocument?: (editor: { isModified: boolean }) => boolean;
+    getPane?: (index: number) => { isModified: boolean } | null;
+    /** Единая формула диалога закрытия; в стабе — прямо по isModified вкладки. */
+    needsCloseConfirm?: (pane: { isModified: boolean }) => boolean;
     /** Координата confirm-close — (группа, индекс); в стабе группа — маркер-объект. */
     activeGroup?: unknown;
     onRequestConfirmClose?: (group: unknown, index: number) => void;
@@ -158,7 +158,8 @@ describe("TabActions", () => {
             editorCount: 3,
             activateTab: vi.fn(),
             closeTab,
-            getEditor: () => ({ isModified: false }),
+            getPane: () => ({ isModified: false }),
+            needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
         };
 
         const { commands, keybindings, accessor } = setupActionTest(group);
@@ -177,8 +178,8 @@ describe("TabActions", () => {
             editorCount: 3,
             activateTab: vi.fn(),
             closeTab,
-            getEditor: () => ({ isModified: true }),
-            isLastPaneForDocument: () => true,
+            getPane: () => ({ isModified: true }),
+            needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
             activeGroup: { marker: "group" },
             onRequestConfirmClose,
         };
@@ -199,8 +200,8 @@ describe("TabActions", () => {
             editorCount: 1,
             activateTab: vi.fn(),
             closeTab,
-            getEditor: () => ({ isModified: true }),
-            isLastPaneForDocument: () => true,
+            getPane: () => ({ isModified: true }),
+            needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
             // onRequestConfirmClose intentionally absent → else branch.
         };
 
@@ -219,7 +220,7 @@ describe("TabActions", () => {
             editorCount: 0,
             activateTab: vi.fn(),
             closeTab,
-            getEditor: () => null,
+            getPane: () => null,
         };
 
         const { commands, keybindings, accessor } = setupActionTest(group);

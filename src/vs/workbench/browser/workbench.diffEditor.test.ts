@@ -86,9 +86,9 @@ describe("Workbench — вкладка diff", () => {
         const screen = testApp.backend.screenToString();
         // Вкладка появилась под своей меткой.
         expect(screen).toContain("a.txt ↔ HEAD");
-        // Обе стороны правки видны: старая строка и новая.
-        expect(screen).toContain("-  bravo");
-        expect(screen).toContain("+  XXbravo");
+        // Обе стороны правки видны: старая строка и новая (гуттер v2: `N-`/`N+`).
+        expect(screen).toMatch(/2-\s+bravo/u);
+        expect(screen).toMatch(/2\+\s+XXbravo/u);
     });
 
     it("вкладка диффа закрывается без диалога сохранения", async () => {
@@ -97,7 +97,11 @@ describe("Workbench — вкладка diff", () => {
         await settle(10);
 
         const pane = editors.getActivePane();
-        expect(pane?.isModified).toBe(false);
+        // Modified-сторона — живой буфер файла с несохранёнными правками, так
+        // что вкладка честно помечена изменённой; но диалог не нужен: документ
+        // виден и во вкладке файла, правки живут в общей модели.
+        expect(pane?.isModified).toBe(true);
+        expect(pane === null ? true : editors.needsCloseConfirm(pane)).toBe(false);
 
         editors.closeTab(editors.activeIndex);
         testApp.render();
@@ -123,7 +127,7 @@ describe("Workbench — вкладка diff", () => {
         commands.execute(COMPARE);
         await settle(10);
         testApp.render();
-        expect(testApp.backend.screenToString()).toContain("+  XXbravo");
+        expect(testApp.backend.screenToString()).toMatch(/2\+\s+XXbravo/u);
 
         // Возврат в редактор и вторая правка.
         editors.activateTab(0);
@@ -136,8 +140,8 @@ describe("Workbench — вкладка diff", () => {
         testApp.render();
 
         const screen = testApp.backend.screenToString();
-        // Снимок отражает обе правки, а не только первую.
-        expect(screen).toContain("+  YYXXbravo");
+        // Стороны живые: дифф показывает обе правки, а не только первую.
+        expect(screen).toMatch(/2\+\s+YYXXbravo/u);
         // И по-прежнему ровно одна дифф-вкладка — обновили на месте, не завели вторую.
         expect(editors.getPanes().filter((p) => p.uri.scheme === "vexx-diff")).toHaveLength(1);
     });
@@ -154,7 +158,7 @@ describe("Workbench — вкладка diff", () => {
 
         const screen = testApp.backend.screenToString();
         expect(screen).toContain("XXbravo");
-        expect(screen).not.toContain("-  bravo");
+        expect(screen).not.toMatch(/2-\s+bravo/u);
     });
 
     it("без версии в git вкладка не открывается, а в статус-баре появляется сообщение", async () => {
@@ -190,22 +194,25 @@ describe("Workbench — вкладка diff", () => {
         testApp.render();
     }
 
-    it("активная панель отдаёт текстовую поверхность, а текстовым редактором не притворяется", async () => {
+    it("активная панель отдаёт свою сторону как настоящий текстовый редактор", async () => {
         await openDiff();
 
         expect(editors.getActiveViewState()).not.toBeNull();
-        expect(editors.getActiveViewState()?.readOnly).toBe(true);
-        // Текстовые потребители (save, EOL, кодировка, find) диффа не видят.
-        expect(editors.getActiveEditor()).toBeNull();
+        // Modified-сторона — живой буфер файла: редактируется прямо в диффе.
+        expect(editors.getActiveViewState()?.readOnly).toBe(false);
+        const side = editors.getActiveEditor();
+        expect(side).not.toBeNull();
+        expect(side?.uri.toString()).toBe(Uri.file(ws.path("a.txt")).toString());
     });
 
-    it("фокус в диффе даёт textViewFocus, но не textInputFocus", async () => {
+    it("фокус в диффе даёт textViewFocus и textInputFocus живой стороны", async () => {
         await openDiff();
         const contextKeys = container.get(ContextKeyServiceDIToken);
 
         expect(contextKeys.evaluate("textViewFocus")).toBe(true);
-        expect(contextKeys.evaluate("textInputFocus")).toBe(false);
-        expect(contextKeys.evaluate("editorReadonly")).toBe(true);
+        // Сторона — настоящий редактор: ввод работает, replace-гейт открыт.
+        expect(contextKeys.evaluate("textInputFocus")).toBe(true);
+        expect(contextKeys.evaluate("editorReadonly")).toBe(false);
     });
 
     it("команды курсора двигают каретку по диффу", async () => {
@@ -352,8 +359,8 @@ describe("Workbench — дифф без открытого файла (openDiffW
         expect(result).toBe("opened");
         const screen = app.backend.screenToString();
         expect(screen).toContain("a.txt ↔ HEAD");
-        expect(screen).toContain("-  bravo");
-        expect(screen).toContain("+  BRAVO");
+        expect(screen).toMatch(/2-\s+bravo/u);
+        expect(screen).toMatch(/2\+\s+BRAVO/u);
         // Инвариант прямого диффа: единственная вкладка — vexx-diff, файл не открыт.
         expect(editors.getPanes().map((p) => p.uri.scheme)).toEqual(["vexx-diff"]);
         workbench.dispose();
@@ -373,9 +380,9 @@ describe("Workbench — дифф без открытого файла (openDiffW
         expect(screen).toContain("gone.weird ↔ HEAD");
         // Вся HEAD-версия — минусами; справа только пустая строка, ни одного
         // плюса с содержимым.
-        expect(screen).toContain("-  alpha");
-        expect(screen).toContain("-  delta");
-        expect(screen).not.toMatch(/\+ {2}\S/);
+        expect(screen).toMatch(/1-\s+alpha/u);
+        expect(screen).toMatch(/4-\s+delta/u);
+        expect(screen).not.toMatch(/\d\+ +\S/u);
         workbench.dispose();
     });
 
@@ -448,16 +455,13 @@ describe("Workbench — дифф на широком терминале (side-by
             .screenToString()
             .split("\n")
             .map((l) => l.replace(/\s+$/, ""));
-        // Заголовок сторон: слева HEAD, справа имя файла, между ними
-        // разделитель. Строку табов («a.txt ↔ HEAD ×») отсекаем по «↔».
-        const header = lines.find((l) => l.includes("HEAD") && l.includes("│") && !l.includes("↔"));
-        expect(header).toBeDefined();
-        expect(header).toContain("a.txt");
-        expect(header?.indexOf("HEAD")).toBeLessThan(header?.indexOf("a.txt") ?? -1);
-        // Правка стоит парой на одной строке: слева -bravo, справа +XXbravo.
-        const pair = lines.find((l) => l.includes("- bravo"));
+        // Правка стоит парой на одной строке разделителя: слева `2-` со старой
+        // строкой, справа `2+` с новой (подписи колонок v2 не рисует — метка
+        // вкладки несёт обе стороны; хвост в DiffEditable.md, PR-5).
+        const pair = lines.find((l) => /2-\s+bravo/u.test(l));
         expect(pair).toBeDefined();
-        expect(pair).toContain("+ XXbravo");
+        expect(pair).toMatch(/2\+\s+XXbravo/u);
+        expect(pair).toContain("│");
         workbench.dispose();
     });
 });

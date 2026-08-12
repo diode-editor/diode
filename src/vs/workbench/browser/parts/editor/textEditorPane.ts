@@ -168,10 +168,6 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         return this.component.onDidChangeSelection(cb);
     }
 
-    public setUntitled(untitledNumber: number): void {
-        this.model.setUntitled(untitledNumber);
-    }
-
     public openFile(uri: Uri): void {
         this.model.openFile(uri);
     }

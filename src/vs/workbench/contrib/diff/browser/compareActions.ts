@@ -2,16 +2,15 @@ import path from "node:path";
 
 import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { reviveWireUri } from "../../../api/common/wireTypes.ts";
 import { explorerPathArg } from "../../../browser/actions/menuContexts.ts";
-import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-import { DiffEditorPane } from "../../../browser/parts/editor/diffEditorPane.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { FileSearchServiceDIToken } from "../../../services/search/node/fileSearchService.ts";
@@ -126,14 +125,10 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
     const active = editors.getActiveEditor();
     if (active === null) return;
 
-    const openTabs = editors
-        .getPanes()
-        .filter(
-            (p) =>
-                !(p instanceof DiffEditorPane) &&
-                p.uri.toString() !== active.uri.toString() &&
-                p.uri.scheme !== "vexx-diff",
-        );
+    // Вкладки ВСЕХ групп: пикер — про открытые буферы, а не про активную группу.
+    const openTabs = editors.groups
+        .flatMap((group) => [...group.getPanes()])
+        .filter((p) => p.uri.toString() !== active.uri.toString() && p.uri.scheme !== "vexx-diff");
     // Индекс строится в фоне (Quick Open живёт с этим через рост списка по мере
     // ввода); статичному пикеру нужен готовый снимок — ждём и подстёгиваем.
     const search = accessor.get(FileSearchServiceDIToken);
@@ -254,7 +249,57 @@ async function openFileAtRevision(accessor: ServiceAccessor): Promise<void> {
     });
 }
 
-// ─── vscode.diff (US-12) ─────────────────────────────────────────────────────
+// ─── File: Compare New Untitled Text Files (US-37) ───────────────────────────
+
+/**
+ * Дифф двух свежих пустых безымянных буферов — обе стороны **редактируются
+ * прямо в дифф-вкладке**, живой пересчёт подхватывает набор/вставку (VS Code
+ * `CompareNewUntitledTextFilesAction` — команда, ради которой затевалась вся
+ * дуга editable-диффа). Номера буферов — из общего счётчика untitled: метки
+ * стабильны и Save As стороны работает штатно.
+ */
+async function compareNewUntitledTextFiles(accessor: ServiceAccessor): Promise<void> {
+    const editors = accessor.get(EditorServiceDIToken);
+    const original = editors.createUntitledModel();
+    const modified = editors.createUntitledModel();
+    await openDiffPair(accessor, {
+        original: {
+            ownedModel: original,
+            uri: original.uri,
+            label: original.uri.path,
+            identity: original.uri.toString(),
+        },
+        modified: {
+            ownedModel: modified,
+            uri: modified.uri,
+            label: modified.uri.path,
+            identity: modified.uri.toString(),
+        },
+    });
+}
+
+// ─── vscode.diff (US-12, AS-20) ──────────────────────────────────────────────
+
+/** `ViewColumn.Beside` из vscode API. `ViewColumn.Active` (-1) — дефолт и так. */
+const VIEW_COLUMN_BESIDE = -2;
+
+/**
+ * Целевая колонка из 4-го аргумента `vscode.diff` (`ViewColumn` числом либо
+ * `TextDocumentShowOptions` с `viewColumn`). Существующая колонка N —
+ * активируется; `Beside`/колонка за краем — новая группа справа (нет места —
+ * фолбэк в активную, как у Open to the Side); `Active` и мусор — активная.
+ */
+function applyViewColumn(accessor: ServiceAccessor, raw: unknown): void {
+    const editors = accessor.get(EditorServiceDIToken);
+    const value = typeof raw === "number" ? raw : (raw as { viewColumn?: unknown } | undefined)?.viewColumn;
+    if (typeof value !== "number") return;
+    if (value === VIEW_COLUMN_BESIDE || value > editors.groups.length) {
+        editors.newGroup("after", { focus: false });
+        return;
+    }
+    // За краем слева (Active, мусор) focusGroup сам делает no-op.
+    editors.focusGroup({ index: value - 1 }, { focus: false });
+}
 
 async function vscodeDiff(accessor: ServiceAccessor, ...args: unknown[]): Promise<void> {
     // Из субпроцесса аргументы приходят одним массивом (мост
@@ -266,6 +311,7 @@ async function vscodeDiff(accessor: ServiceAccessor, ...args: unknown[]): Promis
     const right = reviveWireUri(list[1]);
     if (left === null || right === null) return;
     const title = typeof list[2] === "string" && list[2] !== "" ? list[2] : undefined;
+    applyViewColumn(accessor, list[3]);
 
     await openDiffPair(accessor, {
         // Недоступный ресурс — легитимно пустая сторона: расширения зовут diff
@@ -330,6 +376,14 @@ export const compareFileWithAction: CommandAction = {
     title: "File: Compare Active File With...",
     run(accessor) {
         void compareActiveFileWith(accessor);
+    },
+};
+
+export const compareNewUntitledTextFilesAction: CommandAction = {
+    id: "workbench.files.action.compareNewUntitledTextFiles",
+    title: "File: Compare New Untitled Text Files",
+    run(accessor) {
+        void compareNewUntitledTextFiles(accessor);
     },
 };
 

@@ -1,10 +1,11 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { IOpenDiffPairOptions } from "../../diff/browser/openDiffPair.ts";
 import { openDiffPair, showCompareNotice } from "../../diff/browser/openDiffPair.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import { OriginalResourceProviderDIToken } from "./quickDiffService.ts";
 
@@ -46,7 +47,8 @@ export async function buildHeadPairOptions(
     if (originalUri === null) return null;
 
     const editors = accessor.get(EditorServiceDIToken);
-    const pane = editors.getPanes().find((p) => p.uri.toString() === uri.toString());
+    // Метка — как у открытой вкладки файла, в какой бы группе она ни была.
+    const pane = editors.getEditors().find((p) => p.uri.toString() === uri.toString());
     const label = pane ? editors.displayName(pane) : uri.path.slice(uri.path.lastIndexOf("/") + 1);
 
     return {
@@ -56,7 +58,7 @@ export async function buildHeadPairOptions(
             identity: originalUri.toString(),
             onMissing: ref === "HEAD" ? "error" : "empty",
         },
-        modified: { uri, label, onMissing: "empty" },
+        modified: { uri, label, identity: uri.toString(), onMissing: "empty" },
         title: `${label} ↔ ${ref}`,
     };
 }
@@ -76,10 +78,13 @@ async function resolveOriginalUri(accessor: ServiceAccessor, uri: Uri, ref: stri
 /** Палитра: сравнивает активный файл; без активного редактора — тихий no-op. */
 async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
     const editors = accessor.get(EditorServiceDIToken);
-    const editor = editors.getActiveEditor();
-    if (editor === null) return;
+    // На самой дифф-вкладке повторный вызов обязан целиться в её исходный файл,
+    // а не в ресурс активной стороны (у снимка он синтетический).
+    const activeTab = editors.getActiveTabPane();
+    const uri = activeTab instanceof DiffEditorPane2 ? activeTab.modifiedUri : (editors.getActiveEditor()?.uri ?? null);
+    if (uri === null) return;
 
-    const result = await openDiffWithHead(accessor, editor.uri);
+    const result = await openDiffWithHead(accessor, uri);
     if (result === "no-original") {
         // Untracked, вне репозитория, git недоступен, SCM-расширение не поднялось —
         // для пользователя всё это одно и то же: сравнивать не с чем.

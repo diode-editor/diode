@@ -5,11 +5,11 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Вкладка диффа: «Git: Compare Active File with HEAD». Терминал шире порога
-// SIDE_BY_SIDE_MIN_COLS, поэтому кадры показывают side-by-side: две колонки с
-// подписями сторон (HEAD | имя файла), пер-сторонние номера, маркеры `-`/`+`,
-// филлеры напротив односторонних правок; неизменённые куски свёрнуты.
-// Правку НЕ сохраняем — дифф считается против буфера, а не против файла на диске.
+// Вкладка диффа v2 (docs/TODO/DiffEditable.md): «Git: Compare Active File with
+// HEAD» открывает пару из двух НАСТОЯЩИХ редакторов — зоны-филлеры выравнивают
+// стороны, unchanged свёрнут обычным фолдингом с парными плашками, маркеры
+// `-`/`+` в гуттерах, intra-line декорациями. Правку НЕ сохраняем — modified
+// сторона и есть живой буфер файла, дифф пересчитывается по правкам сам.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -36,8 +36,6 @@ export default defineScenario({
     name: "diff-editor",
     title: "Вкладка diff: изменения файла против HEAD",
     open: [repoDir, trackedFile],
-    // Шире порога side-by-side (120): кадр галереи показывает две колонки. При
-    // 100 колонках дифф молча рисовался бы inline — и демо врало бы о дефолте.
     cols: 132,
     rows: 22,
     // Нужен extension host — версию из HEAD отдаёт git-расширение.
@@ -73,5 +71,21 @@ export default defineScenario({
         await editor.sendKey("Shift+ArrowDown");
         await editor.sendKey("Shift+End");
         await editor.capture("diff-selection");
+
+        // Живой дифф: печать прямо в стороне правит буфер, пересчёт (debounce
+        // 200) сам помечает строку изменённой парой.
+        await editor.sendKey("Ctrl+End");
+        await editor.sendText("export const LIVE = true;");
+        await editor.waitForText((t) => {
+            const line = t.split("\n").find((l) => l.includes("LIVE"));
+            return line !== undefined && line.includes("+");
+        });
+        await editor.capture("live-typed");
+
+        // Разворот свёрнутого куска — парный на обеих сторонах.
+        await editor.sendKey("Ctrl+K");
+        await editor.sendKey("Ctrl+J");
+        await editor.waitForText((t) => !t.includes("unchanged lines"));
+        await editor.capture("unfolded");
     },
 });
