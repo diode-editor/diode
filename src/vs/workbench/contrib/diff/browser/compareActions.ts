@@ -12,7 +12,13 @@ import { explorerPathArg } from "../../../browser/actions/menuContexts.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
+import {
+    ClipboardDIToken,
+    FileSystemProviderRegistryDIToken,
+    StateServiceDIToken,
+} from "../../../common/coreTokens.ts";
+import type { DiffViewMode } from "../../../common/stateKeys.ts";
+import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { FileSearchServiceDIToken } from "../../../services/search/node/fileSearchService.ts";
 import { openDiffWithHead } from "../../scm/browser/compareWithHeadAction.ts";
@@ -295,6 +301,28 @@ function revertDiffHunk(accessor: ServiceAccessor): void {
     if (result === "read-only") showCompareNotice(accessor, "Cannot revert: the modified side is read-only");
 }
 
+// ─── Diff: Toggle Inline View (US-22) ────────────────────────────────────────
+
+/**
+ * Тумблер режима дифф-вкладок: inline ↔ side-by-side. Выбор персистится
+ * (`DIFF_VIEW_MODE_STATE`) и применяется ко ВСЕМ открытым дифф-вкладкам и всем
+ * будущим — режим отображения это привычка, а не свойство конкретной пары.
+ * Вне активной дифф-вкладки — тихий no-op (следующий переключаемый режим
+ * осмыслен только от текущего).
+ */
+function toggleInlineView(accessor: ServiceAccessor): void {
+    const editors = accessor.get(EditorServiceDIToken);
+    const active = editors.getActiveTabPane();
+    if (!(active instanceof DiffEditorPane2)) return;
+    const next: DiffViewMode = active.mode === "inline" ? "side-by-side" : "inline";
+    accessor.get(StateServiceDIToken).store(DIFF_VIEW_MODE_STATE, next);
+    for (const group of editors.groups) {
+        for (const pane of group.getPanes()) {
+            if (pane instanceof DiffEditorPane2) pane.setModeOverride(next);
+        }
+    }
+}
+
 // ─── vscode.diff (US-12, AS-20) ──────────────────────────────────────────────
 
 /** `ViewColumn.Beside` из vscode API. `ViewColumn.Active` (-1) — дефолт и так. */
@@ -401,6 +429,14 @@ export const revertDiffHunkAction: CommandAction = {
     title: "Diff: Revert Hunk",
     run(accessor) {
         revertDiffHunk(accessor);
+    },
+};
+
+export const toggleInlineViewAction: CommandAction = {
+    id: "vexx.diff.toggleInlineView",
+    title: "Diff: Toggle Inline View",
+    run(accessor) {
+        toggleInlineView(accessor);
     },
 };
 

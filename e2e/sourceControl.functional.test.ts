@@ -338,10 +338,12 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
 
-        // Файла на диске нет — modified-сторона пустая: вся HEAD-версия минусами,
-        // ни одного плюса с содержимым.
+        // Файла на диске нет — modified-сторона пустая: вся HEAD-версия видна
+        // удалённой. На 100 колонках панель уже порога — дифф inline (PR-6):
+        // HEAD-строки показаны призраками без номеров, плюсов с текстом нет.
         const frame = await session.waitForText((t) => t.includes("↔ HEAD")).then(frameToText);
-        expect(frame).toMatch(/\d+-\s+export function greet/u);
+        expect(frame).toContain("export function greet");
+        expect(frame).toContain("HEAD ↔ app.ts");
         expect(frame).not.toMatch(/\d\+ +\S/u);
         expect(session.getStderr()).not.toMatch(/Error|Exception|unhandled/i);
     }, 120_000);

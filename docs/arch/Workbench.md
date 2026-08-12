@@ -574,6 +574,10 @@ hide-toggle (`isHiddenByDefault`). См.
     dirty-контракт — `EditorService.needsCloseConfirm`/`collectDirty` считают
     стороны диффов. Снимочные стороны автоосвежает
     `contrib/diff/DiffSnapshotRefreshContribution` по `onDidChangeFile` (US-31).
+    Узкая панель (порог 100 колонок элемента, гистерезис) или тумблер
+    «Diff: Toggle Inline View» (персист `DIFF_VIEW_MODE_STATE`) переводят пару
+    в **inline**: original скрыт, modified на всю ширину, удалённые строки —
+    зоны-призраки (`computeInlineLayout`).
 - **Find/Suggest-кластер (этап 10)** — поиск по файлу и автодополнение поверх
   активного редактора (`EditorService`):
   - `Components/Editor/FindComponent.ts` — `ThemedComponent`; **композиционный

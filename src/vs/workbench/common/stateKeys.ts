@@ -83,6 +83,20 @@ export const SEARCH_QUERY_DETAILS_STATE: IStateDescriptor<boolean> = {
     default: false,
 };
 
+/**
+ * Режим дифф-вкладок (US-22): `auto` — side-by-side с авто-фолбэком в inline на
+ * узкой панели; тумблер «Diff: Toggle Inline View» пишет явный режим (после
+ * первого использования `auto` возвращается только сбросом стейта — осознанный
+ * люфт, у VS Code тумблер тоже перекрывает breakpoint-настройку).
+ */
+export type DiffViewMode = "auto" | "inline" | "side-by-side";
+
+export const DIFF_VIEW_MODE_STATE: IStateDescriptor<DiffViewMode> = {
+    key: "workbench.diff.viewMode",
+    scope: "workspace",
+    default: "auto",
+};
+
 /** Режим списка изменений Source Control: плоско (как VS Code list) или дерево папок. */
 export type ScmViewMode = "tree" | "flat";
 

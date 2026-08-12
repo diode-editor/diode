@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { quickPickByTitle, tabLabels } from "../../../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -31,7 +32,9 @@ describe("Команды сравнения файлов", () => {
             prefix: "vexx-compare-",
             files: { "a.txt": "alpha\nbravo\n", "b.txt": "alpha\nBRAVO\n" },
         });
-        h = createAppTestHarness({ workspaceFolder: ws.dir });
+        // Шире порога inline-фолбэка: команды семейства проверяют side-by-side
+        // семантику; inline-режим тестируется в diffEditorPane2.test.ts.
+        h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(150, 24) });
         resetSelectedForCompare();
     });
 

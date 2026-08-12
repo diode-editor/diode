@@ -10,6 +10,8 @@ import {
     TokenizationRegistryDIToken,
     TokenStyleResolverDIToken,
 } from "../../../common/coreTokens.ts";
+import { StateServiceDIToken } from "../../../common/coreTokens.ts";
+import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
@@ -113,7 +115,8 @@ export async function openDiffPair(
         accessor.get(UndoRedoServiceDIToken),
         accessor.get(TokenizationRegistryDIToken),
         accessor.get(TokenStyleResolverDIToken),
-        input,
+        // Персист тумблера US-22: новая вкладка рождается в выбранном режиме.
+        { ...input, modeOverride: accessor.get(StateServiceDIToken).get(DIFF_VIEW_MODE_STATE) },
     );
     // Стороны — редактирующие поверхности: editor.*-конфиг (tabSize, отступы)
     // применяется как к обычным вкладкам.

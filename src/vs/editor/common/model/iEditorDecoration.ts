@@ -32,8 +32,23 @@ export interface IGutterMarkerDecoration {
 }
 
 /**
+ * Одна строка многострочной зоны — со своим стилем: «зоны-призраки» inline-диффа
+ * несут удалённые строки original (фон removed), и плашка свёртки может жить в
+ * той же зоне соседней строкой со своим цветом (зоны с одним якорем сливаются).
+ */
+export interface IViewZoneLine {
+    readonly text: string;
+    /** Токен цвета глифов; без него — цвет текста редактора. */
+    readonly colorToken?: string;
+    /** Токен фона строки; без него — фон редактора. */
+    readonly bgToken?: string;
+}
+
+/**
  * Наполнение строк зоны с данным якорем: заполнитель на всю ширину
- * (`fillChar`, филлер ░) и/или текст (плашка «⋯ N unchanged lines»).
+ * (`fillChar`, филлер ░), текст (плашка «⋯ N unchanged lines») либо
+ * пер-строчное содержимое (`lines[offset]` — призраки inline-диффа);
+ * `lines` побеждает `text`/`fillChar` на строках, где он задан.
  */
 export interface IViewZoneDecoration {
     readonly afterLine: number;
@@ -41,6 +56,8 @@ export interface IViewZoneDecoration {
     readonly text?: string;
     /** Токен цвета глифов; без него — цвет текста редактора. */
     readonly colorToken?: string;
+    /** Пер-строчное содержимое зоны по offset её строки. */
+    readonly lines?: readonly IViewZoneLine[];
 }
 
 export interface IExternalDecorations {

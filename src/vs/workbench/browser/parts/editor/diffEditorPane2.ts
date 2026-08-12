@@ -6,7 +6,11 @@ import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/default
 import { DiffInnerRanges } from "../../../../editor/common/diff/diffInnerRanges.ts";
 import type { DiffSide } from "../../../../editor/common/diff/diffSide.ts";
 import type { IDiffV2SideLayout } from "../../../../editor/common/diff/diffV2Layout.ts";
-import { computeDiffV2Layout } from "../../../../editor/common/diff/diffV2Layout.ts";
+import {
+    computeDiffV2Layout,
+    computeInlineLayout,
+    mergeZoneDecorationsByAnchor,
+} from "../../../../editor/common/diff/diffV2Layout.ts";
 import { DiffViewModel } from "../../../../editor/common/diff/diffViewModel.ts";
 import type { DetailedLineRangeMapping } from "../../../../editor/common/diff/rangeMapping.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -18,6 +22,7 @@ import { TextFileModel } from "../../../services/textfile/common/textFileModel.t
 import type { ITextFileModelReference } from "../../../services/textfile/common/textFileModelRegistry.ts";
 import { Component } from "../../component.ts";
 
+import type { DiffPaneMode, DiffPaneModeOverride } from "./diffPaneElement.ts";
 import { DiffPaneElement } from "./diffPaneElement.ts";
 import { EditorComponent } from "./editorComponent.ts";
 import type { IEditorPane } from "./iEditorPane.ts";
@@ -73,7 +78,12 @@ export interface IDiffEditorPane2Input {
     readonly modifiedUri?: Uri;
     /** Пауза живого пересчёта; не задана — {@link DIFF_RECOMPUTE_DEBOUNCE_MS}. */
     readonly debounceMs?: number;
+    /** Стартовое принуждение режима (персист тумблера US-22); дефолт — `auto`. */
+    readonly modeOverride?: DiffPaneModeOverride;
 }
+
+/** Пустая раскладка стороны — original в inline-режиме (сторона скрыта). */
+const EMPTY_SIDE_LAYOUT: IDiffV2SideLayout = { zones: [], foldingRegions: [], decorations: {} };
 
 /**
  * Дифф-вкладка v2 (docs/TODO/DiffEditable.md): **композиция двух настоящих
@@ -113,6 +123,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     private readonly viewSyncSubscriptions: Record<DiffSide, IDisposable | null> = { original: null, modified: null };
     private recomputeTimer: ReturnType<typeof setTimeout> | undefined;
     private readonly debounceMs: number;
+    private readonly paneElement: DiffPaneElement;
+    private paneDisposed = false;
 
     public constructor(
         private readonly languageService: ILanguageService,
@@ -133,15 +145,26 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
             original: this.createSide("original", tokenizationRegistry, tokenStyleResolver, input),
             modified: this.createSide("modified", tokenizationRegistry, tokenStyleResolver, input),
         };
-        this.view = new DiffPaneElement(this.sides.original.component.view, this.sides.modified.component.view, {
+        this.paneElement = new DiffPaneElement(this.sides.original.component.view, this.sides.modified.component.view, {
             original: input.originalLabel,
             modified: input.modifiedLabel,
         });
+        this.view = this.paneElement;
         this.view.id = "diffEditorV2";
         this.view.style = { fg: "editor.foreground", bg: "editor.background" };
         // Одна полоса прокрутки на пару: скролл синхронен, левая была бы дублем
         // и съедала бы колонку текста.
         this.sides.original.component.view.verticalScrollBar = "never";
+        // Смену режима элемент объявляет из layout — зоны перекладываем
+        // ОТЛОЖЕННО: правка зон прямо из layout оставила бы корень
+        // layout-грязным после кадра (dirty-гейт TuiApplication).
+        this.paneElement.onDidChangeMode = () => {
+            queueMicrotask(() => {
+                if (this.paneDisposed) return;
+                this.handleModeChange();
+            });
+        };
+        if (input.modeOverride !== undefined) this.paneElement.setModeOverride(input.modeOverride);
 
         this.recomputeLayout({ preserveView: false });
         this.wireSync();
@@ -149,6 +172,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
 
         this.register({
             dispose: () => {
+                this.paneDisposed = true;
                 if (this.recomputeTimer !== undefined) clearTimeout(this.recomputeTimer);
                 this.viewSyncSubscriptions.original?.dispose();
                 this.viewSyncSubscriptions.modified?.dispose();
@@ -218,6 +242,34 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         return [this.sides.original, this.sides.modified];
     }
 
+    // ─── Режим side-by-side ↔ inline (US-21/US-22) ───────────────────────────
+
+    /** Текущий фактический режим пары. */
+    public get mode(): DiffPaneMode {
+        return this.paneElement.mode;
+    }
+
+    /** Принуждение режима (тумблер US-22); `auto` возвращает авто-порог по ширине. */
+    public setModeOverride(override: DiffPaneModeOverride): void {
+        this.paneElement.setModeOverride(override);
+    }
+
+    /**
+     * Смена режима: в inline единственная поверхность — modified (original
+     * скрыта; `hidden` фокус не двигает — переносим явно, иначе ввод ушёл бы в
+     * невидимый редактор), раскладка полностью пересчитывается под режим.
+     */
+    private handleModeChange(): void {
+        if (this.paneElement.mode === "inline" && this.activeSideValue === "original") {
+            this.activeSideValue = "modified";
+            const focused = this.sides.original.component.view.getRoot()?.focusManager?.activeElement;
+            if (focused?.getAncestorPath().includes(this.sides.original.component.view) === true) {
+                this.sides.modified.component.focus();
+            }
+        }
+        this.recomputeLayout({ preserveView: true });
+    }
+
     // ─── Revert-чанка ─────────────────────────────────────────────────────────
 
     /**
@@ -245,7 +297,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     }
 
     private hunkAtCaret(): DetailedLineRangeMapping | null {
-        const side = this.activeSideValue;
+        const side = this.activeSide;
         const caret = this.sides[side].primaryCursorLine;
         return (
             this.changes.find((change) => {
@@ -304,9 +356,14 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
 
         this.syncing = true;
         try {
-            const anchorDocLine = preserveView
-                ? this.sides.modified.viewState.docLineForViewLine(this.sides.modified.viewState.scrollTop)
-                : null;
+            // Вьюпорт на самом верху остаётся на самом верху: якорение по
+            // документной строке утащило бы его ПОД зону над первой строкой
+            // (нотис «The files are identical»), появившуюся этим пересчётом.
+            const scrollTopBefore = this.sides.modified.viewState.scrollTop;
+            const anchorDocLine =
+                preserveView && scrollTopBefore > 0
+                    ? this.sides.modified.viewState.docLineForViewLine(scrollTopBefore)
+                    : null;
 
             const diff = new DefaultLinesDiffComputer().computeDiff(originalLines, modifiedLines, {
                 ignoreTrimWhitespace: false,
@@ -318,10 +375,26 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
             });
             this.changes = diff.changes;
             const previous = { pairs: this.regionPairs, layout: this.layout };
-            this.layout = computeDiffV2Layout(diff.changes, model.regions, new DiffInnerRanges(diff.changes), {
-                original: originalLines.length,
-                modified: modifiedLines.length,
-            });
+            const innerRanges = new DiffInnerRanges(diff.changes);
+            // В inline раскладка одна — modified с зонами-призраками original;
+            // скрытой стороне заливается пустота, чтобы возврат в side-by-side
+            // не встретил устаревшие зоны/фолды (инвариант выравнивания).
+            this.layout =
+                this.paneElement.mode === "inline"
+                    ? {
+                          original: EMPTY_SIDE_LAYOUT,
+                          modified: computeInlineLayout(
+                              diff.changes,
+                              model.regions,
+                              innerRanges,
+                              modifiedLines.length,
+                              originalLines,
+                          ),
+                      }
+                    : computeDiffV2Layout(diff.changes, model.regions, innerRanges, {
+                          original: originalLines.length,
+                          modified: modifiedLines.length,
+                      });
             this.regionPairs = this.buildRegionPairs(preserveView ? previous : null);
             this.applySideLayout("original");
             this.applySideLayout("modified");
@@ -355,26 +428,39 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         /* v8 ignore start -- defensive: зовётся только после computeDiffV2Layout */
         if (layout === null) return [];
         /* v8 ignore stop */
-        return layout.original.foldingRegions.map((region, i) => {
-            const modifiedRegion = layout.modified.foldingRegions[i];
-            let collapsed = previous === null ? true : this.carryCollapsed(previous, region, modifiedRegion);
+        // Первичны регионы modified: в inline у original их нет вовсе (сторона
+        // скрыта, раскладка пустая) — пара тогда вырождается в modified-координаты.
+        return layout.modified.foldingRegions.map((modifiedRegion, i) => {
+            const originalRegion =
+                (layout.original.foldingRegions[i] as (typeof layout.original.foldingRegions)[number] | undefined) ??
+                null;
+            let collapsed = previous === null ? true : this.carryCollapsed(previous, originalRegion, modifiedRegion);
             if (
-                this.caretInsideHiddenPart("original", region) ||
+                (originalRegion !== null && this.caretInsideHiddenPart("original", originalRegion)) ||
                 this.caretInsideHiddenPart("modified", modifiedRegion)
             ) {
                 collapsed = false;
             }
-            return { original: region.startLine, modified: modifiedRegion.startLine, collapsed };
+            return {
+                original: (originalRegion ?? modifiedRegion).startLine,
+                modified: modifiedRegion.startLine,
+                collapsed,
+            };
         });
     }
 
-    /** Свёрнутость старой пары с максимальным пересечением диапазона (по обеим сторонам). */
+    /**
+     * Свёрнутость старой пары с максимальным пересечением диапазона. По original
+     * сравнивается, только когда координаты есть у ОБОИХ поколений — при смене
+     * режима (inline не держит original-регионов) перенос честно идёт по
+     * modified-стороне.
+     */
     private carryCollapsed(
         previous: {
             pairs: { original: number; modified: number; collapsed: boolean }[];
             layout: { original: IDiffV2SideLayout; modified: IDiffV2SideLayout } | null;
         },
-        region: { startLine: number; endLine: number },
+        originalRegion: { startLine: number; endLine: number } | null,
         modifiedRegion: { startLine: number; endLine: number },
     ): boolean {
         /* v8 ignore start -- defensive: prev-раскладка есть у любой живой панели */
@@ -382,9 +468,13 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         /* v8 ignore stop */
         let best: { overlap: number; collapsed: boolean } | null = null;
         for (let i = 0; i < previous.pairs.length; i++) {
-            const prevOriginal = previous.layout.original.foldingRegions[i];
+            const prevOriginal = previous.layout.original.foldingRegions[i] as
+                | { startLine: number; endLine: number }
+                | undefined;
             const prevModified = previous.layout.modified.foldingRegions[i];
-            const overlap = rangeOverlap(region, prevOriginal) + rangeOverlap(modifiedRegion, prevModified);
+            const originalOverlap =
+                originalRegion !== null && prevOriginal !== undefined ? rangeOverlap(originalRegion, prevOriginal) : 0;
+            const overlap = originalOverlap + rangeOverlap(modifiedRegion, prevModified);
             if (overlap > 0 && (best === null || overlap > best.overlap)) {
                 best = { overlap, collapsed: previous.pairs[i].collapsed };
             }
@@ -441,10 +531,15 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         viewState.setViewZones(
             sideLayout.zones.filter((zone) => !plaqueAnchors.has(zone.afterLine) || plaqueVisible(zone.afterLine)),
         );
+        // Плашка и зона-призрак inline-ганка могут делить якорь — содержимое
+        // склеивается в одну многострочную декорацию (setViewZones сливает
+        // такие зоны, а рендер адресует декорации по якорю).
         this.sides[side].component.setDecorations({
             ...sideLayout.decorations,
-            zones: sideLayout.decorations.zones?.filter(
-                (zone) => zone.text === undefined || plaqueVisible(zone.afterLine),
+            zones: mergeZoneDecorationsByAnchor(
+                sideLayout.decorations.zones?.filter(
+                    (zone) => zone.text === undefined || plaqueVisible(zone.afterLine),
+                ) ?? [],
             ),
         });
     }
@@ -515,14 +610,14 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         return this.sides.original.readOnly && this.sides.modified.readOnly;
     }
 
-    /** Сторона, в которой живут каретка и команды. */
+    /** Сторона, в которой живут каретка и команды; в inline это всегда modified. */
     public get activeSide(): DiffSide {
-        return this.activeSideValue;
+        return this.paneElement.mode === "inline" ? "modified" : this.activeSideValue;
     }
 
     /** Активная сторона как настоящая текстовая панель — для getActiveEditor(). */
     public get activeTextPane(): TextEditorPane {
-        return this.sides[this.activeSideValue];
+        return this.sides[this.activeSide];
     }
 
     /** Вид вкладки меняют правки/сохранения сторон — сводим их события в одно. */
@@ -536,11 +631,11 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     }
 
     public focusEditor(): void {
-        this.sides[this.activeSideValue].component.focus();
+        this.sides[this.activeSide].component.focus();
     }
 
     public get viewState(): EditorViewState {
-        return this.sides[this.activeSideValue].viewState;
+        return this.sides[this.activeSide].viewState;
     }
 
     public getSelectedText(): string {

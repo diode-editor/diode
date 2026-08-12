@@ -57,7 +57,7 @@ describe("Workbench — вкладка diff", () => {
 
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        testApp = TestApp.create(workbench.view, new Size(100, 16));
+        testApp = TestApp.create(workbench.view, new Size(150, 16));
         bindApp(testApp.app);
 
         commands.execute("workbench.openFile", ws.path("a.txt"));
@@ -169,7 +169,7 @@ describe("Workbench — вкладка diff", () => {
         const bareEditors = container.get(EditorServiceDIToken);
         bare.setWorkspaceFolder(ws.dir);
         bare.mount();
-        const app = TestApp.create(bare.view, new Size(100, 16));
+        const app = TestApp.create(bare.view, new Size(150, 16));
         bindApp(app.app);
         bareCommands.execute("workbench.openFile", ws.path("a.txt"));
         await settle(0);
@@ -282,7 +282,7 @@ describe("Workbench — вкладка diff, отказы", () => {
         );
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        const app = TestApp.create(workbench.view, new Size(100, 16));
+        const app = TestApp.create(workbench.view, new Size(150, 16));
         bindApp(app.app);
         commands.execute("workbench.openFile", ws.path("a.txt"));
         await settle(0);
@@ -344,7 +344,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         );
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        const app = TestApp.create(workbench.view, new Size(100, 16));
+        const app = TestApp.create(workbench.view, new Size(150, 16));
         bindApp(app.app);
         return { container, workbench, editors, app };
     }
@@ -393,7 +393,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         const editors = container.get(EditorServiceDIToken);
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        const app = TestApp.create(workbench.view, new Size(100, 16));
+        const app = TestApp.create(workbench.view, new Size(150, 16));
         bindApp(app.app);
 
         const result = await openDiffWithHead(container, Uri.file(ws.path("a.txt")));

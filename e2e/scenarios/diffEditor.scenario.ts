@@ -87,5 +87,13 @@ export default defineScenario({
         await editor.sendKey("Ctrl+J");
         await editor.waitForText((t) => !t.includes("unchanged lines"));
         await editor.capture("unfolded");
+
+        // Inline-режим (US-22): один редактор, удалённые строки — призраки.
+        await editor.sendKey("Ctrl+P");
+        await editor.sendText(">Diff: Toggle Inline View");
+        await editor.waitForText((t) => t.includes("Toggle Inline View"));
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("HEAD ↔ greeting.ts"));
+        await editor.capture("inline");
     },
 });

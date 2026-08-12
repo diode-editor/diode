@@ -113,7 +113,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         // Высота с запасом: секция Source Control отдаёт 5 верхних строк
         // контролам коммита (поле, зазор, кнопка и паддинги), и на 20 строках
         // список не вмещал бы весь набор.
-        testApp = TestApp.create(workbench.view, new Size(100, 26));
+        testApp = TestApp.create(workbench.view, new Size(150, 26));
         bindApp(testApp.app);
 
         commands.execute("workbench.openFile", ws.path("a.txt"));
