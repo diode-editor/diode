@@ -278,8 +278,9 @@ merge-конфликтов, word wrap внутри диффа.
   Untitled Text Files)** — дифф двух пустых редактируемых untitled-буферов.
   US-31 (автопересчёт по сдвигу HEAD) — сделан в DiffEditable PR-5
   (`DiffSnapshotRefreshContribution` на `onDidChangeFile`); там же US-14
-  (подписи колонок) и revert-чанка командой «Diff: Revert Hunk». US-21/US-22
-  (inline-режим узкого терминала и ручной тумблер) — вынесены в DiffEditable
-  PR-6 (side-by-side пока всегда; честный inline — зоны-призраки с текстом
-  original в одном редакторе).
+  (подписи колонок) и revert-чанка командой «Diff: Revert Hunk». US-21
+  (авто-inline на узкой панели, порог 100 колонок элемента с гистерезисом) и
+  US-22 («Diff: Toggle Inline View» с персистом) — сделаны в DiffEditable PR-6:
+  inline — один редактор modified, удалённые строки original — зоны-призраки.
+  US-23 (resize без потери каретки) — закреплён e2e там же.
 - [ ] **Фаза 6. Хвост краевых случаев** — US-34…US-36.

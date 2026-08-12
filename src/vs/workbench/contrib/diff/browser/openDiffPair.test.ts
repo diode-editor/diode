@@ -40,7 +40,7 @@ describe("openDiffPair", () => {
         editors = container.get(EditorServiceDIToken);
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        app = TestApp.create(workbench.view, new Size(100, 16));
+        app = TestApp.create(workbench.view, new Size(150, 16));
         testContainer.bindApp(app.app);
     });
 
@@ -218,7 +218,7 @@ describe("openDiffPair", () => {
         const bench = local.container.get(WorkbenchComponentDIToken);
         bench.setWorkspaceFolder(ws.dir);
         bench.mount();
-        const localApp = TestApp.create(bench.view, new Size(100, 16));
+        const localApp = TestApp.create(bench.view, new Size(150, 16));
         local.bindApp(localApp.app);
 
         const result = await openDiffPair(local.container, {
@@ -281,7 +281,7 @@ describe("openDiffPair", () => {
         const bench = local.container.get(WorkbenchComponentDIToken);
         bench.setWorkspaceFolder(ws.dir);
         bench.mount();
-        const localApp = TestApp.create(bench.view, new Size(100, 16));
+        const localApp = TestApp.create(bench.view, new Size(150, 16));
         local.bindApp(localApp.app);
 
         const result = await openDiffPair(local.container, {

@@ -5,8 +5,13 @@ import { EditorViewState } from "../viewModel/editorViewState.ts";
 
 import { DefaultLinesDiffComputer } from "./defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
 import { DiffInnerRanges } from "./diffInnerRanges.ts";
+import {
+    computeDiffV2Layout,
+    computeInlineLayout,
+    DIFF_FILLER_CHAR,
+    mergeZoneDecorationsByAnchor,
+} from "./diffV2Layout.ts";
 import { DiffViewModel } from "./diffViewModel.ts";
-import { computeDiffV2Layout, DIFF_FILLER_CHAR } from "./diffV2Layout.ts";
 
 /**
  * Раскладка v2: вход — пара текстов и настоящий движок (как в
@@ -194,5 +199,137 @@ describe("computeDiffV2Layout — инвариант на смешанных д�
 
         const counts = viewLineCounts(input);
         expect(counts.original).toBe(counts.modified);
+    });
+});
+
+describe("computeInlineLayout — один редактор с зонами-призраками (PR-6)", () => {
+    function inlineOf(original: string[], modified: string[], collapsed = false) {
+        const diff = COMPUTER.computeDiff(original, modified, {
+            ignoreTrimWhitespace: false,
+            maxComputationTimeMs: Number.MAX_SAFE_INTEGER,
+            computeMoves: false,
+        });
+        const model = new DiffViewModel(diff.changes, original.length, modified.length, {
+            hideUnchangedRegions: collapsed,
+        });
+        return computeInlineLayout(
+            diff.changes,
+            model.regions,
+            new DiffInnerRanges(diff.changes),
+            modified.length,
+            original,
+        );
+    }
+
+    it("призрак с текстом удалённых строк встаёт перед своим ганком", () => {
+        const layout = inlineOf(["keep", "dead1", "dead2", "tail"], ["keep", "live", "tail"]);
+
+        const ghost = layout.decorations.zones?.find((zone) => zone.lines !== undefined);
+        expect(ghost?.afterLine).toBe(0); // после строки перед ганком
+        expect(ghost?.lines?.map((line) => line.text)).toEqual(["dead1", "dead2"]);
+        expect(ghost?.lines?.every((line) => line.bgToken === "diffEditor.removedLineBackground")).toBe(true);
+        expect(layout.zones.find((zone) => zone.afterLine === 0)?.size).toBe(2);
+        // Добавленная строка помечена как в side-by-side.
+        expect(layout.decorations.gutterMarkers).toEqual([{ line: 1, char: "+" }]);
+        expect(layout.decorations.lineBackgrounds).toEqual([
+            { startLine: 1, endLine: 1, colorToken: "diffEditor.insertedLineBackground" },
+        ]);
+    });
+
+    it("чистая вставка — без призрака; чистое удаление — призрак без маркеров", () => {
+        const inserted = inlineOf(["a", "b"], ["a", "NEW", "b"]);
+        expect(inserted.decorations.zones?.some((zone) => zone.lines !== undefined)).toBe(false);
+        expect(inserted.decorations.gutterMarkers).toEqual([{ line: 1, char: "+" }]);
+
+        const removed = inlineOf(["a", "gone", "b"], ["a", "b"]);
+        const ghost = removed.decorations.zones?.find((zone) => zone.lines !== undefined);
+        expect(ghost?.lines?.map((line) => line.text)).toEqual(["gone"]);
+        expect(removed.decorations.gutterMarkers).toEqual([]);
+    });
+
+    it("ганк в начале файла — призрак перед первой строкой (якорь -1)", () => {
+        const layout = inlineOf(["gone", "keep"], ["keep"]);
+        const ghost = layout.decorations.zones?.find((zone) => zone.lines !== undefined);
+        expect(ghost?.afterLine).toBe(-1);
+    });
+
+    it("свёртка unchanged — по modified-координатам, плашка одиночная", () => {
+        const base = Array.from({ length: 30 }, (_, i) => `line${String(i)}`);
+        const layout = inlineOf(base, ["X", ...base.slice(1)], true);
+
+        expect(layout.foldingRegions.length).toBeGreaterThan(0);
+        const plaque = layout.decorations.zones?.find((zone) => zone.text?.includes("unchanged"));
+        expect(plaque).toBeDefined();
+    });
+
+    it("идентичные стороны — нотис-зона перед первой строкой", () => {
+        const layout = inlineOf(["same"], ["same"]);
+        expect(layout.decorations.zones?.[0]?.text).toBe("The files are identical");
+        expect(layout.zones).toEqual([{ afterLine: -1, size: 1 }]);
+    });
+
+    it("intra-line диапазоны modified доезжают до inline-раскладки", () => {
+        const layout = inlineOf(["const a = 1;"], ["const a = 2;"]);
+        expect(layout.decorations.rangeBackgrounds?.length).toBeGreaterThan(0);
+        expect(layout.decorations.rangeBackgrounds?.[0].colorToken).toBe("diffEditor.insertedTextBackground");
+    });
+});
+
+describe("computeInlineLayout — вырожденные регионы", () => {
+    it("регион-пустышка и регион без скрываемого тела пропускаются", () => {
+        const layout = computeInlineLayout(
+            [],
+            [
+                {
+                    originalStartLine: 0,
+                    modifiedStartLine: 0,
+                    lineCount: 10,
+                    visibleTop: 0,
+                    visibleBottom: 0,
+                    hiddenLineCount: 0,
+                },
+                {
+                    originalStartLine: 0,
+                    modifiedStartLine: 0,
+                    lineCount: 2,
+                    visibleTop: 0,
+                    visibleBottom: 1,
+                    hiddenLineCount: 1,
+                },
+            ],
+            new DiffInnerRanges([]),
+            1,
+            ["same"],
+        );
+
+        expect(layout.foldingRegions).toEqual([]);
+    });
+});
+
+describe("mergeZoneDecorationsByAnchor", () => {
+    it("одиночные декорации проходят как есть, общий якорь склеивается в lines", () => {
+        const merged = mergeZoneDecorationsByAnchor([
+            { afterLine: 2, text: "⋯ 5 unchanged lines", colorToken: "diffEditor.unchangedRegionForeground" },
+            { afterLine: 2, lines: [{ text: "ghost", bgToken: "diffEditor.removedLineBackground" }] },
+            { afterLine: 7, fillChar: "░" },
+        ]);
+
+        expect(merged).toHaveLength(2);
+        const combined = merged.find((zone) => zone.afterLine === 2);
+        // Плашка — первой строкой (порядок массива = порядок строк зоны).
+        expect(combined?.lines?.map((line) => line.text)).toEqual(["⋯ 5 unchanged lines", "ghost"]);
+        expect(combined?.lines?.[0].colorToken).toBe("diffEditor.unchangedRegionForeground");
+        expect(combined?.lines?.[1].bgToken).toBe("diffEditor.removedLineBackground");
+        expect(merged.find((zone) => zone.afterLine === 7)?.fillChar).toBe("░");
+    });
+
+    it("в склейке текст без цвета и филлер без текста не рождают строк-мусора", () => {
+        const merged = mergeZoneDecorationsByAnchor([
+            { afterLine: 3, text: "plain" },
+            { afterLine: 3, fillChar: "░" },
+        ]);
+
+        expect(merged).toHaveLength(1);
+        expect(merged[0].lines).toEqual([{ text: "plain" }]);
     });
 });

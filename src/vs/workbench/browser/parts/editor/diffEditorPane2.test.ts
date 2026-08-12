@@ -14,7 +14,7 @@ import { FileSystemProviderRegistry } from "../../../../platform/files/common/fi
 import { NULL_FILE_SYSTEM_PROVIDER_REGISTRY } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { createTestContainer } from "../../../../vexx/modules/testProfile.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
+import { FileSystemProviderRegistryDIToken, StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { openDiffPair, refreshDiffSnapshots } from "../../../contrib/diff/browser/openDiffPair.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
@@ -358,6 +358,68 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         pane.dispose();
     });
 
+    it("inline-режим: modified с призраками, original пуст; возврат восстанавливает выравнивание", async () => {
+        const original = ["keep", "dead1", "dead2", "tail"].join("\n");
+        const model = ownedModel(["keep", "live", "tail"].join("\n"));
+        const pane = makePane(original, { kind: "owned", model }, { debounceMs: 0 });
+        const { original: left, modified: right } = sides(pane);
+        expect(pane.mode).toBe("side-by-side");
+
+        pane.setModeOverride("inline");
+        await settle(5);
+
+        expect(pane.mode).toBe("inline");
+        expect(pane.activeSide).toBe("modified");
+        // Modified несёт зону-призрак размером в удалённые строки; original пуст.
+        expect(right.viewState.viewZones).toEqual([{ afterLine: 0, size: 2 }]);
+        expect(left.viewState.viewZones).toEqual([]);
+        expect(left.viewState.foldedRegions).toEqual([]);
+        expect(left.component.view.hidden).toBe(true);
+
+        // Живой пересчёт остаётся живым и в inline: правка обновляет призраки.
+        right.goToPosition(1, 0);
+        right.viewState.type("X");
+        await settle(5);
+        expect(right.viewState.viewZones).toEqual([{ afterLine: 0, size: 2 }]);
+
+        pane.setModeOverride("side-by-side");
+        await settle(5);
+        expect(pane.mode).toBe("side-by-side");
+        expect(left.component.view.hidden).toBe(false);
+        // Инвариант side-by-side восстановлен: число строк вью совпадает.
+        expect(left.viewState.getViewLineCount()).toBe(right.viewState.getViewLineCount());
+        pane.dispose();
+    });
+
+    it("inline: revert hunk работает по каретке modified, читая ганк с призраком", async () => {
+        const model = ownedModel(["keep", "live", "tail"].join("\n"));
+        const pane = makePane(["keep", "dead", "tail"].join("\n"), { kind: "owned", model }, { debounceMs: 0 });
+        pane.setModeOverride("inline");
+        await settle(5);
+
+        // Каретка на строке перед местом изменения... ганок: original [1..2) ↔
+        // modified [1..2) — обычная пара, каретка прямо на изменённой строке.
+        pane.sidePanes()[1].goToPosition(1, 0);
+        expect(pane.revertHunkAtCaret()).toBe("reverted");
+        expect(model.getText()).toBe(["keep", "dead", "tail"].join("\n"));
+        await settle(5);
+        pane.dispose();
+    });
+
+    it("смена режима на умершей панели — no-op (dispose перегоняет микрозадачу)", async () => {
+        const pane = makePane("a", "b");
+        pane.setModeOverride("inline"); // микрозадача применения ещё в очереди
+        pane.dispose();
+        await settle(5);
+        expect(pane.mode).toBe("inline"); // элемент переключился, панель — молча нет
+    });
+
+    it("inspectState элемента пары несёт режим и override (e2e-селекторы)", () => {
+        const pane = makePane("a", "b");
+        expect(pane.view.inspectState()).toEqual({ mode: "side-by-side", override: "auto" });
+        pane.dispose();
+    });
+
     it("refreshDiffSnapshots на панели, открытой мимо openDiffPair, — тихий no-op", async () => {
         const pane = makePane("a", "b");
         await refreshDiffSnapshots(NULL_FILE_SYSTEM_PROVIDER_REGISTRY, pane);
@@ -414,6 +476,16 @@ describe("Workbench — дифф v2", () => {
             },
         });
         container.bind(FileSystemProviderRegistryDIToken, () => registry);
+        // In-memory стейт вместо NULL-заглушки: тумблер US-22 персистит режим.
+        const stateStore = new Map<string, unknown>();
+        container.bind(StateServiceDIToken, () => ({
+            get: (descriptor) => (stateStore.get(descriptor.key) ?? descriptor.default) as never,
+            store: (descriptor, value) => {
+                stateStore.set(descriptor.key, value);
+            },
+            openWorkspace: () => undefined,
+            flushSync: () => undefined,
+        }));
         workbench = container.get(WorkbenchComponentDIToken);
         editors = container.get(EditorServiceDIToken);
         container
@@ -708,6 +780,93 @@ describe("Workbench — дифф v2", () => {
         expect(modified.viewState.logicalToVisualLine(7)).toBeGreaterThanOrEqual(0);
         const original = pane.sidePanes()[0];
         expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
+    });
+
+    it("US-21: узкий терминал — авто-inline с призраками, обратный resize возвращает колонки", async () => {
+        const pane = await openV2();
+        expect(pane.mode).toBe("side-by-side");
+
+        // Сжимаем терминал: панель уже порога — inline (заголовок общий, ганок
+        // как призрак + добавленная строка с маркером на всю ширину).
+        app.backend.resize(new Size(90, 24));
+        await settle(10);
+        app.render();
+
+        expect(pane.mode).toBe("inline");
+        const lines = app.backend.screenToString().split("\n");
+        expect(lines.find((l) => l.includes("HEAD ↔ a.txt"))).toBeDefined();
+        // Призрак original: текст удалённой версии БЕЗ номера строки.
+        const ghost = lines.find((l) => l.includes("old line") && !l.includes("XXold line"));
+        expect(ghost).toBeDefined();
+        expect(ghost).not.toMatch(/15/u);
+        // Добавленная строка — с номером и маркером.
+        expect(lines.find((l) => /15\+\s+XXold line/u.test(l))).toBeDefined();
+
+        // Обратно: side-by-side, выравнивание держится.
+        app.backend.resize(new Size(140, 24));
+        await settle(10);
+        app.render();
+        expect(pane.mode).toBe("side-by-side");
+        const [left, right] = pane.sidePanes();
+        expect(left.viewState.getViewLineCount()).toBe(right.viewState.getViewLineCount());
+    });
+
+    it("US-21: фокус со скрываемой original-стороны переезжает в modified", async () => {
+        const pane = await openV2();
+        pane.sidePanes()[0].component.focus();
+        expect(pane.activeSide).toBe("original");
+
+        app.backend.resize(new Size(90, 24));
+        await settle(10);
+
+        expect(pane.mode).toBe("inline");
+        expect(pane.activeSide).toBe("modified");
+        expect(editors.getActiveEditor() === pane.sidePanes()[1]).toBe(true);
+    });
+
+    it("US-21: переход в inline не крадёт фокус, когда он вне original-стороны", async () => {
+        const pane = await openV2();
+        // Последняя активная сторона — original, но фокус ушёл во вкладку файла.
+        pane.sidePanes()[0].component.focus();
+        editors.activateTab(0);
+        await settle(5);
+        const fileEditor = editors.getActiveTabEditor();
+        expect(fileEditor).not.toBeNull();
+
+        // Тумблер на фоновой вкладке: сторона переезжает, фокус остаётся у файла.
+        pane.setModeOverride("inline");
+        await settle(5);
+
+        expect(pane.mode).toBe("inline");
+        expect(pane.activeSide).toBe("modified");
+        expect(editors.getActiveTabEditor() === fileEditor).toBe(true);
+    });
+
+    it("US-22: тумблер переключает режим всех вкладок и персистится для новых", async () => {
+        const pane = await openV2();
+        expect(pane.mode).toBe("side-by-side");
+
+        container.get(CommandRegistryDIToken).execute("vexx.diff.toggleInlineView");
+        await settle(10);
+        expect(pane.mode).toBe("inline");
+
+        // Персист: следующая дифф-вкладка рождается в inline.
+        container.get(CommandRegistryDIToken).execute("workbench.files.action.compareNewUntitledTextFiles");
+        await settle(30);
+        const untitled = editors.getActiveTabPane() as DiffEditorPane2;
+        expect(untitled.mode).toBe("inline");
+
+        // Обратный тумблер возвращает колонки обеим вкладкам.
+        container.get(CommandRegistryDIToken).execute("vexx.diff.toggleInlineView");
+        await settle(10);
+        expect(untitled.mode).toBe("side-by-side");
+        expect(pane.mode).toBe("side-by-side");
+
+        // Вне дифф-вкладки — no-op.
+        editors.activateTab(0);
+        container.get(CommandRegistryDIToken).execute("vexx.diff.toggleInlineView");
+        await settle(10);
+        expect(pane.mode).toBe("side-by-side");
     });
 
     it("диалог закрытия dirty-untitled-диффа: Save без пути оставляет вкладку, Don't Save закрывает", async () => {

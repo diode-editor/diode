@@ -1,9 +1,5 @@
 import { DisplayLine } from "../../../../../tuidom/common/displayLine.ts";
 import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
-import {
-    LONG_LINE_TRUNCATION_BADGE_WIDTH,
-    STOP_RENDERING_LINE_AFTER,
-} from "./longLineRendering.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IPosition } from "../core/iPosition.ts";
 import { comparePositions } from "../core/iPosition.ts";
@@ -29,6 +25,7 @@ import type { IUndoElement } from "../model/iUndoElement.ts";
 import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
 
 import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
+import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 
 /**
  * Represents the view state for one editor pane.
@@ -129,6 +126,8 @@ export class EditorViewState {
     public tokenStore: DocumentTokenStore | undefined;
 
     private visibleLinesCache: number[] | null = null;
+    /** Стартовая строка вью каждой зоны (по якорю) — offset для многострочных зон за O(1). */
+    private zoneStartRowsCache: Map<number, number> | null = null;
     private visibleLinesCacheDocVersion = -1;
     private foldsVersion = 0;
     private visibleLinesCacheFoldsVersion = -1;
@@ -367,6 +366,24 @@ export class EditorViewState {
         const row = this.buildVisibleLines().at(viewLine);
         if (viewLine < 0 || row === undefined || row >= 0) return null;
         return decodeViewZoneAnchor(row);
+    }
+
+    /**
+     * Якорь зоны И offset строки внутри неё — адресация многострочного
+     * содержимого зоны (`IViewZoneDecoration.lines[offset]`, призраки
+     * inline-диффа). `null` у документных строк и за концом вью. O(1): стартовые
+     * строки зон кэшируются вместе с проекцией (в кодировке проекции offset не
+     * хранится — все строки зоны кодируются одинаково, см. encodeViewZoneRow).
+     */
+    public zoneRowForViewLine(viewLine: number): { anchor: number; offset: number } | null {
+        const rows = this.buildVisibleLines();
+        const row = rows.at(viewLine);
+        if (viewLine < 0 || row === undefined || row >= 0) return null;
+        const anchor = decodeViewZoneAnchor(row);
+        /* v8 ignore start -- ?? недостижимы: кэш стартов строит тот же buildVisibleLines, якорь взят из проекции */
+        const start = this.zoneStartRowsCache?.get(anchor) ?? 0;
+        /* v8 ignore stop */
+        return { anchor, offset: viewLine - start };
     }
 
     /**
@@ -1149,10 +1166,7 @@ export class EditorViewState {
             /* v8 ignore start -- defensive: скрытая каретка выправляется reconcileHiddenCursors до команд */
             if (currentView < 0) return sel;
             /* v8 ignore stop */
-            const targetView = Math.min(
-                Math.max(0, currentView + direction * pageSize),
-                this.getViewLineCount() - 1,
-            );
+            const targetView = Math.min(Math.max(0, currentView + direction * pageSize), this.getViewLineCount() - 1);
             const targetLine = this.docLineForViewLine(targetView);
             const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
             const newChar = targetDl.columnToOffset(ideal);
@@ -1537,8 +1551,7 @@ export class EditorViewState {
         // badge sits just past it. Reveal up to the badge's last cell so
         // reaching the line end (End / scroll) shows the whole badge, not a
         // sliver clipped at the right edge.
-        const revealCol =
-            dl.isTruncated && col >= dl.displayWidth ? col + LONG_LINE_TRUNCATION_BADGE_WIDTH - 1 : col;
+        const revealCol = dl.isTruncated && col >= dl.displayWidth ? col + LONG_LINE_TRUNCATION_BADGE_WIDTH - 1 : col;
         if (col < this.scrollLeft) {
             this.scrollLeft = col;
         } else if (revealCol >= this.scrollLeft + this.viewportWidth) {
@@ -1593,6 +1606,20 @@ export class EditorViewState {
         }
 
         const rows = this.viewZonesValue.length === 0 ? visible : insertViewZones(visible, this.viewZonesValue);
+
+        // Стартовые строки зон — тем же проходом, что и проекция (якоря после
+        // нормализации уникальны, первая встреченная строка зоны — её начало).
+        let zoneStarts: Map<number, number> | null = null;
+        if (this.viewZonesValue.length > 0) {
+            zoneStarts = new Map();
+            for (let i = 0; i < rows.length; i++) {
+                if (rows[i] < 0) {
+                    const anchor = decodeViewZoneAnchor(rows[i]);
+                    if (!zoneStarts.has(anchor)) zoneStarts.set(anchor, i);
+                }
+            }
+        }
+        this.zoneStartRowsCache = zoneStarts;
 
         this.visibleLinesCache = rows;
         this.visibleLinesCacheDocVersion = this.document.versionId;
@@ -1701,11 +1728,7 @@ export class EditorViewState {
 
             // Edit starts inside region and extends beyond → remove
             /* v8 ignore start -- the fall-through else and the final `return true` are unreachable: reaching here needs editStartLine>endLine, but that case already returned at the "completely after" check */
-            if (
-                editStartLine > region.startLine &&
-                editStartLine <= region.endLine &&
-                editEndLine > region.endLine
-            ) {
+            if (editStartLine > region.startLine && editStartLine <= region.endLine && editEndLine > region.endLine) {
                 return false;
             }
 

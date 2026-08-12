@@ -104,4 +104,41 @@ describe("EditorElement — внешние декорации", () => {
 
         expect(app.backend.getTextAt(new Point(editor.gutterWidth, 1), 5)).toBe("     ");
     });
+
+    it("многострочная зона: lines[offset] с пер-строчным фоном, обрезка и хвост без строки", () => {
+        const { app, editor } = createEditor(
+            "alpha\nbravo",
+            {
+                zones: [
+                    {
+                        afterLine: 0,
+                        lines: [
+                            { text: "ghost-one", bgToken: "diffEditor.removedLineBackground" },
+                            {
+                                text: "ghost-two-очень-длинный-хвост-за-краем",
+                                bgToken: "diffEditor.removedLineBackground",
+                                colorToken: "diffEditor.unchangedRegionForeground",
+                            },
+                        ],
+                    },
+                ],
+            },
+            [{ afterLine: 0, size: 3 }],
+        );
+
+        // Вью: alpha, ghost-one, ghost-two…, (пустая строка зоны), bravo.
+        const gutterW = editor.gutterWidth;
+        expect(app.backend.getTextAt(new Point(gutterW, 1), 9)).toBe("ghost-one");
+        expect(app.backend.getBgAt(new Point(gutterW + 1, 1))).toBe(REMOVED_BG);
+        // Гуттер зоны — пустой, фон гуттера (не removed).
+        expect(app.backend.getBgAt(new Point(0, 1))).not.toBe(REMOVED_BG);
+        // Вторая строка обрезана по ширине контента, фон свой.
+        expect(app.backend.getTextAt(new Point(gutterW, 2), 5)).toBe("ghost");
+        expect(app.backend.getBgAt(new Point(gutterW + 3, 2))).toBe(REMOVED_BG);
+        // Строка зоны без своей lines-записи — пустая, без фона removed.
+        expect(app.backend.getBgAt(new Point(gutterW + 1, 3))).not.toBe(REMOVED_BG);
+        expect(app.backend.getTextAt(new Point(gutterW, 3), 3)).toBe("   ");
+        // Документная строка ниже зоны на месте.
+        expect(app.backend.getTextAt(new Point(gutterW, 4), 5)).toBe("bravo");
+    });
 });

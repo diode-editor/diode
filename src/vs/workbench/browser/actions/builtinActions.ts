@@ -9,6 +9,7 @@ import {
     openFileAtRevisionAction,
     revertDiffHunkAction,
     selectForCompareAction,
+    toggleInlineViewAction,
 } from "../../contrib/diff/browser/compareActions.ts";
 import {
     fileOpenAction,
@@ -410,6 +411,7 @@ export const builtinActions: readonly CommandAction[] = [
     compareWithRevisionAction,
     openFileAtRevisionAction,
     revertDiffHunkAction,
+    toggleInlineViewAction,
 
     // SCM
     compareWithHeadAction,

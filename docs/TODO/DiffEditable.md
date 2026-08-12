@@ -188,15 +188,36 @@ undo/find бесплатно от редактора. Заменяет теку�
     до `instanceof EditorElement`; ключи `textViewFocus`/`textInputFocus`
     совпали по значению и оставлены ради семантики when-клауз.
     `DiffViewModel.rows` остался (покрыт своими юнитами) — чистка отдельно.
-- [ ] **PR-6. Inline-режим v2 (узкий терминал)**: решение PR-5 — side-by-side
-  всегда, авто-фолбэк вернуть отдельным PR по честной upstream-механике: ОДИН
-  редактор (modified) на всю ширину, удалённые строки original — зоны-призраки
-  с многострочным текстом. Нужны: `IViewZoneDecoration.lines: string[]` +
-  `zoneRowForViewLine(viewLine): {anchor, offset}` в `EditorViewState`
-  (сейчас зона адресуется только якорем — текст один на зону), переключение по
-  ширине из `DiffPaneElement.performLayout` (колбэк наружу; порог мерить по
-  элементу, не терминалу — урок старой смотрелки), перенос каретки только из
-  original-стороны. US-21/US-22 (ручной тумблер) — сюда же.
+- [x] **PR-6. Inline-режим v2 (узкий терминал)** — сделано. Дизайн:
+  - **Зоны-призраки** (upstream inline view): в inline виден ОДИН редактор —
+    modified на всю ширину; удалённые строки original рендерятся зонами с их
+    текстом на фоне removed (`IViewZoneDecoration.lines: IViewZoneLine[]` —
+    пер-строчные `text`/`colorToken`/`bgToken`; `lines[offset]` адресует
+    `EditorViewState.zoneRowForViewLine(viewLine): {anchor, offset}` — O(1)
+    через кэш стартовых строк зон рядом с кэшем проекции). Плашка свёртки и
+    призрак соседнего ганка могут делить якорь (`setViewZones` сливает такие
+    зоны) — `mergeZoneDecorationsByAnchor` склеивает содержимое на выходе
+    панели, плашка встаёт над призраком.
+  - **Раскладка** — `computeInlineLayout` рядом с `computeDiffV2Layout`: фоны
+    added/intra-line/маркеры `+` как у modified-стороны, свёртка unchanged по
+    modified-координатам, филлеров нет (выравнивать нечего). У original в
+    inline — пустая раскладка (возврат в side-by-side не встречает старых зон).
+  - **Переключение** — `DiffPaneElement`: режим = чистая функция ширины
+    ЭЛЕМЕНТА (порог `SIDE_BY_SIDE_MIN_COLS = 100`, гистерезис выхода +4 —
+    дрожание сайдбара не переклеивает) и `modeOverride`; о смене сообщает
+    колбэком из layout, панель перекладывает зоны ОТЛОЖЕННО (микрозадача —
+    правка зон из layout напоролась бы на dirty-гейт TuiApplication).
+    Original скрывается `hidden` (фокус hidden не двигает — панель переносит
+    его в modified явно, но не крадёт, если фокус уже вне original).
+    `activeSide` в inline — всегда modified; revert-чанка работает как есть.
+  - **US-22** — «Diff: Toggle Inline View» (`vexx.diff.toggleInlineView`):
+    inline ↔ side-by-side, применяется ко всем открытым дифф-вкладкам, выбор
+    персистится (`DIFF_VIEW_MODE_STATE`, workspace-scope; `auto` — дефолт до
+    первого тумблера, вернуть его можно только сбросом стейта — осознанный
+    люфт). Каретка при переключении сохраняется сама: modified-редактор живёт.
+  - Люфт: у призраков нет original-номеров строк в гуттере (VS Code их
+    показывает отдельной колонкой) — гуттер зоны пуст; добавится, если
+    попросится.
 
 ## Известные грабли (из разведки, чтобы не переоткрывать)
 

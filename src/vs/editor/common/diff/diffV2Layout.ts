@@ -1,11 +1,16 @@
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
-import type { IExternalDecorations, IViewZoneDecoration } from "../model/iEditorDecoration.ts";
+import type {
+    IExternalDecorations,
+    IRangeBackgroundDecoration,
+    IViewZoneDecoration,
+    IViewZoneLine,
+} from "../model/iEditorDecoration.ts";
 import type { IViewZone } from "../viewModel/iViewZone.ts";
 
 import type { DiffInnerRanges } from "./diffInnerRanges.ts";
-import type { IUnchangedRegion } from "./diffViewModel.ts";
 import type { DiffSide } from "./diffSide.ts";
 import { collapsedRowLabel } from "./diffSide.ts";
+import type { IUnchangedRegion } from "./diffViewModel.ts";
 import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 
 /**
@@ -151,4 +156,142 @@ function computeSide(
             zones: zoneDecorations,
         },
     };
+}
+
+/**
+ * Inline-раскладка (узкий терминал, DiffEditable PR-6): ОДИН редактор —
+ * modified на всю ширину; удалённые строки original показываются
+ * «зонами-призраками» с их текстом на фоне removed перед своим ганком (механика
+ * upstream inline view). Фоны added, intra-line и маркеры `+` — как у
+ * modified-стороны side-by-side; свёртка unchanged — по modified-координатам,
+ * плашки без парности. Выравнивать нечего — филлеров нет.
+ *
+ * Плашка свёрнутого куска и призрак соседнего ганка могут делить якорь
+ * (`setViewZones` сливает такие зоны) — содержимое склеивает
+ * {@link mergeZoneDecorationsByAnchor} на выходе панели, ПОСЛЕ фильтрации
+ * плашек по свёрнутости.
+ */
+export function computeInlineLayout(
+    changes: readonly DetailedLineRangeMapping[],
+    regions: readonly IUnchangedRegion[],
+    innerRanges: DiffInnerRanges,
+    lineCount: number,
+    originalLines: readonly string[],
+): IDiffV2SideLayout {
+    const zones: IViewZone[] = [];
+    const zoneDecorations: IViewZoneDecoration[] = [];
+    const lineBackgrounds: { startLine: number; endLine: number; colorToken: string }[] = [];
+    const gutterMarkers: { line: number; char: string }[] = [];
+    const rangeBackgrounds: IRangeBackgroundDecoration[] = [];
+
+    // Плашки свёртки — ПЕРВЫМИ в списке декораций: при склейке общего якоря
+    // плашка обязана встать НАД призраком (порядок массива = порядок строк).
+    const foldingRegions: IFoldingRegion[] = [];
+    for (const region of regions) {
+        if (region.hiddenLineCount <= 0) continue;
+        const firstHidden = region.modifiedStartLine + region.visibleTop;
+        const lastHidden = region.modifiedStartLine + region.lineCount - region.visibleBottom - 1;
+        const headerLine = Math.max(0, firstHidden - 1);
+        const endLine = Math.min(lastHidden, lineCount - 1);
+        if (endLine <= headerLine) continue;
+        foldingRegions.push({ startLine: headerLine, endLine, isCollapsed: true });
+        const placeholderAnchor = Math.max(headerLine, firstHidden);
+        zones.push({ afterLine: placeholderAnchor, size: 1 });
+        zoneDecorations.push({
+            afterLine: placeholderAnchor,
+            text: collapsedRowLabel(endLine - headerLine),
+            colorToken: "diffEditor.unchangedRegionForeground",
+        });
+    }
+
+    for (const change of changes) {
+        const modStart = change.modified.startLineNumber - 1;
+        const modEndExclusive = change.modified.endLineNumberExclusive - 1;
+        const origStart = change.original.startLineNumber - 1;
+        const origEndExclusive = change.original.endLineNumberExclusive - 1;
+
+        // Призрак удалённых строк — перед местом изменения (`-1` у ганка в
+        // начале файла нормализует setViewZones: зона перед первой строкой).
+        if (origEndExclusive > origStart) {
+            const afterLine = modStart - 1;
+            const lines = originalLines.slice(origStart, origEndExclusive).map((text) => ({
+                text,
+                bgToken: "diffEditor.removedLineBackground",
+            }));
+            zones.push({ afterLine, size: lines.length });
+            zoneDecorations.push({ afterLine, lines });
+        }
+
+        if (modEndExclusive > modStart) {
+            lineBackgrounds.push({
+                startLine: modStart,
+                endLine: modEndExclusive - 1,
+                colorToken: "diffEditor.insertedLineBackground",
+            });
+            for (let line = modStart; line < modEndExclusive; line++) {
+                gutterMarkers.push({ line, char: "+" });
+                for (const span of innerRanges.get("modified", line)) {
+                    rangeBackgrounds.push({
+                        range: { start: { line, character: span.start }, end: { line, character: span.end } },
+                        colorToken: "diffEditor.insertedTextBackground",
+                    });
+                }
+            }
+        }
+    }
+
+    if (changes.length === 0) {
+        zones.push({ afterLine: -1, size: 1 });
+        zoneDecorations.push({
+            afterLine: -1,
+            text: IDENTICAL_NOTICE,
+            colorToken: "diffEditor.unchangedRegionForeground",
+        });
+    }
+
+    return {
+        zones,
+        foldingRegions,
+        decorations: {
+            lineBackgrounds,
+            rangeBackgrounds,
+            gutterMarkers,
+            zones: zoneDecorations,
+        },
+    };
+}
+
+/**
+ * Склейка зон-декораций с общим якорем в одну многострочную: `setViewZones`
+ * сливает такие зоны (size суммируется), а рендер адресует декорации
+ * `Map<якорь, декорация>` — без склейки вторая декорация молча пропала бы.
+ * Порядок строк = порядок декораций в массиве; `text`-декорация становится
+ * строкой со своим цветом.
+ */
+export function mergeZoneDecorationsByAnchor(decorations: readonly IViewZoneDecoration[]): IViewZoneDecoration[] {
+    const byAnchor = new Map<number, IViewZoneDecoration[]>();
+    for (const decoration of decorations) {
+        const bucket = byAnchor.get(decoration.afterLine);
+        if (bucket === undefined) byAnchor.set(decoration.afterLine, [decoration]);
+        else bucket.push(decoration);
+    }
+    const merged: IViewZoneDecoration[] = [];
+    for (const [afterLine, bucket] of byAnchor) {
+        if (bucket.length === 1) {
+            merged.push(bucket[0]);
+            continue;
+        }
+        const lines: IViewZoneLine[] = [];
+        for (const decoration of bucket) {
+            if (decoration.lines !== undefined) lines.push(...decoration.lines);
+            else if (decoration.text !== undefined) {
+                lines.push({
+                    text: decoration.text,
+                    ...(decoration.colorToken !== undefined ? { colorToken: decoration.colorToken } : {}),
+                });
+            }
+        }
+        merged.push({ afterLine, lines });
+    }
+    return merged;
 }

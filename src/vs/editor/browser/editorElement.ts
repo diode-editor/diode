@@ -31,7 +31,6 @@ import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.t
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
-import { TokenIndex } from "./tokenIndex.ts";
 import type { ITextViewportGeometry } from "./textViewRendering.ts";
 import {
     caretLocalCell,
@@ -41,6 +40,7 @@ import {
     paintTextLine,
     SELECTION_BG,
 } from "./textViewRendering.ts";
+import { TokenIndex } from "./tokenIndex.ts";
 
 // Find-in-file highlights: all matches get a dim background; the current match a brighter one.
 const FIND_MATCH_BG = packRgb(98, 91, 23);
@@ -177,9 +177,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         // file folded to <100 view lines would truncate "150" to "15").
         const lineCount = this.viewState.document.lineCount;
         const digitCount = Math.max(1, Math.floor(Math.log10(lineCount)) + 1);
-        return (
-            GUTTER_LEFT_PADDING + digitCount + this.gutterMarkerColumns + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT
-        );
+        return GUTTER_LEFT_PADDING + digitCount + this.gutterMarkerColumns + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT;
     }
 
     /**
@@ -233,13 +231,19 @@ export class EditorElement extends TUIElement implements IScrollable {
         // все проходят через сеттер selections) — грязный кадр. Раньше
         // перерисовку спасала лишь побочная цепочка «selections → статус-бар →
         // setText → markDirty», которой нет у standalone-редактора.
-        this.viewState.onDidChangeCursorPosition(() => this.markDirty());
+        this.viewState.onDidChangeCursorPosition(() => {
+            this.markDirty();
+        });
         // Видимые изменения мимо курсора — скролл (scrollLine*, колесо),
         // фолдинг, подсветка поиска и правки документа напрямую (applyEdits
         // из расширений/bulkEdit) — тоже обязаны пометить редактор: под
         // damage-tracking непомеченный виджет не перерисовывается.
-        this.viewState.onDidChangeView(() => this.markDirty());
-        this.viewState.document.onDidChangeContent(() => this.markDirty());
+        this.viewState.onDidChangeView(() => {
+            this.markDirty();
+        });
+        this.viewState.document.onDidChangeContent(() => {
+            this.markDirty();
+        });
 
         this.addEventListener("keypress", (event) => {
             this.handleKeyPress(event);
@@ -361,25 +365,33 @@ export class EditorElement extends TUIElement implements IScrollable {
             const viewLine = scrollTop + screenY;
 
             // --- View zone row: виртуальная строка без документной — пустой
-            // гуттер и пустой контент (декорациями её наполнит владелец зон,
-            // например филлеры диффа). Номера строк не тратит.
-            if (this.viewState.viewLineKind(viewLine) === "zone") {
+            // гуттер и контент от владельца зон (филлеры, плашки, а с
+            // многострочными `lines` — призраки inline-диффа). Номера строк
+            // не тратит.
+            const zoneRow = this.viewState.zoneRowForViewLine(viewLine);
+            if (zoneRow !== null) {
                 for (let x = 0; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", bg: gutBg });
                 }
-                const anchor = this.viewState.zoneAnchorForViewLine(viewLine);
-                /* v8 ignore start -- ветка null недостижима: в ветке зоны якорь есть by construction */
-                const zoneDecoration = anchor === null ? undefined : zoneDecorationByAnchor.get(anchor);
-                /* v8 ignore stop */
+                const zoneDecoration = zoneDecorationByAnchor.get(zoneRow.anchor);
+                const zoneLine = zoneDecoration?.lines?.[zoneRow.offset];
                 const zoneFg =
-                    zoneDecoration?.colorToken !== undefined ? this.styleVar(zoneDecoration.colorToken) : editorFg;
-                const fill = zoneDecoration?.fillChar ?? " ";
+                    zoneLine?.colorToken !== undefined
+                        ? this.styleVar(zoneLine.colorToken)
+                        : zoneDecoration?.colorToken !== undefined
+                          ? this.styleVar(zoneDecoration.colorToken)
+                          : editorFg;
+                const zoneBg = zoneLine?.bgToken !== undefined ? this.styleVar(zoneLine.bgToken) : editorBg;
+                const fill = zoneLine !== undefined ? " " : (zoneDecoration?.fillChar ?? " ");
                 for (let x = 0; x < contentCols; x++) {
-                    context.setCell(gutterW + x, screenY, { char: fill, fg: zoneFg, bg: editorBg });
+                    context.setCell(gutterW + x, screenY, { char: fill, fg: zoneFg, bg: zoneBg });
                 }
-                if (zoneDecoration?.text !== undefined) {
-                    const text = zoneDecoration.text.slice(0, Math.max(0, contentCols));
-                    context.drawText(gutterW, screenY, text, { fg: zoneFg, bg: editorBg });
+                const text = zoneLine !== undefined ? zoneLine.text : zoneDecoration?.text;
+                if (text !== undefined) {
+                    context.drawText(gutterW, screenY, text.slice(0, Math.max(0, contentCols)), {
+                        fg: zoneFg,
+                        bg: zoneBg,
+                    });
                 }
                 continue;
             }
@@ -526,7 +538,13 @@ export class EditorElement extends TUIElement implements IScrollable {
         // Intra-line подсветка диффа: яркий фон изменённого фрагмента поверх
         // фона строки; слабее occurrence/selection — те побеждают в наложении.
         for (const decoration of this.decorations.rangeBackgrounds ?? []) {
-            paintRangeBackground(context, this.viewState, decoration.range, this.styleVar(decoration.colorToken), geometry);
+            paintRangeBackground(
+                context,
+                this.viewState,
+                decoration.range,
+                this.styleVar(decoration.colorToken),
+                geometry,
+            );
         }
 
         // Highlight all occurrences of the word under the cursor (weakest layer,
@@ -552,7 +570,13 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         // Highlight the current search match on top (wins over other matches and selection).
         if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {
-            paintRangeBackground(context, this.viewState, searchMatches[currentMatchIndex], FIND_MATCH_CURRENT_BG, geometry);
+            paintRangeBackground(
+                context,
+                this.viewState,
+                searchMatches[currentMatchIndex],
+                FIND_MATCH_CURRENT_BG,
+                geometry,
+            );
         }
 
         // Diagnostic squiggles on top of the content — painted last (after the

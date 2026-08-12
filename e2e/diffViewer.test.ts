@@ -154,7 +154,8 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     // ── B. Живой editable-дифф: правка в стороне доезжает до буфера (PR-4) ──
     it("печать в стороне диффа правит буфер файла, дифф пересчитывается сам", async () => {
         const r = repo({ "greeting.js": TRACKED });
-        const s = await open([r.dir, r.file("greeting.js")], r.dir);
+        // Шире порога inline: тест ассертит side-by-side пару N-/N+.
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
             await s.waitForText((t) => t.includes("greet"));
             await s.key("End");
@@ -419,7 +420,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     // ── F. Семейство команд сравнения (US-3, US-6) ───────────────────────────
     it("Compare with Saved: вкладка «(on disk) ↔ файл» по несохранённой правке", async () => {
         const r = repo({ "notes.txt": "alpha\nbravo\ncharlie\n" });
-        const s = await open([r.dir, r.file("notes.txt")], r.dir);
+        const s = await open([r.dir, r.file("notes.txt")], r.dir, 140);
         try {
             await s.waitForText((t) => t.includes("charlie"));
             await s.key("ArrowDown");
@@ -442,7 +443,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
 
     it("Compare Active File With...: пикер открывает дифф двух файлов", async () => {
         const r = repo({ "left.txt": "alpha\nLEFT\n", "right.txt": "alpha\nRIGHT\n" });
-        const s = await open([r.dir, r.file("left.txt")], r.dir);
+        const s = await open([r.dir, r.file("left.txt")], r.dir, 140);
         try {
             await s.waitForText((t) => t.includes("LEFT"));
 
@@ -542,13 +543,13 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── E. Side-by-side: resize не теряет каретку (US-23; inline-фолбэк — PR-5) ──
-    it("resize туда-обратно сохраняет каретку и обе колонки", async () => {
+    it("US-21: узкий терминал — авто-inline с призраком, resize обратно возвращает колонки", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
             await openDiffFor(s, " // wide");
 
-            // Две колонки с разделителем.
+            // Широко: две колонки с заголовками сторон.
             expect(frameToText(await s.captureFrame())).toContain("│");
 
             // Каретка уезжает вниз в правой (modified) стороне.
@@ -556,12 +557,50 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             const caretBefore = ((await selectionOf(s))?.selections as { active: { line: number } }[])[0].active
                 .line;
 
+            // Узко: панель уже порога — inline. Общий заголовок, изменённая
+            // строка HEAD видна призраком (без номера), правка — с маркером.
             await s.resize(100, 24);
-            await s.resize(140, 24);
+            await s.waitForText((t) => t.includes("HEAD ↔ greeting.js"), { timeoutMs: 15_000 });
+            const inlineFrame = frameToText(await s.captureFrame()).split("\n");
+            const ghost = inlineFrame.find((l) => l.includes('return "hi " + name;') && !l.includes("// wide"));
+            expect(ghost).toBeDefined();
+            expect(ghost).not.toMatch(/\d/u);
+            expect(inlineFrame.find((l) => /\d+\+\s+.*\/\/ wide/u.test(l))).toBeDefined();
 
+            // Обратно: side-by-side, каретка на своей строке (US-23).
+            await s.resize(140, 24);
+            await s.waitForText((t) => t.split("\n").some((l) => l.includes("HEAD") && l.includes("│")), {
+                timeoutMs: 15_000,
+            });
             const after = await selectionOf(s);
             expect((after?.selections as { active: { line: number } }[])[0].active.line).toBe(caretBefore);
-            expect((await s.nodes("EditorElement")).length).toBeGreaterThanOrEqual(2);
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    it("US-22: «Diff: Toggle Inline View» переключает режим и запоминается", async () => {
+        const r = repo({ "greeting.js": TRACKED });
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
+        try {
+            await openDiffFor(s, " // toggle");
+            expect(frameToText(await s.captureFrame())).toContain("│");
+
+            await s.key("Ctrl+P");
+            await s.text(">Diff: Toggle Inline View");
+            await s.waitForText((t) => t.includes("Toggle Inline View"));
+            await s.key("Enter");
+            // Широкий терминал, но режим принудительно inline.
+            await s.waitForText((t) => t.includes("HEAD ↔ greeting.js"), { timeoutMs: 15_000 });
+
+            // Обратный тумблер возвращает колонки.
+            await s.key("Ctrl+P");
+            await s.text(">Diff: Toggle Inline View");
+            await s.waitForText((t) => t.includes("Toggle Inline View"));
+            await s.key("Enter");
+            await s.waitForText((t) => t.split("\n").some((l) => l.includes("HEAD") && l.includes("│")), {
+                timeoutMs: 15_000,
+            });
         } finally {
             await teardown();
         }

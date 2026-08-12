@@ -127,6 +127,36 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.zoneAnchorForViewLine(-1)).toBeNull();
     });
 
+    it("zoneRowForViewLine: якорь и offset строки внутри многострочной зоны", () => {
+        const state = makeState("a\nb\nc");
+        state.setViewZones([
+            { afterLine: -1, size: 2 },
+            { afterLine: 1, size: 3 },
+        ]);
+        // Вью: · · 0 1 · · · 2
+
+        expect(state.zoneRowForViewLine(0)).toEqual({ anchor: -1, offset: 0 });
+        expect(state.zoneRowForViewLine(1)).toEqual({ anchor: -1, offset: 1 });
+        expect(state.zoneRowForViewLine(4)).toEqual({ anchor: 1, offset: 0 });
+        expect(state.zoneRowForViewLine(6)).toEqual({ anchor: 1, offset: 2 });
+        // Документные строки и край — null.
+        expect(state.zoneRowForViewLine(2)).toBeNull();
+        expect(state.zoneRowForViewLine(99)).toBeNull();
+        expect(state.zoneRowForViewLine(-1)).toBeNull();
+    });
+
+    it("zoneRowForViewLine: offset считается от первой строки зоны и после свёртки якоря", () => {
+        const lines = Array.from({ length: 10 }, (_, i) => `l${String(i)}`).join("\n");
+        const state = makeState(lines);
+        state.setFoldingRegions([{ startLine: 1, endLine: 5, isCollapsed: true }]);
+        // Якорь скрыт свёрткой — зона выживает после заголовка региона.
+        state.setViewZones([{ afterLine: 3, size: 2 }]);
+        // Вью: 0 1 · · 6 7 8 9
+
+        expect(state.zoneRowForViewLine(2)).toEqual({ anchor: 3, offset: 0 });
+        expect(state.zoneRowForViewLine(3)).toEqual({ anchor: 3, offset: 1 });
+    });
+
     it("docLineForViewLine перешагивает многострочную зону до начала файла", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: -1, size: 2 }]);
