@@ -17,6 +17,7 @@ import {
     WorkbenchContributionsRegistry,
     WorkbenchContributionsRegistryDIToken,
 } from "../common/workbenchContributionsRegistry.ts";
+import { registerVscodeDiffCommand } from "../contrib/diff/browser/compareActions.ts";
 import {
     EXPLORER_VIEWLET_ID,
     ExplorerComponent,
@@ -32,8 +33,8 @@ import { OutputComponentDIToken } from "../contrib/output/browser/outputComponen
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
 import { ChangesComponent, ChangesComponentDIToken, SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
 import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
-import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
 import { ScmRepoStateServiceDIToken } from "../contrib/scm/browser/repoStateService.ts";
+import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
 import {
     SEARCH_VIEWLET_ID,
     SearchComponent,
@@ -59,10 +60,10 @@ import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironme
 import type { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
-import { registerVscodeDiffCommand } from "../contrib/diff/browser/compareActions.ts";
 import { builtinActions } from "./actions/builtinActions.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
+import { DiffEditorPane2 } from "./parts/editor/diffEditorPane2.ts";
 import { EditorPartComponent, EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
 import { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import { PanelComponentDIToken } from "./parts/panel/panelComponent.ts";
@@ -70,8 +71,8 @@ import { QuickInputComponentDIToken } from "./parts/quickinput/quickInputCompone
 import type { QuickInputService } from "./parts/quickinput/quickInputService.ts";
 import { QuickInputServiceDIToken } from "./parts/quickinput/quickInputService.ts";
 import { type SidebarService, SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
-import { type ViewsService, ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 import { StatusBarComponent, StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
+import { type ViewsService, ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 import type { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 import type { WorkbenchStateService } from "./workbenchStateService.ts";
@@ -319,26 +320,31 @@ export class WorkbenchComponent extends Component {
         this.view.addEventListener("focus", this.workbenchContextKeys.handleFocusChange, { capture: true });
         this.view.addEventListener("blur", this.workbenchContextKeys.handleFocusChange, { capture: true });
         this.editorService.onRequestConfirmClose = (group, index) => {
-            // Здесь именно текстовая панель: диалог предлагает СОХРАНИТЬ, а
-            // сохраняться умеет только она. Не-текстовая вкладка сюда не попадает —
-            // у неё isModified === false, и группа закрывает её напрямую.
+            // Диалог предлагает СОХРАНИТЬ, поэтому здесь сохраняемые поверхности
+            // вкладки: сама текстовая панель либо dirty-стороны диффа v2, не
+            // видимые больше нигде (untitled-пара, файл без обычной вкладки).
             // Координата — (группа, индекс): крестик работает и в неактивной группе.
             const pane = group.getPane(index);
-            const editor =
-                pane instanceof TextEditorPane
-                    ? pane
-                    : /* v8 ignore next -- defensive: не-текстовая вкладка не бывает изменённой и сюда не попадает */ null;
-            /* v8 ignore start -- defensive: the callback is only invoked synchronously with a valid tab index, so the editor always exists */
-            if (!editor) return;
+            let saveTargets: TextEditorPane[];
+            if (pane instanceof TextEditorPane) saveTargets = [pane];
+            else if (pane instanceof DiffEditorPane2) saveTargets = this.editorService.dirtyExclusiveDiffSides(pane);
+            /* v8 ignore start -- defensive: прочие вкладки не бывают изменёнными и сюда не попадают */
+            else return;
+            if (saveTargets.length === 0) return;
             /* v8 ignore stop */
-            this.showConfirmSaveDialog(this.editorService.displayName(editor), {
+            this.showConfirmSaveDialog(saveTargets.map((target) => target.label).join(", "), {
                 onSave: () => {
                     // Explicit "Save" while closing a modified tab: honour the
                     // user's edits even against an external change (overwrite),
-                    // so choosing Save never silently drops their work.
-                    void editor.save({ overwrite: true }).then(() => {
+                    // so choosing Save never silently drops their work. A side
+                    // that cannot be saved (untitled without a path — "no-file")
+                    // keeps the tab open instead of silently dropping the text.
+                    void (async () => {
+                        for (const target of saveTargets) {
+                            if ((await target.save({ overwrite: true })) !== "saved") return;
+                        }
                         group.closeTab(index);
-                    });
+                    })();
                 },
                 onDontSave: () => {
                     group.closeTab(index);

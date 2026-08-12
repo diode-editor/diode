@@ -9,10 +9,10 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
-import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { ContextMenuControllerDIToken } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { IFileWatcherDIToken } from "../../../../platform/files/common/iFileWatcherDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -21,22 +21,24 @@ import type { ILogService } from "../../../../platform/log/common/iLogService.ts
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
 import { UndoRedoService, UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IActivatable } from "../../../browser/iActivatable.ts";
+import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
-import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import {
     LanguageServiceDIToken,
     TokenizationRegistryDIToken,
     TokenStyleResolverDIToken,
 } from "../../../common/coreTokens.ts";
-import { EditorGroup, type GroupId } from "./editorGroupModel.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
 import { TextFileModel } from "../../textfile/common/textFileModel.ts";
+import type { ITextFileModelReference } from "../../textfile/common/textFileModelRegistry.ts";
 import { TextFileModelRegistry } from "../../textfile/common/textFileModelRegistry.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
+
+import { EditorGroup, type GroupId } from "./editorGroupModel.ts";
 
 export const EditorServiceDIToken = token<EditorService>("EditorService");
 
@@ -309,7 +311,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.register(
             this.configurationService.onDidChangeConfiguration((event) => {
                 if (!event.affectsConfiguration("editor")) return;
-                for (const editor of this.textPanes()) {
+                // Стороны диффа — тоже редактирующие поверхности: tabSize и
+                // прочие editor.* обязаны доехать и до них.
+                for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
                     this.applyConfigurationToEditor(editor);
                 }
             }),
@@ -480,10 +484,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * группа-источник схлопывается сама. Ресурс уже открыт в целевой группе —
      * переносимая вкладка сливается с существующей (пер-группный дедуп).
      */
-    public moveActiveEditorToGroup(
-        direction: "next" | "previous",
-        { focus = true }: { focus?: boolean } = {},
-    ): void {
+    public moveActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
         const source = this.activeGroupValue;
         const index = source.activeIndex;
         if (source.activePane === null) return;
@@ -513,10 +514,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * реестр, каретка/скролл скопированы. Только файловые вкладки — untitled и
      * дифф не дублируются. Ресурс уже в целевой — просто активируется там.
      */
-    public copyActiveEditorToGroup(
-        direction: "next" | "previous",
-        { focus = true }: { focus?: boolean } = {},
-    ): void {
+    public copyActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
         const sourcePane = this.activeGroupValue.activePane;
         if (!(sourcePane instanceof TextEditorPane) || sourcePane.uri.scheme !== "file") return;
         const target = this.neighborOrNewGroup(direction);
@@ -803,6 +801,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Текстовая вкладка без учёта detached-панелей (см. {@link getActiveTabPane}). */
     public getActiveTabEditor(): TextEditorPane | null {
         const pane = this.getActiveTabPane();
+        // Активная сторона диффа v2 — редактирующая поверхность вкладки: Ctrl+S,
+        // Save As и editor-options расширений обязаны работать по ней, а не
+        // онеметь на «не-текстовой» вкладке.
+        if (pane instanceof DiffEditorPane2) return pane.activeTextPane;
         return pane instanceof TextEditorPane ? pane : null;
     }
 
@@ -880,6 +882,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Текстовые вкладки всех групп в порядке полосы (декорации, конфиг, персист). */
     private textPanes(): TextEditorPane[] {
         return this.allPanes().filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane);
+    }
+
+    /** Стороны всех дифф-вкладок v2 — редактирующие поверхности вне таб-строки. */
+    private diffSidePanes(): TextEditorPane[] {
+        return this.allPanes().flatMap((pane) => (pane instanceof DiffEditorPane2 ? [...pane.sidePanes()] : []));
     }
 
     /** Вкладки всех групп в порядке полосы. */
@@ -960,19 +967,42 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * `filePath` остаётся `null`, путь запрашивается при первом сохранении (Save As).
      */
     public newUntitled({ focus = true }: { focus?: boolean } = {}): void {
-        // Безымянный буфер уникален по построению — модель мимо реестра,
-        // вкладка владеет ею единолично.
-        const model = new TextFileModel(this.languageService, this.undoRedoService);
-        this.wireModel(model);
+        const model = this.createUntitledModel();
         const editor = this.createPaneForModel(model);
         // Файл не грузим (view-state из конструктора не пересоздаётся) — конфиг
         // применяем сразу.
         this.applyConfigurationToEditor(editor);
-        // Номер выдаём до вставки: пока редактора нет в списке вкладок, его никто не видит.
-        editor.setUntitled(++this.untitledCounter);
         const group = this.activeGroupValue;
         group.insertPane(editor);
         group.activateTab(group.editorCount - 1, { focus });
+    }
+
+    /**
+     * Безымянный буфер БЕЗ вкладки — сторона «Compare New Untitled Text Files»,
+     * редактируемая прямо в дифф-вкладке. Модель мимо реестра (уникальна по
+     * построению), номер — из общего счётчика: `Untitled-N` стабилен, Save As
+     * работает штатно. Владение — у вызывающего (панель диффа).
+     */
+    public createUntitledModel(): TextFileModel {
+        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        this.wireModel(model);
+        model.setUntitled(++this.untitledCounter);
+        return model;
+    }
+
+    /**
+     * Ссылка на общую модель файла из реестра — для file-стороны диффа v2: тот
+     * же документ, что у вкладок этого файла, поэтому несохранённые правки видны
+     * в обе стороны, а undo общий. Владелец обязан освободить ссылку (панель
+     * передаёт её `TextEditorPane` третьим аргументом).
+     */
+    public acquireFileModel(uri: Uri): ITextFileModelReference {
+        return this.modelRegistry.acquire(uri);
+    }
+
+    /** Открытая модель ресурса, если есть; без создания и без изменения ref-count. */
+    public openFileModel(uri: Uri): TextFileModel | null {
+        return this.modelRegistry.get(uri);
     }
 
     /**
@@ -1011,11 +1041,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * вкладка; без неё вкладка владеет моделью единолично (untitled, detached).
      */
     private createPaneForModel(model: TextFileModel, modelOwnership?: IDisposable): TextEditorPane {
-        const component = new EditorComponent(
-            this.tokenizationRegistry,
-            this.tokenStyleResolver,
-            model,
-        );
+        const component = new EditorComponent(this.tokenizationRegistry, this.tokenStyleResolver, model);
         const editor = new TextEditorPane(model, component, modelOwnership);
         // Политика контекстного меню редактора слушает "contextmenu" на обвязке
         // пары: ScrollBarDecorator переживает пересоздание EditorElement при
@@ -1075,8 +1101,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * (`editor.cursorSurroundingLines`, `editor.tabSize`, `editor.insertSpaces`).
      * Если ключ не задан, соответствующая настройка редактора не трогается
      * (`setIndentOptions` оставит существующее значение — auto-detect и т.п.).
+     * Публичный: стороны дифф-вкладки создаёт `openDiffPair`, а конфиг — общий.
      */
-    private applyConfigurationToEditor(editor: TextEditorPane): void {
+    public applyConfigurationToEditor(editor: TextEditorPane): void {
         // `editor.occurrencesHighlight`: "off" disables; "singleFile"/"multiFile"
         // (and unset → VS Code default) enable. We only support single-file scope.
         const occurrencesHighlight = this.configurationService.get<string>("editor.occurrencesHighlight");
@@ -1116,14 +1143,17 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // Дедуп по модели: документ, открытый в нескольких вкладках, — одни
         // несохранённые правки и ОДИН диалог, а не по числу вкладок.
         const seenModels = new Set<TextFileModel>();
-        for (const editor of this.textPanes()) {
+        // Стороны диффа — после вкладок: у вкладки метка красивее, а модель
+        // у них общая, так что дифф добавляет только СВОИ dirty-буферы
+        // (untitled-стороны, файл без обычной вкладки).
+        for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
             if (!editor.isModified) continue;
             if (seenModels.has(editor.model)) continue;
             seenModels.add(editor.model);
             items.push({
                 name: this.displayName(editor),
                 isStillDirty: () =>
-                    this.textPanes().some((pane) => pane.model === editor.model),
+                    [...this.textPanes(), ...this.diffSidePanes()].some((pane) => pane.model === editor.model),
                 save: () => editor.save({ overwrite: true }),
             });
         }
@@ -1133,15 +1163,42 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /**
      * Правда, если `editor` — последняя вкладка, показывающая свой документ:
      * закрытие потеряет несохранённые правки, нужен confirm-диалог. Пока документ
-     * виден где-то ещё, вкладка закрывается молча — правки живут в общей модели
-     * (семантика VS Code для сплитов).
+     * виден где-то ещё — в другой группе или стороной диффа, — вкладка
+     * закрывается молча: правки живут в общей модели (семантика VS Code).
      */
     public isLastPaneForDocument(editor: TextEditorPane): boolean {
+        return this.holdersOf(editor.model) <= 1;
+    }
+
+    /** Сколько поверхностей (вкладок и дифф-сторон) показывают модель. */
+    private holdersOf(model: TextFileModel): number {
         let count = 0;
-        for (const pane of this.textPanes()) {
-            if (pane.model === editor.model) count++;
+        for (const pane of [...this.textPanes(), ...this.diffSidePanes()]) {
+            if (pane.model === model) count++;
         }
-        return count <= 1;
+        return count;
+    }
+
+    /**
+     * Нужен ли confirm-диалог перед закрытием вкладки — единая формула для
+     * крестика, Ctrl+W и закрытий из адаптеров. Текстовая вкладка: изменена и
+     * последняя у документа. Дифф v2: есть сторона с несохранёнными правками,
+     * которую больше нигде не видно. Прочие панели: по `isModified`.
+     */
+    public needsCloseConfirm(pane: IEditorPane): boolean {
+        if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane).length > 0;
+        /* v8 ignore start -- задел под будущие виды панелей: в полосе только текстовые и дифф-вкладки */
+        if (!(pane instanceof TextEditorPane)) return pane.isModified;
+        /* v8 ignore stop */
+        return pane.isModified && this.isLastPaneForDocument(pane);
+    }
+
+    /**
+     * Стороны диффа с несохранёнными правками, которые не показаны больше нигде:
+     * закрытие вкладки потеряло бы их. Для confirm-диалога закрытия.
+     */
+    public dirtyExclusiveDiffSides(pane: DiffEditorPane2): TextEditorPane[] {
+        return pane.sidePanes().filter((side) => side.isModified && this.holdersOf(side.model) <= 1);
     }
 
     /**

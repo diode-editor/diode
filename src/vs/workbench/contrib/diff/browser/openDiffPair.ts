@@ -1,17 +1,17 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { IDiffEditorPaneInput } from "../../../browser/parts/editor/diffEditorPane.ts";
-import { DiffEditorPane } from "../../../browser/parts/editor/diffEditorPane.ts";
-import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import type { DiffV2SideSource, IDiffEditorPane2Input } from "../../../browser/parts/editor/diffEditorPane2.ts";
+import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import {
     FileSystemProviderRegistryDIToken,
     LanguageServiceDIToken,
     TokenizationRegistryDIToken,
     TokenStyleResolverDIToken,
 } from "../../../common/coreTokens.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 /** Схема вкладки диффа: не ресурс на диске, а пара «источник ↔ источник». */
 const DIFF_SCHEME = "vexx-diff";
@@ -20,22 +20,28 @@ const DIFF_SCHEME = "vexx-diff";
 export const COMPARE_NOTICE_MS = 4000;
 
 /**
- * Сторона сравнения. Текст берётся из `text`, если он задан (Clipboard);
- * иначе — по `uri`: открытый буфер этого ресурса (несохранённые правки видны),
- * а без него — чтение через реестр провайдеров ФС (`file:`, `git:`, …).
+ * Сторона сравнения. Вид источника выводится из полей (см. {@link resolveSide}):
+ * готовая модель (`ownedModel`) → редактируемая сторона, которой владеет
+ * панель; готовый текст (`text`) → снимок; `file:`-uri → **живая общая модель**
+ * из реестра (несохранённые правки видны, редактируется прямо в диффе); иные
+ * схемы (`git:`) и `preferDisk` → снимок, читаемый провайдером ФС.
  */
 export interface IDiffSideSpec {
-    /** Ресурс стороны; не задан — сторона живёт только в `text`. */
+    /** Ресурс стороны; не задан — сторона живёт только в `text`/`ownedModel`. */
     readonly uri?: Uri;
-    /** Готовый текст стороны; задан — `uri` для чтения не используется. */
+    /** Готовый текст стороны (Clipboard); задан — `uri` для чтения не используется. */
     readonly text?: string;
+    /**
+     * Готовая модель стороны (untitled-стороны «Compare New Untitled Text
+     * Files»). Владение переходит панели диффа вместе с открытием вкладки.
+     */
+    readonly ownedModel?: TextFileModel;
     /** Подпись колонки side-by-side и половина метки вкладки. */
     readonly label: string;
     /**
      * Ключ идентичности вкладки. Пара ключей (упорядоченная) определяет
-     * «ту же» вкладку: тот же ключ → обновление снимка на месте, другой →
-     * отдельная вкладка. По устройству НЕ зависит от текста: повторное
-     * сравнение обновляет вкладку, а не плодит новую.
+     * «ту же» вкладку: тот же ключ → та же вкладка (снимочные стороны
+     * обновляются на месте), другой → отдельная вкладка.
      */
     readonly identity: string;
     /**
@@ -62,61 +68,79 @@ export interface IOpenDiffPairOptions {
 export type OpenDiffPairResult = "opened" | "unreadable";
 
 /**
- * Ядро смотрелки изменений: открывает вкладку диффа для произвольной пары
- * источников — им пользуются и «Compare with HEAD», и всё семейство команд
- * сравнения (два файла, буфер обмена, сохранённая версия, ревизия), и
- * программная `vscode.diff`. Дифф считает перенесённый движок, отображение
- * собирает `DiffViewModel`, вкладкой это становится благодаря абстракции
- * панели.
+ * Ядро сравнения: открывает **живую** дифф-вкладку v2 ({@link DiffEditorPane2})
+ * для произвольной пары источников — им пользуются и «Compare with HEAD», и всё
+ * семейство команд сравнения (два файла, буфер обмена, сохранённая версия,
+ * ревизия, untitled-пара), и программная `vscode.diff`.
  *
- * Дифф — **снимок** на момент вызова: панель держит тексты у себя. Живой
- * пересчёт по правкам исходного буфера — отдельная задача (docs/TODO/DiffViewer.md).
+ * Стороны-модели живут: правки (в диффе или в обычной вкладке того же файла)
+ * пересчитывают дифф сами. Снимочные стороны (git-ревизия, clipboard, диск)
+ * обновляются повторным вызовом команды — вкладка та же, содержимое свежее.
  */
-export async function openDiffPair(accessor: ServiceAccessor, options: IOpenDiffPairOptions): Promise<OpenDiffPairResult> {
+export async function openDiffPair(
+    accessor: ServiceAccessor,
+    options: IOpenDiffPairOptions,
+): Promise<OpenDiffPairResult> {
     const editors = accessor.get(EditorServiceDIToken);
+    const uri = pairUri(options);
 
-    const input = await computeDiffInput(accessor, options);
-    if (input === null) return "unreadable";
-
-    // Дифф — снимок, а идентичность вкладки от содержимого не зависит: группа
-    // дедупит её по `uri`. Поэтому если вкладка той же пары уже открыта,
-    // обновляем её свежим снимком на месте — иначе повторный вызов
-    // (единственный способ «обновить» дифф) вернул бы устаревший результат.
-    const existing = editors.getPanes().find((p) => p.uri.toString() === input.uri.toString());
-    if (existing instanceof DiffEditorPane) {
-        existing.setInput(input);
-        editors.activateTab(editors.getPanes().indexOf(existing));
+    // Дедуп по идентичности пары — по ВСЕМ группам (вкладка могла остаться в
+    // другой группе): живые стороны уже актуальны, снимочные освежаем — иначе
+    // повторный вызов (единственный способ «обновить» снимок) показал бы старое.
+    for (const group of editors.groups) {
+        const index = group.findPaneIndex(uri);
+        if (index < 0) continue;
+        const pane = group.getPane(index);
+        /* v8 ignore start -- defensive: vexx-diff-uri открывает только это ядро, вид панели известен */
+        if (!(pane instanceof DiffEditorPane2)) break;
+        /* v8 ignore stop */
+        if (!(await refreshSnapshotSides(accessor, pane, options))) return "unreadable";
+        editors.focusGroup(group.id, { focus: false });
+        editors.activateTab(index);
         return "opened";
     }
 
-    editors.openPane(
-        new DiffEditorPane(accessor.get(TokenizationRegistryDIToken), accessor.get(TokenStyleResolverDIToken), input),
+    const input = await buildDiffInput(accessor, options);
+    if (input === null) return "unreadable";
+
+    const pane = new DiffEditorPane2(
+        accessor.get(LanguageServiceDIToken),
+        accessor.get(UndoRedoServiceDIToken),
+        accessor.get(TokenizationRegistryDIToken),
+        accessor.get(TokenStyleResolverDIToken),
+        input,
     );
+    // Стороны — редактирующие поверхности: editor.*-конфиг (tabSize, отступы)
+    // применяется как к обычным вкладкам.
+    for (const side of pane.sidePanes()) editors.applyConfigurationToEditor(side);
+    editors.openPane(pane);
     return "opened";
 }
 
 /**
  * Резолв обеих сторон в готовый вход панели, без открытия вкладки. `null` —
- * сторона не читается по её политике. Общая часть смотрелки и диффа v2, и
- * будущего живого пересчёта (PR-4): refresh обязан считать заново, минуя
- * активацию вкладки.
+ * сторона не читается по её политике (ссылки/модели уже взятых сторон
+ * освобождаются — вкладки не будет).
  */
-export async function computeDiffInput(
+export async function buildDiffInput(
     accessor: ServiceAccessor,
     options: IOpenDiffPairOptions,
-): Promise<IDiffEditorPaneInput | null> {
-    const originalText = await resolveSideText(accessor, options.original);
-    if (originalText === null) return null;
-    const modifiedText = await resolveSideText(accessor, options.modified);
-    if (modifiedText === null) return null;
+): Promise<IDiffEditorPane2Input | null> {
+    const original = await resolveSide(accessor, options.original);
+    if (original === null) return null;
+    const modified = await resolveSide(accessor, options.modified);
+    if (modified === null) {
+        if (original.kind === "shared") original.ref.dispose();
+        return null;
+    }
 
     return {
         uri: pairUri(options),
         label: options.title ?? `${options.original.label} ↔ ${options.modified.label}`,
         originalLabel: options.original.label,
         modifiedLabel: options.modified.label,
-        originalText,
-        modifiedText,
+        original,
+        modified,
         languageId: resolveLanguageId(accessor, options),
         // Стороны вкладки — для TabInputTextDiff в API расширений; сторона без
         // uri (Clipboard) остаётся без ресурса.
@@ -136,34 +160,42 @@ function pairUri(options: IOpenDiffPairOptions): Uri {
     return Uri.from({ scheme: DIFF_SCHEME, path, query });
 }
 
-/** Язык подсветки: открытый буфер стороны с uri, иначе по расширению файла. */
-function resolveLanguageId(accessor: ServiceAccessor, options: IOpenDiffPairOptions): string {
-    const languages = accessor.get(LanguageServiceDIToken);
-    const editors = accessor.get(EditorServiceDIToken);
-    for (const side of [options.modified, options.original]) {
-        if (side.uri === undefined) continue;
-        const pane = findTextPane(editors, side.uri);
-        if (pane !== undefined) return pane.languageId;
-        const byResource = languages.getLanguageIdForResource(side.uri.path);
-        if (byResource !== undefined) return byResource;
+/**
+ * Источник стороны по её спеке. Порядок ветвления — от явного к выводимому:
+ * готовая модель → готовый текст → без uri пусто → снимок с диска/провайдера
+ * (`preferDisk`, не-file схемы) → **живая модель из реестра** для `file:`.
+ * Файл, которого нет ни в буферах, ни на диске, — по политике `onMissing`.
+ */
+async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Promise<DiffV2SideSource | null> {
+    if (side.ownedModel !== undefined) return { kind: "owned", model: side.ownedModel };
+    if (side.text !== undefined) return { kind: "snapshot", text: side.text };
+    if (side.uri === undefined) return { kind: "snapshot", text: "" };
+    if (side.preferDisk === true || side.uri.scheme !== "file") {
+        const text = await readSideText(accessor, side);
+        return text === null ? null : { kind: "snapshot", text };
     }
-    return "plaintext";
+
+    const editors = accessor.get(EditorServiceDIToken);
+    if (editors.openFileModel(side.uri) === null) {
+        // Файл не открыт — политика `onMissing` требует знать, существует ли он,
+        // а фабрика реестра отсутствующий файл молча открыла бы пустым буфером
+        // (семантика «новый файл по пути»). Пробуем чтение провайдером; сам
+        // контент возьмёт модель.
+        try {
+            await accessor.get(FileSystemProviderRegistryDIToken).readFile(side.uri);
+        } catch {
+            return side.onMissing === "empty" ? { kind: "snapshot", text: "" } : null;
+        }
+    }
+    return { kind: "shared", ref: editors.acquireFileModel(side.uri) };
 }
 
 /**
- * Текст стороны; `null` — сторона не читается (и это ошибка по её политике).
- * Открытый буфер побеждает диск (несохранённые правки видны), кроме
- * `preferDisk` — там наоборот, содержимое буфера и есть вторая сторона.
+ * Текст снимочной стороны; `null` — не читается (и это ошибка по её политике).
  */
-async function resolveSideText(accessor: ServiceAccessor, side: IDiffSideSpec): Promise<string | null> {
+async function readSideText(accessor: ServiceAccessor, side: IDiffSideSpec): Promise<string | null> {
     if (side.text !== undefined) return side.text;
     if (side.uri === undefined) return "";
-
-    if (side.preferDisk !== true) {
-        const pane = findTextPane(accessor.get(EditorServiceDIToken), side.uri);
-        if (pane !== undefined) return pane.getText();
-    }
-
     const providers = accessor.get(FileSystemProviderRegistryDIToken);
     try {
         if (!providers.hasProvider(side.uri.scheme)) throw new Error(`no provider for ${side.uri.scheme}`);
@@ -173,10 +205,36 @@ async function resolveSideText(accessor: ServiceAccessor, side: IDiffSideSpec): 
     }
 }
 
-function findTextPane(editors: EditorService, uri: Uri): TextEditorPane | undefined {
-    return editors
-        .getPanes()
-        .find((p): p is TextEditorPane => p instanceof TextEditorPane && p.uri.toString() === uri.toString());
+/**
+ * Освежает снимочные стороны существующей вкладки свежими текстами (HEAD
+ * сдвинулся, диск перезаписан). Живые стороны не трогаются — они и так
+ * актуальны. Неизменившийся текст панель отбрасывает сама (no-op).
+ */
+async function refreshSnapshotSides(
+    accessor: ServiceAccessor,
+    pane: DiffEditorPane2,
+    options: IOpenDiffPairOptions,
+): Promise<boolean> {
+    for (const side of pane.snapshotSides()) {
+        const text = await readSideText(accessor, side === "original" ? options.original : options.modified);
+        if (text === null) return false;
+        pane.replaceSnapshotContent(side, text);
+    }
+    return true;
+}
+
+/** Язык подсветки снимков: открытая модель стороны с uri, иначе по расширению файла. */
+function resolveLanguageId(accessor: ServiceAccessor, options: IOpenDiffPairOptions): string {
+    const languages = accessor.get(LanguageServiceDIToken);
+    const editors = accessor.get(EditorServiceDIToken);
+    for (const side of [options.modified, options.original]) {
+        if (side.uri === undefined) continue;
+        const model = editors.openFileModel(side.uri);
+        if (model !== null) return model.languageId;
+        const byResource = languages.getLanguageIdForResource(side.uri.path);
+        if (byResource !== undefined) return byResource;
+    }
+    return "plaintext";
 }
 
 /** Транзиентный нотис в статус-баре — единая форма отказов сравнения. */

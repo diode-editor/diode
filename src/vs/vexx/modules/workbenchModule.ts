@@ -1,12 +1,15 @@
-import { MenuContributionsDIToken } from "../../platform/actions/common/iMenuContribution.ts";
-import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
-import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
-import { ContextMenuService, ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
-import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import {
     ContextMenuController as EditorContextMenuController,
     ContextMenuControllerDIToken as EditorContextMenuControllerDIToken,
 } from "../../editor/contrib/contextmenu/browser/contextMenuController.ts";
+import { MenuContributionsDIToken } from "../../platform/actions/common/iMenuContribution.ts";
+import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
+import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
+import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import {
+    ContextMenuService,
+    ContextMenuServiceDIToken,
+} from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { QuitHandlerDIToken } from "../../workbench/browser/actions/appActions.ts";
 import { MENU_CONTRIBUTIONS } from "../../workbench/browser/actions/menuContributions.ts";
@@ -21,25 +24,11 @@ import {
     EditorStatusContributionDIToken,
 } from "../../workbench/browser/parts/editor/editorStatusContribution.ts";
 import { PanelComponent, PanelComponentDIToken } from "../../workbench/browser/parts/panel/panelComponent.ts";
-import { SidebarService, SidebarServiceDIToken } from "../../workbench/browser/parts/sidebar/sidebarService.ts";
-import { ViewsService, ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import {
     PanelFocusContribution,
     PanelFocusContributionDIToken,
 } from "../../workbench/browser/parts/panel/panelFocusContribution.ts";
 import { PanelService, PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
-import {
-    SearchComponent,
-    SearchComponentDIToken,
-    SearchRevealTargetDIToken,
-} from "../../workbench/contrib/search/browser/searchComponent.ts";
-import { TextSearchServiceDIToken } from "../../workbench/services/search/common/textSearch.ts";
-import { TextSearchService } from "../../workbench/services/search/node/textSearchService.ts";
-import { OutputChannelActions, OutputChannelActionsDIToken } from "../../workbench/contrib/output/browser/outputChannelActions.ts";
-import { OutputComponent, OutputComponentDIToken } from "../../workbench/contrib/output/browser/outputComponent.ts";
-import { OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
-import { OutputChannelRegistry } from "../../workbench/services/output/common/outputChannelRegistry.ts";
-import { OutputService, OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
 import {
     QuickInputComponent,
     QuickInputComponentDIToken,
@@ -48,10 +37,12 @@ import {
     QuickInputService,
     QuickInputServiceDIToken,
 } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
+import { SidebarService, SidebarServiceDIToken } from "../../workbench/browser/parts/sidebar/sidebarService.ts";
 import {
     StatusBarComponent,
     StatusBarComponentDIToken,
 } from "../../workbench/browser/parts/statusbar/statusBarComponent.ts";
+import { ViewsService, ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
 import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/browser/workbenchContributions.ts";
@@ -86,6 +77,10 @@ import {
 import { FindComponent, FindComponentDIToken } from "../../workbench/contrib/find/browser/findComponent.ts";
 import { FindService, FindServiceDIToken } from "../../workbench/contrib/find/browser/findService.ts";
 import {
+    DefinitionService,
+    DefinitionServiceDIToken,
+} from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
+import {
     DiagnosticsEditorSourceDIToken,
     DiagnosticsService,
     DiagnosticsServiceDIToken,
@@ -95,6 +90,11 @@ import {
     ProblemsComponent,
     ProblemsComponentDIToken,
 } from "../../workbench/contrib/markers/browser/problemsComponent.ts";
+import {
+    OutputChannelActions,
+    OutputChannelActionsDIToken,
+} from "../../workbench/contrib/output/browser/outputChannelActions.ts";
+import { OutputComponent, OutputComponentDIToken } from "../../workbench/contrib/output/browser/outputComponent.ts";
 import {
     CommandsQuickAccessProvider,
     CommandsQuickAccessProviderDIToken,
@@ -119,19 +119,13 @@ import {
     QuickAccessRegistryDIToken,
 } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
-import { ScmInputComponent, ScmInputComponentDIToken } from "../../workbench/contrib/scm/browser/scmInputComponent.ts";
-import { ScmRepoStateService, ScmRepoStateServiceDIToken } from "../../workbench/contrib/scm/browser/repoStateService.ts";
-import {
-    ScmStatusBarContribution,
-    ScmStatusBarContributionDIToken,
-} from "../../workbench/contrib/scm/browser/scmStatusBarContribution.ts";
 import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
+import { CommandOriginalResourceProvider } from "../../workbench/contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { ScmGraphService, ScmGraphServiceDIToken } from "../../workbench/contrib/scm/browser/graphService.ts";
 import {
     GraphViewComponent,
     GraphViewComponentDIToken,
 } from "../../workbench/contrib/scm/browser/graphViewComponent.ts";
-import { CommandOriginalResourceProvider } from "../../workbench/contrib/scm/browser/commandOriginalResourceProvider.ts";
 import {
     OriginalResourceProviderDIToken,
     QuickDiffEditorSourceDIToken,
@@ -139,13 +133,23 @@ import {
     QuickDiffServiceDIToken,
 } from "../../workbench/contrib/scm/browser/quickDiffService.ts";
 import {
+    ScmRepoStateService,
+    ScmRepoStateServiceDIToken,
+} from "../../workbench/contrib/scm/browser/repoStateService.ts";
+import { ScmInputComponent, ScmInputComponentDIToken } from "../../workbench/contrib/scm/browser/scmInputComponent.ts";
+import {
+    ScmStatusBarContribution,
+    ScmStatusBarContributionDIToken,
+} from "../../workbench/contrib/scm/browser/scmStatusBarContribution.ts";
+import {
+    SearchComponent,
+    SearchComponentDIToken,
+    SearchRevealTargetDIToken,
+} from "../../workbench/contrib/search/browser/searchComponent.ts";
+import {
     CompletionService,
     CompletionServiceDIToken,
 } from "../../workbench/contrib/suggest/browser/completionService.ts";
-import {
-    DefinitionService,
-    DefinitionServiceDIToken,
-} from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
 import { SuggestComponent, SuggestComponentDIToken } from "../../workbench/contrib/suggest/browser/suggestComponent.ts";
 import {
     TerminalFocusFallbackDIToken,
@@ -170,7 +174,12 @@ import {
     LifecycleService,
     LifecycleServiceDIToken,
 } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
+import { OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
+import { OutputChannelRegistry } from "../../workbench/services/output/common/outputChannelRegistry.ts";
+import { OutputService, OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
+import { TextSearchServiceDIToken } from "../../workbench/services/search/common/textSearch.ts";
 import { FileSearchService, FileSearchServiceDIToken } from "../../workbench/services/search/node/fileSearchService.ts";
+import { TextSearchService } from "../../workbench/services/search/node/textSearchService.ts";
 import {
     StatusBarService,
     StatusBarServiceDIToken,
@@ -322,7 +331,20 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(DiagnosticsServiceDIToken, DiagnosticsService);
     // Quick diff: живые change-bars в гуттере. Оригинал спрашиваем у SCM-расширения
     // командой, читаем через реестр провайдеров ФС, диффаем против живого буфера.
-    container.bind(QuickDiffEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    // Гейт detached: с дифф-вкладки v2 getActiveEditor() отдаёт её сторону —
+    // класть quick-diff-бары в гуттер стороны (или Output) нельзя, у диффа
+    // своя разметка. Событие смены активного редактора и так отдаёт null для
+    // не-текстовых вкладок — фильтр нужен только опрашивающему пути.
+    container.bind(QuickDiffEditorSourceDIToken, () => {
+        const editors = container.get(EditorServiceDIToken);
+        return {
+            getActiveEditor: () => {
+                const editor = editors.getActiveEditor();
+                return editor !== null && !editor.detached ? editor : null;
+            },
+            onActiveEditorChanged: (listener) => editors.onActiveEditorChanged(listener),
+        };
+    });
     container.bind(
         OriginalResourceProviderDIToken,
         () => new CommandOriginalResourceProvider(container.get(CommandRegistryDIToken)),

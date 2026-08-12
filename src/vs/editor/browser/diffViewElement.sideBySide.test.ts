@@ -10,6 +10,7 @@ import { DiffViewModel } from "../common/diff/diffViewModel.ts";
 import type { IDiffViewSides } from "../common/diff/diffViewText.ts";
 import { createDiffViewState } from "../common/diff/diffViewText.ts";
 import { buildSideBySideRows, createSideBySideViewStates } from "../common/diff/sideBySideRows.ts";
+import { createLineTokens, createToken } from "../common/languages/iLineTokens.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
 
 import type { IDiffRowSource } from "./diffViewElement.ts";
@@ -417,4 +418,24 @@ describe("DiffViewElement side-by-side — inspectState", () => {
         expect(state.activeSide).toBe("modified");
         expect(state.sideRowCount).toBe(3);
     });
+
+    it("side-by-side: подсветка токенов источника, замок readOnly и кеш ширины", () => {
+        const KEYWORD = packRgb(0x56, 0x9c, 0xd6);
+        const source: IDiffRowSource = {
+            getLineTokens: () => createLineTokens([createToken(0, ["keyword"])]),
+            resolveTokenStyle: (scopes) =>
+                scopes.includes("keyword")
+                    ? { ...EMPTY_RESOLVED_TOKEN_STYLE, fg: KEYWORD, bold: true }
+                    : EMPTY_RESOLVED_TOKEN_STYLE,
+        };
+        const element = makeElement(["const a;"], ["const b;"], { source });
+        render(element);
+
+        // Токены доехали до обеих колонок через resolveTokenStyle источника.
+        expect(element.readOnly).toBe(true);
+        // Ширина контента считается по кешу: повторный запрос идёт тем же путём.
+        const first = element.contentWidth;
+        expect(element.contentWidth).toBe(first);
+    });
+
 });

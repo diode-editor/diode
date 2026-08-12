@@ -76,11 +76,9 @@ export class EditorGroupComponent extends Component {
             /* v8 ignore start -- индекс из tab strip всегда указывает на существующую вкладку; null — недостижимый инвариант-гард */
             if (editor === null) return;
             /* v8 ignore stop */
-            // Диалог — только у последней вкладки документа: пока он виден где-то
-            // ещё, несохранённые правки живут в общей модели и не теряются.
-            const needsConfirm =
-                editor.isModified &&
-                (!(editor instanceof TextEditorPane) || this.editorService.isLastPaneForDocument(editor));
+            // Диалог — только у последней поверхности документа: пока он виден
+            // где-то ещё, несохранённые правки живут в общей модели и не теряются.
+            const needsConfirm = this.editorService.needsCloseConfirm(editor);
             if (needsConfirm && this.editorService.onRequestConfirmClose) {
                 this.editorService.onRequestConfirmClose(this.group, index);
             } else {
@@ -195,4 +193,3 @@ export class EditorGroupComponent extends Component {
         return labels;
     }
 }
-

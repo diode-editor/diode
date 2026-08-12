@@ -11,9 +11,10 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
 import type { HeadlessSession } from "./helpers/headlessSession.ts";
 
-// Функциональный e2e для дифф-вьюера (PR #202): чёрным ящиком через инспектор
-// настоящего бинаря. Карта тестирования — в переписке. Extension host нужен
-// (git-расширение отдаёт версию из HEAD), поэтому гоняем только на Linux.
+// Функциональный e2e для диффа (PR #202, с PR-4 DiffEditable — живой дифф v2
+// из двух настоящих редакторов): чёрным ящиком через инспектор настоящего
+// бинаря. Extension host нужен (git-расширение отдаёт версию из HEAD), поэтому
+// гоняем только на Linux.
 
 const runOnLinux = process.platform === "linux" ? describe : describe.skip;
 
@@ -109,9 +110,10 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── A+B. Команда + вкладка против живого буфера (карта 1,2,3,4) ──────────
-    it("Compare with HEAD: открывает read-only вкладку ↔ HEAD с +/- по несохранённой правке", async () => {
+    it("Compare with HEAD: открывает живую вкладку ↔ HEAD с +/- по несохранённой правке", async () => {
         const r = repo({ "greeting.js": TRACKED });
-        const s = await open([r.dir, r.file("greeting.js")], r.dir);
+        // Шире дефолта: в две колонки длинная строка с правкой обязана влезть.
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
             await s.waitForText((t) => t.includes("greet"));
 
@@ -135,22 +137,22 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             // Свёртка неизменённых кусков.
             expect(frame).toMatch(/unchanged line/u);
 
-            // Вкладка read-only и активна.
+            // Вкладка активна и НЕ read-only: modified-сторона — живой буфер.
             const strip = await tabs(s);
             const diffTab = strip.find((t) => t.label.includes("↔ HEAD"));
             expect(diffTab, `tabs: ${JSON.stringify(strip)}`).toBeDefined();
-            expect(diffTab?.readOnly).toBe(true);
+            expect(diffTab?.readOnly).toBe(false);
             expect(diffTab?.active).toBe(true);
 
-            // Фокус ушёл в дифф-панель.
-            expect(await s.focusedType()).toBe("DiffViewElement");
+            // Фокус ушёл в сторону диффа — настоящий редактор.
+            expect(await s.focusedType()).toBe("EditorElement");
         } finally {
             await teardown();
         }
     }, 120_000);
 
-    // ── B. Read-only: ввод не редактирует (карта 4) ─────────────────────────
-    it("дифф read-only: набор текста не меняет содержимое вкладки", async () => {
+    // ── B. Живой editable-дифф: правка в стороне доезжает до буфера (PR-4) ──
+    it("печать в стороне диффа правит буфер файла, дифф пересчитывается сам", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir);
         try {
@@ -162,12 +164,21 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             await invokeCompare(s);
             await s.waitForText((t) => t.includes("↔ HEAD"), { timeoutMs: 15_000 });
 
-            const before = frameToText(await s.captureFrame());
-            // Пробуем печатать в дифф — должно быть проигнорировано.
-            await s.text("ZZZZZ");
-            const after = frameToText(await s.captureFrame());
-            expect(after).not.toContain("ZZZZZ");
-            expect(after).toBe(before);
+            // Каретка в modified-стороне (0,0): печать попадает в живой буфер.
+            await s.text("ZZQ");
+            await s.waitForText((t) => t.includes("ZZQconst"));
+            // Живой пересчёт (debounce 200) помечает строку изменённой парой.
+            await s.waitForText((t) => {
+                const line = t.split("\n").find((l) => l.includes("ZZQconst"));
+                return line !== undefined && line.includes("1-") && line.includes("1+");
+            }, { timeoutMs: 15_000 });
+
+            // Правка видна и в обычной вкладке файла — модель общая.
+            await s.key("Ctrl+P");
+            await s.text("greeting.js");
+            await s.key("Enter");
+            await s.waitForFocus("EditorElement");
+            await s.waitForText((t) => t.includes("ZZQconst"));
         } finally {
             await teardown();
         }
@@ -202,7 +213,8 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             const backTop = frameToText(await s.captureFrame());
             expect(backTop).toContain("row000");
             expect(backTop).not.toContain("row079");
-            expect((await s.node("DiffViewElement"))?.state?.selections).toEqual([
+            const sides = await s.nodes("EditorElement");
+            expect(sides.at(-1)?.state?.selections).toEqual([
                 { anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 }, collapsed: true },
             ]);
         } finally {
@@ -213,7 +225,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     // ── A. Повторный вызов после новой правки обновляет снимок (карта 9) ──────
     it("повторный Compare после новой правки показывает свежий снимок", async () => {
         const r = repo({ "greeting.js": TRACKED });
-        const s = await open([r.dir, r.file("greeting.js")], r.dir);
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
             await s.waitForText((t) => t.includes("greet"));
             await s.key("End");
@@ -290,6 +302,8 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             const openedDiff = strip.some((t) => t.label.includes("↔ HEAD"));
             // Закоммиченный файл ИМЕЕТ версию в git — сообщение «has no version in git» было бы неверным.
             expect(openedDiff).toBe(true);
+            // Пустой дифф говорит главное (US-11).
+            expect(frameToText(await s.captureFrame())).toContain("The files are identical");
         } finally {
             await teardown();
         }
@@ -309,10 +323,11 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         await s.waitForText((t) => t.includes("┋") || t.includes("┃"), { timeoutMs: 15_000 });
         await invokeCompare(s);
         await s.waitForText((t) => t.includes("↔ HEAD"), { timeoutMs: 15_000 });
-        await s.waitForFocus("DiffViewElement");
+        await s.waitForFocus("EditorElement");
     }
 
-    const selectionOf = async (s: HeadlessSession) => (await s.node("DiffViewElement"))?.state;
+    /** Состояние modified-стороны (последний EditorElement в дереве пары). */
+    const selectionOf = async (s: HeadlessSession) => (await s.nodes("EditorElement")).at(-1)?.state;
 
     it("каретка в диффе ходит стрелками", async () => {
         const r = repo({ "greeting.js": TRACKED });
@@ -328,12 +343,14 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             await s.key("ArrowRight");
             await s.key("ArrowRight");
 
+            // Координаты документные: ArrowDown с заголовка свёрнутого куска
+            // перепрыгивает скрытые строки и зону-плашку.
             const state = await selectionOf(s);
-            expect(state?.selections).toEqual([
-                { anchor: { line: 1, character: 2 }, active: { line: 1, character: 2 }, collapsed: true },
-            ]);
-            // И правка по-прежнему невозможна.
-            expect(state?.readOnly).toBe(true);
+            const active = (state?.selections as { active: { line: number; character: number } }[])[0].active;
+            expect(active.line).toBeGreaterThan(1);
+            expect(active.character).toBe(2);
+            // Сторона — живой буфер: правка возможна.
+            expect(state?.readOnly).toBe(false);
         } finally {
             await teardown();
         }
@@ -341,7 +358,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
 
     it("Shift+End выделяет строку, Ctrl+C кладёт в буфер текст без гуттера", async () => {
         const r = repo({ "greeting.js": TRACKED });
-        const s = await open([r.dir, r.file("greeting.js")], r.dir);
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
             await openDiffFor(s, " // ZZQQ");
 
@@ -353,7 +370,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             expect(frame[row]).toMatch(/\+/u); // именно добавленная строка, с маркером
             // Координаты берём от самой панели: слева сайдбар, и абсолютный x=20
             // попал бы в дерево файлов, уведя фокус из диффа.
-            const view = await s.waitForNode("DiffViewElement");
+            const view = await s.waitForNode("DiffPaneElement");
             await s.click(view.box.x + view.box.width - 2, row);
 
             await s.key("Home");
@@ -383,8 +400,9 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         try {
             await openDiffFor(s, " // dragme");
 
-            const node = await s.waitForNode("DiffViewElement");
-            const x = node.box.x + 20;
+            const node = await s.waitForNode("DiffPaneElement");
+            // Правая половина пары — modified-сторона.
+            const x = node.box.x + Math.floor(node.box.width / 2) + 8;
             const y = node.box.y;
             await s.sendMouse({ action: "press", button: "left", x, y });
             await s.sendMouse({ action: "move", button: "left", x: x + 5, y: y + 2 });
@@ -414,8 +432,8 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             await s.waitForText((t) => t.includes("(on disk) ↔ notes.txt"), { timeoutMs: 15_000 });
 
             const frame = frameToText(await s.captureFrame());
-            expect(frame).toContain("-  bravo");
-            expect(frame).toContain("+  XXbravo");
+            expect(frame).toMatch(/2-\s+bravo/u);
+            expect(frame).toMatch(/2\+\s+XXbravo/u);
         } finally {
             await teardown();
         }
@@ -439,8 +457,8 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             await s.waitForText((t) => t.includes("left.txt ↔ right.txt"), { timeoutMs: 15_000 });
 
             const frame = frameToText(await s.captureFrame());
-            expect(frame).toContain("-  LEFT");
-            expect(frame).toContain("+  RIGHT");
+            expect(frame).toMatch(/2-\s+LEFT/u);
+            expect(frame).toMatch(/2\+\s+RIGHT/u);
         } finally {
             await teardown();
         }
@@ -487,7 +505,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    // ── H. Дифф v2: два настоящих редактора (DiffEditable PR-3) ─────────────
+    // ── H. Дифф v2: два настоящих редактора (DiffEditable PR-3/PR-4) ────────
     it("v2: вкладка из двух редакторов — выравнивание, плашки, каретка в стороне", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
@@ -501,10 +519,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             await s.waitForText((t) => t.includes("// v2"));
             await s.waitForText((t) => t.includes("┋") || t.includes("┃"), { timeoutMs: 15_000 });
 
-            await s.key("Ctrl+P");
-            await s.text(">Compare Active File with HEAD (v2)");
-            await s.waitForText((t) => t.includes("(v2)"));
-            await s.key("Enter");
+            await invokeCompare(s);
             await s.waitForText((t) => t.includes("↔ HEAD"), { timeoutMs: 15_000 });
 
             const frame = frameToText(await s.captureFrame());
@@ -525,34 +540,59 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    // ── E. Side-by-side: широкий терминал и авто-фолбэк (US-1, US-21, US-23) ──
-    it("широкий терминал даёт side-by-side, resize переключает режимы без потери каретки", async () => {
+    // ── E. Side-by-side: resize не теряет каретку (US-23; inline-фолбэк — PR-5) ──
+    it("resize туда-обратно сохраняет каретку и обе колонки", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
             await openDiffFor(s, " // wide");
 
-            // Широкий терминал — две колонки с подписями сторон.
-            expect((await selectionOf(s))?.mode).toBe("side-by-side");
-            const frame = frameToText(await s.captureFrame());
-            expect(frame).toContain("HEAD");
-            expect(frame).toContain("│");
+            // Две колонки с разделителем.
+            expect(frameToText(await s.captureFrame())).toContain("│");
 
-            // Каретка на добавленной строке правой стороны.
+            // Каретка уезжает вниз в правой (modified) стороне.
             await s.key("ArrowDown");
-            const before = await selectionOf(s);
-            expect(before?.activeSide).toBe("modified");
-            const caretBefore = (before?.selections as { active: { line: number } }[])[0].active.line;
+            const caretBefore = ((await selectionOf(s))?.selections as { active: { line: number } }[])[0].active
+                .line;
 
-            // Узкий терминал — авто-фолбэк в inline (US-21).
             await s.resize(100, 24);
-            expect((await selectionOf(s))?.mode).toBe("inline");
-
-            // Обратно — side-by-side, каретка вернулась на свою строку (US-23).
             await s.resize(140, 24);
+
             const after = await selectionOf(s);
-            expect(after?.mode).toBe("side-by-side");
             expect((after?.selections as { active: { line: number } }[])[0].active.line).toBe(caretBefore);
+            expect((await s.nodes("EditorElement")).length).toBeGreaterThanOrEqual(2);
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    // ── I. Compare New Untitled Text Files (US-37, PR-4) ─────────────────────
+    it("Compare New Untitled: обе стороны редактируются, дифф живой, закрытие спрашивает", async () => {
+        const r = repo({ "seed.txt": "seed\n" });
+        const s = await open([r.dir], r.dir, 140);
+        try {
+            // Под нагрузкой полного прогона старт и палитра бывают медленными.
+            await s.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
+            await s.key("Ctrl+P");
+            await s.text(">Compare New Untitled Text Files");
+            await s.waitForText((t) => t.includes("Compare New Untitled Text Files"), { timeoutMs: 15_000 });
+            await s.key("Enter");
+            await s.waitForText((t) => t.includes("Untitled-1 ↔ Untitled-2"), { timeoutMs: 15_000 });
+
+            // Печать попадает в правую сторону (фокус в modified).
+            await s.text("hello");
+            await s.waitForText((t) => t.includes("hello"));
+            // Живой пересчёт помечает строку добавленной: маркер + у строки 1.
+            await s.waitForText((t) => {
+                const line = t.split("\n").find((l) => l.includes("hello"));
+                return line !== undefined && line.includes("1+");
+            }, { timeoutMs: 15_000 });
+
+            // Закрытие вкладки с несохранённой untitled-стороной — confirm-диалог.
+            await s.key("Ctrl+W");
+            await s.waitForText((t) => t.includes("Untitled-2") && t.includes("ave"), { timeoutMs: 15_000 });
+            await s.key("Escape");
+            await s.waitForText((t) => t.includes("Untitled-1 ↔ Untitled-2"), { timeoutMs: 15_000 });
         } finally {
             await teardown();
         }

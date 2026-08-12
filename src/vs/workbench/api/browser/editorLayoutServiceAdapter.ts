@@ -2,7 +2,7 @@ import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
 import { Disposable } from "../../../../../tuidom/common/disposable.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
-import { DiffEditorPane } from "../../browser/parts/editor/diffEditorPane.ts";
+import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
@@ -129,10 +129,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             /* v8 ignore start -- findPaneIndex вернул валидный индекс, getPane не может отдать null */
             if (pane === null) continue;
             /* v8 ignore stop */
-            const needsConfirm =
-                pane.isModified &&
-                (!(pane instanceof TextEditorPane) || this.editors.isLastPaneForDocument(pane));
-            if (needsConfirm) {
+            if (this.editors.needsCloseConfirm(pane)) {
                 // Программное закрытие «грязной» вкладки — тот же confirm-флоу,
                 // что и у пользователя; отказ (диалог решает пользователь)
                 // возвращаем false, вкладка остаётся.
@@ -157,10 +154,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
                 if (pane === null) break;
                 /* v8 ignore stop */
-                const needsConfirm =
-                    pane.isModified &&
-                    (!(pane instanceof TextEditorPane) || this.editors.isLastPaneForDocument(pane));
-                if (needsConfirm) {
+                if (this.editors.needsCloseConfirm(pane)) {
                     if (this.editors.onRequestConfirmClose) this.editors.onRequestConfirmClose(group, index);
                     return false;
                 }
@@ -199,7 +193,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             isActive,
             isDirty: pane.isModified,
         };
-        if (pane instanceof DiffEditorPane) {
+        if (pane instanceof DiffEditorPane2) {
             return {
                 ...base,
                 kind: "diff",
@@ -231,7 +225,11 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         if (viewColumn === VIEW_COLUMN_ACTIVE) return this.editors.activeGroup;
         if (viewColumn === VIEW_COLUMN_BESIDE) {
             const index = this.editors.groups.indexOf(this.editors.activeGroup);
-            return this.editors.groups[index + 1] ?? this.editors.newGroup("after", { focus: false }) ?? this.editors.activeGroup;
+            return (
+                this.editors.groups[index + 1] ??
+                this.editors.newGroup("after", { focus: false }) ??
+                this.editors.activeGroup
+            );
         }
         const wanted = Math.max(1, Math.floor(viewColumn));
         while (this.editors.groups.length < wanted) {

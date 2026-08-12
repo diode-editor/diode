@@ -121,14 +121,48 @@ undo/find бесплатно от редактора. Заменяет теку�
   рядом; миграция — PR-4. Урок: `replaceOwnedContent` пересоздаёт view-state
   компонента (reload "owned") — раскладка перезаливается строго после
   контента обеих сторон.
-- [ ] **PR-4. Живость + миграция + Compare New Untitled Text Files**: подписки
-  на модели сторон (debounce 200, seq-гард — образец `QuickDiffService`), все
-  входы семейства переезжают на v2, команда untitled (стороны редактируемые
-  прямо в диффе), read-only по стороне (git-ревизия — замок, файл/untitled —
-  правится).
+- [x] **PR-4. Живость + миграция + Compare New Untitled Text Files** — сделано.
+  Дизайн:
+  - **Стороны-источники** (`DiffV2SideSource`): `"shared"` — общая модель файла
+    из реестра `EditorService` (тот же документ, что у вкладок: правки видны в
+    обе стороны, undo общий, «буфер побеждает диск» — по построению);
+    `"owned"` — модель, которой панель владеет (untitled-пара); `"snapshot"` —
+    синтетический read-only снимок (git-ревизия, clipboard, `preferDisk`).
+    Read-only по стороне: замок на табе — только когда заперты обе.
+  - **Живой пересчёт**: подписки на `onDidChangeContent` обеих МОДЕЛЕЙ
+    (переживают Save As), debounce 200; `onDidReloadDocument` (revert, замена
+    снимка) перевешивает скролл-синк на пересозданный view-state и
+    пересчитывает сразу. Свёрнутость кусков переносится по максимальному
+    пересечению диапазонов со старыми парами (новые куски свёрнуты); кусок,
+    накрывший каретку любой стороны, разворачивается (`setFoldingRegions`
+    каретку не переносит); скролл якорится по документной строке верха
+    вьюпорта (проекция doc↔view меняется вместе с зонами).
+  - **Миграция**: `openDiffPair` открывает `DiffEditorPane2`; дедуп пары — по
+    ВСЕМ группам с `focusGroup(id, {focus:false})`; повторный вызов освежает
+    только snapshot-стороны (`replaceSnapshotContent`, no-op на равном тексте —
+    каретка не сбрасывается). Старая `DiffEditorPane` удалена (v2 — единственная
+    дифф-вкладка); `DiffViewElement` жив до PR-5 (свои юниты).
+    Временный вход `vexx.diff.compareWithHeadV2` удалён. `vscode.diff` понимает
+    4-й аргумент `ViewColumn | {viewColumn}` (AS-20). Пикер «With...» — вкладки
+    всех групп. `getActiveTabEditor()` на v2-вкладке отдаёт активную сторону:
+    Ctrl+S/Save As/editor-options работают по ней.
+  - **Dirty-контракт**: `isModified` вкладки = любая сторона dirty;
+    `EditorService.needsCloseConfirm(pane)` — единая формула (крестик, Ctrl+W,
+    адаптеры, closeEditorsInGroup): диалог — только если dirty-сторону больше
+    нигде не видно (`dirtyExclusiveDiffSides`/`holdersOf` считают вкладки И
+    стороны диффов); `collectDirty` (shutdown) включает dirty-стороны;
+    Save в confirm-диалоге, не сумевший записать (`"no-file"` у untitled),
+    оставляет вкладку открытой (заодно закрыта старая дыра untitled-вкладок).
+  - **Quick diff отвязан от сторон**: биндинг `QuickDiffEditorSource` фильтрует
+    detached-панели — бары не рисуются в гуттере стороны диффа.
+  - «The files are identical» (US-11) — зона-нотис перед первой строкой при
+    пустом диффе (`IDENTICAL_NOTICE` в `computeDiffV2Layout`).
 - [ ] **PR-5. Хвосты**: Ctrl+F в диффе, revert-чанков (стрелочки на ганках),
-  судьба inline-режима v2 (авто-фолбэк узкого терминала), удаление старого
-  `DiffViewElement`, обновление docs/arch.
+  подписи колонок side-by-side (у v2 их нет — `labelOverride` сторон никто не
+  рендерит; метку несёт таб), судьба inline-режима v2 (узкий терминал),
+  автопересчёт снимочной git-стороны по `onDidChangeFile` (US-31 — сейчас
+  снимок освежает повторный вызов команды), удаление старого
+  `DiffViewElement` + `diffViewText`/`sideBySideRows`, обновление docs/arch.
 
 ## Известные грабли (из разведки, чтобы не переоткрывать)
 

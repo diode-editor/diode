@@ -178,8 +178,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
 
         const screen = await waitForScreen((s) => s.includes("a.txt ↔ HEAD"));
         expect(screen).toContain("a.txt ↔ HEAD");
-        expect(screen).toContain("-  bravo");
-        expect(screen).toContain("+  XXbravo");
+        expect(screen).toMatch(/2-\s+bravo/u);
+        expect(screen).toMatch(/2\+\s+XXbravo/u);
         // Ровно одна новая вкладка — дифф; файловая не открывалась (файл уже был открыт).
         expect(editors.editorCount).toBe(panesBefore + 1);
     });
@@ -202,7 +202,13 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
 
     it("активация untracked-файла открывает сам файл, а не notice", async () => {
         publish([
-            { path: ws.path("untracked.txt"), rel: "untracked.txt", status: "U", colorId: UNTRACKED, group: "untracked" },
+            {
+                path: ws.path("untracked.txt"),
+                rel: "untracked.txt",
+                status: "U",
+                colorId: UNTRACKED,
+                group: "untracked",
+            },
         ]);
         commands.execute(SHOW_SCM);
         await settle(0);

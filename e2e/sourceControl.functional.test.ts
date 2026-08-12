@@ -341,8 +341,8 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         // Файла на диске нет — modified-сторона пустая: вся HEAD-версия минусами,
         // ни одного плюса с содержимым.
         const frame = await session.waitForText((t) => t.includes("↔ HEAD")).then(frameToText);
-        expect(frame).toContain("-  export function greet");
-        expect(frame).not.toMatch(/\+ {2}\S/);
+        expect(frame).toMatch(/\d+-\s+export function greet/u);
+        expect(frame).not.toMatch(/\d\+ +\S/u);
         expect(session.getStderr()).not.toMatch(/Error|Exception|unhandled/i);
     }, 120_000);
 

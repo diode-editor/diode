@@ -3,10 +3,11 @@ import type { ServiceAccessor } from "../../../platform/instantiation/common/diC
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ILogServiceDIToken } from "../../../platform/log/common/iLogServiceDIToken.ts";
 import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerService.ts";
+import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
+import { DiffEditorPane2 } from "../parts/editor/diffEditorPane2.ts";
 import { EditorPartComponentDIToken } from "../parts/editor/editorPartComponent.ts";
 import { TextEditorPane } from "../parts/editor/textEditorPane.ts";
 
@@ -37,20 +38,12 @@ function ensureAxis(accessor: ServiceAccessor, wanted: "columns" | "rows"): bool
     return false;
 }
 
-function directionalSplit(
-    accessor: ServiceAccessor,
-    axis: "columns" | "rows",
-    position: "before" | "after",
-): void {
+function directionalSplit(accessor: ServiceAccessor, axis: "columns" | "rows", position: "before" | "after"): void {
     if (!ensureAxis(accessor, axis)) return;
     accessor.get(EditorServiceDIToken).splitActiveGroup({ position });
 }
 
-function directionalNewGroup(
-    accessor: ServiceAccessor,
-    axis: "columns" | "rows",
-    position: "before" | "after",
-): void {
+function directionalNewGroup(accessor: ServiceAccessor, axis: "columns" | "rows", position: "before" | "after"): void {
     if (!ensureAxis(accessor, axis)) return;
     accessor.get(EditorServiceDIToken).newGroup(position);
 }
@@ -406,12 +399,23 @@ async function closeGroupEditorsWithConfirm(
         /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
         if (pane === null) return false;
         /* v8 ignore stop */
-        const needsConfirm =
-            pane.isModified && (!(pane instanceof TextEditorPane) || service.isLastPaneForDocument(pane));
-        if (needsConfirm && pane instanceof TextEditorPane) {
-            const choice = await dialogs.confirmSave(service.displayName(pane));
+        if (service.needsCloseConfirm(pane)) {
+            // Сохраняемые поверхности вкладки: сама текстовая панель либо
+            // dirty-стороны диффа v2, не видимые больше нигде (untitled-пара,
+            // файл без вкладки) — needsCloseConfirm гарантирует, что они есть.
+            const saveTargets =
+                pane instanceof DiffEditorPane2
+                    ? service.dirtyExclusiveDiffSides(pane)
+                    : /* v8 ignore start -- needsCloseConfirm для не-диффа истинен только у текстовой панели */
+                      pane instanceof TextEditorPane
+                      ? [pane]
+                      : [];
+            /* v8 ignore stop */
+            const choice = await dialogs.confirmSave(saveTargets.map((target) => target.label).join(", "));
             if (choice === "cancel") return false;
-            if (choice === "save") await pane.save({ overwrite: true });
+            if (choice === "save") {
+                for (const target of saveTargets) await target.save({ overwrite: true });
+            }
         }
         group.closeTab(index);
     }

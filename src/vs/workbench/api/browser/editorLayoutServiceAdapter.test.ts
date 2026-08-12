@@ -13,7 +13,8 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/comm
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
-import { DiffEditorPane, type IDiffEditorPaneInput } from "../../browser/parts/editor/diffEditorPane.ts";
+import type { IDiffEditorPane2Input } from "../../browser/parts/editor/diffEditorPane2.ts";
+import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
@@ -237,21 +238,29 @@ describe("EditorLayoutServiceAdapter", () => {
 
     it("снимок: дифф-вкладка несёт kind=diff и uri сторон (если они есть)", () => {
         service.openFile(ws.path("a.ts"));
-        const diffInput: IDiffEditorPaneInput = {
+        const diffInput: IDiffEditorPane2Input = {
             uri: Uri.parse("vexx-diff:/a.ts?vs=HEAD"),
             label: "a.ts (diff)",
             originalLabel: "HEAD",
             modifiedLabel: "a.ts",
-            originalText: "alpha",
-            modifiedText: "alpha!",
+            original: { kind: "snapshot", text: "alpha" },
+            modified: { kind: "snapshot", text: "alpha!" },
             languageId: "plaintext",
             originalUri: Uri.parse("git:/a.ts"),
             modifiedUri: Uri.file(ws.path("a.ts")),
         };
-        service.openPane(new DiffEditorPane(new TokenizationRegistry(), NULL_TOKEN_STYLE_RESOLVER, diffInput));
+        const makePane = (input: IDiffEditorPane2Input) =>
+            new DiffEditorPane2(
+                NULL_LANGUAGE_SERVICE,
+                new UndoRedoService(),
+                new TokenizationRegistry(),
+                NULL_TOKEN_STYLE_RESOLVER,
+                input,
+            );
+        service.openPane(makePane(diffInput));
         // Стороны опциональны (HEAD-версии может не существовать как ресурса).
         service.openPane(
-            new DiffEditorPane(new TokenizationRegistry(), NULL_TOKEN_STYLE_RESOLVER, {
+            makePane({
                 ...diffInput,
                 uri: Uri.parse("vexx-diff:/bare.ts"),
                 originalUri: undefined,

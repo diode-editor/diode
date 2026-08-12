@@ -1,5 +1,15 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import {
+    compareFilesAction,
+    compareFileWithAction,
+    compareNewUntitledTextFilesAction,
+    compareWithClipboardAction,
+    compareWithRevisionAction,
+    compareWithSavedAction,
+    openFileAtRevisionAction,
+    selectForCompareAction,
+} from "../../contrib/diff/browser/compareActions.ts";
+import {
     fileOpenAction,
     fileOpenFolderAction,
     fileSaveAction,
@@ -28,7 +38,10 @@ import {
     nextMatchAction,
     previousMatchAction,
 } from "../../contrib/find/browser/findActions.ts";
-import { revealDefinitionAction, revealDefinitionAsideAction } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
+import {
+    revealDefinitionAction,
+    revealDefinitionAsideAction,
+} from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import { openKeybindingsAction, openSettingsAction } from "../../contrib/preferences/browser/preferencesActions.ts";
 import {
@@ -36,6 +49,7 @@ import {
     quickOpenAction,
     showCommandsAction,
 } from "../../contrib/quickaccess/browser/quickOpenActions.ts";
+import { BRANCH_ACTIONS } from "../../contrib/scm/browser/branchActions.ts";
 import {
     scmFocusChangesAction,
     scmFocusInputAction,
@@ -45,24 +59,11 @@ import {
     scmViewAsTreeAction,
     showScmAction,
 } from "../../contrib/scm/browser/changesActions.ts";
-import {
-    compareFilesAction,
-    compareFileWithAction,
-    compareWithClipboardAction,
-    compareWithRevisionAction,
-    compareWithSavedAction,
-    openFileAtRevisionAction,
-    selectForCompareAction,
-} from "../../contrib/diff/browser/compareActions.ts";
-import { compareWithHeadV2Action } from "../../contrib/diff/browser/diffV2Actions.ts";
+import { COMMIT_ACTIONS } from "../../contrib/scm/browser/commitActions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
 import { GRAPH_VIEW_ACTIONS } from "../../contrib/scm/browser/graphActions.ts";
 import { GRAPH_COMMIT_ACTIONS } from "../../contrib/scm/browser/graphCommitActions.ts";
-import { BRANCH_ACTIONS } from "../../contrib/scm/browser/branchActions.ts";
-import { COMMIT_ACTIONS } from "../../contrib/scm/browser/commitActions.ts";
 import { REMOTE_TAG_ACTIONS } from "../../contrib/scm/browser/remoteTagActions.ts";
-import { STASH_ACTIONS } from "../../contrib/scm/browser/stashActions.ts";
-import { SYNC_ACTIONS } from "../../contrib/scm/browser/syncActions.ts";
 import {
     gitCleanAction,
     gitCleanAllAction,
@@ -71,6 +72,8 @@ import {
     gitUnstageAction,
     gitUnstageAllAction,
 } from "../../contrib/scm/browser/stagingActions.ts";
+import { STASH_ACTIONS } from "../../contrib/scm/browser/stashActions.ts";
+import { SYNC_ACTIONS } from "../../contrib/scm/browser/syncActions.ts";
 import {
     acceptSelectedSuggestionAction,
     hideSuggestWidgetAction,
@@ -126,6 +129,7 @@ import {
     selectAllAction,
     undoAction,
 } from "./editorEditActions.ts";
+import { EDITOR_GROUP_ACTIONS } from "./editorGroupActions.ts";
 import { changeEncodingAction } from "./encodingActions.ts";
 import { changeEolAction, convertToCrlfAction, convertToLfAction, toggleEolAction } from "./eolActions.ts";
 import {
@@ -191,7 +195,6 @@ import {
     showSearchAction,
     toggleSearchDetailsAction,
 } from "./searchActions.ts";
-import { EDITOR_GROUP_ACTIONS } from "./editorGroupActions.ts";
 import {
     closeActiveEditorAction,
     nextEditorInGroupAction,
@@ -400,6 +403,7 @@ export const builtinActions: readonly CommandAction[] = [
     compareWithSavedAction,
     compareWithClipboardAction,
     compareFileWithAction,
+    compareNewUntitledTextFilesAction,
     selectForCompareAction,
     compareFilesAction,
     compareWithRevisionAction,
@@ -407,7 +411,6 @@ export const builtinActions: readonly CommandAction[] = [
 
     // SCM
     compareWithHeadAction,
-    compareWithHeadV2Action,
     showScmAction,
     scmOpenFileAction,
     scmOpenChangesAction,

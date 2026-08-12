@@ -8,8 +8,8 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
-import { DiffEditorPane } from "../../../browser/parts/editor/diffEditorPane.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../scm/browser/commandOriginalResourceProvider.ts";
 import { QUERY_COMMAND } from "../../scm/browser/syncActions.ts";
@@ -44,7 +44,7 @@ describe("Команды сравнения файлов", () => {
         return h.container
             .get(EditorServiceDIToken)
             .getPanes()
-            .filter((p) => p instanceof DiffEditorPane);
+            .filter((p) => p instanceof DiffEditorPane2);
     }
 
     /** Открытие вкладки асинхронно (чтение сторон); под нагрузкой 10мс мало. */
@@ -71,8 +71,8 @@ describe("Команды сравнения файлов", () => {
 
             const screen = h.testApp.backend.screenToString();
             expect(screen).toContain("a.txt (on disk) ↔ a.txt");
-            expect(screen).toContain("-  bravo");
-            expect(screen).toContain("+  XXbravo");
+            expect(screen).toMatch(/2-\s+bravo/u);
+            expect(screen).toMatch(/2\+\s+XXbravo/u);
         });
 
         it("файл без правок даёт вкладку «The files are identical» (US-11)", async () => {
@@ -82,7 +82,8 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.files.action.compareWithSaved");
             await settleUntilDiff();
 
-            expect(h.testApp.backend.screenToString()).toContain("The files are identical");
+            // Узкие колонки side-by-side могут усечь хвост фразы — якоримся на начало.
+            expect(h.testApp.backend.screenToString()).toMatch(/The files are iden/u);
         });
 
         it("untitled-буфер получает нотис вместо вкладки", async () => {
@@ -108,8 +109,8 @@ describe("Команды сравнения файлов", () => {
 
             const screen = h.testApp.backend.screenToString();
             expect(screen).toContain("Clipboard ↔ a.txt");
-            expect(screen).toContain("-  CLIP");
-            expect(screen).toContain("+  bravo");
+            expect(screen).toMatch(/2-\s+CLIP/u);
+            expect(screen).toMatch(/2\+\s+bravo/u);
         });
 
         it("пустой буфер — сравнение с пустым, а не ошибка", async () => {
@@ -119,7 +120,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.files.action.compareWithClipboard");
             await settleUntilDiff();
 
-            expect(h.testApp.backend.screenToString()).toMatch(/\+ {2}alpha/u);
+            expect(h.testApp.backend.screenToString()).toMatch(/1\+\s+alpha/u);
         });
     });
 
@@ -133,8 +134,8 @@ describe("Команды сравнения файлов", () => {
 
             const screen = h.testApp.backend.screenToString();
             expect(screen).toContain("a.txt ↔ b.txt");
-            expect(screen).toContain("-  bravo");
-            expect(screen).toContain("+  BRAVO");
+            expect(screen).toMatch(/2-\s+bravo/u);
+            expect(screen).toMatch(/2\+\s+BRAVO/u);
         });
 
         it("до Select for Compare команда Compare with Selected — тихий no-op", async () => {
@@ -238,7 +239,7 @@ describe("Команды сравнения файлов", () => {
             expect(git.requestedRefs.at(-1)).toBe("dev");
             const screen = h.testApp.backend.screenToString();
             expect(screen).toContain("a.txt ↔ dev");
-            expect(screen).toContain("-  DEV");
+            expect(screen).toMatch(/2-\s+DEV/u);
         });
 
         it("нет ref'ов — нотис, пикер не открывается", async () => {
@@ -463,6 +464,43 @@ describe("Команды сравнения файлов", () => {
         });
     });
 
+    describe("Compare New Untitled Text Files (US-37)", () => {
+        it("открывает дифф двух пустых untitled — обе стороны редактируются прямо в диффе", async () => {
+            h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
+            await settleUntilDiff();
+
+            expect(tabLabels(h.testApp).some((l) => l.includes("Untitled-1 ↔ Untitled-2"))).toBe(true);
+            const pane = diffPanes()[0];
+            expect(pane.readOnly).toBe(false);
+
+            // Печать в обеих сторонах живёт; вкладка честно становится dirty.
+            const [left, right] = pane.sidePanes();
+            right.viewState.type("hello");
+            left.viewState.type("world");
+            expect(right.getText()).toContain("hello");
+            expect(left.getText()).toContain("world");
+            expect(pane.isModified).toBe(true);
+
+            // Живой пересчёт после debounce держит выравнивание сторон.
+            await settle(250);
+            expect(left.viewState.getViewLineCount()).toBe(right.viewState.getViewLineCount());
+
+            // Стороны больше нигде не видны — закрытие обязано спрашивать.
+            expect(h.container.get(EditorServiceDIToken).needsCloseConfirm(pane)).toBe(true);
+        });
+
+        it("повторная команда открывает новую пару со следующими номерами", async () => {
+            h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
+            await settleUntilDiff();
+            h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
+            for (let i = 0; i < 50 && diffPanes().length < 2; i++) await settle(10);
+
+            expect(diffPanes()).toHaveLength(2);
+            h.testApp.render();
+            expect(tabLabels(h.testApp).some((l) => l.includes("Untitled-3 ↔ Untitled-4"))).toBe(true);
+        });
+    });
+
     describe("vscode.diff (US-12)", () => {
         it("открывает дифф по паре uri-строк с переданным title", async () => {
             h.commands.execute(
@@ -474,7 +512,7 @@ describe("Команды сравнения файлов", () => {
             await settleUntilDiff();
 
             expect(tabLabels(h.testApp).some((l) => l.includes("Left ↔ Right"))).toBe(true);
-            expect(h.testApp.backend.screenToString()).toContain("+  BRAVO");
+            expect(h.testApp.backend.screenToString()).toMatch(/2\+\s+BRAVO/u);
         });
 
         it("принимает Uri-объекты, без title метка собирается из имён", async () => {
@@ -482,6 +520,46 @@ describe("Команды сравнения файлов", () => {
             await settleUntilDiff();
 
             expect(tabLabels(h.testApp).some((l) => l.includes("a.txt ↔ b.txt"))).toBe(true);
+        });
+
+        it("4-й аргумент viewColumn: Beside открывает дифф в новой группе (AS-20)", async () => {
+            const editors = h.container.get(EditorServiceDIToken);
+            h.commands.execute("workbench.openFile", ws.path("a.txt"));
+            await settle(0);
+            expect(editors.groups).toHaveLength(1);
+
+            h.commands.execute(
+                "vscode.diff",
+                Uri.file(ws.path("a.txt")).toString(),
+                Uri.file(ws.path("b.txt")).toString(),
+                "",
+                { viewColumn: -2 },
+            );
+            await settleUntilDiff();
+
+            expect(editors.groups).toHaveLength(2);
+            expect(editors.activeGroup.getPanes().some((p) => p.uri.scheme === "vexx-diff")).toBe(true);
+        });
+
+        it("4-й аргумент viewColumn числом целится в существующую колонку", async () => {
+            const editors = h.container.get(EditorServiceDIToken);
+            h.commands.execute("workbench.openFile", ws.path("a.txt"));
+            await settle(0);
+            editors.newGroup("after", { focus: false });
+            editors.focusGroup({ index: 0 }, { focus: false });
+            expect(editors.groups).toHaveLength(2);
+
+            h.commands.execute(
+                "vscode.diff",
+                Uri.file(ws.path("a.txt")).toString(),
+                Uri.file(ws.path("b.txt")).toString(),
+                "",
+                2,
+            );
+            await settleUntilDiff();
+
+            expect(editors.groups).toHaveLength(2);
+            expect(editors.groups[1].getPanes().some((p) => p.uri.scheme === "vexx-diff")).toBe(true);
         });
 
         it("мусорные аргументы — тихий no-op", async () => {
@@ -509,10 +587,10 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("vscode.diff", "untitled:missing", Uri.file(ws.path("b.txt")).toString());
             await settleUntilDiff();
 
-            const pane = diffPanes()[0] as DiffEditorPane;
+            const pane = diffPanes()[0];
             expect(pane.originalUri?.toString()).toBe("untitled:missing");
             // Левая сторона пуста — правый текст видится добавленным.
-            expect(pane.viewState.document.getText()).toContain("BRAVO");
+            expect(pane.activeTextPane.getText()).toContain("BRAVO");
         });
 
         it("ресурсы сторон доезжают до вкладки (TabInputTextDiff)", async () => {
@@ -521,25 +599,31 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("vscode.diff", left.toString(), right.toString());
             await settleUntilDiff();
 
-            const pane = diffPanes()[0] as DiffEditorPane;
+            const pane = diffPanes()[0];
             expect(pane.originalUri?.toString()).toBe(left.toString());
             expect(pane.modifiedUri?.toString()).toBe(right.toString());
         });
 
-        it("повторный diff той же пары обновляет вкладку на месте, не плодя новых", async () => {
+        it("повторный diff той же пары не плодит вкладок; file-стороны — живые буферы", async () => {
             const left = Uri.file(ws.path("a.txt")).toString();
             const right = Uri.file(ws.path("b.txt")).toString();
             h.commands.execute("vscode.diff", left, right);
             await settleUntilDiff();
             expect(diffPanes()).toHaveLength(1);
 
-            fs.writeFileSync(ws.path("b.txt"), "alpha\nCHARLIE\n");
             h.commands.execute("vscode.diff", left, right);
             await settle(50);
-            h.testApp.render();
-
             expect(diffPanes()).toHaveLength(1);
-            expect((diffPanes()[0] as DiffEditorPane).viewState.document.getText()).toContain("CHARLIE");
+
+            // Сторона — общая модель файла: правка из обычной вкладки того же
+            // ресурса видна в диффе без повторного вызова (живой дифф, US-30).
+            h.commands.execute("workbench.openFile", ws.path("b.txt"));
+            await settle(0);
+            const editor = h.container.get(EditorServiceDIToken).getActiveEditor();
+            editor?.goToPosition(1, 0);
+            editor?.viewState.type("CHARLIE-");
+            const pane = diffPanes()[0];
+            expect(pane.sidePanes()[1].getText()).toContain("CHARLIE-BRAVO");
         });
     });
 });
