@@ -4,8 +4,8 @@ import type { IViewZone } from "../viewModel/iViewZone.ts";
 
 import type { DiffInnerRanges } from "./diffInnerRanges.ts";
 import type { IUnchangedRegion } from "./diffViewModel.ts";
-import type { DiffSide } from "./diffViewText.ts";
-import { collapsedRowLabel } from "./diffViewText.ts";
+import type { DiffSide } from "./diffSide.ts";
+import { collapsedRowLabel } from "./diffSide.ts";
 import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 
 /**

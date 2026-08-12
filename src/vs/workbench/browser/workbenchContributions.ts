@@ -1,4 +1,5 @@
 import type { IWorkbenchContributionRegistration } from "../common/iWorkbenchContribution.ts";
+import { DiffSnapshotRefreshContributionDIToken } from "../contrib/diff/browser/diffSnapshotRefreshContribution.ts";
 import { AutoRevealContributionDIToken } from "../contrib/files/browser/autoRevealContribution.ts";
 import { OpenFileCommandContributionDIToken } from "../contrib/files/browser/openFileCommandContribution.ts";
 import { OutputChannelActionsDIToken } from "../contrib/output/browser/outputChannelActions.ts";
@@ -27,6 +28,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: OutputChannelActionsDIToken, phase: "restored" },
     // Живые change-bars: считать дифф можно только после того, как есть редакторы.
     { token: QuickDiffServiceDIToken, phase: "restored" },
+    // Автоосвежение снимочных сторон дифф-вкладок по onDidChangeFile (US-31).
+    { token: DiffSnapshotRefreshContributionDIToken, phase: "restored" },
     // Ветка + sync-счётчики в статус-баре (из repo-state git-расширения).
     { token: ScmStatusBarContributionDIToken, phase: "restored" },
 ];

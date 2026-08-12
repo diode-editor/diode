@@ -53,6 +53,10 @@ import {
     WorkbenchContributionsRegistryDIToken,
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import {
+    DiffSnapshotRefreshContribution,
+    DiffSnapshotRefreshContributionDIToken,
+} from "../../workbench/contrib/diff/browser/diffSnapshotRefreshContribution.ts";
+import {
     AutoRevealContribution,
     AutoRevealContributionDIToken,
 } from "../../workbench/contrib/files/browser/autoRevealContribution.ts";
@@ -350,6 +354,7 @@ export const workbenchModule: ContainerModule = (container) => {
         () => new CommandOriginalResourceProvider(container.get(CommandRegistryDIToken)),
     );
     container.bind(QuickDiffServiceDIToken, QuickDiffService);
+    container.bind(DiffSnapshotRefreshContributionDIToken, DiffSnapshotRefreshContribution);
     // Вкладка Changes: расширение пушит набор изменений в ScmChangesService
     // (команда `vexx.scm.publishChanges`), ChangesComponent показывает его
     // списком в нижней Panel и по клику открывает дифф этапа 5.

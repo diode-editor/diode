@@ -501,6 +501,24 @@ describe("Команды сравнения файлов", () => {
         });
     });
 
+    describe("Diff: Revert Hunk", () => {
+        it("на диффе со снимочной modified-стороной — нотис read-only", async () => {
+            // Оба ресурса не существуют (empty) — обе стороны снимки, правка запрещена.
+            h.commands.execute(
+                "vscode.diff",
+                Uri.file(ws.path("no1.txt")).toString(),
+                Uri.file(ws.path("no2.txt")).toString(),
+            );
+            await settleUntilDiff();
+
+            h.commands.execute("vexx.diff.revertHunk");
+            await settle(10);
+            h.testApp.render();
+
+            expect(h.testApp.backend.screenToString()).toContain("Cannot revert");
+        });
+    });
+
     describe("vscode.diff (US-12)", () => {
         it("открывает дифф по паре uri-строк с переданным title", async () => {
             h.commands.execute(

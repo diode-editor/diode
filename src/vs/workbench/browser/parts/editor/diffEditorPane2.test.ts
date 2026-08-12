@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
+import { typeText } from "../../../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
@@ -10,9 +11,11 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/i
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { FileSystemProviderRegistry } from "../../../../platform/files/common/fileSystemProviderRegistry.ts";
+import { NULL_FILE_SYSTEM_PROVIDER_REGISTRY } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { createTestContainer } from "../../../../vexx/modules/testProfile.ts";
 import { FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
+import { openDiffPair, refreshDiffSnapshots } from "../../../contrib/diff/browser/openDiffPair.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
@@ -189,7 +192,11 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const base = Array.from({ length: 40 }, (_, i) => `line${String(i)}`).join("\n");
         const original = ownedModel(base);
         const modified = ownedModel(base);
-        const pane = makePane({ kind: "owned", model: original }, { kind: "owned", model: modified }, { debounceMs: 0 });
+        const pane = makePane(
+            { kind: "owned", model: original },
+            { kind: "owned", model: modified },
+            { debounceMs: 0 },
+        );
         const sidePanes = pane.sidePanes();
         expect(sidePanes[1].viewState.foldedRegions.some((r) => r.isCollapsed)).toBe(true);
 
@@ -252,6 +259,81 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         pane.dispose();
     });
 
+    it("revert hunk: изменённая пара возвращается к original, правка undoable", async () => {
+        const original = "alpha\nbravo\ncharlie";
+        const model = ownedModel("alpha\nBRAVO\ncharlie");
+        const pane = makePane(original, { kind: "owned", model }, { debounceMs: 0 });
+        const { modified } = sides(pane);
+
+        modified.goToPosition(1, 0);
+        expect(pane.revertHunkAtCaret()).toBe("reverted");
+        expect(modified.getText()).toBe("alpha\nbravo\ncharlie");
+
+        // Правка undoable — Ctrl+Z стороны возвращает BRAVO.
+        modified.undo();
+        expect(modified.getText()).toBe("alpha\nBRAVO\ncharlie");
+        await settle(5);
+        pane.dispose();
+    });
+
+    it("revert hunk: добавленные строки удаляются, удалённые — возвращаются", async () => {
+        // Добавленный в modified блок (в original его нет).
+        const added = ownedModel("alpha\nNEW1\nNEW2\nbravo");
+        const addedPane = makePane("alpha\nbravo", { kind: "owned", model: added }, { debounceMs: 0 });
+        addedPane.sidePanes()[1].goToPosition(2, 0);
+        expect(addedPane.revertHunkAtCaret()).toBe("reverted");
+        expect(added.getText()).toBe("alpha\nbravo");
+        addedPane.dispose();
+
+        // Удалённый из modified блок: каретка в ORIGINAL стороне на удалённых
+        // строках (в modified диапазон пуст) — строки возвращаются.
+        const removed = ownedModel("alpha\ndelta");
+        const removedPane = makePane(
+            "alpha\nbravo\ncharlie\ndelta",
+            { kind: "owned", model: removed },
+            { debounceMs: 0 },
+        );
+        removedPane.sidePanes()[0].component.focus();
+        removedPane.sidePanes()[0].goToPosition(1, 0);
+        expect(removedPane.revertHunkAtCaret()).toBe("reverted");
+        expect(removed.getText()).toBe("alpha\nbravo\ncharlie\ndelta");
+        await settle(5);
+        removedPane.dispose();
+    });
+
+    it("revert hunk: хвостовые крайние случаи — удаление до конца файла и вставка за концом", async () => {
+        // Добавленный хвост (удаляется вместе с разделителем слева).
+        const tail = ownedModel("alpha\nbravo\nTAIL");
+        const tailPane = makePane("alpha\nbravo", { kind: "owned", model: tail }, { debounceMs: 0 });
+        tailPane.sidePanes()[1].goToPosition(2, 0);
+        expect(tailPane.revertHunkAtCaret()).toBe("reverted");
+        expect(tail.getText()).toBe("alpha\nbravo");
+        tailPane.dispose();
+
+        // Удалённый хвост original: вставка за концом modified.
+        const cut = ownedModel("alpha");
+        const cutPane = makePane("alpha\nomega", { kind: "owned", model: cut }, { debounceMs: 0 });
+        cutPane.sidePanes()[0].component.focus();
+        cutPane.sidePanes()[0].goToPosition(1, 0);
+        expect(cutPane.revertHunkAtCaret()).toBe("reverted");
+        expect(cut.getText()).toBe("alpha\nomega");
+        await settle(5);
+        cutPane.dispose();
+    });
+
+    it("revert hunk: вне ганка — no-hunk, снимочная modified-сторона — read-only", async () => {
+        const model = ownedModel("alpha\nBRAVO\ncharlie");
+        const pane = makePane("alpha\nbravo\ncharlie", { kind: "owned", model }, { debounceMs: 0 });
+        pane.sidePanes()[1].goToPosition(0, 0); // не-изменённая строка
+        expect(pane.revertHunkAtCaret()).toBe("no-hunk");
+        pane.dispose();
+
+        const frozen = makePane("alpha", "ALPHA");
+        expect(frozen.revertHunkAtCaret()).toBe("read-only");
+        await settle(5);
+        frozen.dispose();
+    });
+
     it("replaceSnapshotContent: тот же текст — no-op, новый — пересчёт и живой синк", async () => {
         const pane = makePane("a\nb\nc", "a\nB\nc", { debounceMs: 0 });
         const { original, modified } = sides(pane);
@@ -273,6 +355,13 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         ownPane.replaceSnapshotContent("modified", "y");
         expect(ownPane.sidePanes()[1].getText()).toBe("x");
         ownPane.dispose();
+        pane.dispose();
+    });
+
+    it("refreshDiffSnapshots на панели, открытой мимо openDiffPair, — тихий no-op", async () => {
+        const pane = makePane("a", "b");
+        await refreshDiffSnapshots(NULL_FILE_SYSTEM_PROVIDER_REGISTRY, pane);
+        expect(pane.sidePanes()[0].getText()).toBe("a");
         pane.dispose();
     });
 
@@ -302,15 +391,27 @@ describe("Workbench — дифф v2", () => {
     let editors: EditorService;
     let app: TestApp;
     let container: ReturnType<typeof createTestContainer>["container"];
+    /** Управляемый git-стаб: контент HEAD и ручной фаер onDidChangeFile (US-31). */
+    let headContent: string;
+    let fireGitChange: ((uris: readonly Uri[]) => void) | null;
 
     beforeEach(async () => {
         ws = createTempWorkspace({ prefix: "vexx-diffv2-", files: { "a.txt": AT_HEAD } });
         const testContainer = createTestContainer();
         container = testContainer.container;
         const registry = new FileSystemProviderRegistry();
+        headContent = AT_HEAD;
+        fireGitChange = null;
         registry.registerProvider("git", {
-            readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            readFile: () => Promise.resolve(new TextEncoder().encode(headContent)),
+            onDidChangeFile: (cb) => {
+                fireGitChange = cb;
+                return {
+                    dispose: () => {
+                        fireGitChange = null;
+                    },
+                };
+            },
         });
         container.bind(FileSystemProviderRegistryDIToken, () => registry);
         workbench = container.get(WorkbenchComponentDIToken);
@@ -495,6 +596,118 @@ describe("Workbench — дифф v2", () => {
         // Несохранённые правки живут в модели файла — дифф закрывается молча.
         editors.closeTab(editors.activeIndex);
         expect(editors.editorCount).toBe(countAfterFirst - 1);
+    });
+
+    it("US-31: сдвиг HEAD (onDidChangeFile провайдера) освежает снимочную сторону сам", async () => {
+        const pane = await openV2();
+        const original = pane.sidePanes()[0];
+        expect(original.getText()).toContain("old line");
+
+        // «Коммит из терминала»: HEAD теперь равен буферу, git-расширение
+        // фаерит по читанному ресурсу.
+        headContent = AT_HEAD.replace("old line", "XXold line");
+        expect(pane.originalUri).not.toBeNull();
+        // Пачка событий (rebase шевелит .git несколько раз) схлопывается debounce'ом.
+        fireGitChange?.([pane.originalUri!]);
+        fireGitChange?.([pane.originalUri!]);
+        // Debounce контрибуции (200) + чтение + пересчёт.
+        await settle(300);
+
+        expect(original.getText()).toContain("XXold line");
+        // Стороны сравнялись — дифф говорит об этом (нотис-зона живёт над первой
+        // строкой; якорь скролла честно удержал контент — поднимаемся к ней).
+        pane.activeTextPane.viewState.scrollTop = 0;
+        app.render();
+        expect(app.backend.screenToString()).toContain("The files are identical");
+
+        // Чужой ресурс не трогает вкладку (no-op пути).
+        fireGitChange?.([Uri.from({ scheme: "git", path: "/elsewhere" })]);
+        await settle(300);
+        expect(original.getText()).toContain("XXold line");
+    });
+
+    it("Diff: Revert Hunk — команда откатывает ганк под кареткой, вне ганка — нотис", async () => {
+        const fileEditor = editors.getActiveEditor();
+        await openV2();
+
+        // Каретка на изменённой строке (XX на строке 14).
+        const side = editors.getActiveEditor();
+        side?.goToPosition(14, 0);
+        container.get(CommandRegistryDIToken).execute("vexx.diff.revertHunk");
+        await settle(20);
+
+        // Правка откатилась в живом буфере файла — вкладка файла тоже чистая.
+        expect(fileEditor?.getText()).not.toContain("XXold line");
+        expect(fileEditor?.getText()).toContain("old line");
+
+        // Вне ганка — нотис, текст не тронут.
+        side?.goToPosition(0, 0);
+        container.get(CommandRegistryDIToken).execute("vexx.diff.revertHunk");
+        await settle(20);
+        app.render();
+        expect(app.backend.screenToString()).toContain("No change under the cursor");
+
+        // Вне дифф-вкладки — тихий no-op.
+        editors.activateTab(0);
+        container.get(CommandRegistryDIToken).execute("vexx.diff.revertHunk");
+        await settle(20);
+        expect(fileEditor?.getText()).toContain("old line");
+    });
+
+    it("US-31: сторона без ресурса (Clipboard) не матчится; dispose снимает висящий таймер", async () => {
+        await openDiffPair(container, {
+            original: { text: "clip", label: "Clipboard", identity: "c" },
+            modified: { uri: Uri.file(ws.path("a.txt")), label: "a.txt", identity: "a" },
+        });
+        await settle(20);
+        const pane = editors.getActiveTabPane() as DiffEditorPane2;
+        // И пара со снимочной modified-стороной (git-ресурс справа): матчинг
+        // обязан проверить ресурс обеих снимочных сторон.
+        await openDiffPair(container, {
+            original: { text: "x", label: "L", identity: "l2" },
+            modified: { uri: Uri.from({ scheme: "git", path: "/head", query: "r" }), label: "R", identity: "r2" },
+        });
+        await settle(20);
+
+        fireGitChange?.([Uri.from({ scheme: "git", path: "/x" })]);
+        await settle(300);
+        expect(pane.sidePanes()[0].getText()).toBe("clip");
+
+        // Оставляем таймер висеть: afterEach диспозит workbench — контрибуция
+        // обязана снять его, не стреляя после смерти.
+        fireGitChange?.([Uri.from({ scheme: "git", path: "/y" })]);
+    });
+
+    it("Diff: Revert Hunk работает и с кареткой в original-стороне", async () => {
+        const fileEditor = editors.getActiveEditor();
+        const pane = await openV2();
+
+        pane.sidePanes()[0].component.focus();
+        pane.sidePanes()[0].goToPosition(14, 0);
+        container.get(CommandRegistryDIToken).execute("vexx.diff.revertHunk");
+        await settle(20);
+
+        expect(fileEditor?.getText()).not.toContain("XXold line");
+    });
+
+    it("Ctrl+F ищет по активной стороне; совпадение в свёрнутом куске разворачивает пару", async () => {
+        const pane = await openV2();
+        pane.activeTextPane.component.focus();
+        app.render();
+
+        // Совпадение внутри свёрнутого unchanged-куска (value7 скрыт свёрткой).
+        expect(pane.activeTextPane.viewState.logicalToVisualLine(7)).toBe(-1);
+        app.sendKey("Ctrl+F");
+        typeText(app, "value7");
+        await settle(10);
+        app.render();
+
+        const modified = pane.activeTextPane;
+        expect(modified.viewState.searchMatches.length).toBeGreaterThan(0);
+        // Reveal развернул кусок; парная сторона развернулась тоже — выравнивание держится.
+        expect(modified.viewState.logicalToVisualLine(7)).toBeGreaterThanOrEqual(0);
+        const original = pane.sidePanes()[0];
+        expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
     });
 
     it("диалог закрытия dirty-untitled-диффа: Save без пути оставляет вкладку, Don't Save закрывает", async () => {

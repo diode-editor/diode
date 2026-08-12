@@ -1,5 +1,5 @@
 import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
-import type { DiffSide } from "./diffViewText.ts";
+import type { DiffSide } from "./diffSide.ts";
 
 /**
  * Посимвольные (intra-line) диапазоны изменений по строкам обеих сторон —

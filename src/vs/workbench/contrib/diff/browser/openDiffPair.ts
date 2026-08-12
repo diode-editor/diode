@@ -1,4 +1,5 @@
 import { Uri } from "../../../../base/common/uri.ts";
+import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { DiffV2SideSource, IDiffEditorPane2Input } from "../../../browser/parts/editor/diffEditorPane2.ts";
@@ -94,7 +95,11 @@ export async function openDiffPair(
         /* v8 ignore start -- defensive: vexx-diff-uri открывает только это ядро, вид панели известен */
         if (!(pane instanceof DiffEditorPane2)) break;
         /* v8 ignore stop */
-        if (!(await refreshSnapshotSides(accessor, pane, options))) return "unreadable";
+        // Свежие спеки сторон: у текстовой (Clipboard) стороны текст мог смениться.
+        paneOptions.set(pane, options);
+        if (!(await refreshSnapshotSides(accessor.get(FileSystemProviderRegistryDIToken), pane, options))) {
+            return "unreadable";
+        }
         editors.focusGroup(group.id, { focus: false });
         editors.activateTab(index);
         return "opened";
@@ -113,8 +118,29 @@ export async function openDiffPair(
     // Стороны — редактирующие поверхности: editor.*-конфиг (tabSize, отступы)
     // применяется как к обычным вкладкам.
     for (const side of pane.sidePanes()) editors.applyConfigurationToEditor(side);
+    // Спеки сторон — для автоосвежения снимков по onDidChangeFile (US-31):
+    // политика чтения (`onMissing`) остаётся в одном месте.
+    paneOptions.set(pane, options);
     editors.openPane(pane);
     return "opened";
+}
+
+/** Спеки сторон открытых вкладок; живут и умирают вместе с панелью. */
+const paneOptions = new WeakMap<DiffEditorPane2, IOpenDiffPairOptions>();
+
+/**
+ * Освежает снимочные стороны вкладки по её же спекам (US-31: git-провайдер
+ * сообщил об изменении ресурса — HEAD сдвинулся). Неизменившийся текст панель
+ * отбрасывает сама; ошибка чтения стороны здесь молча пропускается — вкладка
+ * продолжает показывать прежний снимок, нотиса без действий пользователя нет.
+ */
+export async function refreshDiffSnapshots(
+    providers: IFileSystemProviderRegistry,
+    pane: DiffEditorPane2,
+): Promise<void> {
+    const options = paneOptions.get(pane);
+    if (options === undefined) return;
+    await refreshSnapshotSides(providers, pane, options);
 }
 
 /**
@@ -171,7 +197,7 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
     if (side.text !== undefined) return { kind: "snapshot", text: side.text };
     if (side.uri === undefined) return { kind: "snapshot", text: "" };
     if (side.preferDisk === true || side.uri.scheme !== "file") {
-        const text = await readSideText(accessor, side);
+        const text = await readSideText(accessor.get(FileSystemProviderRegistryDIToken), side);
         return text === null ? null : { kind: "snapshot", text };
     }
 
@@ -193,10 +219,9 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
 /**
  * Текст снимочной стороны; `null` — не читается (и это ошибка по её политике).
  */
-async function readSideText(accessor: ServiceAccessor, side: IDiffSideSpec): Promise<string | null> {
+async function readSideText(providers: IFileSystemProviderRegistry, side: IDiffSideSpec): Promise<string | null> {
     if (side.text !== undefined) return side.text;
     if (side.uri === undefined) return "";
-    const providers = accessor.get(FileSystemProviderRegistryDIToken);
     try {
         if (!providers.hasProvider(side.uri.scheme)) throw new Error(`no provider for ${side.uri.scheme}`);
         return new TextDecoder().decode(await providers.readFile(side.uri));
@@ -211,12 +236,12 @@ async function readSideText(accessor: ServiceAccessor, side: IDiffSideSpec): Pro
  * актуальны. Неизменившийся текст панель отбрасывает сама (no-op).
  */
 async function refreshSnapshotSides(
-    accessor: ServiceAccessor,
+    providers: IFileSystemProviderRegistry,
     pane: DiffEditorPane2,
     options: IOpenDiffPairOptions,
 ): Promise<boolean> {
     for (const side of pane.snapshotSides()) {
-        const text = await readSideText(accessor, side === "original" ? options.original : options.modified);
+        const text = await readSideText(providers, side === "original" ? options.original : options.modified);
         if (text === null) return false;
         pane.replaceSnapshotContent(side, text);
     }
