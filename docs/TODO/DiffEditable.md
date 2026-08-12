@@ -64,7 +64,7 @@ undo/find бесплатно от редактора. Заменяет теку�
 зон), `DiffInnerRanges`, цвета diffColors, всё семейство команд сравнения и ядро
 `openDiffPair` (меняется только «чем» открывать), sharedDocument-механика #245.
 Уйдёт: `DiffViewElement` + синтетические документы (`diffViewText.ts`,
-`sideBySideRows`-текстовая часть).
+`sideBySideRows`-текстовая часть) — ушли в PR-5.
 
 ## Фазировка (порядок выбран так, чтобы слепым был ровно один PR)
 
@@ -157,12 +157,46 @@ undo/find бесплатно от редактора. Заменяет теку�
     detached-панели — бары не рисуются в гуттере стороны диффа.
   - «The files are identical» (US-11) — зона-нотис перед первой строкой при
     пустом диффе (`IDENTICAL_NOTICE` в `computeDiffV2Layout`).
-- [ ] **PR-5. Хвосты**: Ctrl+F в диффе, revert-чанков (стрелочки на ганках),
-  подписи колонок side-by-side (у v2 их нет — `labelOverride` сторон никто не
-  рендерит; метку несёт таб), судьба inline-режима v2 (узкий терминал),
-  автопересчёт снимочной git-стороны по `onDidChangeFile` (US-31 — сейчас
-  снимок освежает повторный вызов команды), удаление старого
-  `DiffViewElement` + `diffViewText`/`sideBySideRows`, обновление docs/arch.
+- [x] **PR-5. Хвосты** — сделано. Решения:
+  - **Ctrl+F** заработал в PR-4 «из коробки»: цель find — `getActiveEditor()`
+    (активная сторона), гейт `textInputFocus` истинен на стороне. В PR-5 —
+    тесты: поиск по стороне; reveal совпадения в свёрнутом куске разворачивает
+    ПАРУ (через штатный фолд-синк), выравнивание держится. Осознанный люфт:
+    поиск идёт по активной стороне (в VS Code — два независимых виджета), и
+    матчи, как везде у нашего find, статичны до следующего пересчёта.
+  - **Revert-чанка** — командой «Diff: Revert Hunk» (`vexx.diff.revertHunk`,
+    только палитра — без кейбинда контекст-ключ диффа не нужен, `instanceof`
+    в run): ганк под кареткой ЛЮБОЙ стороны (у пустого на этой стороне
+    диапазона якорь — строка перед изменением, как у зоны-филлера), строки
+    modified заменяются строками original через `applyExternalEdits` —
+    undoable, живой пересчёт сам убирает разметку. Гейт: снимочная modified —
+    нотис. **Кликабельные стрелки на ганках — follow-up** (нужен hit-test
+    колонки маркеров в `EditorElement`).
+  - **Подписи колонок** (US-14) — строка заголовков в `DiffPaneElement`
+    (`HEAD │ a.ts`, цвет `editorLineNumber.foreground`, обрезка по колонке);
+    дети сдвинуты на `HEADER_ROWS = 1`.
+  - **US-31** — `DiffSnapshotRefreshContribution` (фаза restored): слушает
+    `FileSystemProviderRegistry.onDidChangeFile` (git-расширение фаерит по
+    читанным ресурсам), debounce 200, матчит изменённые uri с
+    `originalUri`/`modifiedUri` снимочных сторон открытых дифф-вкладок и зовёт
+    `refreshDiffSnapshots` (спеки сторон — в WeakMap у `openDiffPair`, политика
+    чтения в одном месте). Диск (`file:`) событий не даёт — сторона «(on disk)»
+    так не освежается (осознанно; освежает повторный вызов).
+  - **Удалены** `DiffViewElement` (+5 тестовых), `diffViewText`,
+    `sideBySideRows`; общий словарь (`DiffSide`, `collapsedRowLabel`, `ELLIPSIS`)
+    переехал в `editor/common/diff/diffSide.ts`. `isTextViewElement` схлопнулся
+    до `instanceof EditorElement`; ключи `textViewFocus`/`textInputFocus`
+    совпали по значению и оставлены ради семантики when-клауз.
+    `DiffViewModel.rows` остался (покрыт своими юнитами) — чистка отдельно.
+- [ ] **PR-6. Inline-режим v2 (узкий терминал)**: решение PR-5 — side-by-side
+  всегда, авто-фолбэк вернуть отдельным PR по честной upstream-механике: ОДИН
+  редактор (modified) на всю ширину, удалённые строки original — зоны-призраки
+  с многострочным текстом. Нужны: `IViewZoneDecoration.lines: string[]` +
+  `zoneRowForViewLine(viewLine): {anchor, offset}` в `EditorViewState`
+  (сейчас зона адресуется только якорем — текст один на зону), переключение по
+  ширине из `DiffPaneElement.performLayout` (колбэк наружу; порог мерить по
+  элементу, не терминалу — урок старой смотрелки), перенос каретки только из
+  original-стороны. US-21/US-22 (ручной тумблер) — сюда же.
 
 ## Известные грабли (из разведки, чтобы не переоткрывать)
 

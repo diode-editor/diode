@@ -401,9 +401,10 @@ runOnLinux("Diff viewer (functional e2e)", () => {
             await openDiffFor(s, " // dragme");
 
             const node = await s.waitForNode("DiffPaneElement");
-            // Правая половина пары — modified-сторона.
+            // Правая половина пары — modified-сторона; +1 по y — под строкой
+            // заголовков колонок.
             const x = node.box.x + Math.floor(node.box.width / 2) + 8;
-            const y = node.box.y;
+            const y = node.box.y + 1;
             await s.sendMouse({ action: "press", button: "left", x, y });
             await s.sendMouse({ action: "move", button: "left", x: x + 5, y: y + 2 });
             await s.sendMouse({ action: "release", button: "left", x: x + 5, y: y + 2 });
@@ -567,6 +568,70 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── I. Compare New Untitled Text Files (US-37, PR-4) ─────────────────────
+    // ── J. PR-5: revert-чанка и живой сдвиг HEAD (US-31) ─────────────────────
+    it("Diff: Revert Hunk откатывает правку под кареткой прямо из диффа", async () => {
+        const r = repo({ "greeting.js": TRACKED });
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
+        try {
+            await openDiffFor(s, " // revertme");
+            await s.waitForText((t) => t.includes("// revertme"));
+
+            // Каретка на изменённой строке: она видна, кликать не нужно —
+            // ставим через поиск ганка стрелками? Нет: revert ищет ганк по
+            // каретке — доводим её командами (строка возврата видна).
+            const frame = frameToText(await s.captureFrame()).split("\n");
+            const row = frame.findIndex((line) => line.includes("// revertme"));
+            expect(row).toBeGreaterThan(0);
+            const view = await s.waitForNode("DiffPaneElement");
+            await s.click(view.box.x + view.box.width - 2, row);
+
+            await s.key("Ctrl+P");
+            await s.text(">Diff: Revert Hunk");
+            await s.waitForText((t) => t.includes("Revert Hunk"));
+            await s.key("Enter");
+
+            // Правка откатилась; живой пересчёт съел разметку ганка.
+            await s.waitForText((t) => !t.includes("// revertme"), { timeoutMs: 15_000 });
+            // И в буфере файла её тоже нет (модель общая) — Ctrl+Z вернул бы.
+            await s.key("Ctrl+P");
+            await s.text("greeting.js");
+            await s.key("Enter");
+            await s.waitForFocus("EditorElement");
+            expect(frameToText(await s.captureFrame())).not.toContain("// revertme");
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
+    it("US-31: git commit в обход приложения освежает HEAD-сторону открытого диффа", async () => {
+        const r = repo({ "greeting.js": TRACKED });
+        const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
+        try {
+            await openDiffFor(s, " // live-head");
+            await s.waitForText((t) => t.includes("// live-head"));
+
+            // «Коммит из терминала»: рабочее дерево уже содержит правку? Нет —
+            // правка не сохранена. Меняем HEAD иначе: коммитим НОВОЕ содержимое
+            // файла напрямую в git, как это сделал бы rebase/pull.
+            const committed = TRACKED.replace('return "hi " + name;', 'return "hi " + name; // live-head');
+            writeFileSync(r.file("shadow.tmp"), committed);
+            git(r.dir, "update-index", "--add", "--cacheinfo", "100644",
+                execFileSync("git", ["hash-object", "-w", r.file("shadow.tmp")], { cwd: r.dir })
+                    .toString()
+                    .trim(),
+                "greeting.js");
+            git(r.dir, "commit", "-qm", "shadow-commit");
+
+            // Дифф сам освежает HEAD-сторону: ганк исчез, стороны сравнялись
+            // (весь файл — unchanged-кусок; правка скрыта его свёрткой).
+            await s.waitForText((t) => !t.includes("// live-head") && t.includes("unchanged lines"), {
+                timeoutMs: 30_000,
+            });
+        } finally {
+            await teardown();
+        }
+    }, 120_000);
+
     it("Compare New Untitled: обе стороны редактируются, дифф живой, закрытие спрашивает", async () => {
         const r = repo({ "seed.txt": "seed\n" });
         const s = await open([r.dir], r.dir, 140);

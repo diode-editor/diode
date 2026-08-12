@@ -1,12 +1,14 @@
 import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
 import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
 import { DiffInnerRanges } from "../../../../editor/common/diff/diffInnerRanges.ts";
+import type { DiffSide } from "../../../../editor/common/diff/diffSide.ts";
 import type { IDiffV2SideLayout } from "../../../../editor/common/diff/diffV2Layout.ts";
 import { computeDiffV2Layout } from "../../../../editor/common/diff/diffV2Layout.ts";
 import { DiffViewModel } from "../../../../editor/common/diff/diffViewModel.ts";
-import type { DiffSide } from "../../../../editor/common/diff/diffViewText.ts";
+import type { DetailedLineRangeMapping } from "../../../../editor/common/diff/rangeMapping.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
@@ -103,6 +105,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     /** Пары регионов свёртки для синхронизации разворота между сторонами. */
     private regionPairs: { original: number; modified: number; collapsed: boolean }[] = [];
     private layout: { original: IDiffV2SideLayout; modified: IDiffV2SideLayout } | null = null;
+    /** Ганки последнего пересчёта — для revert-чанка под кареткой. */
+    private changes: readonly DetailedLineRangeMapping[] = [];
     /** Реэнтрантный гард зеркалирования скролла и фолд-синка. */
     private syncing = false;
     /** Подписки скролл/фолд-синка на view-state сторон; перевешиваются при reload. */
@@ -129,7 +133,10 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
             original: this.createSide("original", tokenizationRegistry, tokenStyleResolver, input),
             modified: this.createSide("modified", tokenizationRegistry, tokenStyleResolver, input),
         };
-        this.view = new DiffPaneElement(this.sides.original.component.view, this.sides.modified.component.view);
+        this.view = new DiffPaneElement(this.sides.original.component.view, this.sides.modified.component.view, {
+            original: input.originalLabel,
+            modified: input.modifiedLabel,
+        });
         this.view.id = "diffEditorV2";
         this.view.style = { fg: "editor.foreground", bg: "editor.background" };
         // Одна полоса прокрутки на пару: скролл синхронен, левая была бы дублем
@@ -211,6 +218,46 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         return [this.sides.original, this.sides.modified];
     }
 
+    // ─── Revert-чанка ─────────────────────────────────────────────────────────
+
+    /**
+     * Откатывает ганк под кареткой активной стороны: строки modified заменяются
+     * строками original (аналог стрелки VS Code `diffEditor.revert`). Правка
+     * идёт штатным undoable-путём (`applyExternalEdits`), живой пересчёт сам
+     * уберёт разметку ганка. Каретка может стоять в любой стороне — ганк ищется
+     * по её координатам; у пустого на этой стороне диапазона (чистая правка
+     * другой стороны) якорь — строка перед местом изменения, как у зоны-филлера.
+     */
+    public revertHunkAtCaret(): "reverted" | "no-hunk" | "read-only" {
+        if (this.sides.modified.readOnly) return "read-only";
+        const change = this.hunkAtCaret();
+        if (change === null) return "no-hunk";
+
+        const originalLines = this.sides.original.model
+            .getText()
+            .split(EOL_SPLIT)
+            .slice(change.original.startLineNumber - 1, change.original.endLineNumberExclusive - 1);
+        this.sides.modified.applyExternalEdits(
+            [buildLineReplaceEdit(this.sides.modified.model.document, change.modified, originalLines)],
+            "diff.revertHunk",
+        );
+        return "reverted";
+    }
+
+    private hunkAtCaret(): DetailedLineRangeMapping | null {
+        const side = this.activeSideValue;
+        const caret = this.sides[side].primaryCursorLine;
+        return (
+            this.changes.find((change) => {
+                const own = side === "original" ? change.original : change.modified;
+                const start = own.startLineNumber - 1;
+                const endExclusive = own.endLineNumberExclusive - 1;
+                if (endExclusive > start) return caret >= start && caret < endExclusive;
+                return caret === Math.max(0, endExclusive - 1);
+            }) ?? null
+        );
+    }
+
     // ─── Живой пересчёт ───────────────────────────────────────────────────────
 
     /**
@@ -269,6 +316,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
             const model = new DiffViewModel(diff.changes, originalLines.length, modifiedLines.length, {
                 hideUnchangedRegions: true,
             });
+            this.changes = diff.changes;
             const previous = { pairs: this.regionPairs, layout: this.layout };
             this.layout = computeDiffV2Layout(diff.changes, model.regions, new DiffInnerRanges(diff.changes), {
                 original: originalLines.length,
@@ -505,4 +553,52 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
 /** Пересечение диапазонов строк двух регионов (в строках; 0 — не пересекаются). */
 function rangeOverlap(a: { startLine: number; endLine: number }, b: { startLine: number; endLine: number }): number {
     return Math.max(0, Math.min(a.endLine, b.endLine) - Math.max(a.startLine, b.startLine) + 1);
+}
+
+/**
+ * Правка «заменить строки [range) документа строками `lines`» (1-based LineRange
+ * движка → символьный ITextEdit). Краевые случаи — вставка (пустой диапазон) и
+ * удаление (пустые `lines`) — аккуратны с переводами строк: удаление съедает
+ * ровно один разделитель, вставка добавляет свой.
+ */
+function buildLineReplaceEdit(
+    document: { lineCount: number; getLineLength(line: number): number },
+    range: { startLineNumber: number; endLineNumberExclusive: number },
+    lines: readonly string[],
+): ITextEdit {
+    const start = range.startLineNumber - 1;
+    const endExclusive = range.endLineNumberExclusive - 1;
+    const at = (line: number, character: number): { line: number; character: number } => ({ line, character });
+
+    if (endExclusive === start) {
+        // Вставка перед строкой start; за концом файла — в хвост последней строки.
+        if (start < document.lineCount) {
+            return { range: { start: at(start, 0), end: at(start, 0) }, text: `${lines.join("\n")}\n` };
+        }
+        const last = document.lineCount - 1;
+        const lastLength = document.getLineLength(last);
+        return { range: { start: at(last, lastLength), end: at(last, lastLength) }, text: `\n${lines.join("\n")}` };
+    }
+
+    if (lines.length === 0) {
+        // Удаление строк [start..endExclusive): у хвостового блока разделитель
+        // съедается слева, иначе — справа.
+        if (endExclusive < document.lineCount) {
+            return { range: { start: at(start, 0), end: at(endExclusive, 0) }, text: "" };
+        }
+        /* v8 ignore start -- start === 0 недостижим: удаление всего файла означало бы
+           пустой original-диапазон при пустом original-файле, а у TextDocument минимум
+           одна строка — такой ганк движок строит как замену, не вставку */
+        const from = start > 0 ? at(start - 1, document.getLineLength(start - 1)) : at(0, 0);
+        /* v8 ignore stop */
+        return {
+            range: { start: from, end: at(endExclusive - 1, document.getLineLength(endExclusive - 1)) },
+            text: "",
+        };
+    }
+
+    return {
+        range: { start: at(start, 0), end: at(endExclusive - 1, document.getLineLength(endExclusive - 1)) },
+        text: lines.join("\n"),
+    };
 }

@@ -559,6 +559,21 @@ hide-toggle (`isHiddenByDefault`). См.
     вкладки — `EditorService.onRequestConfirmClose(group, index)`); любой фокус
     в поддереве капчурится → `notifyGroupFocused` (клик мышью делает группу
     активной).
+  - `Parts/Editor/DiffEditorPane2.ts` — живая дифф-вкладка (DiffEditable):
+    **композиция двух настоящих редакторов** — стороны это `TextFileModel` +
+    `EditorComponent` в `TextEditorPane` (file-сторона — общая модель из
+    реестра, untitled — своя, git/clipboard/диск — снимок read-only); контейнер
+    `DiffPaneElement` (строка подписей `HEAD │ a.ts` + колонки 50/50 +
+    разделитель). Выравнивание — view zones, свёртка unchanged — обычный
+    фолдинг с парным синком, подсветка — `IExternalDecorations`; раскладку
+    считает `editor/common/diff/diffV2Layout`. Живой пересчёт — по
+    `onDidChangeContent` моделей сторон (debounce 200) с переносом свёрнутости
+    и якорем скролла; `getActiveEditor()`/`getActiveTabEditor()` отдают
+    активную сторону (команды, статус-бар, find, Ctrl+S работают по ней);
+    revert-чанка — `revertHunkAtCaret()` (команда «Diff: Revert Hunk»);
+    dirty-контракт — `EditorService.needsCloseConfirm`/`collectDirty` считают
+    стороны диффов. Снимочные стороны автоосвежает
+    `contrib/diff/DiffSnapshotRefreshContribution` по `onDidChangeFile` (US-31).
 - **Find/Suggest-кластер (этап 10)** — поиск по файлу и автодополнение поверх
   активного редактора (`EditorService`):
   - `Components/Editor/FindComponent.ts` — `ThemedComponent`; **композиционный

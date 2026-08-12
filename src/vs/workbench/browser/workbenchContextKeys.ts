@@ -116,12 +116,11 @@ export class WorkbenchContextKeys extends Disposable {
         const editorCount = this.editorService.editorCount;
 
         this.contextKeys.set("textInputFocus", active instanceof EditorElement);
-        // Шире, чем textInputFocus: сюда попадает и дифф. Разница ровно в том,
-        // нужен ли команде буфер файла (правка, фолдинг, suggest, find — им
-        // нужен) или достаточно EditorViewState (каретка, выделение, копия).
-        // Расширять сам textInputFocus нельзя: команды на нём ходят через
-        // getActiveEditor(), который на диффе даёт null, — они бы молча ничего
-        // не делали, съедая при этом клавишу (swallowNextKeyPress).
+        // Исторически шире, чем textInputFocus: сюда попадала и рисованная
+        // смотрелка диффа. С диффом v2 (стороны — настоящие редакторы) ключи
+        // совпали по значению; оба живут ради семантики when-клауз — «команде
+        // нужна каретка» против «команде нужен ввод» (мутирующие дополнительно
+        // гейтятся `!editorReadonly`).
         this.contextKeys.set("textViewFocus", isTextViewElement(active));
         // Парный к textViewFocus: мутирующие команды висят на
         // `textInputFocus && !editorReadonly` — наш аналог `EditorContextKeys.writable`

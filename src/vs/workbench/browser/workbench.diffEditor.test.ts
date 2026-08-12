@@ -455,9 +455,14 @@ describe("Workbench — дифф на широком терминале (side-by
             .screenToString()
             .split("\n")
             .map((l) => l.replace(/\s+$/, ""));
+        // Заголовок сторон (US-14): слева HEAD, справа имя файла, между ними
+        // разделитель. Строку табов («a.txt ↔ HEAD ×») отсекаем по «↔».
+        const header = lines.find((l) => l.includes("HEAD") && l.includes("│") && !l.includes("↔"));
+        expect(header).toBeDefined();
+        expect(header).toContain("a.txt");
+        expect(header?.indexOf("HEAD")).toBeLessThan(header?.indexOf("a.txt") ?? -1);
         // Правка стоит парой на одной строке разделителя: слева `2-` со старой
-        // строкой, справа `2+` с новой (подписи колонок v2 не рисует — метка
-        // вкладки несёт обе стороны; хвост в DiffEditable.md, PR-5).
+        // строкой, справа `2+` с новой.
         const pair = lines.find((l) => /2-\s+bravo/u.test(l));
         expect(pair).toBeDefined();
         expect(pair).toMatch(/2\+\s+XXbravo/u);

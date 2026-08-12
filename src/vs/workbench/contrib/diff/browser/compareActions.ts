@@ -9,6 +9,7 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { reviveWireUri } from "../../../api/common/wireTypes.ts";
 import { explorerPathArg } from "../../../browser/actions/menuContexts.ts";
+import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
@@ -278,6 +279,22 @@ async function compareNewUntitledTextFiles(accessor: ServiceAccessor): Promise<v
     });
 }
 
+// ─── Diff: Revert Hunk ───────────────────────────────────────────────────────
+
+/**
+ * Откат ганка под кареткой активной дифф-вкладки: строки modified заменяются
+ * строками original (аналог стрелки на ганке в VS Code, `diffEditor.revert`).
+ * Правка undoable; живой пересчёт сам убирает разметку. Вне дифф-вкладки —
+ * тихий no-op (без кейбинда контекст-ключ не нужен).
+ */
+function revertDiffHunk(accessor: ServiceAccessor): void {
+    const pane = accessor.get(EditorServiceDIToken).getActiveTabPane();
+    if (!(pane instanceof DiffEditorPane2)) return;
+    const result = pane.revertHunkAtCaret();
+    if (result === "no-hunk") showCompareNotice(accessor, "No change under the cursor to revert");
+    if (result === "read-only") showCompareNotice(accessor, "Cannot revert: the modified side is read-only");
+}
+
 // ─── vscode.diff (US-12, AS-20) ──────────────────────────────────────────────
 
 /** `ViewColumn.Beside` из vscode API. `ViewColumn.Active` (-1) — дефолт и так. */
@@ -376,6 +393,14 @@ export const compareFileWithAction: CommandAction = {
     title: "File: Compare Active File With...",
     run(accessor) {
         void compareActiveFileWith(accessor);
+    },
+};
+
+export const revertDiffHunkAction: CommandAction = {
+    id: "vexx.diff.revertHunk",
+    title: "Diff: Revert Hunk",
+    run(accessor) {
+        revertDiffHunk(accessor);
     },
 };
 
