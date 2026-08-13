@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { FakeTerminalSurface } from "../../../src/TestUtils/FakeTerminalSurface.ts";
+import { FakeTerminalSurface } from "../../testing/FakeTerminalSurface.ts";
 import { BoxConstraints, Size } from "../../common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import type { TUIMouseEventType } from "../../dom/events/tuiMouseEvent.ts";

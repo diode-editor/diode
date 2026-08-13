@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+import { TestApp } from "../../testing/TestApp.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 

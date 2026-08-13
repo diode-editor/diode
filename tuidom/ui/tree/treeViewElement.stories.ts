@@ -1,46 +1,17 @@
-import * as path from "node:path";
-
-import type { StoryContext, StoryMeta } from "../../../src/StoryRunner/StoryTypes.ts";
-import {
-    FileTreeDataProvider,
-    type FileTreeNode,
-} from "../../../src/vs/workbench/contrib/files/browser/fileTreeDataProvider.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { RenderContext, TUIElement } from "../../dom/tuiElement.ts";
+import type { StoryContext, StoryMeta } from "../../testing/storyTypes.ts";
 import { HFlexElement, hflexFill, hflexFixed } from "../layout/hFlexElement.ts";
 
 import type { ITreeDataProvider, ITreeItem } from "./iTreeDataProvider.ts";
 import { TreeViewElement } from "./treeViewElement.ts";
 
+// История про живой файловый провайдер (watchDirectory и т.п.) живёт на
+// стороне приложения: src/StoryRunner/stories/fileTree.stories.ts.
+
 export const meta: StoryMeta = {
     title: "TreeViewElement",
 };
-
-export function fileTree(ctx: StoryContext): void {
-    const rootPath = ctx.args[0] ?? path.resolve(".");
-
-    const provider = new FileTreeDataProvider(rootPath);
-    const tree = new TreeViewElement<FileTreeNode>(provider);
-    tree.onExpandedChanged = (node, expanded) => {
-        if (expanded) {
-            provider.watchDirectory(node.path);
-        } else {
-            provider.unwatchDirectory(node.path);
-        }
-    };
-    tree.onActivate = (node) => {
-        if (!node.isDirectory) {
-            console.log("Activate file:", node.path);
-        }
-    };
-
-    ctx.body.setContent(tree);
-
-    ctx.afterRun(() => {
-        tree.focus();
-        void tree.refresh();
-    });
-}
 
 // ─── Focus-switch demo ───
 

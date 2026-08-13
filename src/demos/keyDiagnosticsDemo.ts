@@ -14,7 +14,7 @@
  * Press keys (Ctrl+Tab, Ctrl+Shift+L, …). Ctrl+C to exit.
  */
 
-import { addCleanup, isCtrlC, stdin, stdout, writeDirect } from "../../tuidom/demos/demoSetup.ts";
+import { addCleanup, isCtrlC, stdin, stdout, writeDirect } from "./demoSetup.ts";
 import type { KeyPressEvent } from "../../tuidom/input/keyEvent.ts";
 import { KeyInputParser } from "../../tuidom/input/keyInputParser.ts";
 import { tokenize } from "../../tuidom/input/tokenize.ts";

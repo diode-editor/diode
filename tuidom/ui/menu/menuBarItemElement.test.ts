@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { renderElement } from "../../../src/TestUtils/renderElement.ts";
+import { renderElement } from "../../testing/renderElement.ts";
 import type { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { DEFAULT_COLOR } from "../../common/colorUtils.ts";
 import { Point } from "../../common/geometryPromitives.ts";

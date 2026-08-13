@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { renderElement } from "../../../src/TestUtils/renderElement.ts";
+import { renderElement } from "../../testing/renderElement.ts";
 import { Point } from "../../common/geometryPromitives.ts";
 import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import type { RenderContext } from "../../dom/tuiElement.ts";

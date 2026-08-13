@@ -5,8 +5,8 @@ import {
     collectCollapsibleNodes,
     makeInMemoryTreeProvider,
     type PerfTreeNode,
-} from "../../../src/TestUtils/perfFixtures.ts";
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+} from "../../testing/perfFixtures.ts";
+import { TestApp } from "../../testing/TestApp.ts";
 import { Size } from "../../common/geometryPromitives.ts";
 
 import { TreeViewElement } from "./treeViewElement.ts";

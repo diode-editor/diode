@@ -1,4 +1,4 @@
-import type { StoryContext, StoryMeta } from "../../../src/StoryRunner/StoryTypes.ts";
+import type { StoryContext, StoryMeta } from "../../testing/storyTypes.ts";
 import { VStackElement } from "../layout/vStackElement.ts";
 
 import type { QuickPickItem } from "./quickPickElement.ts";

@@ -1,4 +1,4 @@
-import type { StoryContext, StoryMeta } from "../../../src/StoryRunner/StoryTypes.ts";
+import type { StoryContext, StoryMeta } from "../../testing/storyTypes.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { ScrollBarDecorator } from "../scrollbar/scrollContainerElement.ts";
 import { TextLabelElement } from "../text/textLabelElement.ts";

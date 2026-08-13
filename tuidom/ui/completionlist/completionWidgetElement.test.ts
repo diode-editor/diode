@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderElement } from "../../../src/TestUtils/renderElement.ts";
+import { renderElement } from "../../testing/renderElement.ts";
 
 import { CompletionWidgetElement } from "./completionWidgetElement.ts";
 

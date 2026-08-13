@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { renderElement } from "../../../src/TestUtils/renderElement.ts";
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+import { renderElement } from "../../testing/renderElement.ts";
+import { TestApp } from "../../testing/TestApp.ts";
 import type { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Point, Size } from "../../common/geometryPromitives.ts";

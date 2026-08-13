@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { renderElement } from "../../../src/TestUtils/renderElement.ts";
-import { getFileIcon } from "../../../src/vs/base/common/fileIcons.ts";
+import { renderElement } from "../../testing/renderElement.ts";
 import type { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
@@ -10,8 +9,10 @@ import { TUIMouseEvent } from "../../dom/events/tuiMouseEvent.ts";
 import { EditorTabItemElement } from "./editorTabItemElement.ts";
 
 const LOCK_CHAR = "\uea75"; // nf-cod-lock, см. editorTabItemElement.ts
-const tsIcon = getFileIcon("file.ts");
-const jsIcon = getFileIcon("app.js");
+// Тестовая фикстура иконок: виджету всё равно, откуда глиф и цвет — реестр
+// файловых иконок принадлежит приложению. Значения .ts/.js — дословно из него.
+const tsIcon = { icon: "\uE628", color: packRgb(49, 120, 198) };
+const jsIcon = { icon: "\uE781", color: packRgb(241, 224, 90) };
 
 function renderTab(tab: EditorTabItemElement, width?: number): { backend: MockTerminalBackend; text: string } {
     const intrinsicWidth = width ?? tab.getMaxIntrinsicWidth(1);

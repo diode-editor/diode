@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { FakeTerminalSurface } from "../../../src/TestUtils/FakeTerminalSurface.ts";
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+import { FakeTerminalSurface } from "../../testing/FakeTerminalSurface.ts";
+import { TestApp } from "../../testing/TestApp.ts";
 import { DEFAULT_COLOR, packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { StyleFlags } from "../../common/styleFlags.ts";

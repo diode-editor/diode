@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TestApp } from "../../src/TestUtils/TestApp.ts";
+import { TestApp } from "../testing/TestApp.ts";
 import { Size } from "../common/geometryPromitives.ts";
 import { emptyGridSnapshot } from "../rendering/gridSnapshot.ts";
 import { BodyElement } from "../ui/body/bodyElement.ts";
