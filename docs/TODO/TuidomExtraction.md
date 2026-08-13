@@ -93,9 +93,14 @@ fs-доступ; `vitest` в dev. Всё leaf, без `vs/`-хвоста.
 ## Порядок работ перед выносом
 
 1. ~~Перенести **`textLimits.ts`** в editor~~ — **сделано** (`longLineRendering.ts`).
-2. Решить судьбу **`measureTextWidth.ts`** (оставить в tuidom / перенести).
-3. Развязать **`.stories.ts` / `.bench.ts`** от `src/vs` — в первую очередь
-   `inputElement.stories.ts`.
+2. ~~Решить судьбу **`measureTextWidth.ts`**~~ — **решено: остаётся в tuidom** как
+   общий примитив «текст → колонки» (вариант (а) из п. 2 выше).
+3. ~~Развязать **`.stories.ts` / `.bench.ts` / тесты** от `src/`~~ — **сделано**
+   (фаза 1 выноса): тест-харнесс переехал в `tuidom/testing/` (палитра Dark+ —
+   data-фикстурой `darkPlusStyleVars.ts`), vexx-зависимые истории уехали в
+   `src/StoryRunner/stories/`, editor-зависимый тест — в
+   `src/vs/editor/browser/editorElement.selectionClear.test.ts`. Теперь
+   `grep -rn 'from ".*src/' tuidom` пуст, включая тесты/истории/бенчи.
 4. Зафиксировать инвариант «tuidom не знает про `vs/`» в
-   [ARCHITECTURE.md](../ARCHITECTURE.md) и, по возможности, правилом линтера,
-   запрещающим `tuidom → src/**` (включая тесты/истории).
+   [ARCHITECTURE.md](../ARCHITECTURE.md) — после физического выноса инвариант
+   станет строже сам собой: пакет из npm не может импортировать `src/**`.

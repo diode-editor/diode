@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { renderElement } from "../../../src/TestUtils/renderElement.ts";
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+import { renderElement } from "../../testing/renderElement.ts";
+import { TestApp } from "../../testing/TestApp.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { Size } from "../../common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";

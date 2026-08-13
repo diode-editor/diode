@@ -1,4 +1,4 @@
-import type { StoryContext, StoryMeta } from "../../../src/StoryRunner/StoryTypes.ts";
+import type { StoryContext, StoryMeta } from "../../testing/storyTypes.ts";
 import { Point } from "../../common/geometryPromitives.ts";
 import { BoxElement } from "../layout/boxElement.ts";
 

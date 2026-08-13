@@ -9,6 +9,12 @@ import type { WorkbenchTheme } from "../common/workbenchTheme.ts";
  * Hot-swap темы = повторный вызов — каскад перерезолвит дерево сам.
  */
 export function applyThemeVars(root: TUIElement, theme: WorkbenchTheme): void {
+    root.setStyleVars(computeThemeVars(theme));
+}
+
+/** Палитра темы как словарь var-scope: то, что applyThemeVars кладёт в корень.
+ * Отдельно, чтобы тест-харнессы могли получить те же числа без элемента. */
+export function computeThemeVars(theme: WorkbenchTheme): Record<string, number> {
     const vars: Record<string, number> = {};
     for (const [key, value] of Object.entries(theme.colors)) {
         if (typeof value === "number") {
@@ -26,5 +32,5 @@ export function applyThemeVars(root: TUIElement, theme: WorkbenchTheme): void {
         vars["terminal.foreground"] = vars["editor.foreground"];
     }
 
-    root.setStyleVars(vars);
+    return vars;
 }

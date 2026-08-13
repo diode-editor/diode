@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BoxConstraints, Size } from "../../tuidom/common/geometryPromitives.ts";
-import type { TUIKeyboardEvent } from "../../tuidom/dom/events/tuiKeyboardEvent.ts";
-import { TUIElement } from "../../tuidom/dom/tuiElement.ts";
-import { BodyElement } from "../../tuidom/ui/body/bodyElement.ts";
-import { BoxElement } from "../../tuidom/ui/layout/boxElement.ts";
+import { BoxConstraints, Size } from "../common/geometryPromitives.ts";
+import type { TUIKeyboardEvent } from "../dom/events/tuiKeyboardEvent.ts";
+import { TUIElement } from "../dom/tuiElement.ts";
+import { BodyElement } from "../ui/body/bodyElement.ts";
+import { BoxElement } from "../ui/layout/boxElement.ts";
 
+import { DARK_PLUS_STYLE_VARS } from "./darkPlusStyleVars.ts";
 import { TestApp } from "./TestApp.ts";
 
 class ContainerElement extends TUIElement {
@@ -122,5 +123,22 @@ describe("TestApp", () => {
         expect(testApp.focusedElement).toBe(b);
         testApp.sendKey("Tab");
         expect(testApp.focusedElement).toBe(a);
+    });
+
+    describe("styleVars", () => {
+        it("дефолт — снапшот Dark+: хостовые токены резолвятся в цвета палитры", () => {
+            const box = new BoxElement();
+            box.style = { bg: "editor.background" };
+            TestApp.createWithContent(box, new Size(10, 3));
+            expect(box.resolvedStyle.bg).toBe(DARK_PLUS_STYLE_VARS["editor.background"]);
+        });
+
+        it("styleVars: null — палитра не кладётся, токен падает на дефолт tuidom", () => {
+            const box = new BoxElement();
+            // Токен, у которого дефолт tuidom отличается от Dark+ — различает ветки.
+            box.style = { bg: "menu.border" };
+            TestApp.createWithContent(box, new Size(10, 3), null);
+            expect(box.resolvedStyle.bg).not.toBe(DARK_PLUS_STYLE_VARS["menu.border"]);
+        });
     });
 });

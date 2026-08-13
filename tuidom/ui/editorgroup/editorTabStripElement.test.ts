@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { renderElement } from "../../../src/TestUtils/renderElement.ts";
-import { getFileIcon } from "../../../src/vs/base/common/fileIcons.ts";
+import { renderElement } from "../../testing/renderElement.ts";
 import type { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { Point } from "../../common/geometryPromitives.ts";
@@ -9,12 +8,14 @@ import { Point } from "../../common/geometryPromitives.ts";
 import type { TabInfo } from "./editorTabStripElement.ts";
 import { EditorTabStripElement } from "./editorTabStripElement.ts";
 
-const tsIcon = getFileIcon("file.ts");
-const jsIcon = getFileIcon("app.js");
+// Тестовая фикстура иконок: виджету всё равно, откуда глиф и цвет — реестр
+// файловых иконок принадлежит приложению. Значения .ts/.js — дословно из него.
+const tsIcon = { icon: "\uE628", color: packRgb(49, 120, 198) };
+const jsIcon = { icon: "\uE781", color: packRgb(241, 224, 90) };
 
 function makeTabs(...names: string[]): TabInfo[] {
     return names.map((name) => {
-        const fi = getFileIcon(name);
+        const fi = name.endsWith(".js") ? jsIcon : tsIcon;
         return { label: name, icon: fi.icon, iconColor: fi.color, isModified: false, isReadOnly: false };
     });
 }

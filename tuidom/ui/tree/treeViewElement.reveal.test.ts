@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+import { TestApp } from "../../testing/TestApp.ts";
 import { Size } from "../../common/geometryPromitives.ts";
 
 import type { ITreeDataProvider, ITreeItem } from "./iTreeDataProvider.ts";

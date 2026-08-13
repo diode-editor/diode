@@ -24,7 +24,8 @@ export default defineConfig({
 
         "src/**/*.bench.ts", // перф-бенчмарки, гоняются отдельным test:perf
         "tuidom/**/*.bench.ts",
-        "src/TestUtils/perfFixtures.ts", // фикстуры только для бенчей
+        "src/TestUtils/perfFixtures.ts", // фикстуры только для бенчей (шим)
+        "tuidom/testing/perfFixtures.ts", // фикстуры только для бенчей
         "src/vs/workbench/api/common/testStubRpc.ts", // тестовый стаб RpcEndpoint для unit-тестов namespace'ов
         "src/**/*.stories.ts",
         "tuidom/**/*.stories.ts",
@@ -97,6 +98,7 @@ export default defineConfig({
         "tuidom/input/rawTerminalToken.ts",
         "tuidom/ui/tree/iTreeDataProvider.ts",
         "tuidom/ui/scrollbar/iScrollable.ts", // только интерфейсы (type guards удалены как мёртвые)
+        "tuidom/testing/storyTypes.ts", // только типы story-контракта
         "src/vs/platform/theme/common/iEditorTokenTheme.ts",
         "src/vs/platform/theme/common/iThemeFile.ts",
         "src/vs/platform/theme/common/ivsCodeThemeFile.ts",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+import { TestApp } from "../../testing/TestApp.ts";
 import { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { packRgb } from "../../common/colorUtils.ts";
 import { BoxConstraints, Offset, Point, Rect, Size } from "../../common/geometryPromitives.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TestApp } from "../../../src/TestUtils/TestApp.ts";
+import { TestApp } from "../../testing/TestApp.ts";
 import { Point, Size } from "../../common/geometryPromitives.ts";
 import { TUIKeyboardEvent } from "../../dom/events/tuiKeyboardEvent.ts";
 import { InputElement } from "../inputbox/inputElement.ts";

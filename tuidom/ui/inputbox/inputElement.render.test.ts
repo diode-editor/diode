@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderElement } from "../../../src/TestUtils/renderElement.ts";
+import { renderElement } from "../../testing/renderElement.ts";
 import type { MockTerminalBackend } from "../../backend/mockTerminalBackend.ts";
 import { BoxConstraints, Offset, Point, Size } from "../../common/geometryPromitives.ts";
 import { RenderContext } from "../../dom/tuiElement.ts";
