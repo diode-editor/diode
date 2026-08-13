@@ -1,1 +1,1 @@
-export * from "../../tuidom/testing/perfFixtures.ts";
+export * from "@tuidom/all/testing/perfFixtures";

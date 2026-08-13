@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
+import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";

@@ -1,6 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 
-import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
+import { Disposable } from "@tuidom/all/common/disposable";
 import {
     buildRgArgs,
     type IFileMatch,

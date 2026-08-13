@@ -1,4 +1,4 @@
-import { StyleFlags } from "../../../../tuidom/common/styleFlags.ts";
+import { StyleFlags } from "@tuidom/all/common/styleFlags";
 
 import type { ILineTokens, IToken } from "../common/languages/iLineTokens.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";

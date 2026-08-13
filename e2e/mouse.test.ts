@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import type { NodeSnapshot } from "../tuidom/inspector/protocol.ts";
+import type { NodeSnapshot } from "@tuidom/all/inspector/protocol";
 
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { findNode } from "./helpers/inspectorClient.ts";

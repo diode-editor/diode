@@ -1,8 +1,8 @@
-import type { TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
-import type { SelectBoxElement } from "../../../../tuidom/ui/selectbox/selectBoxElement.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
+import type { SelectBoxElement } from "@tuidom/all/ui/selectbox/selectBoxElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../base/common/uri.ts";

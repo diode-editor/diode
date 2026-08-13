@@ -1,5 +1,5 @@
-import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
-import type { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
+import { Disposable } from "@tuidom/all/common/disposable";
+import type { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";

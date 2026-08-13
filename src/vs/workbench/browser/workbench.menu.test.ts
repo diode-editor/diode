@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TUIContextMenuEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import type { MenuBarElement } from "../../../../tuidom/ui/menu/menuBarElement.ts";
-import type { MenuEntry, MenuItemEntry } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
-import { PopupMenuElement } from "../../../../tuidom/ui/menu/popupMenuElement.ts";
+import { TUIContextMenuEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import type { MenuBarElement } from "@tuidom/all/ui/menu/menuBarElement";
+import type { MenuEntry, MenuItemEntry } from "@tuidom/all/ui/menu/popupMenuElement";
+import { PopupMenuElement } from "@tuidom/all/ui/menu/popupMenuElement";
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";

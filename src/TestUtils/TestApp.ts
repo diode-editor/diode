@@ -1,7 +1,7 @@
-import type { Size } from "../../tuidom/common/geometryPromitives.ts";
-import type { TUIElement } from "../../tuidom/dom/tuiElement.ts";
-import type { BodyElement } from "../../tuidom/ui/body/bodyElement.ts";
-import { TestApp as TuidomTestApp } from "../../tuidom/testing/TestApp.ts";
+import type { Size } from "@tuidom/all/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import type { BodyElement } from "@tuidom/all/ui/body/bodyElement";
+import { TestApp as TuidomTestApp } from "@tuidom/all/testing/TestApp";
 import { computeThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";

@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 // числа бенчей не флапают CI и не влияют на coverage.
 export default defineConfig({
     test: {
-        include: ["src/**/*.bench.ts", "tuidom/**/*.bench.ts"],
+        include: ["src/**/*.bench.ts"],
         testTimeout: 120_000,
         hookTimeout: 180_000,
         // Бенчи активно работают с файловой системой и chokidar-watcher'ами —

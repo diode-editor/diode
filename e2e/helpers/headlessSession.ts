@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 
 import type WebSocket from "ws";
 
-import type { GridSnapshot } from "../../tuidom/rendering/gridSnapshot.ts";
+import type { GridSnapshot } from "@tuidom/all/rendering/gridSnapshot";
 import type {
     CaptureFrameResult,
     GetDocumentResult,
@@ -12,7 +12,7 @@ import type {
     SendMouseParams,
     WaitForIdleParams,
     WaitForIdleResult,
-} from "../../tuidom/inspector/protocol.ts";
+} from "@tuidom/all/inspector/protocol";
 
 import { getBinaryPath } from "./buildOnce.ts";
 import { dumpFrame, frameToText } from "./frame.ts";

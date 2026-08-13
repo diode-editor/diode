@@ -4,7 +4,7 @@ import type {
     TerminalCell,
     TerminalMouseAction,
     TerminalMouseButton,
-} from "../../../../../../tuidom/common/iTerminalSurface.ts";
+} from "@tuidom/all/common/iTerminalSurface";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 

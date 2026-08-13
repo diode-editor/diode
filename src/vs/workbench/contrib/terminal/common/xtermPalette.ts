@@ -11,7 +11,7 @@
 // Здесь зафиксированы «дефолтные» цвета xterm; в будущем таблица подменяется палитрой
 // активной темы Vexx (см. docs/TODO/IntegratedTerminal.md).
 
-import { packRgb } from "../../../../../../tuidom/common/colorUtils.ts";
+import { packRgb } from "@tuidom/all/common/colorUtils";
 
 const SYSTEM_16: readonly number[] = [
     packRgb(0, 0, 0), // 0  black

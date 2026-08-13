@@ -32,12 +32,6 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
         },
     },
     {
-        files: ["tuidom/backend/**"],
-        rules: {
-            "no-control-regex": "off",
-        },
-    },
-    {
         plugins: {
             "simple-import-sort": simpleImportSort,
         },

@@ -1,4 +1,4 @@
-import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
+import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";

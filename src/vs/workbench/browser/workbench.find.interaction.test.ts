@@ -3,7 +3,7 @@ import * as path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { MouseAction, MouseToken } from "../../../../tuidom/input/rawTerminalToken.ts";
+import type { MouseAction, MouseToken } from "@tuidom/all/input/rawTerminalToken";
 
 import type { FindContext } from "./workbench.find.testUtils.ts";
 import { createFindApp, disposeFindApp, type } from "./workbench.find.testUtils.ts";

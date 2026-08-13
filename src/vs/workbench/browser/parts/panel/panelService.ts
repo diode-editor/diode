@@ -1,5 +1,5 @@
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
-import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 export const PanelServiceDIToken = token<PanelService>("PanelService");

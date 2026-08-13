@@ -1,7 +1,7 @@
-import { PaddingContainerElement } from "../../../../../../tuidom/ui/layout/paddingContainerElement.ts";
-import { vflexFill, vflexFit, VFlexElement } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
-import { ListViewElement } from "../../../../../../tuidom/ui/list/listViewElement.ts";
-import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
+import { PaddingContainerElement } from "@tuidom/all/ui/layout/paddingContainerElement";
+import { vflexFill, vflexFit, VFlexElement } from "@tuidom/all/ui/layout/vFlexElement";
+import { ListViewElement } from "@tuidom/all/ui/list/listViewElement";
+import { ScrollBarDecorator } from "@tuidom/all/ui/scrollbar/scrollContainerElement";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";

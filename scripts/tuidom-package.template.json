@@ -1,6 +1,0 @@
-{
-    "version": "0.0.1",
-    "description": "Experimental terminal UI DOM (from the Vexx editor). API is unstable.",
-    "engines": { "node": ">=24.0.0" },
-    "keywords": ["tui", "terminal", "ui", "dom"]
-}

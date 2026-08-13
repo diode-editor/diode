@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { TextDocument } from "../common/model/textDocument.ts";

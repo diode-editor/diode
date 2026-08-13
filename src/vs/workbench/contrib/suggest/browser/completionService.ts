@@ -1,6 +1,6 @@
-import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
-import type { CompletionDetailsContent } from "../../../../../../tuidom/ui/completionlist/completionDetailsElement.ts";
-import type { CompletionListItem } from "../../../../../../tuidom/ui/completionlist/completionListElement.ts";
+import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
+import type { CompletionDetailsContent } from "@tuidom/all/ui/completionlist/completionDetailsElement";
+import type { CompletionListItem } from "@tuidom/all/ui/completionlist/completionListElement";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";

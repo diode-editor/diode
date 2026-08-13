@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
-import type { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import type { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { containerMenuVisible, viewMenuVisible } from "../../actions/menuContexts.ts";

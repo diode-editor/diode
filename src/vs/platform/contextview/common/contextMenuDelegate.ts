@@ -1,6 +1,6 @@
-import type { TUIElement } from "../../../../../tuidom/dom/tuiElement.ts";
-import type { OverlayAnchorPosition } from "../../../../../tuidom/ui/contextview/overlayLayer.ts";
-import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import type { OverlayAnchorPosition } from "@tuidom/all/ui/contextview/overlayLayer";
+import type { MenuEntry } from "@tuidom/all/ui/menu/popupMenuElement";
 import type { MenuId } from "../../actions/common/menuId.ts";
 
 /**

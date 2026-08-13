@@ -1,12 +1,12 @@
-import type { MockTerminalBackend } from "../../tuidom/backend/mockTerminalBackend.ts";
-import type { TUIElement } from "../../tuidom/dom/tuiElement.ts";
-import type { IRenderElementOptions } from "../../tuidom/testing/renderElement.ts";
-import { renderElement as tuidomRenderElement } from "../../tuidom/testing/renderElement.ts";
+import type { MockTerminalBackend } from "@tuidom/all/backend/mockTerminalBackend";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import type { IRenderElementOptions } from "@tuidom/all/testing/renderElement";
+import { renderElement as tuidomRenderElement } from "@tuidom/all/testing/renderElement";
 import { computeThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 
-export type { IRenderElementOptions } from "../../tuidom/testing/renderElement.ts";
+export type { IRenderElementOptions } from "@tuidom/all/testing/renderElement";
 
 let cachedVars: Record<string, number> | null = null;
 function liveThemeVars(): Record<string, number> {

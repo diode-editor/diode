@@ -1,4 +1,4 @@
-import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 import { detectEndOfLine, EndOfLine, eolToSequence } from "../core/endOfLine.ts";
 import { comparePositions } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";

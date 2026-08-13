@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts", "extensions/**/*.test.ts", "tuidom/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "extensions/**/*.test.ts"],
     coverage: {
       skipFull: true,
       reportOnFailure: true,
@@ -18,19 +18,15 @@ export default defineConfig({
         lines: 100,
       },
       reporter: ["text", "lcov", "json", "json-summary", "text-summary"],
-      include: ["src/**/*.ts", "extensions/**/*.ts", "tuidom/**/*.ts"],
+      include: ["src/**/*.ts", "extensions/**/*.ts"],
       exclude: [
         "src/**/*.test.ts",
 
         "src/**/*.bench.ts", // перф-бенчмарки, гоняются отдельным test:perf
-        "tuidom/**/*.bench.ts",
         "src/TestUtils/perfFixtures.ts", // фикстуры только для бенчей (шим)
-        "tuidom/testing/perfFixtures.ts", // фикстуры только для бенчей
         "src/vs/workbench/api/common/testStubRpc.ts", // тестовый стаб RpcEndpoint для unit-тестов namespace'ов
         "src/**/*.stories.ts",
-        "tuidom/**/*.stories.ts",
         "src/demos/**",
-        "tuidom/demos/**",
         "src/vs/vexx/main.ts",
         "src/vs/vexx/runAsNode.ts", // node-режим SEA-бинаря (VEXX_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled
         "src/vs/workbench/services/extensions/node/loadTsServer.ts", // выбор источника бандла завязан на SEA/self-extract окружение; чистая распаковка — extractBundleToCache (юниты), сквозняк — e2e lspBundled
@@ -69,11 +65,7 @@ export default defineConfig({
         "src/vs/workbench/common/iWorkbenchContribution.ts",
         "src/vs/workbench/contrib/quickaccess/common/iQuickAccessProvider.ts",
         "src/vs/workbench/services/textfile/common/iSaveParticipant.ts",
-        "tuidom/common/iTerminalSurface.ts",
-        "tuidom/inspector/index.ts", // barrel re-export
-        "tuidom/dom/styles/index.ts", // barrel re-export
         "src/vs/workbench/services/themes/common/index.ts", // barrel re-export
-        "tuidom/backend/iTerminalBackend.ts",
         "src/vs/platform/clipboard/common/iClipboard.ts",
         "src/vs/base/common/assets/iAssetAccess.ts",
         "src/vs/platform/log/common/iLogService.ts",
@@ -95,10 +87,6 @@ export default defineConfig({
         "src/vs/workbench/api/common/iThemeColorResolver.ts",
         "src/vs/workbench/services/extensions/node/iExtensionEntry.ts",
         "src/vs/workbench/api/common/iMessageChannel.ts",
-        "tuidom/input/rawTerminalToken.ts",
-        "tuidom/ui/tree/iTreeDataProvider.ts",
-        "tuidom/ui/scrollbar/iScrollable.ts", // только интерфейсы (type guards удалены как мёртвые)
-        "tuidom/testing/storyTypes.ts", // только типы story-контракта
         "src/vs/platform/theme/common/iEditorTokenTheme.ts",
         "src/vs/platform/theme/common/iThemeFile.ts",
         "src/vs/platform/theme/common/ivsCodeThemeFile.ts",
@@ -106,7 +94,6 @@ export default defineConfig({
         "src/vs/base/common/equals.ts", // шим из одного интерфейса IEquatable
 
         // --- Непокрываемо юнит-тестами (есть e2e) ---
-        "tuidom/backend/nodeTerminalBackend.ts", // реальный tty/stdin/stdout
         "src/vs/platform/files/node/chokidarFileWatcher.ts", // реальный fs-watcher (chokidar), e2e
         "src/vs/base/node/isSea.ts", // node:sea, только в SEA-бинаре
         "src/vs/base/node/assets/createDefaultAssetAccess.ts", // SEA vs dev + fs-резолв
@@ -122,10 +109,6 @@ export default defineConfig({
         "src/vs/vexx/modules/**", // DI-проводка (integration/e2e)
         "src/vs/platform/configuration/common/nullConfigurationService.ts", // null-object заглушка
         "src/vs/platform/state/common/nullStateService.ts", // null-object заглушка
-        "tuidom/inspector/InspectorDriver.ts", // только интерфейс write/capture-порта
-        "tuidom/inspector/InspectorServer.ts", // рукописный ws-транспорт (смоук-тест)
-        "tuidom/inspector/ws/**", // рукописный RFC6455 фрейминг
-        "tuidom/inspector/attachInspector.ts", // поднимает реальный сервер (смоук-тест)
       ],
     },
   },

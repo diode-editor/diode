@@ -1,5 +1,5 @@
-import { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import { RenderContext, TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
+import { BoxConstraints, Size } from "@tuidom/all/common/geometryPromitives";
+import { RenderContext, TUIElement } from "@tuidom/all/dom/tuiElement";
 
 /** Вертикальный разделитель колонок side-by-side. */
 const COLUMN_SEPARATOR = "│";

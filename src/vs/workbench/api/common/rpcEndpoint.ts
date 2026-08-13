@@ -1,4 +1,4 @@
-import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";

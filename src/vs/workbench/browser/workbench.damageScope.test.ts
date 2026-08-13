@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
+import { TreeViewElement } from "@tuidom/all/ui/tree/treeViewElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 
 // Damage-tracking кадра на уровне воркбенча (docs/TODO/LongLinePerformance.md,

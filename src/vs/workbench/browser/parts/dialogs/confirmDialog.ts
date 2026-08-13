@@ -1,6 +1,6 @@
-import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
-import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { ButtonElement } from "@tuidom/all/ui/button/buttonElement";
+import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/all/ui/layout/hFlexElement";
+import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 
 import { DIALOG_STYLES, DialogComponent } from "./dialogComponent.ts";
 

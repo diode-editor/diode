@@ -5,10 +5,10 @@
  *
  *  1. Вертикальные слои (зоны, импортировать можно только свою и нижние):
  *     base/common → base/node → platform → editor → workbench → vexx.
- *     «Браузер» целиком (DOM-ядро, виджеты ui/*, rendering/input/backend,
- *     Inspector) живёт в top-level `tuidom/` ВНЕ `src/vs` (аналог Chromium +
- *     элементы у vscode) — импорты в него, как и в прочий не-vs код, осями
- *     не проверяются.
+ *     «Браузер» целиком (DOM-ядро, виджеты, rendering/input/backend,
+ *     Inspector) — внешний npm-пакет `@tuidom/all` (github.com/tuidom/tuidom);
+ *     импорты в него, как и в прочие пакеты, осями не проверяются, а сам
+ *     пакет физически не может импортировать src/vs.
  *  2. Окружения: common → [common], browser → [common, browser],
  *     node → [common, node]. Окружение файла — первый сегмент
  *     common/browser/node в его пути; `vs/tui/{rendering,input}` считаются
@@ -141,28 +141,6 @@ function checkTokenDeclarations(rel, raw, zoneIdx, violations) {
     }
 }
 
-/** Нижняя граница DI: tuidom не импортирует src/vs (и, как следствие, diContainer). */
-function checkTuidomBoundary(violations) {
-    const tuidomRoot = path.join(repoRoot, "tuidom");
-    if (!existsSync(tuidomRoot)) return;
-    for (const abs of listFiles(tuidomRoot)) {
-        const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
-        if (!isCheckedSource(rel)) continue;
-        const content = readFileSync(abs, "utf8")
-            .replace(/\/\*[\s\S]*?\*\//g, "")
-            .replace(/^\s*\/\/.*$/gm, "");
-        for (const m of content.matchAll(/(["'])(\.\.?\/[^"']+?\.(?:ts|tsx))\1/g)) {
-            const target = path
-                .normalize(path.join(path.dirname(rel), m[2]))
-                .split(path.sep)
-                .join("/");
-            if (target.startsWith("src/vs/")) {
-                violations.push(`${rel} → ${target}  (tuidom не импортирует src/vs)`);
-            }
-        }
-    }
-}
-
 function main() {
     if (!existsSync(vsRoot)) {
         console.log("[check-layers] src/vs не существует (до миграции) — нечего проверять");
@@ -170,7 +148,6 @@ function main() {
     }
 
     const violations = [];
-    checkTuidomBoundary(violations);
     for (const abs of listFiles(vsRoot)) {
         const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
         if (!isCheckedSource(rel)) continue;

@@ -1,6 +1,6 @@
-import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
-import type { MenuItemEntry } from "../../../../../../tuidom/ui/menu/popupMenuElement.ts";
-import { SelectBoxElement } from "../../../../../../tuidom/ui/selectbox/selectBoxElement.ts";
+import { Disposable } from "@tuidom/all/common/disposable";
+import type { MenuItemEntry } from "@tuidom/all/ui/menu/popupMenuElement";
+import { SelectBoxElement } from "@tuidom/all/ui/selectbox/selectBoxElement";
 import { Uri } from "../../../../base/common/uri.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
 import { CHECKED_ICON } from "../../../../platform/actions/common/menuRegistry.ts";

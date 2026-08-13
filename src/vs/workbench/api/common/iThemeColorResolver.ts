@@ -1,4 +1,4 @@
-import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 
 /**
  * Тонкий «port» поверх {@link ThemeService}, нужный {@link ExtensionHost} для

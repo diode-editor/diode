@@ -1,7 +1,7 @@
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
-import { TUIContextMenuEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import type { OverlayAnchorPosition } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
-import { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
+import { TUIContextMenuEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import type { OverlayAnchorPosition } from "@tuidom/all/ui/contextview/overlayLayer";
+import { ScrollBarDecorator } from "@tuidom/all/ui/scrollbar/scrollContainerElement";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";

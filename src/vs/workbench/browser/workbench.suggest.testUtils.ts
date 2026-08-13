@@ -1,4 +1,4 @@
-import type { CompletionListElement } from "../../../../tuidom/ui/completionlist/completionListElement.ts";
+import type { CompletionListElement } from "@tuidom/all/ui/completionlist/completionListElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";

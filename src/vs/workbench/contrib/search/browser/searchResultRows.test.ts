@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { packRgb } from "../../../../../../tuidom/common/colorUtils.ts";
-import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
+import { packRgb } from "@tuidom/all/common/colorUtils";
+import { Point } from "@tuidom/all/common/geometryPromitives";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 

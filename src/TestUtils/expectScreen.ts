@@ -1,1 +1,1 @@
-export * from "../../tuidom/testing/expectScreen.ts";
+export * from "@tuidom/all/testing/expectScreen";

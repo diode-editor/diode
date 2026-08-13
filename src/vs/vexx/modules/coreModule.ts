@@ -1,4 +1,4 @@
-import type { TuiApplication } from "../../../../tuidom/dom/tuiApplication.ts";
+import type { TuiApplication } from "@tuidom/all/dom/tuiApplication";
 import type { ContainerModule, ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken, TuiApplicationDIToken } from "../../workbench/common/coreTokens.ts";
 

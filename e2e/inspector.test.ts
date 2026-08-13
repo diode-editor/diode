@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { connectWithRetry, freePort, getDocument } from "./helpers/inspectorClient.ts";
 
-const DEMO_PATH = fileURLToPath(new URL("../tuidom/demos/inspectedHost.ts", import.meta.url));
+const DEMO_PATH = fileURLToPath(new URL("./fixtures/inspectedHostApp.ts", import.meta.url));
 
 function filterEnv(): Record<string, string> {
     const out: Record<string, string> = {};

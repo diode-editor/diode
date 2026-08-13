@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { packRgb } from "../../../../../tuidom/common/colorUtils.ts";
+import { packRgb } from "@tuidom/all/common/colorUtils";
 
 import type { IThemeFile } from "./iThemeFile.ts";
 import { WorkbenchTheme } from "./workbenchTheme.ts";

@@ -1,4 +1,4 @@
-import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
+import { Disposable } from "@tuidom/all/common/disposable";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { DiffSide } from "../../../../editor/common/diff/diffSide.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";

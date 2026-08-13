@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
+import { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 
 // Страховка dirty-гейта кадра ввода: команда по кейбинду может менять

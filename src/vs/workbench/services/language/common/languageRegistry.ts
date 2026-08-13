@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 import { joinVirtualPath } from "../../../../base/common/assets/assetBundleFormat.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";

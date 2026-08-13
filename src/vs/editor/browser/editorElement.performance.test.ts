@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { DisplayLine } from "../../../../tuidom/common/displayLine.ts";
+import { DisplayLine } from "@tuidom/all/common/displayLine";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { createInsertEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";

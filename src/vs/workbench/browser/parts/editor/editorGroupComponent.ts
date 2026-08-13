@@ -1,11 +1,11 @@
 import * as path from "node:path";
 
-import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
-import type { TabInfo } from "../../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
-import { EditorTabStripElement } from "../../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
-import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
-import { VFlexElement, vflexFill, vflexFixed } from "../../../../../../tuidom/ui/layout/vFlexElement.ts";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { OverlayHostElement } from "@tuidom/all/ui/contextview/overlayHostElement";
+import type { TabInfo } from "@tuidom/all/ui/editorgroup/editorTabStripElement";
+import { EditorTabStripElement } from "@tuidom/all/ui/editorgroup/editorTabStripElement";
+import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/all/ui/layout/vFlexElement";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";

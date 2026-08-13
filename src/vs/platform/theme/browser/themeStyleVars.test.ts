@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { ROOT_STYLE_CONTEXT } from "../../../../../tuidom/dom/styles/tuiStyle.ts";
-import { BodyElement } from "../../../../../tuidom/ui/body/bodyElement.ts";
+import { ROOT_STYLE_CONTEXT } from "@tuidom/all/dom/styles/tuiStyle";
+import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 import { WorkbenchTheme } from "../common/workbenchTheme.ts";
 

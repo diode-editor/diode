@@ -1,4 +1,4 @@
-import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
+import { Disposable } from "@tuidom/all/common/disposable";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";

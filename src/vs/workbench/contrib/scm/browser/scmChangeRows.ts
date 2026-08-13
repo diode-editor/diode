@@ -1,8 +1,8 @@
-import type { BoxConstraints, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { StyleColor } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
-import { HFlexElement, hflexFill, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
-import { LIST_ROW_ACTIVE_STATE } from "../../../../../../tuidom/ui/list/listViewElement.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import type { BoxConstraints, Size } from "@tuidom/all/common/geometryPromitives";
+import type { StyleColor } from "@tuidom/all/dom/styles/tuiStyle";
+import { HFlexElement, hflexFill, hflexFixed } from "@tuidom/all/ui/layout/hFlexElement";
+import { LIST_ROW_ACTIVE_STATE } from "@tuidom/all/ui/list/listViewElement";
+import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
 
 import type { IScmChange } from "./changesService.ts";

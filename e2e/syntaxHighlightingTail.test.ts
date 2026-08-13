@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-import type { GridSnapshot } from "../tuidom/rendering/gridSnapshot.ts";
+import type { GridSnapshot } from "@tuidom/all/rendering/gridSnapshot";
 
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { findTextCell, frameLine, frameToText } from "./helpers/frame.ts";

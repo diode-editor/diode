@@ -17,16 +17,16 @@ import type { IBufferCell, Terminal } from "@xterm/headless";
 import xtermHeadless from "@xterm/headless";
 import type { IPty } from "node-pty";
 
-import { DEFAULT_COLOR } from "../../../../../../tuidom/common/colorUtils.ts";
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
+import { DEFAULT_COLOR } from "@tuidom/all/common/colorUtils";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 import type {
     ITerminalSurface,
     TerminalCell,
     TerminalMouseAction,
     TerminalMouseButton,
     TerminalMouseEventData,
-} from "../../../../../../tuidom/common/iTerminalSurface.ts";
-import { StyleFlags } from "../../../../../../tuidom/common/styleFlags.ts";
+} from "@tuidom/all/common/iTerminalSurface";
+import { StyleFlags } from "@tuidom/all/common/styleFlags";
 import { xtermPaletteToRgb } from "../common/xtermPalette.ts";
 
 import { loadNodePty } from "./loadNodePty.ts";

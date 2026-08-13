@@ -1,6 +1,6 @@
-import type { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
-import { BodyElement } from "../../../../tuidom/ui/body/bodyElement.ts";
-import { WorkbenchLayoutElement } from "../../../../tuidom/ui/workbenchlayout/workbenchLayoutElement.ts";
+import type { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
+import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
+import { WorkbenchLayoutElement } from "@tuidom/all/ui/workbenchlayout/workbenchLayoutElement";
 import { registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";

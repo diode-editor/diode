@@ -1,8 +1,8 @@
 import * as path from "node:path";
 
-import { Disposable, type IDisposable } from "../../../../../../tuidom/common/disposable.ts";
-import type { OverlayAnchorPosition } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
-import type { ScrollBarDecorator } from "../../../../../../tuidom/ui/scrollbar/scrollContainerElement.ts";
+import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
+import type { OverlayAnchorPosition } from "@tuidom/all/ui/contextview/overlayLayer";
+import type { ScrollBarDecorator } from "@tuidom/all/ui/scrollbar/scrollContainerElement";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";

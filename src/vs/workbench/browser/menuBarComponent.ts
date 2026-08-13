@@ -1,5 +1,5 @@
-import type { MenuBarItem } from "../../../../tuidom/ui/menu/menuBarElement.ts";
-import { MenuBarElement } from "../../../../tuidom/ui/menu/menuBarElement.ts";
+import type { MenuBarItem } from "@tuidom/all/ui/menu/menuBarElement";
+import { MenuBarElement } from "@tuidom/all/ui/menu/menuBarElement";
 import { MenuId } from "../../platform/actions/common/menuId.ts";
 import type { IMenu, MenuService } from "../../platform/actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";

@@ -1,6 +1,0 @@
-export { type AttachedInspector, attachInspector } from "./attachInspector.ts";
-export { InspectorCore, type InspectorTarget } from "./InspectorCore.ts";
-export type { InspectorDriver } from "./InspectorDriver.ts";
-export { InspectorServer, type InspectorServerOptions } from "./InspectorServer.ts";
-export * from "./protocol.ts";
-export { serializeTree } from "./serializeTree.ts";

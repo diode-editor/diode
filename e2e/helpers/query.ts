@@ -1,4 +1,4 @@
-import type { NodeSnapshot } from "../../tuidom/inspector/protocol.ts";
+import type { NodeSnapshot } from "@tuidom/all/inspector/protocol";
 
 // Локаторы для e2e — селектор как адрес узла. `nodeId` эфемерен (виджеты
 // пересоздают поддеревья при обновлении данных — id протухают между кадрами),
