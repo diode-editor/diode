@@ -1,5 +1,5 @@
-import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
-import { Disposable } from "../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
+import { Disposable } from "@tuidom/all/common/disposable";
 import { Uri } from "../../../base/common/uri.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";

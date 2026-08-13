@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";

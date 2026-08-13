@@ -1,5 +1,11 @@
 # tuidom → отдельный репозиторий: что вернуть в редактор перед выносом
 
+> **Статус: вынос завершён (2026-08-13).** Движок живёт в
+> [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom) и ставится
+> пакетом `@tuidom/all` из npm; тест-харнесс — `@tuidom/all/testing/*`
+> (vexx-обёртки с живой темой — `src/TestUtils/{TestApp,renderElement}.ts`).
+> Документ ниже — исторический аудит, готовивший вынос.
+
 `tuidom/` — «браузер» Vexx (DOM-ядро, виджеты, rendering, input, backend,
 inspector), кандидат на вынос в отдельный репозиторий (см.
 [ARCHITECTURE.md](../ARCHITECTURE.md)). Этот документ — аудит: **что из tuidom по

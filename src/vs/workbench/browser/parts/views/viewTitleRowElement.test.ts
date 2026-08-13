@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { BoxConstraints, Point, Size } from "@tuidom/all/common/geometryPromitives";
+import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";

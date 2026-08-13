@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { EndOfLine } from "../../editor/common/core/endOfLine.ts";

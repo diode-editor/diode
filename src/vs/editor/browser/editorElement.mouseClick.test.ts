@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createRange } from "../common/core/iRange.ts";
 import { isSelectionCollapsed, selectionToRange } from "../common/core/iSelection.ts";

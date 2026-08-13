@@ -16,6 +16,7 @@ export default defineConfig({
   // node-pty здесь не нужен: в коде только type-import, в рантайме он грузится
   // через createRequire (см. src/vs/workbench/contrib/terminal/node/loadNodePty.ts).
   noExternal: [
+    "@tuidom/all",
     "@xterm/headless",
     "chokidar",
     "vscode-textmate",

@@ -1,15 +1,15 @@
-import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
+import { Point } from "@tuidom/all/common/geometryPromitives";
+import type { BodyElement } from "@tuidom/all/ui/body/bodyElement";
 import type {
     CompletionDetailsContent,
     CompletionDetailsElement,
-} from "../../../../../../tuidom/ui/completionlist/completionDetailsElement.ts";
-import type { CompletionListElement } from "../../../../../../tuidom/ui/completionlist/completionListElement.ts";
-import { CompletionWidgetElement } from "../../../../../../tuidom/ui/completionlist/completionWidgetElement.ts";
+} from "@tuidom/all/ui/completionlist/completionDetailsElement";
+import type { CompletionListElement } from "@tuidom/all/ui/completionlist/completionListElement";
+import { CompletionWidgetElement } from "@tuidom/all/ui/completionlist/completionWidgetElement";
 import type {
     OverlayAnchorPosition,
     OverlaySessionHandle,
-} from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
+} from "@tuidom/all/ui/contextview/overlayLayer";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
 

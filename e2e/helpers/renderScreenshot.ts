@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { Resvg } from "@resvg/resvg-js";
 
-import type { GridSnapshot } from "../../tuidom/rendering/gridSnapshot.ts";
-import { gridToSvg, type GridToSvgOptions } from "../../tuidom/rendering/gridToSvg.ts";
+import type { GridSnapshot } from "@tuidom/all/rendering/gridSnapshot";
+import { gridToSvg, type GridToSvgOptions } from "@tuidom/all/rendering/gridToSvg";
 
 // Screenshot rasterization is tooling only — it lives here in `e2e/`, never in the
 // editor bundle. The editor emits plain data (`GridSnapshot`); `gridToSvg` turns it

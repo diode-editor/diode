@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import { TUIKeyboardEvent } from "../../../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
-import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
+import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";

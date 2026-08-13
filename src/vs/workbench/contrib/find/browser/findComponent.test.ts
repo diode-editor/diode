@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { MockTerminalBackend } from "../../../../../../tuidom/backend/mockTerminalBackend.ts";
-import { BoxConstraints, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import type { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
-import { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
-import type { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
+import type { MockTerminalBackend } from "@tuidom/all/backend/mockTerminalBackend";
+import { BoxConstraints, Point, Size } from "@tuidom/all/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import type { ButtonElement } from "@tuidom/all/ui/button/buttonElement";
+import { OverlayHostElement } from "@tuidom/all/ui/contextview/overlayHostElement";
+import type { InputElement } from "@tuidom/all/ui/inputbox/inputElement";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";

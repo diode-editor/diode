@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Disposable } from "../../../../tuidom/common/disposable.ts";
+import { Disposable } from "@tuidom/all/common/disposable";
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 
 import type { IWorkbenchContribution, IWorkbenchContributionRegistration } from "./iWorkbenchContribution.ts";

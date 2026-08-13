@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 
 import { AutoRevealContribution } from "./autoRevealContribution.ts";

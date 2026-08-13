@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "../../../../tuidom/common/geometryPromitives.ts";
-import type { WheelDirection } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import { TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
+import type { WheelDirection } from "@tuidom/all/dom/events/tuiMouseEvent";
+import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";

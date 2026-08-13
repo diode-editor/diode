@@ -1,4 +1,4 @@
-import type { NodeSnapshot } from "../../tuidom/inspector/protocol.ts";
+import type { NodeSnapshot } from "@tuidom/all/inspector/protocol";
 
 import { dumpFrame } from "./frame.ts";
 import type { HeadlessSession } from "./headlessSession.ts";

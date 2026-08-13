@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Offset, Point } from "../../../../tuidom/common/geometryPromitives.ts";
-import { TUIContextMenuEvent, TUIMouseEvent } from "../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import type { TreeViewElement } from "../../../../tuidom/ui/tree/treeViewElement.ts";
+import { Offset, Point } from "@tuidom/all/common/geometryPromitives";
+import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import type { TreeViewElement } from "@tuidom/all/ui/tree/treeViewElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 

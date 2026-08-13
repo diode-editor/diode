@@ -9,12 +9,6 @@
     "start": "tsx src/vs/vexx/main.ts",
     "prestart": "npm run build:extensions",
     "build:extensions": "node scripts/build-extensions.mjs",
-    "demo:tuidom": "tsx tuidom/demos/minimalHost.ts",
-    "demo:tuidom:inspect": "tsx tuidom/demos/inspectedHost.ts",
-    "demo:events": "node tuidom/demos/eventLogDemo.ts",
-    "demo:raw-events": "node tuidom/demos/tokenizeDemo.ts",
-    "demo:renderer": "node tuidom/demos/rendererDemo.ts",
-    "demo:mouse": "node tuidom/demos/mouseDemo.ts",
     "demo:terminal": "tsx src/demos/terminal/terminalHost.ts",
     "screenshots": "tsx e2e/scenarios/generate.ts",
     "build": "tsup",
@@ -29,7 +23,6 @@
     "lint": "eslint src/ extensions/",
     "lint:fix": "eslint src/ extensions/ --fix",
     "valid-layers-check": "node scripts/check-layers.mjs",
-    "pack:tuidom": "node scripts/pack-tuidom.mjs",
     "import:vscode-diff": "node scripts/import-vscode-diff.mjs"
   },
   "devDependencies": {
@@ -58,6 +51,7 @@
     "yazl": "^3.3.1"
   },
   "dependencies": {
+    "@tuidom/all": "^0.1.0",
     "@vscode/ripgrep": "^1.18.0",
     "@xterm/headless": "^6.0.0",
     "chokidar": "^5.0.0",

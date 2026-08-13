@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "../../../../../tuidom/common/geometryPromitives.ts";
-import { BoxElement } from "../../../../../tuidom/ui/layout/boxElement.ts";
-import type { MenuEntry, MenuSubmenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
-import { PopupMenuElement } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
+import { BoxElement } from "@tuidom/all/ui/layout/boxElement";
+import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/all/ui/menu/popupMenuElement";
+import { PopupMenuElement } from "@tuidom/all/ui/menu/popupMenuElement";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import type { MenuContribution } from "../../actions/common/iMenuContribution.ts";
 import { MenuId } from "../../actions/common/menuId.ts";

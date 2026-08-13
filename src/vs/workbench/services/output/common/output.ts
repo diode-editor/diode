@@ -1,4 +1,4 @@
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { LogEntry } from "../../../../platform/log/common/iLogService.ts";
 

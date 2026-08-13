@@ -1,6 +1,6 @@
-import { BoxConstraints, type Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { TUIContextMenuEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
+import { BoxConstraints, type Point, Size } from "@tuidom/all/common/geometryPromitives";
+import type { TUIContextMenuEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import { TUIElement } from "@tuidom/all/dom/tuiElement";
 
 import type { IPaneMenuAnchor } from "./paneHeaderElement.ts";
 import type { IViewTitleAction } from "./viewTitleRowElement.ts";

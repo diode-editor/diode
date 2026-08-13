@@ -1,1 +1,1 @@
-export * from "../../tuidom/testing/storyTypes.ts";
+export * from "@tuidom/all/testing/storyTypes";

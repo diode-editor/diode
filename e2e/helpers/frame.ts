@@ -1,4 +1,4 @@
-import type { GridSnapshot } from "../../tuidom/rendering/gridSnapshot.ts";
+import type { GridSnapshot } from "@tuidom/all/rendering/gridSnapshot";
 
 // Плоские представления захваченного кадра. Живут отдельным модулем, чтобы и
 // сессия (предикаты по тексту), и диагностика (дамп при падении) брали их из

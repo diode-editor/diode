@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { blendRgb, packRgb } from "../../../../../tuidom/common/colorUtils.ts";
+import { blendRgb, packRgb } from "@tuidom/all/common/colorUtils";
 import { darkModernTheme } from "../../../workbench/services/themes/common/themes/darkModern.ts";
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 import { lightModernTheme } from "../../../workbench/services/themes/common/themes/lightModern.ts";

@@ -1,5 +1,5 @@
-import { MockTerminalBackend } from "../../../../tuidom/backend/mockTerminalBackend.ts";
-import type { TuiApplication } from "../../../../tuidom/dom/tuiApplication.ts";
+import { MockTerminalBackend } from "@tuidom/all/backend/mockTerminalBackend";
+import type { TuiApplication } from "@tuidom/all/dom/tuiApplication";
 import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 import { SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
 
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";

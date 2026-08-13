@@ -47,7 +47,7 @@ damage-tracking'ом кадра (2026-08-04, см. «Остаточная свя
 ## Остаточная связь: устоявшаяся длинная строка в Output тормозит основной редактор
 
 **[x] Снята per-widget damage-tracking'ом кадра (2026-08-04).** Механика — в
-`docs/LAYOUT.md`, «Damage-tracking отрисовки»: экран стал ретейн-буфером, кадр
+[LAYOUT.md (tuidom)](https://github.com/tuidom/tuidom/blob/main/docs/LAYOUT.md), «Damage-tracking отрисовки»: экран стал ретейн-буфером, кадр
 перерисовывает только повреждённые области; клавиша в основном редакторе больше
 не рендерит поддерево Output вовсе (регресс-тесты
 `tuidom/dom/tuiApplication.damage.test.ts`,

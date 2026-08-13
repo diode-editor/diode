@@ -1,6 +1,6 @@
-import type { TUIContextMenuEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import type { OverlayAnchorPosition } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
+import type { TUIContextMenuEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import type { OverlayAnchorPosition } from "@tuidom/all/ui/contextview/overlayLayer";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";

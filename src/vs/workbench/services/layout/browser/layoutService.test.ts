@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { WorkbenchLayoutElement } from "../../../../../../tuidom/ui/workbenchlayout/workbenchLayoutElement.ts";
+import { WorkbenchLayoutElement } from "@tuidom/all/ui/workbenchlayout/workbenchLayoutElement";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";

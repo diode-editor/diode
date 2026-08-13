@@ -1,4 +1,4 @@
-import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
+import { packRgb } from "@tuidom/all/common/colorUtils";
 import type { StoryContext, StoryMeta } from "../../../StoryRunner/StoryTypes.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";

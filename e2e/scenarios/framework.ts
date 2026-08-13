@@ -2,8 +2,8 @@ import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import type { GridSnapshot } from "../../tuidom/rendering/gridSnapshot.ts";
-import type { GetDocumentResult, NodeSnapshot, SendMouseParams } from "../../tuidom/inspector/protocol.ts";
+import type { GridSnapshot } from "@tuidom/all/rendering/gridSnapshot";
+import type { GetDocumentResult, NodeSnapshot, SendMouseParams } from "@tuidom/all/inspector/protocol";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import type { MouseModifiers, NodeClickOffset, SettleOption } from "../helpers/headlessSession.ts";
 import { saveScreenshot } from "../helpers/renderScreenshot.ts";

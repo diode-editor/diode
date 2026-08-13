@@ -1,4 +1,4 @@
-import type { QuickPickItem } from "../../../../../../tuidom/ui/quickpick/quickPickElement.ts";
+import type { QuickPickItem } from "@tuidom/all/ui/quickpick/quickPickElement";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 import type { QuickInputComponent } from "./quickInputComponent.ts";

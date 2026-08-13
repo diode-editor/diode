@@ -16,4 +16,3 @@ extensions/*/out/
 .agents-runs/
 
 # Staging npm-пакета tuidom (scripts/pack-tuidom.mjs)
-dist-tuidom/

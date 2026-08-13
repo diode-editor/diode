@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { packRgb } from "../tuidom/common/colorUtils.ts";
+import { packRgb } from "@tuidom/all/common/colorUtils";
 
 import { getSelfExtractPath } from "./helpers/buildOnce.ts";
 import { usePtyApp } from "./helpers/useApp.ts";

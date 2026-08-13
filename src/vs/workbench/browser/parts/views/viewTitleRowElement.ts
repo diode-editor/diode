@@ -1,8 +1,8 @@
-import type { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
-import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import type { Point } from "@tuidom/all/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/all/ui/layout/hFlexElement";
+import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 
 const ICON_EXPANDED = ""; //  nf-fa-angle_down — как в ListViewElement/TreeViewElement
 const ICON_COLLAPSED = ""; //  nf-fa-angle_right

@@ -1,5 +1,5 @@
-import type { IDisposable } from "../../../../../../tuidom/common/disposable.ts";
-import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
+import { Disposable } from "@tuidom/all/common/disposable";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";

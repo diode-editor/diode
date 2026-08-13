@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
+import { TUIElement } from "@tuidom/all/dom/tuiElement";
 
 import { PanelService } from "./panelService.ts";
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { MouseToken } from "../../../../../../tuidom/input/rawTerminalToken.ts";
-import { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
-import type { HFlexLayoutStyle } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
+import type { MouseToken } from "@tuidom/all/input/rawTerminalToken";
+import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
+import type { HFlexLayoutStyle } from "@tuidom/all/ui/layout/hFlexElement";
+import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { CHECKED_ICON } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";

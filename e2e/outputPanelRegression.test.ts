@@ -174,7 +174,7 @@ describe("Output panel fix — регрессии соседних механи�
 });
 
 /** Индекс строки кадра с первым вхождением `needle` (или -1). */
-function findTextRow(frame: import("../tuidom/rendering/gridSnapshot.ts").GridSnapshot, needle: string): number {
+function findTextRow(frame: import("@tuidom/all/rendering/gridSnapshot").GridSnapshot, needle: string): number {
     for (let y = 0; y < frame.rows; y++) if (frameLine(frame, y).includes(needle)) return y;
     return -1;
 }

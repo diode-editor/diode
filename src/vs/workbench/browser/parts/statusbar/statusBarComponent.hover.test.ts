@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { MouseToken } from "../../../../../../tuidom/input/rawTerminalToken.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { Point, Size } from "@tuidom/all/common/geometryPromitives";
+import type { MouseToken } from "@tuidom/all/input/rawTerminalToken";
+import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";

@@ -1,7 +1,7 @@
-import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
-import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
-import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
+import { Disposable } from "@tuidom/all/common/disposable";
+import { Point } from "@tuidom/all/common/geometryPromitives";
+import type { BodyElement } from "@tuidom/all/ui/body/bodyElement";
+import type { OverlaySessionHandle } from "@tuidom/all/ui/contextview/overlayLayer";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { AboutDialog } from "../../../browser/parts/dialogs/aboutDialog.ts";
 import { ConfirmDialog, type ConfirmDialogOptions } from "../../../browser/parts/dialogs/confirmDialog.ts";

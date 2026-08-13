@@ -1,1 +1,1 @@
-export * from "../../tuidom/testing/FakeTerminalSurface.ts";
+export * from "@tuidom/all/testing/FakeTerminalSurface";

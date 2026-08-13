@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { MockTerminalBackend } from "../../../../../../tuidom/backend/mockTerminalBackend.ts";
-import { DEFAULT_COLOR } from "../../../../../../tuidom/common/colorUtils.ts";
-import { BoxConstraints, Offset, Point, Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import { ROOT_STYLE_CONTEXT } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
-import { RenderContext } from "../../../../../../tuidom/dom/tuiElement.ts";
-import { TerminalScreen } from "../../../../../../tuidom/rendering/terminalScreen.ts";
+import { MockTerminalBackend } from "@tuidom/all/backend/mockTerminalBackend";
+import { DEFAULT_COLOR } from "@tuidom/all/common/colorUtils";
+import { BoxConstraints, Offset, Point, Size } from "@tuidom/all/common/geometryPromitives";
+import { ROOT_STYLE_CONTEXT } from "@tuidom/all/dom/styles/tuiStyle";
+import { RenderContext } from "@tuidom/all/dom/tuiElement";
+import { TerminalScreen } from "@tuidom/all/rendering/terminalScreen";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";

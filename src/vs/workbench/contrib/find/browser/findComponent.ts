@@ -1,14 +1,14 @@
-import { Disposable } from "../../../../../../tuidom/common/disposable.ts";
-import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import { INHERITED_BG } from "../../../../../../tuidom/dom/styles/tuiStyle.ts";
-import { ButtonElement } from "../../../../../../tuidom/ui/button/buttonElement.ts";
-import type { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
-import type { OverlaySessionHandle } from "../../../../../../tuidom/ui/contextview/overlayLayer.ts";
-import { InputElement } from "../../../../../../tuidom/ui/inputbox/inputElement.ts";
-import { BoxContainerElement } from "../../../../../../tuidom/ui/layout/boxContainerElement.ts";
-import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "../../../../../../tuidom/ui/layout/hFlexElement.ts";
-import { SizedBoxElement } from "../../../../../../tuidom/ui/layout/sizedBoxElement.ts";
-import { TextLabelElement } from "../../../../../../tuidom/ui/text/textLabelElement.ts";
+import { Disposable } from "@tuidom/all/common/disposable";
+import { Point } from "@tuidom/all/common/geometryPromitives";
+import { INHERITED_BG } from "@tuidom/all/dom/styles/tuiStyle";
+import { ButtonElement } from "@tuidom/all/ui/button/buttonElement";
+import type { OverlayHostElement } from "@tuidom/all/ui/contextview/overlayHostElement";
+import type { OverlaySessionHandle } from "@tuidom/all/ui/contextview/overlayLayer";
+import { InputElement } from "@tuidom/all/ui/inputbox/inputElement";
+import { BoxContainerElement } from "@tuidom/all/ui/layout/boxContainerElement";
+import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/all/ui/layout/hFlexElement";
+import { SizedBoxElement } from "@tuidom/all/ui/layout/sizedBoxElement";
+import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 

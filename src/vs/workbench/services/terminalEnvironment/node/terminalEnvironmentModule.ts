@@ -1,4 +1,4 @@
-import type { ITerminalBackend } from "../../../../../../tuidom/backend/iTerminalBackend.ts";
+import type { ITerminalBackend } from "@tuidom/all/backend/iTerminalBackend";
 import type { ContainerModule } from "../../../../platform/instantiation/common/diContainer.ts";
 import { TerminalBackendDIToken } from "../../../common/coreTokens.ts";
 

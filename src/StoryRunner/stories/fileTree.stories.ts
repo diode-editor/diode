@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import type { StoryContext, StoryMeta } from "../StoryTypes.ts";
-import { TreeViewElement } from "../../../tuidom/ui/tree/treeViewElement.ts";
+import { TreeViewElement } from "@tuidom/all/ui/tree/treeViewElement";
 import {
     FileTreeDataProvider,
     type FileTreeNode,

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import { PanelContainerElement } from "../../../../../../tuidom/ui/panel/panelContainerElement.ts";
+import { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { PanelContainerElement } from "@tuidom/all/ui/panel/panelContainerElement";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";

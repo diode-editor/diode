@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
-import { BoxConstraints, Offset, Point, Rect, Size } from "../../../../tuidom/common/geometryPromitives.ts";
+import { packRgb } from "@tuidom/all/common/colorUtils";
+import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/all/common/geometryPromitives";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
-import { ROOT_STYLE_CONTEXT } from "../../../../tuidom/dom/styles/tuiStyle.ts";
-import { RenderContext } from "../../../../tuidom/dom/tuiElement.ts";
-import { TerminalScreen } from "../../../../tuidom/rendering/terminalScreen.ts";
+import { ROOT_STYLE_CONTEXT } from "@tuidom/all/dom/styles/tuiStyle";
+import { RenderContext } from "@tuidom/all/dom/tuiElement";
+import { TerminalScreen } from "@tuidom/all/rendering/terminalScreen";
 import { WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";

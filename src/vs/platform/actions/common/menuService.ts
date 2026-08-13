@@ -1,5 +1,5 @@
-import { Disposable, type IDisposable } from "../../../../../tuidom/common/disposable.ts";
-import type { MenuEntry } from "../../../../../tuidom/ui/menu/popupMenuElement.ts";
+import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
+import type { MenuEntry } from "@tuidom/all/ui/menu/popupMenuElement";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { MenuContribution } from "./iMenuContribution.ts";

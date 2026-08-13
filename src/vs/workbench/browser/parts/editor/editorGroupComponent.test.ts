@@ -4,11 +4,11 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import type { TUIElement } from "../../../../../../tuidom/dom/tuiElement.ts";
-import { OverlayHostElement } from "../../../../../../tuidom/ui/contextview/overlayHostElement.ts";
-import type { EditorTabStripElement } from "../../../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
-import { FillerElement } from "../../../../../../tuidom/ui/layout/fillerElement.ts";
+import { Point } from "@tuidom/all/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { OverlayHostElement } from "@tuidom/all/ui/contextview/overlayHostElement";
+import type { EditorTabStripElement } from "@tuidom/all/ui/editorgroup/editorTabStripElement";
+import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";

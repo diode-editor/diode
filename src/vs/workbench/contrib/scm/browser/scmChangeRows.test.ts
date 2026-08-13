@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { packRgb } from "../../../../../../tuidom/common/colorUtils.ts";
-import { Point } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import { LIST_ROW_ACTIVE_STATE } from "../../../../../../tuidom/ui/list/listViewElement.ts";
+import { packRgb } from "@tuidom/all/common/colorUtils";
+import { Point } from "@tuidom/all/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import { LIST_ROW_ACTIVE_STATE } from "@tuidom/all/ui/list/listViewElement";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 

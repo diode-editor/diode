@@ -1,4 +1,4 @@
-import type { TUIElement } from "../../../../tuidom/dom/tuiElement.ts";
+import type { TUIElement } from "@tuidom/all/dom/tuiElement";
 import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";

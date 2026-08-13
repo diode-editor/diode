@@ -5,8 +5,8 @@
 // как в VStackElement/HFlexElement. Дополнительно `bodyPadX` inset'ит тело по горизонтали
 // (демонстрация ресайза контрола без изменения окна).
 
-import { BoxConstraints, Offset, Point, Rect, Size } from "../../../tuidom/common/geometryPromitives.ts";
-import { RenderContext, TUIElement } from "../../../tuidom/dom/tuiElement.ts";
+import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/all/common/geometryPromitives";
+import { RenderContext, TUIElement } from "@tuidom/all/dom/tuiElement";
 
 export class HeaderBodyLayout extends TUIElement {
     private readonly header: TUIElement;

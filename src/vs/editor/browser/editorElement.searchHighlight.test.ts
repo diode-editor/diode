@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { packRgb } from "../../../../tuidom/common/colorUtils.ts";
-import { Point, Size } from "../../../../tuidom/common/geometryPromitives.ts";
+import { packRgb } from "@tuidom/all/common/colorUtils";
+import { Point, Size } from "@tuidom/all/common/geometryPromitives";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createRange } from "../common/core/iRange.ts";
 import { createSelection } from "../common/core/iSelection.ts";

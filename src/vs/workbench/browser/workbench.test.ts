@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TUIKeyboardEvent } from "../../../../tuidom/dom/events/tuiKeyboardEvent.ts";
-import type { EditorTabStripElement } from "../../../../tuidom/ui/editorgroup/editorTabStripElement.ts";
-import type { HFlexElement } from "../../../../tuidom/ui/layout/hFlexElement.ts";
-import type { QuickPickElement } from "../../../../tuidom/ui/quickpick/quickPickElement.ts";
+import { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
+import type { EditorTabStripElement } from "@tuidom/all/ui/editorgroup/editorTabStripElement";
+import type { HFlexElement } from "@tuidom/all/ui/layout/hFlexElement";
+import type { QuickPickElement } from "@tuidom/all/ui/quickpick/quickPickElement";
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";

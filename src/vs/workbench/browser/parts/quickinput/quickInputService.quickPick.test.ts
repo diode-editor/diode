@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "../../../../../../tuidom/common/geometryPromitives.ts";
-import { TUIMouseEvent } from "../../../../../../tuidom/dom/events/tuiMouseEvent.ts";
-import { BodyElement } from "../../../../../../tuidom/ui/body/bodyElement.ts";
-import type { QuickPickItem } from "../../../../../../tuidom/ui/quickpick/quickPickElement.ts";
+import { Size } from "@tuidom/all/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
+import type { QuickPickItem } from "@tuidom/all/ui/quickpick/quickPickElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";

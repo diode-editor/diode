@@ -1,4 +1,4 @@
-import type { IDisposable } from "../../../../../tuidom/common/disposable.ts";
+import type { IDisposable } from "@tuidom/all/common/disposable";
 
 /**
  * Сервис настроек приложения. Аналог `IConfigurationService` из VS Code,
