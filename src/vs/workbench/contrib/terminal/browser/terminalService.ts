@@ -10,8 +10,8 @@
 
 import { basename } from "node:path";
 
-import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
-import type { ITerminalSurface } from "@tuidom/all/common/iTerminalSurface";
+import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";

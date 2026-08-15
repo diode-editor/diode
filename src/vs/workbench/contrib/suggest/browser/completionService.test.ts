@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";

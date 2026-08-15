@@ -1,4 +1,4 @@
-import type { QuickPickItem } from "@tuidom/all/ui/quickpick/quickPickElement";
+import type { QuickPickItem } from "@tuidom/elements/quickpick/quickPickElement";
 
 /**
  * Пункт quick-access-списка: `QuickPickItem` плюс поведение принятия. Пункт без

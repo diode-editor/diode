@@ -13,14 +13,14 @@
 //
 // См. docs/TODO/IntegratedTerminal.md.
 
-import { NodeTerminalBackend } from "@tuidom/all/backend/nodeTerminalBackend";
-import { TuiApplication } from "@tuidom/all/dom/tuiApplication";
-import { TUIElement } from "@tuidom/all/dom/tuiElement";
-import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
-import { ButtonElement } from "@tuidom/all/ui/button/buttonElement";
-import { HFlexElement, hflexFit, hflexFixed } from "@tuidom/all/ui/layout/hFlexElement";
-import { TerminalViewElement } from "@tuidom/all/ui/terminal/terminalViewElement";
-import { TitledPanelElement } from "@tuidom/all/ui/titledpanel/titledPanelElement";
+import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
+import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { ButtonElement } from "@tuidom/elements/button/buttonElement";
+import { HFlexElement, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
+import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
+import { TitledPanelElement } from "@tuidom/elements/titledpanel/titledPanelElement";
 import { EmbeddedTerminalSession } from "../../vs/workbench/contrib/terminal/node/embeddedTerminalSession.ts";
 
 import { HeaderBodyLayout } from "./HeaderBodyLayout.ts";

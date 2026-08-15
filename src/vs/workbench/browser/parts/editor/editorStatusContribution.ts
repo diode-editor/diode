@@ -1,5 +1,5 @@
-import { DisplayLine } from "@tuidom/all/common/displayLine";
-import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
+import { DisplayLine } from "@tuidom/core/common/displayLine";
+import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { getEncodingInfo } from "../../../../editor/common/model/encoding.ts";

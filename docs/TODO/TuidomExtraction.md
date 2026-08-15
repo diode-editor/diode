@@ -2,7 +2,7 @@
 
 > **Статус: вынос завершён (2026-08-13).** Движок живёт в
 > [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom) и ставится
-> пакетом `@tuidom/all` из npm; тест-харнесс — `@tuidom/all/testing/*`
+> пакетами `@tuidom/*` из npm; тест-харнесс — `@tuidom/testing/*`
 > (vexx-обёртки с живой темой — `src/TestUtils/{TestApp,renderElement}.ts`).
 > Документ ниже — исторический аудит, готовивший вынос.
 

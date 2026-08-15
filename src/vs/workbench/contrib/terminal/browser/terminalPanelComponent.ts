@@ -1,5 +1,5 @@
-import { Disposable } from "@tuidom/all/common/disposable";
-import { TerminalViewElement } from "@tuidom/all/ui/terminal/terminalViewElement";
+import { Disposable } from "@tuidom/core/common/disposable";
+import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";

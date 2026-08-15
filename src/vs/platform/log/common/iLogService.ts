@@ -1,4 +1,4 @@
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 
 import type { ILogger } from "./iLogger.ts";
 import type { LogLevel } from "./logLevel.ts";

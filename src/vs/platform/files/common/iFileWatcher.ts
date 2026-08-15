@@ -1,4 +1,4 @@
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 
 /**
  * Наблюдатель за отдельными файлами на диске. Абстрагирует реальный

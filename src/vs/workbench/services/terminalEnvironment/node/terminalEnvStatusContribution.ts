@@ -1,4 +1,4 @@
-import { Disposable } from "@tuidom/all/common/disposable";
+import { Disposable } from "@tuidom/core/common/disposable";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStatusBarEntryHandle } from "../../statusbar/common/statusBarService.ts";
 import type { StatusBarService } from "../../statusbar/common/statusBarService.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";

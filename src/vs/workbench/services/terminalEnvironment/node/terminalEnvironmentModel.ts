@@ -1,4 +1,4 @@
-import { isInsideTmux, isSsh } from "@tuidom/all/backend/terminalEnv";
+import { isInsideTmux, isSsh } from "@tuidom/terminal-backend/terminalEnv";
 
 /**
  * Pure model for terminal-environment detection. No I/O, no DI — fully

@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { Disposable } from "@tuidom/all/common/disposable";
+import { Disposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../base/common/uri.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../platform/state/common/iStateService.ts";

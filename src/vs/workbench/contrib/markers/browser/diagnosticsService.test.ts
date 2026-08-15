@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";

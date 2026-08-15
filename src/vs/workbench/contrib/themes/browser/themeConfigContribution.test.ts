@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import type {
     IConfigurationChangeEvent,
     IConfigurationService,

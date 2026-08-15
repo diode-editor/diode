@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
-import type { ButtonElement } from "@tuidom/all/ui/button/buttonElement";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { VEXX_VERSION } from "../../../../base/common/version.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { packRgb } from "@tuidom/all/common/colorUtils";
+import { packRgb } from "@tuidom/core/common/colorUtils";
 
 import { parseHexAlpha, parseHexColor } from "./colorUtils.ts";
 

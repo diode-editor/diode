@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
-import { TUIElement } from "@tuidom/all/dom/tuiElement";
+import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 import { createAppTestHarness, type IAppHarness } from "./AppTestHarness.ts";
 import { quickPickByTitle, tabLabels, typeText } from "./domQueries.ts";

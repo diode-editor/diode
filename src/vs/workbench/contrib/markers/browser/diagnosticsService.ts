@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
+import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { ConfigurationRegistryDIToken } from "../../../../platform/configuration/common/configurationRegistryDIToken.ts";

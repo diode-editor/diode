@@ -1,1 +1,1 @@
-export * from "@tuidom/all/testing/expectScreen";
+export * from "@tuidom/testing/expectScreen";

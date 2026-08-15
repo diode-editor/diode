@@ -1,4 +1,4 @@
-import { Size } from "@tuidom/all/common/geometryPromitives";
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../vs/platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";

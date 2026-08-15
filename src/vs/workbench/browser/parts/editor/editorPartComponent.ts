@@ -1,6 +1,6 @@
-import type { OverlayHostElement } from "@tuidom/all/ui/contextview/overlayHostElement";
-import type { EditorPartOrientation } from "@tuidom/all/ui/editorpart/editorPartElement";
-import { EditorPartElement } from "@tuidom/all/ui/editorpart/editorPartElement";
+import type { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
+import type { EditorPartOrientation } from "@tuidom/elements/editorpart/editorPartElement";
+import { EditorPartElement } from "@tuidom/elements/editorpart/editorPartElement";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService, IGroupsChangeEvent } from "../../../services/editor/browser/editorService.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { IGraphLine } from "../common/commitGraph.ts";
 import { GRAPH_CURRENT_REF_STYLE, GRAPH_REMOTE_REF_STYLE } from "../common/commitGraphPalette.ts";
 

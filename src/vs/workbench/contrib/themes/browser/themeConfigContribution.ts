@@ -1,4 +1,4 @@
-import { Disposable } from "@tuidom/all/common/disposable";
+import { Disposable } from "@tuidom/core/common/disposable";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";

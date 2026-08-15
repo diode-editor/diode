@@ -1,4 +1,4 @@
-import { Disposable } from "@tuidom/all/common/disposable";
+import { Disposable } from "@tuidom/core/common/disposable";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";

@@ -1,8 +1,8 @@
-import { BoxConstraints, type Point, Size } from "@tuidom/all/common/geometryPromitives";
-import type { TUIEventBase } from "@tuidom/all/dom/events/tuiEventBase";
-import type { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
-import type { TUIContextMenuEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { BoxConstraints, type Point, Size } from "@tuidom/core/common/geometryPromitives";
+import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
+import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import type { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 import { ViewTitleRowElement } from "./viewTitleRowElement.ts";

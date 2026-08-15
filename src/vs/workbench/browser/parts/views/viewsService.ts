@@ -1,7 +1,7 @@
-import type { TUIElement } from "@tuidom/all/dom/tuiElement";
-import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/all/ui/layout/vFlexElement";
-import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "@tuidom/all/ui/menu/popupMenuElement";
-import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
+import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { isSubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { IMenuEntryGroup } from "../../../../platform/actions/common/menuRegistry.ts";

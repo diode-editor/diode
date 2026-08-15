@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Point, Size } from "@tuidom/all/common/geometryPromitives";
-import type { MouseToken } from "@tuidom/all/input/rawTerminalToken";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";

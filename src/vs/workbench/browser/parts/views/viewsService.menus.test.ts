@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/all/ui/menu/popupMenuElement";
-import type { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CHECKED_ICON } from "../../../../platform/actions/common/menuRegistry.ts";

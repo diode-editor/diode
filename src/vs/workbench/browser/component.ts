@@ -1,5 +1,5 @@
-import { Disposable } from "@tuidom/all/common/disposable";
-import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { Disposable } from "@tuidom/core/common/disposable";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 /**
  * База компонентов Workbench. Компонент владеет корневым контролом ({@link view}),

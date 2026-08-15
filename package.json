@@ -51,7 +51,12 @@
     "yazl": "^3.3.1"
   },
   "dependencies": {
-    "@tuidom/all": "^0.1.0",
+    "@tuidom/core": "^0.1.0",
+    "@tuidom/elements": "^0.1.0",
+    "@tuidom/headless-backend": "^0.1.0",
+    "@tuidom/inspector": "^0.1.0",
+    "@tuidom/terminal-backend": "^0.1.0",
+    "@tuidom/testing": "^0.1.0",
     "@vscode/ripgrep": "^1.18.0",
     "@xterm/headless": "^6.0.0",
     "chokidar": "^5.0.0",

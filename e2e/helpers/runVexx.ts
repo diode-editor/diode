@@ -1,7 +1,7 @@
 import * as pty from "node-pty";
 import type WebSocket from "ws";
 
-import type { GetDocumentResult, NodeSnapshot } from "@tuidom/all/inspector/protocol";
+import type { GetDocumentResult, NodeSnapshot } from "@tuidom/inspector/protocol";
 
 import { AnsiScreen } from "./AnsiScreen.ts";
 import { getBinaryPath } from "./buildOnce.ts";

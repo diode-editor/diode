@@ -1,4 +1,4 @@
-import { blendRgb } from "@tuidom/all/common/colorUtils";
+import { blendRgb } from "@tuidom/core/common/colorUtils";
 
 import type { ColorContribution } from "./colorRegistry.ts";
 import { themeKindOf } from "./colorRegistry.ts";

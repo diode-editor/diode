@@ -6,7 +6,7 @@
  *  1. Вертикальные слои (зоны, импортировать можно только свою и нижние):
  *     base/common → base/node → platform → editor → workbench → vexx.
  *     «Браузер» целиком (DOM-ядро, виджеты, rendering/input/backend,
- *     Inspector) — внешний npm-пакет `@tuidom/all` (github.com/tuidom/tuidom);
+ *     Inspector) — внешние npm-пакеты `@tuidom/*` (github.com/tuidom/tuidom);
  *     импорты в него, как и в прочие пакеты, осями не проверяются, а сам
  *     пакет физически не может импортировать src/vs.
  *  2. Окружения: common → [common], browser → [common, browser],

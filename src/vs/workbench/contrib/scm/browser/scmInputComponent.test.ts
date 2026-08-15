@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
-import { BoxConstraints } from "@tuidom/all/common/geometryPromitives";
-import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { BoxConstraints } from "@tuidom/core/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIPasteEvent } from "@tuidom/all/dom/events/tuiPasteEvent";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIPasteEvent } from "@tuidom/core/dom/events/tuiPasteEvent";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { TextDocument } from "../common/model/textDocument.ts";

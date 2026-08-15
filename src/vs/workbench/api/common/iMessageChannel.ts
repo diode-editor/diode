@@ -1,4 +1,4 @@
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 
 /**
  * Симметричный канал двусторонней передачи сообщений между host'ом и

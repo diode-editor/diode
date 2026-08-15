@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { MockTerminalBackend } from "@tuidom/all/backend/mockTerminalBackend";
-import { DEFAULT_COLOR } from "@tuidom/all/common/colorUtils";
-import { Point, Size } from "@tuidom/all/common/geometryPromitives";
-import { TuiApplication } from "@tuidom/all/dom/tuiApplication";
-import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
+import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { EditorElement } from "./editorElement.ts";

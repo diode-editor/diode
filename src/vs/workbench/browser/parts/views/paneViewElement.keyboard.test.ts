@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import type { PaneHeaderElement } from "./paneHeaderElement.ts";

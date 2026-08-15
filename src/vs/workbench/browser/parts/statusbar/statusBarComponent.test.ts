@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import { HFlexElement } from "@tuidom/all/ui/layout/hFlexElement";
-import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { HFlexElement } from "@tuidom/elements/layout/hFlexElement";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { clickSegment, createStatusBarHarness, statusSegments, statusTexts } from "./statusBarComponent.testUtils.ts";
 

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_COLOR, packRgb } from "@tuidom/all/common/colorUtils";
-import type { TerminalCell } from "@tuidom/all/common/iTerminalSurface";
-import { StyleFlags } from "@tuidom/all/common/styleFlags";
+import { DEFAULT_COLOR, packRgb } from "@tuidom/core/common/colorUtils";
+import type { TerminalCell } from "@tuidom/core/common/iTerminalSurface";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 

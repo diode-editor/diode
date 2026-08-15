@@ -1,5 +1,5 @@
-import { ContextMenuController } from "@tuidom/all/ui/contextview/contextMenuController";
-import type { MenuEntry } from "@tuidom/all/ui/menu/popupMenuElement";
+import { ContextMenuController } from "@tuidom/elements/contextview/contextMenuController";
+import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import type { MenuService } from "../../actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../actions/common/menuService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";

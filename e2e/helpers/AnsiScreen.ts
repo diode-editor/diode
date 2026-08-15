@@ -15,7 +15,7 @@
  * `\n` и `\r` обрабатываются для устойчивости, но рендерер их не использует.
  */
 
-import { DEFAULT_COLOR } from "@tuidom/all/common/colorUtils";
+import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 
 export interface AnsiCell {
     char: string;

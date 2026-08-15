@@ -33,10 +33,10 @@ import {
     InputWidgetService,
     InputWidgetServiceDIToken,
 } from "../../vs/workbench/contrib/files/browser/inputWidgetService.ts";
-import type { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
-import { VStackElement } from "@tuidom/all/ui/layout/vStackElement";
+import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 
-import { InputElement } from "@tuidom/all/ui/inputbox/inputElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 
 /** Wires up a minimal keybinding stack for a single InputElement. */
 function mountInputKeybindings(ctx: StoryContext, input: InputElement): void {

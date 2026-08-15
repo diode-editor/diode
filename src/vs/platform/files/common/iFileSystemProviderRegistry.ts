@@ -1,4 +1,4 @@
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { Uri } from "../../../base/common/uri.ts";
 
 /**

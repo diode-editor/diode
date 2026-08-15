@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Offset, Point } from "@tuidom/all/common/geometryPromitives";
-import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import type { TreeViewElement } from "@tuidom/all/ui/tree/treeViewElement";
+import { Offset, Point } from "@tuidom/core/common/geometryPromitives";
+import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";

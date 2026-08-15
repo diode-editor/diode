@@ -1,5 +1,5 @@
-import type { StyleColor } from "@tuidom/all/dom/styles/tuiStyle";
-import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
 /** Цвета содержимого строк поиска (выделение/hover красит сам ListViewElement). */

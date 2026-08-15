@@ -1,5 +1,5 @@
-import type { ITerminalBackend } from "@tuidom/all/backend/iTerminalBackend";
-import { Disposable, type IDisposable } from "@tuidom/all/common/disposable";
+import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
+import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";

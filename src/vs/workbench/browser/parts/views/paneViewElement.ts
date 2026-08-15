@@ -1,5 +1,5 @@
-import { BoxConstraints, Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 import type { IPaneMenuAnchor } from "./paneHeaderElement.ts";
 import { PaneHeaderElement } from "./paneHeaderElement.ts";

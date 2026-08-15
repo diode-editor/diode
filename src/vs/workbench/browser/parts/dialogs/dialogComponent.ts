@@ -1,10 +1,10 @@
-import type { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
-import type { StyleColor } from "@tuidom/all/dom/styles/tuiStyle";
-import type { ButtonElement } from "@tuidom/all/ui/button/buttonElement";
-import { BoxContainerElement } from "@tuidom/all/ui/layout/boxContainerElement";
-import { FitContentElement } from "@tuidom/all/ui/layout/fitContentElement";
-import { PaddingContainerElement } from "@tuidom/all/ui/layout/paddingContainerElement";
-import { VStackElement } from "@tuidom/all/ui/layout/vStackElement";
+import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
+import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
+import { BoxContainerElement } from "@tuidom/elements/layout/boxContainerElement";
+import { FitContentElement } from "@tuidom/elements/layout/fitContentElement";
+import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
+import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import { Component } from "../../component.ts";
 
 /**

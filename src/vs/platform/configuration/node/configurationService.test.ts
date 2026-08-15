@@ -3,7 +3,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import { resolveUserDataPaths } from "../../environment/node/userDataPaths.ts";

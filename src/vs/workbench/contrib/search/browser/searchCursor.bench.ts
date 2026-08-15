@@ -1,8 +1,8 @@
 import { bench, describe } from "vitest";
 
-import { packRgb } from "@tuidom/all/common/colorUtils";
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { ListViewElement } from "@tuidom/all/ui/list/listViewElement";
+import { packRgb } from "@tuidom/core/common/colorUtils";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 

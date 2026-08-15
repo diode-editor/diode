@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { NodeSnapshot } from "@tuidom/all/inspector/protocol";
+import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 
 import { $, $$, boxOf, centerOf, focusedLeaf, focusPath } from "./query.ts";
 

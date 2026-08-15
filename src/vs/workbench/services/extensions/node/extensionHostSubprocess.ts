@@ -1,7 +1,7 @@
 import { createRequire, Module } from "node:module";
 import * as path from "node:path";
 
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";

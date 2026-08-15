@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { packRgb } from "@tuidom/all/common/colorUtils";
+import { packRgb } from "@tuidom/core/common/colorUtils";
 import { buildRgArgs, parseRgMatchLine } from "../../../services/search/common/textSearch.ts";
 
 import { buildMatchRow, type ISearchRowStyles } from "./searchResultRows.ts";

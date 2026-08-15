@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { BoxConstraints, Point, Size } from "@tuidom/all/common/geometryPromitives";
-import type { TUIElement } from "@tuidom/all/dom/tuiElement";
-import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 
 import { PaneViewElement } from "./paneViewElement.ts";

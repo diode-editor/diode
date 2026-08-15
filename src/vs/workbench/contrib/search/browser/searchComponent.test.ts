@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { MockTerminalBackend } from "@tuidom/all/backend/mockTerminalBackend";
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIKeyboardEvent } from "@tuidom/all/dom/events/tuiKeyboardEvent";
-import type { ButtonElement } from "@tuidom/all/ui/button/buttonElement";
-import type { InputElement } from "@tuidom/all/ui/inputbox/inputElement";
+import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
+import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../../src/TestUtils/renderElement.ts";
-import { Point } from "@tuidom/all/common/geometryPromitives";
+import { Point } from "@tuidom/core/common/geometryPromitives";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 

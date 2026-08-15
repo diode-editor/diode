@@ -4,10 +4,10 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Point, Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
-import type { InputElement } from "@tuidom/all/ui/inputbox/inputElement";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";

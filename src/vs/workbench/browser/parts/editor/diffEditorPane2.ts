@@ -1,5 +1,5 @@
-import type { IDisposable } from "@tuidom/all/common/disposable";
-import type { TUIElement } from "@tuidom/all/dom/tuiElement";
+import type { IDisposable } from "@tuidom/core/common/disposable";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";

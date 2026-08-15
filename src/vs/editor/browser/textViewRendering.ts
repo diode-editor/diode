@@ -1,8 +1,8 @@
-import { packRgb } from "@tuidom/all/common/colorUtils";
-import type { DisplayLine } from "@tuidom/all/common/displayLine";
-import { Point, Size } from "@tuidom/all/common/geometryPromitives";
-import { StyleFlags } from "@tuidom/all/common/styleFlags";
-import type { RenderContext } from "@tuidom/all/dom/tuiElement";
+import { packRgb } from "@tuidom/core/common/colorUtils";
+import type { DisplayLine } from "@tuidom/core/common/displayLine";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import type { IRange } from "../common/core/iRange.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import type { EditorViewState } from "../common/viewModel/editorViewState.ts";

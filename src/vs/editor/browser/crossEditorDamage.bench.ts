@@ -1,7 +1,7 @@
 import { bench, describe } from "vitest";
 
-import { BoxConstraints, Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";

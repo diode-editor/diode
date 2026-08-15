@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BoxConstraints, Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 
 import { PaneHeaderElement } from "./paneHeaderElement.ts";
 

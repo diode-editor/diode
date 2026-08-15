@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BoxConstraints, Point, Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import type { MouseToken } from "@tuidom/all/input/rawTerminalToken";
-import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
-import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 

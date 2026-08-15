@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { TUIElement } from "@tuidom/all/dom/tuiElement";
-import type { PanelContainerElement } from "@tuidom/all/ui/panel/panelContainerElement";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import type { PanelContainerElement } from "@tuidom/elements/panel/panelContainerElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";

@@ -1,15 +1,15 @@
-import { Point } from "@tuidom/all/common/geometryPromitives";
-import type { BodyElement } from "@tuidom/all/ui/body/bodyElement";
+import { Point } from "@tuidom/core/common/geometryPromitives";
+import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type {
     CompletionDetailsContent,
     CompletionDetailsElement,
-} from "@tuidom/all/ui/completionlist/completionDetailsElement";
-import type { CompletionListElement } from "@tuidom/all/ui/completionlist/completionListElement";
-import { CompletionWidgetElement } from "@tuidom/all/ui/completionlist/completionWidgetElement";
+} from "@tuidom/elements/completionlist/completionDetailsElement";
+import type { CompletionListElement } from "@tuidom/elements/completionlist/completionListElement";
+import { CompletionWidgetElement } from "@tuidom/elements/completionlist/completionWidgetElement";
 import type {
     OverlayAnchorPosition,
     OverlaySessionHandle,
-} from "@tuidom/all/ui/contextview/overlayLayer";
+} from "@tuidom/core/dom/overlayLayer";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
 

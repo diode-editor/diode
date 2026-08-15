@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";

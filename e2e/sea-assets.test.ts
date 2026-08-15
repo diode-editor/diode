@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { packRgb } from "@tuidom/all/common/colorUtils";
+import { packRgb } from "@tuidom/core/common/colorUtils";
 
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { usePtyApp } from "./helpers/useApp.ts";

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { Point, Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";

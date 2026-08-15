@@ -15,9 +15,9 @@
  */
 
 import { addCleanup, isCtrlC, stdin, stdout, writeDirect } from "./demoSetup.ts";
-import type { KeyPressEvent } from "@tuidom/all/input/keyEvent";
-import { KeyInputParser } from "@tuidom/all/input/keyInputParser";
-import { tokenize } from "@tuidom/all/input/tokenize";
+import type { KeyPressEvent } from "@tuidom/core/input/keyEvent";
+import { KeyInputParser } from "@tuidom/core/input/keyInputParser";
+import { tokenize } from "@tuidom/core/input/tokenize";
 import type { CommandAction } from "../vs/platform/actions/common/commandAction.ts";
 import { formatKeybinding, type Keybinding } from "../vs/platform/keybinding/common/keybindingRegistry.ts";
 import {

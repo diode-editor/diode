@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import type { TreeViewElement } from "@tuidom/all/ui/tree/treeViewElement";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";

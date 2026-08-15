@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { HFlexElement } from "@tuidom/all/ui/layout/hFlexElement";
+import type { HFlexElement } from "@tuidom/elements/layout/hFlexElement";
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";

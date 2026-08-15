@@ -1,5 +1,5 @@
-import type { IDisposable } from "@tuidom/all/common/disposable";
-import { Disposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
+import { Disposable } from "@tuidom/core/common/disposable";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";

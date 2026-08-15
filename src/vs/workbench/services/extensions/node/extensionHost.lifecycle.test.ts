@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { IDisposable } from "@tuidom/all/common/disposable";
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { registerAndActivate } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";

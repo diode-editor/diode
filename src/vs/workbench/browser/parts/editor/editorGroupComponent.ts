@@ -1,11 +1,11 @@
 import * as path from "node:path";
 
-import type { TUIElement } from "@tuidom/all/dom/tuiElement";
-import { OverlayHostElement } from "@tuidom/all/ui/contextview/overlayHostElement";
-import type { TabInfo } from "@tuidom/all/ui/editorgroup/editorTabStripElement";
-import { EditorTabStripElement } from "@tuidom/all/ui/editorgroup/editorTabStripElement";
-import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
-import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/all/ui/layout/vFlexElement";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
+import type { TabInfo } from "@tuidom/elements/editorgroup/editorTabStripElement";
+import { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";

@@ -1,5 +1,5 @@
-import { ScrollBarDecorator } from "@tuidom/all/ui/scrollbar/scrollContainerElement";
-import { TreeViewElement } from "@tuidom/all/ui/tree/treeViewElement";
+import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";

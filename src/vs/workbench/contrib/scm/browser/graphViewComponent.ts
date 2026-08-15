@@ -1,7 +1,7 @@
-import { PaddingContainerElement } from "@tuidom/all/ui/layout/paddingContainerElement";
-import { ListViewElement } from "@tuidom/all/ui/list/listViewElement";
-import { ScrollBarDecorator } from "@tuidom/all/ui/scrollbar/scrollContainerElement";
-import type { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
+import { ListViewElement } from "@tuidom/elements/list/listViewElement";
+import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";

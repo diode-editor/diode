@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { NodeSnapshot } from "@tuidom/all/inspector/protocol";
+import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 import { resolveUserDataPaths, resolveWorkspaceStatePath } from "../src/vs/platform/environment/node/userDataPaths.ts";
 
 import { readFileSync } from "node:fs";
@@ -121,7 +121,7 @@ export async function clickText(
 }
 
 /** Строка find-виджета (та, где стрелки навигации `[ ↑ ]`), или пустая строка. */
-export function findWidgetLine(frame: import("@tuidom/all/rendering/gridSnapshot").GridSnapshot): string {
+export function findWidgetLine(frame: import("@tuidom/core/rendering/gridSnapshot").GridSnapshot): string {
     for (let y = 0; y < frame.rows; y++) if (frameLine(frame, y).includes("[ ↑ ]")) return frameLine(frame, y);
     return "";
 }

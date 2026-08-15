@@ -1,14 +1,14 @@
 // Мини-хост TUIDom с инспектором на порту — фикстура для e2e-смоука инспектора.
 // Раньше эту роль играла демка tuidom/demos/inspectedHost.ts; демки уехали в
-// репозиторий tuidom и в пакет @tuidom/all не входят, поэтому хост живёт здесь.
+// репозиторий tuidom и в пакеты @tuidom/* не входят, поэтому хост живёт здесь.
 //
 // Port — argv[2] (0 = ephemeral). Ctrl+C exits.
 
-import { NodeTerminalBackend } from "@tuidom/all/backend/nodeTerminalBackend";
-import { TuiApplication } from "@tuidom/all/dom/tuiApplication";
-import { attachInspector } from "@tuidom/all/inspector/index";
-import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
-import { BoxElement } from "@tuidom/all/ui/layout/boxElement";
+import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
+import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
+import { attachInspector } from "@tuidom/inspector/index";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { BoxElement } from "@tuidom/elements/layout/boxElement";
 
 const port = Number(process.argv[2] ?? 0);
 

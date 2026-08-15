@@ -1,7 +1,7 @@
-import { Point } from "@tuidom/all/common/geometryPromitives";
-import type { BodyElement } from "@tuidom/all/ui/body/bodyElement";
-import type { OverlaySessionHandle } from "@tuidom/all/ui/contextview/overlayLayer";
-import { QuickPickElement } from "@tuidom/all/ui/quickpick/quickPickElement";
+import { Point } from "@tuidom/core/common/geometryPromitives";
+import type { BodyElement } from "@tuidom/elements/body/bodyElement";
+import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
+import { QuickPickElement } from "@tuidom/elements/quickpick/quickPickElement";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../component.ts";
 

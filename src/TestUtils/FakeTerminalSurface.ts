@@ -1,1 +1,1 @@
-export * from "@tuidom/all/testing/FakeTerminalSurface";
+export * from "@tuidom/testing/FakeTerminalSurface";

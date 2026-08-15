@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIMouseEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import { BodyElement } from "@tuidom/all/ui/body/bodyElement";
-import { InputElement } from "@tuidom/all/ui/inputbox/inputElement";
-import type { QuickPickElement, QuickPickItem } from "@tuidom/all/ui/quickpick/quickPickElement";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import type { QuickPickElement, QuickPickItem } from "@tuidom/elements/quickpick/quickPickElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { charMask } from "../../../../base/common/fuzzySearch.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";

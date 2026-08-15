@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { TerminalViewElement } from "@tuidom/all/ui/terminal/terminalViewElement";
+import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import type { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";

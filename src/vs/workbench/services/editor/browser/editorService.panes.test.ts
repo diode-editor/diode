@@ -2,7 +2,7 @@ import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService
 import { describe, expect, it, vi } from "vitest";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 
-import { TUIElement } from "@tuidom/all/dom/tuiElement";
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Point, Size } from "@tuidom/all/common/geometryPromitives";
-import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
-import type { MouseToken } from "@tuidom/all/input/rawTerminalToken";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { PaneViewElement } from "./paneViewElement.ts";

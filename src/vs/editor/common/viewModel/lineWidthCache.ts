@@ -1,5 +1,5 @@
-import { Disposable } from "@tuidom/all/common/disposable";
-import { measureTextWidth } from "@tuidom/all/common/measureTextWidth";
+import { Disposable } from "@tuidom/core/common/disposable";
+import { measureTextWidth } from "@tuidom/core/common/measureTextWidth";
 import {
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,

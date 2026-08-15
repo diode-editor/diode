@@ -1,5 +1,5 @@
-import type { TUIElement } from "@tuidom/all/dom/tuiElement";
-import { FillerElement } from "@tuidom/all/ui/layout/fillerElement";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";

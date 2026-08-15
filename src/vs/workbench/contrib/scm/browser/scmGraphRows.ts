@@ -1,5 +1,5 @@
-import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/all/ui/layout/hFlexElement";
-import { TextLabelElement } from "@tuidom/all/ui/text/textLabelElement";
+import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { IGraphLine } from "../common/commitGraph.ts";
 import { GRAPH_CURRENT_REF_STYLE, GRAPH_REMOTE_REF_STYLE } from "../common/commitGraphPalette.ts";
 

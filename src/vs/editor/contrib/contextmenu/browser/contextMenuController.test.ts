@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/all/common/geometryPromitives";
-import { TUIContextMenuEvent } from "@tuidom/all/dom/events/tuiMouseEvent";
-import type { MouseToken } from "@tuidom/all/input/rawTerminalToken";
-import type { MenuItemEntry, PopupMenuElement } from "@tuidom/all/ui/menu/popupMenuElement";
-import { ScrollBarDecorator } from "@tuidom/all/ui/scrollbar/scrollContainerElement";
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import type { MenuItemEntry, PopupMenuElement } from "@tuidom/elements/menu/popupMenuElement";
+import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { MENU_CONTRIBUTIONS } from "../../../../workbench/browser/actions/menuContributions.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";

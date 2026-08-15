@@ -1,5 +1,5 @@
-import { ListViewElement } from "@tuidom/all/ui/list/listViewElement";
-import { TreeViewElement } from "@tuidom/all/ui/tree/treeViewElement";
+import { ListViewElement } from "@tuidom/elements/list/listViewElement";
+import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { TuiApplicationDIToken } from "../../common/coreTokens.ts";
