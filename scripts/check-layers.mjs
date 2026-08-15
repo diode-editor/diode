@@ -4,7 +4,7 @@
  * `local/code-layering` + `code-import-patterns` и `layersChecker`):
  *
  *  1. Вертикальные слои (зоны, импортировать можно только свою и нижние):
- *     base/common → base/node → platform → editor → workbench → vexx.
+ *     base/common → base/node → platform → editor → workbench → diode.
  *     «Браузер» целиком (DOM-ядро, виджеты, rendering/input/backend,
  *     Inspector) — внешние npm-пакеты `@tuidom/*` (github.com/tuidom/tuidom);
  *     импорты в него, как и в прочие пакеты, осями не проверяются, а сам
@@ -12,7 +12,7 @@
  *  2. Окружения: common → [common], browser → [common, browser],
  *     node → [common, node]. Окружение файла — первый сегмент
  *     common/browser/node в его пути; `vs/tui/{rendering,input}` считаются
- *     common (чистые структуры/парсинг), `vs/tui/backend` и `vs/vexx` — node.
+ *     common (чистые структуры/парсинг), `vs/tui/backend` и `vs/diode` — node.
  *
  * Не считаются зависимостями: jsdoc-ссылки в комментариях и `import type`
  * (типы стираются при компиляции — как в upstream layersChecker).
@@ -39,7 +39,7 @@ const ZONES = [
     "src/vs/platform",
     "src/vs/editor",
     "src/vs/workbench",
-    "src/vs/vexx",
+    "src/vs/diode",
 ];
 
 /**
@@ -61,8 +61,8 @@ const EXCEPTIONS = [
     // follow-up (unthemed-дефолты в platform или getEditorStyles в editor).
     ["src/vs/platform/theme/browser/defaultStyles.ts", "src/vs/editor/browser/editorElement.ts"],
     // WorkbenchComponent тянет DI-токен из модуля профиля; вынос токенов из
-    // vexx/modules в слои-владельцы — follow-up.
-    ["src/vs/workbench/browser/workbenchComponent.ts", "src/vs/vexx/modules/"],
+    // diode/modules в слои-владельцы — follow-up.
+    ["src/vs/workbench/browser/workbenchComponent.ts", "src/vs/diode/modules/"],
 ];
 
 function zoneOf(rel) {
@@ -91,9 +91,9 @@ const ENV_OVERRIDES = new Map([]);
 function envOf(rel) {
     const override = ENV_OVERRIDES.get(rel);
     if (override !== undefined) return override;
-    // vexx — сборка приложения (DI-профили, entry): единственный слой, которому
+    // diode — сборка приложения (DI-профили, entry): единственный слой, которому
     // env-ось не применяется — он по определению склеивает browser и node.
-    if (rel.startsWith("src/vs/vexx/")) return null;
+    if (rel.startsWith("src/vs/diode/")) return null;
     for (const seg of rel.split("/")) {
         if (seg === "common" || seg === "browser" || seg === "node") return seg;
     }

@@ -10,7 +10,7 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
-import { createTestContainer } from "../../vexx/modules/testProfile.ts";
+import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";

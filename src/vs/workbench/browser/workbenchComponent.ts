@@ -11,7 +11,7 @@ import type { KeybindingRegistry } from "../../platform/keybinding/common/keybin
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
-import { UserKeybindingsDIToken } from "../../vexx/modules/keybindingsModule.ts";
+import { UserKeybindingsDIToken } from "../../diode/modules/keybindingsModule.ts";
 import { ServiceAccessorDIToken, TuiApplicationDIToken } from "../common/coreTokens.ts";
 import {
     WorkbenchContributionsRegistry,

@@ -5,7 +5,7 @@ import type { IConfigurationService } from "../vs/platform/configuration/common/
 import { IConfigurationServiceDIToken } from "../vs/platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { Container } from "../vs/platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../vs/platform/state/common/iStateService.ts";
-import { createTestContainer } from "../vs/vexx/modules/testProfile.ts";
+import { createTestContainer } from "../vs/diode/modules/testProfile.ts";
 import type { TextEditorPane } from "../vs/workbench/browser/parts/editor/textEditorPane.ts";
 import type { WorkbenchComponent } from "../vs/workbench/browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../vs/workbench/browser/workbenchComponent.ts";

@@ -13,7 +13,7 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import { FileSystemProviderRegistry } from "../../../../platform/files/common/fileSystemProviderRegistry.ts";
 import { NULL_FILE_SYSTEM_PROVIDER_REGISTRY } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { createTestContainer } from "../../../../vexx/modules/testProfile.ts";
+import { createTestContainer } from "../../../../diode/modules/testProfile.ts";
 import { FileSystemProviderRegistryDIToken, StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { openDiffPair, refreshDiffSnapshots } from "../../../contrib/diff/browser/openDiffPair.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../../contrib/scm/browser/commandOriginalResourceProvider.ts";

@@ -6,7 +6,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "start": "tsx src/vs/vexx/main.ts",
+    "start": "tsx src/vs/diode/main.ts",
     "prestart": "npm run build:extensions",
     "build:extensions": "node scripts/build-extensions.mjs",
     "demo:terminal": "tsx src/demos/terminal/terminalHost.ts",

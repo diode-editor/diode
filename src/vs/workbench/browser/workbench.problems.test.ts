@@ -7,7 +7,7 @@ import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { createTestContainer } from "../../vexx/modules/testProfile.ts";
+import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { SettingsResourceDIToken } from "../common/coreTokens.ts";
 import { ProblemsComponent, ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
