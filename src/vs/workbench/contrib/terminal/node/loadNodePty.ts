@@ -6,7 +6,7 @@
 //     `process.dlopen` требует файл на диске). См. docs/TODO/IntegratedTerminal.md.
 //
 // Формат `node-pty.bundle` совпадает с pack-assets.mjs / AssetBundleFormat.ts:
-//   [magic 8B "VEXXBND\0"][headerLen uint32 LE][header JSON][data …]
+//   [magic 8B "DIODEBND"][headerLen uint32 LE][header JSON][data …]
 // header = { version, files: { <virtualPath>: { offset, size } } }.
 
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -28,7 +28,7 @@ export interface NodePtyModule {
     spawn: PtySpawn;
 }
 
-const MAGIC = "VEXXBND\0";
+const MAGIC = "DIODEBND";
 const ASSET_NAME = "node-pty.bundle";
 
 let cached: NodePtyModule | null = null;
@@ -52,9 +52,9 @@ function loadFromSeaAsset(): NodePtyModule {
     const bundle = Buffer.from(sea.getAsset(ASSET_NAME));
 
     // Каталог с суффиксом по размеру ассета — авто-инвалидация при пересборке.
-    const targetDir = join(tmpdir(), `vexx-embedded-pty-${String(bundle.length)}`);
+    const targetDir = join(tmpdir(), `diode-embedded-pty-${String(bundle.length)}`);
     const nodePtyDir = join(targetDir, "node-pty");
-    const readyMarker = join(nodePtyDir, ".vexx-ready");
+    const readyMarker = join(nodePtyDir, ".diode-ready");
 
     if (!existsSync(readyMarker)) {
         extractBundle(bundle, targetDir);

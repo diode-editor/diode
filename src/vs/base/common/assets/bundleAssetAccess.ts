@@ -3,8 +3,8 @@ import type { IAssetAccess, IAssetEntry } from "./iAssetAccess.ts";
 
 /**
  * Реализация {@link IAssetAccess} поверх запечённого SEA-bundle.
- * Принимает буфер с содержимым `vexx.bundle` (полученный через
- * `node:sea.getAsset("vexx.bundle")`), парсит header однократно и затем
+ * Принимает буфер с содержимым `diode.bundle` (полученный через
+ * `node:sea.getAsset("diode.bundle")`), парсит header однократно и затем
  * отдаёт срезы.
  */
 export class BundleAssetAccess implements IAssetAccess {

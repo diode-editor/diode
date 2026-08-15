@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Pack assets into `dist/vexx.bundle` for SEA-сборки.
+ * Pack assets into `dist/diode.bundle` for SEA-сборки.
  *
  * Формат бандла должен оставаться синхронным с
  * `src/vs/base/common/assets/assetBundleFormat.ts` — там лежит TS-decoder
@@ -8,7 +8,7 @@
  * формата здесь, чтобы build-pipeline не зависел от tsx/jiti.
  *
  * Layout:
- *   [magic 8B "VEXXBND\0"]
+ *   [magic 8B "DIODEBND"]
  *   [headerLength uint32 LE]
  *   [header JSON UTF-8]
  *   [data ...]
@@ -18,7 +18,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "
 import { createRequire } from "node:module";
 import { join, posix, relative, resolve, sep } from "node:path";
 
-const MAGIC = Buffer.from([0x56, 0x45, 0x58, 0x58, 0x42, 0x4e, 0x44, 0x00]); // "VEXXBND\0"
+const MAGIC = Buffer.from([0x44, 0x49, 0x4f, 0x44, 0x45, 0x42, 0x4e, 0x44]); // "DIODEBND"
 
 /**
  * @typedef {{ virtualPath: string, data: Buffer }} PackInput
@@ -92,7 +92,7 @@ function toVirtualPath(prefix, root, absPath) {
  *   - `onig.wasm` — resolved via require.resolve("vscode-oniguruma/release/onig.wasm")
  *   - `Extensions/builtin/**` — full recursive copy of `extensions/`
  */
-export function buildVexxBundle({ repoRoot }) {
+export function buildDiodeBundle({ repoRoot }) {
     const builtinSrc = resolve(repoRoot, "extensions");
     const require = createRequire(import.meta.url);
     const onigWasmPath = require.resolve("vscode-oniguruma/release/onig.wasm");
@@ -132,8 +132,8 @@ export function buildVexxBundle({ repoRoot }) {
 if (import.meta.url === `file://${process.argv[1]}`) {
     const repoRoot = resolve(import.meta.dirname, "..");
     const dist = resolve(repoRoot, "dist");
-    const { bundle, inputs, onigWasmPath } = buildVexxBundle({ repoRoot });
-    const outPath = join(dist, "vexx.bundle");
+    const { bundle, inputs, onigWasmPath } = buildDiodeBundle({ repoRoot });
+    const outPath = join(dist, "diode.bundle");
     writeFileSync(outPath, bundle);
     const wasmStat = statSync(onigWasmPath);
     console.error(

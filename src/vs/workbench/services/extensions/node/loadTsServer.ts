@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
-import { VEXX_VERSION } from "../../../../base/common/version.ts";
+import { DIODE_VERSION } from "../../../../base/common/version.ts";
 import { extractBundleToCache } from "../../../../base/node/assets/extractBundleToCache.ts";
 import { entryDir } from "../../../../base/node/assets/packagedRuntime.ts";
 import { userCacheDir } from "../../../../base/node/cachePaths.ts";
@@ -99,7 +99,7 @@ function bundleSource(): IBundleSource | null {
     const digest = createHash("sha256").update(bundle).digest("hex").slice(0, 12);
     cachedSource = {
         bundle,
-        cacheDir: path.join(userCacheDir(), "ts-server", `${VEXX_VERSION}-${digest}`),
+        cacheDir: path.join(userCacheDir(), "ts-server", `${DIODE_VERSION}-${digest}`),
     };
     return cachedSource;
 }

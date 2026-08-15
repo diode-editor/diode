@@ -13,7 +13,7 @@ const SEA_BUNDLE_KEY = BUNDLE_FILE_NAME;
 
 /**
  * Возвращает {@link IAssetAccess} для текущего рантайма — три источника одного
- * и того же `vexx.bundle`, по убыванию приоритета:
+ * и того же `diode.bundle`, по убыванию приоритета:
  *
  *   - **SEA-бинарь** (`node:sea.isSea() === true`) — бандл встроен в исполняемый
  *     файл, достаётся через `sea.getAsset()`;

@@ -3,7 +3,7 @@
  *
  * Layout:
  * ```
- *   [magic 8B "VEXXBND\0"]
+ *   [magic 8B "DIODEBND"]
  *   [headerLength uint32 LE]
  *   [header JSON UTF-8]
  *   [data ...]
@@ -16,7 +16,7 @@
  * build-скрипте на mjs (см. `scripts/pack-assets.mjs`).
  */
 
-const MAGIC = new Uint8Array([0x56, 0x45, 0x58, 0x58, 0x42, 0x4e, 0x44, 0x00]); // "VEXXBND\0"
+const MAGIC = new Uint8Array([0x44, 0x49, 0x4f, 0x44, 0x45, 0x42, 0x4e, 0x44]); // "DIODEBND"
 const MAGIC_LEN = MAGIC.length;
 const HEADER_LEN_SIZE = 4;
 

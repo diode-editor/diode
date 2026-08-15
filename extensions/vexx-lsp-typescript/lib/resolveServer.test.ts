@@ -14,23 +14,23 @@ describe("vexx-lsp-typescript — resolveServer", () => {
         expect(TS_SPEC.languageIds).toEqual(["typescript", "typescriptreact", "javascript", "javascriptreact"]);
     });
 
-    it("commandFor: JS-энтрипоинты — нашим рантаймом; env всегда снимает VEXX_EXTENSION_HOST", () => {
+    it("commandFor: JS-энтрипоинты — нашим рантаймом; env всегда снимает DIODE_EXTENSION_HOST", () => {
         expect(commandFor("/x/cli.mjs", NODE)).toEqual({
             command: "/opt/dist/node",
             args: ["/x/cli.mjs", "--stdio"],
-            env: { VEXX_EXTENSION_HOST: undefined },
+            env: { DIODE_EXTENSION_HOST: undefined },
         });
         expect(commandFor("/x/run-cli.cjs", VEXX_SEA, [])).toEqual({
             command: "/opt/dist/vexx",
             args: ["/x/run-cli.cjs"],
             // SEA: бинарь уходит в node-режим; флаг наследуется внуками
             // (tsserver форкается сервером через process.execPath).
-            env: { VEXX_EXTENSION_HOST: undefined, VEXX_RUN_AS_NODE: "1" },
+            env: { DIODE_EXTENSION_HOST: undefined, DIODE_RUN_AS_NODE: "1" },
         });
         expect(commandFor("/usr/bin/tls-wrap", VEXX_SEA)).toEqual({
             command: "/usr/bin/tls-wrap",
             args: ["--stdio"],
-            env: { VEXX_EXTENSION_HOST: undefined },
+            env: { DIODE_EXTENSION_HOST: undefined },
         });
     });
 

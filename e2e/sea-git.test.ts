@@ -67,7 +67,7 @@ describe("SEA binary — built-in git plugin", () => {
 
     itLinuxOnly("активируется под SEA и рисует dirty-diff бар в гуттере изменённого файла", async () => {
         // Открываем репо как workspace + сам изменённый файл. Плагин (скомпилированный
-        // out/extension.cjs, упакованный в vexx.bundle, загруженный в память через
+        // out/extension.cjs, упакованный в diode.bundle, загруженный в память через
         // Module._compile) должен spawn'ить git и проставить гуттер-бар. cwd —
         // сам репо (git-плагин работает от workspace folder); user-data/HOME
         // изолированы через usePtyApp.

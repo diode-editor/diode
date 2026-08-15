@@ -12,7 +12,7 @@ import type { InspectorDriver } from "@tuidom/inspector/InspectorDriver";
 import { joinVirtualPath } from "../base/common/assets/assetBundleFormat.ts";
 import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess.ts";
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
-import { VEXX_VERSION } from "../base/common/version.ts";
+import { DIODE_VERSION } from "../base/common/version.ts";
 import { createDefaultAssetAccess } from "../base/node/assets/createDefaultAssetAccess.ts";
 import { FsAssetAccess } from "../base/node/assets/fsAssetAccess.ts";
 import { isPackagedRuntime } from "../base/node/assets/packagedRuntime.ts";
@@ -65,16 +65,16 @@ import { runAsNode } from "./runAsNode.ts";
 
 // ── Subprocess branch ─────────────────────────────────────
 // Если форкнул себя ExtensionHost'ом — уходим в subprocess entry до любых
-// TUI/CLI инициализаций. Сигнал — env VEXX_EXTENSION_HOST=1, выставленный
+// TUI/CLI инициализаций. Сигнал — env DIODE_EXTENSION_HOST=1, выставленный
 // `ExtensionHost.ensureSubprocess()`.
 //
 // Node-режим проверяется РАНЬШЕ ext-host'а: language-сервер, запущенный нашим
 // бинарём, не имеет IPC-канала (runExtensionHostSubprocess умер бы с exit 2),
-// а env VEXX_EXTENSION_HOST может протечь от ext-host'а через spawn среды.
+// а env DIODE_EXTENSION_HOST может протечь от ext-host'а через spawn среды.
 
-if (process.env.VEXX_RUN_AS_NODE === "1") {
+if (process.env.DIODE_RUN_AS_NODE === "1") {
     runAsNode();
-} else if (process.env.VEXX_EXTENSION_HOST === "1") {
+} else if (process.env.DIODE_EXTENSION_HOST === "1") {
     runExtensionHostSubprocess();
     // runExtensionHostSubprocess() возвращается, но процесс остаётся живым
     // на IPC-канале до disconnect/shutdown. Просто не идём в TUI-ветку.
@@ -98,7 +98,7 @@ async function runEditor(): Promise<void> {
     }
 
     if (cli.version) {
-        console.log(VEXX_VERSION);
+        console.log(DIODE_VERSION);
         process.exit(0);
     }
 
@@ -179,7 +179,7 @@ async function runEditor(): Promise<void> {
     const application = new TuiApplication(backend);
     // Опциональная самопроверка дерева после каждого кадра (дорогая только
     // относительно, но включается явно): ловит полуприкреплённые элементы.
-    application.validateTreeAfterRender = process.env.VEXX_VALIDATE_TREE === "1";
+    application.validateTreeAfterRender = process.env.DIODE_VALIDATE_TREE === "1";
     const clipboard = new OscClipboard((seq) => {
         backend.writeOscSequence(seq);
     });

@@ -25,15 +25,15 @@ describe("SEA binary — bundled assets", () => {
         binary = await getBinaryPath();
     }, 180_000);
 
-    it("dist/ не содержит каталога Extensions/ после сборки (всё внутри vexx.bundle)", () => {
+    it("dist/ не содержит каталога Extensions/ после сборки (всё внутри diode.bundle)", () => {
         const distDir = dirname(binary);
         const entries = readdirSync(distDir);
-        expect(entries).toContain("vexx.bundle");
+        expect(entries).toContain("diode.bundle");
         expect(entries).not.toContain("Extensions");
     });
 
     itLinuxOnly("работает из произвольного cwd без файлов рядом с бинарём — подсветка из bundle", async () => {
-        // Копируем бинарь в пустой каталог (никаких vexx.bundle/Extensions рядом)
+        // Копируем бинарь в пустой каталог (никаких diode.bundle/Extensions рядом)
         // и запускаем ИМЕННО его из этого cwd: SEA несёт ассеты внутри себя, а не в
         // sidecar-файлах. `usePtyApp` изолирует user-data/HOME, `binary`+`cwd`
         // указывают на копию.
@@ -45,7 +45,7 @@ describe("SEA binary — bundled assets", () => {
             copyFileSync(fixturePath, isolatedFixture);
 
             // Sanity: рядом с бинарём нет ассетов.
-            expect(existsSync(join(tmp, "vexx.bundle"))).toBe(false);
+            expect(existsSync(join(tmp, "diode.bundle"))).toBe(false);
             expect(existsSync(join(tmp, "Extensions"))).toBe(false);
 
             const { session } = await usePtyApp({ binary: isolatedBinary, cwd: tmp, open: [isolatedFixture] });
@@ -62,7 +62,7 @@ describe("SEA binary — bundled assets", () => {
         }
     });
 
-    it("repoRoot/dist всё ещё содержит vexx.bundle (регресс на сборку)", () => {
-        expect(existsSync(join(repoRoot, "dist", "vexx.bundle"))).toBe(true);
+    it("repoRoot/dist всё ещё содержит diode.bundle (регресс на сборку)", () => {
+        expect(existsSync(join(repoRoot, "dist", "diode.bundle"))).toBe(true);
     });
 });

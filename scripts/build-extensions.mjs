@@ -10,7 +10,7 @@
  * в память через `Module._compile` без реального пути (dev и SEA единообразно).
  *
  * Раннер: `node scripts/build-extensions.mjs`. Также вызывается из `build-sea.mjs`
- * ДО упаковки бандла, чтобы `out/extension.cjs` попал в `vexx.bundle`.
+ * ДО упаковки бандла, чтобы `out/extension.cjs` попал в `diode.bundle`.
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";

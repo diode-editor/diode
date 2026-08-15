@@ -240,7 +240,7 @@ export interface IExtensionHostOptions {
  * управляет жизненным циклом расширений через RPC поверх Node IPC-канала.
  *
  * Subprocess — это тот же бинарь / тот же main.ts с env-флагом
- * `VEXX_EXTENSION_HOST=1`; ранний branch в `main.ts` уводит управление в
+ * `DIODE_EXTENSION_HOST=1`; ранний branch в `main.ts` уводит управление в
  * `runExtensionHostSubprocess()`.
  *
  * Lifecycle:
@@ -813,7 +813,7 @@ export class ExtensionHost extends Disposable {
         });
         const child = spawn(spec.command, spec.args, {
             stdio: ["ignore", stdoutMode, stderrMode, "ipc"],
-            env: spec.env ?? { ...process.env, VEXX_EXTENSION_HOST: "1" },
+            env: spec.env ?? { ...process.env, DIODE_EXTENSION_HOST: "1" },
         });
         if (child.stdout !== null && this.stdoutLogger !== undefined) {
             pipeStreamToLogger(child.stdout, this.stdoutLogger, "info");
