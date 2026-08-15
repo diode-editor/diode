@@ -6,7 +6,7 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
-import { createTestContainer } from "../../../../vexx/modules/testProfile.ts";
+import { createTestContainer } from "../../../../diode/modules/testProfile.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { WorkbenchComponent } from "../../../browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../../../browser/workbenchComponent.ts";

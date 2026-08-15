@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { KeyboardEventLike } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
-import { UserKeybindingsDIToken } from "../../vexx/modules/keybindingsModule.ts";
-import { createTestContainer } from "../../vexx/modules/testProfile.ts";
+import { UserKeybindingsDIToken } from "../../diode/modules/keybindingsModule.ts";
+import { createTestContainer } from "../../diode/modules/testProfile.ts";
 
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 

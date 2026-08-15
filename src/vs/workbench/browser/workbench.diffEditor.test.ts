@@ -8,7 +8,7 @@ import { Uri } from "../../base/common/uri.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { FileSystemProviderRegistry } from "../../platform/files/common/fileSystemProviderRegistry.ts";
-import { createTestContainer } from "../../vexx/modules/testProfile.ts";
+import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../common/coreTokens.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { COMPARE_NOTICE_MS, openDiffWithHead } from "../contrib/scm/browser/compareWithHeadAction.ts";

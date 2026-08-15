@@ -27,8 +27,8 @@ export default defineConfig({
         "src/vs/workbench/api/common/testStubRpc.ts", // тестовый стаб RpcEndpoint для unit-тестов namespace'ов
         "src/**/*.stories.ts",
         "src/demos/**",
-        "src/vs/vexx/main.ts",
-        "src/vs/vexx/runAsNode.ts", // node-режим SEA-бинаря (VEXX_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled
+        "src/vs/diode/main.ts",
+        "src/vs/diode/runAsNode.ts", // node-режим SEA-бинаря (VEXX_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled
         "src/vs/workbench/services/extensions/node/loadTsServer.ts", // выбор источника бандла завязан на SEA/self-extract окружение; чистая распаковка — extractBundleToCache (юниты), сквозняк — e2e lspBundled
         "src/StoryRunner/**",
         "src/vs/workbench/services/extensions/node/__fixtures__/**",
@@ -106,7 +106,7 @@ export default defineConfig({
         "extensions/vexx-settings/main.ts", // extension entry (грузится в subprocess); поведение — в ExtensionHost.SettingsCompletion.test.ts + e2e
         "src/**/*.generated.ts", // сгенерированные data-файлы (напр. settings-schema.generated.ts), исполняются в subprocess
         "src/vs/workbench/api/common/vscodeNamespace.ts", // RPC-проводка в subprocess
-        "src/vs/vexx/modules/**", // DI-проводка (integration/e2e)
+        "src/vs/diode/modules/**", // DI-проводка (integration/e2e)
         "src/vs/platform/configuration/common/nullConfigurationService.ts", // null-object заглушка
         "src/vs/platform/state/common/nullStateService.ts", // null-object заглушка
       ],

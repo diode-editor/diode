@@ -7,7 +7,7 @@ import { defineConfig } from "tsup";
 import { resolveVexxVersion } from "./scripts/resolve-version.mjs";
 
 export default defineConfig({
-  entry: ["src/vs/vexx/main.ts"],
+  entry: ["src/vs/diode/main.ts"],
   format: ["esm"],
   target: "es2024",
   // Список исчерпывающий: всё, что не перечислено, останется внешним import'ом,

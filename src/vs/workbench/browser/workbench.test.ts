@@ -7,7 +7,7 @@ import type { QuickPickElement } from "@tuidom/elements/quickpick/quickPickEleme
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
-import { createTestContainer } from "../../vexx/modules/testProfile.ts";
+import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
 import { statusSegments, statusTexts } from "./parts/statusbar/statusBarComponent.testUtils.ts";
