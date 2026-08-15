@@ -155,7 +155,7 @@ const MIT_HEADER_LAST = " *-----------------------------------------------------
 
 function banner(upstreamPath) {
     return [
-        `//@vexx:vendored microsoft/vscode@${VSCODE_TAG} ${upstreamPath}`,
+        `//@diode:vendored microsoft/vscode@${VSCODE_TAG} ${upstreamPath}`,
         "// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-diff.mjs (см. AGENTS.md).",
     ];
 }

@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-//@vexx:shim microsoft/vscode@1.127.0 src/vs/base/common/arrays.ts
+//@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/arrays.ts
 // Узкое извлечение: только символы, нужные перенесённому коду в
 // src/vs/editor/common/{diff,core}. Полный upstream-файл тянет
 // cancellation → event → lifecycle → observableInternal (~30 файлов, диффу не

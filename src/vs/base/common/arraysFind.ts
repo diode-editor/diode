@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-//@vexx:shim microsoft/vscode@1.127.0 src/vs/base/common/arraysFind.ts
+//@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/arraysFind.ts
 // Узкое извлечение — см. шапку src/vs/base/common/arrays.ts.
 
 export function findLastMonotonous<T>(array: readonly T[], predicate: (item: T) => boolean): T | undefined {
