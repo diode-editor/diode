@@ -1,5 +1,5 @@
 /**
- * Парсер аргументов командной строки Vexx. Принимает `argv` без первых
+ * Парсер аргументов командной строки Diode. Принимает `argv` без первых
  * двух элементов (`node` и путь до скрипта) — то, что обычно получаешь
  * через `process.argv.slice(2)`.
  *
@@ -49,10 +49,10 @@ export const DEFAULT_INSPECT_TUI = "127.0.0.1:9223";
 /** Размер виртуального терминала по умолчанию для голого `--headless`. */
 export const DEFAULT_HEADLESS_SIZE = { cols: 120, rows: 32 } as const;
 
-export const USAGE = `Usage: vexx [options] <file-or-dir> [<file-or-dir> ...]
+export const USAGE = `Usage: diode [options] <file-or-dir> [<file-or-dir> ...]
 
 Options:
-  --user-data-dir <path>   Альтернативный каталог user data (default: ~/.vexx)
+  --user-data-dir <path>   Альтернативный каталог user data (default: ~/.diode)
   --profile <name>         Имя профиля (default: "default")
   --inspect-tui[=host:port] Поднять TUIDom-инспектор (default: ${DEFAULT_INSPECT_TUI})
   --headless[=<cols>x<rows>] Запуск без терминала: рендер в память, управление

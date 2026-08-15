@@ -117,7 +117,7 @@ async function runEditor(): Promise<void> {
 
     const filePaths = cli.positional;
     if (filePaths.length === 0) {
-        console.error("Usage: vexx <file> [file2] [file3] ...");
+        console.error("Usage: diode <file> [file2] [file3] ...");
         console.error(USAGE);
         process.exit(1);
     }
@@ -126,7 +126,7 @@ async function runEditor(): Promise<void> {
 
     // ── Logging ──────────────────────────────────────────────
     // Всегда поднимаем RingBufferSink (источник данных для будущей
-    // Output-вкладки). FileSink — только в dev: пишем в ./vexx.log в cwd
+    // Output-вкладки). FileSink — только в dev: пишем в ./diode.log в cwd
     // с truncate при каждом запуске. Для агентов/разработчиков это удобный
     // debug-tool; в упакованных сборках файл вообще не создаётся — гейт идёт по
     // isPackagedRuntime(), а не isSeaBinary(): self-extract тоже прод, но не SEA.
@@ -136,12 +136,12 @@ async function runEditor(): Promise<void> {
     const logHistory = new RingBufferSink();
     logService.addSink(logHistory);
     if (!isPackagedRuntime()) {
-        logService.addSink(new FileSink(path.resolve(process.cwd(), "vexx.log")));
+        logService.addSink(new FileSink(path.resolve(process.cwd(), "diode.log")));
     }
     const bootstrapLogger = logService.createLogger("bootstrap");
     const extensionsLogger = logService.createLogger("extensions");
     const configurationLogger = logService.createLogger("configuration");
-    bootstrapLogger.info("vexx starting", { cwd: process.cwd(), files: filePaths.length });
+    bootstrapLogger.info("diode starting", { cwd: process.cwd(), files: filePaths.length });
 
     // ── User data: пути, настройки ─────────────────────────────
 

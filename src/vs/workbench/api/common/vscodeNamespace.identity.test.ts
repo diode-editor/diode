@@ -181,7 +181,7 @@ describe("VscodeNamespace — стабильная идентичность acti
                 openExternal(): Thenable<boolean>;
             };
         };
-        expect(vscode.env.appName).toBe("Vexx");
+        expect(vscode.env.appName).toBe("Diode");
         expect(vscode.env.language).toBe("en");
         expect(await vscode.env.clipboard.readText()).toBe("");
         await vscode.env.clipboard.writeText("x");

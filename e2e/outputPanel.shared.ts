@@ -49,7 +49,7 @@ export async function openOutput(session: HeadlessSession): Promise<void> {
     await session.waitForText((t) => t.includes("greeting"));
     await session.key("Alt+U");
     await session.waitForNode("SelectBoxElement");
-    await session.waitForText((t) => t.includes("[info] vexx starting"));
+    await session.waitForText((t) => t.includes("[info] diode starting"));
 }
 
 /**

@@ -47,7 +47,7 @@ describe("Workbench — Output panel", () => {
         logService = new LogService();
         const history = new RingBufferSink();
         logService.addSink(history);
-        logService.createLogger("bootstrap").info("vexx starting");
+        logService.createLogger("bootstrap").info("diode starting");
         logService.createLogger("configuration").warn("settings.json is empty");
 
         h = createAppTestHarness({
@@ -85,18 +85,18 @@ describe("Workbench — Output panel", () => {
     it("показывает записи активного канала в кадре", () => {
         h.commands.execute(TOGGLE_OUTPUT);
 
-        expect(frame()).toContain("vexx starting");
+        expect(frame()).toContain("diode starting");
     });
 
     it("смена канала перерисовывает содержимое", () => {
         h.commands.execute(TOGGLE_OUTPUT);
-        expect(frame()).toContain("vexx starting");
+        expect(frame()).toContain("diode starting");
 
         outputService().showChannel("configuration");
 
         const text = frame();
         expect(text).toContain("settings.json is empty");
-        expect(text).not.toContain("vexx starting");
+        expect(text).not.toContain("diode starting");
     });
 
     it("живой хвост дописывает строку без переоткрытия вкладки", () => {
@@ -117,7 +117,7 @@ describe("Workbench — Output panel", () => {
 
     it("уровень записи оформлен скобками — под грамматику log", () => {
         h.commands.execute(TOGGLE_OUTPUT);
-        expect(frame()).toContain("[info] vexx starting");
+        expect(frame()).toContain("[info] diode starting");
     });
 
     it("записи до открытия вкладки не теряются — при открытии они уже в кадре", () => {
@@ -135,7 +135,7 @@ describe("Workbench — Output panel", () => {
         h.commands.execute(TOGGLE_OUTPUT);
         h.commands.execute(TOGGLE_OUTPUT);
 
-        const occurrences = frame().split("vexx starting").length - 1;
+        const occurrences = frame().split("diode starting").length - 1;
         expect(occurrences).toBe(1);
     });
 
@@ -148,7 +148,7 @@ describe("Workbench — Output panel", () => {
 
         panelService.activateView(OUTPUT_VIEW_ID);
 
-        expect(frame()).toContain("vexx starting");
+        expect(frame()).toContain("diode starting");
     });
 
     it("reveal контейнера панели наполняет вкладку (шов focus дескриптора)", () => {
@@ -184,7 +184,7 @@ describe("Workbench — Output: селектор канала", () => {
         const logService = new LogService();
         const history = new RingBufferSink();
         logService.addSink(history);
-        logService.createLogger("bootstrap").info("vexx starting");
+        logService.createLogger("bootstrap").info("diode starting");
         logService.createLogger("configuration").warn("empty settings");
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -328,7 +328,7 @@ describe("Workbench — Output: регрессии", () => {
         logService = new LogService();
         history = new RingBufferSink();
         logService.addSink(history);
-        logService.createLogger("bootstrap").info("vexx starting");
+        logService.createLogger("bootstrap").info("diode starting");
         logService.createLogger("configuration").warn("empty settings");
         h = boot(newState());
     });
@@ -427,15 +427,15 @@ describe("Workbench — Output: регрессии", () => {
     });
 
     it("BUG-4: Ctrl+F при фокусе в Output ищет по логу, а не по файлу за панелью", () => {
-        // `vexx starting` есть только в логе, `Alpha` — только в файле.
+        // `diode starting` есть только в логе, `Alpha` — только в файле.
         outputPane();
         const find = h.container.get(FindComponentDIToken);
         const groupId = h.container.get(EditorServiceDIToken).activeGroup.id;
 
         h.commands.execute("actions.find");
         const widget = find.widgetFor(groupId)!;
-        widget.setQuery("vexx starting");
-        widget.onQueryChange?.("vexx starting");
+        widget.setQuery("diode starting");
+        widget.onQueryChange?.("diode starting");
 
         // Смотрим на кадр, как и репортёр: счётчик виджета — наблюдаемый результат.
         h.testApp.render();
@@ -455,7 +455,7 @@ describe("Workbench — Output: регрессии", () => {
 
         second.testApp.render();
         const text = second.testApp.backend.screenToString();
-        expect(text).toContain("vexx starting");
+        expect(text).toContain("diode starting");
         expect(text).not.toContain("No output yet.");
         second.dispose();
     });

@@ -10,7 +10,7 @@ export const DIODE_VERSION: string = typeof __DIODE_VERSION__ !== "undefined" ? 
 /* v8 ignore stop */
 
 /** Отображаемое имя приложения. */
-export const APP_NAME = "Vexx";
+export const APP_NAME = "Diode";
 
 /** Ссылка на репозиторий проекта (для окна About). */
 export const REPO_URL = "https://github.com/diode-editor/diode";

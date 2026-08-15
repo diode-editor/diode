@@ -107,10 +107,10 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
     // Наивный `env` — vscode-languageclient читает language/appName; клипборд и
     // openExternal честно отказывают (TUI не открывает внешние URL).
     const env = {
-        appName: "Vexx",
+        appName: "Diode",
         appHost: "desktop",
         language: "en",
-        uriScheme: "vexx",
+        uriScheme: "diode",
         clipboard: {
             readText: (): Thenable<string> => Promise.resolve(""),
             writeText: (): Thenable<void> => Promise.resolve(),

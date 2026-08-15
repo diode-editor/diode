@@ -48,7 +48,7 @@ describe("FileSink", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "vexx-filesink-" });
-        file = ws.path("vexx.log");
+        file = ws.path("diode.log");
     });
 
     afterEach(() => {

@@ -38,13 +38,13 @@ export default defineScenario({
         // активным каналом, в теле — живой лог с уровнем в скобках (форма, под
         // которую заточена стоковая грамматика log).
         await editor.waitForText((t) => t.includes("OUTPUT"));
-        await editor.waitForText((t) => t.includes("[info] vexx starting"));
+        await editor.waitForText((t) => t.includes("[info] diode starting"));
         await editor.waitForText((t) => t.includes("Bootstrap"));
         await editor.capture("panel");
 
         // Переключение подсистемы: и содержимое, и подпись селектора идут за ним.
         await editor.sendKey("Alt+J");
-        await editor.waitForText((t) => t.includes("Extensions") && !t.includes("vexx starting"));
+        await editor.waitForText((t) => t.includes("Extensions") && !t.includes("diode starting"));
         await editor.capture("channel-switched");
 
         // BUG-1 из ревью: после смены канала фокус оставался ни на чём и

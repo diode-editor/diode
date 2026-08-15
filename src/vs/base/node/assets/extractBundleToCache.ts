@@ -53,8 +53,8 @@ export async function extractBundleToCache(
             await sleep(pollIntervalMs);
         }
         throw new Error(
-            `vexx: timed out waiting for cache unpack at ${targetDir}. ` +
-                `If no other vexx is starting, remove the stale lock: rm -rf '${lockDir}'`,
+            `diode: timed out waiting for cache unpack at ${targetDir}. ` +
+                `If no other diode is starting, remove the stale lock: rm -rf '${lockDir}'`,
         );
     }
 
