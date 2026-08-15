@@ -33,24 +33,24 @@ jobs:
         # архитектуру при npm install, smoke гоняется на реальном arm64.
         include:
           - os: ubuntu-latest
-            asset: vexx-linux-x64
-            binary: dist/vexx
+            asset: diode-linux-x64
+            binary: dist/diode
             mode: selfextract
           - os: ubuntu-24.04-arm
-            asset: vexx-linux-arm64
-            binary: dist/vexx
+            asset: diode-linux-arm64
+            binary: dist/diode
             mode: selfextract
           - os: macos-latest
-            asset: vexx-macos-arm64
-            binary: dist/vexx
+            asset: diode-macos-arm64
+            binary: dist/diode
             mode: sea
           - os: macos-15-intel
-            asset: vexx-macos-x64
-            binary: dist/vexx
+            asset: diode-macos-x64
+            binary: dist/diode
             mode: selfextract
           - os: windows-latest
-            asset: vexx-windows-x64.exe
-            binary: dist/vexx.exe
+            asset: diode-windows-x64.exe
+            binary: dist/diode.exe
             mode: sea
 
     runs-on: ${{ matrix.os }}
@@ -85,7 +85,7 @@ jobs:
         run: mv "${{ matrix.binary }}" "${{ matrix.asset }}"
 
       # Последний рубеж перед публикацией: ассет обязан реально стартовать на этом
-      # железе. Именно этого не хватало в #143 — segfault-ящий vexx-macos-x64 уехал
+      # железе. Именно этого не хватало в #143 — segfault-ящий diode-macos-x64 уехал
       # в релиз, потому что никто ни разу не запустил собранный файл.
       # Самотесты внутри build-скриптов проверяют то же, но здесь проверяется
       # ровно тот файл, который уйдёт в upload-artifact, и уже после rename.

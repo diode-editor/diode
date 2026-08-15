@@ -45,6 +45,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Vexx ${{ github.ref_name }}
+          name: diode ${{ github.ref_name }}
           body: ${{ steps.cliff.outputs.content }}
           files: artifacts/*

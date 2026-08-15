@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = resolve(here, "..", "..");
-const binaryName = process.platform === "win32" ? "vexx.exe" : "vexx";
+const binaryName = process.platform === "win32" ? "diode.exe" : "diode";
 const binaryPath = resolve(repoRoot, "dist", binaryName);
 
-const selfExtractPath = resolve(repoRoot, "dist", "vexx-selfextract");
+const selfExtractPath = resolve(repoRoot, "dist", "diode-selfextract");
 
 let buildPromise: Promise<string> | null = null;
 let selfExtractPromise: Promise<string> | null = null;
@@ -39,7 +39,7 @@ export function getBinaryPath(): Promise<string> {
  * тестам не нужен именно релизный node, а сеть в e2e — лишняя точка отказа.
  * Ветку со скачиванием покрывает реальная сборка в CI.
  *
- * Пишем в `dist/vexx-selfextract`, чтобы не затирать SEA-бинарь `dist/vexx`,
+ * Пишем в `dist/diode-selfextract`, чтобы не затирать SEA-бинарь `dist/diode`,
  * от которого зависят соседние sea-*.test.ts.
  */
 export function getSelfExtractPath(): Promise<string> {

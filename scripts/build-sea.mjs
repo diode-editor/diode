@@ -11,7 +11,7 @@ const root = resolve(import.meta.dirname, "..");
 const dist = join(root, "dist");
 const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
-const exeName = isWindows ? "vexx.exe" : "vexx";
+const exeName = isWindows ? "diode.exe" : "diode";
 const outputPath = join(dist, exeName);
 
 function run(cmd) {

@@ -42,11 +42,11 @@ jobs:
               '',
               '| Платформа | Артефакт |',
               '| --- | --- |',
-              '| Linux x64 | `vexx-linux-x64` |',
-              '| Linux arm64 | `vexx-linux-arm64` |',
-              '| macOS arm64 | `vexx-macos-arm64` |',
-              '| macOS x64 | `vexx-macos-x64` |',
-              '| Windows x64 | `vexx-windows-x64.exe` |',
+              '| Linux x64 | `diode-linux-x64` |',
+              '| Linux arm64 | `diode-linux-arm64` |',
+              '| macOS arm64 | `diode-macos-arm64` |',
+              '| macOS x64 | `diode-macos-x64` |',
+              '| Windows x64 | `diode-windows-x64.exe` |',
             ].join('\n');
 
             const { owner, repo } = context.repo;

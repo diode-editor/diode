@@ -8,9 +8,9 @@ if [[ "$(uname -s)" != "Linux" ]]; then
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_BINARY="${ROOT_DIR}/dist/vexx"
+SOURCE_BINARY="${ROOT_DIR}/dist/diode"
 TARGET_DIR="${HOME}/.dotfiles.scripts"
-TARGET_BINARY="${TARGET_DIR}/vexx"
+TARGET_BINARY="${TARGET_DIR}/diode"
 
 echo "> Building SEA binary"
 cd "${ROOT_DIR}"

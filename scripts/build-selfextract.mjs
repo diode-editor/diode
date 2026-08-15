@@ -26,7 +26,7 @@
  *   --target  платформа payload'а (по умолчанию — хост). darwin-x64 | darwin-arm64 | linux-x64 | linux-arm64
  *   --node    `host` — взять process.execPath (быстро, без сети: локальные сборки и e2e);
  *             путь — взять указанный бинарь; по умолчанию — скачать официальный тарбол.
- *   --out     путь результата (по умолчанию dist/vexx)
+ *   --out     путь результата (по умолчанию dist/diode)
  */
 
 import { execFileSync } from "node:child_process";
@@ -60,7 +60,7 @@ async function main() {
         throw new Error(`[selfextract] Unsupported target: ${target}. Supported: ${[...SUPPORTED_TARGETS].join(", ")}`);
     }
 
-    const outputPath = resolve(root, args.out ?? join("dist", "vexx"));
+    const outputPath = resolve(root, args.out ?? join("dist", "diode"));
     const version = resolveVexxVersion({ repoRoot: root });
     console.log(`[selfextract] target=${target} version=${version}`);
 
