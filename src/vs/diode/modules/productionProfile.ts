@@ -46,9 +46,9 @@ export interface ProductionProfileContext {
     logService: ILogService;
     /** Кольцевой буфер логов — источник содержимого Output-панели. */
     logHistory: ILogHistory;
-    /** Absolute path of the active-profile Vexx settings.json (for diagnostics scoping). */
+    /** Absolute path of the active-profile Diode settings.json (for diagnostics scoping). */
     settingsResource: string;
-    /** Absolute path of the active-profile Vexx keybindings.json (for the open-keybindings command). */
+    /** Absolute path of the active-profile Diode keybindings.json (for the open-keybindings command). */
     keybindingsResource: string;
 }
 

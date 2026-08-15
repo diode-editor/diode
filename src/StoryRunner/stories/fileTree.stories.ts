@@ -8,7 +8,7 @@ import {
 } from "../../vs/workbench/contrib/files/browser/fileTreeDataProvider.ts";
 
 export const meta: StoryMeta = {
-    title: "FileTree (vexx provider)",
+    title: "FileTree (diode provider)",
 };
 
 export function fileTree(ctx: StoryContext): void {

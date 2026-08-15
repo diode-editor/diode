@@ -23,7 +23,7 @@ describe("LayoutService", () => {
     let contextKeys: ContextKeyService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-layoutsvc-" });
+        ws = createTempWorkspace({ prefix: "diode-layoutsvc-" });
         state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: ws.dir }));
         panelService = new PanelService();
         contextKeys = new ContextKeyService();

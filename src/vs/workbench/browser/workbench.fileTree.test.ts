@@ -8,7 +8,7 @@ import type { WorkbenchComponent } from "./workbenchComponent.ts";
 
 function createIntegrationWorkspace(): ITempWorkspace {
     return createTempWorkspace({
-        prefix: "vexx-integration-",
+        prefix: "diode-integration-",
         files: {
             "hello.txt": "hello world",
             "notes.md": "# Notes",

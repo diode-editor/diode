@@ -1,4 +1,4 @@
-# Vexx — Архитектура
+# Diode — Архитектура
 
 Этот файл — **концептуальная карта**: обзор осей раскладки `src/vs/*`, короткие
 описания каталогов со ссылками на детальные документы и правила зависимостей.
@@ -14,7 +14,7 @@
 1. **Вертикальные слои** (импортировать можно только свой и нижние):
 
    ```
-   base/common → base/node → platform → editor → workbench → vexx
+   base/common → base/node → platform → editor → workbench → diode
    ```
 
    «Браузер» целиком — набор внешних npm-пакетов **`@tuidom/*`**
@@ -22,14 +22,14 @@
    (дерево элементов, события), виджеты (`ui/*` — «HTML-элементы»),
    rendering, input, backend и Inspector (devtools). У vscode эту роль играет
    Chromium — поэтому tuidom не часть vscode-структуры и вынесен в отдельный
-   репозиторий; для vexx-кода он — «браузерное API» (импорты в него, как в
+   репозиторий; для diode-кода он — «браузерное API» (импорты в него, как в
    любой пакет, осями не проверяются; сам пакет физически не может
    импортировать `src/vs`).
 
 2. **Окружения** внутри слоя: `common` → [common], `browser` → [common,
    browser], `node` → [common, node]. «browser» — буквально, как у upstream,
    хотя рендерим в терминал: `base/browser` — это TUIDom (наш аналог DOM).
-   `vs/vexx` (сборка приложения) склеивает оба мира, env-ось к нему не
+   `vs/diode` (сборка приложения) склеивает оба мира, env-ось к нему не
    применяется.
 
 Имена файлов — camelCase по vscode-конвенции (`tuiElement.ts`,
@@ -45,15 +45,15 @@ upstream, где они в `test/`-деревьях; оси на тесты не
 
 | Каталог | Прежний слой | Что там | Детали |
 |---|---|---|---|
-| `@tuidom/*` (npm: core, elements, terminal-backend, headless-backend, inspector, testing) | TUIDom (+Widgets) + Rendering + Input + Backend + Inspector | «браузер»: DOM-ядро (`dom/`: дерево элементов, события, фокус, стили), **виджеты `ui/<widget>/`** (кнопка = «HTMLElement»; vscode-имена: scrollbar, list, tree, inputbox, menu, contextview, selectbox, editorpart (полоса групп редакторов: веса + саши)…; критерий: виджет живёт там ⇔ его публичный API не упоминает понятий Vexx, иначе — компонент в `vs/workbench/browser/parts/*`), `rendering/`, `input/`, `backend/`, `inspector/` (devtools), `common/` (геометрия, `Disposable`, `DisplayLine`/Unicode, packed-цвета, `iTerminalSurface`), `testing/` (тест-харнесс). **Вынесен в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom)**, ставится из npm | [доки tuidom](https://github.com/tuidom/tuidom/tree/main/docs): LAYOUT.md, STYLES.md, arch/ |
-| `vs/base/common/` | Common | примитивы vexx: `Uri` (адаптер `vscode-uri`), fuzzy, `fileIcons`, ассеты (`assets/`); плюс узкие **шимы** upstream-утилит под перенесённый diff-движок (`arrays`, `arraysFind`, `assert`, `errors`, `map`, `strings`, `equals`, `charCode`) | [arch/Common.md](arch/Common.md) |
+| `@tuidom/*` (npm: core, elements, terminal-backend, headless-backend, inspector, testing) | TUIDom (+Widgets) + Rendering + Input + Backend + Inspector | «браузер»: DOM-ядро (`dom/`: дерево элементов, события, фокус, стили), **виджеты `ui/<widget>/`** (кнопка = «HTMLElement»; vscode-имена: scrollbar, list, tree, inputbox, menu, contextview, selectbox, editorpart (полоса групп редакторов: веса + саши)…; критерий: виджет живёт там ⇔ его публичный API не упоминает понятий Diode, иначе — компонент в `vs/workbench/browser/parts/*`), `rendering/`, `input/`, `backend/`, `inspector/` (devtools), `common/` (геометрия, `Disposable`, `DisplayLine`/Unicode, packed-цвета, `iTerminalSurface`), `testing/` (тест-харнесс). **Вынесен в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom)**, ставится из npm | [доки tuidom](https://github.com/tuidom/tuidom/tree/main/docs): LAYOUT.md, STYLES.md, arch/ |
+| `vs/base/common/` | Common | примитивы diode: `Uri` (адаптер `vscode-uri`), fuzzy, `fileIcons`, ассеты (`assets/`); плюс узкие **шимы** upstream-утилит под перенесённый diff-движок (`arrays`, `arraysFind`, `assert`, `errors`, `map`, `strings`, `equals`, `charCode`) | [arch/Common.md](arch/Common.md) |
 | `vs/base/node/` | Common (node-часть) | SEA/`isSea`, fs-доступ к ассетам | [arch/Common.md](arch/Common.md) |
 | `vs/platform/` | размазан (Common/Configuration/Theme/Editor/Workbench) | сервисы ниже editor: `instantiation` (наш DI), `log`, `configuration` (+`ConfigurationRegistry`), `state`, `markers`, `undoRedo`, `commands`, `contextkey`, `keybinding`, `actions` (`MenuRegistry`/`MenuId`), `contextview` (`ContextMenuService` — делегаты контекстных меню поверх tuidom-механики), `theme` (определения цветов + мост `defaultStyles`), `clipboard`, `files`, `environment`, `extensions`, `extensionManagement` | [arch/Theme.md](arch/Theme.md), [arch/Configuration.md](arch/Configuration.md), [arch/State.md](arch/State.md) |
 | `vs/editor/` | Editor | `common/{core,model,viewModel,languages,tokens}` — текстовая модель, view-state, токенизация; `common/diff` — **дословно перенесённый** из upstream алгоритм построчного диффа (см. ниже); `browser/` — `editorElement` (виджет-мост; view zones + внешние декорации рисуют и дифф v2); `common/diff/diffV2Layout` — раскладка живого диффа (зоны/фолды/декорации сторон); `contrib/{find,folding}` — модельные части фич | [arch/Editor.md](arch/Editor.md), [TODO/Diff.md](TODO/Diff.md) |
 | `vs/workbench/` | Workbench (+куски Editor/Extensions/Theme) | `browser/` (Component/ThemedComponent, `workbenchComponent`, `parts/*`: editor/statusbar/panel/sidebar/views/dialogs/quickinput, `actions/`), `services/*` (themes, textMate, textfile, language, search, extensions, editor, layout, lifecycle, keybinding, dialogs, statusbar, output, terminalEnvironment), `contrib/<фича>/` (files, markers, output, quickaccess, find, search, suggest, gotoDefinition, terminal, themes, preferences, bulkEdit), `api/` (extension host: extHost-неймспейсы, адаптеры, RPC), `common/` (contributions-реестр, `CoreTokens`, configuration-узлы) | [arch/Workbench.md](arch/Workbench.md), [arch/Extensions.md](arch/Extensions.md) |
-| `vs/vexx/` | App | точка входа `main.ts` (bootstrap: CLI → user data → configuration → assets → extensions → DI), DI-модули и профили (`modules/`) | [DI.md](DI.md) |
+| `vs/diode/` | App | точка входа `main.ts` (bootstrap: CLI → user data → configuration → assets → extensions → DI), DI-модули и профили (`modules/`) | [DI.md](DI.md) |
 | `src/vscode-dts/` | Extensions/Api | `vscode.d.ts` (pinned, поверхность API) | [arch/Extensions.md](arch/Extensions.md) |
-| `extensions/` | src/Extensions/builtin | builtin-расширения (языковые паки verbatim + git, vexx-settings) — как у upstream | [arch/Extensions.md](arch/Extensions.md) |
+| `extensions/` | src/Extensions/builtin | builtin-расширения (языковые паки verbatim + git, diode-settings) — как у upstream | [arch/Extensions.md](arch/Extensions.md) |
 | `src/{TestUtils,StoryRunner,demos}/` | как были | dev-тулинг вне `vs/` (аналогов в upstream `src/vs` нет); в `src/demos` — app-демо, DOM/движковые демо — в `demos/` репозитория tuidom | [arch/DevTooling.md](arch/DevTooling.md) |
 
 ## Правила зависимостей
@@ -69,7 +69,7 @@ RPC-мостов vscode). Смысловые правила поверх осе�
 - **Editor не зависит от темизации и расширений** — связь через интерфейсы `ITokenStyleResolver`/`ILanguageService` (`vs/editor/common/languages/`); их реализуют `workbench/services/themes` и `workbench/services/extensions`.
 - **Extension host** (`vs/workbench/api/`) — единственное место, где расширения поднимаются к workbench-сервисам: адаптеры (`*Adapter` ≈ `mainThread*`) типизированы минимальными портами и связываются в DI.
 - **Editor-фичи** могут жить в `editor/contrib` с собственными токенами и `static dependencies` на platform-сервисы (пилот — `editor/contrib/contextmenu`). В `workbench/contrib` остаётся то, что реально зависит от workbench-сервисов: find/suggest сидят на `EditorService` (группы/вкладки) — их переезд требует развязки, см. [TODO/VscodeStructureFollowUps.md](TODO/VscodeStructureFollowUps.md).
-- **Inspector** (`@tuidom/inspector/*`) зависит только от tuidom; транспорт — рукописный WebSocket на `node:http`; write/capture-порт `InspectorDriver` — интерфейс, адаптер даёт `vexx`-слой.
+- **Inspector** (`@tuidom/inspector/*`) зависит только от tuidom; транспорт — рукописный WebSocket на `node:http`; write/capture-порт `InspectorDriver` — интерфейс, адаптер даёт `diode`-слой.
 
 ### Дословный перенос upstream: `editor/common/diff`
 
@@ -107,7 +107,7 @@ RPC-мостов vscode). Смысловые правила поверх осе�
 пакеты `@tuidom/*` токенов не объявляет и `diContainer` не импортирует
 (обеспечено физически — он собирается в своём репозитории). Сквозные токены
 ядра без файла-владельца — `vs/workbench/common/coreTokens.ts`; биндинги
-собираются в модулях `vs/vexx/modules/`.
+собираются в модулях `vs/diode/modules/`.
 
 Все DI-токены именуются по конвенции `*DIToken` (например
 `EditorServiceDIToken`, `TuiApplicationDIToken`). Подробности — [DI.md](DI.md).

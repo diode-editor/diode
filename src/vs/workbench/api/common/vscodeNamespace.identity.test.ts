@@ -166,7 +166,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         const pinned = (await readFile(new URL("../../../../../extensions/VSCODE_VERSION", import.meta.url), "utf8")).trim();
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc).namespace;
-        // vscode-languageclient проверяет semver `^1.91.0` — «vexx-phase-1» его ронял.
+        // vscode-languageclient проверяет semver `^1.91.0` — «diode-phase-1» его ронял.
         expect(vscode.version).toBe(pinned);
         expect(vscode.version).toMatch(/^\d+\.\d+\.\d+$/);
     });

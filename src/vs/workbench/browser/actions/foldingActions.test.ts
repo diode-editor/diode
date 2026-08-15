@@ -72,7 +72,7 @@ function openEditor(content: string) {
 }
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-folding-actions-" });
+    ws = createTempWorkspace({ prefix: "diode-folding-actions-" });
 });
 afterEach(() => {
     ws.dispose();

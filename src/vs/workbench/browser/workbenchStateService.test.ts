@@ -113,7 +113,7 @@ describe("WorkbenchStateService", () => {
     let group: FakeGroup;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-wbstate-" });
+        ws = createTempWorkspace({ prefix: "diode-wbstate-" });
         state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: ws.dir }));
         group = new FakeGroup();
     });

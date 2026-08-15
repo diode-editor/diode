@@ -114,7 +114,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             // `#!/usr/bin/env node` на машине без node давал exit 127 и каскад
             // EPIPE-рестартов клиента. Теперь кандидат — сам cli.mjs, и он
             // запускается нашим рантаймом (SEA: diode-as-node).
-            const root = mkdtempSync(join(tmpdir(), "vexx-e2e-"));
+            const root = mkdtempSync(join(tmpdir(), "diode-e2e-"));
             const nodeModules = join(root, "workspace", "node_modules");
             const repoModules = resolve(import.meta.dirname, "..", "node_modules");
             mkdirSync(join(nodeModules, ".bin"), { recursive: true });

@@ -11,16 +11,16 @@ import { defineConfig } from "vitest/config";
 // поднимает тяжёлый SEA-бинарь (+ PTY, + subprocess ext-host), поэтому по умолчанию
 // берём половину ядер — иначе на 4-ядерной машине четыре бинаря насыщают CPU и
 // тайминг-чувствительные тесты (рестарт, ext-host RPC, PTY-ввод) флейкают.
-// Переопределяется через VEXX_E2E_WORKERS; `=1` — полностью последовательный прогон.
+// Переопределяется через DIODE_E2E_WORKERS; `=1` — полностью последовательный прогон.
 const defaultWorkers = Math.max(1, Math.floor(cpus().length / 2));
-const workers = Math.max(1, Number(process.env.VEXX_E2E_WORKERS ?? String(defaultWorkers)));
+const workers = Math.max(1, Number(process.env.DIODE_E2E_WORKERS ?? String(defaultWorkers)));
 
 export default defineConfig({
     test: {
         include: ["e2e/**/*.test.ts"],
         testTimeout: 60_000,
         hookTimeout: 180_000,
-        // Собираем бинарь один раз до воркеров; путь уходит в env (VEXX_E2E_BINARY).
+        // Собираем бинарь один раз до воркеров; путь уходит в env (DIODE_E2E_BINARY).
         globalSetup: ["e2e/globalSetup.ts"],
         pool: "forks",
         fileParallelism: workers > 1,

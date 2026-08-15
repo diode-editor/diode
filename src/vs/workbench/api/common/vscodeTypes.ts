@@ -889,7 +889,7 @@ export class WorkspaceEdit {
 
 /**
  * Колонка редактора (`vscode.ViewColumn`): символические `Active`/`Beside` для
- * открытия и разрешённые 1..9 у существующих редакторов (полоса групп Vexx).
+ * открытия и разрешённые 1..9 у существующих редакторов (полоса групп Diode).
  */
 export enum ViewColumn {
     Active = -1,
@@ -906,7 +906,7 @@ export enum ViewColumn {
 }
 
 // ─── TabInput* (vscode.window.tabGroups) ─────────────────────────────────────
-// Все семь видов — runtime-классами, хотя Vexx производит только текст и дифф:
+// Все семь видов — runtime-классами, хотя Diode производит только текст и дифф:
 // расширения перебирают вкладки instanceof-каскадом по ВСЕМ видам, и
 // `tab.input instanceof vscode.TabInputNotebook` при отсутствующем классе — это
 // TypeError, а не false. Классы тривиальны (Uri + string), несуществующие виды
@@ -925,7 +925,7 @@ export class TabInputTextDiff {
     ) {}
 }
 
-/** Вкладка custom-редактора (Vexx не производит). */
+/** Вкладка custom-редактора (Diode не производит). */
 export class TabInputCustom {
     public constructor(
         public readonly uri: Uri,
@@ -933,12 +933,12 @@ export class TabInputCustom {
     ) {}
 }
 
-/** Вкладка webview (Vexx не производит). */
+/** Вкладка webview (Diode не производит). */
 export class TabInputWebview {
     public constructor(public readonly viewType: string) {}
 }
 
-/** Вкладка notebook (Vexx не производит). */
+/** Вкладка notebook (Diode не производит). */
 export class TabInputNotebook {
     public constructor(
         public readonly uri: Uri,
@@ -946,7 +946,7 @@ export class TabInputNotebook {
     ) {}
 }
 
-/** Вкладка-дифф notebook'ов (Vexx не производит). */
+/** Вкладка-дифф notebook'ов (Diode не производит). */
 export class TabInputNotebookDiff {
     public constructor(
         public readonly original: Uri,
@@ -955,7 +955,7 @@ export class TabInputNotebookDiff {
     ) {}
 }
 
-/** Вкладка терминала (Vexx не производит). */
+/** Вкладка терминала (Diode не производит). */
 export class TabInputTerminal {
     public constructor() {}
 }

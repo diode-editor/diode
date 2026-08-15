@@ -12,7 +12,7 @@ describe("Workbench — Refresh Explorer", () => {
     let h: IAppHarness;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-refresh-", files: { "hello.txt": "hi" } });
+        ws = createTempWorkspace({ prefix: "diode-refresh-", files: { "hello.txt": "hi" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
         h.testApp.render();

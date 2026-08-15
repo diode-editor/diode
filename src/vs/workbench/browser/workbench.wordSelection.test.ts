@@ -18,7 +18,7 @@ describe("Workbench word selection (Ctrl+Shift+Arrow/Home/End)", () => {
     }
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-word-sel-" });
+        ws = createTempWorkspace({ prefix: "diode-word-sel-" });
     });
 
     afterEach(() => {

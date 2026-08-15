@@ -45,7 +45,7 @@ describe("TextSearchService (against real ripgrep)", () => {
     });
 
     function setup(files: Record<string, string>): void {
-        ws = createTempWorkspace({ prefix: "vexx-textsearch-" });
+        ws = createTempWorkspace({ prefix: "diode-textsearch-" });
         for (const [name, content] of Object.entries(files)) ws.writeFile(name, content);
         service = new TextSearchService();
     }
@@ -174,7 +174,7 @@ describe("TextSearchService (against real ripgrep)", () => {
     });
 
     it("surfaces a spawn failure when the rg binary is missing", async () => {
-        ws = createTempWorkspace({ prefix: "vexx-textsearch-" });
+        ws = createTempWorkspace({ prefix: "diode-textsearch-" });
         ws.writeFile("a.ts", "foo\n");
         service = new TextSearchService("/no/such/rg-binary");
         const { complete } = await runSearch(service, query(), ws.dir);

@@ -70,7 +70,7 @@ async function compareWithClipboard(accessor: ServiceAccessor): Promise<void> {
     const editor = activeTextEditor(accessor);
     if (editor === null) return;
 
-    // Внутренний регистр Vexx, не системный буфер: OSC 52 read намеренно не
+    // Внутренний регистр Diode, не системный буфер: OSC 52 read намеренно не
     // используется (см. OscClipboard) — текст из другого приложения сюда не
     // попадёт, и сравнение с пустым в этом случае честнее зависшего запроса.
     const text = await accessor.get(ClipboardDIToken).readText();

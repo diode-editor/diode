@@ -22,7 +22,7 @@ let ws: ITempWorkspace;
 let tmpDir: string;
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-undoid-" });
+    ws = createTempWorkspace({ prefix: "diode-undoid-" });
     tmpDir = ws.dir;
 });
 

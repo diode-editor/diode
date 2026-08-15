@@ -21,7 +21,7 @@ describe("Workbench — Preferences commands", () => {
         let keybindingsFile: string;
 
         beforeEach(() => {
-            ws = createTempWorkspace({ prefix: "vexx-prefs-" });
+            ws = createTempWorkspace({ prefix: "diode-prefs-" });
             // Nested, not-yet-existing paths — the handler must create the parent dir + file.
             settingsFile = ws.path("user-data/User/settings.json");
             keybindingsFile = ws.path("user-data/User/keybindings.json");
@@ -55,7 +55,7 @@ describe("Workbench — Preferences commands", () => {
 
     describe("without resolved paths (default harness)", () => {
         beforeEach(() => {
-            ws = createTempWorkspace({ prefix: "vexx-prefs-" });
+            ws = createTempWorkspace({ prefix: "diode-prefs-" });
             h = createAppTestHarness();
         });
 

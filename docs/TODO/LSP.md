@@ -9,7 +9,7 @@ e2e `e2e/gotoDefinition.test.ts`, скриншот-сценарии `goto-defini
 
 ## Архитектура (проверена спайком, ветка `worktree-lsp-spike`)
 
-LSP-протокол vexx не пишет. Language server поднимает **не ядро, а builtin-расширение**
+LSP-протокол diode не пишет. Language server поднимает **не ядро, а builtin-расширение**
 через стоковый `vscode-languageclient` (сам спавнит сервер, сам гоняет JSON-RPC,
 прокидывает результаты через `vscode` API). Достаточно дописывать наш `vscode`-стаб —
 спайк доказал это end-to-end (~540 строк наивных стабов): сервер спавнится, проходит
@@ -27,13 +27,13 @@ go-to-definition работает; сервер-внук корректно уб
 3. **[x] runway для languageclient** — перенос наивных стабов спайка
    (`vscodeTypes` value-классы, no-op `register*Provider`, naive-события),
    `diagnostics.publish` → `MarkerService` (squiggle + Problems без правок),
-   builtin-расширение `vexx-lsp-typescript` (бандл с `vscode-languageclient@10`
+   builtin-расширение `diode-lsp-typescript` (бандл с `vscode-languageclient@10`
    проходит гейт RELATIVE_REQUIRE; `version: "1.127.0"` в лок-степе с
    `extensions/VSCODE_VERSION` — тест в `vscodeNamespace.identity.test.ts`).
 4. **[x] закрытие стоковым сервером** — тесты с настоящим `typescript-language-server`
    (правило: тесты над ИЗМЕНЯЕМЫМ кодом — правка без сохранения должна быть видна
    серверу), e2e + скриншот-демо. Сервер резолвится: настройка
-   `vexx.lsp.typescript.serverPath` → workspace `node_modules/.bin` → PATH;
+   `diode.lsp.typescript.serverPath` → workspace `node_modules/.bin` → PATH;
    `tsserverPath` — для песочниц без своего TypeScript
    (`initializationOptions.tsserver.path`). Dev-прогон «из коробки»: воркспейс
    с `typescript-language-server` в devDeps работает без настроек.
@@ -116,7 +116,7 @@ go-to-definition работает; сервер-внук корректно уб
   no-op канал молча теряет их; клиентский outputChannel обязан быть настоящим.
 - `vscode.version` должен быть валидным VS Code semver (`1.127.0`, лок-степ с
   `extensions/VSCODE_VERSION`) — languageclient проверяет `^1.91.0`.
-- Под SEA `process.execPath` — это vexx-бинарь: спавнить сервер только
+- Под SEA `process.execPath` — это diode-бинарь: спавнить сервер только
   `{ command }`-формой (никаких `TransportKind.ipc`/fork).
 
 ## Таблица стабов vscode API (заполняется по шагам 2–3)
@@ -149,11 +149,11 @@ go-to-definition работает; сервер-внук корректно уб
   `ts-server.bundle` (~13 МБ: однофайловый `cli.mjs` сервера + минимальный
   `typescript/lib` без локалей/tsc/ATA) едет в обеих трубах поставки (SEA-ассет /
   файл рядом с `main.js` в self-extract), распаковывается в XDG-кэш
-  (`~/.cache/vexx/ts-server/<version>-<sha256[0:12]>`) атомарно и
-  конкурентно-безопасно (`extractBundleToCache`: mkdir-lock + tmp + `.vexx-ready`
+  (`~/.cache/diode/ts-server/<version>-<sha256[0:12]>`) атомарно и
+  конкурентно-безопасно (`extractBundleToCache`: mkdir-lock + tmp + `.diode-ready`
   + rename — схема self-extract-стаба). Рантайм «как VS Code»: сервер запускается
   `process.execPath` субпроцесса (dev/self-extract — настоящий node; SEA —
-  vexx-бинарь в node-режиме `VEXX_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`;
+  diode-бинарь в node-режиме `DIODE_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`;
   динамический `import()` из вшитого SEA-main перехвачен embedder-хуком, а
   `require(esm)` не берёт top-level await cli.mjs — поэтому в бандле лежит
   CJS-шим `run-cli.cjs`, чей `import()` идёт настоящим ESM-loader'ом).

@@ -4,7 +4,7 @@
  *
  * Правило рантайма — «как VS Code»: JS-энтрипоинты запускаются НАШИМ
  * node-рантаймом (`runtime.command` = `process.execPath` субпроцесса: в dev и
- * self-extract это настоящий node, в SEA — vexx-бинарь + env
+ * self-extract это настоящий node, в SEA — diode-бинарь + env
  * `DIODE_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`). Системный node из PATH
  * не требуется — поэтому кандидаты-пути указывают на JS-энтрипоинты, а НЕ на
  * `.bin/…`-шимы: шим исполняется напрямую и через свой шебанг

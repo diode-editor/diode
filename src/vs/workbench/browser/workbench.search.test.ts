@@ -28,7 +28,7 @@ describe("Workbench — вьюлет Search в сайдбаре", () => {
     let testApp: TestApp;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-search-view-", files: { "a.txt": "foo\n" } });
+        ws = createTempWorkspace({ prefix: "diode-search-view-", files: { "a.txt": "foo\n" } });
         const { container, bindApp } = createTestContainer();
         workbench = container.get(WorkbenchComponentDIToken);
         commands = container.get(CommandRegistryDIToken);

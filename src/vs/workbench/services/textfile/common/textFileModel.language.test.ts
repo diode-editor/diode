@@ -42,7 +42,7 @@ describe("TextFileModel — language", () => {
     let ctrl: TextEditorPane;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-editorctrl-lang-" });
+        ws = createTempWorkspace({ prefix: "diode-editorctrl-lang-" });
         registry = new TokenizationRegistry();
         ctrl = createEditorPane({ registry, languageService: TS_ONLY_LANGUAGE_SERVICE });
     });

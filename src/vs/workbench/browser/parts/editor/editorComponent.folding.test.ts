@@ -18,7 +18,7 @@ describe("EditorComponent – folding recompute keeps the caret visible", () => 
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-fold-" });
+        ws = createTempWorkspace({ prefix: "diode-fold-" });
     });
     afterEach(() => {
         ws.dispose();

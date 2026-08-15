@@ -21,8 +21,8 @@ describe("Workbench — session state persistence", () => {
     let userData: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-persist-ws-", files: { "a.ts": "A", "b.ts": "B", "c.ts": "C" } });
-        userData = createTempWorkspace({ prefix: "vexx-persist-home-" });
+        ws = createTempWorkspace({ prefix: "diode-persist-ws-", files: { "a.ts": "A", "b.ts": "B", "c.ts": "C" } });
+        userData = createTempWorkspace({ prefix: "diode-persist-home-" });
     });
 
     afterEach(() => {
@@ -270,7 +270,7 @@ describe("Workbench — session state persistence", () => {
     });
 
     it("keeps state independent per workspace folder", () => {
-        const ws2 = createTempWorkspace({ prefix: "vexx-persist-ws2-", files: { "z.ts": "Z" } });
+        const ws2 = createTempWorkspace({ prefix: "diode-persist-ws2-", files: { "z.ts": "Z" } });
         try {
             const state1 = newState();
             const a = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });

@@ -20,10 +20,10 @@ import { FileSearchService } from "./fileSearchService.ts";
 
 // ─── Фикстуры (строятся один раз при импорте) ────────────────────────────────
 
-const dir1k = createTempDir("vexx-perf-index-1k-");
+const dir1k = createTempDir("diode-perf-index-1k-");
 generateFileTree(dir1k, { files: 1_000 });
 
-const dir10k = createTempDir("vexx-perf-index-10k-");
+const dir10k = createTempDir("diode-perf-index-10k-");
 generateFileTree(dir10k, { files: 10_000 });
 
 // Готовый индекс для бенчей поиска (ждём завершения фонового обхода).

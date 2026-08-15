@@ -47,7 +47,7 @@ const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet(
 
 function lspClientRegistration(): IExtensionRegistration {
     return {
-        id: "vexx.diode-lsp-typescript",
+        id: "diode.diode-lsp-typescript",
         manifest: { name: "diode-lsp-typescript", publisher: "diode", version: "0.1.0" },
         mainPath: CLIENT_BUNDLE,
         activationEvents: ["onLanguage:typescript"],

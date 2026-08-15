@@ -12,7 +12,7 @@ describe("DiskFileSystemProvider", () => {
     let dir: string;
 
     beforeEach(() => {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-diskfs-"));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-diskfs-"));
     });
 
     afterEach(() => {

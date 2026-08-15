@@ -188,7 +188,7 @@ describe("EditorService — сужение текстовой поверхнос
 
 describe("EditorService — смешанная группа", () => {
     const openMixed = () => {
-        const ws = createTempWorkspace({ prefix: "vexx-panes-", files: { "a.ts": "alpha\n" } });
+        const ws = createTempWorkspace({ prefix: "diode-panes-", files: { "a.ts": "alpha\n" } });
         const service = createEditorService();
         service.openFile(ws.path("a.ts"));
         const pane = new FakePane(fakeUri("diff"));

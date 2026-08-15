@@ -1,6 +1,6 @@
 # Workbench/
 
-Часть архитектуры Vexx — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
+Часть архитектуры Diode — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
 История миграции Controllers → Workbench (задача завершена, слой Controllers растворён) —
 [../TODO/WorkbenchRefactoring.md](../TODO/WorkbenchRefactoring.md).
 
@@ -793,7 +793,7 @@ hide-toggle (`isHiddenByDefault`). См.
 см. [../TODO/Inspector.md](../TODO/Inspector.md).
 
 **Где живёт Element.** Элемент общего назначения (его публичный API не упоминает
-понятий Vexx) — в `tuidom/ui/`. Vexx-специфичному элементу в tuidom не место:
+понятий Diode) — в `tuidom/ui/`. Diode-специфичному элементу в tuidom не место:
 либо он вовсе не существует — компонент является **композиционным корнем** и
 собирает view из примитивов (`FindComponent`, `StatusBarComponent`,
 `EditorGroupComponent`, диалоги), либо, если посимвольная раскладка оправдывает

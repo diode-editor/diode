@@ -53,7 +53,7 @@ function writeAll(repoDir: string, files: Record<string, string>): void {
 }
 
 function makeRepo(opts: RepoOptions): string {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-scm207-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-scm207-"));
     if (opts.noGit === true) {
         writeAll(repoDir, opts.committed ?? {});
         writeAll(repoDir, opts.untracked ?? {});

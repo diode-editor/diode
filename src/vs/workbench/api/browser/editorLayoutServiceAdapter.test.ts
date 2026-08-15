@@ -33,7 +33,7 @@ describe("EditorLayoutServiceAdapter", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-layout-adapter-",
+            prefix: "diode-layout-adapter-",
             files: { "a.ts": "alpha", "b.ts": "beta" },
         });
         service = new EditorService(

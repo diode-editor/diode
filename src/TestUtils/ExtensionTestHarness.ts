@@ -157,7 +157,7 @@ export interface IExtensionHarness {
  * ждёт завершения `activate()` и RPC-вызовов внутри него.
  */
 export async function createExtensionTestHarness(options: IExtensionHarnessOptions = {}): Promise<IExtensionHarness> {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-ext-"));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-ext-"));
 
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const group = new EditorService(

@@ -17,7 +17,7 @@ function readRow(session: EmbeddedTerminalSession, row: number, width: number): 
 
 /**
  * Весь видимый экран одной строкой. Нужен там, где вывод идёт через ИНТЕРАКТИВНЫЙ шелл:
- * длина его промпта зависит от машины (на CI `runner@…:~/work/vexx/vexx$` — длиннее, чем
+ * длина его промпта зависит от машины (на CI `runner@…:~/work/diode/diode$` — длиннее, чем
  * локально), поэтому номер строки, на которую ляжет вывод, предсказать нельзя. Склейка
  * без разделителя заодно переживает перенос строки: у перенесённой строки нет хвостовых
  * пробелов, так что маркер, разорванный переносом, снова становится целым.
@@ -73,8 +73,8 @@ describe("EmbeddedTerminalSession — выбор шелла и аргумент�
             rows: 6,
             shell: "/bin/bash",
             cwd: "/tmp",
-            env: { VEXX_MARKER: "custom-env" },
-            args: ["-c", "echo $VEXX_MARKER; pwd"],
+            env: { DIODE_MARKER: "custom-env" },
+            args: ["-c", "echo $DIODE_MARKER; pwd"],
         });
         await awaitExit(session);
         await vi.waitFor(

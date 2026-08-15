@@ -23,7 +23,7 @@ describe("Workbench — global keybindings are suppressed while an overlay owns 
 
     beforeEach(async () => {
         ws = createTempWorkspace({
-            prefix: "vexx-modalkbd-",
+            prefix: "diode-modalkbd-",
             files: {
                 "alpha.txt": "Alpha content",
                 "beta.txt": "Beta content",

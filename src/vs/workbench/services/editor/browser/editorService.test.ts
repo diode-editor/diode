@@ -63,7 +63,7 @@ describe("EditorService", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-test-" });
+        ws = createTempWorkspace({ prefix: "diode-test-" });
         tmpDir = ws.dir;
     });
 
@@ -494,7 +494,7 @@ describe("EditorService", () => {
         // calling reload() emits onDidChangeConfiguration, which the service must apply
         // to editors that are ALREADY open (not just newly created ones).
         async function realConfig(initial: string) {
-            const cfgWs = createTempWorkspace({ prefix: "vexx-es-cfg-" });
+            const cfgWs = createTempWorkspace({ prefix: "diode-es-cfg-" });
             const p = resolveUserDataPaths({ homedir: "/never", userDataDir: cfgWs.dir });
             const write = (content: string): void => {
                 fs.mkdirSync(path.dirname(p.settingsFile), { recursive: true });

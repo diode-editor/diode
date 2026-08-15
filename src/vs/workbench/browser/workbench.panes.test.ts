@@ -60,7 +60,7 @@ describe("Workbench — панель не-текстового вида во в�
     let testApp: TestApp;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-panes-", files: { "a.txt": "первая строка\n" } });
+        ws = createTempWorkspace({ prefix: "diode-panes-", files: { "a.txt": "первая строка\n" } });
 
         const { container, bindApp } = createTestContainer();
         workbench = container.get(WorkbenchComponentDIToken);

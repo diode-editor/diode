@@ -30,7 +30,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-options-groups-",
+            prefix: "diode-options-groups-",
             files: { "a.ts": "alpha\nbeta", "b.ts": "gamma" },
         });
         service = new EditorService(

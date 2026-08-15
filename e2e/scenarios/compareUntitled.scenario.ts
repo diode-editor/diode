@@ -8,7 +8,7 @@ import { defineScenario } from "./framework.ts";
 // пустых безымянных буферов, обе стороны редактируются ПРЯМО в дифф-вкладке,
 // живой пересчёт помечает набранное добавленным по debounce.
 
-const workDir = mkdtempSync(join(tmpdir(), "vexx-untitled-demo-"));
+const workDir = mkdtempSync(join(tmpdir(), "diode-untitled-demo-"));
 
 export default defineScenario({
     name: "compare-untitled",

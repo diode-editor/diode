@@ -57,7 +57,7 @@ function openEditor(content: string) {
 }
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-eol-actions-" });
+    ws = createTempWorkspace({ prefix: "diode-eol-actions-" });
 });
 afterEach(() => {
     ws.dispose();

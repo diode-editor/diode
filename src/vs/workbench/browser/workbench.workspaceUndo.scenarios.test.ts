@@ -12,7 +12,7 @@ let savedXdg: string | undefined;
 
 function createWorkspace(): ITempWorkspace {
     const ws = createTempWorkspace({
-        prefix: "vexx-wsundo-scen-",
+        prefix: "diode-wsundo-scen-",
         files: {
             "a.txt": "AAA",
             "b.txt": "BBB",

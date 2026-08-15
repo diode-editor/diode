@@ -24,13 +24,13 @@ clone/init/мультирепо.
 
 - **Все user-facing `git.*`-команды живут в ядре** (`CommandAction` + `builtinActions.ts`):
   манифест расширений не умеет contributes.menus, а пикеры/диалоги — в ядре. Расширение
-  регистрирует только приватные мосты `vexx.git.*` (одноимённая регистрация невозможна —
+  регистрирует только приватные мосты `diode.git.*` (одноимённая регистрация невозможна —
   `CommandRegistry` перезаписывает по id). Исключение: `git.refresh` уже зарегистрирован
   расширением и остаётся за ним.
-- **Мосты**: мутации staging (`vexx.git.stage/unstage/clean` — списки uri), семантический
-  диспетчер `vexx.git.op {op, params}` (не generic-exec: argv собирает расширение),
-  запросы `vexx.git.query {kind: refs|stashes|remotes}` для пикеров, push-каналы
-  `vexx.scm.publishChanges` (+`group`) и новый `vexx.scm.publishRepoState`.
+- **Мосты**: мутации staging (`diode.git.stage/unstage/clean` — списки uri), семантический
+  диспетчер `diode.git.op {op, params}` (не generic-exec: argv собирает расширение),
+  запросы `diode.git.query {kind: refs|stashes|remotes}` для пикеров, push-каналы
+  `diode.scm.publishChanges` (+`group`) и новый `diode.scm.publishRepoState`.
 - **Результат операции** — envelope `{ok:true} | {ok:false, kind, message, stderr}` с
   классификацией по stderr: `auth | conflict | dirty-worktree | push-rejected |
   no-upstream | not-merged | git-error`. Все сетевые вызовы — `GIT_TERMINAL_PROMPT=0`,
@@ -377,7 +377,7 @@ UI-подтверждения. Ручной прогон после релиза
 - [x] **1. Группы ресурсов** — протокол `group` в publishChanges, `scmChangeGroups.ts`,
       заголовки-секции в списке, новые id строк, rowMeta. Гейт: US-1; декорации
       файлового дерева не изменились.
-- [x] **2. Транспорты мутаций** — `vexx.git.stage/unstage/clean` в расширении: мьютекс,
+- [x] **2. Транспорты мутаций** — `diode.git.stage/unstage/clean` в расширении: мьютекс,
       валидация uri, envelope, refresh после мутации; интеграционные тесты на temp-репо
       (unborn HEAD, clean tracked/untracked).
 - [x] **3. Stage/Unstage + multi-select + меню v2** — `ScmMenuContext v2` (uris+groups),
@@ -389,19 +389,19 @@ UI-подтверждения. Ручной прогон после релиза
       `IViewContainerDescriptor` + VFlex в `attachContainer`, `scmInputComponent.ts`,
       ключ `scmInputFocus`, `workbench.scm.focus`/`scm.action.focusChanges`, персист
       черновика, `input.selectionBackground` в реестр цветов. Гейт: US-13…15.
-- [x] **6. Commit** — диспетчер `vexx.git.op` (первая операция — commit),
+- [x] **6. Commit** — диспетчер `diode.git.op` (первая операция — commit),
       commit-семейство, Ctrl+Enter, `git.undoCommit`. Гейт: US-16…20.
       Отклонение от таблицы: noVerify-семейство не гейтится конфигом
       `git.allowNoVerifyCommit` (when-выражений по конфигу нет) и урезано до
       трёх команд без Amend-вариантов; Signed-off — отложено.
-- [x] **7. Repo-state + меню-инфра** — `vexx.scm.publishRepoState`, `ScmRepoStateService`,
+- [x] **7. Repo-state + меню-инфра** — `diode.scm.publishRepoState`, `ScmRepoStateService`,
       when-ключи; `ISubmenuContribution.visible`, `gitMenus.ts`, каркас «⋯».
       Гейт: часть US-30 (структура, пустые подменю скрыты).
 - [x] **8. Sync** — pull/push/fetch/sync/publish, `gitOpClient.ts` (диалоги
       auth/rejected/no-upstream/conflict), e2e с bare-remote. Гейт: US-21…24, US-32.
 - [x] **9. Branch** — checkout/create/rename/delete, merge/rebase + abort, ref-пикер
-      (`vexx.git.query refs`). Гейт: US-25…28.
-- [x] **10. Stash** — stash-семейство + пикер (`vexx.git.query stashes`). Гейт: US-29.
+      (`diode.git.query refs`). Гейт: US-25…28.
+- [x] **10. Stash** — stash-семейство + пикер (`diode.git.query stashes`). Гейт: US-29.
 - [x] **11. Remote/Tags/прочее** — remote/tag-команды, `git.showOutput`,
       noVerify/commitEmpty/cherryPick. Гейт: US-30 полностью.
       Отклонение: Delete Remote Tag выбирает из локальных тегов (без

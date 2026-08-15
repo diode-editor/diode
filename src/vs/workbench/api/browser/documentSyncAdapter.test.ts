@@ -28,7 +28,7 @@ describe("documentSyncAdapter", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-docsync-adapter-",
+            prefix: "diode-docsync-adapter-",
             files: { "a.ts": "alpha", "b.ts": "beta" },
         });
         service = new EditorService(

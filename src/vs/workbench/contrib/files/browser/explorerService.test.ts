@@ -140,7 +140,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
     });
 
     it("paste target: directory node → itself, file node → its parent, none → root", () => {
-        const ws = createTempWorkspace({ prefix: "vexx-explorer-svc-" });
+        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-" });
         const service = createService();
         service.setRootPath(ws.dir);
 
@@ -183,7 +183,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
     });
 
     it("revealPath builds the ancestor chain and passes it to the view", async () => {
-        const ws = createTempWorkspace({ prefix: "vexx-explorer-svc-reveal-" });
+        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-reveal-" });
         const service = createService();
         service.setRootPath(ws.dir);
         const view = fakeView();
@@ -213,7 +213,7 @@ describe("ExplorerService — autoRevealActiveFile", () => {
     }
 
     it("reveals the active file when explorer.autoReveal is on (default)", () => {
-        const ws = createTempWorkspace({ prefix: "vexx-explorer-svc-auto-" });
+        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-auto-" });
         const service = createService({ configurationService: configWith(undefined) });
         service.setRootPath(ws.dir);
         const view = fakeView();
@@ -226,7 +226,7 @@ describe("ExplorerService — autoRevealActiveFile", () => {
     });
 
     it("does nothing when explorer.autoReveal is off", () => {
-        const ws = createTempWorkspace({ prefix: "vexx-explorer-svc-auto-off-" });
+        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-auto-off-" });
         const service = createService({ configurationService: configWith(false) });
         service.setRootPath(ws.dir);
         const view = fakeView();
@@ -239,7 +239,7 @@ describe("ExplorerService — autoRevealActiveFile", () => {
     });
 
     it("does nothing without an active file path", () => {
-        const ws = createTempWorkspace({ prefix: "vexx-explorer-svc-auto-null-" });
+        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-auto-null-" });
         const service = createService();
         service.setRootPath(ws.dir);
         const view = fakeView();
@@ -257,7 +257,7 @@ describe("ExplorerService — file watcher error logging", () => {
         const logService = new LogService();
         const entries: LogEntry[] = [];
         logService.onDidAppend((entry) => entries.push(entry));
-        const ws = createTempWorkspace({ prefix: "vexx-explorer-svc-watch-" });
+        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-watch-" });
         const service = createService({ logService });
         service.setRootPath(ws.dir);
         return {

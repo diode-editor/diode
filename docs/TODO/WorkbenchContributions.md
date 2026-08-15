@@ -53,7 +53,7 @@
   ключа — ошибка) + узлы приложения в `Workbench/Configuration/` (по файлу на
   секцию, явный массив `CONFIGURATION_CONTRIBUTIONS`). Из реестра деривируются
   defaults-слой `ConfigurationService` (`defaults.ts` удалён), известные ключи
-  валидации settings.json и каталог автодополнения vexx-settings (генератор
+  валидации settings.json и каталог автодополнения diode-settings (генератор
   бандлит узлы). Runtime-регистрация узлов от расширений — Phase 6 в
   [Extensions.md](Extensions.md).
 - [x] **`ColorRegistry`** (#171) — определения цветов по областям в

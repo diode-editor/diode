@@ -13,7 +13,7 @@ import { smokeTestBinary } from "../scripts/smoke-binary.mjs";
  * Регресс на первопричину #143: самотест сборки обязан ПАДАТЬ на бинаре, который
  * не стартует. Прошлая версия проверки смотрела только на `error` от spawnSync,
  * поэтому segfault выглядел как «spawn OK, exited with code null», и битый
- * vexx-macos-x64 уехал в релиз.
+ * diode-macos-x64 уехал в релиз.
  *
  * Живёт в e2e, а не в юнитах: `scripts/` не входит ни в один vitest-include, и
  * втягивать его в unit-конфиг = втягивать в храповик 100% покрытия. Сборка бинаря
@@ -23,7 +23,7 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
     let dir = "";
 
     beforeEach(() => {
-        dir = mkdtempSync(join(tmpdir(), "vexx-smoke-"));
+        dir = mkdtempSync(join(tmpdir(), "diode-smoke-"));
     });
 
     afterEach(() => {
@@ -64,7 +64,7 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
 
     it("зовёт бинарь именно с --version (пустые аргументы дают exit 1 «Usage»)", () => {
         // Точная причина, по которой прошлый самотест не мог отличить краш от нормы.
-        const binary = fakeBinary("cli", '[ "$1" = "--version" ] || { echo "Usage: vexx <file>" >&2; exit 1; }\necho "1.2.3"');
+        const binary = fakeBinary("cli", '[ "$1" = "--version" ] || { echo "Usage: diode <file>" >&2; exit 1; }\necho "1.2.3"');
         expect(smokeTestBinary(binary)).toBe("1.2.3");
     });
 

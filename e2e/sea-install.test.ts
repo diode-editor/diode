@@ -59,7 +59,7 @@ describe("SEA binary — extension install CLI", () => {
 
     beforeAll(async () => {
         binary = await getBinaryPath();
-        tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "vexx-sea-install-"));
+        tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "diode-sea-install-"));
         userDataDir = path.join(tempRoot, "user-data-root");
         vsixPath = path.join(tempRoot, "demo.vsix");
         await buildVsix(vsixPath, {

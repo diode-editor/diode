@@ -1,6 +1,6 @@
 # State — машинное состояние UI/сессии
 
-Часть архитектуры Vexx — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
+Часть архитектуры Diode — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 Персистентное машинное состояние рабочего места (аналог `IStorageService` /
 `Memento` из VS Code): открытые файлы + активная вкладка, ширина/видимость
@@ -29,7 +29,7 @@
   `resolveWorkspaceStatePath` (`Common/UserDataPaths.ts`, pure).
 
 ```
-~/.vexx/user-data/User/            # profileDir (именованный профиль → profiles/<name>/)
+~/.diode/user-data/User/            # profileDir (именованный профиль → profiles/<name>/)
   settings.json                    # человекочитаемые настройки (отдельно)
   globalState.json                 # global-scope
   workspaceStorage/<hash>/state.json
@@ -136,7 +136,7 @@ main.ts: build container ─► process.on("exit", stateService.flushSync)
 
 ## Известные ограничения
 
-- **Cross-process last-writer-wins:** два инстанса Vexx на одном воркспейсе
+- **Cross-process last-writer-wins:** два инстанса Diode на одном воркспейсе
   затирают состояние друг друга (у каждого своя in-memory копия; сохранение
   unknown-ключей — внутрипроцессное). VS Code решает это SQLite-локом (запрещён
   GOAL).

@@ -12,7 +12,7 @@ let tmpDir: string;
 let ws: ITempWorkspace;
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-editundo-" });
+    ws = createTempWorkspace({ prefix: "diode-editundo-" });
     tmpDir = ws.dir;
 });
 

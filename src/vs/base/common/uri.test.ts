@@ -47,9 +47,9 @@ describe("Uri — не-file схемы", () => {
     });
 
     it("parse() разбирает output:", () => {
-        const u = Uri.parse("output:extension-output-vexx");
+        const u = Uri.parse("output:extension-output-diode");
         expect(u.scheme).toBe("output");
-        expect(u.path).toBe("extension-output-vexx");
+        expect(u.path).toBe("extension-output-diode");
     });
 
     it("parse() разбирает vscode-vfs:// с authority", () => {
@@ -71,7 +71,7 @@ describe("Uri — round-trip", () => {
         "file:///a%20b/c.txt",
         "file://host/p",
         "untitled:Untitled-1",
-        "output:extension-output-vexx",
+        "output:extension-output-diode",
         "vscode-vfs://github/owner/repo/f.ts",
         "git:/foo.ts?%7B%22ref%22%3A%22HEAD%22%7D",
     ])("parse(toString(%s)) даёт исходный uri", (raw) => {

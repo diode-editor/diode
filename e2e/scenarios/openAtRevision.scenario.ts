@@ -16,7 +16,7 @@ function git(cwd: string, ...args: string[]): void {
 
 /** Репозиторий с веткой, отстающей от main на одну правку. */
 function makeRepo(): { repoDir: string; trackedFile: string } {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-rev-demo-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-rev-demo-"));
     git(repoDir, "init", "-q");
     git(repoDir, "config", "user.email", "t@example.com");
     git(repoDir, "config", "user.name", "Test");

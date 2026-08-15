@@ -19,7 +19,7 @@ import { defineScenario } from "./framework.ts";
 const OLD_NAME = "notes.txt";
 const NEW_NAME = "guide.md";
 
-const workspace = mkdtempSync(join(tmpdir(), "vexx-rename-demo-"));
+const workspace = mkdtempSync(join(tmpdir(), "diode-rename-demo-"));
 writeFileSync(join(workspace, OLD_NAME), "Project notes.\n");
 
 export default defineScenario({

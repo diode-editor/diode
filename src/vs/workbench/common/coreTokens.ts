@@ -22,9 +22,9 @@ export const LanguageServiceDIToken = token<ILanguageService>("LanguageService")
 export const MarkerServiceDIToken = token<MarkerService>("MarkerService");
 /** DI-токен машинного состояния UI/сессии ({@link IStateService}, см. docs/arch/State.md). */
 export const StateServiceDIToken = token<IStateService>("StateService");
-/** Absolute path of the active-profile Vexx settings.json, or null when unknown (tests/demo). */
+/** Absolute path of the active-profile Diode settings.json, or null when unknown (tests/demo). */
 export const SettingsResourceDIToken = token<string | null>("SettingsResource");
-/** Absolute path of the active-profile Vexx keybindings.json, or null when unknown (tests/demo). */
+/** Absolute path of the active-profile Diode keybindings.json, or null when unknown (tests/demo). */
 export const KeybindingsResourceDIToken = token<string | null>("KeybindingsResource");
 /**
  * Реестр поставщиков содержимого по схеме URI ({@link IFileSystemProviderRegistry}).

@@ -3,10 +3,10 @@
 > **Статус: вынос завершён (2026-08-13).** Движок живёт в
 > [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom) и ставится
 > пакетами `@tuidom/*` из npm; тест-харнесс — `@tuidom/testing/*`
-> (vexx-обёртки с живой темой — `src/TestUtils/{TestApp,renderElement}.ts`).
+> (diode-обёртки с живой темой — `src/TestUtils/{TestApp,renderElement}.ts`).
 > Документ ниже — исторический аудит, готовивший вынос.
 
-`tuidom/` — «браузер» Vexx (DOM-ядро, виджеты, rendering, input, backend,
+`tuidom/` — «браузер» Diode (DOM-ядро, виджеты, rendering, input, backend,
 inspector), кандидат на вынос в отдельный репозиторий (см.
 [ARCHITECTURE.md](../ARCHITECTURE.md)). Этот документ — аудит: **что из tuidom по
 смыслу принадлежит редактору/приложению и должно вернуться назад, прежде чем
@@ -57,7 +57,7 @@ titledpanel, workbenchlayout), — это **нормальная связь «п
 - **`tuidom/common/displayLine.ts` — оставить.** Данные против инстинкта: **9
   tuidom-потребителей** (лейблы, `inputbox`, `tree`, `quickpick`, `completion`,
   `textTruncation`, …) + 2 editor + 1 workbench. Это примитив **шейпинга текста
-  терминала** (графемы, ширины, табы, CJK/эмодзи, `offset ↔ колонка`) — Vexx-аналог
+  терминала** (графемы, ширины, табы, CJK/эмодзи, `offset ↔ колонка`) — Diode-аналог
   того, что для VSCode делает Chromium через DOM. Любой виджет, рисующий текст,
   обязан им пользоваться; это не домен редактора.
 - Так же общие и остаются: `unicodeWidth`, `textTruncation`, `geometryPromitives`,
@@ -103,7 +103,7 @@ fs-доступ; `vitest` в dev. Всё leaf, без `vs/`-хвоста.
    общий примитив «текст → колонки» (вариант (а) из п. 2 выше).
 3. ~~Развязать **`.stories.ts` / `.bench.ts` / тесты** от `src/`~~ — **сделано**
    (фаза 1 выноса): тест-харнесс переехал в `tuidom/testing/` (палитра Dark+ —
-   data-фикстурой `darkPlusStyleVars.ts`), vexx-зависимые истории уехали в
+   data-фикстурой `darkPlusStyleVars.ts`), diode-зависимые истории уехали в
    `src/StoryRunner/stories/`, editor-зависимый тест — в
    `src/vs/editor/browser/editorElement.selectionClear.test.ts`. Теперь
    `grep -rn 'from ".*src/' tuidom` пуст, включая тесты/истории/бенчи.

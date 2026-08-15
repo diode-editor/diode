@@ -21,7 +21,7 @@ export default defineScenario({
     rows: 32,
     env: {
         SHELL: "/bin/bash",
-        PS1: "vexx$ ",
+        PS1: "diode$ ",
         PROMPT_COMMAND: "",
     },
     // node-pty spawns a real PTY — Unix-only in the current packaging. On CI we only
@@ -43,18 +43,18 @@ export default defineScenario({
         // The TERMINAL tab is active and the shell has rendered its prompt: either our
         // PS1 (clean CI bash) or a fancy rc-installed one (starship's `❯` locally).
         await editor.waitForText((t) => t.includes("TERMINAL"));
-        // Имя каталога, а не литерал "vexx": в git-worktree cwd оканчивается иначе.
+        // Имя каталога, а не литерал "diode": в git-worktree cwd оканчивается иначе.
         await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
         await editor.capture("terminal-open");
 
         // The shell is live: type a command and wait for its output line. В тексте
-        // команды маркер разорван пустой подстановкой (vexx-term""-ok), поэтому
+        // команды маркер разорван пустой подстановкой (diode-term""-ok), поэтому
         // целиком он может появиться ТОЛЬКО в выводе шелла — ожидание не зависит
         // ни от глифа промпта, ни от переноса эхо-команды через край панели
         // (длинный cwd git-worktree переносил её и маркер не собирался).
-        await editor.sendText('echo vexx-term""-ok');
+        await editor.sendText('echo diode-term""-ok');
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("vexx-term-ok"));
+        await editor.waitForText((t) => t.includes("diode-term-ok"));
         await editor.capture("terminal-echo");
     },
 });

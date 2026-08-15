@@ -30,7 +30,7 @@ function openUserConfigFile(
 }
 
 /**
- * Open the user settings.json (VS Code `workbench.action.openSettings`). Vexx has
+ * Open the user settings.json (VS Code `workbench.action.openSettings`). Diode has
  * no settings UI, so the command opens the JSON file directly. Default binding
  * matches VS Code (Ctrl+,).
  */

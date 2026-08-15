@@ -4,7 +4,7 @@
  *
  * Usage: npx tsx src/demos/keyDiagnosticsDemo.ts
  *
- * Enables EXACTLY what the real vexx backend enables (Kitty keyboard protocol +
+ * Enables EXACTLY what the real diode backend enables (Kitty keyboard protocol +
  * xterm modifyOtherKeys + bracketed paste), then for every keypress prints the
  * whole chain so you can see where a key gets lost:
  *
@@ -37,7 +37,7 @@ import {
     resolveTier,
 } from "../vs/workbench/services/terminalEnvironment/node/terminalEnvironmentModel.ts";
 
-// ── Replicate the rest of vexx's input modes (demoSetup already did Kitty + raw mode) ──
+// ── Replicate the rest of diode's input modes (demoSetup already did Kitty + raw mode) ──
 const MODIFY_OTHER_KEYS_ENABLE = "\x1b[>4;2m";
 const MODIFY_OTHER_KEYS_DISABLE = "\x1b[>4;0m";
 const BRACKETED_PASTE_ENABLE = "\x1b[?2004h";
@@ -190,7 +190,7 @@ stdin.on("data", (chunk: string) => {
         if (isCsiU && !sawCsiU) {
             sawCsiU = true;
             stdout.write(
-                "    " + green("→ CSI-u key seen — extended-keys confirmed; vexx would upgrade tier to csi-u") + "\r\n",
+                "    " + green("→ CSI-u key seen — extended-keys confirmed; diode would upgrade tier to csi-u") + "\r\n",
             );
         }
 
@@ -210,7 +210,7 @@ stdin.on("data", (chunk: string) => {
             stdout.write(
                 "    " +
                     red(
-                        "⚠ matched — if this does nothing in vexx, the `when` gate above is false (e.g. need ≥2 tabs)",
+                        "⚠ matched — if this does nothing in diode, the `when` gate above is false (e.g. need ≥2 tabs)",
                     ) +
                     "\r\n",
             );

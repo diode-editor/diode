@@ -29,7 +29,7 @@ describe("Команды сравнения файлов", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-compare-",
+            prefix: "diode-compare-",
             files: { "a.txt": "alpha\nbravo\n", "b.txt": "alpha\nBRAVO\n" },
         });
         // Шире порога inline-фолбэка: команды семейства проверяют side-by-side

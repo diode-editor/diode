@@ -70,7 +70,7 @@ describe("EditorGroupComponent", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-test-" });
+        ws = createTempWorkspace({ prefix: "diode-test-" });
         tmpDir = ws.dir;
     });
 

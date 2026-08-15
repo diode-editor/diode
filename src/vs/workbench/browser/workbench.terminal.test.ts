@@ -22,7 +22,7 @@ describe("Workbench — integrated terminal", () => {
     let terminal: TerminalService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-terminal-" });
+        ws = createTempWorkspace({ prefix: "diode-terminal-" });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         contextKeys = h.container.get(ContextKeyServiceDIToken);
         terminal = h.container.get(TerminalServiceDIToken);

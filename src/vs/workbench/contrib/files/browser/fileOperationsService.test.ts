@@ -41,7 +41,7 @@ function makeService(explorer: Partial<ExplorerService>): { service: FileOperati
 
 describe("FileOperationsService — отменённый промпт", () => {
     it("runCreate is a no-op when the prompt is cancelled", async () => {
-        const ws = createTempWorkspace({ prefix: "vexx-fileops-" });
+        const ws = createTempWorkspace({ prefix: "diode-fileops-" });
         const { service, edits } = makeService({ getPasteTargetDir: () => ws.dir });
 
         await expect(service.runCreate("file")).resolves.toBeUndefined();

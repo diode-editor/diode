@@ -1,4 +1,4 @@
-# @vexx/project-config
+# @diode/project-config
 
 Доска GitHub как код: `config.jsonc` описывает поля Project v2, `sync` приводит доску
 в соответствие с ним.

@@ -5,19 +5,19 @@ import { join } from "node:path";
 
 import { getBinaryPath } from "./buildOnce.ts";
 import { HeadlessSession, type HeadlessSessionOptions } from "./headlessSession.ts";
-import { VexxSession } from "./runVexx.ts";
+import { DiodeSession } from "./runDiode.ts";
 
 // ── Hermetic app session ─────────────────────────────────────────────────────
 // Единственная реализация изолированного запуска настоящего бинаря для e2e.
 // Раньше изоляция («временный --user-data-dir + keybindings.json») жила внутри
 // `runScenario`, наружу не торчала, и половина сьютов стартовала против реального
-// `~/.vexx`: восстанавливали чужую сессию, видели чужие расширения, писали в
-// корзину и `vexx.log` разработчика. Здесь один временный корень изолирует всё:
+// `~/.diode`: восстанавливали чужую сессию, видели чужие расширения, писали в
+// корзину и `diode.log` разработчика. Здесь один временный корень изолирует всё:
 //
 //     <root>/
 //       user-data-dir/   → --user-data-dir (settings, keybindings, globalState, extensions)
 //       home/            → HOME/USERPROFILE + XDG_{DATA,CACHE,CONFIG}_HOME (корзина, кеши)
-//       workspace/       → cwd процесса (vexx.log, ext-host folders) + сид-воркспейс
+//       workspace/       → cwd процесса (diode.log, ext-host folders) + сид-воркспейс
 //
 // Два транспорта поверх одного окружения: `startHeadlessApp` (инспектор, основной
 // путь) и `startPtyApp` (ANSI-уровень, для sea-*). Изоляция — в одном месте.
@@ -64,7 +64,7 @@ export interface AppEnvOptions {
      */
     isolateHome?: boolean;
     /**
-     * cwd процесса. По умолчанию — изолированный воркспейс (`vexx.log` и
+     * cwd процесса. По умолчанию — изолированный воркспейс (`diode.log` и
      * ext-host folders изолируются). Переопределяется, когда тест/сценарий
      * должен стартовать из конкретного каталога (сценарии — из repoRoot).
      */
@@ -103,7 +103,7 @@ function userProfileDir(userDataDir: string): string {
  */
 export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv> {
     const isolateHome = options.isolateHome !== false;
-    const root = options.root ?? mkdtempSync(join(tmpdir(), "vexx-e2e-"));
+    const root = options.root ?? mkdtempSync(join(tmpdir(), "diode-e2e-"));
     const userDataDir = join(root, "user-data-dir");
     const home = isolateHome ? join(root, "home") : "";
     const workspaceDir = join(root, "workspace");
@@ -273,7 +273,7 @@ export async function startHeadlessApp(options: AppEnvOptions & { binary?: strin
 
 /** Изолированная PTY-сессия: настоящий терминал + окружение + уборка. */
 export interface PtyApp {
-    readonly session: VexxSession;
+    readonly session: DiodeSession;
     readonly env: AppEnv;
     dispose(): Promise<void>;
 }
@@ -291,7 +291,7 @@ export interface PtyAppOptions extends AppEnvOptions {
  */
 export async function startPtyApp(options: PtyAppOptions = {}): Promise<PtyApp> {
     const env = await prepareAppEnv(options);
-    const session = await VexxSession.start({
+    const session = await DiodeSession.start({
         args: env.args,
         cwd: options.cwd ?? env.workspaceDir,
         env: env.env,

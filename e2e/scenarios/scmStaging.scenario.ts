@@ -17,7 +17,7 @@ function git(cwd: string, ...args: string[]): void {
 
 /** Репозиторий: staged-правка + modified + untracked — все три группы видны. */
 function makeRepo(): { repoDir: string } {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-scm-stage-demo-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-scm-stage-demo-"));
     git(repoDir, "init", "-q");
     git(repoDir, "config", "user.email", "t@example.com");
     git(repoDir, "config", "user.name", "Test");

@@ -56,7 +56,7 @@ describe("Workbench — live settings apply", () => {
     let cfg: ConfigurationService;
 
     async function boot(initialSettings: string, harnessOpts: Parameters<typeof createAppTestHarness>[0] = {}) {
-        cfgWs = createTempWorkspace({ prefix: "vexx-live-cfg-" });
+        cfgWs = createTempWorkspace({ prefix: "diode-live-cfg-" });
         const p = resolveUserDataPaths({ homedir: "/never", userDataDir: cfgWs.dir });
         settingsFile = p.settingsFile;
         writeSettings(initialSettings);
@@ -70,7 +70,7 @@ describe("Workbench — live settings apply", () => {
     }
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-live-ws-", files: { "a.ts": "const x = 1;" } });
+        ws = createTempWorkspace({ prefix: "diode-live-ws-", files: { "a.ts": "const x = 1;" } });
     });
 
     afterEach(() => {
@@ -138,7 +138,7 @@ describe("Workbench — live settings apply", () => {
         // (unusual — defaults normally supply one). The handler must bail out safely.
         const emitting = new EmittingConfig();
         h = createAppTestHarness({ workspaceFolder: ws.dir, configurationService: emitting });
-        cfgWs = createTempWorkspace({ prefix: "vexx-live-noop-" }); // satisfy afterEach cleanup
+        cfgWs = createTempWorkspace({ prefix: "diode-live-noop-" }); // satisfy afterEach cleanup
         const themeService = h.container.get(ThemeServiceDIToken);
         const before = themeService.theme;
 

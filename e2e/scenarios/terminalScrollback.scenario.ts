@@ -18,7 +18,7 @@ export default defineScenario({
     rows: 32,
     env: {
         SHELL: "/bin/bash",
-        PS1: "vexx$ ",
+        PS1: "diode$ ",
         PROMPT_COMMAND: "",
     },
     // node-pty спавнит настоящий PTY — как и terminal.scenario.ts, только Linux.
@@ -33,7 +33,7 @@ export default defineScenario({
         await editor.sendKey("Enter");
 
         await editor.waitForText((t) => t.includes("TERMINAL"));
-        // Имя каталога, а не литерал "vexx": в git-worktree cwd оканчивается иначе.
+        // Имя каталога, а не литерал "diode": в git-worktree cwd оканчивается иначе.
         await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
 
         // Печатаем заведомо больше строк, чем помещается в панель: начало вывода

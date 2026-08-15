@@ -23,7 +23,7 @@ describe("FileSearchService — notify / onIndexChanged", () => {
     let service: FileSearchService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-filesearch-notify-" });
+        ws = createTempWorkspace({ prefix: "diode-filesearch-notify-" });
         service = new FileSearchService();
     });
 
@@ -137,7 +137,7 @@ describe("FileSearchService — walk branches", () => {
     let service: FileSearchService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-filesearch-notify-" });
+        ws = createTempWorkspace({ prefix: "diode-filesearch-notify-" });
         service = new FileSearchService();
     });
 

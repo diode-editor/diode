@@ -1,6 +1,6 @@
 # Common/
 
-Часть архитектуры Vexx — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
+Часть архитектуры Diode — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 Базовые типы и утилиты: геометрия (`Point`, `Size`, `Rect`, `BoxConstraints`), `IDisposable`/`Disposable`, DI-примитивы (`Token`, `Container`, см. [../DI.md](../DI.md)). Unicode: `UnicodeWidth` и `DisplayLine` (маппинг строки документа на grapheme-слоты + двусторонний конвертер offset↔column) — общий инструмент корректной обработки wide chars / emoji / табов / combining marks во всех слоях (Editor, TUIDom, RenderContext).
 
@@ -21,12 +21,12 @@ IO-абстракции (интерфейс + no-op/in-memory заглушка),
 Унифицированный доступ к статическим ассетам (грамматики, `onig.wasm`, манифесты builtin-расширений) через один интерфейс `IAssetAccess` над виртуальными POSIX-путями — потребители не знают, откуда физически читаются файлы. Две реализации: `BundleAssetAccess` (in-memory mini-archive) и `FsAssetAccess` (dev, mapping `virtualPrefix → fsRoot`). `CompositeAssetAccess` — longest-prefix роутер, склеивающий builtin- и user-ассеты в одно адресное пространство. Сборка bundle — `scripts/pack-assets.mjs`.
 
 Три вида употребления ассетов:
-- **in-memory** (`vexx.bundle`) — читается целиком, файлы наружу не пишутся (грамматики, код builtin-расширений);
+- **in-memory** (`diode.bundle`) — читается целиком, файлы наружу не пишутся (грамматики, код builtin-расширений);
 - **extract-to-tmp** (`rg.bundle`, `node-pty.bundle`) — распаковка в `os.tmpdir()` при первом использовании (`loadRipgrep`/`loadNodePty`; инвалидация по размеру ассета);
-- **extract-to-cache** (`ts-server.bundle`) — распаковка в XDG-кэш (`cachePaths.userCacheDir()` → `~/.cache/vexx/...`), переживает ребут; примитив — `base/node/assets/extractBundleToCache.ts`: версионированный ключ `<version>-<sha256>`, mkdir-lock как мьютекс, публикация атомарным rename с `.vexx-ready` (схема self-extract-стаба), ожидание чужого лока с таймаутом. Потребитель — `loadTsServer.ts` (вшитый language-сервер).
+- **extract-to-cache** (`ts-server.bundle`) — распаковка в XDG-кэш (`cachePaths.userCacheDir()` → `~/.cache/diode/...`), переживает ребут; примитив — `base/node/assets/extractBundleToCache.ts`: версионированный ключ `<version>-<sha256>`, mkdir-lock как мьютекс, публикация атомарным rename с `.diode-ready` (схема self-extract-стаба), ожидание чужого лока с таймаутом. Потребитель — `loadTsServer.ts` (вшитый language-сервер).
 
-`createDefaultAssetAccess()` выбирает источник **одного и того же** `vexx.bundle` по убыванию приоритета:
-1. **SEA** — бандл внутри бинаря, `node:sea.getAsset("vexx.bundle")`;
+`createDefaultAssetAccess()` выбирает источник **одного и того же** `diode.bundle` по убыванию приоритета:
+1. **SEA** — бандл внутри бинаря, `node:sea.getAsset("diode.bundle")`;
 2. **self-extract** — бандл лежит файлом рядом с `main.js` (`BundleFile.ts`; сборка — `scripts/build-selfextract.mjs`);
 3. **dev/tests** — `FsAssetAccess` на `extensions/` + `node_modules/vscode-oniguruma`.
 
@@ -36,6 +36,6 @@ IO-абстракции (интерфейс + no-op/in-memory заглушка),
 Логирование в стиле VS Code: один `ILogService` на процесс (`ILogServiceDIToken`), из него `ILogger` per channel (dotted, напр. `extensions.host`). Уровень канала резолвится walk-up по точкам → wildcard `*` → дефолт. Sinks (`ILogSink`) — fan-out fire-and-forget: `RingBufferSink` (источник для будущей Output-вкладки) и `FileSink` (append-only). В тестах биндится `NULL_LOG_SERVICE`.
 
 Неочевидные гейты:
-- **dev vs packaged:** `FileSink` (`./vexx.log`) добавляется только когда `isPackagedRuntime() === false`; в упакованных сборках файлового sink нет. Гейт идёт именно по `isPackagedRuntime()` (`Assets/PackagedRuntime.ts`), а не по `isSeaBinary()`: self-extract — тоже прод, но `isSea()` там `false`, и по старому гейту прод писал бы `vexx.log` в cwd пользователя.
+- **dev vs packaged:** `FileSink` (`./diode.log`) добавляется только когда `isPackagedRuntime() === false`; в упакованных сборках файлового sink нет. Гейт идёт именно по `isPackagedRuntime()` (`Assets/PackagedRuntime.ts`), а не по `isSeaBinary()`: self-extract — тоже прод, но `isSea()` там `false`, и по старому гейту прод писал бы `diode.log` в cwd пользователя.
 - При `NULL_LOG_SERVICE` extension-host stdio остаётся `"inherit"` — семантика тестов не меняется.
 - `isSeaBinary()` идёт через `createRequire(...)("node:sea")`: статический ESM-import `node:sea` **ломает SEA-сборку**.

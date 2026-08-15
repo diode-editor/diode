@@ -27,7 +27,7 @@ describe("Workbench — Rename", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-rename-", files: { "old.txt": "hi" } });
+        ws = createTempWorkspace({ prefix: "diode-rename-", files: { "old.txt": "hi" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
     });
 
@@ -154,7 +154,7 @@ describe("Workbench — Rename via context menu", () => {
     let h: IAppHarness;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-rename-menu-", files: { "alpha.txt": "a" } });
+        ws = createTempWorkspace({ prefix: "diode-rename-menu-", files: { "alpha.txt": "a" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
         h.testApp.render();

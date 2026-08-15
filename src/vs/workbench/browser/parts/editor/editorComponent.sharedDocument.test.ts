@@ -26,7 +26,7 @@ describe("EditorComponent: один документ в двух вью", () => 
     let registry: TextFileModelRegistry;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-shared-doc-" });
+        ws = createTempWorkspace({ prefix: "diode-shared-doc-" });
         undoRedo = new UndoRedoService();
         registry = new TextFileModelRegistry((uri) => {
             const model = new TextFileModel(NULL_LANGUAGE_SERVICE, undoRedo);

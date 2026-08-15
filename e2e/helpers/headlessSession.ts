@@ -56,7 +56,7 @@ export interface HeadlessSessionOptions {
 /**
  * Runs the real SEA binary in `--headless` mode (no terminal) and drives it over
  * the inspector WebSocket: inject keys, capture frames. The counterpart of
- * {@link import("./runVexx.ts").VexxSession} for the terminal-less path — no pty,
+ * {@link import("./runDiode.ts").DiodeSession} for the terminal-less path — no pty,
  * no ANSI parsing, just structured frame snapshots.
  */
 export class HeadlessSession {

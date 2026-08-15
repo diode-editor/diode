@@ -11,7 +11,7 @@ export interface IMarkerReadFilter {
 }
 
 /**
- * Central, provider-agnostic registry of diagnostics — the Vexx analogue of
+ * Central, provider-agnostic registry of diagnostics — the Diode analogue of
  * VS Code's `IMarkerService` (`vs/platform/markers`).
  *
  * Diagnostics are deliberately decoupled from their producers: language

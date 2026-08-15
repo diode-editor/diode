@@ -17,7 +17,7 @@ describe("EditorComponent – undo/redo × folding", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-foldundo-" });
+        ws = createTempWorkspace({ prefix: "diode-foldundo-" });
     });
     afterEach(() => {
         ws.dispose();

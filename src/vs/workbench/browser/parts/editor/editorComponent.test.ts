@@ -31,7 +31,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-editorctrl-" });
+        ws = createTempWorkspace({ prefix: "diode-editorctrl-" });
     });
 
     afterEach(() => {

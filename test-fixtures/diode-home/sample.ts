@@ -1,5 +1,5 @@
 // Sample file for the test fixture.
-// Open vexx with this fixture without touching the real ~/.diode:
+// Open diode with this fixture without touching the real ~/.diode:
 //
 //   npm start -- --user-data-dir ./test-fixtures/diode-home test-fixtures/diode-home/sample.ts
 //

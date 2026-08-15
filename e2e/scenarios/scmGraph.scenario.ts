@@ -20,7 +20,7 @@ function git(cwd: string, ...args: string[]): void {
  * вхождением в кадр.
  */
 function makeRepo(): { repoDir: string } {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-graph-demo-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-graph-demo-"));
     git(repoDir, "init", "-q", "-b", "main");
     git(repoDir, "config", "user.email", "t@example.com");
     git(repoDir, "config", "user.name", "Test");

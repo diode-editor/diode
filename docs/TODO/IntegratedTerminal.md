@@ -36,7 +36,7 @@ SEA-упаковка нативного node-pty — в **основном** п�
 Настоящий терминал = связка «реальный PTY + VT-эмулятор + рендер». Мы собираем то же, что делает
 tmux-сервер, но в одном процессе:
 
-| tmux | Vexx |
+| tmux | Diode |
 |---|---|
 | `forkpty()` + master fd — ядро выдаёт настоящий TTY (`isatty`, job control, сигналы) | **node-pty** (`pty.spawn`) |
 | per-pane VT-эмулятор (`grid`) — парсит вывод программы в сетку ячеек | **@xterm/headless** (`Terminal`, читаем `terminal.buffer.active`) |
@@ -63,18 +63,18 @@ node-pty на Unix — это `pty.node` (нативный аддон) + бин�
 (`build:sea`) вопрос не «нативный ли», а «как везём нативные файлы».
 
 **Зафиксировано и реализовано: embed + runtime-extract.** Нативные артефакты вшиваются
-в SEA как ассет `node-pty.bundle` (тот же формат, что `vexx.bundle` — magic+header+data, см.
+в SEA как ассет `node-pty.bundle` (тот же формат, что `diode.bundle` — magic+header+data, см.
 `Common/Assets/` и `scripts/pack-assets.mjs`); на первом запуске распаковываются в
-`os.tmpdir()/vexx-embedded-pty-<size>/` и грузятся через `createRequire` (нативный `.node` требует
+`os.tmpdir()/diode-embedded-pty-<size>/` и грузятся через `createRequire` (нативный `.node` требует
 файл на диске для `process.dlopen`). Сохраняет модель «один файл» ценой записи в tmp на первом
-запуске; повторные запуски переиспользуют распакованное (маркер `.vexx-ready`).
+запуске; повторные запуски переиспользуют распакованное (маркер `.diode-ready`).
 
 Реализация:
 - `src/vs/workbench/contrib/terminal/node/loadNodePty.ts` — dev: `require("node-pty")`; SEA: `sea.getAsset` → распаковка → `createRequire`.
 - `scripts/pack-node-pty.mjs` — пакует `package.json` + рантайм-JS (`lib/**`) + нативы (`build/Release/*`)
   в ассет `node-pty.bundle`; виртуальные пути с префиксом `node-pty/` совпадают с ожиданиями `loadNodePty.ts`.
-- **Основной** `scripts/build-sea.mjs` встраивает `node-pty.bundle` рядом с `vexx.bundle` в один бинарь
-  `dist/vexx` (отдельного `build:sea:terminal` больше нет). На macOS он же делает codesign бинаря.
+- **Основной** `scripts/build-sea.mjs` встраивает `node-pty.bundle` рядом с `diode.bundle` в один бинарь
+  `dist/diode` (отдельного `build:sea:terminal` больше нет). На macOS он же делает codesign бинаря.
 - Проверено на linux-x64: `spawn-helper` не нужен (guard `__APPLE__` в `pty.cc`), достаточно
   `build/Release/pty.node` + `lib/**` + `package.json`.
 
@@ -89,7 +89,7 @@ node-pty на Unix — это `pty.node` (нативный аддон) + бин�
   демо потребляет интегрированные модули (`EmbeddedTerminalSession` + `TerminalViewElement`).
 - **приложение**: `npm start` → Toggle Terminal (Ctrl+` на tier `kitty`/`csi-u`, иначе палитра команд →
   «Terminal: Toggle Terminal») открывает вкладку TERMINAL и лениво спавнит шелл в папке воркспейса.
-- **SEA** (один бинарь): `npm run build:sea` → `./dist/vexx`.
+- **SEA** (один бинарь): `npm run build:sea` → `./dist/diode`.
 - **e2e-скриншот**: `e2e/scenarios/terminal.scenario.ts` (в `npm run test:e2e` и `npm run screenshots`) —
   гоняет настоящий бинарь headless, открывает терминал через палитру команд (в legacy-tier `Ctrl+``/`Ctrl+Shift+P`
   не кодируются, поэтому вход через меню View → Command Palette), печатает `echo` и ждёт вывод в шелле.
@@ -122,7 +122,7 @@ mouse-энкодер), наш рендер/цвета/стили/wide-chars/ку
 - **Рантайм node-pty отличается:**
   - **дефолтный шелл**: сейчас `SHELL ?? "bash"` — на Windows `SHELL` пуст → упадёт; нужно
     `win32 → COMSPEC/powershell`.
-  - **ConPTY-причуды** (уже задокументированы в `e2e/helpers/runVexx.ts`): инъекции очищающих
+  - **ConPTY-причуды** (уже задокументированы в `e2e/helpers/runDiode.ts`): инъекции очищающих
     последовательностей при resize, `onExit` может не срабатывать, иной kill — проверить resize-путь на Win.
   - мелочи: Backspace `\x7f` vs `\b` на cmd.
 

@@ -22,7 +22,7 @@
 - [ ] **`defaultStyles` → `editorElement`** (value-импорт unthemed-дефолтов):
   либо unthemed-дефолты редактора в platform, либо `getEditorStyles` в
   `editor/browser`.
-- [ ] **DI-токены в `vexx/modules`**: `workbenchComponent` импортирует токен из
+- [ ] **DI-токены в `diode/modules`**: `workbenchComponent` импортирует токен из
   модуля профиля (слой выше) — вынести токены из модулей в слои-владельцы.
 - [ ] **`MenuEntry` в `platform/actions`** — type-only импорт из
   `base/browser/ui/menu`; завести собственный тип entry в platform.
@@ -31,15 +31,15 @@
 
 - [ ] **Отдельный репозиторий**: `tuidom/` сейчас top-level каталог этого репо
   (граница видна, единый tsconfig); следующий шаг — пакет `tuidom` в своём
-  репо, vexx потребляет как зависимость.
-- [ ] **Наследие «контролы знают про vexx»**: все виджеты `ui/*` переехали в
-  tuidom, но часть несёт vexx-специфику старого дизайна — `BodyElement` знает
+  репо, diode потребляет как зависимость.
+- [ ] **Наследие «контролы знают про diode»**: все виджеты `ui/*` переехали в
+  tuidom, но часть несёт diode-специфику старого дизайна — `BodyElement` знает
   про `menuBarElement`/`statusBarElement`-слоты, editorgroup/statusbar/
   workbenchlayout/panel — по смыслу workbench-parts. Вычистить связи, чтобы
   tuidom-виджеты были «чистыми HTML-элементами».
 - [ ] `TuiApplication.root` расширен до `TUIElement` (ядро не знает о
   виджетах); тестовый харнесс держит `BodyElement`-ссылку сам. Колокационные
-  тесты ядра (`tuidom/dom/*.test.ts`) по-прежнему используют vexx-виджеты и
+  тесты ядра (`tuidom/dom/*.test.ts`) по-прежнему используют diode-виджеты и
   редактор как подопытных — при выносе в отдельный репо их надо переписать на
   примитивы.
 

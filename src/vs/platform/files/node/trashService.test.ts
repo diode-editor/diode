@@ -14,7 +14,7 @@ let workDir: string;
 let savedXdg: string | undefined;
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-trash-" });
+    ws = createTempWorkspace({ prefix: "diode-trash-" });
     tmpDir = ws.dir;
     dataHome = path.join(tmpDir, "data");
     workDir = path.join(tmpDir, "work");

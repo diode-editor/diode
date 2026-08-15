@@ -10,7 +10,7 @@ import { usePtyApp } from "./helpers/useApp.ts";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const fixturePath = resolve(here, "fixtures", "sample.ts");
 
-// Launch the REAL vexx through a PTY (like the sea-* e2e tests) but make the
+// Launch the REAL diode through a PTY (like the sea-* e2e tests) but make the
 // assertions from the TUIDom inspector's document tree instead of parsing the
 // ANSI screen. Because the data comes from the tree (not rendered cells) it is
 // unaffected by the ConPTY clearing that gates the screen-content tests to Linux

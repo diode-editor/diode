@@ -10,7 +10,7 @@ import { copyInto, isInside, moveInto, resolveNonConflictingDest } from "./fileC
 let ws: ITempWorkspace;
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-fileclip-" });
+    ws = createTempWorkspace({ prefix: "diode-fileclip-" });
 });
 
 afterEach(() => {

@@ -74,7 +74,7 @@ function openEditor(content: string, clipboard: IClipboard) {
 }
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-clipboard-actions-" });
+    ws = createTempWorkspace({ prefix: "diode-clipboard-actions-" });
 });
 afterEach(() => {
     ws.dispose();

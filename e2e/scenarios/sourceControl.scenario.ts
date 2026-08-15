@@ -19,7 +19,7 @@ function git(cwd: string, ...args: string[]): void {
 
 /** Репозиторий: закоммиченные файлы (в т.ч. вложенный) + правки на диске + untracked. */
 function makeRepo(): { repoDir: string } {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-scm-demo-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-scm-demo-"));
     git(repoDir, "init", "-q");
     git(repoDir, "config", "user.email", "t@example.com");
     git(repoDir, "config", "user.name", "Test");

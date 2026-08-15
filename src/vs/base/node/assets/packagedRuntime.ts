@@ -14,7 +14,7 @@ import { isSeaBinary } from "../isSea.ts";
  *
  * Всё, что должно вести себя «как в проде», обязано спрашивать
  * {@link isPackagedRuntime}, а не `isSeaBinary()` — иначе self-extract получит
- * dev-поведение (напр. `vexx.log` в cwd пользователя).
+ * dev-поведение (напр. `diode.log` в cwd пользователя).
  */
 
 /**

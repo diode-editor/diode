@@ -8,7 +8,7 @@ describe("loadUserKeybindings", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-keys-" });
+        ws = createTempWorkspace({ prefix: "diode-keys-" });
     });
 
     afterEach(() => {

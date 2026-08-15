@@ -29,7 +29,7 @@ describe("Workbench — Problems view end-to-end", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-problems-e2e-",
+            prefix: "diode-problems-e2e-",
             files: { "settings.json": UNKNOWN_SETTINGS },
         });
         settingsPath = ws.path("settings.json");

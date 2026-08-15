@@ -188,7 +188,7 @@ host↔subprocess по образцу folding-провайдера); (2) `QuickD
 
 ### [x] Этап 5. Inline diff-редактор — первый видимый дифф
 
-**Сделано.** Команда `vexx.scm.compareWithHead` («Git: Compare Active File with HEAD»)
+**Сделано.** Команда `diode.scm.compareWithHead` («Git: Compare Active File with HEAD»)
 открывает вкладку `<файл> ↔ HEAD` с inline-диффом: номера строк обеих сторон, маркеры
 `-`/`+`, подсветка синтаксиса, неизменённые куски свёрнуты в «⋯ N unchanged lines».
 
@@ -220,7 +220,7 @@ host↔subprocess по образцу folding-провайдера); (2) `QuickD
   вариант **(iii)** пункта E без визуального бара.
 - **Канал** — отдельный SCM-транспорт, как и `ORIGINAL_RESOURCE_COMMAND`, но в обратную
   сторону: расширение **пушит** полный набор `{uri, status, colorId}` в команду
-  `vexx.scm.publishChanges`, которую регистрирует ядро (`ScmChangesService`). Прагматичный
+  `diode.scm.publishChanges`, которую регистрирует ядро (`ScmChangesService`). Прагматичный
   путь пункта F (приватная команда) — при уже правильной границе владения перейдёт на
   `scm`-неймспейс заменой источника. `colorId` едет отдельно от буквы, потому что `U` —
   и untracked, и конфликт, но цвета разные.
@@ -290,7 +290,7 @@ host↔subprocess по образцу folding-провайдера); (2) `QuickD
       Changes на `ListViewElement`: реестр ФС обслуживает `file:` (read-only
       `DiskFileSystemProvider`, регистрируется композицией), ядро `openDiffWithHead(uri)`
       берёт modified из открытого буфера, иначе с диска; активация открывает одну
-      `vexx-diff:`-вкладку.
+      `diode-diff:`-вкладку.
 - [x] **Дифф как редактор: каретка, выделение, копирование, горизонтальная прокрутка.**
       Было — смотрелка: стрелки скроллили, курсора не было, мышь не работала, `Ctrl+C` ничего
       не клал в буфер. Стало — поведение VS Code: правка запрещена, но текст живёт.

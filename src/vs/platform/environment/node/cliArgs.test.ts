@@ -18,14 +18,14 @@ describe("parseCliArgs", () => {
     });
 
     it("parses --user-data-dir with separate value", () => {
-        const r = parseCliArgs(["--user-data-dir", "/tmp/vexx", "file.ts"]);
-        expect(r.userDataDir).toBe("/tmp/vexx");
+        const r = parseCliArgs(["--user-data-dir", "/tmp/diode", "file.ts"]);
+        expect(r.userDataDir).toBe("/tmp/diode");
         expect(r.positional).toEqual(["file.ts"]);
     });
 
     it("parses --user-data-dir=<path>", () => {
-        const r = parseCliArgs(["--user-data-dir=/tmp/vexx", "file.ts"]);
-        expect(r.userDataDir).toBe("/tmp/vexx");
+        const r = parseCliArgs(["--user-data-dir=/tmp/diode", "file.ts"]);
+        expect(r.userDataDir).toBe("/tmp/diode");
         expect(r.positional).toEqual(["file.ts"]);
     });
 

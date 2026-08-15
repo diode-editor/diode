@@ -37,7 +37,7 @@ describe("SEA binary — bundled assets", () => {
         // и запускаем ИМЕННО его из этого cwd: SEA несёт ассеты внутри себя, а не в
         // sidecar-файлах. `usePtyApp` изолирует user-data/HOME, `binary`+`cwd`
         // указывают на копию.
-        const tmp = mkdtempSync(join(tmpdir(), "vexx-sea-isolated-"));
+        const tmp = mkdtempSync(join(tmpdir(), "diode-sea-isolated-"));
         try {
             const isolatedBinary = join(tmp, "diode");
             copyFileSync(binary, isolatedBinary);

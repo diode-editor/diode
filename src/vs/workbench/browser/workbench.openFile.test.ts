@@ -14,7 +14,7 @@ describe("Workbench — Open File / Open Folder", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-open-",
+            prefix: "diode-open-",
             files: {
                 "alpha.txt": "Alpha content",
                 "beta.txt": "Beta content",
@@ -105,7 +105,7 @@ describe("Workbench — Open File / Open Folder", () => {
 
     it("swaps the workspace root to the entered folder", async () => {
         const other = createTempWorkspace({
-            prefix: "vexx-open-other-",
+            prefix: "diode-open-other-",
             files: { "gamma.txt": "Gamma content" },
         });
         try {
@@ -187,7 +187,7 @@ describe("Workbench — Open File / Open Folder", () => {
     });
 
     it("Escape cancels Open Folder without swapping the root", async () => {
-        const other = createTempWorkspace({ prefix: "vexx-open-cancel-" });
+        const other = createTempWorkspace({ prefix: "diode-open-cancel-" });
         try {
             h.commands.execute("workbench.action.files.openFolder");
             h.testApp.render();

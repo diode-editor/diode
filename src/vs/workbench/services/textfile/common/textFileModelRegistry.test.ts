@@ -15,7 +15,7 @@ describe("TextFileModelRegistry", () => {
     let created: TextFileModel[];
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-model-registry-" });
+        ws = createTempWorkspace({ prefix: "diode-model-registry-" });
         undoRedo = new UndoRedoService();
         created = [];
         registry = new TextFileModelRegistry((uri) => {

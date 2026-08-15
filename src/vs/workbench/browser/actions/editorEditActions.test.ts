@@ -69,7 +69,7 @@ function openEditor(content: string) {
 }
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-editor-edit-actions-" });
+    ws = createTempWorkspace({ prefix: "diode-editor-edit-actions-" });
 });
 afterEach(() => {
     ws.dispose();

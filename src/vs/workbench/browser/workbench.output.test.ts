@@ -41,7 +41,7 @@ describe("Workbench — Output panel", () => {
     let logService: LogService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-output-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "diode-output-", files: { "alpha.txt": "Alpha" } });
         // Настоящие LogService + RingBufferSink вместо null-сервиса профиля тестов:
         // связка «лог → буфер → панель» и есть предмет проверки.
         logService = new LogService();
@@ -180,7 +180,7 @@ describe("Workbench — Output: селектор канала", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-output-sel-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "diode-output-sel-", files: { "alpha.txt": "Alpha" } });
         const logService = new LogService();
         const history = new RingBufferSink();
         logService.addSink(history);
@@ -323,8 +323,8 @@ describe("Workbench — Output: регрессии", () => {
     }
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-output-reg-", files: { "alpha.txt": "Alpha" } });
-        userData = createTempWorkspace({ prefix: "vexx-output-reg-ud-" });
+        ws = createTempWorkspace({ prefix: "diode-output-reg-", files: { "alpha.txt": "Alpha" } });
+        userData = createTempWorkspace({ prefix: "diode-output-reg-ud-" });
         logService = new LogService();
         history = new RingBufferSink();
         logService.addSink(history);
@@ -473,7 +473,7 @@ describe("Workbench — Output: потребители, которым нужн�
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-output-tab-",
+            prefix: "diode-output-tab-",
             files: { "alpha.txt": "AAAA\nBBBB\nCCCC" },
         });
         logService = new LogService();
@@ -554,7 +554,7 @@ describe("Workbench — Output: пустые каналы", () => {
         // всегда — даже когда в него ещё ничего не написали (профиль тестов даёт
         // NULL_LOG_SERVICE). Это и есть поведение VS Code: вкладка открыта, канал
         // выбран, содержимое пустое.
-        const ws = createTempWorkspace({ prefix: "vexx-output-empty-" });
+        const ws = createTempWorkspace({ prefix: "diode-output-empty-" });
         const h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(120, 32) });
 
         h.commands.execute(TOGGLE_OUTPUT);
@@ -570,7 +570,7 @@ describe("Workbench — Output: пустые каналы", () => {
         // Ветка «активного канала нет вовсе»: в приложении недостижима, потому что
         // реестр заполняется в DI-модуле, но контракт компонента обязан её держать —
         // иначе пустой реестр давал бы редактор без канала.
-        const ws = createTempWorkspace({ prefix: "vexx-output-noreg-" });
+        const ws = createTempWorkspace({ prefix: "diode-output-noreg-" });
         const h = createAppTestHarness({
             workspaceFolder: ws.dir,
             size: new Size(120, 32),
@@ -595,7 +595,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-output-pane-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "diode-output-pane-", files: { "alpha.txt": "Alpha" } });
         const logService = new LogService();
         const history = new RingBufferSink();
         logService.addSink(history);

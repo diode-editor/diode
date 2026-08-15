@@ -18,7 +18,7 @@ describe("Workbench when-context integration", () => {
     }
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-when-" });
+        ws = createTempWorkspace({ prefix: "diode-when-" });
         // Create enough files so the tree has items to page through
         for (let i = 0; i < 30; i++) {
             ws.writeFile(`file-${String(i).padStart(2, "0")}.txt`, `content ${String(i)}`);

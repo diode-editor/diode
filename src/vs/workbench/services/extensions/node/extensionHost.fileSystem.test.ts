@@ -15,7 +15,7 @@ import { FileSystemProviderAdapter } from "../../../api/browser/fileSystemProvid
  * `FileSystemProvider` для схемы `demo:`, а хост читает ресурс сквозь мост.
  */
 
-const fixture = extensionFixture("vexx.fs", "providesFileSystem.cjs");
+const fixture = extensionFixture("diode.fs", "providesFileSystem.cjs");
 
 async function harnessWithProvider() {
     const harness = await createExtensionTestHarness({ extensions: [fixture] });

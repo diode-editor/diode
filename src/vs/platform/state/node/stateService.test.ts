@@ -22,7 +22,7 @@ describe("StateService", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-state-" });
+        ws = createTempWorkspace({ prefix: "diode-state-" });
     });
 
     afterEach(() => {

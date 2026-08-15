@@ -23,7 +23,7 @@ function inMemoryReg(): IExtensionRegistration {
         id: "test.inmemory",
         manifest: { name: "inmemory", publisher: "test", version: "0.0.1" },
         source: SOURCE,
-        filename: "/vexx/builtin/test.inmemory/out/extension.cjs",
+        filename: "/diode/builtin/test.inmemory/out/extension.cjs",
     };
 }
 

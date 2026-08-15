@@ -16,7 +16,7 @@ describe("Workbench — save conflict (dirty-write protection)", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-saveconflict-",
+            prefix: "diode-saveconflict-",
             files: { "doc.txt": "original\n" },
         });
         filePath = ws.path("doc.txt");

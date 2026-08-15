@@ -116,7 +116,7 @@ undo/find бесплатно от редактора. Заменяет теку�
   стороны и применяет к обеим + пересчитывает плашки.
   **`EditorService.getActiveEditor()` на v2-вкладке отдаёт активную сторону**
   (по фокусу) — команды курсора/фолдинга и статус-бар (Ln, Col) живут, ничего
-  не онемело. Вход временный: `vexx.diff.compareWithHeadV2` («…with HEAD
+  не онемело. Вход временный: `diode.diff.compareWithHeadV2` («…with HEAD
   (v2)»), идентичность вкладки — query-суффикс `&v2`, старая смотрелка жива
   рядом; миграция — PR-4. Урок: `replaceOwnedContent` пересоздаёт view-state
   компонента (reload "owned") — раскладка перезаливается строго после
@@ -142,7 +142,7 @@ undo/find бесплатно от редактора. Заменяет теку�
     только snapshot-стороны (`replaceSnapshotContent`, no-op на равном тексте —
     каретка не сбрасывается). Старая `DiffEditorPane` удалена (v2 — единственная
     дифф-вкладка); `DiffViewElement` жив до PR-5 (свои юниты).
-    Временный вход `vexx.diff.compareWithHeadV2` удалён. `vscode.diff` понимает
+    Временный вход `diode.diff.compareWithHeadV2` удалён. `vscode.diff` понимает
     4-й аргумент `ViewColumn | {viewColumn}` (AS-20). Пикер «With...» — вкладки
     всех групп. `getActiveTabEditor()` на v2-вкладке отдаёт активную сторону:
     Ctrl+S/Save As/editor-options работают по ней.
@@ -164,7 +164,7 @@ undo/find бесплатно от редактора. Заменяет теку�
     ПАРУ (через штатный фолд-синк), выравнивание держится. Осознанный люфт:
     поиск идёт по активной стороне (в VS Code — два независимых виджета), и
     матчи, как везде у нашего find, статичны до следующего пересчёта.
-  - **Revert-чанка** — командой «Diff: Revert Hunk» (`vexx.diff.revertHunk`,
+  - **Revert-чанка** — командой «Diff: Revert Hunk» (`diode.diff.revertHunk`,
     только палитра — без кейбинда контекст-ключ диффа не нужен, `instanceof`
     в run): ганк под кареткой ЛЮБОЙ стороны (у пустого на этой стороне
     диапазона якорь — строка перед изменением, как у зоны-филлера), строки
@@ -210,7 +210,7 @@ undo/find бесплатно от редактора. Заменяет теку�
     Original скрывается `hidden` (фокус hidden не двигает — панель переносит
     его в modified явно, но не крадёт, если фокус уже вне original).
     `activeSide` в inline — всегда modified; revert-чанка работает как есть.
-  - **US-22** — «Diff: Toggle Inline View» (`vexx.diff.toggleInlineView`):
+  - **US-22** — «Diff: Toggle Inline View» (`diode.diff.toggleInlineView`):
     inline ↔ side-by-side, применяется ко всем открытым дифф-вкладкам, выбор
     персистится (`DIFF_VIEW_MODE_STATE`, workspace-scope; `auto` — дефолт до
     первого тумблера, вернуть его можно только сбросом стейта — осознанный

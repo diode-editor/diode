@@ -18,7 +18,7 @@ vi.mock("node:fs", async (importOriginal) => {
 let ws: ITempWorkspace;
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-movetopath-" });
+    ws = createTempWorkspace({ prefix: "diode-movetopath-" });
 });
 
 afterEach(() => {

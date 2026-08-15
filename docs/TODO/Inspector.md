@@ -63,7 +63,7 @@ Workbench-модели Service ↔ Component), `EditorGroupComponent` ↔
 - `TuiApplication` (`src/vs/base/browser/TuiApplication.ts`) уже generic ядро рантайма
   (event loop / `scheduleRender` / `renderFrame` / `focusManager` / `backend` /
   `root`) — оставляем как есть.
-- Проблема — разбросанный bootstrap: `src/vs/vexx/main.ts` (полный),
+- Проблема — разбросанный bootstrap: `src/vs/diode/main.ts` (полный),
   `src/TestUtils/TestApp.ts` (мини-фасад), `src/TestUtils/ExtensionTestHarness.ts`
   (собирает сервисы руками, в обход DI → максимум дублирования).
 - Действие: выделить `bootstrapApp(opts)` (новый `src/AppRuntime/`, слой App),
@@ -92,7 +92,7 @@ Workbench-модели Service ↔ Component), `EditorGroupComponent` ↔
 - Транспорт: рукописный WebSocket поверх `node:http`, zero runtime-deps
   (GOAL.md). Слой `tuidom/inspector/` (→ TUIDom+Common). Флаг
   `--inspect-tui[=host:port]`, работает и в SEA-бинаре.
-- Ввод в e2e — гибрид: действия через существующий `VexxSession.sendKey/write`
+- Ввод в e2e — гибрид: действия через существующий `DiodeSession.sendKey/write`
   (PTY), новый канал только читает DOM/свойства. Поправка: в `--headless` драйвер
   уже пишет — `sendKey/sendText/sendMouse/resize`; мышь (`TUIDom.sendMouse`)
   инъектируется только этим каналом, PTY-аналога у неё нет.

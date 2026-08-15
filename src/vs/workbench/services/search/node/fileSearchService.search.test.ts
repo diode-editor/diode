@@ -14,7 +14,7 @@ import { FileSearchService } from "./fileSearchService.ts";
  * background index build. `files` is a list of relative paths to create.
  */
 async function makeService(files: string[]): Promise<{ service: FileSearchService; ws: ITempWorkspace }> {
-    const ws = createTempWorkspace({ prefix: "vexx-filesearch-search-" });
+    const ws = createTempWorkspace({ prefix: "diode-filesearch-search-" });
     for (const f of files) {
         ws.writeFile(f, "");
     }

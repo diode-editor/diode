@@ -17,7 +17,7 @@ describe("DefinitionService — Go to Definition", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-gotodef-",
+            prefix: "diode-gotodef-",
             files: {
                 "main.ts": "const answer = compute();\nconst other = 1;\n",
                 "defs.ts": "export function compute(): number {\n    return 42;\n}\n",

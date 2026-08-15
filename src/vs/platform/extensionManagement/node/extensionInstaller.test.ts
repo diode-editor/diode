@@ -45,7 +45,7 @@ describe("ExtensionInstaller", () => {
     let vsixDir: string;
 
     beforeEach(async () => {
-        tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "vexx-ext-install-"));
+        tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "diode-ext-install-"));
         extensionsDir = path.join(tempRoot, "extensions");
         vsixDir = path.join(tempRoot, "vsix");
         await fs.promises.mkdir(vsixDir, { recursive: true });
