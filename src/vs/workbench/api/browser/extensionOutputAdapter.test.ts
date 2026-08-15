@@ -27,8 +27,8 @@ function makeAdapter() {
     return { adapter, registry, history, outputService, reveals };
 }
 
-const CH = "extensions.typescript-vexx";
-const LABEL = "TypeScript (Vexx)";
+const CH = "extensions.typescript-diode";
+const LABEL = "TypeScript (Diode)";
 
 describe("ExtensionOutputAdapter", () => {
     it("первая строка лениво регистрирует канал (label = имя), строки доезжают в историю с уровнем", () => {

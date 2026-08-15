@@ -24,7 +24,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
  * сломано: расширение считало ханки по файлу на диске, поэтому бары стояли до
  * Ctrl+S.
  *
- * Роль git-расширения играет заглушка: команда `vexx.scm.originalResource` и
+ * Роль git-расширения играет заглушка: команда `diode.scm.originalResource` и
  * провайдер схемы `git:` регистрируются напрямую, без субпроцесса — путь ядра
  * от них и до кадра при этом настоящий.
  */

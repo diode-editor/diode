@@ -18,7 +18,7 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 // Автодополнение поверх СТОКОВОГО стека (правило AGENTS: фича поверх стокового
 // расширения закрывается стоковым расширением): настоящий builtin
-// `vexx-lsp-typescript` (бандл с vscode-languageclient) + настоящий
+// `diode-lsp-typescript` (бандл с vscode-languageclient) + настоящий
 // `typescript-language-server` из devDeps на настоящем ext-host subprocess'е.
 //
 // Регресс, ради которого тест написан: стоковый конвертер клиента на КАЖДЫЙ
@@ -30,7 +30,7 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
-const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/vexx-lsp-typescript/out/extension.cjs");
+const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/diode-lsp-typescript/out/extension.cjs");
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
@@ -48,14 +48,14 @@ const MAIN_TS = "const d = new Date();\nd.\n";
 
 function lspClientRegistration(): IExtensionRegistration {
     return {
-        id: "vexx.vexx-lsp-typescript",
-        manifest: { name: "vexx-lsp-typescript", publisher: "vexx", version: "0.1.0" },
+        id: "vexx.diode-lsp-typescript",
+        manifest: { name: "diode-lsp-typescript", publisher: "diode", version: "0.1.0" },
         mainPath: CLIENT_BUNDLE,
         activationEvents: ["onLanguage:typescript"],
         configDefaults: {
-            "vexx.lsp.typescript.enabled": true,
-            "vexx.lsp.typescript.serverPath": "",
-            "vexx.lsp.typescript.tsserverPath": "",
+            "diode.lsp.typescript.enabled": true,
+            "diode.lsp.typescript.serverPath": "",
+            "diode.lsp.typescript.tsserverPath": "",
         },
     };
 }
@@ -86,7 +86,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
             configuration: {
-                vexx: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
+                diode: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
             },
             outputSink: {
                 append: (_channel, _label, level, value) => outputLines.push({ level, value }),
@@ -165,7 +165,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
             configuration: {
-                vexx: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
+                diode: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
             },
             extensions: [lspClientRegistration()],
         });

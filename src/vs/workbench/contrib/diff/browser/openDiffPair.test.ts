@@ -31,7 +31,7 @@ describe("openDiffPair", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-diff-pair-",
+            prefix: "diode-diff-pair-",
             files: { "a.txt": "alpha\nbravo\n", "b.txt": "alpha\nBRAVO\n", "same.txt": "alpha\nbravo\n" },
         });
         const testContainer = createTestContainer();

@@ -545,25 +545,25 @@ async function preloadGrammarsForFiles(
  * Синтетические config-дефолты host'а для builtin-расширений (в манифесте их
  * нет — это внутренний seam, не пользовательские настройки).
  *
- * Для `vexx-lsp-typescript` — вшитый language-сервер: целевые пути распаковки
+ * Для `diode-lsp-typescript` — вшитый language-сервер: целевые пути распаковки
  * (детерминированы от версии+хэша бандла — их можно раздать ДО распаковки;
  * готовность клиент проверяет existsSync самого entry, публикация атомарна)
  * и режим node-рантайма. Сама распаковка стартует здесь же fire-and-forget —
  * после первого кадра, вне перцептивно-критического пути (VISION).
  */
 function builtinConfigInjection(manifestName: string, logger: ILogger): Record<string, unknown> {
-    if (manifestName !== "vexx-lsp-typescript") return {};
+    if (manifestName !== "diode-lsp-typescript") return {};
     const target = bundledTsServerTarget();
     if (target === null) return {};
     void ensureTsServer((err) => {
         logger.error("bundled ts-server unpack failed", err);
     });
     return {
-        "vexx.lsp.typescript.bundledServerPath": target.serverPath,
-        "vexx.lsp.typescript.bundledTsserverPath": target.tsserverPath,
+        "diode.lsp.typescript.bundledServerPath": target.serverPath,
+        "diode.lsp.typescript.bundledTsserverPath": target.tsserverPath,
         // SEA: сервер запускается нашим же бинарём в node-режиме (runAsNode.ts);
         // dev/self-extract: process.execPath субпроцесса — настоящий node.
-        "vexx.lsp.typescript.serverRuntime": isSeaBinary() ? "vexx-as-node" : "node",
+        "diode.lsp.typescript.serverRuntime": isSeaBinary() ? "diode-as-node" : "node",
     };
 }
 

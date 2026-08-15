@@ -50,7 +50,7 @@ import { runGit } from "./lib/runGit.ts";
 
 function log(message: string): void {
     // stdout of the subprocess is piped into the `extensions.host.stdout` log
-    // channel (→ ./vexx.log in dev); it never touches the TUI pty.
+    // channel (→ ./diode.log in dev); it never touches the TUI pty.
     console.log(`[git] ${message}`);
 }
 
@@ -60,24 +60,24 @@ function log(message: string): void {
  * значению, как и у `ORIGINAL_RESOURCE_COMMAND` — модули по разные стороны
  * границы процесса общих импортов не имеют.
  */
-const PUBLISH_CHANGES_COMMAND = "vexx.scm.publishChanges";
+const PUBLISH_CHANGES_COMMAND = "diode.scm.publishChanges";
 
 /**
  * Команда ядра, которой мы публикуем последние коммиты (view Graph). Ядро её
  * регистрирует (`ScmGraphService`); строка дублируется по значению — общих
  * импортов через границу процесса нет.
  */
-const PUBLISH_LOG_COMMAND = "vexx.scm.publishLog";
+const PUBLISH_LOG_COMMAND = "diode.scm.publishLog";
 
 /**
  * Команда ядра для снимка состояния репозитория (ветка/upstream/ahead-behind/
  * remotes/merge-rebase). Ядро регистрирует (`ScmRepoStateService`) и деривирует
  * when-ключи git*-команд.
  */
-const PUBLISH_REPO_STATE_COMMAND = "vexx.scm.publishRepoState";
+const PUBLISH_REPO_STATE_COMMAND = "diode.scm.publishRepoState";
 
 /** Read-only запрос данных для пикеров ядра: refs / stashes / remotes. */
-const QUERY_COMMAND = "vexx.git.query";
+const QUERY_COMMAND = "diode.git.query";
 
 /**
  * Страница истории для view Graph — сколько коммитов публикуем за раз. Как в
@@ -92,9 +92,9 @@ const LOG_PAGE_SIZE_MAX = 1000;
  * `git.*`-команды живут в ядре — одноимённая регистрация перезаписала бы их в
  * CommandRegistry). Аргумент — массив строк-uri; результат — {@link IGitMutationResult}.
  */
-const STAGE_COMMAND = "vexx.git.stage";
-const UNSTAGE_COMMAND = "vexx.git.unstage";
-const CLEAN_COMMAND = "vexx.git.clean";
+const STAGE_COMMAND = "diode.git.stage";
+const UNSTAGE_COMMAND = "diode.git.unstage";
+const CLEAN_COMMAND = "diode.git.clean";
 
 /** Результат мутации, уходящий в ядро по возвратному каналу RPC. */
 interface IGitMutationResult {
@@ -576,7 +576,7 @@ class GitDecorations {
         return { ok: true };
     }
 
-    // ─── Диспетчер операций (vexx.git.op) ─────────────────────────────────────
+    // ─── Диспетчер операций (diode.git.op) ─────────────────────────────────────
 
     /**
      * Ставит операцию в общую очередь мутаций (одна за раз — тот же
@@ -791,7 +791,7 @@ class GitDecorations {
         return runGit(args, runOpts);
     }
 
-    // ─── Read-only запросы для пикеров (vexx.git.query) ──────────────────────
+    // ─── Read-only запросы для пикеров (diode.git.query) ──────────────────────
 
     /** `{kind: refs|stashes|remotes}` → данные пикеров; мусор/деградация — null. */
     private async query(payload: unknown): Promise<unknown> {

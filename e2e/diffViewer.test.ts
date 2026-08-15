@@ -29,7 +29,7 @@ interface Repo {
 
 /** Временный git-репозиторий с закоммиченными сид-файлами. */
 function makeRepo(committed: Record<string, string>): Repo {
-    const dir = mkdtempSync(join(tmpdir(), "vexx-diff-e2e-"));
+    const dir = mkdtempSync(join(tmpdir(), "diode-diff-e2e-"));
     git(dir, "init", "-q");
     git(dir, "config", "user.email", "t@example.com");
     git(dir, "config", "user.name", "Test");

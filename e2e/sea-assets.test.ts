@@ -39,7 +39,7 @@ describe("SEA binary — bundled assets", () => {
         // указывают на копию.
         const tmp = mkdtempSync(join(tmpdir(), "vexx-sea-isolated-"));
         try {
-            const isolatedBinary = join(tmp, "vexx");
+            const isolatedBinary = join(tmp, "diode");
             copyFileSync(binary, isolatedBinary);
             const isolatedFixture = join(tmp, "sample.ts");
             copyFileSync(fixturePath, isolatedFixture);

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Демонстрирует ленивую активацию + автодополнение настроек: builtin-расширение
-// `vexx-settings` активируется по `onLanguage:json` при открытии settings.json и
+// `diode-settings` активируется по `onLanguage:json` при открытии settings.json и
 // подсказывает ключи настроек, а затем — значения по схеме этого ключа.
 //
 // Дотированный ключ (`editor.…`) в самом файле НЕ встречается (там
@@ -46,7 +46,7 @@ export default defineScenario({
         await editor.sendKey("i");
 
         // Строки `editor.` есть только у расширения → их появление доказывает,
-        // что vexx-settings активировался и отдал completion (в буфере только `"edi`).
+        // что diode-settings активировался и отдал completion (в буфере только `"edi`).
         await editor.waitForText((t) => t.includes("editor."), { timeoutMs: 4000 });
         await editor.capture("suggest-key");
 

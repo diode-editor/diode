@@ -20,8 +20,8 @@ import { waitUntil } from "./helpers/waitFor.ts";
 const require_ = createRequire(import.meta.url);
 
 const LSP_SETTINGS = {
-    "vexx.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
-    "vexx.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
+    "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
+    "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';

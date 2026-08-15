@@ -135,7 +135,7 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
     // Вкладки ВСЕХ групп: пикер — про открытые буферы, а не про активную группу.
     const openTabs = editors.groups
         .flatMap((group) => [...group.getPanes()])
-        .filter((p) => p.uri.toString() !== active.uri.toString() && p.uri.scheme !== "vexx-diff");
+        .filter((p) => p.uri.toString() !== active.uri.toString() && p.uri.scheme !== "diode-diff");
     // Индекс строится в фоне (Quick Open живёт с этим через рост списка по мере
     // ввода); статичному пикеру нужен готовый снимок — ждём и подстёгиваем.
     const search = accessor.get(FileSearchServiceDIToken);
@@ -425,7 +425,7 @@ export const compareFileWithAction: CommandAction = {
 };
 
 export const revertDiffHunkAction: CommandAction = {
-    id: "vexx.diff.revertHunk",
+    id: "diode.diff.revertHunk",
     title: "Diff: Revert Hunk",
     run(accessor) {
         revertDiffHunk(accessor);
@@ -433,7 +433,7 @@ export const revertDiffHunkAction: CommandAction = {
 };
 
 export const toggleInlineViewAction: CommandAction = {
-    id: "vexx.diff.toggleInlineView",
+    id: "diode.diff.toggleInlineView",
     title: "Diff: Toggle Inline View",
     run(accessor) {
         toggleInlineView(accessor);
@@ -449,7 +449,7 @@ export const compareNewUntitledTextFilesAction: CommandAction = {
 };
 
 export const compareWithRevisionAction: CommandAction = {
-    id: "vexx.scm.compareWithRevision",
+    id: "diode.scm.compareWithRevision",
     title: "Git: Compare Active File with Revision...",
     when: "gitHasRepo",
     run(accessor) {
@@ -458,7 +458,7 @@ export const compareWithRevisionAction: CommandAction = {
 };
 
 export const openFileAtRevisionAction: CommandAction = {
-    id: "vexx.scm.openFileAtRevision",
+    id: "diode.scm.openFileAtRevision",
     title: "Git: Open File at Revision...",
     when: "gitHasRepo",
     run(accessor) {

@@ -10,7 +10,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
  * сторону: там ресурс *спрашивает* ядро, здесь набор *пушит* расширение — а
  * регистрирует команду ядро (см. {@link ScmChangesService}).
  */
-export const PUBLISH_CHANGES_COMMAND = "vexx.scm.publishChanges";
+export const PUBLISH_CHANGES_COMMAND = "diode.scm.publishChanges";
 
 /**
  * Один изменённый ресурс. `status` — буква-бейдж для показа (`M`/`A`/`D`/`R`/`U`…),

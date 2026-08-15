@@ -7,10 +7,10 @@ const NODE = { command: "/opt/dist/node", runAsNodeFlag: false };
 const VEXX_SEA = { command: "/opt/dist/vexx", runAsNodeFlag: true };
 const BUNDLED = "/cache/vexx/ts-server/1.0-abc/typescript-language-server/lib/run-cli.cjs";
 
-describe("vexx-lsp-typescript — resolveServer", () => {
+describe("diode-lsp-typescript — resolveServer", () => {
     it("таблица серверов декларативна: typescript-спека покрывает TS/JS-семейство", () => {
         expect(LANGUAGE_SERVERS).toHaveLength(1);
-        expect(TS_SPEC.id).toBe("vexxTypescript");
+        expect(TS_SPEC.id).toBe("diodeTypescript");
         expect(TS_SPEC.languageIds).toEqual(["typescript", "typescriptreact", "javascript", "javascriptreact"]);
     });
 

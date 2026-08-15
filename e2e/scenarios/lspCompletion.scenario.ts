@@ -25,8 +25,8 @@ export default defineScenario({
     open: [sampleDir, mainFile],
     // Сервер живёт в devDeps репозитория (в SEA не пакуется — см. docs/TODO/LSP.md).
     settings: {
-        "vexx.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
-        "vexx.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
+        "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
+        "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
     },
     cols: 100,
     rows: 24,

@@ -17,7 +17,7 @@ import { StatusBarServiceDIToken } from "../../../services/statusbar/common/stat
 import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 /** Схема вкладки диффа: не ресурс на диске, а пара «источник ↔ источник». */
-const DIFF_SCHEME = "vexx-diff";
+const DIFF_SCHEME = "diode-diff";
 
 /** Сколько держать нотис о том, что сравнение не удалось. */
 export const COMPARE_NOTICE_MS = 4000;
@@ -94,7 +94,7 @@ export async function openDiffPair(
         const index = group.findPaneIndex(uri);
         if (index < 0) continue;
         const pane = group.getPane(index);
-        /* v8 ignore start -- defensive: vexx-diff-uri открывает только это ядро, вид панели известен */
+        /* v8 ignore start -- defensive: diode-diff-uri открывает только это ядро, вид панели известен */
         if (!(pane instanceof DiffEditorPane2)) break;
         /* v8 ignore stop */
         // Свежие спеки сторон: у текстовой (Clipboard) стороны текст мог смениться.

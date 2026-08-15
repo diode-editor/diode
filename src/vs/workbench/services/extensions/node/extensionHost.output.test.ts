@@ -46,16 +46,16 @@ describe("ExtensionHost — сток output-каналов (output.*, in-process
         const h = makeHost(true);
         h.peer.notify("output.append", {
             channel: "extensions.ts",
-            label: "TS (Vexx)",
+            label: "TS (Diode)",
             level: "warn",
             value: "slow tsserver",
         });
-        h.peer.notify("output.show", { channel: "extensions.ts", label: "TS (Vexx)" });
+        h.peer.notify("output.show", { channel: "extensions.ts", label: "TS (Diode)" });
         await flushMicrotasks();
 
         expect(h.events).toEqual([
-            { kind: "append", channel: "extensions.ts", label: "TS (Vexx)", level: "warn", value: "slow tsserver" },
-            { kind: "show", channel: "extensions.ts", label: "TS (Vexx)" },
+            { kind: "append", channel: "extensions.ts", label: "TS (Diode)", level: "warn", value: "slow tsserver" },
+            { kind: "show", channel: "extensions.ts", label: "TS (Diode)" },
         ]);
     });
 

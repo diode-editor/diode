@@ -25,7 +25,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
  */
 
 const AT_HEAD = "alpha\nbravo\ncharlie\ndelta\n";
-const COMPARE = "vexx.scm.compareWithHead";
+const COMPARE = "diode.scm.compareWithHead";
 
 describe("Workbench — вкладка diff", () => {
     let ws: ITempWorkspace;
@@ -36,7 +36,7 @@ describe("Workbench — вкладка diff", () => {
     let container: ReturnType<typeof createTestContainer>["container"];
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-diff-", files: { "a.txt": AT_HEAD } });
+        ws = createTempWorkspace({ prefix: "diode-diff-", files: { "a.txt": AT_HEAD } });
 
         const testContainer = createTestContainer();
         const bindApp = testContainer.bindApp;
@@ -143,7 +143,7 @@ describe("Workbench — вкладка diff", () => {
         // Стороны живые: дифф показывает обе правки, а не только первую.
         expect(screen).toMatch(/2\+\s+YYXXbravo/u);
         // И по-прежнему ровно одна дифф-вкладка — обновили на месте, не завели вторую.
-        expect(editors.getPanes().filter((p) => p.uri.scheme === "vexx-diff")).toHaveLength(1);
+        expect(editors.getPanes().filter((p) => p.uri.scheme === "diode-diff")).toHaveLength(1);
     });
 
     it("возврат на файл возвращает обычный редактор", async () => {
@@ -256,7 +256,7 @@ describe("Workbench — вкладка diff, отказы", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-diff-fail-", files: { "a.txt": AT_HEAD } });
+        ws = createTempWorkspace({ prefix: "diode-diff-fail-", files: { "a.txt": AT_HEAD } });
     });
 
     afterEach(() => {
@@ -319,7 +319,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-diff-core-", files: { "a.txt": "alpha\nBRAVO\ncharlie\ndelta\n" } });
+        ws = createTempWorkspace({ prefix: "diode-diff-core-", files: { "a.txt": "alpha\nBRAVO\ncharlie\ndelta\n" } });
     });
 
     afterEach(() => {
@@ -361,8 +361,8 @@ describe("Workbench — дифф без открытого файла (openDiffW
         expect(screen).toContain("a.txt ↔ HEAD");
         expect(screen).toMatch(/2-\s+bravo/u);
         expect(screen).toMatch(/2\+\s+BRAVO/u);
-        // Инвариант прямого диффа: единственная вкладка — vexx-diff, файл не открыт.
-        expect(editors.getPanes().map((p) => p.uri.scheme)).toEqual(["vexx-diff"]);
+        // Инвариант прямого диффа: единственная вкладка — diode-diff, файл не открыт.
+        expect(editors.getPanes().map((p) => p.uri.scheme)).toEqual(["diode-diff"]);
         workbench.dispose();
     });
 
@@ -410,7 +410,7 @@ describe("Workbench — дифф на широком терминале (side-by
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-diff-wide-", files: { "a.txt": AT_HEAD } });
+        ws = createTempWorkspace({ prefix: "diode-diff-wide-", files: { "a.txt": AT_HEAD } });
     });
 
     afterEach(() => {
@@ -473,7 +473,7 @@ describe("Workbench — дифф на широком терминале (side-by
 
 describe("Workbench — вкладка diff, вырожденные случаи", () => {
     it("без активного редактора команда просто ничего не делает", async () => {
-        const ws = createTempWorkspace({ prefix: "vexx-diff-empty-", files: {} });
+        const ws = createTempWorkspace({ prefix: "diode-diff-empty-", files: {} });
         const { container, bindApp } = createTestContainer();
         const workbench = container.get(WorkbenchComponentDIToken);
         const commands = container.get(CommandRegistryDIToken);
@@ -495,7 +495,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
 
     it("SCM дало ресурс, но провайдера схемы нет — вкладка не открывается", async () => {
         // Расширение объявило git:-ресурс, а провайдер ещё не зарегистрировался.
-        const ws = createTempWorkspace({ prefix: "vexx-diff-noprov-", files: { "a.txt": AT_HEAD } });
+        const ws = createTempWorkspace({ prefix: "diode-diff-noprov-", files: { "a.txt": AT_HEAD } });
         const { container, bindApp } = createTestContainer();
         container.bind(FileSystemProviderRegistryDIToken, () => new FileSystemProviderRegistry());
         const workbench = container.get(WorkbenchComponentDIToken);
@@ -519,7 +519,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
     });
 
     it("SCM ответило «оригинала нет» — вкладка не открывается", async () => {
-        const ws = createTempWorkspace({ prefix: "vexx-diff-none-", files: { "a.txt": AT_HEAD } });
+        const ws = createTempWorkspace({ prefix: "diode-diff-none-", files: { "a.txt": AT_HEAD } });
         const { container, bindApp } = createTestContainer();
         const registry = new FileSystemProviderRegistry();
         registry.registerProvider("git", {

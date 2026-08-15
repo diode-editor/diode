@@ -228,7 +228,7 @@ export interface IWireTabGroupSnapshot {
  * диффит его с прошлым и сам производит события API
  * (`onDidChangeVisibleTextEditors`/`onDidChangeTabs`/`onDidChangeTabGroups`/
  * `onDidChangeTextEditorViewColumn`) — гранулярных сообщений в проводе нет,
- * состояние восстановимо идемпотентно (паттерн `vexx.scm.publishChanges`).
+ * состояние восстановимо идемпотентно (паттерн `diode.scm.publishChanges`).
  */
 export interface IWireEditorLayout {
     readonly groups: readonly IWireTabGroupSnapshot[];

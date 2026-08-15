@@ -13,7 +13,7 @@ import { workbenchConfiguration } from "./workbenchConfiguration.ts";
  * import-side-effects. Из него в `main.ts` собирается `ConfigurationRegistry`
  * (defaults-слой настроек, известные ключи для валидации settings.json), а
  * генератор схемы (`scripts/generate-settings-schema.mjs`) бандлит этот файл
- * для каталога автодополнения vexx-settings — узлы держим чистыми данными.
+ * для каталога автодополнения diode-settings — узлы держим чистыми данными.
  *
  * `contributes.configuration` расширений сюда не попадает: их ключи генератор
  * собирает из манифестов отдельно (Phase 6 в docs/TODO/Extensions.md — донести

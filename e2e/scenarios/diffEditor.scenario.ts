@@ -17,7 +17,7 @@ function git(cwd: string, ...args: string[]): void {
 
 /** Свой репозиторий: закоммиченный файл, достаточно длинный, чтобы свёртка была видна. */
 function makeRepo(): { repoDir: string; trackedFile: string } {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-diff-demo-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-diff-demo-"));
     git(repoDir, "init", "-q");
     git(repoDir, "config", "user.email", "t@example.com");
     git(repoDir, "config", "user.name", "Test");

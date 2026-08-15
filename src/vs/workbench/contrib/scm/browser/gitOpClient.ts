@@ -7,7 +7,7 @@ import { GIT_OP_COMMAND, parseGitOpResult, type GitOpResult } from "../common/gi
 const OP_NOTICE_MS = 5000;
 
 /**
- * Исполняет операцию диспетчера `vexx.git.op` и разбирает envelope. Расширение
+ * Исполняет операцию диспетчера `diode.git.op` и разбирает envelope. Расширение
  * не активно или канал упал — `null` (вызывающий трактует как «git недоступен»).
  * Ошибка операции по умолчанию показывается транзиентным notice; специальные
  * реакции (auth/push-rejected/no-upstream — диалоги) наслаиваются вызывающим

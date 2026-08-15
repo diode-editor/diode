@@ -56,7 +56,7 @@ function assertSelfContained(outfile, id) {
  */
 export async function buildExtensions({ repoRoot }) {
     const builtinDir = resolve(repoRoot, "extensions");
-    // Генерируем каталог ключей настроек ДО esbuild — `vexx-settings/main.ts`
+    // Генерируем каталог ключей настроек ДО esbuild — `diode-settings/main.ts`
     // импортирует `settings-schema.generated.ts`, который бандлится в out/extension.cjs.
     await generateSettingsSchema({ repoRoot });
     const built = [];

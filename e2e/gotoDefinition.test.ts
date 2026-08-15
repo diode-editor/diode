@@ -8,7 +8,7 @@ import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
  * Сквозная интеграция стокового `typescript-language-server` в SEA-бинаре:
- * builtin `vexx-lsp-typescript` (стоковый vscode-languageclient внутри бандла)
+ * builtin `diode-lsp-typescript` (стоковый vscode-languageclient внутри бандла)
  * лениво активируется по открытию `.ts`, спавнит сервер из devDeps репозитория
  * (путь через настройку — сервер не пакуется в SEA, см. docs/TODO/LSP.md),
  * и его диагностика доезжает до squiggle, а F12 прыгает в другой файл.
@@ -21,8 +21,8 @@ const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
 const LSP_SETTINGS = {
-    "vexx.lsp.typescript.serverPath": SERVER_CLI,
-    "vexx.lsp.typescript.tsserverPath": TSSERVER_JS,
+    "diode.lsp.typescript.serverPath": SERVER_CLI,
+    "diode.lsp.typescript.tsserverPath": TSSERVER_JS,
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';

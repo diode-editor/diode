@@ -16,10 +16,10 @@ import { waitUntil } from "./helpers/waitFor.ts";
  * XDG-кэш при первом использовании и запускаются НАШИМ node-рантаймом.
  *
  * Окружение теста агрессивно голое: PATH без node, воркспейс без node_modules,
- * никаких LSP-настроек, чистый изолированный XDG_CACHE_HOME. Ровно так vexx
+ * никаких LSP-настроек, чистый изолированный XDG_CACHE_HOME. Ровно так diode
  * выглядит на машине пользователя без тулчейна.
  *
- * Оба формата поставки: SEA (vexx-as-node, DIODE_RUN_AS_NODE) и self-extract
+ * Оба формата поставки: SEA (diode-as-node, DIODE_RUN_AS_NODE) и self-extract
  * (распакованный настоящий node из payload'а).
  */
 
@@ -113,7 +113,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             // был `.bin`-шим, исполнявшийся напрямую, — его шебанг
             // `#!/usr/bin/env node` на машине без node давал exit 127 и каскад
             // EPIPE-рестартов клиента. Теперь кандидат — сам cli.mjs, и он
-            // запускается нашим рантаймом (SEA: vexx-as-node).
+            // запускается нашим рантаймом (SEA: diode-as-node).
             const root = mkdtempSync(join(tmpdir(), "vexx-e2e-"));
             const nodeModules = join(root, "workspace", "node_modules");
             const repoModules = resolve(import.meta.dirname, "..", "node_modules");
