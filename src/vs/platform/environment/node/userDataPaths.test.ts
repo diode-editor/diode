@@ -12,13 +12,13 @@ import {
 describe("resolveUserDataPaths", () => {
     const home = "/home/alice";
 
-    it("uses ~/.vexx by default", () => {
+    it("uses ~/.diode by default", () => {
         const paths = resolveUserDataPaths({ homedir: home });
         expect(paths.root).toBe(`/home/alice/${DEFAULT_USER_DATA_ROOT_NAME}`);
-        expect(paths.extensionsDir).toBe("/home/alice/.vexx/extensions");
-        expect(paths.userDir).toBe("/home/alice/.vexx/user-data/User");
-        expect(paths.settingsFile).toBe("/home/alice/.vexx/user-data/User/settings.json");
-        expect(paths.keybindingsFile).toBe("/home/alice/.vexx/user-data/User/keybindings.json");
+        expect(paths.extensionsDir).toBe("/home/alice/.diode/extensions");
+        expect(paths.userDir).toBe("/home/alice/.diode/user-data/User");
+        expect(paths.settingsFile).toBe("/home/alice/.diode/user-data/User/settings.json");
+        expect(paths.keybindingsFile).toBe("/home/alice/.diode/user-data/User/keybindings.json");
     });
 
     it("activates default profile when none specified", () => {
@@ -45,8 +45,8 @@ describe("resolveUserDataPaths", () => {
         const paths = resolveUserDataPaths({ homedir: home, profile: "compact" });
         expect(paths.profileName).toBe("compact");
         expect(paths.isDefaultProfile).toBe(false);
-        expect(paths.profileDir).toBe("/home/alice/.vexx/user-data/User/profiles/compact");
-        expect(paths.settingsFile).toBe("/home/alice/.vexx/user-data/User/profiles/compact/settings.json");
+        expect(paths.profileDir).toBe("/home/alice/.diode/user-data/User/profiles/compact");
+        expect(paths.settingsFile).toBe("/home/alice/.diode/user-data/User/profiles/compact/settings.json");
     });
 
     it("treats explicit `default` profile as default", () => {
@@ -68,19 +68,19 @@ describe("resolveUserDataPaths", () => {
 
     it("places machine-state paths under the default profile dir", () => {
         const paths = resolveUserDataPaths({ homedir: home });
-        expect(paths.globalStateFile).toBe("/home/alice/.vexx/user-data/User/globalState.json");
-        expect(paths.workspaceStorageDir).toBe("/home/alice/.vexx/user-data/User/workspaceStorage");
+        expect(paths.globalStateFile).toBe("/home/alice/.diode/user-data/User/globalState.json");
+        expect(paths.workspaceStorageDir).toBe("/home/alice/.diode/user-data/User/workspaceStorage");
     });
 
     it("isolates machine-state paths per named profile", () => {
         const paths = resolveUserDataPaths({ homedir: home, profile: "compact" });
-        expect(paths.globalStateFile).toBe("/home/alice/.vexx/user-data/User/profiles/compact/globalState.json");
-        expect(paths.workspaceStorageDir).toBe("/home/alice/.vexx/user-data/User/profiles/compact/workspaceStorage");
+        expect(paths.globalStateFile).toBe("/home/alice/.diode/user-data/User/profiles/compact/globalState.json");
+        expect(paths.workspaceStorageDir).toBe("/home/alice/.diode/user-data/User/profiles/compact/workspaceStorage");
     });
 });
 
 describe("resolveWorkspaceStatePath", () => {
-    const storage = "/home/alice/.vexx/user-data/User/workspaceStorage";
+    const storage = "/home/alice/.diode/user-data/User/workspaceStorage";
 
     it("keys state.json by sha256 of the resolved folder path", () => {
         const hash = crypto.createHash("sha256").update("/projects/app").digest("hex");

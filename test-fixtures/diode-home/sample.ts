@@ -1,12 +1,12 @@
 // Sample file for the test fixture.
-// Open vexx with this fixture without touching the real ~/.vexx:
+// Open vexx with this fixture without touching the real ~/.diode:
 //
-//   npm start -- --user-data-dir ./test-fixtures/vexx-home test-fixtures/vexx-home/sample.ts
+//   npm start -- --user-data-dir ./test-fixtures/diode-home test-fixtures/diode-home/sample.ts
 //
 // Try the "compact" profile (tabSize=8, tabs instead of spaces):
 //
-//   npm start -- --user-data-dir ./test-fixtures/vexx-home --profile compact \
-//       test-fixtures/vexx-home/sample.ts
+//   npm start -- --user-data-dir ./test-fixtures/diode-home --profile compact \
+//       test-fixtures/diode-home/sample.ts
 
 export function greet(name: string): string {
     return `Hello, ${name}!`;

@@ -25,7 +25,7 @@ import * as path from "node:path";
  * имя кладёт файлы в `User/profiles/<name>/`.
  */
 export interface IUserDataPaths {
-    /** Корень — `<userDataDir>` (то, что было передано через `--user-data-dir` или дефолт `~/.vexx`). */
+    /** Корень — `<userDataDir>` (то, что было передано через `--user-data-dir` или дефолт `~/.diode`). */
     readonly root: string;
     /** Каталог внешних расширений: `<root>/extensions`. */
     readonly extensionsDir: string;
@@ -61,10 +61,10 @@ export interface IUserDataPaths {
 export const DEFAULT_PROFILE_NAME = "default";
 
 /** Имя корневого каталога user data в `homedir()`. */
-export const DEFAULT_USER_DATA_ROOT_NAME = ".vexx";
+export const DEFAULT_USER_DATA_ROOT_NAME = ".diode";
 
 export interface IResolveUserDataPathsOptions {
-    /** Абсолютный путь — если задан, замещает дефолт `~/.vexx`. */
+    /** Абсолютный путь — если задан, замещает дефолт `~/.diode`. */
     readonly userDataDir?: string;
     /** Имя профиля. По умолчанию `"default"`. */
     readonly profile?: string;

@@ -1,9 +1,9 @@
-// Vexx demo extension: реализует минимальную поддержку .editorconfig.
+// Diode demo extension: реализует минимальную поддержку .editorconfig.
 // Ищет ближайший .editorconfig вверх по дереву от директории открытого файла
 // (editor.document.fileName) и применяет indent_style / indent_size / tab_width
 // через vscode.window.onDidChangeActiveTextEditor.
 //
-// CJS-формат (.cjs) используется намеренно: SEA-бинарник Vexx загружает
+// CJS-формат (.cjs) используется намеренно: SEA-бинарник Diode загружает
 // пользовательские расширения через createRequire(), который работает только
 // с CommonJS. ESM dynamic import() в SEA не поддерживает внешние file:// URL.
 
@@ -51,7 +51,7 @@ function applyEditorConfig(editor, out) {
     const startDir = path.dirname(fileName);
     const editorConfigPath = findEditorConfig(startDir);
     if (editorConfigPath === null) {
-        out.appendLine("[vexx-demo.editorconfig] .editorconfig not found from " + startDir);
+        out.appendLine("[diode-demo.editorconfig] .editorconfig not found from " + startDir);
         return;
     }
 
@@ -59,7 +59,7 @@ function applyEditorConfig(editor, out) {
     try {
         cfg = parseEditorConfig(fs.readFileSync(editorConfigPath, "utf-8"));
     } catch (err) {
-        out.appendLine("[vexx-demo.editorconfig] failed to read " + editorConfigPath + ": " + err);
+        out.appendLine("[diode-demo.editorconfig] failed to read " + editorConfigPath + ": " + err);
         return;
     }
 
@@ -73,12 +73,12 @@ function applyEditorConfig(editor, out) {
     else if (cfg.indent_style === "tab") patch.insertSpaces = false;
 
     if (Object.keys(patch).length === 0) {
-        out.appendLine("[vexx-demo.editorconfig] no applicable keys in " + editorConfigPath);
+        out.appendLine("[diode-demo.editorconfig] no applicable keys in " + editorConfigPath);
         return;
     }
 
     editor.options = patch;
-    out.appendLine("[vexx-demo.editorconfig] applied " + JSON.stringify(patch) + " from " + editorConfigPath + " for " + fileName);
+    out.appendLine("[diode-demo.editorconfig] applied " + JSON.stringify(patch) + " from " + editorConfigPath + " for " + fileName);
 }
 
 function activate(context) {
