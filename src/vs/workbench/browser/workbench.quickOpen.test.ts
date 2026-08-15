@@ -13,7 +13,7 @@ describe("Workbench — Quick Open accept callbacks", () => {
 
     beforeEach(async () => {
         ws = createTempWorkspace({
-            prefix: "vexx-quickopen-",
+            prefix: "diode-quickopen-",
             files: {
                 "alpha.txt": "Alpha content",
                 "beta.txt": "Beta content",
@@ -113,7 +113,7 @@ describe("Workbench — Go to Line", () => {
 
     beforeEach(async () => {
         ws = createTempWorkspace({
-            prefix: "vexx-gotoline-",
+            prefix: "diode-gotoline-",
             files: {
                 // A 60-line file to navigate around.
                 "big.txt": Array.from({ length: 60 }, (_, i) => `line ${i + 1}`).join("\n"),

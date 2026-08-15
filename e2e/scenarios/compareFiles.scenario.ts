@@ -11,7 +11,7 @@ import { defineScenario } from "./framework.ts";
 
 /** Воркспейс без git: семейство File-команд от репозитория не зависит. */
 function makeWorkspace(): { dir: string; leftFile: string } {
-    const dir = mkdtempSync(join(tmpdir(), "vexx-compare-demo-"));
+    const dir = mkdtempSync(join(tmpdir(), "diode-compare-demo-"));
     const base = [
         "export function greet(name: string) {",
         '    return "hi " + name;',

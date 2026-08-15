@@ -24,7 +24,7 @@ function gitQ(cwd: string, ...args: string[]): void {
 }
 
 function makeRepo(): string {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-scm-commit-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-scm-commit-"));
     gitQ(repoDir, "init", "-q");
     gitQ(repoDir, "config", "user.email", "t@example.com");
     gitQ(repoDir, "config", "user.name", "Test");

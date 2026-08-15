@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
  * работающем SEA exe.
  *
  * Используется кодом, который должен по-разному вести себя в dev (`tsx`/`npm`)
- * и production (`vexx` SEA): выбор asset access, конфигурация log sinks,
+ * и production (`diode` SEA): выбор asset access, конфигурация log sinks,
  * spawn-аргументы extension host'а.
  */
 export function isSeaBinary(): boolean {

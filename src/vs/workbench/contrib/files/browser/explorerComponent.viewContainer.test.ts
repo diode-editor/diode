@@ -31,7 +31,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
     }
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-explorer-container-", files: { "index.ts": "" } });
+        ws = createTempWorkspace({ prefix: "diode-explorer-container-", files: { "index.ts": "" } });
         h = makeViewsHarness(MENU_CONTRIBUTIONS);
         const clipboard = new InMemoryFileClipboard();
         service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
@@ -80,7 +80,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         const root = h.root(EXPLORER_VIEWLET_ID);
         const firstBody = component.view;
 
-        const other = createTempWorkspace({ prefix: "vexx-explorer-container-2-", files: { "a.ts": "" } });
+        const other = createTempWorkspace({ prefix: "diode-explorer-container-2-", files: { "a.ts": "" } });
         service.setRootPath(other.dir);
 
         expect(h.root(EXPLORER_VIEWLET_ID)).toBe(root);

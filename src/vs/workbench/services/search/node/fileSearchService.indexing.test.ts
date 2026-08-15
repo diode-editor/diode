@@ -26,7 +26,7 @@ describe("FileSearchService — indexing", () => {
     let service: FileSearchService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-filesearch-index-" });
+        ws = createTempWorkspace({ prefix: "diode-filesearch-index-" });
         service = new FileSearchService();
     });
 

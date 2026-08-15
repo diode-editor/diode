@@ -84,4 +84,4 @@ VS Code держит отдельный bracket pair index поверх токе
 - `src/vs/workbench/services/themes/common/tokenThemeResolver.ts` — резолвер скоупов
 - `src/vs/editor/browser/editorElement.ts` — `TokenIndex`, `packStyleFlags`, рендеринг с цветами
 - `src/vs/workbench/browser/parts/editor/editorComponent.ts` — wiring per-document store
-- `src/vs/vexx/main.ts` — регистрация встроенных токенайзеров
+- `src/vs/diode/main.ts` — регистрация встроенных токенайзеров

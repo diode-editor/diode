@@ -25,7 +25,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
     let contextKeys: ContextKeyService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-panel-focus-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "diode-panel-focus-", files: { "alpha.txt": "Alpha" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: `${ws.dir}/alpha.txt`, focusEditor: true });
         terminal = h.container.get(TerminalServiceDIToken);
         contextKeys = h.container.get(ContextKeyServiceDIToken);

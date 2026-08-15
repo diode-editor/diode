@@ -17,7 +17,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
 
 function createNestedWorkspace(): ITempWorkspace {
     return createTempWorkspace({
-        prefix: "vexx-reveal-int-",
+        prefix: "diode-reveal-int-",
         files: {
             "src/deep/target.ts": "export const x = 1;",
             "README.md": "# Readme",

@@ -13,7 +13,7 @@ describe("TextFileModel — encoding axis", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-editorctrl-enc-" });
+        ws = createTempWorkspace({ prefix: "diode-editorctrl-enc-" });
     });
 
     afterEach(() => {

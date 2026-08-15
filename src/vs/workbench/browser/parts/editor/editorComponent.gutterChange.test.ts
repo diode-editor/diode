@@ -15,7 +15,7 @@ describe("EditorComponent — setGutterChangeDecorations", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-gutterchange-" });
+        ws = createTempWorkspace({ prefix: "diode-gutterchange-" });
     });
 
     afterEach(() => {

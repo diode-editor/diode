@@ -122,7 +122,7 @@ export const controlColors = {
         description: "Input box border.",
     },
     "input.placeholderForeground": {
-        // Исторический цвет плейсхолдера Vexx (у VS Code — #989898 поверх прозрачности).
+        // Исторический цвет плейсхолдера Diode (у VS Code — #989898 поверх прозрачности).
         defaults: { dark: "#6E6E6E", light: "#767676" },
         description: "Input box foreground color for placeholder text.",
     },
@@ -136,7 +136,7 @@ export const controlColors = {
         description: "Foreground color of the selected menu item in the menubar.",
     },
     "menubar.selectionBackground": {
-        // Исторический цвет активного пункта меню-бара Vexx.
+        // Исторический цвет активного пункта меню-бара Diode.
         defaults: { dark: "#005AB4", light: "#0060C0" },
         description: "Background color of the selected menu item in the menubar.",
     },
@@ -149,7 +149,7 @@ export const controlColors = {
         description: "Quick picker background color.",
     },
     "list.highlightForeground": {
-        // Исторический цвет подсветки совпадений Vexx (у VS Code — #2AAAFF).
+        // Исторический цвет подсветки совпадений Diode (у VS Code — #2AAAFF).
         defaults: { dark: "#64C8FF", light: "#0066BF" },
         description: "List/Tree foreground color of the match highlights when searching.",
     },

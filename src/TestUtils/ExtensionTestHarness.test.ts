@@ -11,7 +11,7 @@ describe("createExtensionTestHarness", () => {
             expect(harness.app).toBeDefined();
             expect(harness.group).toBeDefined();
             expect(harness.host).toBeDefined();
-            expect(harness.tmpDir).toMatch(/vexx-ext-/);
+            expect(harness.tmpDir).toMatch(/diode-ext-/);
         } finally {
             await harness.dispose();
         }

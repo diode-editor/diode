@@ -22,7 +22,7 @@ describe("Терминал после выхода шелла отдаёт фо�
     let terminal: TerminalService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-terminal-exit-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "diode-terminal-exit-", files: { "alpha.txt": "Alpha" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: `${ws.dir}/alpha.txt`, focusEditor: true });
         terminal = h.container.get(TerminalServiceDIToken);
     });

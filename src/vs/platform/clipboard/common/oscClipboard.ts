@@ -7,7 +7,7 @@ import type { IClipboard } from "./iClipboard.ts";
  * Write path:
  *   OSC 52 format: \x1b]52;c;<base64-encoded-text>\x07
  *   Updates the internal buffer and emits the sequence so the host terminal's
- *   clipboard receives a copy (lets the user paste Vexx-copied text into other apps).
+ *   clipboard receives a copy (lets the user paste Diode-copied text into other apps).
  *
  * Read path:
  *   readText() returns the internal buffer immediately. We deliberately do NOT

@@ -1,5 +1,5 @@
 /*-----------------------------------------------------------------------------
- *  Vexx — поверхность VS Code Extension API (стадийная копия upstream).
+ *  Diode — поверхность VS Code Extension API (стадийная копия upstream).
  *
  *  Активная часть — единственный `declare module "vscode"` ниже — это ДОСЛОВНО
  *  раскомментированные строки upstream `vscode.d.ts`. Файл меняется ТОЛЬКО
@@ -13,7 +13,7 @@
  *    commit:    a22d00300655c17490ce63dffc28bcdcedcd82c4
  *    permalink: https://github.com/microsoft/vscode/blob/a22d00300655c17490ce63dffc28bcdcedcd82c4/src/vscode-dts/vscode.d.ts
  *
- *  Семантические отклонения Vexx от upstream (version=версия Vexx, Event и пр.) и
+ *  Семантические отклонения Diode от upstream (version=версия Diode, Event и пр.) и
  *  правило роста файла — в docs/arch/Extensions.md и AGENTS.md.
  *---------------------------------------------------------------------------*/
 

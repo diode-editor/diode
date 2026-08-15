@@ -1,10 +1,10 @@
 # Uri — первоклассная идентичность ресурса
 
-Задача: [#108](https://github.com/tihonove/vexx/issues/108) (ядро) + [#107](https://github.com/tihonove/vexx/issues/107) (`workspace.fs`).
+Задача: [#108](https://github.com/tihonove/diode/issues/108) (ядро) + [#107](https://github.com/tihonove/diode/issues/107) (`workspace.fs`).
 Правила адресации и слой — [docs/arch/Common.md](../arch/Common.md#uri).
 
 В VS Code любой ресурс адресуется `Uri`: файлы (`file:`), безымянные буферы (`untitled:`),
-git-версии (`git:`), output-каналы (`output:`), diff, webview, remote/virtual ФС. В Vexx
+git-версии (`git:`), output-каналы (`output:`), diff, webview, remote/virtual ФС. В Diode
 ресурс был голой строкой-путём — идентичность недисковых ресурсов класть было некуда.
 
 ## Сделано

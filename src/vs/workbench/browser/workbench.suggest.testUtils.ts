@@ -32,7 +32,7 @@ export interface SuggestContext {
 
 /** Boots a full Workbench over a real temp file with the editor focused. */
 export function createSuggestApp(text: string): SuggestContext {
-    const workspace = createTempWorkspace({ prefix: "vexx-suggest-app-", files: { "file.txt": text } });
+    const workspace = createTempWorkspace({ prefix: "diode-suggest-app-", files: { "file.txt": text } });
     const harness = createAppTestHarness({
         openFile: workspace.path("file.txt"),
         focusEditor: true,

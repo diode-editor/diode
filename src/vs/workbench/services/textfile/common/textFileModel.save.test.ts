@@ -13,7 +13,7 @@ describe("TextFileModel — save participant", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-editorctrl-save-" });
+        ws = createTempWorkspace({ prefix: "diode-editorctrl-save-" });
     });
 
     afterEach(() => {

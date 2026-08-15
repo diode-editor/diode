@@ -25,7 +25,7 @@ describe("Workbench — read-only editor", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-readonly-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "diode-readonly-", files: { "alpha.txt": "Alpha" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(80, 24) });
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.focusEditor();

@@ -30,7 +30,7 @@ export async function runGitOp(
     return result;
 }
 
-/** Транзиентный notice в статус-баре (тостов в Vexx нет). */
+/** Транзиентный notice в статус-баре (тостов в Diode нет). */
 export function showGitNotice(accessor: ServiceAccessor, message: string): void {
     const handle = accessor.get(StatusBarServiceDIToken).addEntry({
         id: "scm.git.notice",

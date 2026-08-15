@@ -10,7 +10,7 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 // Грузим настоящий builtin `diode-settings` по mainPath (subprocess тестов —
 // tsx, транспилирует `.ts`-main и вшитый `settings-schema.generated.ts`).
-const VEXX_SETTINGS_MAIN = fileURLToPath(
+const DIODE_SETTINGS_MAIN = fileURLToPath(
     new URL("../../../../../../extensions/diode-settings/main.ts", import.meta.url),
 );
 
@@ -18,7 +18,7 @@ function settingsExtension(): IExtensionRegistration {
     return {
         id: "diode.settings",
         manifest: { name: "settings", publisher: "diode", version: "0.1.0" },
-        mainPath: VEXX_SETTINGS_MAIN,
+        mainPath: DIODE_SETTINGS_MAIN,
         activationEvents: ["onLanguage:json"],
     };
 }

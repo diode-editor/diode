@@ -20,7 +20,7 @@ let ws: ITempWorkspace;
 
 // Дерево: dirs-first → row 0 = "target/", row 1 = "a.txt".
 function createWorkspace(): ITempWorkspace {
-    const workspace = createTempWorkspace({ prefix: "vexx-del-confirm-", files: { "a.txt": "hello" } });
+    const workspace = createTempWorkspace({ prefix: "diode-del-confirm-", files: { "a.txt": "hello" } });
     fs.mkdirSync(workspace.path("target"));
     // Изолированная корзина, чтобы не трогать ~/.local.
     process.env.XDG_DATA_HOME = workspace.path(".xdg");

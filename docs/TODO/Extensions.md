@@ -1,6 +1,6 @@
 # Extensions — VS Code-совместимые расширения
 
-Цель: загружать расширения по формату VS Code (`package.json` с `contributes`) — сначала встроенные, потом из `~/.vexx/extensions/`. Архитектура должна быть готова к разгрузке (clean unload через `IDisposable`) и инкрементальному добавлению contribution points.
+Цель: загружать расширения по формату VS Code (`package.json` с `contributes`) — сначала встроенные, потом из `~/.diode/extensions/`. Архитектура должна быть готова к разгрузке (clean unload через `IDisposable`) и инкрементальному добавлению contribution points.
 
 Готовое (Phase 1 языки/грамматики, Phase 8 extension host + completion, стоковый editorconfig-vscode) описано в [docs/arch/Extensions.md](../arch/Extensions.md). Ниже — только открытые фазы.
 
@@ -41,11 +41,11 @@
 - [ ] Persistent storage и запись из UI/расширений (`update(key, value)`).
 - [ ] `contributes.configurationDefaults` — оверрайды для language-specific.
 - [ ] Live-reload settings.json через fs.watch + эмит `onDidChangeConfiguration` (сейчас no-op).
-- [ ] Workspace-слой (`.vexx/settings.json` в корне проекта).
+- [ ] Workspace-слой (`.diode/settings.json` в корне проекта).
 
 ## Phase 7 — Активация и lifecycle
 
-- [~] `activationEvents`: `*`, `onStartupFinished`, `onLanguage:*` — сделаны (`ExtensionHost.registerExtension` = bookkeeping, `activateByEvent` активирует по событию; фаеринг — `main.ts` + `EditorService.onActiveEditorChanged` seam). Пример: builtin `vexx-settings` (автодополнение settings.json, `onLanguage:json`). Остаётся `onCommand:*` (нужен await активации во время dispatch команды).
+- [~] `activationEvents`: `*`, `onStartupFinished`, `onLanguage:*` — сделаны (`ExtensionHost.registerExtension` = bookkeeping, `activateByEvent` активирует по событию; фаеринг — `main.ts` + `EditorService.onActiveEditorChanged` seam). Пример: builtin `diode-settings` (автодополнение settings.json, `onLanguage:json`). Остаётся `onCommand:*` (нужен await активации во время dispatch команды).
 - [x] Lazy activation — расширение не грузится до триггера (subprocess поднимается только на `activateByEvent`).
 - [ ] `IDisposable`-цепочка: при unload корректно убираются все contributions (TokenizationRegistry, CommandRegistry, …).
 - [ ] Reload расширения (dispose → re-register).
@@ -107,16 +107,16 @@ Phase 9 отвечает на «как загрузить расширение �
 
 **Модель:**
 
-- **Discovery через GitHub topic `vexx-extension`** — топик помечает репозиторий как
-  расширение (идиоматично для GitHub, не трогает имя; нативный поиск `topic:vexx-extension`).
+- **Discovery через GitHub topic `diode-extension`** — топик помечает репозиторий как
+  расширение (идиоматично для GitHub, не трогает имя; нативный поиск `topic:diode-extension`).
   Не суффикс в имени репо: тот не кодирует publisher и не верифицируется.
-- **Артефакты — `.vsix`** (zip с манифестом + собранными файлами; Vexx уже VS Code-совместим),
+- **Артефакты — `.vsix`** (zip с манифестом + собранными файлами; Diode уже VS Code-совместим),
   лежат **распределённо** в GitHub Releases авторов. `browser_download_url` — прямая ссылка
   без auth и без API-лимитов на скачивание. Централизован только лёгкий индекс с метаданными
   и ссылками; бинарники в индекс не попадают.
-- **Краулер** — GitHub Action в отдельном `vexx-registry`-репозитории, по расписанию.
+- **Краулер** — GitHub Action в отдельном `diode-registry`-репозитории, по расписанию.
   Находит репо по топику, через GraphQL читает `package.json` на тегах релизов
-  (`version`, `engines.vexx`) **не распаковывая `.vsix`**, и публикует на GitHub Pages:
+  (`version`, `engines.diode`) **не распаковывая `.vsix`**, и публикует на GitHub Pages:
   - `index.json` — только валидные расширения (чистый список для клиента);
   - `diagnostics.json` — всё, что краулер видел, со статусом и текстом ошибок (pull-only
     обратная связь автору: зашёл по URL своего репо — посмотрел).
@@ -131,30 +131,30 @@ Phase 9 отвечает на «как загрузить расширение �
 ```jsonc
 {
   "id": "acme.markdown-tools",
-  "owner": "acme", "repo": "vexx-markdown", "stars": 42,
+  "owner": "acme", "repo": "diode-markdown", "stars": 42,
   "versions": [
-    { "version": "1.2.0", "engines": { "vexx": "^0.5.0" },
-      "asset": "https://github.com/acme/vexx-markdown/releases/download/v1.2.0/acme.markdown-tools-1.2.0.vsix",
+    { "version": "1.2.0", "engines": { "diode": "^0.5.0" },
+      "asset": "https://github.com/acme/diode-markdown/releases/download/v1.2.0/acme.markdown-tools-1.2.0.vsix",
       "size": 124000, "sha256": "…", "publishedAt": "…" }
   ]
 }
 ```
 
-Клиент берёт наивысшую версию, чей `engines.vexx` совместим с версией его сборки.
+Клиент берёт наивысшую версию, чей `engines.diode` совместим с версией его сборки.
 
 **Задачи:**
 
-- [ ] Конвенция: топик `vexx-extension`; `.vsix`-ассет в GitHub Release (имя `<id>-<version>.vsix`).
-- [ ] Краулер в `vexx-registry`-репо (Action + Pages): topic-поиск → чтение манифестов на
+- [ ] Конвенция: топик `diode-extension`; `.vsix`-ассет в GitHub Release (имя `<id>-<version>.vsix`).
+- [ ] Краулер в `diode-registry`-репо (Action + Pages): topic-поиск → чтение манифестов на
       тегах → `index.json` + `diagnostics.json`.
-- [ ] Валидация при кравле: невалидные (нет `engines.vexx` / `publisher ≠ owner` / нет
+- [ ] Валидация при кравле: невалидные (нет `engines.diode` / `publisher ≠ owner` / нет
       `.vsix`-ассета) → в `diagnostics.json`, не в `index.json`.
 - [ ] Клиентский `IRegistryProvider` + `GitHubIndexProvider` (читает `index.json`, локальный
       поиск/фильтрация/ранжирование по звёздам).
-- [ ] Резолв `engines.vexx` ↔ версия сборки; выбор совместимой версии.
+- [ ] Резолв `engines.diode` ↔ версия сборки; выбор совместимой версии.
 - [ ] Install-флоу: download ассета → проверка `sha256` → распаковка в
       `<userData>/extensions/<id>-<version>/`.
-- [ ] `vexx validate` (часть packaging-CLI) + GitHub Action-обёртка — ранний сигнал автору
+- [ ] `diode validate` (часть packaging-CLI) + GitHub Action-обёртка — ранний сигнал автору
       в его CI до публикации.
 
 **Слои обратной связи автору (позже, поверх той же диагностики):**

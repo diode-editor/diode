@@ -185,7 +185,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
 describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => {
     let tmpDir: string;
     beforeEach(() => {
-        tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-otd-"));
+        tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-otd-"));
     });
     afterEach(() => {
         fs.rmSync(tmpDir, { recursive: true, force: true });

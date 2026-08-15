@@ -1,6 +1,6 @@
 # Theme/
 
-Часть архитектуры Vexx — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
+Часть архитектуры Diode — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 Система темизации, совместимая с VS Code theme files. Активная тема — `WorkbenchTheme` за `ThemeService` (`ThemeServiceDIToken`), хранит packed RGB + правила подсветки синтаксиса. Доставка в виджеты — одна точка: `applyThemeVars(root, theme)` кладёт палитру в корневой var-scope TUIDom (подписан WorkbenchComponent), дальше цвета расходятся каскадом токенов ([STYLES.md (tuidom)](https://github.com/tuidom/tuidom/blob/main/docs/STYLES.md)); TUIDom про темы так и не знает — он знает про переменные.
 

@@ -25,7 +25,7 @@ describe("Workbench — клавиша над списком срабатыва�
     let commands: CommandRegistry;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-list-paging-" });
+        ws = createTempWorkspace({ prefix: "diode-list-paging-" });
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(80, 40) });
         commands = h.container.get(CommandRegistryDIToken);
         await h.workbench.activate();

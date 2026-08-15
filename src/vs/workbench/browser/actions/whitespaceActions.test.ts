@@ -59,7 +59,7 @@ function openEditor(content: string) {
 }
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-whitespace-actions-" });
+    ws = createTempWorkspace({ prefix: "diode-whitespace-actions-" });
 });
 afterEach(() => {
     ws.dispose();

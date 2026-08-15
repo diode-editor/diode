@@ -14,7 +14,7 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
  * Сквозная проверка СТОКОВОГО (немодифицированного) расширения
- * `maptz.regionfolder@1.0.22` на реальном extension host'е Vexx (#194).
+ * `maptz.regionfolder@1.0.22` на реальном extension host'е Diode (#194).
  *
  * Расширение ставится из настоящего `.vsix` (тот же путь, что `--install-extension`),
  * грузится реальным кодом (`out/extension.js` + `require("./engine/...")`),
@@ -45,7 +45,7 @@ describe("ExtensionHost — стоковый maptz.regionfolder (#194)", () => {
     let mainPath: string;
 
     beforeAll(async () => {
-        tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-maptz-"));
+        tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "diode-maptz-"));
         const extensionsDir = path.join(tmpRoot, "extensions");
         const installed = await installVsix(VSIX_PATH, extensionsDir);
         expect(installed.id).toBe(EXT_ID);

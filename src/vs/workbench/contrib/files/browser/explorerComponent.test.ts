@@ -70,7 +70,7 @@ describe("ExplorerComponent", () => {
     let app: TestApp;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-explorer-test-", files: { "src/main.ts": "", "README.md": "" } });
+        ws = createTempWorkspace({ prefix: "diode-explorer-test-", files: { "src/main.ts": "", "README.md": "" } });
         h = createExplorer();
         h.service.setRootPath(ws.dir);
         app = TestApp.createWithContent(h.component.view, new Size(30, 10));
@@ -277,8 +277,8 @@ describe("ExplorerComponent — root assigned after construction", () => {
     let wsB: ITempWorkspace;
 
     beforeEach(() => {
-        wsA = createTempWorkspace({ prefix: "vexx-explorer-a-", files: { "alpha.ts": "" } });
-        wsB = createTempWorkspace({ prefix: "vexx-explorer-b-", files: { "beta.ts": "" } });
+        wsA = createTempWorkspace({ prefix: "diode-explorer-a-", files: { "alpha.ts": "" } });
+        wsB = createTempWorkspace({ prefix: "diode-explorer-b-", files: { "beta.ts": "" } });
     });
 
     afterEach(() => {
@@ -328,7 +328,7 @@ describe("ExplorerComponent — root assigned after construction", () => {
     });
 
     it("context menu is a no-op when the tree is empty (no selected row)", async () => {
-        const wsEmpty = createTempWorkspace({ prefix: "vexx-explorer-empty-" });
+        const wsEmpty = createTempWorkspace({ prefix: "diode-explorer-empty-" });
         const h = createExplorer();
         h.service.setRootPath(wsEmpty.dir);
         const app = TestApp.createWithContent(h.component.view, new Size(30, 10));
@@ -357,7 +357,7 @@ describe("ExplorerComponent with ThemeService", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-explorer-theme-", files: { "index.ts": "" } });
+        ws = createTempWorkspace({ prefix: "diode-explorer-theme-", files: { "index.ts": "" } });
     });
 
     afterEach(() => {

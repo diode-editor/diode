@@ -40,7 +40,7 @@ describe("Workbench — Change File Encoding", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-encoding-" });
+        ws = createTempWorkspace({ prefix: "diode-encoding-" });
         fs.writeFileSync(ws.path("cyr.txt"), iconv.encode("Привет, мир!\n", "windows1251"));
         ws.writeFile("plain.txt", "Ёлка\n");
         h = createAppTestHarness({ workspaceFolder: ws.dir });
@@ -238,7 +238,7 @@ describe("Workbench — Change End of Line Sequence", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-changeeol-", files: { "a.txt": "one\ntwo\n" } });
+        ws = createTempWorkspace({ prefix: "diode-changeeol-", files: { "a.txt": "one\ntwo\n" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
     });
 

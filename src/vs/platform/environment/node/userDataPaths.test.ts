@@ -29,16 +29,16 @@ describe("resolveUserDataPaths", () => {
     });
 
     it("honors --user-data-dir override", () => {
-        const paths = resolveUserDataPaths({ homedir: home, userDataDir: "/tmp/vexx" });
-        expect(paths.root).toBe("/tmp/vexx");
-        expect(paths.extensionsDir).toBe("/tmp/vexx/extensions");
-        expect(paths.settingsFile).toBe("/tmp/vexx/user-data/User/settings.json");
+        const paths = resolveUserDataPaths({ homedir: home, userDataDir: "/tmp/diode" });
+        expect(paths.root).toBe("/tmp/diode");
+        expect(paths.extensionsDir).toBe("/tmp/diode/extensions");
+        expect(paths.settingsFile).toBe("/tmp/diode/user-data/User/settings.json");
     });
 
     it("resolves relative --user-data-dir to absolute", () => {
-        const paths = resolveUserDataPaths({ homedir: home, userDataDir: "./local-vexx" });
+        const paths = resolveUserDataPaths({ homedir: home, userDataDir: "./local-diode" });
         expect(paths.root.startsWith("/")).toBe(true);
-        expect(paths.root.endsWith("/local-vexx")).toBe(true);
+        expect(paths.root.endsWith("/local-diode")).toBe(true);
     });
 
     it("places named profile under User/profiles/<name>", () => {

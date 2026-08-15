@@ -7,7 +7,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 
 // Дерево: dirs-first → row 0 = "target/", row 1 = "a.txt".
 function createWorkspace(): ITempWorkspace {
-    const ws = createTempWorkspace({ prefix: "vexx-wsundo-", files: { "a.txt": "hello" } });
+    const ws = createTempWorkspace({ prefix: "diode-wsundo-", files: { "a.txt": "hello" } });
     fs.mkdirSync(ws.path("target"));
     return ws;
 }

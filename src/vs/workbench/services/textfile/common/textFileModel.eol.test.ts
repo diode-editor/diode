@@ -11,7 +11,7 @@ describe("TextFileModel EOL", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-editorctrl-eol-" });
+        ws = createTempWorkspace({ prefix: "diode-editorctrl-eol-" });
     });
 
     afterEach(() => {

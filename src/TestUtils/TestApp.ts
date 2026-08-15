@@ -7,7 +7,7 @@ import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 
 let cachedVars: Record<string, number> | null = null;
-/** Живая палитра Dark+ (не снапшот из tuidom/testing): vexx-тесты резолвят
+/** Живая палитра Dark+ (не снапшот из tuidom/testing): diode-тесты резолвят
  * токены ровно тем же кодом темы, что и приложение. */
 function liveThemeVars(): Record<string, number> {
     cachedVars ??= computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));

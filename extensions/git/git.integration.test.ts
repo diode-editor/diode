@@ -511,7 +511,7 @@ describe("builtin git plugin (integration)", () => {
         const dir = harness.tmpDir;
         makeRepo(dir);
         // Локальный bare-remote (file-протокол, без auth) + upstream.
-        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-bare-"));
+        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-bare-"));
         git(remoteDir, "init", "-q", "--bare");
         git(dir, "remote", "add", "origin", remoteDir);
         const branch = execFileSync("git", ["branch", "--show-current"], { cwd: dir }).toString().trim();
@@ -529,7 +529,7 @@ describe("builtin git plugin (integration)", () => {
         );
 
         // Remote уходит вперёд (через второй клон) → pull подтягивает.
-        const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-clone-"));
+        const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-clone-"));
         execFileSync("git", ["clone", "-q", remoteDir, cloneDir]);
         git(cloneDir, "config", "user.email", "t@example.com");
         git(cloneDir, "config", "user.name", "Test");

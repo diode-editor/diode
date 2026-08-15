@@ -27,7 +27,7 @@
 
 Отдельного списка «слоёв, где можно DI» нет — его заменяет ось зависимостей: импорт токена подчиняется тем же правилам слоёв, что и любой другой импорт. Проверяет `npm run valid-layers-check`, включая правило «файл с `token<T>()` берёт `T` из своего слоя или ниже» — токен не может вести к типу из слоя выше себя.
 
-Нижняя граница: **`tuidom/` токенов не объявляет и `diContainer` не импортирует** — движок не тянет DI-модель Vexx (кандидат на отдельный репозиторий; сторож — в `check-layers`).
+Нижняя граница: **`tuidom/` токенов не объявляет и `diContainer` не импортирует** — движок не тянет DI-модель Diode (кандидат на отдельный репозиторий; сторож — в `check-layers`).
 
 Сквозные токены ядра, у которых нет файла-владельца (`TuiApplicationDIToken`, `TerminalBackendDIToken`, `ClipboardDIToken` и др.), живут в `src/vs/workbench/common/coreTokens.ts`. Размещение там части сервисных токенов — наследие прежнего правила «токены только в workbench»; новые токены туда не добавлять, объявлять рядом с типом.
 
@@ -126,7 +126,7 @@ const component = new StatusBarComponent(fakeStatusBarService, themeService);
 `(container, ctx) => void`. Модули собираются в **профили** — фабрики готовых
 контейнеров под конкретный сценарий (production, test).
 
-Файлы: `src/vs/vexx/modules/` (исключение — `terminalEnvironmentModule`, живёт рядом со своим сервисом в `src/vs/workbench/Services/TerminalEnvironment/`).
+Файлы: `src/vs/diode/modules/` (исключение — `terminalEnvironmentModule`, живёт рядом со своим сервисом в `src/vs/workbench/Services/TerminalEnvironment/`).
 
 ### `ContainerModule<Ctx>`
 

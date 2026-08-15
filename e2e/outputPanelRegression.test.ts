@@ -145,7 +145,7 @@ describe("Output panel fix — регрессии соседних механи�
     }, 180_000);
 
     it("перечитка файла с диска не крадёт фокус, если пользователь не в редакторе", async () => {
-        const dir = mkdtempSync(join(tmpdir(), "vexx-reload-"));
+        const dir = mkdtempSync(join(tmpdir(), "diode-reload-"));
         const file = join(dir, "watched.txt");
         writeFileSync(file, "original line\n");
 

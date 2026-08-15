@@ -44,7 +44,7 @@ describe("Workbench — живой гуттер quick diff", () => {
     let editors: EditorService;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-quickdiff-", files: { "a.txt": ORIGINAL_TEXT } });
+        ws = createTempWorkspace({ prefix: "diode-quickdiff-", files: { "a.txt": ORIGINAL_TEXT } });
         filePath = ws.path("a.txt");
 
         const { container, bindApp } = createTestContainer();

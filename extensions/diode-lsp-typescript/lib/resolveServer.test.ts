@@ -4,8 +4,8 @@ import { commandFor, LANGUAGE_SERVERS, resolveServerCommand } from "./resolveSer
 
 const TS_SPEC = LANGUAGE_SERVERS[0];
 const NODE = { command: "/opt/dist/node", runAsNodeFlag: false };
-const VEXX_SEA = { command: "/opt/dist/vexx", runAsNodeFlag: true };
-const BUNDLED = "/cache/vexx/ts-server/1.0-abc/typescript-language-server/lib/run-cli.cjs";
+const DIODE_SEA = { command: "/opt/dist/diode", runAsNodeFlag: true };
+const BUNDLED = "/cache/diode/ts-server/1.0-abc/typescript-language-server/lib/run-cli.cjs";
 
 describe("diode-lsp-typescript — resolveServer", () => {
     it("таблица серверов декларативна: typescript-спека покрывает TS/JS-семейство", () => {
@@ -20,14 +20,14 @@ describe("diode-lsp-typescript — resolveServer", () => {
             args: ["/x/cli.mjs", "--stdio"],
             env: { DIODE_EXTENSION_HOST: undefined },
         });
-        expect(commandFor("/x/run-cli.cjs", VEXX_SEA, [])).toEqual({
-            command: "/opt/dist/vexx",
+        expect(commandFor("/x/run-cli.cjs", DIODE_SEA, [])).toEqual({
+            command: "/opt/dist/diode",
             args: ["/x/run-cli.cjs"],
             // SEA: бинарь уходит в node-режим; флаг наследуется внуками
             // (tsserver форкается сервером через process.execPath).
             env: { DIODE_EXTENSION_HOST: undefined, DIODE_RUN_AS_NODE: "1" },
         });
-        expect(commandFor("/usr/bin/tls-wrap", VEXX_SEA)).toEqual({
+        expect(commandFor("/usr/bin/tls-wrap", DIODE_SEA)).toEqual({
             command: "/usr/bin/tls-wrap",
             args: ["--stdio"],
             env: { DIODE_EXTENSION_HOST: undefined },

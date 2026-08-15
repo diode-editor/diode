@@ -21,7 +21,7 @@ describe("extractBundleToCache", () => {
         ]);
 
     beforeEach(() => {
-        root = mkdtempSync(path.join(tmpdir(), "vexx-extract-"));
+        root = mkdtempSync(path.join(tmpdir(), "diode-extract-"));
     });
 
     afterEach(() => {

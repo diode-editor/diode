@@ -11,7 +11,7 @@ const BUNDLED_POLL_MS = 100;
 
 /**
  * Builtin-клиент языковых серверов: стоковый `vscode-languageclient` поверх
- * vexx `vscode`-стаба. Весь LSP-протокол, document sync с сервером и
+ * diode `vscode`-стаба. Весь LSP-протокол, document sync с сервером и
  * publishDiagnostics обслуживает сам languageclient; диагностики доезжают до
  * squiggle + панели Problems через `languages.createDiagnosticCollection`,
  * go-to-definition — через `languages.registerDefinitionProvider` (F12).
@@ -19,10 +19,10 @@ const BUNDLED_POLL_MS = 100;
  * Активация ленивая (`onLanguage:*` в манифесте) — сервер не трогает старт
  * редактора. Резолв сервера — `lib/resolveServer.ts`: настройка serverPath →
  * workspace node_modules → ВШИТЫЙ сервер из поставки (дефолт; пути и режим
- * рантайма инжектирует host через configDefaults — см. main.ts vexx,
+ * рантайма инжектирует host через configDefaults — см. main.ts diode,
  * builtinConfigInjection) → PATH. Сервер запускается нашим node-рантаймом
  * («как VS Code»): в dev/self-extract это настоящий node (`process.execPath`),
- * в SEA — vexx-бинарь в node-режиме (`DIODE_RUN_AS_NODE=1`, runAsNode.ts).
+ * в SEA — diode-бинарь в node-режиме (`DIODE_RUN_AS_NODE=1`, runAsNode.ts).
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const configuration = vscode.workspace.getConfiguration("diode.lsp.typescript");

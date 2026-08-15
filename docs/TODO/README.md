@@ -1,5 +1,5 @@
 
-# Vexx — TODO
+# Diode — TODO
 
 Трекер задач проекта. Каждая задача имеет статус, краткое описание и контекст.
 
@@ -34,7 +34,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points (реестр contributions #164, MenuRegistry #166, vscode-канон меню #168 — меню-бар на реестре, co-location placement, IMenu, MenuId-класс; QuickAccess #169, Configuration #170, Color #171 — все contribution points перенесены)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [x] [TuidomContracts (tuidom)](https://github.com/tuidom/tuidom/blob/main/docs/TuidomContracts.md) — нестыковки в контрактах ядра tuidom по аудиту зрелости (2026-07-27); **все Н1–Н8 закрыты (2026-08-01)**; документ уехал вместе с tuidom в его репозиторий
-- [x] [TuidomExtraction](TuidomExtraction.md) — аудит и вынос tuidom в отдельный репозиторий: **сделано (2026-08-13)** — движок живёт в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom), vexx потребляет пакеты `@tuidom/*` из npm
+- [x] [TuidomExtraction](TuidomExtraction.md) — аудит и вынос tuidom в отдельный репозиторий: **сделано (2026-08-13)** — движок живёт в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom), diode потребляет пакеты `@tuidom/*` из npm
 - [~] [ListControls](ListControls.md) — два списочных контрола: data-driven `TreeViewElement` остаётся намеренно (внешнее API расширений — `TreeDataProvider`), `ListViewElement` — для собственных списков workbench; техдолг — дублирование механик и union-instanceof в `listFocus`/`list.*`
 - [~] [WhenContext](WhenContext.md) — система контекста when (остался полноценный парсер when-выражений)
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate готов; далее scope-селекторы, async/background токенизация)
@@ -47,7 +47,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Search](Search.md) — поиск по файлам (ripgrep в сайдбаре). Готово: движок rg + пакетирование в SEA, поиск по мере ввода с тумблерами Aa/`\b`/`.*`; панель — merged одно-view контейнер с «⋯»-меню (View as List/Tree с галочкой, поэтапный Collapse All/Expand All), include/exclude за «···» (Ctrl+Shift+J), режимы list/tree VS Code-семантики (дерево каталогов со сжатием цепочек), кольцо фокуса Down/Up, Enter/клик открывает файл на позиции матча. Дальше — кросс-платформенный rg, replace
 - [ ] [PieceTree](PieceTree.md) — текстовый бэкенд документа (большие файлы, undo, snapshots)
 - [~] [Extensions](Extensions.md) — VS Code-совместимые расширения (Phases 1, 8 готовы; 6, 9 частично; в работе — active-editor API)
-- [~] [LSP](LSP.md) — стоковые language servers поверх extension host (клиент — builtin `vexx-lsp-typescript` на стоковом `vscode-languageclient`). Платформа готова end-to-end со стоковым `typescript-language-server`: document sync (didOpen/didChange живого буфера), Go to Definition (F12, кросс-файловый), диагностики → MarkerService (squiggle + Problems). Далее — SEA-упаковка курируемых серверов, второй язык (gopls/basedpyright), закрытие остальных стабов (hover, references, rename, …) по таблице в LSP.md
+- [~] [LSP](LSP.md) — стоковые language servers поверх extension host (клиент — builtin `diode-lsp-typescript` на стоковом `vscode-languageclient`). Платформа готова end-to-end со стоковым `typescript-language-server`: document sync (didOpen/didChange живого буфера), Go to Definition (F12, кросс-файловый), диагностики → MarkerService (squiggle + Problems). Далее — SEA-упаковка курируемых серверов, второй язык (gopls/basedpyright), закрытие остальных стабов (hover, references, rename, …) по таблице в LSP.md
 - [~] [Suggest](Suggest.md) — автодополнение: подсказки стокового `typescript-language-server` в попапе (триггер-символы, серверные сортировка/фильтрация, `isIncomplete`), панель описания по Ctrl+Space с ленивым `resolve` и персистом, авто-импорт одной undo-транзакцией со вставкой. Дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
 - [~] [E2E](E2E.md) — e2e тесты против SEA-бинаря (Phase 1 и Phase 3 готовы: изолированный запуск, механика ожиданий `waitForIdle`, локаторы + `inspectState`, мышь в сценариях, параллельный прогон; открыто — кросс-платформенность Phase 1.x)
 - [x] [EditorGroups](EditorGroups.md) — сплиты области редактора: полоса групп по одной оси (Ctrl+\, фокус Ctrl+1..5/чорды, перенос/копия/join, resize/maximize, ось-тумблер, Open to the Side), undo и модель — на документ (реестр с ref-count), find-виджет на группу, персист полосы; API расширений — ViewColumn/showTextDocument/window.tabGroups/onDidChangeVisibleTextEditors/vscode.diff поверх snapshot-протокола, document sync пер-модель + didClose. В документе — follow-up'ы (Quick Open Ctrl+Enter, read-only на документ и др.)

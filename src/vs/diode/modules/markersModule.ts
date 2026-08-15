@@ -10,9 +10,9 @@ import {
 } from "../../workbench/common/coreTokens.ts";
 
 export interface MarkersModuleContext {
-    /** Absolute path of the active-profile Vexx settings.json, or null when unknown (tests/demo). */
+    /** Absolute path of the active-profile Diode settings.json, or null when unknown (tests/demo). */
     settingsResource: string | null;
-    /** Absolute path of the active-profile Vexx keybindings.json, or null when unknown (tests/demo). */
+    /** Absolute path of the active-profile Diode keybindings.json, or null when unknown (tests/demo). */
     keybindingsResource: string | null;
 }
 
@@ -20,7 +20,7 @@ export interface MarkersModuleContext {
  * Диагностики + пути user-config файлов: провайдер-агностичный реестр
  * {@link MarkerService} (один инстанс на контейнер — в него пишут поставщики, из
  * него читают потребители) и пути к активным settings.json / keybindings.json
- * Vexx (`SettingsResourceDIToken` / `KeybindingsResourceDIToken`). По settings-пути
+ * Diode (`SettingsResourceDIToken` / `KeybindingsResourceDIToken`). По settings-пути
  * валидатор узнаёт «свой» файл настроек (а не любой `settings.json`, например от
  * VS Code); оба пути используют Preferences-экшены (`Workbench/Actions/`) для команд «Open Settings» /
  * «Open Keyboard Shortcuts».

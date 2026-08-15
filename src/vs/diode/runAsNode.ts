@@ -2,9 +2,9 @@ import { Module } from "node:module";
 import * as path from "node:path";
 
 /**
- * Режим «vexx как node» (`DIODE_RUN_AS_NODE=1`): бинарь исполняет внешний
+ * Режим «diode как node» (`DIODE_RUN_AS_NODE=1`): бинарь исполняет внешний
  * JS-скрипт вместо запуска редактора — калька `ELECTRON_RUN_AS_NODE`
- * VS Code/Electron. Нужен SEA-поставке, где `process.execPath` — сам vexx:
+ * VS Code/Electron. Нужен SEA-поставке, где `process.execPath` — сам diode:
  * language-серверы (typescript-language-server) и их внуки (tsserver форкается
  * сервером через `child_process.fork` → `process.execPath`) запускаются нашим
  * бинарём без node в PATH. Сигнал — env (наследуется fork'ами автоматически;

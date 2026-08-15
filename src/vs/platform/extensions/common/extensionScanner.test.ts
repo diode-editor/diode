@@ -14,7 +14,7 @@ describe("scanBuiltinExtensions", () => {
     const ROOT_PREFIX = "Extensions/builtin/";
 
     beforeEach(async () => {
-        tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "vexx-ext-scan-"));
+        tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "diode-ext-scan-"));
         assets = new FsAssetAccess({ [ROOT_PREFIX]: tempDir });
     });
 

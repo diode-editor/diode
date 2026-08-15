@@ -50,7 +50,7 @@ describe("ExplorerComponent hover", () => {
     let theme: WorkbenchTheme;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-hover-", files: { "aaa.ts": "", "bbb.ts": "", "ccc.ts": "" } });
+        ws = createTempWorkspace({ prefix: "diode-hover-", files: { "aaa.ts": "", "bbb.ts": "", "ccc.ts": "" } });
         theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
         const clipboard = new InMemoryFileClipboard();
         service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);

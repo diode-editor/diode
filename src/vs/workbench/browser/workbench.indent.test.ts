@@ -25,7 +25,7 @@ describe("Workbench — Tab / Shift+Tab indentation", () => {
     beforeEach(() => {
         // A couple of sibling files so the workbench has a focusable tree to cycle to.
         ws = createTempWorkspace({
-            prefix: "vexx-indent-",
+            prefix: "diode-indent-",
             files: {
                 "sibling-0.txt": "x",
                 "sibling-1.txt": "x",

@@ -62,7 +62,7 @@ export function findFirstIdxMonotonousOrArrLen<T>(
 export class MonotonousArray<T> {
     public static assertInvariants = false;
 
-    // Приватные поля без подчёркиваний — конвенция vexx (AGENTS.md); в upstream
+    // Приватные поля без подчёркиваний — конвенция diode (AGENTS.md); в upstream
     // они `_findLastMonotonousLastIdx`/`_prevFindLastPredicate`/`_array`.
     private findLastMonotonousLastIdx = 0;
     private prevFindLastPredicate: ((item: T) => boolean) | undefined;

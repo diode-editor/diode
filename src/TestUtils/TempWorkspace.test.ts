@@ -11,7 +11,7 @@ describe("createTempWorkspace", () => {
         const ws = createTempWorkspace();
         try {
             expect(fs.existsSync(ws.dir)).toBe(true);
-            expect(path.basename(ws.dir).startsWith("vexx-test-")).toBe(true);
+            expect(path.basename(ws.dir).startsWith("diode-test-")).toBe(true);
             expect(path.dirname(ws.dir)).toBe(os.tmpdir());
         } finally {
             ws.dispose();
@@ -19,9 +19,9 @@ describe("createTempWorkspace", () => {
     });
 
     it("уважает кастомный префикс", () => {
-        const ws = createTempWorkspace({ prefix: "vexx-custom-" });
+        const ws = createTempWorkspace({ prefix: "diode-custom-" });
         try {
-            expect(path.basename(ws.dir).startsWith("vexx-custom-")).toBe(true);
+            expect(path.basename(ws.dir).startsWith("diode-custom-")).toBe(true);
         } finally {
             ws.dispose();
         }

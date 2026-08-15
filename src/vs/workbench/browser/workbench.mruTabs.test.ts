@@ -23,7 +23,7 @@ describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle
 
     beforeEach(async () => {
         ws = createTempWorkspace({
-            prefix: "vexx-mru-",
+            prefix: "diode-mru-",
             files: {
                 "a.ts": "a",
                 "b.ts": "b",

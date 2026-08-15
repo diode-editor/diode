@@ -9,11 +9,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { homeIsolationEnv } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { findNode } from "./helpers/inspectorClient.ts";
-import { VexxSession } from "./helpers/runVexx.ts";
+import { DiodeSession } from "./helpers/runDiode.ts";
 
 /**
  * WP9 — сквозная интеграция стокового расширения `EditorConfig.EditorConfig`
- * (немодифицированный `.vsix` из open-vsx) с Vexx:
+ * (немодифицированный `.vsix` из open-vsx) с Diode:
  *
  *   1. установка реального `.vsix` новым CLI-флагом `--install-extension`
  *      (первая проверка установщика WP7.5 на настоящем артефакте);
@@ -66,11 +66,11 @@ describe.skipIf(process.platform === "win32")("SEA binary — stock editorconfig
     let binary: string;
     let tempRoot: string;
     let userDataDir: string;
-    let session: VexxSession | null = null;
+    let session: DiodeSession | null = null;
 
     beforeAll(async () => {
         binary = await getBinaryPath();
-        tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "vexx-ec-e2e-"));
+        tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "diode-ec-e2e-"));
         userDataDir = path.join(tempRoot, "user-data-root");
 
         // (1) Install the REAL .vsix via the CLI — exercises WP7.5 on a real artifact.
@@ -104,10 +104,10 @@ describe.skipIf(process.platform === "win32")("SEA binary — stock editorconfig
         return dir;
     }
 
-    async function startEditor(files: string[], opts: { cwd?: string } = {}): Promise<VexxSession> {
+    async function startEditor(files: string[], opts: { cwd?: string } = {}): Promise<DiodeSession> {
         // user-data уже в tempRoot; добавляем изоляцию HOME/XDG (корзина, кеши),
         // чтобы прогон не трогал реальный дом разработчика.
-        const s = await VexxSession.start({
+        const s = await DiodeSession.start({
             args: ["--user-data-dir", userDataDir, ...files],
             inspect: true,
             env: homeIsolationEnv(path.join(tempRoot, "home")),
@@ -117,7 +117,7 @@ describe.skipIf(process.platform === "win32")("SEA binary — stock editorconfig
     }
 
     /** Waits until an EditorElement is present in the TUIDom tree (app + file ready). */
-    async function waitForEditor(s: VexxSession): Promise<void> {
+    async function waitForEditor(s: DiodeSession): Promise<void> {
         await s.waitForDocument((root) => findNode(root, (n) => n.type === "EditorElement") !== null, {
             timeoutMs: 20_000,
         });
@@ -129,7 +129,7 @@ describe.skipIf(process.platform === "win32")("SEA binary — stock editorconfig
      * self-synchronises against the async activation of the extension.
      */
     async function saveUntil(
-        s: VexxSession,
+        s: DiodeSession,
         filePath: string,
         predicate: (bytes: Buffer) => boolean,
         timeoutMs = 25_000,

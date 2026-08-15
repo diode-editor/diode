@@ -28,7 +28,7 @@ describe("EditorService focus management on tab close", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-focus-test-" });
+        ws = createTempWorkspace({ prefix: "diode-focus-test-" });
     });
 
     afterEach(() => {
@@ -116,7 +116,7 @@ describe("EditorService auto-focus on file open", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-autofocus-test-" });
+        ws = createTempWorkspace({ prefix: "diode-autofocus-test-" });
     });
 
     afterEach(() => {

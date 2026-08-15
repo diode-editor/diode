@@ -1272,7 +1272,7 @@ function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
     if (typeof obj.tabSize === "number" && Number.isFinite(obj.tabSize) && obj.tabSize > 0) {
         patch.tabSize = Math.floor(obj.tabSize);
     }
-    // `indentSize` — алиас tabSize (Vexx пока не различает их): применяем только
+    // `indentSize` — алиас tabSize (Diode пока не различает их): применяем только
     // если явного tabSize нет. editorconfig шлёт indent_size именно так.
     if (
         patch.tabSize === undefined &&

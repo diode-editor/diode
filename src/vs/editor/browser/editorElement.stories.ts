@@ -11,7 +11,7 @@ export const meta: StoryMeta = {
 
 export function withSampleText(ctx: StoryContext): void {
     const sampleText = `Hello, World!
-Welcome to vexx — a TUI text editor.
+Welcome to diode — a TUI text editor.
 Start typing to edit this document.
 
 Line 5 is here.

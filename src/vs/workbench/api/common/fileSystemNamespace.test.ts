@@ -18,7 +18,7 @@ const uri = (p: string) => Uri.file(p) as never;
 let tmpDir: string;
 
 beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vexx-wfs-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-wfs-"));
 });
 
 afterEach(() => {
@@ -192,7 +192,7 @@ describe("SubprocessFileSystemProviders", () => {
         providers.register("git", provider("не отсюда") as never);
         const ns = createFileSystemNamespace(providers);
 
-        const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "vexx-fsns-")), "real.txt");
+        const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diode-fsns-")), "real.txt");
         fs.writeFileSync(file, "с диска");
 
         expect(new TextDecoder().decode(await ns.readFile(Uri.file(file) as never))).toBe("с диска");

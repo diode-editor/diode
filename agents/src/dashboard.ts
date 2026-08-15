@@ -95,7 +95,7 @@ export function createDashboard(deps: DashboardDeps): Server {
 
 const PAGE = `<!doctype html>
 <meta charset="utf-8">
-<title>vexx agents</title>
+<title>diode agents</title>
 <style>
   body { font: 13px/1.5 ui-monospace, monospace; margin: 2rem; background: #111; color: #ddd; }
   h1 { font-size: 1.1rem; margin: 0 0 1rem; }
@@ -109,7 +109,7 @@ const PAGE = `<!doctype html>
   .bad { color: #e06c75; } .good { color: #98c379; } .warn { color: #e5c07b; } .dim { color: #666; }
   td.cmd { color: #666; font-size: 11px; word-break: break-all; }
 </style>
-<h1>vexx agents</h1>
+<h1>diode agents</h1>
 <div id="roles"></div>
 <div style="margin-top:.6rem"><button id="stop">STOP</button><span id="mode"></span></div>
 

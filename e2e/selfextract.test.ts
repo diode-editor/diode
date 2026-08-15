@@ -35,7 +35,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         binary = await getSelfExtractPath();
         // Изолированный кэш: тест не должен зависеть от ~/.cache разработчика и не
         // должен его засорять. Стаб обязан уважать XDG_CACHE_HOME.
-        cacheHome = mkdtempSync(join(tmpdir(), "vexx-xdg-cache-"));
+        cacheHome = mkdtempSync(join(tmpdir(), "diode-xdg-cache-"));
     }, 300_000);
 
     afterAll(() => {
@@ -95,7 +95,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
     });
 
     it("работает из произвольного cwd", () => {
-        const cwd = mkdtempSync(join(tmpdir(), "vexx-elsewhere-"));
+        const cwd = mkdtempSync(join(tmpdir(), "diode-elsewhere-"));
         try {
             const result = run(["--version"], { cwd });
 

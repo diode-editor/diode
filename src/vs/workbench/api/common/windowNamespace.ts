@@ -360,8 +360,8 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             isPreview: false,
             group: makeTabGroup(group),
             // Внутренняя адресация для tabGroups.close (не часть vscode API).
-            _vexxGroupId: group.groupId,
-            _vexxUri: tab.uri,
+            _diodeGroupId: group.groupId,
+            _diodeUri: tab.uri,
         } as unknown as vscode.Tab;
     }
 
@@ -390,8 +390,8 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             isDirty: tab.isDirty,
             isPinned: false,
             isPreview: false,
-            _vexxGroupId: group.groupId,
-            _vexxUri: tab.uri,
+            _diodeGroupId: group.groupId,
+            _diodeUri: tab.uri,
         } as unknown as vscode.Tab;
     }
 
@@ -746,11 +746,11 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             ): Thenable<boolean> => {
                 const items = Array.isArray(tabOrTabs) ? tabOrTabs : [tabOrTabs];
                 if (items.length === 0) return Promise.resolve(true);
-                // Tab отличаем от TabGroup по внутренней адресации _vexxUri.
-                if ((items[0] as { _vexxUri?: unknown })._vexxUri !== undefined) {
+                // Tab отличаем от TabGroup по внутренней адресации _diodeUri.
+                if ((items[0] as { _diodeUri?: unknown })._diodeUri !== undefined) {
                     const tabs = (items as vscode.Tab[]).map((tab) => ({
-                        groupId: (tab as unknown as { _vexxGroupId: number })._vexxGroupId,
-                        uri: (tab as unknown as { _vexxUri: string })._vexxUri,
+                        groupId: (tab as unknown as { _diodeGroupId: number })._diodeGroupId,
+                        uri: (tab as unknown as { _diodeUri: string })._diodeUri,
                     }));
                     return rpc.request("editor.closeTabs", { tabs }) as Promise<boolean>;
                 }

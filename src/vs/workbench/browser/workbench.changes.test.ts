@@ -83,7 +83,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
 
     beforeEach(async () => {
         ws = createTempWorkspace({
-            prefix: "vexx-changes-",
+            prefix: "diode-changes-",
             files: { "a.txt": AT_HEAD, "nested/b.txt": "b-on-disk\n", "untracked.txt": "brand new\n" },
         });
 

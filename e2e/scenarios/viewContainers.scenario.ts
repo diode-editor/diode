@@ -15,7 +15,7 @@ function git(cwd: string, ...args: string[]): void {
 }
 
 function makeRepo(): string {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-views-demo-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-views-demo-"));
     git(repoDir, "init", "-q");
     git(repoDir, "config", "user.email", "t@example.com");
     git(repoDir, "config", "user.name", "Test");

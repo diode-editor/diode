@@ -30,7 +30,7 @@ describe("Workbench — New File / New Folder", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-create-" });
+        ws = createTempWorkspace({ prefix: "diode-create-" });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
     });
 
@@ -143,7 +143,7 @@ describe("Workbench — New Untitled File", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-untitled-" });
+        ws = createTempWorkspace({ prefix: "diode-untitled-" });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
     });
 
@@ -190,7 +190,7 @@ describe("Workbench — create via context menu", () => {
     let h: IAppHarness;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-create-menu-", files: { "alpha.txt": "a" } });
+        ws = createTempWorkspace({ prefix: "diode-create-menu-", files: { "alpha.txt": "a" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
         h.testApp.render();

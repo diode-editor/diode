@@ -61,7 +61,7 @@ describe("FindService", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-find-" });
+        ws = createTempWorkspace({ prefix: "diode-find-" });
         tmpDir = ws.dir;
     });
 

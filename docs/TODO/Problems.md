@@ -44,7 +44,7 @@ API реестра: `changeOne(owner, resource, markers[])`, `read({ resource?, 
 - Расширения: `vscode.languages.createDiagnosticCollection` → RPC → `changeOne`.
 - LSP `publishDiagnostics`, problem matchers тасков — по мере появления слоёв.
 - Подмешать дефолты `contributes.configuration` расширений в валидатор `settings.json`
-  (иначе реальные VS Code-настройки, ещё не реализованные в Vexx, помечаются как неизвестные).
+  (иначе реальные VS Code-настройки, ещё не реализованные в Diode, помечаются как неизвестные).
 
 ### [ ] 4. Прочие потребители
 Метки в gutter/overview ruler, навигация по маркерам (F8/Shift+F8), hover с сообщением.

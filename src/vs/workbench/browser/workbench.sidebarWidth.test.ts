@@ -9,7 +9,7 @@ describe("Side Bar width commands", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-sidebar-", files: { "hello.txt": "hello world" } });
+        ws = createTempWorkspace({ prefix: "diode-sidebar-", files: { "hello.txt": "hello world" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         h.testApp.render();
     });

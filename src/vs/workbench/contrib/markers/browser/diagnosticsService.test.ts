@@ -131,7 +131,7 @@ describe("DiagnosticsService — settings.json validation", () => {
         h.service.dispose();
     });
 
-    it("ignores a settings.json that is not the Vexx settings file", () => {
+    it("ignores a settings.json that is not the Diode settings file", () => {
         // A settings.json from elsewhere (e.g. VS Code's own, or a workspace one)
         // shares the basename but not the path — it must not be validated.
         const h = createHarness();

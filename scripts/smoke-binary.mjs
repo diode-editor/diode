@@ -80,7 +80,7 @@ function describeOutput(result) {
  */
 export function smokeTestNodeMode(binaryPath, options = {}) {
     const { timeoutMs = 30_000 } = options;
-    const dir = mkdtempSync(join(tmpdir(), "vexx-smoke-node-"));
+    const dir = mkdtempSync(join(tmpdir(), "diode-smoke-node-"));
     try {
         writeFileSync(
             join(dir, "inner.mjs"),

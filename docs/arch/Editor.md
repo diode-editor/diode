@@ -1,6 +1,6 @@
 # Editor/
 
-Часть архитектуры Vexx — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
+Часть архитектуры Diode — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 Модель текстового редактора и виджет-мост к TUIDom: хранение текста (пока `string[]`, в планах Piece Table), view-state (scroll/selections/folding/cursor), undo/redo, интерфейсы. **Ключевой инвариант: Editor не зависит от Theme и Extensions напрямую — только через интерфейсы `ITokenStyleResolver` и `ILanguageService`.**
 

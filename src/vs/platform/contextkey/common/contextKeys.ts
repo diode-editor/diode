@@ -18,7 +18,7 @@ export interface ContextKeyTypes {
      */
     textInputFocus: boolean;
     /**
-     * Фокус в любой текстовой поверхности — редакторе ИЛИ инлайн-диффе (Vexx;
+     * Фокус в любой текстовой поверхности — редакторе ИЛИ инлайн-диффе (Diode;
      * ближайший аналог в VS Code — `editorTextFocus`, который у них тоже
      * истинен в дифф-редакторе). Здесь живут команды, которым нужен только
      * `EditorViewState`: движение каретки, выделение, копирование.
@@ -128,11 +128,11 @@ export interface ContextKeyTypes {
     /** Есть видимая развёрнутая строка результатов — тумблер Collapse All/Expand All. */
     viewHasSomeCollapsibleResult: boolean;
     scmViewletVisible: boolean;
-    /** Фокус в commit input box вьюлета Source Control (Vexx; VS Code: scmInputIsInFocus). */
+    /** Фокус в commit input box вьюлета Source Control (Diode; VS Code: scmInputIsInFocus). */
     scmInputFocus: boolean;
     /** Файл отложен командой «Select for Compare» — открывает «Compare with Selected». */
     resourceSelectedForCompare: boolean;
-    // -- Git repo-state (Vexx: публикует ScmRepoStateService из diode.scm.publishRepoState) --
+    // -- Git repo-state (Diode: публикует ScmRepoStateService из diode.scm.publishRepoState) --
     gitHasRepo: boolean;
     gitHasRemotes: boolean;
     gitHasUpstream: boolean;

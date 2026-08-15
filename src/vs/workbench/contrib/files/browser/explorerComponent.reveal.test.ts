@@ -32,7 +32,7 @@ describe("ExplorerService — revealPath (через дерево ExplorerCompon
 
     beforeEach(async () => {
         ws = createTempWorkspace({
-            prefix: "vexx-explorer-reveal-",
+            prefix: "diode-explorer-reveal-",
             files: { "src/deep/target.ts": "", "README.md": "" },
         });
 
@@ -95,7 +95,7 @@ describe("ExplorerService — revealPath (через дерево ExplorerCompon
     });
 
     it("returns false for a path outside the workspace root", async () => {
-        const outside = path.join(os.tmpdir(), "vexx-elsewhere", "x.ts");
+        const outside = path.join(os.tmpdir(), "diode-elsewhere", "x.ts");
         expect(await service.revealPath(outside)).toBe(false);
     });
 

@@ -1,5 +1,5 @@
 /**
- * Integration test: FileSearchService against the real vexx project.
+ * Integration test: FileSearchService against the real diode project.
  *
  * This test suite exercises FileSearchService with the actual workspace
  * at process.cwd() (i.e. /workspaces/vexx).  It verifies that:

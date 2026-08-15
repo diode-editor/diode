@@ -15,7 +15,7 @@ describe("Workbench — Shift+F10 context menu", () => {
 
     beforeEach(async () => {
         ws = createTempWorkspace({
-            prefix: "vexx-ctxmenu-",
+            prefix: "diode-ctxmenu-",
             files: { "alpha.txt": "hello world", "beta.txt": "x" },
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(80, 40) });

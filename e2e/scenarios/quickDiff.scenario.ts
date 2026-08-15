@@ -14,9 +14,9 @@ function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Свой временный репозиторий — чтобы «чистый» кадр не зависел от состояния vexx. */
+/** Свой временный репозиторий — чтобы «чистый» кадр не зависел от состояния diode. */
 function makeRepo(): { repoDir: string; trackedFile: string } {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-quickdiff-demo-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-quickdiff-demo-"));
     git(repoDir, "init", "-q");
     git(repoDir, "config", "user.email", "t@example.com");
     git(repoDir, "config", "user.name", "Test");

@@ -2,7 +2,7 @@
 
 ## Phase 1 — [~] E2E против собранного SEA-бинаря
 
-Готово: `vitest.e2e.config.ts` + `npm run test:e2e`; helpers (`buildOnce`, `VexxSession` поверх `node-pty`, `AnsiScreen`-парсер); сьюты `sea-startup` / `sea-assets` / `sea-extensions` (см. `e2e/`). Подробности — [docs/TESTING.md](../TESTING.md) (раздел «E2E»).
+Готово: `vitest.e2e.config.ts` + `npm run test:e2e`; helpers (`buildOnce`, `DiodeSession` поверх `node-pty`, `AnsiScreen`-парсер); сьюты `sea-startup` / `sea-assets` / `sea-extensions` (см. `e2e/`). Подробности — [docs/TESTING.md](../TESTING.md) (раздел «E2E»).
 
 **Открыто (Phase 1.x):**
 - [ ] CI: документировать build-essential / python3 для нативной сборки `node-pty`. Возможна замена на `@homebridge/node-pty-prebuilt-multiarch` при проблемах.
@@ -29,7 +29,7 @@ Phase 1 давала «запустился и что-то нарисовал»,
   `e2e/helpers/useApp.ts` (`useHeadlessApp`/`usePtyApp`). Один временный корень
   изолирует `--user-data-dir` + HOME/XDG + cwd. `runScenario` и все сьюты
   (`mouse`, `inspector-real-app`, `sea-*`, `selfextract`, `editorconfig-stock`)
-  переведены; прогон больше не трогает реальный `~/.vexx` и корзину.
+  переведены; прогон больше не трогает реальный `~/.diode` и корзину.
 - [x] **Словарь фокуса** — `focusedLeaf`/`focusPath` (`e2e/helpers/query.ts`),
   `session.focusedType()` и `waitForFocus(type)`.
 - [x] **Локаторы вместо координат** — селектор-адрес (`$`/`$$`/`boxOf`/`centerOf`
@@ -48,7 +48,7 @@ Phase 1 давала «запустился и что-то нарисовал»,
 - [x] **Механика ожиданий (Phase 2)** — серверный `TUIDom.waitForIdle` +
   settle-глаголы + `waitUntil`; `inspectState()` виджетов в `NodeSnapshot.state`.
 - [x] **Параллельный прогон** — сборка в `globalSetup`, `fileParallelism` с
-  дефолтом «половина ядер», ручка `VEXX_E2E_WORKERS`.
+  дефолтом «половина ядер», ручка `DIODE_E2E_WORKERS`.
 
 ### Найденные дефекты
 
@@ -63,7 +63,7 @@ Phase 1 давала «запустился и что-то нарисовал»,
 
 ## Команды
 ```bash
-npm run build:sea      # собрать dist/vexx
+npm run build:sea      # собрать dist/diode
 npm run test:e2e       # e2e тесты против бинаря
 npm test               # обычные unit-тесты (e2e не запускаются)
 ```

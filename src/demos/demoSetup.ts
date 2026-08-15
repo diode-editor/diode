@@ -1,6 +1,6 @@
 /**
  * Shared setup for low-level TUI demos (raw stdin, Kitty protocol).
- * Осознанная копия tuidom/demos/demoSetup.ts: демки vexx не тянут демо-каталог
+ * Осознанная копия tuidom/demos/demoSetup.ts: демки diode не тянут демо-каталог
  * библиотеки (он не входит в npm-пакет tuidom).
  *
  * Handles:

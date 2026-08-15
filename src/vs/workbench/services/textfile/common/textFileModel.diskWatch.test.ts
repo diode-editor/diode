@@ -30,7 +30,7 @@ describe("TextFileModel — external change detection", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-diskwatch-" });
+        ws = createTempWorkspace({ prefix: "diode-diskwatch-" });
     });
 
     afterEach(() => {

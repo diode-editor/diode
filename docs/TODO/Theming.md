@@ -43,4 +43,4 @@ themes/*.ts ──▶ ThemeRegistry (label → IThemeFile) ──▶ resolve(lab
 - `src/vs/workbench/browser/parts/quickinput/quickInputService.ts` — `quickPick()` list-pick flavor
 - `src/vs/workbench/Actions/ThemeActions.ts` — `selectColorTheme` (экшен-пикер), меню — `MenuService`
 - `src/vs/platform/configuration/node/configurationService.ts` — `updateUserValue` (persist)
-- `src/vs/vexx/main.ts` — выбор активной темы на старте
+- `src/vs/diode/main.ts` — выбор активной темы на старте

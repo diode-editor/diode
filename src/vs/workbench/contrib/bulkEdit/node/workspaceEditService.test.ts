@@ -16,7 +16,7 @@ let ws: ITempWorkspace;
 let savedXdg: string | undefined;
 
 beforeEach(() => {
-    ws = createTempWorkspace({ prefix: "vexx-wes-" });
+    ws = createTempWorkspace({ prefix: "diode-wes-" });
     tmpDir = ws.dir;
     savedXdg = process.env.XDG_DATA_HOME;
     process.env.XDG_DATA_HOME = path.join(tmpDir, "data");

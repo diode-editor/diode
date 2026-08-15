@@ -67,7 +67,7 @@ describe("loadConfiguration", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-cfg-" });
+        ws = createTempWorkspace({ prefix: "diode-cfg-" });
     });
 
     afterEach(() => {
@@ -215,7 +215,7 @@ describe("ConfigurationService.updateUserValue", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-cfg-write-" });
+        ws = createTempWorkspace({ prefix: "diode-cfg-write-" });
     });
 
     afterEach(() => {
@@ -321,7 +321,7 @@ describe("ConfigurationService — live reload", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-cfg-live-" });
+        ws = createTempWorkspace({ prefix: "diode-cfg-live-" });
     });
 
     afterEach(() => {

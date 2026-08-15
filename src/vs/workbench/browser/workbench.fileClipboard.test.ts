@@ -13,7 +13,7 @@ import { ClipboardDIToken } from "../common/coreTokens.ts";
 
 // Workspace layout (dirs sort first): row 0 = "target/", row 1 = "a.txt".
 function createWorkspace(): ITempWorkspace {
-    const ws = createTempWorkspace({ prefix: "vexx-fileclip-int-", files: { "a.txt": "hello" } });
+    const ws = createTempWorkspace({ prefix: "diode-fileclip-int-", files: { "a.txt": "hello" } });
     fs.mkdirSync(ws.path("target"));
     return ws;
 }

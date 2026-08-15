@@ -9,7 +9,7 @@
 //   - 232..255 — 24 оттенка серого (8, 18, …, 238).
 //
 // Здесь зафиксированы «дефолтные» цвета xterm; в будущем таблица подменяется палитрой
-// активной темы Vexx (см. docs/TODO/IntegratedTerminal.md).
+// активной темы Diode (см. docs/TODO/IntegratedTerminal.md).
 
 import { packRgb } from "@tuidom/core/common/colorUtils";
 

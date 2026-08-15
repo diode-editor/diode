@@ -28,7 +28,7 @@ describe("Workbench — editor groups (сплиты)", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-editor-groups-",
+            prefix: "diode-editor-groups-",
             files: { "alpha.txt": MANY_LINES, "beta.txt": "beta", "gamma.txt": "gamma" },
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(120, 40) });

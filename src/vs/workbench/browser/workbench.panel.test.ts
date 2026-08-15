@@ -15,7 +15,7 @@ describe("Workbench — bottom panel visibility commands", () => {
     let contextKeys: ContextKeyService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-panel-" });
+        ws = createTempWorkspace({ prefix: "diode-panel-" });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         contextKeys = h.container.get(ContextKeyServiceDIToken);
     });

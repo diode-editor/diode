@@ -24,7 +24,7 @@ describe("Workbench — Save As", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-saveas-",
+            prefix: "diode-saveas-",
             files: {
                 "alpha.txt": "Alpha content",
                 "beta.txt": "Beta content",

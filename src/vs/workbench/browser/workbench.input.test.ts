@@ -17,7 +17,7 @@ describe("Workbench — input widget editing via keybindings (QuickOpen)", () =>
     let h: IAppHarness;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-input-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "diode-input-", files: { "alpha.txt": "Alpha" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
         await h.workbench.fileIndexReady;

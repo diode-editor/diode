@@ -10,7 +10,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 const FILE_COUNT = 40;
 
 function createWorkspace(): ITempWorkspace {
-    const ws = createTempWorkspace({ prefix: "vexx-tree-nav-" });
+    const ws = createTempWorkspace({ prefix: "diode-tree-nav-" });
     for (let i = 0; i < FILE_COUNT; i++) {
         ws.writeFile(`file-${String(i).padStart(2, "0")}.txt`, `content ${String(i)}`);
     }

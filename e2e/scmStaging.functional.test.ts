@@ -45,7 +45,7 @@ function writeAll(repoDir: string, files: Record<string, string>): void {
 }
 
 function makeRepo(opts: RepoFiles): string {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-scm-stage-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-scm-stage-"));
     gitQ(repoDir, "init", "-q");
     gitQ(repoDir, "config", "user.email", "t@example.com");
     gitQ(repoDir, "config", "user.name", "Test");

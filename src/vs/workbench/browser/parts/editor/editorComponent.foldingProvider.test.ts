@@ -24,7 +24,7 @@ describe("EditorComponent – extension folding provider merge", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-foldprov-" });
+        ws = createTempWorkspace({ prefix: "diode-foldprov-" });
     });
     afterEach(() => {
         ws.dispose();

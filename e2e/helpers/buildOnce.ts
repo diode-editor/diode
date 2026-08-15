@@ -17,13 +17,13 @@ let selfExtractPromise: Promise<string> | null = null;
  * Lazily build the SEA binary and return its absolute path.
  *
  * When `globalSetup` has already built it, its path arrives via
- * `VEXX_E2E_BINARY` (inherited by every worker fork) — we skip the build. Only
+ * `DIODE_E2E_BINARY` (inherited by every worker fork) — we skip the build. Only
  * the fallback path (no global setup, e.g. `npm run screenshots` or a single
  * file run) triggers `npm run build:sea`, at most once per worker.
  */
 export function getBinaryPath(): Promise<string> {
     if (buildPromise) return buildPromise;
-    const injected = process.env.VEXX_E2E_BINARY;
+    const injected = process.env.DIODE_E2E_BINARY;
     if (injected !== undefined && injected.length > 0 && existsSync(injected)) {
         buildPromise = Promise.resolve(injected);
         return buildPromise;

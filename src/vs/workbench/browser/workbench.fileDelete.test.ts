@@ -12,7 +12,7 @@ let savedXdg: string | undefined;
 
 function createWorkspace(): ITempWorkspace {
     const ws = createTempWorkspace({
-        prefix: "vexx-file-delete-integration-",
+        prefix: "diode-file-delete-integration-",
         files: {
             "alpha.txt": "Alpha content",
             "beta.txt": "Beta content",

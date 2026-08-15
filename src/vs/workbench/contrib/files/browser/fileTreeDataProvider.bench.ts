@@ -16,7 +16,7 @@ import { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
 // NB: фикстуры строятся на верхнем уровне (см. комментарий в FileSearchService.bench.ts).
 
 function makeDirWithEntries(count: number): string {
-    const dir = createTempDir("vexx-perf-readdir-");
+    const dir = createTempDir("diode-perf-readdir-");
     for (let i = 0; i < count; i++) {
         // Смесь файлов и директорий, как в реальном каталоге.
         if (i % 10 === 0) {

@@ -25,7 +25,7 @@ function git(cwd: string, ...args: string[]): void {
 
 /** Временный git-репо: закоммиченный файл + правка строки 2 (→ dirty-diff modified). */
 function makeRepo(): { repoDir: string; trackedFile: string } {
-    const repoDir = mkdtempSync(join(tmpdir(), "vexx-sea-git-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "diode-sea-git-"));
     git(repoDir, "init", "-q");
     git(repoDir, "config", "user.email", "t@example.com");
     git(repoDir, "config", "user.name", "Test");

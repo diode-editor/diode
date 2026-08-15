@@ -13,7 +13,7 @@ describe("FsAssetAccess", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({
-            prefix: "vexx-fs-asset-",
+            prefix: "diode-fs-asset-",
             files: {
                 "ext/ts/package.json": '{"name":"ts"}',
                 "ext/ts/syntaxes/ts.tmLanguage.json": "{}",

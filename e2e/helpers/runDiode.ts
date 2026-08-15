@@ -8,7 +8,7 @@ import { getBinaryPath } from "./buildOnce.ts";
 import { hermeticSpawnEnv } from "./hermeticEnv.ts";
 import { connectWithRetry, freePort, getDocument } from "./inspectorClient.ts";
 
-export interface VexxSessionOptions {
+export interface DiodeSessionOptions {
     args: string[];
     cols?: number;
     rows?: number;
@@ -22,8 +22,8 @@ export interface VexxSessionOptions {
     /**
      * Start the real app with the TUIDom inspector enabled. The harness picks a
      * free port, injects `--inspect-tui=127.0.0.1:<port>` into the args and lets
-     * assertions read the live document tree via {@link VexxSession.getDocument}
-     * / {@link VexxSession.waitForDocument} — no ANSI-screen parsing needed.
+     * assertions read the live document tree via {@link DiodeSession.getDocument}
+     * / {@link DiodeSession.waitForDocument} — no ANSI-screen parsing needed.
      */
     inspect?: boolean;
     /**
@@ -38,7 +38,7 @@ export interface VexxSessionOptions {
  * Wraps a `node-pty` spawn of the SEA binary, accumulates stdout for ANSI
  * parsing and provides convenience methods for e2e assertions.
  */
-export class VexxSession {
+export class DiodeSession {
     public readonly cols: number;
     public readonly rows: number;
     /** Port the TUIDom inspector listens on, or `null` when `inspect` was not set. */
@@ -50,7 +50,7 @@ export class VexxSession {
     private readonly waiters: Array<() => void> = [];
     private inspectorWs: WebSocket | null = null;
 
-    public static async start(options: VexxSessionOptions): Promise<VexxSession> {
+    public static async start(options: DiodeSessionOptions): Promise<DiodeSession> {
         const binary = options.binary ?? (await getBinaryPath());
         const cols = options.cols ?? 120;
         const rows = options.rows ?? 32;
@@ -75,7 +75,7 @@ export class VexxSession {
             env,
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
         });
-        return new VexxSession(term, cols, rows, inspectorPort);
+        return new DiodeSession(term, cols, rows, inspectorPort);
     }
 
     private constructor(term: pty.IPty, cols: number, rows: number, inspectorPort: number | null) {
@@ -165,7 +165,7 @@ export class VexxSession {
     /** Lazily open (and cache) the inspector WebSocket, retrying until it's up. */
     private async ensureInspector(): Promise<WebSocket> {
         if (this.inspectorPort === null) {
-            throw new Error("VexxSession was started without { inspect: true }");
+            throw new Error("DiodeSession was started without { inspect: true }");
         }
         if (this.inspectorWs === null) {
             this.inspectorWs = await connectWithRetry(`ws://127.0.0.1:${String(this.inspectorPort)}`, 20_000);

@@ -18,7 +18,7 @@ stories US-1…US-36: каждая закрывается тестом при р
 ## Что уже есть (точка старта)
 
 - (история; синтетика фазы 1 удалена в DiffEditable PR-5) Вкладка
-  `vexx-diff:<path>?HEAD` была **inline**-диффом на `DiffViewElement` поверх
+  `diode-diff:<path>?HEAD` была **inline**-диффом на `DiffViewElement` поверх
   синтетического документа; сегодняшняя вкладка — живой side-by-side v2 из двух
   настоящих редакторов (см. DiffEditable.md).
 - Единственный вход — «Git: Compare Active File with HEAD» и активация строки в Changes.
@@ -33,7 +33,7 @@ stories US-1…US-36: каждая закрывается тестом при р
 
 Дифф — это **пара сторон** `{original, modified}`. Каждая сторона — это `{uri, label,
 текст}`, а вот **откуда взялся текст**, вкладке знать не нужно. Сегодня левую сторону даёт
-git (`vexx-diff:` + `IOriginalResourceProvider`), правую — открытый буфер или диск.
+git (`diode-diff:` + `IOriginalResourceProvider`), правую — открытый буфер или диск.
 Всё семейство команд ниже — это ровно варианты того, чем заполнить две стороны:
 
 | Источник | Пример команды | Чем читается |
@@ -76,10 +76,10 @@ git (`vexx-diff:` + `IOriginalResourceProvider`), правую — открыт�
   Вкладка `a.ts ↔ b.ts` (выбранный ПЕРВЫМ — слева). Пункт «Compare with Selected» до
   первого выбора не показывается (when-ключ); повторный «Select for Compare» просто
   заменяет отложенный файл; выбор не переживает рестарт (как VS Code).
-- **US-5. Сравнить с буфером обмена.** В буфере обмена Vexx — текст (скопирован
+- **US-5. Сравнить с буфером обмена.** В буфере обмена Diode — текст (скопирован
   Ctrl+C). Открыт файл. → «File: Compare Active File with Clipboard». → Вкладка
   `Clipboard ↔ <файл>`; слева содержимое буфера обмена, справа файл.
-  *Ограничение (осознанное):* читается внутренний регистр Vexx, не системный буфер —
+  *Ограничение (осознанное):* читается внутренний регистр Diode, не системный буфер —
   `OscClipboard.readText()` намеренно не спрашивает терминал (см. его док-комментарий).
   Текст, скопированный в другом приложении, сюда не попадёт; в сценарии это должно быть
   видно как «сравнили с пустым», а не как ошибка. Повторный вызов с новым содержимым
@@ -90,7 +90,7 @@ git (`vexx-diff:` + `IOriginalResourceProvider`), правую — открыт�
   показывает «no changes» (US-11), это не ошибка. Untitled-буфер — команда недоступна
   (файла на диске нет).
 - **US-7. Сравнить с произвольной ревизией.** Репо с ветками/тегами. → «Git: Compare
-  Active File with Revision…» → пикер ref'ов (переиспользует `vexx.git.query refs`:
+  Active File with Revision…» → пикер ref'ов (переиспользует `diode.git.query refs`:
   ветки, теги; текущая помечена) → выбрать ветку. → Вкладка `<файл> (<ref>) ↔ <файл>`;
   левая сторона — содержимое файла на этом ref (читается тем же `git:`-провайдером ФС,
   что и HEAD, — меняется только ref в query). Файла на ref нет → левая сторона пуста,
@@ -132,12 +132,12 @@ git (`vexx-diff:` + `IOriginalResourceProvider`), правую — открыт�
 | `workbench.files.action.compareWithClipboard` | File: Compare Active File with Clipboard | активная вкладка с ресурсом | `Clipboard ↔ файл`; левая сторона без uri — текст из `IClipboard` |
 | `selectForCompare` | Select for Compare | строка файла в Explorer (контекст-меню, группа сравнения) | запоминает uri + взводит when-ключ `resourceSelectedForCompare` |
 | `compareFiles` | Compare with Selected | Explorer + `resourceSelectedForCompare` | `выбранный ранее ↔ текущий` |
-| `vexx.scm.compareWithRevision` | Git: Compare Active File with Revision… | `gitHasRepo` + активная вкладка | пикер ref'ов → `(ref) ↔ файл` |
+| `diode.scm.compareWithRevision` | Git: Compare Active File with Revision… | `gitHasRepo` + активная вкладка | пикер ref'ов → `(ref) ↔ файл` |
 | `vscode.diff` | — (программная) | всегда | `(leftUri, rightUri, title?)` — вход для расширений и внутренних потребителей |
 
 Общее ядро — «открыть дифф пары источников»: сторона задаётся либо uri (текст
 резолвится реестром ФС / открытым буфером — буфер побеждает диск, несохранённые правки
-видны), либо готовым текстом с меткой (Clipboard). `vexx.scm.compareWithHead` (US-1)
+видны), либо готовым текстом с меткой (Clipboard). `diode.scm.compareWithHead` (US-1)
 переезжает на то же ядро без изменения поведения. Кейбинды VS Code — chord-пары
 `Ctrl+K D` (Saved) и `Ctrl+K C` (Clipboard) — добавляются, только если chord-механика
 уже есть; иначе палитры достаточно (отметить в доке фактическое состояние).
@@ -260,14 +260,14 @@ merge-конфликтов, word wrap внутри диффа.
 - [x] **Фаза 3. Пара источников** — гейт: US-32, US-33, US-11, US-10. Сделано:
   `openDiffPair` (contrib/diff/browser) — вкладка для произвольной пары сторон
   (uri с чтением буфер-побеждает-диск / готовый текст), идентичность — упорядоченная
-  пара ключей в query `vexx-diff:`-uri, та же пара обновляет снимок на месте,
+  пара ключей в query `diode-diff:`-uri, та же пара обновляет снимок на месте,
   перевёрнутая — отдельная вкладка; политика нечитаемой стороны per-side
   (`empty`/`error`); идентичные стороны — вкладка «The files are identical».
 - [x] **Фаза 4. Семейство команд** — US-3…US-7, US-9, US-12 (спека — таблица выше).
   Сделано: with Saved (Ctrl+K D), with Clipboard (Ctrl+K C), With... (пикер: вкладки
   с бейджем open + файлы workspace), Select for Compare / Compare with Selected
   (Explorer, группа 3_compare, when-ключ), with Revision... (пикер ref'ов, текущая
-  ветка помечена; `vexx.scm.originalResource` получил ref-параметр), `vscode.diff`
+  ветка помечена; `diode.scm.originalResource` получил ref-параметр), `vscode.diff`
   (контракт VS Code, мимо палитры). Уроки реального запуска: title с ASCII `...` —
   фильтр палитры регистронезависим, и «Compare Active File With» матчил Saved/
   Clipboard тоже; e2e-хелперы обязаны фильтровать до единственной команды.

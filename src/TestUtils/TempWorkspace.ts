@@ -28,7 +28,7 @@ export interface ITempWorkspace {
  *     // ... afterEach: ws.dispose();
  */
 export function createTempWorkspace(options: ITempWorkspaceOptions = {}): ITempWorkspace {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), options.prefix ?? "vexx-test-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), options.prefix ?? "diode-test-"));
 
     const resolve = (relativePath: string): string => path.join(dir, relativePath);
 

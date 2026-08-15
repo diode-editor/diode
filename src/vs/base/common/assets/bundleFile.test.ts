@@ -16,7 +16,7 @@ describe("BundleFile", () => {
     let dir: string;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-bundle-file-" });
+        ws = createTempWorkspace({ prefix: "diode-bundle-file-" });
         dir = ws.dir;
     });
 
@@ -34,7 +34,7 @@ describe("BundleFile", () => {
     }
 
     it("резолвит путь рядом с main.js", () => {
-        expect(bundleFilePath("/opt/vexx")).toBe(join("/opt/vexx", "diode.bundle"));
+        expect(bundleFilePath("/opt/diode")).toBe(join("/opt/diode", "diode.bundle"));
     });
 
     it("bundleFileExists отражает наличие файла", () => {

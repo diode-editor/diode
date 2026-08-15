@@ -11,7 +11,7 @@ describe("FileTreeDataProvider", () => {
     let provider: FileTreeDataProvider;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "vexx-test-" });
+        ws = createTempWorkspace({ prefix: "diode-test-" });
         provider = new FileTreeDataProvider(ws.dir);
     });
 

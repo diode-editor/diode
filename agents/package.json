@@ -1,9 +1,9 @@
 {
-  "name": "@vexx/agents",
+  "name": "@diode/agents",
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Запуск агентов Vexx: роли, планировщик, MCP и витрина",
+  "description": "Запуск агентов Diode: роли, планировщик, MCP и витрина",
   "engines": {
     "node": ">=24.0.0"
   },
