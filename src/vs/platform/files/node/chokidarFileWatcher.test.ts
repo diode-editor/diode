@@ -48,7 +48,7 @@ describe("ChokidarFileWatcher", () => {
         // Регрессия на исходный краш: без слушателя 'error' EventEmitter chokidar'а
         // бросает исключение из своих async-потрохов — процесс падает целиком.
         const watcher = new TestFileWatcher();
-        watcher.watchFile("/home/user/.vexx/user-data/User/settings.json", () => {
+        watcher.watchFile("/home/user/.diode/user-data/User/settings.json", () => {
             /* no-op */
         });
         const err = Object.assign(new Error("ENOSPC: System limit for number of file watchers reached"), {
@@ -63,7 +63,7 @@ describe("ChokidarFileWatcher", () => {
     it("logs a warn with an inotify hint for ENOSPC", () => {
         const { logService, entries } = createLogService();
         const watcher = new TestFileWatcher(logService.createLogger("files.watcher"));
-        const filePath = "/home/user/.vexx/user-data/User/settings.json";
+        const filePath = "/home/user/.diode/user-data/User/settings.json";
         watcher.watchFile(filePath, () => {
             /* no-op */
         });

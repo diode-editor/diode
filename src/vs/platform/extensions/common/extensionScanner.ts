@@ -14,7 +14,7 @@ export interface IScanExtensionsOptions {
  * {@link IAssetAccess}, парсит манифесты и возвращает список валидных
  * расширений. `rootPrefix` должен заканчиваться на `/` (например
  * `"Extensions/builtin/"` для builtin или `"UserExtensions/"` для
- * `~/.vexx/extensions/`, замапленного через `FsAssetAccess`).
+ * `~/.diode/extensions/`, замапленного через `FsAssetAccess`).
  *
  * Битые манифесты (отсутствие `name`/`publisher`/`version`, невалидный JSON,
  * отсутствующий `package.json`) пропускаются с записью в `logger.error` —

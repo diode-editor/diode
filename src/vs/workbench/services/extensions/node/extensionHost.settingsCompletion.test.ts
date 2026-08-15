@@ -28,7 +28,7 @@ function settingsExtension(): IExtensionRegistration {
  * `{\n    |\n}` — каретка в теле объекта, то есть в позиции ключа.
  */
 const SETTINGS_REQ = {
-    uri: Uri.file("/proj/.vexx/settings.json").toString(),
+    uri: Uri.file("/proj/.diode/settings.json").toString(),
     languageId: "json",
     text: "{\n    \n}",
     line: 1,
@@ -109,7 +109,7 @@ describe("diode-settings — кавычки и значения (e2e через 
             await harness.host.activateByEvent("onLanguage:json");
             await settle();
             const result = await harness.host.provideCompletionItems({
-                uri: Uri.file("/proj/.vexx/settings.json").toString(),
+                uri: Uri.file("/proj/.diode/settings.json").toString(),
                 languageId: "json",
                 text,
                 line,

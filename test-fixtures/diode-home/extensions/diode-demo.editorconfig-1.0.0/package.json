@@ -1,7 +1,7 @@
 {
     "name": "editorconfig",
-    "publisher": "vexx-demo",
-    "displayName": "Vexx EditorConfig Demo",
+    "publisher": "diode-demo",
+    "displayName": "Diode EditorConfig Demo",
     "description": "Reads nearest .editorconfig and applies indent_style/indent_size to the active editor",
     "version": "1.0.0",
     "engines": {

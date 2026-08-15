@@ -4,7 +4,7 @@ import type { IAssetAccess, IAssetEntry } from "./iAssetAccess.ts";
  * Композитный {@link IAssetAccess}, маршрутизирующий запросы по виртуальному
  * префиксу пути. Используется, когда часть ассетов лежит в SEA-bundle
  * (builtin расширения), а часть — на диске (внешние расширения из
- * `~/.vexx/extensions/`).
+ * `~/.diode/extensions/`).
  *
  * Правила:
  *   - Для каждого backend задан виртуальный префикс, заканчивающийся на `/`
