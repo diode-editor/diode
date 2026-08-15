@@ -4483,7 +4483,7 @@ interface Thenable<T> extends PromiseLike<T> { }
  * реализации соответствующих API. Не редактируйте вручную — регенерируется
  * `scripts/import-vscode-dts.mjs`; единственная ручная правка — снятие `// `.
  * ───────────────────────────────────────────────────────────────────────── */
-//@vexx:begin-upstream-verbatim (генерируется scripts/import-vscode-dts.mjs — правьте только раскомментированием)
+//@diode:begin-upstream-verbatim (генерируется scripts/import-vscode-dts.mjs — правьте только раскомментированием)
 // /*---------------------------------------------------------------------------------------------
 //  *  Copyright (c) Microsoft Corporation. All rights reserved.
 //  *  Licensed under the MIT License. See License.txt in the project root for license information.

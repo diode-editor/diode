@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-//@vexx:vendored microsoft/vscode@1.127.0 src/vs/editor/common/core/editOperation.ts
+//@diode:vendored microsoft/vscode@1.127.0 src/vs/editor/common/core/editOperation.ts
 // НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-diff.mjs (см. AGENTS.md).
 
 import { Position } from './position.ts';

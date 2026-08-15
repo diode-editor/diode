@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-//@vexx:shim microsoft/vscode@1.127.0 src/vs/base/common/errors.ts
+//@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/errors.ts
 // Узкое извлечение — см. шапку src/vs/base/common/arrays.ts.
 //
 // ОСОЗНАННОЕ ОТКЛОНЕНИЕ ОТ UPSTREAM: дефолтный обработчик здесь только пишет в

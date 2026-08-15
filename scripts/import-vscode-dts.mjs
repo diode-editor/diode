@@ -38,7 +38,7 @@ const repoRoot = resolve(import.meta.dirname, "..");
 const targetFile = resolve(repoRoot, "src", "vscode-dts", "vscode.d.ts");
 
 /** Строка-сентинел: всё, что ниже неё, — генерируемый дормант. */
-const SENTINEL = "//@vexx:begin-upstream-verbatim (генерируется scripts/import-vscode-dts.mjs — правьте только раскомментированием)";
+const SENTINEL = "//@diode:begin-upstream-verbatim (генерируется scripts/import-vscode-dts.mjs — правьте только раскомментированием)";
 
 // ---- comment / strip -------------------------------------------------------
 
