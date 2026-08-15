@@ -25,14 +25,14 @@ const BUNDLED_POLL_MS = 100;
  * в SEA — vexx-бинарь в node-режиме (`DIODE_RUN_AS_NODE=1`, runAsNode.ts).
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    const configuration = vscode.workspace.getConfiguration("vexx.lsp.typescript");
+    const configuration = vscode.workspace.getConfiguration("diode.lsp.typescript");
     if (configuration.get<boolean>("enabled", true) !== true) return;
     const settingPath = configuration.get<string>("serverPath", "") ?? "";
     const bundledServerPath = configuration.get<string>("bundledServerPath", "") ?? "";
     const bundledTsserverPath = configuration.get<string>("bundledTsserverPath", "") ?? "";
     const serverRuntime = configuration.get<string>("serverRuntime", "node") ?? "node";
     const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
-    const runtime = { command: process.execPath, runAsNodeFlag: serverRuntime === "vexx-as-node" };
+    const runtime = { command: process.execPath, runAsNodeFlag: serverRuntime === "diode-as-node" };
 
     for (const spec of LANGUAGE_SERVERS) {
         const outputChannel = vscode.window.createOutputChannel(spec.displayName);

@@ -18,7 +18,7 @@ const TSSERVER_ENTRY = "node_modules/typescript/lib/tsserver.js";
 
 /** Пути вшитого language-сервера, готовые к спавну node-рантаймом. */
 export interface ITsServerPaths {
-    /** Энтрипоинт сервера (CJS-шим run-cli.cjs — работает и под node, и под vexx-as-node). */
+    /** Энтрипоинт сервера (CJS-шим run-cli.cjs — работает и под node, и под diode-as-node). */
     readonly serverPath: string;
     /** tsserver.js для `initializationOptions.tsserver.path`. */
     readonly tsserverPath: string;

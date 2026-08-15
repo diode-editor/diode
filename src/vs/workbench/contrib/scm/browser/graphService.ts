@@ -9,7 +9,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
  * регистрирует ядро (см. {@link ScmGraphService}); строка дублируется по
  * значению на стороне расширения — общих импортов через границу процесса нет.
  */
-export const PUBLISH_LOG_COMMAND = "vexx.scm.publishLog";
+export const PUBLISH_LOG_COMMAND = "diode.scm.publishLog";
 
 /** Ссылка на коммит — бейдж рядом со строкой графа. */
 export interface IScmCommitRef {

@@ -4,7 +4,7 @@ import type { CommandRegistry } from "../../../../platform/commands/common/comma
 import type { IOriginalResourceProvider } from "./quickDiffService.ts";
 
 /** Команда, которой SCM-расширение отдаёт ресурс оригинала (аналог `provideOriginalResource`). */
-export const ORIGINAL_RESOURCE_COMMAND = "vexx.scm.originalResource";
+export const ORIGINAL_RESOURCE_COMMAND = "diode.scm.originalResource";
 
 /**
  * {@link IOriginalResourceProvider} поверх реестра команд: ресурс оригинала

@@ -15,12 +15,12 @@ import { GitChangesMenu } from "./gitMenus.ts";
 /**
  * User-facing staging-команды (`git.*` — номенклатура VS Code). Живут в ядре:
  * меню, выделение и пикеры — здесь; git исполняет расширение через
- * команды-транспорты `vexx.git.*` (строки дублируются по значению — общих
+ * команды-транспорты `diode.git.*` (строки дублируются по значению — общих
  * импортов через границу процесса нет).
  */
-export const STAGE_TRANSPORT_COMMAND = "vexx.git.stage";
-export const UNSTAGE_TRANSPORT_COMMAND = "vexx.git.unstage";
-export const CLEAN_TRANSPORT_COMMAND = "vexx.git.clean";
+export const STAGE_TRANSPORT_COMMAND = "diode.git.stage";
+export const UNSTAGE_TRANSPORT_COMMAND = "diode.git.unstage";
+export const CLEAN_TRANSPORT_COMMAND = "diode.git.clean";
 
 /** Применимость по группам: stage — всё незастейдженное, unstage — индекс. */
 const STAGEABLE_GROUPS: readonly ScmGroupId[] = ["worktree", "untracked", "merge"];

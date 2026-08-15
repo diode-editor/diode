@@ -8,16 +8,16 @@ import { Uri } from "../../../../base/common/uri.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Грузим настоящий builtin `vexx-settings` по mainPath (subprocess тестов —
+// Грузим настоящий builtin `diode-settings` по mainPath (subprocess тестов —
 // tsx, транспилирует `.ts`-main и вшитый `settings-schema.generated.ts`).
 const VEXX_SETTINGS_MAIN = fileURLToPath(
-    new URL("../../../../../../extensions/vexx-settings/main.ts", import.meta.url),
+    new URL("../../../../../../extensions/diode-settings/main.ts", import.meta.url),
 );
 
 function settingsExtension(): IExtensionRegistration {
     return {
-        id: "vexx.settings",
-        manifest: { name: "settings", publisher: "vexx", version: "0.1.0" },
+        id: "diode.settings",
+        manifest: { name: "settings", publisher: "diode", version: "0.1.0" },
         mainPath: VEXX_SETTINGS_MAIN,
         activationEvents: ["onLanguage:json"],
     };
@@ -35,7 +35,7 @@ const SETTINGS_REQ = {
     character: 4,
 };
 
-describe("vexx-settings — автодополнение ключей в settings.json", () => {
+describe("diode-settings — автодополнение ключей в settings.json", () => {
     it("активируется onLanguage:json и предлагает известные ключи настроек", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [], // управляем активацией вручную — проверяем лениость
@@ -43,11 +43,11 @@ describe("vexx-settings — автодополнение ключей в setting
         });
         try {
             // Пока событие языка не наступило — расширение не активно.
-            expect(harness.host.hasExtension("vexx.settings")).toBe(false);
+            expect(harness.host.hasExtension("diode.settings")).toBe(false);
 
             await harness.host.activateByEvent("onLanguage:json");
             await settle();
-            expect(harness.host.hasExtension("vexx.settings")).toBe(true);
+            expect(harness.host.hasExtension("diode.settings")).toBe(true);
 
             const { items } = await harness.group.completionSource!(SETTINGS_REQ);
             const labels = items.map((i) => i.label);
@@ -91,7 +91,7 @@ describe("vexx-settings — автодополнение ключей в setting
  * видят один и тот же класс `Range`. Потеряйся range — ядро откатилось бы на свой
  * префикс, и кавычки бы удвоились.
  */
-describe("vexx-settings — кавычки и значения (e2e через subprocess)", () => {
+describe("diode-settings — кавычки и значения (e2e через subprocess)", () => {
     /** Каретка задаётся маркером `|` — кейс читается как то, что видит пользователь. */
     async function complete(marked: string) {
         const offset = marked.indexOf("|");

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Генератор каталога ключей настроек для builtin-расширения `vexx-settings`.
+ * Генератор каталога ключей настроек для builtin-расширения `diode-settings`.
  *
  * Собирает известные ключи настроек из двух реальных источников:
  *  - configuration-узлы приложения (`CONFIGURATION_CONTRIBUTIONS` из
@@ -10,7 +10,7 @@
  *    default, description, enum) — тот же набор, что валидирует SettingsDiagnostics.
  *
  * Пишет детерминированный (сортировка по ключу) `settings-schema.generated.ts`
- * в каталог `vexx-settings/`. Файл коммитится (его импортирует `main.ts`,
+ * в каталог `diode-settings/`. Файл коммитится (его импортирует `main.ts`,
  * видимый для tsc), а `build:extensions` держит его в актуальном состоянии.
  * Узлы извлекаются esbuild-bundle + import data-URL (как каталог тем).
  */
@@ -128,7 +128,7 @@ export async function generateSettingsSchema({ repoRoot }) {
 // Регенерируется \`npm run build:extensions\` (scripts/generate-settings-schema.mjs).
 // Каталог известных ключей настроек: configuration-узлы приложения
 // (Workbench/Configuration/) + contributes.configuration всех builtin-расширений.
-// Вшивается в vexx-settings
+// Вшивается в diode-settings
 // на этапе сборки и служит источником автодополнения в settings.json.
 
 export interface ISettingSchemaEntry {
@@ -143,7 +143,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
 ${body}
 ];
 `;
-    const outPath = resolve(repoRoot, "extensions", "vexx-settings", "settings-schema.generated.ts");
+    const outPath = resolve(repoRoot, "extensions", "diode-settings", "settings-schema.generated.ts");
     writeFileSync(outPath, file, "utf8");
     return { outPath, count: entries.length };
 }

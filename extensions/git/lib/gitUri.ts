@@ -58,4 +58,4 @@ export function fromGitUri(uri: { scheme: string; query: string }): IGitUriParam
  * контракт между расширением и ядром, и он временный: канонический путь —
  * `scm`-неймспейс, см. docs/TODO/Diff.md.
  */
-export const ORIGINAL_RESOURCE_COMMAND = "vexx.scm.originalResource";
+export const ORIGINAL_RESOURCE_COMMAND = "diode.scm.originalResource";

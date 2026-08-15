@@ -205,7 +205,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
             model = new TextFileModel(this.languageService, this.undoRedoService);
             // Ресурс снимка — синтетический и уникальный: пара + сторона.
             model.openSynthetic(
-                Uri.from({ scheme: "vexx-diff-side", path: input.uri.path, query: input.uri.query, fragment: side }),
+                Uri.from({ scheme: "diode-diff-side", path: input.uri.path, query: input.uri.query, fragment: side }),
                 input.languageId,
             );
             model.replaceOwnedContent(source.text);

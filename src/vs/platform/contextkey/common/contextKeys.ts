@@ -132,7 +132,7 @@ export interface ContextKeyTypes {
     scmInputFocus: boolean;
     /** Файл отложен командой «Select for Compare» — открывает «Compare with Selected». */
     resourceSelectedForCompare: boolean;
-    // -- Git repo-state (Vexx: публикует ScmRepoStateService из vexx.scm.publishRepoState) --
+    // -- Git repo-state (Vexx: публикует ScmRepoStateService из diode.scm.publishRepoState) --
     gitHasRepo: boolean;
     gitHasRemotes: boolean;
     gitHasUpstream: boolean;

@@ -239,7 +239,7 @@ describe("EditorLayoutServiceAdapter", () => {
     it("снимок: дифф-вкладка несёт kind=diff и uri сторон (если они есть)", () => {
         service.openFile(ws.path("a.ts"));
         const diffInput: IDiffEditorPane2Input = {
-            uri: Uri.parse("vexx-diff:/a.ts?vs=HEAD"),
+            uri: Uri.parse("diode-diff:/a.ts?vs=HEAD"),
             label: "a.ts (diff)",
             originalLabel: "HEAD",
             modifiedLabel: "a.ts",
@@ -262,7 +262,7 @@ describe("EditorLayoutServiceAdapter", () => {
         service.openPane(
             makePane({
                 ...diffInput,
-                uri: Uri.parse("vexx-diff:/bare.ts"),
+                uri: Uri.parse("diode-diff:/bare.ts"),
                 originalUri: undefined,
                 modifiedUri: undefined,
             }),

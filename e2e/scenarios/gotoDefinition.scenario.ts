@@ -5,7 +5,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Стоковый typescript-language-server поверх builtin `vexx-lsp-typescript`
+// Стоковый typescript-language-server поверх builtin `diode-lsp-typescript`
 // (стоковый vscode-languageclient в бандле): диагностика настоящего tsserver'а
 // доезжает до squiggle + панели Problems, F12 прыгает к определению в другой
 // файл. Демо закрывает видимую половину LSP-стека — то, что юнит-тесты по
@@ -25,8 +25,8 @@ export default defineScenario({
     // Сервер живёт в devDeps репозитория (в SEA не пакуется — см. docs/TODO/LSP.md),
     // путь передаётся настройками; tsserver.js — для песочниц без своего TypeScript.
     settings: {
-        "vexx.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
-        "vexx.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
+        "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
+        "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
     },
     cols: 100,
     rows: 24,
@@ -34,7 +34,7 @@ export default defineScenario({
     // как editorconfig-stock / region-folding.
     skipOn: ["win32", "darwin"],
     // Показ output-канала LS без ухода фокуса через палитру/меню.
-    userKeybindings: [{ key: "alt+t", command: "workbench.action.output.show.extensions.typescript-vexx" }],
+    userKeybindings: [{ key: "alt+t", command: "workbench.action.output.show.extensions.typescript-diode" }],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
 
@@ -59,7 +59,7 @@ export default defineScenario({
         await editor.capture("definition");
 
         // Output-канал клиента (`window.createOutputChannel` — настоящий):
-        // строки languageclient'а видны отдельным каналом «TypeScript (Vexx)».
+        // строки languageclient'а видны отдельным каналом «TypeScript (Diode)».
         // Ctrl+K Ctrl+H открывает панель OUTPUT, Alt+T переключает селектор на
         // канал (команда show.<id> переключает канал, панель открываем штатно).
         await editor.sendKey("Ctrl+K");

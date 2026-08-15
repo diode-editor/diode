@@ -205,14 +205,14 @@ describe("runGitTransport", () => {
 });
 
 describe("git.stage / git.unstage", () => {
-    it("git.stage шлёт применимые цели в vexx.git.stage", async () => {
+    it("git.stage шлёт применимые цели в diode.git.stage", async () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree"), change("s.ts", "index")]);
         await gitStageAction.run(h.accessor, [uriOf("a.ts"), uriOf("s.ts")]);
         expect(h.executed).toEqual([[STAGE_TRANSPORT_COMMAND, [[uriOf("a.ts")]]]]);
     });
 
-    it("git.unstage шлёт только staged-цели в vexx.git.unstage", async () => {
+    it("git.unstage шлёт только staged-цели в diode.git.unstage", async () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree"), change("s.ts", "index")]);
         await gitUnstageAction.run(h.accessor, [uriOf("a.ts"), uriOf("s.ts")]);

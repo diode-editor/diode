@@ -229,7 +229,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
-            h.commands.execute("vexx.scm.compareWithRevision");
+            h.commands.execute("diode.scm.compareWithRevision");
             await settleUntilDiff();
 
             const picker = quickPickByTitle(h.testApp, "Compare Active File with Revision");
@@ -250,7 +250,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
-            h.commands.execute("vexx.scm.compareWithRevision");
+            h.commands.execute("diode.scm.compareWithRevision");
             await settleUntilDiff();
 
             expect(h.testApp.backend.screenToString()).toContain("No refs to pick from");
@@ -266,7 +266,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
-            h.commands.execute("vexx.scm.openFileAtRevision");
+            h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             quickPickByTitle(h.testApp, "Open File at Revision");
@@ -283,14 +283,14 @@ describe("Команды сравнения файлов", () => {
 
             // Повторный вызов той же ревизии — та же вкладка, не дубль.
             const countBefore = editors.editorCount;
-            h.commands.execute("vexx.scm.openFileAtRevision");
+            h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             // Активная вкладка — снимок; команда гейтится текстовым РЕДАКТИРУЕМЫМ
             // файлом? Нет: снимок тоже TextEditorPane — вернёмся в исходный файл.
             h.testApp.sendKey("Escape");
             editors.activateTab(0);
-            h.commands.execute("vexx.scm.openFileAtRevision");
+            h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             h.testApp.sendKey("Enter");
@@ -307,7 +307,7 @@ describe("Команды сравнения файлов", () => {
             await settle(0);
             const countBefore = h.container.get(EditorServiceDIToken).editorCount;
 
-            h.commands.execute("vexx.scm.openFileAtRevision");
+            h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             h.testApp.sendKey("Enter");
@@ -328,7 +328,7 @@ describe("Команды сравнения файлов", () => {
             await settle(0);
             const countBefore = h.container.get(EditorServiceDIToken).editorCount;
 
-            h.commands.execute("vexx.scm.openFileAtRevision");
+            h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             h.testApp.sendKey("Enter");
@@ -345,8 +345,8 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.files.action.compareWithSaved");
             h.commands.execute("workbench.files.action.compareWithClipboard");
             h.commands.execute("workbench.files.action.compareFileWith");
-            h.commands.execute("vexx.scm.compareWithRevision");
-            h.commands.execute("vexx.scm.openFileAtRevision");
+            h.commands.execute("diode.scm.compareWithRevision");
+            h.commands.execute("diode.scm.openFileAtRevision");
             await settle(10);
 
             expect(diffPanes()).toHaveLength(0);
@@ -422,7 +422,7 @@ describe("Команды сравнения файлов", () => {
                     { name: "dev", kind: "head", sha: "def5678abc", subject: "wip" },
                 ],
             }));
-            h.commands.execute("vexx.scm.publishRepoState", {
+            h.commands.execute("diode.scm.publishRepoState", {
                 branch: "main",
                 detached: false,
                 upstream: "origin/main",
@@ -434,7 +434,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
-            h.commands.execute("vexx.scm.compareWithRevision");
+            h.commands.execute("diode.scm.compareWithRevision");
             await settleUntilDiff();
 
             const picker = quickPickByTitle(h.testApp, "Compare Active File with Revision");
@@ -457,7 +457,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
-            h.commands.execute("vexx.scm.compareWithRevision");
+            h.commands.execute("diode.scm.compareWithRevision");
             await settleUntilDiff();
             h.testApp.sendKey("Enter");
             await settleUntilDiff();
@@ -514,7 +514,7 @@ describe("Команды сравнения файлов", () => {
             );
             await settleUntilDiff();
 
-            h.commands.execute("vexx.diff.revertHunk");
+            h.commands.execute("diode.diff.revertHunk");
             await settle(10);
             h.testApp.render();
 
@@ -559,7 +559,7 @@ describe("Команды сравнения файлов", () => {
             await settleUntilDiff();
 
             expect(editors.groups).toHaveLength(2);
-            expect(editors.activeGroup.getPanes().some((p) => p.uri.scheme === "vexx-diff")).toBe(true);
+            expect(editors.activeGroup.getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
         });
 
         it("4-й аргумент viewColumn числом целится в существующую колонку", async () => {
@@ -580,7 +580,7 @@ describe("Команды сравнения файлов", () => {
             await settleUntilDiff();
 
             expect(editors.groups).toHaveLength(2);
-            expect(editors.groups[1].getPanes().some((p) => p.uri.scheme === "vexx-diff")).toBe(true);
+            expect(editors.groups[1].getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
         });
 
         it("мусорные аргументы — тихий no-op", async () => {

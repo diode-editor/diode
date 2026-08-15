@@ -25,9 +25,9 @@ const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
 
 // Транспорты мутаций (строки дублируются по значению — общих импортов через
 // границу процесса нет, как у PUBLISH_CHANGES_COMMAND).
-const STAGE_COMMAND = "vexx.git.stage";
-const UNSTAGE_COMMAND = "vexx.git.unstage";
-const CLEAN_COMMAND = "vexx.git.clean";
+const STAGE_COMMAND = "diode.git.stage";
+const UNSTAGE_COMMAND = "diode.git.unstage";
+const CLEAN_COMMAND = "diode.git.clean";
 
 // Any resolvable colour ids the plugin references (git status → tree, diff → gutter).
 const COLORS: Record<string, number> = {
@@ -88,8 +88,8 @@ function makeRepo(dir: string): void {
 
 function gitRegistration(): IExtensionRegistration {
     return {
-        id: "vexx.git",
-        manifest: { name: "git", publisher: "vexx", version: "0.1.0" },
+        id: "diode.git",
+        manifest: { name: "git", publisher: "diode", version: "0.1.0" },
         mainPath: GIT_MAIN,
         configDefaults: {
             "git.enabled": true,
@@ -146,7 +146,7 @@ describe("builtin git plugin (integration)", () => {
         // git:, а дифф против живого буфера делает ядро (QuickDiffService).
         const trackedPath = path.join(harness.tmpDir, "tracked.txt");
         const originalUri = (await harness.commandRegistry.execute(
-            "vexx.scm.originalResource",
+            "diode.scm.originalResource",
             Uri.file(trackedPath).toString(),
         )) as string | null;
         expect(originalUri).toMatch(/^git:/);
@@ -291,7 +291,7 @@ describe("builtin git plugin (integration)", () => {
         // Историю есть куда листать — ядро покажет строку «Load More…».
         expect(latest()!.hasMore).toBe(true);
 
-        await harness.commandRegistry.execute("vexx.git.op", { op: "logLoadMore" });
+        await harness.commandRegistry.execute("diode.git.op", { op: "logLoadMore" });
         const loaded = await waitFor(() => latest()?.commits.length === 4);
         expect(loaded).toBe(true);
         expect(latest()!.commits.map((c) => c.subject)).toEqual(["c4", "c3", "c2", "init"]);
@@ -299,7 +299,7 @@ describe("builtin git plugin (integration)", () => {
         expect(latest()!.hasMore).toBe(false);
     });
 
-    it("vexx.git.stage/unstage двигают файлы между индексом и деревом, clean откатывает и удаляет", async () => {
+    it("diode.git.stage/unstage двигают файлы между индексом и деревом, clean откатывает и удаляет", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -366,7 +366,7 @@ describe("builtin git plugin (integration)", () => {
         expect(porcelain).toBe("?? first.txt\n");
     });
 
-    it("vexx.git.op commit: staged-файл коммитится с сообщением; amend меняет последний коммит", async () => {
+    it("diode.git.op commit: staged-файл коммитится с сообщением; amend меняет последний коммит", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -378,7 +378,7 @@ describe("builtin git plugin (integration)", () => {
         await registerAndActivate(harness.host, gitRegistration());
 
         git(dir, "add", "-A");
-        const committed = (await harness.commandRegistry.execute("vexx.git.op", {
+        const committed = (await harness.commandRegistry.execute("diode.git.op", {
             op: "commit",
             params: { message: "feat: change" },
         })) as { ok: boolean };
@@ -387,7 +387,7 @@ describe("builtin git plugin (integration)", () => {
         expect(execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString()).toBe("");
 
         // Amend с новым сообщением: число коммитов не растёт.
-        const amended = (await harness.commandRegistry.execute("vexx.git.op", {
+        const amended = (await harness.commandRegistry.execute("diode.git.op", {
             op: "commit",
             params: { message: "feat: amended", amend: true, allowEmpty: true },
         })) as { ok: boolean };
@@ -396,7 +396,7 @@ describe("builtin git plugin (integration)", () => {
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("2");
     });
 
-    it("vexx.git.op: пустое сообщение без amend, мусорный запрос и неизвестная операция — {ok: false}", async () => {
+    it("diode.git.op: пустое сообщение без amend, мусорный запрос и неизвестная операция — {ok: false}", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -406,16 +406,16 @@ describe("builtin git plugin (integration)", () => {
         harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
         await registerAndActivate(harness.host, gitRegistration());
 
-        const empty = (await harness.commandRegistry.execute("vexx.git.op", {
+        const empty = (await harness.commandRegistry.execute("diode.git.op", {
             op: "commit",
             params: {},
         })) as { ok: boolean; message?: string };
         expect(empty.ok).toBe(false);
         expect(empty.message).toContain("empty");
 
-        const malformed = (await harness.commandRegistry.execute("vexx.git.op", 42)) as { ok: boolean };
+        const malformed = (await harness.commandRegistry.execute("diode.git.op", 42)) as { ok: boolean };
         expect(malformed.ok).toBe(false);
-        const unknown = (await harness.commandRegistry.execute("vexx.git.op", { op: "fly-to-moon" })) as {
+        const unknown = (await harness.commandRegistry.execute("diode.git.op", { op: "fly-to-moon" })) as {
             ok: boolean;
             message?: string;
         };
@@ -423,7 +423,7 @@ describe("builtin git plugin (integration)", () => {
         expect(unknown.message).toContain("unknown git op");
     });
 
-    it("vexx.git.op undoCommit: reset --soft + сообщение; корневой коммит не откатывается", async () => {
+    it("diode.git.op undoCommit: reset --soft + сообщение; корневой коммит не откатывается", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -438,7 +438,7 @@ describe("builtin git plugin (integration)", () => {
         git(dir, "add", "-A");
         git(dir, "commit", "-qm", "feat: second");
 
-        const undone = (await harness.commandRegistry.execute("vexx.git.op", { op: "undoCommit" })) as {
+        const undone = (await harness.commandRegistry.execute("diode.git.op", { op: "undoCommit" })) as {
             ok: boolean;
             data?: { message?: string };
         };
@@ -449,7 +449,7 @@ describe("builtin git plugin (integration)", () => {
         expect(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: dir }).toString().trim()).not.toBe("");
 
         // Остался только корневой коммит — второй undo отказывает.
-        const root = (await harness.commandRegistry.execute("vexx.git.op", { op: "undoCommit" })) as {
+        const root = (await harness.commandRegistry.execute("diode.git.op", { op: "undoCommit" })) as {
             ok: boolean;
             message?: string;
         };
@@ -457,7 +457,7 @@ describe("builtin git plugin (integration)", () => {
         expect(root.message).toContain("initial commit");
     });
 
-    it("vexx.git.op reset/revert: hard-сброс двигает HEAD, revert кладёт обратный коммит", async () => {
+    it("diode.git.op reset/revert: hard-сброс двигает HEAD, revert кладёт обратный коммит", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -473,7 +473,7 @@ describe("builtin git plugin (integration)", () => {
         git(dir, "commit", "-aqm", "feat: second");
 
         // Revert второго коммита — HEAD растёт, содержимое возвращается к root.
-        const reverted = (await harness.commandRegistry.execute("vexx.git.op", {
+        const reverted = (await harness.commandRegistry.execute("diode.git.op", {
             op: "revert",
             params: { ref: "HEAD" },
         })) as { ok: boolean };
@@ -482,7 +482,7 @@ describe("builtin git plugin (integration)", () => {
         expect(fs.readFileSync(path.join(dir, "tracked.txt"), "utf8")).toBe(TRACKED_AT_HEAD);
 
         // Reset --hard на корневой коммит стирает оба коммита сверху.
-        const reset = (await harness.commandRegistry.execute("vexx.git.op", {
+        const reset = (await harness.commandRegistry.execute("diode.git.op", {
             op: "reset",
             params: { ref: root, mode: "hard" },
         })) as { ok: boolean };
@@ -494,7 +494,7 @@ describe("builtin git plugin (integration)", () => {
         ).toBe("");
 
         // Мусорный режим до git не доезжает.
-        const bogus = (await harness.commandRegistry.execute("vexx.git.op", {
+        const bogus = (await harness.commandRegistry.execute("diode.git.op", {
             op: "reset",
             params: { ref: root, mode: "--force" },
         })) as { ok: boolean; message?: string };
@@ -502,7 +502,7 @@ describe("builtin git plugin (integration)", () => {
         expect(bogus.message).toContain("invalid git op parameters");
     });
 
-    it("vexx.git.op push/pull против локального bare-remote; vexx.git.query отдаёт refs/remotes", async () => {
+    it("diode.git.op push/pull против локального bare-remote; diode.git.query отдаёт refs/remotes", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -522,7 +522,7 @@ describe("builtin git plugin (integration)", () => {
         // Новый локальный коммит → push доносит его до remote.
         git(dir, "add", "-A");
         git(dir, "commit", "-qm", "feat: second");
-        const pushed = (await harness.commandRegistry.execute("vexx.git.op", { op: "push" })) as { ok: boolean };
+        const pushed = (await harness.commandRegistry.execute("diode.git.op", { op: "push" })) as { ok: boolean };
         expect(pushed.ok).toBe(true);
         expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: remoteDir }).toString().trim()).toBe(
             "feat: second",
@@ -538,21 +538,21 @@ describe("builtin git plugin (integration)", () => {
         git(cloneDir, "commit", "-qm", "feat: third");
         git(cloneDir, "push", "-q");
 
-        const pulled = (await harness.commandRegistry.execute("vexx.git.op", { op: "pull" })) as { ok: boolean };
+        const pulled = (await harness.commandRegistry.execute("diode.git.op", { op: "pull" })) as { ok: boolean };
         expect(pulled.ok).toBe(true);
         expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: third");
 
         // Query: refs содержат ветку и её remote-двойника, remotes — origin.
-        const refs = (await harness.commandRegistry.execute("vexx.git.query", { kind: "refs" })) as {
+        const refs = (await harness.commandRegistry.execute("diode.git.query", { kind: "refs" })) as {
             refs: { name: string; kind: string }[];
         };
         expect(refs.refs.some((r) => r.kind === "head" && r.name === branch)).toBe(true);
         expect(refs.refs.some((r) => r.kind === "remote" && r.name === `origin/${branch}`)).toBe(true);
-        const remotes = (await harness.commandRegistry.execute("vexx.git.query", { kind: "remotes" })) as {
+        const remotes = (await harness.commandRegistry.execute("diode.git.query", { kind: "remotes" })) as {
             remotes: string[];
         };
         expect(remotes.remotes).toEqual(["origin"]);
-        expect(await harness.commandRegistry.execute("vexx.git.query", { kind: "flying" })).toBeNull();
+        expect(await harness.commandRegistry.execute("diode.git.query", { kind: "flying" })).toBeNull();
     });
 
     it("мутации отбрасывают мусорные цели, пустой итог — no-op {ok: true}", async () => {
@@ -595,7 +595,7 @@ describe("builtin git plugin (integration)", () => {
         let untrackedOriginal: string | null | undefined;
         await waitFor(() => {
             void (
-                harness!.commandRegistry.execute("vexx.scm.originalResource", untrackedUri) as Promise<string | null>
+                harness!.commandRegistry.execute("diode.scm.originalResource", untrackedUri) as Promise<string | null>
             ).then((value) => {
                 untrackedOriginal = value;
             });
@@ -605,12 +605,12 @@ describe("builtin git plugin (integration)", () => {
 
         expect(
             await harness.commandRegistry.execute(
-                "vexx.scm.originalResource",
+                "diode.scm.originalResource",
                 Uri.file("/definitely/outside/repo.txt").toString(),
             ),
         ).toBeNull();
-        expect(await harness.commandRegistry.execute("vexx.scm.originalResource", "untitled:Untitled-1")).toBeNull();
-        expect(await harness.commandRegistry.execute("vexx.scm.originalResource", 42)).toBeNull();
+        expect(await harness.commandRegistry.execute("diode.scm.originalResource", "untitled:Untitled-1")).toBeNull();
+        expect(await harness.commandRegistry.execute("diode.scm.originalResource", 42)).toBeNull();
     });
 
     it("stays inert (no throw, no decorations) outside a git repository", async () => {

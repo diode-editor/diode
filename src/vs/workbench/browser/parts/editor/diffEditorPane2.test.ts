@@ -52,7 +52,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
             new TokenizationRegistry(),
             NULL_TOKEN_STYLE_RESOLVER,
             {
-                uri: Uri.from({ scheme: "vexx-diff", path: "/pair", query: "left=a&right=b" }),
+                uri: Uri.from({ scheme: "diode-diff", path: "/pair", query: "left=a&right=b" }),
                 label: "a ↔ b",
                 originalLabel: "a",
                 modifiedLabel: "b",
@@ -458,7 +458,7 @@ describe("Workbench — дифф v2", () => {
     let fireGitChange: ((uris: readonly Uri[]) => void) | null;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "vexx-diffv2-", files: { "a.txt": AT_HEAD } });
+        ws = createTempWorkspace({ prefix: "diode-diffv2-", files: { "a.txt": AT_HEAD } });
         const testContainer = createTestContainer();
         container = testContainer.container;
         const registry = new FileSystemProviderRegistry();
@@ -510,7 +510,7 @@ describe("Workbench — дифф v2", () => {
         const editor = editors.getActiveEditor();
         editor?.goToPosition(14, 0);
         editor?.viewState.type("XX");
-        container.get(CommandRegistryDIToken).execute("vexx.scm.compareWithHead");
+        container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
         await settle(20);
         app.render();
         const pane = editors.getActiveTabPane();
@@ -637,17 +637,17 @@ describe("Workbench — дифф v2", () => {
     it("команды без активного файла и без git — тихий no-op и нотис", async () => {
         // Без активного редактора (закрыть файл) — no-op.
         editors.closeTab(editors.activeIndex);
-        container.get(CommandRegistryDIToken).execute("vexx.scm.compareWithHead");
+        container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
         await settle(20);
         expect(editors.editorCount).toBe(0);
 
         // Файл есть, но провайдера оригинала нет — нотис.
-        const bare = createTempWorkspace({ prefix: "vexx-diffv2-bare-", files: { "b.txt": "x\n" } });
+        const bare = createTempWorkspace({ prefix: "diode-diffv2-bare-", files: { "b.txt": "x\n" } });
         try {
             container.get(CommandRegistryDIToken).execute("workbench.openFile", bare.path("b.txt"));
             await settle(0);
             container.get(CommandRegistryDIToken).register(ORIGINAL_RESOURCE_COMMAND, () => null);
-            container.get(CommandRegistryDIToken).execute("vexx.scm.compareWithHead");
+            container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
             await settle(20);
             app.render();
             expect(app.backend.screenToString()).toContain("No changes to compare");
@@ -661,7 +661,7 @@ describe("Workbench — дифф v2", () => {
         const countAfterFirst = editors.editorCount;
 
         // Повторный вызов С АКТИВНОЙ дифф-вкладкой целится в её исходный файл.
-        container.get(CommandRegistryDIToken).execute("vexx.scm.compareWithHead");
+        container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
         await settle(20);
         expect(editors.editorCount).toBe(countAfterFirst);
 
@@ -705,7 +705,7 @@ describe("Workbench — дифф v2", () => {
         // Каретка на изменённой строке (XX на строке 14).
         const side = editors.getActiveEditor();
         side?.goToPosition(14, 0);
-        container.get(CommandRegistryDIToken).execute("vexx.diff.revertHunk");
+        container.get(CommandRegistryDIToken).execute("diode.diff.revertHunk");
         await settle(20);
 
         // Правка откатилась в живом буфере файла — вкладка файла тоже чистая.
@@ -714,14 +714,14 @@ describe("Workbench — дифф v2", () => {
 
         // Вне ганка — нотис, текст не тронут.
         side?.goToPosition(0, 0);
-        container.get(CommandRegistryDIToken).execute("vexx.diff.revertHunk");
+        container.get(CommandRegistryDIToken).execute("diode.diff.revertHunk");
         await settle(20);
         app.render();
         expect(app.backend.screenToString()).toContain("No change under the cursor");
 
         // Вне дифф-вкладки — тихий no-op.
         editors.activateTab(0);
-        container.get(CommandRegistryDIToken).execute("vexx.diff.revertHunk");
+        container.get(CommandRegistryDIToken).execute("diode.diff.revertHunk");
         await settle(20);
         expect(fileEditor?.getText()).toContain("old line");
     });
@@ -756,7 +756,7 @@ describe("Workbench — дифф v2", () => {
 
         pane.sidePanes()[0].component.focus();
         pane.sidePanes()[0].goToPosition(14, 0);
-        container.get(CommandRegistryDIToken).execute("vexx.diff.revertHunk");
+        container.get(CommandRegistryDIToken).execute("diode.diff.revertHunk");
         await settle(20);
 
         expect(fileEditor?.getText()).not.toContain("XXold line");
@@ -846,7 +846,7 @@ describe("Workbench — дифф v2", () => {
         const pane = await openV2();
         expect(pane.mode).toBe("side-by-side");
 
-        container.get(CommandRegistryDIToken).execute("vexx.diff.toggleInlineView");
+        container.get(CommandRegistryDIToken).execute("diode.diff.toggleInlineView");
         await settle(10);
         expect(pane.mode).toBe("inline");
 
@@ -857,14 +857,14 @@ describe("Workbench — дифф v2", () => {
         expect(untitled.mode).toBe("inline");
 
         // Обратный тумблер возвращает колонки обеим вкладкам.
-        container.get(CommandRegistryDIToken).execute("vexx.diff.toggleInlineView");
+        container.get(CommandRegistryDIToken).execute("diode.diff.toggleInlineView");
         await settle(10);
         expect(untitled.mode).toBe("side-by-side");
         expect(pane.mode).toBe("side-by-side");
 
         // Вне дифф-вкладки — no-op.
         editors.activateTab(0);
-        container.get(CommandRegistryDIToken).execute("vexx.diff.toggleInlineView");
+        container.get(CommandRegistryDIToken).execute("diode.diff.toggleInlineView");
         await settle(10);
         expect(pane.mode).toBe("side-by-side");
     });

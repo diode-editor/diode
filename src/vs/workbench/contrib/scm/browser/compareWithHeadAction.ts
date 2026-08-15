@@ -93,7 +93,7 @@ async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
 }
 
 export const compareWithHeadAction: CommandAction = {
-    id: "vexx.scm.compareWithHead",
+    id: "diode.scm.compareWithHead",
     title: "Git: Compare Active File with HEAD",
     run(accessor) {
         void compareWithHead(accessor);

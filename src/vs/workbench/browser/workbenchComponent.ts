@@ -200,17 +200,17 @@ export class WorkbenchComponent extends Component {
         // Порядок резолва = порядок табов панели: PROBLEMS · OUTPUT · TERMINAL.
         this.register(accessor.get(OutputComponentDIToken));
         // ChangesComponent — секция CHANGES контейнера Source Control; резолв
-        // подтягивает ScmChangesService, чья команда `vexx.scm.publishChanges`
+        // подтягивает ScmChangesService, чья команда `diode.scm.publishChanges`
         // регистрируется до активации git-расширения, публикующего в неё набор.
         this.changesComponent = this.register(accessor.get(ChangesComponentDIToken));
         // Секция GRAPH того же контейнера (+ ScmGraphService с командой
-        // `vexx.scm.publishLog`); view записывается в реестр ViewsService здесь,
+        // `diode.scm.publishLog`); view записывается в реестр ViewsService здесь,
         // контейнер собирается в setWorkspaceFolder.
         this.register(accessor.get(GraphViewComponentDIToken));
         // Commit input box — header контейнера Source Control.
         this.scmInputComponent = this.register(accessor.get(ScmInputComponentDIToken));
         // Repo-state (ветка/remotes/merge-rebase → when-ключи git*): команда
-        // vexx.scm.publishRepoState должна существовать до активации расширения.
+        // diode.scm.publishRepoState должна существовать до активации расширения.
         this.register(accessor.get(ScmRepoStateServiceDIToken));
         this.terminalService = this.register(accessor.get(TerminalServiceDIToken));
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));

@@ -1,4 +1,4 @@
-/** Payload `vexx.scm.publishRepoState` — снимок состояния репозитория для ядра. */
+/** Payload `diode.scm.publishRepoState` — снимок состояния репозитория для ядра. */
 export interface IRepoStatePayload {
     /** Имя текущей ветки; null — detached HEAD или unborn. */
     readonly branch: string | null;

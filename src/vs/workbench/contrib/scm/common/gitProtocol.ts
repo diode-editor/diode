@@ -3,7 +3,7 @@
  * по значению, без общих импортов через границу процесса (конвенция
  * PUBLISH_CHANGES_COMMAND).
  */
-export const GIT_OP_COMMAND = "vexx.git.op";
+export const GIT_OP_COMMAND = "diode.git.op";
 
 /** Классы ошибок git-операций (по мотивам GitErrorCodes VS Code). */
 export type GitErrorKind =

@@ -47,7 +47,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
 
     it("createOutputChannel шлёт строки хосту (output.append) с уровнем и label", () => {
         const { stub, window } = makeWindow();
-        const channel = window.createOutputChannel("TS (Vexx)") as unknown as {
+        const channel = window.createOutputChannel("TS (Diode)") as unknown as {
             name: string;
             appendLine(v: string): void;
             logLevel: number;
@@ -58,7 +58,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
             warn(v: unknown): void;
             error(v: unknown): void;
         };
-        expect(channel.name).toBe("TS (Vexx)");
+        expect(channel.name).toBe("TS (Diode)");
         expect(channel.logLevel).toBe(3);
         expect(() => channel.onDidChangeLogLevel(() => undefined).dispose()).not.toThrow();
 
@@ -71,12 +71,12 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
 
         const appends = stub.notifies.filter((n) => n.method === "output.append");
         expect(appends.map((n) => n.params)).toEqual([
-            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "info", value: "language server started" },
-            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "info", value: "converted 3 diagnostics" },
-            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "error", value: '{"message":"asDiagnostics failed"}' },
-            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "trace", value: "t" },
-            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "debug", value: "d" },
-            { channel: "extensions.ts-vexx", label: "TS (Vexx)", level: "warn", value: "w" },
+            { channel: "extensions.ts-diode", label: "TS (Diode)", level: "info", value: "language server started" },
+            { channel: "extensions.ts-diode", label: "TS (Diode)", level: "info", value: "converted 3 diagnostics" },
+            { channel: "extensions.ts-diode", label: "TS (Diode)", level: "error", value: '{"message":"asDiagnostics failed"}' },
+            { channel: "extensions.ts-diode", label: "TS (Diode)", level: "trace", value: "t" },
+            { channel: "extensions.ts-diode", label: "TS (Diode)", level: "debug", value: "d" },
+            { channel: "extensions.ts-diode", label: "TS (Diode)", level: "warn", value: "w" },
         ]);
     });
 
@@ -112,7 +112,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
     });
 
     it("slugifyChannelName: lower-case, не-алфанумерика в дефис, пустое имя — fallback", () => {
-        expect(slugifyChannelName("TypeScript (Vexx)")).toBe("typescript-vexx");
+        expect(slugifyChannelName("TypeScript (Diode)")).toBe("typescript-diode");
         expect(slugifyChannelName("Git: log/История")).toBe("git-log");
         expect(slugifyChannelName("!!!")).toBe("channel");
     });

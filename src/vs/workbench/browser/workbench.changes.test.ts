@@ -23,7 +23,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
 
 /**
  * Сквозной гейт этапа 6 «до кадра»: SCM-расширение (заглушка) публикует набор
- * изменённых файлов командой `vexx.scm.publishChanges`, а вьюлет **Source
+ * изменённых файлов командой `diode.scm.publishChanges`, а вьюлет **Source
  * Control** в сайдбаре (вместо Explorer, переключение командой `workbench.view.scm`)
  * показывает их списком; активация файла открывает дифф этапа 5 напрямую, без
  * промежуточной файловой вкладки. Роль git играют заглушки (`git:`-провайдер +
@@ -196,7 +196,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         // fsPath не бросает на не-file схемах (дифф-вкладка несёт тот же путь) —
         // файловую вкладку отличаем схемой.
         const panes = editors.getPanes();
-        expect(panes.filter((p) => p.uri.scheme === "vexx-diff")).toHaveLength(1);
+        expect(panes.filter((p) => p.uri.scheme === "diode-diff")).toHaveLength(1);
         expect(panes.some((p) => p.uri.scheme === "file" && p.uri.fsPath === ws.path("nested/b.txt"))).toBe(false);
     });
 

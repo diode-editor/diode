@@ -13,7 +13,7 @@ import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
 
 /** Read-only запрос данных пикеров у расширения (зеркалится по значению). */
-export const QUERY_COMMAND = "vexx.git.query";
+export const QUERY_COMMAND = "diode.git.query";
 
 const inChangesMenu = viewMenuVisible(SCM_CHANGES_VIEW_ID);
 

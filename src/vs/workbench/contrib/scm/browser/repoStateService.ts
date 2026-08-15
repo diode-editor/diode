@@ -6,7 +6,7 @@ import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 /** Команда, которой git-расширение публикует снимок состояния репозитория. */
-export const PUBLISH_REPO_STATE_COMMAND = "vexx.scm.publishRepoState";
+export const PUBLISH_REPO_STATE_COMMAND = "diode.scm.publishRepoState";
 
 export type ScmRepoOpState = "idle" | "merging" | "rebasing" | "cherry-picking";
 

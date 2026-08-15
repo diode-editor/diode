@@ -3,7 +3,7 @@
   "displayName": "Settings Editing",
   "description": "IntelliSense for settings.json: completes known configuration keys.",
   "version": "0.1.0",
-  "publisher": "vexx",
+  "publisher": "diode",
   "license": "MIT",
   "type": "module",
   "engines": {

@@ -356,12 +356,12 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickDiffServiceDIToken, QuickDiffService);
     container.bind(DiffSnapshotRefreshContributionDIToken, DiffSnapshotRefreshContribution);
     // Вкладка Changes: расширение пушит набор изменений в ScmChangesService
-    // (команда `vexx.scm.publishChanges`), ChangesComponent показывает его
+    // (команда `diode.scm.publishChanges`), ChangesComponent показывает его
     // списком в нижней Panel и по клику открывает дифф этапа 5.
     container.bind(ScmChangesServiceDIToken, ScmChangesService);
     container.bind(ChangesComponentDIToken, ChangesComponent);
     // View Graph: расширение пушит последние коммиты в ScmGraphService
-    // (команда `vexx.scm.publishLog`), GraphViewComponent — секция GRAPH.
+    // (команда `diode.scm.publishLog`), GraphViewComponent — секция GRAPH.
     container.bind(ScmGraphServiceDIToken, ScmGraphService);
     container.bind(GraphViewComponentDIToken, GraphViewComponent);
     // Commit input box — header контейнера Source Control.

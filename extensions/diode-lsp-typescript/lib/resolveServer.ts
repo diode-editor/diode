@@ -73,8 +73,8 @@ export function commandFor(
 /** Таблица серверов builtin-клиента. Новый язык = новая строка (правок ядра не требует). */
 export const LANGUAGE_SERVERS: readonly ILanguageServerSpec[] = [
     {
-        id: "vexxTypescript",
-        displayName: "TypeScript (Vexx)",
+        id: "diodeTypescript",
+        displayName: "TypeScript (Diode)",
         languageIds: ["typescript", "typescriptreact", "javascript", "javascriptreact"],
         resolveCandidates: (settingPath, workspaceRoots, bundledServerPath) => [
             ...(settingPath !== "" ? [settingPath] : []),

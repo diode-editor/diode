@@ -20,7 +20,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 // Закрытие стека СТОКОВЫМ language-сервером (правило AGENTS: фича поверх
 // стокового расширения закрывается стоковым расширением): настоящий builtin
-// `vexx-lsp-typescript` (бандл с vscode-languageclient) + настоящий
+// `diode-lsp-typescript` (бандл с vscode-languageclient) + настоящий
 // `typescript-language-server` из devDeps на настоящем ext-host subprocess'е.
 //
 // Ключевое требование — тесты над ИЗМЕНЯЕМЫМ кодом: правки НЕ сохраняются на
@@ -29,7 +29,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
-const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/vexx-lsp-typescript/out/extension.cjs");
+const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/diode-lsp-typescript/out/extension.cjs");
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
@@ -47,14 +47,14 @@ const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet(
 
 function lspClientRegistration(): IExtensionRegistration {
     return {
-        id: "vexx.vexx-lsp-typescript",
-        manifest: { name: "vexx-lsp-typescript", publisher: "vexx", version: "0.1.0" },
+        id: "vexx.diode-lsp-typescript",
+        manifest: { name: "diode-lsp-typescript", publisher: "diode", version: "0.1.0" },
         mainPath: CLIENT_BUNDLE,
         activationEvents: ["onLanguage:typescript"],
         configDefaults: {
-            "vexx.lsp.typescript.enabled": true,
-            "vexx.lsp.typescript.serverPath": "",
-            "vexx.lsp.typescript.tsserverPath": "",
+            "diode.lsp.typescript.enabled": true,
+            "diode.lsp.typescript.serverPath": "",
+            "diode.lsp.typescript.tsserverPath": "",
         },
     };
 }
@@ -92,7 +92,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: ["*"], // noop активируется сразу — subprocess жив до открытия файлов
             configuration: {
-                vexx: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
+                diode: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
             },
             diagnosticsSink: (_owner, resource, markers) => published.push({ resource, markers }),
             outputSink: {
@@ -153,7 +153,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
             configuration: {
-                vexx: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
+                diode: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
             },
             diagnosticsSink: (_owner, resource, markers) => published.push({ resource, markers }),
             progressSink: {
@@ -182,7 +182,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             // Прогресс запуска (наш withProgress вокруг client.start()) виден
             // сразу после активации — и обязан закрыться по готовности сервера.
             const startEvent = progressEvents.find((e) => e.kind === "start");
-            expect(startEvent?.title).toContain("TypeScript (Vexx)");
+            expect(startEvent?.title).toContain("TypeScript (Diode)");
             expect(startEvent?.title).toContain("starting language server");
             await until("прогресс запуска закрылся (end)", () => {
                 const done = progressEvents.some((e) => e.kind === "end" && e.handle === startEvent?.handle);
@@ -195,8 +195,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 const line = outputLines.find((l) => l.value.includes("language server started"));
                 return Promise.resolve(line ?? null);
             });
-            expect(started.channel).toBe("extensions.typescript-vexx");
-            expect(started.label).toBe("TypeScript (Vexx)");
+            expect(started.channel).toBe("extensions.typescript-diode");
+            expect(started.label).toBe("TypeScript (Diode)");
             expect(started.level).toBe("info");
 
             // Диагностика от НАСТОЯЩЕГО tsserver'а — она же readiness-сигнал

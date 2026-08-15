@@ -1,5 +1,5 @@
 /**
- * Протокол диспетчера git-операций `vexx.git.op` (расширение ↔ ядро). Ядро
+ * Протокол диспетчера git-операций `diode.git.op` (расширение ↔ ядро). Ядро
  * держит зеркало типов в `src/vs/workbench/contrib/scm/common/gitProtocol.ts` —
  * по значению, без общих импортов через границу процесса (конвенция
  * PUBLISH_CHANGES_COMMAND).
@@ -7,7 +7,7 @@
  * Семантический диспетчер, а не generic-exec: argv собирает расширение
  * (владение repoRoot/env/классификацией ошибок), ядро оперирует операциями.
  */
-export const GIT_OP_COMMAND = "vexx.git.op";
+export const GIT_OP_COMMAND = "diode.git.op";
 
 /** Запрос операции: имя + типизированные параметры (валидирует расширение). */
 export interface IGitOpRequest {
