@@ -63,6 +63,9 @@ export function activate(context: { readonly subscriptions: { dispose(): unknown
 function keyItem(entry: ISettingSchemaEntry, range: vscode.Range): vscode.CompletionItem {
     const item = new vscode.CompletionItem(entry.key, vscode.CompletionItemKind.Property);
     item.insertText = JSON.stringify(entry.key);
+    // Префикс фильтрации приходит с открывающей кавычкой (range накрывает её),
+    // а label — без кавычек: без явного filterText набор `"edi` не сужал список.
+    item.filterText = item.insertText;
     item.range = range;
     const def = entry.default === undefined ? "" : ` (default: ${JSON.stringify(entry.default)})`;
     item.detail = `${entry.type ?? "setting"}${def}`;
