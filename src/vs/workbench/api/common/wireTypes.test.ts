@@ -717,8 +717,8 @@ describe("WireTypes — reviveWireUri", () => {
     });
 
     it("нестроковые компоненты опускаются, scheme обязателен", () => {
-        const revived = reviveWireUri({ scheme: "vexx", authority: 5, path: null, query: [], fragment: {} });
-        expect(revived?.scheme).toBe("vexx");
+        const revived = reviveWireUri({ scheme: "diode", authority: 5, path: null, query: [], fragment: {} });
+        expect(revived?.scheme).toBe("diode");
         expect(revived?.authority).toBe("");
         expect(revived?.path).toBe("");
         expect(revived?.query).toBe("");

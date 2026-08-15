@@ -28,7 +28,7 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
         timestamp: Date.UTC(2026, 0, 1, 12, 4, 31, 220),
         channel: "bootstrap",
         level: LogLevel.Info,
-        message: "vexx starting",
+        message: "diode starting",
         args: [],
         ...overrides,
     };

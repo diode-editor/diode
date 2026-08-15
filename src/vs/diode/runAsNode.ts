@@ -31,7 +31,7 @@ export function runAsNode(): void {
     while (scriptIndex < args.length && args[scriptIndex].startsWith("--")) scriptIndex++;
     const script = args[scriptIndex];
     if (script === undefined) {
-        process.stderr.write("vexx (run-as-node): no script path in argv\n");
+        process.stderr.write("diode (run-as-node): no script path in argv\n");
         process.exit(9); // как node: exit 9 = invalid argument
     }
     const scriptPath = path.resolve(script);

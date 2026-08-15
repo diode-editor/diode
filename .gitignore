@@ -1,6 +1,6 @@
 node_modules
 dist
-vexx.log
+diode.log
 .claude/worktrees/
 screenshots/
 coverage/.tmp

@@ -14,7 +14,7 @@ describe("Version", () => {
     });
 
     it("exposes app name and repo url for the About dialog", () => {
-        expect(APP_NAME).toBe("Vexx");
+        expect(APP_NAME).toBe("Diode");
         expect(REPO_URL).toMatch(/^https:\/\//);
     });
 });

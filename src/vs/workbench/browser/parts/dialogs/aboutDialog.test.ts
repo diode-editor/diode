@@ -24,7 +24,7 @@ describe("AboutDialog", () => {
         const { testApp } = mount();
         testApp.render();
         const text = testApp.backend.screenToString();
-        expect(text).toContain("Vexx");
+        expect(text).toContain("Diode");
         expect(text).toContain(`Version ${DIODE_VERSION}`);
         expect(text).toContain(`Node ${process.version}`);
         expect(text).toContain("github.com/diode-editor/diode");

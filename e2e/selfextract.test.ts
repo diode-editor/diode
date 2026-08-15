@@ -102,7 +102,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
             expect(result.status).toBe(0);
             expect(result.stdout.trim()).not.toBe("");
             // Прод не должен сорить логом в cwd пользователя (гейт isPackagedRuntime).
-            expect(existsSync(join(cwd, "vexx.log"))).toBe(false);
+            expect(existsSync(join(cwd, "diode.log"))).toBe(false);
         } finally {
             rmSync(cwd, { recursive: true, force: true });
         }

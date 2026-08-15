@@ -41,7 +41,7 @@ describe("Output panel (functional e2e)", () => {
         const tabs = (panel?.state?.tabs ?? []) as { id: string; title: string }[];
         expect(tabs.map((t) => t.title)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
         const text = frameToText(await app.session.captureFrame());
-        expect(text).toMatch(/\d\d:\d\d:\d\d\.\d\d\d \[info\] vexx starting/u);
+        expect(text).toMatch(/\d\d:\d\d:\d\d\.\d\d\d \[info\] diode starting/u);
     }, 120_000);
 
     it("переключает канал мышью через селектор — меняется и контент, и подпись", async () => {
@@ -50,7 +50,7 @@ describe("Output panel (functional e2e)", () => {
         await pickChannel(app.session, "Extensions");
         const select = await app.session.node("SelectBoxElement");
         expect(select?.state?.selectedText).toMatch(/Extensions/u);
-        expect(frameToText(await app.session.captureFrame())).not.toContain("vexx starting");
+        expect(frameToText(await app.session.captureFrame())).not.toContain("diode starting");
     }, 120_000);
 
     it("клик по селектору не переключает вкладку панели, клики по табам работают", async () => {
@@ -143,7 +143,7 @@ describe("Output panel (functional e2e)", () => {
         await focusLogBody(session);
 
         await session.key("Ctrl+F");
-        // "starting" есть в логе (`[info] vexx starting`) и отсутствует в sample.ts.
+        // "starting" есть в логе (`[info] diode starting`) и отсутствует в sample.ts.
         await session.text("starting");
         const findLine = await session.waitForText(
             (t) => t.split("\n").some((l) => l.includes("[ ↑ ]")),
@@ -183,7 +183,7 @@ describe("Output panel (functional e2e)", () => {
             .waitForText((t) => t.includes("OUTPUT") && !t.includes("No output yet."), { timeoutMs: 30_000 })
             .then(frameToText);
         // Фактически до фикса: "No output yet." — контент не создавался до активации вкладки.
-        expect(text).toMatch(/\[info\] vexx starting/u);
+        expect(text).toMatch(/\[info\] diode starting/u);
     }, 180_000);
 });
 
