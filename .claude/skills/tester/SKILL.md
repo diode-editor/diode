@@ -13,7 +13,7 @@ description: Проверить реализованную задачу из к�
 Свой PR ищи от задачи, а не по имени ветки (её могли переименовать):
 
 ```sh
-PR=$(gh pr list --repo tihonove/vexx --state open --json number,closingIssuesReferences \
+PR=$(gh pr list --repo diode-editor/diode --state open --json number,closingIssuesReferences \
       --jq ".[] | select(.closingIssuesReferences[]?.number == <номер>) | .number")
 ```
 
@@ -23,7 +23,7 @@ PR нет? Значит проверять нечего — задача поп�
 Выкати код PR в своём дереве **detached-состоянием** — это обязательно:
 
 ```sh
-gh pr checkout "$PR" --repo tihonove/vexx --detach
+gh pr checkout "$PR" --repo diode-editor/diode --detach
 ```
 
 `--detach` берёт PR без создания локальной ветки. Обычный `checkout` здесь падает: ветку PR
@@ -65,7 +65,7 @@ npm run typecheck
 1. Опиши их в тикете — конкретно, воспроизводимо, чтобы реализатор мог взяться, не гадая:
 
    ```sh
-   gh issue comment <номер> --repo tihonove/vexx --body "🐞 Найдены баги при тестировании:
+   gh issue comment <номер> --repo diode-editor/diode --body "🐞 Найдены баги при тестировании:
    1. …шаги → что ожидалось → что вышло…
    2. …"
    ```
@@ -88,7 +88,7 @@ npm run typecheck
 `item-edit`, опция `Ready for review`) и напиши, что проверил и чисто:
 
 ```sh
-gh issue comment <номер> --repo tihonove/vexx --body "✅ Протестировано, багов не нашёл. Проверял: …"
+gh issue comment <номер> --repo diode-editor/diode --body "✅ Протестировано, багов не нашёл. Проверял: …"
 ```
 
 ## Как ты завершаешься

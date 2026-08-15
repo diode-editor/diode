@@ -6,7 +6,7 @@ import { type ExistingField, isEmptyFieldPlan, planFields } from "./projectField
 
 function makeConfig(fields: ProjectConfig["fields"]): ProjectConfig {
     return {
-        repo: "tihonove/vexx",
+        repo: "diode-editor/diode",
         project: { owner: "tihonove", number: 2 },
         fields,
     };

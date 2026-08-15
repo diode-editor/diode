@@ -4,7 +4,7 @@
 // Здесь нет ничего про агентов: их роли и порты живут в agents/config.jsonc.
 // Лейблами машинерия не оперирует вообще — только колонками проекта.
 {
-  "repo": "tihonove/vexx",
+  "repo": "diode-editor/diode",
   "project": { "owner": "tihonove", "number": 2 },
 
   // Поля проекта. Порядок опций single-select = порядок колонок на доске.

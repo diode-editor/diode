@@ -27,7 +27,7 @@ describe("AboutDialog", () => {
         expect(text).toContain("Vexx");
         expect(text).toContain(`Version ${VEXX_VERSION}`);
         expect(text).toContain(`Node ${process.version}`);
-        expect(text).toContain("github.com/tihonove/vexx");
+        expect(text).toContain("github.com/diode-editor/diode");
     });
 
     it("focusDefault focuses the OK button", () => {

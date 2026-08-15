@@ -142,7 +142,7 @@ gh project item-edit --project-id "$PID" --id "$ITEM" --field-id "$FIELD" \
 килобайты), поэтому фильтруй на стороне `gh`, а не читай их целиком:
 
 ```sh
-gh pr list --repo tihonove/vexx --state open --json number,isDraft,closingIssuesReferences,comments \
+gh pr list --repo diode-editor/diode --state open --json number,isDraft,closingIssuesReferences,comments \
   --jq '.[] | select(.isDraft | not) | . as $pr
         | [.comments[] | select(.author.login=="tihonove") | select(.body | test("^\\s*/approved")) | .createdAt]
         | select(length > 0) | max as $at
@@ -200,7 +200,7 @@ spawn_agent({ role: "implement", arg: "<issue>" })
 отчёт о багах по задаче:
 
 ```sh
-gh issue view <n> --repo tihonove/vexx --json comments \
+gh issue view <n> --repo diode-editor/diode --json comments \
   --jq '[.comments[] | select(.body | startswith("🐞")) | .createdAt] | max // ""'
 ```
 
@@ -250,7 +250,7 @@ gh project item-list 2 --owner tihonove --format json \
 Время последнего комментария человека по задаче:
 
 ```sh
-gh issue view <n> --repo tihonove/vexx --json comments \
+gh issue view <n> --repo diode-editor/diode --json comments \
   --jq '[.comments[] | select(.author.login=="tihonove") | .createdAt] | max // ""'
 ```
 

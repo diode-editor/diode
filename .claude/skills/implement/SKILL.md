@@ -15,7 +15,7 @@ description: Реализовать задачу из GitHub issue — проч�
 Найди свой PR по задаче (по ветке искать нельзя — ты мог её переименовать):
 
 ```sh
-gh pr list --repo tihonove/vexx --state open --json number,closingIssuesReferences \
+gh pr list --repo diode-editor/diode --state open --json number,closingIssuesReferences \
   --jq '.[] | select(.closingIssuesReferences[]?.number == <номер>) | .number'
 ```
 
@@ -33,9 +33,9 @@ tihonove --format json --jq '.items[] | select(.content.number==<номер>) | 
 тестировщика — комментарий, начинающийся с `🐞`:
 
 ```sh
-gh pr view <номер PR> --repo tihonove/vexx --json comments \
+gh pr view <номер PR> --repo diode-editor/diode --json comments \
   --jq '[.comments[] | select(.author.login=="tihonove") | select(.body | test("^\\s*/approved"))] | length'
-gh issue view <номер> --repo tihonove/vexx --json comments \
+gh issue view <номер> --repo diode-editor/diode --json comments \
   --jq '[.comments[] | select(.body | startswith("🐞"))] | last'   # последний отчёт о багах
 ```
 
@@ -44,7 +44,7 @@ gh issue view <номер> --repo tihonove/vexx --json comments \
 
 ```sh
 gh pr view <номер PR> --json state,isDraft,reviewDecision,statusCheckRollup
-gh api repos/tihonove/vexx/pulls/<номер PR>/comments --jq '.[] | {path, line, body}'
+gh api repos/diode-editor/diode/pulls/<номер PR>/comments --jq '.[] | {path, line, body}'
 ```
 
 Второй запрос — **построчные замечания ревью**, они лежат отдельно от обычных комментариев
@@ -86,7 +86,7 @@ CI действительно зелёный (см. шаги 3–4). Красн�
 ## Шаг 0. Прочитай задачу
 
 ```
-gh issue view <номер> --repo tihonove/vexx --json number,title,body,labels,url,comments
+gh issue view <номер> --repo diode-editor/diode --json number,title,body,labels,url,comments
 ```
 
 Если тело issue ссылается на файл в `docs/TODO/` — прочитай и его: постановка часто живёт там,

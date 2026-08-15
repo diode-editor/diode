@@ -13,7 +13,7 @@ description: Развернуть задачу из колонки Analytics —
 ## Шаг 0. Прочитай задачу и контекст
 
 ```sh
-gh issue view <номер> --repo tihonove/vexx --json title,body,comments,url
+gh issue view <номер> --repo diode-editor/diode --json title,body,comments,url
 ```
 
 Если тело ссылается на файл в `docs/` или `docs/TODO/` — прочитай и его. Нужен контекст из
@@ -43,7 +43,7 @@ gh issue view <номер> --repo tihonove/vexx --json title,body,comments,url
 `To implement` — их разберут и продвинут отдельно):
 
 ```sh
-URL=$(gh issue create --repo tihonove/vexx --title "…" \
+URL=$(gh issue create --repo diode-editor/diode --title "…" \
         --body "Часть #<номер>. …постановка…")           # печатает URL новой задачи
 ITEM=$(gh project item-add 2 --owner tihonove --url "$URL" --format json --jq .id)
 # положить в Backlog (id поля и опции — как в примерах ниже):
@@ -64,8 +64,8 @@ gh project item-edit --project-id "$PID" --id "$ITEM" --field-id "$FIELD" --sing
 по нему одному можно взяться за работу.
 
 ```sh
-gh issue edit <номер> --repo tihonove/vexx --body-file -   # постановка (stdin), перезаписывает тело
-gh issue comment <номер> --repo tihonove/vexx --body "…"    # рассуждения и вопросы
+gh issue edit <номер> --repo diode-editor/diode --body-file -   # постановка (stdin), перезаписывает тело
+gh issue comment <номер> --repo diode-editor/diode --body "…"    # рассуждения и вопросы
 ```
 
 Правя тело, **не потеряй то, что там уже было** осмысленного: перечитай текущее тело и
@@ -93,7 +93,7 @@ gh issue comment <номер> --repo tihonove/vexx --body "…"    # рассу�
 
 ```sh
 # свежие комментарии и время последнего:
-gh issue view <номер> --repo tihonove/vexx --json comments \
+gh issue view <номер> --repo diode-editor/diode --json comments \
   --jq '[.comments[] | select(.author.login=="tihonove")] | {last: (max_by(.createdAt).createdAt), n: length}'
 ```
 

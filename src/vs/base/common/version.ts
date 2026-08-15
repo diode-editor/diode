@@ -13,4 +13,4 @@ export const VEXX_VERSION: string = typeof __VEXX_VERSION__ !== "undefined" ? __
 export const APP_NAME = "Vexx";
 
 /** Ссылка на репозиторий проекта (для окна About). */
-export const REPO_URL = "https://github.com/tihonove/vexx";
+export const REPO_URL = "https://github.com/diode-editor/diode";
