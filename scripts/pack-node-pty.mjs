@@ -4,13 +4,13 @@
  *
  * Нативный аддон (`pty.node`) нельзя вшить в JS-blob SEA — `process.dlopen`
  * требует файл на диске. Поэтому пакуем `package.json` + рантайм-JS (`lib/**`) +
- * нативы в тот же bundle-формат, что и `vexx.bundle` (см. pack-assets.mjs), а на
+ * нативы в тот же bundle-формат, что и `diode.bundle` (см. pack-assets.mjs), а на
  * первом запуске `loadNodePty.ts` распаковывает ассет в `os.tmpdir()` и грузит
  * через `createRequire`.
  *
  * Виртуальные пути внутри бандла обязаны совпадать с ожиданиями
  * `src/Workbench/Services/Terminal/loadNodePty.ts`: он распаковывает ассет в
- * `tmpdir()/vexx-embedded-pty-<size>/` и делает `require` из
+ * `tmpdir()/diode-embedded-pty-<size>/` и делает `require` из
  * `<targetDir>/node-pty` — значит каждая запись пакуется с префиксом
  * `node-pty/` (`node-pty/package.json`, `node-pty/lib/…`, `node-pty/build/Release/…`).
  *

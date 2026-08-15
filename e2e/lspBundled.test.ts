@@ -19,7 +19,7 @@ import { waitUntil } from "./helpers/waitFor.ts";
  * никаких LSP-настроек, чистый изолированный XDG_CACHE_HOME. Ровно так vexx
  * выглядит на машине пользователя без тулчейна.
  *
- * Оба формата поставки: SEA (vexx-as-node, VEXX_RUN_AS_NODE) и self-extract
+ * Оба формата поставки: SEA (vexx-as-node, DIODE_RUN_AS_NODE) и self-extract
  * (распакованный настоящий node из payload'а).
  */
 
@@ -38,7 +38,7 @@ const UNDERCURL = 8;
 
 /** Каталоги ts-server в изолированном XDG-кэше сессии. */
 function tsServerCacheEntries(home: string): string[] {
-    const root = join(home, ".cache", "vexx", "ts-server");
+    const root = join(home, ".cache", "diode", "ts-server");
     if (!existsSync(root)) return [];
     return readdirSync(root).map((name) => join(root, name));
 }
@@ -73,11 +73,11 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             // Кэш: ровно один версионированный каталог, опубликован атомарно.
             const entries = tsServerCacheEntries(home);
             expect(entries).toHaveLength(1);
-            expect(existsSync(join(entries[0], ".vexx-ready"))).toBe(true);
+            expect(existsSync(join(entries[0], ".diode-ready"))).toBe(true);
             expect(existsSync(`${entries[0]}.lock`)).toBe(false);
             expect(existsSync(join(entries[0], "typescript-language-server", "lib", "run-cli.cjs"))).toBe(true);
             expect(existsSync(join(entries[0], "node_modules", "typescript", "lib", "tsserver.js"))).toBe(true);
-            const readyMtime = statSync(join(entries[0], ".vexx-ready")).mtimeMs;
+            const readyMtime = statSync(join(entries[0], ".diode-ready")).mtimeMs;
 
             // F12: каретка на вызов greet (2:23) → объявление в defs.ts.
             await session.key("ArrowDown");
@@ -100,7 +100,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                     { describe: "squiggle на тёплом кэше", timeoutMs: 120_000, intervalMs: 500 },
                 );
                 expect(tsServerCacheEntries(home)).toHaveLength(1);
-                expect(statSync(join(entries[0], ".vexx-ready")).mtimeMs).toBe(readyMtime);
+                expect(statSync(join(entries[0], ".diode-ready")).mtimeMs).toBe(readyMtime);
             } finally {
                 await second.dispose();
                 removeTempDir(app.env.root);
@@ -163,7 +163,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 const home = join(app.env.root, "home");
                 const entries = tsServerCacheEntries(home);
                 expect(entries).toHaveLength(1);
-                expect(existsSync(join(entries[0], ".vexx-ready"))).toBe(true);
+                expect(existsSync(join(entries[0], ".diode-ready"))).toBe(true);
                 // Диагностика в тексте — сервер отработал проект целиком.
                 expect(frameToText(await app.session.captureFrame())).toContain("main.ts");
             } finally {

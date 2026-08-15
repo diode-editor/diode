@@ -12,11 +12,11 @@
  * Результат:
  *
  *     [ #!/bin/sh стаб (scripts/selfextract-stub.sh) ][ payload.tar.gz ]
- *       payload = node + main.js + vexx.bundle
+ *       payload = node + main.js + diode.bundle
  *
  * Стаб при первом запуске распаковывает payload в
- * `${XDG_CACHE_HOME:-~/.cache}/vexx/<key>/` и делает `exec node main.js "$@"`.
- * Не-SEA чтение `vexx.bundle` рядом с `main.js` обеспечивает
+ * `${XDG_CACHE_HOME:-~/.cache}/diode/<key>/` и делает `exec node main.js "$@"`.
+ * Не-SEA чтение `diode.bundle` рядом с `main.js` обеспечивает
  * `src/Common/Assets/BundleFile.ts`.
  *
  * Использование:
@@ -37,7 +37,7 @@ import { dirname, join, resolve } from "node:path";
 
 import { buildDistArtifacts } from "./build-dist.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
-import { resolveVexxVersion } from "./resolve-version.mjs";
+import { resolveDiodeVersion } from "./resolve-version.mjs";
 import { writeSelfExtract } from "./selfextract-format.mjs";
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
@@ -61,10 +61,10 @@ async function main() {
     }
 
     const outputPath = resolve(root, args.out ?? join("dist", "diode"));
-    const version = resolveVexxVersion({ repoRoot: root });
+    const version = resolveDiodeVersion({ repoRoot: root });
     console.log(`[selfextract] target=${target} version=${version}`);
 
-    // 1. dist/main.js + dist/vexx.bundle (общее с build-sea.mjs).
+    // 1. dist/main.js + dist/diode.bundle (общее с build-sea.mjs).
     const { mainJsPath, bundlePath, tsServerBundlePath } = await buildDistArtifacts({ repoRoot: root });
 
     // 2. node для payload'а.
@@ -177,7 +177,7 @@ async function downloadNode({ target }) {
 }
 
 /**
- * Стейджит node + main.js + vexx.bundle + ts-server.bundle и возвращает payload.tar.gz байтами.
+ * Стейджит node + main.js + diode.bundle + ts-server.bundle и возвращает payload.tar.gz байтами.
  * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string }} params
  * @returns {Buffer}
  */
@@ -189,7 +189,7 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
     cpSync(nodeBinary, join(stageDir, "node"));
     chmodSync(join(stageDir, "node"), 0o755);
     cpSync(mainJsPath, join(stageDir, "main.js"));
-    cpSync(bundlePath, join(stageDir, "vexx.bundle"));
+    cpSync(bundlePath, join(stageDir, "diode.bundle"));
     // ts-server.bundle — файлом рядом с main.js: loadTsServer.ts читает его через
     // entryDir() (единый код-путь с SEA-ассетом) и распаковывает в кэш.
     cpSync(tsServerBundlePath, join(stageDir, "ts-server.bundle"));

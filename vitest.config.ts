@@ -28,7 +28,7 @@ export default defineConfig({
         "src/**/*.stories.ts",
         "src/demos/**",
         "src/vs/diode/main.ts",
-        "src/vs/diode/runAsNode.ts", // node-режим SEA-бинаря (VEXX_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled
+        "src/vs/diode/runAsNode.ts", // node-режим SEA-бинаря (DIODE_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled
         "src/vs/workbench/services/extensions/node/loadTsServer.ts", // выбор источника бандла завязан на SEA/self-extract окружение; чистая распаковка — extractBundleToCache (юниты), сквозняк — e2e lspBundled
         "src/StoryRunner/**",
         "src/vs/workbench/services/extensions/node/__fixtures__/**",

@@ -1,7 +1,7 @@
 #!/bin/sh
-# vexx — self-extracting executable.
+# diode — self-extracting executable.
 #
-# Этот файл = стаб + приклеенный следом payload.tar.gz (node + main.js + vexx.bundle).
+# Этот файл = стаб + приклеенный следом payload.tar.gz (node + main.js + diode.bundle).
 # Собирается `scripts/build-selfextract.mjs`; плейсхолдеры @@…@@ подставляются там же.
 # Правя стаб, помни: его длина в байтах и есть offset payload'а, т.е. OFFSET зависит
 # от текста вокруг себя (build-скрипт решает это итерацией). Ведущих нулей у OFFSET
@@ -15,7 +15,7 @@ set -eu
 OFFSET=@@OFFSET@@
 KEY=@@KEY@@
 
-CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/vexx"
+CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/diode"
 DIR="$CACHE_ROOT/$KEY"
 
 # Распаковка идемпотентна и версионирована: KEY = <version>-<sha payload'а>, поэтому
@@ -48,8 +48,8 @@ if [ ! -f "$DIR/.ready" ]; then
             i=$((i + 1))
         done
         if [ ! -f "$DIR/.ready" ]; then
-            echo "vexx: timed out waiting for unpack." >&2
-            echo "vexx: if no other vexx is starting, remove the stale lock: rm -rf '$DIR.lock'" >&2
+            echo "diode: timed out waiting for unpack." >&2
+            echo "diode: if no other diode is starting, remove the stale lock: rm -rf '$DIR.lock'" >&2
             exit 1
         fi
     fi

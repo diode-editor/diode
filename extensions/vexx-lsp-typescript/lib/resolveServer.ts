@@ -5,7 +5,7 @@
  * Правило рантайма — «как VS Code»: JS-энтрипоинты запускаются НАШИМ
  * node-рантаймом (`runtime.command` = `process.execPath` субпроцесса: в dev и
  * self-extract это настоящий node, в SEA — vexx-бинарь + env
- * `VEXX_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`). Системный node из PATH
+ * `DIODE_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`). Системный node из PATH
  * не требуется — поэтому кандидаты-пути указывают на JS-энтрипоинты, а НЕ на
  * `.bin/…`-шимы: шим исполняется напрямую и через свой шебанг
  * `#!/usr/bin/env node` требует системный node (на машине без него — exit 127).
@@ -36,7 +36,7 @@ export interface ILanguageServerSpec {
 export interface IServerRuntime {
     /** Команда рантайма (обычно `process.execPath` субпроцесса). */
     readonly command: string;
-    /** SEA: бинарь должен уйти в node-режим (`VEXX_RUN_AS_NODE=1` в env сервера). */
+    /** SEA: бинарь должен уйти в node-режим (`DIODE_RUN_AS_NODE=1` в env сервера). */
     readonly runAsNodeFlag: boolean;
 }
 
@@ -45,7 +45,7 @@ export interface IServerCommand {
     readonly command: string;
     readonly args: readonly string[];
     /**
-     * Env-добавка поверх окружения субпроцесса. `VEXX_EXTENSION_HOST` снимается
+     * Env-добавка поверх окружения субпроцесса. `DIODE_EXTENSION_HOST` снимается
      * ВСЕГДА: vscode-languageclient копирует весь env ext-host'а в сервер, и
      * унаследованный флаг увёл бы наш бинарь в ext-host-ветку (exit 2 без IPC).
      */
@@ -62,9 +62,9 @@ export function commandFor(
     runtime: IServerRuntime,
     serverArgs: readonly string[] = ["--stdio"],
 ): IServerCommand {
-    const env: Record<string, string | undefined> = { VEXX_EXTENSION_HOST: undefined };
+    const env: Record<string, string | undefined> = { DIODE_EXTENSION_HOST: undefined };
     if (/\.(cjs|mjs|js)$/.test(candidate)) {
-        if (runtime.runAsNodeFlag) env.VEXX_RUN_AS_NODE = "1";
+        if (runtime.runAsNodeFlag) env.DIODE_RUN_AS_NODE = "1";
         return { command: runtime.command, args: [candidate, ...serverArgs], env };
     }
     return { command: candidate, args: [...serverArgs], env };

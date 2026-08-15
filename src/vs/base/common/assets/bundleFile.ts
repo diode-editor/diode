@@ -2,16 +2,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * Чтение `vexx.bundle` с реальной ФС — источник ассетов для упакованных сборок,
+ * Чтение `diode.bundle` с реальной ФС — источник ассетов для упакованных сборок,
  * которые не являются SEA (self-extract: рядом с `main.js` лежат `node`,
- * `main.js` и `vexx.bundle`, см. `scripts/build-selfextract.mjs`).
+ * `main.js` и `diode.bundle`, см. `scripts/build-selfextract.mjs`).
  *
  * Формат разбирает {@link AssetBundleFormat}; здесь только I/O — байты уходят
  * в `BundleAssetAccess`, тот же, что и под SEA.
  */
 
 /** Имя файла бандла. Совпадает с ключом SEA-ассета в `scripts/build-sea.mjs`. */
-export const BUNDLE_FILE_NAME = "vexx.bundle";
+export const BUNDLE_FILE_NAME = "diode.bundle";
 
 /** Путь к бандлу внутри каталога. */
 export function bundleFilePath(dir: string): string {

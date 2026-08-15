@@ -18,7 +18,7 @@
  * завершается сама и не требует TTY.
  *
  * Оговорка: `--version` отрабатывает до `createDefaultAssetAccess()`, поэтому самотест
- * ловит краш до `main()`, но не битый `vexx.bundle` — за это отвечают e2e.
+ * ловит краш до `main()`, но не битый `diode.bundle` — за это отвечают e2e.
  */
 
 import { spawnSync } from "node:child_process";
@@ -68,7 +68,7 @@ function describeOutput(result) {
 }
 
 /**
- * Самотест node-режима (`VEXX_RUN_AS_NODE=1`): бинарь обязан исполнять внешний
+ * Самотест node-режима (`DIODE_RUN_AS_NODE=1`): бинарь обязан исполнять внешний
  * JS как node — на этом стоит запуск вшитого language-сервера (SEA-поставка
  * без node в PATH). Проверяются обе механики загрузки: CJS через createRequire
  * и динамический `import()` ESM с top-level await из внешнего CJS-шима
@@ -94,7 +94,7 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
             timeout: timeoutMs,
             stdio: "pipe",
             encoding: "utf8",
-            env: { ...process.env, VEXX_RUN_AS_NODE: "1" },
+            env: { ...process.env, DIODE_RUN_AS_NODE: "1" },
         });
         if (result.error) {
             throw new Error(`[smoke:node] cannot execute (${result.error.code ?? "?"}): ${result.error.message}`);
@@ -116,7 +116,7 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
             timeout: timeoutMs,
             stdio: "pipe",
             encoding: "utf8",
-            env: { ...process.env, VEXX_RUN_AS_NODE: "1" },
+            env: { ...process.env, DIODE_RUN_AS_NODE: "1" },
         });
         if (direct.status !== 0 || !(direct.stdout ?? "").includes("SMOKE-ESM-TLA-OK")) {
             throw new Error(

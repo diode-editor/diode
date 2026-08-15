@@ -25,7 +25,7 @@ const itLinuxOnly = process.platform === "linux" ? it : it.skip;
  *
  * Здесь проверяется контракт стаба (идемпотентная распаковка, проброс argv/кода
  * возврата, независимость от cwd) и то, ради чего всё затевалось: приложение
- * реально стартует и читает `vexx.bundle` с диска fs-загрузчиком.
+ * реально стартует и читает `diode.bundle` с диска fs-загрузчиком.
  */
 describe.skipIf(process.platform === "win32")("self-extract binary", () => {
     let binary = "";
@@ -54,9 +54,9 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
 
     /** Единственный каталог распаковки внутри изолированного кэша. */
     function unpackedDir(): string {
-        const entries = readdirSync(join(cacheHome, "vexx")).filter((e) => !e.startsWith("."));
+        const entries = readdirSync(join(cacheHome, "diode")).filter((e) => !e.startsWith("."));
         expect(entries).toHaveLength(1);
-        return join(cacheHome, "vexx", entries[0]);
+        return join(cacheHome, "diode", entries[0]);
     }
 
     it("распаковывается в XDG_CACHE_HOME и печатает версию", () => {
@@ -68,7 +68,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
 
         // Payload лёг целиком — ровно то, что кладёт build-selfextract.
         const dir = unpackedDir();
-        for (const file of ["node", "main.js", "vexx.bundle", ".ready"]) {
+        for (const file of ["node", "main.js", "diode.bundle", ".ready"]) {
             expect(existsSync(join(dir, file)), `${file} должен быть распакован`).toBe(true);
         }
         // Каталог публикуется уже готовым — маркер ставится до rename.
@@ -108,7 +108,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         }
     });
 
-    itLinuxOnly("поднимает редактор и читает vexx.bundle с диска — подсветка работает", async () => {
+    itLinuxOnly("поднимает редактор и читает diode.bundle с диска — подсветка работает", async () => {
         // user-data/HOME изолируем через usePtyApp, но XDG_CACHE_HOME оставляем
         // общим (прогретым распаковкой в предыдущих `run()`), поэтому передаём его
         // явно — extra-env перекрывает изолированный кэш.

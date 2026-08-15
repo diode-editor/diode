@@ -1,11 +1,11 @@
 /**
  * Версия, «зашиваемая» в сборку. Единственный источник правды — им пользуются
- * и `tsup.config.ts` (define `__VEXX_VERSION__` внутри main.js), и
+ * и `tsup.config.ts` (define `__DIODE_VERSION__` внутри main.js), и
  * `build-selfextract.mjs` (ключ кэша распаковки). Разъедься они — стаб распаковывал
  * бы payload в каталог, не совпадающий с версией, которую печатает сам редактор.
  *
  * Приоритет:
- *  1. env `VEXX_VERSION` — задаётся в CI (релиз: тег `vX.Y.Z`; ночная: `nightly-<hash>`);
+ *  1. env `DIODE_VERSION` — задаётся в CI (релиз: тег `vX.Y.Z`; ночная: `nightly-<hash>`);
  *     ведущая `v` срезается.
  *  2. git-fallback — точный тег `vX.Y.Z` → его номер; иначе `nightly-<short-hash>`.
  *  3. если git недоступен → `0.0.0-dev`.
@@ -21,10 +21,10 @@ import { execSync } from "node:child_process";
  *   версию основного репозитория, разъезжавшуюся с ключом кэша).
  * @returns {string}
  */
-export function resolveVexxVersion(params = {}) {
+export function resolveDiodeVersion(params = {}) {
     const cwd = params.repoRoot ?? process.cwd();
 
-    const fromEnv = process.env.VEXX_VERSION?.trim();
+    const fromEnv = process.env.DIODE_VERSION?.trim();
     if (fromEnv) return fromEnv.replace(/^v/, "");
 
     try {

@@ -40,7 +40,7 @@ interface ExtensionContext {
 
 /**
  * Точка входа в subprocess extension host'а. Вызывается из `main.ts` при
- * обнаружении env-флага `VEXX_EXTENSION_HOST=1`. НИКОГДА не возвращает в
+ * обнаружении env-флага `DIODE_EXTENSION_HOST=1`. НИКОГДА не возвращает в
  * нормальном режиме — процесс живёт до `host.shutdown` или `disconnect`.
  */
 export function runExtensionHostSubprocess(): void {

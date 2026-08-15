@@ -10,7 +10,7 @@ import { isSeaBinary } from "../isSea.ts";
  * Упакованных форматов у нас два:
  *   - **SEA** (`node --build-sea`) — ассеты внутри бинаря, `node:sea.isSea() === true`;
  *   - **self-extract** (`scripts/build-selfextract.mjs`) — распакованные в кэш
- *     `node` + `main.js` + `vexx.bundle`; это обычный Node, и `isSea()` там `false`.
+ *     `node` + `main.js` + `diode.bundle`; это обычный Node, и `isSea()` там `false`.
  *
  * Всё, что должно вести себя «как в проде», обязано спрашивать
  * {@link isPackagedRuntime}, а не `isSeaBinary()` — иначе self-extract получит

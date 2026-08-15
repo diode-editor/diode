@@ -4,7 +4,7 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { VEXX_VERSION } from "../../../../base/common/version.ts";
+import { DIODE_VERSION } from "../../../../base/common/version.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -25,7 +25,7 @@ describe("AboutDialog", () => {
         testApp.render();
         const text = testApp.backend.screenToString();
         expect(text).toContain("Vexx");
-        expect(text).toContain(`Version ${VEXX_VERSION}`);
+        expect(text).toContain(`Version ${DIODE_VERSION}`);
         expect(text).toContain(`Node ${process.version}`);
         expect(text).toContain("github.com/diode-editor/diode");
     });

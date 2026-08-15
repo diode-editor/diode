@@ -10,7 +10,7 @@ import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.t
  * один раз за процесс. Возвращаемый `IOnigLib` совместим с
  * `vscode-textmate` `RegistryOptions.onigLib`. Источник `onig.wasm` —
  * абстракция {@link IAssetAccess}: в dev/tests читаем из реальной FS,
- * в SEA-сборке — из встроенного `vexx.bundle`.
+ * в SEA-сборке — из встроенного `diode.bundle`.
  */
 
 let onigLibPromise: Promise<IOnigLib> | undefined;

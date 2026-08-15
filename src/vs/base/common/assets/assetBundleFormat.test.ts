@@ -60,7 +60,7 @@ describe("AssetBundleFormat", () => {
         // packBundle всегда пишет version: 1, поэтому собираем буфер вручную:
         // [magic][headerLen LE][header JSON].
         const headerJson = enc.encode(JSON.stringify({ version: 2, files: {} }));
-        const magic = new Uint8Array([0x56, 0x45, 0x58, 0x58, 0x42, 0x4e, 0x44, 0x00]);
+        const magic = new Uint8Array([0x44, 0x49, 0x4f, 0x44, 0x45, 0x42, 0x4e, 0x44]);
         const buf = new Uint8Array(magic.length + 4 + headerJson.length);
         buf.set(magic, 0);
         new DataView(buf.buffer).setUint32(magic.length, headerJson.length, /* littleEndian */ true);

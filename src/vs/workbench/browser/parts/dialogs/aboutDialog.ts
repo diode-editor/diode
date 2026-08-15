@@ -1,7 +1,7 @@
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
-import { APP_NAME, REPO_URL, VEXX_VERSION } from "../../../../base/common/version.ts";
+import { APP_NAME, REPO_URL, DIODE_VERSION } from "../../../../base/common/version.ts";
 
 import { DIALOG_STYLES, DialogComponent } from "./dialogComponent.ts";
 
@@ -19,7 +19,7 @@ export class AboutDialog extends DialogComponent {
 
         const stack = this.buildFrame(APP_NAME);
         stack.addChild(new TextLabelElement(APP_NAME), { width: "stretch", height: 1 });
-        stack.addChild(new TextLabelElement(`Version ${VEXX_VERSION}`), { width: "stretch", height: 1 });
+        stack.addChild(new TextLabelElement(`Version ${DIODE_VERSION}`), { width: "stretch", height: 1 });
         stack.addChild(new TextLabelElement(`Node ${process.version}`), { width: "stretch", height: 1 });
 
         const link = new TextLabelElement(REPO_URL);

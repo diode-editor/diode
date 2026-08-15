@@ -19,7 +19,7 @@ function run(cmd) {
     execSync(cmd, { stdio: "inherit", cwd: root });
 }
 
-// 1. Собираем dist/main.js + dist/vexx.bundle + dist/node-pty.bundle + dist/rg.bundle (общее с build-selfextract.mjs).
+// 1. Собираем dist/main.js + dist/diode.bundle + dist/node-pty.bundle + dist/rg.bundle (общее с build-selfextract.mjs).
 const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath } = await buildDistArtifacts({
     repoRoot: root,
 });
@@ -31,7 +31,7 @@ const seaConfig = {
     mainFormat: "module",
     disableExperimentalSEAWarning: true,
     assets: {
-        "vexx.bundle": bundlePath,
+        "diode.bundle": bundlePath,
         // Нативный node-pty: loadNodePty.ts распаковывает этот ассет в tmpdir и
         // грузит через createRequire (нативный .node нельзя вшить в JS-blob).
         "node-pty.bundle": nodePtyBundlePath,
@@ -99,7 +99,7 @@ if (isMac) {
 // бинарь без аргументов, из-за чего segfault уехал в релиз (#143).
 const version = smokeTestBinary(outputPath, { cwd: root });
 smokeTestNodeMode(outputPath);
-console.log("Smoke: node mode (VEXX_RUN_AS_NODE) OK");
+console.log("Smoke: node mode (DIODE_RUN_AS_NODE) OK");
 console.error(`[build-sea] Smoke: ${outputPath} --version → ${version}`);
 
 console.log(`\nDone! Binary: ${outputPath}`);

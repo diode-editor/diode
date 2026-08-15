@@ -28,7 +28,7 @@ describe("extractBundleToCache", () => {
         rmSync(root, { recursive: true, force: true });
     });
 
-    it("распаковывает дерево, ставит .vexx-ready, лок не остаётся", async () => {
+    it("распаковывает дерево, ставит .diode-ready, лок не остаётся", async () => {
         const target = path.join(root, "v1-abc");
         await extractBundleToCache(bundle(), target);
 
@@ -49,7 +49,7 @@ describe("extractBundleToCache", () => {
 
     it("незавершённый мусор прошлого падения затирается под локом", async () => {
         const target = path.join(root, "v1-abc");
-        // Полураспакованный каталог БЕЗ .vexx-ready — как после падения между
+        // Полураспакованный каталог БЕЗ .diode-ready — как после падения между
         // писанием файлов и публикацией (в норме ненаблюдаемо: пишем во tmp).
         mkdirSync(target, { recursive: true });
         writeFileSync(path.join(target, "garbage"), "stale");
@@ -59,7 +59,7 @@ describe("extractBundleToCache", () => {
         expect(existsSync(path.join(target, READY_MARKER))).toBe(true);
     });
 
-    it("конкурент с локом: ждём его .vexx-ready", async () => {
+    it("конкурент с локом: ждём его .diode-ready", async () => {
         const target = path.join(root, "v1-abc");
         mkdirSync(`${target}.lock`); // «чужой» владелец распаковывает
         const done = extractBundleToCache(bundle(), target, { waitTimeoutMs: 3_000, pollIntervalMs: 10 });

@@ -4,19 +4,19 @@ import * as path from "node:path";
 import { readBundleHeader, validateVirtualPath } from "../../common/assets/assetBundleFormat.ts";
 
 /** Маркер завершённой распаковки (тот же, что у loadRipgrep/loadNodePty). */
-export const READY_MARKER = ".vexx-ready";
+export const READY_MARKER = ".diode-ready";
 
 /**
- * Распаковывает VEXXBND-бандл в каталог кэша идемпотентно и безопасно для
+ * Распаковывает DIODEBND-бандл в каталог кэша идемпотентно и безопасно для
  * конкурентных процессов — схема self-extract-стаба
  * (`scripts/selfextract-stub.sh`), перенесённая в TS:
  *
- *  - готовый каталог (`<target>/.vexx-ready`) — мгновенный no-op;
+ *  - готовый каталог (`<target>/.diode-ready`) — мгновенный no-op;
  *  - `mkdir <target>.lock` — атомарный мьютекс: владелец распаковывает во
- *    временный каталог рядом, кладёт `.vexx-ready` ВНУТРЬ до публикации и
+ *    временный каталог рядом, кладёт `.diode-ready` ВНУТРЬ до публикации и
  *    публикует атомарным `rename` — полураспакованное состояние снаружи
  *    ненаблюдаемо;
- *  - проигравший гонку ждёт чужой `.vexx-ready` (poll) и падает по таймауту с
+ *  - проигравший гонку ждёт чужой `.diode-ready` (poll) и падает по таймауту с
  *    подсказкой про stale lock.
  *
  * Инвалидация — ответственность вызывающего: `targetDir` должен включать
@@ -46,7 +46,7 @@ export async function extractBundleToCache(
     }
 
     if (!owner) {
-        // Кто-то распаковывает прямо сейчас — ждём его `.vexx-ready`.
+        // Кто-то распаковывает прямо сейчас — ждём его `.diode-ready`.
         const deadline = Date.now() + waitTimeoutMs;
         while (Date.now() < deadline) {
             if (existsSync(readyPath)) return;

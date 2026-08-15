@@ -5,7 +5,7 @@
  *   - **dev/tests** — `FsAssetAccess`: ассеты лежат в реальной FS
  *     (`src/Extensions/builtin/...`, `node_modules/vscode-oniguruma/...`).
  *   - **production SEA-бинарь** — `BundleAssetAccess`: ассеты упакованы
- *     в один встроенный SEA-asset (`vexx.bundle`) кастомного формата
+ *     в один встроенный SEA-asset (`diode.bundle`) кастомного формата
  *     {@link AssetBundleFormat}.
  *
  * Все пути — POSIX-style (`/` как разделитель, без leading `/`).

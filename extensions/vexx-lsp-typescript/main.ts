@@ -22,7 +22,7 @@ const BUNDLED_POLL_MS = 100;
  * рантайма инжектирует host через configDefaults — см. main.ts vexx,
  * builtinConfigInjection) → PATH. Сервер запускается нашим node-рантаймом
  * («как VS Code»): в dev/self-extract это настоящий node (`process.execPath`),
- * в SEA — vexx-бинарь в node-режиме (`VEXX_RUN_AS_NODE=1`, runAsNode.ts).
+ * в SEA — vexx-бинарь в node-режиме (`DIODE_RUN_AS_NODE=1`, runAsNode.ts).
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const configuration = vscode.workspace.getConfiguration("vexx.lsp.typescript");

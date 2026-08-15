@@ -4,7 +4,7 @@ import { defineConfig } from "tsup";
 // в build-selfextract.mjs. Общий источник правды: версия, зашитая в main.js, и
 // версия в имени кэш-каталога обязаны совпадать.
 // @ts-expect-error — build-скрипты живут в .mjs без типов (они не должны зависеть от tsx/jiti).
-import { resolveVexxVersion } from "./scripts/resolve-version.mjs";
+import { resolveDiodeVersion } from "./scripts/resolve-version.mjs";
 
 export default defineConfig({
   entry: ["src/vs/diode/main.ts"],
@@ -40,12 +40,12 @@ export default defineConfig({
   // модульный require из createRequire — esbuild'овский __require подхватывает
   // его через `typeof require !== "undefined"`.
   banner: {
-    js: 'import { createRequire as __vexxCreateRequire } from "node:module"; const require = __vexxCreateRequire(import.meta.url);',
+    js: 'import { createRequire as __diodeCreateRequire } from "node:module"; const require = __diodeCreateRequire(import.meta.url);',
   },
   dts: true,
   clean: true,
   sourcemap: true,
   define: {
-    __VEXX_VERSION__: JSON.stringify(resolveVexxVersion()),
+    __DIODE_VERSION__: JSON.stringify(resolveDiodeVersion()),
   },
 });

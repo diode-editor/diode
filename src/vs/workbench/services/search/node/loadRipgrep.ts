@@ -6,7 +6,7 @@
 //     (исполняемый файл нельзя запустить из JS-blob — нужен файл на диске).
 //
 // Формат `rg.bundle` совпадает с pack-assets.mjs / loadNodePty.ts:
-//   [magic 8B "VEXXBND\0"][headerLen uint32 LE][header JSON][data …]
+//   [magic 8B "DIODEBND"][headerLen uint32 LE][header JSON][data …]
 // header = { version, files: { <virtualPath>: { offset, size } } }.
 
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 
 import { isSeaBinary } from "../../../../base/node/isSea.ts";
 
-const MAGIC = "VEXXBND\0";
+const MAGIC = "DIODEBND";
 const ASSET_NAME = "rg.bundle";
 /** Имя бинаря внутри бандла — платформозависимо (совпадает с pack-ripgrep.mjs). */
 const RG_BINARY_NAME = process.platform === "win32" ? "rg.exe" : "rg";
@@ -47,9 +47,9 @@ function loadFromSeaAsset(): string {
     const bundle = Buffer.from(sea.getAsset(ASSET_NAME));
 
     // Каталог с суффиксом по размеру ассета — авто-инвалидация при пересборке.
-    const targetDir = join(tmpdir(), `vexx-embedded-rg-${String(bundle.length)}`);
+    const targetDir = join(tmpdir(), `diode-embedded-rg-${String(bundle.length)}`);
     const rgPath = join(targetDir, RG_BINARY_NAME);
-    const readyMarker = join(targetDir, ".vexx-ready");
+    const readyMarker = join(targetDir, ".diode-ready");
 
     if (!existsSync(readyMarker)) {
         extractBundle(bundle, targetDir);

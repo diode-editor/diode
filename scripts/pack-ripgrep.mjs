@@ -4,7 +4,7 @@
  *
  * Исполняемый файл нельзя запустить из вшитого в SEA JS-blob — нужен файл на
  * диске. Поэтому пакуем один бинарь `rg` в тот же bundle-формат, что и
- * `vexx.bundle`/`node-pty.bundle` (см. pack-assets.mjs), а на первом запуске
+ * `diode.bundle`/`node-pty.bundle` (см. pack-assets.mjs), а на первом запуске
  * `loadRipgrep.ts` распаковывает ассет в `os.tmpdir()` и запускает оттуда.
  *
  * Бинарь берём из @vscode/ripgrep: сам пакет — тонкий резолвер, реальный `rg`

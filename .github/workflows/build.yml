@@ -24,7 +24,7 @@ jobs:
         # mode: чем упаковываем.
         #   sea         — Node SEA (`node --build-sea`).
         #   selfextract — sh-стаб + приклеенный payload (нетронутый node + main.js +
-        #                 vexx.bundle). Обязателен на Intel macOS, где инъекция
+        #                 diode.bundle). Обязателен на Intel macOS, где инъекция
         #                 SEA-блоба портит Mach-O chained fixups → segfault до main()
         #                 (#143, #144); на linux просто лучше — бинарь втрое
         #                 меньше. Windows остаётся на SEA: стаб — POSIX sh.
@@ -70,12 +70,12 @@ jobs:
       - run: npm run build:sea
         if: matrix.mode == 'sea'
         env:
-          VEXX_VERSION: ${{ inputs.version }}
+          DIODE_VERSION: ${{ inputs.version }}
 
       - run: npm run build:selfextract
         if: matrix.mode == 'selfextract'
         env:
-          VEXX_VERSION: ${{ inputs.version }}
+          DIODE_VERSION: ${{ inputs.version }}
 
       # Переименовываем в платформо-зависимое имя ассета, чтобы:
       #  - файлы не конфликтовали при заливке в один релиз;

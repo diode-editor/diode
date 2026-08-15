@@ -30,11 +30,11 @@ describe("BundleFile", () => {
             { virtualPath: "onig.wasm", data: ONIG },
             { virtualPath: "Extensions/builtin/ts/package.json", data: new TextEncoder().encode('{"name":"ts"}') },
         ]);
-        writeFileSync(join(target, "vexx.bundle"), bundle);
+        writeFileSync(join(target, "diode.bundle"), bundle);
     }
 
     it("резолвит путь рядом с main.js", () => {
-        expect(bundleFilePath("/opt/vexx")).toBe(join("/opt/vexx", "vexx.bundle"));
+        expect(bundleFilePath("/opt/vexx")).toBe(join("/opt/vexx", "diode.bundle"));
     });
 
     it("bundleFileExists отражает наличие файла", () => {
@@ -58,7 +58,7 @@ describe("BundleFile", () => {
     });
 
     it("readBundleFile бросает, когда бандла рядом нет", () => {
-        expect(() => readBundleFile(dir)).toThrow(/vexx\.bundle/);
+        expect(() => readBundleFile(dir)).toThrow(/diode\.bundle/);
     });
 
     it("tryReadBundleFile не глотает ошибки ФС кроме ENOENT", () => {
