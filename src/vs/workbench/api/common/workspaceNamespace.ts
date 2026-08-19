@@ -7,6 +7,7 @@ import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
+import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     DisposableImpl,
@@ -19,7 +20,12 @@ import {
     TextEdit,
     Uri,
 } from "./vscodeTypes.ts";
-import { type IWireReadFileResult, parseWireDocumentSyncSnapshot, type WireTextEdit } from "./wireTypes.ts";
+import {
+    type IWireReadFileResult,
+    parseWireDocumentSyncSnapshot,
+    parseWireWatcherEvents,
+    type WireTextEdit,
+} from "./wireTypes.ts";
 
 /** Тайм-аут на один waitUntil-thenable участника will-save, мс. */
 const WILL_SAVE_LISTENER_TIMEOUT_MS = 1500;
@@ -119,6 +125,18 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         if (provider === undefined) throw new Error(`no file system provider for scheme "${uri.scheme}"`);
         const content = await provider.readFile(uri as unknown as vscode.Uri);
         return { content: Buffer.from(content).toString("base64") };
+    });
+
+    // ── Файловые watcher'ы (`createFileSystemWatcher`) ──────────────────────
+    // Слежение ведёт ядро: оно владеет excludes (`files.watcherExclude`) и
+    // бюджетом inotify. Субпроцесс держит только эмиттеры и id.
+    const fsWatchers = new SubprocessFileSystemWatchers({
+        create: (request) => rpc.notify("workspace.watcher.create", request),
+        dispose: (id) => rpc.notify("workspace.watcher.dispose", { id }),
+    });
+    rpc.handleNotification("workspace.watcher.events", (params) => {
+        const events = parseWireWatcherEvents(params);
+        if (events !== null) fsWatchers.dispatch(events);
     });
 
     const onDidChangeConfigurationEmitter = new EventEmitter<vscode.ConfigurationChangeEvent>();
@@ -406,15 +424,20 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             const found = workspaceFolders.find((f) => p === f.uri.fsPath || p.startsWith(f.uri.fsPath + "/"));
             return (found ?? workspaceFolders[0]) as unknown as vscode.WorkspaceFolder | undefined;
         },
-        createFileSystemWatcher: (): unknown => ({
-            onDidCreate: naiveEvent(),
-            onDidChange: naiveEvent(),
-            onDidDelete: naiveEvent(),
-            ignoreCreateEvents: false,
-            ignoreChangeEvents: false,
-            ignoreDeleteEvents: false,
-            dispose: (): void => undefined,
-        }),
+        createFileSystemWatcher: (
+            globPattern: vscode.GlobPattern,
+            ignoreCreateEvents = false,
+            ignoreChangeEvents = false,
+            ignoreDeleteEvents = false,
+        ): vscode.FileSystemWatcher => {
+            const resolved = resolveGlobPattern(globPattern, workspaceFolders[0]?.uri.fsPath);
+            // Нечего резолвить (пустое окно или мусорный шаблон) — валидный,
+            // но немой watcher: расширение не обязано это проверять.
+            if (resolved === null) {
+                return fsWatchers.createInert(ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
+            }
+            return fsWatchers.create(resolved, ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
+        },
         registerTextDocumentContentProvider: (): vscode.Disposable =>
             new DisposableImpl(() => undefined) as unknown as vscode.Disposable,
 

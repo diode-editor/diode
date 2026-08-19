@@ -1,5 +1,7 @@
 import type * as vscode from "vscode";
 
+import { matchGlob } from "../../../base/common/glob.ts";
+
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 
 /**
@@ -7,8 +9,8 @@ import type { ExtHostTextDocument } from "./extHostDocuments.ts";
  *
  * Минимальная реализация `languages.match`: поддерживает строковый селектор
  * (сахар для `{ language }`), `DocumentFilter { language?, scheme?, pattern? }`
- * и массив (any-match). `pattern` — мини-glob по абсолютному пути (`**`, `*`, `?`),
- * которого достаточно для editorconfig-подобных селекторов (globstar + имя файла).
+ * и массив (any-match). `pattern` — мини-glob по абсолютному пути
+ * ({@link matchGlob}), которого достаточно для editorconfig-подобных селекторов.
  */
 export function matchDocumentSelector(selector: vscode.DocumentSelector, doc: ExtHostTextDocument): boolean {
     if (Array.isArray(selector)) {
@@ -27,39 +29,7 @@ function matchLanguage(language: string, doc: ExtHostTextDocument): boolean {
 function matchFilter(filter: vscode.DocumentFilter, doc: ExtHostTextDocument): boolean {
     if (filter.language !== undefined && !matchLanguage(filter.language, doc)) return false;
     if (filter.scheme !== undefined && filter.scheme !== "*" && filter.scheme !== doc.uri.scheme) return false;
-    if (typeof filter.pattern === "string" && !matchGlobPath(filter.pattern, doc.uri.fsPath)) return false;
+    if (typeof filter.pattern === "string" && !matchGlob(filter.pattern, doc.uri.fsPath)) return false;
     // Хотя бы одно ограничение должно присутствовать (пустой фильтр не матчит).
     return filter.language !== undefined || filter.scheme !== undefined || filter.pattern !== undefined;
-}
-
-/** Компилирует glob (`**`, `*`, `?`) в regexp по всему пути. */
-function globToRegExp(glob: string): RegExp {
-    let re = "";
-    for (let i = 0; i < glob.length; i++) {
-        const c = glob[i];
-        if (c === "*") {
-            if (glob[i + 1] === "*") {
-                i++;
-                if (glob[i + 1] === "/") {
-                    i++;
-                    re += "(?:.*/)?"; // `**/` — ноль и более сегментов пути
-                } else {
-                    re += ".*";
-                }
-            } else {
-                re += "[^/]*"; // `*` — внутри одного сегмента
-            }
-        } else if (c === "?") {
-            re += "[^/]";
-        } else if ("/.+^${}()|[]\\".includes(c)) {
-            re += "\\" + c;
-        } else {
-            re += c;
-        }
-    }
-    return new RegExp("^" + re + "$");
-}
-
-function matchGlobPath(pattern: string, fsPath: string): boolean {
-    return globToRegExp(pattern).test(fsPath);
 }

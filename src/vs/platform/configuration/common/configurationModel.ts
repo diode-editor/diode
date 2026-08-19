@@ -83,15 +83,21 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Разворачивает любые dotted-ключи на текущем уровне в вложенные объекты.
+ * Разворачивает dotted-ключи **верхнего уровня** слоя в вложенные объекты.
  * При коллизии «строковый ключ + объект» побеждает позднее объявленный
  * (последовательность ключей в объекте, как и в JSON, неупорядочена —
  * поведение задокументировано, рассчитывать на порядок нельзя).
+ *
+ * Вглубь значения нормализация НЕ идёт — ровно как `toValuesTree` в VS Code.
+ * Иначе map-настройки, у которых ключ сам по себе данные, разваливались бы:
+ * `"files.watcherExclude": { ".git/objects/**": true }` превратился бы в
+ * `{ "": { "git/objects/**": true } }`, а `files.associations` — в мусор на
+ * каждом `*.ext`. Точка внутри значения — это точка, а не разделитель пути.
  */
 function normalizeNode(raw: Record<string, unknown>): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(raw)) {
-        const normalizedValue = isPlainObject(value) ? normalizeNode(value) : value;
+        const normalizedValue = value;
         if (key.includes(".")) {
             const segments = key.split(".");
             assignNested(result, segments, normalizedValue);

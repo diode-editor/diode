@@ -5,6 +5,7 @@ import { createRange } from "../../editor/common/core/iRange.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
@@ -18,6 +19,7 @@ import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLa
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
+import { FileWatcherAdapter, parseWatcherExclude } from "../../workbench/api/browser/fileWatcherAdapter.ts";
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
 import { FileSystemProviderRegistryDIToken, MarkerServiceDIToken } from "../../workbench/common/coreTokens.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
@@ -118,6 +120,12 @@ export const extensionHostModule: ContainerModule = (container) => {
         // адаптер живёт, пока жив модуль, как остальные адаптеры здесь).
         const editorLayout = new EditorLayoutServiceAdapter(group);
 
+        // Слежение за деревом для `workspace.createFileSystemWatcher`: сам обход
+        // ведёт ядро, excludes берутся из живой настройки `files.watcherExclude`.
+        const fileWatcher = new FileWatcherAdapter(container.get(ITreeFileWatcherDIToken), () =>
+            parseWatcherExclude(configService.get("files.watcherExclude")),
+        );
+
         const host = new ExtensionHost(adapter, commandAdapter, {
             logger,
             rpcLogger,
@@ -129,6 +137,7 @@ export const extensionHostModule: ContainerModule = (container) => {
             themeColorResolver,
             openDocumentsProvider: () => openDocumentSnapshots(group),
             editorLayout,
+            fileWatcher,
             diagnosticsSink,
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),

@@ -1,7 +1,10 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+import { matchGlob } from "../../../../base/common/glob.ts";
+import type { ITreeFileChange } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type {
@@ -25,6 +28,10 @@ import {
     type IFileDecorationsService,
     NULL_FILE_DECORATIONS_SERVICE,
 } from "../../../api/common/iFileDecorationsService.ts";
+import {
+    type IExtensionFileWatcher,
+    NULL_EXTENSION_FILE_WATCHER,
+} from "../../../api/common/iExtensionFileWatcher.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
@@ -49,12 +56,16 @@ import {
     parseWireProgressStart,
     parseWireReadFileResult,
     parseWireSelections,
+    parseWireWatcherCreate,
+    parseWireWatcherDispose,
     requestCompletionItems,
     requestResolveCompletionItem,
     requestDefinition,
     requestFoldingRanges,
     requestWillSaveEdits,
     type SerializedDecorationRenderOptions,
+    type IWireWatcherCreate,
+    type IWireWatcherEvent,
     themeColorIdOf,
     type WireMarker,
     type WireOutputLevel,
@@ -227,6 +238,12 @@ export interface IExtensionHostOptions {
      */
     readonly openDocumentsProvider?: () => IWireDocumentSyncSnapshot[];
     /**
+     * Наблюдатель за деревом каталогов для `workspace.createFileSystemWatcher`
+     * расширений. Если не передан — {@link NULL_EXTENSION_FILE_WATCHER}:
+     * watcher'ы расширений создаются, но никогда не стреляют.
+     */
+    readonly fileWatcher?: IExtensionFileWatcher;
+    /**
      * Полоса групп редакторов для `window.tabGroups`/`showTextDocument`
      * (снимки `editor.layoutChanged` + исполнение show/close). Если не передан —
      * {@link NULL_EDITOR_LAYOUT_SERVICE}: `tabGroups` в субпроцессе пуст.
@@ -327,6 +344,9 @@ export class ExtensionHost extends Disposable {
     private readonly outputSink: IOutputSink | undefined;
     /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
     private readonly activeProgressHandles = new Set<number>();
+    private readonly fileWatcher: IExtensionFileWatcher;
+    /** Живые watcher'ы субпроцесса (`workspace.createFileSystemWatcher`) по id. */
+    private readonly fileWatchers = new Map<number, IDisposable>();
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
     private fileSystemSchemesValue: readonly string[] = [];
     private readonly fileSystemSchemesListeners: (() => void)[] = [];
@@ -362,6 +382,7 @@ export class ExtensionHost extends Disposable {
         this.themeColorResolver = options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER;
         this.openDocumentsProvider = options.openDocumentsProvider;
         this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
+        this.fileWatcher = options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER;
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
         this.outputSink = options.outputSink;
@@ -790,8 +811,23 @@ export class ExtensionHost extends Disposable {
         this.hostDisposed = true;
         this.pending.clear();
         this.extensions.clear();
+        this.disposeFileWatchers();
         void this.shutdownSubprocess();
         super.dispose();
+    }
+
+    /** Снимает один watcher субпроцесса (если он есть). */
+    private disposeFileWatcher(id: number): void {
+        const existing = this.fileWatchers.get(id);
+        if (existing === undefined) return;
+        existing.dispose();
+        this.fileWatchers.delete(id);
+    }
+
+    /** Снимает все watcher'ы: субпроцесс умер или host выключается. */
+    private disposeFileWatchers(): void {
+        for (const subscription of this.fileWatchers.values()) subscription.dispose();
+        this.fileWatchers.clear();
     }
 
     /**
@@ -1021,6 +1057,31 @@ export class ExtensionHost extends Disposable {
             if (raw.length === 0) return;
             const uris = raw.map((u) => Uri.parse(u));
             for (const cb of [...this.fileSystemChangeListeners]) cb(uris);
+        });
+        // Файловые watcher'ы расширений (`workspace.createFileSystemWatcher`).
+        // Слежение за деревом ведёт ядро (оно владеет excludes и бюджетом
+        // inotify), а матчинг шаблона — здесь: субпроцессу уезжают только
+        // подошедшие события, а не весь поток по воркспейсу.
+        rpc.handleNotification("workspace.watcher.create", (params) => {
+            const request = parseWireWatcherCreate(params);
+            if (request === null) return;
+            // Повторный id — пересоздание: старую подписку роняем, иначе она
+            // осталась бы висеть без владельца.
+            this.disposeFileWatcher(request.id);
+            const subscription = this.fileWatcher.watch(
+                request.base,
+                isRecursiveWatchPattern(request.pattern),
+                (changes) => {
+                    const events = toWatcherEvents(request, changes);
+                    if (events.length > 0) rpc.notify("workspace.watcher.events", { id: request.id, events });
+                },
+            );
+            this.fileWatchers.set(request.id, subscription);
+        });
+        rpc.handleNotification("workspace.watcher.dispose", (params) => {
+            const id = parseWireWatcherDispose(params);
+            if (id === null) return;
+            this.disposeFileWatcher(id);
         });
         // Жизненный цикл withProgress расширения — отдаём стоку (module рисует
         // запись статус-бара со спиннером и снимает её на end).
@@ -1416,4 +1477,39 @@ function pipeStreamToLogger(stream: NodeJS.ReadableStream, logger: ILogger, leve
             buffer = "";
         }
     });
+}
+
+/**
+ * Рекурсивен ли watcher с таким шаблоном. Правило VS Code: `RelativePattern`
+ * с простым `*` (или другим односегментным шаблоном) следит только за прямыми
+ * детьми базы, а как только в шаблоне появляется `**` или разделитель — за
+ * поддеревом. Именно на этом различии держится дешёвый watcher `.git`:
+ * `new RelativePattern(dotGit, "*")` не тащит за собой `.git/objects`.
+ */
+export function isRecursiveWatchPattern(pattern: string): boolean {
+    return pattern.includes("**") || pattern.includes("/");
+}
+
+/**
+ * Фильтрует пачку изменений одного watcher'а и переводит её в wire-события:
+ * отбрасывает то, что вне базы, не подошло шаблону или выключено флагами
+ * `ignore*Events`. Путь матчится относительно базы в posix-форме — так шаблон
+ * `RelativePattern` работает одинаково на всех платформах.
+ */
+export function toWatcherEvents(
+    request: IWireWatcherCreate,
+    changes: readonly ITreeFileChange[],
+): IWireWatcherEvent[] {
+    const events: IWireWatcherEvent[] = [];
+    for (const change of changes) {
+        if (change.type === "created" && request.ignoreCreateEvents) continue;
+        if (change.type === "changed" && request.ignoreChangeEvents) continue;
+        if (change.type === "deleted" && request.ignoreDeleteEvents) continue;
+        const relative = path.relative(request.base, change.path);
+        // Вне базы (`..`) или сама база (пустой путь) — не наше событие.
+        if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) continue;
+        if (!matchGlob(request.pattern, relative.split(path.sep).join("/"))) continue;
+        events.push({ type: change.type, uri: Uri.file(change.path).toString() });
+    }
+    return events;
 }
