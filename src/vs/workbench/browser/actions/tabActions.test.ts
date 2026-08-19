@@ -17,6 +17,17 @@ import {
     previousEditorInGroupAction,
 } from "./tabActions.ts";
 
+/**
+ * Группа: закрытие идёт по ней, а не через focus-aware делегаты сервиса —
+ * цель вкладочных команд адресуется парой (группа, индекс).
+ */
+interface TabGroupStub {
+    id?: number;
+    activeIndex: number;
+    getPane: (index: number) => { isModified: boolean } | null;
+    closeTab: (index: number) => void;
+}
+
 interface GroupStub {
     activeIndex: number;
     editorCount: number;
@@ -24,12 +35,13 @@ interface GroupStub {
     cycleMru?: (direction: 1 | -1) => void;
     endMruCycle?: () => void;
     closeTab: (index: number) => void;
-    /** Закрываемую вкладку экшен берёт по индексу, а не через focus-aware активный редактор. */
-    getPane?: (index: number) => { isModified: boolean } | null;
+    /** Активная группа сервиса — цель команды, когда адреса в аргументах нет. */
+    activeGroup?: TabGroupStub;
+    /** Полоса групп — по ней резолвится явный адрес `(groupId, index)` из меню. */
+    groups?: readonly TabGroupStub[];
     /** Единая формула диалога закрытия; в стабе — прямо по isModified вкладки. */
     needsCloseConfirm?: (pane: { isModified: boolean }) => boolean;
-    /** Координата confirm-close — (группа, индекс); в стабе группа — маркер-объект. */
-    activeGroup?: unknown;
+    /** Координата confirm-close — (группа, индекс). */
     onRequestConfirmClose?: (group: unknown, index: number) => void;
 }
 
@@ -153,12 +165,17 @@ describe("TabActions", () => {
 
     it("closeActiveEditor closes currently active tab", () => {
         const closeTab = vi.fn();
+        const activeGroup: TabGroupStub = {
+            activeIndex: 1,
+            closeTab,
+            getPane: () => ({ isModified: false }),
+        };
         const group: GroupStub = {
             activeIndex: 1,
             editorCount: 3,
             activateTab: vi.fn(),
-            closeTab,
-            getPane: () => ({ isModified: false }),
+            closeTab: vi.fn(),
+            activeGroup,
             needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
         };
 
@@ -170,17 +187,47 @@ describe("TabActions", () => {
         expect(closeTab).toHaveBeenCalledWith(1);
     });
 
+    it("closeActiveEditor closes the addressed tab of another group (tab context menu)", () => {
+        const activeClose = vi.fn();
+        const otherClose = vi.fn();
+        const activeGroup: TabGroupStub = { id: 1, activeIndex: 0, closeTab: activeClose, getPane: () => ({ isModified: false }) };
+        const otherGroup: TabGroupStub = { id: 2, activeIndex: 0, closeTab: otherClose, getPane: () => ({ isModified: false }) };
+        const group: GroupStub = {
+            activeIndex: 0,
+            editorCount: 1,
+            activateTab: vi.fn(),
+            closeTab: vi.fn(),
+            activeGroup,
+            groups: [activeGroup, otherGroup],
+            needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
+        };
+
+        const { commands, keybindings, accessor } = setupActionTest(group);
+        registerAction(commands, keybindings, accessor, closeActiveEditorAction);
+
+        // Правый клик по второй вкладке ЧУЖОЙ группы: активную вкладку он не
+        // менял, поэтому адрес приходит аргументами.
+        commands.execute("workbench.action.closeActiveEditor", 2, 1);
+
+        expect(otherClose).toHaveBeenCalledWith(1);
+        expect(activeClose).not.toHaveBeenCalled();
+    });
+
     it("closeActiveEditor routes a modified editor through the confirm-close dialog", () => {
         const closeTab = vi.fn();
         const onRequestConfirmClose = vi.fn();
+        const activeGroup: TabGroupStub = {
+            activeIndex: 2,
+            closeTab,
+            getPane: () => ({ isModified: true }),
+        };
         const group: GroupStub = {
             activeIndex: 2,
             editorCount: 3,
             activateTab: vi.fn(),
-            closeTab,
-            getPane: () => ({ isModified: true }),
+            closeTab: vi.fn(),
+            activeGroup,
             needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
-            activeGroup: { marker: "group" },
             onRequestConfirmClose,
         };
 
@@ -189,18 +236,23 @@ describe("TabActions", () => {
 
         commands.execute("workbench.action.closeActiveEditor");
 
-        expect(onRequestConfirmClose).toHaveBeenCalledWith(group.activeGroup, 2);
+        expect(onRequestConfirmClose).toHaveBeenCalledWith(activeGroup, 2);
         expect(closeTab).not.toHaveBeenCalled();
     });
 
     it("closeActiveEditor closes directly when modified but no confirm handler is wired", () => {
         const closeTab = vi.fn();
+        const activeGroup: TabGroupStub = {
+            activeIndex: 0,
+            closeTab,
+            getPane: () => ({ isModified: true }),
+        };
         const group: GroupStub = {
             activeIndex: 0,
             editorCount: 1,
             activateTab: vi.fn(),
-            closeTab,
-            getPane: () => ({ isModified: true }),
+            closeTab: vi.fn(),
+            activeGroup,
             needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
             // onRequestConfirmClose intentionally absent → else branch.
         };
@@ -215,18 +267,45 @@ describe("TabActions", () => {
 
     it("closeActiveEditor is a no-op when the group is empty", () => {
         const closeTab = vi.fn();
+        const activeGroup: TabGroupStub = {
+            activeIndex: -1,
+            closeTab,
+            getPane: () => null,
+        };
         const group: GroupStub = {
             activeIndex: -1,
             editorCount: 0,
             activateTab: vi.fn(),
-            closeTab,
-            getPane: () => null,
+            closeTab: vi.fn(),
+            activeGroup,
         };
 
         const { commands, keybindings, accessor } = setupActionTest(group);
         registerAction(commands, keybindings, accessor, closeActiveEditorAction);
 
         commands.execute("workbench.action.closeActiveEditor");
+
+        expect(closeTab).not.toHaveBeenCalled();
+    });
+
+    it("closeActiveEditor is a no-op when the addressed tab no longer exists", () => {
+        const closeTab = vi.fn();
+        const activeGroup: TabGroupStub = { id: 1, activeIndex: 0, closeTab, getPane: () => null };
+        const group: GroupStub = {
+            activeIndex: 0,
+            editorCount: 0,
+            activateTab: vi.fn(),
+            closeTab: vi.fn(),
+            activeGroup,
+            groups: [activeGroup],
+        };
+
+        const { commands, keybindings, accessor } = setupActionTest(group);
+        registerAction(commands, keybindings, accessor, closeActiveEditorAction);
+
+        // Группа есть, а вкладки по индексу уже нет — и адрес из чужой группы тоже.
+        commands.execute("workbench.action.closeActiveEditor", 1, 5);
+        commands.execute("workbench.action.closeActiveEditor", 99, 0);
 
         expect(closeTab).not.toHaveBeenCalled();
     });

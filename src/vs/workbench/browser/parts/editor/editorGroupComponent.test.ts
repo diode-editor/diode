@@ -11,6 +11,7 @@ import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorT
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestContextMenuService } from "../../../../../TestUtils/testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -51,7 +52,7 @@ function createEditorGroup(
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
     );
-    const component = new EditorGroupComponent(service.activeGroup, service);
+    const component = new EditorGroupComponent(service.activeGroup, service, createTestContextMenuService());
     return { service, component };
 }
 

@@ -31,6 +31,7 @@ import {
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
+import { createTestContextMenuService } from "./testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
 
 const SUBPROCESS_ENTRY = fileURLToPath(
@@ -171,7 +172,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
     );
-    const groupComponent = new EditorGroupComponent(group.activeGroup, group);
+    const groupComponent = new EditorGroupComponent(group.activeGroup, group, createTestContextMenuService());
 
     const adapter = new EditorOptionsServiceAdapter(group);
     const commandRegistry = new CommandRegistry();

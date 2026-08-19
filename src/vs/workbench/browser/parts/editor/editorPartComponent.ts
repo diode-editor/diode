@@ -1,6 +1,8 @@
 import type { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
 import type { EditorPartOrientation } from "@tuidom/elements/editorpart/editorPartElement";
 import { EditorPartElement } from "@tuidom/elements/editorpart/editorPartElement";
+import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService, IGroupsChangeEvent } from "../../../services/editor/browser/editorService.ts";
@@ -22,7 +24,7 @@ export const EditorPartComponentDIToken = token<EditorPartComponent>("EditorPart
  * `focusGroupContentHook` (фокус вкладки либо филлера пустой группы).
  */
 export class EditorPartComponent extends Component {
-    public static dependencies = [EditorServiceDIToken] as const;
+    public static dependencies = [EditorServiceDIToken, ContextMenuServiceDIToken] as const;
 
     public readonly view: EditorPartElement;
     private readonly groupComponents = new Map<GroupId, EditorGroupComponent>();
@@ -34,7 +36,10 @@ export class EditorPartComponent extends Component {
      */
     public onDidChangeGroupLayout?: () => void;
 
-    public constructor(private readonly editorService: EditorService) {
+    public constructor(
+        private readonly editorService: EditorService,
+        private readonly contextMenuService: ContextMenuService,
+    ) {
         super();
         this.view = new EditorPartElement();
         this.view.id = "editorPart";
@@ -149,7 +154,7 @@ export class EditorPartComponent extends Component {
         }
         for (const group of groups) {
             if (!this.groupComponents.has(group.id)) {
-                this.groupComponents.set(group.id, new EditorGroupComponent(group, this.editorService));
+                this.groupComponents.set(group.id, new EditorGroupComponent(group, this.editorService, this.contextMenuService));
             }
         }
 

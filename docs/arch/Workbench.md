@@ -167,7 +167,8 @@ VS Code), а не хардкодятся списками в местах отк
 
 **Точки.** `MenuId` — расширяемый класс с id-уникальностью (как в vscode):
 встроенные точки — статические инстансы (`EditorContext`, `ExplorerContext`,
-`MenubarMainMenu` + `MenubarFileMenu`/`MenubarEditMenu`/…), новая точка —
+`EditorTitleContext`, `MenubarMainMenu` + `MenubarFileMenu`/`MenubarEditMenu`/…),
+новая точка —
 `new MenuId("my.menu")`; сравнение — по идентичности инстанса.
 
 **Записи.** Два вида contributions (`MenuContribution`):
@@ -202,8 +203,20 @@ shortTitle → title» фиксируется при деривации). Явн
 состояние открытия (буфер обмена файлов, путь узла) приходит параметром
 `context`, не через DI. Конвенция контекста: `EditorContext`, меню-бар →
 `undefined`; `ExplorerContext → { path, canPaste }`; `ScmGraphContext →
-{ sha, shortSha, subject }` — коммит под меню в графе (хелперы —
-`Menus/menuContexts.ts`).
+{ sha, shortSha, subject }` — коммит под меню в графе;
+`EditorTitleContext → { groupId, index, path, tabCount, hasTabsToTheRight,
+hasSavedTabs }` — вкладка под правым кликом (хелперы — `Menus/menuContexts.ts`).
+
+**`EditorTitleContext` — меню вкладки** (VS Code `editor/title/context`).
+Открывает `EditorGroupComponent` по `EditorTabStripElement.onTabContextMenu`;
+цель — вкладка **под курсором**, а не активная (правый клик активную не меняет,
+как в VS Code). Поэтому команды пунктов адресуются парой `(groupId, index)` из
+`editorTabTargetArg` (резолв — `Actions/editorTabTarget.ts`, фолбэк на активную
+вкладку, если аргументов нет: палитра и клавиатура), а видимость решается
+императивно через `visible(context)`: глобальные when-ключи вкладку под курсором
+не различают, а disabled-пунктов у реестра нет. Пункт закрытия ходит через
+`closeTabsWithConfirm` (`Actions/editorCloseHelpers.ts`) — общая серия закрытий с
+confirm-диалогом по несохранённым и прерыванием на Cancel.
 
 **MenuService (потребление).** `MenuService.createMenu(menuId) → IMenu` (аналог
 `IMenuService`/`IMenu`): живое меню одной точки — `getEntries(context?)`/

@@ -1,15 +1,15 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ILogServiceDIToken } from "../../../platform/log/common/iLogServiceDIToken.ts";
 import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerService.ts";
-import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
-import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
-import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { DiffEditorPane2 } from "../parts/editor/diffEditorPane2.ts";
 import { EditorPartComponentDIToken } from "../parts/editor/editorPartComponent.ts";
-import { TextEditorPane } from "../parts/editor/textEditorPane.ts";
+
+import { closeGroupEditorsWithConfirm } from "./editorCloseHelpers.ts";
+import { resolveAddressedTab } from "./editorTabTarget.ts";
+import { editorTabTargetArg } from "./menuContexts.ts";
 
 /** Kitty/CSI-u — единственные tier'ы, где Ctrl+цифра доходит до приложения. */
 const EXTENDED_TIERS = "tier == 'kitty' || tier == 'csi-u'";
@@ -38,9 +38,27 @@ function ensureAxis(accessor: ServiceAccessor, wanted: "columns" | "rows"): bool
     return false;
 }
 
-function directionalSplit(accessor: ServiceAccessor, axis: "columns" | "rows", position: "before" | "after"): void {
+/**
+ * Сплит вдоль оси. `args` — необязательный адрес вкладки из контекст-меню таба:
+ * сплитим ту вкладку, по которой открыли меню, поэтому перед сплитом делаем её
+ * активной (сплит и так оставляет свой редактор активным — активация здесь
+ * часть действия, а не побочка правого клика). Без аргументов целью остаётся
+ * активная вкладка активной группы.
+ */
+function directionalSplit(
+    accessor: ServiceAccessor,
+    axis: "columns" | "rows",
+    position: "before" | "after",
+    args: readonly unknown[] = [],
+): void {
+    const service = accessor.get(EditorServiceDIToken);
+    const addressed = resolveAddressedTab(service, args);
+    if (addressed !== null) {
+        service.focusGroup(addressed.group.id, { focus: false });
+        addressed.group.activateTab(addressed.index, { focus: false });
+    }
     if (!ensureAxis(accessor, axis)) return;
-    accessor.get(EditorServiceDIToken).splitActiveGroup({ position });
+    service.splitActiveGroup({ position });
 }
 
 function directionalNewGroup(accessor: ServiceAccessor, axis: "columns" | "rows", position: "before" | "after"): void {
@@ -72,9 +90,11 @@ export const splitEditorAction: CommandAction = {
 export const splitEditorRightAction: CommandAction = {
     id: "workbench.action.splitEditorRight",
     title: "View: Split Editor Right",
+    shortTitle: "Split Right",
+    menus: [{ menuId: MenuId.EditorTitleContext, group: "2_split", order: 10, args: editorTabTargetArg }],
     when: "editorGroupHasEditors",
-    run(accessor) {
-        directionalSplit(accessor, "columns", "after");
+    run(accessor, ...args) {
+        directionalSplit(accessor, "columns", "after", args);
     },
 };
 
@@ -90,9 +110,11 @@ export const splitEditorLeftAction: CommandAction = {
 export const splitEditorDownAction: CommandAction = {
     id: "workbench.action.splitEditorDown",
     title: "View: Split Editor Down",
+    shortTitle: "Split Down",
+    menus: [{ menuId: MenuId.EditorTitleContext, group: "2_split", order: 20, args: editorTabTargetArg }],
     when: "editorGroupHasEditors",
-    run(accessor) {
-        directionalSplit(accessor, "rows", "after");
+    run(accessor, ...args) {
+        directionalSplit(accessor, "rows", "after", args);
     },
 };
 
@@ -381,47 +403,6 @@ export const toggleMaximizeEditorGroupAction: CommandAction = {
 
 // ─── Закрытие ────────────────────────────────────────────────────────────────
 
-/**
- * Последовательно закрывает вкладки группы с confirm-диалогом по каждому
- * несохранённому документу (последняя вкладка документа). Cancel прерывает всю
- * серию (US-48/49-семантика quit-флоу). Возвращает true, если группа закрыта
- * целиком.
- */
-async function closeGroupEditorsWithConfirm(
-    accessor: ServiceAccessor,
-    service: EditorService,
-    group: EditorGroup,
-): Promise<boolean> {
-    const dialogs = accessor.get(DialogServiceDIToken);
-    while (group.editorCount > 0) {
-        const index = group.editorCount - 1;
-        const pane = group.getPane(index);
-        /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
-        if (pane === null) return false;
-        /* v8 ignore stop */
-        if (service.needsCloseConfirm(pane)) {
-            // Сохраняемые поверхности вкладки: сама текстовая панель либо
-            // dirty-стороны диффа v2, не видимые больше нигде (untitled-пара,
-            // файл без вкладки) — needsCloseConfirm гарантирует, что они есть.
-            const saveTargets =
-                pane instanceof DiffEditorPane2
-                    ? service.dirtyExclusiveDiffSides(pane)
-                    : /* v8 ignore start -- needsCloseConfirm для не-диффа истинен только у текстовой панели */
-                      pane instanceof TextEditorPane
-                      ? [pane]
-                      : [];
-            /* v8 ignore stop */
-            const choice = await dialogs.confirmSave(saveTargets.map((target) => target.label).join(", "));
-            if (choice === "cancel") return false;
-            if (choice === "save") {
-                for (const target of saveTargets) await target.save({ overwrite: true });
-            }
-        }
-        group.closeTab(index);
-    }
-    return true;
-}
-
 export const closeEditorsInGroupAction: CommandAction = {
     id: "workbench.action.closeEditorsInGroup",
     title: "View: Close All Editors in Group",
@@ -446,6 +427,8 @@ export const closeEditorsAndGroupAction: CommandAction = {
 export const closeAllEditorsAction: CommandAction = {
     id: "workbench.action.closeAllEditors",
     title: "View: Close All Editors",
+    shortTitle: "Close All",
+    menus: [{ menuId: MenuId.EditorTitleContext, group: "1_close", order: 50 }],
     keybinding: parseChord("ctrl+k ctrl+w"),
     when: "editorGroupHasEditors",
     run(accessor) {

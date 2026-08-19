@@ -10,6 +10,7 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createTestContextMenuService } from "../../../../../TestUtils/testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -45,7 +46,7 @@ function makeGroup(): {
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
     );
-    const groupComponent = new EditorGroupComponent(group.activeGroup, group);
+    const groupComponent = new EditorGroupComponent(group.activeGroup, group, createTestContextMenuService());
     return { group, groupComponent, themeService };
 }
 

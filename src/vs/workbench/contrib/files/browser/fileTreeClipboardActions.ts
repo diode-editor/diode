@@ -3,7 +3,12 @@ import * as path from "node:path";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { explorerCanPaste, explorerPathArg } from "../../../browser/actions/menuContexts.ts";
+import {
+    editorTabIsFile,
+    editorTabPathArg,
+    explorerCanPaste,
+    explorerPathArg,
+} from "../../../browser/actions/menuContexts.ts";
 import { ClipboardDIToken } from "../../../common/coreTokens.ts";
 
 import { ExplorerServiceDIToken } from "./explorerService.ts";
@@ -61,7 +66,16 @@ export const fileCopyPathAction: CommandAction = {
     shortTitle: "Copy Path",
     keybinding: parseKeybinding("shift+alt+c"),
     when: "listFocus",
-    menus: [{ menuId: MenuId.ExplorerContext, group: "3_copypath", order: 10, args: explorerPathArg }],
+    menus: [
+        { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 10, args: explorerPathArg },
+        {
+            menuId: MenuId.EditorTitleContext,
+            group: "3_copypath",
+            order: 10,
+            args: editorTabPathArg,
+            visible: editorTabIsFile,
+        },
+    ],
     run(accessor, ...args) {
         const filePath = (args[0] as string | undefined) ?? accessor.get(ExplorerServiceDIToken).getSelectedPaths()[0];
         if (filePath) void accessor.get(ClipboardDIToken).writeText(filePath);
@@ -80,7 +94,16 @@ export const fileCopyRelativePathAction: CommandAction = {
     keybinding: parseChord("ctrl+k ctrl+shift+c"),
     keybindings: [{ keys: parseChord("ctrl+k ctrl+c"), when: "tier == 'legacy'" }],
     when: "listFocus",
-    menus: [{ menuId: MenuId.ExplorerContext, group: "3_copypath", order: 20, args: explorerPathArg }],
+    menus: [
+        { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 20, args: explorerPathArg },
+        {
+            menuId: MenuId.EditorTitleContext,
+            group: "3_copypath",
+            order: 20,
+            args: editorTabPathArg,
+            visible: editorTabIsFile,
+        },
+    ],
     run(accessor, ...args) {
         const explorer = accessor.get(ExplorerServiceDIToken);
         const filePath = (args[0] as string | undefined) ?? explorer.getSelectedPaths()[0];

@@ -203,6 +203,7 @@ import {
     openPreviousRecentlyUsedEditorInGroupAction,
     previousEditorInGroupAction,
 } from "./tabActions.ts";
+import { TAB_CLOSE_ACTIONS } from "./tabCloseActions.ts";
 import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whitespaceActions.ts";
 
 /**
@@ -330,6 +331,7 @@ export const builtinActions: readonly CommandAction[] = [
     previousEditorInGroupAction,
     openPreviousRecentlyUsedEditorInGroupAction,
     closeActiveEditorAction,
+    ...TAB_CLOSE_ACTIONS,
 
     // Editor groups (сплиты)
     ...EDITOR_GROUP_ACTIONS,
