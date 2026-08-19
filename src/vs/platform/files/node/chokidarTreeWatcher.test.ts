@@ -1,4 +1,7 @@
 import { EventEmitter } from "node:events";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 import type { FSWatcher } from "chokidar";
 import { describe, expect, it, vi } from "vitest";
@@ -57,7 +60,7 @@ describe("ChokidarTreeWatcher", () => {
         try {
             const watcher = new TestTreeWatcher();
             const batches: (readonly ITreeFileChange[])[] = [];
-            watcher.watchTree("/repo", { recursive: true }, (changes) => batches.push(changes));
+            watcher.watchTree("/repo", { recursive: true, excludes: [] }, (changes) => batches.push(changes));
 
             watcher.created[0].fire("add", "/repo/a.ts");
             watcher.created[0].fire("change", "/repo/b.ts");
@@ -82,7 +85,7 @@ describe("ChokidarTreeWatcher", () => {
         try {
             const watcher = new TestTreeWatcher();
             const batches: (readonly ITreeFileChange[])[] = [];
-            watcher.watchTree("/repo", { recursive: true }, (changes) => batches.push(changes));
+            watcher.watchTree("/repo", { recursive: true, excludes: [] }, (changes) => batches.push(changes));
 
             watcher.created[0].fire("ready");
             watcher.created[0].fire("raw", "moved", "x", {});
@@ -106,7 +109,7 @@ describe("ChokidarTreeWatcher", () => {
         try {
             const watcher = new TestTreeWatcher();
             const batches: (readonly ITreeFileChange[])[] = [];
-            const subscription = watcher.watchTree("/repo", { recursive: true }, (changes) => batches.push(changes));
+            const subscription = watcher.watchTree("/repo", { recursive: true, excludes: [] }, (changes) => batches.push(changes));
 
             watcher.created[0].fire("add", "/repo/a.ts");
             subscription.dispose();
@@ -122,7 +125,7 @@ describe("ChokidarTreeWatcher", () => {
     it("переживает 'error' (ENOSPC): закрывает watcher и пишет подсказку в лог", () => {
         const { logService, entries } = createLogService();
         const watcher = new TestTreeWatcher(logService.createLogger("files.watcher"));
-        watcher.watchTree("/repo", { recursive: true }, () => {
+        watcher.watchTree("/repo", { recursive: true, excludes: [] }, () => {
             /* no-op */
         });
         const err = Object.assign(new Error("ENOSPC: System limit for number of file watchers reached"), {
@@ -136,11 +139,42 @@ describe("ChokidarTreeWatcher", () => {
 
     it("рекурсивность прокидывается в опции chokidar", () => {
         const watcher = new TestTreeWatcher();
-        watcher.watchTree("/repo", { recursive: false }, () => {
+        watcher.watchTree("/repo", { recursive: false, excludes: [] }, () => {
             /* no-op */
         });
         expect(watcher.options[0].recursive).toBe(false);
     });
+});
+
+describe("ChokidarTreeWatcher — настоящий chokidar", () => {
+    /** Единственный тест без подмены `createWatcher`: excludes проверяем на живом обходе. */
+    it("в исключённый каталог watcher не заходит, за остальным следит", async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-tree-watch-"));
+        fs.mkdirSync(path.join(root, "node_modules", "pkg"), { recursive: true });
+        fs.mkdirSync(path.join(root, "src"));
+        const seen: string[] = [];
+        const watcher = new ChokidarTreeWatcher();
+        const subscription = watcher.watchTree(
+            root,
+            { recursive: true, excludes: ["**/node_modules/**"] },
+            (changes) => seen.push(...changes.map((c) => c.path)),
+        );
+        try {
+            // Ждём готовности: до события `ready` chokidar считает найденное
+            // начальным состоянием и с `ignoreInitial` глотает.
+            await new Promise((resolve) => setTimeout(resolve, 400));
+
+            fs.writeFileSync(path.join(root, "node_modules", "pkg", "index.js"), "x");
+            fs.writeFileSync(path.join(root, "src", "a.ts"), "y");
+            await new Promise((resolve) => setTimeout(resolve, 800));
+
+            expect(seen).toContain(path.join(root, "src", "a.ts"));
+            expect(seen.filter((p) => p.includes("node_modules"))).toEqual([]);
+        } finally {
+            subscription.dispose();
+            fs.rmSync(root, { recursive: true, force: true });
+        }
+    }, 20000);
 });
 
 describe("isExcluded", () => {

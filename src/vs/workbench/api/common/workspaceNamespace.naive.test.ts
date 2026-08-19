@@ -90,13 +90,13 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
         expect(folderOf("/elsewhere/x.ts")).toBe("a");
     });
 
-    it("createFileSystemWatcher — валидный не-стреляющий watcher", () => {
+    it("createFileSystemWatcher без воркспейса — валидный немой watcher", () => {
+        // Настоящее поведение watcher'ов — в workspaceNamespace.fileWatcher.test.ts;
+        // здесь только то, что важно клиенту LSP: в пустом окне ничего не падает.
         const { naive } = makeWorkspace();
         const watcher = naive.createFileSystemWatcher("**/*.ts");
         const sub = watcher.onDidChange(() => undefined);
         expect(watcher.ignoreCreateEvents).toBe(false);
-        expect(watcher.ignoreChangeEvents).toBe(false);
-        expect(watcher.ignoreDeleteEvents).toBe(false);
         expect(() => watcher.onDidCreate(() => undefined).dispose()).not.toThrow();
         expect(() => watcher.onDidDelete(() => undefined).dispose()).not.toThrow();
         sub.dispose();

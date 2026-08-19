@@ -48,11 +48,13 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
         let pending: ITreeFileChange[] = [];
         let timer: ReturnType<typeof setTimeout> | null = null;
 
+        // Таймер взводится только вместе с первым событием пачки, а dispose
+        // гасит и его, и накопленное — на flush всегда есть что отдать.
         const flush = (): void => {
             timer = null;
             const batch = pending;
             pending = [];
-            if (batch.length > 0) onChanges(batch);
+            onChanges(batch);
         };
 
         watcher.on("all", (event, changedPath) => {
@@ -88,7 +90,7 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
 
     /** Шов для тестов: подменяемое создание реального chokidar-watcher'а. */
     protected createWatcher(rootPath: string, options: ITreeFileWatchOptions): FSWatcher {
-        const excludes = options.excludes ?? [];
+        const { excludes } = options;
         return chokidar.watch(rootPath, {
             ignoreInitial: true,
             depth: options.recursive ? undefined : 0,

@@ -54,6 +54,9 @@ describe("resolveGlobPattern", () => {
         expect(resolveGlobPattern({ pattern: 1 } as unknown as never, "/repo")).toBeNull();
         expect(resolveGlobPattern({ pattern: "*" } as unknown as never, "/repo")).toBeNull();
         expect(resolveGlobPattern(null as unknown as never, "/repo")).toBeNull();
+        expect(resolveGlobPattern(42 as unknown as never, "/repo")).toBeNull();
+        expect(resolveGlobPattern({ baseUri: 42, pattern: "*" } as unknown as never, "/repo")).toBeNull();
+        expect(resolveGlobPattern({ baseUri: { fsPath: "" }, base: "", pattern: "*" } as unknown as never, "/repo")).toBeNull();
     });
 });
 

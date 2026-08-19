@@ -17,8 +17,10 @@ export interface ITreeFileWatchOptions {
      * Glob-шаблоны (относительно `rootPath`, posix-форма), в которые watcher не
      * заходит вовсе. Это не постфильтр событий, а именно отказ обходить —
      * `node_modules` в большом репозитории иначе съедает лимит inotify.
+     * Поле обязательное: «следить за всем» — это осознанный `[]`, а не забытый
+     * аргумент.
      */
-    readonly excludes?: readonly string[];
+    readonly excludes: readonly string[];
 }
 
 /**
