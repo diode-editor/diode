@@ -17,8 +17,6 @@ import { EditorServiceDIToken } from "../../../services/editor/browser/editorSer
 import { OUTPUT_LANGUAGE_ID, OUTPUT_URI_SCHEME, OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
 import type { OutputService } from "../../../services/output/common/outputService.ts";
 import { formatOutputLine, OutputServiceDIToken } from "../../../services/output/common/outputService.ts";
-import type { ThemeService } from "../../../services/themes/common/themeService.ts";
-import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
 import { SwitchOutputMenu } from "./outputChannelActions.ts";
 
@@ -40,7 +38,6 @@ export class OutputComponent extends Disposable {
         ViewsServiceDIToken,
         EditorServiceDIToken,
         MenuServiceDIToken,
-        ThemeServiceDIToken,
     ] as const;
 
     /** Редактор канала; создаётся лениво — до открытия вкладки он не нужен. */
@@ -57,7 +54,6 @@ export class OutputComponent extends Disposable {
         private readonly viewsService: ViewsService,
         private readonly editorService: EditorService,
         menuService: MenuService,
-        private readonly themeService: ThemeService,
     ) {
         super();
         // Пункты селектора живут в submenu `switchOutput` — как в VS Code, где
@@ -168,6 +164,10 @@ export class OutputComponent extends Disposable {
             OUTPUT_LANGUAGE_ID,
         );
         pane.readOnly = true;
+        // Вкладка нижней панели, а не редакторская группа: фон берём панельный —
+        // как Problems (`problemsComponent.ts`) и терминал. С `editor.background`
+        // лог был прямоугольником чужого цвета внутри панели.
+        pane.backgroundToken = "panel.background";
         this.pane = pane;
         this.viewsService.setViewBody(OUTPUT_VIEW_ID, pane.view);
         return pane;

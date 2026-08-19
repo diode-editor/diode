@@ -14,6 +14,7 @@ import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
+import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { SaveParticipant } from "../../../services/textfile/common/iSaveParticipant.ts";
 import type { SaveOutcome, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
@@ -161,6 +162,11 @@ export class TextEditorPane extends Disposable implements IEditorPane {
 
     public set foldingRangeSource(source: FoldingRangeSource | undefined) {
         this.component.foldingRangeSource = source;
+    }
+
+    /** Токен темы для фона редактора (см. `EditorComponent.backgroundToken`). */
+    public set backgroundToken(token: WorkbenchColorKey) {
+        this.component.backgroundToken = token;
     }
 
     /** Смена курсора/выделения в этом редакторе (см. `EditorComponent.onDidChangeSelection`). */

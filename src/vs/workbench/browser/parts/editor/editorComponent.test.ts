@@ -258,6 +258,49 @@ describe("EditorComponent + TextFileModel (пара)", () => {
         });
     });
 
+    describe("backgroundToken", () => {
+        const panelBg = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("panel.background");
+
+        /** Фон ячейки первой строки: col 0 — гуттер, col 12 — пустое место за текстом
+         * (символ под кареткой красит occurrence-highlight, он тут ни при чём). */
+        function renderBgAt(ctrl: TextEditorPane, col: number): number {
+            const app = TestApp.createWithContent(ctrl.view, new Size(20, 3));
+            app.render();
+            return app.backend.getBgAt(new Point(col, 0));
+        }
+
+        it("красит редактор вместе с гуттером заданным токеном темы", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.txt", "hi")));
+
+            // Так вкладку Output сажают на фон нижней панели.
+            ctrl.backgroundToken = "panel.background";
+
+            expect(renderBgAt(ctrl, 12)).toBe(panelBg);
+            expect(renderBgAt(ctrl, 0)).toBe(panelBg);
+        });
+
+        it("переживает перечитку файла с диска (EditorElement пересоздаётся)", () => {
+            const ctrl = createEditorPane();
+            const fp = writeFile("a.txt", "hi");
+            ctrl.openFile(Uri.file(fp));
+            ctrl.backgroundToken = "panel.background";
+
+            fs.writeFileSync(fp, "yo", "utf-8");
+            ctrl.revertToDisk();
+
+            expect(renderBgAt(ctrl, 12)).toBe(panelBg);
+        });
+
+        it("по умолчанию остаётся фоном редакторской группы", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.txt", "hi")));
+
+            const editorBg = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("editor.background");
+            expect(renderBgAt(ctrl, 12)).toBe(editorBg);
+        });
+    });
+
     describe("occurrence highlight", () => {
         // Occurrence-highlight background from darkPlus (#474747).
         const OCCURRENCE_BG = packRgb(71, 71, 71);

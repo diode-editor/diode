@@ -1,7 +1,7 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { SelectBoxElement } from "@tuidom/elements/selectbox/selectBoxElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -22,6 +22,7 @@ import { EditorServiceDIToken } from "../services/editor/browser/editorService.t
 import { LogHistoryDIToken, OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../services/output/common/output.ts";
 import { OutputChannelRegistry } from "../services/output/common/outputChannelRegistry.ts";
 import { OutputServiceDIToken } from "../services/output/common/outputService.ts";
+import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
@@ -163,6 +164,25 @@ describe("Workbench — Output panel", () => {
         h.container.get(ViewsServiceDIToken).focusContainer(OUTPUT_VIEW_ID);
 
         expect(outputTab().querySelector(placeholder)).toBeNull();
+    });
+
+    it("фон лога — фон панели, а не редактора", () => {
+        // Редактор Output стоит внутри нижней панели, и с editor.background он был
+        // прямоугольником чужого цвета: в Dark+ панель #181818 против #1E1E1E у
+        // редактора. Ассерт по кадру — там же, где это видит пользователь.
+        const theme = h.container.get(ThemeServiceDIToken).theme;
+        const panelBg = theme.getRequiredColor("panel.background");
+        expect(panelBg).not.toBe(theme.getRequiredColor("editor.background"));
+
+        h.commands.execute(TOGGLE_OUTPUT);
+        h.testApp.render();
+
+        const editor = h.container.get(EditorServiceDIToken).getActiveEditor()!.view.getChild()!;
+        const origin = editor.globalPosition;
+        // Левая колонка гуттера и последняя строка вьюпорта: и то и другое —
+        // «пустой» фон редактора, который и выбивался из панели.
+        expect(h.testApp.backend.getBgAt(new Point(origin.x, origin.y))).toBe(panelBg);
+        expect(h.testApp.backend.getBgAt(new Point(origin.x, origin.y + editor.layoutSize.height - 1))).toBe(panelBg);
     });
 
     it("активация соседней вкладки панели Output не трогает", () => {

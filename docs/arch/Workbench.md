@@ -726,7 +726,11 @@ hide-toggle (`isHiddenByDefault`). См.
     CHANGES с контролами коммита `ScmInputComponent` в теле view и GRAPH),
     Problems / Output / Terminal (`location: "panel"`, по одной секции;
     переключатель каналов Output — `setViewTitleWidget`, он и уезжает в
-    таб-строку).
+    таб-строку). Редактор Output садится на фон панели через
+    `TextEditorPane.backgroundToken` (`EditorComponent.backgroundToken` — имя
+    токена темы, по умолчанию `editor.background`); свой фон заодно снимает
+    тематический `editorGutter.background`, иначе гуттер остался бы полосой
+    цвета редакторской группы.
   - `Services/WorkbenchStateService.ts` — персист открытых редакторов (headless):
     `openWorkspace` (per-project стор), `captureOpenEditors` (write-through —
     собственная подписка на `EditorService.onActiveEditorChanged`),

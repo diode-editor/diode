@@ -108,6 +108,15 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** Whether to highlight occurrences of the word under the cursor (VS Code `editor.occurrencesHighlight`). */
     public occurrenceHighlightEnabled = true;
 
+    /**
+     * Имя токена темы для фона гуттера; `null` — гуттер идёт за фоном самого
+     * редактора. Отдельная ручка нужна редакторам со своим фоном (Output живёт
+     * на фоне панели): тема вправе прибить `editorGutter.background` к
+     * `editor.background` (dark2026), и тогда гуттер остался бы полосой чужого
+     * цвета. Владелец вью ставит `null` — см. `EditorComponent.backgroundToken`.
+     */
+    public gutterBackgroundToken: string | null = "editorGutter.background";
+
     /** Diagnostic squiggle decorations for the open document (pushed by the controller). */
     public markerDecorations: readonly IMarkerDecoration[] = NO_MARKER_DECORATIONS;
     /** Gutter change-bar decorations (SCM/git dirty-diff) for the open document (pushed by the controller). */
@@ -294,7 +303,8 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         const editorFg = this.resolvedStyle.fg;
         const editorBg = this.resolvedStyle.bg;
-        const gutBg = this.styleVar("editorGutter.background", editorBg);
+        const gutBg =
+            this.gutterBackgroundToken === null ? editorBg : this.styleVar(this.gutterBackgroundToken, editorBg);
         const lnFg = this.styleVar("editorLineNumber.foreground");
         const lnActiveFg = this.styleVar("editorLineNumber.activeForeground");
 
