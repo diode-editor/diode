@@ -135,7 +135,7 @@ go-to-definition работает; сервер-внук корректно уб
 | остальные `register*Provider` (25) | no-op | закрытие по образцу definition: core seam + RPC `languages.provideX` + UI-потребитель (hover-виджет, references-панель, rename и т.д.) |
 | `workspace.applyEdit` | no-op | врёт `true`; закрытие: RPC `workspace.applyEdit` → `EditorService`/`BulkEdit` (нужен rename/code actions) |
 | `workspace.getWorkspaceFolder` | naive | префикс-матч + fallback на первую папку |
-| `workspace.createFileSystemWatcher` | no-op | валидный не-стреляющий watcher; закрытие: мост к `IFileWatcher` ядра |
+| `workspace.createFileSystemWatcher` | готово | настоящие watcher'ы поверх `ITreeFileWatcher` ядра (`RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude`); детали — [arch/Extensions.md](../arch/Extensions.md) |
 | `workspace.onDid/Will{Create,Delete,Rename}Files`, notebook-события | no-op | продюсеры файловых операций ядра → RPC |
 | `window.withProgress` | real | запись статус-бара с анимированным спиннером (`ProgressStatusBarAdapter`); message/increment серверного workDoneProgress обновляют текст; отмена НЕ поддержана — токен никогда не стреляет (`ProgressPart` languageclient'а это переживает); на смерть subprocess'а host сам гасит живые спиннеры |
 | `window.tabGroups` | no-op | пустые группы; закрытие: проекция вкладок группы |
