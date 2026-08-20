@@ -170,6 +170,12 @@ import {
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { EditorService, EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 import {
+    HistoryEditorSourceDIToken,
+    HistoryService,
+    HistoryServiceDIToken,
+    JumpRecorderDIToken,
+} from "../../workbench/services/history/browser/historyService.ts";
+import {
     KeybindingDispatcher,
     KeybindingDispatcherDIToken,
 } from "../../workbench/services/keybinding/browser/keybindingDispatcher.ts";
@@ -278,6 +284,11 @@ export const workbenchModule: ContainerModule = (container) => {
     // Go to Definition: сервис без компонента — цели отдаёт definitionSource
     // группы (провайдеры расширений), навигация — паттерн Problems reveal.
     container.bind(DefinitionServiceDIToken, DefinitionService);
+    // История навигации (Go Back / Go Forward): сервис поверх той же полосы групп.
+    // Он же IJumpRecorder — шов, которым сайты прыжков сообщают о переходе.
+    container.bind(HistoryEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(HistoryServiceDIToken, HistoryService);
+    container.bind(JumpRecorderDIToken, () => container.get(HistoryServiceDIToken));
     container.bind(FindComponentDIToken, FindComponent);
     container.bind(FindServiceDIToken, FindService);
     container.bind(ActiveEditorStatusSourceDIToken, () => container.get(EditorServiceDIToken));

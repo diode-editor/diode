@@ -26,6 +26,8 @@ import type { TerminalService } from "../contrib/terminal/browser/terminalServic
 import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { HistoryService } from "../services/history/browser/historyService.ts";
+import { HistoryServiceDIToken } from "../services/history/browser/historyService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
@@ -63,6 +65,7 @@ export class WorkbenchContextKeys extends Disposable {
         LayoutServiceDIToken,
         SidebarServiceDIToken,
         SearchComponentDIToken,
+        HistoryServiceDIToken,
     ] as const;
 
     private view: BodyElement | null = null;
@@ -79,6 +82,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly layoutService: LayoutService,
         private readonly sidebarService: SidebarService,
         private readonly searchComponent: SearchComponent,
+        private readonly historyService: HistoryService,
     ) {
         super();
         // Make custom-mode names (mode_<name>) valid `when` identifiers, then keep context
@@ -134,6 +138,8 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);
         this.contextKeys.set("multipleEditorGroups", this.editorService.groups.length > 1);
+        this.contextKeys.set("canNavigateBack", this.historyService.canGoBack);
+        this.contextKeys.set("canNavigateForward", this.historyService.canGoForward);
         this.contextKeys.set("activeEditorGroupEmpty", editorCount === 0);
         this.contextKeys.set("activeEditorGroupIndex", this.editorService.viewColumnOf(this.editorService.activeGroup));
         this.contextKeys.set(

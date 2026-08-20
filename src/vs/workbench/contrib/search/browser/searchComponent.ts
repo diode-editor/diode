@@ -21,6 +21,8 @@ import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
+import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
+import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import { SEARCH_QUERY_DETAILS_STATE, SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type {
     IFileMatch,
@@ -152,6 +154,7 @@ export class SearchComponent extends Component {
         StateServiceDIToken,
         ContextKeyServiceDIToken,
         ViewsServiceDIToken,
+        JumpRecorderDIToken,
     ] as const;
 
     private readonly root: SearchViewElement;
@@ -207,6 +210,7 @@ export class SearchComponent extends Component {
         private readonly stateService: IStateService,
         private readonly contextKeys: ContextKeyService,
         viewsService: ViewsService,
+        private readonly jumps: IJumpRecorder,
     ) {
         super();
 
@@ -711,15 +715,18 @@ export class SearchComponent extends Component {
             this.results.toggleCollapsed(fileRowId(meta.group));
             return;
         }
-        this.revealTarget.openUri(Uri.file(meta.group.absolutePath));
-        const editor = this.revealTarget.getActiveEditor();
-        /* v8 ignore start -- defensive: openUri always opens/activates an editor for the file */
-        if (editor === null) return;
-        /* v8 ignore stop */
-        // lineNumber у ripgrep 1-based, редактор ждёт 0-based; колонки уже 0-based.
-        const line = meta.match.lineNumber - 1;
-        editor.goToPosition(line, meta.match.startColumn);
-        editor.revealRange(createRange(line, meta.match.startColumn, line, meta.match.endColumn));
+        // Переход целиком — одна запись истории (см. IJumpRecorder).
+        this.jumps.jump(() => {
+            this.revealTarget.openUri(Uri.file(meta.group.absolutePath));
+            const editor = this.revealTarget.getActiveEditor();
+            /* v8 ignore start -- defensive: openUri always opens/activates an editor for the file */
+            if (editor === null) return;
+            /* v8 ignore stop */
+            // lineNumber у ripgrep 1-based, редактор ждёт 0-based; колонки уже 0-based.
+            const line = meta.match.lineNumber - 1;
+            editor.goToPosition(line, meta.match.startColumn);
+            editor.revealRange(createRange(line, meta.match.startColumn, line, meta.match.endColumn));
+        });
     }
 
     private buildQuery(): ITextSearchQuery {

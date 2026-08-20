@@ -6,6 +6,7 @@ import { OutputChannelActionsDIToken } from "../contrib/output/browser/outputCha
 import { QuickDiffServiceDIToken } from "../contrib/scm/browser/quickDiffService.ts";
 import { ScmStatusBarContributionDIToken } from "../contrib/scm/browser/scmStatusBarContribution.ts";
 import { ThemeConfigContributionDIToken } from "../contrib/themes/browser/themeConfigContribution.ts";
+import { HistoryServiceDIToken } from "../services/history/browser/historyService.ts";
 import { TerminalEnvStatusContributionDIToken } from "../services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
 
 import { EditorStatusContributionDIToken } from "./parts/editor/editorStatusContribution.ts";
@@ -24,6 +25,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: ThemeConfigContributionDIToken, phase: "restored" },
     { token: OpenFileCommandContributionDIToken, phase: "restored" },
     { token: PanelFocusContributionDIToken, phase: "restored" },
+    // История навигации: подписки должны стоять до открытия первого файла.
+    { token: HistoryServiceDIToken, phase: "restored" },
     // Каналы Output как команды + пункты submenu селектора.
     { token: OutputChannelActionsDIToken, phase: "restored" },
     // Живые change-bars: считать дифф можно только после того, как есть редакторы.

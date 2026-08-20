@@ -30,6 +30,7 @@ import { CommandsQuickAccessProvider, CommandsQuickAccessProviderDIToken } from 
 import { FilesQuickAccessProvider, FilesQuickAccessProviderDIToken } from "./filesQuickAccessProvider.ts";
 import type { IGotoLineEditor, IGotoLineEditorSource } from "./gotoLineQuickAccessProvider.ts";
 import { GotoLineQuickAccessProvider, GotoLineQuickAccessProviderDIToken } from "./gotoLineQuickAccessProvider.ts";
+import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import { QUICK_ACCESS_PROVIDERS } from "./quickAccessProviders.ts";
 import { QuickOpenService } from "./quickOpenService.ts";
 
@@ -94,13 +95,13 @@ function makeQuickAccessRegistry(deps: {
     const instances = new Map<unknown, unknown>([
         [
             FilesQuickAccessProviderDIToken,
-            new FilesQuickAccessProvider(deps.fileSearch, deps.commands, deps.gotoSource),
+            new FilesQuickAccessProvider(deps.fileSearch, deps.commands, deps.gotoSource, NULL_JUMP_RECORDER),
         ],
         [
             CommandsQuickAccessProviderDIToken,
             new CommandsQuickAccessProvider(deps.commands, deps.keybindings, deps.contextKeys),
         ],
-        [GotoLineQuickAccessProviderDIToken, new GotoLineQuickAccessProvider(deps.gotoSource)],
+        [GotoLineQuickAccessProviderDIToken, new GotoLineQuickAccessProvider(deps.gotoSource, NULL_JUMP_RECORDER)],
     ]);
     const accessor: ServiceAccessor = {
         get: (diToken) => instances.get(diToken) as never,

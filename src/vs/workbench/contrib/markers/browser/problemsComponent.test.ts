@@ -15,6 +15,7 @@ import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.t
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { type IMarkerRevealEditor, PROBLEMS_VIEW_ID, ProblemsComponent } from "./problemsComponent.ts";
+import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import type { ProblemNode } from "./problemsTreeDataProvider.ts";
 import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -54,7 +55,7 @@ describe("ProblemsComponent", () => {
         panelService = views.panelService;
         panelComponent = new PanelComponent(panelService);
         revealTarget = makeRevealTarget();
-        component = new ProblemsComponent(markerService, views.service, revealTarget);
+        component = new ProblemsComponent(markerService, views.service, revealTarget, NULL_JUMP_RECORDER);
         testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     });
 

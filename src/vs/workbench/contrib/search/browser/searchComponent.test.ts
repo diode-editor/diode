@@ -21,6 +21,7 @@ import type {
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import { SEARCH_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import type { ExplorerService } from "../../files/browser/explorerService.ts";
 
@@ -115,6 +116,7 @@ function make(
         opts.state ?? NULL_STATE_SERVICE,
         opts.contextKeys ?? new ContextKeyService(),
         NULL_VIEWS_SERVICE,
+        NULL_JUMP_RECORDER,
     );
 }
 
@@ -743,6 +745,7 @@ describe("SearchComponent", () => {
             NULL_STATE_SERVICE,
             new ContextKeyService(),
             viewsService,
+            NULL_JUMP_RECORDER,
         );
         expect(registered).toHaveLength(1);
         expect(registered[0].id).toBe("workbench.search.results");
