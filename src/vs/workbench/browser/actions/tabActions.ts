@@ -5,6 +5,9 @@ import { parseKeybinding } from "../../../platform/keybinding/common/keybindingR
 import { ModifierReleaseArmoryDIToken } from "../../../platform/keybinding/common/modifierReleaseArmory.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
+import { resolveTabTarget } from "./editorTabTarget.ts";
+import { editorTabTargetArg } from "./menuContexts.ts";
+
 /**
  * Один шаг MRU-переключения вкладок. Каждое нажатие шагает по стеку, а отпускание
  * удерживающего модификатора (Ctrl для Ctrl+Tab, Alt для ребинда Alt+Tab и т.п.)
@@ -72,24 +75,30 @@ export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
 export const closeActiveEditorAction: CommandAction = {
     id: "workbench.action.closeActiveEditor",
     title: "Close Active Editor",
-    shortTitle: "Close Editor",
-    menus: [{ menuId: MenuId.MenubarFileMenu, group: "5_close", order: 10 }],
+    shortTitle: "Close",
+    menus: [
+        { menuId: MenuId.MenubarFileMenu, group: "5_close", order: 10, title: "Close Editor" },
+        { menuId: MenuId.EditorTitleContext, group: "1_close", order: 10, args: editorTabTargetArg },
+    ],
     keybinding: parseKeybinding("ctrl+w"),
     when: "textViewFocus && editorGroupHasEditors",
-    run(accessor) {
-        const group = accessor.get(EditorServiceDIToken);
-        if (group.editorCount === 0 || group.activeIndex < 0) return;
+    run(accessor, ...args) {
+        const service = accessor.get(EditorServiceDIToken);
+        // Из меню вкладки приходит адрес вкладки ПОД КУРСОРОМ (правый клик её не
+        // активирует); с клавиатуры и из палитры аргументов нет — цель активная.
+        const target = resolveTabTarget(service, args);
+        if (target === null) return;
 
-        // Закрываем вкладку по `activeIndex`, поэтому и dirty спрашиваем у НЕЁ:
+        // Закрываем вкладку по её индексу, поэтому и dirty спрашиваем у НЕЁ:
         // focus-aware `getActiveEditor()` при фокусе в панели вернул бы Output
         // (он никогда не modified) — и изменённая вкладка закрылась бы молча.
         // Именно getPane: дифф v2 с несохранённой стороной — тоже вкладка, и
         // Ctrl+W обязан спрашивать про неё так же, как крестик мыши.
-        const pane = group.getPane(group.activeIndex);
-        if (pane !== null && group.needsCloseConfirm(pane) && group.onRequestConfirmClose) {
-            group.onRequestConfirmClose(group.activeGroup, group.activeIndex);
+        const pane = target.group.getPane(target.index);
+        if (pane !== null && service.needsCloseConfirm(pane) && service.onRequestConfirmClose) {
+            service.onRequestConfirmClose(target.group, target.index);
         } else {
-            group.closeTab(group.activeIndex);
+            target.group.closeTab(target.index);
         }
     },
 };

@@ -9,6 +9,8 @@ import { LayoutServiceDIToken } from "../../services/layout/browser/layoutServic
 import { PanelServiceDIToken } from "../parts/panel/panelService.ts";
 import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
 
+import { editorTabIsFile, editorTabPathArg } from "./menuContexts.ts";
+
 // Columns added/removed per increase/decrease Side Bar Width command.
 const SIDEBAR_WIDTH_STEP = 3;
 
@@ -37,8 +39,21 @@ export const showExplorerAction: CommandAction = {
 export const revealActiveFileInExplorerAction: CommandAction = {
     id: "workbench.files.action.showActiveFileInExplorer",
     title: "File: Reveal Active File in Explorer",
-    run(accessor) {
-        const filePath = accessor.get(EditorServiceDIToken).getActiveEditor()?.absoluteFilePath;
+    shortTitle: "Reveal in Explorer View",
+    menus: [
+        {
+            menuId: MenuId.EditorTitleContext,
+            group: "4_reveal",
+            order: 10,
+            args: editorTabPathArg,
+            visible: editorTabIsFile,
+        },
+    ],
+    run(accessor, ...args) {
+        // Путь приходит аргументом из меню вкладки (цель — вкладка под курсором,
+        // а не активная); без аргументов раскрываем активный редактор.
+        const filePath =
+            (args[0] as string | undefined) ?? accessor.get(EditorServiceDIToken).getActiveEditor()?.absoluteFilePath;
         if (!filePath) return;
         accessor.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID);
         void accessor.get(ExplorerServiceDIToken).revealPath(filePath);

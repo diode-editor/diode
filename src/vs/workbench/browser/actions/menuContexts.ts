@@ -1,7 +1,10 @@
+import type { GroupId } from "../../services/editor/browser/editorGroupModel.ts";
+
 /**
  * Конвенции контекста открытия меню (`context` в `MenuRegistry.getMenuItems`):
  * - `MenuId.EditorContext`, меню-бар → `undefined`;
  * - `MenuId.ExplorerContext` → {@link ExplorerMenuContext};
+ * - `MenuId.EditorTitleContext` → {@link EditorTitleMenuContext};
  * - `MenuId.ScmContext` → {@link ScmMenuContext};
  * - `MenuId.ScmGraphContext` → {@link ScmGraphMenuContext}.
  *
@@ -106,3 +109,51 @@ export const containerMenuVisible =
     (containerId: string) =>
     (context: unknown): boolean =>
         (context as ViewContainerMenuContext | undefined)?.container === containerId;
+
+/**
+ * Контекст меню вкладки редактора (`MenuId.EditorTitleContext`). Цель — вкладка
+ * ПОД КУРСОРОМ, а не активная: правый клик по табу активной вкладки не меняет
+ * (как в VS Code), поэтому команды получают адрес `(groupId, index)` аргументом,
+ * а не читают `activeGroup`/`activeIndex`.
+ *
+ * Признаки состава группы (`tabCount`, `hasTabsToTheRight`, `hasSavedTabs`)
+ * снимаются в момент открытия и решают видимость пунктов императивно: `when`
+ * здесь не годится — глобальные контекст-ключи не различают вкладку под курсором,
+ * а disabled-пунктов у `MenuRegistry` нет.
+ */
+export interface EditorTitleMenuContext {
+    readonly groupId: GroupId;
+    /** Позиция вкладки в своей группе. */
+    readonly index: number;
+    /** Абсолютный путь файла вкладки; `null` у безымянного буфера и диффа. */
+    readonly path: string | null;
+    readonly tabCount: number;
+    readonly hasTabsToTheRight: boolean;
+    /** Есть ли в группе вкладки без несохранённых правок — видимость Close Saved. */
+    readonly hasSavedTabs: boolean;
+}
+
+/** Аргументы команд вкладки — адрес вкладки под курсором. */
+export const editorTabTargetArg = (context: unknown): readonly unknown[] => {
+    const ctx = context as EditorTitleMenuContext;
+    return [ctx.groupId, ctx.index];
+};
+
+/** Аргумент файловых команд вкладки — путь её файла. */
+export const editorTabPathArg = (context: unknown): readonly unknown[] => [
+    (context as EditorTitleMenuContext).path,
+];
+
+/** Видимость файловых пунктов: у вкладки есть файл на диске. */
+export const editorTabIsFile = (context: unknown): boolean => (context as EditorTitleMenuContext).path !== null;
+
+/** Видимость Close Others: в группе есть что закрывать помимо целевой вкладки. */
+export const editorTabHasOthers = (context: unknown): boolean => (context as EditorTitleMenuContext).tabCount > 1;
+
+/** Видимость Close to the Right: справа от целевой вкладки что-то есть. */
+export const editorTabHasTabsToTheRight = (context: unknown): boolean =>
+    (context as EditorTitleMenuContext).hasTabsToTheRight;
+
+/** Видимость Close Saved: в группе есть вкладки без несохранённых правок. */
+export const editorTabHasSavedTabs = (context: unknown): boolean =>
+    (context as EditorTitleMenuContext).hasSavedTabs;

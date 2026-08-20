@@ -16,6 +16,13 @@ export class MenuId {
     /** Контекст-меню коммита в графе (VS Code `scm/historyItem/context`). */
     public static readonly ScmGraphContext = new MenuId("ScmGraphContext");
     /**
+     * Контекст-меню ВКЛАДКИ редактора (VS Code `editor/title/context`). Открывается
+     * правым кликом по табу; цель — вкладка под курсором, а не активная, поэтому
+     * пункты адресуются через `menuContext` (см. `EditorTitleMenuContext`), а
+     * видимость решается императивно (`visible`), а не глобальными when-ключами.
+     */
+    public static readonly EditorTitleContext = new MenuId("EditorTitleContext");
+    /**
      * Действия заголовка ОДНОЙ view — VS Code `ViewTitle`. Группа `navigation`
      * рисуется inline-кнопками в заголовке, остальные группы уезжают в попап
      * «⋯». Пункты фильтруются императивно по `menuContext.view`

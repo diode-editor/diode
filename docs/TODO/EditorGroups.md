@@ -487,3 +487,12 @@ terminal, custom) — кандидат на **bounded member-level uncommenting*
   на настоящем legacy-терминале — при ручном прогоне чек-листа.
 - **Сплит untitled/дифф-вкладки** дублем не делится (реестр моделей — только
   `file:`): новая группа при сплите таких вкладок открывается пустой.
+- **Контекстное меню вкладки** (`MenuId.EditorTitleContext`, правый клик по
+  табу) отдаёт ядро VS Code: Close / Close Others / Close to the Right / Close
+  Saved / Close All, Split Right / Split Down, Copy Path / Copy Relative Path,
+  Reveal in Explorer View. Осознанно не сделано: **Pin / Keep Open** и **Reopen
+  Editor With…** — в проекте нет ни preview-вкладок, ни редакторов-по-выбору
+  (`windowNamespace.ts` честно отдаёт `isPinned`/`isPreview` = false); **вызов
+  меню с клавиатуры** (Shift+F10 на вкладке) — элементы вкладок не `focusable`,
+  клавиатурного меню на табе нет и у VS Code; **меню на пустом месте полосы**
+  вкладок.

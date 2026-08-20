@@ -7,9 +7,12 @@ import { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStr
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
+import type { EditorTitleMenuContext } from "../../actions/menuContexts.ts";
 import { Component } from "../../component.ts";
 
 import { TextEditorPane } from "./textEditorPane.ts";
@@ -44,6 +47,7 @@ export class EditorGroupComponent extends Component {
     public constructor(
         public readonly group: EditorGroup,
         private readonly editorService: EditorService,
+        private readonly contextMenuService: ContextMenuService,
     ) {
         super();
         this.view = new OverlayHostElement();
@@ -85,6 +89,9 @@ export class EditorGroupComponent extends Component {
                 this.group.closeTab(index);
             }
         };
+        this.tabStrip.onTabContextMenu = (index, screenX, screenY) => {
+            this.showTabContextMenu(index, screenX, screenY);
+        };
         this.register(
             this.group.onDidChangeEditors(() => {
                 this.syncFromGroup();
@@ -101,6 +108,36 @@ export class EditorGroupComponent extends Component {
         const pane = this.group.activePane;
         if (pane !== null) pane.focusEditor();
         else this.emptyFiller.focus();
+    }
+
+    /**
+     * Меню правого клика по вкладке. Цель — вкладка ПОД КУРСОРОМ: активную она
+     * не меняет (как в VS Code), поэтому её адрес и признаки состава группы
+     * уезжают в `menuContext` — оттуда пункты берут аргументы команд и решают
+     * свою видимость. Владелец меню — view группы: у неё свой overlay-слой.
+     */
+    private showTabContextMenu(index: number, screenX: number, screenY: number): void {
+        const panes = this.group.getPanes();
+        const pane = panes[index];
+        /* v8 ignore start -- индекс приходит из tab strip и всегда указывает на существующую вкладку */
+        if (pane === undefined) return;
+        /* v8 ignore stop */
+        const menuContext: EditorTitleMenuContext = {
+            groupId: this.group.id,
+            index,
+            // Путь есть только у текстовой вкладки файла: у безымянного буфера и
+            // у диффа его нет, и файловые пункты (пути, reveal) прячутся.
+            path: pane instanceof TextEditorPane ? pane.absoluteFilePath : null,
+            tabCount: panes.length,
+            hasTabsToTheRight: index < panes.length - 1,
+            hasSavedTabs: panes.some((candidate) => !candidate.isModified),
+        };
+        this.contextMenuService.showContextMenu({
+            getOwner: () => this.view,
+            getAnchor: () => ({ screenX, screenY }),
+            menuId: MenuId.EditorTitleContext,
+            menuContext,
+        });
     }
 
     /** Вставляет жителя контент-слота: [tabStrip, слот] одним replaceChildren. */
