@@ -8,6 +8,7 @@ import type { FindService } from "../contrib/find/browser/findService.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
+import type { HistoryService } from "../services/history/browser/historyService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
@@ -61,6 +62,7 @@ function makeHarness() {
             isInputBoxFocused: () => false,
             isFirstResultFocused: () => false,
         } as unknown as SearchComponent,
+        { canGoBack: false, canGoForward: false } as unknown as HistoryService,
     );
 
     return {

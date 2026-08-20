@@ -1,4 +1,6 @@
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
+import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
 import { parseGotoLineQuery } from "./quickOpenParsing.ts";
@@ -38,9 +40,12 @@ export const GotoLineQuickAccessProviderDIToken = token<GotoLineQuickAccessProvi
 export class GotoLineQuickAccessProvider implements IQuickAccessProvider {
     public static readonly PREFIX = ":";
 
-    public static dependencies = [GotoLineEditorSourceDIToken] as const;
+    public static dependencies = [GotoLineEditorSourceDIToken, JumpRecorderDIToken] as const;
 
-    public constructor(private readonly editorSource: IGotoLineEditorSource) {}
+    public constructor(
+        private readonly editorSource: IGotoLineEditorSource,
+        private readonly jumps: IJumpRecorder,
+    ) {}
 
     /** VS Code-style hint for Go-to-Line mode, showing the current position. */
     public getPlaceholder(): string {
@@ -67,7 +72,9 @@ export class GotoLineQuickAccessProvider implements IQuickAccessProvider {
             {
                 label: `Go to line ${goto.line}${columnSuffix}`,
                 accept: () => {
-                    navigateActiveEditor(this.editorSource, goto.line, goto.column);
+                    this.jumps.jump(() => {
+                        navigateActiveEditor(this.editorSource, goto.line, goto.column);
+                    });
                 },
             },
         ];
@@ -78,6 +85,10 @@ export class GotoLineQuickAccessProvider implements IQuickAccessProvider {
  * Jumps the active editor to a 1-based line/column, converting to 0-based.
  * Re-reads the active editor at accept time: it may have vanished — or, for
  * `file:line`, may have just been opened by the accept itself.
+ *
+ * `jumps` оборачивает переход целиком (открытие файла — тоже внутри, см.
+ * `filesQuickAccessProvider`), чтобы история навигации получила ровно две
+ * записи: точку, откуда прыгнули, и цель.
  */
 export function navigateActiveEditor(source: IGotoLineEditorSource, line: number, column: number | undefined): void {
     const editor = source.getActiveEditor();

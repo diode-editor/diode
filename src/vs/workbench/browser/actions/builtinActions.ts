@@ -186,6 +186,7 @@ import {
     listFocusPageDownAction,
     listFocusPageUpAction,
 } from "./listActions.ts";
+import { navigateBackAction, navigateForwardAction } from "./navigationActions.ts";
 import {
     collapseSearchResultsAction,
     expandSearchResultsAction,
@@ -324,6 +325,10 @@ export const builtinActions: readonly CommandAction[] = [
     listFocusPageUpAction,
     listFocusFirstAction,
     listFocusLastAction,
+
+    // Навигационная история (Go Back / Go Forward)
+    navigateBackAction,
+    navigateForwardAction,
 
     // Tabs
     nextEditorInGroupAction,

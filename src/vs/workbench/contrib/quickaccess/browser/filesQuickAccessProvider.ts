@@ -3,6 +3,8 @@ import * as nodePath from "node:path";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
+import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import type { FileSearchResult, FileSearchService } from "../../../services/search/node/fileSearchService.ts";
 import { FileSearchServiceDIToken } from "../../../services/search/node/fileSearchService.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
@@ -27,6 +29,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         FileSearchServiceDIToken,
         CommandRegistryDIToken,
         GotoLineEditorSourceDIToken,
+        JumpRecorderDIToken,
     ] as const;
 
     public readonly debounceQuery = true;
@@ -35,6 +38,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         private readonly fileSearch: FileSearchService,
         private readonly commands: CommandRegistry,
         private readonly editorSource: IGotoLineEditorSource,
+        private readonly jumps: IJumpRecorder,
     ) {}
 
     public getPlaceholder(): string {
@@ -95,12 +99,16 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
                 labelMatchRanges: labelRanges,
                 descriptionMatchRanges: descRanges,
                 accept: () => {
-                    this.commands.execute("workbench.openFile", absolutePath);
-                    // Read the active editor *after* the file opened above so a
-                    // `file:line` accept jumps in the just-opened editor.
-                    if (goto !== null) {
-                        navigateActiveEditor(this.editorSource, goto.line, goto.column);
-                    }
+                    // Открытие и прыжок — один переход для истории навигации
+                    // (иначе Back привёл бы в начало только что открытого файла).
+                    this.jumps.jump(() => {
+                        this.commands.execute("workbench.openFile", absolutePath);
+                        // Read the active editor *after* the file opened above so a
+                        // `file:line` accept jumps in the just-opened editor.
+                        if (goto !== null) {
+                            navigateActiveEditor(this.editorSource, goto.line, goto.column);
+                        }
+                    });
                 },
             };
         });

@@ -147,8 +147,10 @@ export interface ContextKeyTypes {
     // isCenteredLayout: boolean;
     // isFullscreen: boolean;
     // focusedView: string;
-    // canNavigateBack: boolean;
-    // canNavigateForward: boolean;
+    /** True while there is somewhere to go back to in the navigation history. */
+    canNavigateBack: boolean;
+    /** True while there is somewhere to go forward to in the navigation history. */
+    canNavigateForward: boolean;
     // canNavigateToLastEditLocation: boolean;
 
     // -- Global Editor UI contexts --
@@ -307,8 +309,8 @@ export const allContextKeys: ContextKey[] = [
     // "isCenteredLayout",
     // "isFullscreen",
     // "focusedView",
-    // "canNavigateBack",
-    // "canNavigateForward",
+    "canNavigateBack",
+    "canNavigateForward",
     // "canNavigateToLastEditLocation",
 
     // -- Global Editor UI contexts --

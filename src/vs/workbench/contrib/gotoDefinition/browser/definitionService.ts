@@ -3,6 +3,8 @@ import type { ICoreDefinitionLocation } from "../../../../editor/common/language
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
+import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 
 export const DefinitionServiceDIToken = token<DefinitionService>("DefinitionService");
 
@@ -14,9 +16,12 @@ export const DefinitionServiceDIToken = token<DefinitionService>("DefinitionServ
  * `ProblemsComponent.revealMarker`).
  */
 export class DefinitionService {
-    public static dependencies = [EditorServiceDIToken] as const;
+    public static dependencies = [EditorServiceDIToken, JumpRecorderDIToken] as const;
 
-    public constructor(private readonly group: EditorService) {}
+    public constructor(
+        private readonly group: EditorService,
+        private readonly jumps: IJumpRecorder,
+    ) {}
 
     /**
      * Раскрывает определение символа под кареткой активного редактора. No-op,
@@ -41,8 +46,18 @@ export class DefinitionService {
         this.revealLocation(target, toSide);
     }
 
-    /** Довозит каретку до цели: кросс-файлово — через открытие ресурса группой. */
+    /**
+     * Довозит каретку до цели: кросс-файлово — через открытие ресурса группой.
+     * Весь переход обёрнут в {@link IJumpRecorder.jump}: история кладёт точку
+     * вызова и точку определения, а промежуточное «открыли файл в начале» — нет.
+     */
     private revealLocation(location: ICoreDefinitionLocation, toSide: boolean): void {
+        this.jumps.jump(() => {
+            this.doRevealLocation(location, toSide);
+        });
+    }
+
+    private doRevealLocation(location: ICoreDefinitionLocation, toSide: boolean): void {
         if (toSide) {
             // Соседняя группа (Ctrl+K F12): исходная группа не меняется — цель
             // открывается/активируется в группе справа.

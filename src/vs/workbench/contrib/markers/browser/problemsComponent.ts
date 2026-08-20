@@ -8,6 +8,8 @@ import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { MarkerServiceDIToken } from "../../../common/coreTokens.ts";
+import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
+import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
 import { type ProblemNode, ProblemsTreeDataProvider } from "./problemsTreeDataProvider.ts";
@@ -44,7 +46,7 @@ export const ProblemsComponentDIToken = token<ProblemsComponent>("ProblemsCompon
  * раскрывает его позицию через шов {@link IMarkerRevealTarget}.
  */
 export class ProblemsComponent extends Component {
-    public static dependencies = [MarkerServiceDIToken, ViewsServiceDIToken, MarkerRevealTargetDIToken] as const;
+    public static dependencies = [MarkerServiceDIToken, ViewsServiceDIToken, MarkerRevealTargetDIToken, JumpRecorderDIToken] as const;
 
     /** The Problems tree — доступен тестам и оркестрации (фокус, выделение). */
     public readonly tree: TreeViewElement<ProblemNode>;
@@ -58,6 +60,7 @@ export class ProblemsComponent extends Component {
         private readonly markerService: MarkerService,
         private readonly viewsService: ViewsService,
         private readonly revealTarget: IMarkerRevealTarget,
+        private readonly jumps: IJumpRecorder,
     ) {
         super();
         this.provider = new ProblemsTreeDataProvider();
@@ -133,15 +136,20 @@ export class ProblemsComponent extends Component {
 
     private revealMarker(node: ProblemNode): void {
         if (node.kind !== "marker") return;
-        // Ресурс маркера — уже uri (`uri.toString()`), а не путь: поднимаем его парсингом,
-        // а не Uri.file, иначе "file:///a.ts" стало бы путём с именем "file:".
-        this.revealTarget.openUri(Uri.parse(node.resource));
-        const editor = this.revealTarget.getActiveEditor();
-        /* v8 ignore start -- defensive: openUri always opens/activates an editor for the resource */
-        if (editor === null) return;
-        /* v8 ignore stop */
-        const start = node.marker.range.start;
-        editor.goToPosition(start.line, start.character);
-        editor.revealRange(node.marker.range);
+        const { resource, marker } = node;
+        // Переход целиком — одна запись истории (см. IJumpRecorder): точка, откуда
+        // ушли, и сам маркер, без промежуточного «открыли файл в начале».
+        this.jumps.jump(() => {
+            // Ресурс маркера — уже uri (`uri.toString()`), а не путь: поднимаем его парсингом,
+            // а не Uri.file, иначе "file:///a.ts" стало бы путём с именем "file:".
+            this.revealTarget.openUri(Uri.parse(resource));
+            const editor = this.revealTarget.getActiveEditor();
+            /* v8 ignore start -- defensive: openUri always opens/activates an editor for the resource */
+            if (editor === null) return;
+            /* v8 ignore stop */
+            const start = marker.range.start;
+            editor.goToPosition(start.line, start.character);
+            editor.revealRange(marker.range);
+        });
     }
 }
