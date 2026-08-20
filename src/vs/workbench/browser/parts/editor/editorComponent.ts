@@ -17,6 +17,7 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
+import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type {
     DocumentReloadReason,
     ITextFileEditTarget,
@@ -48,6 +49,9 @@ function mergeFoldingRegions(indentation: IFoldingRegion[], provider: readonly I
     return [...byStart.values()].sort((a, b) => a.startLine - b.startLine);
 }
 
+/** Фон редактора по умолчанию — тот же, что у редакторской группы. */
+const DEFAULT_BACKGROUND_TOKEN = "editor.background";
+
 export class EditorComponent extends Component {
     public readonly view: ScrollBarDecorator;
 
@@ -67,6 +71,8 @@ export class EditorComponent extends Component {
      * `languages.provideFoldingRanges`). Undefined ⇒ только indentation-фолды.
      */
     private foldingRangeSourceValue?: FoldingRangeSource;
+    /** Токен темы, которым красится фон редактора; см. {@link backgroundToken}. */
+    private backgroundTokenValue: WorkbenchColorKey = DEFAULT_BACKGROUND_TOKEN;
     /**
      * Регионы фолдинга задаёт владелец вью (панель диффа), авто-пересчёт
      * (indentation + провайдер) выключен. Ставится до первого пересчёта.
@@ -278,9 +284,28 @@ export class EditorComponent extends Component {
         return { line, character };
     }
 
+    /**
+     * Фон редактора: имя токена темы. По умолчанию `editor.background` —
+     * редактор вкладки. Редактор, живущий не в редакторской группе, ставит свой
+     * токен и перестаёт выбиваться из окружения: у Output это фон нижней панели
+     * (`panel.background`), как у Problems и терминала.
+     *
+     * Сеттер, а не поле: `applyEditorStyle` зовётся ещё и при пересоздании
+     * `EditorElement` (перечитка файла с диска), так что выбранный фон это переживает.
+     */
+    public set backgroundToken(token: WorkbenchColorKey) {
+        this.backgroundTokenValue = token;
+        this.applyEditorStyle();
+    }
+
     /** Цвета редактора — токены (Н3); ставятся при создании EditorElement. */
     private applyEditorStyle(): void {
-        this.editor.style = { fg: "editor.foreground", bg: "editor.background" };
+        this.editor.style = { fg: "editor.foreground", bg: this.backgroundTokenValue };
+        // Свой фон отменяет тематический фон гуттера: темы вправе прибить
+        // editorGutter.background к editor.background (dark2026), и гуттер остался
+        // бы слева полосой чужого цвета. Дефолтный фон — дефолтное поведение.
+        this.editor.gutterBackgroundToken =
+            this.backgroundTokenValue === DEFAULT_BACKGROUND_TOKEN ? "editorGutter.background" : null;
     }
 
     public onDidChangeCursorPosition(listener: () => void): IDisposable {

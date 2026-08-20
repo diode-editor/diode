@@ -215,6 +215,27 @@ describe("gutter colors", () => {
         expect(backend.getBgAt(new Point(2, 0))).toBe(editorBg);
     });
 
+    it("follows the editor background when gutterBackgroundToken is cleared", () => {
+        const editorBg = packRgb(25, 26, 27);
+        const gutterBg = packRgb(18, 19, 20);
+
+        // Тема, прибившая editorGutter.background к фону редактора вкладки
+        // (так делает dark2026): у редактора со своим фоном — Output живёт на
+        // фоне панели — гуттер иначе остался бы полосой чужого цвета.
+        const themed = createEditor("Hi", 15, 3);
+        themed.editor.setStyleVars({ "editorGutter.background": gutterBg });
+        themed.editor.style = { bg: editorBg };
+        themed.app.render();
+        expect(themed.app.backend.getBgAt(new Point(0, 0))).toBe(gutterBg);
+
+        const cleared = createEditor("Hi", 15, 3);
+        cleared.editor.setStyleVars({ "editorGutter.background": gutterBg });
+        cleared.editor.style = { bg: editorBg };
+        cleared.editor.gutterBackgroundToken = null;
+        cleared.app.render();
+        expect(cleared.app.backend.getBgAt(new Point(0, 0))).toBe(editorBg);
+    });
+
     it("uses default line number colors when not explicitly set", () => {
         const { app } = createEditor("AAA\nBBB", 15, 4);
         app.render();
