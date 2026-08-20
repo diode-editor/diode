@@ -25,6 +25,8 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {"key":"explorer.confirmDelete","type":"boolean","default":true,"description":"Ask for confirmation before deleting a file via the explorer."},
     {"key":"explorer.confirmUndo","type":"boolean","default":true,"description":"Ask for confirmation before undoing a destructive file operation."},
     {"key":"files.enableTrash","type":"boolean","default":true,"description":"Move files to the OS trash when available; when disabled, delete permanently."},
+    {"key":"files.watcherExclude","type":"object","default":{".git/objects/**":true,".git/subtree-cache/**":true,".hg/store/**":true,"*/.git/objects/**":true,"*/.git/subtree-cache/**":true,"*/.hg/store/**":true,"**/node_modules/**":true},"description":"Glob patterns to exclude from file watching. Patterns are matched relative to the watched folder."},
+    {"key":"git.autorefresh","type":"boolean","default":true,"description":"Recompute git status automatically when files change on disk."},
     {"key":"git.decorations.enabled","type":"boolean","default":true,"description":"Colour and badge changed files in the explorer tree."},
     {"key":"git.enabled","type":"boolean","default":true,"description":"Master switch for the built-in Git integration."},
     {"key":"git.gutter.enabled","type":"boolean","default":true,"description":"Show dirty-diff change bars in the editor gutter."},

@@ -47,7 +47,7 @@
   слушателя не было, EventEmitter бросал исключение из async-потрохов → процесс умирал.
 
 - **Что уже сделано.** Watcher'ы больше не роняют процесс и пишут warn с подсказкой:
-  - `ChokidarFileWatcher` (`src/vs/platform/files/node/chokidarFileWatcher.ts`) — канал `files.watcher`;
+  - `ChokidarFileWatcher` и `ChokidarTreeWatcher` (`src/vs/platform/files/node/`) — канал `files.watcher`;
   - `FileTreeDataProvider` → `ExplorerService` (`onWatchError`) — канал `filetree.watcher`;
   - общий разбор ошибки и текст подсказки — `describeFileWatchError` (`src/vs/platform/files/common/fileWatchErrors.ts`).
   Редактор при этом работает, теряется только live-reload (settings.json/keybindings.json,

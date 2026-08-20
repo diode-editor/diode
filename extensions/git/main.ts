@@ -3,6 +3,8 @@ import * as path from "node:path";
 
 import * as vscode from "vscode";
 
+import type { IDotGit } from "./lib/dotGit.ts";
+import { parseDotGit, refsRoot, upstreamRefPath } from "./lib/dotGit.ts";
 import { showFileAtRevision, toRepoRelativePath } from "./lib/gitShow.ts";
 import { fromGitUri, GIT_SCHEME, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./lib/gitUri.ts";
 import type { IStatusDecoration } from "./lib/map.ts";
@@ -29,6 +31,7 @@ import { remoteAddArgs, remoteRemoveArgs, tagCreateArgs, tagDeleteArgs } from ".
 import { resetArgs, revertArgs } from "./lib/resetArgs.ts";
 import { stashApplyArgs, stashDropArgs, stashPopArgs, stashPushArgs } from "./lib/stashArgs.ts";
 import { fetchArgs, pullArgs, pushArgs } from "./lib/syncArgs.ts";
+import { isRelevantDotGitEvent, isRelevantWorkingTreeEvent } from "./lib/watch.ts";
 import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
 import { runGit } from "./lib/runGit.ts";
 
@@ -113,6 +116,8 @@ interface IStatusEntry {
 
 class GitDecorations {
     private readonly repoRoot: string;
+    /** Служебный каталог репозитория — не обязательно `<root>/.git` (worktree/submodule). */
+    private readonly dotGit: IDotGit;
     private readonly gitEnv: NodeJS.ProcessEnv | undefined;
     private readonly disposables: vscode.Disposable[] = [];
 
@@ -134,7 +139,18 @@ class GitDecorations {
     private upstreamRef: string | null = null;
 
     private refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    private gitDirWatcher: fs.FSWatcher | undefined;
+    /**
+     * Сколько мутаций сейчас в полёте. Пока она не ноль, файловые события
+     * рефреш не запускают: `git status` дрался бы за `.git/index.lock` с
+     * операцией пользователя, а сама операция закончится своим refreshAll.
+     */
+    private pendingMutations = 0;
+    /**
+     * Watcher ref'а upstream'а — transient: пересоздаётся на каждый снимок
+     * состояния, потому что upstream меняется вместе с веткой.
+     */
+    private upstreamWatcher: vscode.Disposable | undefined;
+    private upstreamWatchedRef: string | null = null;
     #disposed = false;
     // Метод, а не поле/геттер: результат вызова TS не сужает, поэтому повторные проверки
     // после await не «залипают» (флаг может стать true во время асинхронной паузы).
@@ -145,8 +161,9 @@ class GitDecorations {
     // Whether we already logged a degraded git invocation this session (avoid spam).
     private loggedGitFailure = false;
 
-    public constructor(repoRoot: string, gitEnv: NodeJS.ProcessEnv | undefined) {
+    public constructor(repoRoot: string, dotGit: IDotGit, gitEnv: NodeJS.ProcessEnv | undefined) {
         this.repoRoot = repoRoot;
+        this.dotGit = dotGit;
         this.gitEnv = gitEnv;
     }
 
@@ -226,17 +243,16 @@ class GitDecorations {
             }),
         );
 
-        this.disposables.push(
-            vscode.window.onDidChangeActiveTextEditor(() => {
-                this.guard("onDidChangeActiveTextEditor", () => {
-                    this.scheduleRefresh();
-                });
-            }),
-        );
+        // Сохранение — это запись на диск, и watcher рабочего дерева его увидит;
+        // подписка оставлена как быстрый и детерминированный путь для своих же
+        // правок (событие приходит без задержки на обход дерева).
+        // Смены активного редактора здесь СОЗНАТЕЛЬНО нет: диск от неё не
+        // меняется, а `git status` на каждое переключение вкладки — тот самый
+        // холостой RPC-шторм, ради которого выделяли `editor.selectionChanged`.
         this.disposables.push(
             vscode.workspace.onDidSaveTextDocument(() => {
                 this.guard("onDidSaveTextDocument", () => {
-                    this.scheduleRefresh();
+                    this.onFileChange();
                 });
             }),
         );
@@ -285,7 +301,7 @@ class GitDecorations {
             vscode.commands.registerCommand(QUERY_COMMAND, (payload: unknown) => this.query(payload)),
         );
 
-        this.watchGitDir();
+        this.startWatchers();
 
         // The plugin owns its disposables; register a single umbrella disposable.
         context.subscriptions.push({
@@ -309,23 +325,32 @@ class GitDecorations {
         }
     }
 
-    private config(): { master: boolean; decorations: boolean; debounce: number } {
+    private config(): { master: boolean; decorations: boolean; debounce: number; autorefresh: boolean } {
         const cfg = vscode.workspace.getConfiguration("git");
         const master = cfg.get<boolean>("enabled", true);
         return {
             master,
             decorations: master && cfg.get<boolean>("decorations.enabled", true),
             debounce: normalizeDebounce(cfg.get<number>("refreshDebounce", 200)),
+            autorefresh: master && cfg.get<boolean>("autorefresh", true),
         };
     }
 
     private scheduleRefresh(): void {
         if (this.isDisposed()) return;
         if (this.refreshTimer !== undefined) clearTimeout(this.refreshTimer);
+        const debounce = this.config().debounce;
         this.refreshTimer = setTimeout(() => {
             this.refreshTimer = undefined;
+            // Репозиторий занят мутацией — не рефрешим, а ждём: `git status`
+            // дерётся с ней за `.git/index.lock`. Аналог `whenIdleAndFocused`
+            // в VS Code (фокуса окна у нас нет — ждать нечего, кроме операции).
+            if (this.pendingMutations > 0) {
+                this.scheduleRefresh();
+                return;
+            }
             void this.refreshAll();
-        }, this.config().debounce);
+        }, debounce);
     }
 
     /**
@@ -356,6 +381,7 @@ class GitDecorations {
             state: this.detectRepoOpState(),
         };
         this.upstreamRef = payload.upstream;
+        this.updateUpstreamWatcher(payload.upstream);
         void Promise.resolve(vscode.commands.executeCommand(PUBLISH_REPO_STATE_COMMAND, payload)).catch(
             /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
             () => undefined,
@@ -364,8 +390,7 @@ class GitDecorations {
 
     /** merge/rebase/cherry-pick по служебным файлам `.git` (как git сам). */
     private detectRepoOpState(): IRepoStatePayload["state"] {
-        const gitDir = path.join(this.repoRoot, ".git");
-        const exists = (rel: string): boolean => fs.existsSync(path.join(gitDir, rel));
+        const exists = (rel: string): boolean => fs.existsSync(path.join(this.dotGit.path, rel));
         if (exists("MERGE_HEAD")) return "merging";
         if (exists("rebase-merge") || exists("rebase-apply")) return "rebasing";
         if (exists("CHERRY_PICK_HEAD")) return "cherry-picking";
@@ -502,10 +527,15 @@ class GitDecorations {
             if (this.isDisposed()) return { ok: false, message: "git extension is shutting down" };
             const paths = this.parseMutationTargets(payload);
             if (paths.length === 0) return { ok: true };
-            const result = await run(paths);
-            if (!result.ok) log(`mutation failed: ${result.message ?? "unknown error"}`);
-            await this.refreshAll();
-            return result;
+            this.pendingMutations++;
+            try {
+                const result = await run(paths);
+                if (!result.ok) log(`mutation failed: ${result.message ?? "unknown error"}`);
+                await this.refreshAll();
+                return result;
+            } finally {
+                this.pendingMutations--;
+            }
         };
         const next = this.mutationQueue.then(job, job);
         this.mutationQueue = next.catch(() => undefined);
@@ -591,6 +621,25 @@ class GitDecorations {
             }
             const { op, params } = payload as { op?: unknown; params?: unknown };
             const opParams = typeof params === "object" && params !== null ? (params as Record<string, unknown>) : {};
+            let result: GitOpResult;
+            this.pendingMutations++;
+            try {
+                result = await this.runOpByName(op, opParams);
+            } finally {
+                this.pendingMutations--;
+            }
+            if (!result.ok) log(`op ${String(op)} failed: ${result.message}`);
+            await this.refreshAll();
+            return result;
+        };
+        const next = this.mutationQueue.then(job, job);
+        this.mutationQueue = next.catch(() => undefined);
+        return next;
+    }
+
+    /** Диспетчер операций по имени: аргументы собирает `lib/*Args`, запускает {@link runBuilt}. */
+    private async runOpByName(op: unknown, opParams: Record<string, unknown>): Promise<GitOpResult> {
+        {
             let result: GitOpResult;
             switch (op) {
                 case "commit":
@@ -691,13 +740,8 @@ class GitDecorations {
                 default:
                     result = { ok: false, kind: "git-error", message: `unknown git op: ${String(op)}` };
             }
-            if (!result.ok) log(`op ${String(op)} failed: ${result.message}`);
-            await this.refreshAll();
             return result;
-        };
-        const next = this.mutationQueue.then(job, job);
-        this.mutationQueue = next.catch(() => undefined);
-        return next;
+        }
     }
 
     /** `git commit` с флагами из параметров; пустое сообщение допустимо только с amend (`--no-edit`). */
@@ -867,25 +911,84 @@ class GitDecorations {
         return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
     }
 
-    /** Watch `.git/HEAD` + `.git/index` (via the .git dir) to catch external git ops. */
-    private watchGitDir(): void {
-        try {
-            const gitDir = path.join(this.repoRoot, ".git");
-            if (!fs.statSync(gitDir, { throwIfNoEntry: false })?.isDirectory()) return;
-            this.gitDirWatcher = fs.watch(gitDir, (_event, filename) => {
-                if (filename === "HEAD" || filename === "index" || filename === null) {
-                    this.guard("gitDirWatcher", () => {
-                        this.scheduleRefresh();
-                        // Версии в git: устарели — ядру надо перечитать оригиналы.
-                        this.onGitDirChanged?.();
-                    });
-                }
+    /**
+     * Заводит файловые watcher'ы — раскладка VS Code (`Repository` в
+     * `extensions/git/src/repository.ts`):
+     *
+     * - **рабочее дерево** целиком (`**`): без него редактор видит только свои
+     *   сохранения, а правка из терминала, чужого редактора или скрипта в
+     *   Changes и декорациях не появляется до следующего события;
+     * - **служебный каталог** (`.git`, первый уровень): checkout, commit, stage
+     *   и состояние merge/rebase — всё это правки его прямых детей. Каталог
+     *   берём из `rev-parse`, а не склейкой `<root>/.git`: в worktree это файл;
+     * - **общий каталог**, если он отдельный (worktree/submodule): там живут
+     *   `refs` и `packed-refs` — по ним видно чужой fetch;
+     * - **ref upstream'а** — transient, см. {@link updateUpstreamWatcher}.
+     *
+     * Событий `.git` касается и вторая обязанность: версии в схеме `git:`
+     * устарели, и ядру надо перечитать оригиналы (иначе бары в гуттере считаются
+     * против старого HEAD).
+     */
+    private startWatchers(): void {
+        this.watch(this.repoRoot, "**", (uri) => {
+            if (isRelevantWorkingTreeEvent(this.repoRoot, uri.fsPath)) this.onFileChange();
+        });
+        this.watch(this.dotGit.path, "*", (uri) => {
+            if (!isRelevantDotGitEvent(uri.fsPath)) return;
+            this.onFileChange();
+            this.onGitDirChanged?.();
+        });
+        const common = refsRoot(this.dotGit);
+        if (common !== this.dotGit.path) {
+            this.watch(common, "*", (uri) => {
+                if (isRelevantDotGitEvent(uri.fsPath)) this.onFileChange();
             });
-            // A watcher error (e.g. inotify exhaustion) must not crash the plugin.
-            this.gitDirWatcher.on("error", () => undefined);
-        } catch {
-            // No watcher — refresh still happens on save / editor switch.
         }
+    }
+
+    /** Подписка на create/change/delete одного watcher'а; ошибки не выпускаем наружу. */
+    private watch(base: string, pattern: string, onEvent: (uri: vscode.Uri) => void): vscode.Disposable {
+        const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(base, pattern));
+        const handler = (uri: vscode.Uri): void => {
+            this.guard("fileWatcher", () => onEvent(uri));
+        };
+        watcher.onDidCreate(handler);
+        watcher.onDidChange(handler);
+        watcher.onDidDelete(handler);
+        this.disposables.push(watcher);
+        return watcher;
+    }
+
+    /**
+     * Пересаживает watcher на ref upstream'а текущей ветки. Без него ahead/behind
+     * оживает только по своим операциям: чужой `git fetch` трогает
+     * `refs/remotes/<remote>/<branch>` — файл, до которого watcher'ы `.git`
+     * (первый уровень) не достают.
+     *
+     * Следим за **каталогом** ref'а с точным именем в шаблоне, а не за самим
+     * файлом: git пишет ref'ы атомарной заменой (`rename`), после которой
+     * подписка на inode исходного файла мертва.
+     */
+    private updateUpstreamWatcher(upstream: string | null): void {
+        const refPath = upstreamRefPath(this.dotGit, upstream);
+        if (refPath === this.upstreamWatchedRef) return;
+        this.upstreamWatchedRef = refPath;
+        this.upstreamWatcher?.dispose();
+        this.upstreamWatcher = undefined;
+        if (refPath === null) return;
+        this.upstreamWatcher = this.watch(path.dirname(refPath), path.basename(refPath), () => {
+            this.onFileChange();
+        });
+    }
+
+    /**
+     * Реакция на файловое событие — гейты VS Code (`Repository.onFileChange`):
+     * выключенный `git.autorefresh` и занятый мутацией репозиторий рефреш не
+     * запускают.
+     */
+    private onFileChange(): void {
+        if (!this.config().autorefresh) return;
+        this.scheduleRefresh();
     }
 
     /** Run a handler, swallowing and logging any throw so nothing reaches the host. */
@@ -901,7 +1004,7 @@ class GitDecorations {
         if (this.isDisposed()) return;
         this.#disposed = true;
         if (this.refreshTimer !== undefined) clearTimeout(this.refreshTimer);
-        this.gitDirWatcher?.close();
+        this.upstreamWatcher?.dispose();
         for (const d of this.disposables.splice(0).reverse()) {
             try {
                 d.dispose();
@@ -927,14 +1030,26 @@ function gitEnvFor(gitPath: string): NodeJS.ProcessEnv | undefined {
     return { ...process.env, PATH: currentPath === "" ? dir : `${dir}${sep}${currentPath}` };
 }
 
-/** Resolve the enclosing git repository root, or `null` if none/unavailable. */
-async function detectRepoRoot(cwd: string, gitEnv: NodeJS.ProcessEnv | undefined): Promise<string | null> {
+/**
+ * Резолвит репозиторий вокруг `cwd`: корень рабочего дерева и служебный
+ * каталог. `null` — не репозиторий или git недоступен.
+ *
+ * Одним `rev-parse`: корень и `.git` обязаны быть согласованы, а два вызова —
+ * это ещё и два процесса на старте. Пути `--git-dir`/`--git-common-dir` git
+ * отдаёт относительно cwd вызова, поэтому нормализует их {@link parseDotGit}.
+ */
+async function detectRepository(
+    cwd: string,
+    gitEnv: NodeJS.ProcessEnv | undefined,
+): Promise<{ root: string; dotGit: IDotGit } | null> {
     const opts: IRunGitOptions = { cwd };
     if (gitEnv !== undefined) opts.env = gitEnv;
-    const result = await runGit(["rev-parse", "--show-toplevel"], opts);
+    const result = await runGit(["rev-parse", "--show-toplevel", "--git-dir", "--git-common-dir"], opts);
     if ("error" in result || result.code !== 0) return null;
-    const root = result.stdout.trim();
-    return root === "" ? null : root;
+    const [root, ...rest] = result.stdout.split("\n").map((line) => line.trim());
+    if (root === undefined || root === "") return null;
+    const dotGit = parseDotGit(rest.join("\n"), cwd);
+    return dotGit === null ? null : { root, dotGit };
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -949,14 +1064,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const gitPath = vscode.workspace.getConfiguration("git").get<string>("path", "");
         const gitEnv = gitEnvFor(gitPath);
 
-        const repoRoot = await detectRepoRoot(cwd, gitEnv);
-        if (repoRoot === null) {
+        const repository = await detectRepository(cwd, gitEnv);
+        if (repository === null) {
             log(`not a git repository (or git unavailable): ${cwd}`);
             return;
         }
 
-        log(`git integration active: ${repoRoot}`);
-        const decorations = new GitDecorations(repoRoot, gitEnv);
+        log(`git integration active: ${repository.root} (git dir: ${repository.dotGit.path})`);
+        const decorations = new GitDecorations(repository.root, repository.dotGit, gitEnv);
         decorations.start(context);
     } catch (err) {
         // activate() must never throw into the host.

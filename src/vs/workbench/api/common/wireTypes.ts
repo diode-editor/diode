@@ -1156,3 +1156,80 @@ export function parseWireReadFileResult(raw: unknown): Uint8Array {
     if (typeof content !== "string") throw new Error("workspace.fs.readFile: content must be a base64 string");
     return new Uint8Array(Buffer.from(content, "base64"));
 }
+
+// ── workspace.createFileSystemWatcher: файловые watcher'ы расширений ─────────
+
+/**
+ * Запрос субпроцесса на создание watcher'а (`workspace.watcher.create`).
+ * `base` — абсолютный путь каталога, `pattern` — glob **относительно** него:
+ * ровно пара `RelativePattern`. Строковый `GlobPattern` субпроцесс сам
+ * приводит к этой паре, подставляя папку воркспейса как базу, — host не должен
+ * гадать, откуда взялся шаблон.
+ */
+export interface IWireWatcherCreate {
+    readonly id: number;
+    readonly base: string;
+    readonly pattern: string;
+    readonly ignoreCreateEvents: boolean;
+    readonly ignoreChangeEvents: boolean;
+    readonly ignoreDeleteEvents: boolean;
+}
+
+/** Разбирает `workspace.watcher.create`; `null` — параметры структурно чужие. */
+export function parseWireWatcherCreate(raw: unknown): IWireWatcherCreate | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as {
+        id?: unknown;
+        base?: unknown;
+        pattern?: unknown;
+        ignoreCreateEvents?: unknown;
+        ignoreChangeEvents?: unknown;
+        ignoreDeleteEvents?: unknown;
+    };
+    if (typeof p.id !== "number" || !Number.isInteger(p.id)) return null;
+    if (typeof p.base !== "string" || p.base === "") return null;
+    if (typeof p.pattern !== "string") return null;
+    return {
+        id: p.id,
+        base: p.base,
+        pattern: p.pattern,
+        ignoreCreateEvents: p.ignoreCreateEvents === true,
+        ignoreChangeEvents: p.ignoreChangeEvents === true,
+        ignoreDeleteEvents: p.ignoreDeleteEvents === true,
+    };
+}
+
+/** Разбирает `workspace.watcher.dispose`; `null` — параметры структурно чужие. */
+export function parseWireWatcherDispose(raw: unknown): number | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const { id } = raw as { id?: unknown };
+    return typeof id === "number" && Number.isInteger(id) ? id : null;
+}
+
+/** Одно файловое событие в сторону субпроцесса: тип + ресурс как `uri.toString()`. */
+export interface IWireWatcherEvent {
+    readonly type: "created" | "changed" | "deleted";
+    readonly uri: string;
+}
+
+/** Пачка событий одного watcher'а (`workspace.watcher.events`, host → subprocess). */
+export interface IWireWatcherEvents {
+    readonly id: number;
+    readonly events: readonly IWireWatcherEvent[];
+}
+
+/** Разбирает `workspace.watcher.events`; мусорные записи молча отбрасываются. */
+export function parseWireWatcherEvents(raw: unknown): IWireWatcherEvents | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as { id?: unknown; events?: unknown };
+    if (typeof p.id !== "number" || !Array.isArray(p.events)) return null;
+    const events: IWireWatcherEvent[] = [];
+    for (const item of p.events) {
+        if (typeof item !== "object" || item === null) continue;
+        const e = item as { type?: unknown; uri?: unknown };
+        if (e.type !== "created" && e.type !== "changed" && e.type !== "deleted") continue;
+        if (typeof e.uri !== "string" || e.uri === "") continue;
+        events.push({ type: e.type, uri: e.uri });
+    }
+    return { id: p.id, events };
+}

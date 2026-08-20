@@ -19,6 +19,7 @@ import { EditorLayoutServiceAdapter } from "../vs/workbench/api/browser/editorLa
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
+import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensionFileWatcher.ts";
 import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColorResolver.ts";
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
@@ -122,6 +123,11 @@ export interface IExtensionHarnessOptions {
     readonly fileDecorations?: IFileDecorationsService;
     /** Резолвер ThemeColor id → packed-RGB (+ смена темы). По умолчанию не подключён. */
     readonly themeColorResolver?: IThemeColorResolver;
+    /**
+     * Наблюдатель за деревом для `workspace.createFileSystemWatcher`. По
+     * умолчанию не подключён — watcher'ы расширений создаются, но не стреляют.
+     */
+    readonly fileWatcher?: IExtensionFileWatcher;
 }
 
 export interface IExtensionHarness {
@@ -199,6 +205,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         ...(options.themeColorResolver !== undefined ? { themeColorResolver: options.themeColorResolver } : {}),
+        ...(options.fileWatcher !== undefined ? { fileWatcher: options.fileWatcher } : {}),
     });
 
     // Save-pipeline (WP6): проброс will-save/did-save между группой и хостом.

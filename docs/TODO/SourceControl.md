@@ -408,6 +408,13 @@ UI-подтверждения. Ручной прогон после релиза
       `ls-remote --tags` — сетевой пикер отложен).
 - [x] **12. Статус-бар** — ветка (+ merge/rebase-суффикс) и счётчики `↓N ↑M` слева,
       клик → `git.checkout` / `git.sync` (без upstream — `git.publish`).
+- [x] **13. Живое слежение** — раскладка watcher'ов VS Code в расширении поверх
+      настоящего `workspace.createFileSystemWatcher`: рабочее дерево, служебный
+      каталог из `rev-parse --git-dir --git-common-dir` (работает в linked
+      worktree, где `.git` — файл), общий каталог и transient-watcher ref'а
+      upstream'а; гейты `git.autorefresh` и «пока идёт мутация — ждём».
+      Гейт: `extensions/git/git.watch.integration.test.ts`, сценарий-демо
+      `scmLiveWatch`.
 
 ## Покрытие автоматизацией (снимок на момент реализации)
 

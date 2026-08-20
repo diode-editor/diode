@@ -32,6 +32,21 @@ describe("ConfigurationModel", () => {
             expect(m.get<boolean>("editor.insertSpaces")).toBe(false);
         });
 
+        it("не разворачивает точки внутри значения — ключ map'а это данные", () => {
+            // Регрессия: рекурсивная нормализация ломала map-настройки, у которых
+            // ключ сам по себе данные (глоб `files.watcherExclude`, `*.ext`
+            // `files.associations`).
+            const m = ConfigurationModel.fromRaw({
+                "files.watcherExclude": { ".git/objects/**": true, "**/node_modules/**": true },
+                "files.associations": { "*.myphp": "php" },
+            });
+            expect(m.get("files.watcherExclude")).toEqual({
+                ".git/objects/**": true,
+                "**/node_modules/**": true,
+            });
+            expect(m.get("files.associations")).toEqual({ "*.myphp": "php" });
+        });
+
         it("does not flatten array values", () => {
             const m = ConfigurationModel.fromRaw({ "files.exclude": ["a", "b"] });
             expect(m.get("files.exclude")).toEqual(["a", "b"]);

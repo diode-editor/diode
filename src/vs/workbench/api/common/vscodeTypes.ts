@@ -492,6 +492,52 @@ export class ThemeColor {
 }
 
 /**
+ * `vscode.RelativePattern` — glob, привязанный к базовому каталогу.
+ *
+ * Базой может быть папка воркспейса, `Uri` или голая строка-путь. `base` и
+ * `baseUri` держатся синхронно: upstream объявляет оба поля, причём `base`
+ * задокументирован как «обновление этого значения обновит baseUri» — поэтому
+ * это не два независимых поля, а аксессор поверх одного `Uri`.
+ */
+export class RelativePattern {
+    private baseUriValue: Uri;
+    public pattern: string;
+
+    public constructor(base: vscode.WorkspaceFolder | Uri | string, pattern: string) {
+        this.baseUriValue = toBaseUri(base);
+        this.pattern = pattern;
+    }
+
+    public get baseUri(): Uri {
+        return this.baseUriValue;
+    }
+
+    public set baseUri(value: Uri) {
+        this.baseUriValue = value;
+    }
+
+    /** @deprecated upstream — оставлен ради дословности поверхности. */
+    public get base(): string {
+        return this.baseUriValue.fsPath;
+    }
+
+    public set base(value: string) {
+        this.baseUriValue = Uri.file(value);
+    }
+}
+
+/** База `RelativePattern` → `Uri`: WorkspaceFolder (у него есть `.uri`), Uri или путь строкой. */
+function toBaseUri(base: vscode.WorkspaceFolder | Uri | string): Uri {
+    if (typeof base === "string") return Uri.file(base);
+    if (base instanceof Uri) return base;
+    const folderUri = (base as { uri?: unknown }).uri;
+    if (folderUri instanceof Uri) return folderUri;
+    // Чужая реализация Uri (другой рантайм внутри расширения) — берём её строку.
+    if (typeof folderUri === "object" && folderUri !== null) return Uri.parse(String(folderUri));
+    throw new TypeError("RelativePattern: base must be a WorkspaceFolder, Uri or string");
+}
+
+/**
  * Позиция change-бара в overview ruler. Значение важно как *признак*
  * «это gutter/overview-декорация» — host заводит gutter-тип только у декораций
  * с `overviewRulerColor` (см. ExtensionHost RPC-реестр).

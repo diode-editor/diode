@@ -31,6 +31,11 @@
           "default": true,
           "description": "Colour and badge changed files in the explorer tree."
         },
+        "git.autorefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Recompute git status automatically when files change on disk."
+        },
         "git.gutter.enabled": {
           "type": "boolean",
           "default": true,

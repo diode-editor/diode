@@ -41,6 +41,7 @@ import {
     Position,
     ProgressLocation,
     Range,
+    RelativePattern,
     Selection,
     SnippetString,
     SymbolInformation,
@@ -131,6 +132,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         Selection,
         TextEdit,
         Uri,
+        // База для createFileSystemWatcher: встроенный git строит им и watcher
+        // рабочего дерева, и дешёвый нерекурсивный watcher `.git`.
+        RelativePattern,
         EventEmitter,
         CompletionItem,
         // CompletionList/SnippetString конструирует сам languageclient на каждом
