@@ -143,7 +143,8 @@ dispose реестра сматывает все contribution'ы. Две фаз�
 `ThemeConfigContribution` (live-reload `workbench.colorTheme`),
 `OpenFileCommandContribution` (команда `workbench.openFile`),
 `PanelFocusContribution` (возврат фокуса в редактор, когда содержимое нижней панели
-уходит со сцены). Все — `restored`.
+уходит со сцены), `HistoryService` (история навигации — сервис, он же contribution:
+владение подписками отдаёт реестр). Все — `restored`.
 
 ## Configuration-узлы (`src/vs/workbench/common/configuration/`)
 
@@ -256,7 +257,24 @@ hide-toggle (`isHiddenByDefault`). См.
   `fileClipboardFs.ts` — чистые ФС-операции copy/cut/paste), `TerminalEnvironment/`,
   `Terminal/` (EmbeddedTerminalSession, фабрика, загрузчик node-pty,
   `TerminalService`), `Diagnostics/` (валидатор settings.json,
-  `ProblemsTreeDataProvider`, `DiagnosticsService`).
+  `ProblemsTreeDataProvider`, `DiagnosticsService`), `history/`
+  (`HistoryService` — стек Go Back / Go Forward, см. ниже).
+- **История навигации** (`services/history/browser/historyService.ts`, аналог
+  `IHistoryService` + `EditorNavigationStack` у VS Code). Стек хранит
+  **место** (ресурс + позиция каретки + группа), а не вкладку: MRU вкладок
+  (`Ctrl+Tab`) помнит, ЧТО было открыто, история — ГДЕ ты был. Ведётся двумя
+  путями: неявно — подпиской на смену активного редактора и на каретку
+  (`entries[index]` всегда зеркалит живую позицию, движение ближе 10 строк
+  перезаписывает запись, а не растит стек), и явно — обёрткой
+  `IJumpRecorder.jump()` вокруг перехода. Обёртку обязан звать каждый сайт
+  прыжка (Go to Definition, Problems, результаты поиска, Go to Line/File):
+  между `openUri` и `goToPosition` история иначе увидит промежуточную позицию
+  «начало целевого файла», и первый Back приведёт туда. Собственные Back/Forward
+  гасятся флагом `suspended` — без него восстановление тут же записалось бы
+  новой записью и отсекло forward-хвост. Чистка стека (удалённый с диска файл,
+  закрытый `untitled:`) — ленивая, только на шаг пользователя: `onDidChangeEditors`
+  прилетает на КАЖДОЕ нажатие клавиши (группа слушает `onDidChangeContent` вкладки),
+  и вешать туда `existsSync` по полусотне записей нельзя.
 - **Explorer-кластер (этап 7)** — дерево файлов сайдбара и файловые операции:
   - `Services/FileTreeDataProvider.ts` — данные дерева (ленивая загрузка по
     уровням, chokidar-watch раскрытых каталогов, статус-декорации/иконки).
@@ -771,6 +789,13 @@ hide-toggle (`isHiddenByDefault`). См.
   (`noteExtendedKeysObserved`). Иначе tier завышался, Ctrl+Shift+F приезжал
   неотличимым от Ctrl+F, а legacy-фоллбэки были выключены — то есть терялись
   и комбинация, и запасной путь.
+- **Вторая часть аккорда — с модификатором, если команда переключает вкладку.**
+  Парный `keypress` закреплён за целью своего `keydown`
+  (`TuiApplication.pinnedKeypressTarget`), и когда команда меняет активную панель,
+  эта цель уезжает из дерева: глобальный capture-обработчик `KeybindingDispatcher`
+  до неё уже не достаёт и проглотить клавишу не может — голый символ печатается
+  в документ, который команда только что покинула. Отсюда `Ctrl+K Ctrl+B` у
+  `navigateBack`, а не `Ctrl+K -`. Баг движка — в трекере (docs/TODO/README.md).
 - Экшены объявляются `CommandAction`/`registerAction` в `Workbench/Actions/`;
   упорядоченный список — `builtinActions.ts`, регистрирует `WorkbenchComponent`
   одним циклом. Порядок важен: резолвер берёт последний зарегистрированный
