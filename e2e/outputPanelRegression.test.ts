@@ -61,18 +61,32 @@ describe("Output panel fix — регрессии соседних механи�
         expect(await findRow(session)).not.toContain("No results");
     }, 180_000);
 
-    // `it.fails` — тест документирует ИЗВЕСТНЫЙ дефект и «проходит», пока дефект
-    // жив; когда его починят, он покраснеет и попросит снять маркер. Дефект
-    // пре-существующий, не из PR #197. Репро — docs/TODO/E2E.md, «Найденные дефекты».
+    /**
+     * `it.fails` — тест документирует ИЗВЕСТНЫЙ дефект и «проходит», пока дефект
+     * жив; когда его починят, он покраснеет и попросит снять маркер. Дефект
+     * пре-существующий, не из PR #197. Репро — docs/TODO/E2E.md, «Найденные дефекты».
+     *
+     * Воркспейс здесь — **герметичная папка из двух файлов**, а не repoRoot, как у
+     * соседей. Причина: дефект — гонка фокуса вокруг смены вкладки, и на большом
+     * репозитории её исход зависит от фонового шума (LSP индексирует дерево, git
+     * следит за рабочей копией, сборка пишет в `dist/` прямо во время прогона) —
+     * тест начинает флейкать в обе стороны. В герметичной папке дефект
+     * воспроизводится стабильно, поэтому `it.fails` снова осмыслен: он краснеет
+     * от починки дефекта, а не от занятости машины.
+     */
     it.fails("find, оставленный открытым, переживает смену вкладки", async () => {
-        app = await startOutputApp();
+        const workspace = mkdtempSync(join(tmpdir(), "diode-find-focus-"));
+        const first = join(workspace, "alpha.ts");
+        writeFileSync(first, "export const greeting = 'привет';\n");
+        writeFileSync(join(workspace, "beta.ts"), "export const decoration = 42;\n");
+        app = await startHeadlessApp({ cols: 120, rows: 32, open: [workspace, first], cwd: workspace });
         const { session } = app;
         await session.waitForText((t) => t.includes("greeting"));
         await session.key("Ctrl+F");
         await session.text("greeting");
 
         await session.key("Ctrl+P");
-        await session.text("wireTypes.decorations");
+        await session.text("beta");
         await session.key("Enter");
         await session.key("Escape");
 
