@@ -9,6 +9,11 @@ import { defineScenario } from "./framework.ts";
 // подменю-переключатель видимости секций и кнопки в заголовках view.
 // Демонстрируем на Source Control — единственном контейнере с двумя секциями
 // (CHANGES + GRAPH), где видно и заголовок контейнера, и заголовки секций.
+//
+// Кадры заголовков идут подряд (EXPLORER → SEARCH → SOURCE CONTROL) ещё и
+// затем, что название вьюлета обязано выглядеть одинаково независимо от того,
+// merged контейнер или нет: у merged его несёт PaneHeaderElement, у SCM —
+// ViewContainerHeaderElement, и оба читают `sideBarTitle.foreground`.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -43,6 +48,14 @@ export default defineScenario({
         // заголовка живут кнопки New File / New Folder / Refresh и «⋯».
         await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("app.ts"));
         await editor.capture("explorer-title");
+
+        // Search — тоже merged-контейнер: заголовок ведёт та же секция.
+        // Свой бинд не заводим: Alt+<буква> ушёл бы в мнемонику меню, а
+        // штатный аккорд Ctrl+K F работает на любом терминале.
+        await editor.sendKey("Ctrl+K");
+        await editor.sendKey("f");
+        await editor.waitForText((t) => t.includes("SEARCH"));
+        await editor.capture("search-title");
 
         // Source Control — две секции: у контейнера свой заголовок, у CHANGES и
         // GRAPH — свои, сворачиваемые.

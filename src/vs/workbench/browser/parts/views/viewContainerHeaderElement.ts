@@ -34,7 +34,7 @@ export class ViewContainerHeaderElement extends TUIElement {
         super();
         this.focusable = true;
         this.style = {
-            fg: "titledPanel.titleForeground",
+            fg: "sideBarTitle.foreground",
             when: [{ states: ["focus"], bg: "list.hoverBackground" }],
         };
         this.row = new ViewTitleRowElement(title, { chevron: false });

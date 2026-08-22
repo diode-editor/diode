@@ -55,11 +55,15 @@ export class PaneHeaderElement extends TUIElement {
         this.collapsible = options?.collapsible ?? true;
         this.focusable = true;
         this.capturesPointer = true;
-        // Цвета покоя наследуются от вьюлета (sideBar.*) — как в VS Code, где
+        // Фон покоя наследуется от вьюлета (sideBar.*) — как в VS Code, где
         // sideBarSectionHeader.background прозрачен; свой токен не берём, потому
         // что альфа при парсинге тем отбрасывается и «прозрачный» из dark+
-        // выродился бы в чёрный.
-        this.style = { when: [{ states: ["focus"], bg: "list.hoverBackground" }] };
+        // выродился бы в чёрный. У текста альфы нет — там берём каноничный токен,
+        // причём merged-секция несёт заголовок контейнера и красится как он.
+        this.style = {
+            fg: this.collapsible ? "sideBarSectionHeader.foreground" : "sideBarTitle.foreground",
+            when: [{ states: ["focus"], bg: "list.hoverBackground" }],
+        };
 
         // Несворачиваемый заголовок (merged одно-view контейнер) — без шеврона.
         this.row = new ViewTitleRowElement(title, { chevron: this.collapsible });
