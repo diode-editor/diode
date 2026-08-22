@@ -638,10 +638,10 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         return this.sides[this.activeSide].viewState;
     }
 
-    public getSelectedText(): string {
+    public getSelectedTexts(): string[] {
         // Стороны — настоящие документы: плейсхолдеров и филлеров в тексте нет,
         // фильтровать нечего.
-        return this.viewState.getSelectedText();
+        return this.viewState.getSelectedTexts();
     }
 }
 

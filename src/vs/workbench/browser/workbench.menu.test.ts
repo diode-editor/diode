@@ -221,7 +221,7 @@ describe("Workbench — menu bar wiring", () => {
     it("opens the Selection menu and renders its entries", () => {
         const { testApp } = createAppTestHarness();
         const popup = openMenu(testApp, "s");
-        expect(itemLabels(popup)).toEqual(["Select All", "Expand Selection (Word)"]);
+        expect(itemLabels(popup)).toEqual(["Select All", "Expand Selection (Word)", "Add Cursor Above", "Add Cursor Below"]);
     });
 
     it("Selection → Select All runs the select-all command", () => {

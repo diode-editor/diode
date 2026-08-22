@@ -36,6 +36,7 @@ import {
     caretLocalCell,
     docPositionAt,
     forEachRangeCell,
+    paintCarets,
     paintRangeBackground,
     paintTextLine,
     SELECTION_BG,
@@ -595,6 +596,24 @@ export class EditorElement extends TUIElement implements IScrollable {
             this.paintMarkerDecoration(context, decoration, geometry);
         }
 
+        // Каретки ячейками — самый верхний слой (как `.cursors-layer` в VS Code): бьют и
+        // выделение, и search-match, и squiggle. Рисуем ТОЛЬКО в мультикурсоре, и сразу все,
+        // включая первичную: `gridToSvg` игнорирует аппаратный курсор, поэтому иначе демо-кадр
+        // показывал бы на одну каретку меньше и дыру на месте первичной. При одном курсоре
+        // картинка остаётся прежней — его рисует сам терминал.
+        if (this.isFocused && this.viewState.selections.length > 1) {
+            paintCarets(
+                context,
+                this.viewState,
+                this.viewState.selections,
+                {
+                    fg: this.styleVar("editorCursor.background"),
+                    bg: this.styleVar("editorCursor.foreground"),
+                },
+                geometry,
+            );
+        }
+
         // Position hardware cursor at the primary selection's active position
         const caret = caretLocalCell(this.viewState, gutterW, this.layoutSize);
         if (this.isFocused && caret !== null) {
@@ -719,11 +738,16 @@ export class EditorElement extends TUIElement implements IScrollable {
      * highlight while text is selected — that mirrors VS Code, where a
      * selection switches to the separate selection-highlight feature).
      *
+     * В мультикурсоре подсветки нет вовсе: она отвечает на вопрос «где ещё встречается
+     * слово под кареткой», а при нескольких каретках такого слова не одно — фон дрался бы
+     * с выделениями «выделить следующее вхождение».
+     *
      * Cached by document version + caret position so re-renders triggered by
      * unrelated changes don't rescan the document.
      */
     private getOccurrenceHighlights(): readonly IRange[] {
         if (!this.occurrenceHighlightEnabled) return NO_RANGES;
+        if (this.viewState.selections.length !== 1) return NO_RANGES;
         const primary = this.viewState.selections[0];
         if (!isSelectionCollapsed(primary)) return NO_RANGES;
 
@@ -804,6 +828,14 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
 
         const pos = this.docPositionAt(event.localX, event.localY);
+
+        // Alt+клик ставит или снимает каретку (VS Code `multiCursorModifier: "alt"`).
+        // Раньше shift-ветки: Shift+Alt+клик — не мультикурсорный жест, а расширение выделения.
+        if (event.altKey && !event.shiftKey) {
+            this.dragAnchor = null; // alt+drag выделение не тянет
+            this.viewState.toggleCursorAt(pos.line, pos.character);
+            return;
+        }
 
         if (event.shiftKey && this.viewState.selections.length > 0) {
             const anchor = this.viewState.selections[0].anchor;

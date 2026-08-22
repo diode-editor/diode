@@ -4,6 +4,7 @@ import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import type { IRange } from "../common/core/iRange.ts";
+import type { ISelection } from "../common/core/iSelection.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
@@ -188,6 +189,69 @@ export function caretLocalCell(viewState: EditorViewState, gutterW: number, size
         return null;
     }
     return new Point(localX, localY);
+}
+
+/** Цвета блочной каретки, нарисованной ячейкой. */
+export interface ICaretColors {
+    /** Цвет символа ПОД кареткой (`editorCursor.background`). */
+    readonly fg: number;
+    /** Цвет самой каретки (`editorCursor.foreground`). */
+    readonly bg: number;
+}
+
+/**
+ * Рисует каретки ячейками — инверсным блоком поверх уже отрисованного текста.
+ * Аппаратный курсор терминала физически один, поэтому мультикурсор показать иначе нечем.
+ *
+ * Патч частичный (`fg`/`bg`/`style` без `char`/`width`): глиф и ширина ячейки сохраняются,
+ * а у широкого символа `Grid.updateCell` сам прокрашивает ячейку-продолжение. `style`
+ * сбрасывается явно — блочная каретка не должна тащить bold/undercurl символа под ней
+ * (заодно гасит squiggle диагностики).
+ *
+ * Проход инвертирован относительно наивного «цикл по кареткам + {@link caretLocalCell}»:
+ * `logicalToVisualLine` — это поиск по проекции ВСЕГО документа, и на большом файле после
+ * «выделить все вхождения» получилось бы O(кареток × строк). Здесь — один флэттен видимых
+ * строк на кадр плюс кэш `DisplayLine` на строку, то есть O(видимых строк + кареток).
+ */
+export function paintCarets(
+    context: RenderContext,
+    viewState: EditorViewState,
+    selections: readonly ISelection[],
+    colors: ICaretColors,
+    geo: ITextViewportGeometry,
+): void {
+    const screenYByLogicalLine = new Map<number, number>();
+    for (let screenY = 0; screenY < geo.visibleLines; screenY++) {
+        const viewLine = geo.scrollTop + screenY;
+        if (viewLine >= geo.viewLineCount) break;
+        const logLine = viewState.visualToLogicalLine(viewLine);
+        // Ряд-зона (виртуальная строка диффа): документной строки за ним нет, каретке там
+        // не место.
+        if (logLine < 0) continue;
+        screenYByLogicalLine.set(logLine, screenY);
+    }
+
+    const displayLineByScreenY = new Map<number, DisplayLine>();
+    for (const selection of selections) {
+        const screenY = screenYByLogicalLine.get(selection.active.line);
+        // Строка свёрнута фолдингом или уехала за вьюпорт.
+        if (screenY === undefined) continue;
+
+        let dl = displayLineByScreenY.get(screenY);
+        if (dl === undefined) {
+            dl = viewState.displayLineFor(viewState.getViewLine(geo.scrollTop + screenY));
+            displayLineByScreenY.set(screenY, dl);
+        }
+
+        const localX = dl.offsetToColumn(selection.active.character) - geo.scrollLeft;
+        if (localX < 0 || localX >= geo.contentCols) continue;
+
+        context.setCell(geo.gutterW + localX, screenY + (geo.originY ?? 0), {
+            fg: colors.fg,
+            bg: colors.bg,
+            style: StyleFlags.None,
+        });
+    }
 }
 
 /**

@@ -101,6 +101,26 @@ describe("clipboardCopyAction", () => {
 
         expect(await clipboard.readText()).toBe("previous");
     });
+
+    it("склеивает выделения мультикурсора через перевод строки", async () => {
+        const clipboard = memoryClipboard();
+        const { editor, exec } = openEditor("alpha beta", clipboard);
+        editor.viewState.selections = [createSelection(0, 0, 0, 5), createSelection(0, 6, 0, 10)];
+
+        await exec(clipboardCopyAction);
+
+        expect(await clipboard.readText()).toBe("alpha\nbeta");
+    });
+
+    it("схлопнутые каретки не добавляют пустых строк", async () => {
+        const clipboard = memoryClipboard();
+        const { editor, exec } = openEditor("alpha beta", clipboard);
+        editor.viewState.selections = [createSelection(0, 0, 0, 5), createCursorSelection(0, 8)];
+
+        await exec(clipboardCopyAction);
+
+        expect(await clipboard.readText()).toBe("alpha");
+    });
 });
 
 describe("clipboardCutAction", () => {
@@ -124,6 +144,19 @@ describe("clipboardCutAction", () => {
 
         expect(await clipboard.readText()).toBe("previous");
         expect(editor.getText()).toBe("hello world");
+    });
+
+    it("в мультикурсоре копирует ровно то, что удаляет", async () => {
+        // Регрессия: раньше Cut брал текст только первичного выделения, а удалял все —
+        // второе выделение исчезало из документа, не попав в буфер.
+        const clipboard = memoryClipboard();
+        const { editor, exec } = openEditor("alpha beta gamma", clipboard);
+        editor.viewState.selections = [createSelection(0, 0, 0, 6), createSelection(0, 11, 0, 16)];
+
+        await exec(clipboardCutAction);
+
+        expect(await clipboard.readText()).toBe("alpha \ngamma");
+        expect(editor.getText()).toBe("beta ");
     });
 });
 
@@ -167,7 +200,7 @@ describe("clipboardCutAction defensive delete handling", () => {
         const pushUndo = vi.fn();
         const editor = {
             viewState: {
-                getSelectedText: () => "selected",
+                getSelectedTexts: () => ["selected"],
                 deleteLeft: () => undefined,
             },
             pushUndo,

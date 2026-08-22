@@ -131,6 +131,13 @@ export class WorkbenchContextKeys extends Disposable {
         // (в VS Code это `readOnly.toNegated()`). Без фокуса в тексте ключ
         // сбрасывается в false, иначе он залипал бы от прошлого редактора.
         this.contextKeys.set("editorReadonly", isTextViewElement(active) && active.readOnly);
+        // Гейт Escape у `removeSecondaryCursors`: без него Escape перехватывался бы всегда,
+        // хотя убирать нечего. Отдельной подписки на курсор не нужно — диспетчер зовёт
+        // `update()` перед каждым резолвом биндинга.
+        this.contextKeys.set(
+            "editorHasMultipleSelections",
+            isTextViewElement(active) && active.viewState.selections.length > 1,
+        );
         this.contextKeys.set("inputWidgetFocus", active instanceof InputElement);
         this.contextKeys.set("scmInputFocus", active instanceof ScmCommitInputElement);
         this.contextKeys.set("listFocus", active instanceof TreeViewElement || active instanceof ListViewElement);

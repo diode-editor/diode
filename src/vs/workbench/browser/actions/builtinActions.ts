@@ -186,6 +186,7 @@ import {
     listFocusPageDownAction,
     listFocusPageUpAction,
 } from "./listActions.ts";
+import { MULTI_CURSOR_ACTIONS } from "./multiCursorActions.ts";
 import { navigateBackAction, navigateForwardAction } from "./navigationActions.ts";
 import {
     collapseSearchResultsAction,
@@ -261,6 +262,11 @@ export const builtinActions: readonly CommandAction[] = [
     cursorPageUpSelectAction,
     scrollLineUpAction,
     scrollLineDownAction,
+
+    // Multi-cursor. Стоит ДО Find/Suggest-хвоста намеренно: резолвер берёт последний
+    // подходящий биндинг, и Escape у `removeSecondaryCursors` обязан проигрывать
+    // закрытию find-виджета и попапа автодополнения.
+    ...MULTI_CURSOR_ACTIONS,
 
     // Editing
     deleteLeftAction,

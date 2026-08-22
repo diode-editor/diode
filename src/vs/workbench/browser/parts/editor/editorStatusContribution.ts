@@ -211,6 +211,9 @@ export class EditorStatusContribution extends Disposable {
      * VSCode-style "Ln X, Col Y" for the primary cursor, or null when there is
      * no active editor. The column is the tab-expanded display column (matching
      * the rendered cursor), 1-based like the line.
+     *
+     * В мультикурсоре к позиции первичной каретки добавляется счётчик
+     * `(N selections)` — как в VS Code: иначе индикатор молча врал бы, что курсор один.
      */
     private cursorPositionText(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
@@ -219,6 +222,9 @@ export class EditorStatusContribution extends Disposable {
         const active = viewState.selections[0].active;
         const lineContent = viewState.document.getLineContent(active.line);
         const column = new DisplayLine(lineContent, viewState.tabSize).offsetToColumn(active.character);
-        return `Ln ${active.line + 1}, Col ${column + 1}`;
+        const position = `Ln ${active.line + 1}, Col ${column + 1}`;
+        return viewState.selections.length > 1
+            ? `${position} (${viewState.selections.length.toString()} selections)`
+            : position;
     }
 }

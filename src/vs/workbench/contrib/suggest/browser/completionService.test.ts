@@ -28,12 +28,15 @@ interface FakeEditor {
     move: (lineNo: number, character: number) => void;
     /** Непустое выделение: anchor != active. */
     setSelection: (anchorChar: number, activeChar: number) => void;
+    /** Мультикурсор: сколько кареток отдаёт `viewState.selections`. */
+    setCursorCount: (count: number) => void;
     setAnchorNull: (value: boolean) => void;
 }
 
 function makeEditor(lineContent: string, character: number, docText = lineContent, anchorChar = character): FakeEditor {
     const state = { line: lineContent, lineNo: 0, anchorChar, activeChar: character };
     let anchorNull = false;
+    let cursorCount = 1;
     const contentListeners: (() => void)[] = [];
     const cursorListeners: (() => void)[] = [];
     const applyExternalEdits = vi.fn<(edits: ITextEdit[], label: string) => void>();
@@ -41,12 +44,10 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
     const editor = {
         get viewState() {
             return {
-                selections: [
-                    {
-                        anchor: { line: state.lineNo, character: state.anchorChar },
-                        active: { line: state.lineNo, character: state.activeChar },
-                    },
-                ],
+                selections: Array.from({ length: cursorCount }, (_, i) => ({
+                    anchor: { line: state.lineNo + i, character: state.anchorChar },
+                    active: { line: state.lineNo + i, character: state.activeChar },
+                })),
                 document: { getLineContent: (_line: number) => state.line },
             };
         },
@@ -92,6 +93,10 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
         setSelection: (anchorChar, activeChar) => {
             state.anchorChar = anchorChar;
             state.activeChar = activeChar;
+            fireCursor();
+        },
+        setCursorCount: (count) => {
+            cursorCount = count;
             fireCursor();
         },
         setAnchorNull: (value) => {
@@ -1030,6 +1035,20 @@ describe("CompletionService", () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
         fake.setSelection(1, 3); // anchor != active
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("мультикурсор закрывает попап и не даёт открыть его заново", async () => {
+        const { service, fake } = setup(ITEMS);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        fake.setCursorCount(2);
+        expect(service.isOpen()).toBe(false);
+
+        // Ручной Ctrl+Space тоже обязан быть no-op: попап якорится на одной каретке,
+        // а accept вставил бы правку мимо остальных.
+        await service.trigger();
         expect(service.isOpen()).toBe(false);
     });
 

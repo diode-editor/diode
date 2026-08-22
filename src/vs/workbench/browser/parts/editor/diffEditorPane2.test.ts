@@ -616,12 +616,12 @@ describe("Workbench — дифф v2", () => {
         expect(original.viewState.getViewLineCount()).toBe(modified.getViewLineCount());
     });
 
-    it("getSelectedText отдаёт текст активной стороны без служебных строк", async () => {
+    it("getSelectedTexts отдаёт текст активной стороны без служебных строк", async () => {
         const pane = await openV2();
 
         pane.viewState.selections = [{ anchor: { line: 14, character: 0 }, active: { line: 14, character: 6 } }];
 
-        expect(pane.getSelectedText()).toBe("XXold ");
+        expect(pane.getSelectedTexts()).toEqual(["XXold "]);
     });
 
     it("фокус в левой колонке переключает активную сторону", async () => {

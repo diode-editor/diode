@@ -30,7 +30,8 @@ export interface ContextKeyTypes {
     // inputFocus: boolean;
     // editorTabMovesFocus: boolean;
     // editorHasSelection: boolean;
-    // editorHasMultipleSelections: boolean;
+    /** True while the focused editor has more than one cursor/selection. */
+    editorHasMultipleSelections: boolean;
     /** True while the focused editor is read-only (VS Code `editorReadonly`). */
     editorReadonly: boolean;
     // editorLangId: string;
@@ -209,7 +210,7 @@ export const allContextKeys: ContextKey[] = [
     // "inputFocus",
     // "editorTabMovesFocus",
     // "editorHasSelection",
-    // "editorHasMultipleSelections",
+    "editorHasMultipleSelections",
     "editorReadonly",
     // "editorLangId",
     // "isInDiffEditor",
