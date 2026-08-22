@@ -18,6 +18,17 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
         description: "Side Bar foreground color.",
     },
+    // Оба заголовочных токена в vscode деривируются из SIDE_BAR_FOREGROUND;
+    // derived-цветов реестр не поддерживает, поэтому дефолт продублирован
+    // hex-ом — держи его в лок-степе с "sideBar.foreground".
+    "sideBarTitle.foreground": {
+        defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
+        description: "Side Bar title foreground color.",
+    },
+    "sideBarSectionHeader.foreground": {
+        defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
+        description: "Side Bar section header foreground color.",
+    },
     "toolbar.hoverBackground": {
         // Upstream-значения с альфой; parseHexColor альфу отбрасывает.
         defaults: { dark: "#5A5D5E50", light: "#B8B8B850" },
