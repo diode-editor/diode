@@ -1,6 +1,7 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
+import type { IMultiCursorFindSession } from "../../contrib/multicursor/iMultiCursorFindSession.ts";
 import type { IPosition } from "../core/iPosition.ts";
 import { comparePositions, createPosition } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
@@ -125,6 +126,15 @@ export class EditorViewState {
      * calling `tokenStore.tokenizeUpTo(visibleBottom)` before reading tokens.
      */
     public tokenStore: DocumentTokenStore | undefined;
+
+    /**
+     * Живая сессия семейства «выделить следующее вхождение» (Ctrl+D). Состояние лежит
+     * здесь, а не в отдельном контроллере, чтобы умереть вместе со вью и не заводить своей
+     * подписки; ЛОГИКА — чистые функции `editor/contrib/multicursor/`. Тип импортируется
+     * type-only — тот же приём, что с `IFoldingRegion`: рантайм-зависимости common → contrib
+     * нет.
+     */
+    public multiCursorSession: IMultiCursorFindSession | null = null;
 
     private visibleLinesCache: number[] | null = null;
     /** Стартовая строка вью каждой зоны (по якорю) — offset для многострочных зон за O(1). */

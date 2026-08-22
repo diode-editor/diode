@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
-import { createCursorSelection } from "../../../editor/common/core/iSelection.ts";
+import { createCursorSelection, createSelection } from "../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
@@ -48,7 +48,7 @@ function openEditor(content: string) {
     for (const action of MULTI_CURSOR_ACTIONS) {
         registerAction(commands, keybindings, accessor, action);
     }
-    return { editor, commands, keybindings };
+    return { editor, commands, keybindings, service };
 }
 
 beforeEach(() => {
@@ -77,6 +77,58 @@ describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
         commands.execute("editor.action.insertCursorBelow");
         commands.execute("removeSecondaryCursors");
         expect(editor.viewState.selections).toHaveLength(1);
+    });
+
+    it("insertCursorAtEndOfEachLineSelected раскладывает каретки по концам строк", () => {
+        const { editor, commands } = openEditor("alpha\nbeta");
+        editor.viewState.selections = [createSelection(0, 0, 1, 4)];
+        commands.execute("editor.action.insertCursorAtEndOfEachLineSelected");
+        expect(editor.viewState.selections.map((sel) => sel.active.line)).toEqual([0, 1]);
+    });
+
+    it("addSelectionToNextFindMatch выделяет слово, затем следующее вхождение", () => {
+        const { editor, commands } = openEditor("foo\nfoo");
+        commands.execute("editor.action.addSelectionToNextFindMatch");
+        commands.execute("editor.action.addSelectionToNextFindMatch");
+        expect(editor.viewState.selections).toHaveLength(2);
+    });
+
+    it("addSelectionToPreviousFindMatch добавляет вхождение выше", () => {
+        const { editor, commands } = openEditor("foo\nfoo");
+        editor.viewState.selections = [createCursorSelection(1, 0)];
+        commands.execute("editor.action.addSelectionToPreviousFindMatch");
+        commands.execute("editor.action.addSelectionToPreviousFindMatch");
+        expect(editor.viewState.selections.map((sel) => sel.active.line)).toEqual([0, 1]);
+    });
+
+    it("moveSelectionToNextFindMatch переносит последнее выделение", () => {
+        const { editor, commands } = openEditor("foo\nfoo\nfoo");
+        commands.execute("editor.action.addSelectionToNextFindMatch");
+        commands.execute("editor.action.addSelectionToNextFindMatch");
+        commands.execute("editor.action.moveSelectionToNextFindMatch");
+        expect(editor.viewState.selections.map((sel) => sel.active.line)).toEqual([0, 2]);
+    });
+
+    it("moveSelectionToPreviousFindMatch переносит его же назад", () => {
+        const { editor, commands } = openEditor("foo\nfoo\nfoo");
+        commands.execute("editor.action.addSelectionToNextFindMatch");
+        commands.execute("editor.action.addSelectionToNextFindMatch");
+        commands.execute("editor.action.moveSelectionToPreviousFindMatch");
+        expect(editor.viewState.selections.map((sel) => sel.active.line)).toEqual([0, 2]);
+    });
+
+    it("selectHighlights выделяет все вхождения разом", () => {
+        const { editor, commands } = openEditor("foo\nfoo\nfoo");
+        commands.execute("editor.action.selectHighlights");
+        expect(editor.viewState.selections).toHaveLength(3);
+    });
+
+    it("без активного редактора все команды — тихий no-op", () => {
+        const { commands, service } = openEditor("foo\nfoo");
+        service.closeTab(0);
+        for (const action of MULTI_CURSOR_ACTIONS) {
+            expect(() => commands.execute(action.id)).not.toThrow();
+        }
     });
 });
 

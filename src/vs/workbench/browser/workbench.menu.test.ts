@@ -221,7 +221,18 @@ describe("Workbench — menu bar wiring", () => {
     it("opens the Selection menu and renders its entries", () => {
         const { testApp } = createAppTestHarness();
         const popup = openMenu(testApp, "s");
-        expect(itemLabels(popup)).toEqual(["Select All", "Expand Selection (Word)", "Add Cursor Above", "Add Cursor Below"]);
+        expect(itemLabels(popup)).toEqual([
+            "Select All",
+            "Expand Selection (Word)",
+            "Add Cursor Above",
+            "Add Cursor Below",
+            "Add Cursors to Line Ends",
+            "Add Selection To Next Find Match",
+            "Add Selection To Previous Find Match",
+            "Move Last Selection To Next Find Match",
+            "Move Last Selection To Previous Find Match",
+            "Select All Occurrences",
+        ]);
     });
 
     it("Selection → Select All runs the select-all command", () => {
