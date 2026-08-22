@@ -15,6 +15,7 @@ import {
 } from "../core/iSelection.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 import { createTextEdit } from "../core/iTextEdit.ts";
+import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { computeNewLinePlan } from "../languages/autoIndent.ts";
 import type { ILineTokens } from "../languages/iLineTokens.ts";
@@ -239,13 +240,20 @@ export class EditorViewState {
      * Primary cursor/selection list. Assigning a new array notifies
      * cursor-change listeners (used e.g. by the status bar Ln/Col indicator).
      * In-place mutation of the returned array does NOT fire the event.
+     *
+     * Присваивание проводит значение через {@link sortAndMergeSelections}: геттер всегда
+     * отдаёт выделения в документном порядке и без пересечений, а событие несёт уже
+     * финальный набор. Нормализация живёт здесь, а не отдельным вызовом у каждого мутатора,
+     * потому что писателей у поля много (навигация, правки, мышь, undo, find, расширения),
+     * и «не забудь нормализовать» — приглашение к багу. Первичное выделение —
+     * `selections[0]`, то есть самое верхнее в документе.
      */
     public get selections(): ISelection[] {
         return this.selectionsValue;
     }
 
-    public set selections(value: ISelection[]) {
-        this.selectionsValue = value;
+    public set selections(value: readonly ISelection[]) {
+        this.selectionsValue = sortAndMergeSelections(value);
         this.fireCursorChange();
     }
 
@@ -621,7 +629,9 @@ export class EditorViewState {
      */
     private reconcileHiddenCursors(): void {
         const previous = this.selections;
-        this.selections = previous.map((sel) => {
+        // Сравниваем ДО присваивания: сеттер сливает выделения, поэтому после него длины
+        // могли разойтись и поэлементное сличение по индексу врало бы.
+        const mapped = previous.map((sel) => {
             if (this.logicalToVisualLine(sel.active.line) >= 0) return sel;
             const region = this.outermostCollapsedRegionHiding(sel.active.line);
             /* v8 ignore start -- defensive: fold ops only hide valid document lines, which are always inside a collapsed region here */
@@ -630,11 +640,9 @@ export class EditorViewState {
             const char = Math.min(sel.active.character, this.document.getLineLength(region.startLine));
             return createCursorSelection(region.startLine, char);
         });
-        const changed = this.selections.some((sel, i) => sel !== previous[i]);
-        if (changed) {
-            this.normalizeSelections();
-            this.ensureCursorVisible();
-        }
+        if (!mapped.some((sel, i) => sel !== previous[i])) return;
+        this.selections = mapped;
+        this.ensureCursorVisible();
     }
 
     // ─── Scroll API ─────────────────────────────────────────
@@ -920,7 +928,6 @@ export class EditorViewState {
             const targetDl = this.displayLineFor(this.document.getLineContent(newLine));
             return this.buildSelection(sel, newLine, newChar, targetDl.offsetToColumn(newChar), inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -958,7 +965,6 @@ export class EditorViewState {
             const targetDl = this.displayLineFor(this.document.getLineContent(newLine));
             return this.buildSelection(sel, newLine, newChar, targetDl.offsetToColumn(newChar), inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -983,7 +989,6 @@ export class EditorViewState {
             }
             return sel;
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1008,7 +1013,6 @@ export class EditorViewState {
             }
             return sel;
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1019,7 +1023,6 @@ export class EditorViewState {
         this.selections = this.selections.map((sel) => {
             return this.buildSelection(sel, 0, 0, 0, inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1034,7 +1037,6 @@ export class EditorViewState {
         this.selections = this.selections.map((sel) => {
             return this.buildSelection(sel, lastLine, lastChar, idealCol, inSelectionMode);
         });
-        this.normalizeSelections();
         this.reconcileHiddenCursors();
         this.ensureCursorVisible();
     }
@@ -1055,7 +1057,6 @@ export class EditorViewState {
             const idealCol = this.displayLineFor(content).offsetToColumn(target);
             return this.buildSelection(sel, sel.active.line, target, idealCol, inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1068,7 +1069,6 @@ export class EditorViewState {
             const lineLen = this.document.getLineLength(sel.active.line);
             return this.buildSelection(sel, sel.active.line, lineLen, Number.MAX_SAFE_INTEGER, inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1093,7 +1093,6 @@ export class EditorViewState {
             const dl = this.displayLineFor(line);
             return this.buildSelection(sel, pos.line, newChar, dl.offsetToColumn(newChar), inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1117,7 +1116,6 @@ export class EditorViewState {
             const dl = this.displayLineFor(line);
             return this.buildSelection(sel, pos.line, newChar, dl.offsetToColumn(newChar), inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1172,7 +1170,6 @@ export class EditorViewState {
             const newChar = targetDl.columnToOffset(ideal);
             return this.buildSelection(sel, targetLine, newChar, ideal, inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1855,18 +1852,6 @@ export class EditorViewState {
             return createSelection(original.anchor.line, original.anchor.character, newLine, newChar, idealColumn);
         }
         return createCursorSelection(newLine, newChar, idealColumn);
-    }
-
-    /**
-     * Sorts selections by their start position in document order.
-     * Does not merge overlapping selections (kept simple for now).
-     */
-    private normalizeSelections(): void {
-        this.selections.sort((a, b) => {
-            const rangeA = selectionToRange(a);
-            const rangeB = selectionToRange(b);
-            return comparePositions(rangeA.start, rangeB.start);
-        });
     }
 
     public cloneSelections(): ISelection[] {
