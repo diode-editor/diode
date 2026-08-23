@@ -86,6 +86,51 @@ describe("QuickPickElement — мышь", () => {
         expect(onAccept).not.toHaveBeenCalled();
     });
 
+    it("правая кнопка строку не принимает — это событие контекстного меню", () => {
+        const { picker, app } = mount(makeItems(3));
+        const onAccept = vi.fn();
+        picker.onAccept = onAccept;
+
+        app.backend.simulateMouse(token({ action: "press", button: "right", x: 5, y: FIRST_ROW_Y }));
+        app.backend.simulateMouse(token({ action: "release", button: "right", x: 5, y: FIRST_ROW_Y }));
+
+        expect(onAccept).not.toHaveBeenCalled();
+    });
+
+    it("мышь мимо списка выделение не двигает", () => {
+        const { picker, app } = mount(makeItems(3));
+        app.backend.simulateMouse(token({ action: "move", x: 5, y: FIRST_ROW_Y + 1 }));
+        expect(picker.selectedIndex).toBe(1);
+
+        // Строка запроса — выше списка.
+        app.backend.simulateMouse(token({ action: "move", x: 5, y: 2 }));
+        expect(picker.selectedIndex).toBe(1);
+    });
+
+    it("на пустом списке мышь ничего не трогает", () => {
+        const { picker, app } = mount([]);
+        const onAccept = vi.fn();
+        picker.onAccept = onAccept;
+
+        app.backend.simulateMouse(token({ action: "move", x: 5, y: 2 }));
+        app.backend.simulateMouse(token({ action: "press", x: 5, y: 2 }));
+        app.backend.simulateMouse(token({ action: "release", x: 5, y: 2 }));
+
+        expect(picker.selectedIndex).toBe(0);
+        expect(onAccept).not.toHaveBeenCalled();
+    });
+
+    it("клик по хвосту списка ниже последней строки ничего не принимает", () => {
+        const { picker, app } = mount(makeItems(2));
+        const onAccept = vi.fn();
+        picker.onAccept = onAccept;
+        // Список ужат по числу строк, но проверяем клик за последней из них.
+        app.backend.simulateMouse(token({ action: "press", x: 5, y: FIRST_ROW_Y + 5 }));
+        app.backend.simulateMouse(token({ action: "release", x: 5, y: FIRST_ROW_Y + 5 }));
+
+        expect(onAccept).not.toHaveBeenCalled();
+    });
+
     it("клик по строке блокируется жёсткой ошибкой валидации", () => {
         const { picker, app } = mount(makeItems(3));
         const onAccept = vi.fn();

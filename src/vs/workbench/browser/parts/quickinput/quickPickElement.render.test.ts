@@ -166,6 +166,59 @@ describe("QuickPickElement — раскладка", () => {
         expect(backend.getBgAt(new Point(22, 3))).toBe(selectionBg);
     });
 
+    it("слишком длинный заголовок в рамку не лезет — рисуем рамку без него", () => {
+        const picker = makePicker(14);
+        picker.title = "Configure Keyboard Shortcuts";
+        const backend = render(picker, 14);
+
+        // Верхняя рамка целая: ни «крышек» ┤├, ни обрезка заголовка.
+        expect(backend.getTextAt(new Point(0, 0), 14)).toBe("╭────────────╮");
+    });
+
+    it("подсказка идёт справа вслед за описанием", () => {
+        const picker = makePicker(40);
+        picker.items = [{ label: "Bind", description: "keyboard", hint: "Configure Binding" }];
+        const row = render(picker, 40).getTextAt(new Point(0, 3), 40);
+
+        expect(row).toContain("Bind");
+        expect(row).toContain("Configure Binding");
+    });
+
+    it("в область меньше рамки не рисуем ничего", () => {
+        const picker = makePicker(10);
+        picker.items = makeItems(2);
+        const backend = renderElement(picker, 1, 1, { themeVars: true });
+
+        expect(backend.getTextAt(new Point(0, 0), 1)).toBe(" ");
+    });
+
+    it("severity красит сообщение своим цветом", () => {
+        const colorAt = (severity: "error" | "warning" | "info"): number => {
+            const picker = makePicker(24);
+            picker.validationMessage = "Careful";
+            picker.validationSeverity = severity;
+            return render(picker, 24).getFgAt(new Point(2, 2));
+        };
+
+        const error = colorAt("error");
+        const warning = colorAt("warning");
+        const info = colorAt("info");
+        expect(new Set([error, warning, info]).size).toBe(3);
+    });
+
+    it("описанию не хватило места — остаётся усечённый лейбл", () => {
+        const picker = makePicker(16);
+        picker.items = [{ label: "averylonglabel", description: "src/vs" }];
+        const row = render(picker, 16).getTextAt(new Point(0, 3), 16);
+
+        expect(row).toContain("averylongla…");
+        expect(row).not.toContain("src/vs");
+    });
+
+    it("минимальная ширина пикера — 20 колонок", () => {
+        expect(makePicker(60).getMinIntrinsicWidth(3)).toBe(20);
+    });
+
     it("высота = рамка + запрос + [сообщение] + [сепаратор + строки] + рамка", () => {
         const picker = makePicker();
         expect(picker.getMinIntrinsicHeight(30)).toBe(3);

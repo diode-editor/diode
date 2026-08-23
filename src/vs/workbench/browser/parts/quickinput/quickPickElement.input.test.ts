@@ -199,6 +199,28 @@ describe("QuickPickElement — refreshItems", () => {
     });
 });
 
+describe("QuickPickElement — пустой список", () => {
+    it("стрелки на пустом списке ничего не делают", () => {
+        const picker = makePicker([]);
+        press(picker, "ArrowDown");
+        press(picker, "ArrowUp");
+        expect(picker.selectedIndex).toBe(0);
+    });
+
+    it("setActiveIndex на пустом списке молчит", () => {
+        const picker = makePicker([]);
+        picker.setActiveIndex(3);
+        expect(picker.selectedIndex).toBe(0);
+    });
+
+    it("refreshItems с пустого старта берёт первый предмет", () => {
+        const picker = makePicker([]);
+        picker.refreshItems(makeItems(3));
+        expect(picker.selectedIndex).toBe(0);
+        expect(picker.items).toHaveLength(3);
+    });
+});
+
 describe("QuickPickElement — предметы", () => {
     it("предмет доезжает до onAccept целиком, вместе с чужими полями", () => {
         const item = { label: "main.ts", absolutePath: "/tmp/main.ts" };

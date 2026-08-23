@@ -21,16 +21,16 @@ export const CONTENT_PAD = 1;
  * рамка не считает: их задаёт `PaddingContainerElement` внутри, одним местом.
  */
 export class QuickPickFrameElement extends TUIElement {
-    private child: TUIElement | null = null;
+    private readonly child: TUIElement;
     private titleValue: string | undefined = undefined;
     /** Строка (в координатах элемента), на которой рисовать `├───┤`; null — не рисовать. */
     private separatorRowValue: number | null = null;
 
-    public setChild(child: TUIElement | null): void {
-        if (this.child) this.removeChild(this.child);
+    /** Содержимое отдаётся сразу и не меняется: у рамки один ребёнок на всю жизнь. */
+    public constructor(child: TUIElement) {
+        super();
         this.child = child;
-        if (this.child) this.appendChild(this.child);
-        this.markDirty();
+        this.appendChild(child);
     }
 
     public setTitle(value: string | undefined): void {
@@ -47,13 +47,11 @@ export class QuickPickFrameElement extends TUIElement {
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        if (this.child) {
-            const inner = new Size(
-                Math.max(0, size.width - BORDER_THICKNESS * 2),
-                Math.max(0, size.height - BORDER_THICKNESS * 2),
-            );
-            this.layoutChild(this.child, BORDER_THICKNESS, BORDER_THICKNESS, BoxConstraints.tight(inner));
-        }
+        const inner = new Size(
+            Math.max(0, size.width - BORDER_THICKNESS * 2),
+            Math.max(0, size.height - BORDER_THICKNESS * 2),
+        );
+        this.layoutChild(this.child, BORDER_THICKNESS, BORDER_THICKNESS, BoxConstraints.tight(inner));
         return size;
     }
 
@@ -73,16 +71,17 @@ export class QuickPickFrameElement extends TUIElement {
         const separators = separator !== null && separator > 0 && separator < h - 1 ? [separator] : undefined;
         context.drawBox(0, 0, w, h, { fg: border, bg: background, fill: true, separators });
 
-        if (this.titleValue !== undefined && this.titleValue !== "") {
-            this.renderTitle(context, w, background, border);
+        const title = this.titleValue;
+        if (title !== undefined && title !== "") {
+            this.renderTitle(context, title, w, background, border);
         }
 
         this.renderChildren(context);
     }
 
     /** Заголовок по центру верхней рамки: `┤ title ├`. */
-    private renderTitle(context: RenderContext, w: number, background: number, border: number): void {
-        const label = ` ${this.titleValue ?? ""} `;
+    private renderTitle(context: RenderContext, title: string, w: number, background: number, border: number): void {
+        const label = ` ${title} `;
         const labelWidth = new DisplayLine(label).displayWidth;
         // Нужно место под две «крышки» плюс углы рамки.
         if (labelWidth + 4 > w) return;

@@ -90,6 +90,8 @@ export class QuickPickElement extends TUIElement {
     private rowsWidth = -1;
     /** Слепок состава VFlex — чтобы не пересобирать детей на каждом кадре. */
     private structureKey = "";
+    /** Строки в порядке предметов: список отдаёт в onSelect элемент, а не индекс. */
+    private rowElements: TUIElement[] = [];
     /** Программное перемещение курсора не будит {@link onActiveItemChanged}. */
     private suppressActiveNotification = false;
 
@@ -117,7 +119,7 @@ export class QuickPickElement extends TUIElement {
         // typeahead увёл бы курсор от букв самого запроса.
         this.list.focusable = false;
         this.list.onSelect = (element) => {
-            this.selectedIndexValue = indexOfRow(element.id);
+            this.selectedIndexValue = this.rowElements.indexOf(element);
             this.notifyActive();
         };
 
@@ -127,8 +129,7 @@ export class QuickPickElement extends TUIElement {
         this.list.layoutStyle = { height: vflexFill(), width: "fill" };
 
         this.body = new VFlexElement();
-        this.frame = new QuickPickFrameElement();
-        this.frame.setChild(this.body);
+        this.frame = new QuickPickFrameElement(this.body);
         this.appendChild(this.frame);
 
         this.syncStructure();
@@ -300,9 +301,12 @@ export class QuickPickElement extends TUIElement {
         const innerWidth = Math.max(0, this.preferredWidth - BORDER_THICKNESS * 2);
         this.rowsWidth = innerWidth;
         this.list.clear();
+        this.rowElements = [];
         const hasIcons = this.itemsValue.some((item) => item.icon !== undefined);
         for (const [index, item] of this.itemsValue.entries()) {
-            this.list.appendRow(buildItemRow(item, index, innerWidth, hasIcons));
+            const row = buildItemRow(item, index, innerWidth, hasIcons);
+            this.rowElements.push(row);
+            this.list.appendRow(row);
         }
     }
 
@@ -319,9 +323,7 @@ export class QuickPickElement extends TUIElement {
 
     private notifyActive(): void {
         if (this.suppressActiveNotification) return;
-        const item = this.itemsValue[this.selectedIndexValue];
-        if (item === undefined) return;
-        this.onActiveItemChanged?.(item, this.selectedIndexValue);
+        this.onActiveItemChanged?.(this.itemsValue[this.selectedIndexValue], this.selectedIndexValue);
     }
 
     // ─── Input ──────────────────────────────────────────────────────────────
@@ -399,9 +401,10 @@ export class QuickPickElement extends TUIElement {
     private itemIndexFromEvent(event: TUIMouseEvent): number | null {
         if (this.visibleItemCount === 0) return null;
         const row = event.screenY - this.list.globalPosition.y;
+        // Окно списка ровно по числу видимых строк, поэтому попадание в него уже
+        // означает валидный индекс — второй проверки границ не нужно.
         if (row < 0 || row >= this.list.layoutSize.height) return null;
-        const index = this.list.scrollTop + row;
-        return index >= 0 && index < this.itemsValue.length ? index : null;
+        return this.list.scrollTop + row;
     }
 
     // ─── Layout ─────────────────────────────────────────────────────────────
@@ -458,10 +461,4 @@ export class QuickPickElement extends TUIElement {
  */
 function sameItem(a: QuickPickItem, b: QuickPickItem): boolean {
     return a.label === b.label && a.description === b.description;
-}
-
-/** Обратное преобразование к `rowId`. */
-function indexOfRow(id: string | undefined): number {
-    const parsed = Number.parseInt((id ?? "").replace("quickPickItem-", ""), 10);
-    return Number.isNaN(parsed) ? 0 : parsed;
 }
