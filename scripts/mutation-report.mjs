@@ -31,7 +31,8 @@ const DETAIL_LIMIT = 60;
 
 const survivors = [];
 let killed = 0;
-let ignored = 0;
+let silenced = 0; // погашены `// Stryker disable` — осознанное решение автора
+let skippedStatic = 0; // пропущены флагом --ignoreStatic — решение прогона, не автора
 let noCoverage = 0;
 let timeout = 0;
 let total = 0;
@@ -47,7 +48,9 @@ for (const [file, data] of Object.entries(report.files)) {
                 timeout++;
                 break;
             case "Ignored":
-                ignored++;
+                // Stryker не различает их статусом — только причиной.
+                if (/ignoreStatic/.test(mutant.statusReason ?? "")) skippedStatic++;
+                else silenced++;
                 break;
             case "NoCoverage":
                 noCoverage++;
@@ -64,7 +67,7 @@ for (const [file, data] of Object.entries(report.files)) {
 
 // Балл считается по мутантам, которые реально тестировались: Ignored в знаменатель
 // не входят — иначе гашение эквивалентного мутанта портило бы метрику.
-const scored = total - ignored;
+const scored = total - silenced - skippedStatic;
 const detected = killed + timeout;
 const score = scored === 0 ? 100 : (detected / scored) * 100;
 
@@ -80,8 +83,17 @@ out.push(`**Мутационный балл: ${score.toFixed(2)}%**`);
 out.push("");
 out.push(
     `Мутантов ${total}: убито ${killed}, таймаут ${timeout}, **выжило ${survivors.length - noCoverage}**, ` +
-        `не покрыто ${noCoverage}, погашено \`// Stryker disable\` ${ignored}.`,
+        `не покрыто ${noCoverage}, погашено \`// Stryker disable\` ${silenced}.`,
 );
+if (skippedStatic > 0) {
+    out.push("");
+    out.push(
+        `> ${skippedStatic} статических мутантов пропущено (\`--ignoreStatic\`) — это верхнеуровневый ` +
+            `код, который не сужается per-test покрытием и потому слишком дорог для PR-гейта. ` +
+            `Их проверяет ночной прогон (\`.github/workflows/mutation.yml\`), поэтому балл выше — ` +
+            `не «дыр нет», а «эту часть смотрели не здесь».`,
+    );
+}
 out.push("");
 
 if (survivors.length === 0) {
