@@ -139,8 +139,8 @@ export class ChangesComponent extends Component {
             order: 10,
             body: this.view,
             focus: () => this.focus(),
-            // Контролы коммита занимают 5 строк (padding + поле + зазор +
-            // кнопка + padding) — дефолтных трёх на секцию уже не хватает.
+            // Контролы коммита занимают 4 строки (поле + зазор + кнопка +
+            // padding снизу) — дефолтных трёх на секцию уже не хватает.
             minBodyHeight: SCM_INPUT_HEIGHT + 3,
         });
 

@@ -22,11 +22,13 @@ import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
 export const ScmInputComponentDIToken = token<ScmInputComponent>("ScmInputComponent");
 
 /**
- * Высота блока контролов коммита в строках: padding сверху, поле, зазор, кнопка,
- * padding снизу. Знает потребитель — `ChangesComponent` считает от неё
- * минимальную высоту секции.
+ * Высота блока контролов коммита в строках: поле, зазор, кнопка, padding снизу.
+ * Знает потребитель — `ChangesComponent` считает от неё минимальную высоту секции.
+ *
+ * Сверху padding'а нет: заголовок секции CHANGES уже отбивает блок от того, что
+ * над ним, и вторая пустая строка выглядела отступом в никуда.
  */
-export const SCM_INPUT_HEIGHT = 5;
+export const SCM_INPUT_HEIGHT = 4;
 
 /**
  * Маркер-подкласс поля сообщения коммита: по нему `WorkbenchContextKeys`
@@ -215,7 +217,7 @@ export class ScmInputComponent extends Component {
         // зазор — это филлер, красящий фон унаследованными цветами.
         stack.addChild(new FillerElement(), { height: vflexFixed(1), width: "fill" });
         stack.addChild(this.actionButton, { height: vflexFit(), width: "fill" });
-        this.view = new PaddingContainerElement(stack, { left: 1, right: 1, top: 1, bottom: 1 });
+        this.view = new PaddingContainerElement(stack, { left: 1, right: 1, top: 0, bottom: 1 });
         this.view.id = "scmInputBox";
         this.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
 
