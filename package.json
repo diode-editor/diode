@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:perf": "vitest bench --run --config vitest.perf.config.ts",
+    "test:mutation": "node scripts/mutation-diff.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ extensions/",
     "lint:fix": "eslint src/ extensions/ --fix",
@@ -28,6 +29,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@resvg/resvg-js": "^2.6.2",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/node": "^25.5.2",
     "@types/ws": "^8.18.1",
     "@types/yauzl": "^3.4.0",
