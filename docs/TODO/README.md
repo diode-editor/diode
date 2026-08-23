@@ -35,6 +35,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [x] [TuidomContracts (tuidom)](https://github.com/tuidom/tuidom/blob/main/docs/TuidomContracts.md) — нестыковки в контрактах ядра tuidom по аудиту зрелости (2026-07-27); **все Н1–Н8 закрыты (2026-08-01)**; документ уехал вместе с tuidom в его репозиторий
 - [x] [TuidomExtraction](TuidomExtraction.md) — аудит и вынос tuidom в отдельный репозиторий: **сделано (2026-08-13)** — движок живёт в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom), diode потребляет пакеты `@tuidom/*` из npm
+- [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, panel, terminal, menuBar): по критерию «публичный API не упоминает понятий Diode» им место у нас. Quick pick по этому критерию уже переехал
 - [~] [ListControls](ListControls.md) — два списочных контрола: data-driven `TreeViewElement` остаётся намеренно (внешнее API расширений — `TreeDataProvider`), `ListViewElement` — для собственных списков workbench; техдолг — дублирование механик и union-instanceof в `listFocus`/`list.*`
 - [~] [WhenContext](WhenContext.md) — система контекста when (остался полноценный парсер when-выражений)
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate готов; далее scope-селекторы, async/background токенизация)

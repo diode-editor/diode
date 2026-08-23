@@ -849,12 +849,20 @@ hide-toggle (`isHiddenByDefault`). См.
 см. [../TODO/Inspector.md](../TODO/Inspector.md).
 
 **Где живёт Element.** Элемент общего назначения (его публичный API не упоминает
-понятий Diode) — в `tuidom/ui/`. Diode-специфичному элементу в tuidom не место:
-либо он вовсе не существует — компонент является **композиционным корнем** и
-собирает view из примитивов (`FindComponent`, `StatusBarComponent`,
+понятий Diode) — в `@tuidom/elements`. Diode-специфичному элементу в tuidom не
+место: либо он вовсе не существует — компонент является **композиционным корнем**
+и собирает view из примитивов (`FindComponent`, `StatusBarComponent`,
 `EditorGroupComponent`, диалоги), либо, если посимвольная раскладка оправдывает
 ручной render (как у `EditorElement`), живёт рядом со своим компонентом в
 `parts/*`.
+
+Смешанный случай — `QuickPickElement` (`parts/quickinput/`): сам он собран из
+примитивов (`InputElement`, `ListViewElement`, флексы, `PaddingContainerElement`)
+и своего render'а не имеет, а ручной остался ровно на хроме, который композицией
+не выражается, — рамка с врезанным в неё заголовком и сепаратором
+(`QuickPickFrameElement`). Виджет приехал из движка, где по этому же критерию
+лежать не должен был; остальные кандидаты на возврат —
+[../TODO/EngineWidgetRepatriation.md](../TODO/EngineWidgetRepatriation.md).
 
 Зависимости слоя: Workbench → { Editor, TUIDom, Theme, Configuration, Common,
 интерфейс Backend }. Workbench — верхний слой ядра приложения; выше него только
