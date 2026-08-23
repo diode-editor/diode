@@ -1,5 +1,5 @@
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
-import type { QuickPickElement } from "@tuidom/elements/quickpick/quickPickElement";
+import type { QuickPickElement } from "../vs/workbench/browser/parts/quickinput/quickPickElement.ts";
 
 import type { TestApp } from "./TestApp.ts";
 

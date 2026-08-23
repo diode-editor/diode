@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Offset, Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
-import type { QuickPickElement } from "@tuidom/elements/quickpick/quickPickElement";
+import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { quickPickByTitle } from "../../../TestUtils/domQueries.ts";

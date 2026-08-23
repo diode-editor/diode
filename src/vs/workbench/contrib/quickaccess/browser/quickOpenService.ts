@@ -1,5 +1,6 @@
 import { Disposable } from "@tuidom/core/common/disposable";
-import type { QuickPickElement, QuickPickItem } from "@tuidom/elements/quickpick/quickPickElement";
+import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import { QuickInputComponentDIToken } from "../../../browser/parts/quickinput/quickInputComponent.ts";
