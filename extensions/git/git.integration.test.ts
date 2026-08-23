@@ -18,7 +18,7 @@ import type { IEditorDecorationsService } from "../../src/vs/workbench/api/commo
 import type { IFileDecorationsService } from "../../src/vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../src/vs/workbench/api/common/iThemeColorResolver.ts";
 import { PUBLISH_CHANGES_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/changesService.ts";
-import { PUBLISH_LOG_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/graphService.ts";
+import { GRAPH_ENABLED_COMMAND, PUBLISH_LOG_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/graphService.ts";
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
@@ -364,6 +364,78 @@ describe("builtin git plugin (integration)", () => {
         expect(result.ok).toBe(true);
         const porcelain = execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString();
         expect(porcelain).toBe("?? first.txt\n");
+    });
+
+    it("нераскрытый GRAPH не стоит расширению вызова `git log`", async () => {
+        const changes: unknown[] = [];
+        const published: unknown[] = [];
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        // Ядро отвечает так же, как при свёрнутой или скрытой секции GRAPH.
+        harness.commandRegistry.register(GRAPH_ENABLED_COMMAND, () => false);
+        harness.commandRegistry.register(PUBLISH_CHANGES_COMMAND, (payload) => {
+            changes.push(payload);
+        });
+        harness.commandRegistry.register(PUBLISH_LOG_COMMAND, (payload) => {
+            published.push(payload);
+        });
+        makeRepo(harness.tmpDir);
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        // Список изменений приехал — значит refreshAll отработал целиком, и
+        // истории в нём не было не потому, что мы не дождались.
+        expect(await waitFor(() => changes.length > 0)).toBe(true);
+        expect(published).toEqual([]);
+
+        // Секцию раскрыли — страница приезжает тем же refreshAll в конце операции.
+        await harness.commandRegistry.execute("diode.git.op", {
+            op: "logSetEnabled",
+            params: { enabled: true },
+        });
+        expect(await waitFor(() => published.length > 0)).toBe(true);
+    });
+
+    it("Load More при нераскрытом GRAPH копится и приезжает увеличенной страницей", async () => {
+        const changes: unknown[] = [];
+        const published: unknown[] = [];
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+            configuration: { scm: { graph: { pageSize: 2 } } },
+        });
+        harness.commandRegistry.register(GRAPH_ENABLED_COMMAND, () => false);
+        harness.commandRegistry.register(PUBLISH_CHANGES_COMMAND, (payload) => {
+            changes.push(payload);
+        });
+        harness.commandRegistry.register(PUBLISH_LOG_COMMAND, (payload) => {
+            published.push(payload);
+        });
+        makeRepo(harness.tmpDir);
+        for (const subject of ["c2", "c3", "c4"]) {
+            fs.writeFileSync(path.join(harness.tmpDir, "tracked.txt"), `${subject}\n`);
+            git(harness.tmpDir, "commit", "-aqm", subject);
+        }
+        harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+        expect(await waitFor(() => changes.length > 0)).toBe(true);
+
+        // Предел растёт и у выключенного графа — публиковать просто нечего.
+        await harness.commandRegistry.execute("diode.git.op", { op: "logLoadMore" });
+        expect(published).toEqual([]);
+
+        await harness.commandRegistry.execute("diode.git.op", {
+            op: "logSetEnabled",
+            params: { enabled: true },
+        });
+        const loaded = await waitFor(
+            () => ((published.at(-1) as { commits: unknown[] } | undefined)?.commits.length ?? 0) === 4,
+        );
+        expect(loaded).toBe(true);
     });
 
     it("diode.git.op commit: staged-файл коммитится с сообщением; amend меняет последний коммит", async () => {

@@ -1,3 +1,4 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
@@ -153,6 +154,12 @@ export class ViewsService {
     ] as const;
 
     private readonly containers = new Map<string, ContainerEntry>();
+    /**
+     * Раскрытость секций на последнем пересчёте — база для диффа
+     * {@link syncExpanded}. Ключ — id view; отсутствие ключа равно `false`.
+     */
+    private readonly expandedState = new Map<string, boolean>();
+    private readonly expandedListeners = new Set<(viewId: string, expanded: boolean) => void>();
 
     public constructor(
         private readonly sidebarService: SidebarService,
@@ -245,6 +252,48 @@ export class ViewsService {
     }
 
     /**
+     * Видит ли пользователь содержимое секции: контейнер собран, секция не
+     * скрыта и не свёрнута. До {@link attachContainer} — `false`: тела ещё нет
+     * ни в одном дереве, поэтому и рисовать в него нечего.
+     *
+     * Опора для ленивых view (первая — GRAPH контейнера Source Control): пока
+     * секция не раскрыта, её содержимое можно не считать и не строить вовсе.
+     * Merged-контейнер выходит правильным сам собой: единственная видимая
+     * секция несворачиваема, значит всегда раскрыта.
+     */
+    public isViewExpanded(viewId: string): boolean {
+        const { entry } = this.recordOrThrow(viewId);
+        if (entry.paneView === null || entry.hidden.has(viewId)) return false;
+        return !entry.paneView.isCollapsed(viewId);
+    }
+
+    /**
+     * Смена раскрытости секции. Считает и диффит сам сервис, а не
+     * {@link PaneViewElement}: тот пересоздаёт панели в {@link rebuildPanes} и
+     * молча игнорирует свёртку несворачиваемой (merged) секции, так что
+     * пер-панельное событие теряло бы переходы. Здесь же после каждого пути
+     * изменения состояние пересчитывается целиком и сравнивается с прежним.
+     */
+    public onDidChangeViewExpanded(listener: (viewId: string, expanded: boolean) => void): IDisposable {
+        this.expandedListeners.add(listener);
+        return {
+            dispose: () => {
+                this.expandedListeners.delete(listener);
+            },
+        };
+    }
+
+    /** Пересчёт раскрытости секций контейнера с рассылкой по изменившимся. */
+    private syncExpanded(entry: ContainerEntry): void {
+        for (const view of entry.views) {
+            const expanded = this.isViewExpanded(view.id);
+            if ((this.expandedState.get(view.id) ?? false) === expanded) continue;
+            this.expandedState.set(view.id, expanded);
+            for (const listener of [...this.expandedListeners]) listener(view.id, expanded);
+        }
+    }
+
+    /**
      * Показывает/скрывает секцию (пункт «Views» в меню контейнера) — с
      * write-through персиста. Последнюю видимую секцию скрыть нельзя: пустой
      * контейнер показывать нечем (так же ведёт себя VS Code).
@@ -280,7 +329,12 @@ export class ViewsService {
         // поддерживают (`workbench.panel.output` → `#viewContainer-workbench-panel-output`).
         const domId = containerId.replaceAll(".", "-");
         paneView.id = `viewContainer-${domId}`;
-        paneView.onDidChangeState = () => this.persistContainerState(containerId, entry);
+        paneView.onDidChangeState = () => {
+            this.persistContainerState(containerId, entry);
+            // Drag границы сюда тоже приходит, но раскрытость не меняет —
+            // дифф внутри промолчит.
+            this.syncExpanded(entry);
+        };
         paneView.onDidRequestPaneMenu = (paneId, anchor) => {
             this.contextMenuService.showContextMenu({
                 getOwner: () => paneView,
@@ -357,6 +411,9 @@ export class ViewsService {
             for (const paneId of paneView.getPaneIds()) {
                 paneView.setCollapsed(paneId, state.collapsed.includes(paneId));
             }
+            // Программный путь `setCollapsed` не зовёт `onDidChangeState` —
+            // о восстановленной свёрнутости подписчиков извещаем сами.
+            this.syncExpanded(entry);
         }
     }
 
@@ -623,6 +680,7 @@ export class ViewsService {
         }
         this.refreshTitleActions(entry);
         this.syncContainerFrame(entry);
+        this.syncExpanded(entry);
     }
 
     /** Write-through по действию пользователя (toggle секции, drag границы, скрытие). */

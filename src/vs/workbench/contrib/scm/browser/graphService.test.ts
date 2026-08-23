@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 
+import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
+
 import type { IScmCommit } from "./graphService.ts";
-import { PUBLISH_LOG_COMMAND, ScmGraphService } from "./graphService.ts";
+import { GRAPH_ENABLED_COMMAND, PUBLISH_LOG_COMMAND, ScmGraphService } from "./graphService.ts";
 
 function setup(): { service: ScmGraphService; commands: CommandRegistry } {
     const commands = new CommandRegistry();
@@ -151,5 +153,45 @@ describe("ScmGraphService", () => {
 
         publish(commands, [A]);
         expect(changed).not.toHaveBeenCalled();
+    });
+});
+
+describe("ScmGraphService: канал «нужна ли история»", () => {
+    it("до слова ядра история не нужна — pull отвечает false", () => {
+        const { commands } = setup();
+        expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(false);
+    });
+
+    it("pull отдаёт объявленное состояние", () => {
+        const { service, commands } = setup();
+
+        service.setActive(true);
+        expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(true);
+        service.setActive(false);
+        expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(false);
+    });
+
+    it("операция уходит только на изменении состояния", () => {
+        const { service, commands } = setup();
+        const ops: unknown[] = [];
+        commands.register(GIT_OP_COMMAND, (payload) => {
+            ops.push(payload);
+            return { ok: true };
+        });
+
+        service.setActive(true);
+        service.setActive(true);
+        service.setActive(false);
+        expect(ops).toEqual([
+            { op: "logSetEnabled", params: { enabled: true } },
+            { op: "logSetEnabled", params: { enabled: false } },
+        ]);
+    });
+
+    it("расширения ещё нет — сигнал молча теряется, его подберёт pull", () => {
+        const { service, commands } = setup();
+
+        expect(() => service.setActive(true)).not.toThrow();
+        expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(true);
     });
 });

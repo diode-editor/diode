@@ -2,6 +2,7 @@ import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
 /**
  * Команда, которой git-расширение публикует страницу истории репозитория.
@@ -10,6 +11,23 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
  * значению на стороне расширения — общих импортов через границу процесса нет.
  */
 export const PUBLISH_LOG_COMMAND = "diode.scm.publishLog";
+
+/**
+ * Расширение спрашивает ядро, нужна ли графу история. Единственный pull-канал
+ * в эту сторону: остальные (`PUBLISH_*`) — push. Нужен, потому что в момент,
+ * когда ядро впервые объявляет своё состояние ({@link ScmGraphService.setActive}),
+ * расширения может ещё не быть, а перезапуск extension host'а обнуляет его
+ * память. Ответ `undefined` (команды нет) расширение трактует как «канал не
+ * поддержан» и работает по-старому.
+ */
+export const GRAPH_ENABLED_COMMAND = "diode.scm.graphEnabled";
+
+/**
+ * Операция диспетчера `diode.git.op`, которой ядро включает и выключает
+ * публикацию истории. Строка дублируется по значению на стороне расширения —
+ * общих импортов через границу процесса нет.
+ */
+const LOG_SET_ENABLED_OP = "logSetEnabled";
 
 /** Ссылка на коммит — бейдж рядом со строкой графа. */
 export interface IScmCommitRef {
@@ -46,6 +64,11 @@ const REF_KINDS = new Set(["head", "remote", "tag"]);
  *
  * Страница ограничена (`scm.graph.pageSize`); {@link hasMore} говорит, что
  * история продолжается — view рисует строку «Load More…».
+ *
+ * Сервис же держит и обратный конец канала: {@link setActive} говорит
+ * расширению, нужна ли история вообще. Пока секция GRAPH не раскрыта, `git log`
+ * в расширении не запускается — граф не стоит подпроцесса на каждое сохранение
+ * файла.
  */
 export class ScmGraphService extends Disposable {
     public static dependencies = [CommandRegistryDIToken] as const;
@@ -55,14 +78,17 @@ export class ScmGraphService extends Disposable {
     /** Подпись текущего набора — чтобы не файрить при повторной публикации того же. */
     private signature = "";
     private readonly listeners = new Set<() => void>();
+    /** Нужна ли графу история; `null` — ядро ещё не объявляло своё состояние. */
+    private active: boolean | null = null;
 
-    public constructor(commands: CommandRegistry) {
+    public constructor(private readonly commands: CommandRegistry) {
         super();
         this.register(
             commands.register(PUBLISH_LOG_COMMAND, (payload) => {
                 this.publish(payload);
             }),
         );
+        this.register(commands.register(GRAPH_ENABLED_COMMAND, () => this.active === true));
     }
 
     /** Последний опубликованный набор (от новых коммитов к старым). */
@@ -73,6 +99,29 @@ export class ScmGraphService extends Disposable {
     /** Есть ли за последним коммитом ещё история. */
     public get hasMore(): boolean {
         return this.more;
+    }
+
+    /**
+     * Объявляет расширению, нужна ли история. Зовёт {@link GraphViewComponent}
+     * на каждой смене раскрытости своей секции; первый вызов уходит всегда,
+     * даже если состояние совпало с дефолтом.
+     *
+     * Best-effort, как и приём публикаций: расширения может ещё не быть — тогда
+     * сигнал теряется, и его подберёт pull по {@link GRAPH_ENABLED_COMMAND} при
+     * активации. Полноценный `runGitOp` здесь не нужен: он требует
+     * `ServiceAccessor` и показывает notice в статус-баре, а фоновому сигналу
+     * рассказывать пользователю не о чем.
+     */
+    public setActive(active: boolean): void {
+        if (this.active === active) return;
+        this.active = active;
+        if (!this.commands.has(GIT_OP_COMMAND)) return;
+        void Promise.resolve(
+            this.commands.execute(GIT_OP_COMMAND, { op: LOG_SET_ENABLED_OP, params: { enabled: active } }),
+        ).catch(
+            /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
+            () => undefined,
+        );
     }
 
     public onDidChangeCommits(listener: () => void): IDisposable {

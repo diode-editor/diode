@@ -7,6 +7,8 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import type { ScmGraphMenuContext } from "../../../browser/actions/menuContexts.ts";
 import type { IViewDescriptor, ViewsService } from "../../../browser/parts/views/viewsService.ts";
 
+import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
+
 import { SCM_VIEWLET_ID } from "./changesComponent.ts";
 import { PUBLISH_LOG_COMMAND, ScmGraphService } from "./graphService.ts";
 import { GRAPH_LOAD_MORE_COMMAND, GraphViewComponent, SCM_GRAPH_VIEW_ID } from "./graphViewComponent.ts";
@@ -21,17 +23,40 @@ interface ISetup {
     commands: CommandRegistry;
     registered: IViewDescriptor[];
     shownMenus: { menuId: unknown; menuContext: unknown; owner: unknown; anchor: unknown }[];
+    /** Свернуть/раскрыть секцию так же, как это делает настоящий ViewsService. */
+    setExpanded(expanded: boolean): void;
 }
 
-function make(): ISetup {
+/**
+ * Стенд секции. `expanded` — раскрыта ли она на момент создания компонента:
+ * дефолт `true` описывает обычное состояние сайдбара, а `false` — стартовое
+ * (контейнер ещё не собран) и свёрнутое.
+ */
+function make(expanded = true): ISetup {
     const commands = new CommandRegistry();
     const graphService = new ScmGraphService(commands);
     const registered: IViewDescriptor[] = [];
+    let isExpanded = expanded;
+    const expandedListeners = new Set<(viewId: string, expanded: boolean) => void>();
     const viewsService = {
         registerView: (descriptor: IViewDescriptor) => {
             registered.push(descriptor);
         },
+        isViewExpanded: (viewId: string) => viewId === SCM_GRAPH_VIEW_ID && isExpanded,
+        onDidChangeViewExpanded: (listener: (viewId: string, next: boolean) => void) => {
+            expandedListeners.add(listener);
+            return {
+                dispose: () => {
+                    expandedListeners.delete(listener);
+                },
+            };
+        },
     } as unknown as ViewsService;
+    const setExpanded = (next: boolean): void => {
+        if (next === isExpanded) return;
+        isExpanded = next;
+        for (const listener of [...expandedListeners]) listener(SCM_GRAPH_VIEW_ID, next);
+    };
     const shownMenus: { menuId: unknown; menuContext: unknown; owner: unknown; anchor: unknown }[] = [];
     const contextMenuService = {
         // Делегат резолвят при открытии — фейк дёргает его так же, как настоящий сервис.
@@ -50,7 +75,7 @@ function make(): ISetup {
         },
     } as unknown as ContextMenuService;
     const component = new GraphViewComponent(graphService, viewsService, contextMenuService, commands);
-    return { component, commands, registered, shownMenus };
+    return { component, commands, registered, shownMenus, setExpanded };
 }
 
 interface IEntry {
@@ -293,5 +318,74 @@ describe("GraphViewComponent", () => {
         // Standalone-компонент без корня: focus не должен бросать.
         expect(() => registered[0].focus()).not.toThrow();
         expect(registered[0].body).toBe(component.view);
+    });
+});
+
+describe("GraphViewComponent: ленивость", () => {
+    it("пока секция не раскрыта, публикации не строят строк", () => {
+        const { component, commands } = make(false);
+        publish(commands, [
+            { sha: SHA_A, subject: "feat: панель", parents: [SHA_B] },
+            { sha: SHA_B, subject: "fix: сэш" },
+        ]);
+        expect(component.list.rowCount).toBe(0);
+    });
+
+    it("раскрытие достраивает секцию из накопленного снимка", () => {
+        const { component, commands, setExpanded } = make(false);
+        publish(commands, [
+            { sha: SHA_A, subject: "feat: панель", parents: [SHA_B] },
+            { sha: SHA_B, subject: "fix: сэш" },
+        ]);
+
+        setExpanded(true);
+        expect(component.list.rowCount).toBe(2);
+        const screen = renderElement(component.view, 40, 6, { themeVars: true }).screenToString();
+        expect(screen).toContain("feat: панель");
+    });
+
+    it("сворачивание освобождает строки, раскрытие возвращает их вместе с курсором", () => {
+        const { component, commands, setExpanded } = make();
+        publish(commands, [
+            { sha: SHA_A, subject: "first" },
+            { sha: SHA_B, subject: "second" },
+        ]);
+        component.list.setCursorTo(SHA_B);
+
+        setExpanded(false);
+        expect(component.list.rowCount).toBe(0);
+
+        setExpanded(true);
+        expect(component.list.rowCount).toBe(2);
+        expect(component.list.getCursorElement()?.id).toBe(SHA_B);
+    });
+
+    it("байт-идентичная публикация после раскрытия не оставляет секцию пустой", () => {
+        const { component, commands, setExpanded } = make();
+        const page = [{ sha: SHA_A, subject: "first" }];
+        publish(commands, page);
+
+        setExpanded(false);
+        // Расширение принесло ровно тот же набор — ScmGraphService гасит его по
+        // подписи, и события не будет. Строки обязана вернуть сама раскрытость.
+        setExpanded(true);
+        publish(commands, page);
+        expect(component.list.rowCount).toBe(1);
+    });
+
+    it("раскрытость едет расширению операцией logSetEnabled", () => {
+        const ops: unknown[] = [];
+        const { commands, setExpanded } = make(false);
+        commands.register(GIT_OP_COMMAND, (payload) => {
+            ops.push(payload);
+            return { ok: true };
+        });
+
+        setExpanded(true);
+        setExpanded(false);
+        expect(ops).toEqual([
+            { op: "logSetEnabled", params: { enabled: true } },
+            { op: "logSetEnabled", params: { enabled: false } },
+        ]);
     });
 });
