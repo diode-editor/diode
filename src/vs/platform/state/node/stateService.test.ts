@@ -278,10 +278,12 @@ describe("StateService", () => {
         });
         svc.store(width, 88);
         expect(fs.existsSync(p.globalStateFile)).toBe(false); // not yet — debounced
-        await waitFor(() => fs.existsSync(p.globalStateFile));
-        expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toMatchObject({
-            "workbench.sideBar.width": 88,
-        });
+        // Ждём РАЗБИРАЕМОЕ содержимое, а не просто существование файла: запись идёт
+        // `fs.promises.writeFile`, то есть путь появляется с O_CREAT сразу, а данные
+        // доезжают позже. Ожидание по `existsSync` ловило этот зазор и падало на
+        // `JSON.parse("")` — редко и только под нагрузкой полного прогона.
+        const onDisk = await waitForJson(p.globalStateFile);
+        expect(onDisk).toMatchObject({ "workbench.sideBar.width": 88 });
     });
 });
 
@@ -291,6 +293,26 @@ async function waitFor(cond: () => boolean, timeoutMs = 1000): Promise<void> {
         if (Date.now() - start > timeoutMs) throw new Error("waitFor: condition not met in time");
         await new Promise((r) => setTimeout(r, 5));
     }
+}
+
+/** Содержимое файла, когда оно стало валидным JSON: единственный надёжный признак «дозаписалось». */
+async function waitForJson(filePath: string, timeoutMs = 1000): Promise<unknown> {
+    let parsed: unknown;
+    await waitFor(() => {
+        let raw: string;
+        try {
+            raw = fs.readFileSync(filePath, "utf-8");
+        } catch {
+            return false; // файла ещё нет
+        }
+        try {
+            parsed = JSON.parse(raw);
+        } catch {
+            return false; // создан, но ещё пуст
+        }
+        return true;
+    }, timeoutMs);
+    return parsed;
 }
 
 function fakeLogger(): ILogger {
