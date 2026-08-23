@@ -4,6 +4,9 @@ diode.log
 .claude/worktrees/
 screenshots/
 coverage/.tmp
+# Мутационное тестирование (Stryker): отчёты и sandbox
+reports/
+.stryker-tmp/
 coverage/lcov-report
 coverage/coverage-summary.json
 coverage/lcov.info

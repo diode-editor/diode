@@ -32,6 +32,85 @@ jobs:
         if: always() && github.event_name == 'pull_request'
         uses: davelosert/vitest-coverage-report-action@v2
 
+  # Мутационный гейт на код, который тронул PR. Покрытие по устройству слепо к
+  # ненаписанному: тест, проходящий по всем веткам без единого ассерта, даёт 100%
+  # по всем четырём метрикам и 11% мутационного балла — замерено. Этот job ловит
+  # именно такие дыры.
+  #
+  # `--ignoreStatic` здесь не экономия ради экономии, а условие того, чтобы гейт
+  # вообще жил на PR: статические мутанты (верхнеуровневый код — таблицы,
+  # регистрации команд) не сужаются per-test покрытием, и на каждого гоняется весь
+  # связанный набор. Замер на #261: полный прогон 41 минута, без статики — 11:45.
+  # Статику добирает ночной прогон (mutation.yml), там она с критического пути снята.
+  mutation:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Без полной истории `git merge-base` не работает, а на нём стоит весь
+          # расчёт diff-скоупа в scripts/mutation-diff.mjs.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - run: npm install
+
+      # continue-on-error, чтобы отчёт долетел до PR и когда балл ниже порога;
+      # красным job делает последний шаг.
+      - name: Mutation testing
+        id: mutation
+        continue-on-error: true
+        run: |
+          node scripts/mutation-diff.mjs "${{ github.event.pull_request.base.sha }}" \
+            --ignoreStatic --reporters json,html,clear-text
+
+      - name: Report mutants
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ ! -f reports/mutation/mutation.json ]; then
+            echo "PR не трогает продуктовый код — мутировать нечего."
+            exit 0
+          fi
+          {
+            echo "<!-- mutation-report -->"
+            echo "## Мутационное тестирование"
+            echo
+            node scripts/mutation-report.mjs
+          } > mutation-comment.md
+          cat mutation-comment.md >> "$GITHUB_STEP_SUMMARY"
+          # --edit-last, чтобы пуши в PR не плодили комментарии; если предыдущего
+          # нет, gh падает — тогда создаём новый.
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file mutation-comment.md --edit-last \
+            || gh pr comment "${{ github.event.pull_request.number }}" \
+                 --body-file mutation-comment.md
+
+      - name: Mutation report artifact
+        if: always() && hashFiles('reports/mutation/mutation.html') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-pr
+          path: reports/mutation/mutation.html
+          retention-days: 14
+
+      - name: Gate
+        if: steps.mutation.outcome == 'failure'
+        run: |
+          echo "Мутационный балл ниже порога. Выжившие мутанты — в комментарии к PR."
+          echo "Каждого либо убиваем тестом, либо гасим:"
+          echo "  // Stryker disable next-line <мутатор>: причина"
+          exit 1
+
   e2e:
     strategy:
       fail-fast: false
