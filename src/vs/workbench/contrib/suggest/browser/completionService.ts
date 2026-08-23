@@ -146,7 +146,13 @@ export class CompletionService extends Disposable {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
 
-        const active = editor.viewState.selections[0].active;
+        // Мультикурсор автодополнение не поддерживает: попап якорится на одной каретке, а
+        // accept вставил бы правку мимо остальных и схлопнул бы их. Авто-путь
+        // (`handleSelectionChange`) это уже учитывает; ручной Ctrl+Space обязан тоже.
+        const selections = editor.viewState.selections;
+        if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) return;
+
+        const active = selections[0].active;
         const lineContent = editor.viewState.document.getLineContent(active.line);
 
         // Провайдеры расширений (если подключён источник) + word-based fallback

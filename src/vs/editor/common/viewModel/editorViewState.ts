@@ -1,10 +1,11 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
+import type { IMultiCursorFindSession } from "../../contrib/multicursor/iMultiCursorFindSession.ts";
 import type { IPosition } from "../core/iPosition.ts";
-import { comparePositions } from "../core/iPosition.ts";
+import { comparePositions, createPosition } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
-import { createRange } from "../core/iRange.ts";
+import { createRange, rangeContainsPosition } from "../core/iRange.ts";
 import type { ISelection } from "../core/iSelection.ts";
 import {
     createCursorSelection,
@@ -15,6 +16,7 @@ import {
 } from "../core/iSelection.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 import { createTextEdit } from "../core/iTextEdit.ts";
+import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { computeNewLinePlan } from "../languages/autoIndent.ts";
 import type { ILineTokens } from "../languages/iLineTokens.ts";
@@ -124,6 +126,15 @@ export class EditorViewState {
      * calling `tokenStore.tokenizeUpTo(visibleBottom)` before reading tokens.
      */
     public tokenStore: DocumentTokenStore | undefined;
+
+    /**
+     * Живая сессия семейства «выделить следующее вхождение» (Ctrl+D). Состояние лежит
+     * здесь, а не в отдельном контроллере, чтобы умереть вместе со вью и не заводить своей
+     * подписки; ЛОГИКА — чистые функции `editor/contrib/multicursor/`. Тип импортируется
+     * type-only — тот же приём, что с `IFoldingRegion`: рантайм-зависимости common → contrib
+     * нет.
+     */
+    public multiCursorSession: IMultiCursorFindSession | null = null;
 
     private visibleLinesCache: number[] | null = null;
     /** Стартовая строка вью каждой зоны (по якорю) — offset для многострочных зон за O(1). */
@@ -239,13 +250,20 @@ export class EditorViewState {
      * Primary cursor/selection list. Assigning a new array notifies
      * cursor-change listeners (used e.g. by the status bar Ln/Col indicator).
      * In-place mutation of the returned array does NOT fire the event.
+     *
+     * Присваивание проводит значение через {@link sortAndMergeSelections}: геттер всегда
+     * отдаёт выделения в документном порядке и без пересечений, а событие несёт уже
+     * финальный набор. Нормализация живёт здесь, а не отдельным вызовом у каждого мутатора,
+     * потому что писателей у поля много (навигация, правки, мышь, undo, find, расширения),
+     * и «не забудь нормализовать» — приглашение к багу. Первичное выделение —
+     * `selections[0]`, то есть самое верхнее в документе.
      */
     public get selections(): ISelection[] {
         return this.selectionsValue;
     }
 
-    public set selections(value: ISelection[]) {
-        this.selectionsValue = value;
+    public set selections(value: readonly ISelection[]) {
+        this.selectionsValue = sortAndMergeSelections(value);
         this.fireCursorChange();
     }
 
@@ -621,7 +639,9 @@ export class EditorViewState {
      */
     private reconcileHiddenCursors(): void {
         const previous = this.selections;
-        this.selections = previous.map((sel) => {
+        // Сравниваем ДО присваивания: сеттер сливает выделения, поэтому после него длины
+        // могли разойтись и поэлементное сличение по индексу врало бы.
+        const mapped = previous.map((sel) => {
             if (this.logicalToVisualLine(sel.active.line) >= 0) return sel;
             const region = this.outermostCollapsedRegionHiding(sel.active.line);
             /* v8 ignore start -- defensive: fold ops only hide valid document lines, which are always inside a collapsed region here */
@@ -630,11 +650,9 @@ export class EditorViewState {
             const char = Math.min(sel.active.character, this.document.getLineLength(region.startLine));
             return createCursorSelection(region.startLine, char);
         });
-        const changed = this.selections.some((sel, i) => sel !== previous[i]);
-        if (changed) {
-            this.normalizeSelections();
-            this.ensureCursorVisible();
-        }
+        if (!mapped.some((sel, i) => sel !== previous[i])) return;
+        this.selections = mapped;
+        this.ensureCursorVisible();
     }
 
     // ─── Scroll API ─────────────────────────────────────────
@@ -723,6 +741,18 @@ export class EditorViewState {
             return "";
         }
         return this.document.getTextInRange(selectionToRange(sel));
+    }
+
+    /**
+     * Текст каждого выделения в документном порядке; у схлопнутого — пустая строка.
+     * Мультикурсорные Copy/Cut склеивают результат через перевод строки, как VS Code:
+     * {@link getSelectedText} видит только первичное выделение, и на нём Cut удалял бы
+     * больше, чем скопировал.
+     */
+    public getSelectedTexts(): string[] {
+        return this.selections.map((sel) =>
+            isSelectionCollapsed(sel) ? "" : this.document.getTextInRange(selectionToRange(sel)),
+        );
     }
 
     /**
@@ -920,7 +950,6 @@ export class EditorViewState {
             const targetDl = this.displayLineFor(this.document.getLineContent(newLine));
             return this.buildSelection(sel, newLine, newChar, targetDl.offsetToColumn(newChar), inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -958,7 +987,6 @@ export class EditorViewState {
             const targetDl = this.displayLineFor(this.document.getLineContent(newLine));
             return this.buildSelection(sel, newLine, newChar, targetDl.offsetToColumn(newChar), inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -983,7 +1011,6 @@ export class EditorViewState {
             }
             return sel;
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1008,7 +1035,6 @@ export class EditorViewState {
             }
             return sel;
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1019,7 +1045,6 @@ export class EditorViewState {
         this.selections = this.selections.map((sel) => {
             return this.buildSelection(sel, 0, 0, 0, inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1034,7 +1059,6 @@ export class EditorViewState {
         this.selections = this.selections.map((sel) => {
             return this.buildSelection(sel, lastLine, lastChar, idealCol, inSelectionMode);
         });
-        this.normalizeSelections();
         this.reconcileHiddenCursors();
         this.ensureCursorVisible();
     }
@@ -1055,7 +1079,6 @@ export class EditorViewState {
             const idealCol = this.displayLineFor(content).offsetToColumn(target);
             return this.buildSelection(sel, sel.active.line, target, idealCol, inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1068,7 +1091,6 @@ export class EditorViewState {
             const lineLen = this.document.getLineLength(sel.active.line);
             return this.buildSelection(sel, sel.active.line, lineLen, Number.MAX_SAFE_INTEGER, inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1093,7 +1115,6 @@ export class EditorViewState {
             const dl = this.displayLineFor(line);
             return this.buildSelection(sel, pos.line, newChar, dl.offsetToColumn(newChar), inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1117,7 +1138,6 @@ export class EditorViewState {
             const dl = this.displayLineFor(line);
             return this.buildSelection(sel, pos.line, newChar, dl.offsetToColumn(newChar), inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1128,6 +1148,128 @@ export class EditorViewState {
         const lastLine = this.document.lineCount - 1;
         const lastChar = this.document.getLineLength(lastLine);
         this.selections = [createSelection(0, 0, lastLine, lastChar)];
+    }
+
+    // ─── Multi-cursor ────────────────────────────────────────
+
+    /**
+     * Adds a caret one visible line above every current selection (VS Code
+     * `editor.action.insertCursorAbove`).
+     */
+    public insertCursorAbove(): void {
+        this.insertCursorVertically(-1);
+    }
+
+    /**
+     * Adds a caret one visible line below every current selection (VS Code
+     * `editor.action.insertCursorBelow`).
+     */
+    public insertCursorBelow(): void {
+        this.insertCursorVertically(1);
+    }
+
+    /**
+     * Collapses the multi-cursor back to a single caret (VS Code
+     * `removeSecondaryCursors`, Escape). The survivor is the primary selection —
+     * the topmost one, за которой стоит аппаратный курсор терминала.
+     */
+    public removeSecondaryCursors(): void {
+        // Холостое присваивание разбудило бы статус-бар, историю и ext-host впустую.
+        if (this.selections.length <= 1) return;
+        this.selections = [this.selections[0]];
+        this.ensureCursorVisible();
+    }
+
+    /**
+     * Alt-клик: ставит каретку в точку или снимает ту, что уже её накрывает (VS Code
+     * ведёт себя так же — повторный alt-клик убирает лишний курсор). Последнюю каретку
+     * не снимаем: редактор без курсора не бывает.
+     */
+    public toggleCursorAt(line: number, character: number): void {
+        const position = createPosition(line, character);
+        const covering = this.selections.findIndex((sel) =>
+            rangeContainsPosition(selectionToRange(sel), position),
+        );
+        if (covering >= 0) {
+            if (this.selections.length === 1) return;
+            this.selections = this.selections.filter((_, i) => i !== covering);
+            return;
+        }
+        const added = createCursorSelection(line, character);
+        this.selections = [...this.selections, added];
+        this.revealSelection(added);
+    }
+
+    /**
+     * Ядро {@link insertCursorAbove}/{@link insertCursorBelow}: дублирует каждое выделение
+     * на соседнюю ВИДИМУЮ строку (свёрнутое тело и ряды-зон проскакиваются
+     * `previousVisibleLine`/`nextVisibleLine`, поэтому каретка на скрытой строке не
+     * возникает by construction).
+     *
+     * Повторное нажатие наращивает пачку в ту же сторону даром: копии внутренних кареток
+     * совпадают с уже существующими и схлопываются слиянием в сеттере — ровно как
+     * `CursorMoveCommands.addCursorUp` в VS Code полагается на `normalize()`.
+     */
+    private insertCursorVertically(direction: 1 | -1): void {
+        const added: ISelection[] = [];
+        for (const sel of this.selections) {
+            const translated = this.translateSelectionToAdjacentLine(sel, direction);
+            if (translated !== null) added.push(translated);
+        }
+        // Пачка упёрлась в край вью — ни одной новой каретки, и события быть не должно.
+        if (added.length === 0) return;
+
+        this.selections = [...this.selections, ...added];
+        // Показываем крайнюю каретку в сторону движения: она и есть «новая» для глаза.
+        this.revealSelection(direction === -1 ? this.selections[0] : this.selections[this.selections.length - 1]);
+    }
+
+    /**
+     * Копия выделения, сдвинутая на соседнюю видимую строку; `null`, если сдвинуть некуда.
+     * `active` кладётся по `idealColumn` (как {@link cursorUp}), `anchor` — по своей
+     * дисплейной колонке, поэтому непустое выделение переезжает целиком и не перекашивается
+     * на строках с табами.
+     */
+    private translateSelectionToAdjacentLine(selection: ISelection, direction: 1 | -1): ISelection | null {
+        const activeLine =
+            direction === -1
+                ? this.previousVisibleLine(selection.active.line)
+                : this.nextVisibleLine(selection.active.line);
+        if (activeLine < 0) return null;
+
+        const idealColumn = this.idealColumnOf(selection);
+        const activeChar = this.displayLineFor(this.document.getLineContent(activeLine)).columnToOffset(idealColumn);
+
+        if (isSelectionCollapsed(selection)) {
+            return createCursorSelection(activeLine, activeChar, idealColumn);
+        }
+
+        const anchorLine =
+            direction === -1
+                ? this.previousVisibleLine(selection.anchor.line)
+                : this.nextVisibleLine(selection.anchor.line);
+        // Якорь упёрся в край вью, а active — нет: значит якорь дальше active по ходу
+        // движения, и копия целиком легла бы внутрь исходного выделения (слияние съело бы
+        // её без следа). Не плодим её вовсе — иначе на ровном месте вылетало бы холостое
+        // событие смены курсора.
+        if (anchorLine < 0) return null;
+
+        const anchorContent = this.document.getLineContent(selection.anchor.line);
+        const anchorColumn = this.displayLineFor(anchorContent).offsetToColumn(selection.anchor.character);
+        const anchorChar = this.displayLineFor(this.document.getLineContent(anchorLine)).columnToOffset(anchorColumn);
+
+        return createSelection(anchorLine, anchorChar, activeLine, activeChar, idealColumn);
+    }
+
+    /**
+     * Дисплейная колонка, к которой «липнет» вертикальное движение выделения: явный
+     * `idealColumn`, а без него — реальная колонка каретки (у `getIdealColumn` fallback
+     * посимвольный, а нам нужна колонка с учётом табов и широких символов).
+     */
+    private idealColumnOf(selection: ISelection): number {
+        if (selection.idealColumn !== undefined) return selection.idealColumn;
+        const content = this.document.getLineContent(selection.active.line);
+        return this.displayLineFor(content).offsetToColumn(selection.active.character);
     }
 
     /**
@@ -1172,7 +1314,6 @@ export class EditorViewState {
             const newChar = targetDl.columnToOffset(ideal);
             return this.buildSelection(sel, targetLine, newChar, ideal, inSelectionMode);
         });
-        this.normalizeSelections();
         this.ensureCursorVisible();
     }
 
@@ -1462,6 +1603,19 @@ export class EditorViewState {
         this.ensureLineVisible(range.start.line);
         this.ensureLineVisible(range.end.line);
         this.revealPosition(range.start);
+    }
+
+    /**
+     * Прокручивает вьюпорт к КОНКРЕТНОМУ выделению, разворачивая свёртку, которая прячет
+     * его края. Нужен командам, которые добавляют выделение: {@link ensureCursorVisible}
+     * смотрит на `selections[0]`, а после нормализации новое выделение может оказаться где
+     * угодно в массиве — показать надо именно его.
+     */
+    public revealSelection(selection: ISelection): void {
+        const range = selectionToRange(selection);
+        this.ensureLineVisible(range.start.line);
+        this.ensureLineVisible(range.end.line);
+        this.revealPosition(selection.active);
     }
 
     /**
@@ -1855,18 +2009,6 @@ export class EditorViewState {
             return createSelection(original.anchor.line, original.anchor.character, newLine, newChar, idealColumn);
         }
         return createCursorSelection(newLine, newChar, idealColumn);
-    }
-
-    /**
-     * Sorts selections by their start position in document order.
-     * Does not merge overlapping selections (kept simple for now).
-     */
-    private normalizeSelections(): void {
-        this.selections.sort((a, b) => {
-            const rangeA = selectionToRange(a);
-            const rangeB = selectionToRange(b);
-            return comparePositions(rangeA.start, rangeB.start);
-        });
     }
 
     public cloneSelections(): ISelection[] {

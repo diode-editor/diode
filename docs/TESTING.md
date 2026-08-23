@@ -146,6 +146,23 @@ it("produces no output when grids are identical", () => {
 });
 ```
 
+### Ассерт на саму ячейку: `char`, `width`, `style`
+
+`backend.getBgAt/getFgAt/getTextAt` отвечают только про цвета и текст. Когда виджет кладёт
+**частичный** патч ячейки (`setCell(x, y, { bg })` — фон поверх уже отрисованного глифа),
+проверять надо ещё и то, что патч не стёр символ и его ширину. Для этого есть
+`app.app.screen.getCell(new Point(x, y))` → `ReadonlyCellData` (`char`, `width`, `style`):
+
+```ts
+const head = app.app.screen.getCell(new Point(gw, 0));
+expect(head.char).toBe("漢");
+expect(head.width).toBe(2); // широкий символ уцелел под блочной кареткой
+expect(app.app.screen.getCell(new Point(gw + 1, 0)).style).toBe(StyleFlags.None);
+```
+
+Эталон — `src/vs/editor/browser/editorElement.multiCursorGeometry.test.ts`. `MockTerminalBackend`
+флаги стиля не хранит, поэтому через `backend` такую проверку не сделать.
+
 ---
 
 ## Input

@@ -9,17 +9,16 @@ import { ContextMenuServiceDIToken } from "../../../../platform/contextview/brow
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { EditorElement } from "../../../browser/editorElement.ts";
 import type { IPosition } from "../../../common/core/iPosition.ts";
-import { comparePositions } from "../../../common/core/iPosition.ts";
+import { rangeContainsPosition } from "../../../common/core/iRange.ts";
 import { createCursorSelection, selectionToRange } from "../../../common/core/iSelection.ts";
 
 export const ContextMenuControllerDIToken = token<ContextMenuController>("EditorContextMenuController");
 
 /** Позиция внутри одного из выделений (границы включительно, как в upstream `containsPosition`). */
 function selectionsContain(editor: EditorElement, position: IPosition): boolean {
-    return editor.viewState.selections.some((selection) => {
-        const range = selectionToRange(selection);
-        return comparePositions(range.start, position) <= 0 && comparePositions(position, range.end) <= 0;
-    });
+    return editor.viewState.selections.some((selection) =>
+        rangeContainsPosition(selectionToRange(selection), position),
+    );
 }
 
 /** Ближайший EditorElement вверх от цели события (клик мог прийти потомку). */

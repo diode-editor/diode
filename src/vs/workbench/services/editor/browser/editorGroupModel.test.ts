@@ -24,7 +24,7 @@ function makePane(uriPath: string): IFakePane {
         readOnly: false,
         disposed: false,
         focused: 0,
-        getSelectedText: () => "",
+        getSelectedTexts: () => [],
         onDidChangeState(cb: () => void): IDisposable {
             stateListeners.push(cb);
             return {

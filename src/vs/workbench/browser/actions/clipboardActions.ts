@@ -17,12 +17,21 @@ export const clipboardCopyAction: CommandAction = {
     async run(accessor) {
         // Через панель, а не через viewState: что считать выделенным, решает
         // она (дифф выбрасывает строки-плейсхолдеры свёрнутых кусков).
-        const text = accessor.get(EditorServiceDIToken).getActivePane()?.getSelectedText() ?? "";
+        const text = joinSelectedTexts(accessor.get(EditorServiceDIToken).getActivePane()?.getSelectedTexts() ?? []);
         if (text !== "") {
             await accessor.get(ClipboardDIToken).writeText(text);
         }
     },
 };
+
+/**
+ * Текст для буфера из выделений мультикурсора: непустые куски в документном порядке,
+ * склеенные переводом строки (семантика VS Code). Схлопнутые каретки пропускаются — они
+ * ничего не выделяют, и пустая строка в буфере была бы мусором.
+ */
+function joinSelectedTexts(texts: readonly string[]): string {
+    return texts.filter((text) => text !== "").join("\n");
+}
 
 export const clipboardCutAction: CommandAction = {
     id: "editor.action.clipboardCutAction",
@@ -36,7 +45,7 @@ export const clipboardCutAction: CommandAction = {
     async run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
         if (!editor) return;
-        const text = editor.viewState.getSelectedText();
+        const text = joinSelectedTexts(editor.viewState.getSelectedTexts());
         if (text === "") return;
         await accessor.get(ClipboardDIToken).writeText(text);
         const undo = editor.viewState.deleteLeft();

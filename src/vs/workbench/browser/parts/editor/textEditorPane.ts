@@ -261,8 +261,8 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         return this.component.viewState;
     }
 
-    public getSelectedText(): string {
-        return this.component.viewState.getSelectedText();
+    public getSelectedTexts(): string[] {
+        return this.component.viewState.getSelectedTexts();
     }
 
     /**

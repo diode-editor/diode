@@ -22,6 +22,16 @@ export const editorColors = {
         defaults: { dark: "#AEAFAD", light: "#000000" },
         description: "Color of the editor cursor.",
     },
+    // В VS Code ключ зарегистрирован без дефолта, а фоллбэк вычисляется как
+    // `Color.opposite()` от `editorCursor.foreground`. Производных цветов у нас нет, поэтому
+    // результат запечён в hex на месте определения (та же политика, что у
+    // `editor.wordHighlightBackground`); `defaults: null` тут нельзя — `styleVar` без
+    // фоллбэка бросает, а инлайн-фоллбэки запрещены.
+    "editorCursor.background": {
+        defaults: { dark: "#515052", light: "#FFFFFF" },
+        description:
+            "Background color of the editor cursor. Allows customizing the color of a character overlapped by a block cursor.",
+    },
     "editor.selectionBackground": {
         defaults: null,
         description: "Color of the editor selection.",
