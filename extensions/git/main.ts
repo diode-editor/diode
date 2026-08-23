@@ -71,6 +71,12 @@ const PUBLISH_CHANGES_COMMAND = "diode.scm.publishChanges";
  * импортов через границу процесса нет.
  */
 const PUBLISH_LOG_COMMAND = "diode.scm.publishLog";
+/**
+ * Ядро отвечает, раскрыта ли секция GRAPH. Пока не раскрыта — история никому
+ * не нужна, и `git log` мы не запускаем вовсе. Спрашиваем один раз при
+ * активации; дальше ядро само присылает изменения операцией `logSetEnabled`.
+ */
+const GRAPH_ENABLED_COMMAND = "diode.scm.graphEnabled";
 
 /**
  * Команда ядра для снимка состояния репозитория (ветка/upstream/ahead-behind/
@@ -135,6 +141,12 @@ class GitDecorations {
      * (значение настройки). Растёт по операции `logLoadMore`.
      */
     private logLimit = 0;
+    /**
+     * Нужна ли графу история. Дефолт — «нужна»: до ответа ядра ведём себя
+     * по-старому, иначе ядро без этого канала осталось бы с пустым графом
+     * навсегда. Настоящее значение приезжает в {@link pullGraphEnabled}.
+     */
+    private logEnabled = true;
     /** Upstream текущей ветки — второй ref истории графа (режим `auto` vscode). */
     private upstreamRef: string | null = null;
 
@@ -310,8 +322,9 @@ class GitDecorations {
             },
         });
 
-        // Initial paint (async, never throws).
-        void this.refreshAll();
+        // Initial paint (async, never throws). Раскрытость GRAPH спрашиваем до
+        // неё: иначе первый `git log` уйдёт даже свёрнутой секции.
+        void this.pullGraphEnabled().then(() => this.refreshAll());
     }
 
     private provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
@@ -360,7 +373,24 @@ class GitDecorations {
     private async refreshAll(): Promise<void> {
         await this.refreshStatus();
         await this.refreshRepoState();
-        await this.refreshLog();
+        // Свёрнутая или скрытая секция GRAPH не стоит подпроцесса `git log` на
+        // каждое сохранение файла — ядро скажет, когда история понадобится.
+        if (this.logEnabled) await this.refreshLog();
+    }
+
+    /**
+     * Спрашивает ядро, раскрыта ли секция GRAPH. Ответ `undefined` — ядро этого
+     * канала не знает (старая сборка, тестовый харнесс): тогда остаёмся при
+     * дефолте «история нужна». Best-effort, как остальные каналы через границу.
+     */
+    private async pullGraphEnabled(): Promise<void> {
+        try {
+            const answer = await vscode.commands.executeCommand(GRAPH_ENABLED_COMMAND);
+            this.logEnabled = answer !== false;
+            /* v8 ignore next 3 -- best-effort: канал отвалится только при завершении процесса */
+        } catch {
+            // Канал недоступен — остаёмся при дефолте.
+        }
     }
 
     /**
@@ -695,6 +725,12 @@ class GitDecorations {
                     break;
                 case "revert":
                     result = await this.runBuilt(revertArgs(opParams));
+                    break;
+                case "logSetEnabled":
+                    // Не мутация, как и logLoadMore: свежая страница уедет ядру
+                    // тем же refreshAll в конце операции.
+                    this.logEnabled = opParams.enabled === true;
+                    result = { ok: true };
                     break;
                 case "logLoadMore":
                     // Не мутация, но идёт общей очередью: следующая страница

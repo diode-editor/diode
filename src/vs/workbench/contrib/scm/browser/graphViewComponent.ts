@@ -48,6 +48,12 @@ type GraphLabels = TextLabelElement[];
  *
  * Страница ограничена (`scm.graph.pageSize`); пока история продолжается, под
  * списком стоит строка «Load More…».
+ *
+ * **Секция ленивая.** Пока она не раскрыта (свёрнута шевроном или скрыта через
+ * «⋯» контейнера), строк нет вовсе: публикации проходят мимо, укладка не
+ * считается, а расширению через {@link ScmGraphService.setActive}
+ * сказано не запускать `git log`. Раскрытие достраивает секцию из накопленного
+ * снимка немедленно — свежую страницу расширение принесёт следом.
  */
 export class GraphViewComponent extends Component {
     public static dependencies = [
@@ -67,6 +73,10 @@ export class GraphViewComponent extends Component {
     private readonly commitsBySha = new Map<string, IScmCommit>();
     /** Коммит, чьи линии подсвечены, — курсор списка. */
     private selectedSha: string | null = null;
+    /** Видит ли пользователь тело секции (см. `ViewsService.isViewExpanded`). */
+    private expanded = false;
+    /** Курсор, переживающий сворачивание: строки на это время не хранятся. */
+    private cursorId: string | null = null;
 
     public constructor(
         private readonly graphService: ScmGraphService,
@@ -107,10 +117,41 @@ export class GraphViewComponent extends Component {
 
         this.register(
             this.graphService.onDidChangeCommits(() => {
-                this.rebuild();
+                // Свёрнутая секция строк не держит: раскрытие соберёт их с нуля
+                // из снимка, который сервис хранит и без нас.
+                if (this.expanded) this.rebuild();
             }),
         );
-        this.rebuild();
+        this.register(
+            viewsService.onDidChangeViewExpanded((viewId, expanded) => {
+                if (viewId === SCM_GRAPH_VIEW_ID) this.setExpanded(expanded);
+            }),
+        );
+        // Компонент создаётся DI раньше, чем workbench собирает контейнер, —
+        // здесь секция ещё не раскрыта. Спрашиваем всё равно: порядок сборки
+        // workbench'а не наша забота.
+        this.setExpanded(viewsService.isViewExpanded(SCM_GRAPH_VIEW_ID));
+    }
+
+    /**
+     * Секцию раскрыли или свернули. Раскрытие строит из накопленного снимка
+     * сразу, не дожидаясь расширения: следующая публикация может оказаться
+     * байт-идентичной прежней, и {@link ScmGraphService} погасит её по подписи —
+     * секция так и осталась бы пустой. Сворачивание освобождает строки: их у
+     * страницы до тысячи, и свёрнутому телу они не нужны.
+     */
+    private setExpanded(expanded: boolean): void {
+        if (expanded === this.expanded) return;
+        this.expanded = expanded;
+        if (expanded) {
+            this.rebuild();
+        } else {
+            this.cursorId = this.list.getCursorElement()?.id ?? null;
+            this.list.clear();
+            this.commitsBySha.clear();
+            this.graphLabels = [];
+        }
+        this.graphService.setActive(expanded);
     }
 
     public focus(): void {
@@ -119,10 +160,12 @@ export class GraphViewComponent extends Component {
 
     /**
      * Пересобирает строки из снимка сервиса. Курсор возвращается на прежнюю
-     * строку по id, если она пережила публикацию (как у вкладки Changes).
+     * строку по id, если она пережила публикацию (как у вкладки Changes); после
+     * сворачивания строк уже нет, и id берётся из {@link cursorId}.
      */
     private rebuild(): void {
-        const cursorId = this.list.getCursorElement()?.id;
+        const cursorId = this.list.getCursorElement()?.id ?? this.cursorId ?? undefined;
+        this.cursorId = null;
         this.list.clear();
         this.commitsBySha.clear();
         this.graphLabels = [];

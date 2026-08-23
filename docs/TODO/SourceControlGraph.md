@@ -53,6 +53,20 @@ ref'ов «auto», номенклатура команд контекстног�
   Общая ширина превратила бы список в таблицу и в истории с парой ветвлений отодвинула
   бы все темы вправо ради нескольких строк. Ширина строки от выделения не зависит:
   подсветка меняет символы, но не число клеток, — поэтому текст не прыгает под курсором.
+- **Секция ленивая.** Пока GRAPH не раскрыт (свёрнут шевроном или скрыт через «⋯»
+  контейнера), он не стоит ничего: строк нет, укладка не считается, а расширению через
+  `ScmGraphService.setActive` сказано не запускать `git log` вовсе — иначе он уходил бы
+  подпроцессом на каждое событие watcher'а рабочего дерева (debounce 200 мс), то есть
+  на каждое сохранение файла. Опора — `ViewsService.isViewExpanded` /
+  `onDidChangeViewExpanded` (см. [Workbench.md](../arch/Workbench.md)).
+  Канал в расширение — операция `logSetEnabled` диспетчера `diode.git.op`; плюс
+  pull-команда ядра `diode.scm.graphEnabled`, которую расширение спрашивает при
+  активации. Pull нужен из-за гонки: в момент, когда ядро объявляет своё состояние,
+  расширения может ещё не быть, а перезапуск extension host'а обнуляет его память.
+  Ответ `undefined` (команды нет) расширение трактует как «канал не поддержан» и
+  работает по-старому. Раскрытие строит секцию из накопленного снимка немедленно, не
+  дожидаясь расширения: следующая публикация может оказаться байт-идентичной прежней, и
+  ядро погасит её по подписи — секция так и осталась бы пустой.
 - **Команды** — точка меню `MenuId.ScmGraphContext` (аналог `scm/historyItem/context`),
   контекст `ScmGraphMenuContext {sha, shortSha, subject}`. Все — обычные `CommandAction`
   в `builtinActions.ts`; из палитры они тоже доступны, но без аргумента выходят тихо.
@@ -85,9 +99,9 @@ ref'ов «auto», номенклатура команд контекстног�
 |---|---|
 | `src/vs/workbench/contrib/scm/common/commitGraph.ts` | порт укладки и отрисовки lazygit |
 | `…/common/commitGraphPalette.ts` | раздача цветов линиям |
-| `…/browser/graphService.ts` | снимок истории от расширения (`{commits, hasMore}`) |
+| `…/browser/graphService.ts` | снимок истории от расширения (`{commits, hasMore}`); канал «нужна ли история» |
 | `…/browser/scmGraphRows.ts` | строки: графовая колонка, бейджи refs, «Load More…» |
-| `…/browser/graphViewComponent.ts` | сама секция: список, подсветка, контекст-меню |
+| `…/browser/graphViewComponent.ts` | сама секция: список, подсветка, контекст-меню, ленивость |
 | `…/browser/graphActions.ts` | Refresh и Load More (меню «⋯») |
 | `…/browser/graphCommitActions.ts` | команды на коммите |
 | `src/vs/platform/theme/common/colors/scmGraphColors.ts` | токены `scmGraph.*` |
@@ -108,7 +122,8 @@ ref'ов «auto», номенклатура команд контекстног�
   `git.integration.test.ts` на temp-репо: родители и refs в публикации, `hasMore` на
   границе страницы, `logLoadMore`, `reset --hard`/`revert`.
 - **Демо** — `e2e/scenarios/scmGraph.scenario.ts`: репозиторий с веткой и merge, кадры
-  `sections` / `graph` / `commit-menu` / `more-actions-menu`.
+  `sections` / `graph` / `commit-menu` / `more-actions-menu` /
+  `graph-collapsed` / `graph-restored`.
 
 ## Follow-up
 

@@ -729,6 +729,20 @@ hide-toggle (`isHiddenByDefault`). См.
     write-through по действию пользователя, restore строго после
     `openWorkspace`) хранит свёрнутость, веса и скрытость.
 
+    **Раскрытость — опора ленивых view.** `isViewExpanded(viewId)` отвечает,
+    видит ли пользователь тело секции (контейнер собран, секция не скрыта и не
+    свёрнута; до `attachContainer` — `false`), `onDidChangeViewExpanded` шлёт
+    переходы. Считает и диффит их сам `ViewsService`, а не `PaneViewElement`:
+    тот пересоздаёт панели в `rebuildPanes` и молча игнорирует свёртку
+    несворачиваемой (merged) секции, так что пер-панельное событие теряло бы
+    переходы. Поэтому после каждого пути изменения (`rebuildPanes` — он же
+    покрывает `attachContainer`, позднюю `registerView` и `setViewVisible`;
+    `restoreViewsState`; пользовательский toggle через `onDidChangeState`)
+    состояние пересчитывается целиком и сравнивается с прежним. Первый
+    потребитель — GRAPH контейнера Source Control: пока секция не раскрыта, она
+    не строит строк и через `ScmGraphService.setActive` просит git-расширение не
+    запускать `git log` вовсе.
+
     **Отрисовка заголовка — одна на всех:** `viewTitleRowElement.ts` (название +
     шеврон? + виджет + inline-кнопки + «⋯», плюс арифметика зон — хит-тест
     детей отключён, иначе не работает pointer capture у drag границы). На нём

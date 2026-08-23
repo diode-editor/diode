@@ -109,6 +109,18 @@ export default defineScenario({
         await editor.capture("more-actions-menu");
         await editor.sendKey("Escape");
 
+        // Свернуть сам GRAPH: заголовок секции остаётся, история уходит целиком.
+        // Строк у неё в этот момент нет вовсе — ни укладки, ни `git log`
+        // в расширении, пока её не раскроют обратно.
+        await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
+        await editor.waitForText((t) => t.includes("GRAPH") && !t.includes("feat: старт") && !t.includes("◎"));
+        await editor.capture("graph-collapsed");
+
+        // Раскрыть обратно — граф собирается заново из накопленного снимка.
+        await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
+        await editor.waitForText((t) => t.includes("feat: старт") && t.includes("◎"));
+        await editor.capture("graph-restored");
+
         // Развернуть Source Control обратно — секции снова делят высоту.
         await editor.clickNode("#paneHeader-workbench-scm-changes", { dx: 3 });
         await editor.waitForText((t) => t.includes("app.ts") && t.includes("fix: версия"));
