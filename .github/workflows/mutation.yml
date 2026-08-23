@@ -1,0 +1,140 @@
+name: Mutation
+
+# Мутационный прогон по всему, что влилось в main с прошлого прогона.
+#
+# Почему по расписанию, а не гейтом на PR: прогон стоит десятки минут (замер —
+# 41 минута на фичу уровня #261 на четырёх ядрах), и гейт, который дороже самой
+# задачи, начинают обходить. Здесь цена уходит с критического пути.
+#
+# Почему окно, а не весь репозиторий: репозиторий целиком — это ~110 000 мутантов,
+# то есть дни непрерывного счёта на один прогон. Мутируем только то, что изменилось.
+#
+# Почему база — ветка, а не тег: двигать тег нельзя, force-push тега ломает
+# `git fetch` у всех чекаутов (см. комментарий в nightly.yml). Ветка двигается штатно,
+# и окна идут встык — ни один коммит не проскакивает мимо проверки.
+
+on:
+  schedule:
+    # Каждую ночь в 01:00 UTC — до ночной сборки (03:00), чтобы не делить раннеры.
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "База для диффа (ref или SHA). Пусто — ветка mutation-baseline."
+        required: false
+        type: string
+
+# Прогон длинный: если предыдущий ещё идёт, второй не запускаем — иначе они
+# поделят раннер и оба станут вдвое медленнее.
+concurrency:
+  group: mutation
+  cancel-in-progress: false
+
+permissions:
+  contents: write # двигаем ветку mutation-baseline
+  issues: write # заводим тикет с выжившими
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Без полной истории `git merge-base` не работает, а на нём стоит весь
+          # расчёт diff-скоупа в scripts/mutation-diff.mjs.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm install
+
+      - name: Определить базу прогона
+        id: base
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.base }}" ]; then
+            base="${{ inputs.base }}"
+          elif git rev-parse --verify --quiet origin/mutation-baseline >/dev/null; then
+            base="origin/mutation-baseline"
+          else
+            # Первый прогон: берём сутки назад, чтобы не мутировать всю историю.
+            base="$(git rev-list -1 --before='1 day ago' origin/main)"
+          fi
+          echo "База: $base ($(git rev-parse --short "$base"))"
+          echo "sha=$(git rev-parse "$base")" >> "$GITHUB_OUTPUT"
+
+      # continue-on-error: скрипт выходит единицей при балле ниже порога, а это
+      # для расписанного прогона штатный исход — находки уезжают в тикет, а не
+      # красят ночной job. Красным job станет только от настоящего сбоя.
+      - name: Прогон
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          node scripts/mutation-diff.mjs "${{ steps.base.outputs.sha }}" \
+            --reporters json,html,clear-text 2>&1 | tee mutation-run.log
+
+      - name: Собрать отчёт
+        id: report
+        run: |
+          set -euo pipefail
+          if [ ! -f reports/mutation/mutation.json ]; then
+            # Пустой скоуп (в окне не было изменений в продуктовом коде) — это
+            # штатный исход, а не сбой: mutation-diff.mjs выходит нулём.
+            echo "Отчёта нет — в окне нечего было мутировать."
+            echo "has_report=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "has_report=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "Прогон по диффу \`$(git rev-parse --short ${{ steps.base.outputs.sha }})..$(git rev-parse --short HEAD)\`."
+            echo
+            node scripts/mutation-report.mjs
+            echo
+            echo "<details><summary>Коммиты в окне</summary>"
+            echo
+            git log --oneline "${{ steps.base.outputs.sha }}..HEAD"
+            echo
+            echo "</details>"
+            echo
+            echo "HTML-отчёт со всеми мутантами — в артефактах прогона: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > issue-body.md
+          cat issue-body.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Артефакты
+        if: steps.report.outputs.has_report == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: |
+            reports/mutation/mutation.html
+            reports/mutation/mutation.json
+            mutation-run.log
+          retention-days: 30
+
+      - name: Завести тикет с выжившими
+        if: steps.report.outputs.has_report == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Балл 100 означает, что выживших нет — тикет заводить не о чем.
+          if grep -q "Выживших нет" issue-body.md; then
+            echo "Выживших нет, тикет не нужен."
+            exit 0
+          fi
+          title="Мутационный прогон $(date -u +%Y-%m-%d): выжившие мутанты"
+          gh label create mutation --color BFD4F2 \
+            --description "Находки мутационного тестирования" 2>/dev/null || true
+          # Метка — украшение; если её не удалось завести (нет прав), тикет всё
+          # равно должен появиться, иначе находки прогона потеряются молча.
+          gh issue create --title "$title" --body-file issue-body.md --label mutation \
+            || gh issue create --title "$title" --body-file issue-body.md
+
+      # Двигаем базу только после успешно собранного отчёта: иначе упавший прогон
+      # съел бы окно, и его коммиты никогда бы не проверились.
+      - name: Сдвинуть базу
+        if: steps.report.outputs.has_report == 'true'
+        run: git push --force origin HEAD:refs/heads/mutation-baseline
