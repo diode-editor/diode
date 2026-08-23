@@ -140,6 +140,25 @@ describe("ScmInputComponent — поле", () => {
         expect(h.component.view.layoutSize.height).toBe(SCM_INPUT_HEIGHT);
     });
 
+    it("поле начинается с первой строки блока — сверху padding'а нет", () => {
+        const h = make();
+        h.publishRepoState();
+        // Ширина с запасом: боковые padding'и съедают две колонки, и на 30
+        // плейсхолдер обрезается.
+        const screen = renderElement(h.component.view, 40, SCM_INPUT_HEIGHT, { themeVars: true });
+
+        // Ассерт на абсолютную позицию, а не на разницу с кнопкой: относительные
+        // смещения переживают лишний отступ сверху, ради снятия которого правка
+        // и делалась.
+        expect(h.component.input.globalPosition.y).toBe(0);
+        expect(screen.screenToString().split("\n")[0]).toContain("Message (Ctrl+Enter to commit)");
+
+        // Боковые отступы при этом на месте. Без этой пары одной проверки `y === 0`
+        // мало: она проходит и когда padding'ов не осталось вовсе.
+        expect(h.component.input.globalPosition.x).toBe(1);
+        expect(h.component.input.layoutSize.width).toBe(40 - 2);
+    });
+
     it("ввод пишет черновик write-through, setMessage заменяет значение и персистит", () => {
         const h = make();
         h.component.input.inputState.insert("fix: typo");
