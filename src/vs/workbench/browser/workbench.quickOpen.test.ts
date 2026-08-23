@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
-import type { QuickPickElement } from "@tuidom/elements/quickpick/quickPickElement";
+import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";

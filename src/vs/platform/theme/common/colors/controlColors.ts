@@ -148,6 +148,32 @@ export const controlColors = {
         defaults: { dark: "#252526", light: "#F3F3F3" },
         description: "Quick picker background color.",
     },
+    // Собственные цвета пикера: у VS Code эквивалента нет, значения — те, что
+    // жили дефолтами tuidom, пока виджет был движковым.
+    "quickPick.border": {
+        defaults: { dark: "#535353", light: "#C8C8C8" },
+        description: "Quick picker frame color.",
+    },
+    "quickPick.titleForeground": {
+        defaults: { dark: "#E6E6E6", light: "#1F1F1F" },
+        description: "Quick picker title color (inlaid into the top frame).",
+    },
+    "quickPick.promptForeground": {
+        defaults: { dark: "#8C8C8C", light: "#6C6C6C" },
+        description: "Quick picker prompt line color (under the query).",
+    },
+    "quickPick.badgeForeground": {
+        defaults: { dark: "#96BE64", light: "#4C7A1E" },
+        description: "Quick picker item badge color, e.g. the recently-used marker.",
+    },
+    "quickPick.shortcutForeground": {
+        defaults: { dark: "#808080", light: "#717171" },
+        description: "Quick picker item keybinding color.",
+    },
+    "quickPick.hintForeground": {
+        defaults: { dark: "#6496C8", light: "#1F6FB2" },
+        description: "Quick picker item action hint color.",
+    },
     "list.highlightForeground": {
         // Исторический цвет подсветки совпадений Diode (у VS Code — #2AAAFF).
         defaults: { dark: "#64C8FF", light: "#0066BF" },
