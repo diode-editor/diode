@@ -75,6 +75,9 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          # head.sha, а не github.sha: последний — merge-коммит PR, ссылки на
+          # строки в нём ведут не в те места.
+          MUTATION_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           if [ ! -f reports/mutation/mutation.json ]; then

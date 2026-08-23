@@ -82,6 +82,8 @@ jobs:
 
       - name: Собрать отчёт
         id: report
+        env:
+          MUTATION_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           if [ ! -f reports/mutation/mutation.json ]; then
