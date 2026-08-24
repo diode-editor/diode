@@ -209,6 +209,7 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             const editor = this.source.getActiveEditor();
             /* v8 ignore start -- defensive: openUri либо активирует вкладку ресурса, либо
                заводит её; нечитаемые схемы отсеяны ещё при захвате записи */
+            // Stryker disable next-line ConditionalExpression,LogicalOperator: ветка недостижима по той же причине, что и для покрытия
             if (editor === null || editor.uri.toString() !== entry.uri.toString()) return;
             /* v8 ignore stop */
             editor.goToPosition(entry.line, entry.character);
@@ -298,6 +299,9 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             }
         }
         this.entries.splice(0, this.entries.length, ...kept);
+        // Ранний выход только сокращает путь: при пустом kept общая формула ниже даёт
+        // Math.min(что-то неотрицательное, -1), то есть тот же -1.
+        // Stryker disable next-line ConditionalExpression: см. выше
         if (kept.length === 0) {
             this.index = -1;
             return;
