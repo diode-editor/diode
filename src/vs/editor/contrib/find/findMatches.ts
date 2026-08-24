@@ -46,7 +46,10 @@ export function findTextMatches(document: ITextDocument, query: string, options:
 
 /** Совпадение не окружено символами слова (граница слова с обеих сторон). */
 function isWholeWordAt(content: string, idx: number, length: number): boolean {
+    // Обе заглушки — пустая строка: за краем строки символа нет, и это граница слова.
+    // Stryker disable next-line StringLiteral: isWordChar отвечает false на всё, что не ровно один символ, поэтому любая непустая подмена ведёт себя как пустая строка
     const before = idx > 0 ? content[idx - 1] : "";
+    // Stryker disable next-line StringLiteral: см. выше — подмена заглушки ненаблюдаема
     const after = idx + length < content.length ? content[idx + length] : "";
     return !isWordChar(before) && !isWordChar(after);
 }
@@ -56,5 +59,6 @@ function isWholeWordAt(content: string, idx: number, length: number): boolean {
  * Тонкая обёртка над {@link findTextMatches}.
  */
 export function findMatches(document: ITextDocument, query: string): IRange[] {
+    // Stryker disable next-line ObjectLiteral: findTextMatches читает поля как истинностные значения, и отсутствующее поле равносильно false
     return findTextMatches(document, query, { matchCase: false, wholeWord: false });
 }

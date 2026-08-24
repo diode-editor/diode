@@ -76,6 +76,23 @@ describe("EditorViewState – cursor reconciliation on fold", () => {
         expect(state.selections[0].active.character).toBeLessThanOrEqual(3);
     });
 
+    it("scrolls the snapped cursor into view when its header is off-screen", () => {
+        const body = Array.from({ length: 40 }, (_, i) => `  body ${i.toString()}`).join("\n");
+        const state = new EditorViewState(new TextDocument(`a\n${body}\nb`));
+        state.setFoldingRegions([createFoldingRegion(0, 40)]);
+        state.viewportHeight = 10;
+        state.viewportWidth = 40;
+        state.selections = [createCursorSelection(35, 0)];
+        state.scrollTop = 30;
+
+        state.foldRegionContaining(35);
+
+        // Snapping alone is not enough: the header sits far above the viewport, so
+        // the caret would end up off-screen unless the fold scrolls it back in.
+        expect(cursorLine(state)).toBe(0);
+        expect(state.scrollTop).toBe(0);
+    });
+
     it("leaves the cursor put when folding does not hide it (cursor on header)", () => {
         const state = nested();
         state.selections = [createCursorSelection(1, 2)]; // inner header — stays visible

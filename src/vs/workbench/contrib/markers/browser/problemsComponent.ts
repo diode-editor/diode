@@ -145,6 +145,7 @@ export class ProblemsComponent extends Component {
             this.revealTarget.openUri(Uri.parse(resource));
             const editor = this.revealTarget.getActiveEditor();
             /* v8 ignore start -- defensive: openUri always opens/activates an editor for the resource */
+            // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
             if (editor === null) return;
             /* v8 ignore stop */
             const start = marker.range.start;

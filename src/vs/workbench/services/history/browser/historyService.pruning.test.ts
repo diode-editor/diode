@@ -61,6 +61,53 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.canGoForward).toBe(true);
     });
 
+    it("выпавшая запись под указателем уводит указатель НАЗАД, а не вперёд", () => {
+        source.open(alpha());
+        source.open(beta());
+        source.open(gamma());
+        service.goBack(); // указатель на beta
+
+        fs.rmSync(ws.path("beta.ts"));
+        service.goForward();
+
+        // beta выпала из-под указателя, значит он встаёт на alpha — и Forward
+        // уводит на gamma. Уехал бы указатель вперёд, Forward упёрся бы в конец
+        // стека и каретка осталась бы на beta.
+        expect(source.caret()).toMatchObject({ uri: gamma() });
+        expect(service.getEntries()).toHaveLength(2);
+    });
+
+    it("выпавшая запись позади указателя его позицию не меняет", () => {
+        source.open(alpha());
+        source.open(beta());
+        source.open(gamma());
+        service.goBack(); // указатель на beta
+
+        fs.rmSync(ws.path("gamma.ts"));
+        service.goBack();
+
+        // gamma выпала за указателем, на его позицию это влиять не должно —
+        // Back с beta уводит на alpha. Проверка выше про то же берёт указатель в
+        // нуле, где Math.max зажимает любой лишний декремент; здесь он в единице,
+        // и лишний декремент виден.
+        expect(source.caret()).toMatchObject({ uri: alpha() });
+        expect(service.currentIndex).toBe(0);
+    });
+
+    it("безымянный буфер, открытый в одной группе из двух, остаётся достижимым", () => {
+        // Группы заводим до записей: достижимость безымянного считается по ВСЕМ
+        // группам полосы, и хватать должно одной — той, где он открыт.
+        source.addGroup(2);
+        source.focusGroup(1);
+        source.open(UNTITLED);
+        source.open(alpha());
+
+        service.goBack();
+
+        expect(source.caret()).toMatchObject({ uri: UNTITLED });
+        expect(service.getEntries()).toHaveLength(2);
+    });
+
     it("закрытая вкладка живого файла остаётся в истории — Back её переоткрывает", () => {
         source.open(alpha());
         source.moveCaret(30);

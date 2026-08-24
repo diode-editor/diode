@@ -720,6 +720,7 @@ export class SearchComponent extends Component {
             this.revealTarget.openUri(Uri.file(meta.group.absolutePath));
             const editor = this.revealTarget.getActiveEditor();
             /* v8 ignore start -- defensive: openUri always opens/activates an editor for the file */
+            // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
             if (editor === null) return;
             /* v8 ignore stop */
             // lineNumber у ripgrep 1-based, редактор ждёт 0-based; колонки уже 0-based.

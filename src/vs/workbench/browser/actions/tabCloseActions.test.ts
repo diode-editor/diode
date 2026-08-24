@@ -60,6 +60,24 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["a.txt", "b.txt"]);
     });
 
+    it("Close to the Right закрывает с дальнего края — Cancel оставляет хвост до грязной", async () => {
+        openAll("a.txt", "b.txt", "c.txt", "d.txt");
+        const dirty = group().getPanes()[1] as { viewState: { type(text: string): unknown } };
+        dirty.viewState.type("edited");
+
+        // Адресуем a.txt: справа от неё b (грязная), c и d.
+        h.commands.execute("workbench.action.closeEditorsToTheRight", group().id, 0);
+        await settle();
+        const dialogs = h.container.get(DialogServiceDIToken);
+        dialogs.getOpenConfirmSaveDialog()?.onCancel?.();
+        await settle();
+
+        // Идя с дальнего края, d и c успевают закрыться до вопроса про b, и Cancel
+        // останавливает серию на ней. Шёл бы обход слева направо — диалог встал бы
+        // первым же шагом, и c с d остались бы открытыми.
+        expect(labels()).toEqual(["a.txt", "b.txt"]);
+    });
+
     it("Close Saved оставляет изменённые вкладки", async () => {
         openAll("a.txt", "b.txt", "c.txt");
         const dirty = group().getPanes()[1] as { viewState: { type(text: string): unknown } };
@@ -111,6 +129,18 @@ describe("Tab close actions", () => {
         openAll("a.txt", "b.txt", "c.txt");
 
         h.commands.execute("workbench.action.closeOtherEditors");
+        await settle();
+
+        expect(labels()).toEqual(["c.txt"]);
+    });
+
+    it("одно число адресом не считается — команда идёт по активной вкладке", async () => {
+        openAll("a.txt", "b.txt", "c.txt"); // активна c.txt
+
+        // Адрес вкладки — ПАРА чисел (groupId, index). Одно число адресом быть не
+        // может: иначе команда приняла бы его за адрес, не нашла бы вкладку и
+        // молча ничего не сделала вместо работы по активной.
+        h.commands.execute("workbench.action.closeOtherEditors", 1);
         await settle();
 
         expect(labels()).toEqual(["c.txt"]);

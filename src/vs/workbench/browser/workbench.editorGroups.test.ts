@@ -244,13 +244,47 @@ describe("Workbench — editor groups (сплиты)", () => {
 
     it("направленный сплит поперёк оси: одна группа меняет ось, разложенная полоса — нет", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
+        const part = h.container.get(EditorPartComponentDIToken);
         // Одна группа: Split Down меняет ось на rows и сплитит.
         h.commands.execute("workbench.action.splitEditorDown");
         expect(service().groups.length).toBe(2);
+        // Ось — не побочка сплита: именно она решает, куда ляжет следующая группа
+        // и какой поперечный сплит будет отклонён.
+        expect(part.orientation).toBe("rows");
 
         // Полоса рядная; Split Right поперёк — отклонён.
         h.commands.execute("workbench.action.splitEditorRight");
         expect(service().groups.length).toBe(2);
+        expect(part.orientation).toBe("rows");
+    });
+
+    it("адресованный сплит активирует чужую вкладку, но фокус за собой не уводит", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        const first = service().activeGroup;
+        h.commands.execute("workbench.action.splitEditorDown"); // ось rows, фокус во второй группе
+        const second = service().activeGroup;
+        expect(second.id).not.toBe(first.id);
+
+        // Split Right поперёк рядной полосы будет отклонён — но адресованная вкладка
+        // всё равно активируется, и на этом видно, что делают флаги фокуса: правый
+        // клик по вкладке чужой группы забирать фокус не должен.
+        h.commands.execute("workbench.action.splitEditorRight", first.id, 0);
+
+        expect(service().groups.length).toBe(2);
+        expect(service().activeGroup.id).toBe(first.id);
+        const focused = h.testApp.focusedElement;
+        expect(focused).not.toBeNull();
+        expect(focused!.getAncestorPath().includes(second.activePane!.view)).toBe(true);
+    });
+
+    it("Split Right на одной группе ставит ось колонками", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        const part = h.container.get(EditorPartComponentDIToken);
+
+        h.commands.execute("workbench.action.splitEditorRight");
+
+        expect(service().groups.length).toBe(2);
+        expect(part.orientation).toBe("columns");
     });
 
     it("повторный dispose подписок сервиса групп — no-op, чужие слушатели живы", () => {
@@ -478,6 +512,9 @@ describe("Workbench — editor groups (сплиты)", () => {
         dialog!.onDontSave?.();
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(service().groups[0].editorCount).toBe(0);
+        // «Don't Save» — это именно НЕ сохранить: без проверки диска ветку сохранения
+        // можно сделать безусловной, и правка уехала бы в файл вопреки ответу.
+        expect(fs.readFileSync(ws.path("alpha.txt"), "utf8")).toBe(MANY_LINES);
     });
 
     it("US-33: у каждой группы свой find-виджет с независимым запросом; Escape локален", () => {
@@ -956,12 +993,41 @@ describe("Workbench — editor groups (сплиты)", () => {
         await vi.waitFor(() => {
             expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
         });
+        // Диалог обязан назвать файл, про который спрашивает: без этого «Save» и
+        // «Don't Save» — ответы вслепую.
+        h.testApp.render();
+        // Со знаком вопроса — иначе ассерт прошёл бы по имени вкладки в полосе,
+        // а не по подписи диалога.
+        expect(h.testApp.backend.screenToString()).toContain("alpha.txt?");
 
         dialogs.getOpenConfirmSaveDialog()!.onCancel?.();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(service().activeGroup.editorCount).toBe(1);
         expect(editor.isModified).toBe(true);
+    });
+
+    it("US-48: Ctrl+K W закрывает группу с хвоста — чистые вкладки уходят до диалога", async () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.workbench.openFile(ws.path("beta.txt"));
+        h.workbench.openFile(ws.path("gamma.txt"));
+        // Грязная — САМАЯ ЛЕВАЯ: при обходе с хвоста очередь дойдёт до неё последней.
+        const dirty = service().activeGroup.getPanes()[0] as { viewState: { type(text: string): unknown } };
+        dirty.viewState.type("dirty!");
+
+        h.commands.execute("workbench.action.closeEditorsInGroup");
+        const dialogs = h.container.get(DialogServiceDIToken);
+        await vi.waitFor(() => {
+            expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
+        });
+        dialogs.getOpenConfirmSaveDialog()!.onCancel?.();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        // Идя с хвоста, beta и gamma успевают закрыться до вопроса про alpha, и
+        // Cancel останавливает серию на ней. Шёл бы обход с головы — диалог встал
+        // бы первым же шагом и не закрылось бы ничего.
+        expect(service().activeGroup.editorCount).toBe(1);
+        expect(service().activeGroup.getPanes()[0].label).toBe("alpha.txt");
     });
 
     it("US-48: Save в диалоге пишет файл и закрывает вкладку", async () => {
@@ -974,6 +1040,27 @@ describe("Workbench — editor groups (сплиты)", () => {
             expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
         });
 
+        dialogs.getOpenConfirmSaveDialog()!.onSave?.();
+        await vi.waitFor(() => {
+            expect(service().activeGroup.editorCount).toBe(0);
+        });
+
+        expect(fs.readFileSync(ws.path("beta.txt"), "utf8")).toContain("saved!");
+    });
+
+    it("US-48: Save в диалоге дожимает запись поверх внешней правки файла", async () => {
+        h.workbench.openFile(ws.path("beta.txt"));
+        service().getActiveEditor()!.viewState.type("saved!");
+        // Файл успели изменить снаружи. Обычное сохранение здесь отказало бы
+        // конфликтом, но диалог закрытия обязан дожать запись: иначе вкладка
+        // закроется по ответу «Save», а правка в файл не попадёт.
+        fs.writeFileSync(ws.path("beta.txt"), "external", "utf8");
+
+        h.commands.execute("workbench.action.closeEditorsInGroup");
+        const dialogs = h.container.get(DialogServiceDIToken);
+        await vi.waitFor(() => {
+            expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
+        });
         dialogs.getOpenConfirmSaveDialog()!.onSave?.();
         await vi.waitFor(() => {
             expect(service().activeGroup.editorCount).toBe(0);
@@ -1011,6 +1098,28 @@ describe("Workbench — editor groups (сплиты)", () => {
 
         expect(service().groups[0].editorCount).toBe(1);
         expect(service().getActiveEditor()!.isModified).toBe(true);
+    });
+
+    it("US-22: Cancel в Close All Editors не заходит на второй круг", async () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        service().getActiveEditor()!.viewState.type("dirty!");
+        h.commands.execute("workbench.action.newGroupRight");
+        h.workbench.openFile(ws.path("beta.txt")); // вторая группа, чистая
+
+        h.commands.execute("workbench.action.closeAllEditors");
+        const dialogs = h.container.get(DialogServiceDIToken);
+        await vi.waitFor(() => {
+            expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
+        });
+        dialogs.getOpenConfirmSaveDialog()!.onCancel?.();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        // Cancel прекращает обход групп целиком. Возвращай серия «закрыли всё» —
+        // цикл пошёл бы на второй круг и спросил про ту же вкладку снова, поэтому
+        // проверяем не только состояние, но и что нового диалога нет.
+        expect(dialogs.getOpenConfirmSaveDialog()).toBeNull();
+        expect(service().groups.length).toBe(2);
+        expect(service().groups[1].editorCount).toBe(1);
     });
 
     it("US-49: collectDirty дедуплицирует документ, открытый в двух группах", () => {

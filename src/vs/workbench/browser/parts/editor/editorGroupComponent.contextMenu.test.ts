@@ -298,6 +298,22 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(items).toContain("Close");
     });
 
+    it("«Close Saved» виден, когда изменена только часть вкладок", () => {
+        const harness = createHarness();
+        openFiles(harness, "a.ts", "b.ts", "c.ts");
+        const pane = harness.service.getActiveEditor();
+        if (pane === null) throw new Error("вкладка не открылась");
+        pane.pushUndo(pane.viewState.type("dirty"));
+        harness.app.render();
+
+        harness.openMenuOnTab(0);
+
+        // Смешанный набор — единственный случай, где «есть хоть одна чистая» и
+        // «чисты все» расходятся: на всех чистых и на всех грязных пункт ведёт
+        // себя одинаково, и проверки выше эту разницу не видят.
+        expect(menuItems(harness.app)).toContain("Close Saved");
+    });
+
     it("«Close Saved» прячется, когда все вкладки изменены", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts");

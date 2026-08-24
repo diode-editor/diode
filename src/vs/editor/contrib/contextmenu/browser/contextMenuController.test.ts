@@ -132,6 +132,17 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
         });
     });
 
+    it("keeps a multi-selection when the click lands inside one of its ranges", () => {
+        const { app, editor } = setup();
+        editor.viewState.selections = [createSelection(0, 1, 0, 4), createSelection(1, 1, 1, 8)];
+
+        rightClick(app, editor, GUTTER + 4, 1);
+
+        // Landing inside any one range keeps the WHOLE set: requiring every range
+        // to contain the point would collapse a multi-cursor on right click.
+        expect(editor.viewState.selections).toHaveLength(2);
+    });
+
     it("selecting an entry executes its command", () => {
         const { app, editor, executed } = setup();
 

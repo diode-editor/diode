@@ -92,6 +92,22 @@ describe("clipboardCopyAction", () => {
         expect(editor.getText()).toBe("hello world");
     });
 
+    it("без открытой панели буфер обмена не трогает", async () => {
+        const clipboard = memoryClipboard("прежнее");
+        const ctrl = createGroup(); // ни одной открытой вкладки
+        const commands = new CommandRegistry();
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => ctrl);
+        accessor.bind(ClipboardDIToken, () => clipboard);
+        registerAction(commands, new KeybindingRegistry(), accessor, clipboardCopyAction);
+
+        await commands.execute(clipboardCopyAction.id);
+
+        // Копировать нечего. Окажись на месте пустого списка непустая заглушка —
+        // буфер затёрло бы текстом, которого пользователь не выделял.
+        expect(await clipboard.readText()).toBe("прежнее");
+    });
+
     it("leaves the clipboard untouched when nothing is selected", async () => {
         const clipboard = memoryClipboard("previous");
         const { editor, exec } = openEditor("hello world", clipboard);

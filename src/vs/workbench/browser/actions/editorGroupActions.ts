@@ -49,6 +49,7 @@ function directionalSplit(
     accessor: ServiceAccessor,
     axis: "columns" | "rows",
     position: "before" | "after",
+    // Stryker disable next-line ArrayDeclaration: значение по умолчанию нужно лишь для вызовов без аргументов, а адресом считается только пара чисел — любой другой список ведёт себя как пустой
     args: readonly unknown[] = [],
 ): void {
     const service = accessor.get(EditorServiceDIToken);
@@ -94,6 +95,7 @@ export const splitEditorRightAction: CommandAction = {
     menus: [{ menuId: MenuId.EditorTitleContext, group: "2_split", order: 10, args: editorTabTargetArg }],
     when: "editorGroupHasEditors",
     run(accessor, ...args) {
+        // Stryker disable next-line StringLiteral: splitActiveGroup сравнивает позицию только с "before", поэтому "after" и любая другая строка кладут группу в одно и то же место
         directionalSplit(accessor, "columns", "after", args);
     },
 };
@@ -114,6 +116,7 @@ export const splitEditorDownAction: CommandAction = {
     menus: [{ menuId: MenuId.EditorTitleContext, group: "2_split", order: 20, args: editorTabTargetArg }],
     when: "editorGroupHasEditors",
     run(accessor, ...args) {
+        // Stryker disable next-line StringLiteral: см. splitEditorRightAction — позиция сравнивается только с "before"
         directionalSplit(accessor, "rows", "after", args);
     },
 };

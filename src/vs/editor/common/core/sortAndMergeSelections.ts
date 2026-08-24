@@ -33,6 +33,7 @@ interface IOrderedSelection {
  */
 export function sortAndMergeSelections(selections: readonly ISelection[]): ISelection[] {
     // Быстрый путь: подавляющее большинство вызовов — один курсор.
+    // Stryker disable next-line EqualityOperator: на одном выделении длинный путь возвращает тот же объект (сортировка и слияние на единственном элементе — no-op), так что порог — только про скорость; пустой вход обе границы отсекают одинаково
     if (selections.length <= 1) return [...selections];
 
     const ordered: IOrderedSelection[] = selections.map((selection, index) => ({
@@ -70,7 +71,9 @@ function overlaps(previous: IOrderedSelection, current: IOrderedSelection): bool
 /** Объединение двух пересекающихся выделений; направление — от позже добавленного. */
 function mergePair(previous: IOrderedSelection, current: IOrderedSelection): IOrderedSelection {
     const start = previous.range.start;
+    // Stryker disable next-line EqualityOperator: при нулевом сравнении оба конца — одна и та же позиция, и любая из ветвей даёт равное значение
     const end = comparePositions(previous.range.end, current.range.end) >= 0 ? previous.range.end : current.range.end;
+    // Stryker disable next-line EqualityOperator: index — исходная позиция в массиве, а previous и current всегда разные элементы, поэтому равенства не бывает
     const winner = current.index > previous.index ? current : previous;
     const activeIsEnd = comparePositions(winner.selection.anchor, winner.selection.active) <= 0;
     const active = activeIsEnd ? end : start;

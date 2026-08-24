@@ -112,6 +112,19 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         expect(state.scrollTop).toBeGreaterThan(0);
     });
 
+    it("первый шаг подтягивает вьюпорт к слову под кареткой", () => {
+        const filler = Array.from({ length: 60 }, () => "filler").join("\n");
+        const state = makeState(`${filler}\nfoo`, 60, 0);
+        state.viewportHeight = 10;
+        // Каретка внизу файла, а смотрим в начало: пользователь уехал скроллом.
+        state.scrollTop = 0;
+
+        addSelectionToNextFindMatch(state); // первый шаг только выделяет слово
+
+        expect(spans(state)).toEqual([[60, 0, 3]]);
+        expect(state.scrollTop).toBeGreaterThan(0);
+    });
+
     it("заворот вверх поднимает вьюпорт к найденному вхождению", () => {
         const filler = Array.from({ length: 60 }, () => "filler").join("\n");
         const state = makeState(`foo\n${filler}\nfoo`, 61, 0);
@@ -214,6 +227,23 @@ describe("addSelectionToPreviousFindMatch", () => {
             [2, 0, 3],
         ]);
     });
+
+    // На двух вхождениях направление не проверяется: поиск закольцован, и «вверх»
+    // от нижнего приводит туда же, куда «вниз». Нужно три вхождения и старт с
+    // середины — тогда вверх и вниз расходятся.
+    it("идёт именно ВВЕРХ: от середины берёт вхождение над кареткой, а не под ней", () => {
+        const state = makeState("foo\nfoo\nfoo", 1, 1);
+
+        addSelectionToPreviousFindMatch(state); // выделило слово под кареткой
+        expect(spans(state)).toEqual([[1, 0, 3]]);
+
+        addSelectionToPreviousFindMatch(state);
+
+        expect(spans(state)).toEqual([
+            [0, 0, 3],
+            [1, 0, 3],
+        ]);
+    });
 });
 
 describe("moveSelectionToNextFindMatch (Ctrl+K Ctrl+D)", () => {
@@ -242,6 +272,24 @@ describe("moveSelectionToNextFindMatch (Ctrl+K Ctrl+D)", () => {
         expect(spans(state)).toEqual([
             [0, 0, 3],
             [2, 0, 3],
+        ]);
+    });
+
+    // Проверка выше на трёх вхождениях направление не различает: свободным
+    // остаётся ровно одно место, и вверх с завороту и вниз ведут в него же.
+    // На четырёх вхождениях с переносом из середины пути расходятся.
+    it("назад — это назад: перенос из середины уходит выше, а не ниже", () => {
+        const state = makeState("foo\nfoo\nfoo\nfoo", 1, 0);
+        addSelectionToNextFindMatch(state); // выделило строку 1
+        addSelectionToNextFindMatch(state); // добавило строку 2
+
+        moveSelectionToPreviousFindMatch(state);
+
+        // Строка 1 занята соседним выделением, поэтому шаг вверх перескакивает её
+        // и садится на строку 0. Шаг вниз сел бы на строку 3.
+        expect(spans(state)).toEqual([
+            [0, 0, 3],
+            [1, 0, 3],
         ]);
     });
 
@@ -341,6 +389,19 @@ describe("insertCursorAtEndOfEachLineSelected (Ctrl+Shift+Alt+I)", () => {
         insertCursorAtEndOfEachLineSelected(state);
         expect(state.selections).toHaveLength(1);
         expect(fired).toBe(0);
+    });
+
+    it("подтягивает вьюпорт к первой из расставленных кареток", () => {
+        const filler = Array.from({ length: 60 }, () => "filler").join("\n");
+        const state = makeState(filler, 0, 0);
+        state.viewportHeight = 10;
+        state.selections = [createSelection(56, 0, 58, 2)];
+        state.scrollTop = 0;
+
+        insertCursorAtEndOfEachLineSelected(state);
+
+        expect(state.selections).toHaveLength(3);
+        expect(state.scrollTop).toBeGreaterThan(0);
     });
 
     it("сбрасывает сессию Ctrl+D — набор кареток к ней больше не относится", () => {

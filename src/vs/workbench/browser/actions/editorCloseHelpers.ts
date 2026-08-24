@@ -24,6 +24,10 @@ export async function closeTabsWithConfirm(
     indices: readonly number[],
 ): Promise<boolean> {
     const dialogs = accessor.get(DialogServiceDIToken);
+    // Отсев null'ов недостижим: все вызывающие строят indices из самих панелей
+    // группы, поэтому getPane по ним всегда что-то возвращает. Держим его ради
+    // сужения типа, но убить мутанта в нём нечем.
+    // Stryker disable next-line MethodExpression,ConditionalExpression: см. выше
     const targets = indices
         .map((index) => group.getPane(index))
         .filter((pane): pane is IEditorPane => pane !== null);
@@ -39,7 +43,8 @@ export async function closeTabsWithConfirm(
                     : /* v8 ignore start -- needsCloseConfirm для не-диффа истинен только у текстовой панели */
                       pane instanceof TextEditorPane
                       ? [pane]
-                      : [];
+                      : // Stryker disable next-line ArrayDeclaration: ветка недостижима — см. v8 ignore выше
+                        [];
             /* v8 ignore stop */
             const choice = await dialogs.confirmSave(saveTargets.map((target) => target.label).join(", "));
             if (choice === "cancel") return false;
@@ -49,6 +54,7 @@ export async function closeTabsWithConfirm(
         }
         const index = group.getPanes().indexOf(pane);
         /* v8 ignore start -- цель могла закрыться из диалога только вместе со всей группой */
+        // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
         if (index < 0) continue;
         /* v8 ignore stop */
         group.closeTab(index);
