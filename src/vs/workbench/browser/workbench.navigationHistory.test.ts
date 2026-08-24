@@ -65,6 +65,22 @@ describe("Workbench — навигационная история (Go Back / Go 
         expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 12, character: 3 });
     });
 
+    it("Go to Definition в двух строках ниже — Back всё равно возвращает к вызову", async () => {
+        h.activeEditor().goToPosition(12, 3);
+        editors().definitionSource = () =>
+            Promise.resolve([{ uri: uri("alpha.ts"), range: createRange(14, 2, 14, 6) }]);
+
+        await h.commands.execute("editor.action.revealDefinition");
+        expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 14, character: 2 });
+
+        h.commands.execute("workbench.action.navigateBack");
+
+        // Две строки — меньше порога значимости, и обычную запись о таком переходе
+        // история схлопнула бы. Намеренный прыжок пишется форсом ровно поэтому:
+        // иначе Go to Definition рядом с местом вызова стал бы невозвратным.
+        expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 12, character: 3 });
+    });
+
     it("пункты Go → Back/Forward появляются только когда есть куда идти", () => {
         const goMenuLabels = (): string[] => {
             h.testApp.sendKey("Alt+g");

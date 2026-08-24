@@ -27,10 +27,11 @@ export async function closeTabsWithConfirm(
     // Отсев null'ов недостижим: все вызывающие строят indices из самих панелей
     // группы, поэтому getPane по ним всегда что-то возвращает. Держим его ради
     // сужения типа, но убить мутанта в нём нечем.
-    // Stryker disable next-line MethodExpression,ConditionalExpression: см. выше
+    // Stryker disable MethodExpression,ConditionalExpression: см. выше
     const targets = indices
         .map((index) => group.getPane(index))
         .filter((pane): pane is IEditorPane => pane !== null);
+    // Stryker restore MethodExpression,ConditionalExpression
 
     for (const pane of targets) {
         if (service.needsCloseConfirm(pane)) {

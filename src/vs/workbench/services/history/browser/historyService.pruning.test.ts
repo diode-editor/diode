@@ -94,6 +94,41 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.currentIndex).toBe(0);
     });
 
+    it("возврат в усохший файл не съедает forward-хвост", () => {
+        source.lineCounts.set(alpha(), 200);
+        source.open(alpha());
+        source.moveCaret(150);
+        source.open(beta());
+        // Файл переоткроется коротким: строки 150 в нём больше нет.
+        source.close(alpha());
+        source.lineCounts.set(alpha(), 3);
+
+        service.goBack();
+
+        // Каретка встала на последнюю строку — это далеко от записанной, и такой
+        // прыжок был бы значимым, запиши его история. Но восстановление записью не
+        // считается, иначе Back отрезал бы хвост собственным же переходом.
+        expect(source.caret()).toMatchObject({ uri: alpha(), line: 2 });
+        service.goForward();
+        expect(source.caret()).toMatchObject({ uri: beta() });
+    });
+
+    it("Back в другую группу не съедает forward-хвост", () => {
+        source.addGroup(2);
+        source.focusGroup(1);
+        source.open(alpha());
+        source.focusGroup(2);
+        source.open(beta());
+
+        service.goBack();
+        expect(source.caret()).toMatchObject({ uri: alpha() });
+
+        // Возврат сам по себе записью стать не должен: иначе он отрезал бы хвост
+        // истории собственным же переходом, и Forward стал бы no-op.
+        service.goForward();
+        expect(source.caret()).toMatchObject({ uri: beta() });
+    });
+
     it("безымянный буфер, открытый в одной группе из двух, остаётся достижимым", () => {
         // Группы заводим до записей: достижимость безымянного считается по ВСЕМ
         // группам полосы, и хватать должно одной — той, где он открыт.

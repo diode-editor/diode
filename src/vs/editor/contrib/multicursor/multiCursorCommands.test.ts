@@ -203,6 +203,18 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         expect(fired).toBe(0);
     });
 
+    it("выделения, различающиеся регистром, общим текстом не считаются", () => {
+        // Поиск здесь регистрозависимый, и гейт общности обязан считать так же:
+        // сочти он Foo и foo одним текстом, шаг ушёл бы продолжать поиск по тексту,
+        // которого во втором выделении нет.
+        const state = makeState("Foo foo Foo");
+        state.selections = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
+
+        addSelectionToNextFindMatch(state);
+
+        expect(state.selections).toHaveLength(2);
+    });
+
     it("несколько выделений с ОДИНАКОВЫМ текстом продолжают поиск сразу", () => {
         const state = makeState("foo foo foo");
         state.selections = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];

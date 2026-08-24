@@ -87,12 +87,13 @@ export const closeUnmodifiedEditorsAction: CommandAction = {
         // ищется заново перед каждым, — так что от порядка набор закрытых вкладок не
         // зависит. Отрицательные индексы дошли бы до getPane(-1), то есть до null,
         // и отсеялись бы там же.
-        // Stryker disable next-line MethodExpression: см. выше
+        // Stryker disable MethodExpression,ConditionalExpression: см. выше
         const indices = target.group
             .getPanes()
             .map((pane, index) => (pane.isModified ? -1 : index))
             .filter((index) => index >= 0)
             .reverse();
+        // Stryker restore MethodExpression,ConditionalExpression
         void closeTabsWithConfirm(accessor, service, target.group, indices);
     },
 };
