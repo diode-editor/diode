@@ -82,11 +82,18 @@ export const closeUnmodifiedEditorsAction: CommandAction = {
         const target = resolveTabTarget(service, args);
         if (target === null) return;
         // Ни одного диалога по построению: закрываем ровно то, что не изменено.
+        // Отсюда же ненаблюдаемость двух хвостовых шагов, и мутанта в них не убить:
+        // серия не прерывается на полпути, панели резолвятся до закрытий, а индекс
+        // ищется заново перед каждым, — так что от порядка набор закрытых вкладок не
+        // зависит. Отрицательные индексы дошли бы до getPane(-1), то есть до null,
+        // и отсеялись бы там же.
+        // Stryker disable MethodExpression,ConditionalExpression: см. выше
         const indices = target.group
             .getPanes()
             .map((pane, index) => (pane.isModified ? -1 : index))
             .filter((index) => index >= 0)
             .reverse();
+        // Stryker restore MethodExpression,ConditionalExpression
         void closeTabsWithConfirm(accessor, service, target.group, indices);
     },
 };

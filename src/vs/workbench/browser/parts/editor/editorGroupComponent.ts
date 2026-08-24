@@ -120,6 +120,7 @@ export class EditorGroupComponent extends Component {
         const panes = this.group.getPanes();
         const pane = panes[index];
         /* v8 ignore start -- индекс приходит из tab strip и всегда указывает на существующую вкладку */
+        // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
         if (pane === undefined) return;
         /* v8 ignore stop */
         const menuContext: EditorTitleMenuContext = {

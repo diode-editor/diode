@@ -140,6 +140,18 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         expect(state.selections[0].active).toEqual({ line: 1, character: 4 });
     });
 
+    it("выделение со второй строки переезжает на нулевую", () => {
+        // Якорь встаёт ровно на нулевую строку — граничный случай «двигать некуда»
+        // проходит по строке ниже нуля, а не по самой нулевой.
+        const state = new EditorViewState(new TextDocument("abcdef\nabcdef\nabcdef"), [createSelection(1, 1, 1, 4)]);
+
+        state.insertCursorAbove();
+
+        expect(state.selections).toHaveLength(2);
+        expect(state.selections[0].anchor).toEqual({ line: 0, character: 1 });
+        expect(state.selections[0].active).toEqual({ line: 0, character: 4 });
+    });
+
     it("обратное выделение у края документа копии не даёт и события не шлёт", () => {
         // Якорь на последней строке двигаться не может, а active может: копия целиком
         // легла бы внутрь исходного выделения, и слияние съело бы её без следа.
@@ -151,6 +163,19 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         state.insertCursorBelow();
         expect(state.selections).toHaveLength(1);
         expect(fired).toBe(0);
+    });
+
+    it("вьюпорт едет за новой кареткой вверх", () => {
+        const state = new EditorViewState(new TextDocument(makeLines(40)), [createCursorSelection(30, 0)]);
+        state.viewportHeight = 10;
+        state.viewportWidth = 40;
+        state.scrollTop = 30; // каретка в первой видимой строке
+
+        state.insertCursorAbove();
+
+        // Показывать надо ВЕРХНЮЮ каретку — она и есть новая. Показывай нижнюю,
+        // вьюпорт не двинулся бы: она и так на экране.
+        expect(state.scrollTop).toBe(29);
     });
 
     it("вьюпорт едет за новой кареткой вниз", () => {
@@ -253,6 +278,19 @@ describe("EditorViewState.revealSelection", () => {
         state.foldedRegions = [createFoldingRegion(0, 2, true)];
         state.revealSelection(createCursorSelection(2, 0));
         expect(state.foldedRegions[0].isCollapsed).toBe(false);
+    });
+
+    it("разворачивает свёртки и над началом, и над концом выделения", () => {
+        const state = new EditorViewState(new TextDocument(makeLines(8)), [createCursorSelection(0, 0)]);
+        state.viewportHeight = 10;
+        state.viewportWidth = 40;
+        state.foldedRegions = [createFoldingRegion(0, 2, true), createFoldingRegion(4, 6, true)];
+
+        state.revealSelection(createSelection(1, 0, 5, 0));
+
+        // Спрятать выделение может любой из его концов, поэтому разворачивать надо
+        // оба: проверка на каретке этого не видит — там начало и конец совпадают.
+        expect(state.foldedRegions.map((region) => region.isCollapsed)).toEqual([false, false]);
     });
 
     it("скроллит именно к переданному выделению, а не к первичному", () => {

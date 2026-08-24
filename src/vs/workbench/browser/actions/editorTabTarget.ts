@@ -19,6 +19,7 @@ function hasTabAddress(args: readonly unknown[]): boolean {
  * (вызов с клавиатуры/из палитры либо вкладку успели закрыть).
  */
 export function resolveAddressedTab(service: EditorService, args: readonly unknown[]): TabTarget | null {
+    // Stryker disable next-line ConditionalExpression: проверка избыточна — ниже и поиск группы по id, и getPane отсеивают неадресные аргументы, возвращая тот же null
     if (!hasTabAddress(args)) return null;
     const [groupId, index] = args as [number, number];
     const group = service.groups.find((candidate) => candidate.id === groupId);

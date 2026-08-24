@@ -83,9 +83,7 @@ describe("findNextOccurrence", () => {
 
     it("пропускает уже занятые вхождения", () => {
         const taken = [createRange(0, 0, 0, 3), createRange(0, 8, 0, 11)];
-        expect(findNextOccurrence(doc, SUBSTRING, createRange(0, 0, 0, 3), 1, taken)).toEqual(
-            createRange(1, 4, 1, 7),
-        );
+        expect(findNextOccurrence(doc, SUBSTRING, createRange(0, 0, 0, 3), 1, taken)).toEqual(createRange(1, 4, 1, 7));
     });
 
     it("все вхождения заняты — null", () => {
@@ -125,6 +123,15 @@ describe("isSessionCurrent", () => {
         expect(isSessionCurrent(session, [createSelection(0, 1, 0, 3)], doc.versionId)).toBe(false);
     });
 
+    it("сдвинулось ОДНО выделение из двух — сессия протухла", () => {
+        // Совпасть должны все: проверка на одном выделении не различает «все совпали»
+        // и «совпал хоть один», а на паре разница видна.
+        const pair = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
+        const pairSession = captureSession(SUBSTRING, createRange(0, 0, 0, 3), pair, doc.versionId);
+
+        expect(isSessionCurrent(pairSession, [pair[0], createSelection(0, 5, 0, 7)], doc.versionId)).toBe(false);
+    });
+
     it("изменилось число выделений — сессия протухла", () => {
         expect(isSessionCurrent(session, [...selections, createCursorSelection(0, 5)], doc.versionId)).toBe(false);
     });
@@ -155,8 +162,24 @@ describe("selectionsShareText", () => {
         expect(selectionsShareText(doc, [createSelection(0, 0, 0, 3), createCursorSelection(1, 0)], true)).toBe(false);
     });
 
+    it("две схлопнутые каретки общего текста не образуют", () => {
+        // У обеих текст пустой, то есть формально «одинаковый». Общность ломает
+        // сам факт пустоты, а не различие: продолжать поиск здесь нечем.
+        expect(selectionsShareText(doc, [createCursorSelection(0, 0), createCursorSelection(1, 0)], true)).toBe(false);
+    });
+
     it("многострочное выделение ломает общность", () => {
         expect(selectionsShareText(doc, [createSelection(0, 0, 1, 3)], true)).toBe(false);
+    });
+
+    it("регистр складывается вниз — как в самом поиске", () => {
+        // `ß` и `ss` при складывании ВВЕРХ обе дают `SS` и сошлись бы за один текст,
+        // а сканер вхождений сравнивает по нижнему регистру и считает их разными.
+        // Разойдись эти две операции — Ctrl+D продолжал бы сессию по тексту,
+        // которого поиск в документе не находит.
+        const sharp = new TextDocument("ß ss");
+        const selections = [createSelection(0, 0, 0, 1), createSelection(0, 2, 0, 4)];
+        expect(selectionsShareText(sharp, selections, false)).toBe(false);
     });
 
     it("без учёта регистра FOO и foo считаются одним текстом", () => {

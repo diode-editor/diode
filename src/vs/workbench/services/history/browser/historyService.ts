@@ -57,9 +57,11 @@ export const NULL_JUMP_RECORDER: IJumpRecorder = {
     jump: (navigate) => navigate(),
 };
 
+// Stryker disable StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой, подменить её нечем наблюдаемым
 export const HistoryEditorSourceDIToken = token<IHistoryEditorSource>("HistoryEditorSource");
 export const HistoryServiceDIToken = token<HistoryService>("HistoryService");
 export const JumpRecorderDIToken = token<IJumpRecorder>("JumpRecorder");
+// Stryker restore StringLiteral
 
 /** Точка в истории: ресурс, позиция каретки и группа, в которой её видели. */
 export interface IHistoryEntry {
@@ -207,6 +209,7 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             const editor = this.source.getActiveEditor();
             /* v8 ignore start -- defensive: openUri либо активирует вкладку ресурса, либо
                заводит её; нечитаемые схемы отсеяны ещё при захвате записи */
+            // Stryker disable next-line ConditionalExpression,LogicalOperator: ветка недостижима по той же причине, что и для покрытия
             if (editor === null || editor.uri.toString() !== entry.uri.toString()) return;
             /* v8 ignore stop */
             editor.goToPosition(entry.line, entry.character);
@@ -296,10 +299,18 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             }
         }
         this.entries.splice(0, this.entries.length, ...kept);
+        // Ранний выход только сокращает путь: при пустом kept общая формула ниже даёт
+        // Math.min(что-то неотрицательное, -1), то есть тот же -1.
+        // Stryker disable next-line ConditionalExpression: см. выше
         if (kept.length === 0) {
             this.index = -1;
             return;
         }
+        // Верхний зажим сработать не может: nextIndex = index минус выпавшие до него,
+        // а выпавших ПОСЛЕ указателя не больше, чем позиций после него, — значит
+        // nextIndex всегда не больше kept.length - 1. Держим страховкой на случай
+        // изменения инварианта, но убить мутанта в ней нечем.
+        // Stryker disable next-line ArithmeticOperator: недостижимая ветвь зажима, см. выше
         this.index = Math.min(Math.max(nextIndex, 0), kept.length - 1);
     }
 

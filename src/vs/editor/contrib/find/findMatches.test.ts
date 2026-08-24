@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { TextDocument } from "../../common/model/textDocument.ts";
 
-import { findMatches } from "./findMatches.ts";
+import { findMatches, findTextMatches } from "./findMatches.ts";
 
 describe("findMatches", () => {
     it("returns no matches for an empty query", () => {
@@ -62,5 +62,23 @@ describe("findMatches", () => {
         const doc = new TextDocument("");
         expect(doc.lineCount).toBe(1);
         expect(findMatches(doc, "foo")).toEqual([]);
+    });
+});
+
+describe("findTextMatches — границы слова", () => {
+    const whole = (text: string, query: string): number[] =>
+        findTextMatches(new TextDocument(text), query, { matchCase: true, wholeWord: true }).map(
+            (match) => match.start.character,
+        );
+
+    it("слово у самого начала и у самого конца строки — целое слово", () => {
+        // За краями строки символов нет, и край считается границей слова.
+        expect(whole("text context text", "text")).toEqual([0, 13]);
+    });
+
+    it("часть слова не находится — ни по левому соседу, ни по правому", () => {
+        // `textual` отсекается символом СПРАВА, `pretext` — слева. Без правой
+        // проверки нашлось бы и начало `textual`.
+        expect(whole("textual text pretext", "text")).toEqual([8]);
     });
 });
