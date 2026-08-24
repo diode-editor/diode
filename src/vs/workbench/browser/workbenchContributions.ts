@@ -26,6 +26,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: OpenFileCommandContributionDIToken, phase: "restored" },
     { token: PanelFocusContributionDIToken, phase: "restored" },
     // История навигации: подписки должны стоять до открытия первого файла.
+    // Убрать эту строку сейчас ничего не ломает — сервис всё равно поднимается
+    // раньше, когда workbenchContextKeys читает canGoBack/canGoForward. Но такая
+    // гарантия порядка держится на чужой детали, поэтому запись оставляем явной.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: см. выше — снятие записи ненаблюдаемо
     { token: HistoryServiceDIToken, phase: "restored" },
     // Каналы Output как команды + пункты submenu селектора.
     { token: OutputChannelActionsDIToken, phase: "restored" },

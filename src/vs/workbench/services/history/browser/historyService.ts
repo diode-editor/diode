@@ -57,9 +57,11 @@ export const NULL_JUMP_RECORDER: IJumpRecorder = {
     jump: (navigate) => navigate(),
 };
 
+// Stryker disable StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой, подменить её нечем наблюдаемым
 export const HistoryEditorSourceDIToken = token<IHistoryEditorSource>("HistoryEditorSource");
 export const HistoryServiceDIToken = token<HistoryService>("HistoryService");
 export const JumpRecorderDIToken = token<IJumpRecorder>("JumpRecorder");
+// Stryker restore StringLiteral
 
 /** Точка в истории: ресурс, позиция каретки и группа, в которой её видели. */
 export interface IHistoryEntry {
@@ -300,6 +302,11 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             this.index = -1;
             return;
         }
+        // Верхний зажим сработать не может: nextIndex = index минус выпавшие до него,
+        // а выпавших ПОСЛЕ указателя не больше, чем позиций после него, — значит
+        // nextIndex всегда не больше kept.length - 1. Держим страховкой на случай
+        // изменения инварианта, но убить мутанта в ней нечем.
+        // Stryker disable next-line ArithmeticOperator: недостижимая ветвь зажима, см. выше
         this.index = Math.min(Math.max(nextIndex, 0), kept.length - 1);
     }
 

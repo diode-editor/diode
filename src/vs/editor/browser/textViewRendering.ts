@@ -39,12 +39,6 @@ export interface ITextViewportGeometry {
     viewLineCount: number;
     contentCols: number;
     gutterW: number;
-    /**
-     * Экранный сдвиг первой строки вьюпорта вниз — у поверхности со своей
-     * шапкой (заголовок сторон side-by-side диффа) текст начинается не с
-     * нулевой строки виджета. Отсутствие = 0.
-     */
-    originY?: number;
 }
 
 /**
@@ -78,7 +72,7 @@ export function forEachRangeCell(
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
 
         for (let screenX = screenXStart; screenX < screenXEnd; screenX++) {
-            visit(geo.gutterW + screenX, screenY + (geo.originY ?? 0));
+            visit(geo.gutterW + screenX, screenY);
         }
     }
 }
@@ -220,6 +214,13 @@ export function paintCarets(
     colors: ICaretColors,
     geo: ITextViewportGeometry,
 ): void {
+    // Все отсевы ниже — про скорость, а не про картинку. RenderContext.setCell
+    // клиппит по прямоугольнику элемента и на промахе молча выходит, а
+    // visualToLogicalLine за пределами проекции возвращает -1, так что снятие любой
+    // из этих границ отрисовку не меняет — меняется только объём холостой работы,
+    // ради экономии которой функция и написана (см. её doc-комментарий). Поэтому
+    // мутанты в них неубиваемы, и гасим их здесь оптом.
+    // Stryker disable EqualityOperator,ConditionalExpression,LogicalOperator: см. выше
     const screenYByLogicalLine = new Map<number, number>();
     for (let screenY = 0; screenY < geo.visibleLines; screenY++) {
         const viewLine = geo.scrollTop + screenY;
@@ -237,16 +238,21 @@ export function paintCarets(
         // Строка свёрнута фолдингом или уехала за вьюпорт.
         if (screenY === undefined) continue;
 
+        // Кэш DisplayLine на экранную строку — чистая мемоизация: без него результат
+        // тот же, только пересчитанный на каждой каретке.
+        // Stryker disable next-line CallExpression: см. выше
         let dl = displayLineByScreenY.get(screenY);
         if (dl === undefined) {
             dl = viewState.displayLineFor(viewState.getViewLine(geo.scrollTop + screenY));
+            // Stryker disable next-line CallExpression: заполнение кэша, результат не меняет
             displayLineByScreenY.set(screenY, dl);
         }
 
         const localX = dl.offsetToColumn(selection.active.character) - geo.scrollLeft;
         if (localX < 0 || localX >= geo.contentCols) continue;
+        // Stryker restore EqualityOperator,ConditionalExpression,LogicalOperator
 
-        context.setCell(geo.gutterW + localX, screenY + (geo.originY ?? 0), {
+        context.setCell(geo.gutterW + localX, screenY, {
             fg: colors.fg,
             bg: colors.bg,
             style: StyleFlags.None,

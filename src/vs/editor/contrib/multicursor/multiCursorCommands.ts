@@ -114,11 +114,13 @@ export function addSelectionToPreviousFindMatch(viewState: EditorViewState): voi
 
 /** Ctrl+K Ctrl+D: перенести последнее добавленное выделение на следующее вхождение. */
 export function moveSelectionToNextFindMatch(viewState: EditorViewState): void {
+    // Stryker disable next-line StringLiteral: step() сравнивает режим только с "add", поэтому "move" и любая другая строка идут одной ветвью — подмена ненаблюдаема
     step(viewState, 1, "move");
 }
 
 /** То же вверх по документу. */
 export function moveSelectionToPreviousFindMatch(viewState: EditorViewState): void {
+    // Stryker disable next-line StringLiteral: см. moveSelectionToNextFindMatch — режим сравнивается только с "add"
     step(viewState, -1, "move");
 }
 
