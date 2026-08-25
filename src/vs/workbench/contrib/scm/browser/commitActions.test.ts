@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { ProgressService, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
@@ -40,6 +41,8 @@ function makeHarness(): IHarness {
     const harness = { confirms: 0 };
 
     const services = new Map<unknown, unknown>([
+        // Прогресс операций: транспортные швы просят его у контейнера.
+        [ProgressServiceDIToken, new ProgressService()],
         [
             ScmInputComponentDIToken,
             {

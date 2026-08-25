@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { ProgressService, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
 import { scmGraphLoadMoreAction, scmGraphRefreshAction } from "./graphActions.ts";
 
 function makeAccessor(commands: CommandRegistry): ServiceAccessor {
-    return { get: () => commands } as unknown as ServiceAccessor;
+    const services = new Map<unknown, unknown>([
+        [CommandRegistryDIToken, commands],
+        [ProgressServiceDIToken, new ProgressService()],
+    ]);
+    return { get: (t: unknown) => services.get(t) } as unknown as ServiceAccessor;
 }
 
 describe("scmGraphRefreshAction", () => {
@@ -32,6 +37,7 @@ describe("scmGraphLoadMoreAction", () => {
     it("просит расширение расширить страницу истории", async () => {
         const ops: unknown[] = [];
         const services = new Map<unknown, unknown>([
+            [ProgressServiceDIToken, new ProgressService()],
             [
                 CommandRegistryDIToken,
                 {
@@ -53,6 +59,7 @@ describe("scmGraphLoadMoreAction", () => {
     it("без git-расширения — тихий no-op, без notice в статус-баре", async () => {
         const notices: string[] = [];
         const services = new Map<unknown, unknown>([
+            [ProgressServiceDIToken, new ProgressService()],
             [CommandRegistryDIToken, { has: () => false, execute: () => undefined }],
             [
                 StatusBarServiceDIToken,

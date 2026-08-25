@@ -11,6 +11,7 @@ import { StatusBarServiceDIToken } from "../../../services/statusbar/common/stat
 import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { ScmChangesServiceDIToken, type ScmGroupId } from "./changesService.ts";
 import { GitChangesMenu } from "./gitMenus.ts";
+import { withGitProgress } from "./gitOpClient.ts";
 
 /**
  * User-facing staging-команды (`git.*` — номенклатура VS Code). Живут в ядре:
@@ -28,6 +29,14 @@ const UNSTAGEABLE_GROUPS: readonly ScmGroupId[] = ["index"];
 
 /** Сколько висит notice об ошибке git-операции в статус-баре. */
 const FAILURE_NOTICE_MS = 5000;
+
+/**
+ * Имя операции для прогресса: у стейджинга свой транспорт, а не диспетчер
+ * `diode.git.op`, поэтому имя достаём из id команды (`diode.git.stage` → `stage`).
+ */
+function transportOp(commandId: string): string {
+    return commandId.slice(commandId.lastIndexOf(".") + 1);
+}
 
 /**
  * Резолв целей staging-команды: явные uri из меню (аргументом) либо выделение
@@ -78,12 +87,14 @@ export async function runGitTransport(accessor: ServiceAccessor, commandId: stri
     if (uris.length === 0) return;
     const commands = accessor.get(CommandRegistryDIToken);
     if (!commands.has(commandId)) return;
-    const result = (await Promise.resolve(
-        commands.execute(
-            commandId,
-            uris.map((u) => u.toString()),
-        ),
-    ).catch(() => null)) as { ok?: boolean; message?: string } | null;
+    const result = (await withGitProgress(accessor, transportOp(commandId), () =>
+        Promise.resolve(
+            commands.execute(
+                commandId,
+                uris.map((u) => u.toString()),
+            ),
+        ).catch(() => null),
+    )) as { ok?: boolean; message?: string } | null;
     if (result?.ok === true) return;
 
     const message = typeof result?.message === "string" && result.message !== "" ? result.message : "git failed";
