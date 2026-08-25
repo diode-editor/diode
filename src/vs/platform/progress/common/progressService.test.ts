@@ -183,6 +183,65 @@ describe("ProgressService", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
+    it("конец операции, пережившей dispose, ничего не ломает", async () => {
+        const task = deferred();
+        const running = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
+        vi.advanceTimersByTime(300);
+
+        // Приложение закрывается посреди операции: запись уже снята, а промис
+        // задачи только сейчас доехал до finally.
+        service.dispose();
+        task.resolve();
+        await expect(running).resolves.toBeUndefined();
+        expect(service.isBusy()).toBe(false);
+    });
+
+    it("конец одной операции не гасит тикер, пока крутится другая", async () => {
+        const first = deferred();
+        const second = deferred();
+        const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
+        const b = service.withProgress({ location: "window", title: "Pushing…" }, () => second.promise);
+        vi.advanceTimersByTime(300);
+
+        first.resolve();
+        await a;
+        // Кадр второй операции обязан продолжать меняться.
+        const before = service.windowProgress()!.spinner;
+        vi.advanceTimersByTime(100);
+        expect(service.windowProgress()!.spinner).not.toBe(before);
+
+        second.resolve();
+        await b;
+        vi.advanceTimersByTime(10_000);
+    });
+
+    it("ещё не показанная операция тикер не держит", async () => {
+        const first = deferred();
+        const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
+        vi.advanceTimersByTime(300);
+
+        // Вторая стартовала под конец первой и показаться ещё не успеет.
+        vi.advanceTimersByTime(400);
+        const second = deferred();
+        const b = service.withProgress({ location: "window", title: "Pushing…" }, () => second.promise);
+        first.resolve();
+        await a;
+
+        // Первая досидела минимум показа и ушла — крутить стало нечего.
+        vi.advanceTimersByTime(100);
+        expect(service.viewProgress().size).toBe(0);
+        expect(service.windowProgress()).toBeNull();
+
+        const listener = vi.fn();
+        service.onDidChange(listener);
+        vi.advanceTimersByTime(100);
+        expect(listener).not.toHaveBeenCalled();
+
+        second.resolve();
+        await b;
+        vi.advanceTimersByTime(10_000);
+    });
+
     it("повторный end по завершённой операции — no-op", async () => {
         const task = deferred();
         const running = service.withProgress({ location: "window", title: "Fetching…" }, () => task.promise);
