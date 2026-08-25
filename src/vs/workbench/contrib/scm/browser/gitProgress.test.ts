@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 
-import { gitProgressTarget, gitProgressTitle } from "./gitProgress.ts";
+import { gitMutating, gitProgressTarget, gitProgressTitle } from "./gitProgress.ts";
 
 describe("gitProgressTitle", () => {
     it("герундий по имени операции", () => {
@@ -56,5 +57,34 @@ describe("gitProgressTarget", () => {
         for (const op of ["pull", "push", "fetch", "sync"]) {
             expect(gitProgressTarget(op)).toEqual({ viewId: SCM_CHANGES_VIEW_ID, window: true });
         }
+    });
+});
+
+describe("gitMutating", () => {
+    const action = (overrides: Partial<CommandAction> = {}): CommandAction => ({
+        id: "git.commit",
+        title: "Git: Commit",
+        run: () => undefined,
+        ...overrides,
+    });
+
+    it("вешает ключ занятости на доступность команды", () => {
+        expect(gitMutating(action()).enablement).toBe("!gitOperationInProgress");
+    });
+
+    it("своё enablement команды сохраняется и сужается", () => {
+        expect(gitMutating(action({ enablement: "gitHasRemotes" })).enablement).toBe(
+            "(gitHasRemotes) && (!gitOperationInProgress)",
+        );
+    });
+
+    it("остальные поля не трогает — в том числе when видимости", () => {
+        const original = action({ when: "gitHasRepo", shortTitle: "Commit" });
+        expect(gitMutating(original)).toMatchObject({
+            id: "git.commit",
+            title: "Git: Commit",
+            shortTitle: "Commit",
+            when: "gitHasRepo",
+        });
     });
 });

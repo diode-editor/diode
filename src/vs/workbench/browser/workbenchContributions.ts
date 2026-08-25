@@ -4,6 +4,7 @@ import { AutoRevealContributionDIToken } from "../contrib/files/browser/autoReve
 import { OpenFileCommandContributionDIToken } from "../contrib/files/browser/openFileCommandContribution.ts";
 import { OutputChannelActionsDIToken } from "../contrib/output/browser/outputChannelActions.ts";
 import { QuickDiffServiceDIToken } from "../contrib/scm/browser/quickDiffService.ts";
+import { ScmBusyContextContributionDIToken } from "../contrib/scm/browser/scmBusyContextContribution.ts";
 import { ScmStatusBarContributionDIToken } from "../contrib/scm/browser/scmStatusBarContribution.ts";
 import { ThemeConfigContributionDIToken } from "../contrib/themes/browser/themeConfigContribution.ts";
 import { HistoryServiceDIToken } from "../services/history/browser/historyService.ts";
@@ -46,4 +47,6 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: DiffSnapshotRefreshContributionDIToken, phase: "restored" },
     // Ветка + sync-счётчики в статус-баре (из repo-state git-расширения).
     { token: ScmStatusBarContributionDIToken, phase: "restored" },
+    // Ключ занятости git: на нём висит enablement мутирующих команд.
+    { token: ScmBusyContextContributionDIToken, phase: "restored" },
 ];

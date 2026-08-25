@@ -240,13 +240,15 @@ describe("git.showOutput", () => {
 
 describe("номенклатура", () => {
     it("id в стиле VS Code", () => {
+        // git.showOutput в набор не входит: он не мутирует репозиторий, а
+        // `builtinActions` вешает на этот набор enablement занятости.
         expect(REMOTE_TAG_ACTIONS.map((a) => a.id)).toEqual([
             "git.addRemote",
             "git.removeRemote",
             "git.createTag",
             "git.deleteTag",
             "git.deleteRemoteTag",
-            "git.showOutput",
         ]);
+        expect(gitShowOutputAction.id).toBe("git.showOutput");
     });
 });

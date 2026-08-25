@@ -151,6 +151,10 @@ import {
 } from "../../workbench/contrib/scm/browser/repoStateService.ts";
 import { ScmInputComponent, ScmInputComponentDIToken } from "../../workbench/contrib/scm/browser/scmInputComponent.ts";
 import {
+    ScmBusyContextContribution,
+    ScmBusyContextContributionDIToken,
+} from "../../workbench/contrib/scm/browser/scmBusyContextContribution.ts";
+import {
     ScmStatusBarContribution,
     ScmStatusBarContributionDIToken,
 } from "../../workbench/contrib/scm/browser/scmStatusBarContribution.ts";
@@ -393,6 +397,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ScmRepoStateServiceDIToken, ScmRepoStateService);
     // Ветка + sync-счётчики в статус-баре.
     container.bind(ScmStatusBarContributionDIToken, ScmStatusBarContribution);
+    container.bind(ScmBusyContextContributionDIToken, ScmBusyContextContribution);
     // Этап 11: layout-логика (сайдбар/панель + персист layout'а; сам
     // WorkbenchLayoutElement приходит от владельца view через attachLayout),
     // персист открытых редакторов, контекст-ключи workbench'а (замыкают

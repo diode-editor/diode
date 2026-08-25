@@ -1,4 +1,20 @@
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { combineWhen } from "../../../../platform/actions/common/commandAction.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
+
+/** Доступность мутирующих git-команд: пока идёт операция — недоступны. */
+const NOT_BUSY = "!gitOperationInProgress";
+
+/**
+ * Помечает команду мутирующей: её `enablement` сужается ключом занятости, и
+ * пока идёт другая операция, она гаснет во всех точках сразу (кнопка заголовка,
+ * пункт меню, кейбинд, палитра). Аналог `"enablement": "!operationInProgress"`
+ * у команд git-расширения VS Code — только объявлен одним списком в
+ * `builtinActions`, а не полем у каждой команды.
+ */
+export function gitMutating(action: CommandAction): CommandAction {
+    return { ...action, enablement: combineWhen(action.enablement, NOT_BUSY) };
+}
 
 /** Куда адресован прогресс операции и стоит ли дублировать его в статус-баре. */
 export interface IGitProgressTarget {
