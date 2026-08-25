@@ -43,6 +43,10 @@ import {
     StatusBarComponent,
     StatusBarComponentDIToken,
 } from "../../workbench/browser/parts/statusbar/statusBarComponent.ts";
+import {
+    ViewProgressContribution,
+    ViewProgressContributionDIToken,
+} from "../../workbench/browser/parts/views/viewProgressContribution.ts";
 import { ViewsService, ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
@@ -397,6 +401,7 @@ export const workbenchModule: ContainerModule = (container) => {
     // View-секции внутри вьюлета (PaneView): реестр, сборка контейнера,
     // персист свёрнутости/весов, меню «⋯».
     container.bind(ViewsServiceDIToken, ViewsService);
+    container.bind(ViewProgressContributionDIToken, ViewProgressContribution);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);
     container.bind(WorkbenchContextKeysDIToken, WorkbenchContextKeys);
     container.bind(MenuBarComponentDIToken, MenuBarComponent);
