@@ -9,10 +9,13 @@ import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContaine
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { ProgressService } from "../../../../platform/progress/common/progressService.ts";
+import { ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { Component } from "../../../browser/component.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SCM_INPUT_MESSAGE_STATE } from "../../../common/stateKeys.ts";
+import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
 import type { ScmChangesService } from "./changesService.ts";
 import { ScmChangesServiceDIToken } from "./changesService.ts";
@@ -183,6 +186,7 @@ export class ScmInputComponent extends Component {
         ScmChangesServiceDIToken,
         ScmRepoStateServiceDIToken,
         CommandRegistryDIToken,
+        ProgressServiceDIToken,
     ] as const;
 
     /** Безрамочное поле ввода (высота 1, фон `input.background`). */
@@ -198,6 +202,7 @@ export class ScmInputComponent extends Component {
         private readonly changesService: ScmChangesService,
         private readonly repoState: ScmRepoStateService,
         private readonly commands: CommandRegistry,
+        private readonly progress: ProgressService,
     ) {
         super();
         this.input.id = "scmCommitInput";
@@ -223,6 +228,7 @@ export class ScmInputComponent extends Component {
 
         this.register(this.changesService.onDidChangeChanges(() => this.updateActionButton()));
         this.register(this.repoState.onDidChangeState(() => this.updateActionButton()));
+        this.register(this.progress.onDidChange(() => this.updateActionButton()));
         this.updateActionButton();
     }
 
@@ -261,7 +267,18 @@ export class ScmInputComponent extends Component {
         });
         this.buttonCommand = state.command;
         this.actionButton.hidden = !state.visible;
+
+        // Идёт операция — подписью владеет прогресс: «⠹ Committing…». Дизейбл
+        // при этом наступает раньше подписи (isBusy истинен сразу, а показ ждёт
+        // задержку): клик обязан перестать работать мгновенно, а быстрая
+        // операция не должна мигать текстом.
+        const running = this.progress.viewProgress().get(SCM_CHANGES_VIEW_ID);
+        if (running !== undefined) {
+            this.actionButton.setLabel(`${running.spinner} ${running.title}`);
+            this.actionButton.setDisabled(true);
+            return;
+        }
         this.actionButton.setLabel(state.label);
-        this.actionButton.setDisabled(state.command === null);
+        this.actionButton.setDisabled(state.command === null || this.progress.isBusy(SCM_CHANGES_VIEW_ID));
     }
 }
