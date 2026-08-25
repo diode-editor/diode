@@ -356,11 +356,25 @@ export const allContextKeys: ContextKey[] = [
  */
 const dynamicContextKeys: string[] = [];
 
+/**
+ * Bumped whenever the set of known names grows. Consumers that compile
+ * `when`-expressions against this set (see `ContextKeyService.evaluate`) key
+ * their cache on it: a compiled function bakes in the parameter list, so a
+ * stale one would silently evaluate a later-registered key as `undefined`.
+ */
+let contextKeyNamesVersion = 0;
+
+/** Version of the known-names set — cache key for compiled `when`-expressions. */
+export function getContextKeyNamesVersion(): number {
+    return contextKeyNamesVersion;
+}
+
 /** Register extra context-key identifiers (e.g. custom-mode `mode_<name>`). Idempotent. */
 export function registerContextKeys(names: readonly string[]): void {
     for (const name of names) {
         if (!(allContextKeys as readonly string[]).includes(name) && !dynamicContextKeys.includes(name)) {
             dynamicContextKeys.push(name);
+            contextKeyNamesVersion++;
         }
     }
 }
