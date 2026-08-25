@@ -40,6 +40,10 @@ import {
 } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
 import { SidebarService, SidebarServiceDIToken } from "../../workbench/browser/parts/sidebar/sidebarService.ts";
 import {
+    ProgressStatusBarContribution,
+    ProgressStatusBarContributionDIToken,
+} from "../../workbench/browser/parts/statusbar/progressStatusBarContribution.ts";
+import {
     StatusBarComponent,
     StatusBarComponentDIToken,
 } from "../../workbench/browser/parts/statusbar/statusBarComponent.ts";
@@ -244,6 +248,7 @@ export const workbenchModule: ContainerModule = (container) => {
     // Прогресс длительных операций: модель + общий такт спиннеров (кадры
     // разбирают потребители — заголовки view и статус-бар).
     container.bind(ProgressServiceDIToken, ProgressService);
+    container.bind(ProgressStatusBarContributionDIToken, ProgressStatusBarContribution);
     // Клавиатурный диспатчер: чорды/armory/swallow + chord-хинт в статус-баре.
     // View-хуки (updateContextKeys, hasKeyboardCapturingOverlay) подключает владелец
     // корневого дерева — WorkbenchComponent.
