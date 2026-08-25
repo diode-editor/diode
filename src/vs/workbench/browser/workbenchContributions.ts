@@ -12,6 +12,7 @@ import { TerminalEnvStatusContributionDIToken } from "../services/terminalEnviro
 import { EditorStatusContributionDIToken } from "./parts/editor/editorStatusContribution.ts";
 import { PanelFocusContributionDIToken } from "./parts/panel/panelFocusContribution.ts";
 import { ViewProgressContributionDIToken } from "./parts/views/viewProgressContribution.ts";
+import { ViewTitleActionsContributionDIToken } from "./parts/views/viewTitleActionsContribution.ts";
 
 /**
  * Явный список workbench-contributions (зеркало `builtinActions`, без
@@ -29,6 +30,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Спиннеры занятости в заголовках секций: подписка должна стоять до первой
     // операции, иначе её начало пройдёт мимо.
     { token: ViewProgressContributionDIToken, phase: "restored" },
+    // Живой тулбар: кнопки заголовков реагируют на смену контекст-ключей.
+    { token: ViewTitleActionsContributionDIToken, phase: "restored" },
     // История навигации: подписки должны стоять до открытия первого файла.
     // Убрать эту строку сейчас ничего не ломает — сервис всё равно поднимается
     // раньше, когда workbenchContextKeys читает canGoBack/canGoForward. Но такая

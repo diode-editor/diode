@@ -82,6 +82,18 @@ function buttonIcons(h: IViewsHarness, viewId: string): string[] {
         .filter((text) => text !== "\u2502" && text !== "⋯");
 }
 
+/** Токены цвета inline-кнопок: по ним видно, какая из них погашена. */
+function buttonForegrounds(h: IViewsHarness, viewId: string): (string | number | undefined)[] {
+    const header = h.paneView("scm").querySelector(`#paneHeader-${viewId.replaceAll(".", "-")}`)!;
+    const [, ...rest] = header.querySelectorAll("TextLabelElement");
+    return rest
+        .filter((label) => {
+            const text = (label as TextLabelElement).getText().trim();
+            return text !== "│" && text !== "⋯";
+        })
+        .map((label) => label.style.fg);
+}
+
 function entriesOf(submenuEntry: MenuSubmenuEntry): MenuEntry[] {
     return typeof submenuEntry.entries === "function" ? submenuEntry.entries() : submenuEntry.entries;
 }
@@ -107,6 +119,42 @@ describe("ViewsService — inline-кнопки заголовка", () => {
     it("неизвестная кнопка — тихий no-op", () => {
         const h = scmHarness();
         expect(() => h.paneView("scm").onDidRequestPaneAction?.(CHANGES, "scm.ghost")).not.toThrow();
+    });
+
+    it("недоступная команда: кнопка гаснет по refreshTitleActions и не исполняется", () => {
+        const h = makeViewsHarness([
+            {
+                menuId: MenuId.ViewTitle,
+                command: "scm.refreshChanges",
+                title: "Refresh",
+                icon: "R",
+                group: "navigation",
+                enablement: "!gitOperationInProgress",
+                visible: viewMenuVisible(CHANGES),
+            },
+        ]);
+        h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
+        h.service.registerView(testView(CHANGES, "scm", 10));
+        h.service.registerView(testView(GRAPH, "scm", 20));
+        h.service.attachContainer("scm");
+        const run = vi.fn();
+        h.commands.register("scm.refreshChanges", run, "Refresh");
+        expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
+
+        h.contextKeys.set("gitOperationInProgress", true);
+        // Пока никто не пере-резолвил заголовок, кнопка выглядит прежней —
+        // именно это и чинит ViewTitleActionsContribution.
+        h.service.refreshTitleActions();
+        expect(buttonForegrounds(h, CHANGES)).toEqual(["disabledForeground"]);
+
+        h.paneView("scm").onDidRequestPaneAction?.(CHANGES, "scm.refreshChanges");
+        expect(run).not.toHaveBeenCalled();
+
+        h.contextKeys.set("gitOperationInProgress", false);
+        h.service.refreshTitleActions();
+        expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
+        h.paneView("scm").onDidRequestPaneAction?.(CHANGES, "scm.refreshChanges");
+        expect(run).toHaveBeenCalledOnce();
     });
 
     it("команда контейнера исполняется из его заголовка", () => {

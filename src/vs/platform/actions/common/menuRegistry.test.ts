@@ -7,6 +7,7 @@ import { KeybindingRegistry, parseKeybinding } from "../../keybinding/common/key
 
 import type { IMenuContribution } from "./iMenuContribution.ts";
 import { MenuId } from "./menuId.ts";
+import type { IResolvedMenuItemEntry } from "./menuRegistry.ts";
 import { MenuRegistry } from "./menuRegistry.ts";
 
 interface Harness {
@@ -328,9 +329,9 @@ describe("MenuRegistry — enablement", () => {
         ...extra,
     });
 
-    function entryOf(h: Harness): { enabled: boolean; onSelect?: () => void } {
-        const entries = h.registry.getMenuItems(MenuId.ExplorerContext);
-        return entries[0] as { enabled: boolean; onSelect?: () => void };
+    function entryOf(h: Harness): IResolvedMenuItemEntry {
+        const entries = h.registry.getMenuItemGroups(MenuId.ExplorerContext);
+        return entries[0].entries[0] as IResolvedMenuItemEntry;
     }
 
     it("без enablement пункт доступен", () => {

@@ -234,14 +234,14 @@ export class ViewsService {
         if (record.titleWidget === widget) return;
         record.titleWidget = widget;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
-        this.refreshTitleActions(entry);
+        this.refreshContainerTitleActions(entry);
     }
 
     /**
      * Кадр спиннера в заголовке секции (`null` — снять). Единственный легальный
      * вызывающий — `ViewProgressContribution`, который гонит кадры из
      * `ProgressService`; тик кадра идёт этим коротким путём, а не через
-     * `refreshTitleActions` (там резолв меню каждой секции — 10 Гц этого не
+     * `refreshContainerTitleActions` (там резолв меню каждой секции — 10 Гц этого не
      * стоят). Прогресс у незарегистрированной ещё view — молчаливый no-op:
      * ронять приложение из-за индикатора нельзя.
      */
@@ -257,7 +257,7 @@ export class ViewsService {
         // Полоса контролов таб-строки прячется, когда показывать нечего, —
         // появление и уход спиннера этот расчёт меняют. Смена самого кадра
         // (10 Гц) сюда не попадает: пересчёт резолвит меню всех секций.
-        if (appeared && this.isPanel(entry)) this.refreshTitleActions(entry);
+        if (appeared && this.isPanel(entry)) this.refreshContainerTitleActions(entry);
     }
 
     /** Контрол заголовка view, если он задан (читает отрисовка заголовка). */
@@ -578,8 +578,22 @@ export class ViewsService {
         return viewId === null ? this.containerMenuEntries(entry) : this.paneMenuEntries(entry, viewId);
     }
 
+    /**
+     * Пере-резолвить кнопки заголовков всех собранных контейнеров: `when` и
+     * `enablement` их пунктов зависят от контекст-ключей, а заголовок сам по
+     * себе пересобирается только со сменой состава секций. Единственный
+     * легальный вызывающий снаружи — `ViewTitleActionsContribution`, который
+     * дёргает это по `ContextKeyService.onDidChange`.
+     */
+    public refreshTitleActions(): void {
+        for (const entry of this.containers.values()) {
+            if (entry.paneView === null) continue;
+            this.refreshContainerTitleActions(entry);
+        }
+    }
+
     /** Пере-резолвит inline-кнопки заголовков контейнера и его видимых секций. */
-    private refreshTitleActions(entry: ContainerEntry): void {
+    private refreshContainerTitleActions(entry: ContainerEntry): void {
         const paneView = entry.paneView!;
         const headerViewId = this.headerTargetView(entry);
         for (const record of this.visibleViews(entry)) {
@@ -624,7 +638,7 @@ export class ViewsService {
      * Держит набор детей корня сайдбар-контейнера: merged обходится без
      * собственного заголовка (его роль играет заголовок единственной секции).
      * В панели корня-стопки нет — там заголовок живёт в таб-строке
-     * ({@link refreshTitleActions}).
+     * ({@link refreshContainerTitleActions}).
      */
     private syncContainerFrame(entry: ContainerEntry): void {
         const stack = entry.stack;
@@ -729,7 +743,7 @@ export class ViewsService {
         for (const view of visible) {
             paneView.setCollapsed(view.id, collapsed.has(view.id));
         }
-        this.refreshTitleActions(entry);
+        this.refreshContainerTitleActions(entry);
         this.syncContainerFrame(entry);
         this.syncExpanded(entry);
     }

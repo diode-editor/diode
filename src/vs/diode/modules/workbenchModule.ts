@@ -47,6 +47,10 @@ import {
     ViewProgressContribution,
     ViewProgressContributionDIToken,
 } from "../../workbench/browser/parts/views/viewProgressContribution.ts";
+import {
+    ViewTitleActionsContribution,
+    ViewTitleActionsContributionDIToken,
+} from "../../workbench/browser/parts/views/viewTitleActionsContribution.ts";
 import { ViewsService, ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
@@ -402,6 +406,7 @@ export const workbenchModule: ContainerModule = (container) => {
     // персист свёрнутости/весов, меню «⋯».
     container.bind(ViewsServiceDIToken, ViewsService);
     container.bind(ViewProgressContributionDIToken, ViewProgressContribution);
+    container.bind(ViewTitleActionsContributionDIToken, ViewTitleActionsContribution);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);
     container.bind(WorkbenchContextKeysDIToken, WorkbenchContextKeys);
     container.bind(MenuBarComponentDIToken, MenuBarComponent);
