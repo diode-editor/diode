@@ -24,12 +24,12 @@ describe("ViewsService — спиннер занятости", () => {
     it("кадр доезжает до заголовка своей секции и снимается", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
 
-        h.service.setViewSpinner("scm.changes", "⠋");
+        h.service.setViewSpinner("scm.changes", "◐");
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
         expect(paneBusy(h.paneView("scm"), "scm.graph")).toBe(false);
 
         // Повтор того же кадра — no-op.
-        h.service.setViewSpinner("scm.changes", "⠋");
+        h.service.setViewSpinner("scm.changes", "◐");
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
 
         h.service.setViewSpinner("scm.changes", null);
@@ -38,7 +38,7 @@ describe("ViewsService — спиннер занятости", () => {
 
     it("кадр переживает пересборку секций", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
-        h.service.setViewSpinner("scm.changes", "⠋");
+        h.service.setViewSpinner("scm.changes", "◐");
 
         // Скрытие соседа пересоздаёт панели контейнера.
         h.service.setViewVisible("scm.graph", false);
@@ -52,7 +52,7 @@ describe("ViewsService — спиннер занятости", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
         h.service.setViewVisible("scm.graph", false);
 
-        h.service.setViewSpinner("scm.graph", "⠋");
+        h.service.setViewSpinner("scm.graph", "◐");
         h.service.setViewVisible("scm.graph", true);
         expect(paneBusy(h.paneView("scm"), "scm.graph")).toBe(true);
     });
@@ -63,13 +63,13 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.registerView(testView("panel.output", PANEL, 10));
         h.service.attachContainer(PANEL);
 
-        h.service.setViewSpinner("panel.output", "⠋");
+        h.service.setViewSpinner("panel.output", "◐");
         expect(h.header(PANEL)?.inspectState()).toEqual({ title: "", busy: true });
     });
 
     it("прогресс незарегистрированной view — молчаливый no-op", () => {
         const h = scmHarness(["scm.changes"]);
-        expect(() => h.service.setViewSpinner("search", "⠋")).not.toThrow();
+        expect(() => h.service.setViewSpinner("search", "◐")).not.toThrow();
     });
 
     it("кадр до attachContainer запоминается и доезжает при показе контейнера", () => {
@@ -77,7 +77,7 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(testView("scm.changes", "scm", 10));
 
-        h.service.setViewSpinner("scm.changes", "⠋");
+        h.service.setViewSpinner("scm.changes", "◐");
         h.service.attachContainer("scm");
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
     });

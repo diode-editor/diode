@@ -50,10 +50,10 @@ describe("ProgressService", () => {
         const running = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
 
         vi.advanceTimersByTime(300);
-        expect(service.viewProgress().get(VIEW)).toEqual({ spinner: "⠋", title: "Committing…" });
+        expect(service.viewProgress().get(VIEW)).toEqual({ spinner: "◐", title: "Committing…" });
 
         vi.advanceTimersByTime(100);
-        expect(service.viewProgress().get(VIEW)?.spinner).toBe("⠙");
+        expect(service.viewProgress().get(VIEW)?.spinner).toBe("◓");
 
         task.resolve();
         await running;
@@ -114,7 +114,7 @@ describe("ProgressService", () => {
         const running = service.withProgress({ location: "window", title: "Fetching…" }, () => task.promise);
 
         vi.advanceTimersByTime(300);
-        expect(service.windowProgress()).toEqual({ spinner: "⠋", title: "Fetching…" });
+        expect(service.windowProgress()).toEqual({ spinner: "◐", title: "Fetching…" });
         expect(service.viewProgress().size).toBe(0);
         expect(service.isBusy(VIEW)).toBe(false);
         expect(service.isBusy()).toBe(true);
@@ -146,7 +146,7 @@ describe("ProgressService", () => {
         const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
         vi.advanceTimersByTime(500);
         // Показ на 300-й, тики на 400-й и 500-й — третий кадр.
-        expect(service.viewProgress().get(VIEW)?.spinner).toBe("⠹");
+        expect(service.viewProgress().get(VIEW)?.spinner).toBe("◑");
         first.resolve();
         await a;
         vi.advanceTimersByTime(10_000);
@@ -154,7 +154,7 @@ describe("ProgressService", () => {
         const second = deferred();
         const b = service.withProgress({ location: "view", viewId: VIEW, title: "Pulling…" }, () => second.promise);
         vi.advanceTimersByTime(300);
-        expect(service.viewProgress().get(VIEW)?.spinner).toBe("⠋");
+        expect(service.viewProgress().get(VIEW)?.spinner).toBe("◐");
         second.resolve();
         await b;
         vi.advanceTimersByTime(10_000);

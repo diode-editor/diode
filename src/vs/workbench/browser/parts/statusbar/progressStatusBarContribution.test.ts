@@ -38,9 +38,9 @@ describe("ProgressStatusBarContribution", () => {
         expect(texts()).toEqual([]);
 
         vi.advanceTimersByTime(300);
-        expect(texts()).toEqual(["⠋ Pushing…"]);
+        expect(texts()).toEqual(["◐ Pushing…"]);
         vi.advanceTimersByTime(100);
-        expect(texts()).toEqual(["⠙ Pushing…"]);
+        expect(texts()).toEqual(["◓ Pushing…"]);
 
         done();
         await running;

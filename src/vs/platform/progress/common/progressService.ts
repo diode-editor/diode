@@ -4,8 +4,14 @@ import { token } from "../../instantiation/common/diContainer.ts";
 
 export const ProgressServiceDIToken = token<ProgressService>("ProgressService");
 
-/** Кадры спиннера (брайль, как у VS Code/ora) — единственное определение в проекте. */
-export const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+/**
+ * Кадры спиннера — единственное определение в проекте. Полукруги, а не брайль
+ * (как у ora и прежнего статус-бара): брайльный блок U+2800 не покрыт Hack Nerd
+ * Font — эталонным шрифтом наших скриншотов и очень обычным терминальным, — и
+ * спиннер выглядел там пустым квадратом. Ширина глифа по измерению движка та же,
+ * так что раскладка не меняется.
+ */
+export const SPINNER_FRAMES = ["◐", "◓", "◑", "◒"] as const;
 
 /** Период смены кадра, мс. */
 const SPINNER_INTERVAL_MS = 100;

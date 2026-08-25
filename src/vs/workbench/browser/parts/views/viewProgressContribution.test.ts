@@ -48,9 +48,9 @@ describe("ViewProgressContribution", () => {
         expect(target.frames.size).toBe(0);
 
         vi.advanceTimersByTime(300);
-        expect(target.frames.get(CHANGES)).toBe("⠋");
+        expect(target.frames.get(CHANGES)).toBe("◐");
         vi.advanceTimersByTime(100);
-        expect(target.frames.get(CHANGES)).toBe("⠙");
+        expect(target.frames.get(CHANGES)).toBe("◓");
 
         done();
         await running;
@@ -72,7 +72,7 @@ describe("ViewProgressContribution", () => {
             }),
         );
         vi.advanceTimersByTime(300);
-        expect(target.frames.get(GRAPH)).toBe("⠋");
+        expect(target.frames.get(GRAPH)).toBe("◐");
         expect(target.frames.has(CHANGES)).toBe(false);
 
         doneGraph();

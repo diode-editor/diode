@@ -358,7 +358,7 @@ describe("ScmInputComponent — кнопка во время операции", 
 
         vi.advanceTimersByTime(300);
         expect(h.component.actionButton.inspectState()).toMatchObject({
-            label: "⠋ Committing…",
+            label: "◐ Committing…",
             disabled: true,
         });
 
