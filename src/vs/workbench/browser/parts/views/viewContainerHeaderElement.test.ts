@@ -62,9 +62,9 @@ describe("ViewContainerHeaderElement", () => {
         const { header } = makeHeader();
         expect(header.getMinIntrinsicHeight(30)).toBe(1);
         expect(header.getMaxIntrinsicHeight(30)).toBe(1);
-        expect(header.inspectState()).toEqual({ title: "SOURCE CONTROL" });
+        expect(header.inspectState()).toEqual({ title: "SOURCE CONTROL", busy: false });
         header.setTitle("SCM");
-        expect(header.inspectState()).toEqual({ title: "SCM" });
+        expect(header.inspectState()).toEqual({ title: "SCM", busy: false });
     });
 
     it("клик по ⋯ открывает меню, клик по кнопке — её действие", () => {

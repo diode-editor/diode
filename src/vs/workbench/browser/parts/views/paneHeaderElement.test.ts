@@ -53,6 +53,7 @@ describe("PaneHeaderElement", () => {
             expanded: false,
             dragEnabled: true,
             collapsible: true,
+            busy: false,
         });
     });
 

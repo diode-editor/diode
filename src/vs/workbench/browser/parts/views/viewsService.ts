@@ -103,6 +103,8 @@ interface ViewRecord {
     readonly canToggleVisibility: boolean;
     body: TUIElement | null;
     titleWidget: TUIElement | null;
+    /** Кадр спиннера занятости; живёт в записи, чтобы пережить пересборку секций. */
+    spinner: string | null;
     /** Контрол пустого состояния — создаётся лениво и переиспользуется. */
     placeholderView: TUIElement | null;
 }
@@ -198,6 +200,7 @@ export class ViewsService {
             canToggleVisibility: descriptor.canToggleVisibility ?? true,
             body: descriptor.body,
             titleWidget: null,
+            spinner: null,
             placeholderView: null,
         });
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
@@ -228,6 +231,29 @@ export class ViewsService {
         record.titleWidget = widget;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
         this.refreshTitleActions(entry);
+    }
+
+    /**
+     * Кадр спиннера в заголовке секции (`null` — снять). Единственный легальный
+     * вызывающий — `ViewProgressContribution`, который гонит кадры из
+     * `ProgressService`; тик кадра идёт этим коротким путём, а не через
+     * `refreshTitleActions` (там резолв меню каждой секции — 10 Гц этого не
+     * стоят). Прогресс у незарегистрированной ещё view — молчаливый no-op:
+     * ронять приложение из-за индикатора нельзя.
+     */
+    public setViewSpinner(viewId: string, frame: string | null): void {
+        const found = this.findRecord(viewId);
+        if (found === undefined) return;
+        const { entry, record } = found;
+        if (record.spinner === frame) return;
+        const appeared = (record.spinner === null) !== (frame === null);
+        record.spinner = frame;
+        if (entry.paneView === null || entry.hidden.has(viewId)) return;
+        this.applySpinner(entry, record);
+        // Полоса контролов таб-строки прячется, когда показывать нечего, —
+        // появление и уход спиннера этот расчёт меняют. Смена самого кадра
+        // (10 Гц) сюда не попадает: пересчёт резолвит меню всех секций.
+        if (appeared && this.isPanel(entry)) this.refreshTitleActions(entry);
     }
 
     /** Контрол заголовка view, если он задан (читает отрисовка заголовка). */
@@ -560,19 +586,34 @@ export class ViewsService {
             // Пустое меню кнопкой не показываем: «⋯», которая ничего не
             // открывает, выглядит как сломанная (так было у Explorer'а).
             paneView.setPaneMenuVisible(record.id, this.paneMenuPossible(entry, record.id));
+            // Заголовки только что пересоздались — вернуть им кадр спиннера,
+            // иначе операция, начатая до пересборки, теряет индикацию.
+            this.applySpinner(entry, record);
         }
         // Заголовок создан в attachContainer до первой пересборки секций.
         const header = entry.header!;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
         if (!this.isPanel(entry)) return;
-        const widget = headerViewId === null ? null : this.recordOrThrow(headerViewId).record.titleWidget;
+        const headerRecord = headerViewId === null ? null : this.recordOrThrow(headerViewId).record;
+        const widget = headerRecord?.titleWidget ?? null;
         header.setTitleWidget(widget);
         const hasMenu = this.titleMenuPossible(entry);
         header.setMenuVisible(hasMenu);
         // Пустой полосе в таб-строке места не даём — вкладка выглядит как раньше.
-        const empty = actions.length === 0 && widget === null && !hasMenu;
+        // Спиннер занятости — тоже содержимое: без него полоса со спиннером
+        // осталась бы неприкреплённой, и прогресс секции панели было бы не видно.
+        const empty = actions.length === 0 && widget === null && !hasMenu && headerRecord?.spinner == null;
         this.panelService.setViewActions(entry.descriptor!.id, empty ? null : header);
+    }
+
+    /**
+     * Кладёт кадр туда, где сейчас живёт заголовок секции: у merged-секции
+     * панели его роль играет полоса контролов таб-строки.
+     */
+    private applySpinner(entry: ContainerEntry, record: ViewRecord): void {
+        if (this.headerTargetView(entry) === record.id) entry.header!.setSpinnerFrame(record.spinner);
+        else entry.paneView!.setPaneSpinner(record.id, record.spinner);
     }
 
     /**
@@ -598,11 +639,17 @@ export class ViewsService {
     }
 
     private recordOrThrow(viewId: string): { entry: ContainerEntry; record: ViewRecord } {
+        const found = this.findRecord(viewId);
+        if (found === undefined) throw new Error(`ViewsService: unknown view id "${viewId}"`);
+        return found;
+    }
+
+    private findRecord(viewId: string): { entry: ContainerEntry; record: ViewRecord } | undefined {
         for (const entry of this.containers.values()) {
             const record = entry.views.find((v) => v.id === viewId);
             if (record !== undefined) return { entry, record };
         }
-        throw new Error(`ViewsService: unknown view id "${viewId}"`);
+        return undefined;
     }
 
     private ensureEntry(containerId: string): ContainerEntry {

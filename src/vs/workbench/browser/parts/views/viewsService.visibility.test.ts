@@ -68,7 +68,7 @@ describe("ViewsService — видимость секций", () => {
         });
 
         h.service.setViewVisible("scm.graph", true);
-        expect(h.header("scm")!.inspectState()).toEqual({ title: "SOURCE CONTROL" });
+        expect(h.header("scm")!.inspectState()).toEqual({ title: "SOURCE CONTROL", busy: false });
         expect(h.paneView("scm").querySelector("#paneHeader-scm-changes")!.inspectState()).toMatchObject({
             title: "SCM.CHANGES",
             collapsible: true,

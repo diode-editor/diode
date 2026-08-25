@@ -135,6 +135,11 @@ export class PaneHeaderElement extends TUIElement {
         this.row.setTitleWidget(widget);
     }
 
+    /** Кадр спиннера занятой секции (см. {@link ViewTitleRowElement.setSpinnerFrame}). */
+    public setSpinnerFrame(frame: string | null): void {
+        this.row.setSpinnerFrame(frame);
+    }
+
     /** Прятать ли «⋯» (см. {@link ViewTitleRowElement.setMenuVisible}). */
     public setMenuVisible(visible: boolean): void {
         this.row.setMenuVisible(visible);
@@ -192,6 +197,7 @@ export class PaneHeaderElement extends TUIElement {
             expanded: this.row.isExpanded,
             dragEnabled: this.dragEnabled,
             collapsible: this.collapsible,
+            busy: this.row.isBusy,
         };
     }
 }

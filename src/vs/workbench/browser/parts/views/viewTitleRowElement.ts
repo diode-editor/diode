@@ -66,6 +66,7 @@ export class ViewTitleRowElement extends HFlexElement {
 
     private title: string;
     private expanded = true;
+    private spinner: string | null = null;
     private actions: readonly IViewTitleAction[] = [];
     private actionLabels: TextLabelElement[] = [];
     private titleWidget: TUIElement | null = null;
@@ -119,6 +120,23 @@ export class ViewTitleRowElement extends HFlexElement {
         this.syncChildren();
     }
 
+    /**
+     * Кадр спиннера сразу после названия (`null` — секция не занята). Кадры
+     * гонит `ProgressService`, элемент сам ничего не анимирует. Место выбрано
+     * так, чтобы ряд кнопок не дёргался: лишние колонки съедает филлер, а
+     * `hitZone` считает зоны по разложенным ширинам и пересчитывается сам.
+     */
+    public setSpinnerFrame(frame: string | null): void {
+        if (this.spinner === frame) return;
+        this.spinner = frame;
+        this.titleLabel.setText(this.composeTitle());
+    }
+
+    /** Занята ли секция — наблюдаемость для инспектора/e2e (сам кадр крутится, его не отдаём). */
+    public get isBusy(): boolean {
+        return this.spinner !== null;
+    }
+
     /** Произвольный контрол между названием и кнопками (переключатель каналов Output). */
     public setTitleWidget(widget: TUIElement | null): void {
         if (this.titleWidget === widget) return;
@@ -170,8 +188,9 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 
     private composeTitle(): string {
-        if (!this.chevron) return ` ${this.title}`;
-        return ` ${this.expanded ? ICON_EXPANDED : ICON_COLLAPSED} ${this.title}`;
+        const tail = this.spinner === null ? "" : ` ${this.spinner}`;
+        if (!this.chevron) return ` ${this.title}${tail}`;
+        return ` ${this.expanded ? ICON_EXPANDED : ICON_COLLAPSED} ${this.title}${tail}`;
     }
 
     private syncChildren(): void {
