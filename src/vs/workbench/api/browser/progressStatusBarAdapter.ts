@@ -1,8 +1,6 @@
+import { SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
 import type { IProgressSink } from "../../services/extensions/node/extensionHost.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
-
-/** Кадры спиннера (брайль, как у VS Code/ora). */
-const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
 /** Период смены кадра спиннера, мс. */
 const SPINNER_INTERVAL_MS = 100;

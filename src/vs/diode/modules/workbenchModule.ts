@@ -11,6 +11,7 @@ import {
     ContextMenuServiceDIToken,
 } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
+import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
 import { QuitHandlerDIToken } from "../../workbench/browser/actions/appActions.ts";
 import { MENU_CONTRIBUTIONS } from "../../workbench/browser/actions/menuContributions.ts";
 import { MenuBarComponent, MenuBarComponentDIToken } from "../../workbench/browser/menuBarComponent.ts";
@@ -228,6 +229,9 @@ const KNOWN_OUTPUT_CHANNELS: readonly (readonly [id: string, label: string])[] =
 
 export const workbenchModule: ContainerModule = (container) => {
     container.bind(StatusBarServiceDIToken, StatusBarService);
+    // Прогресс длительных операций: модель + общий такт спиннеров (кадры
+    // разбирают потребители — заголовки view и статус-бар).
+    container.bind(ProgressServiceDIToken, ProgressService);
     // Клавиатурный диспатчер: чорды/armory/swallow + chord-хинт в статус-баре.
     // View-хуки (updateContextKeys, hasKeyboardCapturingOverlay) подключает владелец
     // корневого дерева — WorkbenchComponent.
