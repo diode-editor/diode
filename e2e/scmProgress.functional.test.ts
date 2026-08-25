@@ -83,6 +83,10 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
             return state.disabled === true && (state.label ?? "").includes("Committing");
         });
 
+        // Пока занято, повторный Ctrl+Enter ничего не запускает: команда
+        // недоступна (enablement), а не встаёт второй в очередь мутаций.
+        await session.key("Ctrl+Enter", { settle: false });
+
         // Хук отработал: спиннер снят, кнопка вернулась, коммит на месте.
         await session.waitForState(
             "#paneHeader-workbench-scm-changes",
@@ -93,5 +97,7 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
             timeoutMs: 30_000,
         });
         expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: repo }).toString().trim()).toBe("feat: slow");
+        // Ровно один коммит поверх init — второе нажатие ушло в никуда.
+        expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("2");
     }, 180_000);
 });

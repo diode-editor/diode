@@ -312,6 +312,8 @@ expect(ed?.state?.hasSelection).toBe(true);
 - `npm run screenshots` — прогоняет все сценарии, пишет PNG в `screenshots/` (в `.gitignore`) + `screenshots/INDEX.md`-галерею.
 - `e2e/scenarios.test.ts` гоняет те же сценарии в `npm run test:e2e` (и в CI) — страховка, чтобы демо не протухли; функциональных ассертов там нет.
 
+**Анимация ломает settle.** Settling-глаголы (`sendKey`, `sendText`, клики) ждут «кадр устоялся» — 40 мс без новых кадров. Пока в заголовке крутится спиннер прогресса, такой тишины не наступает, и каждый settling-ввод честно висит до таймаута. Поэтому во время живой анимации шлём только `waitForText`/`waitForState`/`captureFrame`, а если ввод всё же нужен — с `settle: false` (см. `e2e/scmProgress.functional.test.ts` и сценарий `scmProgress`). Долгую операцию для демо делает настоящий `pre-commit`-хук со `sleep` — медленным становится сам git, а не наш код.
+
 ### Политика: визуальные фичи требуют скриншот-демо
 
 Фича с видимой/внешней составляющей обязана добавить/обновить сценарий в `e2e/scenarios/` и приложить PNG к PR (правило — в [AGENTS.md](../AGENTS.md)).

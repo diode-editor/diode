@@ -416,6 +416,23 @@ UI-подтверждения. Ручной прогон после релиза
       Гейт: `extensions/git/git.watch.integration.test.ts`, сценарий-демо
       `scmLiveWatch`.
 
+- [x] **14. Прогресс операций** — спиннер после названия занятой секции
+      (`CHANGES ◐`) и в подписи кнопки Commit/Sync («◐ Committing…»), долгие
+      сетевые операции дублируются записью статус-бара; мутирующие git-команды на
+      это время гаснут через `enablement: !gitOperationInProgress` (аналог
+      `operationInProgress` git-расширения VS Code). Модель и такт — общий
+      `ProgressService` (`platform/progress`), обёртка стоит внутри транспортных
+      швов (`runGitOp`, `runGitTransport`), потому что промис операции наверху не
+      ждёт никто. Гейт: `e2e/scmProgress.functional.test.ts` (настоящий
+      pre-commit-хук со `sleep`), сценарий-демо `scmProgress`.
+      Осознанно не покрыто: занятость **расширения** наружу не публикуется, так
+      что фоновый refresh по watcher'у и чужая операция в очереди мутаций
+      спиннера не дают. Follow-up — push-канал `diode.scm.publishBusy`.
+      Не сделано из-за движка: пункты попапа «⋯» на время операции остаются
+      обычными на вид (у `MenuItemEntry` в `@tuidom/elements` нет `disabled` —
+      см. [WorkbenchContributions.md](WorkbenchContributions.md)); исполнить их
+      всё равно нельзя.
+
 ## Покрытие автоматизацией (снимок на момент реализации)
 
 - **US-1…US-20** — функциональные e2e на SEA-бинаре: `e2e/scmStaging.functional.test.ts`
