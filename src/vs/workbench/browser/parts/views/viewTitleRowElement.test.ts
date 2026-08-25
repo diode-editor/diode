@@ -163,6 +163,55 @@ describe("ViewTitleRowElement — подсветка под курсором", (
     });
 });
 
+describe("ViewTitleRowElement — недоступная кнопка", () => {
+    const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
+    const DISABLED_FG = theme.getColor("disabledForeground")!;
+    const ENABLED_FG = theme.getColor("descriptionForeground")!;
+    const HOVER_BG = theme.getColor("toolbar.hoverBackground")!;
+
+    function render(row: ViewTitleRowElement): ReturnType<typeof renderElement> {
+        return renderElement(row, 30, 1, { themeVars: true });
+    }
+
+    it("рисуется приглушённой, доступная — обычной", () => {
+        const row = new ViewTitleRowElement("GRAPH");
+        row.setActions([{ id: "cmd.refresh", icon: "R", enabled: false }]);
+        layout(row);
+        expect(render(row).getFgAt(new Point(24, 0))).toBe(DISABLED_FG);
+
+        row.setActions([{ id: "cmd.refresh", icon: "R", enabled: true }]);
+        layout(row);
+        expect(render(row).getFgAt(new Point(24, 0))).toBe(ENABLED_FG);
+    });
+
+    it("смена только доступности пересобирает кнопки", () => {
+        // Регресс на sameActions: ранний выход setActions не должен съедать
+        // смену enabled — иначе кнопка навсегда остаётся в исходном виде.
+        const row = new ViewTitleRowElement("GRAPH");
+        row.setActions([{ id: "cmd.refresh", icon: "R" }]);
+        layout(row);
+        expect(render(row).getFgAt(new Point(24, 0))).toBe(ENABLED_FG);
+
+        row.setActions([{ id: "cmd.refresh", icon: "R", enabled: false }]);
+        layout(row);
+        expect(render(row).getFgAt(new Point(24, 0))).toBe(DISABLED_FG);
+    });
+
+    it("под курсором не подсвечивается, но зону сохраняет", () => {
+        const row = new ViewTitleRowElement("GRAPH");
+        row.setActions([{ id: "cmd.refresh", icon: "R", enabled: false }]);
+        layout(row);
+
+        const zone = row.hitZone(24);
+        // Зона остаётся за кнопкой: без неё клик провалился бы в заголовок и
+        // свернул секцию.
+        expect(zone).toEqual({ kind: "action", actionId: "cmd.refresh" });
+
+        row.setHoveredZone(zone);
+        expect(render(row).getBgAt(new Point(24, 0))).not.toBe(HOVER_BG);
+    });
+});
+
 describe("ViewTitleRowElement — спиннер занятости", () => {
     it("кадр встаёт сразу после названия и снимается обратно", () => {
         const row = layout(new ViewTitleRowElement("CHANGES"));

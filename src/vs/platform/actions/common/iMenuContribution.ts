@@ -16,6 +16,12 @@ export interface IMenuContribution {
     /** Условие видимости через контекст-ключи (`ContextKeyService.evaluate`). */
     readonly when?: string;
     /**
+     * When-выражение доступности (VS Code `enablement`): в отличие от `when`,
+     * пункт остаётся на месте, но гасится и не исполняется. Деривируется из
+     * экшена — `CommandAction.enablement` AND `CommandMenuPlacement.enablement`.
+     */
+    readonly enablement?: string;
+    /**
      * Императивная видимость по контексту открытия — escape-hatch для состояния,
      * не отражённого в контекст-ключах (например непустой буфер обмена файлов).
      */

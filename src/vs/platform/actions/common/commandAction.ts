@@ -1,5 +1,6 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
+import { ContextKeyServiceDIToken } from "../../contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../instantiation/common/diContainer.ts";
 import type { Keybinding, KeybindingChord, KeybindingRegistry } from "../../keybinding/common/keybindingRegistry.ts";
 
@@ -32,6 +33,8 @@ export interface CommandMenuPlacement {
     readonly title?: string;
     /** Условие видимости через контекст-ключи (`ContextKeyService.evaluate`). */
     readonly when?: string;
+    /** Сужает {@link CommandAction.enablement} для этого размещения (AND). */
+    readonly enablement?: string;
     /** Императивная видимость по контексту открытия (см. `IMenuContribution.visible`). */
     readonly visible?: (context: unknown) => boolean;
     /** When-выражение «пункт сейчас включён» — галочка в иконной колонке (см. `IMenuContribution.toggled`). */
@@ -59,6 +62,13 @@ export interface CommandAction {
     readonly keybindings?: KeybindingEntry[];
     /** Action-wide when, AND-ed with any per-binding when. */
     readonly when?: string;
+    /**
+     * When-выражение «команду сейчас можно исполнить» (аналог `precondition`
+     * VS Code, поле `enablement` в манифесте расширения). Отличие от `when`:
+     * тот прячет пункт, а этот его гасит — пункт остаётся на месте, но
+     * приглушён и не исполняется. Отсутствие = доступно всегда.
+     */
+    readonly enablement?: string;
     /** Co-located размещения в меню (см. {@link CommandMenuPlacement}). */
     readonly menus?: readonly CommandMenuPlacement[];
     run(accessor: ServiceAccessor, ...args: unknown[]): unknown;
@@ -82,7 +92,18 @@ export function registerAction(
 ): IDisposable {
     const disposables: IDisposable[] = [];
 
-    disposables.push(commands.register(action.id, (...args: unknown[]) => action.run(accessor, ...args), action.title));
+    // Guard доступности — на самой команде: так `enablement` накрывает ВСЕ пути
+    // запуска (пункт меню, inline-кнопка, кейбинд, палитра, программный
+    // execute), а не только те, что рисуют пункт. Сервис резолвим лениво и
+    // только когда `enablement` есть: команды без него не должны требовать его
+    // биндинга (минимальные контейнеры тестов экшенов).
+    const handler = (...args: unknown[]): unknown => {
+        if (action.enablement !== undefined && !accessor.get(ContextKeyServiceDIToken).evaluate(action.enablement)) {
+            return undefined;
+        }
+        return action.run(accessor, ...args);
+    };
+    disposables.push(commands.register(action.id, handler, action.title, action.enablement));
 
     const allBindings: KeybindingEntry[] = [];
     if (action.keybinding) {
@@ -92,11 +113,15 @@ export function registerAction(
         allBindings.push(...action.keybindings);
     }
 
+    // `enablement` складывается в when биндинга — так же, как VS Code кладёт
+    // `precondition` в правило кейбинда. Иначе диспетчер нашёл бы биндинг,
+    // проглотил клавишу и не сделал ничего; а так она уходит дальше по цепочке.
+    const scope = combineWhen(action.when, action.enablement);
     for (const entry of allBindings) {
         const { keys, when } = isConditionalKeybinding(entry)
             ? { keys: entry.keys, when: entry.when }
             : { keys: entry, when: undefined };
-        disposables.push(keybindings.register(keys, action.id, combineWhen(action.when, when)));
+        disposables.push(keybindings.register(keys, action.id, combineWhen(scope, when)));
     }
 
     return {

@@ -320,3 +320,47 @@ describe("MenuRegistry", () => {
         expect(changed).toEqual([]);
     });
 });
+
+describe("MenuRegistry — enablement", () => {
+    const item = (extra: Partial<IMenuContribution> = {}): IMenuContribution => ({
+        menuId: MenuId.ExplorerContext,
+        command: "git.commit",
+        ...extra,
+    });
+
+    function entryOf(h: Harness): { enabled: boolean; onSelect?: () => void } {
+        const entries = h.registry.getMenuItems(MenuId.ExplorerContext);
+        return entries[0] as { enabled: boolean; onSelect?: () => void };
+    }
+
+    it("без enablement пункт доступен", () => {
+        expect(entryOf(setup([item()])).enabled).toBe(true);
+    });
+
+    it("ложный enablement гасит пункт, но НЕ прячет его", () => {
+        const h = setup([item({ enablement: "!gitOperationInProgress" })]);
+        h.contextKeys.set("gitOperationInProgress", true);
+
+        const entries = h.registry.getMenuItems(MenuId.ExplorerContext);
+        // В отличие от `when`, пункт остаётся в списке — гасится, а не исчезает.
+        expect(entries).toHaveLength(1);
+        expect(entryOf(h).enabled).toBe(false);
+    });
+
+    it("погашенный пункт не исполняет команду", () => {
+        const h = setup([item({ enablement: "!gitOperationInProgress" })]);
+        h.contextKeys.set("gitOperationInProgress", true);
+        entryOf(h).onSelect?.();
+        expect(h.executed).toEqual([]);
+
+        h.contextKeys.set("gitOperationInProgress", false);
+        entryOf(h).onSelect?.();
+        expect(h.executed).toHaveLength(1);
+    });
+
+    it("видимость кнопки «⋯» к доступности равнодушна", () => {
+        const h = setup([item({ enablement: "!gitOperationInProgress" })]);
+        h.contextKeys.set("gitOperationInProgress", true);
+        expect(h.registry.hasItems(MenuId.ExplorerContext)).toBe(true);
+    });
+});

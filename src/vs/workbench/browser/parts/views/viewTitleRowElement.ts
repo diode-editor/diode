@@ -29,6 +29,11 @@ export interface IViewTitleAction {
     /** Что вернёт {@link ViewTitleRowElement.hitZone}; обычно id команды. */
     readonly id: string;
     readonly icon: string;
+    /**
+     * `false` — команда сейчас недоступна (`enablement` пункта): кнопка остаётся
+     * на месте, но приглушена и не срабатывает. По умолчанию — доступна.
+     */
+    readonly enabled?: boolean;
 }
 
 /** Куда попал клик по строке заголовка. */
@@ -78,7 +83,8 @@ export class ViewTitleRowElement extends HFlexElement {
         this.chevron = options?.chevron ?? true;
         this.titleLabel = new TextLabelElement(this.composeTitle());
         this.menuLabel = new TextLabelElement(buttonLabel(MENU_ICON));
-        this.menuLabel.style = buttonStyle();
+        // «⋯» доступна всегда: она открывает попап, а не исполняет команду.
+        this.menuLabel.style = buttonStyle(true);
         this.syncChildren();
     }
 
@@ -196,7 +202,7 @@ export class ViewTitleRowElement extends HFlexElement {
     private syncChildren(): void {
         this.actionLabels = this.actions.map((action) => {
             const label = new TextLabelElement(buttonLabel(action.icon));
-            label.style = buttonStyle();
+            label.style = buttonStyle(action.enabled !== false);
             label.layoutStyle = { width: hflexFixed(BUTTON_WIDTH), height: 1 };
             return label;
         });
@@ -226,7 +232,10 @@ export class ViewTitleRowElement extends HFlexElement {
  * владелец через {@link ViewTitleRowElement.setHoveredZone}, потому что сами
  * лейблы в хит-тесте не участвуют.
  */
-function buttonStyle(): TUIElement["style"] {
+function buttonStyle(enabled: boolean): TUIElement["style"] {
+    // У выключенной кнопки hover-варианта нет вовсе: подсвеченный фон читался бы
+    // как «нажимается», а она не нажимается.
+    if (!enabled) return { fg: "disabledForeground" };
     return {
         fg: "descriptionForeground",
         when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }],
@@ -253,5 +262,16 @@ function inZone(label: TextLabelElement, localX: number): boolean {
 }
 
 function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleAction[]): boolean {
-    return a.length === b.length && a.every((action, i) => action.id === b[i].id && action.icon === b[i].icon);
+    // Доступность обязана участвовать в сравнении: иначе ранний выход setActions
+    // съедает её смену, и кнопка навсегда остаётся в том виде, в каком её
+    // собрали первый раз.
+    return (
+        a.length === b.length &&
+        a.every(
+            (action, i) =>
+                action.id === b[i].id &&
+                action.icon === b[i].icon &&
+                (action.enabled !== false) === (b[i].enabled !== false),
+        )
+    );
 }

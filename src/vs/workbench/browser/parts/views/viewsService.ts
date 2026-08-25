@@ -1,11 +1,15 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
-import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
+import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { isSubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import type { IMenuEntryGroup } from "../../../../platform/actions/common/menuRegistry.ts";
+import type {
+    IMenuEntryGroup,
+    IResolvedMenuItemEntry,
+    ResolvedMenuEntry,
+} from "../../../../platform/actions/common/menuRegistry.ts";
 import { CHECKED_ICON, joinMenuGroups } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
@@ -761,7 +765,9 @@ function containerPaneTitle(entry: ContainerEntry): string {
 function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAction[] {
     const navigation = groups.find((group) => group.group === NAVIGATION_GROUP);
     if (navigation === undefined) return [];
-    return navigation.entries.filter(isInlineItem).map((entry) => ({ id: entry.id, icon: entry.icon }));
+    return navigation.entries
+        .filter(isInlineItem)
+        .map((entry) => ({ id: entry.id, icon: entry.icon, enabled: entry.enabled }));
 }
 
 /** Пункты попапа «⋯»: всё, что не уехало в inline-кнопки. */
@@ -779,14 +785,16 @@ function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
     for (const group of groups) {
         for (const entry of group.entries) {
             if (isInlineItem(entry) && entry.id === actionId) {
-                entry.onSelect?.();
+                // Погашенная кнопка кликается (зона за ней осталась, иначе клик
+                // свернул бы секцию), но ничего не делает.
+                if (entry.enabled) entry.onSelect?.();
                 return;
             }
         }
     }
 }
 
-function isInlineItem(entry: MenuEntry): entry is MenuItemEntry & { id: string; icon: string } {
+function isInlineItem(entry: ResolvedMenuEntry): entry is IResolvedMenuItemEntry & { id: string; icon: string } {
     return entry.type === undefined && typeof entry.id === "string" && typeof entry.icon === "string";
 }
 

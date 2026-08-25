@@ -140,6 +140,12 @@ export interface ContextKeyTypes {
     gitMerging: boolean;
     gitRebasing: boolean;
     gitDetached: boolean;
+    /**
+     * Идёт git-операция, запущенная из UI (аналог `operationInProgress` в
+     * git-расширении VS Code): мутирующие команды на это время гасятся через
+     * `enablement`. Публикует `ScmBusyContextContribution` из `ProgressService`.
+     */
+    gitOperationInProgress: boolean;
     // sideBarVisible: boolean;
     // sideBarFocus: boolean;
     // panelFocus: boolean;
@@ -302,6 +308,7 @@ export const allContextKeys: ContextKey[] = [
     "gitMerging",
     "gitRebasing",
     "gitDetached",
+    "gitOperationInProgress",
     // "sideBarVisible",
     // "sideBarFocus",
     // "panelFocus",

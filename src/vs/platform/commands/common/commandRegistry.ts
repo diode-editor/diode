@@ -8,13 +8,26 @@ export type CommandHandler = (...args: unknown[]) => unknown;
 interface CommandEntry {
     handler: CommandHandler;
     title?: string;
+    enablement?: string;
+}
+
+/** Запись реестра для потребителей, которые перечисляют команды (палитра). */
+export interface ICommandSnapshot {
+    readonly id: string;
+    readonly title: string;
+    /**
+     * When-выражение доступности, если объявлено экшеном. Реестр его НЕ
+     * проверяет — принуждением занимается сам хендлер (`registerAction`);
+     * здесь это метаданные для тех, кто рисует список команд.
+     */
+    readonly enablement?: string;
 }
 
 export class CommandRegistry implements IDisposable {
     private entries = new Map<string, CommandEntry>();
 
-    public register(id: string, handler: CommandHandler, title?: string): IDisposable {
-        this.entries.set(id, { handler, title });
+    public register(id: string, handler: CommandHandler, title?: string, enablement?: string): IDisposable {
+        this.entries.set(id, { handler, title, enablement });
         return {
             dispose: () => {
                 if (this.entries.get(id)?.handler === handler) {
@@ -39,11 +52,11 @@ export class CommandRegistry implements IDisposable {
         return this.entries.get(id)?.title;
     }
 
-    public listCommands(): { id: string; title: string }[] {
-        const result: { id: string; title: string }[] = [];
+    public listCommands(): ICommandSnapshot[] {
+        const result: ICommandSnapshot[] = [];
         for (const [id, entry] of this.entries) {
             if (entry.title !== undefined) {
-                result.push({ id, title: entry.title });
+                result.push({ id, title: entry.title, enablement: entry.enablement });
             }
         }
         return result;

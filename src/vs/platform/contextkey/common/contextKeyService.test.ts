@@ -112,12 +112,12 @@ describe("ContextKeyService", () => {
 
             ctx.set("textInputFocus", true);
             ctx.set("listFocus", true);
-            ctx.set("editorLangId", "typescript");
+            ctx.set("activeOutputChannel", "extensions.host");
             expect(listener).not.toHaveBeenCalled();
 
             await Promise.resolve();
             expect(listener).toHaveBeenCalledTimes(1);
-            expect(listener.mock.calls[0][0]).toEqual(new Set(["textInputFocus", "listFocus", "editorLangId"]));
+            expect(listener.mock.calls[0][0]).toEqual(new Set(["textInputFocus", "listFocus", "activeOutputChannel"]));
         });
 
         it("запись того же значения событием не считается", async () => {
