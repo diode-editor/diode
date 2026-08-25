@@ -4,7 +4,9 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 
 import { runGitOp } from "./gitOpClient.ts";
-import { GRAPH_LOAD_MORE_COMMAND, SCM_GRAPH_VIEW_ID } from "./graphViewComponent.ts";
+import { SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
+
+import { GRAPH_LOAD_MORE_COMMAND } from "./graphViewComponent.ts";
 
 /** nf-cod-refresh — inline-кнопка заголовка секции GRAPH. */
 const REFRESH_ICON = "\ueb37";

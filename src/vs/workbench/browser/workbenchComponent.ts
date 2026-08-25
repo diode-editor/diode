@@ -31,7 +31,8 @@ import { DiagnosticsServiceDIToken } from "../contrib/markers/browser/diagnostic
 import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
 import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
-import { ChangesComponent, ChangesComponentDIToken, SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
+import { ChangesComponent, ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
+import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
 import { ScmRepoStateServiceDIToken } from "../contrib/scm/browser/repoStateService.ts";
 import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";

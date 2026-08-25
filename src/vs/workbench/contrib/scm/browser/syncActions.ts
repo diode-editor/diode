@@ -7,7 +7,7 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import type { GitOpResult } from "../common/gitProtocol.ts";
 
-import { SCM_CHANGES_VIEW_ID } from "./changesComponent.ts";
+import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 import { GitPullPushMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";

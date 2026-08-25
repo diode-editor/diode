@@ -18,7 +18,9 @@ import {
     scmViewAsTreeAction,
     showScmAction,
 } from "./changesActions.ts";
-import { ChangesComponentDIToken, SCM_VIEWLET_ID } from "./changesComponent.ts";
+import { SCM_VIEWLET_ID } from "../common/scmViews.ts";
+
+import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 // scm.action.openChanges покрыт сквозными тестами workbench.changes.test.ts
