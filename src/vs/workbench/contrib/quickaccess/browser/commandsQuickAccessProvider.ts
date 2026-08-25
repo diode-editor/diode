@@ -34,7 +34,13 @@ export class CommandsQuickAccessProvider implements IQuickAccessProvider {
 
     public getItems(query: string): QuickAccessItem[] {
         const filter = query.slice(CommandsQuickAccessProvider.PREFIX.length).trimStart();
-        const all = this.commands.listCommands();
+        // Недоступную сейчас команду не показываем вовсе — так же поступает
+        // VS Code: `precondition` уезжает в `when` пункта палитры. Гасить пункт
+        // на месте мы не умеем, а показывать неработающий — хуже, чем не
+        // показывать (исполнить его всё равно не даст guard самой команды).
+        const all = this.commands
+            .listCommands()
+            .filter((cmd) => cmd.enablement === undefined || this.contextKeys.evaluate(cmd.enablement));
         const filterLower = filter.toLowerCase();
 
         const matched = filterLower === "" ? all : all.filter((cmd) => cmd.title.toLowerCase().includes(filterLower));

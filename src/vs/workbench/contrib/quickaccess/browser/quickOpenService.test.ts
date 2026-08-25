@@ -511,6 +511,23 @@ describe("QuickOpenService — commands mode", () => {
         expect(labels).toContain("Command B");
     });
 
+    it("недоступная сейчас команда в палитре не показывается", () => {
+        function labelsWhenBusy(busy: boolean): string[] {
+            const { service, commands, contextKeys, view } = createService();
+            commands.register("git.commit", () => {}, "Git: Commit", "!gitOperationInProgress");
+            commands.register("git.showOutput", () => {}, "Git: Show Output");
+            contextKeys.set("gitOperationInProgress", busy);
+            service.show(CommandsQuickAccessProvider.PREFIX);
+            return view.items.map((i) => i.label);
+        }
+
+        const busy = labelsWhenBusy(true);
+        expect(busy).not.toContain("Git: Commit");
+        // Команда без enablement остаётся: гасим только недоступное.
+        expect(busy).toContain("Git: Show Output");
+        expect(labelsWhenBusy(false)).toContain("Git: Commit");
+    });
+
     it("commands without title are not listed", () => {
         const { service, commands, view } = createService();
         commands.register("cmd.hidden", () => {});
