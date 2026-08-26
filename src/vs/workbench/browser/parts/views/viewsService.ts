@@ -624,6 +624,7 @@ export class ViewsService {
         // Пустой полосе в таб-строке места не даём — вкладка выглядит как раньше.
         // Спиннер занятости — тоже содержимое: без него полоса со спиннером
         // осталась бы неприкреплённой, и прогресс секции панели было бы не видно.
+        // Stryker disable next-line OptionalChaining: до этого операнда цепочка доходит только при `!hasMenu`, а он ложен ровно тогда, когда секций 2+ и headerRecord пуст — то есть здесь запись всегда есть
         const empty = actions.length === 0 && widget === null && !hasMenu && headerRecord?.spinner == null;
         this.panelService.setViewActions(entry.descriptor!.id, empty ? null : header);
     }
@@ -803,9 +804,11 @@ function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
         for (const entry of group.entries) {
             if (isInlineItem(entry) && entry.id === actionId) {
                 // Погашенная кнопка кликается (зона за ней осталась, иначе клик
-                // свернул бы секцию), но ничего не делает.
+                // свернул бы секцию), но ничего не делает: отказ живёт в самом
+                // резолвнутом пункте (`MenuRegistry.toEntry`), второй проверки
+                // здесь не нужно.
                 // Stryker disable next-line OptionalChaining: onSelect есть у любого пункта, резолвнутого MenuRegistry — защита от чужих реализаций MenuEntry
-                if (entry.enabled) entry.onSelect?.();
+                entry.onSelect?.();
                 return;
             }
         }

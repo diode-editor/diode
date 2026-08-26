@@ -81,6 +81,23 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         expect(row.hitZone(3)).toEqual({ kind: "title" });
     });
 
+    it("единственная кнопка пересобирается по смене любого своего поля", () => {
+        // Именно на одной кнопке: в паре ослабленное сравнение прячется за
+        // соседом, который всё равно даёт «составы разные».
+        const row = new ViewTitleRowElement("CHANGES");
+        row.setActions([{ id: "cmd.refresh", icon: "R" }]);
+        layout(row);
+        expect(row.hitZone(24)).toEqual({ kind: "action", actionId: "cmd.refresh" });
+
+        row.setActions([{ id: "cmd.reload", icon: "R" }]);
+        layout(row);
+        expect(row.hitZone(24)).toEqual({ kind: "action", actionId: "cmd.reload" });
+
+        row.setActions([{ id: "cmd.reload", icon: "X" }]);
+        layout(row);
+        expect(renderElement(row, 30, 1, { themeVars: true }).screenToString()).toContain("X");
+    });
+
     it("пересобирает кнопки, когда меняется любое поле любой из них", () => {
         // Ранний выход setActions сравнивает состав поэлементно: пропущенная
         // разница означает кнопку, застрявшую в прошлом состоянии.

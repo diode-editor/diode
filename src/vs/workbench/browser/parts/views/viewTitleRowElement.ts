@@ -276,5 +276,6 @@ function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleActio
  * виде, в каком её собрали первый раз.
  */
 function sameAction(a: IViewTitleAction, b: IViewTitleAction): boolean {
+    // Stryker disable next-line ConditionalExpression: «кнопки всегда разные» — это лишняя пересборка, ненаблюдаемая по кадру; пропуск нужной закрыт тестами на смену id, иконки и доступности
     return a.id === b.id && a.icon === b.icon && (a.enabled !== false) === (b.enabled !== false);
 }

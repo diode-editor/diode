@@ -34,6 +34,16 @@ const CONTRIBUTIONS: MenuContribution[] = [
         group: "2_commit",
         visible: viewMenuVisible(CHANGES),
     },
+    // Пункт группы navigation БЕЗ иконки: кнопкой его не нарисовать (подписи в
+    // 30 колонок сайдбара не влезут), поэтому он обязан уехать в «⋯».
+    {
+        menuId: MenuId.ViewTitle,
+        command: "scm.stageAll",
+        title: "Stage All",
+        group: "navigation",
+        order: 20,
+        visible: viewMenuVisible(CHANGES),
+    },
     {
         menuId: MenuId.ViewTitle,
         command: "scm.loadMore",
@@ -184,7 +194,9 @@ describe("ViewsService — попап «⋯» секции", () => {
     it("показывает только overflow — inline-пункты в попапе не дублируются", () => {
         const h = scmHarness();
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
-        expect(labels(lastEntries(h))).toEqual(["Commit All"]);
+        // Stage All — из группы navigation, но без иконки: кнопкой не нарисовать,
+        // поэтому он тут, а Refresh (с иконкой) уехал в кнопку и не дублируется.
+        expect(labels(lastEntries(h))).toEqual(["Stage All", "---", "Commit All"]);
     });
 
     it("секция без overflow-пунктов даёт пустое меню — попап не откроется", () => {
@@ -285,7 +297,7 @@ describe("ViewsService — merged: меню контейнера уезжает 
     it("пункты секции, затем подменю с названием контейнера", () => {
         const h = scmHarness([CHANGES]);
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
-        expect(labels(lastEntries(h))).toEqual(["Commit All", "---", "SOURCE CONTROL"]);
+        expect(labels(lastEntries(h))).toEqual(["Stage All", "---", "Commit All", "---", "SOURCE CONTROL"]);
     });
 
     it("inline-группа контейнера тоже уезжает в подменю — рисовать её негде", () => {
