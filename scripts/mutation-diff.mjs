@@ -215,14 +215,23 @@ function runStryker(scope) {
 }
 
 /**
- * Выжившие из отчёта, разложенные по тому, проверяли их вообще или нет.
+ * Мутанты, которых прогон НЕ проверил. Их два вида, и ни один нельзя читать
+ * как «тесты не заметили».
  *
- * `testsCompleted: 0` у выжившего означает, что при его прогоне не выполнилось
- * НИ ОДНОГО теста — хотя покрывающих у мутанта могут быть сотни. Это дефект
- * связки Stryker↔vitest (наблюдается и с `perTest`, и с `coverageAnalysis:
- * off`, и с перезапуском раннера), а не дыра в тестах: тот же мутант в
- * точечном прогоне уверенно убивается. Такого выжившего считать находкой
- * нельзя — «ничего не запускали» это не «никто не заметил».
+ * `Survived` с `testsCompleted: 0` — при прогоне не выполнилось НИ ОДНОГО
+ * теста, хотя покрывающих у мутанта могут быть сотни. Прогон теряется, и
+ * теряется он ровно следом за прогоном, оборванным по bail (Stryker гоняет
+ * vitest с `bail: 1`): файлы остаются в состоянии `run` без результатов, а
+ * `vitest-test-runner` отбрасывает всё без результата и получает пустой список
+ * тестов. Апстрим: stryker-mutator/stryker-js#6073, чинит #6146 (не влит).
+ *
+ * `RuntimeError` — на этом мутанте упал сам раннер. Такой мутант не попадает в
+ * знаменатель балла, поэтому сам по себе гейт НЕ красит: Stryker выходит нулём,
+ * и мутант уезжает непроверенным. Наш штатный источник — мутант, из-за которого
+ * слушатель кидает асинхронно (в микротаске): ни один тест при этом не падает,
+ * vitest записывает unhandled error, а `vitest-runner` ломается, пытаясь эту
+ * ошибку сериализовать (`String()` над объектом, у которого собственный
+ * `toString` — строка `"Function<toString>"`).
  */
 const REPORT_PATH = path.join(repoRoot, "reports", "mutation", "mutation.json");
 
@@ -236,80 +245,106 @@ function mutantKey(file, mutant) {
     return `${file}:${String(mutant.location?.start?.line)}:${String(mutant.location?.start?.column)}:${String(mutant.mutatorName)}`;
 }
 
+/** Непроверенный мутант — почему его пришлось гонять отдельно, видно прямо в отчёте. */
+function recheckReason(status) {
+    return status === "RuntimeError"
+        ? "перепроверен точечным прогоном: в общем прогоне на нём упал раннер"
+        : "перепроверен точечным прогоном: в общем прогоне не выполнилось ни одного теста";
+}
+
+/** Мутант, которого первый прогон не проверил: перепроверять — обязательно. */
+function isUnchecked(mutant) {
+    return mutant.status === "RuntimeError" || (mutant.status === "Survived" && !mutant.testsCompleted);
+}
+
 /**
  * Возвращает отчёт первого прогона на место точечного: комментарий в PR должен
  * показывать всю картину, а не тот кусок, который перепроверяли. Мутанты,
- * убитые в перепроверке, получают статус `Killed` с причиной — почему их
- * пришлось гонять отдельно, видно прямо в отчёте.
+ * убитые в перепроверке, получают статус `Killed` с причиной.
+ *
+ * Отдельно возвращает тех, на ком раннер упал и в точечном прогоне: их не
+ * проверил ни один из двух прогонов, и молчать об этом нельзя.
  */
 function mergeRecheckIntoReport(firstReport) {
     const recheckReport = readReport();
-    if (firstReport === null || recheckReport === null) return 0;
+    if (firstReport === null || recheckReport === null) return { rechecked: 0, stillCrashed: [] };
     let rechecked = 0;
+    const stillCrashed = [];
     const killedOnRecheck = new Set();
     for (const [file, data] of Object.entries(recheckReport.files ?? {})) {
         for (const mutant of data.mutants ?? []) {
             rechecked++;
             if (mutant.status === "Killed" || mutant.status === "Timeout") killedOnRecheck.add(mutantKey(file, mutant));
+            if (mutant.status === "RuntimeError") {
+                stillCrashed.push({
+                    at: `${file}:${String(mutant.location?.start?.line)} (${String(mutant.mutatorName)} → ${String(mutant.replacement)})`,
+                    reason: String(mutant.statusReason ?? "").split("\n")[0],
+                });
+            }
         }
     }
     for (const [file, data] of Object.entries(firstReport.files ?? {})) {
         for (const mutant of data.mutants ?? []) {
-            if (mutant.status !== "Survived" || mutant.testsCompleted) continue;
+            if (!isUnchecked(mutant)) continue;
             if (!killedOnRecheck.has(mutantKey(file, mutant))) continue;
+            mutant.statusReason = recheckReason(mutant.status);
             mutant.status = "Killed";
-            mutant.statusReason = "перепроверен точечным прогоном: в общем прогоне не выполнилось ни одного теста";
         }
     }
     writeFileSync(REPORT_PATH, JSON.stringify(firstReport));
-    return rechecked;
+    return { rechecked, stillCrashed };
 }
 
-function classifySurvivors() {
+function classifyMutants() {
     const report = readReport();
     if (report === null) return null;
     const verified = [];
-    const unverified = [];
+    const unchecked = [];
     for (const [file, data] of Object.entries(report.files ?? {})) {
         for (const mutant of data.mutants ?? []) {
-            if (mutant.status !== "Survived") continue;
             const start = mutant.location?.start?.line;
             if (start === undefined) continue;
             // Диапазон — по всей длине мутанта: у многострочных (вырезанное тело
             // функции) `--mutate file:N-N` не покрыл бы его целиком, и скоуп
             // вышел бы пустым — перепроверка молча ничего бы не проверила.
             const end = mutant.location?.end?.line ?? start;
-            (mutant.testsCompleted ? verified : unverified).push({ file, start, end });
+            if (isUnchecked(mutant)) unchecked.push({ file, start, end, status: mutant.status });
+            else if (mutant.status === "Survived") verified.push({ file, start, end });
         }
     }
-    return { verified, unverified };
+    return { verified, unchecked };
 }
 
 const first = runStryker(mutate);
-if ((first.status ?? 1) === 0) process.exit(0);
+const classified = classifyMutants();
 
-const survivors = classifySurvivors();
-if (survivors === null || survivors.unverified.length === 0) {
+// Ноль от Stryker'а — ещё не «всё проверено»: упавшие на раннере мутанты в балл
+// не входят, так что прогон с ними выходит нулём. Смотрим не на код возврата, а
+// на отчёт.
+if (classified === null || classified.unchecked.length === 0) {
     process.exit(first.status ?? 1);
 }
-if (survivors.verified.length > 0) {
+if (classified.verified.length > 0) {
     console.log(
-        `Есть выжившие, проверенные тестами (${String(survivors.verified.length)}) — перепроверять нечего.`,
+        `Есть выжившие, проверенные тестами (${String(classified.verified.length)}) — перепроверять нечего.`,
     );
     process.exit(first.status ?? 1);
 }
 
 // Перепроверяем точечно: скоуп в одну строку на мутанта прогоняется надёжно.
-const recheck = [...new Set(survivors.unverified.map(({ file, start, end }) => `${file}:${start}-${end}`))];
+const recheck = [...new Set(classified.unchecked.map(({ file, start, end }) => `${file}:${start}-${end}`))];
+const lost = classified.unchecked.filter(({ status }) => status === "Survived").length;
+const crashed = classified.unchecked.length - lost;
 console.log(
-    `\nВыжившие (${String(survivors.unverified.length)}) прогнались с нулём выполненных тестов — это не находка, ` +
-        `а известный дефект связки Stryker↔vitest (см. docs/TESTING.md). Перепроверяю точечно:`,
+    `\nНепроверенных мутантов: ${String(classified.unchecked.length)} ` +
+        `(потерянных прогонов — ${String(lost)}, падений раннера — ${String(crashed)}). ` +
+        `Ни то, ни другое не находка (см. docs/TESTING.md). Перепроверяю точечно:`,
 );
 for (const entry of recheck) console.log(`  ${entry}`);
 
 const firstReport = readReport();
 const recheckStatus = runStryker(recheck).status ?? 1;
-const rechecked = mergeRecheckIntoReport(firstReport);
+const { rechecked, stillCrashed } = mergeRecheckIntoReport(firstReport);
 
 // Пустая перепроверка — тихо-зелёный гейт: Stryker на скоупе без мутантов
 // выходит нулём. Падаем громко, иначе «ничего не проверили» станет «всё хорошо».
@@ -317,6 +352,19 @@ if (rechecked === 0) {
     console.error(
         "Перепроверка не нашла ни одного мутанта в своём скоупе — гейт ничего не проверил. " +
             "Скорее всего разъехались диапазоны строк; чинить в scripts/mutation-diff.mjs.",
+    );
+    process.exit(1);
+}
+
+// Упал и в точечном прогоне — значит мутанта не проверил ни один из двух.
+// Пропустить его молча нельзя: в балл он не входит и гейт бы позеленел.
+if (stillCrashed.length > 0) {
+    console.error("\nНа этих мутантах раннер падает и в точечном прогоне — их не проверил никто:");
+    for (const { at, reason } of stillCrashed) console.error(`  ${at}\n    ${reason}`);
+    console.error(
+        "\nПочти всегда это наш код, а не инструмент: мутант заставляет слушателя кинуть " +
+            "асинхронно, тест при этом не падает, и vitest ломается на сериализации unhandled " +
+            "error. Разбор и что делать — docs/TESTING.md.",
     );
     process.exit(1);
 }
