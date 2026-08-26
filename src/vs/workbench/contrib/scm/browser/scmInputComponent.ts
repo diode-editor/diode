@@ -268,7 +268,7 @@ export class ScmInputComponent extends Component {
         this.buttonCommand = state.command;
         this.actionButton.hidden = !state.visible;
 
-        // Идёт операция — подписью владеет прогресс: «◑ Committing…». Дизейбл
+        // Идёт операция — подписью владеет прогресс: «⠹ Committing…». Дизейбл
         // при этом наступает раньше подписи (isBusy истинен сразу, а показ ждёт
         // задержку): клик обязан перестать работать мгновенно, а быстрая
         // операция не должна мигать текстом.

@@ -24,12 +24,12 @@ describe("ViewsService — спиннер занятости", () => {
     it("кадр доезжает до заголовка своей секции и снимается", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
 
-        h.service.setViewSpinner("scm.changes", "◐");
+        h.service.setViewSpinner("scm.changes", "⠋");
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
         expect(paneBusy(h.paneView("scm"), "scm.graph")).toBe(false);
 
         // Повтор того же кадра — no-op.
-        h.service.setViewSpinner("scm.changes", "◐");
+        h.service.setViewSpinner("scm.changes", "⠋");
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
 
         h.service.setViewSpinner("scm.changes", null);
@@ -38,7 +38,7 @@ describe("ViewsService — спиннер занятости", () => {
 
     it("кадр переживает пересборку секций", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
-        h.service.setViewSpinner("scm.changes", "◐");
+        h.service.setViewSpinner("scm.changes", "⠋");
 
         // Скрытие соседа пересоздаёт панели контейнера.
         h.service.setViewVisible("scm.graph", false);
@@ -52,7 +52,7 @@ describe("ViewsService — спиннер занятости", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
         h.service.setViewVisible("scm.graph", false);
 
-        h.service.setViewSpinner("scm.graph", "◐");
+        h.service.setViewSpinner("scm.graph", "⠋");
         h.service.setViewVisible("scm.graph", true);
         expect(paneBusy(h.paneView("scm"), "scm.graph")).toBe(true);
     });
@@ -65,11 +65,11 @@ describe("ViewsService — спиннер занятости", () => {
         // Показывать нечего — полосы в таб-строке нет вовсе.
         expect(h.header(PANEL)).toBeNull();
 
-        h.service.setViewSpinner("panel.output", "◐");
+        h.service.setViewSpinner("panel.output", "⠋");
         expect(h.header(PANEL)?.inspectState()).toEqual({ title: "", busy: true });
 
         // Кадр сменился — полоса на месте и лишний раз не пересобирается.
-        h.service.setViewSpinner("panel.output", "◓");
+        h.service.setViewSpinner("panel.output", "⠙");
         expect(h.header(PANEL)?.inspectState()).toEqual({ title: "", busy: true });
 
         // Операция кончилась — полосе снова нечего показывать.
@@ -86,14 +86,14 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.registerView(testView("panel.problems", PANEL, 20));
         h.service.attachContainer(PANEL);
 
-        expect(() => h.service.setViewSpinner("panel.problems", "◐")).not.toThrow();
+        expect(() => h.service.setViewSpinner("panel.problems", "⠋")).not.toThrow();
         const header = h.paneView(PANEL).querySelector("#paneHeader-panel-problems");
         expect(header?.inspectState()?.busy).toBe(true);
     });
 
     it("прогресс незарегистрированной view — молчаливый no-op", () => {
         const h = scmHarness(["scm.changes"]);
-        expect(() => h.service.setViewSpinner("search", "◐")).not.toThrow();
+        expect(() => h.service.setViewSpinner("search", "⠋")).not.toThrow();
     });
 
     it("кадр до attachContainer запоминается и доезжает при показе контейнера", () => {
@@ -101,7 +101,7 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(testView("scm.changes", "scm", 10));
 
-        h.service.setViewSpinner("scm.changes", "◐");
+        h.service.setViewSpinner("scm.changes", "⠋");
         h.service.attachContainer("scm");
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
     });

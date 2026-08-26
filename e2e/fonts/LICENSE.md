@@ -1,3 +1,10 @@
+Fonts bundled for the screenshot rasterizer (`e2e/helpers/renderScreenshot.ts`):
+
+- `HackNerdFontMono-*.ttf` — Hack, patched with Nerd Fonts glyphs; carries the text and the codicons.
+- `DejaVuSans.ttf` — DejaVu Sans 2.37, verbatim from the upstream release; fallback for glyphs Hack lacks, notably the Braille block the progress spinner uses. (`DejaVuSansMono` would be the natural pick, but it has no Braille coverage.)
+
+Hack itself derives from Bitstream Vera Sans Mono via DejaVu, so both licenses below already applied before DejaVu Sans was bundled directly.
+
 The work in the Hack project is Copyright 2018 Source Foundry Authors and licensed under the MIT License
 
 The work in the DejaVu project was committed to the public domain.

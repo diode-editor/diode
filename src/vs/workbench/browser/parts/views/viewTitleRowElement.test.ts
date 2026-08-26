@@ -286,15 +286,15 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
         const row = layout(new ViewTitleRowElement("CHANGES"));
         expect(row.isBusy).toBe(false);
 
-        row.setSpinnerFrame("◐");
-        expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES ◐`);
+        row.setSpinnerFrame("⠋");
+        expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES ⠋`);
         expect(row.isBusy).toBe(true);
 
         // Кадр сменился — надпись обновилась, повтор того же кадра no-op.
-        row.setSpinnerFrame("◓");
-        expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES ◓`);
-        row.setSpinnerFrame("◓");
-        expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES ◓`);
+        row.setSpinnerFrame("⠙");
+        expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES ⠙`);
+        row.setSpinnerFrame("⠙");
+        expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES ⠙`);
 
         row.setSpinnerFrame(null);
         expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES`);
@@ -303,19 +303,19 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
 
     it("уживается с шевроном, сменой названия и свёрнутостью", () => {
         const row = layout(new ViewTitleRowElement("CHANGES"));
-        row.setSpinnerFrame("◑");
+        row.setSpinnerFrame("⠹");
         row.setExpanded(false);
-        expect(titleText(row)).toBe(` ${CHEVRON_COLLAPSED} CHANGES ◑`);
+        expect(titleText(row)).toBe(` ${CHEVRON_COLLAPSED} CHANGES ⠹`);
         row.setTitle("GRAPH");
-        expect(titleText(row)).toBe(` ${CHEVRON_COLLAPSED} GRAPH ◑`);
+        expect(titleText(row)).toBe(` ${CHEVRON_COLLAPSED} GRAPH ⠹`);
         // Название в состоянии — сырое: спиннер не должен просачиваться в e2e-ассерты.
         expect(row.getTitle()).toBe("GRAPH");
     });
 
     it("без шеврона — кадр всё равно после названия", () => {
         const row = layout(new ViewTitleRowElement("SOURCE CONTROL", { chevron: false }));
-        row.setSpinnerFrame("◐");
-        expect(titleText(row)).toBe(" SOURCE CONTROL ◐");
+        row.setSpinnerFrame("⠋");
+        expect(titleText(row)).toBe(" SOURCE CONTROL ⠋");
     });
 
     it("спиннер не сдвигает зоны кнопок", () => {
@@ -324,16 +324,16 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
         layout(row);
         const zoneBefore = row.hitZone(28);
 
-        row.setSpinnerFrame("◐");
+        row.setSpinnerFrame("⠋");
         layout(row);
         expect(row.hitZone(28)).toEqual(zoneBefore);
     });
 
     it("кадр доходит до экрана", () => {
         const row = new ViewTitleRowElement("CHANGES");
-        row.setSpinnerFrame("◐");
+        row.setSpinnerFrame("⠋");
         const screen = renderElement(row, 30, 1, { themeVars: true });
-        expect(screen.screenToString()).toContain("CHANGES ◐");
+        expect(screen.screenToString()).toContain("CHANGES ⠋");
     });
 });
 

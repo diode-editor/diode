@@ -20,16 +20,24 @@ export const screenshotsDir = resolve(here, "..", "..", "screenshots");
 // A Nerd Font so the editor's codicon glyphs (file tree, status bar) render.
 const DEFAULT_FONT = "Hack Nerd Font Mono";
 
-// The font is vendored in `e2e/fonts/` and loaded explicitly, so screenshots
-// render identical codicon glyphs everywhere — no reliance on a system-installed
-// font (ephemeral dev containers and CI runners have none). `loadSystemFonts`
-// stays on purely as a fallback for glyphs Hack lacks (e.g. CJK via Noto).
+// Fonts are vendored in `e2e/fonts/` and loaded explicitly, so screenshots render
+// identical glyphs everywhere — ephemeral dev containers and CI runners ship no
+// system fonts at all (`fc-list` is empty), so `loadSystemFonts` is a courtesy for
+// developer machines, never something to rely on.
+//
+// Two families, in this order: Hack Nerd Font Mono carries the text and the codicon
+// glyphs; DejaVu Sans is a fallback for what Hack lacks — notably the Braille block
+// (U+2800), which the progress spinner is drawn from (`SPINNER_FRAMES`). resvg picks
+// the first font that covers a glyph, so Hack keeps everything it has. Without the
+// fallback missing glyphs come out as an empty `.notdef` box — invisible to string
+// assertions, which is why `renderScreenshot.test.ts` gates it.
 const fontsDir = resolve(here, "..", "fonts");
-const BUNDLED_FONT_FILES = [
+export const BUNDLED_FONT_FILES = [
     "HackNerdFontMono-Regular.ttf",
     "HackNerdFontMono-Bold.ttf",
     "HackNerdFontMono-Italic.ttf",
     "HackNerdFontMono-BoldItalic.ttf",
+    "DejaVuSans.ttf",
 ].map((name) => resolve(fontsDir, name));
 
 /** Rasterize a captured frame to a PNG buffer. */
