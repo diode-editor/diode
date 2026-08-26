@@ -34,6 +34,8 @@ describe("ProgressService", () => {
 
         // Занятость видна сразу — кнопки гаснут без задержки.
         expect(service.isBusy(VIEW)).toBe(true);
+        // И адресно: соседняя секция свободна, её кнопки гасить не за что.
+        expect(service.isBusy("workbench.scm.graph")).toBe(false);
         expect(service.viewProgress().size).toBe(0);
 
         vi.advanceTimersByTime(200);

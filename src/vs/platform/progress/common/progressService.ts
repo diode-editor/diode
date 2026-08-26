@@ -48,15 +48,19 @@ export interface IProgressServiceOptions {
     readonly intervalMs?: number;
 }
 
-/** Запись одной живой операции. `scope === null` — локация `window`. */
-interface ProgressEntry {
-    readonly scope: string | null;
-    readonly title: string;
-    visible: boolean;
-    delayTimer: ReturnType<typeof setTimeout> | undefined;
-    minVisibleTimer: ReturnType<typeof setTimeout> | undefined;
+/** Запись одной живой операции (класс — как у моста прогресса расширений). */
+class ProgressEntry {
+    public visible = false;
+    public delayTimer: ReturnType<typeof setTimeout> | undefined;
+    public minVisibleTimer: ReturnType<typeof setTimeout> | undefined;
     /** Операция закончилась, но запись досиживает `minVisibleMs`. */
-    endRequested: boolean;
+    public endRequested = false;
+
+    /** `scope === null` — локация `window`, иначе id секции. */
+    public constructor(
+        public readonly scope: string | null,
+        public readonly title: string,
+    ) {}
 }
 
 /**
@@ -160,14 +164,7 @@ export class ProgressService extends Disposable {
     }
 
     private start(options: IProgressOptions): ProgressEntry {
-        const entry: ProgressEntry = {
-            scope: options.location === "view" ? options.viewId : null,
-            title: options.title,
-            visible: false,
-            delayTimer: undefined,
-            minVisibleTimer: undefined,
-            endRequested: false,
-        };
+        const entry = new ProgressEntry(options.location === "view" ? options.viewId : null, options.title);
         entry.delayTimer = setTimeout(() => {
             entry.delayTimer = undefined;
             entry.visible = true;
