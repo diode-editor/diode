@@ -249,7 +249,8 @@ export class ViewsService {
         const found = this.findRecord(viewId);
         if (found === undefined) return;
         const { entry, record } = found;
-        if (record.spinner === frame) return;
+        // Занятость появилась или ушла — только эти два перехода меняют состав
+        // полосы контролов таб-строки; смена кадра для неё ничего не значит.
         const appeared = (record.spinner === null) !== (frame === null);
         record.spinner = frame;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;

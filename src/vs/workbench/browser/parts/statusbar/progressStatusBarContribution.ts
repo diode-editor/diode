@@ -7,6 +7,7 @@ import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribut
 import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const ProgressStatusBarContributionDIToken = token<ProgressStatusBarContribution>(
     "ProgressStatusBarContribution",
 );

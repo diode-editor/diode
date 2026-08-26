@@ -52,6 +52,7 @@ export function withGitProgress<T>(accessor: ServiceAccessor, op: string, task: 
     const title = gitProgressTitle(op);
     const inView = (): Promise<T> => progress.withProgress({ location: "view", viewId, title }, task);
     if (!window) return inView();
+    // Stryker disable next-line StringLiteral: локация выбирается сравнением с "view", поэтому любая другая строка ведёт себя как "window"
     return progress.withProgress({ location: "window", title }, inView);
 }
 

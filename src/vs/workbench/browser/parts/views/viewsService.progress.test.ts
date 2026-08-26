@@ -62,9 +62,19 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.registerContainer({ id: PANEL, title: "OUTPUT", location: "panel" });
         h.service.registerView(testView("panel.output", PANEL, 10));
         h.service.attachContainer(PANEL);
+        // Показывать нечего — полосы в таб-строке нет вовсе.
+        expect(h.header(PANEL)).toBeNull();
 
         h.service.setViewSpinner("panel.output", "◐");
         expect(h.header(PANEL)?.inspectState()).toEqual({ title: "", busy: true });
+
+        // Кадр сменился — полоса на месте и лишний раз не пересобирается.
+        h.service.setViewSpinner("panel.output", "◓");
+        expect(h.header(PANEL)?.inspectState()).toEqual({ title: "", busy: true });
+
+        // Операция кончилась — полосе снова нечего показывать.
+        h.service.setViewSpinner("panel.output", null);
+        expect(h.header(PANEL)).toBeNull();
     });
 
     it("прогресс незарегистрированной view — молчаливый no-op", () => {

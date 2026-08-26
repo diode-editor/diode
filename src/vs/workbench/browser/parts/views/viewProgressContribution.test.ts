@@ -58,6 +58,12 @@ describe("ViewProgressContribution", () => {
         // Сервис про операцию забыл — снять спиннер обязана контрибуция.
         expect(target.frames.get(CHANGES)).toBeNull();
 
+        // И снять ровно один раз: секция, с которой спиннер уже снят, больше не
+        // должна попадать в раскладку кадров.
+        const callsAfterRemoval = target.calls;
+        vi.advanceTimersByTime(1000);
+        expect(target.calls).toBe(callsAfterRemoval);
+
         contribution.dispose();
     });
 

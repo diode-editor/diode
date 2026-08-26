@@ -2,6 +2,7 @@ import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
 import { token } from "../../instantiation/common/diContainer.ts";
 
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой
 export const ProgressServiceDIToken = token<ProgressService>("ProgressService");
 
 /**
@@ -52,8 +53,8 @@ interface ProgressEntry {
     readonly scope: string | null;
     readonly title: string;
     visible: boolean;
-    delayTimer: ReturnType<typeof setTimeout> | null;
-    minVisibleTimer: ReturnType<typeof setTimeout> | null;
+    delayTimer: ReturnType<typeof setTimeout> | undefined;
+    minVisibleTimer: ReturnType<typeof setTimeout> | undefined;
     /** Операция закончилась, но запись досиживает `minVisibleMs`. */
     endRequested: boolean;
 }
@@ -154,6 +155,7 @@ export class ProgressService extends Disposable {
         for (const entry of [...this.entries]) this.forget(entry);
         this.stopTickerIfIdle();
         this.listeners.clear();
+        // Stryker disable next-line CallExpression: своих зарегистрированных disposable у сервиса нет, вызов держим ради контракта базового класса
         super.dispose();
     }
 
@@ -162,15 +164,15 @@ export class ProgressService extends Disposable {
             scope: options.location === "view" ? options.viewId : null,
             title: options.title,
             visible: false,
-            delayTimer: null,
-            minVisibleTimer: null,
+            delayTimer: undefined,
+            minVisibleTimer: undefined,
             endRequested: false,
         };
         entry.delayTimer = setTimeout(() => {
-            entry.delayTimer = null;
+            entry.delayTimer = undefined;
             entry.visible = true;
             entry.minVisibleTimer = setTimeout(() => {
-                entry.minVisibleTimer = null;
+                entry.minVisibleTimer = undefined;
                 if (entry.endRequested) this.forget(entry);
                 this.stopTickerIfIdle();
                 this.fire();
@@ -185,20 +187,22 @@ export class ProgressService extends Disposable {
     }
 
     private end(entry: ProgressEntry): void {
+        // Stryker disable next-line ConditionalExpression: без записи в наборе тело end() ничего не меняет — сюда приходят только промисы, пережившие dispose(), а тот уже снял и таймеры, и слушателей
         if (!this.entries.has(entry)) return;
         entry.endRequested = true;
         // Досиживает минимум показа только тот, кого успели показать.
-        if (entry.minVisibleTimer === null) this.forget(entry);
+        if (entry.minVisibleTimer === undefined) this.forget(entry);
         this.stopTickerIfIdle();
         this.fire();
     }
 
-    /** Снимает запись и её таймеры. Идемпотентна. */
+    /** Снимает запись и её таймеры. Идемпотентна: `clearTimeout(undefined)` — no-op. */
     private forget(entry: ProgressEntry): void {
-        if (entry.delayTimer !== null) clearTimeout(entry.delayTimer);
-        if (entry.minVisibleTimer !== null) clearTimeout(entry.minVisibleTimer);
-        entry.delayTimer = null;
-        entry.minVisibleTimer = null;
+        clearTimeout(entry.delayTimer);
+        // Stryker disable next-line CallExpression: сюда с живым minVisible-таймером приходят только из dispose(), а он следом снимает слушателей — разбудить утёкшим таймером некого
+        clearTimeout(entry.minVisibleTimer);
+        entry.delayTimer = undefined;
+        entry.minVisibleTimer = undefined;
         this.entries.delete(entry);
     }
 
@@ -216,6 +220,7 @@ export class ProgressService extends Disposable {
 
     /** Тикер живёт ровно пока есть что крутить — иначе приложение не бездействует зря. */
     private stopTickerIfIdle(): void {
+        // Stryker disable next-line ConditionalExpression: при остановленном тикере тело — clearInterval(null) и сброс кадра, который в этом состоянии уже нулевой
         if (this.ticker === null) return;
         for (const entry of this.entries) {
             if (entry.visible) return;

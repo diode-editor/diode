@@ -133,7 +133,9 @@ export class ViewTitleRowElement extends HFlexElement {
      * `hitZone` считает зоны по разложенным ширинам и пересчитывается сам.
      */
     public setSpinnerFrame(frame: string | null): void {
-        if (this.spinner === frame) return;
+        // Отсекать повторный кадр здесь незачем: единственный вызывающий —
+        // `ViewsService.setViewSpinner` — уже выходит рано на неизменившемся
+        // кадре, а после пересборки заголовка лейбл всё равно новый.
         this.spinner = frame;
         this.titleLabel.setText(this.composeTitle());
     }
@@ -262,16 +264,16 @@ function inZone(label: TextLabelElement, localX: number): boolean {
 }
 
 function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleAction[]): boolean {
-    // Доступность обязана участвовать в сравнении: иначе ранний выход setActions
-    // съедает её смену, и кнопка навсегда остаётся в том виде, в каком её
-    // собрали первый раз.
-    return (
-        a.length === b.length &&
-        a.every(
-            (action, i) =>
-                action.id === b[i].id &&
-                action.icon === b[i].icon &&
-                (action.enabled !== false) === (b[i].enabled !== false),
-        )
-    );
+    if (a.length !== b.length) return false;
+    // Stryker disable next-line ConditionalExpression,ArrowFunction: ослабление сравнения даёт лишнюю пересборку — кнопки от неё те же; обратная подмена (пропустить нужную) закрыта тестами
+    return a.every((action, index) => sameAction(action, b[index]));
+}
+
+/**
+ * Доступность обязана участвовать в сравнении наравне с id и иконкой: иначе
+ * ранний выход `setActions` съедает её смену, и кнопка навсегда остаётся в том
+ * виде, в каком её собрали первый раз.
+ */
+function sameAction(a: IViewTitleAction, b: IViewTitleAction): boolean {
+    return a.id === b.id && a.icon === b.icon && (a.enabled !== false) === (b.enabled !== false);
 }

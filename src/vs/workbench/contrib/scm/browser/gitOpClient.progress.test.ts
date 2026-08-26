@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -38,6 +38,14 @@ function makeAccessor(hasCommand = true): {
 }
 
 describe("прогресс git-операций", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it("операция диспетчера держит занятой свою секцию", async () => {
         const h = makeAccessor();
         const running = runGitOp(h.accessor, "commit");
@@ -48,6 +56,25 @@ describe("прогресс git-операций", () => {
         h.release();
         await running;
         expect(h.progress.isBusy()).toBe(false);
+    });
+
+    it("сетевая операция видна ещё и в статус-баре, обычная — только в секции", async () => {
+        const network = makeAccessor();
+        const pulling = runGitOp(network.accessor, "pull");
+        vi.advanceTimersByTime(300);
+        // Долгий pull видно, даже когда в сайдбаре открыт не Source Control.
+        expect(network.progress.windowProgress()).toEqual({ spinner: "◐", title: "Pulling…" });
+        expect(network.progress.viewProgress().get(SCM_CHANGES_VIEW_ID)?.title).toBe("Pulling…");
+        network.release();
+        await pulling;
+
+        const local = makeAccessor();
+        const committing = runGitOp(local.accessor, "commit");
+        vi.advanceTimersByTime(300);
+        expect(local.progress.windowProgress()).toBeNull();
+        expect(local.progress.viewProgress().get(SCM_CHANGES_VIEW_ID)?.title).toBe("Committing…");
+        local.release();
+        await committing;
     });
 
     it("догрузка истории адресована секции GRAPH", async () => {
@@ -66,6 +93,11 @@ describe("прогресс git-операций", () => {
         const running = runGitTransport(h.accessor, STAGE_TRANSPORT_COMMAND, [Uri.file("/repo/app.ts")]);
 
         expect(h.progress.isBusy(SCM_CHANGES_VIEW_ID)).toBe(true);
+
+        // Подпись берётся из имени операции, а его у транспорта надо достать из
+        // id команды: иначе вместо «Staging…» будет нейтральное «Working…».
+        vi.advanceTimersByTime(300);
+        expect(h.progress.viewProgress().get(SCM_CHANGES_VIEW_ID)?.title).toBe("Staging…");
 
         h.release();
         await running;

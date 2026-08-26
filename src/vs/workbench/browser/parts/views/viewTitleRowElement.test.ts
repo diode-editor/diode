@@ -81,6 +81,33 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         expect(row.hitZone(3)).toEqual({ kind: "title" });
     });
 
+    it("пересобирает кнопки, когда меняется любое поле любой из них", () => {
+        // Ранний выход setActions сравнивает состав поэлементно: пропущенная
+        // разница означает кнопку, застрявшую в прошлом состоянии.
+        const row = new ViewTitleRowElement("CHANGES");
+        row.setActions([
+            { id: "cmd.refresh", icon: "R" },
+            { id: "cmd.collapse", icon: "C" },
+        ]);
+        layout(row);
+
+        // Сменился id второй кнопки — клик по ней обязан исполнять уже другую команду.
+        row.setActions([
+            { id: "cmd.refresh", icon: "R" },
+            { id: "cmd.expand", icon: "C" },
+        ]);
+        layout(row);
+        expect(row.hitZone(24)).toEqual({ kind: "action", actionId: "cmd.expand" });
+
+        // Сменилась иконка второй кнопки — на экране обязан быть новый глиф.
+        row.setActions([
+            { id: "cmd.refresh", icon: "R" },
+            { id: "cmd.expand", icon: "E" },
+        ]);
+        layout(row);
+        expect(renderElement(row, 30, 1, { themeVars: true }).screenToString()).toContain("E");
+    });
+
     it("setActions тем же составом — no-op, другим — пересобирает зоны", () => {
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
@@ -195,6 +222,31 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
         row.setActions([{ id: "cmd.refresh", icon: "R", enabled: false }]);
         layout(row);
         expect(render(row).getFgAt(new Point(24, 0))).toBe(DISABLED_FG);
+
+        row.setActions([{ id: "cmd.refresh", icon: "R", enabled: true }]);
+        layout(row);
+        expect(render(row).getFgAt(new Point(24, 0))).toBe(ENABLED_FG);
+    });
+
+    it("гаснет ровно та кнопка, что стала недоступной", () => {
+        // Вторая кнопка в ряду: поэлементное сравнение обязано заметить разницу
+        // не только в первой.
+        const row = new ViewTitleRowElement("CHANGES");
+        row.setActions([
+            { id: "cmd.refresh", icon: "R" },
+            { id: "cmd.collapse", icon: "C" },
+        ]);
+        layout(row);
+        expect(render(row).getFgAt(new Point(24, 0))).toBe(ENABLED_FG);
+
+        row.setActions([
+            { id: "cmd.refresh", icon: "R" },
+            { id: "cmd.collapse", icon: "C", enabled: false },
+        ]);
+        layout(row);
+        expect(render(row).getFgAt(new Point(24, 0))).toBe(DISABLED_FG);
+        // Соседняя осталась доступной.
+        expect(render(row).getFgAt(new Point(20, 0))).toBe(ENABLED_FG);
     });
 
     it("под курсором не подсвечивается, но зону сохраняет", () => {

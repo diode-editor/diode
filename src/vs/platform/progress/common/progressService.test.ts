@@ -45,19 +45,126 @@ describe("ProgressService", () => {
         expect(service.viewProgress().size).toBe(0);
     });
 
-    it("после задержки показывает кадр и крутит его тикером", async () => {
+    it("после задержки показывает кадр, крутит его тикером и зовёт слушателей на каждый кадр", async () => {
+        const listener = vi.fn();
+        service.onDidChange(listener);
         const task = deferred();
         const running = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
 
         vi.advanceTimersByTime(300);
         expect(service.viewProgress().get(VIEW)).toEqual({ spinner: "◐", title: "Committing…" });
 
+        // Кадр обязан не только смениться, но и разбудить отрисовку — иначе
+        // спиннер «крутится» только в модели.
+        listener.mockClear();
         vi.advanceTimersByTime(100);
         expect(service.viewProgress().get(VIEW)?.spinner).toBe("◓");
+        expect(listener).toHaveBeenCalled();
+
+        // Полный оборот: четыре кадра и возврат к первому.
+        vi.advanceTimersByTime(100);
+        expect(service.viewProgress().get(VIEW)?.spinner).toBe("◑");
+        vi.advanceTimersByTime(100);
+        expect(service.viewProgress().get(VIEW)?.spinner).toBe("◒");
+        vi.advanceTimersByTime(100);
+        expect(service.viewProgress().get(VIEW)?.spinner).toBe("◐");
 
         task.resolve();
         await running;
         vi.advanceTimersByTime(10_000);
+    });
+
+    it("дефолтные тайминги: показ через 300 мс, кадр каждые 100 мс, минимум показа 500 мс", async () => {
+        // Единственный тест без инжекции таймингов — иначе дефолты не проверяет
+        // никто, и подмена любого из них проходит незамеченной.
+        const defaults = new ProgressService();
+        const task = deferred();
+        const running = defaults.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
+
+        vi.advanceTimersByTime(299);
+        expect(defaults.viewProgress().size).toBe(0);
+        vi.advanceTimersByTime(1);
+        expect(defaults.viewProgress().get(VIEW)?.spinner).toBe("◐");
+
+        vi.advanceTimersByTime(99);
+        expect(defaults.viewProgress().get(VIEW)?.spinner).toBe("◐");
+        vi.advanceTimersByTime(1);
+        expect(defaults.viewProgress().get(VIEW)?.spinner).toBe("◓");
+
+        task.resolve();
+        await running;
+        // Показали на 300-й, отпустили на 400-й — досиживает до 800-й.
+        vi.advanceTimersByTime(399);
+        expect(defaults.viewProgress().has(VIEW)).toBe(true);
+        vi.advanceTimersByTime(1);
+        expect(defaults.viewProgress().has(VIEW)).toBe(false);
+
+        defaults.dispose();
+    });
+
+    it("короткая операция не оставляет висящих таймеров", async () => {
+        const listener = vi.fn();
+        service.onDidChange(listener);
+        const task = deferred();
+        const running = service.withProgress({ location: "view", viewId: VIEW, title: "Staging…" }, () => task.promise);
+
+        vi.advanceTimersByTime(200);
+        task.resolve();
+        await running;
+
+        // Таймер показа снят вместе с записью: иначе он выстрелит позже и
+        // разбудит отрисовку спиннером операции, которой давно нет.
+        expect(vi.getTimerCount()).toBe(0);
+        listener.mockClear();
+        vi.advanceTimersByTime(10_000);
+        expect(listener).not.toHaveBeenCalled();
+    });
+
+    it("после конца долгой операции тикер останавливается", async () => {
+        const listener = vi.fn();
+        service.onDidChange(listener);
+        const task = deferred();
+        const running = service.withProgress({ location: "view", viewId: VIEW, title: "Pushing…" }, () => task.promise);
+
+        // Дольше задержки И минимума показа: запись досиживать нечего, конец
+        // операции обязан погасить тикер сразу.
+        vi.advanceTimersByTime(1000);
+        task.resolve();
+        await running;
+
+        expect(service.viewProgress().size).toBe(0);
+        expect(vi.getTimerCount()).toBe(0);
+        listener.mockClear();
+        vi.advanceTimersByTime(10_000);
+        expect(listener).not.toHaveBeenCalled();
+    });
+
+    it("вторая показанная операция не заводит второй тикер", async () => {
+        const first = deferred();
+        const second = deferred();
+        const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
+        vi.advanceTimersByTime(300);
+        const b = service.withProgress({ location: "window", title: "Pushing…" }, () => second.promise);
+        vi.advanceTimersByTime(300);
+
+        // Живых таймеров ровно три: общий тикер и два minVisible'а записей.
+        expect(vi.getTimerCount()).toBe(3);
+
+        first.resolve();
+        second.resolve();
+        await Promise.all([a, b]);
+        vi.advanceTimersByTime(10_000);
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("после dispose сервис молчит", () => {
+        const listener = vi.fn();
+        service.onDidChange(listener);
+        service.dispose();
+
+        void service.withProgress({ location: "window", title: "Fetching…" }, () => deferred().promise);
+        vi.advanceTimersByTime(10_000);
+        expect(listener).not.toHaveBeenCalled();
     });
 
     it("показанный спиннер досиживает минимум показа", async () => {
@@ -177,6 +284,8 @@ describe("ProgressService", () => {
         service.dispose();
         expect(service.viewProgress().size).toBe(0);
         expect(service.isBusy()).toBe(false);
+        // Ни тикера, ни таймеров записи: приложение закрылось — крутить нечего.
+        expect(vi.getTimerCount()).toBe(0);
 
         listener.mockClear();
         vi.advanceTimersByTime(10_000);
