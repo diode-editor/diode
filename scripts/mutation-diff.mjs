@@ -20,6 +20,7 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -206,10 +207,118 @@ for (const entry of mutate) console.log(`  ${entry}`);
 
 if (scopeOnly) process.exit(0);
 
-const stryker = spawnSync(
-    "npx",
-    ["stryker", "run", "--mutate", mutate.join(","), ...strykerArgs],
-    { cwd: repoRoot, stdio: "inherit" },
-);
+function runStryker(scope) {
+    return spawnSync("npx", ["stryker", "run", "--mutate", scope.join(","), ...strykerArgs], {
+        cwd: repoRoot,
+        stdio: "inherit",
+    });
+}
 
-process.exit(stryker.status ?? 1);
+/**
+ * Выжившие из отчёта, разложенные по тому, проверяли их вообще или нет.
+ *
+ * `testsCompleted: 0` у выжившего означает, что при его прогоне не выполнилось
+ * НИ ОДНОГО теста — хотя покрывающих у мутанта могут быть сотни. Это дефект
+ * связки Stryker↔vitest (наблюдается и с `perTest`, и с `coverageAnalysis:
+ * off`, и с перезапуском раннера), а не дыра в тестах: тот же мутант в
+ * точечном прогоне уверенно убивается. Такого выжившего считать находкой
+ * нельзя — «ничего не запускали» это не «никто не заметил».
+ */
+const REPORT_PATH = path.join(repoRoot, "reports", "mutation", "mutation.json");
+
+function readReport() {
+    if (!existsSync(REPORT_PATH)) return null;
+    return JSON.parse(readFileSync(REPORT_PATH, "utf8"));
+}
+
+/** Ключ мутанта: файл + позиция + мутатор — так он сходится между прогонами. */
+function mutantKey(file, mutant) {
+    return `${file}:${String(mutant.location?.start?.line)}:${String(mutant.location?.start?.column)}:${String(mutant.mutatorName)}`;
+}
+
+/**
+ * Возвращает отчёт первого прогона на место точечного: комментарий в PR должен
+ * показывать всю картину, а не тот кусок, который перепроверяли. Мутанты,
+ * убитые в перепроверке, получают статус `Killed` с причиной — почему их
+ * пришлось гонять отдельно, видно прямо в отчёте.
+ */
+function mergeRecheckIntoReport(firstReport) {
+    const recheckReport = readReport();
+    if (firstReport === null || recheckReport === null) return 0;
+    let rechecked = 0;
+    const killedOnRecheck = new Set();
+    for (const [file, data] of Object.entries(recheckReport.files ?? {})) {
+        for (const mutant of data.mutants ?? []) {
+            rechecked++;
+            if (mutant.status === "Killed" || mutant.status === "Timeout") killedOnRecheck.add(mutantKey(file, mutant));
+        }
+    }
+    for (const [file, data] of Object.entries(firstReport.files ?? {})) {
+        for (const mutant of data.mutants ?? []) {
+            if (mutant.status !== "Survived" || mutant.testsCompleted) continue;
+            if (!killedOnRecheck.has(mutantKey(file, mutant))) continue;
+            mutant.status = "Killed";
+            mutant.statusReason = "перепроверен точечным прогоном: в общем прогоне не выполнилось ни одного теста";
+        }
+    }
+    writeFileSync(REPORT_PATH, JSON.stringify(firstReport));
+    return rechecked;
+}
+
+function classifySurvivors() {
+    const report = readReport();
+    if (report === null) return null;
+    const verified = [];
+    const unverified = [];
+    for (const [file, data] of Object.entries(report.files ?? {})) {
+        for (const mutant of data.mutants ?? []) {
+            if (mutant.status !== "Survived") continue;
+            const start = mutant.location?.start?.line;
+            if (start === undefined) continue;
+            // Диапазон — по всей длине мутанта: у многострочных (вырезанное тело
+            // функции) `--mutate file:N-N` не покрыл бы его целиком, и скоуп
+            // вышел бы пустым — перепроверка молча ничего бы не проверила.
+            const end = mutant.location?.end?.line ?? start;
+            (mutant.testsCompleted ? verified : unverified).push({ file, start, end });
+        }
+    }
+    return { verified, unverified };
+}
+
+const first = runStryker(mutate);
+if ((first.status ?? 1) === 0) process.exit(0);
+
+const survivors = classifySurvivors();
+if (survivors === null || survivors.unverified.length === 0) {
+    process.exit(first.status ?? 1);
+}
+if (survivors.verified.length > 0) {
+    console.log(
+        `Есть выжившие, проверенные тестами (${String(survivors.verified.length)}) — перепроверять нечего.`,
+    );
+    process.exit(first.status ?? 1);
+}
+
+// Перепроверяем точечно: скоуп в одну строку на мутанта прогоняется надёжно.
+const recheck = [...new Set(survivors.unverified.map(({ file, start, end }) => `${file}:${start}-${end}`))];
+console.log(
+    `\nВыжившие (${String(survivors.unverified.length)}) прогнались с нулём выполненных тестов — это не находка, ` +
+        `а известный дефект связки Stryker↔vitest (см. docs/TESTING.md). Перепроверяю точечно:`,
+);
+for (const entry of recheck) console.log(`  ${entry}`);
+
+const firstReport = readReport();
+const recheckStatus = runStryker(recheck).status ?? 1;
+const rechecked = mergeRecheckIntoReport(firstReport);
+
+// Пустая перепроверка — тихо-зелёный гейт: Stryker на скоупе без мутантов
+// выходит нулём. Падаем громко, иначе «ничего не проверили» станет «всё хорошо».
+if (rechecked === 0) {
+    console.error(
+        "Перепроверка не нашла ни одного мутанта в своём скоупе — гейт ничего не проверил. " +
+            "Скорее всего разъехались диапазоны строк; чинить в scripts/mutation-diff.mjs.",
+    );
+    process.exit(1);
+}
+
+process.exit(recheckStatus);
