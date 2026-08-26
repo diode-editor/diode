@@ -263,6 +263,7 @@ function inZone(label: TextLabelElement, localX: number): boolean {
     return localX >= start && localX < start + width;
 }
 
+// Stryker disable next-line BlockStatement: пустое тело = «составы всегда разные» = лишняя пересборка, ненаблюдаемая по кадру
 function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleAction[]): boolean {
     // Stryker disable next-line ConditionalExpression: «считать составы всегда разными» даёт лишнюю пересборку — кнопки от неё те же; пропуск нужной закрыт тестами ниже
     if (a.length !== b.length) return false;
