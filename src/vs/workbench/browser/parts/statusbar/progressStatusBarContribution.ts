@@ -8,9 +8,8 @@ import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
-export const ProgressStatusBarContributionDIToken = token<ProgressStatusBarContribution>(
-    "ProgressStatusBarContribution",
-);
+export const ProgressStatusBarContributionDIToken =
+    token<ProgressStatusBarContribution>("ProgressStatusBarContribution");
 
 /** Тот же приоритет, что у прогресса расширений: левее chord-хинта, правее terminal-env. */
 const PROGRESS_PRIORITY = 60;

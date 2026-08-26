@@ -77,6 +77,20 @@ describe("ViewsService — спиннер занятости", () => {
         expect(h.header(PANEL)).toBeNull();
     });
 
+    it("в панели с несколькими секциями кадр уходит в заголовок своей секции", () => {
+        // Не-merged панель: заголовка-цели у контейнера нет, и путь «отдать кадр
+        // полосе таб-строки» здесь не должен даже пытаться его читать.
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: PANEL, title: "PANEL", location: "panel" });
+        h.service.registerView(testView("panel.output", PANEL, 10));
+        h.service.registerView(testView("panel.problems", PANEL, 20));
+        h.service.attachContainer(PANEL);
+
+        expect(() => h.service.setViewSpinner("panel.problems", "◐")).not.toThrow();
+        const header = h.paneView(PANEL).querySelector("#paneHeader-panel-problems");
+        expect(header?.inspectState()?.busy).toBe(true);
+    });
+
     it("прогресс незарегистрированной view — молчаливый no-op", () => {
         const h = scmHarness(["scm.changes"]);
         expect(() => h.service.setViewSpinner("search", "◐")).not.toThrow();

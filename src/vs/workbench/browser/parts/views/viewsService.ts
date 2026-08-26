@@ -251,6 +251,7 @@ export class ViewsService {
         const { entry, record } = found;
         // Занятость появилась или ушла — только эти два перехода меняют состав
         // полосы контролов таб-строки; смена кадра для неё ничего не значит.
+        // Stryker disable next-line ConditionalExpression: пересчёт идемпотентен, поэтому лишний вызов виден только по стоимости; пропуск нужного закрыт тестом появления и ухода полосы
         const appeared = (record.spinner === null) !== (frame === null);
         record.spinner = frame;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
@@ -258,6 +259,7 @@ export class ViewsService {
         // Полоса контролов таб-строки прячется, когда показывать нечего, —
         // появление и уход спиннера этот расчёт меняют. Смена самого кадра
         // (10 Гц) сюда не попадает: пересчёт резолвит меню всех секций.
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: та же причина, что строкой выше — лишний пересчёт ненаблюдаем
         if (appeared && this.isPanel(entry)) this.refreshContainerTitleActions(entry);
     }
 
@@ -802,6 +804,7 @@ function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
             if (isInlineItem(entry) && entry.id === actionId) {
                 // Погашенная кнопка кликается (зона за ней осталась, иначе клик
                 // свернул бы секцию), но ничего не делает.
+                // Stryker disable next-line OptionalChaining: onSelect есть у любого пункта, резолвнутого MenuRegistry — защита от чужих реализаций MenuEntry
                 if (entry.enabled) entry.onSelect?.();
                 return;
             }

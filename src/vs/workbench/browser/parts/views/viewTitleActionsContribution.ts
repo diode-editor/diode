@@ -8,6 +8,7 @@ import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribut
 import type { ViewsService } from "./viewsService.ts";
 import { ViewsServiceDIToken } from "./viewsService.ts";
 
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const ViewTitleActionsContributionDIToken = token<ViewTitleActionsContribution>("ViewTitleActionsContribution");
 
 /**

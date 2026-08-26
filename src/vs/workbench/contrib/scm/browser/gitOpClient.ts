@@ -25,6 +25,7 @@ export async function runGitOp(
     const commands = accessor.get(CommandRegistryDIToken);
     if (!commands.has(GIT_OP_COMMAND)) return null;
     const raw = await withGitProgress(accessor, op, () =>
+        // Stryker disable next-line ArrowFunction: parseGitOpResult одинаково отвечает null и на null, и на undefined
         Promise.resolve(commands.execute(GIT_OP_COMMAND, { op, params })).catch(() => null),
     );
     const result = parseGitOpResult(raw);

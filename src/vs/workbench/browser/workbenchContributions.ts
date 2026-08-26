@@ -31,10 +31,13 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: PanelFocusContributionDIToken, phase: "restored" },
     // Спиннеры занятости в заголовках секций: подписка должна стоять до первой
     // операции, иначе её начало пройдёт мимо.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ViewProgressContributionDIToken, phase: "restored" },
     // Долгие сетевые операции видно и когда Source Control не показан.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ProgressStatusBarContributionDIToken, phase: "restored" },
     // Живой тулбар: кнопки заголовков реагируют на смену контекст-ключей.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ViewTitleActionsContributionDIToken, phase: "restored" },
     // История навигации: подписки должны стоять до открытия первого файла.
     // Убрать эту строку сейчас ничего не ломает — сервис всё равно поднимается
@@ -51,5 +54,6 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Ветка + sync-счётчики в статус-баре (из repo-state git-расширения).
     { token: ScmStatusBarContributionDIToken, phase: "restored" },
     // Ключ занятости git: на нём висит enablement мутирующих команд.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ScmBusyContextContributionDIToken, phase: "restored" },
 ];

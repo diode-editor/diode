@@ -8,6 +8,7 @@ import { ProgressServiceDIToken } from "../../../../platform/progress/common/pro
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const ScmBusyContextContributionDIToken = token<ScmBusyContextContribution>("ScmBusyContextContribution");
 
 /**

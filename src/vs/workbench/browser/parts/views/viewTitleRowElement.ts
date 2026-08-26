@@ -264,6 +264,7 @@ function inZone(label: TextLabelElement, localX: number): boolean {
 }
 
 function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleAction[]): boolean {
+    // Stryker disable next-line ConditionalExpression: «считать составы всегда разными» даёт лишнюю пересборку — кнопки от неё те же; пропуск нужной закрыт тестами ниже
     if (a.length !== b.length) return false;
     // Stryker disable next-line ConditionalExpression,ArrowFunction: ослабление сравнения даёт лишнюю пересборку — кнопки от неё те же; обратная подмена (пропустить нужную) закрыта тестами
     return a.every((action, index) => sameAction(action, b[index]));

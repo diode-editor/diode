@@ -58,11 +58,23 @@ describe("ViewProgressContribution", () => {
         // Сервис про операцию забыл — снять спиннер обязана контрибуция.
         expect(target.frames.get(CHANGES)).toBeNull();
 
-        // И снять ровно один раз: секция, с которой спиннер уже снят, больше не
-        // должна попадать в раскладку кадров.
+        // И снять ровно один раз: следующая операция (уже в другой секции) не
+        // должна снова гасить спиннер у той, что давно закончилась.
         const callsAfterRemoval = target.calls;
-        vi.advanceTimersByTime(1000);
-        expect(target.calls).toBe(callsAfterRemoval);
+        let doneGraph!: () => void;
+        const graph = progress.withProgress({ location: "view", viewId: GRAPH, title: "Refreshing…" }, () =>
+            new Promise<void>((resolve) => {
+                doneGraph = resolve;
+            }),
+        );
+        vi.advanceTimersByTime(300);
+        expect(target.frames.get(GRAPH)).toBe("◐");
+        // Ровно один вызов — на кадр GRAPH; CHANGES больше не трогали.
+        expect(target.calls).toBe(callsAfterRemoval + 1);
+
+        doneGraph();
+        await graph;
+        vi.advanceTimersByTime(500);
 
         contribution.dispose();
     });
