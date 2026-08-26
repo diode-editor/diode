@@ -38,12 +38,12 @@ describe("ProgressStatusBarContribution", () => {
         expect(texts()).toEqual([]);
 
         vi.advanceTimersByTime(300);
-        expect(texts()).toEqual(["◐ Pushing…"]);
+        expect(texts()).toEqual(["⠋ Pushing…"]);
         // Id записи — её адрес в статус-баре: по нему запись переиспользуется,
         // а не плодится на каждый кадр.
         expect(statusBar.entries().map((entry) => entry.id)).toEqual(["status.progress"]);
         vi.advanceTimersByTime(100);
-        expect(texts()).toEqual(["◓ Pushing…"]);
+        expect(texts()).toEqual(["⠙ Pushing…"]);
 
         done();
         await running;

@@ -63,7 +63,7 @@ describe("прогресс git-операций", () => {
         const pulling = runGitOp(network.accessor, "pull");
         vi.advanceTimersByTime(300);
         // Долгий pull видно, даже когда в сайдбаре открыт не Source Control.
-        expect(network.progress.windowProgress()).toEqual({ spinner: "◐", title: "Pulling…" });
+        expect(network.progress.windowProgress()).toEqual({ spinner: "⠋", title: "Pulling…" });
         expect(network.progress.viewProgress().get(SCM_CHANGES_VIEW_ID)?.title).toBe("Pulling…");
         network.release();
         await pulling;
