@@ -64,8 +64,9 @@ import {
 import { COMMIT_ACTIONS } from "../../contrib/scm/browser/commitActions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
 import { GRAPH_VIEW_ACTIONS } from "../../contrib/scm/browser/graphActions.ts";
+import { gitMutating } from "../../contrib/scm/browser/gitProgress.ts";
 import { GRAPH_COMMIT_ACTIONS } from "../../contrib/scm/browser/graphCommitActions.ts";
-import { REMOTE_TAG_ACTIONS } from "../../contrib/scm/browser/remoteTagActions.ts";
+import { gitShowOutputAction, REMOTE_TAG_ACTIONS } from "../../contrib/scm/browser/remoteTagActions.ts";
 import {
     gitCleanAction,
     gitCleanAllAction,
@@ -435,17 +436,24 @@ export const builtinActions: readonly CommandAction[] = [
     scmViewAsListAction,
     scmFocusInputAction,
     scmFocusChangesAction,
-    ...GRAPH_VIEW_ACTIONS,
-    ...GRAPH_COMMIT_ACTIONS,
-    gitStageAction,
-    gitUnstageAction,
-    gitStageAllAction,
-    gitUnstageAllAction,
-    gitCleanAction,
-    gitCleanAllAction,
-    ...COMMIT_ACTIONS,
-    ...SYNC_ACTIONS,
-    ...BRANCH_ACTIONS,
-    ...STASH_ACTIONS,
-    ...REMOTE_TAG_ACTIONS,
+    gitShowOutputAction,
+    // Всё, что мутирует репозиторий (или гоняет git по нашей команде), гасится
+    // на время уже идущей операции — `enablement: !gitOperationInProgress`.
+    // В VS Code это поле у каждой команды манифеста; у нас — один список, чтобы
+    // не расходился с тем, что реально ходит через транспортные швы.
+    ...[
+        ...GRAPH_VIEW_ACTIONS,
+        ...GRAPH_COMMIT_ACTIONS,
+        gitStageAction,
+        gitUnstageAction,
+        gitStageAllAction,
+        gitUnstageAllAction,
+        gitCleanAction,
+        gitCleanAllAction,
+        ...COMMIT_ACTIONS,
+        ...SYNC_ACTIONS,
+        ...BRANCH_ACTIONS,
+        ...STASH_ACTIONS,
+        ...REMOTE_TAG_ACTIONS,
+    ].map(gitMutating),
 ];

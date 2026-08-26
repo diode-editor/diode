@@ -2,7 +2,7 @@ import type { ISubmenuContribution } from "../../../../platform/actions/common/i
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 
-import { SCM_CHANGES_VIEW_ID } from "./changesComponent.ts";
+import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
 /**
  * Подменю меню «⋯» секции CHANGES — зеркала submenu-точек git-расширения

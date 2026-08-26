@@ -141,6 +141,11 @@ export class PaneViewElement extends TUIElement {
         this.paneOrThrow(id).header.setTitleWidget(widget);
     }
 
+    /** Кадр спиннера в заголовке занятой секции (кадры гонит `ProgressService`). */
+    public setPaneSpinner(id: string, frame: string | null): void {
+        this.paneOrThrow(id).header.setSpinnerFrame(frame);
+    }
+
     /** Прятать ли «⋯» секции — когда её меню пустое, кнопке нечего открывать. */
     public setPaneMenuVisible(id: string, visible: boolean): void {
         this.paneOrThrow(id).header.setMenuVisible(visible);

@@ -31,13 +31,9 @@ import {
 } from "./scmChangeRows.ts";
 import { buildScmTree, displayPath, type ScmTreeNode, sortChangesFlat } from "./scmChangeTree.ts";
 import type { ScmInputComponent } from "./scmInputComponent.ts";
+import { SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
+
 import { SCM_INPUT_HEIGHT, ScmInputComponentDIToken } from "./scmInputComponent.ts";
-
-/** Id вьюлета Source Control в сайдбаре (см. {@link SidebarService}). */
-export const SCM_VIEWLET_ID = "scm";
-
-/** Id view-секции CHANGES внутри контейнера Source Control (см. {@link ViewsService}). */
-export const SCM_CHANGES_VIEW_ID = "workbench.scm.changes";
 
 export const ChangesComponentDIToken = token<ChangesComponent>("ChangesComponent");
 

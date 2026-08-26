@@ -11,6 +11,7 @@ import {
     ContextMenuServiceDIToken,
 } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
+import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
 import { QuitHandlerDIToken } from "../../workbench/browser/actions/appActions.ts";
 import { MENU_CONTRIBUTIONS } from "../../workbench/browser/actions/menuContributions.ts";
 import { MenuBarComponent, MenuBarComponentDIToken } from "../../workbench/browser/menuBarComponent.ts";
@@ -39,9 +40,21 @@ import {
 } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
 import { SidebarService, SidebarServiceDIToken } from "../../workbench/browser/parts/sidebar/sidebarService.ts";
 import {
+    ProgressStatusBarContribution,
+    ProgressStatusBarContributionDIToken,
+} from "../../workbench/browser/parts/statusbar/progressStatusBarContribution.ts";
+import {
     StatusBarComponent,
     StatusBarComponentDIToken,
 } from "../../workbench/browser/parts/statusbar/statusBarComponent.ts";
+import {
+    ViewProgressContribution,
+    ViewProgressContributionDIToken,
+} from "../../workbench/browser/parts/views/viewProgressContribution.ts";
+import {
+    ViewTitleActionsContribution,
+    ViewTitleActionsContributionDIToken,
+} from "../../workbench/browser/parts/views/viewTitleActionsContribution.ts";
 import { ViewsService, ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
@@ -142,6 +155,10 @@ import {
 } from "../../workbench/contrib/scm/browser/repoStateService.ts";
 import { ScmInputComponent, ScmInputComponentDIToken } from "../../workbench/contrib/scm/browser/scmInputComponent.ts";
 import {
+    ScmBusyContextContribution,
+    ScmBusyContextContributionDIToken,
+} from "../../workbench/contrib/scm/browser/scmBusyContextContribution.ts";
+import {
     ScmStatusBarContribution,
     ScmStatusBarContributionDIToken,
 } from "../../workbench/contrib/scm/browser/scmStatusBarContribution.ts";
@@ -228,6 +245,10 @@ const KNOWN_OUTPUT_CHANNELS: readonly (readonly [id: string, label: string])[] =
 
 export const workbenchModule: ContainerModule = (container) => {
     container.bind(StatusBarServiceDIToken, StatusBarService);
+    // Прогресс длительных операций: модель + общий такт спиннеров (кадры
+    // разбирают потребители — заголовки view и статус-бар).
+    container.bind(ProgressServiceDIToken, ProgressService);
+    container.bind(ProgressStatusBarContributionDIToken, ProgressStatusBarContribution);
     // Клавиатурный диспатчер: чорды/armory/swallow + chord-хинт в статус-баре.
     // View-хуки (updateContextKeys, hasKeyboardCapturingOverlay) подключает владелец
     // корневого дерева — WorkbenchComponent.
@@ -381,6 +402,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ScmRepoStateServiceDIToken, ScmRepoStateService);
     // Ветка + sync-счётчики в статус-баре.
     container.bind(ScmStatusBarContributionDIToken, ScmStatusBarContribution);
+    container.bind(ScmBusyContextContributionDIToken, ScmBusyContextContribution);
     // Этап 11: layout-логика (сайдбар/панель + персист layout'а; сам
     // WorkbenchLayoutElement приходит от владельца view через attachLayout),
     // персист открытых редакторов, контекст-ключи workbench'а (замыкают
@@ -393,6 +415,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // View-секции внутри вьюлета (PaneView): реестр, сборка контейнера,
     // персист свёрнутости/весов, меню «⋯».
     container.bind(ViewsServiceDIToken, ViewsService);
+    container.bind(ViewProgressContributionDIToken, ViewProgressContribution);
+    container.bind(ViewTitleActionsContributionDIToken, ViewTitleActionsContribution);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);
     container.bind(WorkbenchContextKeysDIToken, WorkbenchContextKeys);
     container.bind(MenuBarComponentDIToken, MenuBarComponent);

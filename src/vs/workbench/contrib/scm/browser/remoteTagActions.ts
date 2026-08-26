@@ -5,7 +5,7 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 
-import { SCM_CHANGES_VIEW_ID } from "./changesComponent.ts";
+import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 import { GitRemotesMenu, GitTagsMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { pickRemote, queryRefs } from "./syncActions.ts";
@@ -134,11 +134,15 @@ export const gitShowOutputAction: CommandAction = {
     },
 };
 
+/**
+ * Мутирующая часть: `builtinActions` вешает на неё `enablement` занятости.
+ * `git.showOutput` сюда не входит — он ничего не запускает, и гасить его на
+ * время операции значило бы прятать её же лог.
+ */
 export const REMOTE_TAG_ACTIONS: readonly CommandAction[] = [
     gitAddRemoteAction,
     gitRemoveRemoteAction,
     gitCreateTagAction,
     gitDeleteTagAction,
     gitDeleteRemoteTagAction,
-    gitShowOutputAction,
 ];

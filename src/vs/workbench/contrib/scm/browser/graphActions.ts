@@ -3,8 +3,10 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 
-import { runGitOp } from "./gitOpClient.ts";
-import { GRAPH_LOAD_MORE_COMMAND, SCM_GRAPH_VIEW_ID } from "./graphViewComponent.ts";
+import { SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
+
+import { runGitOp, withGitProgress } from "./gitOpClient.ts";
+import { GRAPH_LOAD_MORE_COMMAND } from "./graphViewComponent.ts";
 
 /** nf-cod-refresh — inline-кнопка заголовка секции GRAPH. */
 const REFRESH_ICON = "\ueb37";
@@ -30,7 +32,10 @@ export const scmGraphRefreshAction: CommandAction = {
     ],
     run(accessor) {
         const commands = accessor.get(CommandRegistryDIToken);
-        if (commands.has("git.refresh")) void commands.execute("git.refresh");
+        if (!commands.has("git.refresh")) return undefined;
+        // Промис прокси-команды расширения раньше выбрасывался — без него
+        // спиннеру нечего было бы держать.
+        return withGitProgress(accessor, "refresh", () => Promise.resolve(commands.execute("git.refresh")));
     },
 };
 

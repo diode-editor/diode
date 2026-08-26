@@ -50,6 +50,24 @@ describe("menuItemsOfAction — деривация contributions из co-located
             shortcut: false,
         });
     });
+
+    it("enablement наследуется от экшена, своё у размещения — сужает (AND)", () => {
+        const inherited = menuItemsOfAction(
+            action({ enablement: "gitHasRepo", menus: [{ menuId: MenuId.ExplorerContext }] }),
+        );
+        expect(inherited[0].enablement).toBe("gitHasRepo");
+
+        const narrowed = menuItemsOfAction(
+            action({
+                enablement: "gitHasRepo",
+                menus: [{ menuId: MenuId.ExplorerContext, enablement: "!gitOperationInProgress" }],
+            }),
+        );
+        expect(narrowed[0].enablement).toBe("(gitHasRepo) && (!gitOperationInProgress)");
+
+        const none = menuItemsOfAction(action({ menus: [{ menuId: MenuId.ExplorerContext }] }));
+        expect(none[0].enablement).toBeUndefined();
+    });
 });
 
 describe("MENU_CONTRIBUTIONS — итоговые встроенные меню", () => {

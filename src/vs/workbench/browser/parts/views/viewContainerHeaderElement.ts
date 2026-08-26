@@ -93,6 +93,11 @@ export class ViewContainerHeaderElement extends TUIElement {
         this.row.setMenuVisible(visible);
     }
 
+    /** Кадр спиннера занятой секции (см. {@link ViewTitleRowElement.setSpinnerFrame}). */
+    public setSpinnerFrame(frame: string | null): void {
+        this.row.setSpinnerFrame(frame);
+    }
+
     /** Ширина содержимого: полосе контролов в таб-строке панели её назначает контейнер. */
     public override getMaxIntrinsicWidth(height: number): number {
         return this.row.getMaxIntrinsicWidth(height);
@@ -119,6 +124,6 @@ export class ViewContainerHeaderElement extends TUIElement {
     }
 
     public override inspectState(): Record<string, unknown> {
-        return { title: this.row.getTitle() };
+        return { title: this.row.getTitle(), busy: this.row.isBusy };
     }
 }

@@ -17,7 +17,7 @@ describe("ViewsService", () => {
 
         const header = h.header("scm");
         expect(header).toBeInstanceOf(ViewContainerHeaderElement);
-        expect(header?.inspectState()).toEqual({ title: "SOURCE CONTROL" });
+        expect(header?.inspectState()).toEqual({ title: "SOURCE CONTROL", busy: false });
         expect(h.paneView("scm").getPaneIds()).toEqual(["scm.changes", "scm.graph"]);
     });
 
@@ -192,7 +192,7 @@ describe("ViewsService — merged контейнер выводится из ч�
 
         // Корень контейнера стабилен — место держит ту же ссылку.
         expect(h.root("search")).toBe(rootBefore);
-        expect(h.header("search")?.inspectState()).toEqual({ title: "SEARCH" });
+        expect(h.header("search")?.inspectState()).toEqual({ title: "SEARCH", busy: false });
         expect(paneTitles(h.paneView("search"))).toEqual(["SEARCH.RESULTS", "SEARCH.EXTRA"]);
         expect(h.paneView("search").querySelector("#paneHeader-search-results")!.inspectState()).toMatchObject({
             collapsible: true,

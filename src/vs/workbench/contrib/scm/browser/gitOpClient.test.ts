@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { ProgressService, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 import { runGitOp } from "./gitOpClient.ts";
@@ -12,6 +13,8 @@ function makeAccessor(opts: {
 }): { accessor: ServiceAccessor; notices: string[] } {
     const notices: string[] = [];
     const services = new Map<unknown, unknown>([
+        // Прогресс операций: транспортные швы просят его у контейнера.
+        [ProgressServiceDIToken, new ProgressService()],
         [
             CommandRegistryDIToken,
             { has: () => opts.has !== false, execute: opts.execute ?? (() => ({ ok: true })) },

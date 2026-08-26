@@ -29,6 +29,11 @@ export interface IViewTitleAction {
     /** Что вернёт {@link ViewTitleRowElement.hitZone}; обычно id команды. */
     readonly id: string;
     readonly icon: string;
+    /**
+     * `false` — команда сейчас недоступна (`enablement` пункта): кнопка остаётся
+     * на месте, но приглушена и не срабатывает. По умолчанию — доступна.
+     */
+    readonly enabled?: boolean;
 }
 
 /** Куда попал клик по строке заголовка. */
@@ -66,6 +71,7 @@ export class ViewTitleRowElement extends HFlexElement {
 
     private title: string;
     private expanded = true;
+    private spinner: string | null = null;
     private actions: readonly IViewTitleAction[] = [];
     private actionLabels: TextLabelElement[] = [];
     private titleWidget: TUIElement | null = null;
@@ -77,7 +83,8 @@ export class ViewTitleRowElement extends HFlexElement {
         this.chevron = options?.chevron ?? true;
         this.titleLabel = new TextLabelElement(this.composeTitle());
         this.menuLabel = new TextLabelElement(buttonLabel(MENU_ICON));
-        this.menuLabel.style = buttonStyle();
+        // «⋯» доступна всегда: она открывает попап, а не исполняет команду.
+        this.menuLabel.style = buttonStyle(true);
         this.syncChildren();
     }
 
@@ -117,6 +124,25 @@ export class ViewTitleRowElement extends HFlexElement {
         if (this.menuVisible === visible) return;
         this.menuVisible = visible;
         this.syncChildren();
+    }
+
+    /**
+     * Кадр спиннера сразу после названия (`null` — секция не занята). Кадры
+     * гонит `ProgressService`, элемент сам ничего не анимирует. Место выбрано
+     * так, чтобы ряд кнопок не дёргался: лишние колонки съедает филлер, а
+     * `hitZone` считает зоны по разложенным ширинам и пересчитывается сам.
+     */
+    public setSpinnerFrame(frame: string | null): void {
+        // Отсекать повторный кадр здесь незачем: единственный вызывающий —
+        // `ViewsService.setViewSpinner` — уже выходит рано на неизменившемся
+        // кадре, а после пересборки заголовка лейбл всё равно новый.
+        this.spinner = frame;
+        this.titleLabel.setText(this.composeTitle());
+    }
+
+    /** Занята ли секция — наблюдаемость для инспектора/e2e (сам кадр крутится, его не отдаём). */
+    public get isBusy(): boolean {
+        return this.spinner !== null;
     }
 
     /** Произвольный контрол между названием и кнопками (переключатель каналов Output). */
@@ -170,14 +196,15 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 
     private composeTitle(): string {
-        if (!this.chevron) return ` ${this.title}`;
-        return ` ${this.expanded ? ICON_EXPANDED : ICON_COLLAPSED} ${this.title}`;
+        const tail = this.spinner === null ? "" : ` ${this.spinner}`;
+        if (!this.chevron) return ` ${this.title}${tail}`;
+        return ` ${this.expanded ? ICON_EXPANDED : ICON_COLLAPSED} ${this.title}${tail}`;
     }
 
     private syncChildren(): void {
         this.actionLabels = this.actions.map((action) => {
             const label = new TextLabelElement(buttonLabel(action.icon));
-            label.style = buttonStyle();
+            label.style = buttonStyle(action.enabled !== false);
             label.layoutStyle = { width: hflexFixed(BUTTON_WIDTH), height: 1 };
             return label;
         });
@@ -207,7 +234,10 @@ export class ViewTitleRowElement extends HFlexElement {
  * владелец через {@link ViewTitleRowElement.setHoveredZone}, потому что сами
  * лейблы в хит-тесте не участвуют.
  */
-function buttonStyle(): TUIElement["style"] {
+function buttonStyle(enabled: boolean): TUIElement["style"] {
+    // У выключенной кнопки hover-варианта нет вовсе: подсвеченный фон читался бы
+    // как «нажимается», а она не нажимается.
+    if (!enabled) return { fg: "disabledForeground" };
     return {
         fg: "descriptionForeground",
         when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }],
@@ -233,6 +263,20 @@ function inZone(label: TextLabelElement, localX: number): boolean {
     return localX >= start && localX < start + width;
 }
 
+// Stryker disable next-line BlockStatement: пустое тело = «составы всегда разные» = лишняя пересборка, ненаблюдаемая по кадру
 function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleAction[]): boolean {
-    return a.length === b.length && a.every((action, i) => action.id === b[i].id && action.icon === b[i].icon);
+    // Stryker disable next-line ConditionalExpression: «считать составы всегда разными» даёт лишнюю пересборку — кнопки от неё те же; пропуск нужной закрыт тестами ниже
+    if (a.length !== b.length) return false;
+    // Stryker disable next-line ConditionalExpression,ArrowFunction: ослабление сравнения даёт лишнюю пересборку — кнопки от неё те же; обратная подмена (пропустить нужную) закрыта тестами
+    return a.every((action, index) => sameAction(action, b[index]));
+}
+
+/**
+ * Доступность обязана участвовать в сравнении наравне с id и иконкой: иначе
+ * ранний выход `setActions` съедает её смену, и кнопка навсегда остаётся в том
+ * виде, в каком её собрали первый раз.
+ */
+function sameAction(a: IViewTitleAction, b: IViewTitleAction): boolean {
+    // Stryker disable next-line ConditionalExpression: «кнопки всегда разные» — это лишняя пересборка, ненаблюдаемая по кадру; пропуск нужной закрыт тестами на смену id, иконки и доступности
+    return a.id === b.id && a.icon === b.icon && (a.enabled !== false) === (b.enabled !== false);
 }

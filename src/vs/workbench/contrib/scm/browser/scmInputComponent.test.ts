@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { BoxConstraints } from "@tuidom/core/common/geometryPromitives";
@@ -6,8 +6,10 @@ import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { SCM_INPUT_MESSAGE_STATE } from "../../../common/stateKeys.ts";
+import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
 import { PUBLISH_CHANGES_COMMAND, ScmChangesService } from "./changesService.ts";
 import { PUBLISH_REPO_STATE_COMMAND, ScmRepoStateService } from "./repoStateService.ts";
@@ -48,6 +50,7 @@ interface IHarness {
     commands: CommandRegistry;
     executed: string[];
     stored: Map<string, unknown>;
+    progress: ProgressService;
     publishChanges(count: number): void;
     publishRepoState(overrides?: Partial<typeof REPO_STATE>): void;
 }
@@ -57,7 +60,8 @@ function make(): IHarness {
     const { service, stored } = fakeState();
     const changes = new ScmChangesService(commands);
     const repoState = new ScmRepoStateService(commands, new ContextKeyService());
-    const component = new ScmInputComponent(service, changes, repoState, commands);
+    const progress = new ProgressService();
+    const component = new ScmInputComponent(service, changes, repoState, commands, progress);
 
     const executed: string[] = [];
     for (const id of ["git.commit", "git.publish", "git.sync"]) {
@@ -68,6 +72,7 @@ function make(): IHarness {
         commands,
         executed,
         stored,
+        progress,
         publishChanges: (count) => {
             commands.execute(
                 PUBLISH_CHANGES_COMMAND,
@@ -187,6 +192,7 @@ describe("ScmInputComponent — поле", () => {
             new ScmChangesService(commands),
             new ScmRepoStateService(commands, new ContextKeyService()),
             commands,
+            new ProgressService(),
         );
         expect(component.message).toBe("");
 
@@ -320,5 +326,57 @@ describe("ScmInputComponent — кнопка действия", () => {
 
         h.component.actionButton.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         expect(h.executed).toEqual(["git.commit"]);
+    });
+});
+
+describe("ScmInputComponent — кнопка во время операции", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it("гаснет сразу, а спиннер в подписи появляется только у долгой операции", async () => {
+        const h = make();
+        h.publishRepoState();
+        h.publishChanges(1);
+        expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: false });
+
+        let done!: () => void;
+        const running = h.progress.withProgress(
+            { location: "view", viewId: SCM_CHANGES_VIEW_ID, title: "Committing…" },
+            () =>
+                new Promise<void>((resolve) => {
+                    done = resolve;
+                }),
+        );
+
+        // Клик перестал работать мгновенно, подпись ещё прежняя.
+        expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: true });
+
+        vi.advanceTimersByTime(300);
+        expect(h.component.actionButton.inspectState()).toMatchObject({
+            label: "◐ Committing…",
+            disabled: true,
+        });
+
+        done();
+        await running;
+        vi.advanceTimersByTime(500);
+        expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: false });
+    });
+
+    it("операция чужой секции кнопку не трогает", () => {
+        const h = make();
+        h.publishRepoState();
+        h.publishChanges(1);
+
+        void h.progress.withProgress({ location: "view", viewId: "workbench.scm.graph", title: "Loading History…" }, () =>
+            new Promise<void>(() => {}),
+        );
+        vi.advanceTimersByTime(1000);
+        expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: false });
     });
 });

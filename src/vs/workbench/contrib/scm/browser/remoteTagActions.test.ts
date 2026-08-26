@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { ProgressService, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
@@ -43,6 +44,8 @@ function makeHarness(): IHarness {
     const hasShowOutput = { value: true };
 
     const services = new Map<unknown, unknown>([
+        // Прогресс операций: транспортные швы просят его у контейнера.
+        [ProgressServiceDIToken, new ProgressService()],
         [
             CommandRegistryDIToken,
             {
@@ -237,13 +240,15 @@ describe("git.showOutput", () => {
 
 describe("номенклатура", () => {
     it("id в стиле VS Code", () => {
+        // git.showOutput в набор не входит: он не мутирует репозиторий, а
+        // `builtinActions` вешает на этот набор enablement занятости.
         expect(REMOTE_TAG_ACTIONS.map((a) => a.id)).toEqual([
             "git.addRemote",
             "git.removeRemote",
             "git.createTag",
             "git.deleteTag",
             "git.deleteRemoteTag",
-            "git.showOutput",
         ]);
+        expect(gitShowOutputAction.id).toBe("git.showOutput");
     });
 });

@@ -79,6 +79,16 @@ function regionText(frame: string, box: { x: number; y: number; width: number; h
 const A = 'export const a = "one";\n';
 const A_MOD = 'export const a = "two";\n';
 
+/**
+ * Ждёт, пока Source Control освободится. Исчезновение строки — сигнал того, что
+ * расширение опубликовало новый набор, но сама операция в этот момент ещё идёт
+ * (публикация происходит внутри неё), а пока она идёт, мутирующие git-команды
+ * недоступны. Кнопка действия гаснет ровно на время операции — по ней и ждём.
+ */
+async function waitForScmIdle(session: HeadlessApp["session"]): Promise<void> {
+    await session.waitForState("#scmActionButton", (s) => (s as { disabled?: boolean })?.disabled === false);
+}
+
 /** Кликает по пункту открытого меню, найдя его текст в кадре. */
 async function clickMenuItem(session: HeadlessApp["session"], label: string): Promise<void> {
     const frame = await session.waitForText((t) => t.includes(label));
@@ -150,6 +160,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         expect(git(repo, "diff", "--cached", "--name-only").trim()).toBe("app.ts");
 
         // Unstage через контекстное меню staged-строки.
+        await waitForScmIdle(session);
         const stagedRow = await session.waitForNode("#scmRow-index-app-ts");
         await session.sendMouse({ action: "press", button: "right", x: stagedRow.box.x + 2, y: stagedRow.box.y });
         await session.sendMouse({ action: "release", button: "right", x: stagedRow.box.x + 2, y: stagedRow.box.y });
@@ -199,6 +210,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.waitForNode("#scmGroup-index");
         expect(git(repo, "diff", "--cached", "--name-only").trim().split("\n").sort()).toEqual(["a.ts", "new.ts"]);
 
+        await waitForScmIdle(session);
         await session.key("Alt+U"); // git.unstageAll
         await session.waitForNoNode("#scmGroup-index");
         await session.waitForNode("#scmGroup-worktree");
@@ -280,6 +292,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         expect(readFileSync(join(repo, "app.ts"), "utf8").replace(/\r\n/g, "\n")).toBe(A);
 
         // Дискард untracked: warning про удаление, файл исчезает с диска.
+        await waitForScmIdle(session);
         const newRow = await session.waitForNode("#scmRow-untracked-new-ts");
         await session.sendMouse({ action: "press", button: "right", x: newRow.box.x + 2, y: newRow.box.y });
         await session.sendMouse({ action: "release", button: "right", x: newRow.box.x + 2, y: newRow.box.y });

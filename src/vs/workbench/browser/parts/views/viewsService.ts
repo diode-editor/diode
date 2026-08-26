@@ -1,11 +1,15 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
-import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
+import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { isSubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import type { IMenuEntryGroup } from "../../../../platform/actions/common/menuRegistry.ts";
+import type {
+    IMenuEntryGroup,
+    IResolvedMenuItemEntry,
+    ResolvedMenuEntry,
+} from "../../../../platform/actions/common/menuRegistry.ts";
 import { CHECKED_ICON, joinMenuGroups } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
@@ -103,6 +107,8 @@ interface ViewRecord {
     readonly canToggleVisibility: boolean;
     body: TUIElement | null;
     titleWidget: TUIElement | null;
+    /** Кадр спиннера занятости; живёт в записи, чтобы пережить пересборку секций. */
+    spinner: string | null;
     /** Контрол пустого состояния — создаётся лениво и переиспользуется. */
     placeholderView: TUIElement | null;
 }
@@ -198,6 +204,7 @@ export class ViewsService {
             canToggleVisibility: descriptor.canToggleVisibility ?? true,
             body: descriptor.body,
             titleWidget: null,
+            spinner: null,
             placeholderView: null,
         });
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
@@ -227,7 +234,33 @@ export class ViewsService {
         if (record.titleWidget === widget) return;
         record.titleWidget = widget;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
-        this.refreshTitleActions(entry);
+        this.refreshContainerTitleActions(entry);
+    }
+
+    /**
+     * Кадр спиннера в заголовке секции (`null` — снять). Единственный легальный
+     * вызывающий — `ViewProgressContribution`, который гонит кадры из
+     * `ProgressService`; тик кадра идёт этим коротким путём, а не через
+     * `refreshContainerTitleActions` (там резолв меню каждой секции — 10 Гц этого не
+     * стоят). Прогресс у незарегистрированной ещё view — молчаливый no-op:
+     * ронять приложение из-за индикатора нельзя.
+     */
+    public setViewSpinner(viewId: string, frame: string | null): void {
+        const found = this.findRecord(viewId);
+        if (found === undefined) return;
+        const { entry, record } = found;
+        // Занятость появилась или ушла — только эти два перехода меняют состав
+        // полосы контролов таб-строки; смена кадра для неё ничего не значит.
+        // Stryker disable next-line ConditionalExpression: пересчёт идемпотентен, поэтому лишний вызов виден только по стоимости; пропуск нужного закрыт тестом появления и ухода полосы
+        const appeared = (record.spinner === null) !== (frame === null);
+        record.spinner = frame;
+        if (entry.paneView === null || entry.hidden.has(viewId)) return;
+        this.applySpinner(entry, record);
+        // Полоса контролов таб-строки прячется, когда показывать нечего, —
+        // появление и уход спиннера этот расчёт меняют. Смена самого кадра
+        // (10 Гц) сюда не попадает: пересчёт резолвит меню всех секций.
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: та же причина, что строкой выше — лишний пересчёт ненаблюдаем
+        if (appeared && this.isPanel(entry)) this.refreshContainerTitleActions(entry);
     }
 
     /** Контрол заголовка view, если он задан (читает отрисовка заголовка). */
@@ -548,8 +581,22 @@ export class ViewsService {
         return viewId === null ? this.containerMenuEntries(entry) : this.paneMenuEntries(entry, viewId);
     }
 
+    /**
+     * Пере-резолвить кнопки заголовков всех собранных контейнеров: `when` и
+     * `enablement` их пунктов зависят от контекст-ключей, а заголовок сам по
+     * себе пересобирается только со сменой состава секций. Единственный
+     * легальный вызывающий снаружи — `ViewTitleActionsContribution`, который
+     * дёргает это по `ContextKeyService.onDidChange`.
+     */
+    public refreshTitleActions(): void {
+        for (const entry of this.containers.values()) {
+            if (entry.paneView === null) continue;
+            this.refreshContainerTitleActions(entry);
+        }
+    }
+
     /** Пере-резолвит inline-кнопки заголовков контейнера и его видимых секций. */
-    private refreshTitleActions(entry: ContainerEntry): void {
+    private refreshContainerTitleActions(entry: ContainerEntry): void {
         const paneView = entry.paneView!;
         const headerViewId = this.headerTargetView(entry);
         for (const record of this.visibleViews(entry)) {
@@ -560,26 +607,42 @@ export class ViewsService {
             // Пустое меню кнопкой не показываем: «⋯», которая ничего не
             // открывает, выглядит как сломанная (так было у Explorer'а).
             paneView.setPaneMenuVisible(record.id, this.paneMenuPossible(entry, record.id));
+            // Заголовки только что пересоздались — вернуть им кадр спиннера,
+            // иначе операция, начатая до пересборки, теряет индикацию.
+            this.applySpinner(entry, record);
         }
         // Заголовок создан в attachContainer до первой пересборки секций.
         const header = entry.header!;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
         if (!this.isPanel(entry)) return;
-        const widget = headerViewId === null ? null : this.recordOrThrow(headerViewId).record.titleWidget;
+        const headerRecord = headerViewId === null ? null : this.recordOrThrow(headerViewId).record;
+        const widget = headerRecord?.titleWidget ?? null;
         header.setTitleWidget(widget);
         const hasMenu = this.titleMenuPossible(entry);
         header.setMenuVisible(hasMenu);
         // Пустой полосе в таб-строке места не даём — вкладка выглядит как раньше.
-        const empty = actions.length === 0 && widget === null && !hasMenu;
+        // Спиннер занятости — тоже содержимое: без него полоса со спиннером
+        // осталась бы неприкреплённой, и прогресс секции панели было бы не видно.
+        // Stryker disable next-line OptionalChaining: до этого операнда цепочка доходит только при `!hasMenu`, а он ложен ровно тогда, когда секций 2+ и headerRecord пуст — то есть здесь запись всегда есть
+        const empty = actions.length === 0 && widget === null && !hasMenu && headerRecord?.spinner == null;
         this.panelService.setViewActions(entry.descriptor!.id, empty ? null : header);
+    }
+
+    /**
+     * Кладёт кадр туда, где сейчас живёт заголовок секции: у merged-секции
+     * панели его роль играет полоса контролов таб-строки.
+     */
+    private applySpinner(entry: ContainerEntry, record: ViewRecord): void {
+        if (this.headerTargetView(entry) === record.id) entry.header!.setSpinnerFrame(record.spinner);
+        else entry.paneView!.setPaneSpinner(record.id, record.spinner);
     }
 
     /**
      * Держит набор детей корня сайдбар-контейнера: merged обходится без
      * собственного заголовка (его роль играет заголовок единственной секции).
      * В панели корня-стопки нет — там заголовок живёт в таб-строке
-     * ({@link refreshTitleActions}).
+     * ({@link refreshContainerTitleActions}).
      */
     private syncContainerFrame(entry: ContainerEntry): void {
         const stack = entry.stack;
@@ -598,11 +661,17 @@ export class ViewsService {
     }
 
     private recordOrThrow(viewId: string): { entry: ContainerEntry; record: ViewRecord } {
+        const found = this.findRecord(viewId);
+        if (found === undefined) throw new Error(`ViewsService: unknown view id "${viewId}"`);
+        return found;
+    }
+
+    private findRecord(viewId: string): { entry: ContainerEntry; record: ViewRecord } | undefined {
         for (const entry of this.containers.values()) {
             const record = entry.views.find((v) => v.id === viewId);
             if (record !== undefined) return { entry, record };
         }
-        throw new Error(`ViewsService: unknown view id "${viewId}"`);
+        return undefined;
     }
 
     private ensureEntry(containerId: string): ContainerEntry {
@@ -678,7 +747,7 @@ export class ViewsService {
         for (const view of visible) {
             paneView.setCollapsed(view.id, collapsed.has(view.id));
         }
-        this.refreshTitleActions(entry);
+        this.refreshContainerTitleActions(entry);
         this.syncContainerFrame(entry);
         this.syncExpanded(entry);
     }
@@ -714,7 +783,9 @@ function containerPaneTitle(entry: ContainerEntry): string {
 function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAction[] {
     const navigation = groups.find((group) => group.group === NAVIGATION_GROUP);
     if (navigation === undefined) return [];
-    return navigation.entries.filter(isInlineItem).map((entry) => ({ id: entry.id, icon: entry.icon }));
+    return navigation.entries
+        .filter(isInlineItem)
+        .map((entry) => ({ id: entry.id, icon: entry.icon, enabled: entry.enabled }));
 }
 
 /** Пункты попапа «⋯»: всё, что не уехало в inline-кнопки. */
@@ -732,6 +803,11 @@ function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
     for (const group of groups) {
         for (const entry of group.entries) {
             if (isInlineItem(entry) && entry.id === actionId) {
+                // Погашенная кнопка кликается (зона за ней осталась, иначе клик
+                // свернул бы секцию), но ничего не делает: отказ живёт в самом
+                // резолвнутом пункте (`MenuRegistry.toEntry`), второй проверки
+                // здесь не нужно.
+                // Stryker disable next-line OptionalChaining: onSelect есть у любого пункта, резолвнутого MenuRegistry — защита от чужих реализаций MenuEntry
                 entry.onSelect?.();
                 return;
             }
@@ -739,7 +815,7 @@ function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
     }
 }
 
-function isInlineItem(entry: MenuEntry): entry is MenuItemEntry & { id: string; icon: string } {
+function isInlineItem(entry: ResolvedMenuEntry): entry is IResolvedMenuItemEntry & { id: string; icon: string } {
     return entry.type === undefined && typeof entry.id === "string" && typeof entry.icon === "string";
 }
 

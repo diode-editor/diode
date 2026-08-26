@@ -97,6 +97,22 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(h.tabActions(OUTPUT)).toBeNull();
     });
 
+    it("одной кнопки хватает, чтобы полоса появилась", () => {
+        // Кнопка — такое же содержимое полосы, как виджет, «⋯» или спиннер:
+        // без неё полосы нет, с ней обязана быть.
+        const h = panelHarness(["output.view"], [
+            {
+                menuId: MenuId.ViewTitle,
+                command: "output.clear",
+                title: "Clear",
+                icon: "C",
+                group: "navigation",
+                visible: viewMenuVisible("output.view"),
+            },
+        ]);
+        expect(h.tabActions(OUTPUT)).not.toBeNull();
+    });
+
     it("виджет заголовка единственной секции уезжает в таб-строку, а не в её заголовок", () => {
         const h = panelHarness(["output.view"]);
         const widget = new FillerElement();

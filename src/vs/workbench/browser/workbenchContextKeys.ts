@@ -16,7 +16,7 @@ import type { InputWidgetService } from "../contrib/files/browser/inputWidgetSer
 import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
-import { SCM_VIEWLET_ID } from "../contrib/scm/browser/changesComponent.ts";
+import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
 import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
 import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";

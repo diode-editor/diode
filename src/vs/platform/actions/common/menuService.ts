@@ -12,9 +12,9 @@ export const MenuServiceDIToken = token<MenuService>("MenuService");
 /**
  * Живое меню одной точки `MenuId` (аналог `IMenu` VS Code): резолвит пункты на
  * момент вызова и уведомляет о смене состава реестра (`onDidChange`) — консюмер
- * пересобирает разметку когда захочет. `when`-контекст учитывается при каждом
- * `getEntries`; событий смены контекст-ключей у нас нет (осознанное подмножество
- * vscode — все наши меню пересобираются при открытии).
+ * пересобирает разметку когда захочет. `when` и `enablement` учитываются при
+ * каждом `getEntries`: попапы резолвятся при открытии, а постоянный UI
+ * (кнопки заголовков view) пере-резолвится по `ContextKeyService.onDidChange`.
  */
 export interface IMenu extends IDisposable {
     /**

@@ -1,5 +1,10 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
-import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
+import type {
+    MenuEntry,
+    MenuItemEntry,
+    MenuSeparatorEntry,
+    MenuSubmenuEntry,
+} from "@tuidom/elements/menu/popupMenuElement";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../commands/common/commandRegistry.ts";
 import type { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
@@ -26,11 +31,24 @@ export const CHECKED_ICON = "\u2713"; // ✓
 
 export const MenuRegistryDIToken = token<MenuRegistry>("MenuRegistry");
 
+/**
+ * Пункт-команда с резолвнутой доступностью. У `MenuItemEntry` движка поля
+ * `disabled` нет (серые пункты попапа — задача в tuidom), поэтому флаг живёт в
+ * нашем надтипе: попап лишнее поле игнорирует, а заголовок view его читает и
+ * рисует кнопку приглушённой.
+ */
+export interface IResolvedMenuItemEntry extends MenuItemEntry {
+    readonly enabled: boolean;
+}
+
+/** `MenuEntry` движка, у которого пункты-команды несут резолвнутую доступность. */
+export type ResolvedMenuEntry = IResolvedMenuItemEntry | MenuSeparatorEntry | MenuSubmenuEntry;
+
 /** Непустая группа пунктов одной точки меню (см. {@link MenuRegistry.getMenuItemGroups}). */
 export interface IMenuEntryGroup {
     /** Ключ группы; `navigation` — спец-группа VS Code, всегда первая. */
     readonly group: string;
-    readonly entries: readonly MenuEntry[];
+    readonly entries: readonly ResolvedMenuEntry[];
 }
 
 /** Склеивает группы в плоский список, разделяя их сепараторами. */
@@ -168,7 +186,7 @@ export class MenuRegistry {
 
         const result: IMenuEntryGroup[] = [];
         for (const bucket of collectSorted(visible)) {
-            const groupEntries: MenuEntry[] = [];
+            const groupEntries: ResolvedMenuEntry[] = [];
             for (const item of bucket) {
                 if (isSubmenuContribution(item)) {
                     // null от резолвера — подменю выброшено (пустое/цикл).
@@ -228,17 +246,25 @@ export class MenuRegistry {
         };
     }
 
-    private toEntry(item: IMenuContribution, context: unknown): MenuEntry {
+    private toEntry(item: IMenuContribution, context: unknown): IResolvedMenuItemEntry {
         const label = item.title ?? this.commands.getTitle(item.command) ?? item.command;
         const resolvedArgs = item.args ? item.args(context) : [];
+        // Доступность фиксируется на момент резолва — как VS Code гасит пункты
+        // при открытии попапа. Для inline-кнопок это не протухает: их группы
+        // пере-резолвятся и на клике, и по смене контекста.
+        const enabled = item.enablement === undefined || this.contextKeys.evaluate(item.enablement);
         return {
             label,
             id: item.command,
+            enabled,
             shortcut: this.resolveShortcut(item),
             // `toggled` рисуется отметкой в колонке иконки — так VS Code помечает
             // включённый пункт (например текущий канал Output).
             icon: item.toggled !== undefined && this.contextKeys.evaluate(item.toggled) ? CHECKED_ICON : item.icon,
             onSelect: () => {
+                // Второй эшелон к guard'у самой команды: контрибуция может
+                // ссылаться на команду расширения, у которой guard'а нет.
+                if (!enabled) return;
                 this.commands.execute(item.command, ...resolvedArgs);
             },
         };

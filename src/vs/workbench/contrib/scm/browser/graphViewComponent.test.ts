@@ -9,9 +9,9 @@ import type { IViewDescriptor, ViewsService } from "../../../browser/parts/views
 
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
-import { SCM_VIEWLET_ID } from "./changesComponent.ts";
+import { SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
 import { PUBLISH_LOG_COMMAND, ScmGraphService } from "./graphService.ts";
-import { GRAPH_LOAD_MORE_COMMAND, GraphViewComponent, SCM_GRAPH_VIEW_ID } from "./graphViewComponent.ts";
+import { GRAPH_LOAD_MORE_COMMAND, GraphViewComponent } from "./graphViewComponent.ts";
 import { LOAD_MORE_LABEL, LOAD_MORE_ROW_ID } from "./scmGraphRows.ts";
 
 const SHA_A = "a".repeat(40);

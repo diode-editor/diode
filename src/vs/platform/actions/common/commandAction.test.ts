@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { CommandRegistry } from "../../commands/common/commandRegistry.ts";
-import { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
+import { ContextKeyService, ContextKeyServiceDIToken } from "../../contextkey/common/contextKeyService.ts";
 import { Container, token } from "../../instantiation/common/diContainer.ts";
 import type { KeyboardEventLike } from "../../keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistry, parseChord, parseKeybinding } from "../../keybinding/common/keybindingRegistry.ts";
@@ -285,5 +285,75 @@ describe("registerAction", () => {
         const result = commands.execute("test.action");
 
         expect(result).toBe("hello");
+    });
+});
+
+describe("registerAction — enablement", () => {
+    function setup(action: CommandAction): {
+        commands: CommandRegistry;
+        keybindings: KeybindingRegistry;
+        contextKeys: ContextKeyService;
+    } {
+        const commands = new CommandRegistry();
+        const keybindings = new KeybindingRegistry();
+        const contextKeys = new ContextKeyService();
+        const container = new Container();
+        container.bind(ContextKeyServiceDIToken, () => contextKeys);
+        registerAction(commands, keybindings, container, action);
+        return { commands, keybindings, contextKeys };
+    }
+
+    it("ложный enablement не даёт исполнить команду ниоткуда", () => {
+        const run = vi.fn();
+        const h = setup({ id: "git.commit", title: "Commit", enablement: "!gitOperationInProgress", run });
+
+        h.contextKeys.set("gitOperationInProgress", true);
+        expect(h.commands.execute("git.commit")).toBeUndefined();
+        expect(run).not.toHaveBeenCalled();
+
+        h.contextKeys.set("gitOperationInProgress", false);
+        h.commands.execute("git.commit");
+        expect(run).toHaveBeenCalledTimes(1);
+    });
+
+    it("enablement уезжает в when кейбинда — клавиша не проглатывается впустую", () => {
+        const h = setup({
+            id: "git.commit",
+            title: "Commit",
+            when: "scmInputFocus",
+            enablement: "!gitOperationInProgress",
+            keybinding: parseKeybinding("ctrl+enter"),
+            run: vi.fn(),
+        });
+
+        h.contextKeys.set("scmInputFocus", true);
+        expect(resolve(h.keybindings, KEY("Enter", { ctrlKey: true }), h.contextKeys)).toBe("git.commit");
+
+        h.contextKeys.set("gitOperationInProgress", true);
+        expect(resolve(h.keybindings, KEY("Enter", { ctrlKey: true }), h.contextKeys)).toBeUndefined();
+    });
+
+    it("команда без enablement не требует ContextKeyService в контейнере", () => {
+        const commands = new CommandRegistry();
+        const run = vi.fn();
+        // Пустой контейнер: минимальные стенды тестов экшенов биндят только то,
+        // что нужно самому экшену, и guard не должен этого ломать.
+        registerAction(commands, new KeybindingRegistry(), new Container(), {
+            id: "test.action",
+            title: "Test",
+            run,
+        });
+
+        commands.execute("test.action");
+        expect(run).toHaveBeenCalledTimes(1);
+    });
+
+    it("реестр отдаёт enablement метаданными — их читает палитра", () => {
+        const h = setup({ id: "git.push", title: "Git: Push", enablement: "gitHasRemotes", run: vi.fn() });
+        expect(h.commands.listCommands()).toContainEqual({
+            id: "git.push",
+            title: "Git: Push",
+            enablement: "gitHasRemotes",
+        });
     });
 });

@@ -7,7 +7,9 @@ import { scmSingleResource, scmSingleUriArg, viewMenuVisible } from "../../../br
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
-import { ChangesComponentDIToken, SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "./changesComponent.ts";
+import { SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
+
+import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { openDiffWithHead } from "./compareWithHeadAction.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 

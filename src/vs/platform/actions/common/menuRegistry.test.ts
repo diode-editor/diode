@@ -7,6 +7,7 @@ import { KeybindingRegistry, parseKeybinding } from "../../keybinding/common/key
 
 import type { IMenuContribution } from "./iMenuContribution.ts";
 import { MenuId } from "./menuId.ts";
+import type { IResolvedMenuItemEntry } from "./menuRegistry.ts";
 import { MenuRegistry } from "./menuRegistry.ts";
 
 interface Harness {
@@ -318,5 +319,49 @@ describe("MenuRegistry", () => {
 
         h.registry.appendMenuItem({ menuId: MenuId.ExplorerContext, command: "y" });
         expect(changed).toEqual([]);
+    });
+});
+
+describe("MenuRegistry — enablement", () => {
+    const item = (extra: Partial<IMenuContribution> = {}): IMenuContribution => ({
+        menuId: MenuId.ExplorerContext,
+        command: "git.commit",
+        ...extra,
+    });
+
+    function entryOf(h: Harness): IResolvedMenuItemEntry {
+        const entries = h.registry.getMenuItemGroups(MenuId.ExplorerContext);
+        return entries[0].entries[0] as IResolvedMenuItemEntry;
+    }
+
+    it("без enablement пункт доступен", () => {
+        expect(entryOf(setup([item()])).enabled).toBe(true);
+    });
+
+    it("ложный enablement гасит пункт, но НЕ прячет его", () => {
+        const h = setup([item({ enablement: "!gitOperationInProgress" })]);
+        h.contextKeys.set("gitOperationInProgress", true);
+
+        const entries = h.registry.getMenuItems(MenuId.ExplorerContext);
+        // В отличие от `when`, пункт остаётся в списке — гасится, а не исчезает.
+        expect(entries).toHaveLength(1);
+        expect(entryOf(h).enabled).toBe(false);
+    });
+
+    it("погашенный пункт не исполняет команду", () => {
+        const h = setup([item({ enablement: "!gitOperationInProgress" })]);
+        h.contextKeys.set("gitOperationInProgress", true);
+        entryOf(h).onSelect?.();
+        expect(h.executed).toEqual([]);
+
+        h.contextKeys.set("gitOperationInProgress", false);
+        entryOf(h).onSelect?.();
+        expect(h.executed).toHaveLength(1);
+    });
+
+    it("видимость кнопки «⋯» к доступности равнодушна", () => {
+        const h = setup([item({ enablement: "!gitOperationInProgress" })]);
+        h.contextKeys.set("gitOperationInProgress", true);
+        expect(h.registry.hasItems(MenuId.ExplorerContext)).toBe(true);
     });
 });

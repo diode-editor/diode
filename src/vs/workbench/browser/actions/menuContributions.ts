@@ -1,4 +1,5 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
+import { combineWhen } from "../../../platform/actions/common/commandAction.ts";
 import type {
     IMenuContribution,
     ISubmenuContribution,
@@ -21,6 +22,8 @@ export function menuItemsOfAction(action: CommandAction): IMenuContribution[] {
         ...placement,
         command: action.id,
         title: placement.title ?? action.shortTitle ?? action.title,
+        // Доступность наследуется от экшена; своя у размещения — сужает (AND).
+        enablement: combineWhen(action.enablement, placement.enablement),
     }));
 }
 

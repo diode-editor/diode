@@ -15,13 +15,10 @@ import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.t
 import { renderCommitGraph } from "../common/commitGraph.ts";
 import { createGraphPalette } from "../common/commitGraphPalette.ts";
 
-import { SCM_VIEWLET_ID } from "./changesComponent.ts";
+import { SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
 import type { IScmCommit, ScmGraphService } from "./graphService.ts";
 import { ScmGraphServiceDIToken } from "./graphService.ts";
 import { applyGraphLine, buildCommitRow, buildLoadMoreRow, LOAD_MORE_ROW_ID } from "./scmGraphRows.ts";
-
-/** Id view-секции GRAPH внутри контейнера Source Control (см. {@link ViewsService}). */
-export const SCM_GRAPH_VIEW_ID = "workbench.scm.graph";
 
 /**
  * Догрузка следующей страницы истории. Id живёт здесь, а не рядом с самим
