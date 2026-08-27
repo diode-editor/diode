@@ -44,13 +44,17 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         // помечается флагом symlink — стрелку рисует TreeViewElement у левого края,
         // не смещая иконки и не пряча их.
         const status = this.gitStatus.get(element.path);
+        // Пробел справа — отступ буквы от края панели: TreeViewElement прижимает
+        // бейдж вплотную к правому краю и rightPadding не имеет, поэтому отступ
+        // живёт внутри строки бейджа (фон выделения при этом заливает край как обычно).
+        const badge = status?.badge && `${status.badge} `;
         if (element.isDirectory) {
             return {
                 label: element.name,
                 collapsible: true,
                 symlink: element.isSymbolicLink,
                 labelColor: status?.color,
-                badge: status?.badge,
+                badge,
             };
         }
         const fileIcon = getFileIcon(element.name);
@@ -61,7 +65,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
             collapsible: false,
             symlink: element.isSymbolicLink,
             labelColor: status?.color,
-            badge: status?.badge,
+            badge,
         };
     }
 
