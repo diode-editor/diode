@@ -177,7 +177,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     });
 
     describe("setIndentOptions", () => {
-        it("applies a new tab size and disables auto-detection", () => {
+        it("applies a new tab size and marks the indent as explicitly set", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
@@ -185,21 +185,20 @@ describe("EditorComponent + TextFileModel (пара)", () => {
 
             expect(ctrl.viewState.tabSize).toBe(2);
             expect(ctrl.viewState.insertSpaces).toBe(true);
-            expect(ctrl.viewState.detectIndentation).toBe(false);
+            expect(ctrl.viewState.indentExplicitlySet).toBe(true);
         });
 
-        it("leaves state untouched when the patch matches current values", () => {
+        it("records the override even when the patch matches current values", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
-            const before = ctrl.viewState.detectIndentation;
 
-            // tabSize 4 / insertSpaces false are the defaults → nothing changes.
+            // tabSize 4 / insertSpaces false — уже действующие значения. Совпало
+            // ≠ не решало: расширение всё равно высказалось про этот файл.
             ctrl.setIndentOptions({ tabSize: 4, insertSpaces: false });
 
             expect(ctrl.viewState.tabSize).toBe(4);
             expect(ctrl.viewState.insertSpaces).toBe(false);
-            // detectIndentation untouched because nothing actually changed.
-            expect(ctrl.viewState.detectIndentation).toBe(before);
+            expect(ctrl.viewState.indentExplicitlySet).toBe(true);
         });
 
         it("ignores a non-positive tab size", () => {
@@ -209,6 +208,63 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             ctrl.setIndentOptions({ tabSize: 0 });
 
             expect(ctrl.viewState.tabSize).toBe(4);
+            expect(ctrl.viewState.indentExplicitlySet).toBe(false);
+        });
+    });
+
+    describe("applyIndentConfiguration", () => {
+        it("оставляет за содержимым файла последнее слово", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
+
+            ctrl.applyIndentConfiguration({ tabSize: 4, insertSpaces: true, detectIndentation: true });
+
+            expect(ctrl.viewState.tabSize).toBe(2);
+        });
+
+        it("действует, когда детекция выключена", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
+
+            ctrl.applyIndentConfiguration({ tabSize: 8, insertSpaces: true, detectIndentation: false });
+
+            expect(ctrl.viewState.tabSize).toBe(8);
+            expect(ctrl.viewState.insertSpaces).toBe(true);
+        });
+
+        it("закрывает собой файл без отступов", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
+
+            ctrl.applyIndentConfiguration({ tabSize: 6, insertSpaces: true });
+
+            expect(ctrl.viewState.tabSize).toBe(6);
+            expect(ctrl.viewState.insertSpaces).toBe(true);
+        });
+
+        it("не перетирает отступ, выставленный расширением", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
+            ctrl.setIndentOptions({ tabSize: 3, insertSpaces: true });
+
+            // Живой reload настроек не должен отменять решение расширения.
+            ctrl.applyIndentConfiguration({ tabSize: 8, insertSpaces: false, detectIndentation: true });
+
+            expect(ctrl.viewState.tabSize).toBe(3);
+            expect(ctrl.viewState.insertSpaces).toBe(true);
+        });
+
+        it("переживает перечитку файла с диска (view-state пересоздаётся)", () => {
+            const ctrl = createEditorPane();
+            const fp = writeFile("a.ts", "x");
+            ctrl.openFile(Uri.file(fp));
+            ctrl.applyIndentConfiguration({ tabSize: 6, insertSpaces: true, detectIndentation: false });
+
+            fs.writeFileSync(fp, "function f() {\n  a;\n}\n", "utf-8");
+            ctrl.revertToDisk();
+
+            expect(ctrl.viewState.tabSize).toBe(6);
+            expect(ctrl.viewState.insertSpaces).toBe(true);
         });
     });
 

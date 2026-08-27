@@ -9,17 +9,16 @@ import { EditorViewState } from "./editorViewState.ts";
 // ─── runDetectIndentation early-return ──────────────────────
 
 describe("EditorViewState.runDetectIndentation — disabled", () => {
-    it("is a no-op when detectIndentation is false", () => {
-        // Build with a tab-indented document but detection turned off afterwards.
+    it("falls back to the configured values when detectIndentation is false", () => {
+        // Документ отступлён табами, но детекцию выключили — содержимое не в счёт.
         const doc = new TextDocument("\tindented\n\tindented");
         const state = new EditorViewState(doc);
-        state.insertSpaces = true;
-        state.tabSize = 8;
+        state.configuredInsertSpaces = true;
+        state.configuredTabSize = 8;
         state.detectIndentation = false;
 
         state.runDetectIndentation();
 
-        // Settings are untouched because detection short-circuits at the guard.
         expect(state.insertSpaces).toBe(true);
         expect(state.tabSize).toBe(8);
     });

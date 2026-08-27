@@ -19,6 +19,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {"key":"diode.lsp.typescript.tsserverPath","type":"string","default":"","description":"Path to typescript/lib/tsserver.js for workspaces without their own TypeScript installation. Empty lets the language server resolve TypeScript itself."},
     {"key":"editor.contextmenu","type":"boolean","default":true,"description":"Controls whether the editor shows the context menu."},
     {"key":"editor.cursorSurroundingLines","type":"number","default":3,"description":"Controls the minimal number of visible leading lines around the cursor."},
+    {"key":"editor.detectIndentation","type":"boolean","default":true,"description":"Controls whether `editor.tabSize` and `editor.insertSpaces` are automatically detected from the file contents when a file is opened."},
     {"key":"editor.insertSpaces","type":"boolean","default":true,"description":"Insert spaces when pressing Tab."},
     {"key":"editor.tabSize","type":"number","default":4,"description":"The number of spaces a tab is equal to."},
     {"key":"explorer.autoReveal","type":"boolean","default":true,"description":"Automatically reveal and select the active file in the explorer tree."},

@@ -74,9 +74,26 @@ export class EditorViewState {
      * `editor.cursorSurroundingLines`). `0` glues the cursor to the very edge.
      */
     public cursorSurroundingLines = 0;
+    /**
+     * Действующая ширина отступа. Не настройка, а РЕЗУЛЬТАТ: её пересобирает
+     * {@link runDetectIndentation} из трёх источников по приоритету —
+     * {@link indentExplicitlySet} → детекция по содержимому → {@link configuredTabSize}.
+     */
     public tabSize = 4;
+    /** Действующий вид отступа — см. {@link tabSize} про источники. */
     public insertSpaces = false;
+    /** `editor.tabSize` — база детекции и значение при выключенном детекте. */
+    public configuredTabSize = 4;
+    /** `editor.insertSpaces` — база детекции и значение при выключенном детекте. */
+    public configuredInsertSpaces = false;
+    /** `editor.detectIndentation`: определять ли отступ по содержимому файла. */
     public detectIndentation = true;
+    /**
+     * Отступ выставлен явно через `editor.options` (расширение — например,
+     * стоковый EditorConfig). Такое решение главнее и детекции, и конфига:
+     * расширение знает про файл то, чего не знаем ни мы, ни настройки.
+     */
+    public indentExplicitlySet = false;
     /**
      * Запрещает правку документа через этот view-state (VS Code
      * `EditorOption.readOnly`). Живёт здесь, а не на `EditorElement`, потому что
@@ -318,16 +335,18 @@ export class EditorViewState {
     }
 
     /**
-     * Re-runs indentation detection against the current document content.
-     * No-op if `detectIndentation` is false or the document has no indented lines.
+     * Пересобирает действующие {@link tabSize}/{@link insertSpaces} по приоритету
+     * источников: явный `editor.options` → детекция по содержимому (если она
+     * включена) → значения из конфига. Зовётся из конструктора и на каждое
+     * изменение конфига — детекция дешёвая, а результат обязан пересчитываться
+     * целиком: иначе выключение `editor.detectIndentation` некуда откатывать.
      */
     public runDetectIndentation(): void {
-        if (!this.detectIndentation) return;
-        const result = detectIndentation(this.document);
-        if (result !== null) {
-            this.insertSpaces = result.insertSpaces;
-            this.tabSize = result.tabSize;
-        }
+        if (this.indentExplicitlySet) return;
+        const defaults = { tabSize: this.configuredTabSize, insertSpaces: this.configuredInsertSpaces };
+        const result = this.detectIndentation ? detectIndentation(this.document, defaults) : defaults;
+        this.insertSpaces = result.insertSpaces;
+        this.tabSize = result.tabSize;
     }
 
     // ─── View zones API ─────────────────────────────────────

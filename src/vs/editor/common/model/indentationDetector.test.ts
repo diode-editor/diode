@@ -1,104 +1,148 @@
 import { describe, expect, it } from "vitest";
 
-import { detectIndentation, detectTabSize } from "./indentationDetector.ts";
+import { detectIndentation, type IIndentationDefaults } from "./indentationDetector.ts";
 import { TextDocument } from "./textDocument.ts";
 
 function makeDoc(lines: string[]): TextDocument {
     return new TextDocument(lines.join("\n"));
 }
 
+/** Дефолты «как в реестре настроек» — чтобы видеть, когда файл промолчал. */
+const SPACES_4: IIndentationDefaults = { tabSize: 4, insertSpaces: true };
+
 describe("detectIndentation", () => {
-    it("returns null for empty document", () => {
-        const doc = makeDoc([]);
-        expect(detectIndentation(doc)).toBeNull();
-    });
-
-    it("returns null for document with no indented lines", () => {
-        const doc = makeDoc(["hello", "world", "foo"]);
-        expect(detectIndentation(doc)).toBeNull();
-    });
-
-    it("detects tab indentation", () => {
-        const doc = makeDoc(["function foo() {", "\tconst x = 1;", "\tif (x) {", "\t\treturn x;", "\t}", "}"]);
-        const result = detectIndentation(doc);
-        expect(result).not.toBeNull();
-        expect(result!.insertSpaces).toBe(false);
-    });
-
-    it("detects 2-space indentation", () => {
-        const doc = makeDoc(["function foo() {", "  const x = 1;", "  if (x) {", "    return x;", "  }", "}"]);
-        const result = detectIndentation(doc);
-        expect(result).not.toBeNull();
-        expect(result!.insertSpaces).toBe(true);
-        expect(result!.tabSize).toBe(2);
-    });
-
-    it("detects 4-space indentation", () => {
+    it("detects 2 spaces in a package.json-shaped file", () => {
+        // Регрессия: файл целиком состоит из уровней 2 и 4, и «самая частая
+        // ширина отступа» здесь равна 4 — шаг же равен 2.
         const doc = makeDoc([
+            "{",
+            '  "name": "diode",',
+            '  "scripts": {',
+            '    "build": "tsup",',
+            '    "test": "vitest run"',
+            "  },",
+            '  "engines": {',
+            '    "node": ">=24.0.0"',
+            "  }",
+            "}",
+        ]);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
+    });
+
+    it("is not thrown off by the single-space continuation of a block comment", () => {
+        // Регрессия: ` * …` даёт ширину отступа 1, и любой счёт по абсолютным
+        // ширинам (GCD) обнулял бы им весь файл.
+        const doc = makeDoc([
+            "/**",
+            " * Does things.",
+            " */",
             "function foo() {",
-            "    const x = 1;",
             "    if (x) {",
-            "        return x;",
+            "        return 1;",
             "    }",
             "}",
         ]);
-        const result = detectIndentation(doc);
-        expect(result).not.toBeNull();
-        expect(result!.insertSpaces).toBe(true);
-        expect(result!.tabSize).toBe(4);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
     });
 
-    it("prefers tabs when tab lines outnumber space lines", () => {
-        const doc = makeDoc(["\tline1", "\tline2", "\tline3", "  space1"]);
-        const result = detectIndentation(doc);
-        expect(result).not.toBeNull();
-        expect(result!.insertSpaces).toBe(false);
+    it("detects tabs and leaves the tab width to the defaults", () => {
+        const doc = makeDoc(["function foo() {", "\tif (x) {", "\t\treturn 1;", "\t}", "}"]);
+
+        expect(detectIndentation(doc, { tabSize: 8, insertSpaces: true })).toEqual({
+            insertSpaces: false,
+            tabSize: 8,
+        });
     });
 
-    it("prefers spaces when space lines outnumber tab lines", () => {
-        const doc = makeDoc(["\ttab1", "  space1", "  space2", "  space3"]);
-        const result = detectIndentation(doc);
-        expect(result).not.toBeNull();
-        expect(result!.insertSpaces).toBe(true);
+    it("falls back to the defaults for a file without indentation", () => {
+        const doc = makeDoc(["hello", "world"]);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
+        expect(detectIndentation(doc, { tabSize: 2, insertSpaces: false })).toEqual({
+            insertSpaces: false,
+            tabSize: 2,
+        });
     });
 
-    it("ignores fully whitespace-only lines in counting", () => {
-        const doc = makeDoc(["function foo() {", "    const x = 1;", "    ", "    return x;", "}"]);
-        const result = detectIndentation(doc);
-        expect(result).not.toBeNull();
-        expect(result!.insertSpaces).toBe(true);
-        expect(result!.tabSize).toBe(4);
+    it("falls back to the defaults for an empty document", () => {
+        expect(detectIndentation(makeDoc([]), SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
     });
 
-    it("returns null when all lines are blank", () => {
-        const doc = makeDoc(["", "", ""]);
-        expect(detectIndentation(doc)).toBeNull();
+    it("falls back to defaults.insertSpaces when tabs and spaces tie", () => {
+        const doc = makeDoc(["\ttab;", "  spaces;"]);
+
+        expect(detectIndentation(doc, SPACES_4).insertSpaces).toBe(true);
+        expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false }).insertSpaces).toBe(false);
     });
 
-    it("clamps an oversized detected tab size down to 8", () => {
-        // Every indented line uses 9 leading spaces → GCD is 9, which exceeds the
-        // allowed maximum and must be clamped to 8 (IndentationDetector.ts:59).
-        const doc = makeDoc(["a", "         x", "         y", "         z"]);
-        const result = detectIndentation(doc);
-        expect(result).not.toBeNull();
-        expect(result!.insertSpaces).toBe(true);
-        expect(result!.tabSize).toBe(8);
+    it("compares indentation across blank lines", () => {
+        const doc = makeDoc(["function f() {", "", "    a;", "", "    b;", "", "}"]);
+
+        expect(detectIndentation(doc, { tabSize: 2, insertSpaces: true })).toEqual({
+            insertSpaces: true,
+            tabSize: 4,
+        });
     });
 
-    it("clamps the detected tab size up to at least 1", () => {
-        // GCD of {3,5,7} is 1 → already within range, so tabSize is exactly 1.
-        const doc = makeDoc(["a", "   x", "     y", "       z"]);
-        const result = detectIndentation(doc);
-        expect(result).not.toBeNull();
-        expect(result!.insertSpaces).toBe(true);
-        expect(result!.tabSize).toBe(1);
-    });
-});
+    it("ignores whitespace-only lines", () => {
+        const doc = makeDoc(["function f() {", "    a;", "        ", "    b;", "}"]);
 
-describe("detectTabSize", () => {
-    it("falls back to 4 when no space-indent samples were collected", () => {
-        // detectIndentation never calls detectTabSize with an empty map, so this
-        // guard (IndentationDetector.ts:53) is exercised directly.
-        expect(detectTabSize(new Map())).toBe(4);
+        expect(detectIndentation(doc, { tabSize: 2, insertSpaces: true })).toEqual({
+            insertSpaces: true,
+            tabSize: 4,
+        });
+    });
+
+    it("ignores a step wider than the largest guess", () => {
+        const doc = makeDoc(["a", "          b"]);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
+    });
+
+    it("lets 2 win over 4 when it is at least half as frequent", () => {
+        const doc = makeDoc(["a", "    b", "a", "    b", "  c", "    d"]);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
+    });
+
+    describe("mixed tabs and spaces", () => {
+        it("ignores a step where either side mixes tabs and spaces", () => {
+            // Первая строка ловит смешанный хвост как «текущая», вторая — как «предыдущая».
+            const doc = makeDoc(["  \ta", "x"]);
+
+            expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: false, tabSize: 4 });
+        });
+
+        it("reads the tab width off a tabs → spaces step when it divides evenly", () => {
+            const doc = makeDoc(["\t\tx", "    y", "    z"]);
+
+            expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
+        });
+
+        it("ignores a tabs → spaces step that does not divide evenly", () => {
+            const doc = makeDoc(["\t\tx", "   y", "   z", "   w"]);
+
+            expect(detectIndentation(doc, { tabSize: 3, insertSpaces: true })).toEqual({
+                insertSpaces: true,
+                tabSize: 3,
+            });
+        });
+    });
+
+    describe("continuation lines", () => {
+        it("ignores a line aligned under the arguments of the previous one", () => {
+            // Без этой эвристики шаг 7 стал бы единственным кандидатом и победил.
+            const doc = makeDoc(["foo(a, b,", "       c);"]);
+
+            expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
+        });
+
+        it("counts the same shape when the previous line does not end in a comma", () => {
+            const doc = makeDoc(["foo(a, b;", "       c);"]);
+
+            expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 7 });
+        });
     });
 });
