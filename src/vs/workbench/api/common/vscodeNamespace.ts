@@ -62,6 +62,7 @@ import {
     ViewColumn,
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
+import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
@@ -122,7 +123,7 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
     const namespace = {
         // vscode-languageclient требует валидный VS Code semver (^1.91.0).
         // Лок-степ с extensions/VSCODE_VERSION — проверяет vscodeNamespace.identity.test.
-        version: "1.127.0",
+        version: VSCODE_SHIM_VERSION,
         Disposable: DisposableImpl,
         // Value-типы — обязательно перечислить поимённо: каст `as unknown as
         // typeof vscode` прячет пропуск, он всплыл бы только рантайм-undefined

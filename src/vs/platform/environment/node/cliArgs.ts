@@ -35,8 +35,14 @@ export interface ICliArgs {
     readonly help: boolean;
     /** Был ли передан `--version` / `-v`. */
     readonly version: boolean;
-    /** Путь к `.vsix` из `--install-extension`, если указан. */
+    /** Путь к `.vsix` либо id (`publisher.name`) из `--install-extension`, если указан. */
     readonly installExtension: string | undefined;
+    /**
+     * Источник реестра расширений из `--registry` — путь к каталогу в
+     * публикуемом формате registry-репозитория (позже это же поле примет URL).
+     * Нужен для `--install-extension <id>`.
+     */
+    readonly registry: string | undefined;
     /** id (`publisher.name`) из `--uninstall-extension`, если указан. */
     readonly uninstallExtension: string | undefined;
     /** Был ли передан `--list-extensions`. */
@@ -57,7 +63,9 @@ Options:
   --inspect-tui[=host:port] Поднять TUIDom-инспектор (default: ${DEFAULT_INSPECT_TUI})
   --headless[=<cols>x<rows>] Запуск без терминала: рендер в память, управление
                            через инспектор (требует --inspect-tui; default: ${DEFAULT_HEADLESS_SIZE.cols}x${DEFAULT_HEADLESS_SIZE.rows})
-  --install-extension <path.vsix>   Установить расширение из .vsix и выйти
+  --install-extension <path.vsix | id>  Установить расширение из .vsix (или из
+                           реестра по id publisher.name, требует --registry) и выйти
+  --registry <path>        Каталог реестра расширений для установки по id
   --uninstall-extension <publisher.name>  Удалить расширение (все версии) и выйти
   --list-extensions        Показать установленные расширения и выйти
   -h, --help               Показать эту справку
@@ -76,7 +84,7 @@ export class CliArgsError extends Error {
 
 interface IFlagSpec {
     /** Канонический ключ в `ICliArgs`. */
-    readonly key: "userDataDir" | "profile" | "installExtension" | "uninstallExtension";
+    readonly key: "userDataDir" | "profile" | "installExtension" | "uninstallExtension" | "registry";
     /** Требует значение следующим аргументом или через `=`. */
     readonly value: true;
 }
@@ -86,6 +94,7 @@ const FLAG_SPECS: Readonly<Record<string, IFlagSpec | undefined>> = {
     "--profile": { key: "profile", value: true },
     "--install-extension": { key: "installExtension", value: true },
     "--uninstall-extension": { key: "uninstallExtension", value: true },
+    "--registry": { key: "registry", value: true },
 };
 
 /**
@@ -136,6 +145,7 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
     let version = false;
     let installExtension: string | undefined;
     let uninstallExtension: string | undefined;
+    let registry: string | undefined;
     let listExtensions = false;
 
     let i = 0;
@@ -211,6 +221,7 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
             if (spec.key === "userDataDir") userDataDir = value;
             else if (spec.key === "profile") profile = value;
             else if (spec.key === "installExtension") installExtension = value;
+            else if (spec.key === "registry") registry = value;
             else uninstallExtension = value;
             continue;
         }
@@ -237,6 +248,7 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
         version,
         installExtension,
         uninstallExtension,
+        registry,
         listExtensions,
     };
 }

@@ -30,6 +30,8 @@ import {
     listInstalledExtensions,
     uninstallExtension,
 } from "../platform/extensionManagement/node/extensionInstaller.ts";
+import { FileExtensionRegistrySource } from "../platform/extensionManagement/node/fileRegistrySource.ts";
+import { installFromRegistry } from "../platform/extensionManagement/node/installFromRegistry.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
 import type {
     ICommandContribution,
@@ -43,6 +45,7 @@ import { LogService } from "../platform/log/common/logService.ts";
 import { RingBufferSink } from "../platform/log/common/ringBufferSink.ts";
 import { FileSink } from "../platform/log/node/fileSink.ts";
 import { loadState } from "../platform/state/node/stateService.ts";
+import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
 import { TuiApplicationDIToken } from "../workbench/common/coreTokens.ts";
@@ -481,8 +484,29 @@ async function runExtensionManagement(cli: ICliArgs): Promise<never> {
 
     try {
         if (cli.installExtension !== undefined) {
-            const vsixPath = path.resolve(cli.installExtension);
-            const { id, version, previous } = await installVsix(vsixPath, extensionsDir);
+            const target = cli.installExtension;
+            // `.vsix`-суффикс или существующий файл — прежний путь установки из
+            // файла; иначе аргумент трактуется как id `publisher.name` из
+            // реестра. Коллизия «файл с именем как id» разрешается в пользу
+            // файла — существующий контракт CLI не ломаем.
+            const isVsixFile = target.endsWith(".vsix") || fs.existsSync(path.resolve(target));
+            let result: { id: string; version: string; previous: string[] };
+            if (isVsixFile) {
+                result = await installVsix(path.resolve(target), extensionsDir);
+            } else {
+                if (cli.registry === undefined) {
+                    console.error(`Installing "${target}" by id requires --registry <path>`);
+                    process.exit(1);
+                }
+                const source = new FileExtensionRegistrySource(path.resolve(cli.registry), (problem) => {
+                    console.error(problem);
+                });
+                result = await installFromRegistry(source, target, {
+                    extensionsDir,
+                    host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION },
+                });
+            }
+            const { id, version, previous } = result;
             console.log(`Installed ${id}@${version}`);
             const removed = previous.filter((v) => v !== version);
             if (removed.length > 0) {
