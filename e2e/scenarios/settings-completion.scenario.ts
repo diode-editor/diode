@@ -50,11 +50,14 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("editor."), { timeoutMs: 4000 });
         await editor.capture("suggest-key");
 
-        // Ключи идут в порядке схемы (сортировка по имени): contextmenu,
-        // cursorSurroundingLines, insertSpaces, tabSize. Берём insertSpaces
-        // (третий) — у него boolean-значения.
-        await editor.sendKey("ArrowDown");
-        await editor.sendKey("ArrowDown");
+        // Дотипываем ключ до однозначного префикса и берём первый (единственный)
+        // пункт. Раньше здесь было «третий сверху» — но порядок в списке зависит
+        // от того, сколько `editor.*` ключей вообще есть в схеме, и любой новый
+        // ключ уводил стрелки на соседа. Нужен insertSpaces: у него boolean-значения.
+        // Метку в узком попапе усекает до `editor.…`, поэтому ждём не её, а сам
+        // набранный префикс: фильтрация списка идёт по буферу и в том же кадре.
+        await editor.sendText("tor.ins");
+        await editor.waitForText((t) => t.includes('"editor.ins'), { timeoutMs: 4000 });
         await editor.sendKey("Enter");
 
         // В списке ключ виден без кавычек, а вставляется в них: range накрыл уже
