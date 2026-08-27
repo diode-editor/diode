@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
@@ -8,6 +8,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -41,6 +42,27 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     function writeFile(name: string, content: string): string {
         return ws.writeFile(name, content);
     }
+
+    /**
+     * Сажает пару в настоящее приложение, снимает первый кадр (после него всё
+     * чисто) и отвечает, попал ли редактор в следующий кадр после `act`. Так
+     * проверяется `markDirty`: без него правка доедет до экрана только с чужой
+     * перерисовкой, а до тех пор пользователь видит старую картинку.
+     */
+    function repaintsEditor(act: (ctrl: TextEditorPane) => void): boolean {
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(writeFile(`repaint-${String(repaintCounter++)}.ts`, "x")));
+        const app = TestApp.createWithContent(ctrl.view, new Size(20, 3));
+        app.render();
+
+        const renderSpy = vi.spyOn(EditorElement.prototype, "render");
+        act(ctrl);
+        app.render();
+        const repainted = renderSpy.mock.calls.length > 0;
+        renderSpy.mockRestore();
+        return repainted;
+    }
+    let repaintCounter = 0;
 
     describe("fileName / save without a file", () => {
         it("has a null fileName before any file is opened", () => {
@@ -210,6 +232,44 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.tabSize).toBe(4);
             expect(ctrl.viewState.indentExplicitlySet).toBe(false);
         });
+
+        it("одного tabSize хватает, чтобы отметить отступ выставленным", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
+
+            ctrl.setIndentOptions({ tabSize: 2 });
+
+            expect(ctrl.viewState.indentExplicitlySet).toBe(true);
+        });
+
+        it("одного insertSpaces тоже хватает", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
+
+            ctrl.setIndentOptions({ insertSpaces: true });
+
+            expect(ctrl.viewState.insertSpaces).toBe(true);
+            expect(ctrl.viewState.indentExplicitlySet).toBe(true);
+        });
+
+        it("пустой патч ничего не решает", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
+
+            ctrl.setIndentOptions({});
+
+            expect(ctrl.viewState.indentExplicitlySet).toBe(false);
+        });
+
+        it("сдвиг tabSize просит перерисовку, совпадение — нет", () => {
+            expect(repaintsEditor((ctrl) => ctrl.setIndentOptions({ tabSize: 2 }))).toBe(true);
+            expect(repaintsEditor((ctrl) => ctrl.setIndentOptions({ tabSize: 4 }))).toBe(false);
+        });
+
+        it("сдвиг insertSpaces просит перерисовку, совпадение — нет", () => {
+            expect(repaintsEditor((ctrl) => ctrl.setIndentOptions({ insertSpaces: true }))).toBe(true);
+            expect(repaintsEditor((ctrl) => ctrl.setIndentOptions({ insertSpaces: false }))).toBe(false);
+        });
     });
 
     describe("applyIndentConfiguration", () => {
@@ -240,6 +300,39 @@ describe("EditorComponent + TextFileModel (пара)", () => {
 
             expect(ctrl.viewState.tabSize).toBe(6);
             expect(ctrl.viewState.insertSpaces).toBe(true);
+        });
+
+        it("ключа нет в конфиге — встроенный дефолт остаётся на месте", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
+
+            // Ни tabSize, ни insertSpaces: конфиг про них молчит.
+            ctrl.applyIndentConfiguration({ detectIndentation: false });
+
+            expect(ctrl.viewState.tabSize).toBe(4);
+            expect(ctrl.viewState.insertSpaces).toBe(false);
+        });
+
+        it("неположительный tabSize из конфига игнорируется", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
+
+            ctrl.applyIndentConfiguration({ tabSize: 0, detectIndentation: false });
+
+            expect(ctrl.viewState.tabSize).toBe(4);
+        });
+
+        it("без ключа detectIndentation детекция остаётся включённой", () => {
+            const ctrl = createEditorPane();
+            ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
+
+            ctrl.applyIndentConfiguration({ tabSize: 6 });
+
+            expect(ctrl.viewState.tabSize).toBe(2);
+        });
+
+        it("просит перерисовку", () => {
+            expect(repaintsEditor((ctrl) => ctrl.applyIndentConfiguration({ tabSize: 2 }))).toBe(true);
         });
 
         it("не перетирает отступ, выставленный расширением", () => {

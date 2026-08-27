@@ -379,10 +379,13 @@ export class EditorComponent extends Component {
     public setIndentOptions(patch: { tabSize?: number; insertSpaces?: boolean }): void {
         let applied = false;
         let changed = false;
-        if (patch.tabSize !== undefined && patch.tabSize > 0) {
+        // Неположительный размер таба — не решение, а мусор: считаем его так же,
+        // как отсутствие ключа.
+        const tabSize = patch.tabSize ?? 0;
+        if (tabSize > 0) {
             applied = true;
-            if (this.editorViewState.tabSize !== patch.tabSize) {
-                this.editorViewState.tabSize = patch.tabSize;
+            if (this.editorViewState.tabSize !== tabSize) {
+                this.editorViewState.tabSize = tabSize;
                 changed = true;
             }
         }
@@ -414,8 +417,11 @@ export class EditorComponent extends Component {
     }
 
     private applyIndentConfigurationToViewState(): void {
-        const { tabSize, insertSpaces, detectIndentation } = this.indentConfiguration;
-        if (tabSize !== undefined && tabSize > 0) this.editorViewState.configuredTabSize = tabSize;
+        const { insertSpaces, detectIndentation } = this.indentConfiguration;
+        // Ключ, которого в конфиге нет, не трогает встроенный дефолт view-state'а
+        // (неположительный `tabSize` — тот же случай, см. setIndentOptions).
+        const tabSize = this.indentConfiguration.tabSize ?? 0;
+        if (tabSize > 0) this.editorViewState.configuredTabSize = tabSize;
         if (insertSpaces !== undefined) this.editorViewState.configuredInsertSpaces = insertSpaces;
         if (detectIndentation !== undefined) this.editorViewState.detectIndentation = detectIndentation;
         this.editorViewState.runDetectIndentation();

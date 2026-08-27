@@ -70,6 +70,35 @@ describe("detectIndentation", () => {
         expect(detectIndentation(makeDoc([]), SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
     });
 
+    it("detects 8-space indentation — предельный кандидат", () => {
+        const doc = makeDoc(["a() {", "        b;", "        c;", "}"]);
+
+        expect(detectIndentation(doc, { tabSize: 2, insertSpaces: true })).toEqual({
+            insertSpaces: true,
+            tabSize: 8,
+        });
+    });
+
+    it("отступ пробелами перебивает defaults.insertSpaces=false", () => {
+        const doc = makeDoc(["function foo() {", "  const x = 1;", "}"]);
+
+        expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false })).toEqual({
+            insertSpaces: true,
+            tabSize: 2,
+        });
+    });
+
+    it("при отступе табами ширина берётся из defaults, а не из пробельных строк файла", () => {
+        // Табов больше, чем пробельных строк, — файл табовый; шаг 2, набранный
+        // по пробельным строкам, к ширине таба отношения не имеет.
+        const doc = makeDoc(["\ta", "\tb", "\tc", "  x", "    y"]);
+
+        expect(detectIndentation(doc, { tabSize: 8, insertSpaces: true })).toEqual({
+            insertSpaces: false,
+            tabSize: 8,
+        });
+    });
+
     it("falls back to defaults.insertSpaces when tabs and spaces tie", () => {
         const doc = makeDoc(["\ttab;", "  spaces;"]);
 
@@ -95,6 +124,38 @@ describe("detectIndentation", () => {
         });
     });
 
+    it("ширина пробельной строки не попадает в гистограмму шагов", () => {
+        // Пробельные строки на 6 позиций среди двухпробельного кода: посчитай их
+        // за содержательные — и шаг 4 забьёт настоящую двойку.
+        const doc = makeDoc(["a", "  b", "      ", "  c", "      ", "  d"]);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
+    });
+
+    it("пробельная строка не считается отступлённой на один символ", () => {
+        // Тот же капкан с другой стороны: если у пробельной строки «отступ 1»,
+        // шаги с четвёрок съезжают на тройки и tabSize становится 3.
+        const doc = makeDoc(["a", "    b", "    ", "    c", "    ", "    d", "    ", "    e"]);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
+    });
+
+    it("пробельная строка не голосует в споре табов с пробелами", () => {
+        // Таб против пробелов — ничья, решают defaults. Пробельная строка в шесть
+        // пробелов не должна её ломать: отступа в ней нет, есть только пробелы.
+        const doc = makeDoc(["\ta", "  b", "      "]);
+
+        expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false }).insertSpaces).toBe(false);
+    });
+
+    it("строки с одним ведущим пробелом не делают файл пробельным", () => {
+        // Файл целиком из блочного комментария: ` * …` — это выравнивание
+        // звёздочек, а не отступ, и голоса за пробелы здесь нет вовсе.
+        const doc = makeDoc(["/**", " * a", " */"]);
+
+        expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false }).insertSpaces).toBe(false);
+    });
+
     it("ignores a step wider than the largest guess", () => {
         const doc = makeDoc(["a", "          b"]);
 
@@ -105,6 +166,20 @@ describe("detectIndentation", () => {
         const doc = makeDoc(["a", "    b", "a", "    b", "  c", "    d"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
+    });
+
+    it("ровно половина частоты четвёрки — двойка ещё выигрывает", () => {
+        // Шаги: 4 × 4, 2 × 2 — граница правила «хотя бы вполовину так же часто».
+        const doc = makeDoc(["a", "    b", "a", "    b", "a", "  c", "a"]);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
+    });
+
+    it("правило «двойка вместо четвёрки» не трогает победившую шестёрку", () => {
+        // Шаги: 6 × 5, 2 × 3, 4 × 1 — побеждает 6, и переезд на 2 был бы враньём.
+        const doc = makeDoc(["a", "      b", "a", "      b", "a", "      b", "    c", "a", "  d", "a"]);
+
+        expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 6 });
     });
 
     describe("mixed tabs and spaces", () => {
