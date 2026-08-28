@@ -14,6 +14,13 @@ export const editorConfiguration: IConfigurationNode = {
             default: true,
             description: "Insert spaces when pressing Tab.",
         },
+        "editor.detectIndentation": {
+            type: "boolean",
+            default: true,
+            description:
+                "Controls whether `editor.tabSize` and `editor.insertSpaces` are automatically detected " +
+                "from the file contents when a file is opened.",
+        },
         // В VS Code дефолт 0; здесь держим небольшой отступ (issue #89) — курсор
         // «оттупает» от края при прокрутке его в видимую область (PgUp/PgDown, Ctrl+End).
         "editor.cursorSurroundingLines": {
@@ -26,6 +33,5 @@ export const editorConfiguration: IConfigurationNode = {
             default: true,
             description: "Controls whether the editor shows the context menu.",
         },
-        // editor.detectIndentation — добавим, когда редактор станет читать её из конфига.
     },
 };

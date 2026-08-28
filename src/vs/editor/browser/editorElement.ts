@@ -172,6 +172,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             languageId: vs.document.languageId,
             lineCount: vs.document.lineCount,
             tabSize: vs.tabSize,
+            insertSpaces: vs.insertSpaces,
             scrollTop: vs.scrollTop,
             scrollLeft: vs.scrollLeft,
             selections,

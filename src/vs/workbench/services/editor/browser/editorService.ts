@@ -1098,9 +1098,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
 
     /**
      * Применяет к редактору настройки из `IConfigurationService`
-     * (`editor.cursorSurroundingLines`, `editor.tabSize`, `editor.insertSpaces`).
-     * Если ключ не задан, соответствующая настройка редактора не трогается
-     * (`setIndentOptions` оставит существующее значение — auto-detect и т.п.).
+     * (`editor.cursorSurroundingLines`, `editor.tabSize`, `editor.insertSpaces`,
+     * `editor.detectIndentation`). Если ключ не задан, соответствующая настройка
+     * редактора не трогается.
      * Публичный: стороны дифф-вкладки создаёт `openDiffPair`, а конфиг — общий.
      */
     public applyConfigurationToEditor(editor: TextEditorPane): void {
@@ -1114,12 +1114,16 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             editor.setCursorSurroundingLines(surroundingLines);
         }
 
-        const tabSize = this.configurationService.get<number>("editor.tabSize");
-        const insertSpaces = this.configurationService.get<boolean>("editor.insertSpaces");
-        if (tabSize === undefined && insertSpaces === undefined) return;
-        editor.setIndentOptions({
-            ...(tabSize !== undefined ? { tabSize } : {}),
-            ...(insertSpaces !== undefined ? { insertSpaces } : {}),
+        // Отступ: конфиг — это БАЗА, а не приказ. При включённом
+        // `editor.detectIndentation` (дефолт) содержимое файла главнее, как в
+        // VS Code; иначе действуют tabSize/insertSpaces из настроек. Раньше
+        // здесь стоял `setIndentOptions` — дверь для расширений, которая гасит
+        // автоопределение; поскольку `get()` отдаёт и дефолты реестра (4/true),
+        // детекция глохла на каждом открытом файле.
+        editor.applyIndentConfiguration({
+            tabSize: this.configurationService.get<number>("editor.tabSize"),
+            insertSpaces: this.configurationService.get<boolean>("editor.insertSpaces"),
+            detectIndentation: this.configurationService.get<boolean>("editor.detectIndentation"),
         });
     }
 

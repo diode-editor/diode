@@ -18,7 +18,7 @@ import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors
 import type { SaveParticipant } from "../../../services/textfile/common/iSaveParticipant.ts";
 import type { SaveOutcome, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
-import type { EditorComponent } from "./editorComponent.ts";
+import type { EditorComponent, IIndentConfiguration } from "./editorComponent.ts";
 import type { IEditorPane } from "./iEditorPane.ts";
 
 /**
@@ -312,6 +312,10 @@ export class TextEditorPane extends Disposable implements IEditorPane {
 
     public setIndentOptions(patch: { tabSize?: number; insertSpaces?: boolean }): void {
         this.component.setIndentOptions(patch);
+    }
+
+    public applyIndentConfiguration(config: IIndentConfiguration): void {
+        this.component.applyIndentConfiguration(config);
     }
 
     public setOccurrenceHighlightEnabled(enabled: boolean): void {

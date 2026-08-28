@@ -25,6 +25,7 @@ describe("EditorElement.inspectState", () => {
         expect(state.readOnly).toBe(false);
         expect(state.lineCount).toBe(3);
         expect(state.tabSize).toBe(4);
+        expect(state.insertSpaces).toBe(false);
         expect(state.hasSelection).toBe(false);
         expect(state.selections).toEqual([
             {
