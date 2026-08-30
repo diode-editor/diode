@@ -28,6 +28,10 @@ import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
 
 import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
 import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
+import { LineBreaksCache } from "./lineBreaksCache.ts";
+
+/** Режим переноса строк — значения `editor.wordWrap` (VS Code). */
+export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
 
 /**
  * Проекция документа на ряды вью. Параллельные массивы, а не массив объектов:
@@ -48,7 +52,8 @@ interface IViewProjection {
  * Multiple EditorViewStates can reference the same ITextDocument (split view).
  *
  * Acts as a "lens" (projection) through which the renderer sees the TextDocument:
- * logical lines may differ from visual lines due to code folding.
+ * logical lines may differ from visual lines due to code folding, view zones and
+ * word wrap (одна логическая строка → несколько рядов-фрагментов).
  */
 export class EditorViewState {
     private scrollLeftValue = 0;
@@ -65,8 +70,11 @@ export class EditorViewState {
     }
 
     public set scrollLeft(value: number) {
-        if (this.scrollLeftValue === value) return;
-        this.scrollLeftValue = value;
+        // Инвариант «wrap ⇒ scrollLeft ≡ 0» держится здесь, by construction, а
+        // не проверками у каждого потребителя (колесо, revealPosition, команды).
+        const clamped = this.isWordWrapActive ? 0 : value;
+        if (this.scrollLeftValue === clamped) return;
+        this.scrollLeftValue = clamped;
         this.fireViewChange();
     }
 
@@ -82,6 +90,16 @@ export class EditorViewState {
 
     public viewportWidth = 80;
     public viewportHeight = 24;
+    /**
+     * Режим переноса строк (`editor.wordWrap`). Плоское поле, как {@link tabSize}:
+     * владелец вью пишет значение и зовёт `markDirty()`; проекция инвалидируется
+     * снапшот-сравнением в {@link buildProjection}. Упрощение v1: режим
+     * `wordWrapColumn` ведёт себя как `bounded` (без горизонтального скролла к
+     * колонке шире вьюпорта) — см. docs/TODO/WordWrap.md.
+     */
+    public wordWrap: WordWrapMode = "off";
+    /** Колонка переноса для режимов `wordWrapColumn`/`bounded` (`editor.wordWrapColumn`). */
+    public wordWrapColumn = 80;
     /**
      * Minimum number of lines to keep visible between the primary cursor and the
      * top/bottom edge of the viewport when scrolling it into view (VS Code's
@@ -175,6 +193,17 @@ export class EditorViewState {
     private projectionCacheFoldsVersion = -1;
     private zonesVersion = 0;
     private projectionCacheZonesVersion = -1;
+    /**
+     * Снапшоты wrap-входов проекции, а не версии-счётчики: писателей у
+     * {@link wordWrap}/{@link wordWrapColumn}/{@link viewportWidth}/{@link tabSize}
+     * много, и «не забудь bump-нуть версию» — приглашение к багу; сравнение с
+     * фактическим значением самовалидно. `-1` — «wrap выключен» (см.
+     * {@link effectiveWrapWidth}).
+     */
+    private projectionCacheWrapWidth = -1;
+    private projectionCacheTabSize = -1;
+    /** Кеш break-offsets; создаётся при первом включении wrap. */
+    private lineBreaksCacheValue: LineBreaksCache | null = null;
 
     /**
      * Взведён, пока правку применяет СОБСТВЕННЫЙ мутатор этого view-state
@@ -198,6 +227,44 @@ export class EditorViewState {
     /** Отписка от документа. Зовёт владелец view-state при пересоздании/закрытии вью. */
     public dispose(): void {
         this.docContentSubscription.dispose();
+        this.lineBreaksCacheValue?.dispose();
+    }
+
+    // ─── Word wrap ──────────────────────────────────────────
+
+    /** Активен ли перенос строк (любой режим, кроме `off`). */
+    public get isWordWrapActive(): boolean {
+        return this.wordWrap !== "off";
+    }
+
+    /**
+     * Действующая ширина переноса в колонках, `null` — wrap выключен. Все
+     * wrap-входы проекции схлопнуты в один скаляр: он же — ключ инвалидации
+     * кеша. Нижний кламп ширины — в {@link computeLineBreakOffsets}
+     * (MIN_WRAP_WIDTH), у единственного места применения.
+     */
+    private effectiveWrapWidth(): number | null {
+        switch (this.wordWrap) {
+            case "off":
+                return null;
+            case "on":
+                return this.viewportWidth;
+            // Упрощение v1: wordWrapColumn ведёт себя как bounded — колонка шире
+            // вьюпорта потребовала бы горизонтальный скролл при переносе
+            // (см. docs/TODO/WordWrap.md).
+            case "wordWrapColumn":
+            case "bounded":
+                return Math.min(this.viewportWidth, this.wordWrapColumn);
+        }
+    }
+
+    /** Ленивый кеш break-offsets с актуальными параметрами. */
+    private wrapBreaks(wrapWidth: number): LineBreaksCache {
+        if (this.lineBreaksCacheValue === null) {
+            this.lineBreaksCacheValue = new LineBreaksCache(this.document, this.tabSize, wrapWidth);
+        }
+        this.lineBreaksCacheValue.setParams(this.tabSize, wrapWidth);
+        return this.lineBreaksCacheValue;
     }
 
     /**
@@ -761,6 +828,53 @@ export class EditorViewState {
         }
         const row = visible[visualLine];
         return row >= 0 ? row : -1;
+    }
+
+    /**
+     * Диапазон offsets `[start, end)` фрагмента строки, который занимает ряд
+     * вью; у последнего (или единственного) фрагмента `end` — длина строки.
+     * `{0, 0}` у рядов-зон и за границами вью — у них документного текста нет.
+     */
+    public viewLineRange(viewLine: number): { start: number; end: number } {
+        const { rowDocLine, rowStartOffset } = this.buildProjection();
+        const doc = rowDocLine.at(viewLine);
+        if (viewLine < 0 || doc === undefined || doc < 0) return { start: 0, end: 0 };
+        const start = rowStartOffset[viewLine];
+        // Фрагменты одной строки контигуозны (зона встаёт только после
+        // последнего — см. insertViewZones), поэтому конец фрагмента — начало
+        // следующего ряда той же строки.
+        const end = rowDocLine[viewLine + 1] === doc ? rowStartOffset[viewLine + 1] : this.document.getLineLength(doc);
+        return { start, end };
+    }
+
+    /**
+     * Дисплейная колонка начала фрагмента в целой строке — сдвиг «колоночного
+     * окна», которым рендер и хит-тест смотрят на фрагмент. 0 у первых
+     * фрагментов, целых строк и зон.
+     */
+    public viewLineStartColumn(viewLine: number): number {
+        const { rowDocLine, rowStartOffset } = this.buildProjection();
+        const doc = rowDocLine.at(viewLine);
+        if (viewLine < 0 || doc === undefined || doc < 0) return 0;
+        const start = rowStartOffset[viewLine];
+        if (start === 0) return 0;
+        return this.displayLineFor(this.document.getLineContent(doc)).offsetToColumn(start);
+    }
+
+    /**
+     * Ряд вью, содержащий позицию документа, либо -1, если строка скрыта
+     * свёрткой. Offset ровно на границе фрагментов маппится на СЛЕДУЮЩИЙ ряд
+     * (без cursor affinity — упрощение v1, см. docs/TODO/WordWrap.md).
+     */
+    public viewLineForPosition(line: number, character: number): number {
+        const first = this.logicalToVisualLine(line);
+        if (first < 0) return -1;
+        const { rowDocLine, rowStartOffset } = this.buildProjection();
+        let row = first;
+        while (rowDocLine[row + 1] === line && rowStartOffset[row + 1] <= character) {
+            row++;
+        }
+        return row;
     }
 
     /**
@@ -1759,11 +1873,14 @@ export class EditorViewState {
      * (startLine+1 .. endLine) of a collapsed region.
      */
     private buildProjection(): IViewProjection {
+        const wrapWidth = this.effectiveWrapWidth() ?? -1;
         if (
             this.projectionCache !== null &&
             this.projectionCacheDocVersion === this.document.versionId &&
             this.projectionCacheFoldsVersion === this.foldsVersion &&
-            this.projectionCacheZonesVersion === this.zonesVersion
+            this.projectionCacheZonesVersion === this.zonesVersion &&
+            this.projectionCacheWrapWidth === wrapWidth &&
+            this.projectionCacheTabSize === this.tabSize
         ) {
             return this.projectionCache;
         }
@@ -1780,6 +1897,8 @@ export class EditorViewState {
         hiddenRanges.sort((a, b) => a.from - b.from);
 
         const visible: number[] = [];
+        const startOffsets: number[] = [];
+        const breaksCache = wrapWidth >= 0 ? this.wrapBreaks(wrapWidth) : null;
         const hiddenIdx = 0;
 
         for (let line = 0; line < this.document.lineCount; line++) {
@@ -1797,12 +1916,18 @@ export class EditorViewState {
             }
             if (!isHidden) {
                 visible.push(line);
+                startOffsets.push(0);
+                // При wrap строка разворачивается в ряд на фрагмент: тот же
+                // docLine, offset начала фрагмента из кеша breaks.
+                const breaks = breaksCache?.getBreaks(line);
+                if (breaks != null) {
+                    for (const breakOffset of breaks) {
+                        visible.push(line);
+                        startOffsets.push(breakOffset);
+                    }
+                }
             }
         }
-
-        // Пока фрагментов нет (word wrap разобьёт строку на несколько рядов с
-        // разными offset'ами) — каждый видимый ряд начинается с offset 0.
-        const startOffsets = new Array<number>(visible.length).fill(0);
 
         const { rowDocLine, rowStartOffset } =
             this.viewZonesValue.length === 0
@@ -1833,6 +1958,8 @@ export class EditorViewState {
         this.projectionCacheDocVersion = this.document.versionId;
         this.projectionCacheFoldsVersion = this.foldsVersion;
         this.projectionCacheZonesVersion = this.zonesVersion;
+        this.projectionCacheWrapWidth = wrapWidth;
+        this.projectionCacheTabSize = this.tabSize;
         return this.projectionCache;
     }
 

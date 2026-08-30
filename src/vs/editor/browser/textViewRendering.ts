@@ -62,11 +62,19 @@ export function forEachRangeCell(
 
         const lineContent = viewState.getViewLine(viewLine);
         const dl = viewState.displayLineFor(lineContent);
-        const startChar = logLine === range.start.line ? range.start.character : 0;
-        const endChar = logLine === range.end.line ? range.end.character : lineContent.length + 1;
+        // Диапазон пересекается с фрагментом ряда: у целой строки фрагмент —
+        // `[0, length)`, и математика вырождается в прежнюю. Виртуальную ячейку
+        // перевода строки (+1 за концом) несёт только последний фрагмент.
+        const frag = viewState.viewLineRange(viewLine);
+        const isLastFragment = frag.end === lineContent.length;
+        const rangeStartChar = logLine === range.start.line ? range.start.character : 0;
+        const rangeEndChar = logLine === range.end.line ? range.end.character : lineContent.length + 1;
+        const startChar = Math.max(rangeStartChar, frag.start);
+        const endChar = Math.min(rangeEndChar, isLastFragment ? lineContent.length + 1 : frag.end);
 
-        const startCol = logLine === range.start.line ? dl.offsetToColumn(startChar) : 0;
-        const endCol = logLine === range.end.line ? dl.offsetToColumn(endChar) : dl.displayWidth + 1;
+        const fragStartCol = viewState.viewLineStartColumn(viewLine);
+        const startCol = dl.offsetToColumn(startChar) - fragStartCol;
+        const endCol = (endChar > lineContent.length ? dl.displayWidth + 1 : dl.offsetToColumn(endChar)) - fragStartCol;
 
         const screenXStart = Math.max(0, startCol - geo.scrollLeft);
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
@@ -104,6 +112,18 @@ export interface IPaintTextLineParams {
     gutterW: number;
     contentCols: number;
     scrollLeft: number;
+    /**
+     * Дисплейная колонка начала фрагмента при word wrap — сдвигает «колоночное
+     * окно» строки, как scrollLeft, но по-строчно. 0 — ряд несёт строку с начала.
+     */
+    startColumn: number;
+    /**
+     * Эксклюзивная колонка конца фрагмента при word wrap: дальше лежит текст
+     * СЛЕДУЮЩЕГО фрагмента — вместо него до края рисуются пробелы. `undefined` —
+     * последний/единственный фрагмент: за концом строки out-of-range колонки и
+     * так дают пробел.
+     */
+    endColumnExclusive?: number;
     /** Цвета по умолчанию — там, где токен ничего не сказал. */
     fg: number;
     bg: number;
@@ -120,11 +140,18 @@ export interface IPaintTextLineParams {
  * горизонтальная прокрутка.
  */
 export function paintTextLine(context: RenderContext, params: IPaintTextLineParams): void {
-    const { displayLine, tokenIndex, resolveStyle, screenY, gutterW, contentCols, scrollLeft } = params;
+    const { displayLine, tokenIndex, resolveStyle, screenY, gutterW, contentCols, scrollLeft, startColumn } = params;
 
     let screenX = 0;
     while (screenX < contentCols) {
-        const displayCol = scrollLeft + screenX;
+        const displayCol = scrollLeft + startColumn + screenX;
+        if (params.endColumnExclusive !== undefined && displayCol >= params.endColumnExclusive) {
+            // Конец фрагмента: дальше в строке текст следующего ряда — до края
+            // области идёт фон.
+            context.setCell(gutterW + screenX, screenY, { char: " ", fg: params.fg, bg: params.bg, width: 1 });
+            screenX++;
+            continue;
+        }
         const char = displayLine.charAtColumn(displayCol);
         if (char === "") {
             // Continuation column of a wide char — skip, already handled by Grid
