@@ -30,6 +30,20 @@ import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
 import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 
 /**
+ * Проекция документа на ряды вью. Параллельные массивы, а не массив объектов:
+ * проекция — длиной с документ, аллокация объекта на ряд ударила бы по большим
+ * файлам (та же причина, что у числовой кодировки зон в {@link encodeViewZoneRow}).
+ */
+interface IViewProjection {
+    /** По ряду вью: номер документной строки (`>= 0`) либо код зоны (`< 0`, см. {@link encodeViewZoneRow}). */
+    rowDocLine: number[];
+    /** По ряду вью: offset начала фрагмента в своей документной строке; 0 у зон и целых строк. */
+    rowStartOffset: number[];
+    /** По документной строке: её первый ряд вью, либо -1, если строка скрыта свёрткой. */
+    firstRowOfDocLine: Int32Array;
+}
+
+/**
  * Represents the view state for one editor pane.
  * Multiple EditorViewStates can reference the same ITextDocument (split view).
  *
@@ -153,14 +167,14 @@ export class EditorViewState {
      */
     public multiCursorSession: IMultiCursorFindSession | null = null;
 
-    private visibleLinesCache: number[] | null = null;
+    private projectionCache: IViewProjection | null = null;
     /** Стартовая строка вью каждой зоны (по якорю) — offset для многострочных зон за O(1). */
     private zoneStartRowsCache: Map<number, number> | null = null;
-    private visibleLinesCacheDocVersion = -1;
+    private projectionCacheDocVersion = -1;
     private foldsVersion = 0;
-    private visibleLinesCacheFoldsVersion = -1;
+    private projectionCacheFoldsVersion = -1;
     private zonesVersion = 0;
-    private visibleLinesCacheZonesVersion = -1;
+    private projectionCacheZonesVersion = -1;
 
     /**
      * Взведён, пока правку применяет СОБСТВЕННЫЙ мутатор этого view-state
@@ -727,12 +741,11 @@ export class EditorViewState {
      * Returns -1 if the line is hidden inside a collapsed region.
      */
     public logicalToVisualLine(logicalLine: number): number {
-        // Гард от отрицательного аргумента: строки-зоны кодируются в проекции
-        // отрицательными числами, и `indexOf(-2)` нашёл бы зону вместо «нет».
-        if (logicalLine < 0) return -1;
-        const visible = this.buildVisibleLines();
-        const idx = visible.indexOf(logicalLine);
-        return idx;
+        const { firstRowOfDocLine } = this.buildProjection();
+        // Гарды по границам: за пределами массива Int32Array отдаёт undefined,
+        // а контракт метода — «-1, если строки нет во вью».
+        if (logicalLine < 0 || logicalLine >= firstRowOfDocLine.length) return -1;
+        return firstRowOfDocLine[logicalLine];
     }
 
     /**
@@ -1733,17 +1746,26 @@ export class EditorViewState {
     }
 
     /**
-     * Builds an array of logical line indices that are currently visible.
-     * A line is hidden if it falls in range (startLine+1 .. endLine) of a collapsed region.
+     * Ряды проекции без offset'ов — короткая рука для потребителей, которым
+     * нужны только документные номера рядов (см. {@link IViewProjection.rowDocLine}).
      */
     private buildVisibleLines(): number[] {
+        return this.buildProjection().rowDocLine;
+    }
+
+    /**
+     * Строит проекцию документа на ряды вью: видимые (не скрытые свёрткой)
+     * строки плюс виртуальные ряды зон. A line is hidden if it falls in range
+     * (startLine+1 .. endLine) of a collapsed region.
+     */
+    private buildProjection(): IViewProjection {
         if (
-            this.visibleLinesCache !== null &&
-            this.visibleLinesCacheDocVersion === this.document.versionId &&
-            this.visibleLinesCacheFoldsVersion === this.foldsVersion &&
-            this.visibleLinesCacheZonesVersion === this.zonesVersion
+            this.projectionCache !== null &&
+            this.projectionCacheDocVersion === this.document.versionId &&
+            this.projectionCacheFoldsVersion === this.foldsVersion &&
+            this.projectionCacheZonesVersion === this.zonesVersion
         ) {
-            return this.visibleLinesCache;
+            return this.projectionCache;
         }
 
         // Collect all hidden line ranges from collapsed regions
@@ -1778,35 +1800,48 @@ export class EditorViewState {
             }
         }
 
-        const rows = this.viewZonesValue.length === 0 ? visible : insertViewZones(visible, this.viewZonesValue);
+        // Пока фрагментов нет (word wrap разобьёт строку на несколько рядов с
+        // разными offset'ами) — каждый видимый ряд начинается с offset 0.
+        const startOffsets = new Array<number>(visible.length).fill(0);
+
+        const { rowDocLine, rowStartOffset } =
+            this.viewZonesValue.length === 0
+                ? { rowDocLine: visible, rowStartOffset: startOffsets }
+                : insertViewZones(visible, startOffsets, this.viewZonesValue);
 
         // Стартовые строки зон — тем же проходом, что и проекция (якоря после
         // нормализации уникальны, первая встреченная строка зоны — её начало).
         let zoneStarts: Map<number, number> | null = null;
         if (this.viewZonesValue.length > 0) {
             zoneStarts = new Map();
-            for (let i = 0; i < rows.length; i++) {
-                if (rows[i] < 0) {
-                    const anchor = decodeViewZoneAnchor(rows[i]);
+            for (let i = 0; i < rowDocLine.length; i++) {
+                if (rowDocLine[i] < 0) {
+                    const anchor = decodeViewZoneAnchor(rowDocLine[i]);
                     if (!zoneStarts.has(anchor)) zoneStarts.set(anchor, i);
                 }
             }
         }
         this.zoneStartRowsCache = zoneStarts;
 
-        this.visibleLinesCache = rows;
-        this.visibleLinesCacheDocVersion = this.document.versionId;
-        this.visibleLinesCacheFoldsVersion = this.foldsVersion;
-        this.visibleLinesCacheZonesVersion = this.zonesVersion;
-        return rows;
+        const firstRowOfDocLine = new Int32Array(this.document.lineCount).fill(-1);
+        for (let i = 0; i < rowDocLine.length; i++) {
+            const doc = rowDocLine[i];
+            if (doc >= 0 && firstRowOfDocLine[doc] === -1) firstRowOfDocLine[doc] = i;
+        }
+
+        this.projectionCache = { rowDocLine, rowStartOffset, firstRowOfDocLine };
+        this.projectionCacheDocVersion = this.document.versionId;
+        this.projectionCacheFoldsVersion = this.foldsVersion;
+        this.projectionCacheZonesVersion = this.zonesVersion;
+        return this.projectionCache;
     }
 
     /**
      * Returns the previous visible logical line before the given logical line, or -1.
      */
     private previousVisibleLine(logicalLine: number): number {
-        const visible = this.buildVisibleLines();
-        const currentIdx = visible.indexOf(logicalLine);
+        const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
+        const currentIdx = firstRowOfDocLine[logicalLine];
         if (currentIdx > 0) {
             // Соседний ряд может быть зоной (< 0) — каретка её проскакивает.
             for (let i = currentIdx - 1; i >= 0; i--) {
@@ -1829,8 +1864,8 @@ export class EditorViewState {
      * Returns the next visible logical line after the given logical line, or -1.
      */
     private nextVisibleLine(logicalLine: number): number {
-        const visible = this.buildVisibleLines();
-        const currentIdx = visible.indexOf(logicalLine);
+        const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
+        const currentIdx = firstRowOfDocLine[logicalLine];
         if (currentIdx >= 0) {
             // Соседний ряд может быть зоной (< 0) — каретка её проскакивает.
             for (let i = currentIdx + 1; i < visible.length; i++) {
@@ -2129,24 +2164,41 @@ function decodeViewZoneAnchor(row: number): number {
  * сворачивает unchanged-куски и обязан не терять выравнивание (upstream решает
  * то же самое флагом `showInHiddenAreas`). Якорь `-1` (и якорь ниже первой
  * видимой строки) даёт зону перед началом вью.
+ *
+ * `visible`/`startOffsets` — параллельные массивы рядов (ряд = документная
+ * строка или её фрагмент при wrap); зона вставляется только после ПОСЛЕДНЕГО
+ * ряда своей строки: у промежуточных фрагментов `next === visible[i]`, и
+ * условие `afterLine < next` не срабатывает.
  */
-function insertViewZones(visible: readonly number[], zones: readonly IViewZone[]): number[] {
-    const rows: number[] = [];
+function insertViewZones(
+    visible: readonly number[],
+    startOffsets: readonly number[],
+    zones: readonly IViewZone[],
+): { rowDocLine: number[]; rowStartOffset: number[] } {
+    const rowDocLine: number[] = [];
+    const rowStartOffset: number[] = [];
+    const pushZone = (zone: IViewZone): void => {
+        for (let k = 0; k < zone.size; k++) {
+            rowDocLine.push(encodeViewZoneRow(zone.afterLine));
+            rowStartOffset.push(0);
+        }
+    };
     let zi = 0;
     /* v8 ignore start -- ?? недостижим: видимый список пуст не бывает — фолд не прячет собственный заголовок */
     const firstVisible = visible[0] ?? Number.MAX_SAFE_INTEGER;
     /* v8 ignore stop */
     while (zi < zones.length && zones[zi].afterLine < firstVisible) {
-        for (let k = 0; k < zones[zi].size; k++) rows.push(encodeViewZoneRow(zones[zi].afterLine));
+        pushZone(zones[zi]);
         zi++;
     }
     for (let i = 0; i < visible.length; i++) {
-        rows.push(visible[i]);
+        rowDocLine.push(visible[i]);
+        rowStartOffset.push(startOffsets[i]);
         const next = i + 1 < visible.length ? visible[i + 1] : Number.MAX_SAFE_INTEGER;
         while (zi < zones.length && zones[zi].afterLine >= visible[i] && zones[zi].afterLine < next) {
-            for (let k = 0; k < zones[zi].size; k++) rows.push(encodeViewZoneRow(zones[zi].afterLine));
+            pushZone(zones[zi]);
             zi++;
         }
     }
-    return rows;
+    return { rowDocLine, rowStartOffset };
 }
