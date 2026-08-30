@@ -941,6 +941,8 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         const viewLine = this.viewState.scrollTop + localY;
         if (viewLine < 0 || viewLine >= this.viewState.getViewLineCount()) return false;
+        // Chevron живёт на первом фрагменте — клик по продолжению wrap не фолдит.
+        if (this.viewState.viewLineRange(viewLine).start > 0) return false;
 
         const logLine = this.viewState.visualToLogicalLine(viewLine);
         const region = this.viewState.foldedRegions.find((r) => r.startLine === logLine);

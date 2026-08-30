@@ -10,7 +10,6 @@ import type { ISelection } from "../core/iSelection.ts";
 import {
     createCursorSelection,
     createSelection,
-    getIdealColumn,
     isSelectionCollapsed,
     selectionToRange,
 } from "../core/iSelection.ts";
@@ -1142,21 +1141,7 @@ export class EditorViewState {
      * Does NOT change idealColumn — vertical navigation preserves it.
      */
     public cursorUp(inSelectionMode = false): void {
-        this.selections = this.selections.map((sel) => {
-            const pos = sel.active;
-            const prevVisible = this.previousVisibleLine(pos.line);
-            if (prevVisible >= 0) {
-                let ideal = getIdealColumn(sel);
-                if (sel.idealColumn === undefined) {
-                    const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
-                    ideal = currentDl.offsetToColumn(pos.character);
-                }
-                const targetDl = this.displayLineFor(this.document.getLineContent(prevVisible));
-                const newChar = targetDl.columnToOffset(ideal);
-                return this.buildSelection(sel, prevVisible, newChar, ideal, inSelectionMode);
-            }
-            return sel;
-        });
+        this.selections = this.selections.map((sel) => this.moveVertically(sel, -1, inSelectionMode));
         this.ensureCursorVisible();
     }
 
@@ -1166,22 +1151,77 @@ export class EditorViewState {
      * Does NOT change idealColumn — vertical navigation preserves it.
      */
     public cursorDown(inSelectionMode = false): void {
-        this.selections = this.selections.map((sel) => {
-            const pos = sel.active;
-            const nextVisible = this.nextVisibleLine(pos.line);
-            if (nextVisible >= 0) {
-                let ideal = getIdealColumn(sel);
-                if (sel.idealColumn === undefined) {
-                    const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
-                    ideal = currentDl.offsetToColumn(pos.character);
-                }
-                const targetDl = this.displayLineFor(this.document.getLineContent(nextVisible));
-                const newChar = targetDl.columnToOffset(ideal);
-                return this.buildSelection(sel, nextVisible, newChar, ideal, inSelectionMode);
-            }
-            return sel;
-        });
+        this.selections = this.selections.map((sel) => this.moveVertically(sel, 1, inSelectionMode));
         this.ensureCursorVisible();
+    }
+
+    /** Выделение после шага каретки на соседний ряд вью; у края вью — исходное. */
+    private moveVertically(sel: ISelection, direction: 1 | -1, inSelectionMode: boolean): ISelection {
+        const step = this.stepPositionVertically(sel.active, this.idealColumnOf(sel), direction);
+        if (step === null) return sel;
+        return this.buildSelection(sel, step.line, step.character, step.idealColumn, inSelectionMode);
+    }
+
+    /**
+     * Шаг позиции на соседний документный ряд вью (ряды-зоны проскакиваются),
+     * либо `null` — некуда: край вью. Вертикальное движение при wrap ходит по
+     * РЯДАМ, а не строкам: внутри перенесённой строки каретка идёт по
+     * фрагментам. «Липкая» колонка держится ОТНОСИТЕЛЬНО НАЧАЛА фрагмента
+     * (`idealAbs − startCol` текущего ряда), а возвращённый `idealColumn` —
+     * снова абсолютный, спроецированный на целевой ряд: следующий шаг вычтет
+     * его стартовую колонку и получит ту же относительную. Без wrap все
+     * стартовые колонки — нули, и математика тождественна прежней построчной.
+     */
+    private stepPositionVertically(
+        pos: IPosition,
+        idealAbs: number,
+        direction: 1 | -1,
+    ): { line: number; character: number; idealColumn: number } | null {
+        const currentRow = this.viewLineForPosition(pos.line, pos.character);
+        if (currentRow < 0) {
+            // Каретка на скрытой строке (до reconcileHiddenCursors): прежняя
+            // построчная посадка на ближайшую видимую строку.
+            const fallbackLine =
+                direction === -1 ? this.previousVisibleLine(pos.line) : this.nextVisibleLine(pos.line);
+            if (fallbackLine < 0) return null;
+            const dl = this.displayLineFor(this.document.getLineContent(fallbackLine));
+            return { line: fallbackLine, character: dl.columnToOffset(idealAbs), idealColumn: idealAbs };
+        }
+
+        const { rowDocLine } = this.buildProjection();
+        let targetRow = currentRow + direction;
+        while (targetRow >= 0 && targetRow < rowDocLine.length && rowDocLine[targetRow] < 0) {
+            targetRow += direction;
+        }
+        if (targetRow < 0 || targetRow >= rowDocLine.length) return null;
+
+        const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentRow));
+        return this.landOnRow(targetRow, idealInRow);
+    }
+
+    /**
+     * Посадка каретки на документный ряд по ideal-колонке ВНУТРИ ряда: у
+     * не-последнего фрагмента каретка не переезжает границу (offset на границе
+     * принадлежит уже следующему ряду) — кламп к последней графеме фрагмента.
+     */
+    private landOnRow(
+        targetRow: number,
+        idealInRow: number,
+    ): { line: number; character: number; idealColumn: number } {
+        const targetLine = this.buildProjection().rowDocLine[targetRow];
+        const targetStartCol = this.viewLineStartColumn(targetRow);
+        const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
+        const range = this.viewLineRange(targetRow);
+        const isLastFragment = range.end === this.document.getLineLength(targetLine);
+        let landingCol = targetStartCol + idealInRow;
+        if (!isLastFragment) {
+            landingCol = Math.min(landingCol, targetDl.offsetToColumn(range.end) - 1);
+        }
+        return {
+            line: targetLine,
+            character: targetDl.columnToOffset(landingCol),
+            idealColumn: targetStartCol + idealInRow,
+        };
     }
 
     /**
@@ -1220,6 +1260,15 @@ export class EditorViewState {
     public cursorHome(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => {
             const content = this.document.getLineContent(sel.active.line);
+            // На ряду-продолжении wrap Home идёт к началу ФРАГМЕНТА (как VS
+            // Code); повторное нажатие там же — no-op, логического smart-home с
+            // продолжения нет (упрощение v1, см. docs/TODO/WordWrap.md).
+            const row = this.viewLineForPosition(sel.active.line, sel.active.character);
+            const rowStart = this.viewLineRange(row).start;
+            if (rowStart > 0) {
+                const idealCol = this.viewLineStartColumn(row);
+                return this.buildSelection(sel, sel.active.line, rowStart, idealCol, inSelectionMode);
+            }
             const firstNonWs = firstNonWhitespaceIndex(content);
             const target = sel.active.character === firstNonWs && firstNonWs !== 0 ? 0 : firstNonWs;
             const idealCol = this.displayLineFor(content).offsetToColumn(target);
@@ -1235,6 +1284,15 @@ export class EditorViewState {
     public cursorEnd(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => {
             const lineLen = this.document.getLineLength(sel.active.line);
+            // На не-последнем фрагменте wrap End идёт к последней графеме
+            // ФРАГМЕНТА: offset границы принадлежит следующему ряду (без
+            // cursor affinity — упрощение v1, см. docs/TODO/WordWrap.md).
+            const rowEnd = this.viewLineRange(this.viewLineForPosition(sel.active.line, sel.active.character)).end;
+            if (rowEnd !== lineLen) {
+                const dl = this.displayLineFor(this.document.getLineContent(sel.active.line));
+                const target = dl.columnToOffset(dl.offsetToColumn(rowEnd) - 1);
+                return this.buildSelection(sel, sel.active.line, target, Number.MAX_SAFE_INTEGER, inSelectionMode);
+            }
             return this.buildSelection(sel, sel.active.line, lineLen, Number.MAX_SAFE_INTEGER, inSelectionMode);
         });
         this.ensureCursorVisible();
@@ -1377,34 +1435,30 @@ export class EditorViewState {
      * на строках с табами.
      */
     private translateSelectionToAdjacentLine(selection: ISelection, direction: 1 | -1): ISelection | null {
-        const activeLine =
-            direction === -1
-                ? this.previousVisibleLine(selection.active.line)
-                : this.nextVisibleLine(selection.active.line);
-        if (activeLine < 0) return null;
-
         const idealColumn = this.idealColumnOf(selection);
-        const activeChar = this.displayLineFor(this.document.getLineContent(activeLine)).columnToOffset(idealColumn);
+        const activeStep = this.stepPositionVertically(selection.active, idealColumn, direction);
+        if (activeStep === null) return null;
 
         if (isSelectionCollapsed(selection)) {
-            return createCursorSelection(activeLine, activeChar, idealColumn);
+            return createCursorSelection(activeStep.line, activeStep.character, activeStep.idealColumn);
         }
 
-        const anchorLine =
-            direction === -1
-                ? this.previousVisibleLine(selection.anchor.line)
-                : this.nextVisibleLine(selection.anchor.line);
+        const anchorContent = this.document.getLineContent(selection.anchor.line);
+        const anchorColumn = this.displayLineFor(anchorContent).offsetToColumn(selection.anchor.character);
+        const anchorStep = this.stepPositionVertically(selection.anchor, anchorColumn, direction);
         // Якорь упёрся в край вью, а active — нет: значит якорь дальше active по ходу
         // движения, и копия целиком легла бы внутрь исходного выделения (слияние съело бы
         // её без следа). Не плодим её вовсе — иначе на ровном месте вылетало бы холостое
         // событие смены курсора.
-        if (anchorLine < 0) return null;
+        if (anchorStep === null) return null;
 
-        const anchorContent = this.document.getLineContent(selection.anchor.line);
-        const anchorColumn = this.displayLineFor(anchorContent).offsetToColumn(selection.anchor.character);
-        const anchorChar = this.displayLineFor(this.document.getLineContent(anchorLine)).columnToOffset(anchorColumn);
-
-        return createSelection(anchorLine, anchorChar, activeLine, activeChar, idealColumn);
+        return createSelection(
+            anchorStep.line,
+            anchorStep.character,
+            activeStep.line,
+            activeStep.character,
+            activeStep.idealColumn,
+        );
     }
 
     /**
@@ -1445,20 +1499,24 @@ export class EditorViewState {
         const pageSize = Math.max(1, this.viewportHeight - 1);
         this.selections = this.selections.map((sel) => {
             const pos = sel.active;
-            let ideal = getIdealColumn(sel);
-            if (sel.idealColumn === undefined) {
-                const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
-                ideal = currentDl.offsetToColumn(pos.character);
-            }
-            const currentView = this.logicalToVisualLine(pos.line);
+            const idealAbs = this.idealColumnOf(sel);
+            const currentView = this.viewLineForPosition(pos.line, pos.character);
             /* v8 ignore start -- defensive: скрытая каретка выправляется reconcileHiddenCursors до команд */
             if (currentView < 0) return sel;
             /* v8 ignore stop */
             const targetView = Math.min(Math.max(0, currentView + direction * pageSize), this.getViewLineCount() - 1);
-            const targetLine = this.docLineForViewLine(targetView);
-            const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
-            const newChar = targetDl.columnToOffset(ideal);
-            return this.buildSelection(sel, targetLine, newChar, ideal, inSelectionMode);
+            // Целевой ряд может быть зоной — берём ближайший документный (та же
+            // политика, что docLineForViewLine: сначала выше, потом ниже).
+            const { rowDocLine } = this.buildProjection();
+            let targetRow = targetView;
+            while (targetRow >= 0 && rowDocLine[targetRow] < 0) targetRow--;
+            if (targetRow < 0) {
+                targetRow = targetView;
+                while (rowDocLine[targetRow] < 0) targetRow++;
+            }
+            const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentView));
+            const landing = this.landOnRow(targetRow, idealInRow);
+            return this.buildSelection(sel, landing.line, landing.character, landing.idealColumn, inSelectionMode);
         });
         this.ensureCursorVisible();
     }
@@ -1826,7 +1884,9 @@ export class EditorViewState {
     private revealPosition(pos: IPosition): void {
         if (this.viewportWidth <= 0 || this.viewportHeight <= 0) return;
 
-        const visualLine = this.logicalToVisualLine(pos.line);
+        // При wrap показываем РЯД позиции, а не первый фрагмент строки — иначе
+        // каретка на хвосте длинной строки оставалась бы за нижним краем.
+        const visualLine = this.viewLineForPosition(pos.line, pos.character);
         /* v8 ignore start -- callers (goToPosition/revealRange/restoreSelections) expand folds before revealing, so a hidden line never reaches here */
         if (visualLine < 0) return;
         /* v8 ignore stop */
@@ -1843,6 +1903,10 @@ export class EditorViewState {
         } else if (visualLine > this.scrollTop + this.viewportHeight - 1 - margin) {
             this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
         }
+
+        // При wrap горизонтали нет: scrollLeft ≡ 0, каждый фрагмент влезает в
+        // вьюпорт by construction.
+        if (this.isWordWrapActive) return;
 
         const lineContent = this.document.getLineContent(pos.line);
         const dl = this.displayLineFor(lineContent);
@@ -1994,9 +2058,10 @@ export class EditorViewState {
         const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
         const currentIdx = firstRowOfDocLine[logicalLine];
         if (currentIdx >= 0) {
-            // Соседний ряд может быть зоной (< 0) — каретка её проскакивает.
+            // Соседний ряд может быть зоной (< 0) — каретка её проскакивает;
+            // при wrap следом идут фрагменты ТОЙ ЖЕ строки — их тоже.
             for (let i = currentIdx + 1; i < visible.length; i++) {
-                if (visible[i] >= 0) return visible[i];
+                if (visible[i] >= 0 && visible[i] !== logicalLine) return visible[i];
             }
             return -1;
         }

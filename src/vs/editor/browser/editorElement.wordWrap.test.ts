@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
-import { createSelection } from "../common/core/iSelection.ts";
+import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { LONG_LINE_TRUNCATION_BADGE, STOP_RENDERING_LINE_AFTER } from "../common/viewModel/longLineRendering.ts";
@@ -107,5 +109,88 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         // Маркер скрытого тела — после конца текста, на последнем фрагменте.
         expect(app.backend.getTextAt(new Point(gw, 1), 10)).toContain("⋯");
         expect(app.backend.getTextAt(new Point(gw, 0), 10)).not.toContain("⋯");
+    });
+});
+
+function fireMouseDown(editor: EditorElement, localX: number, localY: number): void {
+    editor.dispatchEvent(
+        new TUIMouseEvent("mousedown", {
+            button: "left",
+            screenX: localX,
+            screenY: localY,
+            localX,
+            localY,
+        }),
+    );
+}
+
+describe("EditorElement word wrap — мышь и каретки", () => {
+    it("клик по ряду-продолжению ставит каретку внутрь фрагмента", () => {
+        const { editor } = createEditor("aaaa bbbb cccc");
+        const gw = editor.gutterWidth;
+        fireMouseDown(editor, gw + 2, 1);
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 12 });
+    });
+
+    it("клик правее конца не-последнего фрагмента не утаскивает каретку на следующий ряд", () => {
+        const { editor } = createEditor("aaaaaaa bbbbbb"); // фрагмент 1 — 8 колонок
+        const gw = editor.gutterWidth;
+        fireMouseDown(editor, gw + 9, 0);
+        // Последняя графема фрагмента — пробел (offset 7), не offset границы (8).
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 7 });
+    });
+
+    it("клик по гуттеру продолжения — колонка 0 РЯДА, то есть начало фрагмента", () => {
+        const { editor } = createEditor("aaaa bbbb cccc");
+        fireMouseDown(editor, 0, 1);
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 10 });
+    });
+
+    it("аппаратная каретка на продолжении встаёт в свой ряд и колонку фрагмента", () => {
+        const { app, editor, vs } = createEditor("aaaa bbbb cccc");
+        vs.selections = [createCursorSelection(0, 12)];
+        editor.focus();
+        app.render();
+        const gw = editor.gutterWidth;
+        const cell = editor.getCaretScreenCell();
+        expect(cell).toEqual(new Point(gw + 2, 1));
+    });
+
+    it("мультикаретки на фрагментах одной строки рисуются каждая в своём ряду", () => {
+        const { app, editor, vs } = createEditor("aaaa bbbb cccc");
+        vs.selections = [createCursorSelection(0, 2), createCursorSelection(0, 12)];
+        editor.focus();
+        app.render();
+        const gw = editor.gutterWidth;
+        const caretBg = packRgb(0xae, 0xaf, 0xad); // editorCursor.foreground
+        expect(app.backend.getBgAt(new Point(gw + 2, 0))).toBe(caretBg);
+        expect(app.backend.getBgAt(new Point(gw + 2, 1))).toBe(caretBg);
+    });
+
+    it("каретка на строке, скрытой свёрткой, не рисуется", () => {
+        const { app, editor, vs } = createEditor("head\nhidden line here\ntail");
+        vs.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
+        // Каретку на скрытую строку кладём в обход reconcileHiddenCursors.
+        vs.selections = [createCursorSelection(0, 0), createCursorSelection(1, 2)];
+        editor.focus();
+        app.render();
+        const gw = editor.gutterWidth;
+        const caretBg = packRgb(0xae, 0xaf, 0xad); // editorCursor.foreground
+        expect(app.backend.getBgAt(new Point(gw, 0))).toBe(caretBg);
+        // Ряд 1 — уже "tail", каретки скрытой строки на нём нет.
+        expect(app.backend.getBgAt(new Point(gw + 2, 1))).not.toBe(caretBg);
+    });
+
+    it("клик по chevron-колонке на продолжении не фолдит регион", () => {
+        const { editor, vs } = createEditor("aaaa bbbb cc\nbody\ntail");
+        const region = { startLine: 0, endLine: 1, isCollapsed: false };
+        vs.setFoldingRegions([region]);
+        fireMouseDown(editor, editor.foldControlColumn, 1); // ряд-продолжение заголовка
+        expect(region.isCollapsed).toBe(false);
+        // Клик упал в гуттер продолжения → каретка в начало фрагмента.
+        expect(vs.selections[0].active).toEqual({ line: 0, character: 10 });
+
+        fireMouseDown(editor, editor.foldControlColumn, 0); // первый фрагмент — фолдит
+        expect(region.isCollapsed).toBe(true);
     });
 });
