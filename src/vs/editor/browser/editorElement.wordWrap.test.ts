@@ -125,6 +125,10 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getTextAt(new Point(gw + 4, 3), LONG_LINE_TRUNCATION_BADGE.length)).toBe(
             LONG_LINE_TRUNCATION_BADGE,
         );
+        // Промежуточные фрагменты обрезанной строки плашку НЕ несут — только
+        // последний, где и лежит точка обрыва.
+        expect(app.backend.getTextAt(new Point(gw, 0), 34)).not.toContain(BADGE_LABEL);
+        expect(app.backend.getTextAt(new Point(gw, 2), 34)).not.toContain(BADGE_LABEL);
     });
 
     it("плашка на полноширинном последнем фрагменте прижимается в видимую область", () => {

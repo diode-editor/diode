@@ -113,6 +113,13 @@ describe("EditorViewState word wrap — режимы и инвалидация",
         expect(state.getViewLineCount()).toBe(2);
     });
 
+    it("вырожденная (нулевая) ширина вьюпорта клампится к MIN_WRAP_WIDTH, а не выключает перенос", () => {
+        const state = makeState("aaaa bbbb cccc", 0);
+        state.wordWrap = "on";
+        // Кламп к 8 колонкам: "aaaa " + "bbbb " + "cccc" = 3 ряда.
+        expect(state.getViewLineCount()).toBe(3);
+    });
+
     it("смена ширины вьюпорта перестраивает проекцию (снапшот-инвалидация)", () => {
         const state = makeState("aaaa bbbb cccc");
         state.wordWrap = "on";
