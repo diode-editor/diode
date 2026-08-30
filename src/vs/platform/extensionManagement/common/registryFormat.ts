@@ -1,4 +1,4 @@
-import { parseSemver } from "../../../base/common/semver.ts";
+import semver from "semver";
 
 /**
  * Формат данных реестра расширений (публикуемый вид registry-репозитория).
@@ -150,7 +150,7 @@ function parseVersionRecord(value: unknown): IRegistryVersion | undefined {
     const record = asRecord(value);
     if (record === undefined) return undefined;
     const version = record["version"];
-    if (!isNonEmptyString(version) || parseSemver(version) === undefined) return undefined;
+    if (!isNonEmptyString(version) || semver.valid(version) === null) return undefined;
     const engines = parseEngines(record["engines"]);
     if (engines === undefined) return undefined;
     const artifact = parseArtifact(record["artifact"]);
@@ -221,7 +221,7 @@ function parseIndexEntry(value: unknown): IRegistryIndexEntry | undefined {
     const latestRecord = asRecord(record["latest"]);
     if (latestRecord === undefined) return undefined;
     const latestVersion = latestRecord["version"];
-    if (!isNonEmptyString(latestVersion) || parseSemver(latestVersion) === undefined) return undefined;
+    if (!isNonEmptyString(latestVersion) || semver.valid(latestVersion) === null) return undefined;
     const latestEngines = parseEngines(latestRecord["engines"]);
     if (latestEngines === undefined) return undefined;
     return {

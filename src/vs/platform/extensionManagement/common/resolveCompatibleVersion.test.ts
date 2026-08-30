@@ -14,6 +14,10 @@ function version(v: string, engines: IRegistryEngines): IRegistryVersion {
 
 const HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0" };
 const DEV_HOST: IHostVersions = { diode: "0.0.0-dev", vscode: "1.127.0" };
+/** Ночная сборка: версия вида `nightly-<sha>` — не semver. */
+const NIGHTLY_HOST: IHostVersions = { diode: "nightly-8263528d", vscode: "1.127.0" };
+/** Хост с prerelease-версией шима — проверяет семантику prerelease в диапазонах. */
+const PRERELEASE_HOST: IHostVersions = { diode: "0.3.0", vscode: "1.128.0-insider" };
 
 describe("isVersionCompatible", () => {
     it.each([
@@ -28,6 +32,21 @@ describe("isVersionCompatible", () => {
         ["dev-хост пропускает diode-канал", { diode: "^99.0.0" }, DEV_HOST, true],
         // …но не vscode-канал — версия шима всегда реальна.
         ["dev-хост не пропускает vscode-канал", { diode: "^99.0.0", vscode: "^2.0.0" }, DEV_HOST, false],
+        // Ночная сборка (`nightly-<sha>`) — та же логика, что у dev: релизной версии нет.
+        ["nightly-хост пропускает diode-канал", { diode: "^99.0.0" }, NIGHTLY_HOST, true],
+        ["nightly-хост не пропускает vscode-канал", { vscode: "^2.0.0" }, NIGHTLY_HOST, false],
+        // Полный язык диапазонов node-semver: engines прокси-расширений пишем не мы.
+        ["диапазон с ||", { vscode: "^1.60.0 || ^2.0.0" }, HOST, true],
+        ["x-диапазон", { vscode: "1.x" }, HOST, true],
+        ["x-диапазон другого major", { vscode: "2.x" }, HOST, false],
+        ["дефисный диапазон", { vscode: "1.90.0 - 1.130.0" }, HOST, true],
+        ["дефисный диапазон мимо", { vscode: "1.0.0 - 1.90.0" }, HOST, false],
+        // Prerelease-версия хоста в диапазон без явного запроса не попадает…
+        ["prerelease-хост вне обычного диапазона", { vscode: "^1.128.0" }, PRERELEASE_HOST, false],
+        // …и попадает, когда диапазон её запросил явно.
+        ["prerelease-хост в диапазоне с prerelease", { vscode: "^1.128.0-insider" }, PRERELEASE_HOST, true],
+        // Мусорный диапазон не бросает исключение, а даёт «несовместимо».
+        ["неразбираемый диапазон", { vscode: "не-диапазон" }, HOST, false],
     ] satisfies [string, IRegistryEngines, IHostVersions, boolean][])("%s", (_label, engines, host, expected) => {
         expect(isVersionCompatible(version("1.0.0", engines), host)).toBe(expected);
     });
