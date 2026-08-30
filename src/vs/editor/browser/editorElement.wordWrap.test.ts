@@ -56,10 +56,16 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
     it("хвост фрагмента после точки переноса — фон, а не текст следующего фрагмента", () => {
         // Перенос по слову на 8-й колонке: ряд короче contentCols.
         const { app, editor } = createEditor("aaaaaaa bbbbbb");
+        // Собственный фон, отличный от подложки body: пропуск заливки хвоста
+        // был бы неотличим по глифам (подложка и так чистит кадр пробелами).
+        const editorBg = packRgb(12, 34, 56);
+        editor.style = { bg: editorBg };
         app.render();
         const gw = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gw, 0), 10)).toBe("aaaaaaa   ");
         expect(app.backend.getTextAt(new Point(gw, 1), 10)).toBe("bbbbbb    ");
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(editorBg);
+        expect(app.backend.getBgAt(new Point(gw + 9, 0))).toBe(editorBg);
     });
 
     it("выделение, пересекающее перенос, подсвечивает оба фрагмента в своих колонках", () => {
@@ -290,6 +296,24 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         const { editor } = createEditor("aaaa bbbb cccc");
         fireMouseDown(editor, 0, 1);
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 10 });
+    });
+
+    it("клик далеко за концом ПОСЛЕДНЕГО фрагмента даёт конец строки, без клампа", () => {
+        const { editor } = createEditor("aaaaaaa bbbbbb"); // ряд 1 = "bbbbbb", конец строки 14
+        const gw = editor.gutterWidth;
+        fireMouseDown(editor, gw + 9, 1);
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 14 });
+    });
+
+    it("аппаратная каретка при горизонтальном скролле (wrap off) учитывает scrollLeft", () => {
+        const { app, editor, vs } = createEditor("aaaa bbbb cccc");
+        vs.wordWrap = "off";
+        vs.selections = [createCursorSelection(0, 10)];
+        vs.scrollLeft = 4;
+        editor.focus();
+        app.render();
+        const gw = editor.gutterWidth;
+        expect(editor.getCaretScreenCell()).toEqual(new Point(gw + 10 - 4, 0));
     });
 
     it("аппаратная каретка на продолжении встаёт в свой ряд и колонку фрагмента", () => {

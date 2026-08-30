@@ -203,7 +203,9 @@ export class EditorViewState {
      * фактическим значением самовалидно. `-1` — «wrap выключен» (см.
      * {@link effectiveWrapWidth}).
      */
+    // Stryker disable next-line UnaryOperator: сентинел не несёт смысла — первый rebuild гейтится projectionCache === null
     private projectionCacheWrapWidth = -1;
+    // Stryker disable next-line UnaryOperator: см. выше
     private projectionCacheTabSize = -1;
     /** Кеш break-offsets; создаётся при первом включении wrap. */
     private lineBreaksCacheValue: LineBreaksCache | null = null;
@@ -865,10 +867,10 @@ export class EditorViewState {
      * (без cursor affinity — упрощение v1, см. docs/TODO/WordWrap.md).
      */
     public viewLineForPosition(line: number, character: number): number {
-        const first = this.logicalToVisualLine(line);
-        if (first < 0) return -1;
+        // Скрытая строка даёт -1, и цикл его не сдвинет: rowDocLine[0] — видимая
+        // строка, скрытой она не равна, так что -1 возвращается как есть.
+        let row = this.logicalToVisualLine(line);
         const { rowDocLine, rowStartOffset } = this.buildProjection();
-        let row = first;
         while (rowDocLine[row + 1] === line && rowStartOffset[row + 1] <= character) {
             row++;
         }
@@ -1189,13 +1191,12 @@ export class EditorViewState {
 
         const { rowDocLine } = this.buildProjection();
         let targetRow = currentRow + direction;
-        // Индексы за краями вью дают undefined — он же и признак «некуда».
-        let targetDoc = rowDocLine[targetRow];
-        while (targetDoc !== undefined && targetDoc < 0) {
+        // Ряды-зоны (< 0) проскакиваются; индекс за краем вью даёт undefined —
+        // он сам останавливает скан (не < 0) и он же — признак «некуда».
+        while (rowDocLine[targetRow] < 0) {
             targetRow += direction;
-            targetDoc = rowDocLine[targetRow];
         }
-        if (targetDoc === undefined) return null;
+        if (rowDocLine[targetRow] === undefined) return null;
 
         const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentRow));
         return this.landOnRow(targetRow, idealInRow);
@@ -1509,10 +1510,11 @@ export class EditorViewState {
             const targetView = Math.min(Math.max(0, currentView + direction * pageSize), this.getViewLineCount() - 1);
             // Целевой ряд может быть зоной — берём ближайший документный (та же
             // политика, что docLineForViewLine: сначала выше, потом ниже).
+            // Индекс за краем даёт undefined — скан останавливается сам.
             const { rowDocLine } = this.buildProjection();
             let targetRow = targetView;
-            while (targetRow >= 0 && rowDocLine[targetRow] < 0) targetRow--;
-            if (targetRow < 0) {
+            while (rowDocLine[targetRow] < 0) targetRow--;
+            if (rowDocLine[targetRow] === undefined) {
                 targetRow = targetView;
                 while (rowDocLine[targetRow] < 0) targetRow++;
             }
@@ -1906,10 +1908,9 @@ export class EditorViewState {
             this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
         }
 
-        // При wrap горизонтали нет: scrollLeft ≡ 0, каждый фрагмент влезает в
-        // вьюпорт by construction.
-        if (this.isWordWrapActive) return;
-
+        // Горизонтальную часть при wrap отдельно не гейтим: инвариант
+        // «wrap ⇒ scrollLeft ≡ 0» держит сеттер scrollLeft, и записи ниже
+        // вырождаются в no-op сами.
         const lineContent = this.document.getLineContent(pos.line);
         const dl = this.displayLineFor(lineContent);
         const col = dl.offsetToColumn(pos.character);
@@ -1941,6 +1942,7 @@ export class EditorViewState {
     private buildProjection(): IViewProjection {
         const wrapWidth = this.effectiveWrapWidth() ?? -1;
         if (
+            // Stryker disable next-line ConditionalExpression: null-гейт — чистая мемоизация; сентинелы версий не совпадают с реальными, так что мутант всё равно уходит в rebuild
             this.projectionCache !== null &&
             this.projectionCacheDocVersion === this.document.versionId &&
             this.projectionCacheFoldsVersion === this.foldsVersion &&
@@ -1996,6 +1998,7 @@ export class EditorViewState {
         }
 
         const { rowDocLine, rowStartOffset } =
+            // Stryker disable next-line ConditionalExpression: fast path — insertViewZones с пустым списком зон возвращает те же массивы
             this.viewZonesValue.length === 0
                 ? { rowDocLine: visible, rowStartOffset: startOffsets }
                 : insertViewZones(visible, startOffsets, this.viewZonesValue);
@@ -2005,19 +2008,27 @@ export class EditorViewState {
         let zoneStarts: Map<number, number> | null = null;
         if (this.viewZonesValue.length > 0) {
             zoneStarts = new Map();
+            // Мутанты отсева неубиваемы: «якорь» от документного ряда (decode
+            // положительного числа) уходит в чужое пространство ключей (<= -3
+            // против реальных >= -1) и никогда не читается.
+            // Stryker disable EqualityOperator,ConditionalExpression: см. выше
             for (let i = 0; i < rowDocLine.length; i++) {
                 if (rowDocLine[i] < 0) {
                     const anchor = decodeViewZoneAnchor(rowDocLine[i]);
                     if (!zoneStarts.has(anchor)) zoneStarts.set(anchor, i);
                 }
             }
+            // Stryker restore EqualityOperator,ConditionalExpression
         }
         this.zoneStartRowsCache = zoneStarts;
 
         const firstRowOfDocLine = new Int32Array(this.document.lineCount).fill(-1);
+        // Stryker disable next-line EqualityOperator: лишняя итерация читает undefined и отсеивается сравнением с -1
         for (let i = 0; i < rowDocLine.length; i++) {
             const doc = rowDocLine[i];
-            if (doc >= 0 && firstRowOfDocLine[doc] === -1) firstRowOfDocLine[doc] = i;
+            // Отрицательные коды зон отсеиваются сами: чтение Int32Array по
+            // отрицательному индексу даёт undefined, а не -1.
+            if (firstRowOfDocLine[doc] === -1) firstRowOfDocLine[doc] = i;
         }
 
         this.projectionCache = { rowDocLine, rowStartOffset, firstRowOfDocLine };
@@ -2060,10 +2071,11 @@ export class EditorViewState {
         const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
         const currentIdx = firstRowOfDocLine[logicalLine];
         if (currentIdx >= 0) {
-            // Соседний ряд может быть зоной (< 0) — каретка её проскакивает;
-            // при wrap следом идут фрагменты ТОЙ ЖЕ строки — их тоже.
+            // Документные ряды идут по возрастанию строк: первый ряд со строкой
+            // БОЛЬШЕ текущей — следующая видимая. Одно сравнение отсеивает и
+            // зоны (их коды отрицательны), и wrap-фрагменты той же строки.
             for (let i = currentIdx + 1; i < visible.length; i++) {
-                if (visible[i] >= 0 && visible[i] !== logicalLine) return visible[i];
+                if (visible[i] > logicalLine) return visible[i];
             }
             return -1;
         }

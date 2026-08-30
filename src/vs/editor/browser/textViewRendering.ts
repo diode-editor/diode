@@ -118,12 +118,12 @@ export interface IPaintTextLineParams {
      */
     startColumn: number;
     /**
-     * Эксклюзивная колонка конца фрагмента при word wrap: дальше лежит текст
-     * СЛЕДУЮЩЕГО фрагмента — вместо него до края рисуются пробелы. `undefined` —
-     * последний/единственный фрагмент: за концом строки out-of-range колонки и
-     * так дают пробел.
+     * Эксклюзивная колонка конца фрагмента: дальше при word wrap лежит текст
+     * СЛЕДУЮЩЕГО фрагмента — вместо него до края рисуются пробелы. У
+     * последнего/единственного фрагмента это ширина всей строки: заливка
+     * хвоста фоном совпадает с прежней отрисовкой out-of-range колонок.
      */
-    endColumnExclusive?: number;
+    endColumnExclusive: number;
     /** Цвета по умолчанию — там, где токен ничего не сказал. */
     fg: number;
     bg: number;
@@ -145,10 +145,17 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
     let screenX = 0;
     while (screenX < contentCols) {
         const displayCol = scrollLeft + startColumn + screenX;
-        if (params.endColumnExclusive !== undefined && displayCol >= params.endColumnExclusive) {
+        if (displayCol >= params.endColumnExclusive) {
             // Конец фрагмента: дальше в строке текст следующего ряда — до края
-            // области идёт фон.
-            context.setCell(gutterW + screenX, screenY, { char: " ", fg: params.fg, bg: params.bg, width: 1 });
+            // области идёт фон (у последнего фрагмента — как прежняя отрисовка
+            // колонок за концом строки).
+            context.setCell(gutterW + screenX, screenY, {
+                char: " ",
+                fg: params.fg,
+                bg: params.bg,
+                style: StyleFlags.None,
+                width: 1,
+            });
             screenX++;
             continue;
         }
@@ -159,13 +166,20 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
             continue;
         }
         const slot = displayLine.graphemeAtColumn(displayCol);
-        const width = slot ? slot.displayWidth : 1;
+        /* v8 ignore start -- defensive: колонки за концом строки (>= endColumnExclusive <= displayWidth) ушли в заливку выше, в отрисовываемом диапазоне слот есть всегда */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: недостижимый защитный гард, см. v8 ignore
+        if (slot === undefined) {
+            screenX++;
+            continue;
+        }
+        /* v8 ignore stop */
+        const width = slot.displayWidth;
 
         // Resolve style for this offset.
         let fg = params.fg;
         let bg = params.bg;
         let style: number = StyleFlags.None;
-        if (tokenIndex && slot) {
+        if (tokenIndex) {
             const token = tokenIndex.tokenAt(slot.offset);
             if (token) {
                 const resolved = resolveStyle(token.scopes);
@@ -175,7 +189,7 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
             }
         }
 
-        if (slot?.grapheme === "\t") {
+        if (slot.grapheme === "\t") {
             // Tab: render each column as an individual space so Grid/TerminalRenderer
             // tracks the cursor correctly (they only support width=1 and width=2).
             for (let i = 0; i < width && screenX + i < contentCols; i++) {

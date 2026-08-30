@@ -90,6 +90,14 @@ describe("EditorViewState word wrap — проекция", () => {
 // ─── Режимы и инвалидация ───────────────────────────────────
 
 describe("EditorViewState word wrap — режимы и инвалидация", () => {
+    it("режим on переносит по вьюпорту и ИГНОРИРУЕТ wordWrapColumn", () => {
+        const state = makeState("aaaa bbbb cccc", 40);
+        state.wordWrap = "on";
+        state.wordWrapColumn = 10;
+        // Колонка 10 сломала бы строку; ширина вьюпорта 40 — нет.
+        expect(state.getViewLineCount()).toBe(1);
+    });
+
     it("режимы wordWrapColumn/bounded ограничены и колонкой, и вьюпортом (v1)", () => {
         const state = makeState("aaaa bbbb cccc", 40);
         state.wordWrap = "wordWrapColumn";

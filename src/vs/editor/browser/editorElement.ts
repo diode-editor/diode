@@ -451,7 +451,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             if (viewLine < viewLineCount) {
                 const logLine = this.viewState.visualToLogicalLine(viewLine);
                 const lineNumStr = isContinuation
-                    ? " ".repeat(digitCount)
+                    ? // Stryker disable next-line StringLiteral: пустая строка даёт undefined-char, который setCell рисует тем же пробелом
+                      " ".repeat(digitCount)
                     : String(logLine + 1).padStart(digitCount, " ");
                 const isActive = logLine === primaryLine;
                 const numFg = isActive ? lnActiveFg : lnFg;
@@ -477,6 +478,10 @@ export class EditorElement extends TUIElement implements IScrollable {
                 }
                 // Внешний гуттер-маркер (`-`/`+` диффа) — в своей колонке сразу
                 // после цифр (колонка существует, только когда маркеры заданы).
+                // Гард по колонке маркеров и мапа маркеров растут из одного
+                // источника (decorations.gutterMarkers): «пустая колонка, но
+                // непустая мапа» невозможна, мутанты гарда неубиваемы.
+                // Stryker disable next-line ConditionalExpression,EqualityOperator: см. выше
                 if (this.gutterMarkerColumns > 0 && !isContinuation) {
                     const marker = gutterMarkerByLine.get(logLine);
                     if (marker !== undefined) {
@@ -551,7 +556,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 contentCols,
                 scrollLeft,
                 startColumn: fragStartCol,
-                endColumnExclusive: isLastFragment ? undefined : dl.offsetToColumn(frag.end),
+                endColumnExclusive: dl.offsetToColumn(frag.end),
                 fg: editorFg,
                 bg: decoratedBg ?? editorBg,
                 allowTokenBg: decoratedBg === undefined,
