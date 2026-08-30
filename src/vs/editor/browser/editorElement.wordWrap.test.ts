@@ -282,6 +282,13 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 7 });
     });
 
+    it("клик ВНУТРИ не-последнего фрагмента ставит каретку в кликнутую колонку, без клампа", () => {
+        const { editor } = createEditor("aaaaaaa bbbbbb");
+        const gw = editor.gutterWidth;
+        fireMouseDown(editor, gw + 2, 0);
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 2 });
+    });
+
     it("клик РОВНО в колонку границы фрагмента остаётся на своём ряду", () => {
         const { editor } = createEditor("aaaaaaa bbbbbb"); // граница фрагмента — offset 8, колонка 8
         const gw = editor.gutterWidth;
