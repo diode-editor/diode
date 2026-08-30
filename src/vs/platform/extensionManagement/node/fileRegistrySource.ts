@@ -43,6 +43,7 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
 
     /** Читает и парсит файл; ошибки парсинга оборачиваются путём файла. */
     private async readAndParse<T>(filePath: string, parse: (text: string) => { value: T; problems: string[] }): Promise<T> {
+        // Stryker disable next-line StringLiteral: содержимое уходит в JSON.parse, а тот приводит Buffer к строке тем же utf8 — подмена кодировки на путях реестра (JSON всегда utf8) не даёт наблюдаемой разницы
         const text = await fs.promises.readFile(filePath, "utf8");
         try {
             const { value, problems } = parse(text);

@@ -122,7 +122,8 @@ function parseEngines(value: unknown): IRegistryEngines | undefined {
 
 /** Относительный POSIX-путь строго внутри корня: без `\`, ведущего `/` и `..`-сегментов. */
 function isSafeRelativePath(value: string): boolean {
-    if (value.includes("\\") || value.startsWith("/")) return false;
+    if (value.includes("\\")) return false;
+    // Ведущий "/" отдельно не проверяем: он даёт пустой первый сегмент, который отсекает every ниже.
     return value.split("/").every((segment) => segment.length > 0 && segment !== "..");
 }
 
@@ -167,9 +168,8 @@ function parseVersionRecord(value: unknown): IRegistryVersion | undefined {
 function parseIdentity(
     record: Record<string, unknown>,
 ): { id: string; publisher: string; name: string; displayName: string; description: string; kind: RegistryExtensionKind } | undefined {
-    const { id, publisher, name, displayName, description, kind } = record;
+    const { publisher, name, displayName, description, kind } = record;
     if (
-        !isNonEmptyString(id) ||
         !isNonEmptyString(publisher) ||
         !isNonEmptyString(name) ||
         !isNonEmptyString(displayName) ||
@@ -178,7 +178,10 @@ function parseIdentity(
     ) {
         return undefined;
     }
-    if (id !== `${publisher}.${name}`) return undefined;
+    // Отдельно валидировать record["id"] как непустую строку избыточно: строгое равенство
+    // непустому шаблону `${publisher}.${name}` уже гарантирует и тип, и непустоту.
+    const id = `${publisher}.${name}`;
+    if (record["id"] !== id) return undefined;
     return { id, publisher, name, displayName, description, kind };
 }
 
@@ -318,7 +321,8 @@ export function parseRegistryMeta(
  */
 export function searchRegistryIndex(index: IRegistryIndex, query: string): IRegistryIndexEntry[] {
     const needle = query.trim().toLowerCase();
-    if (needle.length === 0) return [...index.extensions];
+    // Пустой needle отдельно не обрабатываем: substring-поиск пустой строки истинен для любой
+    // записи, так что filter сам вернёт полный (и новый) список.
     return index.extensions.filter(
         (e) =>
             e.id.toLowerCase().includes(needle) ||

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareSemver, parseSemver, satisfiesSemverRange, type ISemver } from "./semver.ts";
+import { compareSemver, type ISemver, parseSemver, satisfiesSemverRange } from "./semver.ts";
 
 describe("parseSemver", () => {
     it.each([
@@ -10,7 +10,9 @@ describe("parseSemver", () => {
         ["1.2.3-beta.1", { major: 1, minor: 2, patch: 3, prerelease: "beta.1" }],
         ["0.0.0-dev", { major: 0, minor: 0, patch: 0, prerelease: "dev" }],
         ["1.2.3+build.5", { major: 1, minor: 2, patch: 3, prerelease: undefined }],
+        ["1.2.3+build.abc", { major: 1, minor: 2, patch: 3, prerelease: undefined }],
         ["1.2.3-rc.1+build", { major: 1, minor: 2, patch: 3, prerelease: "rc.1" }],
+        ["1.2.3-beta-1", { major: 1, minor: 2, patch: 3, prerelease: "beta-1" }],
         ["  1.2.3  ", { major: 1, minor: 2, patch: 3, prerelease: undefined }],
     ] satisfies [string, ISemver][])("парсит %s", (input, expected) => {
         expect(parseSemver(input)).toEqual(expected);
@@ -40,10 +42,16 @@ describe("compareSemver", () => {
         ["1.0.0-rc.1", "1.0.0"],
         // Числовые идентификаторы сравниваются численно (2 < 10).
         ["1.0.0-beta.2", "1.0.0-beta.10"],
+        // Многозначные числовые — тоже численно, хотя лексикографически порядок обратный.
+        ["1.0.0-21", "1.0.0-103"],
         // Числовой идентификатор ниже буквенного.
         ["1.0.0-1", "1.0.0-alpha"],
+        // Числовой ниже буквенного, даже когда буквенный начинается с цифры.
+        ["1.0.0-2", "1.0.0-1a"],
         // Буквенные — лексикографически.
         ["1.0.0-alpha", "1.0.0-beta"],
+        // Буквенные с цифрами на конце — всё ещё лексикографически, не численно.
+        ["1.0.0-alpha1", "1.0.0-beta1"],
         // Меньший набор полей меньше.
         ["1.0.0-alpha", "1.0.0-alpha.1"],
     ])("%s < %s", (a, b) => {
@@ -78,11 +86,16 @@ describe("satisfiesSemverRange", () => {
         ["0.0.3", "^0.0.3", true],
         ["0.0.4", "^0.0.3", false],
         // Тильда: до следующего minor.
+        ["1.2.3", "~1.2.3", true],
         ["1.2.9", "~1.2.3", true],
         ["1.3.0", "~1.2.3", false],
         ["1.2.2", "~1.2.3", false],
-        // Компараторы.
+        // Компараторы. Равенство на >= заодно закрепляет порядок операторов:
+        // если бы ">" матчился раньше ">=", хвост "=1.85.0" не распарсился бы.
+        ["1.85.0", ">=1.85.0", true],
         ["1.90.0", ">=1.85.0", true],
+        // Другой major тоже проходит — >= не ограничен сверху (в отличие от caret).
+        ["2.5.0", ">=1.85.0", true],
         ["1.80.0", ">=1.85.0", false],
         ["1.85.0", ">1.85.0", false],
         ["1.85.1", ">1.85.0", true],
@@ -94,6 +107,9 @@ describe("satisfiesSemverRange", () => {
         ["1.5.0", ">=1.2.0 <2.0.0", true],
         ["2.1.0", ">=1.2.0 <2.0.0", false],
         ["1.1.0", ">=1.2.0 <2.0.0", false],
+        // Пробелы по краям и несколько пробелов между компараторами не мешают.
+        ["1.5.0", " >=1.2.0  <2.0.0 ", true],
+        ["1.2.3", " * ", true],
         // Prerelease против границ.
         ["1.0.0-rc.1", "<1.0.0", true],
         ["1.0.0-rc.1", ">=1.0.0", false],

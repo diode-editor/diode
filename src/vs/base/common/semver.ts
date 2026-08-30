@@ -19,7 +19,8 @@ export interface ISemver {
     readonly prerelease: string | undefined;
 }
 
-const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+const SEMVER_RE =
+    /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 /** Строгий парсинг `x.y.z(-pre)?(+build)?`; всё остальное → `undefined`. */
 export function parseSemver(value: string): ISemver | undefined {
@@ -42,20 +43,26 @@ function comparePrerelease(a: string, b: string): number {
     const bs = b.split(".");
     const len = Math.max(as.length, bs.length);
     for (let i = 0; i < len; i++) {
-        const ai = as[i];
-        const bi = bs[i];
+        // Индекс может выходить за длину меньшего массива; .at() честно
+        // возвращает string | undefined.
+        const ai = as.at(i);
+        const bi = bs.at(i);
         if (ai === undefined) return -1;
         if (bi === undefined) return 1;
         const an = /^\d+$/.test(ai);
         const bn = /^\d+$/.test(bi);
         if (an && bn) {
-            const diff = Number(ai) - Number(bi);
-            if (diff !== 0) return diff < 0 ? -1 : 1;
+            const av = Number(ai);
+            const bv = Number(bi);
+            if (av < bv) return -1;
+            if (av > bv) return 1;
         } else if (an !== bn) {
             // Числовые идентификаторы всегда ниже буквенных.
             return an ? -1 : 1;
-        } else if (ai !== bi) {
-            return ai < bi ? -1 : 1;
+        } else if (ai < bi) {
+            return -1;
+        } else if (ai > bi) {
+            return 1;
         }
     }
     return 0;
@@ -63,14 +70,17 @@ function comparePrerelease(a: string, b: string): number {
 
 /** Полное сравнение версий; prerelease-версия меньше той же версии без prerelease. */
 export function compareSemver(a: ISemver, b: ISemver): number {
-    if (a.major !== b.major) return a.major < b.major ? -1 : 1;
-    if (a.minor !== b.minor) return a.minor < b.minor ? -1 : 1;
-    if (a.patch !== b.patch) return a.patch < b.patch ? -1 : 1;
+    if (a.major < b.major) return -1;
+    if (a.major > b.major) return 1;
+    if (a.minor < b.minor) return -1;
+    if (a.minor > b.minor) return 1;
+    if (a.patch < b.patch) return -1;
+    if (a.patch > b.patch) return 1;
     if (a.prerelease === undefined && b.prerelease === undefined) return 0;
     if (a.prerelease === undefined) return 1;
     if (b.prerelease === undefined) return -1;
-    const cmp = comparePrerelease(a.prerelease, b.prerelease);
-    return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
+    // comparePrerelease уже возвращает ровно -1/0/1, нормализация не нужна.
+    return comparePrerelease(a.prerelease, b.prerelease);
 }
 
 /** Верхняя граница caret-диапазона: первая версия, которая уже НЕ входит в `^base`. */
@@ -104,7 +114,8 @@ function satisfiesComparator(version: ISemver, comparator: string): boolean {
         case "~":
             return (
                 cmp >= 0 &&
-                compareSemver(version, { major: base.major, minor: base.minor + 1, patch: 0, prerelease: undefined }) < 0
+                compareSemver(version, { major: base.major, minor: base.minor + 1, patch: 0, prerelease: undefined }) <
+                    0
             );
         default:
             // "^"
@@ -122,6 +133,7 @@ export function satisfiesSemverRange(version: string, range: string): boolean {
     if (parsed === undefined) return false;
     const trimmed = range.trim();
     if (trimmed === "*") return true;
-    if (trimmed.length === 0) return false;
+    // Пустую строку отдельно отсекать не нужно: split даёт [""], а пустой
+    // компаратор не парсится → false.
     return trimmed.split(/\s+/).every((comparator) => satisfiesComparator(parsed, comparator));
 }

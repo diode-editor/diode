@@ -119,14 +119,30 @@ describe("FileExtensionRegistrySource", () => {
         await expect(source.getMeta(ID)).rejects.toThrow(/does not match expected/);
     });
 
-    it.each(["../evil", "a/b", "a\\b", "..", ".hidden", "noDotSeparator"])(
-        "getMeta отвергает небезопасный id %j",
-        async (id) => {
-            ws = createTempWorkspace();
-            const source = new FileExtensionRegistrySource(ws.dir);
-            await expect(source.getMeta(id)).rejects.toThrow(/Invalid extension id/);
-        },
-    );
+    it.each([
+        "../evil",
+        "a/b",
+        "a\\b",
+        "..",
+        ".hidden",
+        "noDotSeparator",
+        // Валидный id как хвост строки — id обязан совпадать целиком, а не найтись внутри.
+        "evil/../acme.hello",
+        // Валидный id как начало строки — то же требование с другого конца.
+        "acme.hello/../../etc/passwd",
+    ])("getMeta отвергает небезопасный id %j", async (id) => {
+        ws = createTempWorkspace();
+        const source = new FileExtensionRegistrySource(ws.dir);
+        await expect(source.getMeta(id)).rejects.toThrow(/Invalid extension id/);
+    });
+
+    it("битые записи не роняют источник без onProblem", async () => {
+        const badEntry = JSON.stringify({ schemaVersion: REGISTRY_SCHEMA_VERSION, extensions: [{ id: "broken" }] });
+        ws = createTempWorkspace({ files: { "index.json": badEntry } });
+        const source = new FileExtensionRegistrySource(ws.dir);
+        const index = await source.getIndex();
+        expect(index.extensions).toEqual([]);
+    });
 
     it("fetchArtifact возвращает абсолютный путь существующего файла без копирования", async () => {
         ws = createTempWorkspace({ files: { "artifacts/mt-1.2.0.vsix": "fake-vsix-bytes" } });

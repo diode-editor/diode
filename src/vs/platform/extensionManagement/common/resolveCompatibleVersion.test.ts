@@ -59,12 +59,23 @@ describe("resolveCompatibleVersion", () => {
         expect(resolveCompatibleVersion([], HOST)).toBeUndefined();
     });
 
-    it("запись с не-semver версией (собрана программно, мимо парсера) пропускается", () => {
-        const versions = [
-            version("latest", { vscode: "*" }),
-            version("1.0.0", { vscode: "*" }),
-        ];
-        expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.0.0");
+    // Оба порядка: не-semver запись не должна ни выигрывать, ни ломать сравнение
+    // с уже выбранным кандидатом.
+    it.each([
+        ["перед валидной", ["latest", "1.0.0"]],
+        ["после валидной", ["1.0.0", "latest"]],
+    ] satisfies [string, string[]][])(
+        "запись с не-semver версией (собрана программно, мимо парсера) пропускается — %s",
+        (_label, order) => {
+            const versions = order.map((v) => version(v, { vscode: "*" }));
+            expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.0.0");
+        },
+    );
+
+    it("при равных версиях побеждает первая запись", () => {
+        const first = version("1.0.0", { vscode: "*" });
+        const duplicate = version("1.0.0", { vscode: "*" });
+        expect(resolveCompatibleVersion([first, duplicate], HOST)).toBe(first);
     });
 
     it("prerelease ниже релиза той же версии", () => {

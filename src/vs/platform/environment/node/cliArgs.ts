@@ -85,16 +85,19 @@ export class CliArgsError extends Error {
 interface IFlagSpec {
     /** Канонический ключ в `ICliArgs`. */
     readonly key: "userDataDir" | "profile" | "installExtension" | "uninstallExtension" | "registry";
-    /** Требует значение следующим аргументом или через `=`. */
-    readonly value: true;
 }
 
+/**
+ * Флаги со значением: каждый требует его следующим аргументом или через `=`.
+ * Флаги-переключатели (`--help`, `--list-extensions`, …) разбираются выше по
+ * телу цикла и в таблицу не попадают.
+ */
 const FLAG_SPECS: Readonly<Record<string, IFlagSpec | undefined>> = {
-    "--user-data-dir": { key: "userDataDir", value: true },
-    "--profile": { key: "profile", value: true },
-    "--install-extension": { key: "installExtension", value: true },
-    "--uninstall-extension": { key: "uninstallExtension", value: true },
-    "--registry": { key: "registry", value: true },
+    "--user-data-dir": { key: "userDataDir" },
+    "--profile": { key: "profile" },
+    "--install-extension": { key: "installExtension" },
+    "--uninstall-extension": { key: "uninstallExtension" },
+    "--registry": { key: "registry" },
 };
 
 /**
@@ -137,15 +140,13 @@ function parseHeadlessSize(raw: string): { cols: number; rows: number } {
 
 export function parseCliArgs(argv: readonly string[]): ICliArgs {
     const positional: string[] = [];
-    let userDataDir: string | undefined;
-    let profile: string | undefined;
+    // Значения флагов из FLAG_SPECS — по их каноническому ключу; ветвление по
+    // ключу не нужно, спек сам говорит, куда класть.
+    const flagValues: Partial<Record<IFlagSpec["key"], string>> = {};
     let inspectTui: { host: string; port: number } | undefined;
     let headless: { cols: number; rows: number } | undefined;
     let help = false;
     let version = false;
-    let installExtension: string | undefined;
-    let uninstallExtension: string | undefined;
-    let registry: string | undefined;
     let listExtensions = false;
 
     let i = 0;
@@ -218,11 +219,7 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
                 throw new CliArgsError(`Option ${name} requires a non-empty value`);
             }
 
-            if (spec.key === "userDataDir") userDataDir = value;
-            else if (spec.key === "profile") profile = value;
-            else if (spec.key === "installExtension") installExtension = value;
-            else if (spec.key === "registry") registry = value;
-            else uninstallExtension = value;
+            flagValues[spec.key] = value;
             continue;
         }
 
@@ -240,15 +237,15 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
 
     return {
         positional,
-        userDataDir,
-        profile,
+        userDataDir: flagValues.userDataDir,
+        profile: flagValues.profile,
         inspectTui,
         headless,
         help,
         version,
-        installExtension,
-        uninstallExtension,
-        registry,
+        installExtension: flagValues.installExtension,
+        uninstallExtension: flagValues.uninstallExtension,
+        registry: flagValues.registry,
         listExtensions,
     };
 }

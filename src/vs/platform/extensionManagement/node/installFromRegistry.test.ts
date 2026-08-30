@@ -129,11 +129,14 @@ describe("installFromRegistry", () => {
         expect(result.version).toBe("1.0.0");
     });
 
-    it("запрошенной версии нет — ошибка с перечислением имеющихся", async () => {
-        await seedExtension("acme", "hello", [{ version: "1.0.0", engines: { vscode: "*" } }]);
+    it("запрошенной версии нет — ошибка с перечислением имеющихся через запятую", async () => {
+        await seedExtension("acme", "hello", [
+            { version: "1.0.0", engines: { vscode: "*" } },
+            { version: "1.1.0", engines: { vscode: "*" } },
+        ]);
         await expect(
             installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST, version: "9.9.9" }),
-        ).rejects.toThrow(/no version 9\.9\.9 .*available: 1\.0\.0/);
+        ).rejects.toThrow(/no version 9\.9\.9 .*available: 1\.0\.0, 1\.1\.0/);
     });
 
     it("нет совместимой версии — ошибка перечисляет версии и их engines", async () => {
@@ -162,6 +165,30 @@ describe("installFromRegistry", () => {
             /sha256 mismatch .*refusing to install/,
         );
         expect(listInstalledExtensions(extensionsDir)).toEqual([]);
+    });
+
+    // Временный каталог заводится в os.tmpdir() (не в extensionsDir, где свой temp
+    // держит installVsix) и обязан убираться на обоих исходах.
+    it.each([
+        ["успешной установки", "1.0.0", false],
+        ["провалившейся установки", "b".repeat(64), true],
+    ] satisfies [string, string, boolean][])("temp-каталог не остаётся после %s", async (_label, seedSha, fails) => {
+        const countTempDirs = async (): Promise<number> =>
+            (await fs.promises.readdir(os.tmpdir())).filter((e) => e.startsWith("diode-registry-install-")).length;
+
+        await seedExtension("acme", "hello", [
+            { version: "1.0.0", engines: { vscode: "*" }, sha256: fails ? seedSha : undefined },
+        ]);
+        const before = await countTempDirs();
+
+        const install = installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST });
+        if (fails) {
+            await expect(install).rejects.toThrow();
+        } else {
+            await install;
+        }
+
+        expect(await countTempDirs()).toBe(before);
     });
 
     it("реестр указывает на чужой .vsix — установка откатывается", async () => {

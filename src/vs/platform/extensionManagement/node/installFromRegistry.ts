@@ -108,6 +108,7 @@ export async function installFromRegistry(
         }
         return installed;
     } finally {
+        // Stryker disable next-line BooleanLiteral: force прикрывает только отсутствующий каталог, а его создаёт mkdtempSync выше по функции — на этом пути подмена ненаблюдаема; флаг оставлен, чтобы сбой уборки не затирал исходную ошибку
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 }
