@@ -8,7 +8,7 @@ import type { FoldingRangeSource } from "../../../../editor/common/languages/iFo
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
-import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { ContextMenuControllerDIToken } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -111,6 +111,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private tokenStyleResolver: ITokenStyleResolver;
     private languageService: ILanguageService;
     private configurationService: IConfigurationService;
+    /** Transient-состояние Alt+Z: `null` — действует конфиг (см. {@link toggleWordWrap}). */
+    private wordWrapSessionOverride: "off" | "on" | null = null;
     private undoRedoService: UndoRedoService;
     private fileWatcher: IFileWatcher;
     private contextMenuController: ContextMenuController;
@@ -1125,6 +1127,38 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             insertSpaces: this.configurationService.get<boolean>("editor.insertSpaces"),
             detectIndentation: this.configurationService.get<boolean>("editor.detectIndentation"),
         });
+
+        // Session-override от Alt+Z главнее конфига (transient, как в VS Code);
+        // мусорное значение из settings.json деградирует к "off".
+        editor.setWordWrap(
+            this.wordWrapSessionOverride ?? this.configuredWordWrap(),
+            this.configurationService.get<number>("editor.wordWrapColumn") ?? 80,
+        );
+    }
+
+    /** `editor.wordWrap` из конфига, просеянный до валидного режима. */
+    private configuredWordWrap(): WordWrapMode {
+        const raw = this.configurationService.get<string>("editor.wordWrap");
+        return raw === "on" || raw === "wordWrapColumn" || raw === "bounded" ? raw : "off";
+    }
+
+    /**
+     * Transient-переключение Alt+Z: поверх конфига на время сессии, settings.json
+     * не трогаем (VS Code хранит per-resource transient state — у нас упрощение
+     * до session-global, см. docs/TODO/WordWrap.md). Выключенный перенос
+     * включается конфигурным режимом, если он есть, иначе — "on".
+     */
+    public toggleWordWrap(): void {
+        const configured = this.configuredWordWrap();
+        const effective = this.wordWrapSessionOverride ?? configured;
+        if (effective === "off") {
+            this.wordWrapSessionOverride = configured === "off" ? "on" : null;
+        } else {
+            this.wordWrapSessionOverride = "off";
+        }
+        for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
+            this.applyConfigurationToEditor(editor);
+        }
     }
 
     /**
