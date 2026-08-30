@@ -187,10 +187,14 @@ export class EditorViewState {
     private projectionCache: IViewProjection | null = null;
     /** Стартовая строка вью каждой зоны (по якорю) — offset для многострочных зон за O(1). */
     private zoneStartRowsCache: Map<number, number> | null = null;
+    // Сентинелы версий не несут смысла: первый rebuild гейтится projectionCache === null.
+    // Stryker disable next-line UnaryOperator: см. выше
     private projectionCacheDocVersion = -1;
     private foldsVersion = 0;
+    // Stryker disable next-line UnaryOperator: см. выше
     private projectionCacheFoldsVersion = -1;
     private zonesVersion = 0;
+    // Stryker disable next-line UnaryOperator: см. выше
     private projectionCacheZonesVersion = -1;
     /**
      * Снапшоты wrap-входов проекции, а не версии-счётчики: писателей у
@@ -243,22 +247,17 @@ export class EditorViewState {
      * (MIN_WRAP_WIDTH), у единственного места применения.
      */
     private effectiveWrapWidth(): number | null {
-        switch (this.wordWrap) {
-            case "off":
-                return null;
-            case "on":
-                return this.viewportWidth;
-            // Упрощение v1: wordWrapColumn ведёт себя как bounded — колонка шире
-            // вьюпорта потребовала бы горизонтальный скролл при переносе
-            // (см. docs/TODO/WordWrap.md).
-            case "wordWrapColumn":
-            case "bounded":
-                return Math.min(this.viewportWidth, this.wordWrapColumn);
-        }
+        if (this.wordWrap === "off") return null;
+        if (this.wordWrap === "on") return this.viewportWidth;
+        // wordWrapColumn | bounded. Упрощение v1: wordWrapColumn ведёт себя как
+        // bounded — колонка шире вьюпорта потребовала бы горизонтальный скролл
+        // при переносе (см. docs/TODO/WordWrap.md).
+        return Math.min(this.viewportWidth, this.wordWrapColumn);
     }
 
     /** Ленивый кеш break-offsets с актуальными параметрами. */
     private wrapBreaks(wrapWidth: number): LineBreaksCache {
+        // Stryker disable next-line ConditionalExpression: чистая мемоизация — пересозданный с теми же параметрами кеш даёт тот же результат, только медленнее
         if (this.lineBreaksCacheValue === null) {
             this.lineBreaksCacheValue = new LineBreaksCache(this.document, this.tabSize, wrapWidth);
         }
@@ -853,11 +852,11 @@ export class EditorViewState {
      */
     public viewLineStartColumn(viewLine: number): number {
         const { rowDocLine, rowStartOffset } = this.buildProjection();
-        const doc = rowDocLine.at(viewLine);
-        if (viewLine < 0 || doc === undefined || doc < 0) return 0;
+        // Индексы за границами (и отрицательные) дают undefined, ряды-зоны и
+        // целые строки несут 0 — везде колонка начала нулевая.
         const start = rowStartOffset[viewLine];
-        if (start === 0) return 0;
-        return this.displayLineFor(this.document.getLineContent(doc)).offsetToColumn(start);
+        if (!start) return 0;
+        return this.displayLineFor(this.document.getLineContent(rowDocLine[viewLine])).offsetToColumn(start);
     }
 
     /**
@@ -1190,10 +1189,13 @@ export class EditorViewState {
 
         const { rowDocLine } = this.buildProjection();
         let targetRow = currentRow + direction;
-        while (targetRow >= 0 && targetRow < rowDocLine.length && rowDocLine[targetRow] < 0) {
+        // Индексы за краями вью дают undefined — он же и признак «некуда».
+        let targetDoc = rowDocLine[targetRow];
+        while (targetDoc !== undefined && targetDoc < 0) {
             targetRow += direction;
+            targetDoc = rowDocLine[targetRow];
         }
-        if (targetRow < 0 || targetRow >= rowDocLine.length) return null;
+        if (targetDoc === undefined) return null;
 
         const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentRow));
         return this.landOnRow(targetRow, idealInRow);

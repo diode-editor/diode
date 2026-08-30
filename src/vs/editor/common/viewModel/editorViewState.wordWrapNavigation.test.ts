@@ -84,6 +84,33 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
     });
 });
 
+describe("word wrap navigation — скрытые строки и зоны", () => {
+    it("cursorUp со скрытой строки садится на ПЕРВУЮ строку документа, если она ближайшая видимая", () => {
+        const state = makeState("head\nhidden\ntail");
+        state.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
+        // Каретка на скрытую строку — в обход reconcileHiddenCursors.
+        state.selections = [createCursorSelection(1, 2)];
+        state.cursorUp();
+        expect(active(state)).toEqual({ line: 0, character: 2 });
+    });
+
+    it("cursorRight в конце строки проскакивает зону и уходит на следующую строку", () => {
+        const state = makeState("ab\ncd");
+        state.setViewZones([{ afterLine: 0, size: 1 }]);
+        state.selections = [createCursorSelection(0, 2)];
+        state.cursorRight();
+        expect(active(state)).toEqual({ line: 1, character: 0 });
+    });
+
+    it("посадка с липкой колонкой за границей фрагмента клампится к последней графеме", () => {
+        const state = makeState("short\naaaa bbbb cccc");
+        state.selections = [createCursorSelection(0, 5)];
+        state.cursorEnd(); // idealColumn = MAX
+        state.cursorDown(); // ряд 1 — НЕ-последний фрагмент строки 1
+        expect(active(state)).toEqual({ line: 1, character: 9 });
+    });
+});
+
 describe("word wrap navigation — Home/End по фрагменту", () => {
     it("Home на продолжении идёт к началу фрагмента, повторное нажатие — no-op", () => {
         const state = makeState();
@@ -190,6 +217,23 @@ describe("word wrap navigation — мультикурсор и страницы"
         state.setViewZones([{ afterLine: -1, size: 1 }]);
         state.selections = [createCursorSelection(0, 0)];
         state.cursorWordLeft();
+        expect(active(state)).toEqual({ line: 0, character: 0 });
+    });
+
+    it("PageUp с ряда-продолжения держит колонку относительно фрагмента", () => {
+        const state = makeState();
+        state.viewportHeight = 2; // страница = 1 ряд
+        state.selections = [createCursorSelection(0, 12)]; // ряд 1, колонка 2 фрагмента
+        state.cursorPageUp();
+        expect(active(state)).toEqual({ line: 0, character: 2 });
+    });
+
+    it("PageUp на зону, чей ближайший документный ряд — самый первый", () => {
+        const state = makeState("ab\ncd");
+        state.viewportHeight = 2; // страница = 1 ряд
+        state.setViewZones([{ afterLine: 0, size: 1 }]);
+        state.selections = [createCursorSelection(1, 0)]; // ряд 2
+        state.cursorPageUp(); // целевой ряд 1 — зона → откат вверх к ряду 0
         expect(active(state)).toEqual({ line: 0, character: 0 });
     });
 

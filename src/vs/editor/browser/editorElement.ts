@@ -521,9 +521,14 @@ export class EditorElement extends TUIElement implements IScrollable {
 
             const lineContent = this.viewState.getViewLine(viewLine);
             const rowLogLine = this.viewState.visualToLogicalLine(viewLine);
+            // Кэш — чистая мемоизация: без него результат тот же, только
+            // пересегментированный на каждом фрагменте. Мутанты неубиваемы.
+            // Stryker disable next-line CallExpression: см. выше
             let dl = dlByDocLine.get(rowLogLine);
+            // Stryker disable next-line ConditionalExpression: см. выше
             if (dl === undefined) {
                 dl = this.viewState.displayLineFor(lineContent);
+                // Stryker disable next-line CallExpression: заполнение кэша, результат не меняет
                 dlByDocLine.set(rowLogLine, dl);
             }
             const lineTokens = this.viewState.getViewLineTokens(viewLine);

@@ -69,17 +69,17 @@ export class LineBreaksCache extends Disposable {
         const { startLine, oldEndLine, newEndLine } = change;
         const lineDelta = newEndLine - oldEndLine;
 
-        if (lineDelta > 0) {
-            // Insert `lineDelta` uncomputed slots after `oldEndLine`.
-            const placeholders = new Array<undefined>(lineDelta).fill(undefined);
-            this.breaks.splice(oldEndLine + 1, 0, ...placeholders);
-        } else if (lineDelta < 0) {
-            // Remove `-lineDelta` slots from the end of the changed region.
-            this.breaks.splice(newEndLine + 1, -lineDelta);
-        }
+        // Один splice на любой сдвиг: рост вставляет `lineDelta` невычисленных
+        // слотов после oldEndLine, сжатие удаляет `-lineDelta` после newEndLine
+        // (min покрывает оба конца); нулевая дельта вырождается в no-op сама —
+        // без ветвления, у которого нулевой случай был бы мёртвым.
+        const placeholders = new Array<undefined>(Math.max(0, lineDelta));
+        this.breaks.splice(Math.min(oldEndLine, newEndLine) + 1, Math.max(0, -lineDelta), ...placeholders);
 
         // Invalidate every line now inside the changed region.
-        for (let i = startLine; i <= newEndLine && i < this.breaks.length; i++) {
+        // Stryker disable next-line ArithmeticOperator: кламп по длине — защитный на рассинхрон (кеш короче документа возможен только при уже потерянном событии); в синхронном кеше min всегда выбирает newEndLine
+        const lastInvalidated = Math.min(newEndLine, this.breaks.length - 1);
+        for (let i = startLine; i <= lastInvalidated; i++) {
             this.breaks[i] = undefined;
         }
     }

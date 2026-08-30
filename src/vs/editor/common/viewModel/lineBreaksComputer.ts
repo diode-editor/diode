@@ -30,6 +30,9 @@ export const MIN_WRAP_WIDTH = 8;
 export function computeLineBreakOffsets(lineContent: string, tabSize: number, wrapWidth: number): number[] | null {
     const width = Math.max(MIN_WRAP_WIDTH, wrapWidth);
     const dl = new DisplayLine(lineContent, tabSize, STOP_RENDERING_LINE_AFTER);
+    // Fast path — чистая оптимизация: без него влезающая строка проходит цикл,
+    // ни один слот не переполняет ширину, и результат — тот же null.
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: см. выше
     if (dl.displayWidth <= width) return null;
 
     const breaks: number[] = [];
@@ -49,6 +52,7 @@ export function computeLineBreakOffsets(lineContent: string, tabSize: number, wr
             // Цикл, а не if: после переноса по кандидату слово может не влезть
             // и в новый фрагмент — тогда следом жёсткая резка.
             while (slotEnd - fragStartCol > width) {
+                // Stryker disable next-line EqualityOperator: кандидат не бывает нулевым — перенос ставится ПОСЛЕ пробельного слота, то есть с offset >= 1
                 if (candidateOffset >= 0) {
                     breaks.push(candidateOffset);
                     fragStartCol = candidateCol;

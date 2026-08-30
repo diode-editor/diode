@@ -504,6 +504,16 @@ describe("EditorService", () => {
             expect(viewState.wordWrapColumn).toBe(40);
         });
 
+        it("режим on применяется как есть (не через column-ветку)", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "on",
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "const x = 1;"));
+            expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
+        });
+
         it("невалидное значение editor.wordWrap деградирует к off", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({

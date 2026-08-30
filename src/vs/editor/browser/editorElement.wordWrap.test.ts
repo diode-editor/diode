@@ -77,6 +77,29 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getBgAt(new Point(gw + 2, 1))).not.toBe(SELECTION_BG);
     });
 
+    it("выделение до конца строки не заливает ни хвост фрагмента, ни виртуальную ячейку перевода", () => {
+        const { app, editor, vs } = createEditor("aaaaaaa bbbbbb\nzz"); // фрагменты 8 и 6 колонок
+        vs.selections = [createSelection(0, 0, 0, 14)];
+        app.render();
+        const gw = editor.gutterWidth;
+        // Ряд 0: подсветка кончается на границе фрагмента (кол. 7), хвост чист.
+        expect(app.backend.getBgAt(new Point(gw + 7, 0))).toBe(SELECTION_BG);
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).not.toBe(SELECTION_BG);
+        // Ряд 1: текст залит, виртуальная ячейка перевода строки (кол. 6) — нет:
+        // выделение кончается ровно на конце строки, не захватывая перевод.
+        expect(app.backend.getBgAt(new Point(gw + 5, 1))).toBe(SELECTION_BG);
+        expect(app.backend.getBgAt(new Point(gw + 6, 1))).not.toBe(SELECTION_BG);
+    });
+
+    it("межстрочное выделение заливает виртуальную ячейку перевода на ПОСЛЕДНЕМ фрагменте", () => {
+        const { app, editor, vs } = createEditor("aaaaaaa bbbbbb\nzz");
+        vs.selections = [createSelection(0, 2, 1, 1)];
+        app.render();
+        const gw = editor.gutterWidth;
+        expect(app.backend.getBgAt(new Point(gw + 6, 1))).toBe(SELECTION_BG); // виртуальный перевод
+        expect(app.backend.getBgAt(new Point(gw, 2))).toBe(SELECTION_BG); // "z"
+    });
+
     it("contentWidth при wrap равен ширине вьюпорта — горизонтальному скроллу нечего катать", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc");
         app.render();
@@ -85,18 +108,127 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(editor.contentWidth).toBe(14);
     });
 
-    it("плашка Long line trimmed прижимается в видимую область последнего фрагмента", () => {
+    it("плашка Long line trimmed стоит ровно в точке обрыва короткого последнего фрагмента", () => {
+        // contentCols 34: 10000 % 34 = 4 — последний фрагмент из 4 колонок.
         const { app, editor } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 500), 40, 4);
         const vs = editor.viewState;
         vs.scrollTop = vs.getViewLineCount() - 4;
         app.render();
-        const lastRowY = 3;
         const gw = editor.gutterWidth;
-        const contentCols = 40 - gw;
-        const row = app.backend.getTextAt(new Point(gw, lastRowY), contentCols);
-        expect(row).toContain(BADGE_LABEL);
+        expect(app.backend.getTextAt(new Point(gw, 3), 4)).toBe("xxxx");
+        expect(app.backend.getTextAt(new Point(gw + 4, 3), LONG_LINE_TRUNCATION_BADGE.length)).toBe(
+            LONG_LINE_TRUNCATION_BADGE,
+        );
     });
 
+    it("плашка на полноширинном последнем фрагменте прижимается в видимую область", () => {
+        // contentCols 25: 10000 % 25 = 0 — последний фрагмент занимает всю ширину,
+        // без клампа плашка стояла бы ровно за краем.
+        const { app, editor } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 500), 31, 4);
+        const vs = editor.viewState;
+        vs.scrollTop = vs.getViewLineCount() - 4;
+        app.render();
+        const gw = editor.gutterWidth;
+        const contentCols = 31 - gw;
+        const badgeCol = contentCols - LONG_LINE_TRUNCATION_BADGE.length;
+        expect(app.backend.getTextAt(new Point(gw + badgeCol, 3), LONG_LINE_TRUNCATION_BADGE.length)).toBe(
+            LONG_LINE_TRUNCATION_BADGE,
+        );
+        expect(app.backend.getTextAt(new Point(gw, 3), badgeCol)).toBe("x".repeat(badgeCol));
+    });
+
+    it("выключение и включение переноса перерисовывает и хвосты фрагментов, и гуттер продолжений", () => {
+        const doc = new TextDocument("aaaaaaa bbbbbb\nsecond");
+        const vs = new EditorViewState(doc);
+        const editor = new EditorElement(vs);
+        const app = TestApp.createWithContent(editor, new Size(16, 4));
+        app.render(); // без переноса: row0 = "aaaaaaa bb", гуттер row1 несёт "2"
+        const gw = editor.gutterWidth;
+        expect(app.backend.getTextAt(new Point(gw, 0), 10)).toBe("aaaaaaa bb");
+        expect(app.backend.getTextAt(new Point(0, 1), gw)).toContain("2");
+
+        vs.wordWrap = "on";
+        editor.markDirty();
+        app.render();
+        // Хвост ряда 0 обязан быть перерисован фоном (не остатками "bb"), гуттер
+        // продолжения — пробелами (не остатком "2").
+        expect(app.backend.getTextAt(new Point(gw, 0), 10)).toBe("aaaaaaa   ");
+        expect(app.backend.getTextAt(new Point(gw, 1), 10)).toBe("bbbbbb    ");
+        expect(app.backend.getTextAt(new Point(0, 1), gw)).toBe(" ".repeat(gw));
+    });
+
+    it("внешний гуттер-маркер живёт на первом фрагменте и не повторяется на продолжении", () => {
+        const { app, editor, vs } = createEditor("aaaa bbbb cccc\nzz");
+        editor.decorations = { gutterMarkers: [{ line: 0, char: "+" }] };
+        editor.markDirty();
+        app.render();
+        const markerCol = 3; // GUTTER_LEFT_PADDING + digitCount
+        expect(app.backend.getTextAt(new Point(markerCol, 0), 1)).toBe("+");
+        expect(app.backend.getTextAt(new Point(markerCol, 1), 1)).toBe(" ");
+        expect(vs.getViewLineCount()).toBe(3);
+    });
+
+    it("indent guide рисуется на первом фрагменте тела и не наезжает на продолжение", () => {
+        const { app, editor, vs } = createEditor("aaaa:\n    aaaa bbbb cc");
+        vs.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: false }]);
+        app.render();
+        const gw = editor.gutterWidth;
+        // Ряд 1 — первый фрагмент тела: гайд поверх отступа в колонке заголовка.
+        expect(app.backend.getTextAt(new Point(gw, 1), 1)).toBe("│");
+        // Ряд 2 — продолжение с колонки 0: текст, никакого гайда поверх.
+        expect(app.backend.getTextAt(new Point(gw, 2), 1)).toBe("b");
+    });
+});
+
+describe("EditorElement word wrap — performLayout и ширина вьюпорта", () => {
+    async function flushMicrotasks(): Promise<void> {
+        await Promise.resolve();
+        await Promise.resolve();
+    }
+
+    it("смена ширины дозаказывает кадр: проекция зависит от ширины", async () => {
+        const { app, editor, vs } = createEditor("aaaa bbbb cccc");
+        app.render();
+        await flushMicrotasks();
+        app.render();
+        await flushMicrotasks();
+        expect(editor.isLayoutDirty).toBe(false);
+
+        app.backend.resize(new Size(20, 4));
+        app.render();
+        expect(vs.viewportWidth).toBe(20 - editor.gutterWidth);
+        await flushMicrotasks();
+        expect(editor.isLayoutDirty).toBe(true);
+    });
+
+    it("смена высоты тоже дозаказывает кадр", async () => {
+        const { app, editor } = createEditor("aaaa bbbb cccc");
+        app.render();
+        await flushMicrotasks();
+        app.render();
+        await flushMicrotasks();
+        expect(editor.isLayoutDirty).toBe(false);
+
+        app.backend.resize(new Size(16, 6));
+        app.render();
+        expect(editor.viewState.viewportHeight).toBe(6);
+        await flushMicrotasks();
+        expect(editor.isLayoutDirty).toBe(true);
+    });
+
+    it("layout той же геометрии кадр не дозаказывает", async () => {
+        const { app, editor } = createEditor("aaaa bbbb cccc");
+        app.render();
+        await flushMicrotasks();
+        app.render(); // возможный дозаказ после первого layout уже съеден
+        await flushMicrotasks();
+        app.render();
+        await flushMicrotasks();
+        expect(editor.isLayoutDirty).toBe(false);
+    });
+});
+
+describe("EditorElement word wrap — фолдинг", () => {
     it("chevron и маркер «⋯» свёрнутого региона живут на первом и последнем фрагментах заголовка", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cc\nhidden\ntail");
         vs.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
@@ -138,6 +270,20 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         fireMouseDown(editor, gw + 9, 0);
         // Последняя графема фрагмента — пробел (offset 7), не offset границы (8).
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 7 });
+    });
+
+    it("клик РОВНО в колонку границы фрагмента остаётся на своём ряду", () => {
+        const { editor } = createEditor("aaaaaaa bbbbbb"); // граница фрагмента — offset 8, колонка 8
+        const gw = editor.gutterWidth;
+        fireMouseDown(editor, gw + 8, 0);
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 7 });
+    });
+
+    it("клик по ряду-зоны при wrap маппится в якорную строку по колонке клика", () => {
+        const { editor, vs } = createEditor("aaaa bbbb cccc\nzz");
+        vs.setViewZones([{ afterLine: 0, size: 1 }]);
+        // Ряды: 0-1 — фрагменты строки 0, 2 — зона, 3 — "zz".
+        expect(editor.docPositionAt(editor.gutterWidth + 3, 2)).toEqual({ line: 0, character: 3 });
     });
 
     it("клик по гуттеру продолжения — колонка 0 РЯДА, то есть начало фрагмента", () => {
