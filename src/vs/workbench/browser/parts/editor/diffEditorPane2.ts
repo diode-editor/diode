@@ -214,6 +214,9 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         component.foldingOwnedExternally = true;
         const pane = new TextEditorPane(model, component, ownership);
         pane.detached = true;
+        // Стороны выравниваются по view-строкам через зоны — wrap развёл бы их
+        // (docs/TODO/WordWrap.md); wrap в диффе отложен, как и в DiffViewer.md.
+        pane.wordWrapForcedOff = true;
         pane.labelOverride = side === "original" ? input.originalLabel : input.modifiedLabel;
         pane.readOnly = source.kind === "snapshot";
         return pane;

@@ -33,5 +33,19 @@ export const editorConfiguration: IConfigurationNode = {
             default: true,
             description: "Controls whether the editor shows the context menu.",
         },
+        "editor.wordWrap": {
+            type: "string",
+            enum: ["off", "on", "wordWrapColumn", "bounded"],
+            default: "off",
+            description:
+                "Controls how lines should wrap: never ('off'), at the viewport width ('on'), or at " +
+                "`editor.wordWrapColumn` ('wordWrapColumn'/'bounded'; both are capped by the viewport width).",
+        },
+        "editor.wordWrapColumn": {
+            type: "number",
+            default: 80,
+            description:
+                "Controls the wrapping column when `editor.wordWrap` is 'wordWrapColumn' or 'bounded'.",
+        },
     },
 };

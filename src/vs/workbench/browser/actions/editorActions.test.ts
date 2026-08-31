@@ -13,7 +13,7 @@ import { CommandRegistry } from "../../../platform/commands/common/commandRegist
 import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingRegistry, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
@@ -47,6 +47,7 @@ import {
     cursorWordRightSelectAction,
     scrollLineDownAction,
     scrollLineUpAction,
+    toggleWordWrapAction,
 } from "./editorActions.ts";
 
 // Line 0: "hello world", line 1: "second line", then "line 2".."line 29".
@@ -224,6 +225,23 @@ describe("EditorActions — scroll without moving the cursor", () => {
         editor.viewState.scrollTop = 3;
         exec(scrollLineUpAction);
         expect(editor.viewState.scrollTop).toBe(2);
+    });
+});
+
+describe("EditorActions — View: Toggle Word Wrap", () => {
+    it("команда переключает перенос у активного редактора туда и обратно", () => {
+        const { editor, exec } = openEditor();
+        expect(editor.viewState.wordWrap).toBe("off");
+        exec(toggleWordWrapAction);
+        expect(editor.viewState.wordWrap).toBe("on");
+        exec(toggleWordWrapAction);
+        expect(editor.viewState.wordWrap).toBe("off");
+    });
+
+    it("метаданные команды: id, заголовок для палитры и биндинг Alt+Z", () => {
+        expect(toggleWordWrapAction.id).toBe("editor.action.toggleWordWrap");
+        expect(toggleWordWrapAction.title).toBe("View: Toggle Word Wrap");
+        expect(toggleWordWrapAction.keybinding).toEqual(parseKeybinding("alt+z"));
     });
 });
 

@@ -35,6 +35,19 @@ describe("EditorViewState visible lines (no folding)", () => {
         expect(state.visualToLogicalLine(5)).toBe(-1);
     });
 
+    it("logicalToVisualLine maps 1:1 when no folds", () => {
+        const state = makeState("a\nb\nc\nd");
+        expect(state.logicalToVisualLine(0)).toBe(0);
+        expect(state.logicalToVisualLine(3)).toBe(3);
+    });
+
+    it("logicalToVisualLine returns -1 for out-of-range logical line", () => {
+        const state = makeState("a\nb");
+        expect(state.logicalToVisualLine(-1)).toBe(-1);
+        expect(state.logicalToVisualLine(2)).toBe(-1);
+        expect(state.logicalToVisualLine(99)).toBe(-1);
+    });
+
     it("repeated calls return the same result", () => {
         const state = makeState("a\nb\nc");
         const first = state.getViewLineCount();

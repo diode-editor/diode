@@ -14,6 +14,7 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
@@ -446,6 +447,23 @@ export class EditorComponent extends Component {
         const normalized = Math.max(0, Math.floor(lines));
         if (this.editorViewState.cursorSurroundingLines === normalized) return;
         this.editorViewState.cursorSurroundingLines = normalized;
+        this.editor.markDirty();
+    }
+
+    /**
+     * Применяет `editor.wordWrap`/`editor.wordWrapColumn` к view-state.
+     * Включение сбрасывает горизонтальный скролл (инвариант «wrap ⇒
+     * scrollLeft ≡ 0») и пере-показывает первичную каретку: проекция меняет
+     * нумерацию рядов, и без reveal вьюпорт «уезжал» бы с места правки — VS
+     * Code при toggle тоже сохраняет позицию каретки, а не scrollTop.
+     */
+    public setWordWrap(mode: WordWrapMode, column: number): void {
+        const viewState = this.editorViewState;
+        if (viewState.wordWrap === mode && viewState.wordWrapColumn === column) return;
+        viewState.wordWrap = mode;
+        viewState.wordWrapColumn = column;
+        if (mode !== "off") viewState.scrollLeft = 0;
+        viewState.ensurePrimaryCursorVisible();
         this.editor.markDirty();
     }
 

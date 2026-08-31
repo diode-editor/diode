@@ -11,7 +11,7 @@ import type { FoldingRangeSource } from "../../../../editor/common/languages/iFo
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
-import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
@@ -324,6 +324,17 @@ export class TextEditorPane extends Disposable implements IEditorPane {
 
     public setCursorSurroundingLines(lines: number): void {
         this.component.setCursorSurroundingLines(lines);
+    }
+
+    /**
+     * Дифф-редактор взводит флаг у своих сторон: они выравниваются по
+     * view-строкам (зоны диффа), и перенос развёл бы половины. Форс живёт в
+     * сеттере, а не у вызывающих: им накрыты и live-reload конфига, и Alt+Z.
+     */
+    public wordWrapForcedOff = false;
+
+    public setWordWrap(mode: WordWrapMode, column: number): void {
+        this.component.setWordWrap(this.wordWrapForcedOff ? "off" : mode, column);
     }
 
     public setSearchDecorations(matches: IRange[], currentIndex: number): void {

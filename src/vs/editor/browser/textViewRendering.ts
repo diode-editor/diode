@@ -62,11 +62,19 @@ export function forEachRangeCell(
 
         const lineContent = viewState.getViewLine(viewLine);
         const dl = viewState.displayLineFor(lineContent);
-        const startChar = logLine === range.start.line ? range.start.character : 0;
-        const endChar = logLine === range.end.line ? range.end.character : lineContent.length + 1;
+        // Диапазон пересекается с фрагментом ряда: у целой строки фрагмент —
+        // `[0, length)`, и математика вырождается в прежнюю. Виртуальную ячейку
+        // перевода строки (+1 за концом) несёт только последний фрагмент.
+        const frag = viewState.viewLineRange(viewLine);
+        const isLastFragment = frag.end === lineContent.length;
+        const rangeStartChar = logLine === range.start.line ? range.start.character : 0;
+        const rangeEndChar = logLine === range.end.line ? range.end.character : lineContent.length + 1;
+        const startChar = Math.max(rangeStartChar, frag.start);
+        const endChar = Math.min(rangeEndChar, isLastFragment ? lineContent.length + 1 : frag.end);
 
-        const startCol = logLine === range.start.line ? dl.offsetToColumn(startChar) : 0;
-        const endCol = logLine === range.end.line ? dl.offsetToColumn(endChar) : dl.displayWidth + 1;
+        const fragStartCol = viewState.viewLineStartColumn(viewLine);
+        const startCol = dl.offsetToColumn(startChar) - fragStartCol;
+        const endCol = (endChar > lineContent.length ? dl.displayWidth + 1 : dl.offsetToColumn(endChar)) - fragStartCol;
 
         const screenXStart = Math.max(0, startCol - geo.scrollLeft);
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
@@ -104,6 +112,18 @@ export interface IPaintTextLineParams {
     gutterW: number;
     contentCols: number;
     scrollLeft: number;
+    /**
+     * Дисплейная колонка начала фрагмента при word wrap — сдвигает «колоночное
+     * окно» строки, как scrollLeft, но по-строчно. 0 — ряд несёт строку с начала.
+     */
+    startColumn: number;
+    /**
+     * Эксклюзивная колонка конца фрагмента: дальше при word wrap лежит текст
+     * СЛЕДУЮЩЕГО фрагмента — вместо него до края рисуются пробелы. У
+     * последнего/единственного фрагмента это ширина всей строки: заливка
+     * хвоста фоном совпадает с прежней отрисовкой out-of-range колонок.
+     */
+    endColumnExclusive: number;
     /** Цвета по умолчанию — там, где токен ничего не сказал. */
     fg: number;
     bg: number;
@@ -120,11 +140,25 @@ export interface IPaintTextLineParams {
  * горизонтальная прокрутка.
  */
 export function paintTextLine(context: RenderContext, params: IPaintTextLineParams): void {
-    const { displayLine, tokenIndex, resolveStyle, screenY, gutterW, contentCols, scrollLeft } = params;
+    const { displayLine, tokenIndex, resolveStyle, screenY, gutterW, contentCols, scrollLeft, startColumn } = params;
 
     let screenX = 0;
     while (screenX < contentCols) {
-        const displayCol = scrollLeft + screenX;
+        const displayCol = scrollLeft + startColumn + screenX;
+        if (displayCol >= params.endColumnExclusive) {
+            // Конец фрагмента: дальше в строке текст следующего ряда — до края
+            // области идёт фон (у последнего фрагмента — как прежняя отрисовка
+            // колонок за концом строки).
+            context.setCell(gutterW + screenX, screenY, {
+                char: " ",
+                fg: params.fg,
+                bg: params.bg,
+                style: StyleFlags.None,
+                width: 1,
+            });
+            screenX++;
+            continue;
+        }
         const char = displayLine.charAtColumn(displayCol);
         if (char === "") {
             // Continuation column of a wide char — skip, already handled by Grid
@@ -132,13 +166,20 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
             continue;
         }
         const slot = displayLine.graphemeAtColumn(displayCol);
-        const width = slot ? slot.displayWidth : 1;
+        /* v8 ignore start -- defensive: колонки за концом строки (>= endColumnExclusive <= displayWidth) ушли в заливку выше, в отрисовываемом диапазоне слот есть всегда */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: недостижимый защитный гард, см. v8 ignore
+        if (slot === undefined) {
+            screenX++;
+            continue;
+        }
+        /* v8 ignore stop */
+        const width = slot.displayWidth;
 
         // Resolve style for this offset.
         let fg = params.fg;
         let bg = params.bg;
         let style: number = StyleFlags.None;
-        if (tokenIndex && slot) {
+        if (tokenIndex) {
             const token = tokenIndex.tokenAt(slot.offset);
             if (token) {
                 const resolved = resolveStyle(token.scopes);
@@ -148,7 +189,7 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
             }
         }
 
-        if (slot?.grapheme === "\t") {
+        if (slot.grapheme === "\t") {
             // Tab: render each column as an individual space so Grid/TerminalRenderer
             // tracks the cursor correctly (they only support width=1 and width=2).
             for (let i = 0; i < width && screenX + i < contentCols; i++) {
@@ -173,10 +214,14 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
  */
 export function caretLocalCell(viewState: EditorViewState, gutterW: number, size: Size): Point | null {
     const primary = viewState.selections[0];
-    const cursorVisualLine = viewState.logicalToVisualLine(primary.active.line);
+    const cursorVisualLine = viewState.viewLineForPosition(primary.active.line, primary.active.character);
     const cursorLineContent = viewState.getViewLine(cursorVisualLine);
     const cursorDl = viewState.displayLineFor(cursorLineContent);
-    const localX = cursorDl.offsetToColumn(primary.active.character) - viewState.scrollLeft + gutterW;
+    const localX =
+        cursorDl.offsetToColumn(primary.active.character) -
+        viewState.viewLineStartColumn(cursorVisualLine) -
+        viewState.scrollLeft +
+        gutterW;
     const localY = cursorVisualLine - viewState.scrollTop;
 
     if (localX < gutterW || localX >= size.width || localY < 0 || localY >= size.height) {
@@ -202,10 +247,10 @@ export interface ICaretColors {
  * сбрасывается явно — блочная каретка не должна тащить bold/undercurl символа под ней
  * (заодно гасит squiggle диагностики).
  *
- * Проход инвертирован относительно наивного «цикл по кареткам + {@link caretLocalCell}»:
- * `logicalToVisualLine` — это поиск по проекции ВСЕГО документа, и на большом файле после
- * «выделить все вхождения» получилось бы O(кареток × строк). Здесь — один флэттен видимых
- * строк на кадр плюс кэш `DisplayLine` на строку, то есть O(видимых строк + кареток).
+ * Прямой проход по кареткам: {@link EditorViewState.viewLineForPosition} — O(1)
+ * по строке (плюс шаг по её фрагментам), поэтому даже «выделить все вхождения»
+ * на большом файле остаётся O(кареток); кэш `DisplayLine` на строку добивает
+ * повторную сегментацию кареток одной строки.
  */
 export function paintCarets(
     context: RenderContext,
@@ -214,41 +259,31 @@ export function paintCarets(
     colors: ICaretColors,
     geo: ITextViewportGeometry,
 ): void {
-    // Все отсевы ниже — про скорость, а не про картинку. RenderContext.setCell
-    // клиппит по прямоугольнику элемента и на промахе молча выходит, а
-    // visualToLogicalLine за пределами проекции возвращает -1, так что снятие любой
-    // из этих границ отрисовку не меняет — меняется только объём холостой работы,
-    // ради экономии которой функция и написана (см. её doc-комментарий). Поэтому
-    // мутанты в них неубиваемы, и гасим их здесь оптом.
+    // Отсевы по вьюпорту ниже — про скорость, а не про картинку:
+    // RenderContext.setCell клиппит по прямоугольнику элемента и на промахе
+    // молча выходит, так что снятие границ отрисовку не меняет — меняется
+    // только объём холостой работы. Мутанты в них неубиваемы — гасим оптом.
     // Stryker disable EqualityOperator,ConditionalExpression,LogicalOperator: см. выше
-    const screenYByLogicalLine = new Map<number, number>();
-    for (let screenY = 0; screenY < geo.visibleLines; screenY++) {
-        const viewLine = geo.scrollTop + screenY;
-        if (viewLine >= geo.viewLineCount) break;
-        const logLine = viewState.visualToLogicalLine(viewLine);
-        // Ряд-зона (виртуальная строка диффа): документной строки за ним нет, каретке там
-        // не место.
-        if (logLine < 0) continue;
-        screenYByLogicalLine.set(logLine, screenY);
-    }
-
-    const displayLineByScreenY = new Map<number, DisplayLine>();
+    const displayLineByDocLine = new Map<number, DisplayLine>();
     for (const selection of selections) {
-        const screenY = screenYByLogicalLine.get(selection.active.line);
-        // Строка свёрнута фолдингом или уехала за вьюпорт.
-        if (screenY === undefined) continue;
+        const row = viewState.viewLineForPosition(selection.active.line, selection.active.character);
+        // Строка свёрнута фолдингом — каретке некуда встать.
+        if (row < 0) continue;
+        const screenY = row - geo.scrollTop;
+        if (screenY < 0 || screenY >= geo.visibleLines) continue;
 
-        // Кэш DisplayLine на экранную строку — чистая мемоизация: без него результат
+        // Кэш DisplayLine на строку — чистая мемоизация: без него результат
         // тот же, только пересчитанный на каждой каретке.
         // Stryker disable next-line CallExpression: см. выше
-        let dl = displayLineByScreenY.get(screenY);
+        let dl = displayLineByDocLine.get(selection.active.line);
         if (dl === undefined) {
-            dl = viewState.displayLineFor(viewState.getViewLine(geo.scrollTop + screenY));
+            dl = viewState.displayLineFor(viewState.document.getLineContent(selection.active.line));
             // Stryker disable next-line CallExpression: заполнение кэша, результат не меняет
-            displayLineByScreenY.set(screenY, dl);
+            displayLineByDocLine.set(selection.active.line, dl);
         }
 
-        const localX = dl.offsetToColumn(selection.active.character) - geo.scrollLeft;
+        const localX =
+            dl.offsetToColumn(selection.active.character) - viewState.viewLineStartColumn(row) - geo.scrollLeft;
         if (localX < 0 || localX >= geo.contentCols) continue;
         // Stryker restore EqualityOperator,ConditionalExpression,LogicalOperator
 
@@ -279,9 +314,18 @@ export function docPositionAt(
     // Клик по строке-зоне (виртуальной) маппится в ближайшую документную — как
     // клик по view zone в VS Code отдаёт соседнюю позицию, а не падает.
     const logLine = viewState.docLineForViewLine(viewLine);
-    const displayCol = localX < gutterW ? 0 : localX - gutterW + viewState.scrollLeft;
+    // Клик по гуттеру — колонка 0 РЯДА: у продолжения wrap это начало фрагмента.
+    const fragStartCol = viewState.viewLineStartColumn(viewLine);
+    const displayCol = fragStartCol + (localX < gutterW ? 0 : localX - gutterW + viewState.scrollLeft);
     const lineContent = viewState.document.getLineContent(logLine);
     const dl = viewState.displayLineFor(lineContent);
-    const charOffset = dl.columnToOffset(displayCol);
+    let charOffset = dl.columnToOffset(displayCol);
+    // Кламп к фрагменту ряда: клик правее конца не-последнего фрагмента не
+    // должен утащить каретку на следующий ряд (offset границы принадлежит ему).
+    // У рядов-зон и пустых строк frag.end = 0 — кламп не про них.
+    const frag = viewState.viewLineRange(viewLine);
+    if (frag.end > 0 && frag.end < lineContent.length && charOffset >= frag.end) {
+        charOffset = dl.columnToOffset(dl.offsetToColumn(frag.end) - 1);
+    }
     return { line: logLine, character: charOffset };
 }

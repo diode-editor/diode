@@ -489,6 +489,89 @@ describe("EditorService", () => {
 
             expect(ctrl.getActiveEditor()!.viewState.cursorSurroundingLines).toBe(5);
         });
+
+        it("seeds wordWrap and wordWrapColumn from the configuration service", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "bounded",
+                    "editor.wordWrapColumn": 40,
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "const x = 1;"));
+
+            const viewState = ctrl.getActiveEditor()!.viewState;
+            expect(viewState.wordWrap).toBe("bounded");
+            expect(viewState.wordWrapColumn).toBe(40);
+        });
+
+        it("режим on применяется как есть (не через column-ветку)", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "on",
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "const x = 1;"));
+            expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
+        });
+
+        it("невалидное значение editor.wordWrap деградирует к off", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "sideways",
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "const x = 1;"));
+
+            const viewState = ctrl.getActiveEditor()!.viewState;
+            expect(viewState.wordWrap).toBe("off");
+            expect(viewState.wordWrapColumn).toBe(80);
+        });
+    });
+
+    describe("toggleWordWrap (Alt+Z)", () => {
+        it("переключает off ↔ on поверх дефолтного конфига у всех открытых редакторов", () => {
+            const ctrl = createEditorService();
+            ctrl.openFile(writeFile("a.ts", "a"));
+            ctrl.openFile(writeFile("b.ts", "b"));
+            const [first, second] = [ctrl.getEditor(0)!, ctrl.getEditor(1)!];
+            expect(first.viewState.wordWrap).toBe("off");
+
+            ctrl.toggleWordWrap();
+            expect(first.viewState.wordWrap).toBe("on");
+            expect(second.viewState.wordWrap).toBe("on");
+
+            ctrl.toggleWordWrap();
+            expect(first.viewState.wordWrap).toBe("off");
+            expect(second.viewState.wordWrap).toBe("off");
+        });
+
+        it("повторное включение возвращает КОНФИГУРНЫЙ режим, а не plain on", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "wordWrapColumn",
+                    "editor.wordWrapColumn": 60,
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "a"));
+            const viewState = ctrl.getActiveEditor()!.viewState;
+            expect(viewState.wordWrap).toBe("wordWrapColumn");
+
+            ctrl.toggleWordWrap();
+            expect(viewState.wordWrap).toBe("off");
+
+            ctrl.toggleWordWrap();
+            expect(viewState.wordWrap).toBe("wordWrapColumn");
+            expect(viewState.wordWrapColumn).toBe(60);
+        });
+
+        it("override переживает применение конфига к новому редактору", () => {
+            const ctrl = createEditorService();
+            ctrl.openFile(writeFile("a.ts", "a"));
+            ctrl.toggleWordWrap();
+
+            ctrl.openFile(writeFile("b.ts", "b"));
+            expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
+        });
     });
 
     describe("live-reloads editor settings into already-open editors", () => {

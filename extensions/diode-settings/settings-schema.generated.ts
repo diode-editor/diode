@@ -22,6 +22,8 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {"key":"editor.detectIndentation","type":"boolean","default":true,"description":"Controls whether `editor.tabSize` and `editor.insertSpaces` are automatically detected from the file contents when a file is opened."},
     {"key":"editor.insertSpaces","type":"boolean","default":true,"description":"Insert spaces when pressing Tab."},
     {"key":"editor.tabSize","type":"number","default":4,"description":"The number of spaces a tab is equal to."},
+    {"key":"editor.wordWrap","type":"string","default":"off","description":"Controls how lines should wrap: never ('off'), at the viewport width ('on'), or at `editor.wordWrapColumn` ('wordWrapColumn'/'bounded'; both are capped by the viewport width).","enum":["off","on","wordWrapColumn","bounded"]},
+    {"key":"editor.wordWrapColumn","type":"number","default":80,"description":"Controls the wrapping column when `editor.wordWrap` is 'wordWrapColumn' or 'bounded'."},
     {"key":"explorer.autoReveal","type":"boolean","default":true,"description":"Automatically reveal and select the active file in the explorer tree."},
     {"key":"explorer.confirmDelete","type":"boolean","default":true,"description":"Ask for confirmation before deleting a file via the explorer."},
     {"key":"explorer.confirmUndo","type":"boolean","default":true,"description":"Ask for confirmation before undoing a destructive file operation."},
