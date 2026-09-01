@@ -35,7 +35,10 @@ export interface ICliArgs {
     readonly help: boolean;
     /** Был ли передан `--version` / `-v`. */
     readonly version: boolean;
-    /** Путь к `.vsix` либо id (`publisher.name`) из `--install-extension`, если указан. */
+    /**
+     * Аргумент `--install-extension`, если указан: путь к `.vsix` (по суффиксу)
+     * либо id `publisher.name` из реестра.
+     */
     readonly installExtension: string | undefined;
     /**
      * Источник реестра расширений из `--registry` — путь к каталогу в
@@ -63,8 +66,9 @@ Options:
   --inspect-tui[=host:port] Поднять TUIDom-инспектор (default: ${DEFAULT_INSPECT_TUI})
   --headless[=<cols>x<rows>] Запуск без терминала: рендер в память, управление
                            через инспектор (требует --inspect-tui; default: ${DEFAULT_HEADLESS_SIZE.cols}x${DEFAULT_HEADLESS_SIZE.rows})
-  --install-extension <path.vsix | id>  Установить расширение из .vsix (или из
-                           реестра по id publisher.name, требует --registry) и выйти
+  --install-extension <path.vsix | id>  Установить расширение и выйти. Аргумент с
+                           суффиксом .vsix — путь к файлу, иначе id publisher.name
+                           из реестра (требует --registry)
   --registry <path>        Каталог реестра расширений для установки по id
   --uninstall-extension <publisher.name>  Удалить расширение (все версии) и выйти
   --list-extensions        Показать установленные расширения и выйти

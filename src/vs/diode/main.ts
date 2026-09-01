@@ -485,13 +485,12 @@ async function runExtensionManagement(cli: ICliArgs): Promise<never> {
     try {
         if (cli.installExtension !== undefined) {
             const target = cli.installExtension;
-            // `.vsix`-суффикс или существующий файл — прежний путь установки из
-            // файла; иначе аргумент трактуется как id `publisher.name` из
-            // реестра. Коллизия «файл с именем как id» разрешается в пользу
-            // файла — существующий контракт CLI не ломаем.
-            const isVsixFile = target.endsWith(".vsix") || fs.existsSync(path.resolve(target));
+            // Различаем по суффиксу `.vsix`, как VS Code: он — путь к файлу, всё
+            // остальное — id `publisher.name` из реестра. По файловой системе не
+            // гадаем: иначе файл с именем вида id, случайно лежащий в рабочем
+            // каталоге, молча перехватывал бы установку из реестра.
             let result: { id: string; version: string; previous: string[] };
-            if (isVsixFile) {
+            if (target.endsWith(".vsix")) {
                 result = await installVsix(path.resolve(target), extensionsDir);
             } else {
                 if (cli.registry === undefined) {

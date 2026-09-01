@@ -22,9 +22,9 @@ interface CliResult {
     stderr: string;
 }
 
-function runCli(binary: string, args: readonly string[]): Promise<CliResult> {
+function runCli(binary: string, args: readonly string[], cwd?: string): Promise<CliResult> {
     return new Promise((resolve, reject) => {
-        const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
+        const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"], cwd });
         let stdout = "";
         let stderr = "";
         child.stdout.on("data", (c: Buffer) => (stdout += c.toString()));
@@ -121,6 +121,24 @@ describe("SEA binary — install from file registry", () => {
         const list = await runCli(binary, ["--user-data-dir", userDataDir, "--list-extensions"]);
         expect(list.code).toBe(0);
         expect(list.stdout.trim()).toBe("acme.demo@1.2.3");
+    });
+
+    it("id is not shadowed by a same-named file in the working directory", async () => {
+        // Различение — строго по суффиксу .vsix: файл `acme.demo` рядом не должен
+        // перехватывать установку из реестра.
+        const cwd = path.join(tempRoot, "cwd-with-decoy");
+        await fs.promises.mkdir(cwd, { recursive: true });
+        await fs.promises.writeFile(path.join(cwd, "acme.demo"), "not a vsix at all");
+        const userData = path.join(tempRoot, "user-data-decoy");
+
+        const install = await runCli(
+            binary,
+            ["--user-data-dir", userData, "--registry", registryDir, "--install-extension", "acme.demo"],
+            cwd,
+        );
+        expect(install.stderr).toBe("");
+        expect(install.code).toBe(0);
+        expect(install.stdout).toContain("Installed acme.demo@1.2.3");
     });
 
     it("install by id without --registry fails with a clear message", async () => {
