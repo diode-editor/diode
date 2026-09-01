@@ -289,3 +289,18 @@ export const scrollLineDownAction: CommandAction = {
         accessor.get(EditorServiceDIToken).getActiveViewState()?.scrollLineDown();
     },
 };
+
+// ─── View ───────────────────────────────────────────────────
+
+// Без when: как в VS Code, toggle доступен из палитры и меню всегда — он
+// переключает session-состояние сервиса, а не конкретный редактор.
+export const toggleWordWrapAction: CommandAction = {
+    id: "editor.action.toggleWordWrap",
+    title: "View: Toggle Word Wrap",
+    shortTitle: "Word Wrap",
+    menus: [{ menuId: MenuId.MenubarViewMenu, group: "5_editor", order: 10 }],
+    keybinding: parseKeybinding("alt+z"),
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).toggleWordWrap();
+    },
+};

@@ -203,7 +203,8 @@ describe("FileTreeDataProvider", () => {
 
             const decorated = provider.getTreeItem({ name: "main.ts", path: "/main.ts", isDirectory: false });
             expect(decorated.labelColor).toBe(0x73c991);
-            expect(decorated.badge).toBe("M");
+            // Пробел справа — отступ буквы от края панели (см. getTreeItem).
+            expect(decorated.badge).toBe("M ");
 
             // A file not present in the status map stays undecorated.
             const plain = provider.getTreeItem({ name: "other.ts", path: "/other.ts", isDirectory: false });
@@ -217,7 +218,7 @@ describe("FileTreeDataProvider", () => {
             const dir = provider.getTreeItem({ name: "src", path: "/src", isDirectory: true });
             expect(dir.collapsible).toBe(true);
             expect(dir.labelColor).toBe(0xe2c08d);
-            expect(dir.badge).toBe("U");
+            expect(dir.badge).toBe("U ");
         });
 
         it("replaces the whole status map on each call", () => {
@@ -225,7 +226,7 @@ describe("FileTreeDataProvider", () => {
             provider.setGitStatus(new Map([["/b.ts", { color: 0x222222, badge: "M" }]]));
 
             expect(provider.getTreeItem({ name: "a.ts", path: "/a.ts", isDirectory: false }).badge).toBeUndefined();
-            expect(provider.getTreeItem({ name: "b.ts", path: "/b.ts", isDirectory: false }).badge).toBe("M");
+            expect(provider.getTreeItem({ name: "b.ts", path: "/b.ts", isDirectory: false }).badge).toBe("M ");
         });
 
         it("supports a colour-only or badge-only entry", () => {
@@ -242,7 +243,7 @@ describe("FileTreeDataProvider", () => {
 
             const badgeOnly = provider.getTreeItem({ name: "b.ts", path: "/badge-only.ts", isDirectory: false });
             expect(badgeOnly.labelColor).toBeUndefined();
-            expect(badgeOnly.badge).toBe("M");
+            expect(badgeOnly.badge).toBe("M ");
         });
     });
 

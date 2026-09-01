@@ -120,6 +120,7 @@ import {
     cursorWordRightSelectAction,
     scrollLineDownAction,
     scrollLineUpAction,
+    toggleWordWrapAction,
 } from "./editorActions.ts";
 import {
     deleteLeftAction,
@@ -263,6 +264,7 @@ export const builtinActions: readonly CommandAction[] = [
     cursorPageUpSelectAction,
     scrollLineUpAction,
     scrollLineDownAction,
+    toggleWordWrapAction,
 
     // Multi-cursor. Стоит ДО Find/Suggest-хвоста намеренно: резолвер берёт последний
     // подходящий биндинг, и Escape у `removeSecondaryCursors` обязан проигрывать

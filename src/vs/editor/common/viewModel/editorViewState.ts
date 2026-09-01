@@ -10,7 +10,6 @@ import type { ISelection } from "../core/iSelection.ts";
 import {
     createCursorSelection,
     createSelection,
-    getIdealColumn,
     isSelectionCollapsed,
     selectionToRange,
 } from "../core/iSelection.ts";
@@ -28,13 +27,32 @@ import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
 
 import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
 import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
+import { LineBreaksCache } from "./lineBreaksCache.ts";
+
+/** Режим переноса строк — значения `editor.wordWrap` (VS Code). */
+export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
+
+/**
+ * Проекция документа на ряды вью. Параллельные массивы, а не массив объектов:
+ * проекция — длиной с документ, аллокация объекта на ряд ударила бы по большим
+ * файлам (та же причина, что у числовой кодировки зон в {@link encodeViewZoneRow}).
+ */
+interface IViewProjection {
+    /** По ряду вью: номер документной строки (`>= 0`) либо код зоны (`< 0`, см. {@link encodeViewZoneRow}). */
+    rowDocLine: number[];
+    /** По ряду вью: offset начала фрагмента в своей документной строке; 0 у зон и целых строк. */
+    rowStartOffset: number[];
+    /** По документной строке: её первый ряд вью, либо -1, если строка скрыта свёрткой. */
+    firstRowOfDocLine: Int32Array;
+}
 
 /**
  * Represents the view state for one editor pane.
  * Multiple EditorViewStates can reference the same ITextDocument (split view).
  *
  * Acts as a "lens" (projection) through which the renderer sees the TextDocument:
- * logical lines may differ from visual lines due to code folding.
+ * logical lines may differ from visual lines due to code folding, view zones and
+ * word wrap (одна логическая строка → несколько рядов-фрагментов).
  */
 export class EditorViewState {
     private scrollLeftValue = 0;
@@ -51,8 +69,11 @@ export class EditorViewState {
     }
 
     public set scrollLeft(value: number) {
-        if (this.scrollLeftValue === value) return;
-        this.scrollLeftValue = value;
+        // Инвариант «wrap ⇒ scrollLeft ≡ 0» держится здесь, by construction, а
+        // не проверками у каждого потребителя (колесо, revealPosition, команды).
+        const clamped = this.isWordWrapActive ? 0 : value;
+        if (this.scrollLeftValue === clamped) return;
+        this.scrollLeftValue = clamped;
         this.fireViewChange();
     }
 
@@ -69,14 +90,41 @@ export class EditorViewState {
     public viewportWidth = 80;
     public viewportHeight = 24;
     /**
+     * Режим переноса строк (`editor.wordWrap`). Плоское поле, как {@link tabSize}:
+     * владелец вью пишет значение и зовёт `markDirty()`; проекция инвалидируется
+     * снапшот-сравнением в {@link buildProjection}. Упрощение v1: режим
+     * `wordWrapColumn` ведёт себя как `bounded` (без горизонтального скролла к
+     * колонке шире вьюпорта) — см. docs/TODO/WordWrap.md.
+     */
+    public wordWrap: WordWrapMode = "off";
+    /** Колонка переноса для режимов `wordWrapColumn`/`bounded` (`editor.wordWrapColumn`). */
+    public wordWrapColumn = 80;
+    /**
      * Minimum number of lines to keep visible between the primary cursor and the
      * top/bottom edge of the viewport when scrolling it into view (VS Code's
      * `editor.cursorSurroundingLines`). `0` glues the cursor to the very edge.
      */
     public cursorSurroundingLines = 0;
+    /**
+     * Действующая ширина отступа. Не настройка, а РЕЗУЛЬТАТ: её пересобирает
+     * {@link runDetectIndentation} из трёх источников по приоритету —
+     * {@link indentExplicitlySet} → детекция по содержимому → {@link configuredTabSize}.
+     */
     public tabSize = 4;
+    /** Действующий вид отступа — см. {@link tabSize} про источники. */
     public insertSpaces = false;
+    /** `editor.tabSize` — база детекции и значение при выключенном детекте. */
+    public configuredTabSize = 4;
+    /** `editor.insertSpaces` — база детекции и значение при выключенном детекте. */
+    public configuredInsertSpaces = false;
+    /** `editor.detectIndentation`: определять ли отступ по содержимому файла. */
     public detectIndentation = true;
+    /**
+     * Отступ выставлен явно через `editor.options` (расширение — например,
+     * стоковый EditorConfig). Такое решение главнее и детекции, и конфига:
+     * расширение знает про файл то, чего не знаем ни мы, ни настройки.
+     */
+    public indentExplicitlySet = false;
     /**
      * Запрещает правку документа через этот view-state (VS Code
      * `EditorOption.readOnly`). Живёт здесь, а не на `EditorElement`, потому что
@@ -136,14 +184,31 @@ export class EditorViewState {
      */
     public multiCursorSession: IMultiCursorFindSession | null = null;
 
-    private visibleLinesCache: number[] | null = null;
+    private projectionCache: IViewProjection | null = null;
     /** Стартовая строка вью каждой зоны (по якорю) — offset для многострочных зон за O(1). */
     private zoneStartRowsCache: Map<number, number> | null = null;
-    private visibleLinesCacheDocVersion = -1;
+    // Сентинелы версий не несут смысла: первый rebuild гейтится projectionCache === null.
+    // Stryker disable next-line UnaryOperator: см. выше
+    private projectionCacheDocVersion = -1;
     private foldsVersion = 0;
-    private visibleLinesCacheFoldsVersion = -1;
+    // Stryker disable next-line UnaryOperator: см. выше
+    private projectionCacheFoldsVersion = -1;
     private zonesVersion = 0;
-    private visibleLinesCacheZonesVersion = -1;
+    // Stryker disable next-line UnaryOperator: см. выше
+    private projectionCacheZonesVersion = -1;
+    /**
+     * Снапшоты wrap-входов проекции, а не версии-счётчики: писателей у
+     * {@link wordWrap}/{@link wordWrapColumn}/{@link viewportWidth}/{@link tabSize}
+     * много, и «не забудь bump-нуть версию» — приглашение к багу; сравнение с
+     * фактическим значением самовалидно. `-1` — «wrap выключен» (см.
+     * {@link effectiveWrapWidth}).
+     */
+    // Stryker disable next-line UnaryOperator: сентинел не несёт смысла — первый rebuild гейтится projectionCache === null
+    private projectionCacheWrapWidth = -1;
+    // Stryker disable next-line UnaryOperator: см. выше
+    private projectionCacheTabSize = -1;
+    /** Кеш break-offsets; создаётся при первом включении wrap. */
+    private lineBreaksCacheValue: LineBreaksCache | null = null;
 
     /**
      * Взведён, пока правку применяет СОБСТВЕННЫЙ мутатор этого view-state
@@ -167,6 +232,39 @@ export class EditorViewState {
     /** Отписка от документа. Зовёт владелец view-state при пересоздании/закрытии вью. */
     public dispose(): void {
         this.docContentSubscription.dispose();
+        this.lineBreaksCacheValue?.dispose();
+    }
+
+    // ─── Word wrap ──────────────────────────────────────────
+
+    /** Активен ли перенос строк (любой режим, кроме `off`). */
+    public get isWordWrapActive(): boolean {
+        return this.wordWrap !== "off";
+    }
+
+    /**
+     * Действующая ширина переноса в колонках, `null` — wrap выключен. Все
+     * wrap-входы проекции схлопнуты в один скаляр: он же — ключ инвалидации
+     * кеша. Нижний кламп ширины — в {@link computeLineBreakOffsets}
+     * (MIN_WRAP_WIDTH), у единственного места применения.
+     */
+    private effectiveWrapWidth(): number | null {
+        if (this.wordWrap === "off") return null;
+        if (this.wordWrap === "on") return this.viewportWidth;
+        // wordWrapColumn | bounded. Упрощение v1: wordWrapColumn ведёт себя как
+        // bounded — колонка шире вьюпорта потребовала бы горизонтальный скролл
+        // при переносе (см. docs/TODO/WordWrap.md).
+        return Math.min(this.viewportWidth, this.wordWrapColumn);
+    }
+
+    /** Ленивый кеш break-offsets с актуальными параметрами. */
+    private wrapBreaks(wrapWidth: number): LineBreaksCache {
+        // Stryker disable next-line ConditionalExpression: чистая мемоизация — пересозданный с теми же параметрами кеш даёт тот же результат, только медленнее
+        if (this.lineBreaksCacheValue === null) {
+            this.lineBreaksCacheValue = new LineBreaksCache(this.document, this.tabSize, wrapWidth);
+        }
+        this.lineBreaksCacheValue.setParams(this.tabSize, wrapWidth);
+        return this.lineBreaksCacheValue;
     }
 
     /**
@@ -318,16 +416,18 @@ export class EditorViewState {
     }
 
     /**
-     * Re-runs indentation detection against the current document content.
-     * No-op if `detectIndentation` is false or the document has no indented lines.
+     * Пересобирает действующие {@link tabSize}/{@link insertSpaces} по приоритету
+     * источников: явный `editor.options` → детекция по содержимому (если она
+     * включена) → значения из конфига. Зовётся из конструктора и на каждое
+     * изменение конфига — детекция дешёвая, а результат обязан пересчитываться
+     * целиком: иначе выключение `editor.detectIndentation` некуда откатывать.
      */
     public runDetectIndentation(): void {
-        if (!this.detectIndentation) return;
-        const result = detectIndentation(this.document);
-        if (result !== null) {
-            this.insertSpaces = result.insertSpaces;
-            this.tabSize = result.tabSize;
-        }
+        if (this.indentExplicitlySet) return;
+        const defaults = { tabSize: this.configuredTabSize, insertSpaces: this.configuredInsertSpaces };
+        const result = this.detectIndentation ? detectIndentation(this.document, defaults) : defaults;
+        this.insertSpaces = result.insertSpaces;
+        this.tabSize = result.tabSize;
     }
 
     // ─── View zones API ─────────────────────────────────────
@@ -708,12 +808,11 @@ export class EditorViewState {
      * Returns -1 if the line is hidden inside a collapsed region.
      */
     public logicalToVisualLine(logicalLine: number): number {
-        // Гард от отрицательного аргумента: строки-зоны кодируются в проекции
-        // отрицательными числами, и `indexOf(-2)` нашёл бы зону вместо «нет».
-        if (logicalLine < 0) return -1;
-        const visible = this.buildVisibleLines();
-        const idx = visible.indexOf(logicalLine);
-        return idx;
+        const { firstRowOfDocLine } = this.buildProjection();
+        // Гарды по границам: за пределами массива Int32Array отдаёт undefined,
+        // а контракт метода — «-1, если строки нет во вью».
+        if (logicalLine < 0 || logicalLine >= firstRowOfDocLine.length) return -1;
+        return firstRowOfDocLine[logicalLine];
     }
 
     /**
@@ -729,6 +828,53 @@ export class EditorViewState {
         }
         const row = visible[visualLine];
         return row >= 0 ? row : -1;
+    }
+
+    /**
+     * Диапазон offsets `[start, end)` фрагмента строки, который занимает ряд
+     * вью; у последнего (или единственного) фрагмента `end` — длина строки.
+     * `{0, 0}` у рядов-зон и за границами вью — у них документного текста нет.
+     */
+    public viewLineRange(viewLine: number): { start: number; end: number } {
+        const { rowDocLine, rowStartOffset } = this.buildProjection();
+        const doc = rowDocLine.at(viewLine);
+        if (viewLine < 0 || doc === undefined || doc < 0) return { start: 0, end: 0 };
+        const start = rowStartOffset[viewLine];
+        // Фрагменты одной строки контигуозны (зона встаёт только после
+        // последнего — см. insertViewZones), поэтому конец фрагмента — начало
+        // следующего ряда той же строки.
+        const end = rowDocLine[viewLine + 1] === doc ? rowStartOffset[viewLine + 1] : this.document.getLineLength(doc);
+        return { start, end };
+    }
+
+    /**
+     * Дисплейная колонка начала фрагмента в целой строке — сдвиг «колоночного
+     * окна», которым рендер и хит-тест смотрят на фрагмент. 0 у первых
+     * фрагментов, целых строк и зон.
+     */
+    public viewLineStartColumn(viewLine: number): number {
+        const { rowDocLine, rowStartOffset } = this.buildProjection();
+        // Индексы за границами (и отрицательные) дают undefined, ряды-зоны и
+        // целые строки несут 0 — везде колонка начала нулевая.
+        const start = rowStartOffset[viewLine];
+        if (!start) return 0;
+        return this.displayLineFor(this.document.getLineContent(rowDocLine[viewLine])).offsetToColumn(start);
+    }
+
+    /**
+     * Ряд вью, содержащий позицию документа, либо -1, если строка скрыта
+     * свёрткой. Offset ровно на границе фрагментов маппится на СЛЕДУЮЩИЙ ряд
+     * (без cursor affinity — упрощение v1, см. docs/TODO/WordWrap.md).
+     */
+    public viewLineForPosition(line: number, character: number): number {
+        // Скрытая строка даёт -1, и цикл его не сдвинет: rowDocLine[0] — видимая
+        // строка, скрытой она не равна, так что -1 возвращается как есть.
+        let row = this.logicalToVisualLine(line);
+        const { rowDocLine, rowStartOffset } = this.buildProjection();
+        while (rowDocLine[row + 1] === line && rowStartOffset[row + 1] <= character) {
+            row++;
+        }
+        return row;
     }
 
     /**
@@ -996,21 +1142,7 @@ export class EditorViewState {
      * Does NOT change idealColumn — vertical navigation preserves it.
      */
     public cursorUp(inSelectionMode = false): void {
-        this.selections = this.selections.map((sel) => {
-            const pos = sel.active;
-            const prevVisible = this.previousVisibleLine(pos.line);
-            if (prevVisible >= 0) {
-                let ideal = getIdealColumn(sel);
-                if (sel.idealColumn === undefined) {
-                    const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
-                    ideal = currentDl.offsetToColumn(pos.character);
-                }
-                const targetDl = this.displayLineFor(this.document.getLineContent(prevVisible));
-                const newChar = targetDl.columnToOffset(ideal);
-                return this.buildSelection(sel, prevVisible, newChar, ideal, inSelectionMode);
-            }
-            return sel;
-        });
+        this.selections = this.selections.map((sel) => this.moveVertically(sel, -1, inSelectionMode));
         this.ensureCursorVisible();
     }
 
@@ -1020,22 +1152,79 @@ export class EditorViewState {
      * Does NOT change idealColumn — vertical navigation preserves it.
      */
     public cursorDown(inSelectionMode = false): void {
-        this.selections = this.selections.map((sel) => {
-            const pos = sel.active;
-            const nextVisible = this.nextVisibleLine(pos.line);
-            if (nextVisible >= 0) {
-                let ideal = getIdealColumn(sel);
-                if (sel.idealColumn === undefined) {
-                    const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
-                    ideal = currentDl.offsetToColumn(pos.character);
-                }
-                const targetDl = this.displayLineFor(this.document.getLineContent(nextVisible));
-                const newChar = targetDl.columnToOffset(ideal);
-                return this.buildSelection(sel, nextVisible, newChar, ideal, inSelectionMode);
-            }
-            return sel;
-        });
+        this.selections = this.selections.map((sel) => this.moveVertically(sel, 1, inSelectionMode));
         this.ensureCursorVisible();
+    }
+
+    /** Выделение после шага каретки на соседний ряд вью; у края вью — исходное. */
+    private moveVertically(sel: ISelection, direction: 1 | -1, inSelectionMode: boolean): ISelection {
+        const step = this.stepPositionVertically(sel.active, this.idealColumnOf(sel), direction);
+        if (step === null) return sel;
+        return this.buildSelection(sel, step.line, step.character, step.idealColumn, inSelectionMode);
+    }
+
+    /**
+     * Шаг позиции на соседний документный ряд вью (ряды-зоны проскакиваются),
+     * либо `null` — некуда: край вью. Вертикальное движение при wrap ходит по
+     * РЯДАМ, а не строкам: внутри перенесённой строки каретка идёт по
+     * фрагментам. «Липкая» колонка держится ОТНОСИТЕЛЬНО НАЧАЛА фрагмента
+     * (`idealAbs − startCol` текущего ряда), а возвращённый `idealColumn` —
+     * снова абсолютный, спроецированный на целевой ряд: следующий шаг вычтет
+     * его стартовую колонку и получит ту же относительную. Без wrap все
+     * стартовые колонки — нули, и математика тождественна прежней построчной.
+     */
+    private stepPositionVertically(
+        pos: IPosition,
+        idealAbs: number,
+        direction: 1 | -1,
+    ): { line: number; character: number; idealColumn: number } | null {
+        const currentRow = this.viewLineForPosition(pos.line, pos.character);
+        if (currentRow < 0) {
+            // Каретка на скрытой строке (до reconcileHiddenCursors): прежняя
+            // построчная посадка на ближайшую видимую строку.
+            const fallbackLine =
+                direction === -1 ? this.previousVisibleLine(pos.line) : this.nextVisibleLine(pos.line);
+            if (fallbackLine < 0) return null;
+            const dl = this.displayLineFor(this.document.getLineContent(fallbackLine));
+            return { line: fallbackLine, character: dl.columnToOffset(idealAbs), idealColumn: idealAbs };
+        }
+
+        const { rowDocLine } = this.buildProjection();
+        let targetRow = currentRow + direction;
+        // Ряды-зоны (< 0) проскакиваются; индекс за краем вью даёт undefined —
+        // он сам останавливает скан (не < 0) и он же — признак «некуда».
+        while (rowDocLine[targetRow] < 0) {
+            targetRow += direction;
+        }
+        if (rowDocLine[targetRow] === undefined) return null;
+
+        const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentRow));
+        return this.landOnRow(targetRow, idealInRow);
+    }
+
+    /**
+     * Посадка каретки на документный ряд по ideal-колонке ВНУТРИ ряда: у
+     * не-последнего фрагмента каретка не переезжает границу (offset на границе
+     * принадлежит уже следующему ряду) — кламп к последней графеме фрагмента.
+     */
+    private landOnRow(
+        targetRow: number,
+        idealInRow: number,
+    ): { line: number; character: number; idealColumn: number } {
+        const targetLine = this.buildProjection().rowDocLine[targetRow];
+        const targetStartCol = this.viewLineStartColumn(targetRow);
+        const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
+        const range = this.viewLineRange(targetRow);
+        const isLastFragment = range.end === this.document.getLineLength(targetLine);
+        let landingCol = targetStartCol + idealInRow;
+        if (!isLastFragment) {
+            landingCol = Math.min(landingCol, targetDl.offsetToColumn(range.end) - 1);
+        }
+        return {
+            line: targetLine,
+            character: targetDl.columnToOffset(landingCol),
+            idealColumn: targetStartCol + idealInRow,
+        };
     }
 
     /**
@@ -1074,6 +1263,15 @@ export class EditorViewState {
     public cursorHome(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => {
             const content = this.document.getLineContent(sel.active.line);
+            // На ряду-продолжении wrap Home идёт к началу ФРАГМЕНТА (как VS
+            // Code); повторное нажатие там же — no-op, логического smart-home с
+            // продолжения нет (упрощение v1, см. docs/TODO/WordWrap.md).
+            const row = this.viewLineForPosition(sel.active.line, sel.active.character);
+            const rowStart = this.viewLineRange(row).start;
+            if (rowStart > 0) {
+                const idealCol = this.viewLineStartColumn(row);
+                return this.buildSelection(sel, sel.active.line, rowStart, idealCol, inSelectionMode);
+            }
             const firstNonWs = firstNonWhitespaceIndex(content);
             const target = sel.active.character === firstNonWs && firstNonWs !== 0 ? 0 : firstNonWs;
             const idealCol = this.displayLineFor(content).offsetToColumn(target);
@@ -1089,6 +1287,15 @@ export class EditorViewState {
     public cursorEnd(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => {
             const lineLen = this.document.getLineLength(sel.active.line);
+            // На не-последнем фрагменте wrap End идёт к последней графеме
+            // ФРАГМЕНТА: offset границы принадлежит следующему ряду (без
+            // cursor affinity — упрощение v1, см. docs/TODO/WordWrap.md).
+            const rowEnd = this.viewLineRange(this.viewLineForPosition(sel.active.line, sel.active.character)).end;
+            if (rowEnd !== lineLen) {
+                const dl = this.displayLineFor(this.document.getLineContent(sel.active.line));
+                const target = dl.columnToOffset(dl.offsetToColumn(rowEnd) - 1);
+                return this.buildSelection(sel, sel.active.line, target, Number.MAX_SAFE_INTEGER, inSelectionMode);
+            }
             return this.buildSelection(sel, sel.active.line, lineLen, Number.MAX_SAFE_INTEGER, inSelectionMode);
         });
         this.ensureCursorVisible();
@@ -1231,34 +1438,30 @@ export class EditorViewState {
      * на строках с табами.
      */
     private translateSelectionToAdjacentLine(selection: ISelection, direction: 1 | -1): ISelection | null {
-        const activeLine =
-            direction === -1
-                ? this.previousVisibleLine(selection.active.line)
-                : this.nextVisibleLine(selection.active.line);
-        if (activeLine < 0) return null;
-
         const idealColumn = this.idealColumnOf(selection);
-        const activeChar = this.displayLineFor(this.document.getLineContent(activeLine)).columnToOffset(idealColumn);
+        const activeStep = this.stepPositionVertically(selection.active, idealColumn, direction);
+        if (activeStep === null) return null;
 
         if (isSelectionCollapsed(selection)) {
-            return createCursorSelection(activeLine, activeChar, idealColumn);
+            return createCursorSelection(activeStep.line, activeStep.character, activeStep.idealColumn);
         }
 
-        const anchorLine =
-            direction === -1
-                ? this.previousVisibleLine(selection.anchor.line)
-                : this.nextVisibleLine(selection.anchor.line);
+        const anchorContent = this.document.getLineContent(selection.anchor.line);
+        const anchorColumn = this.displayLineFor(anchorContent).offsetToColumn(selection.anchor.character);
+        const anchorStep = this.stepPositionVertically(selection.anchor, anchorColumn, direction);
         // Якорь упёрся в край вью, а active — нет: значит якорь дальше active по ходу
         // движения, и копия целиком легла бы внутрь исходного выделения (слияние съело бы
         // её без следа). Не плодим её вовсе — иначе на ровном месте вылетало бы холостое
         // событие смены курсора.
-        if (anchorLine < 0) return null;
+        if (anchorStep === null) return null;
 
-        const anchorContent = this.document.getLineContent(selection.anchor.line);
-        const anchorColumn = this.displayLineFor(anchorContent).offsetToColumn(selection.anchor.character);
-        const anchorChar = this.displayLineFor(this.document.getLineContent(anchorLine)).columnToOffset(anchorColumn);
-
-        return createSelection(anchorLine, anchorChar, activeLine, activeChar, idealColumn);
+        return createSelection(
+            anchorStep.line,
+            anchorStep.character,
+            activeStep.line,
+            activeStep.character,
+            activeStep.idealColumn,
+        );
     }
 
     /**
@@ -1299,20 +1502,25 @@ export class EditorViewState {
         const pageSize = Math.max(1, this.viewportHeight - 1);
         this.selections = this.selections.map((sel) => {
             const pos = sel.active;
-            let ideal = getIdealColumn(sel);
-            if (sel.idealColumn === undefined) {
-                const currentDl = this.displayLineFor(this.document.getLineContent(pos.line));
-                ideal = currentDl.offsetToColumn(pos.character);
-            }
-            const currentView = this.logicalToVisualLine(pos.line);
+            const idealAbs = this.idealColumnOf(sel);
+            const currentView = this.viewLineForPosition(pos.line, pos.character);
             /* v8 ignore start -- defensive: скрытая каретка выправляется reconcileHiddenCursors до команд */
             if (currentView < 0) return sel;
             /* v8 ignore stop */
             const targetView = Math.min(Math.max(0, currentView + direction * pageSize), this.getViewLineCount() - 1);
-            const targetLine = this.docLineForViewLine(targetView);
-            const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
-            const newChar = targetDl.columnToOffset(ideal);
-            return this.buildSelection(sel, targetLine, newChar, ideal, inSelectionMode);
+            // Целевой ряд может быть зоной — берём ближайший документный (та же
+            // политика, что docLineForViewLine: сначала выше, потом ниже).
+            // Индекс за краем даёт undefined — скан останавливается сам.
+            const { rowDocLine } = this.buildProjection();
+            let targetRow = targetView;
+            while (rowDocLine[targetRow] < 0) targetRow--;
+            if (rowDocLine[targetRow] === undefined) {
+                targetRow = targetView;
+                while (rowDocLine[targetRow] < 0) targetRow++;
+            }
+            const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentView));
+            const landing = this.landOnRow(targetRow, idealInRow);
+            return this.buildSelection(sel, landing.line, landing.character, landing.idealColumn, inSelectionMode);
         });
         this.ensureCursorVisible();
     }
@@ -1680,7 +1888,9 @@ export class EditorViewState {
     private revealPosition(pos: IPosition): void {
         if (this.viewportWidth <= 0 || this.viewportHeight <= 0) return;
 
-        const visualLine = this.logicalToVisualLine(pos.line);
+        // При wrap показываем РЯД позиции, а не первый фрагмент строки — иначе
+        // каретка на хвосте длинной строки оставалась бы за нижним краем.
+        const visualLine = this.viewLineForPosition(pos.line, pos.character);
         /* v8 ignore start -- callers (goToPosition/revealRange/restoreSelections) expand folds before revealing, so a hidden line never reaches here */
         if (visualLine < 0) return;
         /* v8 ignore stop */
@@ -1698,6 +1908,9 @@ export class EditorViewState {
             this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
         }
 
+        // Горизонтальную часть при wrap отдельно не гейтим: инвариант
+        // «wrap ⇒ scrollLeft ≡ 0» держит сеттер scrollLeft, и записи ниже
+        // вырождаются в no-op сами.
         const lineContent = this.document.getLineContent(pos.line);
         const dl = this.displayLineFor(lineContent);
         const col = dl.offsetToColumn(pos.character);
@@ -1714,17 +1927,30 @@ export class EditorViewState {
     }
 
     /**
-     * Builds an array of logical line indices that are currently visible.
-     * A line is hidden if it falls in range (startLine+1 .. endLine) of a collapsed region.
+     * Ряды проекции без offset'ов — короткая рука для потребителей, которым
+     * нужны только документные номера рядов (см. {@link IViewProjection.rowDocLine}).
      */
     private buildVisibleLines(): number[] {
+        return this.buildProjection().rowDocLine;
+    }
+
+    /**
+     * Строит проекцию документа на ряды вью: видимые (не скрытые свёрткой)
+     * строки плюс виртуальные ряды зон. A line is hidden if it falls in range
+     * (startLine+1 .. endLine) of a collapsed region.
+     */
+    private buildProjection(): IViewProjection {
+        const wrapWidth = this.effectiveWrapWidth() ?? -1;
         if (
-            this.visibleLinesCache !== null &&
-            this.visibleLinesCacheDocVersion === this.document.versionId &&
-            this.visibleLinesCacheFoldsVersion === this.foldsVersion &&
-            this.visibleLinesCacheZonesVersion === this.zonesVersion
+            // Stryker disable next-line ConditionalExpression: null-гейт — чистая мемоизация; сентинелы версий не совпадают с реальными, так что мутант всё равно уходит в rebuild
+            this.projectionCache !== null &&
+            this.projectionCacheDocVersion === this.document.versionId &&
+            this.projectionCacheFoldsVersion === this.foldsVersion &&
+            this.projectionCacheZonesVersion === this.zonesVersion &&
+            this.projectionCacheWrapWidth === wrapWidth &&
+            this.projectionCacheTabSize === this.tabSize
         ) {
-            return this.visibleLinesCache;
+            return this.projectionCache;
         }
 
         // Collect all hidden line ranges from collapsed regions
@@ -1739,6 +1965,8 @@ export class EditorViewState {
         hiddenRanges.sort((a, b) => a.from - b.from);
 
         const visible: number[] = [];
+        const startOffsets: number[] = [];
+        const breaksCache = wrapWidth >= 0 ? this.wrapBreaks(wrapWidth) : null;
         const hiddenIdx = 0;
 
         for (let line = 0; line < this.document.lineCount; line++) {
@@ -1756,38 +1984,68 @@ export class EditorViewState {
             }
             if (!isHidden) {
                 visible.push(line);
+                startOffsets.push(0);
+                // При wrap строка разворачивается в ряд на фрагмент: тот же
+                // docLine, offset начала фрагмента из кеша breaks.
+                const breaks = breaksCache?.getBreaks(line);
+                if (breaks != null) {
+                    for (const breakOffset of breaks) {
+                        visible.push(line);
+                        startOffsets.push(breakOffset);
+                    }
+                }
             }
         }
 
-        const rows = this.viewZonesValue.length === 0 ? visible : insertViewZones(visible, this.viewZonesValue);
+        const { rowDocLine, rowStartOffset } =
+            // Stryker disable next-line ConditionalExpression: fast path — insertViewZones с пустым списком зон возвращает те же массивы
+            this.viewZonesValue.length === 0
+                ? { rowDocLine: visible, rowStartOffset: startOffsets }
+                : insertViewZones(visible, startOffsets, this.viewZonesValue);
 
         // Стартовые строки зон — тем же проходом, что и проекция (якоря после
         // нормализации уникальны, первая встреченная строка зоны — её начало).
         let zoneStarts: Map<number, number> | null = null;
         if (this.viewZonesValue.length > 0) {
             zoneStarts = new Map();
-            for (let i = 0; i < rows.length; i++) {
-                if (rows[i] < 0) {
-                    const anchor = decodeViewZoneAnchor(rows[i]);
+            // Мутанты отсева неубиваемы: «якорь» от документного ряда (decode
+            // положительного числа) уходит в чужое пространство ключей (<= -3
+            // против реальных >= -1) и никогда не читается.
+            // Stryker disable EqualityOperator,ConditionalExpression: см. выше
+            for (let i = 0; i < rowDocLine.length; i++) {
+                if (rowDocLine[i] < 0) {
+                    const anchor = decodeViewZoneAnchor(rowDocLine[i]);
                     if (!zoneStarts.has(anchor)) zoneStarts.set(anchor, i);
                 }
             }
+            // Stryker restore EqualityOperator,ConditionalExpression
         }
         this.zoneStartRowsCache = zoneStarts;
 
-        this.visibleLinesCache = rows;
-        this.visibleLinesCacheDocVersion = this.document.versionId;
-        this.visibleLinesCacheFoldsVersion = this.foldsVersion;
-        this.visibleLinesCacheZonesVersion = this.zonesVersion;
-        return rows;
+        const firstRowOfDocLine = new Int32Array(this.document.lineCount).fill(-1);
+        // Stryker disable next-line EqualityOperator: лишняя итерация читает undefined и отсеивается сравнением с -1
+        for (let i = 0; i < rowDocLine.length; i++) {
+            const doc = rowDocLine[i];
+            // Отрицательные коды зон отсеиваются сами: чтение Int32Array по
+            // отрицательному индексу даёт undefined, а не -1.
+            if (firstRowOfDocLine[doc] === -1) firstRowOfDocLine[doc] = i;
+        }
+
+        this.projectionCache = { rowDocLine, rowStartOffset, firstRowOfDocLine };
+        this.projectionCacheDocVersion = this.document.versionId;
+        this.projectionCacheFoldsVersion = this.foldsVersion;
+        this.projectionCacheZonesVersion = this.zonesVersion;
+        this.projectionCacheWrapWidth = wrapWidth;
+        this.projectionCacheTabSize = this.tabSize;
+        return this.projectionCache;
     }
 
     /**
      * Returns the previous visible logical line before the given logical line, or -1.
      */
     private previousVisibleLine(logicalLine: number): number {
-        const visible = this.buildVisibleLines();
-        const currentIdx = visible.indexOf(logicalLine);
+        const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
+        const currentIdx = firstRowOfDocLine[logicalLine];
         if (currentIdx > 0) {
             // Соседний ряд может быть зоной (< 0) — каретка её проскакивает.
             for (let i = currentIdx - 1; i >= 0; i--) {
@@ -1810,12 +2068,14 @@ export class EditorViewState {
      * Returns the next visible logical line after the given logical line, or -1.
      */
     private nextVisibleLine(logicalLine: number): number {
-        const visible = this.buildVisibleLines();
-        const currentIdx = visible.indexOf(logicalLine);
+        const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
+        const currentIdx = firstRowOfDocLine[logicalLine];
         if (currentIdx >= 0) {
-            // Соседний ряд может быть зоной (< 0) — каретка её проскакивает.
+            // Документные ряды идут по возрастанию строк: первый ряд со строкой
+            // БОЛЬШЕ текущей — следующая видимая. Одно сравнение отсеивает и
+            // зоны (их коды отрицательны), и wrap-фрагменты той же строки.
             for (let i = currentIdx + 1; i < visible.length; i++) {
-                if (visible[i] >= 0) return visible[i];
+                if (visible[i] > logicalLine) return visible[i];
             }
             return -1;
         }
@@ -2110,24 +2370,41 @@ function decodeViewZoneAnchor(row: number): number {
  * сворачивает unchanged-куски и обязан не терять выравнивание (upstream решает
  * то же самое флагом `showInHiddenAreas`). Якорь `-1` (и якорь ниже первой
  * видимой строки) даёт зону перед началом вью.
+ *
+ * `visible`/`startOffsets` — параллельные массивы рядов (ряд = документная
+ * строка или её фрагмент при wrap); зона вставляется только после ПОСЛЕДНЕГО
+ * ряда своей строки: у промежуточных фрагментов `next === visible[i]`, и
+ * условие `afterLine < next` не срабатывает.
  */
-function insertViewZones(visible: readonly number[], zones: readonly IViewZone[]): number[] {
-    const rows: number[] = [];
+function insertViewZones(
+    visible: readonly number[],
+    startOffsets: readonly number[],
+    zones: readonly IViewZone[],
+): { rowDocLine: number[]; rowStartOffset: number[] } {
+    const rowDocLine: number[] = [];
+    const rowStartOffset: number[] = [];
+    const pushZone = (zone: IViewZone): void => {
+        for (let k = 0; k < zone.size; k++) {
+            rowDocLine.push(encodeViewZoneRow(zone.afterLine));
+            rowStartOffset.push(0);
+        }
+    };
     let zi = 0;
     /* v8 ignore start -- ?? недостижим: видимый список пуст не бывает — фолд не прячет собственный заголовок */
     const firstVisible = visible[0] ?? Number.MAX_SAFE_INTEGER;
     /* v8 ignore stop */
     while (zi < zones.length && zones[zi].afterLine < firstVisible) {
-        for (let k = 0; k < zones[zi].size; k++) rows.push(encodeViewZoneRow(zones[zi].afterLine));
+        pushZone(zones[zi]);
         zi++;
     }
     for (let i = 0; i < visible.length; i++) {
-        rows.push(visible[i]);
+        rowDocLine.push(visible[i]);
+        rowStartOffset.push(startOffsets[i]);
         const next = i + 1 < visible.length ? visible[i + 1] : Number.MAX_SAFE_INTEGER;
         while (zi < zones.length && zones[zi].afterLine >= visible[i] && zones[zi].afterLine < next) {
-            for (let k = 0; k < zones[zi].size; k++) rows.push(encodeViewZoneRow(zones[zi].afterLine));
+            pushZone(zones[zi]);
             zi++;
         }
     }
-    return rows;
+    return { rowDocLine, rowStartOffset };
 }

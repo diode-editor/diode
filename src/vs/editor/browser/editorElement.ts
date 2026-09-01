@@ -1,5 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
+import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import { Point } from "@tuidom/core/common/geometryPromitives";
+import type { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
@@ -133,6 +135,10 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public get contentWidth(): number {
+        // При переносе контент по построению не шире вьюпорта: горизонтальному
+        // скроллбару нечего показывать (политика "auto" гаснет на
+        // contentSize <= viewportSize), а maxScrollLeft в handleWheel — ноль.
+        if (this.viewState.isWordWrapActive) return this.viewState.viewportWidth;
         // The width cache tracks edits incrementally off onDidChangeContent, so
         // this is O(1) between edits and re-measures only changed lines after one
         // — unlike the old per-versionId whole-document rescan that froze the
@@ -171,7 +177,11 @@ export class EditorElement extends TUIElement implements IScrollable {
             readOnly: vs.readOnly,
             languageId: vs.document.languageId,
             lineCount: vs.document.lineCount,
+            wordWrap: vs.wordWrap,
+            wordWrapColumn: vs.wordWrapColumn,
+            viewLineCount: vs.getViewLineCount(),
             tabSize: vs.tabSize,
+            insertSpaces: vs.insertSpaces,
             scrollTop: vs.scrollTop,
             scrollLeft: vs.scrollLeft,
             selections,
@@ -213,6 +223,28 @@ export class EditorElement extends TUIElement implements IScrollable {
         const local = caretLocalCell(this.viewState, this.gutterWidth, this.layoutSize);
         if (local === null) return null;
         return new Point(this.globalPosition.x + local.x, this.globalPosition.y + local.y);
+    }
+
+    /**
+     * Единственная точка записи размеров вьюпорта во view-state — ДО render:
+     * при word wrap от ширины зависит сама проекция, а `contentHeight`
+     * (= число рядов вью) читает ScrollBarDecorator в своём layout-проходе.
+     * Декоратор решает видимость полос до layout ребёнка, то есть по проекции
+     * ПРОШЛОЙ ширины — на смене ширины дозаказываем кадр, и повторный проход с
+     * той же шириной сходится (widthChanged=false). Отложенно через microtask:
+     * markDirty прямо из layout оставил бы корень layout-грязным после кадра —
+     * тот же паттерн, что onDidChangeMode в diffEditorPane2.
+     */
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const size = super.performLayout(constraints);
+        const textWidth = size.width - this.gutterWidth;
+        const changed = this.viewState.viewportWidth !== textWidth || this.viewState.viewportHeight !== size.height;
+        this.viewState.viewportWidth = textWidth;
+        this.viewState.viewportHeight = size.height;
+        if (changed && this.viewState.isWordWrapActive) {
+            queueMicrotask(() => this.markDirty());
+        }
+        return size;
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
@@ -295,8 +327,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     public render(context: RenderContext): void {
         const gutterW = this.gutterWidth;
         const contentCols = this.layoutSize.width - gutterW;
-        this.viewState.viewportWidth = contentCols;
-        this.viewState.viewportHeight = this.layoutSize.height;
         const scrollTop = this.viewState.scrollTop;
         const scrollLeft = this.viewState.scrollLeft;
         const visibleLines = this.layoutSize.height;
@@ -372,6 +402,11 @@ export class EditorElement extends TUIElement implements IScrollable {
             return result;
         };
 
+        // Кадровый мемо DisplayLine по документной строке: при wrap N фрагментов
+        // одной строки не должны сегментировать её N раз (тот же приём, что
+        // displayLineByDocLine в paintCarets).
+        const dlByDocLine = new Map<number, DisplayLine>();
+
         for (let screenY = 0; screenY < visibleLines; screenY++) {
             const viewLine = scrollTop + screenY;
 
@@ -407,10 +442,18 @@ export class EditorElement extends TUIElement implements IScrollable {
                 continue;
             }
 
+            // Фрагмент строки, который несёт этот ряд; ряд-продолжение (start > 0)
+            // не повторяет номер строки, chevron и маркеры — они у первого ряда.
+            const frag = this.viewState.viewLineRange(viewLine);
+            const isContinuation = frag.start > 0;
+
             // --- Gutter ---
             if (viewLine < viewLineCount) {
                 const logLine = this.viewState.visualToLogicalLine(viewLine);
-                const lineNumStr = String(logLine + 1).padStart(digitCount, " ");
+                const lineNumStr = isContinuation
+                    ? // Stryker disable next-line StringLiteral: пустая строка даёт undefined-char, который setCell рисует тем же пробелом
+                      " ".repeat(digitCount)
+                    : String(logLine + 1).padStart(digitCount, " ");
                 const isActive = logLine === primaryLine;
                 const numFg = isActive ? lnActiveFg : lnFg;
                 // Фон диффовой строки идёт и под номером (как в VS Code) —
@@ -435,7 +478,11 @@ export class EditorElement extends TUIElement implements IScrollable {
                 }
                 // Внешний гуттер-маркер (`-`/`+` диффа) — в своей колонке сразу
                 // после цифр (колонка существует, только когда маркеры заданы).
-                if (this.gutterMarkerColumns > 0) {
+                // Гард по колонке маркеров и мапа маркеров растут из одного
+                // источника (decorations.gutterMarkers): «пустая колонка, но
+                // непустая мапа» невозможна, мутанты гарда неубиваемы.
+                // Stryker disable next-line ConditionalExpression,EqualityOperator: см. выше
+                if (this.gutterMarkerColumns > 0 && !isContinuation) {
                     const marker = gutterMarkerByLine.get(logLine);
                     if (marker !== undefined) {
                         context.setCell(GUTTER_LEFT_PADDING + digitCount, screenY, {
@@ -449,11 +496,11 @@ export class EditorElement extends TUIElement implements IScrollable {
                 // chevron), painted after the fold-area blanks so it survives.
                 // Modified lines get a dashed bar (VS Code dirty-diff style).
                 const change = gutterChangeByLine.get(logLine);
-                if (change !== undefined) {
+                if (change !== undefined && !isContinuation) {
                     const char = change.dashed ? GUTTER_CHANGE_BAR_DASHED : GUTTER_CHANGE_BAR;
                     context.setCell(foldCol - 1, screenY, { char, fg: change.color, bg: rowGutBg });
                 }
-                const foldState = foldHeaderByLine.get(logLine);
+                const foldState = isContinuation ? undefined : foldHeaderByLine.get(logLine);
                 // Collapsed regions always show their chevron; expanded ones only
                 // while the gutter is hovered (VS Code `showFoldingControls`).
                 const showChevron = foldState === true || (foldState === false && this.foldGutterHovered);
@@ -478,14 +525,28 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
 
             const lineContent = this.viewState.getViewLine(viewLine);
-            const dl = this.viewState.displayLineFor(lineContent);
+            const rowLogLine = this.viewState.visualToLogicalLine(viewLine);
+            // Кэш — чистая мемоизация: без него результат тот же, только
+            // пересегментированный на каждом фрагменте. Мутанты неубиваемы.
+            // Stryker disable next-line CallExpression: см. выше
+            let dl = dlByDocLine.get(rowLogLine);
+            // Stryker disable next-line ConditionalExpression: см. выше
+            if (dl === undefined) {
+                dl = this.viewState.displayLineFor(lineContent);
+                // Stryker disable next-line CallExpression: заполнение кэша, результат не меняет
+                dlByDocLine.set(rowLogLine, dl);
+            }
             const lineTokens = this.viewState.getViewLineTokens(viewLine);
             const tokenIndex = lineTokens ? new TokenIndex(lineTokens, lineContent.length) : null;
+            // Колоночное окно фрагмента в целой строке; у последнего фрагмента
+            // правой границы нет — за концом строки и так рисуются пробелы.
+            const isLastFragment = frag.end === lineContent.length;
+            const fragStartCol = isContinuation ? dl.offsetToColumn(frag.start) : 0;
 
             // Фон декорированной строки должен побеждать фон токена, иначе
             // полоса added/removed рвётся на подсвеченных словах (та же
             // политика, что у диффовой смотрелки).
-            const decoratedBg = lineBgByLine.get(this.viewState.visualToLogicalLine(viewLine));
+            const decoratedBg = lineBgByLine.get(rowLogLine);
             paintTextLine(context, {
                 displayLine: dl,
                 tokenIndex,
@@ -494,6 +555,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                 gutterW,
                 contentCols,
                 scrollLeft,
+                startColumn: fragStartCol,
+                endColumnExclusive: dl.offsetToColumn(frag.end),
                 fg: editorFg,
                 bg: decoratedBg ?? editorBg,
                 allowTokenBg: decoratedBg === undefined,
@@ -502,9 +565,16 @@ export class EditorElement extends TUIElement implements IScrollable {
             // Extremely long line: rendering stopped at STOP_RENDERING_LINE_AFTER.
             // Draw a labelled "Long line trimmed" button at the cut point when it
             // is on screen, painted as a warning plaque (dark text on the warning
-            // colour) so the truncation is obvious rather than silent.
-            if (dl.isTruncated) {
-                const badgeStartCol = dl.displayWidth - scrollLeft;
+            // colour) so the truncation is obvious rather than silent. При wrap
+            // плашка — на последнем фрагменте, где и лежит точка обрыва.
+            if (dl.isTruncated && isLastFragment) {
+                let badgeStartCol = dl.displayWidth - scrollLeft - fragStartCol;
+                // При wrap скролла вправо нет, а жёсткая резка кладёт точку
+                // обрыва ровно на ширину фрагмента — прижимаем плашку в видимую
+                // область, поверх хвоста последнего фрагмента.
+                if (this.viewState.isWordWrapActive) {
+                    badgeStartCol = Math.min(badgeStartCol, contentCols - LONG_LINE_TRUNCATION_BADGE.length);
+                }
                 for (let i = 0; i < LONG_LINE_TRUNCATION_BADGE.length; i++) {
                     const col = badgeStartCol + i;
                     if (col >= 0 && col < contentCols) {
@@ -518,9 +588,10 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
 
             // Collapsed region: draw a marker after the header line's content,
-            // standing in for the hidden body (VS Code's inline "⋯").
-            if (foldHeaderByLine.get(this.viewState.visualToLogicalLine(viewLine)) === true) {
-                const markerCol = dl.displayWidth + 1 - scrollLeft;
+            // standing in for the hidden body (VS Code's inline "⋯"). При wrap —
+            // после конца текста, то есть на последнем фрагменте заголовка.
+            if (foldHeaderByLine.get(rowLogLine) === true && isLastFragment) {
+                const markerCol = dl.displayWidth + 1 - scrollLeft - fragStartCol;
                 if (markerCol >= 0 && markerCol < contentCols) {
                     context.setCell(gutterW + markerCol, screenY, {
                         char: FOLD_COLLAPSED_MARKER,
@@ -658,6 +729,9 @@ export class EditorElement extends TUIElement implements IScrollable {
             // Строка-зона: документной строки нет — гайды через неё не рисуем
             // (сентинел -1 сломал бы и мапу, и min/max).
             if (logLine < 0) continue;
+            // Ряд-продолжение wrap: гайд лёг бы поверх текста — продолжения
+            // начинаются с колонки 0 (wrappingIndent не реализован).
+            if (this.viewState.viewLineRange(viewLine).start > 0) continue;
             screenYByLogical.set(logLine, screenY);
             if (minLog < 0) minLog = logLine;
             maxLog = logLine;
@@ -877,6 +951,8 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         const viewLine = this.viewState.scrollTop + localY;
         if (viewLine < 0 || viewLine >= this.viewState.getViewLineCount()) return false;
+        // Chevron живёт на первом фрагменте — клик по продолжению wrap не фолдит.
+        if (this.viewState.viewLineRange(viewLine).start > 0) return false;
 
         const logLine = this.viewState.visualToLogicalLine(viewLine);
         const region = this.viewState.foldedRegions.find((r) => r.startLine === logLine);

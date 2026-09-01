@@ -96,3 +96,44 @@ describe("detectIndentation drives the indent unit", () => {
         expect(state.document.getText().startsWith("\t")).toBe(true);
     });
 });
+
+describe("runDetectIndentation — приоритет источников", () => {
+    /** Файл отступлён двойкой: детекция, если ей дать сработать, скажет 2/spaces. */
+    const TWO_SPACE_DOC = "function foo() {\n  const x = 1;\n}";
+
+    it("детекция главнее конфига", () => {
+        const state = new EditorViewState(new TextDocument(TWO_SPACE_DOC));
+        state.configuredTabSize = 8;
+        state.configuredInsertSpaces = false;
+
+        state.runDetectIndentation();
+
+        expect(state.tabSize).toBe(2);
+        expect(state.insertSpaces).toBe(true);
+    });
+
+    it("конфиг закрывает то, о чём файл промолчал", () => {
+        const state = new EditorViewState(new TextDocument("no indentation here"));
+        state.configuredTabSize = 6;
+        state.configuredInsertSpaces = true;
+
+        state.runDetectIndentation();
+
+        expect(state.tabSize).toBe(6);
+        expect(state.insertSpaces).toBe(true);
+    });
+
+    it("явно выставленный отступ переживает и детекцию, и конфиг", () => {
+        const state = new EditorViewState(new TextDocument(TWO_SPACE_DOC));
+        state.tabSize = 8;
+        state.insertSpaces = false;
+        state.indentExplicitlySet = true;
+        state.configuredTabSize = 3;
+        state.configuredInsertSpaces = true;
+
+        state.runDetectIndentation();
+
+        expect(state.tabSize).toBe(8);
+        expect(state.insertSpaces).toBe(false);
+    });
+});

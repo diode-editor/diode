@@ -272,6 +272,7 @@ describe("Workbench — menu bar wiring", () => {
             "Increase Side Bar Width",
             "Decrease Side Bar Width",
             "Reset Side Bar Width",
+            "Word Wrap",
         ]);
     });
 

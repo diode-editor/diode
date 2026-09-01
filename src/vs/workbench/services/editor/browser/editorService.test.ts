@@ -16,11 +16,13 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/i
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
+import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { loadConfiguration } from "../../../../platform/configuration/node/configurationService.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
 
@@ -487,6 +489,89 @@ describe("EditorService", () => {
 
             expect(ctrl.getActiveEditor()!.viewState.cursorSurroundingLines).toBe(5);
         });
+
+        it("seeds wordWrap and wordWrapColumn from the configuration service", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "bounded",
+                    "editor.wordWrapColumn": 40,
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "const x = 1;"));
+
+            const viewState = ctrl.getActiveEditor()!.viewState;
+            expect(viewState.wordWrap).toBe("bounded");
+            expect(viewState.wordWrapColumn).toBe(40);
+        });
+
+        it("режим on применяется как есть (не через column-ветку)", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "on",
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "const x = 1;"));
+            expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
+        });
+
+        it("невалидное значение editor.wordWrap деградирует к off", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "sideways",
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "const x = 1;"));
+
+            const viewState = ctrl.getActiveEditor()!.viewState;
+            expect(viewState.wordWrap).toBe("off");
+            expect(viewState.wordWrapColumn).toBe(80);
+        });
+    });
+
+    describe("toggleWordWrap (Alt+Z)", () => {
+        it("переключает off ↔ on поверх дефолтного конфига у всех открытых редакторов", () => {
+            const ctrl = createEditorService();
+            ctrl.openFile(writeFile("a.ts", "a"));
+            ctrl.openFile(writeFile("b.ts", "b"));
+            const [first, second] = [ctrl.getEditor(0)!, ctrl.getEditor(1)!];
+            expect(first.viewState.wordWrap).toBe("off");
+
+            ctrl.toggleWordWrap();
+            expect(first.viewState.wordWrap).toBe("on");
+            expect(second.viewState.wordWrap).toBe("on");
+
+            ctrl.toggleWordWrap();
+            expect(first.viewState.wordWrap).toBe("off");
+            expect(second.viewState.wordWrap).toBe("off");
+        });
+
+        it("повторное включение возвращает КОНФИГУРНЫЙ режим, а не plain on", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.wordWrap": "wordWrapColumn",
+                    "editor.wordWrapColumn": 60,
+                }),
+            });
+            ctrl.openFile(writeFile("a.ts", "a"));
+            const viewState = ctrl.getActiveEditor()!.viewState;
+            expect(viewState.wordWrap).toBe("wordWrapColumn");
+
+            ctrl.toggleWordWrap();
+            expect(viewState.wordWrap).toBe("off");
+
+            ctrl.toggleWordWrap();
+            expect(viewState.wordWrap).toBe("wordWrapColumn");
+            expect(viewState.wordWrapColumn).toBe(60);
+        });
+
+        it("override переживает применение конфига к новому редактору", () => {
+            const ctrl = createEditorService();
+            ctrl.openFile(writeFile("a.ts", "a"));
+            ctrl.toggleWordWrap();
+
+            ctrl.openFile(writeFile("b.ts", "b"));
+            expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
+        });
     });
 
     describe("live-reloads editor settings into already-open editors", () => {
@@ -541,6 +626,66 @@ describe("EditorService", () => {
             await cfg.reload();
 
             expect(editor.viewState.tabSize).toBe(2);
+
+            ctrl.dispose();
+            dispose();
+        });
+    });
+
+    // Конфиг ровно как в проде: defaults-слой собран из реестра. Именно его
+    // отсутствие в стабах и прятало баг — `get("editor.tabSize")` отдавал
+    // дефолт 4 на файле с любым отступом, а `setIndentOptions` глушил детекцию.
+    describe("indentation: конфиг с defaults-слоем реестра", () => {
+        const TWO_SPACE_FILE = "function foo() {\n  const x = 1;\n}\n";
+
+        async function productionConfig(settings: string) {
+            const cfgWs = createTempWorkspace({ prefix: "diode-es-indent-" });
+            const p = resolveUserDataPaths({ homedir: "/never", userDataDir: cfgWs.dir });
+            fs.mkdirSync(path.dirname(p.settingsFile), { recursive: true });
+            fs.writeFileSync(p.settingsFile, settings, "utf-8");
+            const cfg = await loadConfiguration(
+                p,
+                undefined,
+                undefined,
+                new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS),
+            );
+            return { cfg, dispose: () => cfgWs.dispose() };
+        }
+
+        it("определяет отступ по файлу, а не по дефолту editor.tabSize", async () => {
+            const { cfg, dispose } = await productionConfig("{}");
+            const ctrl = createEditorService({ configurationService: cfg });
+
+            ctrl.openFile(writeFile("a.ts", TWO_SPACE_FILE));
+
+            expect(ctrl.getActiveEditor()!.viewState.tabSize).toBe(2);
+            expect(ctrl.getActiveEditor()!.viewState.insertSpaces).toBe(true);
+
+            ctrl.dispose();
+            dispose();
+        });
+
+        it("видит табы, хотя дефолт editor.insertSpaces — true", async () => {
+            const { cfg, dispose } = await productionConfig("{}");
+            const ctrl = createEditorService({ configurationService: cfg });
+
+            ctrl.openFile(writeFile("b.ts", "function foo() {\n\tconst x = 1;\n}\n"));
+
+            expect(ctrl.getActiveEditor()!.viewState.insertSpaces).toBe(false);
+
+            ctrl.dispose();
+            dispose();
+        });
+
+        it("editor.detectIndentation: false возвращает власть настройкам", async () => {
+            const { cfg, dispose } = await productionConfig(
+                `{ "editor.detectIndentation": false, "editor.tabSize": 8 }`,
+            );
+            const ctrl = createEditorService({ configurationService: cfg });
+
+            ctrl.openFile(writeFile("c.ts", TWO_SPACE_FILE));
+
+            expect(ctrl.getActiveEditor()!.viewState.tabSize).toBe(8);
 
             ctrl.dispose();
             dispose();

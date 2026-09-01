@@ -14,6 +14,7 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
@@ -52,6 +53,16 @@ function mergeFoldingRegions(indentation: IFoldingRegion[], provider: readonly I
 /** Фон редактора по умолчанию — тот же, что у редакторской группы. */
 const DEFAULT_BACKGROUND_TOKEN = "editor.background";
 
+/**
+ * Отступные настройки из `editor.*`. Ключ, которого нет в конфиге, отсутствует
+ * и здесь — тогда действует встроенный дефолт view-state'а.
+ */
+export interface IIndentConfiguration {
+    readonly tabSize?: number;
+    readonly insertSpaces?: boolean;
+    readonly detectIndentation?: boolean;
+}
+
 export class EditorComponent extends Component {
     public readonly view: ScrollBarDecorator;
 
@@ -65,6 +76,12 @@ export class EditorComponent extends Component {
     private editorViewState: EditorViewState;
     private editor: EditorElement;
     private tokenStore: DocumentTokenStore;
+    /**
+     * Последний применённый `editor.*`-конфиг отступа. Держим у компонента, а не
+     * у view-state'а: view-state пересоздаётся на перечитке документа, а
+     * настройки — нет.
+     */
+    private indentConfiguration: IIndentConfiguration = {};
     private foldingRecomputeScheduled = false;
     /**
      * Источник провайдерских областей сворачивания (host/харнесс подключает сюда
@@ -238,6 +255,9 @@ export class EditorComponent extends Component {
         this.editorViewState.dispose();
         this.editorViewState = new EditorViewState(this.model.document);
         this.editorViewState.readOnly = wasReadOnly;
+        // Настройки отступа — свойство редактора, как и read-only: новый
+        // view-state знает только встроенные дефолты, конфиг помнит компонент.
+        this.applyIndentConfigurationToViewState();
         this.tokenStore.dispose();
         this.tokenStore = new DocumentTokenStore(
             this.model.document,
@@ -351,25 +371,61 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * Применяет к view-state'у редактора частичный набор настроек indent.
-     * После изменений принудительно отключает auto-detect (если расширение
-     * выставило размер таба, оно знает, что делает) и помечает редактор
-     * dirty, чтобы изменения отрисовались в следующем кадре.
+     * Применяет к view-state'у редактора частичный набор настроек indent —
+     * дверь для расширений (`editor.options`, стоковый EditorConfig). Такое
+     * решение главнее и детекции, и конфига: расширение знает про файл то,
+     * чего не знаем ни мы, ни настройки. Помечает редактор dirty, чтобы
+     * изменения отрисовались в следующем кадре.
      */
     public setIndentOptions(patch: { tabSize?: number; insertSpaces?: boolean }): void {
+        let applied = false;
         let changed = false;
-        if (patch.tabSize !== undefined && patch.tabSize > 0 && this.editorViewState.tabSize !== patch.tabSize) {
-            this.editorViewState.tabSize = patch.tabSize;
-            changed = true;
+        // Неположительный размер таба — не решение, а мусор: считаем его так же,
+        // как отсутствие ключа.
+        const tabSize = patch.tabSize ?? 0;
+        if (tabSize > 0) {
+            applied = true;
+            if (this.editorViewState.tabSize !== tabSize) {
+                this.editorViewState.tabSize = tabSize;
+                changed = true;
+            }
         }
-        if (patch.insertSpaces !== undefined && this.editorViewState.insertSpaces !== patch.insertSpaces) {
-            this.editorViewState.insertSpaces = patch.insertSpaces;
-            changed = true;
+        if (patch.insertSpaces !== undefined) {
+            applied = true;
+            if (this.editorViewState.insertSpaces !== patch.insertSpaces) {
+                this.editorViewState.insertSpaces = patch.insertSpaces;
+                changed = true;
+            }
         }
-        if (changed) {
-            this.editorViewState.detectIndentation = false;
-            this.editor.markDirty();
-        }
+        // Флаг взводим по факту решения расширения, а не по факту сдвига числа:
+        // совпавшее с текущим значение — тоже решение, и перечитка конфига не
+        // должна его отменять.
+        if (applied) this.editorViewState.indentExplicitlySet = true;
+        if (changed) this.editor.markDirty();
+    }
+
+    /**
+     * Применяет `editor.tabSize` / `editor.insertSpaces` / `editor.detectIndentation`.
+     * В отличие от {@link setIndentOptions} это НЕ приказ выставить отступ, а
+     * база для детекции: при включённом `detectIndentation` содержимое файла
+     * главнее конфига (как в VS Code). Конфиг запоминаем — view-state
+     * пересоздаётся при перечитке документа, а настройки обязаны пережить это.
+     */
+    public applyIndentConfiguration(config: IIndentConfiguration): void {
+        this.indentConfiguration = config;
+        this.applyIndentConfigurationToViewState();
+        this.editor.markDirty();
+    }
+
+    private applyIndentConfigurationToViewState(): void {
+        const { insertSpaces, detectIndentation } = this.indentConfiguration;
+        // Ключ, которого в конфиге нет, не трогает встроенный дефолт view-state'а
+        // (неположительный `tabSize` — тот же случай, см. setIndentOptions).
+        const tabSize = this.indentConfiguration.tabSize ?? 0;
+        if (tabSize > 0) this.editorViewState.configuredTabSize = tabSize;
+        if (insertSpaces !== undefined) this.editorViewState.configuredInsertSpaces = insertSpaces;
+        if (detectIndentation !== undefined) this.editorViewState.detectIndentation = detectIndentation;
+        this.editorViewState.runDetectIndentation();
     }
 
     /**
@@ -391,6 +447,23 @@ export class EditorComponent extends Component {
         const normalized = Math.max(0, Math.floor(lines));
         if (this.editorViewState.cursorSurroundingLines === normalized) return;
         this.editorViewState.cursorSurroundingLines = normalized;
+        this.editor.markDirty();
+    }
+
+    /**
+     * Применяет `editor.wordWrap`/`editor.wordWrapColumn` к view-state.
+     * Включение сбрасывает горизонтальный скролл (инвариант «wrap ⇒
+     * scrollLeft ≡ 0») и пере-показывает первичную каретку: проекция меняет
+     * нумерацию рядов, и без reveal вьюпорт «уезжал» бы с места правки — VS
+     * Code при toggle тоже сохраняет позицию каретки, а не scrollTop.
+     */
+    public setWordWrap(mode: WordWrapMode, column: number): void {
+        const viewState = this.editorViewState;
+        if (viewState.wordWrap === mode && viewState.wordWrapColumn === column) return;
+        viewState.wordWrap = mode;
+        viewState.wordWrapColumn = column;
+        if (mode !== "off") viewState.scrollLeft = 0;
+        viewState.ensurePrimaryCursorVisible();
         this.editor.markDirty();
     }
 

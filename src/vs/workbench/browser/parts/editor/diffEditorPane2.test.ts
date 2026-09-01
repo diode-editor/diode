@@ -103,6 +103,18 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         pane.dispose();
     });
 
+    it("wordWrap у сторон принудительно выключен: стороны выравниваются по view-строкам", () => {
+        const pane = makePane("aaaa bbbb cccc", "aaaa bbbb cccc");
+        const { original, modified } = sides(pane);
+        expect(original.wordWrapForcedOff).toBe(true);
+        expect(modified.wordWrapForcedOff).toBe(true);
+
+        // Применение конфига/Alt+Z идёт через setWordWrap — сторона форсит off.
+        modified.setWordWrap("on", 80);
+        expect(modified.viewState.wordWrap).toBe("off");
+        pane.dispose();
+    });
+
     it("owned-сторона редактируется, дифф пересчитывается по debounce, выравнивание держится", async () => {
         const base = Array.from({ length: 20 }, (_, i) => `line${String(i)}`).join("\n");
         const model = ownedModel(base);
