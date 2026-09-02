@@ -30,6 +30,8 @@ export interface IExtensionManifest {
     readonly engines: {
         readonly vscode: string;
         readonly node?: string;
+        /** Диапазон совместимых версий Diode (для нативных diode-расширений в реестре). */
+        readonly diode?: string;
     };
 
     /**

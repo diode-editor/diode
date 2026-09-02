@@ -55,6 +55,13 @@ const EXCLUDED = [
     // (extensions/git/git.integration.test.ts). Снять исключение можно, только
     // пробросив активного мутанта в дочерний процесс и вернув покрытие обратно.
     /^extensions\/[^/]+\/main\.ts$/,
+    // Точка входа приложения: разбор CLI, бутстрап DI и подъём TUI. Юнит-тестов
+    // у неё нет по устройству — она же исключена из покрытия в vitest.config.ts,
+    // — поэтому все её мутанты выходят «не покрыты ни одним тестом» и убить их
+    // юнитом нельзя. Проверяет её e2e против собранного бинаря (например
+    // e2e/sea-install.test.ts, e2e/registry-install.test.ts), а логика, которую
+    // есть смысл мутировать, живёт в модулях, которые main.ts только склеивает.
+    /^src\/vs\/diode\/main\.ts$/,
     // Собранные артефакты расширений.
     /^extensions\/[^/]+\/out\//,
 ];
@@ -207,8 +214,8 @@ for (const entry of mutate) console.log(`  ${entry}`);
 
 if (scopeOnly) process.exit(0);
 
-function runStryker(scope) {
-    return spawnSync("npx", ["stryker", "run", "--mutate", scope.join(","), ...strykerArgs], {
+function runStryker(scope, extraArgs = []) {
+    return spawnSync("npx", ["stryker", "run", "--mutate", scope.join(","), ...extraArgs, ...strykerArgs], {
         cwd: repoRoot,
         stdio: "inherit",
     });
@@ -343,7 +350,13 @@ console.log(
 for (const entry of recheck) console.log(`  ${entry}`);
 
 const firstReport = readReport();
-const recheckStatus = runStryker(recheck).status ?? 1;
+// `--disableBail` именно здесь: потерянный прогон — это прогон, стартовавший
+// следом за оборванным по bail, поэтому перепроверка с включённым bail сама
+// теряет часть мутантов и выдаёт новых «выживших» вместо вердикта. На полном
+// прогоне флаг неподъёмен (docs/TESTING.md), но скоуп перепроверки — единицы
+// мутантов по одной строке, и цена «все покрывающие тесты на мутанта» тут
+// секунды. Без него вердикт второго прогона нестабилен от запуска к запуску.
+const recheckStatus = runStryker(recheck, ["--disableBail"]).status ?? 1;
 const { rechecked, stillCrashed } = mergeRecheckIntoReport(firstReport);
 
 // Пустая перепроверка — тихо-зелёный гейт: Stryker на скоупе без мутантов

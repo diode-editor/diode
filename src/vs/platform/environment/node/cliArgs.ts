@@ -35,8 +35,17 @@ export interface ICliArgs {
     readonly help: boolean;
     /** Был ли передан `--version` / `-v`. */
     readonly version: boolean;
-    /** Путь к `.vsix` из `--install-extension`, если указан. */
+    /**
+     * Аргумент `--install-extension`, если указан: путь к `.vsix` (по суффиксу)
+     * либо id `publisher.name` из реестра.
+     */
     readonly installExtension: string | undefined;
+    /**
+     * Источник реестра расширений из `--registry` — путь к каталогу в
+     * публикуемом формате registry-репозитория (позже это же поле примет URL).
+     * Нужен для `--install-extension <id>`.
+     */
+    readonly registry: string | undefined;
     /** id (`publisher.name`) из `--uninstall-extension`, если указан. */
     readonly uninstallExtension: string | undefined;
     /** Был ли передан `--list-extensions`. */
@@ -57,7 +66,10 @@ Options:
   --inspect-tui[=host:port] Поднять TUIDom-инспектор (default: ${DEFAULT_INSPECT_TUI})
   --headless[=<cols>x<rows>] Запуск без терминала: рендер в память, управление
                            через инспектор (требует --inspect-tui; default: ${DEFAULT_HEADLESS_SIZE.cols}x${DEFAULT_HEADLESS_SIZE.rows})
-  --install-extension <path.vsix>   Установить расширение из .vsix и выйти
+  --install-extension <path.vsix | id>  Установить расширение и выйти. Аргумент с
+                           суффиксом .vsix — путь к файлу, иначе id publisher.name
+                           из реестра (требует --registry)
+  --registry <path>        Каталог реестра расширений для установки по id
   --uninstall-extension <publisher.name>  Удалить расширение (все версии) и выйти
   --list-extensions        Показать установленные расширения и выйти
   -h, --help               Показать эту справку
@@ -76,16 +88,20 @@ export class CliArgsError extends Error {
 
 interface IFlagSpec {
     /** Канонический ключ в `ICliArgs`. */
-    readonly key: "userDataDir" | "profile" | "installExtension" | "uninstallExtension";
-    /** Требует значение следующим аргументом или через `=`. */
-    readonly value: true;
+    readonly key: "userDataDir" | "profile" | "installExtension" | "uninstallExtension" | "registry";
 }
 
+/**
+ * Флаги со значением: каждый требует его следующим аргументом или через `=`.
+ * Флаги-переключатели (`--help`, `--list-extensions`, …) разбираются выше по
+ * телу цикла и в таблицу не попадают.
+ */
 const FLAG_SPECS: Readonly<Record<string, IFlagSpec | undefined>> = {
-    "--user-data-dir": { key: "userDataDir", value: true },
-    "--profile": { key: "profile", value: true },
-    "--install-extension": { key: "installExtension", value: true },
-    "--uninstall-extension": { key: "uninstallExtension", value: true },
+    "--user-data-dir": { key: "userDataDir" },
+    "--profile": { key: "profile" },
+    "--install-extension": { key: "installExtension" },
+    "--uninstall-extension": { key: "uninstallExtension" },
+    "--registry": { key: "registry" },
 };
 
 /**
@@ -128,14 +144,13 @@ function parseHeadlessSize(raw: string): { cols: number; rows: number } {
 
 export function parseCliArgs(argv: readonly string[]): ICliArgs {
     const positional: string[] = [];
-    let userDataDir: string | undefined;
-    let profile: string | undefined;
+    // Значения флагов из FLAG_SPECS — по их каноническому ключу; ветвление по
+    // ключу не нужно, спек сам говорит, куда класть.
+    const flagValues: Partial<Record<IFlagSpec["key"], string>> = {};
     let inspectTui: { host: string; port: number } | undefined;
     let headless: { cols: number; rows: number } | undefined;
     let help = false;
     let version = false;
-    let installExtension: string | undefined;
-    let uninstallExtension: string | undefined;
     let listExtensions = false;
 
     let i = 0;
@@ -208,10 +223,7 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
                 throw new CliArgsError(`Option ${name} requires a non-empty value`);
             }
 
-            if (spec.key === "userDataDir") userDataDir = value;
-            else if (spec.key === "profile") profile = value;
-            else if (spec.key === "installExtension") installExtension = value;
-            else uninstallExtension = value;
+            flagValues[spec.key] = value;
             continue;
         }
 
@@ -229,14 +241,15 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
 
     return {
         positional,
-        userDataDir,
-        profile,
+        userDataDir: flagValues.userDataDir,
+        profile: flagValues.profile,
         inspectTui,
         headless,
         help,
         version,
-        installExtension,
-        uninstallExtension,
+        installExtension: flagValues.installExtension,
+        uninstallExtension: flagValues.uninstallExtension,
+        registry: flagValues.registry,
         listExtensions,
     };
 }

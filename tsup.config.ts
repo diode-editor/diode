@@ -30,6 +30,7 @@ export default defineConfig({
     "yauzl",
     "vscode-uri",
     "iconv-lite",
+    "semver",
   ],
   // SEA вшивает единственный main.js — code-splitting (дефолт tsup для esm)
   // вынес бы динамический import("yauzl") в отдельный chunk-*.js, которого в

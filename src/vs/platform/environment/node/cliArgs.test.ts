@@ -127,6 +127,12 @@ describe("parseCliArgs", () => {
         expect(parseCliArgs([]).uninstallExtension).toBeUndefined();
     });
 
+    it("parses --registry with separate value and =form", () => {
+        expect(parseCliArgs(["--registry", "/tmp/registry"]).registry).toBe("/tmp/registry");
+        expect(parseCliArgs(["--registry=/tmp/registry"]).registry).toBe("/tmp/registry");
+        expect(parseCliArgs([]).registry).toBeUndefined();
+    });
+
     it("parses --list-extensions", () => {
         expect(parseCliArgs(["--list-extensions"]).listExtensions).toBe(true);
         expect(parseCliArgs([]).listExtensions).toBe(false);
