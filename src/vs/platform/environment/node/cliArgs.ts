@@ -12,6 +12,8 @@
  *   --                              | всё после трактуется как позиционные
  *   <позиционные>                   | файлы/папки для открытия
  */
+
+import { DEFAULT_REGISTRY_URL } from "../../extensionManagement/node/createRegistrySource.ts";
 export interface ICliArgs {
     /** Файлы и/или директории для открытия. */
     readonly positional: readonly string[];
@@ -41,9 +43,9 @@ export interface ICliArgs {
      */
     readonly installExtension: string | undefined;
     /**
-     * Источник реестра расширений из `--registry` — путь к каталогу в
-     * публикуемом формате registry-репозитория (позже это же поле примет URL).
-     * Нужен для `--install-extension <id>`.
+     * Источник реестра расширений из `--registry` — каталог в публикуемом формате
+     * registry-репозитория либо его http(s)-адрес. Влияет на `--install-extension <id>`;
+     * не задан — публичный реестр (`DEFAULT_REGISTRY_URL`).
      */
     readonly registry: string | undefined;
     /** id (`publisher.name`) из `--uninstall-extension`, если указан. */
@@ -68,8 +70,9 @@ Options:
                            через инспектор (требует --inspect-tui; default: ${DEFAULT_HEADLESS_SIZE.cols}x${DEFAULT_HEADLESS_SIZE.rows})
   --install-extension <path.vsix | id>  Установить расширение и выйти. Аргумент с
                            суффиксом .vsix — путь к файлу, иначе id publisher.name
-                           из реестра (требует --registry)
-  --registry <path>        Каталог реестра расширений для установки по id
+                           из реестра
+  --registry <path|url>    Реестр расширений для установки по id: каталог или
+                           http(s)-адрес (default: ${DEFAULT_REGISTRY_URL})
   --uninstall-extension <publisher.name>  Удалить расширение (все версии) и выйти
   --list-extensions        Показать установленные расширения и выйти
   -h, --help               Показать эту справку

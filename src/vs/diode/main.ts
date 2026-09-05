@@ -25,12 +25,12 @@ import { loadConfiguration } from "../platform/configuration/node/configurationS
 import type { ICliArgs } from "../platform/environment/node/cliArgs.ts";
 import { CliArgsError, parseCliArgs, USAGE } from "../platform/environment/node/cliArgs.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
+import { createRegistrySource } from "../platform/extensionManagement/node/createRegistrySource.ts";
 import {
     installVsix,
     listInstalledExtensions,
     uninstallExtension,
 } from "../platform/extensionManagement/node/extensionInstaller.ts";
-import { FileExtensionRegistrySource } from "../platform/extensionManagement/node/fileRegistrySource.ts";
 import { installFromRegistry } from "../platform/extensionManagement/node/installFromRegistry.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
 import type {
@@ -493,11 +493,9 @@ async function runExtensionManagement(cli: ICliArgs): Promise<never> {
             if (target.endsWith(".vsix")) {
                 result = await installVsix(path.resolve(target), extensionsDir);
             } else {
-                if (cli.registry === undefined) {
-                    console.error(`Installing "${target}" by id requires --registry <path>`);
-                    process.exit(1);
-                }
-                const source = new FileExtensionRegistrySource(path.resolve(cli.registry), (problem) => {
+                // Без --registry идём в публичный реестр Diode: установка по id — это
+                // и есть магазин, а локальный каталог/зеркало остаются флагом.
+                const source = createRegistrySource(cli.registry, (problem) => {
                     console.error(problem);
                 });
                 result = await installFromRegistry(source, target, {
