@@ -1,0 +1,26 @@
+{
+    "name": "sample-lang",
+    "displayName": "Diode Sample Language",
+    "description": "Синтетическое расширение для проверки магазина: свой язык .diodesample с грамматикой, без кода расширения.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "languages": [
+            {
+                "id": "diodesample",
+                "aliases": ["Diode Sample", "diodesample"],
+                "extensions": [".diodesample"]
+            }
+        ],
+        "grammars": [
+            {
+                "language": "diodesample",
+                "scopeName": "source.diodesample",
+                "path": "./syntaxes/diodesample.tmGrammar.json"
+            }
+        ]
+    }
+}

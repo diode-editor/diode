@@ -1,4 +1,4 @@
-import { cpSync } from "node:fs";
+import { cpSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,7 +53,26 @@ async function expectTabSize(ctx: ICheckContext, file: string, tabSize: number):
 
 export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
     {
-        // kind: "native" — наш артефакт, раздаётся с Pages.
+        // kind: "native", декларативное расширение: ни строчки кода, только вклад
+        // языка и грамматики — extension host для него не поднимается вовсе.
+        // Исходник и упаковщик — `sample-extension/` рядом.
+        id: "test.sample-lang",
+        expectFiles: ["package.json", "syntaxes/diodesample.tmGrammar.json"],
+        run: async (ctx) => {
+            // Наблюдаемый эффект вклада языка — имя языка в статус-баре: файл
+            // `.diodesample` перестаёт быть Plain Text.
+            const file = join(ctx.root, "sample.diodesample");
+            writeFileSync(file, "sample marketplace 42\n# comment\n");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                await app.session.waitForText((text) => text.includes("Diode Sample"), { timeoutMs: 40_000 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "native", рантайм-расширение: `main` + subprocess extension host.
         id: "test.tab-setter",
         expectFiles: ["package.json", "extension.js"],
         run: async (ctx) => {
