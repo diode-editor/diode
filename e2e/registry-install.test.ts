@@ -14,6 +14,9 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
  * против собранного SEA-бинаря. Юниты покрывают модули по отдельности; здесь
  * проверяется склейка cliArgs → main → FileExtensionRegistrySource →
  * installFromRegistry и ленивый `import("yauzl")` на новом кодовом пути в SEA.
+ *
+ * Тот же флаг с http(s)-адресом и установка из настоящего опубликованного реестра —
+ * `e2e/marketplace/marketplace.test.ts`.
  */
 
 interface CliResult {
@@ -139,12 +142,6 @@ describe("SEA binary — install from file registry", () => {
         expect(install.stderr).toBe("");
         expect(install.code).toBe(0);
         expect(install.stdout).toContain("Installed acme.demo@1.2.3");
-    });
-
-    it("install by id without --registry fails with a clear message", async () => {
-        const res = await runCli(binary, ["--user-data-dir", userDataDir, "--install-extension", "acme.unknown"]);
-        expect(res.code).toBe(1);
-        expect(res.stderr).toMatch(/requires --registry/);
     });
 
     it("unknown id fails with a registry error", async () => {

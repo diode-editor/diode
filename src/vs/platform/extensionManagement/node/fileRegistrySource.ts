@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import {
+    EXTENSION_ID_RE,
     parseRegistryIndex,
     parseRegistryMeta,
     type IRegistryExtensionMeta,
@@ -22,9 +23,6 @@ import {
  * `extensionInstaller.ts`). Модуль чистый: без DI/логгера; диагностики парсера
  * уходят в необязательный `onProblem`.
  */
-
-/** Безопасный для имени файла id `publisher.name` (участвует в пути `meta/<id>.json`). */
-const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$/i;
 
 export class FileExtensionRegistrySource implements IExtensionRegistrySource {
     private readonly rootDir: string;

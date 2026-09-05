@@ -25,12 +25,12 @@ import { loadConfiguration } from "../platform/configuration/node/configurationS
 import type { ICliArgs } from "../platform/environment/node/cliArgs.ts";
 import { CliArgsError, parseCliArgs, USAGE } from "../platform/environment/node/cliArgs.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
+import { createRegistrySource } from "../platform/extensionManagement/node/createRegistrySource.ts";
 import {
     installVsix,
     listInstalledExtensions,
     uninstallExtension,
 } from "../platform/extensionManagement/node/extensionInstaller.ts";
-import { FileExtensionRegistrySource } from "../platform/extensionManagement/node/fileRegistrySource.ts";
 import { installFromRegistry } from "../platform/extensionManagement/node/installFromRegistry.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
 import type {
@@ -115,7 +115,9 @@ async function runEditor(): Promise<void> {
     // до подъёма TUI (stdout ещё свободен). Приоритет install → uninstall → list.
     if (cli.installExtension !== undefined || cli.uninstallExtension !== undefined || cli.listExtensions) {
         await runExtensionManagement(cli);
-        // runExtensionManagement всегда завершает процесс через process.exit.
+        // Не process.exit: код выхода выставлен, а процессу даём завершиться
+        // самому — см. комментарий у runExtensionManagement.
+        return;
     }
 
     const filePaths = cli.positional;
@@ -471,11 +473,18 @@ async function runEditor(): Promise<void> {
 }
 
 /**
- * Выполняет CLI-команду управления расширениями (--install/--uninstall/--list)
- * и завершает процесс. Работает по каталогу `<userData>/extensions` без подъёма
- * TUI; вывод — в stdout/stderr, коды выхода 0 (успех) / 1 (ошибка).
+ * Выполняет CLI-команду управления расширениями (--install/--uninstall/--list).
+ * Работает по каталогу `<userData>/extensions` без подъёма TUI; вывод — в
+ * stdout/stderr, коды выхода 0 (успех) / 1 (ошибка).
+ *
+ * Код выхода ставится через `process.exitCode`, а не `process.exit()`: установка
+ * по id ходит в сеть, и обрыв процесса посреди закрытия http-сокетов роняет libuv
+ * на Windows (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`) — после
+ * успешной установки пользователь получал бы ассерт в stderr и мусорный код
+ * возврата. Держать процесс тут нечему: TUI ещё не поднят, а простаивающие сокеты
+ * и таймер `AbortSignal.timeout` цикл событий не держат.
  */
-async function runExtensionManagement(cli: ICliArgs): Promise<never> {
+async function runExtensionManagement(cli: ICliArgs): Promise<void> {
     const { extensionsDir } = resolveUserDataPaths({
         userDataDir: cli.userDataDir,
         profile: cli.profile,
@@ -493,11 +502,9 @@ async function runExtensionManagement(cli: ICliArgs): Promise<never> {
             if (target.endsWith(".vsix")) {
                 result = await installVsix(path.resolve(target), extensionsDir);
             } else {
-                if (cli.registry === undefined) {
-                    console.error(`Installing "${target}" by id requires --registry <path>`);
-                    process.exit(1);
-                }
-                const source = new FileExtensionRegistrySource(path.resolve(cli.registry), (problem) => {
+                // Без --registry идём в публичный реестр Diode: установка по id — это
+                // и есть магазин, а локальный каталог/зеркало остаются флагом.
+                const source = createRegistrySource(cli.registry, (problem) => {
                     console.error(problem);
                 });
                 result = await installFromRegistry(source, target, {
@@ -511,7 +518,7 @@ async function runExtensionManagement(cli: ICliArgs): Promise<never> {
             if (removed.length > 0) {
                 console.log(`Removed previous version(s): ${removed.join(", ")}`);
             }
-            process.exit(0);
+            return;
         }
 
         if (cli.uninstallExtension !== undefined) {
@@ -519,20 +526,20 @@ async function runExtensionManagement(cli: ICliArgs): Promise<never> {
             const { removed } = uninstallExtension(id, extensionsDir);
             if (removed.length === 0) {
                 console.error(`Extension ${id} is not installed`);
-                process.exit(1);
+                process.exitCode = 1;
+                return;
             }
             console.log(`Uninstalled ${id} (${removed.length} version(s))`);
-            process.exit(0);
+            return;
         }
 
         // --list-extensions
         for (const ext of listInstalledExtensions(extensionsDir)) {
             console.log(`${ext.id}@${ext.version}`);
         }
-        process.exit(0);
     } catch (err) {
         console.error(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        process.exitCode = 1;
     }
 }
 

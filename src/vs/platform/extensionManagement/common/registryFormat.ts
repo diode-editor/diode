@@ -22,6 +22,15 @@ import semver from "semver";
 export const REGISTRY_SCHEMA_VERSION = 1;
 
 /**
+ * Форма id `publisher.name`. Id участвует в адресе меты (`meta/<id>.json`) — и как
+ * имя файла у файлового источника, и как сегмент URL у HTTP-источника, — поэтому
+ * шаблон проверяется до обращения к источнику. Регистр допускается: манифесты
+ * стоковых расширений пишем не мы (`EditorConfig.EditorConfig`), а `installFromRegistry`
+ * сверяет id с манифестом побайтно.
+ */
+export const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$/i;
+
+/**
  * Курационная классификация: `proxy-openvsx` — протестированный нами сток из
  * openvsx (версия запинена URL + sha256), `native` — нативное diode-расширение.
  * В install-флоу не участвует — нужна странице расширения и политике наполнения.
