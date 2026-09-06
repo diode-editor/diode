@@ -222,6 +222,8 @@ describe("ExtensionsComponent", () => {
         await Promise.resolve();
         await Promise.resolve();
         expect(opened).toHaveLength(0);
+        // И каталог перечитывать незачем: у строки, которой нет, нет и действия.
+        expect(service.refreshCalls).toBe(0);
     });
 
     it("показывает строку поиска, каталог и секцию установленных", () => {

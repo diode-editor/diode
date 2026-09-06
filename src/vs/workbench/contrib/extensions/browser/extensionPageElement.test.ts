@@ -49,6 +49,11 @@ describe("ExtensionPageElement", () => {
     it("до первой раскладки строк нет — переносить нечем", () => {
         const element = new ExtensionPageElement(content());
         expect(lines(element)).toEqual([]);
+
+        // И свежие данные до раскладки строк не рождают: ширины всё ещё нет, а
+        // без неё перенос посчитался бы по «пустой» ширине и всё бы порвал.
+        element.setContent(content({ metaError: "boom" }));
+        expect(lines(element)).toEqual([]);
     });
 
     it("повторная раскладка той же ширины не пересобирает строки — курсор на месте", () => {

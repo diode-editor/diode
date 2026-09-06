@@ -2,7 +2,6 @@ import { createRegistrySource } from "../../platform/extensionManagement/node/cr
 import type { IHostVersions } from "../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
-import { createNullExtensionsWorkbenchService } from "../../workbench/contrib/extensions/common/nullExtensionsWorkbenchService.ts";
 import {
     ExtensionsComponent,
     ExtensionsComponentDIToken,
@@ -41,15 +40,5 @@ export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (
     container.bind(ExtensionsComponentDIToken, ExtensionsComponent);
     // Страница расширения — обычная вкладка: открывает её полоса редакторов,
     // `EditorService` соответствует шву структурно.
-    container.bind(ExtensionsEditorTargetDIToken, () => container.get(EditorServiceDIToken));
-};
-
-/**
- * Тестовый профиль: вьюлет собирается, но магазин пуст — тесты workbench не
- * ходят ни в сеть, ни в каталог расширений пользователя.
- */
-export const extensionsModuleDefault: ContainerModule = (container) => {
-    container.bind(ExtensionsWorkbenchServiceDIToken, createNullExtensionsWorkbenchService);
-    container.bind(ExtensionsComponentDIToken, ExtensionsComponent);
     container.bind(ExtensionsEditorTargetDIToken, () => container.get(EditorServiceDIToken));
 };

@@ -83,6 +83,11 @@ describe("wrapText", () => {
     it("строка ровно по ширине не переносится", () => {
         expect(wrapText("alpha beta", 10)).toEqual(["alpha beta"]);
     });
+
+    it("пробел между словами считается в ширину — на колонку длиннее уже перенос", () => {
+        // 6 + 1 + 4 = 11 > 10: без учёта пробела строка вылезла бы за край.
+        expect(wrapText("alphas beta", 10)).toEqual(["alphas", "beta"]);
+    });
 });
 
 describe("statusLine", () => {

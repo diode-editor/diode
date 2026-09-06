@@ -40,17 +40,15 @@ export function wrapText(text: string, width: number): string[] {
         let line = "";
         for (const word of paragraph.split(" ")) {
             if (word.length === 0) continue;
-            if (line.length === 0) {
-                line = word;
-            } else if (line.length + 1 + word.length <= limit) {
-                line += ` ${word}`;
-            } else {
-                out.push(line);
-                line = word;
-            }
-            while (line.length > limit) {
-                out.push(line.slice(0, limit));
-                line = line.slice(limit);
+            for (const piece of splitLongWord(word, limit)) {
+                if (line.length === 0) {
+                    line = piece;
+                } else if (line.length + 1 + piece.length <= limit) {
+                    line += ` ${piece}`;
+                } else {
+                    out.push(line);
+                    line = piece;
+                }
             }
         }
         // Хвост выталкиваем всегда: у абзаца из одних пробелов он пустой — и
@@ -58,6 +56,17 @@ export function wrapText(text: string, width: number): string[] {
         out.push(line);
     }
     return out;
+}
+
+/**
+ * Слово длиннее строки — на куски по лимиту; короткое отдаётся одним куском.
+ * Число кусков считаем заранее, а не режем циклом «пока длинно»: у функции
+ * переноса тогда не остаётся конструкции, способной зациклиться (мутационный
+ * прогон именно так и вешал раннер, роняя соседние мутанты в «не проверено»).
+ */
+function splitLongWord(word: string, limit: number): string[] {
+    const chunks = Math.ceil(word.length / limit);
+    return Array.from({ length: chunks }, (_, i) => word.slice(i * limit, (i + 1) * limit));
 }
 
 /**
