@@ -190,6 +190,65 @@ describe("buildReferenceGroups", () => {
         expect(groups[1].matches[0].preview.after).toBe("z".repeat(256));
     });
 
+    it("строка ровно в кап не режется, даже если кончается половинкой пары", async () => {
+        // Граница включительная: 256 символов — ещё не режем, хотя последний
+        // code unit и выглядит как начало суррогатной пары.
+        const exact = `${"x".repeat(255)}\ud83d`;
+        const src = source({ [`${ROOT}/a.js`]: `ref${exact}\n` });
+
+        const groups = await buildReferenceGroups([ref("a.js", createRange(0, 0, 0, 3))], src, ROOT);
+
+        expect(groups[0].matches[0].preview.after).toBe(exact);
+    });
+
+    it("суррогатная пара на самой границе капа отрезается целиком", async () => {
+        // Крайние точки диапазона старших суррогатов: U+10000 (D800 DC00) и
+        // U+10FFFF (DBFF DFFF) — обе половинки должны уйти вместе.
+        const lowest = `${"x".repeat(255)}\u{10000}${"y".repeat(10)}`;
+        const highest = `${"x".repeat(255)}\u{10FFFF}${"y".repeat(10)}`;
+        const src = source({
+            [`${ROOT}/low.js`]: `ref${lowest}\n`,
+            [`${ROOT}/high.js`]: `ref${highest}\n`,
+        });
+
+        const groups = await buildReferenceGroups(
+            [ref("low.js", createRange(0, 0, 0, 3)), ref("high.js", createRange(0, 0, 0, 3))],
+            src,
+            ROOT,
+        );
+
+        expect(groups[0].matches[0].preview.after).toBe("x".repeat(255));
+        expect(groups[1].matches[0].preview.after).toBe("x".repeat(255));
+    });
+
+    it("возврат каретки режется только на конце строки", async () => {
+        // \r в середине строки — часть текста (так его видит и сам сервер,
+        // считая колонки), сносим только хвостовой от CRLF.
+        const src = source({ [`${ROOT}/a.ts`]: "aa\rbb cc\r\n" });
+
+        const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 0, 0, 2))], src, ROOT);
+
+        expect(groups[0].matches[0].preview).toEqual({ before: "", inside: "aa", after: "\rbb cc" });
+    });
+
+    it("лишние разделители после корня и обратные слэши в пути нормализуются", async () => {
+        const src = source({
+            [`${ROOT}//src/a.ts`]: "const a = 1;\n",
+            [`${ROOT}/dir\\odd.ts`]: "const b = 2;\n",
+        });
+
+        const groups = await buildReferenceGroups(
+            [
+                { uri: Uri.file(`${ROOT}//src/a.ts`).toString(), range: createRange(0, 6, 0, 7) },
+                { uri: Uri.file(`${ROOT}/dir\\odd.ts`).toString(), range: createRange(0, 6, 0, 7) },
+            ],
+            src,
+            ROOT,
+        );
+
+        expect(groups.map((g) => g.relPath)).toEqual(["src/a.ts", "dir/odd.ts"]);
+    });
+
     it("файл вне корня воркспейса показывается абсолютным путём", async () => {
         const outside = Uri.file("/opt/lib/other.ts").toString();
         const src = source({ "/opt/lib/other.ts": "export const x = 1;\n" });
@@ -210,6 +269,21 @@ describe("buildReferenceGroups", () => {
         const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 0, 0, 1))], src, "");
 
         expect(groups[0].relPath).toBe(`${ROOT}/a.ts`);
+    });
+
+    it("сосед с общим префиксом корня не считается лежащим внутри него", async () => {
+        // «/work/project2» — не «/work/project»: путь показываем целиком, а не
+        // обрезанным до «2/a.ts».
+        const sibling = "/work/project2/a.ts";
+        const src = source({ [sibling]: "const a = 1;\n" });
+
+        const groups = await buildReferenceGroups(
+            [{ uri: Uri.file(sibling).toString(), range: createRange(0, 6, 0, 7) }],
+            src,
+            ROOT,
+        );
+
+        expect(groups[0].relPath).toBe(sibling);
     });
 
     it("пустой список ссылок — пустой список групп", async () => {

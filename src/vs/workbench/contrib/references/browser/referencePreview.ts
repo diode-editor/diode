@@ -144,7 +144,10 @@ function capAfter(after: string): string {
 function labelFor(absolutePath: string, root: string): string {
     // Пустой корень — папка не открыта (файл из CLI): путь показываем как есть,
     // иначе `startsWith("")` съел бы ведущий слэш.
-    const inRoot = root !== "" && absolutePath.startsWith(root);
-    const rel = inRoot ? absolutePath.slice(root.length).replace(/^[/\\]+/u, "") : absolutePath;
+    const rest = root !== "" && absolutePath.startsWith(root) ? absolutePath.slice(root.length) : null;
+    // Сосед с общим префиксом («/work/project2» при корне «/work/project») внутри
+    // корня не лежит: остаток обязан начинаться с разделителя.
+    // Stryker disable next-line Regex: ветка берётся только когда `rest` начинается с разделителя (проверка строкой выше), поэтому якорь `^` на результат не влияет
+    const rel = rest !== null && /^[/\\]/u.test(rest) ? rest.replace(/^[/\\]+/u, "") : absolutePath;
     return rel.replace(/\\/gu, "/");
 }

@@ -47,6 +47,10 @@ interface IHarness {
     readonly activeUri: () => string | undefined;
     readonly caret: () => { line: number; character: number } | undefined;
     readonly requests: IReferenceRequest[];
+    /** id элемента под фокусом — команда обязана увести его в список ссылок. */
+    readonly focusedId: () => string | undefined;
+    /** Корень вьюлета в живом дереве — контракт с инспектором и сценариями. */
+    readonly viewRoot: () => unknown;
     /** Ждёт, пока асинхронный поиск (шов + чтение файлов) наполнит панель. */
     readonly awaitResults: () => Promise<void>;
 }
@@ -115,6 +119,8 @@ describe("Workbench — Find All References end-to-end", () => {
                 return active === null ? undefined : active.viewState.selections[0].active;
             },
             requests,
+            focusedId: () => testApp.focusedElement?.id,
+            viewRoot: () => workbench.view.querySelector("#referencesView"),
             awaitResults: async () => {
                 for (let i = 0; i < 100 && contextKeys.get("hasReferenceResult") !== true; i++) {
                     await settle(1);
@@ -145,6 +151,22 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(shown).not.toContain("EXPLORER");
         expect(h.contextKey("referencesViewletVisible")).toBe(true);
         expect(h.contextKey("hasReferenceResult")).toBe(true);
+        // Показ вьюлета уводит фокус в список — Enter сразу открывает ссылку.
+        expect(h.focusedId()).toBe("referenceResults");
+        expect(h.viewRoot()).not.toBeNull();
+    });
+
+    it("вьюлет доступен из меню View и до первого поиска — пустой панелью", () => {
+        const h = setup();
+
+        h.execute(SHOW_REFERENCES);
+
+        const shown = h.screen();
+        expect(shown).toContain("REFERENCES");
+        expect(shown).not.toContain("EXPLORER");
+        // Поиска ещё не было: ни счётчика, ни строк.
+        expect(shown).not.toContain("results in");
+        expect(h.contextKey("hasReferenceResult")).toBe(false);
     });
 
     it("Enter на ссылке открывает её файл на позиции", async () => {

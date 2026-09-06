@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { Point } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
 import type { IReferenceGroup } from "./referencePreview.ts";
 import { type IReferencesRevealTarget, ReferencesComponent } from "./referencesComponent.ts";
@@ -73,6 +77,13 @@ function render(component: ReferencesComponent, w = 40, h = 10): MockTerminalBac
     return renderElement(component.view, w, h, { themeVars: true });
 }
 
+const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
+
+/** Строка кадра по индексу — для ассертов на точное содержимое шапки. */
+function line(backend: MockTerminalBackend, y: number): string {
+    return backend.screenToString().split("\n")[y];
+}
+
 describe("ReferencesComponent — наполнение панели", () => {
     it("группирует ссылки по файлам со счётчиком и строками кода", () => {
         const component = make();
@@ -117,8 +128,10 @@ describe("ReferencesComponent — наполнение панели", () => {
         expect(screen).not.toContain("src/a.ts");
 
         component.clear();
-        screen = render(component).screenToString();
-        expect(screen).not.toContain("results");
+        const backend = render(component);
+        // Шапка ровно пустая, а не «что-нибудь без слова results».
+        expect(line(backend, 0)).toBe("".padEnd(40, " "));
+        screen = backend.screenToString();
         expect(screen).not.toContain("c.ts");
         expect(component.results.contentHeight).toBe(0);
         expect(component.resultCount).toBe(0);
@@ -131,6 +144,75 @@ describe("ReferencesComponent — наполнение панели", () => {
     });
 });
 
+describe("ReferencesComponent — оформление", () => {
+    it("шапка с отступом в колонку и цветами сайдбара", () => {
+        const component = make();
+        component.setResults(twoFiles());
+        const backend = render(component);
+
+        // Отступ слева на одну колонку — счётчик не прижат к краю панели.
+        expect(line(backend, 0)).toBe(" 3 results in 2 files".padEnd(40, " "));
+        expect(backend.getBgAt(new Point(0, 0))).toBe(theme.getRequiredColor("sideBar.background"));
+        expect(backend.getFgAt(new Point(1, 0))).toBe(theme.getRequiredColor("descriptionForeground"));
+        // Тело списка — тот же фон сайдбара, текст ссылок — его foreground.
+        expect(backend.getBgAt(new Point(0, 1))).toBe(theme.getRequiredColor("sideBar.background"));
+    });
+
+    it("вхождение в строке подсвечено фоном word-highlight", () => {
+        const component = make();
+        component.setResults(twoFiles());
+        const backend = render(component);
+
+        // Вторая ссылка (строка 3 кадра) — под курсором первая, а его фон
+        // перебивает подсветку вхождения.
+        const y = 3;
+        const text = line(backend, y);
+        const at = text.indexOf("greet");
+        expect(text.trim()).toBe("7    return greet();");
+        expect(backend.getBgAt(new Point(at, y))).toBe(theme.getRequiredColor("editor.wordHighlightBackground"));
+        expect(backend.getBgAt(new Point(at - 1, y))).not.toBe(
+            theme.getRequiredColor("editor.wordHighlightBackground"),
+        );
+    });
+
+    it("до первого поиска шапка пустая, а не с текстом", () => {
+        expect(line(render(make()), 0)).toBe("".padEnd(40, " "));
+    });
+
+    it("единственный файл — «file», несколько — «files»", () => {
+        const one = make();
+        one.setResults([group("a.ts", [[1, "", "greet", ""]])]);
+        expect(line(render(one), 0).trim()).toBe("1 results in 1 file");
+
+        const many = make();
+        many.setResults(twoFiles());
+        expect(line(render(many), 0).trim()).toBe("3 results in 2 files");
+    });
+
+    it("пустой результат — ровно «No results»", () => {
+        const component = make();
+        component.setResults([]);
+        expect(line(render(component), 0).trim()).toBe("No results");
+    });
+
+    it("корень view несёт id — по нему его находят тесты и инспектор", () => {
+        expect(make().view.id).toBe("referencesView");
+    });
+});
+
+describe("ReferencesComponent — клавиатура списка", () => {
+    it("typeahead прыгает на файл по началу имени", () => {
+        const component = make();
+        component.setResults(twoFiles());
+        // Курсор стоит на первой ссылке src/a.ts; набор «src/b» уводит на строку
+        // второго файла (метка строки файла — его путь).
+        for (const key of ["s", "r", "c", "/", "b"]) {
+            component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key }));
+        }
+        expect(component.results.getCursorElement()?.id).toBe("file:src/b.ts");
+    });
+});
+
 describe("ReferencesComponent — сворачивание", () => {
     it("Collapse All сворачивает файлы, Expand All возвращает ссылки", () => {
         const component = make();
@@ -140,6 +222,9 @@ describe("ReferencesComponent — сворачивание", () => {
         component.collapseDeepestLevel();
         expect(component.results.contentHeight).toBe(2);
         expect(component.results.isCollapsed("file:src/a.ts")).toBe(true);
+        // Сворачиваются только файлы: у самих ссылок детей нет, и помечать их
+        // свёрнутыми незачем.
+        expect(component.results.isCollapsed("ref:src/a.ts:0")).toBe(false);
 
         component.expandAll();
         expect(component.results.contentHeight).toBe(5);
@@ -190,6 +275,27 @@ describe("ReferencesComponent — открытие ссылки", () => {
 
         expect(reveal.opened).toEqual([]);
         expect(component.results.isCollapsed("file:src/a.ts")).toBe(true);
+    });
+
+    it("после clear() старые строки мертвы: активация исчезнувшей ссылки — no-op", () => {
+        const reveal = fakeReveal();
+        const component = make({ reveal: reveal.target });
+        component.setResults(twoFiles());
+        component.clear();
+
+        component.results.onActivate!({ id: "ref:src/a.ts:0" } as never);
+        component.results.onActivate!({ id: "file:src/a.ts" } as never);
+
+        expect(reveal.opened).toEqual([]);
+    });
+
+    it("активация неизвестной строки не роняет панель", () => {
+        const reveal = fakeReveal();
+        const component = make({ reveal: reveal.target });
+        component.setResults(twoFiles());
+
+        expect(() => component.results.onActivate!({ id: "нет такой строки" } as never)).not.toThrow();
+        expect(reveal.opened).toEqual([]);
     });
 
     it("без активного редактора после openUri позиция не выставляется", () => {

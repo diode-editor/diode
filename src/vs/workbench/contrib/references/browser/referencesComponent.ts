@@ -49,10 +49,11 @@ export interface IReferencesRevealTarget {
 
 export const ReferencesRevealTargetDIToken = token<IReferencesRevealTarget>("ReferencesRevealTarget");
 
-/** Метаданные строки списка — для активации и обхода по F4. */
-type RowMeta =
-    | { readonly kind: "file"; readonly group: IReferenceGroup }
-    | { readonly kind: "reference"; readonly group: IReferenceGroup; readonly match: ITextMatch };
+/** Метаданные строки-ссылки: куда прыгать по Enter/F4. */
+interface IReferenceRow {
+    readonly group: IReferenceGroup;
+    readonly match: ITextMatch;
+}
 
 function fileRowId(group: IReferenceGroup): string {
     return `file:${group.relPath}`;
@@ -88,16 +89,25 @@ export class ReferencesComponent extends Component {
     private readonly root: HeaderBodyViewElement;
     private readonly countLabel = new TextLabelElement("");
     private readonly scrollBars: ScrollBarDecorator;
-    /** Список результатов; публичный — тесты и команды ходят в него напрямую, как в Search. */
-    public readonly results = new ListViewElement({ typeahead: false });
+    /**
+     * Список результатов; публичный — тесты и команды ходят в него напрямую,
+     * как в Search. Typeahead включён (в отличие от поиска, где буквы уходят в
+     * строку запроса): в панели ссылок ввода нет, и прыжок по имени файла —
+     * бесплатная навигация.
+     */
+    public readonly results = new ListViewElement();
 
-    private groups: readonly IReferenceGroup[] = [];
-    private rowMeta = new Map<string, RowMeta>();
-    private rowParents = new Map<string, string | null>();
+    /** Строки-ссылки: id → куда прыгать. Строкам файлов метаданные не нужны. */
+    private referenceRows = new Map<string, IReferenceRow>();
+    /** Строки файлов — их сворачивает Collapse All, они же сворачиваются по Enter. */
+    // Stryker disable next-line ArrayDeclaration: начальное значение до первой пересборки ненаблюдаемо — свернуть нечего, а `rebuildRows` его заменяет
+    private fileRowIds: string[] = [];
     /** Порядок строк-ссылок — обход по F4 идёт по нему, а не по проекции списка. */
     private referenceRowIds: string[] = [];
     private referenceCount = 0;
+    private fileCount = 0;
     /** Был ли уже поиск: до него шапка пуста, после — счётчик или «No results». */
+    // Stryker disable next-line BooleanLiteral: до первого setResults/clear шапку никто не пересчитывает — значение поля на кадр не влияет
     private searched = false;
 
     public constructor(
@@ -126,11 +136,11 @@ export class ReferencesComponent extends Component {
         this.root.id = "referencesView";
         this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.countLabel.setColors("descriptionForeground", INHERITED_BG);
-        this.updateCount();
 
         viewsService.registerView({
             id: REFERENCES_VIEW_ID,
             containerId: REFERENCES_VIEWLET_ID,
+            // Stryker disable next-line StringLiteral: контейнер с единственной видимой view рисуется merged — на экране заголовок КОНТЕЙНЕРА (его задаёт WorkbenchComponent), а заголовок самой view не виден нигде (проверено подменой строки: кадр не меняется)
             title: "REFERENCES",
             order: 10,
             body: this.root,
@@ -156,9 +166,9 @@ export class ReferencesComponent extends Component {
      */
     public setResults(groups: readonly IReferenceGroup[]): void {
         this.searched = true;
-        this.groups = groups;
+        this.fileCount = groups.length;
         this.referenceCount = groups.reduce((sum, group) => sum + group.matches.length, 0);
-        this.rebuildRows();
+        this.rebuildRows(groups);
         this.updateCount();
         this.refreshResultKeys();
     }
@@ -166,9 +176,9 @@ export class ReferencesComponent extends Component {
     /** Очищает панель (команда Clear и смена воркспейса). */
     public clear(): void {
         this.searched = false;
-        this.groups = [];
+        this.fileCount = 0;
         this.referenceCount = 0;
-        this.rebuildRows();
+        this.rebuildRows([]);
         this.updateCount();
         this.refreshResultKeys();
     }
@@ -184,10 +194,7 @@ export class ReferencesComponent extends Component {
      * не требуется.
      */
     public collapseDeepestLevel(): void {
-        for (const [id, meta] of this.rowMeta) {
-            if (meta.kind === "file") this.results.setCollapsed(id, true);
-        }
-        this.refreshResultKeys();
+        for (const id of this.fileRowIds) this.results.setCollapsed(id, true);
     }
 
     /** Expand All — развернуть все свёрнутые строки. */
@@ -195,7 +202,6 @@ export class ReferencesComponent extends Component {
         for (const id of this.results.getCollapsedIds()) {
             this.results.setCollapsed(id, false);
         }
-        this.refreshResultKeys();
     }
 
     /**
@@ -212,42 +218,42 @@ export class ReferencesComponent extends Component {
         this.stepReference(-1);
     }
 
-    private stepReference(delta: number): void {
-        if (this.referenceRowIds.length === 0) return;
-        const cursorId = this.results.getCursorElement()?.id ?? null;
-        const current = cursorId === null ? -1 : this.referenceRowIds.indexOf(cursorId);
-        // Курсор на файл-строке (или его нет вовсе) — шаг «вперёд» ведёт на
-        // первую ссылку, «назад» — на последнюю.
-        const base = current === -1 ? (delta > 0 ? -1 : 0) : current;
+    private stepReference(delta: 1 | -1): void {
         const count = this.referenceRowIds.length;
-        const next = (((base + delta) % count) + count) % count;
+        if (count === 0) return;
+        // Курсора на ссылке нет (стоит на строке файла) — indexOf вернёт -1, и
+        // шаг «вперёд» начинает с первой ссылки, «назад» — с последней. Сам
+        // курсор в непустом списке есть всегда (ранний выход выше), как и id у
+        // строки — список не принимает строки без него.
+        const current = this.referenceRowIds.indexOf(this.results.getCursorElement()!.id!);
+        const next =
+            current === -1
+                ? (delta === 1 ? 0 : count - 1)
+                : (((current + delta) % count) + count) % count;
+        // setCursorTo сам раскрывает свёрнутых предков строки, так что
+        // отдельного expand'а тут не нужно.
         const id = this.referenceRowIds[next];
-        // Строка могла оказаться под свёрнутым файлом — раскрываем, иначе
-        // курсор уедет в невидимое.
-        const parent = this.rowParents.get(id);
-        if (parent != null) this.results.setCollapsed(parent, false);
         this.results.setCursorTo(id);
         this.activateRow(id);
     }
 
-    private rebuildRows(): void {
+    private rebuildRows(groups: readonly IReferenceGroup[]): void {
         this.results.clear();
-        this.rowMeta.clear();
-        this.rowParents.clear();
+        this.referenceRows.clear();
+        this.fileRowIds = [];
         this.referenceRowIds = [];
 
-        for (const group of this.groups) {
+        for (const group of groups) {
             const fileId = fileRowId(group);
             const fileElement = buildFileRow(fileId, group.relPath, group.matches.length, ROW_STYLES);
-            this.rowMeta.set(fileId, { kind: "file", group });
-            this.rowParents.set(fileId, null);
+            this.fileRowIds.push(fileId);
+            // label — метка для typeahead: набор имени файла прыгает на его строку.
             this.results.appendRow(fileElement, { label: group.relPath });
 
             group.matches.forEach((match, index) => {
                 const id = referenceRowId(group, index);
                 const element = buildMatchRow(id, match, ROW_STYLES);
-                this.rowMeta.set(id, { kind: "reference", group, match });
-                this.rowParents.set(id, fileId);
+                this.referenceRows.set(id, { group, match });
                 this.referenceRowIds.push(id);
                 this.results.appendRow(element, { parentId: fileId });
             });
@@ -259,38 +265,35 @@ export class ReferencesComponent extends Component {
 
     /** Enter/двойной клик: файл сворачивается, ссылка открывается на позиции. */
     private activateRow(rowId: string): void {
-        const meta = this.rowMeta.get(rowId);
-        /* v8 ignore start -- defensive: every appended row has meta under its id */
-        if (meta === undefined) return;
-        /* v8 ignore stop */
-        if (meta.kind === "file") {
-            this.results.toggleCollapsed(rowId);
-            this.refreshResultKeys();
+        const row = this.referenceRows.get(rowId);
+        if (row === undefined) {
+            // Строка файла — сворачиваем; неизвестная (например, из прошлого,
+            // уже очищенного результата) — не делаем ничего.
+            if (this.fileRowIds.includes(rowId)) this.results.toggleCollapsed(rowId);
             return;
         }
         // Переход целиком — одна запись истории (см. IJumpRecorder).
         this.jumps.jump(() => {
-            this.revealTarget.openUri(Uri.file(meta.group.absolutePath));
+            this.revealTarget.openUri(Uri.file(row.group.absolutePath));
             const editor = this.revealTarget.getActiveEditor();
             if (editor === null) return;
             // lineNumber строки списка 1-based, редактор ждёт 0-based.
-            const line = meta.match.lineNumber - 1;
-            editor.goToPosition(line, meta.match.startColumn);
-            editor.revealRange(createRange(line, meta.match.startColumn, line, meta.match.endColumn));
+            const line = row.match.lineNumber - 1;
+            editor.goToPosition(line, row.match.startColumn);
+            editor.revealRange(createRange(line, row.match.startColumn, line, row.match.endColumn));
         });
     }
 
     private updateCount(): void {
         this.countLabel.setText(this.countText());
-        this.countLabel.markDirty();
     }
 
     /** Счётчик в шапке — та же формулировка, что у панели поиска. */
     private countText(): string {
         if (!this.searched) return "";
         if (this.referenceCount === 0) return "No results";
-        const files = this.groups.length === 1 ? "file" : "files";
-        return `${String(this.referenceCount)} results in ${String(this.groups.length)} ${files}`;
+        const files = this.fileCount === 1 ? "file" : "files";
+        return `${String(this.referenceCount)} results in ${String(this.fileCount)} ${files}`;
     }
 
     private refreshResultKeys(): void {

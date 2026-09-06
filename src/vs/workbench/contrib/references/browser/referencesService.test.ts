@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { settle } from "../../../../../TestUtils/timing.ts";
+
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
@@ -172,10 +174,17 @@ describe("ReferencesService — findReferences", () => {
         expect(sidebar.shown).toEqual([REFERENCES_VIEWLET_ID]);
     });
 
-    it("устаревший ответ отбрасывается — панель наполняет только последний запрос", async () => {
+    it("устаревший ответ отбрасывается до чтения файлов", async () => {
         const panel = fakeComponent();
         const sidebar = fakeSidebar();
         let release: ((refs: readonly ICoreReference[]) => void) | null = null;
+        let reads = 0;
+        const providers = {
+            readFile: () => {
+                reads++;
+                return Promise.resolve(new TextEncoder().encode(MAIN_TEXT));
+            },
+        } as unknown as IFileSystemProviderRegistry;
         const service = new ReferencesService(
             panel.component,
             fakeGroup({
@@ -187,7 +196,7 @@ describe("ReferencesService — findReferences", () => {
                         : Promise.resolve([reference(MAIN, 0, 9, 14)]),
             }),
             fakeExplorer(),
-            fakeProviders({ [MAIN]: MAIN_TEXT }),
+            providers,
             sidebar.service,
         );
 
@@ -197,6 +206,72 @@ describe("ReferencesService — findReferences", () => {
         await stale;
 
         // Показан ровно один результат — второго (свежего) запроса.
+        expect(panel.shown).toHaveLength(1);
+        expect(panel.shown[0][0].matches[0].lineNumber).toBe(1);
+        // И устаревший ответ отброшен ДО добора строк: лишнего чтения файла нет.
+        expect(reads).toBe(1);
+    });
+
+    it("запрос, устаревший уже во время добора строк, панель не наполняет", async () => {
+        const panel = fakeComponent();
+        // Чтение файла для A зависает: пока A добирает превью, приезжает B.
+        let releaseRead: (() => void) | null = null;
+        let hang = true;
+        const providers = {
+            readFile: () => {
+                if (!hang) return Promise.resolve(new TextEncoder().encode(MAIN_TEXT));
+                return new Promise<Uint8Array>((resolve) => {
+                    releaseRead = () => resolve(new TextEncoder().encode(MAIN_TEXT));
+                });
+            },
+        } as unknown as IFileSystemProviderRegistry;
+        const service = new ReferencesService(
+            panel.component,
+            fakeGroup({ source: () => Promise.resolve([reference(MAIN, 2, 14, 19)]) }),
+            fakeExplorer(),
+            providers,
+            fakeSidebar().service,
+        );
+
+        const stale = service.findReferences();
+        // Дать A дойти до чтения файла, и только потом пускать B.
+        await settle(0);
+        hang = false;
+        await service.findReferences();
+        releaseRead!();
+        await stale;
+
+        // Панель наполнил только второй запрос.
+        expect(panel.shown).toHaveLength(1);
+    });
+
+    it("clear обесценивает запрос так, что следующий его не «усыновит»", async () => {
+        const panel = fakeComponent();
+        let release: ((refs: readonly ICoreReference[]) => void) | null = null;
+        let calls = 0;
+        const service = new ReferencesService(
+            panel.component,
+            fakeGroup({
+                source: () =>
+                    calls++ === 0
+                        ? new Promise<readonly ICoreReference[]>((resolve) => {
+                              release = resolve;
+                          })
+                        : Promise.resolve([reference(MAIN, 0, 9, 14)]),
+            }),
+            fakeExplorer(),
+            fakeProviders({ [MAIN]: MAIN_TEXT }),
+            fakeSidebar().service,
+        );
+
+        // A подвис → Clear → B прошёл целиком → A наконец ответил. Счётчик
+        // запросов обязан развести A и B, иначе ответ A закрасит результат B.
+        const first = service.findReferences();
+        service.clear();
+        await service.findReferences();
+        release!([reference(MAIN, 2, 14, 19)]);
+        await first;
+
         expect(panel.shown).toHaveLength(1);
         expect(panel.shown[0][0].matches[0].lineNumber).toBe(1);
     });

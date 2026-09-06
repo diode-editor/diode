@@ -84,7 +84,9 @@ export class ReferencesService {
         });
         if (seq !== this.requestSeq) return;
 
-        const groups = await buildReferenceGroups(references, this.textSource, this.explorerService.getRootPath() ?? "");
+        // Stryker disable next-line StringLiteral: корень без открытой папки — любая строка, не являющаяся префиксом пути ссылки, даёт тот же результат (путь показывается целиком)
+        const root = this.explorerService.getRootPath() ?? "";
+        const groups = await buildReferenceGroups(references, this.textSource, root);
         if (seq !== this.requestSeq) return;
 
         this.component.setResults(groups);
