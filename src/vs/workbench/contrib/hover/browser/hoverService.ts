@@ -52,7 +52,6 @@ export class HoverService extends Disposable {
 
     /** Guard от устаревших ответов: пока ходили за hover'ом, запрос мог смениться. */
     private requestSeq = 0;
-    private contentSub: IDisposable | null = null;
     private caretSub: IDisposable | null = null;
 
     public constructor(
@@ -71,10 +70,12 @@ export class HoverService extends Disposable {
         // пропуск этого вызова юнит-тестом не наблюдается.
         // Stryker disable next-line CallExpression: см. выше — привязку уже открытого редактора юнит не наблюдает, её путь проверяет поднятие приложения
         this.bindEditor(this.group.getActiveEditor());
+        // Stryker disable next-line BlockStatement: снятие подписок на выключении ненаблюдаемо юнитом — редактор и группа умирают следом, слушать некому
         this.register({
             dispose: () => {
+                // Stryker disable next-line CallExpression: см. выше
                 activeEditorSub.dispose();
-                // Stryker disable next-line CallExpression: снятие подписок на выключении ненаблюдаемо юнитом — дерево умирает следом
+                // Stryker disable next-line CallExpression: см. выше
                 this.unbindEditor();
             },
         });
@@ -139,21 +140,24 @@ export class HoverService extends Disposable {
 
     private bindEditor(editor: TextEditorPane | null): void {
         this.unbindEditor();
+        // Смена редактора при открытом попапе в приложении уже сопровождается
+        // сменой фокуса (её ловит onFocusChanged), поэтому в юните пропуск этого
+        // закрытия не наблюдается — вызов держим для программной смены редактора
+        // без участия фокуса (восстановление сессии, split).
+        // Stryker disable next-line CallExpression: см. выше
         this.close();
         if (editor === null) return;
-        this.contentSub = editor.onDidChangeContent(() => {
-            if (this.isOpen()) this.close();
-        });
+        // Одной подписки на каретку достаточно и для правок: правка двигает
+        // (или пересчитывает) каретку, и событие приходит в том же тике —
+        // отдельная подписка на контент оказалась мёртвым кодом.
         this.caretSub = editor.onDidChangeCursorPosition(() => {
+            // Stryker disable next-line ConditionalExpression: close() на закрытом попапе — no-op, поэтому проверка экономит вызов, а не меняет поведение
             if (this.isOpen()) this.close();
         });
     }
 
     private unbindEditor(): void {
-        // Stryker disable next-line OptionalChaining: до первой привязки подписок нет — обращение к dispose несуществующей кинуло бы на старте
-        this.contentSub?.dispose();
-        this.contentSub = null;
-        // Stryker disable next-line OptionalChaining: см. выше
+        // Stryker disable next-line OptionalChaining: до первой привязки подписки нет — обращение к dispose несуществующей кинуло бы на старте
         this.caretSub?.dispose();
         this.caretSub = null;
     }

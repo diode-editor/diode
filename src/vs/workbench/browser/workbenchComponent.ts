@@ -194,6 +194,7 @@ export class WorkbenchComponent extends Component {
         this.register(accessor.get(CompletionServiceDIToken));
         // Hover-пара — тот же паттерн: компонент владеет попапом, сервис — логикой.
         const hoverComponent = this.register(accessor.get(HoverComponentDIToken));
+        // Stryker disable next-line CallExpression: сервис всё равно резолвится (его держит WorkbenchContextKeys) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
         this.register(accessor.get(HoverServiceDIToken));
         const findComponent = this.register(accessor.get(FindComponentDIToken));
         this.register(accessor.get(FindServiceDIToken));

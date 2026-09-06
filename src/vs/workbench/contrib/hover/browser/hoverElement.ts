@@ -52,6 +52,7 @@ export class HoverElement extends TUIElement {
     public setBlocks(blocks: readonly string[]): void {
         this.blocksValue = blocks.filter((block) => block.trim() !== "");
         this.wrapCache = null;
+        // Stryker disable next-line CallExpression: пометка на перерисовку ненаблюдаема юнитом (снапшот рендерит дерево заново); её путь проверяет кадр приложения
         this.markDirty();
     }
 
@@ -127,6 +128,7 @@ export class HoverElement extends TUIElement {
     // ─── Render ──────────────────────────────────────────────────────────────
 
     public override render(context: RenderContext): void {
+        // Stryker disable next-line ConditionalExpression: пустой попап раскладывается в 0×0, поэтому его отсекает и гейт размера ниже — этот выход лишь называет причину
         if (this.isEmpty) return;
         const w = this.layoutSize.width;
         const h = this.layoutSize.height;

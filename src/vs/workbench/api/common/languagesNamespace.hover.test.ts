@@ -114,8 +114,10 @@ describe("LanguagesNamespace — languages.provideHover", () => {
                             { language: "ts", value: "const b = 1" }, // legacy MarkedString
                             { language: "", value: "без языка" },
                             "", // пустой блок отбрасывается
+                            "   \n  ", // из одних пробелов — тоже пустой
                             42, // мусор отбрасывается
                             {}, // объект без value — тоже мусор
+                            null, // typeof null === "object", но полей у него нет
                         ],
                         // range нет — hover без диапазона валиден
                     }) as unknown as vscode.Hover,
@@ -150,6 +152,9 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
         expect(ctx.registry.get(Uri.parse(URI))?.getText()).toBe("");
+        // languageId в запросе не пришёл — документ остаётся на дефолте реестра,
+        // а не получает undefined (иначе селекторы перестали бы матчиться).
+        expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("plaintext");
         expect(result).toEqual([{ contents: ["одна строка не в массиве"] }]);
     });
 

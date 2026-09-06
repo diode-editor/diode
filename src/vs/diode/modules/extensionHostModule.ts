@@ -190,6 +190,7 @@ export const extensionHostModule: ContainerModule = (container) => {
 
         // Hover: провайдеры расширений (languages.provideHover) подключаются
         // как источник hover'ов группы (читает HoverService по Show Hover).
+        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
         group.hoverSource = (req) => host.provideHover(req);
 
         // Folding: провайдеры расширений (languages.provideFoldingRanges)

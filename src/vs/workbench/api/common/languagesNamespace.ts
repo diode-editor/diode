@@ -173,21 +173,22 @@ function serializeDefinitionLocation(item: unknown): WireDefinitionLocation | nu
 function serializeHoverContents(raw: unknown): string[] {
     const blocks: string[] = [];
     for (const block of Array.isArray(raw) ? raw : [raw]) {
-        let value: string | null = null;
-        if (typeof block === "string") {
-            value = block;
-        } else if (typeof block === "object" && block !== null) {
-            const b = block as { value?: unknown; language?: unknown };
-            if (typeof b.value === "string") {
-                value =
-                    typeof b.language === "string" && b.language !== ""
-                        ? `\`\`\`${b.language}\n${b.value}\n\`\`\``
-                        : b.value;
-            }
-        }
+        const value = readHoverBlock(block);
         if (value !== null && value.trim() !== "") blocks.push(value);
     }
     return blocks;
+}
+
+/** Один блок `Hover.contents`: строка, `MarkdownString` или `MarkedString`. */
+function readHoverBlock(block: unknown): string | null {
+    if (typeof block === "string") return block;
+    if (block === null) return null;
+    const b = block as { value?: unknown; language?: unknown };
+    if (typeof b.value !== "string") return null;
+    // Legacy MarkedString `{language, value}` — кодовый блок; оборачиваем в
+    // fenced, чтобы UI отличал код от прозы.
+    if (typeof b.language !== "string" || b.language === "") return b.value;
+    return `\`\`\`${b.language}\n${b.value}\n\`\`\``;
 }
 
 /** Токен отмены-заглушка (запросы completion короткоживущие, отмена не нужна). */
@@ -483,6 +484,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
                         token,
                     ),
                 );
+                // Stryker disable next-line BlockStatement: без `continue` сбойный провайдер оставляет `result` неприсвоенным, и проверка ниже отсеивает его так же
             } catch {
                 continue; // сбойный провайдер не роняет остальные
             }

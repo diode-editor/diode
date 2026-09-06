@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
@@ -25,6 +26,12 @@ describe("stripMarkdown — плоский текст для TUI-попапа", 
         expect(stripMarkdown("```typescript\nconst answer: number\n```\nОтвет на главный вопрос.")).toBe(
             "const answer: number\nОтвет на главный вопрос.",
         );
+    });
+
+    it("обрамляющие пробелы и переводы строк срезаются", () => {
+        // tsserver отдаёт документацию с хвостовым переводом строки — в рамке
+        // попапа он превратился бы в пустую строку.
+        expect(stripMarkdown("\n  const a: number  \n\n")).toBe("const a: number");
     });
 
     it("fenced-блок без перевода строки перед закрывающими кавычками", () => {
@@ -207,6 +214,42 @@ describe("HoverService — показ и закрытие попапа", () => {
         editor.getCaretAnchor = () => null;
 
         await service().showHover();
+
+        expect(service().isOpen()).toBe(false);
+    });
+
+    it("клик мимо попапа закрывает его (pointer-политика overlay-сессии)", async () => {
+        group().hoverSource = () => Promise.resolve([hoverOf(["const answer: number"])]);
+        await service().showHover();
+        expect(service().isOpen()).toBe(true);
+
+        // Клик по редактору вне попапа — сессия close-on-outside обязана закрыться.
+        const click = (action: "press" | "release"): MouseToken => ({
+            kind: "mouse",
+            button: "left",
+            action,
+            x: 2,
+            y: 20,
+            shiftKey: false,
+            altKey: false,
+            ctrlKey: false,
+            raw: "",
+        });
+        h.testApp.backend.simulateMouse(click("press"));
+        h.testApp.backend.simulateMouse(click("release"));
+
+        expect(service().isOpen()).toBe(false);
+    });
+
+    it("настоящий уход фокуса в другой виджет закрывает попап", async () => {
+        group().hoverSource = () => Promise.resolve([hoverOf(["const answer: number"])]);
+        await service().showHover();
+        expect(service().isOpen()).toBe(true);
+
+        // Не прямой вызов onFocusChanged, а настоящий путь: фокус уходит в
+        // дерево Explorer, WorkbenchContextKeys ловит смену и гасит попап.
+        h.commands.execute("workbench.view.explorer");
+        await flushMicrotasks();
 
         expect(service().isOpen()).toBe(false);
     });

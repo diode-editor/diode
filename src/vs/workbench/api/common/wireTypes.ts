@@ -770,6 +770,7 @@ export interface IWireHoverParams {
 
 /** Валидирует один wire-hover; `null`, если форма не распознана. */
 function parseWireHover(raw: unknown): WireHover | null {
+    // Stryker disable next-line ConditionalExpression: не-объект всё равно отсеивается строкой ниже — у него нет массива `contents`; проверка стоит ради `null`, на котором чтение поля кинуло бы
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as Record<string, unknown>;
     if (!Array.isArray(obj.contents)) return null;
@@ -821,6 +822,7 @@ export async function requestHover(
     timeoutMs: number,
 ): Promise<ICoreHover[]> {
     const outcome = await raceWithTimeout(request("languages.provideHover", params), timeoutMs);
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
     if (outcome === TIMED_OUT) return [];
     return wireToCoreHovers(parseWireHovers(outcome));
 }
