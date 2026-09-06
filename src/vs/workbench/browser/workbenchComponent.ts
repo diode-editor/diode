@@ -41,6 +41,10 @@ import {
     SearchComponent,
     SearchComponentDIToken,
 } from "../contrib/search/browser/searchComponent.ts";
+import {
+    EXTENSIONS_VIEWLET_ID,
+    ExtensionsComponentDIToken,
+} from "../contrib/extensions/browser/extensionsComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
 import { TerminalPanelComponentDIToken } from "../contrib/terminal/browser/terminalPanelComponent.ts";
@@ -170,6 +174,9 @@ export class WorkbenchComponent extends Component {
         // Search-кластер: сервис поиска (spawn rg) внутри компонента; сам компонент —
         // ещё один вьюлет сайдбара (регистрируется в setWorkspaceFolder).
         this.searchComponent = this.register(accessor.get(SearchComponentDIToken));
+        // Магазин расширений: ещё один вьюлет сайдбара. Каталог читается лениво,
+        // при первом показе (`focus`), — старт в сеть не ходит.
+        this.register(accessor.get(ExtensionsComponentDIToken));
         // Клавиатурный диспатчер: WorkbenchComponent владеет его жизнью и подключает
         // view-хук модальных оверлеев (хук контекст-ключей замыкает на себя
         // WorkbenchContextKeys) — сам сервис про view ничего не знает.
@@ -437,6 +444,15 @@ export class WorkbenchComponent extends Component {
             location: "sidebar",
         });
         this.viewsService.attachContainer(SCM_VIEWLET_ID);
+        // Extensions — контейнер с единственной view, как Search; порядок среди
+        // вьюлетов тот же, что в activity bar VS Code: магазин последний.
+        this.viewsService.registerContainer({
+            id: EXTENSIONS_VIEWLET_ID,
+            title: "EXTENSIONS",
+            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            location: "sidebar",
+        });
+        this.viewsService.attachContainer(EXTENSIONS_VIEWLET_ID);
         this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);
         // Открыть per-project стор состояния для этой папки (переключение флашит
         // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.

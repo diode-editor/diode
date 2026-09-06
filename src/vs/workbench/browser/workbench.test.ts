@@ -208,11 +208,11 @@ describe("Workbench — chords", () => {
         const executeSpy = vi.spyOn(h.commands, "execute");
 
         h.testApp.sendKey("Ctrl+K");
-        h.testApp.sendKey("x"); // not part of any chord
+        h.testApp.sendKey("q"); // not part of any chord
 
         expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
         expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
-        expect(editorText(h.testApp)).toBe(""); // 'x' did not leak
+        expect(editorText(h.testApp)).toBe(""); // 'q' did not leak
     });
 
     it("reports the unmatched combination in the status bar when a chord is not completed", () => {
@@ -221,9 +221,9 @@ describe("Workbench — chords", () => {
         h.workbench.focusEditor();
 
         h.testApp.sendKey("Ctrl+K");
-        h.testApp.sendKey("x");
+        h.testApp.sendKey("q");
 
-        expect(chordHints(h.testApp).some((t) => t.includes("(Ctrl+K X) is not a command"))).toBe(true);
+        expect(chordHints(h.testApp).some((t) => t.includes("(Ctrl+K Q) is not a command"))).toBe(true);
     });
 
     it("the 'not a command' message auto-clears after the timeout", () => {
@@ -234,7 +234,7 @@ describe("Workbench — chords", () => {
         vi.useFakeTimers();
         try {
             h.testApp.sendKey("Ctrl+K");
-            h.testApp.sendKey("x");
+            h.testApp.sendKey("q");
             expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(true);
 
             vi.advanceTimersByTime(4000);
@@ -303,7 +303,7 @@ describe("Workbench — chords", () => {
         try {
             // Broken chord arms the auto-clear timer for the "not a command" hint.
             h.testApp.sendKey("Ctrl+K");
-            h.testApp.sendKey("x");
+            h.testApp.sendKey("q");
             expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(true);
 
             // The very next key dispatch clears that pending timer (and the hint) eagerly,

@@ -128,6 +128,8 @@ export interface ContextKeyTypes {
     hasSearchResult: boolean;
     /** Есть видимая развёрнутая строка результатов — тумблер Collapse All/Expand All. */
     viewHasSomeCollapsibleResult: boolean;
+    /** Показан вьюлет Extensions (магазин расширений). */
+    extensionsViewletVisible: boolean;
     scmViewletVisible: boolean;
     /** Фокус в commit input box вьюлета Source Control (Diode; VS Code: scmInputIsInFocus). */
     scmInputFocus: boolean;
@@ -299,6 +301,7 @@ export const allContextKeys: ContextKey[] = [
     "searchViewMode",
     "hasSearchResult",
     "viewHasSomeCollapsibleResult",
+    "extensionsViewletVisible",
     "scmViewletVisible",
     "scmInputFocus",
     "resourceSelectedForCompare",

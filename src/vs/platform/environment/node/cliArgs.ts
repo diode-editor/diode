@@ -44,7 +44,8 @@ export interface ICliArgs {
     readonly installExtension: string | undefined;
     /**
      * Источник реестра расширений из `--registry` — каталог в публикуемом формате
-     * registry-репозитория либо его http(s)-адрес. Влияет на `--install-extension <id>`;
+     * registry-репозитория либо его http(s)-адрес. Влияет и на
+     * `--install-extension <id>`, и на магазин в UI (вьюлет Extensions);
      * не задан — публичный реестр (`DEFAULT_REGISTRY_URL`).
      */
     readonly registry: string | undefined;
@@ -71,8 +72,9 @@ Options:
   --install-extension <path.vsix | id>  Установить расширение и выйти. Аргумент с
                            суффиксом .vsix — путь к файлу, иначе id publisher.name
                            из реестра
-  --registry <path|url>    Реестр расширений для установки по id: каталог или
-                           http(s)-адрес (default: ${DEFAULT_REGISTRY_URL})
+  --registry <path|url>    Реестр расширений для установки по id и для вьюлета
+                           Extensions: каталог или http(s)-адрес
+                           (default: ${DEFAULT_REGISTRY_URL})
   --uninstall-extension <publisher.name>  Удалить расширение (все версии) и выйти
   --list-extensions        Показать установленные расширения и выйти
   -h, --help               Показать эту справку

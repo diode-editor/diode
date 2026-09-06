@@ -1,6 +1,10 @@
+import { tmpdir } from "node:os";
+import * as path from "node:path";
+
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
+import { DIODE_VERSION } from "../../base/common/version.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
@@ -9,12 +13,14 @@ import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import { TuiApplicationDIToken } from "../../workbench/common/coreTokens.ts";
 import { TerminalSessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { terminalEnvironmentModule } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts";
+import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
 import { darkPlusTheme } from "../../workbench/services/themes/common/themes/darkPlus.ts";
 
 import { backendModuleDefault } from "./backendModule.ts";
 import { commandsModule } from "./commandsModule.ts";
 import { configurationModuleDefault } from "./configurationModule.ts";
 import { coreModuleLate } from "./coreModule.ts";
+import { extensionsModule } from "./extensionsModule.ts";
 import { fileWatcherModuleDefault } from "./fileWatcherModule.ts";
 import { keybindingsModuleDefault } from "./keybindingsModule.ts";
 import { loggingModuleDefault } from "./loggingModule.ts";
@@ -60,7 +66,16 @@ export function createTestContainer(): TestContainerHandle {
         .use(workspaceModule)
         .use(fileWatcherModuleDefault)
         .use(markersModule, { settingsResource: null, keybindingsResource: null })
-        .use(workbenchModule);
+        .use(workbenchModule)
+        // Магазин — та же продовая проводка, что в приложении, но по путям,
+        // которых нет: реестр не читается, каталог установленного пуст, в сеть
+        // никто не ходит. Отдельного «пустого» магазина для тестов не держим —
+        // он расходился бы с настоящим.
+        .use(extensionsModule, {
+            registry: path.join(tmpdir(), "diode-tests-no-registry"),
+            extensionsDir: path.join(tmpdir(), "diode-tests-no-extensions"),
+            host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION },
+        });
 
     // Перебиваем прод-фабрику терминальных сессий на фейк: тесты не спавнят реальные
     // PTY. Каждый вызов возвращает свежий FakeTerminalSurface; тесты, которым нужен

@@ -1,0 +1,19 @@
+{
+    "schemaVersion": 1,
+    "id": "acme.sample",
+    "publisher": "acme",
+    "name": "sample",
+    "displayName": "Acme Sample",
+    "description": "Sample entry for the Extensions view e2e",
+    "kind": "native",
+    "repository": "https://github.com/diode-editor/diode",
+    "readme": "# Acme Sample\n\nThis readme comes from the registry meta and is shown on the extension page as plain text.\n",
+    "versions": [
+        {
+            "version": "1.2.0",
+            "engines": { "vscode": "^1.0.0" },
+            "artifact": { "type": "path", "path": "artifacts/acme.sample-1.2.0.vsix" },
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    ]
+}

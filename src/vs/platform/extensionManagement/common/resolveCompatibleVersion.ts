@@ -1,6 +1,6 @@
 import semver from "semver";
 
-import type { IRegistryVersion } from "./registryFormat.ts";
+import type { IRegistryEngines, IRegistryVersion } from "./registryFormat.ts";
 
 /**
  * Версии хоста для матчинга `engines` записей реестра. Чистый параметр:
@@ -48,7 +48,16 @@ function satisfies(version: string, range: string): boolean {
  * vscode-канала исключения нет — версия шима всегда реальна.
  */
 export function isVersionCompatible(version: IRegistryVersion, host: IHostVersions): boolean {
-    const { diode, vscode } = version.engines;
+    return areEnginesCompatible(version.engines, host);
+}
+
+/**
+ * То же правило по одним лишь `engines` — без записи версии. Нужно списку
+ * Extensions view: `index.json` несёт `latest.engines`, но не запись версии
+ * целиком, а бейдж «несовместимо» считается именно по нему.
+ */
+export function areEnginesCompatible(engines: IRegistryEngines, host: IHostVersions): boolean {
+    const { diode, vscode } = engines;
     if (diode !== undefined && hasReleaseVersion(host.diode) && !satisfies(host.diode, diode)) {
         return false;
     }

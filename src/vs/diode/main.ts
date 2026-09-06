@@ -258,6 +258,17 @@ async function runEditor(): Promise<void> {
         logHistory,
         settingsResource: userDataPaths.settingsFile,
         keybindingsResource: userDataPaths.keybindingsFile,
+        // Магазин: тот же выбор источника, что у CLI-установки (`--registry`
+        // либо публичный реестр), тот же каталог установки и те же версии для
+        // матчинга `engines` — иначе UI показывал бы не то, что поставит CLI.
+        extensions: {
+            registry: cli.registry,
+            extensionsDir: userDataPaths.extensionsDir,
+            host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION },
+            onProblem: (problem) => {
+                extensionsLogger.warn(problem);
+            },
+        },
     });
 
     // Единственный якорь сброса состояния на диск: `process.exit(0)` (любой путь

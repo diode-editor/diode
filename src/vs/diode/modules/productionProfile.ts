@@ -20,6 +20,8 @@ import { commandsModule } from "./commandsModule.ts";
 import { configurationModule } from "./configurationModule.ts";
 import { coreModule } from "./coreModule.ts";
 import { extensionHostModule } from "./extensionHostModule.ts";
+import type { ExtensionsModuleContext } from "./extensionsModule.ts";
+import { extensionsModule } from "./extensionsModule.ts";
 import { fileWatcherModule } from "./fileWatcherModule.ts";
 import { keybindingsModule } from "./keybindingsModule.ts";
 import { loggingModule } from "./loggingModule.ts";
@@ -50,6 +52,8 @@ export interface ProductionProfileContext {
     settingsResource: string;
     /** Absolute path of the active-profile Diode keybindings.json (for the open-keybindings command). */
     keybindingsResource: string;
+    /** Магазин расширений: источник реестра (`--registry`), каталог установки и версии сборки. */
+    extensions: ExtensionsModuleContext;
 }
 
 /**
@@ -79,5 +83,6 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(fileWatcherModule)
         .use(markersModule, { settingsResource: ctx.settingsResource, keybindingsResource: ctx.keybindingsResource })
         .use(workbenchModule)
+        .use(extensionsModule, ctx.extensions)
         .use(extensionHostModule);
 }

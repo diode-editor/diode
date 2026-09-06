@@ -155,6 +155,48 @@ describe("ExtensionInstaller", () => {
         expect(second.removed).toEqual([]);
     });
 
+    it("list отдаёт displayName и description манифеста — их показывает магазин", async () => {
+        await installVsix(
+            await makeVsix(
+                "named.vsix",
+                vsixEntries({
+                    name: "hello",
+                    publisher: "acme",
+                    version: "1.0.0",
+                    displayName: "Hello Extension",
+                    description: "Says hello",
+                }),
+            ),
+            extensionsDir,
+        );
+
+        expect(listInstalledExtensions(extensionsDir)[0]).toMatchObject({
+            id: "acme.hello",
+            displayName: "Hello Extension",
+            description: "Says hello",
+        });
+    });
+
+    it("манифест без описательных полей (или с мусором в них) отдаёт undefined, а не мусор", async () => {
+        await installVsix(
+            await makeVsix("bare.vsix", vsixEntries({ name: "bare", publisher: "acme", version: "1.0.0" })),
+            extensionsDir,
+        );
+        // Пустой displayName и нестроковый description — как у неаккуратного автора.
+        fs.mkdirSync(path.join(extensionsDir, "acme.junk-1.0.0"), { recursive: true });
+        fs.writeFileSync(
+            path.join(extensionsDir, "acme.junk-1.0.0", "package.json"),
+            JSON.stringify({ name: "junk", publisher: "acme", version: "1.0.0", displayName: "", description: 42 }),
+        );
+
+        const byId = new Map(listInstalledExtensions(extensionsDir).map((e) => [e.id, e]));
+        expect(byId.get("acme.bare")?.displayName).toBeUndefined();
+        expect(byId.get("acme.bare")?.description).toBeUndefined();
+        // Пустое имя — не имя: карточка магазина показала бы пустую строку.
+        expect(byId.get("acme.junk")?.displayName).toBeUndefined();
+        expect(byId.get("acme.junk")?.description).toBeUndefined();
+    });
+
     it("list возвращает id/version отсортированно, битые каталоги игнорирует", async () => {
         await installVsix(
             await makeVsix("z.vsix", vsixEntries({ name: "zeta", publisher: "acme", version: "1.0.0" })),

@@ -1,0 +1,32 @@
+{
+    "schemaVersion": 1,
+    "extensions": [
+        {
+            "id": "acme.sample",
+            "publisher": "acme",
+            "name": "sample",
+            "displayName": "Acme Sample",
+            "description": "Sample entry for the Extensions view e2e",
+            "kind": "native",
+            "latest": { "version": "1.2.0", "engines": { "vscode": "^1.0.0" } }
+        },
+        {
+            "id": "test.tab-setter",
+            "publisher": "test",
+            "name": "tab-setter",
+            "displayName": "Tab Setter",
+            "description": "Installed by the fixture at 0.0.1 — the registry knows a newer one",
+            "kind": "native",
+            "latest": { "version": "0.0.2", "engines": { "vscode": "^1.0.0" } }
+        },
+        {
+            "id": "old.legacy",
+            "publisher": "old",
+            "name": "legacy",
+            "displayName": "Legacy Thing",
+            "description": "Requires a vscode API version this build does not have",
+            "kind": "proxy-openvsx",
+            "latest": { "version": "3.0.0", "engines": { "vscode": "^99.0.0" } }
+        }
+    ]
+}
