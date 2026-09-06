@@ -46,9 +46,20 @@ describe("extensionsModule", () => {
         ws = undefined;
     });
 
-    /** Контейнер тестового профиля с продовой проводкой магазина поверх. */
+    /**
+     * Контейнер тестового профиля с продовой проводкой магазина поверх. Токены
+     * магазина заранее «отравлены»: если продовый модуль перестанет их
+     * перебивать, резолв упадёт — иначе тест зелёный на дефолтных биндингах
+     * тестового профиля и ничего не проверяет.
+     */
     function setup(options: { problems?: string[] } = {}): ReturnType<typeof createTestContainer>["container"] {
         const { container } = createTestContainer();
+        const poison = (what: string) => (): never => {
+            throw new Error(`${what} не перебит продовым модулем магазина`);
+        };
+        container.bind(ExtensionsWorkbenchServiceDIToken, poison("сервис магазина"));
+        container.bind(ExtensionsComponentDIToken, poison("вьюлет магазина"));
+        container.bind(ExtensionsEditorTargetDIToken, poison("шов открытия страницы"));
         container.use(extensionsModule, {
             registry: ws!.path("registry"),
             extensionsDir: ws!.path("extensions"),

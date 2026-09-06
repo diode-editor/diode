@@ -83,6 +83,16 @@ describe("ExtensionEditorPane", () => {
         expect(pane.getSelectedTexts()).toEqual([]);
     });
 
+    it("панель несёт id и цвета редактора — вкладку видно инспектору", () => {
+        const { service } = fakeService([entry()]);
+        const pane = new ExtensionEditorPane(service, entry(), META, null);
+        renderElement(pane.view, 50, 20, { themeVars: true });
+
+        // Точки в id селектор инспектора не понимает — они заменены дефисами.
+        expect(pane.view.id).toBe("extensionPage-acme-tools");
+        expect(pane.view.style).toMatchObject({ fg: "editor.foreground", bg: "editor.background" });
+    });
+
     it("страница показывает шапку и readme", () => {
         const { service } = fakeService([entry()]);
         const screen = screenOf(new ExtensionEditorPane(service, entry(), META, null));
@@ -93,6 +103,17 @@ describe("ExtensionEditorPane", () => {
         expect(screen).toContain("Readme body");
     });
 
+    it("мета и причина её отсутствия переживают обновление карточки", () => {
+        const { service, update } = fakeService([entry()]);
+        const pane = new ExtensionEditorPane(service, entry(), undefined, "boom");
+
+        update([entry({ installedVersion: "1.0.0", availability: "installed" })]);
+        const screen = screenOf(pane, 70);
+        expect(screen).toContain("Installed 1.0.0");
+        // Причина сбоя не теряется при перерисовке — иначе страница молча пустеет.
+        expect(screen).toContain("boom");
+    });
+
     it("смена состояния расширения доезжает до открытой страницы", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, entry(), META, null);
@@ -100,6 +121,18 @@ describe("ExtensionEditorPane", () => {
 
         update([entry({ installedVersion: "1.0.0", availability: "installed" })]);
         expect(screenOf(pane)).toContain("Installed 1.0.0");
+    });
+
+    it("страница следит за своей карточкой, а не за первой в списке", () => {
+        const { service, update } = fakeService([entry()]);
+        const pane = new ExtensionEditorPane(service, entry(), META, null);
+
+        update([
+            entry({ id: "other.thing", displayName: "Other", installedVersion: "9.9.9", availability: "installed" }),
+            entry(),
+        ]);
+        // Обновилась чужая карточка — статус нашей остаётся прежним.
+        expect(screenOf(pane)).toContain("Not installed");
     });
 
     it("исчезнувшая карточка страницу не ломает — остаётся последнее известное", () => {

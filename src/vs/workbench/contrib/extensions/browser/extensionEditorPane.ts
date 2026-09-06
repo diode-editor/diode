@@ -55,11 +55,6 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         this.view = this.element;
 
         this.register(service.onDidChange(() => this.syncEntry()));
-        this.register({
-            dispose: () => {
-                this.stateListeners.clear();
-            },
-        });
     }
 
     public get label(): string {

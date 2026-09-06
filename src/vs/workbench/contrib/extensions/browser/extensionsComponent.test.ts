@@ -1,6 +1,13 @@
+import { Point } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { describe, expect, it } from "vitest";
+
+import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import {
@@ -18,10 +25,10 @@ import { ExtensionsComponent, type IExtensionsEditorTarget } from "./extensionsC
 const NULL_VIEWS_SERVICE = { registerView: () => {} } as unknown as ViewsService;
 
 /** Реестр view, запоминающий дескриптор: через него проверяется показ секции. */
-function recordingViewsService(): { service: ViewsService; descriptor: () => { focus: () => void } } {
-    let captured: { focus: () => void } | undefined;
+function recordingViewsService(): { service: ViewsService; descriptor: () => { focus: () => void; title: string } } {
+    let captured: { focus: () => void; title: string } | undefined;
     const service = {
-        registerView: (d: { focus: () => void }) => {
+        registerView: (d: { focus: () => void; title: string }) => {
             captured = d;
         },
     } as unknown as ViewsService;
@@ -134,6 +141,84 @@ function activate(component: ExtensionsComponent, rowId: string): void {
 }
 
 describe("ExtensionsComponent", () => {
+    it("список и корень несут свои id и цвета сайдбара", () => {
+        const component = make(new FakeService([entry({ id: "acme.tools" })]));
+        expect(component.view.id).toBe("extensionsView");
+        expect(component.list.id).toBe("extensionsList");
+
+        // Фон вьюлета — токен сайдбара, а не унаследованный фон редактора.
+        const screen = render(component);
+        const sideBar = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("sideBar.background");
+        expect(screen.getBgAt(new Point(0, 0))).toBe(sideBar);
+    });
+
+    it("строка поиска не прижата к краям панели", () => {
+        const component = make(new FakeService([]));
+        const line = render(component).screenToString().split("\n")[0]!;
+        expect(line.startsWith(" ")).toBe(true);
+        expect(line.endsWith(" ")).toBe(true);
+    });
+
+    it("буквы в списке — не typeahead: курсор остаётся на месте", () => {
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Acme Tools" }),
+            entry({ id: "other.thing", displayName: "Other Thing" }),
+        ]);
+        const component = make(service);
+        render(component);
+        component.list.setCursorTo("extensionsGroup-marketplace-acme-tools");
+
+        component.list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "o" }));
+        expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
+    });
+
+    it("записи лежат под своими группами — свёрнутая группа их прячет", () => {
+        const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
+        const component = make(service);
+        expect(render(component).screenToString()).toContain("Acme Tools");
+
+        component.list.setCollapsed("extensionsGroup-marketplace", true);
+        expect(render(component).screenToString()).not.toContain("Acme Tools");
+    });
+
+    it("установленное вне реестра не попадает в каталог, а реестровое без установки — в INSTALLED", () => {
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Acme Tools" }),
+            entry({
+                id: "local.helper",
+                displayName: "Helper",
+                latestVersion: null,
+                installedVersion: "0.1.0",
+                availability: "installed",
+            }),
+        ]);
+        const component = make(service);
+        render(component);
+
+        expect(component.view.querySelector("#extensionsGroup-marketplace-acme-tools")).not.toBeNull();
+        expect(component.view.querySelector("#extensionsGroup-marketplace-local-helper")).toBeNull();
+        expect(component.view.querySelector("#extensionsGroup-installed-local-helper")).not.toBeNull();
+        expect(component.view.querySelector("#extensionsGroup-installed-acme-tools")).toBeNull();
+    });
+
+    it("пустое состояние показывается только когда список правда пуст", () => {
+        const component = make(new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]));
+        expect(render(component).screenToString()).not.toContain("No extensions found");
+    });
+
+    it("строки прошлого состава не оставляют за собой действий", async () => {
+        const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
+        const { target, opened } = fakeTarget();
+        const component = make(service, target);
+        const staleRowId = "extensionsGroup-marketplace-acme-tools";
+
+        service.update([entry({ id: "other.thing", displayName: "Other Thing" })]);
+        // Строки с таким id больше нет — активация по ней не должна ничего открыть.
+        component.list.onActivate?.({ id: staleRowId } as TUIElement);
+        await Promise.resolve();
+        expect(opened).toHaveLength(0);
+    });
+
     it("показывает строку поиска, каталог и секцию установленных", () => {
         const service = new FakeService([
             entry({ id: "acme.tools", displayName: "Acme Tools" }),
@@ -219,6 +304,15 @@ describe("ExtensionsComponent", () => {
         expect(screen).toContain("Helper");
     });
 
+    it("строка ошибки живёт под заголовком каталога", () => {
+        const component = make(new FakeService([], "offline"));
+        expect(render(component, 70).screenToString()).toContain("Retry");
+
+        // Свёрнутый каталог прячет и причину сбоя: строка принадлежит секции.
+        component.list.setCollapsed("extensionsGroup-marketplace", true);
+        expect(render(component, 70).screenToString()).not.toContain("Retry");
+    });
+
     it("активация строки ошибки перечитывает каталог", () => {
         const service = new FakeService([], "offline");
         const component = make(service);
@@ -274,7 +368,7 @@ describe("ExtensionsComponent", () => {
         // Тот же путь, которым секцию показывает ViewsService (команда, reveal).
         views.descriptor().focus();
         expect(service.ensureLoadedCalls).toBe(1);
-        expect((component.view.querySelectorAll("InputElement")[0] as InputElement).isFocused).toBe(false);
+        expect(views.descriptor().title).toBe("EXTENSIONS");
     });
 
     it("focus читает каталог: до показа вьюлета в сеть не ходим", () => {
@@ -284,6 +378,14 @@ describe("ExtensionsComponent", () => {
 
         component.focus();
         expect(service.ensureLoadedCalls).toBe(1);
+    });
+
+    it("focus ставит курсор в строку поиска", () => {
+        const component = make(new FakeService([entry({ id: "acme.tools" })]));
+        TestApp.createWithContent(component.view).render();
+
+        component.focus();
+        expect((component.view.querySelectorAll("InputElement")[0] as InputElement).isFocused).toBe(true);
     });
 
     it("refresh компонента делегирует сервису", async () => {
@@ -378,11 +480,12 @@ describe("ExtensionsComponent", () => {
             );
         });
 
-        it("исчезнувшая карточка вкладку не открывает", async () => {
-            const service = new FakeService([]);
+        it("чужой id вкладку не открывает, даже когда карточки есть", async () => {
+            const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
             const { target, opened } = fakeTarget();
             const component = make(service, target);
 
+            // Промах по id обязан быть промахом, а не «первой попавшейся записью».
             await component.openExtensionPage("acme.gone");
             expect(opened).toHaveLength(0);
         });

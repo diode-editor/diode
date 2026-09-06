@@ -75,41 +75,31 @@ export function buildExtensionRow(
     entry: IExtensionListEntry,
     styles: IExtensionRowStyles,
 ): TextLabelElement {
-    const row = new TextLabelElement("");
+    const layout = describeExtensionRow(entry);
+    const row = new TextLabelElement(layout.text);
     row.id = id;
-    formatExtensionRow(row, entry, styles);
+    paintRow(row, layout, styles);
     return row;
 }
 
-/** Переписывает строку на месте (смена состояния расширения, смена темы). */
-export function formatExtensionRow(
-    row: TextLabelElement,
-    entry: IExtensionListEntry,
-    styles: IExtensionRowStyles,
-): void {
-    const layout = describeExtensionRow(entry);
-    row.setText(layout.text);
-    row.clearCharStyles();
-    for (let i = 0; i < layout.version.length; i++) {
-        row.setCharStyle(layout.version.start + i, { fg: styles.dimFg });
-    }
+/** Какое поле стилей красит бейдж. Таблицей — вид бейджа это данные, не ветвление. */
+const BADGE_COLOR: Record<ExtensionRowBadge, keyof IExtensionRowStyles> = {
+    installed: "dimFg",
+    update: "updateFg",
+    incompatible: "warningFg",
+};
+
+/** Красит версию и бейдж; остальной текст остаётся цветом строки. */
+function paintRow(row: TextLabelElement, layout: IExtensionRowLayout, styles: IExtensionRowStyles): void {
+    paintSpan(row, layout.version.start, layout.version.length, styles.dimFg);
     if (layout.badge !== null) {
-        const fg = badgeColor(layout.badge.kind, styles);
-        for (let i = 0; i < layout.badge.length; i++) {
-            row.setCharStyle(layout.badge.start + i, { fg });
-        }
+        paintSpan(row, layout.badge.start, layout.badge.length, styles[BADGE_COLOR[layout.badge.kind]]);
     }
-    row.markDirty();
 }
 
-function badgeColor(kind: ExtensionRowBadge, styles: IExtensionRowStyles): StyleColor {
-    switch (kind) {
-        case "installed":
-            return styles.dimFg;
-        case "update":
-            return styles.updateFg;
-        case "incompatible":
-            return styles.warningFg;
+function paintSpan(row: TextLabelElement, start: number, length: number, fg: StyleColor): void {
+    for (let i = start; i < start + length; i++) {
+        row.setCharStyle(i, { fg });
     }
 }
 

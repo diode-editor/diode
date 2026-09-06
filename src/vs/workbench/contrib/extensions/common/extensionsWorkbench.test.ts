@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { filterExtensionEntries, type IExtensionListEntry } from "./extensionsWorkbench.ts";
-import { NULL_EXTENSIONS_WORKBENCH_SERVICE } from "./nullExtensionsWorkbenchService.ts";
+import { createNullExtensionsWorkbenchService } from "./nullExtensionsWorkbenchService.ts";
 
 function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExtensionListEntry {
     const [publisher, name] = overrides.id.split(".");
@@ -41,9 +41,9 @@ describe("filterExtensionEntries", () => {
     });
 });
 
-describe("NULL_EXTENSIONS_WORKBENCH_SERVICE", () => {
+describe("createNullExtensionsWorkbenchService", () => {
     it("инертен: пустой каталог, без ошибок и событий", async () => {
-        const service = NULL_EXTENSIONS_WORKBENCH_SERVICE;
+        const service = createNullExtensionsWorkbenchService();
         await service.ensureLoaded();
         await service.refresh();
 

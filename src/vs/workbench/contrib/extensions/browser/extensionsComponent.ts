@@ -212,11 +212,11 @@ export class ExtensionsComponent extends Component {
     private activateRow(rowId: string): void {
         const action = this.actions.get(rowId);
         if (action === undefined) return;
-        if (action.kind === "retry") {
-            void this.refresh();
+        if (action.kind === "open") {
+            void this.openExtensionPage(action.id);
             return;
         }
-        void this.openExtensionPage(action.id);
+        void this.refresh();
     }
 
     /**

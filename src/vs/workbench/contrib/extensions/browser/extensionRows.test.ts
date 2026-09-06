@@ -5,13 +5,7 @@ import { Point } from "@tuidom/core/common/geometryPromitives";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-import {
-    buildExtensionRow,
-    buildGroupRow,
-    describeExtensionRow,
-    formatExtensionRow,
-    type IExtensionRowStyles,
-} from "./extensionRows.ts";
+import { buildExtensionRow, buildGroupRow, describeExtensionRow, type IExtensionRowStyles } from "./extensionRows.ts";
 
 const STYLES: IExtensionRowStyles = {
     dimFg: "descriptionForeground",
@@ -40,6 +34,7 @@ describe("describeExtensionRow", () => {
         expect(row.text).toBe("Acme Tools  1.0.0");
         expect(row.badge).toBeNull();
         // Спан версии указывает ровно на неё — по нему строка красит приглушённым.
+        expect(row.version).toEqual({ start: 12, length: 5 });
         expect(row.text.slice(row.version.start, row.version.start + row.version.length)).toBe("1.0.0");
     });
 
@@ -52,7 +47,7 @@ describe("describeExtensionRow", () => {
     it("есть обновление — бейдж называет версию, до которой обновит установка", () => {
         const row = describeExtensionRow(entry({ installedVersion: "0.9.0", availability: "outdated" }));
         expect(row.text).toBe("Acme Tools  0.9.0  Update 1.0.0");
-        expect(row.badge?.kind).toBe("update");
+        expect(row.badge).toEqual({ start: 19, length: 12, kind: "update" });
         expect(row.text.slice(row.badge!.start, row.badge!.start + row.badge!.length)).toBe("Update 1.0.0");
     });
 
@@ -83,10 +78,29 @@ describe("строки списка", () => {
         expect(row.getText()).toBe("Acme Tools  1.0.0");
     });
 
-    it("переписывается на месте — тот же элемент после смены состояния", () => {
-        const row = buildExtensionRow("row-1", entry(), STYLES);
-        formatExtensionRow(row, entry({ installedVersion: "1.0.0", availability: "installed" }), STYLES);
-        expect(row.getText()).toBe("Acme Tools  1.0.0  Installed");
+    it("каждый вид бейджа красится своим цветом", () => {
+        const fgOfBadge = (e: IExtensionListEntry): number => {
+            const row = buildExtensionRow("row-1", e, STYLES);
+            const screen = renderElement(row, 40, 1, { themeVars: true });
+            return screen.getFgAt(new Point(describeExtensionRow(e).badge!.start, 0));
+        };
+
+        const installed = fgOfBadge(entry({ installedVersion: "1.0.0", availability: "installed" }));
+        const update = fgOfBadge(entry({ installedVersion: "0.9.0", availability: "outdated" }));
+        const incompatible = fgOfBadge(entry({ availability: "incompatible" }));
+
+        expect(new Set([installed, update, incompatible]).size).toBe(3);
+    });
+
+    it("подсветка не растекается за спан версии", () => {
+        const entryWithBadge = entry({ availability: "incompatible" });
+        const row = buildExtensionRow("row-1", entryWithBadge, STYLES);
+        const screen = renderElement(row, 40, 1, { themeVars: true });
+        const layout = describeExtensionRow(entryWithBadge);
+
+        // Пробел сразу за версией — цвета строки, а не приглушённый.
+        const afterVersion = layout.version.start + layout.version.length;
+        expect(screen.getFgAt(new Point(afterVersion, 0))).toBe(screen.getFgAt(new Point(0, 0)));
     });
 
     it("имя, версия и бейдж покрашены по-разному — это видно в кадре", () => {
@@ -107,5 +121,12 @@ describe("строки списка", () => {
         const row = buildGroupRow("group-1", "MARKETPLACE", "descriptionForeground");
         expect(row.id).toBe("group-1");
         expect(row.getText()).toBe("MARKETPLACE");
+
+        // Приглушённый цвет — не унаследованный: заголовок группы тусклее записей.
+        const groupFg = renderElement(row, 20, 1, { themeVars: true }).getFgAt(new Point(0, 0));
+        const entryFg = renderElement(buildExtensionRow("row-1", entry(), STYLES), 20, 1, {
+            themeVars: true,
+        }).getFgAt(new Point(0, 0));
+        expect(groupFg).not.toBe(entryFg);
     });
 });

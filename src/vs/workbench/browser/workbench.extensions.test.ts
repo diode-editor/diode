@@ -1,27 +1,22 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
-import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
-import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { IRegistryExtensionMeta } from "../../platform/extensionManagement/common/registryFormat.ts";
 import { REGISTRY_SCHEMA_VERSION } from "../../platform/extensionManagement/common/registryFormat.ts";
-import { ExtensionsComponentDIToken } from "../contrib/extensions/browser/extensionsComponent.ts";
-import type { ExtensionsComponent } from "../contrib/extensions/browser/extensionsComponent.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../contrib/extensions/common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../contrib/extensions/common/extensionsWorkbench.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
 
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
-import type { WorkbenchComponent } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
-import type { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
 /**
  * Сквозной гейт магазина «до кадра»: команда `workbench.view.extensions`
@@ -30,7 +25,9 @@ import type { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
  *
  * Юниты компонента проверяют его собственный кадр; здесь проверяется проводка,
  * которой у компонента нет: контейнер вьюлета в сайдбаре, контекст-ключ
- * видимости и шов «страница → полоса редакторов» из DI-модуля.
+ * видимости и шов «страница → полоса редакторов» из DI-модуля. Сборка живёт в
+ * теле теста, а не в `beforeEach`: покрытие (в том числе мутационное) считается
+ * по телу, и проводка, поднятая в хуке, осталась бы «ничьей».
  */
 
 const SHOW_EXTENSIONS = "workbench.view.extensions";
@@ -72,22 +69,24 @@ function fakeService(): IExtensionsWorkbenchService {
     };
 }
 
+interface IHarness {
+    readonly execute: (command: string) => void;
+    readonly screen: () => string;
+    /** Список вьюлета из живого дерева — компонент напрямую не резолвим. */
+    readonly extensionsList: () => ListViewElement;
+    readonly contextKey: (key: "extensionsViewletVisible") => boolean | undefined;
+    readonly activeUri: () => string | undefined;
+}
+
 describe("Workbench — магазин расширений в сайдбаре end-to-end", () => {
-    let ws: ITempWorkspace;
-    let workbench: WorkbenchComponent;
-    let commands: CommandRegistry;
-    let contextKeys: ContextKeyService;
-    let workbenchContextKeys: WorkbenchContextKeys;
-    let extensions: ExtensionsComponent;
-    let editors: EditorService;
-    let testApp: TestApp;
+    let ws: ITempWorkspace | undefined;
 
-    function screen(): string {
-        testApp.render();
-        return testApp.backend.screenToString();
-    }
+    afterEach(() => {
+        ws?.dispose();
+        ws = undefined;
+    });
 
-    beforeEach(() => {
+    function setup(): IHarness {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-", files: { "a.txt": "alpha\n" } });
 
         const { container, bindApp } = createTestContainer();
@@ -95,28 +94,42 @@ describe("Workbench — магазин расширений в сайдбаре 
         // он пустой (NULL-сервис), а здесь нужна запись, которую можно открыть.
         container.bind(ExtensionsWorkbenchServiceDIToken, fakeService);
 
-        workbench = container.get(WorkbenchComponentDIToken);
-        commands = container.get(CommandRegistryDIToken);
-        contextKeys = container.get(ContextKeyServiceDIToken);
-        workbenchContextKeys = container.get(WorkbenchContextKeysDIToken);
-        extensions = container.get(ExtensionsComponentDIToken);
-        editors = container.get(EditorServiceDIToken);
+        const workbench = container.get(WorkbenchComponentDIToken);
+        const commands = container.get(CommandRegistryDIToken);
+        const contextKeys = container.get(ContextKeyServiceDIToken);
+        const workbenchContextKeys = container.get(WorkbenchContextKeysDIToken);
+        const editors = container.get(EditorServiceDIToken);
 
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        testApp = TestApp.create(workbench.view, new Size(120, 24));
+        const testApp = TestApp.create(workbench.view, new Size(120, 24));
         bindApp(testApp.app);
-    });
 
-    afterEach(() => {
-        ws.dispose();
-    });
+        return {
+            execute: (command) => {
+                commands.execute(command);
+                workbenchContextKeys.update();
+            },
+            screen: () => {
+                testApp.render();
+                return testApp.backend.screenToString();
+            },
+            extensionsList: () => {
+                const list = workbench.view.querySelector("#extensionsList");
+                expect(list, "список магазина не найден в дереве").not.toBeNull();
+                return list as ListViewElement;
+            },
+            contextKey: (key) => contextKeys.get(key),
+            activeUri: () => editors.getActivePane()?.uri.toString(),
+        };
+    }
 
     it("команда показа выводит вьюлет магазина в сайдбар", () => {
-        expect(screen()).toContain("EXPLORER");
+        const h = setup();
+        expect(h.screen()).toContain("EXPLORER");
 
-        commands.execute(SHOW_EXTENSIONS);
-        const shown = screen();
+        h.execute(SHOW_EXTENSIONS);
+        const shown = h.screen();
         expect(shown).toContain("EXTENSIONS");
         expect(shown).toContain("Search Extensions");
         expect(shown).toContain("Acme Tools");
@@ -124,32 +137,35 @@ describe("Workbench — магазин расширений в сайдбаре 
     });
 
     it("переключение обратно на Explorer возвращает дерево файлов", () => {
-        commands.execute(SHOW_EXTENSIONS);
-        commands.execute(SHOW_EXPLORER);
+        const h = setup();
+        h.execute(SHOW_EXTENSIONS);
+        h.execute(SHOW_EXPLORER);
 
-        const shown = screen();
+        const shown = h.screen();
         expect(shown).toContain("EXPLORER");
         expect(shown).not.toContain("Search Extensions");
     });
 
     it("контекст-ключ видимости магазина следует за активным вьюлетом", () => {
-        commands.execute(SHOW_EXTENSIONS);
-        workbenchContextKeys.update();
-        expect(contextKeys.get("extensionsViewletVisible")).toBe(true);
+        const h = setup();
+        h.execute(SHOW_EXTENSIONS);
+        expect(h.contextKey("extensionsViewletVisible")).toBe(true);
 
-        commands.execute(SHOW_EXPLORER);
-        workbenchContextKeys.update();
-        expect(contextKeys.get("extensionsViewletVisible")).toBe(false);
+        h.execute(SHOW_EXPLORER);
+        expect(h.contextKey("extensionsViewletVisible")).toBe(false);
     });
 
     it("Enter на записи открывает страницу расширения вкладкой редактора", async () => {
-        commands.execute(SHOW_EXTENSIONS);
-        extensions.list.setCursorTo("extensionsGroup-marketplace-acme-tools");
-        extensions.list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+        const h = setup();
+        h.execute(SHOW_EXTENSIONS);
+
+        const list = h.extensionsList();
+        list.setCursorTo("extensionsGroup-marketplace-acme-tools");
+        list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
         await settle(0);
 
-        expect(editors.getActivePane()?.uri.toString()).toBe("extension:acme.tools");
-        const shown = screen();
+        expect(h.activeUri()).toBe("extension:acme.tools");
+        const shown = h.screen();
         expect(shown).toContain("Acme Tools");
         expect(shown).toContain("Readme from the registry");
     });

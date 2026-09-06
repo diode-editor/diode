@@ -32,9 +32,11 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private readonly metaCache = new Map<string, IRegistryExtensionMeta | undefined>();
 
     private index: IRegistryIndex | null = null;
-    private installed: readonly IInstalledExtension[] = [];
+    // Оба поля наполняет конструктор: установленное известно сразу, без сети,
+    // и «пустого» состояния у сервиса не бывает даже мгновение.
+    private installed: readonly IInstalledExtension[];
     private catalogError: string | null = null;
-    private entries: readonly IExtensionListEntry[] = [];
+    private entries: readonly IExtensionListEntry[];
     /** Первое чтение: null — ещё не начиналось. Держим промис, а не флаг, — параллельные показы ждут один фетч. */
     private loading: Promise<void> | null = null;
 
@@ -46,7 +48,9 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         super();
         // Установленное известно и без сети — читаем сразу, чтобы секция
         // INSTALLED была наполнена ещё до первого запроса к реестру.
-        this.reloadInstalled();
+        this.installed = listInstalledExtensions(extensionsDir);
+        this.entries = this.computeEntries();
+        this.register({ dispose: () => this.listeners.clear() });
     }
 
     public ensureLoaded(): Promise<void> {
@@ -85,7 +89,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return { dispose: () => this.listeners.delete(listener) };
     }
 
-    /** Перечитывает установленное с диска (после установки/удаления и на старте). */
+    /** Перечитывает установленное с диска (после установки/удаления). */
     public reloadInstalled(): void {
         this.installed = listInstalledExtensions(this.extensionsDir);
         this.rebuildEntries();
@@ -104,11 +108,18 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         this.rebuildEntries();
     }
 
+    private rebuildEntries(): void {
+        this.entries = this.computeEntries();
+        this.fireChange();
+    }
+
     /**
      * Склейка каталога и установленного: сначала записи реестра (порядок
-     * индекса), затем установленное, которого в реестре нет.
+     * индекса), затем установленное, которого в реестре нет. Запись, которая
+     * есть и там и там, — одна карточка: иначе установленное из магазина
+     * показалось бы ещё раз, уже как «мимо магазина».
      */
-    private rebuildEntries(): void {
+    private computeEntries(): readonly IExtensionListEntry[] {
         const installedById = new Map(this.installed.map((e) => [e.id, e]));
         const entries: IExtensionListEntry[] = [];
         for (const entry of this.index?.extensions ?? []) {
@@ -118,8 +129,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         for (const installed of installedById.values()) {
             entries.push(toSideloadedEntry(installed));
         }
-        this.entries = entries;
-        this.fireChange();
+        return entries;
     }
 
     private toCatalogEntry(entry: IRegistryIndexEntry, installed: IInstalledExtension | undefined): IExtensionListEntry {
@@ -140,10 +150,6 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         for (const listener of [...this.listeners]) listener();
     }
 
-    public override dispose(): void {
-        this.listeners.clear();
-        super.dispose();
-    }
 }
 
 /**

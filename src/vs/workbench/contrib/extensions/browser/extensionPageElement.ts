@@ -76,20 +76,16 @@ export class ExtensionPageElement extends TUIElement {
         this.rows = buildExtensionPageLines(this.content, textWidth).map((line, i) => {
             const row = new TextLabelElement(line.text);
             row.id = `extensionPageLine-${String(i)}`;
-            row.setColors(colorOf(line.tone), INHERITED_BG);
+            row.setColors(TONE_COLORS[line.tone], INHERITED_BG);
             this.list.appendRow(row);
             return row;
         });
     }
 }
 
-function colorOf(tone: ExtensionPageTone): StyleColor {
-    switch (tone) {
-        case "normal":
-            return INHERITED_FG;
-        case "dim":
-            return "descriptionForeground";
-        case "warning":
-            return "editorWarning.foreground";
-    }
-}
+/** Тон → цвет. Таблицей, а не switch: тон здесь — данные, и читать их проще рядом. */
+const TONE_COLORS: Record<ExtensionPageTone, StyleColor> = {
+    normal: INHERITED_FG,
+    dim: "descriptionForeground",
+    warning: "editorWarning.foreground",
+};

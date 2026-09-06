@@ -35,11 +35,10 @@ export function wrapText(text: string, width: number): string[] {
     const limit = Math.max(MIN_WRAP_WIDTH, width);
     const out: string[] = [];
     for (const paragraph of text.split("\n")) {
+        // Хвостовые пробелы срезаем: иначе они считались бы в ширину и рвали
+        // строку раньше, чем нужно. Пустой абзац отдельной ветки не требует —
+        // цикл ниже не найдёт ни одного слова и вытолкнет пустую строку сам.
         const source = paragraph.replace(/\s+$/, "");
-        if (source.length === 0) {
-            out.push("");
-            continue;
-        }
         let line = "";
         for (const word of source.split(" ")) {
             if (word.length === 0) continue;

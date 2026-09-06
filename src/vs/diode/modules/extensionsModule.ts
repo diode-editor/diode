@@ -2,7 +2,7 @@ import { createRegistrySource } from "../../platform/extensionManagement/node/cr
 import type { IHostVersions } from "../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
-import { NULL_EXTENSIONS_WORKBENCH_SERVICE } from "../../workbench/contrib/extensions/common/nullExtensionsWorkbenchService.ts";
+import { createNullExtensionsWorkbenchService } from "../../workbench/contrib/extensions/common/nullExtensionsWorkbenchService.ts";
 import {
     ExtensionsComponent,
     ExtensionsComponentDIToken,
@@ -49,7 +49,7 @@ export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (
  * ходят ни в сеть, ни в каталог расширений пользователя.
  */
 export const extensionsModuleDefault: ContainerModule = (container) => {
-    container.bind(ExtensionsWorkbenchServiceDIToken, () => NULL_EXTENSIONS_WORKBENCH_SERVICE);
+    container.bind(ExtensionsWorkbenchServiceDIToken, createNullExtensionsWorkbenchService);
     container.bind(ExtensionsComponentDIToken, ExtensionsComponent);
     container.bind(ExtensionsEditorTargetDIToken, () => container.get(EditorServiceDIToken));
 };

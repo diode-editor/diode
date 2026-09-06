@@ -67,6 +67,15 @@ describe("wrapText", () => {
         expect(wrapText("alpha  beta   ", 20)).toEqual(["alpha beta"]);
     });
 
+    it("хвостовые пробелы не считаются в ширину — строка не рвётся из-за них", () => {
+        // Ровно по лимиту плюс два пробела: срез хвоста обязан снять оба.
+        expect(wrapText("alpha beta  ", 10)).toEqual(["alpha beta"]);
+    });
+
+    it("абзац из одних пробелов даёт пустую строку, а не пробелы", () => {
+        expect(wrapText("one\n   \ntwo", 20)).toEqual(["one", "", "two"]);
+    });
+
     it("нулевая ширина не зацикливается — режет по минимальной", () => {
         expect(wrapText("abcdefghijkl", 0)).toEqual(["abcdefgh", "ijkl"]);
     });
@@ -99,16 +108,19 @@ describe("statusLine", () => {
 describe("buildExtensionPageLines", () => {
     it("шапка несёт идентичность, статус, версию, требования и вид записи", () => {
         const lines = buildExtensionPageLines({ entry: entry(), meta: meta(), metaError: null }, 60);
-        expect(texts(lines).slice(0, 9)).toEqual([
-            "Acme Tools",
-            "acme.tools",
-            "Tools for acme",
-            "",
-            "Not installed",
-            "Latest version: 1.0.0",
-            "Requires: vscode ^1.90.0",
-            "Kind: native",
-            "",
+        // Сравниваем строки целиком, вместе с тоном: цвет здесь — часть смысла
+        // (что имя, что справочная строка, что предупреждение), и ассерт на один
+        // текст пропустил бы перекрашивание половины страницы.
+        expect(lines.slice(0, 9)).toEqual([
+            { text: "Acme Tools", tone: "normal" },
+            { text: "acme.tools", tone: "dim" },
+            { text: "Tools for acme", tone: "normal" },
+            { text: "", tone: "normal" },
+            { text: "Not installed", tone: "dim" },
+            { text: "Latest version: 1.0.0", tone: "dim" },
+            { text: "Requires: vscode ^1.90.0", tone: "dim" },
+            { text: "Kind: native", tone: "dim" },
+            { text: "", tone: "normal" },
         ]);
     });
 
@@ -175,11 +187,11 @@ describe("buildExtensionPageLines", () => {
             },
             60,
         );
-        expect(texts(lines)).toEqual(
+        expect(lines).toEqual(
             expect.arrayContaining([
-                "License: MIT",
-                "Repository: https://github.com/acme/tools",
-                "Homepage: https://acme.test",
+                { text: "License: MIT", tone: "dim" },
+                { text: "Repository: https://github.com/acme/tools", tone: "dim" },
+                { text: "Homepage: https://acme.test", tone: "dim" },
             ]),
         );
     });
@@ -192,9 +204,17 @@ describe("buildExtensionPageLines", () => {
         expect(texts(lines).slice(-4)).toEqual(["# Acme", "", "alpha beta", "gamma delta"]);
     });
 
-    it("нет readme — так и написано", () => {
+    it("нет readme — так и написано, приглушённой строкой", () => {
         const lines = buildExtensionPageLines({ entry: entry(), meta: meta(), metaError: null }, 60);
-        expect(texts(lines).at(-1)).toBe("No readme published for this extension.");
+        expect(lines.at(-1)).toEqual({ text: "No readme published for this extension.", tone: "dim" });
+    });
+
+    it("readme идёт обычным тоном — это содержимое, а не служебная строка", () => {
+        const lines = buildExtensionPageLines(
+            { entry: entry(), meta: meta({ readme: "Readme body" }), metaError: null },
+            60,
+        );
+        expect(lines.at(-1)).toEqual({ text: "Readme body", tone: "normal" });
     });
 
     it("нет записи в реестре — страница честно говорит откуда расширение", () => {
@@ -206,9 +226,15 @@ describe("buildExtensionPageLines", () => {
             },
             100,
         );
-        expect(texts(lines)).not.toContain("Kind: native");
-        expect(texts(lines)).not.toContain("Latest version: 1.0.0");
-        expect(texts(lines).at(-1)).toBe("This extension is not in the marketplace — it was installed from a file.");
+        // Ни вида записи, ни «последней версии» у такого расширения нет —
+        // строк не должно быть вовсе, а не со словом undefined/null внутри.
+        expect(texts(lines).some((t) => t.startsWith("Kind:"))).toBe(false);
+        expect(texts(lines).some((t) => t.startsWith("Latest version:"))).toBe(false);
+        expect(texts(lines)).toContain("Installed 0.1.0");
+        expect(lines.at(-1)).toEqual({
+            text: "This extension is not in the marketplace — it was installed from a file.",
+            tone: "dim",
+        });
     });
 
     it("сетевой сбой меты вытесняет readme и красится предупреждением", () => {
@@ -232,6 +258,8 @@ describe("buildExtensionPageLines", () => {
 
     it("пустое описание не даёт пустой строки в шапке", () => {
         const lines = buildExtensionPageLines({ entry: entry({ description: "" }), meta: meta(), metaError: null }, 60);
-        expect(texts(lines).slice(0, 3)).toEqual(["Acme Tools", "acme.tools", ""]);
+        // Ровно одна пустая строка между идентичностью и статусом: лишняя
+        // означала бы, что описание всё-таки вывели — пустым.
+        expect(texts(lines).slice(0, 4)).toEqual(["Acme Tools", "acme.tools", "", "Not installed"]);
     });
 });

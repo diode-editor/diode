@@ -190,6 +190,17 @@ describe("ExtensionsWorkbenchService", () => {
         });
     });
 
+    it("установленное из магазина — одна карточка, а не две", async () => {
+        ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+        installOnDisk(ws, "acme.tools", "1.0.0");
+        const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
+
+        await service.ensureLoaded();
+        // Запись есть и в индексе, и на диске — но карточка одна: иначе то же
+        // расширение показалось бы ещё раз как «установленное мимо магазина».
+        expect(service.getEntries().map((e) => e.id)).toEqual(["acme.tools"]);
+    });
+
     it("установленное вне реестра идёт после каталога и берёт поля из манифеста", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
         installOnDisk(ws, "local.sideloaded", "0.1.0", {
