@@ -20,6 +20,7 @@ import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
 import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
 import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
+import { REFERENCES_VIEWLET_ID } from "../contrib/references/browser/referencesComponent.ts";
 import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
@@ -178,6 +179,10 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set(
             "extensionsViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === EXTENSIONS_VIEWLET_ID,
+        );
+        this.contextKeys.set(
+            "referencesViewletVisible",
+            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === REFERENCES_VIEWLET_ID,
         );
         this.contextKeys.set(
             "scmViewletVisible",

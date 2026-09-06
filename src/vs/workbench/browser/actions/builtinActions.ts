@@ -207,6 +207,15 @@ import {
     showExtensionsAction,
 } from "../../contrib/extensions/browser/extensionsActions.ts";
 import {
+    clearReferencesAction,
+    collapseReferencesAction,
+    expandReferencesAction,
+    findAllReferencesAction,
+    nextReferenceAction,
+    previousReferenceAction,
+    showReferencesAction,
+} from "../../contrib/references/browser/referencesActions.ts";
+import {
     closeActiveEditorAction,
     nextEditorInGroupAction,
     openPreviousRecentlyUsedEditorInGroupAction,
@@ -452,6 +461,15 @@ export const builtinActions: readonly CommandAction[] = [
     // Магазин расширений (docs/TODO/ExtensionsView.md)
     showExtensionsAction,
     refreshExtensionsAction,
+
+    // Find All References и панель ссылок (docs/TODO/References.md)
+    findAllReferencesAction,
+    showReferencesAction,
+    nextReferenceAction,
+    previousReferenceAction,
+    clearReferencesAction,
+    collapseReferencesAction,
+    expandReferencesAction,
     // Всё, что мутирует репозиторий (или гоняет git по нашей команде), гасится
     // на время уже идущей операции — `enablement: !gitOperationInProgress`.
     // В VS Code это поле у каждой команды манифеста; у нас — один список, чтобы

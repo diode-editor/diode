@@ -100,6 +100,15 @@ import {
 import { HoverComponent, HoverComponentDIToken } from "../../workbench/contrib/hover/browser/hoverComponent.ts";
 import { HoverService, HoverServiceDIToken } from "../../workbench/contrib/hover/browser/hoverService.ts";
 import {
+    ReferencesComponent,
+    ReferencesComponentDIToken,
+    ReferencesRevealTargetDIToken,
+} from "../../workbench/contrib/references/browser/referencesComponent.ts";
+import {
+    ReferencesService,
+    ReferencesServiceDIToken,
+} from "../../workbench/contrib/references/browser/referencesService.ts";
+import {
     DiagnosticsEditorSourceDIToken,
     DiagnosticsService,
     DiagnosticsServiceDIToken,
@@ -312,6 +321,10 @@ export const workbenchModule: ContainerModule = (container) => {
     // (hoverSource группы, стрип markdown, закрытие по фокусу/каретке).
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
+    // References: вьюлет сайдбара со ссылками + сервис, который его наполняет
+    // (referenceSource группы → текст строк → панель).
+    container.bind(ReferencesComponentDIToken, ReferencesComponent);
+    container.bind(ReferencesServiceDIToken, ReferencesService);
     // История навигации (Go Back / Go Forward): сервис поверх той же полосы групп.
     // Он же IJumpRecorder — шов, которым сайты прыжков сообщают о переходе.
     container.bind(HistoryEditorSourceDIToken, () => container.get(EditorServiceDIToken));
@@ -371,6 +384,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(MarkerRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     // Открытие результата поиска на позиции — тот же структурный срез EditorService.
     container.bind(SearchRevealTargetDIToken, () => container.get(EditorServiceDIToken));
+    // Открытие ссылки на позиции — тот же структурный срез EditorService.
+    container.bind(ReferencesRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(DiagnosticsServiceDIToken, DiagnosticsService);
     // Quick diff: живые change-bars в гуттере. Оригинал спрашиваем у SCM-расширения
     // командой, читаем через реестр провайдеров ФС, диффаем против живого буфера.

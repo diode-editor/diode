@@ -132,6 +132,12 @@ export interface ContextKeyTypes {
     viewHasSomeCollapsibleResult: boolean;
     /** Показан вьюлет Extensions (магазин расширений). */
     extensionsViewletVisible: boolean;
+    /** Показан вьюлет References (результат Find All References). */
+    referencesViewletVisible: boolean;
+    /** Есть ссылки в панели References (данные — сетит ReferencesComponent). */
+    hasReferenceResult: boolean;
+    /** Есть видимая развёрнутая строка в панели References — тумблер Collapse All/Expand All. */
+    referencesViewHasSomeCollapsibleResult: boolean;
     scmViewletVisible: boolean;
     /** Фокус в commit input box вьюлета Source Control (Diode; VS Code: scmInputIsInFocus). */
     scmInputFocus: boolean;
@@ -305,6 +311,9 @@ export const allContextKeys: ContextKey[] = [
     "hasSearchResult",
     "viewHasSomeCollapsibleResult",
     "extensionsViewletVisible",
+    "referencesViewletVisible",
+    "hasReferenceResult",
+    "referencesViewHasSomeCollapsibleResult",
     "scmViewletVisible",
     "scmInputFocus",
     "resourceSelectedForCompare",

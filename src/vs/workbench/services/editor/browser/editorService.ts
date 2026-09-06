@@ -5,6 +5,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { HoverSource } from "../../../../editor/common/languages/iHoverSource.ts";
+import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -187,6 +188,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * в редакторы не раздаётся (group-level).
      */
     public hoverSource?: HoverSource;
+
+    /**
+     * References-источник (host/харнесс подключает сюда провайдеры расширений
+     * через `languages.provideReferences`). Читается `ReferencesService` по
+     * команде Find All References; в редакторы не раздаётся (group-level).
+     */
+    public referenceSource?: ReferenceSource;
 
     /**
      * Save-участник, прокидываемый в каждый редактор группы (host/харнесс

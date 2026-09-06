@@ -14,6 +14,7 @@ import type {
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
+import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
@@ -63,6 +64,7 @@ import {
     requestResolveCompletionItem,
     requestDefinition,
     requestHover,
+    requestReferences,
     requestFoldingRanges,
     requestWillSaveEdits,
     type SerializedDecorationRenderOptions,
@@ -182,6 +184,13 @@ export interface IExtensionHostOptions {
      */
     readonly hoverTimeoutMs?: number;
     /**
+     * Тайм-аут на ответ references-провайдеров (`languages.provideReferences`),
+     * мс. По истечении панель Find All References остаётся пустой. Default:
+     * 5000 — как definition/hover: тот же холодный language server, а поиск
+     * ссылок по проекту у него ещё и дороже одиночного перехода.
+     */
+    readonly referencesTimeoutMs?: number;
+    /**
      * Логгер для lifecycle-событий host'а (канал `extensions.host`). Подканалы
      * `extensions.host.rpc` / `.stdout` / `.stderr` берутся из {@link logService}, если передан.
      */
@@ -297,6 +306,7 @@ export class ExtensionHost extends Disposable {
             | "foldingTimeoutMs"
             | "definitionTimeoutMs"
             | "hoverTimeoutMs"
+            | "referencesTimeoutMs"
         >
     >;
     private readonly logger: ILogger | undefined;
@@ -339,6 +349,8 @@ export class ExtensionHost extends Disposable {
     private definitionSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные hover-провайдеры (см. `languages.updateSubscriptions`). */
     private hoverSubscribed = false;
+    /** Есть ли в субпроцессе зарегистрированные references-провайдеры (см. `languages.updateSubscriptions`). */
+    private referencesSubscribed = false;
     /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
     private documentSyncSubscribed = false;
     /**
@@ -383,6 +395,7 @@ export class ExtensionHost extends Disposable {
             foldingTimeoutMs: options.foldingTimeoutMs ?? 1500,
             definitionTimeoutMs: options.definitionTimeoutMs ?? 5000,
             hoverTimeoutMs: options.hoverTimeoutMs ?? 5000,
+            referencesTimeoutMs: options.referencesTimeoutMs ?? 5000,
         };
         this.logger = options.logger;
         this.rpcLogger = options.rpcLogger;
@@ -763,6 +776,38 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
+     * Запрашивает у субпроцесса ссылки на символ под курсором
+     * (`languages.provideReferences`). Возвращает `[]`, если субпроцесса нет,
+     * никто не зарегистрировал провайдеры, документ слишком большой или
+     * расширение не ответило за `referencesTimeoutMs`. Подключается в
+     * `EditorService.referenceSource` (wiring в module/харнессе).
+     */
+    public async provideReferences(req: IReferenceRequest): Promise<readonly ICoreReference[]> {
+        const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null || !this.referencesSubscribed) return [];
+        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping references: document too large", {
+                uri: req.uri,
+                length: req.text.length,
+            });
+            return [];
+        }
+        return requestReferences(
+            (method, params) => rpc.request(method, params),
+            {
+                uri: req.uri,
+                languageId: req.languageId,
+                text: req.text,
+                line: req.line,
+                character: req.character,
+                includeDeclaration: req.includeDeclaration,
+            },
+            this.options.referencesTimeoutMs,
+        );
+    }
+
+    /**
      * Событие смены наличия folding-провайдеров в субпроцессе. Потребитель
      * (ExtensionHostModule / харнесс) на него пере-подключает
      * `EditorService.foldingRangeSource`, что триггерит пересчёт фолдов уже
@@ -1064,6 +1109,7 @@ export class ExtensionHost extends Disposable {
                 hasFoldingProviders?: unknown;
                 hasDefinitionProviders?: unknown;
                 hasHoverProviders?: unknown;
+                hasReferenceProviders?: unknown;
                 completionTriggerCharacters?: unknown;
             };
             this.completionSubscribed = p.hasCompletionProviders === true;
@@ -1078,6 +1124,7 @@ export class ExtensionHost extends Disposable {
             }
             this.definitionSubscribed = p.hasDefinitionProviders === true;
             this.hoverSubscribed = p.hasHoverProviders === true;
+            this.referencesSubscribed = p.hasReferenceProviders === true;
             const foldingBefore = this.foldingSubscribed;
             this.foldingSubscribed = p.hasFoldingProviders === true;
             // Провайдер folding появился/исчез (обычно — расширение активировалось
@@ -1315,6 +1362,8 @@ export class ExtensionHost extends Disposable {
         this.definitionSubscribed = false;
         // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
         this.hoverSubscribed = false;
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed строкой выше
+        this.referencesSubscribed = false;
         this.documentSyncSubscribed = false;
         this.pendingDidChange.clear();
         // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.

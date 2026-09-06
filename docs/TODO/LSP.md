@@ -1,10 +1,12 @@
 # LSP — стоковые language servers поверх extension host
 
 Статус: **[~] платформа готова** — document sync + definition (F12) + диагностики +
-автодополнение (Ctrl+Space, триггер-символы, панель описания, авто-импорт) работают со
+автодополнение (Ctrl+Space, триггер-символы, панель описания, авто-импорт) + hover
+(Ctrl+K Ctrl+X) + Find All References (Ctrl+K Ctrl+R, панель в сайдбаре) работают со
 стоковым `typescript-language-server` end-to-end (юнит-интеграция
-`extensionHost.typescriptLsp.test.ts` и `extensionHost.typescriptLsp.completion.test.ts`,
-e2e `e2e/gotoDefinition.test.ts`, скриншот-сценарии `goto-definition`, `lsp-completion`).
+`extensionHost.typescriptLsp.test.ts`, `.completion.test.ts`, `.hover.test.ts`,
+`.references.test.ts`; e2e `e2e/gotoDefinition.test.ts`, `e2e/references.test.ts`;
+скриншот-сценарии `goto-definition`, `lsp-completion`, `references`).
 Открыто — «Отложенное» ниже (второй язык, закрытие остальных стабов).
 
 ## Архитектура (проверена спайком, ветка `worktree-lsp-spike`)
@@ -133,7 +135,8 @@ go-to-definition работает; сервер-внук корректно уб
 | `languages.createDiagnosticCollection` | naive | работает: notify `diagnostics.publish` → `diagnosticsSink` → `MarkerService.changeOne` (squiggle + Problems); наивность — related information не передаётся, маркеры мёртвого subprocess'а не сбрасываются до рестарта |
 | `languages.match` | real | скоринг через `matchDocumentSelector` (10/0) — vscode-languageclient фильтрует ИМ документы для синхронизации с сервером; наивное «всегда 10» скармливало ts-серверу markdown и роняло его хендлеры |
 | `languages.registerHoverProvider` | real | seam `iHoverSource` → RPC `languages.provideHover` (таймаут 5000 мс — тот же холодный сервер); **несколько провайдеров** конкатенируются в порядке регистрации (по `WireHover` на непустой ответ), сбойный пропускается; wire несёт сырой markdown, стрип — в UI (`stripMarkdown` в `HoverService`). UI — contrib `hover` (пара `HoverService`/`HoverComponent` по образцу suggest, элемент `HoverElement` с рамкой и переносом), Ctrl+K Ctrl+U (не VS Code-овский Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает байтом Tab, и тот чорд там недостижим и занят фолбэком мультикурсора; одиночный `alt+буква` в дефолты не берём — `alt` layout-sensitive и молчит на кириллице), Escape/правка/каретка/фокус закрывают. Люфты v1: контент — плоский текст (markdown-рендерера нет), высота клампится без скролла, мышиного триггера нет |
-| остальные `register*Provider` (24) | no-op | закрытие по образцу definition/hover: core seam + RPC `languages.provideX` + UI-потребитель (references-панель, rename и т.д.) |
+| `languages.registerReferenceProvider` | real | seam `iReferenceSource` → RPC `languages.provideReferences` (таймаут 5000 мс — поиск ссылок по проекту дороже одиночного перехода); в параметрах LSP-контекст `includeDeclaration` (шлём `true`, как VS Code); **несколько провайдеров** конкатенируются в порядке регистрации, сбойный пропускается. UI — contrib `references`: вьюлет сайдбара REFERENCES (`ReferencesComponent` + `ReferencesService`), файлы со счётчиком и строки кода с подсветкой вхождения — строки общие с панелью поиска (`searchResultRows`). Текст строк LSP не отдаёт: добираем сами (`referencePreview.ts`) из открытой модели, иначе с диска. Ctrl+K Ctrl+R (и канонический Shift+Alt+F12 вторым биндом), F4/Shift+F4 — обход ссылок из редактора. Люфты v1: нет истории запросов, удаления результата из списка, иерархии каталогов и peek-виджета |
+| остальные `register*Provider` (23) | no-op | закрытие по образцу definition/hover/references: core seam + RPC `languages.provideX` + UI-потребитель (rename, implementations и т.д.; для implementations/typeDefinition/declaration панель ссылок уже готова) |
 | `workspace.applyEdit` | no-op | врёт `true`; закрытие: RPC `workspace.applyEdit` → `EditorService`/`BulkEdit` (нужен rename/code actions) |
 | `workspace.getWorkspaceFolder` | naive | префикс-матч + fallback на первую папку |
 | `workspace.createFileSystemWatcher` | готово | настоящие watcher'ы поверх `ITreeFileWatcher` ядра (`RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude`); детали — [arch/Extensions.md](../arch/Extensions.md) |
@@ -175,3 +178,6 @@ go-to-definition работает; сервер-внук корректно уб
   обязан объявлять её, чтобы не грузить сервер на старте без файлов языка.
 - Инкрементальный sync + debounce; позиция курсора в didChange (для серверов,
   которым нужна — сейчас не передаётся).
+- **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,
+  `locations[0]`), а VS Code показывает список. После итерации references панель
+  для этого уже есть — осталось развернуть в неё multi-target ответ.

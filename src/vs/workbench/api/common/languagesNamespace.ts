@@ -19,6 +19,7 @@ import type {
     WireFoldingRange,
     WireHover,
     WireMarker,
+    WireReference,
     WireResolvedCompletionItem,
     WireTextEdit,
 } from "./wireTypes.ts";
@@ -71,6 +72,12 @@ export interface IHoverRegistration {
     readonly provider: vscode.HoverProvider;
 }
 
+/** Зарегистрированный references-провайдер. */
+export interface IReferenceRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.ReferenceProvider;
+}
+
 /** Wire-параметры запроса completion (host → subprocess). */
 interface IWireCompletionParams {
     /** Ресурс как `uri.toString()`. */
@@ -120,6 +127,17 @@ interface IWireHoverParams {
     readonly text?: string;
     readonly line?: number;
     readonly character?: number;
+}
+
+/** Wire-параметры запроса references (host → subprocess). */
+interface IWireReferenceParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId?: string;
+    readonly text?: string;
+    readonly line?: number;
+    readonly character?: number;
+    readonly includeDeclaration?: boolean;
 }
 
 /** Сериализует `vscode.Range` (утиный тип) в wire-диапазон; `null`, если форма чужая. */
@@ -383,12 +401,14 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     foldingRegistrations: readonly IFoldingRegistration[];
     definitionRegistrations: readonly IDefinitionRegistration[];
     hoverRegistrations: readonly IHoverRegistration[];
+    referenceRegistrations: readonly IReferenceRegistration[];
 } {
     const { rpc, documentSync } = ctx;
     const registrations: ICompletionRegistration[] = [];
     const foldingRegistrations: IFoldingRegistration[] = [];
     const definitionRegistrations: IDefinitionRegistration[] = [];
     const hoverRegistrations: IHoverRegistration[] = [];
+    const referenceRegistrations: IReferenceRegistration[] = [];
 
     // Кэш ответов completion для resolve. Держим последние COMPLETION_CACHE_DEPTH
     // ответов: пользователь резолвит пункт из текущего списка, а гонка «ответ
@@ -420,6 +440,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             hasFoldingProviders: foldingRegistrations.length > 0,
             hasDefinitionProviders: definitionRegistrations.length > 0,
             hasHoverProviders: hoverRegistrations.length > 0,
+            hasReferenceProviders: referenceRegistrations.length > 0,
             // Символы, после которых ядро обязано само открыть попап («.» у
             // tsserver). Сервер объявляет их в completionProvider, стоковый
             // клиент передаёт их в registerCompletionItemProvider — до этой
@@ -497,6 +518,47 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             hovers.push({ contents, ...(range === null ? {} : { range }) });
         }
         return hovers;
+    });
+
+    rpc.handleRequest("languages.provideReferences", async (params): Promise<WireReference[]> => {
+        const p = params as IWireReferenceParams;
+        const doc: ExtHostTextDocument = documentSync.sync({
+            uri: p.uri,
+            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
+            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
+            text: p.text ?? "",
+        });
+        const position = new Position(p.line ?? 0, p.character ?? 0);
+        const context = { includeDeclaration: p.includeDeclaration === true };
+        const token = neverCancelledToken();
+
+        const references: WireReference[] = [];
+        for (const reg of referenceRegistrations) {
+            if (!matchDocumentSelector(reg.selector, doc)) continue;
+            let result: unknown;
+            try {
+                result = await Promise.resolve(
+                    reg.provider.provideReferences(
+                        doc as unknown as vscode.TextDocument,
+                        position as unknown as vscode.Position,
+                        context as vscode.ReferenceContext,
+                        token,
+                    ),
+                );
+            } catch {
+                // Сбойный провайдер не роняет остальные: `result` остаётся
+                // неприсвоенным, и его отсеивает общая проверка ниже — своего
+                // `continue` тут нет намеренно, иначе ветка неотличима от неё.
+            }
+            // References — всегда массив (`ProviderResult<Location[]>`), в
+            // отличие от definition с его одиночной формой.
+            if (!Array.isArray(result)) continue;
+            for (const item of result) {
+                const wire = serializeDefinitionLocation(item);
+                if (wire !== null) references.push(wire);
+            }
+        }
+        return references;
     });
 
     rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult> => {
@@ -759,6 +821,21 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
                 }
             }) as unknown as vscode.Disposable;
         },
+        registerReferenceProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.ReferenceProvider,
+        ): vscode.Disposable => {
+            const registration: IReferenceRegistration = { selector, provider };
+            referenceRegistrations.push(registration);
+            if (referenceRegistrations.length === 1) pushSubscriptions();
+            return new DisposableImpl(() => {
+                const idx = referenceRegistrations.indexOf(registration);
+                if (idx >= 0) {
+                    referenceRegistrations.splice(idx, 1);
+                    if (referenceRegistrations.length === 0) pushSubscriptions();
+                }
+            }) as unknown as vscode.Disposable;
+        },
 
         // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
         // под capabilities сервера). Закрытие каждого — по образцу definition:
@@ -766,7 +843,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         registerDeclarationProvider: registerNoopProvider,
         registerImplementationProvider: registerNoopProvider,
         registerTypeDefinitionProvider: registerNoopProvider,
-        registerReferenceProvider: registerNoopProvider,
         registerDocumentHighlightProvider: registerNoopProvider,
         registerDocumentSymbolProvider: registerNoopProvider,
         registerWorkspaceSymbolProvider: registerNoopProvider,
@@ -796,5 +872,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         foldingRegistrations,
         definitionRegistrations,
         hoverRegistrations,
+        referenceRegistrations,
     };
 }

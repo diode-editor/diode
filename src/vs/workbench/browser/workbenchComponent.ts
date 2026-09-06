@@ -45,6 +45,10 @@ import {
     EXTENSIONS_VIEWLET_ID,
     ExtensionsComponentDIToken,
 } from "../contrib/extensions/browser/extensionsComponent.ts";
+import {
+    REFERENCES_VIEWLET_ID,
+    ReferencesComponentDIToken,
+} from "../contrib/references/browser/referencesComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
@@ -179,6 +183,8 @@ export class WorkbenchComponent extends Component {
         // Магазин расширений: ещё один вьюлет сайдбара. Каталог читается лениво,
         // при первом показе (`focus`), — старт в сеть не ходит.
         this.register(accessor.get(ExtensionsComponentDIToken));
+        // References: ещё один вьюлет сайдбара, наполняется по Find All References.
+        this.register(accessor.get(ReferencesComponentDIToken));
         // Клавиатурный диспатчер: WorkbenchComponent владеет его жизнью и подключает
         // view-хук модальных оверлеев (хук контекст-ключей замыкает на себя
         // WorkbenchContextKeys) — сам сервис про view ничего не знает.
@@ -461,6 +467,15 @@ export class WorkbenchComponent extends Component {
             location: "sidebar",
         });
         this.viewsService.attachContainer(EXTENSIONS_VIEWLET_ID);
+        // References — контейнер с единственной view; до первого Find All
+        // References он пуст, поэтому в сайдбаре по умолчанию не показывается.
+        this.viewsService.registerContainer({
+            id: REFERENCES_VIEWLET_ID,
+            title: "REFERENCES",
+            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            location: "sidebar",
+        });
+        this.viewsService.attachContainer(REFERENCES_VIEWLET_ID);
         this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);
         // Открыть per-project стор состояния для этой папки (переключение флашит
         // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.

@@ -42,6 +42,7 @@ describe("LanguagesNamespace — registerDefinitionProvider", () => {
                     hasFoldingProviders: false,
                     hasDefinitionProviders: true,
                     hasHoverProviders: false,
+                    hasReferenceProviders: false,
                     completionTriggerCharacters: [],
                 },
             },
@@ -59,6 +60,7 @@ describe("LanguagesNamespace — registerDefinitionProvider", () => {
             hasFoldingProviders: false,
             hasDefinitionProviders: false,
             hasHoverProviders: false,
+            hasReferenceProviders: false,
             completionTriggerCharacters: [],
         });
         // Повторный dispose — идемпотентен, без лишних нотификаций.
