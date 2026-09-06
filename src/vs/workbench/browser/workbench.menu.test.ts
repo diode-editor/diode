@@ -42,6 +42,7 @@ describe("Workbench — menu bar wiring", () => {
             "Settings",
             "Keyboard Shortcuts",
             "Close Editor",
+            "Reload Window",
             "Exit",
         ]);
     });

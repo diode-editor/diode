@@ -23,6 +23,7 @@ import { coreModuleLate } from "./coreModule.ts";
 import { extensionsModule } from "./extensionsModule.ts";
 import { fileWatcherModuleDefault } from "./fileWatcherModule.ts";
 import { keybindingsModuleDefault } from "./keybindingsModule.ts";
+import { lifecycleModule } from "./lifecycleModule.ts";
 import { loggingModuleDefault } from "./loggingModule.ts";
 import { markersModule } from "./markersModule.ts";
 import { stateModuleDefault } from "./stateModule.ts";
@@ -67,6 +68,9 @@ export function createTestContainer(): TestContainerHandle {
         .use(fileWatcherModuleDefault)
         .use(markersModule, { settingsResource: null, keybindingsResource: null })
         .use(workbenchModule)
+        // Перезагрузка окна в тестах — no-op: настоящий перезапуск процесса
+        // унёс бы раннер. Тест, которому важен сам вызов, перебивает биндинг.
+        .use(lifecycleModule, { reloadWindow: () => {} })
         // Магазин — та же продовая проводка, что в приложении, но по путям,
         // которых нет: реестр не читается, каталог установленного пуст, в сеть
         // никто не ходит. Отдельного «пустого» магазина для тестов не держим —

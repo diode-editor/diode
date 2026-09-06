@@ -7,6 +7,7 @@ import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBacken
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { waitForIdle } from "@tuidom/inspector/idleWaiter";
+import type { AttachedInspector } from "@tuidom/inspector/index";
 import { attachInspector } from "@tuidom/inspector/index";
 import type { InspectorDriver } from "@tuidom/inspector/InspectorDriver";
 import { joinVirtualPath } from "../base/common/assets/assetBundleFormat.ts";
@@ -17,6 +18,7 @@ import { createDefaultAssetAccess } from "../base/node/assets/createDefaultAsset
 import { FsAssetAccess } from "../base/node/assets/fsAssetAccess.ts";
 import { isPackagedRuntime } from "../base/node/assets/packagedRuntime.ts";
 import { isSeaBinary } from "../base/node/isSea.ts";
+import { currentProcessSnapshot, realRestartHooks, restartProcess } from "../base/node/restartProcess.ts";
 import type { ILanguageService } from "../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../editor/common/languages/tokenizationRegistry.ts";
 import { OscClipboard } from "../platform/clipboard/common/oscClipboard.ts";
@@ -188,6 +190,9 @@ async function runEditor(): Promise<void> {
     const clipboard = new OscClipboard((seq) => {
         backend.writeOscSequence(seq);
     });
+    // Инспектор поднимается ниже и только по `--inspect-tui`; ссылку держим
+    // здесь, потому что перезагрузка окна обязана освободить его порт.
+    let inspectorHandle: AttachedInspector | null = null;
 
     // Реестр встроенных тем + выбор активной по `workbench.colorTheme`. Неизвестное
     // имя (тема из ещё не установленного расширения, опечатка) — откат на дефолт.
@@ -269,7 +274,29 @@ async function runEditor(): Promise<void> {
                 extensionsLogger.warn(problem);
             },
         },
+        reloadWindow,
     });
+
+    /**
+     * Перезагрузка окна: процесс поднимается заново с теми же аргументами
+     * (`workbench.action.reloadWindow`, кнопка после установки расширения).
+     * Горячей перезагрузки вкладов у нас нет — расширения сканируются один раз
+     * на старте, — поэтому «применить» значит «начать сначала».
+     *
+     * Порядок отпускания важен: сперва терминал (иначе новое окно рисует поверх
+     * чужих режимов), затем сокет инспектора (новое окно займёт тот же порт),
+     * затем extension host (его сабпроцесс иначе осиротеет на супервизоре), и
+     * только потом состояние сессии на диск — новое окно читает его на старте,
+     * то есть заведомо раньше, чем сработал бы `process.on("exit")`.
+     */
+    function reloadWindow(): void {
+        bootstrapLogger.info("reloading window");
+        backend.teardown();
+        inspectorHandle?.dispose();
+        extensionHost.dispose();
+        stateService.flushSync();
+        restartProcess(currentProcessSnapshot(), realRestartHooks);
+    }
 
     // Единственный якорь сброса состояния на диск: `process.exit(0)` (любой путь
     // выхода — quit, SIGINT в NodeTerminalBackend) фаерит "exit". Только синхронный
@@ -368,6 +395,7 @@ async function runEditor(): Promise<void> {
                       },
                   };
         const inspector = await attachInspector(app, cli.inspectTui, driver);
+        inspectorHandle = inspector;
         bootstrapLogger.info("TUIDom inspector listening", {
             host: cli.inspectTui.host,
             port: inspector.port,

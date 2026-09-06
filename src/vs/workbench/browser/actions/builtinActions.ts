@@ -90,7 +90,7 @@ import {
 import { newTerminalAction, toggleTerminalAction } from "../../contrib/terminal/browser/terminalActions.ts";
 import { selectThemeAction } from "../../contrib/themes/browser/themeActions.ts";
 
-import { quitAction, showAboutDialogAction } from "./appActions.ts";
+import { quitAction, reloadWindowAction, showAboutDialogAction } from "./appActions.ts";
 import { clipboardCopyAction, clipboardCutAction, clipboardPasteAction } from "./clipboardActions.ts";
 import { showEditorContextMenuAction } from "./contextMenuActions.ts";
 import {
@@ -231,6 +231,7 @@ export const builtinActions: readonly CommandAction[] = [
     openSettingsAction,
     openKeybindingsAction,
     showAboutDialogAction,
+    reloadWindowAction,
     quitAction,
 
     // Quick Open / пикеры (этап 8: run-обработчики живут в самих экшенах)
