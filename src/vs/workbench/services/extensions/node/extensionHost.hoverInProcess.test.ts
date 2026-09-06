@@ -37,13 +37,16 @@ function requestOf(text: string): IHoverRequest {
     return { uri: "file:///a.ts", languageId: "typescript", text, line: 0, character: 0 };
 }
 
-function makeHost(options: { warn?: ILogger["warn"] } = {}): { host: ExtensionHost; peer: RpcEndpoint } {
+function makeHost(
+    options: { warn?: ILogger["warn"]; hoverTimeoutMs?: number } = {},
+): { host: ExtensionHost; peer: RpcEndpoint } {
     const logger =
         options.warn === undefined
             ? undefined
             : ({ warn: options.warn, info: () => undefined, error: () => undefined } as unknown as ILogger);
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
         ...(logger === undefined ? {} : { logger }),
+        ...(options.hoverTimeoutMs === undefined ? {} : { hoverTimeoutMs: options.hoverTimeoutMs }),
     });
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
@@ -129,15 +132,22 @@ describe("ExtensionHost — гейт hover-запроса (in-process)", () => {
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("дефолтный таймаут щедрый: ответ через полсекунды доезжает", async () => {
-        const { host, peer } = makeHost();
+    it("дефолт таймаута — 5000 мс, как у definition (холодный сервер индексирует секундами)", () => {
+        const { host } = makeHost();
+        // Читаем разрешённую опцию, а не ждём вживую: реальное ожидание в
+        // мутационном прогоне стоит полсекунды на каждом покрывающем мутанте.
+        expect((host as unknown as { options: { hoverTimeoutMs: number } }).options.hoverTimeoutMs).toBe(5000);
+    });
+
+    it("по истечении таймаута ответ отбрасывается", async () => {
+        const { host, peer } = makeHost({ hoverTimeoutMs: 5 });
         peer.handleRequest("languages.provideHover", async () => {
-            await settle(500);
-            return [{ contents: ["не спешил"] }];
+            await settle(200);
+            return [{ contents: ["опоздал"] }];
         });
         peer.notify("languages.updateSubscriptions", { hasHoverProviders: true });
         await flushMicrotasks();
 
-        expect(await host.provideHover(requestOf("x"))).toEqual([{ contents: ["не спешил"] }]);
+        expect(await host.provideHover(requestOf("x"))).toEqual([]);
     });
 });
