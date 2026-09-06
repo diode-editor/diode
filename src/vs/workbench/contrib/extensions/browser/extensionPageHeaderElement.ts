@@ -2,7 +2,7 @@ import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
-import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
+import { HFlexElement, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
 import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -37,7 +37,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
     private content: IExtensionPageContent;
     private buttons: readonly IExtensionButton[];
     /** Кнопки в порядке ряда — для навигации стрелками и для тестов. */
-    private buttonElements: ButtonElement[] = [];
+    private buttonElements: readonly ButtonElement[];
     /** Строки текста шапки — наблюдаемость (у списка построчного чтения нет). */
     private textRows: TextLabelElement[] = [];
     /** Ширина, под которую посчитан текущий перенос; `null` — строк ещё нет. */
@@ -57,7 +57,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
         this.appendChild(this.padded);
         // Кнопки собираются сразу, не дожидаясь раскладки: страницу фокусируют
         // ещё до первого кадра (открытие вкладки), и фокусировать было бы нечего.
-        this.rebuildButtonRow();
+        this.buttonElements = this.buildButtonRow();
         this.syncStack();
     }
 
@@ -65,7 +65,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
     public setContent(content: IExtensionPageContent, buttons: readonly IExtensionButton[]): void {
         this.content = content;
         this.buttons = buttons;
-        this.rebuildButtonRow();
+        this.buttonElements = this.buildButtonRow();
         this.rebuildTextRows();
         this.syncStack();
     }
@@ -131,27 +131,27 @@ export class ExtensionPageHeaderElement extends TUIElement {
         });
     }
 
-    /** Складывает текущие строки и ряд кнопок в стек шапки. */
+    /**
+     * Складывает текущие строки и ряд кнопок в стек шапки. `replaceChildren`
+     * сам помечает дерево грязным, поэтому отдельного `markDirty` тут нет.
+     */
     private syncStack(): void {
         const rows: TUIElement[] = [...this.textRows, this.buttonRow, this.spacer];
         for (const row of rows) row.layoutStyle = { width: "fill", height: 1 };
         this.stack.replaceChildren(rows);
-        this.stack.markDirty();
     }
 
-    private rebuildButtonRow(): void {
-        this.buttonElements = this.buttons.map((button) => this.createButton(button));
+    /** Собирает ряд кнопок из текущего описания и возвращает сами кнопки. */
+    private buildButtonRow(): ButtonElement[] {
+        const elements = this.buttons.map((button) => this.createButton(button));
         const children: TUIElement[] = [];
-        for (const [i, element] of this.buttonElements.entries()) {
+        for (const [i, element] of elements.entries()) {
             if (i > 0) children.push(gap(BUTTON_GAP));
             element.layoutStyle = { width: hflexFit(), height: 1 };
             children.push(element);
         }
-        const tail = new TextLabelElement("");
-        tail.layoutStyle = { width: hflexFill(), height: 1 };
-        children.push(tail);
         this.buttonRow.replaceChildren(children);
-        this.buttonRow.markDirty();
+        return elements;
     }
 
     private createButton(button: IExtensionButton): ButtonElement {
@@ -164,9 +164,10 @@ export class ExtensionPageHeaderElement extends TUIElement {
             return element;
         }
         // Выключенная кнопка: не берёт фокус и приглушена — нажать её нельзя ни
-        // мышью (нет обработчика), ни с клавиатуры (не в обходе фокуса).
+        // мышью (нет обработчика), ни с клавиатуры (не в обходе фокуса). Форму
+        // при этом сохраняем (фон кнопки на месте), гасим только текст.
         element.focusable = false;
-        element.style = { fg: "descriptionForeground" };
+        element.style = { ...element.style, fg: "descriptionForeground" };
         return element;
     }
 }

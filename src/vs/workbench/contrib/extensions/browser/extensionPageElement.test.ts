@@ -1,6 +1,7 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { describe, expect, it, vi } from "vitest";
 
@@ -72,6 +73,13 @@ function mount(element: ExtensionPageElement): void {
     app.render();
 }
 
+/** Шлёт клавишу элементу; `true` — страница её обработала (`preventDefault`). */
+function press(target: TUIElement, key: string): boolean {
+    const event = new TUIKeyboardEvent("keydown", { key });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+}
+
 /** Строки readme, как их показывает элемент (тот же снимок читает инспектор). */
 function lines(element: ExtensionPageElement): string[] {
     return element.inspectState()["lines"] as string[];
@@ -123,6 +131,14 @@ describe("ExtensionPageElement", () => {
         expect(frame[buttonRow]).toContain("[ Uninstall ]");
         // Кнопки закреплены над текстом: readme начинается ниже ряда.
         expect(readmeRow).toBeGreaterThan(buttonRow);
+    });
+
+    it("readme отбит колонкой слева — как списки сайдбара", () => {
+        const element = createPage();
+        const rows = renderElement(element, 40, 16, { themeVars: true }).screenToString().split("\n");
+
+        const readmeRow = rows.find((row) => row.includes("alpha"))!;
+        expect(readmeRow.startsWith(" alpha")).toBe(true);
     });
 
     it("перенос учитывает отступ и колонку полосы прокрутки", () => {
@@ -220,18 +236,31 @@ describe("ExtensionPageElement", () => {
         const install = buttonElement(element, "install");
         const uninstall = buttonElement(element, "uninstall");
 
-        install.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "ArrowRight" }));
+        expect(press(install, "ArrowRight")).toBe(true);
         expect(uninstall.isFocused).toBe(true);
 
-        // За последней кнопкой ряд кончается — фокус остаётся на ней.
-        uninstall.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "ArrowRight" }));
+        // За последней кнопкой ряд кончается: фокус остаётся, и клавишу страница
+        // не съедает — иначе её не увидел бы никто следующий.
+        expect(press(uninstall, "ArrowRight")).toBe(false);
         expect(uninstall.isFocused).toBe(true);
 
-        uninstall.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "ArrowLeft" }));
+        expect(press(uninstall, "ArrowLeft")).toBe(true);
         expect(install.isFocused).toBe(true);
 
-        install.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "ArrowLeft" }));
+        expect(press(install, "ArrowLeft")).toBe(false);
         expect(install.isFocused).toBe(true);
+    });
+
+    it("стрелки вне ряда кнопок страницу не трогают — это навигация по readme", () => {
+        const element = createPage({ buttons: [INSTALL, UNINSTALL] });
+        mount(element);
+        const list = element.querySelector("#extensionPageLines") as ListViewElement;
+        list.focus();
+
+        // Фокус в тексте: горизонтальные стрелки не должны утаскивать его в кнопки.
+        expect(press(list, "ArrowRight")).toBe(false);
+        expect(press(list, "ArrowLeft")).toBe(false);
+        expect(list.isFocused).toBe(true);
     });
 
     it("Tab водит фокус между кнопками и текстом readme", () => {
@@ -241,10 +270,11 @@ describe("ExtensionPageElement", () => {
         const install = buttonElement(element, "install");
         const list = element.querySelector("#extensionPageLines") as ListViewElement;
 
-        install.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
+        // Tab страница забирает себе: глобальный отступ в неё лезть не должен.
+        expect(press(install, "Tab")).toBe(true);
         expect(list.isFocused).toBe(true);
 
-        list.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
+        expect(press(list, "Tab")).toBe(true);
         expect(install.isFocused).toBe(true);
     });
 

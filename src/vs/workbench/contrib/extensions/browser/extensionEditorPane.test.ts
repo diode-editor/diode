@@ -358,6 +358,17 @@ describe("ExtensionEditorPane", () => {
         expect(buttonLabels(pane)).toEqual(["Reload Window", "Uninstall"]);
     });
 
+    it("чужое обновление карточки не выдумывает ожидание перезагрузки", () => {
+        const { service, update } = fakeService([entry()]);
+        const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
+        mount(pane);
+
+        update([entry({ installedVersion: "1.0.0", availability: "installed" })]);
+
+        // Ставили не мы и не в этой сессии — перезагружаться незачем.
+        expect(buttonLabels(pane)).toEqual(["Uninstall"]);
+    });
+
     it("кнопка Reload Window зовёт перезагрузку окна", () => {
         const pending = entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true });
         const { service } = fakeService([pending]);

@@ -79,6 +79,30 @@ describe("ExtensionPageActions", () => {
         expect(progress.isBusy()).toBe(false);
     });
 
+    it("подпись прогресса называет операцию и расширение — иначе спиннер безымянный", async () => {
+        // Сервис, который «думает»: прогресс успевает стать видимым.
+        let finishInstall = (): void => {};
+        let finishUninstall = (): void => {};
+        const service: IExtensionsWorkbenchService = {
+            ...fakeService(),
+            install: () => new Promise((resolve) => (finishInstall = () => resolve({ ok: true, version: "1.2.0" }))),
+            uninstall: () => new Promise((resolve) => (finishUninstall = () => resolve({ ok: true }))),
+        };
+        const { actions, progress } = createActions(service);
+
+        const installing = actions.install("acme.tools");
+        await vi.advanceTimersByTimeAsync(400);
+        expect(progress.windowProgress()?.title).toBe("Installing acme.tools");
+        finishInstall();
+        await installing;
+
+        const uninstalling = actions.uninstall("acme.tools");
+        await vi.advanceTimersByTimeAsync(400);
+        expect(progress.windowProgress()?.title).toBe("Uninstalling acme.tools");
+        finishUninstall();
+        await uninstalling;
+    });
+
     it("после установки сообщение зовёт перезагрузить окно и само уходит", async () => {
         const { actions, statusBar } = createActions(fakeService());
 

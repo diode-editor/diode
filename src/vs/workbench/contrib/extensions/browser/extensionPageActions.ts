@@ -52,6 +52,7 @@ export class ExtensionPageActions implements IExtensionPageActions {
      * работы — запись в статус-баре со спиннером.
      */
     public async install(id: string): Promise<IExtensionInstallResult> {
+        // Stryker disable next-line StringLiteral: ProgressService различает только "view" — любая другая локация это окно, поэтому подмена строки ничего не меняет
         const result = await this.progress.withProgress({ location: "window", title: `Installing ${id}` }, () =>
             this.service.install(id),
         );
@@ -63,6 +64,7 @@ export class ExtensionPageActions implements IExtensionPageActions {
 
     /** Удаляет расширение. */
     public async uninstall(id: string): Promise<IExtensionOperationResult> {
+        // Stryker disable next-line StringLiteral: та же локация «окно», см. install выше
         const result = await this.progress.withProgress({ location: "window", title: `Uninstalling ${id}` }, () =>
             this.service.uninstall(id),
         );
