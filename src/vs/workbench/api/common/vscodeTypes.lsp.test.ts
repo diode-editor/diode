@@ -117,7 +117,10 @@ describe("vscodeTypes — LSP value-классы", () => {
     it("MarkdownString: append* конкатенируют и возвращают this", () => {
         const md = new MarkdownString("a");
         expect(md.appendText("b").appendMarkdown("c").appendCodeblock("d", "ts")).toBe(md);
-        expect(md.value).toBe("abcd");
+        // appendCodeblock оборачивает в fenced-блок с языком (его читает
+        // hover-путь: конвертер клиента собирает так legacy MarkedString).
+        expect(md.value).toBe("abc\n```ts\nd\n```\n");
+        expect(new MarkdownString().appendCodeblock("x").value).toBe("\n```\nx\n```\n");
         expect(new MarkdownString().value).toBe("");
     });
 

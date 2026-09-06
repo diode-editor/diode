@@ -129,7 +129,6 @@ describe("LanguagesNamespace — no-op поверхность для vscode-lang
             "registerDeclarationProvider",
             "registerImplementationProvider",
             "registerTypeDefinitionProvider",
-            "registerHoverProvider",
             "registerReferenceProvider",
             "registerDocumentHighlightProvider",
             "registerDocumentSymbolProvider",

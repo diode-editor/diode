@@ -13,6 +13,7 @@ import type {
     ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
@@ -61,6 +62,7 @@ import {
     requestCompletionItems,
     requestResolveCompletionItem,
     requestDefinition,
+    requestHover,
     requestFoldingRanges,
     requestWillSaveEdits,
     type SerializedDecorationRenderOptions,
@@ -173,6 +175,12 @@ export interface IExtensionHostOptions {
      * остальных: холодный language server индексирует проект секундами.
      */
     readonly definitionTimeoutMs?: number;
+    /**
+     * Тайм-аут на ответ hover-провайдеров (`languages.provideHover`), мс. По
+     * истечении hover-попап не открывается. Default: 5000 — как definition:
+     * запрос идёт к тому же холодному language server'у.
+     */
+    readonly hoverTimeoutMs?: number;
     /**
      * Логгер для lifecycle-событий host'а (канал `extensions.host`). Подканалы
      * `extensions.host.rpc` / `.stdout` / `.stderr` берутся из {@link logService}, если передан.
@@ -288,6 +296,7 @@ export class ExtensionHost extends Disposable {
             | "completionTimeoutMs"
             | "foldingTimeoutMs"
             | "definitionTimeoutMs"
+            | "hoverTimeoutMs"
         >
     >;
     private readonly logger: ILogger | undefined;
@@ -328,6 +337,8 @@ export class ExtensionHost extends Disposable {
     private foldingSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные definition-провайдеры (см. `languages.updateSubscriptions`). */
     private definitionSubscribed = false;
+    /** Есть ли в субпроцессе зарегистрированные hover-провайдеры (см. `languages.updateSubscriptions`). */
+    private hoverSubscribed = false;
     /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
     private documentSyncSubscribed = false;
     /**
@@ -371,6 +382,7 @@ export class ExtensionHost extends Disposable {
             completionTimeoutMs: options.completionTimeoutMs ?? 1500,
             foldingTimeoutMs: options.foldingTimeoutMs ?? 1500,
             definitionTimeoutMs: options.definitionTimeoutMs ?? 5000,
+            hoverTimeoutMs: options.hoverTimeoutMs ?? 5000,
         };
         this.logger = options.logger;
         this.rpcLogger = options.rpcLogger;
@@ -720,6 +732,37 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
+     * Запрашивает у субпроцесса hover'ы для позиции курсора
+     * (`languages.provideHover`). Возвращает `[]`, если субпроцесса нет, никто
+     * не зарегистрировал провайдеры, документ слишком большой или расширение не
+     * ответило за `hoverTimeoutMs`. Подключается в `EditorService.hoverSource`
+     * (wiring в module/харнессе).
+     */
+    public async provideHover(req: IHoverRequest): Promise<readonly ICoreHover[]> {
+        const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null || !this.hoverSubscribed) return [];
+        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping hover: document too large", {
+                uri: req.uri,
+                length: req.text.length,
+            });
+            return [];
+        }
+        return requestHover(
+            (method, params) => rpc.request(method, params),
+            {
+                uri: req.uri,
+                languageId: req.languageId,
+                text: req.text,
+                line: req.line,
+                character: req.character,
+            },
+            this.options.hoverTimeoutMs,
+        );
+    }
+
+    /**
      * Событие смены наличия folding-провайдеров в субпроцессе. Потребитель
      * (ExtensionHostModule / харнесс) на него пере-подключает
      * `EditorService.foldingRangeSource`, что триггерит пересчёт фолдов уже
@@ -1020,6 +1063,7 @@ export class ExtensionHost extends Disposable {
                 hasCompletionProviders?: unknown;
                 hasFoldingProviders?: unknown;
                 hasDefinitionProviders?: unknown;
+                hasHoverProviders?: unknown;
                 completionTriggerCharacters?: unknown;
             };
             this.completionSubscribed = p.hasCompletionProviders === true;
@@ -1033,6 +1077,7 @@ export class ExtensionHost extends Disposable {
                 }
             }
             this.definitionSubscribed = p.hasDefinitionProviders === true;
+            this.hoverSubscribed = p.hasHoverProviders === true;
             const foldingBefore = this.foldingSubscribed;
             this.foldingSubscribed = p.hasFoldingProviders === true;
             // Провайдер folding появился/исчез (обычно — расширение активировалось
@@ -1268,6 +1313,8 @@ export class ExtensionHost extends Disposable {
         this.completionSubscribed = false;
         this.foldingSubscribed = false;
         this.definitionSubscribed = false;
+        // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
+        this.hoverSubscribed = false;
         this.documentSyncSubscribed = false;
         this.pendingDidChange.clear();
         // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.

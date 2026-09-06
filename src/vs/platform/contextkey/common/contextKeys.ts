@@ -90,6 +90,8 @@ export interface ContextKeyTypes {
     // -- Editor widget contexts --
     findWidgetVisible: boolean;
     suggestWidgetVisible: boolean;
+    /** True while the editor hover popup is visible. */
+    editorHoverVisible: boolean;
     // suggestWidgetMultipleSuggestions: boolean;
     // renameInputVisible: boolean;
     // referenceSearchVisible: boolean;
@@ -271,6 +273,7 @@ export const allContextKeys: ContextKey[] = [
     // -- Editor widget contexts --
     "findWidgetVisible",
     "suggestWidgetVisible",
+    "editorHoverVisible",
     // "suggestWidgetMultipleSuggestions",
     // "renameInputVisible",
     // "referenceSearchVisible",

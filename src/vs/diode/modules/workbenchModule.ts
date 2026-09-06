@@ -97,6 +97,8 @@ import {
     DefinitionService,
     DefinitionServiceDIToken,
 } from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
+import { HoverComponent, HoverComponentDIToken } from "../../workbench/contrib/hover/browser/hoverComponent.ts";
+import { HoverService, HoverServiceDIToken } from "../../workbench/contrib/hover/browser/hoverService.ts";
 import {
     DiagnosticsEditorSourceDIToken,
     DiagnosticsService,
@@ -305,6 +307,11 @@ export const workbenchModule: ContainerModule = (container) => {
     // Go to Definition: сервис без компонента — цели отдаёт definitionSource
     // группы (провайдеры расширений), навигация — паттерн Problems reveal.
     container.bind(DefinitionServiceDIToken, DefinitionService);
+    // Hover: пара по образцу suggest — компонент владеет попапом и его
+    // overlay-сессией (host прикрепляет WorkbenchComponent), сервис — логикой
+    // (hoverSource группы, стрип markdown, закрытие по фокусу/каретке).
+    container.bind(HoverComponentDIToken, HoverComponent);
+    container.bind(HoverServiceDIToken, HoverService);
     // История навигации (Go Back / Go Forward): сервис поверх той же полосы групп.
     // Он же IJumpRecorder — шов, которым сайты прыжков сообщают о переходе.
     container.bind(HistoryEditorSourceDIToken, () => container.get(EditorServiceDIToken));

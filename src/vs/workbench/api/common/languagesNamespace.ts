@@ -17,6 +17,7 @@ import type {
     WireCompletionResult,
     WireDefinitionLocation,
     WireFoldingRange,
+    WireHover,
     WireMarker,
     WireResolvedCompletionItem,
     WireTextEdit,
@@ -64,6 +65,12 @@ export interface IDefinitionRegistration {
     readonly provider: vscode.DefinitionProvider;
 }
 
+/** Зарегистрированный hover-провайдер. */
+export interface IHoverRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.HoverProvider;
+}
+
 /** Wire-параметры запроса completion (host → subprocess). */
 interface IWireCompletionParams {
     /** Ресурс как `uri.toString()`. */
@@ -97,6 +104,16 @@ interface IWireFoldingParams {
 
 /** Wire-параметры запроса definition (host → subprocess). */
 interface IWireDefinitionParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId?: string;
+    readonly text?: string;
+    readonly line?: number;
+    readonly character?: number;
+}
+
+/** Wire-параметры запроса hover (host → subprocess). */
+interface IWireHoverParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
@@ -145,6 +162,33 @@ function serializeDefinitionLocation(item: unknown): WireDefinitionLocation | nu
     if (loc.uri == null) return null;
     const range = serializeDefinitionRange(loc.range);
     return range === null ? null : { uri: String(loc.uri), range };
+}
+
+/**
+ * Сериализует `contents` одного hover'а в блоки сырого markdown: строка,
+ * `MarkdownString { value }` или legacy `MarkedString { language, value }`
+ * (кодовый блок → fenced). Пустые и нераспознанные блоки отбрасываются
+ * (drop+skip), разметку протокол не трогает — её стрипает UI-потребитель.
+ */
+function serializeHoverContents(raw: unknown): string[] {
+    const blocks: string[] = [];
+    for (const block of Array.isArray(raw) ? raw : [raw]) {
+        const value = readHoverBlock(block);
+        if (value !== null && value.trim() !== "") blocks.push(value);
+    }
+    return blocks;
+}
+
+/** Один блок `Hover.contents`: строка, `MarkdownString` или `MarkedString`. */
+function readHoverBlock(block: unknown): string | null {
+    if (typeof block === "string") return block;
+    if (block === null) return null;
+    const b = block as { value?: unknown; language?: unknown };
+    if (typeof b.value !== "string") return null;
+    // Legacy MarkedString `{language, value}` — кодовый блок; оборачиваем в
+    // fenced, чтобы UI отличал код от прозы.
+    if (typeof b.language !== "string" || b.language === "") return b.value;
+    return `\`\`\`${b.language}\n${b.value}\n\`\`\``;
 }
 
 /** Токен отмены-заглушка (запросы completion короткоживущие, отмена не нужна). */
@@ -338,11 +382,13 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     registrations: readonly ICompletionRegistration[];
     foldingRegistrations: readonly IFoldingRegistration[];
     definitionRegistrations: readonly IDefinitionRegistration[];
+    hoverRegistrations: readonly IHoverRegistration[];
 } {
     const { rpc, documentSync } = ctx;
     const registrations: ICompletionRegistration[] = [];
     const foldingRegistrations: IFoldingRegistration[] = [];
     const definitionRegistrations: IDefinitionRegistration[] = [];
+    const hoverRegistrations: IHoverRegistration[] = [];
 
     // Кэш ответов completion для resolve. Держим последние COMPLETION_CACHE_DEPTH
     // ответов: пользователь резолвит пункт из текущего списка, а гонка «ответ
@@ -373,6 +419,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             hasCompletionProviders: registrations.length > 0,
             hasFoldingProviders: foldingRegistrations.length > 0,
             hasDefinitionProviders: definitionRegistrations.length > 0,
+            hasHoverProviders: hoverRegistrations.length > 0,
             // Символы, после которых ядро обязано само открыть попап («.» у
             // tsserver). Сервер объявляет их в completionProvider, стоковый
             // клиент передаёт их в registerCompletionItemProvider — до этой
@@ -413,6 +460,43 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             }
         }
         return locations;
+    });
+
+    rpc.handleRequest("languages.provideHover", async (params): Promise<WireHover[]> => {
+        const p = params as IWireHoverParams;
+        const doc: ExtHostTextDocument = documentSync.sync({
+            uri: p.uri,
+            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
+            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
+            text: p.text ?? "",
+        });
+        const position = new Position(p.line ?? 0, p.character ?? 0);
+        const token = neverCancelledToken();
+
+        const hovers: WireHover[] = [];
+        for (const reg of hoverRegistrations) {
+            if (!matchDocumentSelector(reg.selector, doc)) continue;
+            let result: unknown;
+            try {
+                result = await Promise.resolve(
+                    reg.provider.provideHover(
+                        doc as unknown as vscode.TextDocument,
+                        position as unknown as vscode.Position,
+                        token,
+                    ),
+                );
+            } catch {
+                // Сбойный провайдер не роняет остальные: `result` остаётся
+                // неприсвоенным, и его отсеивает общая проверка ниже — своего
+                // `continue` тут нет намеренно, иначе ветка неотличима от неё.
+            }
+            if (result == null) continue;
+            const contents = serializeHoverContents((result as { contents?: unknown }).contents);
+            if (contents.length === 0) continue;
+            const range = serializeDefinitionRange((result as { range?: unknown }).range);
+            hovers.push({ contents, ...(range === null ? {} : { range }) });
+        }
+        return hovers;
     });
 
     rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult> => {
@@ -660,6 +744,21 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
                 }
             }) as unknown as vscode.Disposable;
         },
+        registerHoverProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.HoverProvider,
+        ): vscode.Disposable => {
+            const registration: IHoverRegistration = { selector, provider };
+            hoverRegistrations.push(registration);
+            if (hoverRegistrations.length === 1) pushSubscriptions();
+            return new DisposableImpl(() => {
+                const idx = hoverRegistrations.indexOf(registration);
+                if (idx >= 0) {
+                    hoverRegistrations.splice(idx, 1);
+                    if (hoverRegistrations.length === 0) pushSubscriptions();
+                }
+            }) as unknown as vscode.Disposable;
+        },
 
         // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
         // под capabilities сервера). Закрытие каждого — по образцу definition:
@@ -667,7 +766,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         registerDeclarationProvider: registerNoopProvider,
         registerImplementationProvider: registerNoopProvider,
         registerTypeDefinitionProvider: registerNoopProvider,
-        registerHoverProvider: registerNoopProvider,
         registerReferenceProvider: registerNoopProvider,
         registerDocumentHighlightProvider: registerNoopProvider,
         registerDocumentSymbolProvider: registerNoopProvider,
@@ -697,5 +795,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         registrations,
         foldingRegistrations,
         definitionRegistrations,
+        hoverRegistrations,
     };
 }

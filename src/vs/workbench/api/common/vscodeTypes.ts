@@ -866,6 +866,8 @@ export class MarkdownString {
     public value: string;
     public isTrusted?: boolean;
     public supportThemeIcons?: boolean;
+    public supportHtml?: boolean;
+    public baseUri?: Uri;
 
     public constructor(value = "") {
         this.value = value;
@@ -881,8 +883,8 @@ export class MarkdownString {
         return this;
     }
 
-    public appendCodeblock(value: string, _language?: string): MarkdownString {
-        this.value += value;
+    public appendCodeblock(value: string, language = ""): MarkdownString {
+        this.value += `\n\`\`\`${language}\n${value}\n\`\`\`\n`;
         return this;
     }
 }

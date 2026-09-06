@@ -5,6 +5,7 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
+import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
@@ -27,6 +28,7 @@ function makeHarness() {
     const contextKeys = new ContextKeyService();
     const setActive = vi.fn();
     const onFocusChanged = vi.fn();
+    const onHoverFocusChanged = vi.fn();
     const cancelPendingChord = vi.fn();
     let envListener: (() => void) | null = null;
 
@@ -51,6 +53,7 @@ function makeHarness() {
         { editorCount: 0, groups: [], activeGroup: null, viewColumnOf: () => 1 } as unknown as EditorService,
         { isVisible: () => false } as unknown as FindService,
         { isOpen: () => false, onFocusChanged } as unknown as CompletionService,
+        { isOpen: () => false, onFocusChanged: onHoverFocusChanged } as unknown as HoverService,
         { hasOpenTerminals: false } as unknown as TerminalService,
         terminalEnv as unknown as TerminalEnvironmentService,
         { setActive } as unknown as InputWidgetService,
@@ -70,6 +73,7 @@ function makeHarness() {
         contextKeys,
         setActive,
         onFocusChanged,
+        onHoverFocusChanged,
         cancelPendingChord,
         dispatcher,
         fireEnvChange: () => envListener?.(),

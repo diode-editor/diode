@@ -21,6 +21,8 @@ import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.
 import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
 import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
+import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
+import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
@@ -59,6 +61,7 @@ export class WorkbenchContextKeys extends Disposable {
         EditorServiceDIToken,
         FindServiceDIToken,
         CompletionServiceDIToken,
+        HoverServiceDIToken,
         TerminalServiceDIToken,
         TerminalEnvironmentServiceDIToken,
         InputWidgetServiceDIToken,
@@ -76,6 +79,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly editorService: EditorService,
         private readonly findService: FindService,
         private readonly completionService: CompletionService,
+        private readonly hoverService: HoverService,
         private readonly terminalService: TerminalService,
         private readonly terminalEnv: TerminalEnvironmentService,
         private readonly inputWidgetService: InputWidgetService,
@@ -111,9 +115,10 @@ export class WorkbenchContextKeys extends Disposable {
         this.dispatcher.cancelPendingChord();
         this.update();
         // Фокус ушёл с редактора (клавиатурный путь: Ctrl+Tab, Quick Open) —
-        // закрываем suggest-попап (клик-фокус уже покрыт close-on-outside).
+        // закрываем suggest- и hover-попапы (клик-фокус уже покрыт close-on-outside).
         const active = this.activeElement();
         this.completionService.onFocusChanged(active instanceof EditorElement);
+        this.hoverService.onFocusChanged(active instanceof EditorElement);
     };
 
     public update(): void {
@@ -180,6 +185,7 @@ export class WorkbenchContextKeys extends Disposable {
         );
         this.contextKeys.set("findWidgetVisible", this.findService.isVisible());
         this.contextKeys.set("suggestWidgetVisible", this.completionService.isOpen());
+        this.contextKeys.set("editorHoverVisible", this.hoverService.isOpen());
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         this.contextKeys.set("terminalIsOpen", this.terminalService.hasOpenTerminals);
 
