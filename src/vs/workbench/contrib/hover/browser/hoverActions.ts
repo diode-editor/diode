@@ -5,15 +5,18 @@ import { HoverServiceDIToken } from "./hoverService.ts";
 
 /**
  * Показывает hover-попап для символа под кареткой (`editor.action.showHover`).
- * Дефолтный кейбинд — Alt+Q при фокусе редактора, вторым идёт чорд Ctrl+K Ctrl+U.
+ * Дефолтный кейбинд — чорд Ctrl+K Ctrl+U при фокусе редактора, вторым идёт Alt+Q.
  *
  * Не VS Code-овский Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает тем же
  * байтом, что Tab (0x09), поэтому тот чорд там физически недостижим и вдобавок
- * занят legacy-фолбэком `insertCursorAtEndOfEachLineSelected`. Alt+Q — одно
- * нажатие для команды, которую дёргают часто; на legacy-tier'е приезжает
- * ESC-префиксом, на csi-u — битом модификатора, то есть доезжает везде. Чорд
- * оставлен вторым биндом: на macOS Option по умолчанию не Meta (Terminal.app
- * напечатает `œ`), да и оконные менеджеры любят забирать alt+букву себе.
+ * занят legacy-фолбэком `insertCursorAtEndOfEachLineSelected`. Primary — чорд,
+ * а не Alt+Q: именно primary показывается в палитре и меню, и подсказка должна
+ * вести на бинд, который работает всегда. `alt+буква` намеренно
+ * layout-sensitive (`code`-фолбэк только у ctrl/meta, см. keybindingRegistry),
+ * то есть на кириллице Alt+Q молчит; на macOS Option по умолчанию не Meta
+ * (Terminal.app напечатает `œ`), да и оконные менеджеры любят забирать
+ * alt+букву себе. Alt+Q оставлен вторым биндом как одно нажатие для тех, у
+ * кого он доезжает.
  *
  * Контент отдают hover-провайдеры расширений через `EditorService.hoverSource`.
  */
@@ -21,8 +24,8 @@ export const showHoverAction: CommandAction = {
     id: "editor.action.showHover",
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Show Hover",
-    keybinding: parseKeybinding("alt+q"),
-    keybindings: [parseChord("ctrl+k ctrl+u")],
+    keybinding: parseChord("ctrl+k ctrl+u"),
+    keybindings: [parseKeybinding("alt+q")],
     when: "textInputFocus",
     run(accessor) {
         void accessor.get(HoverServiceDIToken).showHover();
