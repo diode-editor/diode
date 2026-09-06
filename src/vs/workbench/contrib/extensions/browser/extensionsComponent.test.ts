@@ -207,14 +207,19 @@ describe("ExtensionsComponent", () => {
     });
 
     it("строки прошлого состава не оставляют за собой действий", async () => {
-        const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Acme Tools" }),
+            entry({ id: "other.thing", displayName: "Other Thing" }),
+        ]);
         const { target, opened } = fakeTarget();
         const component = make(service, target);
         const staleRowId = "extensionsGroup-marketplace-acme-tools";
 
-        service.update([entry({ id: "other.thing", displayName: "Other Thing" })]);
-        // Строки с таким id больше нет — активация по ней не должна ничего открыть.
+        // Карточка в сервисе осталась, но фильтр её строку убрал — значит и
+        // действие по ней обязано исчезнуть вместе со строкой.
+        typeQuery(component, "other");
         component.list.onActivate?.({ id: staleRowId } as TUIElement);
+        await Promise.resolve();
         await Promise.resolve();
         expect(opened).toHaveLength(0);
     });
@@ -289,6 +294,8 @@ describe("ExtensionsComponent", () => {
         const service = new FakeService([], "getaddrinfo ENOTFOUND example.invalid");
         const screen = render(make(service), 70).screenToString();
 
+        // Заголовок секции остаётся: ошибка — состояние каталога, а не замена ему.
+        expect(screen).toContain("MARKETPLACE");
         expect(screen).toContain("Retry");
         expect(screen).toContain("ENOTFOUND");
     });

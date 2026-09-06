@@ -49,7 +49,11 @@ describe("createNullExtensionsWorkbenchService", () => {
 
         expect(service.getEntries()).toEqual([]);
         expect(service.getCatalogError()).toBeNull();
-        expect(await service.getMeta("acme.tools")).toBeUndefined();
+        // Именно промисы: вызывающий их ждёт, и «просто undefined» сломал бы и
+        // `await`, и `finally` вокруг загрузки каталога.
+        await expect(service.ensureLoaded()).resolves.toBeUndefined();
+        await expect(service.refresh()).resolves.toBeUndefined();
+        await expect(service.getMeta("acme.tools")).resolves.toBeUndefined();
         // Подписка законна и снимается — потребителю не нужно знать, что сервис пуст.
         expect(() => {
             service.onDidChange(() => {}).dispose();

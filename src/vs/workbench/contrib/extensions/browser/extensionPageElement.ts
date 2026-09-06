@@ -19,13 +19,15 @@ import { buildExtensionPageLines } from "./extensionPageContent.ts";
  * смене — прямо в раскладке (см. {@link performLayout}).
  */
 export class ExtensionPageElement extends TUIElement {
-    private readonly list = new ListViewElement({ typeahead: false });
+    // Typeahead не выключаем: строки страницы заводятся без `label`, а быстрый
+    // поиск по ним и так не работает — опция была бы декорацией.
+    private readonly list = new ListViewElement();
     private readonly body: TUIElement;
     /** Строки как они показаны — источник для {@link inspectState}: у списка построчного чтения нет. */
     private rows: TextLabelElement[] = [];
     private content: IExtensionPageContent;
-    /** Ширина, под которую посчитан текущий перенос; -1 — строк ещё нет. */
-    private wrappedWidth = -1;
+    /** Ширина, под которую посчитан текущий перенос; `null` — строк ещё нет. */
+    private wrappedWidth: number | null = null;
 
     public constructor(content: IExtensionPageContent) {
         super();
@@ -69,6 +71,9 @@ export class ExtensionPageElement extends TUIElement {
     }
 
     private rebuildRows(): void {
+        // До первой раскладки ширины нет — и строк тоже: перенос без ширины
+        // посчитать не из чего.
+        if (this.wrappedWidth === null) return;
         // Ширина текста: минус колонка отступа слева и колонка полосы прокрутки
         // справа — иначе длинная строка упиралась бы в бегунок.
         const textWidth = this.wrappedWidth - 2;

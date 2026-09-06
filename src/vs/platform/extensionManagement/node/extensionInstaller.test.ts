@@ -190,8 +190,11 @@ describe("ExtensionInstaller", () => {
         );
 
         const byId = new Map(listInstalledExtensions(extensionsDir).map((e) => [e.id, e]));
-        expect(byId.get("acme.bare")).toMatchObject({ displayName: undefined, description: undefined });
-        expect(byId.get("acme.junk")).toMatchObject({ displayName: undefined, description: undefined });
+        expect(byId.get("acme.bare")?.displayName).toBeUndefined();
+        expect(byId.get("acme.bare")?.description).toBeUndefined();
+        // Пустое имя — не имя: карточка магазина показала бы пустую строку.
+        expect(byId.get("acme.junk")?.displayName).toBeUndefined();
+        expect(byId.get("acme.junk")?.description).toBeUndefined();
     });
 
     it("list возвращает id/version отсортированно, битые каталоги игнорирует", async () => {

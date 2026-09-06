@@ -46,6 +46,23 @@ function lines(element: ExtensionPageElement): string[] {
 }
 
 describe("ExtensionPageElement", () => {
+    it("до первой раскладки строк нет — переносить нечем", () => {
+        const element = new ExtensionPageElement(content());
+        expect(lines(element)).toEqual([]);
+    });
+
+    it("повторная раскладка той же ширины не пересобирает строки — курсор на месте", () => {
+        const element = new ExtensionPageElement(content());
+        renderElement(element, 40, 12, { themeVars: true });
+        const list = element.querySelector("#extensionPageLines") as ListViewElement;
+        list.setCursorTo("extensionPageLine-2");
+
+        renderElement(element, 40, 12, { themeVars: true });
+        // Пересборка строк сбросила бы курсор на начало — а вместе с ним и
+        // прокрутку длинного readme на каждом кадре.
+        expect(list.getCursorElement()?.id).toBe("extensionPageLine-2");
+    });
+
     it("строки страницы попадают в кадр с колонкой отступа слева", () => {
         const element = new ExtensionPageElement(content());
         const screen = renderElement(element, 40, 12, { themeVars: true });
@@ -100,12 +117,14 @@ describe("ExtensionPageElement", () => {
         expect(renderElement(element, 60, 20, { themeVars: true }).screenToString()).toContain("Installed 1.0.0");
     });
 
-    it("буквы не листают страницу: typeahead в списке строк выключен", () => {
+    it("буквы не листают страницу: строки заводятся без label", () => {
         const element = new ExtensionPageElement(content());
         renderElement(element, 60, 20, { themeVars: true });
         const list = element.querySelector("#extensionPageLines") as ListViewElement;
         list.setCursorTo("extensionPageLine-0");
 
+        // Быстрый поиск списка работает только по label'ам строк; у страницы
+        // их нет, поэтому буква курсор не двигает.
         list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "a" }));
         expect(list.getCursorElement()?.id).toBe("extensionPageLine-0");
     });

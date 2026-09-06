@@ -210,13 +210,14 @@ export class ExtensionsComponent extends Component {
     }
 
     private activateRow(rowId: string): void {
+        // Обе ветки явные: «всё остальное» как fallback означало бы, что строка
+        // с испорченным действием молча делает что-то одно из двух.
         const action = this.actions.get(rowId);
-        if (action === undefined) return;
-        if (action.kind === "open") {
+        if (action?.kind === "open") {
             void this.openExtensionPage(action.id);
             return;
         }
-        void this.refresh();
+        if (action?.kind === "retry") void this.refresh();
     }
 
     /**

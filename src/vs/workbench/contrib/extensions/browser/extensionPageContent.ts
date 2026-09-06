@@ -35,12 +35,10 @@ export function wrapText(text: string, width: number): string[] {
     const limit = Math.max(MIN_WRAP_WIDTH, width);
     const out: string[] = [];
     for (const paragraph of text.split("\n")) {
-        // Хвостовые пробелы срезаем: иначе они считались бы в ширину и рвали
-        // строку раньше, чем нужно. Пустой абзац отдельной ветки не требует —
-        // цикл ниже не найдёт ни одного слова и вытолкнет пустую строку сам.
-        const source = paragraph.replace(/\s+$/, "");
+        // Пустые куски (лишние пробелы, пустой абзац) отдельных веток не требуют:
+        // цикл их пропускает, а хвост выталкивается как есть — пустой строкой.
         let line = "";
-        for (const word of source.split(" ")) {
+        for (const word of paragraph.split(" ")) {
             if (word.length === 0) continue;
             if (line.length === 0) {
                 line = word;
@@ -55,8 +53,8 @@ export function wrapText(text: string, width: number): string[] {
                 line = line.slice(limit);
             }
         }
-        // Хвост всегда непустой: абзац сюда попадает уже без хвостовых пробелов,
-        // а жёсткая нарезка длинного слова оставляет остаток короче лимита.
+        // Хвост выталкиваем всегда: у абзаца из одних пробелов он пустой — и
+        // пустая строка как раз и есть то, что абзац означает.
         out.push(line);
     }
     return out;
@@ -80,10 +78,9 @@ export function statusLine(entry: IExtensionListEntry): string {
 /** `engines` последней версии одной строкой; пусто — требований нет. */
 function requirementsOf(meta: IRegistryExtensionMeta | undefined, version: string | null): string {
     const engines = meta?.versions.find((v) => v.version === version)?.engines;
-    if (engines === undefined) return "";
     const parts: string[] = [];
-    if (engines.diode !== undefined) parts.push(`diode ${engines.diode}`);
-    if (engines.vscode !== undefined) parts.push(`vscode ${engines.vscode}`);
+    if (engines?.diode !== undefined) parts.push(`diode ${engines.diode}`);
+    if (engines?.vscode !== undefined) parts.push(`vscode ${engines.vscode}`);
     return parts.join(", ");
 }
 

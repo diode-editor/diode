@@ -449,6 +449,7 @@ export class WorkbenchComponent extends Component {
         this.viewsService.registerContainer({
             id: EXTENSIONS_VIEWLET_ID,
             title: "EXTENSIONS",
+            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
             location: "sidebar",
         });
         this.viewsService.attachContainer(EXTENSIONS_VIEWLET_ID);
