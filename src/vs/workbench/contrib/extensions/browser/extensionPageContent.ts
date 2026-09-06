@@ -35,11 +35,11 @@ export function wrapText(text: string, width: number): string[] {
     const limit = Math.max(MIN_WRAP_WIDTH, width);
     const out: string[] = [];
     for (const paragraph of text.split("\n")) {
-        // Пустые куски (лишние пробелы, пустой абзац) отдельных веток не требуют:
-        // цикл их пропускает, а хвост выталкивается как есть — пустой строкой.
         let line = "";
         for (const word of paragraph.split(" ")) {
-            if (word.length === 0) continue;
+            // Пустые куски (двойной пробел, пустой абзац) отдельной ветки не
+            // требуют: у пустого слова нет ни одного куска, и цикл ниже его
+            // молча пропускает.
             for (const piece of splitLongWord(word, limit)) {
                 if (line.length === 0) {
                     line = piece;
