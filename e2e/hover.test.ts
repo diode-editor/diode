@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { beforeAll, describe, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
@@ -8,7 +8,7 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Hover от стокового `typescript-language-server` в SEA-бинаре: Ctrl+K Ctrl+X
+ * Hover от стокового `typescript-language-server` в SEA-бинаре: Ctrl+K Ctrl+U
  * показывает попап с типом символа под кареткой, Escape закрывает его. Ассерт
  * ждёт текст, которого НЕТ в буфере (сигнатуру из соседнего модуля) — грабля
  * «слабый ассерт прячет неработающую фичу» из docs/TODO/Suggest.md.
@@ -39,7 +39,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await getBinaryPath();
         }, 300_000);
 
-        it("Ctrl+K Ctrl+X показывает тип символа, Escape закрывает попап", { timeout: 240_000 }, async () => {
+        it("Ctrl+K Ctrl+U показывает тип символа, Escape закрывает попап", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -59,12 +59,12 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Каретка на `greet` в вызове (строка 2, колонка 23) и Ctrl+K Ctrl+X.
+            // Каретка на `greet` в вызове (строка 2, колонка 23) и Ctrl+K Ctrl+U.
             await session.key("ArrowDown");
             await session.key("ArrowDown");
             for (let i = 0; i < 23; i++) await session.key("ArrowRight");
             await session.key("Ctrl+K");
-            await session.key("Ctrl+X");
+            await session.key("Ctrl+U");
 
             // Попап показывает сигнатуру: для call-site импортированного символа
             // tsserver отвечает `(alias) greet(name: string): string` — этого
@@ -75,13 +75,15 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 intervalMs: 500,
             });
 
-            // Escape закрывает попап, буфер остаётся нетронутым.
+            // Escape закрывает попап, буфер остаётся нетронутым: строка цела —
+            // значит ни чорд, ни Escape не просочились в редактор.
             await session.key("Escape");
-            await waitUntil(
+            const frame = await waitUntil(
                 () => session.captureFrame(),
-                (frame) => !frameToText(frame).includes("(alias) greet"),
+                (f) => !frameToText(f).includes("(alias) greet"),
                 { describe: "hover-попап закрыт по Escape", timeoutMs: 30_000, intervalMs: 250 },
             );
+            expect(frameToText(frame)).toContain('const reply: number = greet("world");');
         });
     },
 );

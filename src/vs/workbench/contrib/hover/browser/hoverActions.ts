@@ -5,11 +5,15 @@ import { HoverServiceDIToken } from "./hoverService.ts";
 
 /**
  * Показывает hover-попап для символа под кареткой (`editor.action.showHover`).
- * Дефолтный кейбинд — Ctrl+K Ctrl+X при фокусе редактора. Не VS Code-овский
- * Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает тем же байтом, что Tab
- * (0x09), поэтому тот чорд там физически недостижим и вдобавок занят
- * legacy-фолбэком `insertCursorAtEndOfEachLineSelected`. `ctrl+<буква>` вида
- * Ctrl+X доезжает на любом tier, так что фолбэк не нужен.
+ * Дефолтный кейбинд — чорд Ctrl+K Ctrl+U при фокусе редактора.
+ *
+ * Не VS Code-овский Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает тем же
+ * байтом, что Tab (0x09), поэтому тот чорд там физически недостижим и вдобавок
+ * занят legacy-фолбэком `insertCursorAtEndOfEachLineSelected`. Одиночный
+ * `alt+буква` в дефолты не берём: `alt` намеренно layout-sensitive
+ * (`code`-фолбэк только у ctrl/meta, см. keybindingRegistry), то есть на
+ * кириллице такой бинд молчит, а на macOS Option по умолчанию не Meta.
+ * Кому нужно одно нажатие — добавляет своё в `keybindings.json` профиля.
  *
  * Контент отдают hover-провайдеры расширений через `EditorService.hoverSource`.
  */
@@ -17,7 +21,7 @@ export const showHoverAction: CommandAction = {
     id: "editor.action.showHover",
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Show Hover",
-    keybinding: parseChord("ctrl+k ctrl+x"),
+    keybinding: parseChord("ctrl+k ctrl+u"),
     when: "textInputFocus",
     run(accessor) {
         void accessor.get(HoverServiceDIToken).showHover();
