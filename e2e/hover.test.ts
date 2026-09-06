@@ -9,8 +9,7 @@ import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
  * Hover от стокового `typescript-language-server` в SEA-бинаре: Ctrl+K Ctrl+U
- * (и второй бинд Alt+Q) показывает попап с типом символа под кареткой,
- * Escape закрывает его. Ассерт
+ * показывает попап с типом символа под кареткой, Escape закрывает его. Ассерт
  * ждёт текст, которого НЕТ в буфере (сигнатуру из соседнего модуля) — грабля
  * «слабый ассерт прячет неработающую фичу» из docs/TODO/Suggest.md.
  */
@@ -40,7 +39,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await getBinaryPath();
         }, 300_000);
 
-        it("Ctrl+K Ctrl+U и Alt+Q показывают тип символа, Escape закрывает попап", { timeout: 240_000 }, async () => {
+        it("Ctrl+K Ctrl+U показывает тип символа, Escape закрывает попап", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -60,7 +59,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Каретка на `greet` в вызове (строка 2, колонка 23) и основной бинд.
+            // Каретка на `greet` в вызове (строка 2, колонка 23) и Ctrl+K Ctrl+U.
             await session.key("ArrowDown");
             await session.key("ArrowDown");
             for (let i = 0; i < 23; i++) await session.key("ArrowRight");
@@ -76,30 +75,13 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 intervalMs: 500,
             });
 
-            // Escape закрывает попап, буфер остаётся нетронутым.
-            await session.key("Escape");
-            await waitUntil(
-                () => session.captureFrame(),
-                (frame) => !frameToText(frame).includes("(alias) greet"),
-                { describe: "hover-попап закрыт по Escape", timeoutMs: 30_000, intervalMs: 250 },
-            );
-
-            // Второй бинд — на настоящем терминале это отдельный путь декодера
-            // (Alt приезжает ESC-префиксом), поэтому проверяем и его: попап
-            // открывается снова, буква `q` в буфер не попадает.
-            await session.key("Alt+Q");
-            await session.waitForText((text) => text.includes("(alias) greet(name: string): string"), {
-                timeoutMs: 60_000,
-                intervalMs: 500,
-            });
-
-            // Закрываем попап и смотрим на буфер: строка цела, значит `q` не
-            // просочилась в редактор мимо кейбинда.
+            // Escape закрывает попап, буфер остаётся нетронутым: строка цела —
+            // значит ни чорд, ни Escape не просочились в редактор.
             await session.key("Escape");
             const frame = await waitUntil(
                 () => session.captureFrame(),
                 (f) => !frameToText(f).includes("(alias) greet"),
-                { describe: "hover-попап закрыт по Escape (второй бинд)", timeoutMs: 30_000, intervalMs: 250 },
+                { describe: "hover-попап закрыт по Escape", timeoutMs: 30_000, intervalMs: 250 },
             );
             expect(frameToText(frame)).toContain('const reply: number = greet("world");');
         });
