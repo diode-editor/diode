@@ -1,4 +1,4 @@
-import { cpSync } from "node:fs";
+import { cpSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -6,10 +6,11 @@ import { startHeadlessApp } from "../helpers/appSession.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
 
 /**
- * Смоук-чеки расширений реестра: «поставилось» — половина ответа, вторая половина
- * — «работает в Diode на текущем коде». Каждая запись реестра обязана иметь чек
- * здесь, иначе `marketplace.test.ts` краснеет: добавить расширение в магазин, не
- * проверив его в редакторе, — ровно то, чего курируемость не допускает.
+ * Смоук-чеки расширений из магазина: «поставилось» — половина ответа, вторая
+ * половина — «работает в Diode на текущем коде». Таблица необязательная и
+ * неполная по устройству: `marketplace.test.ts` идёт по живому каталогу, а чек
+ * здесь углубляет прогон для тех расширений, для которых мы его написали.
+ * Состав магазина решает магазин — отсутствие чека ничего не блокирует.
  *
  * Чек дёргает настоящую функциональность расширения и смотрит на состояние
  * редактора, а не на факт загрузки: фикстура, выведенная из своей же реализации,
@@ -52,7 +53,26 @@ async function expectTabSize(ctx: ICheckContext, file: string, tabSize: number):
 
 export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
     {
-        // kind: "native" — наш артефакт, раздаётся с Pages.
+        // kind: "native", декларативное расширение: ни строчки кода, только вклад
+        // языка и грамматики — extension host для него не поднимается вовсе.
+        // Исходник и упаковщик — `sample-extension/` рядом.
+        id: "test.sample-lang",
+        expectFiles: ["package.json", "syntaxes/diodesample.tmGrammar.json"],
+        run: async (ctx) => {
+            // Наблюдаемый эффект вклада языка — имя языка в статус-баре: файл
+            // `.diodesample` перестаёт быть Plain Text.
+            const file = join(ctx.root, "sample.diodesample");
+            writeFileSync(file, "sample marketplace 42\n# comment\n");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                await app.session.waitForText((text) => text.includes("Diode Sample"), { timeoutMs: 40_000 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "native", рантайм-расширение: `main` + subprocess extension host.
         id: "test.tab-setter",
         expectFiles: ["package.json", "extension.js"],
         run: async (ctx) => {
