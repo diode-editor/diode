@@ -1,3 +1,6 @@
+import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
+import { INHERITED_FG } from "@tuidom/core/dom/styles/tuiStyle";
+
 import type { IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
@@ -16,12 +19,24 @@ export interface IExtensionPageLine {
     readonly tone: ExtensionPageTone;
 }
 
+/**
+ * Тон → цвет темы. Таблицей, а не switch: тон — это данные. Живёт рядом с
+ * типом тона, потому что красят строки обе половины страницы (шапка и тело).
+ */
+export const TONE_COLORS: Record<ExtensionPageTone, StyleColor> = {
+    normal: INHERITED_FG,
+    dim: "descriptionForeground",
+    warning: "editorWarning.foreground",
+};
+
 export interface IExtensionPageContent {
     readonly entry: IExtensionListEntry;
     /** Мета реестра; `undefined` — записи нет (расширение поставлено мимо магазина). */
     readonly meta: IRegistryExtensionMeta | undefined;
     /** Почему меты нет (сетевой сбой); `null` — реестр ответил. */
     readonly metaError: string | null;
+    /** Чем кончилась последняя установка/удаление; `null` — ошибки не было. */
+    readonly operationError: string | null;
 }
 
 /** Ширина, уже недостаточная для осмысленного переноса: ниже неё не режем. */
@@ -93,13 +108,12 @@ function requirementsOf(meta: IRegistryExtensionMeta | undefined, version: strin
     return parts.join(", ");
 }
 
-/**
- * Строки страницы: шапка (идентичность, состояние, требования, ссылки), пустая
- * строка и readme. Readme у нас markdown как есть — рендерера разметки в
- * проекте нет, и заводить его ради страницы магазина не стали.
- */
-export function buildExtensionPageLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
-    const { entry, meta, metaError } = content;
+/** Накопитель строк: сам переносит по ширине и помнит тон. */
+function lineWriter(width: number): {
+    lines: IExtensionPageLine[];
+    push: (text: string, tone?: ExtensionPageTone) => void;
+    wrapped: (text: string, tone?: ExtensionPageTone) => void;
+} {
     const lines: IExtensionPageLine[] = [];
     const push = (text: string, tone: ExtensionPageTone = "normal"): void => {
         lines.push({ text, tone });
@@ -107,6 +121,17 @@ export function buildExtensionPageLines(content: IExtensionPageContent, width: n
     const wrapped = (text: string, tone: ExtensionPageTone = "normal"): void => {
         for (const line of wrapText(text, width)) push(line, tone);
     };
+    return { lines, push, wrapped };
+}
+
+/**
+ * Шапка страницы: идентичность, состояние, требования, ссылки и — если
+ * установка/удаление сорвались — причина. Живёт закреплённой над readme,
+ * поэтому кончается пустой строкой-зазором перед рядом кнопок.
+ */
+export function buildExtensionHeaderLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
+    const { entry, meta, operationError } = content;
+    const { lines, push, wrapped } = lineWriter(width);
 
     wrapped(entry.displayName);
     push(entry.id, "dim");
@@ -122,7 +147,19 @@ export function buildExtensionPageLines(content: IExtensionPageContent, width: n
     if (meta?.license !== undefined) push(`License: ${meta.license}`, "dim");
     if (meta?.repository !== undefined) wrapped(`Repository: ${meta.repository}`, "dim");
     if (meta?.homepage !== undefined) wrapped(`Homepage: ${meta.homepage}`, "dim");
+    if (operationError !== null) wrapped(operationError, "warning");
     push("");
+    return lines;
+}
+
+/**
+ * Тело страницы: readme реестра как есть — рендерера markdown в проекте нет, и
+ * заводить его ради страницы магазина не стали. Вместо readme может стоять
+ * причина, по которой его нет.
+ */
+export function buildExtensionBodyLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
+    const { meta, metaError } = content;
+    const { lines, wrapped } = lineWriter(width);
 
     if (metaError !== null) {
         wrapped(`Cannot read this extension from the registry: ${metaError}`, "warning");

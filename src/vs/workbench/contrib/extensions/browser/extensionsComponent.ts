@@ -18,6 +18,8 @@ import {
 } from "../common/extensionsWorkbench.ts";
 
 import { ExtensionEditorPane } from "./extensionEditorPane.ts";
+import type { IExtensionPageActions } from "./extensionPageActions.ts";
+import { ExtensionPageActionsDIToken } from "./extensionPageActions.ts";
 import { buildExtensionRow, buildGroupRow, type IExtensionRowStyles } from "./extensionRows.ts";
 
 export const ExtensionsComponentDIToken = token<ExtensionsComponent>("ExtensionsComponent");
@@ -71,6 +73,7 @@ export class ExtensionsComponent extends Component {
         ExtensionsWorkbenchServiceDIToken,
         ViewsServiceDIToken,
         ExtensionsEditorTargetDIToken,
+        ExtensionPageActionsDIToken,
     ] as const;
 
     private readonly root: HeaderBodyViewElement;
@@ -85,6 +88,7 @@ export class ExtensionsComponent extends Component {
         private readonly service: IExtensionsWorkbenchService,
         viewsService: ViewsService,
         private readonly editorTarget: IExtensionsEditorTarget,
+        private readonly pageActions: IExtensionPageActions,
     ) {
         super();
 
@@ -234,6 +238,6 @@ export class ExtensionsComponent extends Component {
         } catch (error) {
             metaError = error instanceof Error ? error.message : String(error);
         }
-        this.editorTarget.openPane(new ExtensionEditorPane(this.service, entry, meta, metaError));
+        this.editorTarget.openPane(new ExtensionEditorPane(this.service, this.pageActions, entry, meta, metaError));
     }
 }

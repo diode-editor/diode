@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { REGISTRY_SCHEMA_VERSION, type IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-import { buildExtensionPageLines, statusLine, wrapText } from "./extensionPageContent.ts";
+import { buildExtensionBodyLines, buildExtensionHeaderLines, statusLine, wrapText } from "./extensionPageContent.ts";
 
 function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntry {
     return {
@@ -16,6 +16,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
+        needsReload: false,
         ...overrides,
     };
 }
@@ -110,9 +111,9 @@ describe("statusLine", () => {
     });
 });
 
-describe("buildExtensionPageLines", () => {
+describe("buildExtensionHeaderLines", () => {
     it("шапка несёт идентичность, статус, версию, требования и вид записи", () => {
-        const lines = buildExtensionPageLines({ entry: entry(), meta: meta(), metaError: null }, 60);
+        const lines = buildExtensionHeaderLines({ entry: entry(), meta: meta(), metaError: null, operationError: null }, 60);
         // Сравниваем строки целиком, вместе с тоном: цвет здесь — часть смысла
         // (что имя, что справочная строка, что предупреждение), и ассерт на один
         // текст пропустил бы перекрашивание половины страницы.
@@ -130,7 +131,7 @@ describe("buildExtensionPageLines", () => {
     });
 
     it("требования обоих каналов идут одной строкой", () => {
-        const lines = buildExtensionPageLines(
+        const lines = buildExtensionHeaderLines(
             {
                 entry: entry(),
                 meta: meta({
@@ -144,6 +145,7 @@ describe("buildExtensionPageLines", () => {
                     ],
                 }),
                 metaError: null,
+                operationError: null,
             },
             60,
         );
@@ -151,7 +153,7 @@ describe("buildExtensionPageLines", () => {
     });
 
     it("требование только к diode — без хвоста про vscode", () => {
-        const lines = buildExtensionPageLines(
+        const lines = buildExtensionHeaderLines(
             {
                 entry: entry(),
                 meta: meta({
@@ -165,6 +167,7 @@ describe("buildExtensionPageLines", () => {
                     ],
                 }),
                 metaError: null,
+                operationError: null,
             },
             60,
         );
@@ -172,15 +175,15 @@ describe("buildExtensionPageLines", () => {
     });
 
     it("версии в мете нет — строки требований тоже нет", () => {
-        const lines = buildExtensionPageLines(
-            { entry: entry({ latestVersion: "9.9.9" }), meta: meta(), metaError: null },
+        const lines = buildExtensionHeaderLines(
+            { entry: entry({ latestVersion: "9.9.9" }), meta: meta(), metaError: null, operationError: null },
             60,
         );
         expect(texts(lines).some((t) => t.startsWith("Requires:"))).toBe(false);
     });
 
     it("ссылки и лицензия показываются, когда они есть в мете", () => {
-        const lines = buildExtensionPageLines(
+        const lines = buildExtensionHeaderLines(
             {
                 entry: entry(),
                 meta: meta({
@@ -189,6 +192,7 @@ describe("buildExtensionPageLines", () => {
                     homepage: "https://acme.test",
                 }),
                 metaError: null,
+                operationError: null,
             },
             60,
         );
@@ -201,70 +205,114 @@ describe("buildExtensionPageLines", () => {
         );
     });
 
-    it("readme идёт после шапки, с переносом по ширине", () => {
-        const lines = buildExtensionPageLines(
-            { entry: entry(), meta: meta({ readme: "# Acme\n\nalpha beta gamma delta" }), metaError: null },
-            12,
-        );
-        expect(texts(lines).slice(-4)).toEqual(["# Acme", "", "alpha beta", "gamma delta"]);
-    });
-
-    it("нет readme — так и написано, приглушённой строкой", () => {
-        const lines = buildExtensionPageLines({ entry: entry(), meta: meta(), metaError: null }, 60);
-        expect(lines.at(-1)).toEqual({ text: "No readme published for this extension.", tone: "dim" });
-    });
-
-    it("readme идёт обычным тоном — это содержимое, а не служебная строка", () => {
-        const lines = buildExtensionPageLines(
-            { entry: entry(), meta: meta({ readme: "Readme body" }), metaError: null },
-            60,
-        );
-        expect(lines.at(-1)).toEqual({ text: "Readme body", tone: "normal" });
-    });
-
-    it("нет записи в реестре — страница честно говорит откуда расширение", () => {
-        const lines = buildExtensionPageLines(
+    it("нет записи в реестре — ни лицензии, ни ссылок: их брать неоткуда", () => {
+        const lines = buildExtensionHeaderLines(
             {
                 entry: entry({ latestVersion: null, installedVersion: "0.1.0", availability: "installed", kind: undefined }),
                 meta: undefined,
                 metaError: null,
+                operationError: null,
             },
-            100,
+            60,
         );
-        // Ни вида записи, ни «последней версии» у такого расширения нет —
-        // строк не должно быть вовсе, а не со словом undefined/null внутри.
-        expect(texts(lines).some((t) => t.startsWith("Kind:"))).toBe(false);
-        expect(texts(lines).some((t) => t.startsWith("Latest version:"))).toBe(false);
-        expect(texts(lines)).toContain("Installed 0.1.0");
-        expect(lines.at(-1)).toEqual({
-            text: "This extension is not in the marketplace — it was installed from a file.",
-            tone: "dim",
-        });
+        expect(texts(lines)).toEqual(["Acme Tools", "acme.tools", "Tools for acme", "", "Installed 0.1.0", ""]);
     });
 
-    it("сетевой сбой меты вытесняет readme и красится предупреждением", () => {
-        const lines = buildExtensionPageLines(
-            { entry: entry(), meta: undefined, metaError: "fetch failed (ENOTFOUND)" },
-            100,
+    it("ошибка операции стоит в шапке предупреждением — рядом с кнопками, которые её вызвали", () => {
+        const lines = buildExtensionHeaderLines(
+            { entry: entry(), meta: meta(), metaError: null, operationError: "sha256 mismatch" },
+            60,
         );
-        expect(lines.at(-1)).toEqual({
-            text: "Cannot read this extension from the registry: fetch failed (ENOTFOUND)",
-            tone: "warning",
-        });
+        expect(lines.at(-2)).toEqual({ text: "sha256 mismatch", tone: "warning" });
+        // Шапка кончается пустой строкой-зазором перед рядом кнопок.
+        expect(lines.at(-1)).toEqual({ text: "", tone: "normal" });
     });
 
     it("несовместимость подсвечена, а не спрятана в приглушённой строке", () => {
-        const lines = buildExtensionPageLines(
-            { entry: entry({ availability: "incompatible" }), meta: meta(), metaError: null },
+        const lines = buildExtensionHeaderLines(
+            { entry: entry({ availability: "incompatible" }), meta: meta(), metaError: null, operationError: null },
             60,
         );
         expect(lines.find((l) => l.text.startsWith("Incompatible"))?.tone).toBe("warning");
     });
 
     it("пустое описание не даёт пустой строки в шапке", () => {
-        const lines = buildExtensionPageLines({ entry: entry({ description: "" }), meta: meta(), metaError: null }, 60);
+        const lines = buildExtensionHeaderLines(
+            { entry: entry({ description: "" }), meta: meta(), metaError: null, operationError: null },
+            60,
+        );
         // Ровно одна пустая строка между идентичностью и статусом: лишняя
         // означала бы, что описание всё-таки вывели — пустым.
         expect(texts(lines).slice(0, 4)).toEqual(["Acme Tools", "acme.tools", "", "Not installed"]);
+    });
+
+    it("readme в шапку не попадает — он живёт в прокручиваемом теле", () => {
+        const lines = buildExtensionHeaderLines(
+            { entry: entry(), meta: meta({ readme: "Readme body" }), metaError: null, operationError: null },
+            60,
+        );
+        expect(texts(lines)).not.toContain("Readme body");
+    });
+});
+
+describe("buildExtensionBodyLines", () => {
+    it("readme переносится по ширине и идёт обычным тоном — это содержимое", () => {
+        const lines = buildExtensionBodyLines(
+            { entry: entry(), meta: meta({ readme: "# Acme\n\nalpha beta gamma delta" }), metaError: null, operationError: null },
+            12,
+        );
+        expect(lines).toEqual([
+            { text: "# Acme", tone: "normal" },
+            { text: "", tone: "normal" },
+            { text: "alpha beta", tone: "normal" },
+            { text: "gamma delta", tone: "normal" },
+        ]);
+    });
+
+    it("нет readme — так и написано, приглушённой строкой", () => {
+        const lines = buildExtensionBodyLines(
+            { entry: entry(), meta: meta(), metaError: null, operationError: null },
+            60,
+        );
+        expect(lines).toEqual([{ text: "No readme published for this extension.", tone: "dim" }]);
+    });
+
+    it("нет записи в реестре — тело честно говорит, откуда расширение", () => {
+        const lines = buildExtensionBodyLines(
+            {
+                entry: entry({ latestVersion: null, installedVersion: "0.1.0", availability: "installed" }),
+                meta: undefined,
+                metaError: null,
+                operationError: null,
+            },
+            100,
+        );
+        expect(lines).toEqual([
+            {
+                text: "This extension is not in the marketplace — it was installed from a file.",
+                tone: "dim",
+            },
+        ]);
+    });
+
+    it("сетевой сбой меты вытесняет readme и красится предупреждением", () => {
+        const lines = buildExtensionBodyLines(
+            { entry: entry(), meta: undefined, metaError: "fetch failed (ENOTFOUND)", operationError: null },
+            100,
+        );
+        expect(lines).toEqual([
+            {
+                text: "Cannot read this extension from the registry: fetch failed (ENOTFOUND)",
+                tone: "warning",
+            },
+        ]);
+    });
+
+    it("сбой меты перебивает даже пришедшую мету — показывать полуправду хуже, чем причину", () => {
+        const lines = buildExtensionBodyLines(
+            { entry: entry(), meta: meta({ readme: "Readme body" }), metaError: "boom", operationError: null },
+            100,
+        );
+        expect(texts(lines)).not.toContain("Readme body");
     });
 });

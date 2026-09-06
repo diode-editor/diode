@@ -14,7 +14,7 @@ import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 const GAP = "  ";
 
 /** Бейдж состояния — правая часть строки; `available` бейджа не несёт. */
-export type ExtensionRowBadge = "installed" | "update" | "incompatible";
+export type ExtensionRowBadge = "installed" | "update" | "incompatible" | "reload";
 
 export interface IExtensionRowLayout {
     readonly text: string;
@@ -60,6 +60,10 @@ export function describeExtensionRow(entry: IExtensionListEntry): IExtensionRowL
 
 /** Бейдж — по версиям (как и статус страницы), кроме несовместимости: её знает только `availability`. */
 function badgeTextOf(entry: IExtensionListEntry): { text: string; kind: ExtensionRowBadge } | null {
+    // «Ждём перезагрузки» перебивает всё: пока окно не перезапущено, состояние
+    // на диске и состояние работающего редактора расходятся, и это главное,
+    // что нужно знать про такую запись.
+    if (entry.needsReload) return { text: "Reload", kind: "reload" };
     if (entry.availability === "incompatible") return { text: "Incompatible", kind: "incompatible" };
     if (entry.installedVersion === null) return null;
     if (entry.latestVersion !== null && entry.latestVersion !== entry.installedVersion) {
@@ -87,6 +91,8 @@ const BADGE_COLOR: Record<ExtensionRowBadge, keyof IExtensionRowStyles> = {
     installed: "dimFg",
     update: "updateFg",
     incompatible: "warningFg",
+    // Перезагрузка — такое же доступное действие, как обновление.
+    reload: "updateFg",
 };
 
 /** Красит версию и бейдж; остальной текст остаётся цветом строки. */

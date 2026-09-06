@@ -13,6 +13,7 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
+        needsReload: false,
         ...overrides,
     };
 }

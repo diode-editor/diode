@@ -41,7 +41,25 @@ export interface IExtensionListEntry {
     /** Установленная версия; `null` — не установлено. */
     readonly installedVersion: string | null;
     readonly availability: ExtensionAvailability;
+    /**
+     * Расширение ставили или удаляли в этой сессии: биты на диске уже те, но
+     * вклады сканируются один раз на старте, поэтому «работает» оно только
+     * после перезагрузки окна (`workbench.action.reloadWindow`).
+     */
+    readonly needsReload: boolean;
 }
+
+/**
+ * Итог установки/удаления. Ошибка — значение, а не исключение: причина едет в
+ * UI текстом (несовместимая версия, битый sha256, недоступный реестр), как и
+ * ошибка чтения каталога.
+ */
+export type IExtensionOperationResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
+
+/** Итог установки: у успеха есть версия, которая встала. */
+export type IExtensionInstallResult =
+    | { readonly ok: true; readonly version: string }
+    | { readonly ok: false; readonly error: string };
 
 /**
  * Магазин глазами workbench: каталог реестра, склеенный с установленным.
@@ -66,6 +84,15 @@ export interface IExtensionsWorkbenchService {
 
     /** Полная мета для страницы расширения; `undefined` — реестр не знает id. */
     getMeta(id: string): Promise<IRegistryExtensionMeta | undefined>;
+
+    /**
+     * Ставит последнюю совместимую версию из реестра. Она же операция
+     * «обновить»: предыдущие версии того же id сносятся установкой.
+     */
+    install(id: string): Promise<IExtensionInstallResult>;
+
+    /** Удаляет все установленные версии расширения. */
+    uninstall(id: string): Promise<IExtensionOperationResult>;
 
     /** Состав карточек или ошибка каталога изменились. */
     onDidChange(listener: () => void): IDisposable;

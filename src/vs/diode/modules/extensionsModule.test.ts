@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { REGISTRY_SCHEMA_VERSION } from "../../platform/extensionManagement/common/registryFormat.ts";
+import { ExtensionPageActionsDIToken } from "../../workbench/contrib/extensions/browser/extensionPageActions.ts";
 import {
     ExtensionsComponentDIToken,
     ExtensionsEditorTargetDIToken,
@@ -60,6 +61,7 @@ describe("extensionsModule", () => {
         container.bind(ExtensionsWorkbenchServiceDIToken, poison("сервис магазина"));
         container.bind(ExtensionsComponentDIToken, poison("вьюлет магазина"));
         container.bind(ExtensionsEditorTargetDIToken, poison("шов открытия страницы"));
+        container.bind(ExtensionPageActionsDIToken, poison("действия страницы"));
         container.use(extensionsModule, {
             registry: ws!.path("registry"),
             extensionsDir: ws!.path("extensions"),
@@ -113,5 +115,18 @@ describe("extensionsModule", () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
 
         expect(setup().get(ExtensionsComponentDIToken).view.id).toBe("extensionsView");
+    });
+
+    it("действия страницы ходят в тот же магазин, что и вьюлет", async () => {
+        ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
+        ws.writeFile("registry/index.json", indexJson([]));
+        const container = setup();
+
+        // Удалять нечего — важно, что ответ пришёл от настоящего сервиса поверх
+        // переданного каталога, а не от заглушки.
+        await expect(container.get(ExtensionPageActionsDIToken).uninstall("acme.tools")).resolves.toEqual({
+            ok: false,
+            error: "Extension acme.tools is not installed",
+        });
     });
 });

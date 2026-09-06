@@ -24,6 +24,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
+        needsReload: false,
         ...overrides,
     };
 }
@@ -49,6 +50,14 @@ describe("describeExtensionRow", () => {
         expect(row.text).toBe("Acme Tools  0.9.0  Update 1.0.0");
         expect(row.badge).toEqual({ start: 19, length: 12, kind: "update" });
         expect(row.text.slice(row.badge!.start, row.badge!.start + row.badge!.length)).toBe("Update 1.0.0");
+    });
+
+    it("ждём перезагрузки — бейдж говорит об этом раньше всего остального", () => {
+        // Установленную версию видно, но работать она начнёт только после
+        // перезагрузки окна — это и есть главное про такую запись.
+        const row = describeExtensionRow(entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true }));
+        expect(row.text).toBe("Acme Tools  1.0.0  Reload");
+        expect(row.badge?.kind).toBe("reload");
     });
 
     it("несовместимо — бейдж вместо обновления, даже если версия старая", () => {
