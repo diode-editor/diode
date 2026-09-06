@@ -816,6 +816,21 @@ export class ExtensionHost extends Disposable {
         super.dispose();
     }
 
+    /**
+     * Снимает host там, где event loop дальше не крутится — при перезагрузке
+     * окна сразу за этим идёт синхронный запуск нового процесса. Вежливое
+     * прощание из {@link dispose} асинхронное и в таком месте просто не доедет:
+     * субпроцесс остался бы сиротой у заблокированного родителя, поэтому здесь
+     * он снимается сигналом, синхронно.
+     */
+    public disposeNow(): void {
+        const child = this.subprocess;
+        this.dispose();
+        // Мёртвому ребёнку `kill` не бросает — просто вернёт false, так что
+        // отдельной проверки «а жив ли он» здесь не нужно.
+        child?.kill("SIGKILL");
+    }
+
     /** Снимает один watcher субпроцесса (если он есть). */
     private disposeFileWatcher(id: number): void {
         const existing = this.fileWatchers.get(id);

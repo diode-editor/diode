@@ -285,15 +285,17 @@ async function runEditor(): Promise<void> {
      *
      * Порядок отпускания важен: сперва терминал (иначе новое окно рисует поверх
      * чужих режимов), затем сокет инспектора (новое окно займёт тот же порт),
-     * затем extension host (его сабпроцесс иначе осиротеет на супервизоре), и
-     * только потом состояние сессии на диск — новое окно читает его на старте,
-     * то есть заведомо раньше, чем сработал бы `process.on("exit")`.
+     * затем extension host — синхронно (`disposeNow`), потому что дальше event
+     * loop не крутится и вежливое прощание не доехало бы, а его субпроцесс
+     * остался бы сиротой у заблокированного супервизора, — и только потом
+     * состояние сессии на диск: новое окно читает его на старте, то есть
+     * заведомо раньше, чем сработал бы `process.on("exit")`.
      */
     function reloadWindow(): void {
         bootstrapLogger.info("reloading window");
         backend.teardown();
         inspectorHandle?.dispose();
-        extensionHost.dispose();
+        extensionHost.disposeNow();
         stateService.flushSync();
         restartProcess(currentProcessSnapshot(), realRestartHooks);
     }
