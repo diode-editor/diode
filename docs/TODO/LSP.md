@@ -2,7 +2,7 @@
 
 Статус: **[~] платформа готова** — document sync + definition (F12) + диагностики +
 автодополнение (Ctrl+Space, триггер-символы, панель описания, авто-импорт) + hover
-(Ctrl+K Ctrl+X) + Find All References (Ctrl+K Ctrl+R, панель в сайдбаре) работают со
+(Ctrl+K Ctrl+U) + Find All References (Ctrl+K Ctrl+R, панель в сайдбаре) работают со
 стоковым `typescript-language-server` end-to-end (юнит-интеграция
 `extensionHost.typescriptLsp.test.ts`, `.completion.test.ts`, `.hover.test.ts`,
 `.references.test.ts`; e2e `e2e/gotoDefinition.test.ts`, `e2e/references.test.ts`;
