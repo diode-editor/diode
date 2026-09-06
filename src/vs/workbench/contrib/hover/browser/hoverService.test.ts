@@ -131,11 +131,10 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(seen.text).toContain("const answer");
     });
 
-    it("Ctrl+K Ctrl+X открывает попап, Escape закрывает — фокус остаётся в редакторе", async () => {
+    it("Alt+Q открывает попап, Escape закрывает — фокус остаётся в редакторе", async () => {
         group().hoverSource = () => Promise.resolve([hoverOf(["const answer: number"])]);
 
-        h.testApp.sendKey("Ctrl+K");
-        h.testApp.sendKey("Ctrl+X");
+        h.testApp.sendKey("Alt+q");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(true);
 

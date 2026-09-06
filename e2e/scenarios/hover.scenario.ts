@@ -5,7 +5,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Hover от стокового typescript-language-server: Ctrl+K Ctrl+X показывает
+// Hover от стокового typescript-language-server: Alt+Q показывает
 // попап с типом символа под кареткой.
 //
 // Демо обязательное: юнит-тесты видят данные, но не кадр — а именно на кадре
@@ -43,12 +43,11 @@ export default defineScenario({
             { describe: "undercurl squiggle от tsserver (сервер готов)", timeoutMs: 120_000, intervalMs: 500 },
         );
 
-        // Каретка на `greet` в вызове (строка 2, колонка 23) и Ctrl+K Ctrl+X.
+        // Каретка на `greet` в вызове (строка 2, колонка 23) и Alt+Q.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         for (let i = 0; i < 23; i++) await editor.sendKey("ArrowRight");
-        await editor.sendKey("Ctrl+K");
-        await editor.sendKey("Ctrl+X");
+        await editor.sendKey("Alt+Q");
 
         // Сигнатура для call-site импортированного символа —
         // `(alias) greet(name: string): string`: этого текста нет в буфере

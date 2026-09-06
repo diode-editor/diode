@@ -37,15 +37,22 @@ describe("hoverActions — команды и кейбинды", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("показ — чорд: одиночный Ctrl+K не открывает, Ctrl+K Ctrl+X открывает", async () => {
+    it("показ — основной бинд Alt+Q, буква в буфер не попадает", async () => {
+        h.testApp.sendKey("Alt+q");
+        await flushMicrotasks();
+        expect(service().isOpen()).toBe(true);
+        expect(h.container.get(EditorServiceDIToken).getActiveEditor()?.getText()).toBe("const answer = 1;\n");
+    });
+
+    it("показ — второй бинд чордом: одиночный Ctrl+K не открывает, Ctrl+K Ctrl+U открывает", async () => {
         h.testApp.sendKey("Ctrl+K");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(false);
 
-        h.testApp.sendKey("Ctrl+X");
+        h.testApp.sendKey("Ctrl+U");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(true);
-        // Ни прелюдия чорда, ни Ctrl+X (обычно это «вырезать») не тронули буфер.
+        // Ни прелюдия чорда, ни Ctrl+U не тронули буфер.
         expect(h.container.get(EditorServiceDIToken).getActiveEditor()?.getText()).toBe("const answer = 1;\n");
     });
 });
