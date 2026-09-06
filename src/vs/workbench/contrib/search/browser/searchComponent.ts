@@ -1,6 +1,5 @@
-import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/core/common/geometryPromitives";
 import { INHERITED_BG, INHERITED_FG } from "@tuidom/core/dom/styles/tuiStyle";
-import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
@@ -18,6 +17,7 @@ import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { Component } from "../../../browser/component.ts";
+import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyViewElement.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
@@ -106,33 +106,6 @@ type RowMeta =
       };
 
 /**
- * Pins a natural-height header on top and gives the remaining height to the
- * results list. VStack can't do this (its rows are all fixed height), so the
- * Search view uses this tiny two-slot vertical layout instead. Высота хедера —
- * интринсик (сумма его строк): блок include/exclude скрывается и раскрывается.
- */
-class SearchViewElement extends TUIElement {
-    public constructor(
-        private readonly header: TUIElement,
-        private readonly results: TUIElement,
-    ) {
-        super();
-        this.appendChild(header);
-        this.appendChild(results);
-    }
-
-    protected override performLayout(constraints: BoxConstraints): Size {
-        const size = super.performLayout(constraints);
-        const headerHeight = Math.min(size.height, this.header.getMaxIntrinsicHeight(size.width));
-        const resultsHeight = Math.max(0, size.height - headerHeight);
-
-        this.layoutChild(this.header, 0, 0, BoxConstraints.tight(new Size(size.width, headerHeight)));
-        this.layoutChild(this.results, 0, headerHeight, BoxConstraints.tight(new Size(size.width, resultsHeight)));
-        return size;
-    }
-}
-
-/**
  * Search view (left sidebar): a query input + case/whole-word/regex toggles,
  * files-to-include/exclude inputs, a result count, and the streamed results
  * list. Search-as-you-type (debounced) drives {@link TextSearchService}; results
@@ -144,7 +117,7 @@ class SearchViewElement extends TUIElement {
  * Enter/double-click on a match opens the file at the
  * match position via the {@link ISearchRevealTarget} seam. Living в сайдбаре как
  * merged одно-view контейнер ({@link ViewsService}, mergeSingleView): заголовок
- * `SEARCH` с меню «⋯» рисует PaneHeaderElement, тело — {@link SearchViewElement}.
+ * `SEARCH` с меню «⋯» рисует PaneHeaderElement, тело — {@link HeaderBodyViewElement}.
  */
 export class SearchComponent extends Component {
     public static dependencies = [
@@ -157,7 +130,7 @@ export class SearchComponent extends Component {
         JumpRecorderDIToken,
     ] as const;
 
-    private readonly root: SearchViewElement;
+    private readonly root: HeaderBodyViewElement;
     private readonly queryInput = new InputElement();
     private readonly includeInput = new InputElement();
     private readonly excludeInput = new InputElement();
@@ -269,7 +242,7 @@ export class SearchComponent extends Component {
         // и справа (прецедент: ChangesComponent паддит список изменений).
         const paddedHeader = new PaddingContainerElement(this.headerStack, { left: 1, right: 1 });
 
-        this.root = new SearchViewElement(paddedHeader, this.scrollBars);
+        this.root = new HeaderBodyViewElement(paddedHeader, this.scrollBars);
         this.root.id = "searchView";
         this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.countLabel.setColors("descriptionForeground", INHERITED_BG);

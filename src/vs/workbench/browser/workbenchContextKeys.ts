@@ -19,6 +19,7 @@ import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
 import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
 import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
+import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
@@ -169,6 +170,10 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("searchViewletFocus", this.searchComponent.containsFocus(active));
         this.contextKeys.set("searchInputBoxFocus", this.searchComponent.isInputBoxFocused(active));
         this.contextKeys.set("firstMatchFocus", this.searchComponent.isFirstResultFocused(active));
+        this.contextKeys.set(
+            "extensionsViewletVisible",
+            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === EXTENSIONS_VIEWLET_ID,
+        );
         this.contextKeys.set(
             "scmViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SCM_VIEWLET_ID,

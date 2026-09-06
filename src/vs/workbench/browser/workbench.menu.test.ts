@@ -264,6 +264,7 @@ describe("Workbench — menu bar wiring", () => {
             "Explorer",
             "Search",
             "Source Control",
+            "Extensions",
             "Problems",
             "Output",
             "Terminal",

@@ -1,0 +1,18 @@
+{
+    "schemaVersion": 1,
+    "id": "old.legacy",
+    "publisher": "old",
+    "name": "legacy",
+    "displayName": "Legacy Thing",
+    "description": "Requires a vscode API version this build does not have",
+    "kind": "proxy-openvsx",
+    "readme": "# Legacy Thing\n\nNot compatible with this build of Diode.\n",
+    "versions": [
+        {
+            "version": "3.0.0",
+            "engines": { "vscode": "^99.0.0" },
+            "artifact": { "type": "path", "path": "artifacts/old.legacy-3.0.0.vsix" },
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    ]
+}

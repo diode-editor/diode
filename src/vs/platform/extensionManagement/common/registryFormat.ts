@@ -324,18 +324,40 @@ export function parseRegistryMeta(
     };
 }
 
+/** Поля, по которым ищется расширение: запись индекса и карточка view несут их обе. */
+export interface IExtensionSearchFields {
+    readonly id: string;
+    readonly displayName: string;
+    readonly description: string;
+}
+
+/** Приводит запрос к виду, в котором его ждёт {@link matchesExtensionQuery}. */
+export function normalizeExtensionQuery(query: string): string {
+    return query.trim().toLowerCase();
+}
+
+/**
+ * Совпадает ли запись с **нормализованным** запросом: case-insensitive substring
+ * по id/displayName/description. Пустая игла истинна для любой записи, поэтому
+ * пустой запрос отдельной ветки не требует.
+ *
+ * Отдельно от {@link searchRegistryIndex}, потому что Extensions view фильтрует
+ * не индекс, а свои карточки (в них есть и установленное, которого в индексе
+ * нет) — а семантика поиска обязана быть одна на оба списка.
+ */
+export function matchesExtensionQuery(entry: IExtensionSearchFields, needle: string): boolean {
+    return (
+        entry.id.toLowerCase().includes(needle) ||
+        entry.displayName.toLowerCase().includes(needle) ||
+        entry.description.toLowerCase().includes(needle)
+    );
+}
+
 /**
  * Поиск по индексу: case-insensitive substring по id/displayName/description.
  * Пустой (или пробельный) запрос — весь список. Используется CLI и Extensions view.
  */
 export function searchRegistryIndex(index: IRegistryIndex, query: string): IRegistryIndexEntry[] {
-    const needle = query.trim().toLowerCase();
-    // Пустой needle отдельно не обрабатываем: substring-поиск пустой строки истинен для любой
-    // записи, так что filter сам вернёт полный (и новый) список.
-    return index.extensions.filter(
-        (e) =>
-            e.id.toLowerCase().includes(needle) ||
-            e.displayName.toLowerCase().includes(needle) ||
-            e.description.toLowerCase().includes(needle),
-    );
+    const needle = normalizeExtensionQuery(query);
+    return index.extensions.filter((e) => matchesExtensionQuery(e, needle));
 }

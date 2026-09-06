@@ -89,6 +89,19 @@ export interface ScenarioSpec {
      * редактора. Привязка команды к клавише убирает этот шум из сценария.
      */
     userKeybindings?: readonly { key: string; command: string }[];
+    /**
+     * Дополнительные аргументы CLI (перед списком открываемых путей). Нужны
+     * сценариям, которым важен источник данных, а не только содержимое
+     * воркспейса: магазин расширений показывает `--registry <фикстура>`, иначе
+     * демо зависело бы от сети и от того, что сейчас опубликовано.
+     */
+    extraArgs?: readonly string[];
+    /**
+     * Каталог, который копируется в hermetic user-data-dir сценария (расширения,
+     * настройки). Нужен демо, где важно НЕ пустое состояние: магазин без единого
+     * установленного расширения не показывает ни секции INSTALLED, ни бейджей.
+     */
+    seedUserData?: string;
     run(driver: ScenarioDriver): Promise<void>;
 }
 
@@ -122,6 +135,8 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
         ...(spec.installVsix !== undefined ? { installVsix: spec.installVsix } : {}),
         ...(spec.settings !== undefined ? { settings: spec.settings } : {}),
         ...(spec.userKeybindings !== undefined ? { keybindings: spec.userKeybindings } : {}),
+        ...(spec.extraArgs !== undefined ? { extraArgs: spec.extraArgs } : {}),
+        ...(spec.seedUserData !== undefined ? { seedUserData: spec.seedUserData } : {}),
         ...(spec.cols !== undefined ? { cols: spec.cols } : {}),
         ...(spec.rows !== undefined ? { rows: spec.rows } : {}),
         ...(spec.env !== undefined ? { env: spec.env } : {}),

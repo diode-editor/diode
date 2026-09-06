@@ -15,6 +15,7 @@ import { backendModuleDefault } from "./backendModule.ts";
 import { commandsModule } from "./commandsModule.ts";
 import { configurationModuleDefault } from "./configurationModule.ts";
 import { coreModuleLate } from "./coreModule.ts";
+import { extensionsModuleDefault } from "./extensionsModule.ts";
 import { fileWatcherModuleDefault } from "./fileWatcherModule.ts";
 import { keybindingsModuleDefault } from "./keybindingsModule.ts";
 import { loggingModuleDefault } from "./loggingModule.ts";
@@ -60,7 +61,8 @@ export function createTestContainer(): TestContainerHandle {
         .use(workspaceModule)
         .use(fileWatcherModuleDefault)
         .use(markersModule, { settingsResource: null, keybindingsResource: null })
-        .use(workbenchModule);
+        .use(workbenchModule)
+        .use(extensionsModuleDefault);
 
     // Перебиваем прод-фабрику терминальных сессий на фейк: тесты не спавнят реальные
     // PTY. Каждый вызов возвращает свежий FakeTerminalSurface; тесты, которым нужен

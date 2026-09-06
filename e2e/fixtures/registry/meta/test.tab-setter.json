@@ -1,0 +1,19 @@
+{
+    "schemaVersion": 1,
+    "id": "test.tab-setter",
+    "publisher": "test",
+    "name": "tab-setter",
+    "displayName": "Tab Setter",
+    "description": "Installed by the fixture at 0.0.1 — the registry knows a newer one",
+    "kind": "native",
+    "repository": "https://github.com/diode-editor/diode",
+    "readme": "# Tab Setter\n\nSets tabSize=7 on the active editor at activation.\n",
+    "versions": [
+        {
+            "version": "0.0.2",
+            "engines": { "vscode": "^1.0.0" },
+            "artifact": { "type": "path", "path": "artifacts/test.tab-setter-0.0.2.vsix" },
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    ]
+}

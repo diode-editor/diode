@@ -26,6 +26,13 @@ export interface IInstalledExtension {
     readonly version: string;
     /** Абсолютный путь к каталогу расширения. */
     readonly dir: string;
+    /**
+     * `displayName` манифеста, если он там есть. Нужен странице расширения,
+     * поставленного мимо реестра: показать в UI нечего, кроме манифеста.
+     */
+    readonly displayName?: string;
+    /** `description` манифеста, если он там есть (тот же случай). */
+    readonly description?: string;
 }
 
 const EXTENSION_PREFIX = "extension/";
@@ -81,7 +88,14 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
             continue;
         }
 
-        result.push({ id: `${publisher}.${name}`, version, dir });
+        const { displayName, description } = manifest;
+        result.push({
+            id: `${publisher}.${name}`,
+            version,
+            dir,
+            displayName: typeof displayName === "string" && displayName.length > 0 ? displayName : undefined,
+            description: typeof description === "string" ? description : undefined,
+        });
     }
     return result;
 }
