@@ -1313,6 +1313,7 @@ export class ExtensionHost extends Disposable {
         this.completionSubscribed = false;
         this.foldingSubscribed = false;
         this.definitionSubscribed = false;
+        // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
         this.hoverSubscribed = false;
         this.documentSyncSubscribed = false;
         this.pendingDidChange.clear();
