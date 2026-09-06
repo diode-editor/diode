@@ -37,17 +37,15 @@ describe("hoverActions — команды и кейбинды", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("показ — чорд: одиночный Ctrl+K не открывает, Ctrl+K I открывает", async () => {
-        // На legacy-tier'е (в том числе в тестовой среде) Ctrl+I приезжает тем
-        // же байтом, что Tab, поэтому пользовательский путь — фолбэк `ctrl+k i`.
+    it("показ — чорд: одиночный Ctrl+K не открывает, Ctrl+K Ctrl+X открывает", async () => {
         h.testApp.sendKey("Ctrl+K");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(false);
 
-        h.testApp.sendKey("i");
+        h.testApp.sendKey("Ctrl+X");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(true);
-        // Прелюдия чорда не утекла в буфер.
+        // Ни прелюдия чорда, ни Ctrl+X (обычно это «вырезать») не тронули буфер.
         expect(h.container.get(EditorServiceDIToken).getActiveEditor()?.getText()).toBe("const answer = 1;\n");
     });
 });

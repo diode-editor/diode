@@ -131,13 +131,11 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(seen.text).toContain("const answer");
     });
 
-    it("Ctrl+K I (legacy-фолбэк чорда) открывает попап, Escape закрывает — фокус остаётся в редакторе", async () => {
+    it("Ctrl+K Ctrl+X открывает попап, Escape закрывает — фокус остаётся в редакторе", async () => {
         group().hoverSource = () => Promise.resolve([hoverOf(["const answer: number"])]);
 
-        // Mock-бекенд кодирует клавиши legacy-байтами: Ctrl+I там — это Tab,
-        // поэтому пользовательский путь — фолбэк `ctrl+k i`.
         h.testApp.sendKey("Ctrl+K");
-        h.testApp.sendKey("i");
+        h.testApp.sendKey("Ctrl+X");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(true);
 

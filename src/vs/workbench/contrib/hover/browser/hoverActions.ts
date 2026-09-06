@@ -5,19 +5,19 @@ import { HoverServiceDIToken } from "./hoverService.ts";
 
 /**
  * Показывает hover-попап для символа под кареткой (`editor.action.showHover`).
- * Дефолтный кейбинд — Ctrl+K Ctrl+I при фокусе редактора, как в VS Code.
+ * Дефолтный кейбинд — Ctrl+K Ctrl+X при фокусе редактора. Не VS Code-овский
+ * Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает тем же байтом, что Tab
+ * (0x09), поэтому тот чорд там физически недостижим и вдобавок занят
+ * legacy-фолбэком `insertCursorAtEndOfEachLineSelected`. `ctrl+<буква>` вида
+ * Ctrl+X доезжает на любом tier, так что фолбэк не нужен.
+ *
  * Контент отдают hover-провайдеры расширений через `EditorService.hoverSource`.
  */
 export const showHoverAction: CommandAction = {
     id: "editor.action.showHover",
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Show Hover",
-    // Stryker disable next-line StringLiteral: на legacy-tier'е (в том числе в тестовой среде) Ctrl+I приезжает байтом Tab, поэтому основной VS Code-чорд проверить нечем — рабочий путь закрыт фолбэком строкой ниже
-    keybinding: parseChord("ctrl+k ctrl+i"),
-    // На legacy Ctrl+I неотличим от Tab (байт 0x09) — VS Code-чорд там
-    // недостижим физически; фолбэк — та же прелюдия с голой `i` (паттерн
-    // tier-гейта у insertCursorAtEndOfEachLineSelected).
-    keybindings: [{ keys: parseChord("ctrl+k i"), when: "tier == 'legacy'" }],
+    keybinding: parseChord("ctrl+k ctrl+x"),
     when: "textInputFocus",
     run(accessor) {
         void accessor.get(HoverServiceDIToken).showHover();
