@@ -4,6 +4,7 @@ import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type { HoverSource } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -177,6 +178,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * команде Go to Definition; в редакторы не раздаётся (group-level).
      */
     public definitionSource?: DefinitionSource;
+
+    /**
+     * Hover-источник (host/харнесс подключает сюда провайдеры расширений через
+     * `languages.provideHover`). Читается `HoverService` по команде Show Hover;
+     * в редакторы не раздаётся (group-level).
+     */
+    public hoverSource?: HoverSource;
 
     /**
      * Save-участник, прокидываемый в каждый редактор группы (host/харнесс

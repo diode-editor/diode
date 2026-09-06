@@ -42,6 +42,8 @@ import {
     SearchComponentDIToken,
 } from "../contrib/search/browser/searchComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
+import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
+import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
 import { TerminalPanelComponentDIToken } from "../contrib/terminal/browser/terminalPanelComponent.ts";
 import { type TerminalService, TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
@@ -190,6 +192,9 @@ export class WorkbenchComponent extends Component {
         // поиска/автодополнения. WorkbenchComponent владеет их жизнью.
         const suggestComponent = this.register(accessor.get(SuggestComponentDIToken));
         this.register(accessor.get(CompletionServiceDIToken));
+        // Hover-пара — тот же паттерн: компонент владеет попапом, сервис — логикой.
+        const hoverComponent = this.register(accessor.get(HoverComponentDIToken));
+        this.register(accessor.get(HoverServiceDIToken));
         const findComponent = this.register(accessor.get(FindComponentDIToken));
         this.register(accessor.get(FindServiceDIToken));
         this.statusBarComponent = this.register(statusBarComponent);
@@ -259,6 +264,8 @@ export class WorkbenchComponent extends Component {
         // в локальном слое группы редакторов. Закрытие при смене активного
         // редактора сервисы делают сами (подписки на onActiveEditorChanged).
         suggestComponent.attachHost(this.view);
+        // Hover-попап — там же, в глобальном overlay-слое у каретки.
+        hoverComponent.attachHost(this.view);
         // Find-виджеты — по одному на группу, на локальном overlay-слое каждой;
         // компонент создаёт их лениво по первому Ctrl+F в группе.
         findComponent.hostProvider = (groupId) => this.editorPartComponent.groupOverlayHost(groupId);

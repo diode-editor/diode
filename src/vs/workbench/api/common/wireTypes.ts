@@ -8,6 +8,7 @@ import type {
     ICoreResolvedCompletion,
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
@@ -741,6 +742,87 @@ export async function requestDefinition(
     const outcome = await raceWithTimeout(request("languages.provideDefinition", params), timeoutMs);
     if (outcome === TIMED_OUT) return [];
     return wireToCoreDefinitionLocations(parseWireDefinitionLocations(outcome));
+}
+
+// ─── Hover (LSP) ─────────────────────────────────────────────────────────────
+
+/**
+ * Wire-форма одного hover'а (subprocess → host) — по элементу на непустой ответ
+ * провайдера. `contents` — блоки сырого markdown (хост-сериализатор уже
+ * нормализовал `MarkdownString`/строку/`{language, value}` в строки); разметку
+ * стрипает UI-потребитель, протокол её не трогает.
+ */
+export interface WireHover {
+    readonly contents: readonly string[];
+    /** Диапазон символа под позицией; провайдер может его не сообщать. */
+    readonly range?: IWireRange;
+}
+
+/** Параметры запроса hover (host → subprocess) — форма definition-запроса. */
+export interface IWireHoverParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    readonly text: string;
+    readonly line: number;
+    readonly character: number;
+}
+
+/** Валидирует один wire-hover; `null`, если форма не распознана. */
+function parseWireHover(raw: unknown): WireHover | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (!Array.isArray(obj.contents)) return null;
+    const contents = obj.contents.filter((block): block is string => typeof block === "string" && block !== "");
+    if (contents.length === 0) return null;
+    return { contents, range: parseWireRange(obj.range) };
+}
+
+/**
+ * Разбирает сырой ответ hover в массив валидных {@link WireHover}. Невалидные
+ * элементы отбрасываются (drop+skip), а не роняют весь ответ.
+ */
+export function parseWireHovers(raw: unknown): WireHover[] {
+    if (!Array.isArray(raw)) return [];
+    const result: WireHover[] = [];
+    for (const item of raw) {
+        const parsed = parseWireHover(item);
+        if (parsed !== null) result.push(parsed);
+    }
+    return result;
+}
+
+/** Переводит wire-hover'ы в core-hover'ы ({@link ICoreHover}). */
+export function wireToCoreHovers(wire: readonly WireHover[]): ICoreHover[] {
+    return wire.map((hover) => ({
+        contents: hover.contents,
+        ...(hover.range === undefined
+            ? {}
+            : {
+                  range: createRange(
+                      hover.range.startLine,
+                      hover.range.startCharacter,
+                      hover.range.endLine,
+                      hover.range.endCharacter,
+                  ),
+              }),
+    }));
+}
+
+/**
+ * Запрашивает у subprocess'а hover'ы с таймаутом. Возвращает пустой массив на
+ * таймаут, ошибку RPC или невалидный ответ (hover — best-effort, не блокирует
+ * UI). `request` — голая функция для юнит-тестов через {@link InProcessChannelPair}
+ * без форка subprocess'а.
+ */
+export async function requestHover(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireHoverParams,
+    timeoutMs: number,
+): Promise<ICoreHover[]> {
+    const outcome = await raceWithTimeout(request("languages.provideHover", params), timeoutMs);
+    if (outcome === TIMED_OUT) return [];
+    return wireToCoreHovers(parseWireHovers(outcome));
 }
 
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────

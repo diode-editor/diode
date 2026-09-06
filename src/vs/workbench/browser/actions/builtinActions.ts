@@ -44,6 +44,7 @@ import {
     revealDefinitionAction,
     revealDefinitionAsideAction,
 } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
+import { hideHoverAction, showHoverAction } from "../../contrib/hover/browser/hoverActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import { openKeybindingsAction, openSettingsAction } from "../../contrib/preferences/browser/preferencesActions.ts";
 import {
@@ -305,6 +306,7 @@ export const builtinActions: readonly CommandAction[] = [
     // Language features (провайдеры расширений через extension host)
     revealDefinitionAction,
     revealDefinitionAsideAction,
+    showHoverAction,
 
     // Clipboard
     clipboardCopyAction,
@@ -390,6 +392,9 @@ export const builtinActions: readonly CommandAction[] = [
     // Ctrl+Space при открытом попапе — тумблер панели описания (перебивает
     // triggerSuggest, потому что зарегистрирован после него).
     toggleSuggestionDetailsAction,
+    // Escape при открытом hover-попапе — тот же хвостовой приём, что у
+    // hideSuggestWidget: биндинг `editorHoverVisible` перебивает editor-команды.
+    hideHoverAction,
 
     // Layout / Panel / Terminal (этап 11: run-обработчики поверх LayoutService/
     // PanelService/TerminalService). Ключи не пересекаются с editor/find/suggest-

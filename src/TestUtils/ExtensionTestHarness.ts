@@ -226,6 +226,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     });
     // Definition (LSP): источник целей Go to Definition — как в extensionHostModule.
     group.definitionSource = (req) => host.provideDefinition(req);
+    // Hover (LSP): источник hover'ов — как в extensionHostModule.
+    group.hoverSource = (req) => host.provideHover(req);
     // Folding (#87): источник областей сворачивания — провайдеры расширений через host.
     group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
     host.onFoldingProvidersChanged(() => {

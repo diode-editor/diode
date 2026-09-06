@@ -102,4 +102,19 @@ export const editorColors = {
         defaults: { dark: "#454545", light: "#C8C8C8" },
         description: "Border color of the editor widget.",
     },
+    // VS Code выводит дефолты hover-виджета из editorWidget.* — производных
+    // цветов у нас нет, значения запечены на месте определения (политика
+    // `editorCursor.background`).
+    "editorHoverWidget.foreground": {
+        defaults: { dark: "#CCCCCC", light: "#616161" },
+        description: "Foreground color of the editor hover.",
+    },
+    "editorHoverWidget.background": {
+        defaults: { dark: "#252526", light: "#F3F3F3" },
+        description: "Background color of the editor hover.",
+    },
+    "editorHoverWidget.border": {
+        defaults: { dark: "#454545", light: "#C8C8C8" },
+        description: "Border color of the editor hover.",
+    },
 } as const satisfies ColorContribution;

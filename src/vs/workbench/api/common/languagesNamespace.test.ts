@@ -65,6 +65,7 @@ describe("LanguagesNamespace", () => {
             hasCompletionProviders: true,
             hasFoldingProviders: false,
             hasDefinitionProviders: false,
+            hasHoverProviders: false,
             completionTriggerCharacters: [],
         });
 
@@ -77,6 +78,7 @@ describe("LanguagesNamespace", () => {
             hasCompletionProviders: false,
             hasFoldingProviders: false,
             hasDefinitionProviders: false,
+            hasHoverProviders: false,
             completionTriggerCharacters: [],
         });
     });
@@ -253,6 +255,7 @@ describe("LanguagesNamespace", () => {
             hasCompletionProviders: false,
             hasFoldingProviders: true,
             hasDefinitionProviders: false,
+            hasHoverProviders: false,
             completionTriggerCharacters: [],
         });
 
@@ -266,6 +269,7 @@ describe("LanguagesNamespace", () => {
             hasCompletionProviders: false,
             hasFoldingProviders: false,
             hasDefinitionProviders: false,
+            hasHoverProviders: false,
             completionTriggerCharacters: [],
         });
     });
