@@ -50,6 +50,7 @@ export class HoverComponent extends Component {
             // capturesKeyboard должен быть false — иначе диспатчер заглушил бы их
             // (та же причина, что у suggest).
             capturesKeyboard: false,
+            // Stryker disable next-line StringLiteral: клик мимо попапа и так закрывает его раньше — переносом каретки или сменой фокуса; политика стоит ради обратного контракта (клик ПО попапу его не закрывает)
             pointerPolicy: "close-on-outside",
         });
     }

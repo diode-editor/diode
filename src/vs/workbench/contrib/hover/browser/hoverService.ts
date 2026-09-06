@@ -70,8 +70,8 @@ export class HoverService extends Disposable {
         // пропуск этого вызова юнит-тестом не наблюдается.
         // Stryker disable next-line CallExpression: см. выше — привязку уже открытого редактора юнит не наблюдает, её путь проверяет поднятие приложения
         this.bindEditor(this.group.getActiveEditor());
-        // Stryker disable next-line BlockStatement: снятие подписок на выключении ненаблюдаемо юнитом — редактор и группа умирают следом, слушать некому
         this.register({
+            // Stryker disable next-line BlockStatement: снятие подписок на выключении ненаблюдаемо юнитом — редактор и группа умирают следом, слушать некому
             dispose: () => {
                 // Stryker disable next-line CallExpression: см. выше
                 activeEditorSub.dispose();

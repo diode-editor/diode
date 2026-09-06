@@ -113,6 +113,22 @@ describe("ExtensionHost — гейт hover-запроса (in-process)", () => {
         });
     });
 
+    it("после остановки субпроцесса подписка сброшена — hover не гоняется до новой", async () => {
+        const { host, peer } = makeHost();
+        const provide = vi.fn(() => Promise.resolve([{ contents: ["жив"] }]));
+        peer.handleRequest("languages.provideHover", provide);
+        peer.notify("languages.updateSubscriptions", { hasHoverProviders: true });
+        await flushMicrotasks();
+        expect(await host.provideHover(requestOf("x"))).toEqual([{ contents: ["жив"] }]);
+
+        // Субпроцесс умер: провайдеры умерли вместе с ним, и до нового
+        // updateSubscriptions запрос уходить не должен.
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
+
+        expect(await host.provideHover(requestOf("x"))).toEqual([]);
+        expect(provide).toHaveBeenCalledTimes(1);
+    });
+
     it("дефолтный таймаут щедрый: ответ через полсекунды доезжает", async () => {
         const { host, peer } = makeHost();
         peer.handleRequest("languages.provideHover", async () => {

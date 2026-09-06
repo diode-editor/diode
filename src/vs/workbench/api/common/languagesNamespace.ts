@@ -466,6 +466,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         const p = params as IWireHoverParams;
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
+            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",
         });
@@ -484,9 +485,10 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
                         token,
                     ),
                 );
-                // Stryker disable next-line BlockStatement: без `continue` сбойный провайдер оставляет `result` неприсвоенным, и проверка ниже отсеивает его так же
             } catch {
-                continue; // сбойный провайдер не роняет остальные
+                // Сбойный провайдер не роняет остальные: `result` остаётся
+                // неприсвоенным, и его отсеивает общая проверка ниже — своего
+                // `continue` тут нет намеренно, иначе ветка неотличима от неё.
             }
             if (result == null) continue;
             const contents = serializeHoverContents((result as { contents?: unknown }).contents);

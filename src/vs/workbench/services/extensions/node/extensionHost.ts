@@ -740,6 +740,7 @@ export class ExtensionHost extends Disposable {
      */
     public async provideHover(req: IHoverRequest): Promise<readonly ICoreHover[]> {
         const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
         if (rpc === null || !this.hoverSubscribed) return [];
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping hover: document too large", {
