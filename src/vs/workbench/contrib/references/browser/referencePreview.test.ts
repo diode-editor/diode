@@ -221,6 +221,17 @@ describe("buildReferenceGroups", () => {
         expect(groups[1].matches[0].preview.after).toBe("x".repeat(255));
     });
 
+    it("символ выше диапазона суррогатов на границе капа не режется лишний раз", async () => {
+        // U+F900 — не половинка пары: верхняя граница проверки обязана его
+        // пропустить, иначе от хвоста откусывается лишний символ.
+        const tail = `${"x".repeat(255)}\uf900${"y".repeat(50)}`;
+        const src = source({ [`${ROOT}/a.js`]: `ref${tail}\n` });
+
+        const groups = await buildReferenceGroups([ref("a.js", createRange(0, 0, 0, 3))], src, ROOT);
+
+        expect(groups[0].matches[0].preview.after).toBe(`${"x".repeat(255)}\uf900`);
+    });
+
     it("возврат каретки режется только на конце строки", async () => {
         // \r в середине строки — часть текста (так его видит и сам сервер,
         // считая колонки), сносим только хвостовой от CRLF.

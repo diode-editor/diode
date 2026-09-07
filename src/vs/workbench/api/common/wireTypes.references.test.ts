@@ -22,6 +22,8 @@ describe("wireTypes — parseWireReferences", () => {
                 null,
                 42,
                 { uri: "", range: RANGE },
+                // uri не строкой — форма чужая, даже когда диапазон валиден.
+                { uri: 42, range: RANGE },
                 { uri: "file:///b.ts" },
                 { uri: "file:///b.ts", range: { startLine: "x" } },
                 { uri: "file:///ok.ts", range: RANGE },

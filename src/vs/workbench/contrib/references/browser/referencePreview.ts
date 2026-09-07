@@ -147,7 +147,8 @@ function labelFor(absolutePath: string, root: string): string {
     const rest = root !== "" && absolutePath.startsWith(root) ? absolutePath.slice(root.length) : null;
     // Сосед с общим префиксом («/work/project2» при корне «/work/project») внутри
     // корня не лежит: остаток обязан начинаться с разделителя.
-    // Stryker disable next-line Regex: ветка берётся только когда `rest` начинается с разделителя (проверка строкой выше), поэтому якорь `^` на результат не влияет
+    // Stryker disable next-line Regex: ветка берётся только когда `rest` начинается с разделителя, поэтому якорь `^` на результат не влияет
+    // Stryker disable next-line ConditionalExpression: `rest !== null` — быстрый выход; без него регексп проверил бы строку "null", не нашёл разделителя и ушёл в ту же ветку `absolutePath`
     const rel = rest !== null && /^[/\\]/u.test(rest) ? rest.replace(/^[/\\]+/u, "") : absolutePath;
     return rel.replace(/\\/gu, "/");
 }

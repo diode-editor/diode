@@ -856,6 +856,7 @@ export interface IWireReferenceParams {
 
 /** Валидирует одну wire-ссылку; `null`, если форма не распознана. */
 function parseWireReference(raw: unknown): WireReference | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка `uri` строкой ниже (у него этого поля нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as Record<string, unknown>;
     if (typeof obj.uri !== "string" || obj.uri === "") return null;
