@@ -40,6 +40,30 @@ PR-гейт (`ci.yml`, job `mutation` → `scripts/mutation-diff.mjs --ignoreSta
    перепроверять мутантов с `testsCompleted: 0`, но здесь `testsCompleted > 0` —
    тесты гонялись, просто не те.
 
+## Улика посильнее (итерация References)
+
+Прогон на ветке `worktree-references` (скоуп — только файлы задачи, без чужих)
+дал 54 выживших. Три из них — в `wireTypes.ts`, в новой секции References:
+
+- `parseWireReference`: `if (typeof raw !== "object" || raw === null) return null;` → `false`
+- `parseWireReference`: `if (typeof obj.uri !== "string" || obj.uri === "") return null;` → `false`
+- `requestReferences`: `if (outcome === TIMED_OUT) return [];` → `return ["Stryker was here"]`
+
+У всех трёх в `coveredBy` **девять** тестов, и среди них — `wireTypes.references.test.ts`,
+который каждого из них обязан убить. Проверено руками: третий мутант внесён в
+исходник (`return ["MUTANT" as unknown as never]`) и прогнан
+`npx vitest run wireTypes.references.test.ts` — **2 теста падают**. То есть тест
+есть, он покрывает мутанта, гейт это знает — и всё равно засчитывает Survived.
+
+Это сужает диагноз: дело не только в подборе тестов (`vitest.related`, улика 1 —
+там теста не было в `coveredBy` вовсе), но и в самом прогоне мутанта: результат
+падения теста до Stryker не доезжает. Кандидаты — потеря результатов при
+`bail`/таймауте воркера (stryker-js#6073) и конкурентность на 2-ядерной машине.
+
+Практический вывод для задач: **перед тем как чинить «выжившего», подмени его
+руками и прогони его тесты**. Если локально мутант умирает — это флейк гейта, а
+не дырка в тестах, и глушить его `// Stryker disable` нельзя.
+
 ## Что попробовать
 
 - Отключить `vitest.related` в `stryker.config.json` (гонять весь набор на

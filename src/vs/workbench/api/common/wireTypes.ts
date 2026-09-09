@@ -9,6 +9,7 @@ import type {
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
+import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
@@ -825,6 +826,82 @@ export async function requestHover(
     // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
     if (outcome === TIMED_OUT) return [];
     return wireToCoreHovers(parseWireHovers(outcome));
+}
+
+// ─── References (LSP) ────────────────────────────────────────────────────────
+
+/**
+ * Wire-форма одной ссылки на символ (subprocess → host). Форма совпадает с
+ * definition-целью, но ссылок в ответе много и все они равноправны — ни одна не
+ * «главная».
+ */
+export interface WireReference {
+    readonly uri: string;
+    readonly range: IWireRange;
+}
+
+/**
+ * Параметры запроса references (host → subprocess) — форма definition-запроса
+ * плюс LSP-контекст `includeDeclaration`.
+ */
+export interface IWireReferenceParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    readonly text: string;
+    readonly line: number;
+    readonly character: number;
+    readonly includeDeclaration: boolean;
+}
+
+/** Валидирует одну wire-ссылку; `null`, если форма не распознана. */
+function parseWireReference(raw: unknown): WireReference | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка `uri` строкой ниже (у него этого поля нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.uri !== "string" || obj.uri === "") return null;
+    const range = parseWireRange(obj.range);
+    if (range === undefined) return null;
+    return { uri: obj.uri, range };
+}
+
+/**
+ * Разбирает сырой ответ references в массив валидных {@link WireReference}.
+ * Невалидные элементы отбрасываются (drop+skip), а не роняют весь ответ.
+ */
+export function parseWireReferences(raw: unknown): WireReference[] {
+    if (!Array.isArray(raw)) return [];
+    const result: WireReference[] = [];
+    for (const item of raw) {
+        const parsed = parseWireReference(item);
+        if (parsed !== null) result.push(parsed);
+    }
+    return result;
+}
+
+/** Переводит wire-ссылки в core-ссылки ({@link ICoreReference}). */
+export function wireToCoreReferences(wire: readonly WireReference[]): ICoreReference[] {
+    return wire.map((ref) => ({
+        uri: ref.uri,
+        range: createRange(ref.range.startLine, ref.range.startCharacter, ref.range.endLine, ref.range.endCharacter),
+    }));
+}
+
+/**
+ * Запрашивает у subprocess'а ссылки на символ с таймаутом. Возвращает пустой
+ * массив на таймаут, ошибку RPC или невалидный ответ (панель просто останется
+ * пустой — Find All References не блокирует UI). `request` — голая функция для
+ * юнит-тестов через {@link InProcessChannelPair} без форка subprocess'а.
+ */
+export async function requestReferences(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireReferenceParams,
+    timeoutMs: number,
+): Promise<ICoreReference[]> {
+    const outcome = await raceWithTimeout(request("languages.provideReferences", params), timeoutMs);
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
+    if (outcome === TIMED_OUT) return [];
+    return wireToCoreReferences(parseWireReferences(outcome));
 }
 
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────

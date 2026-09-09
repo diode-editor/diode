@@ -193,6 +193,12 @@ export const extensionHostModule: ContainerModule = (container) => {
         // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
         group.hoverSource = (req) => host.provideHover(req);
 
+        // References: провайдеры расширений (languages.provideReferences)
+        // подключаются как источник ссылок группы (читает ReferencesService по
+        // Find All References).
+        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
+        group.referenceSource = (req) => host.provideReferences(req);
+
         // Folding: провайдеры расширений (languages.provideFoldingRanges)
         // подключаются как источник областей сворачивания группы (читает
         // EditorComponent при пересчёте, мержит поверх indentation-фолдов).

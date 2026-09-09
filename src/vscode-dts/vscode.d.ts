@@ -3698,6 +3698,38 @@ declare module "vscode" {
 		provideHover(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Hover>;
 	}
 
+	/**
+	 * Value-object that contains additional information when
+	 * requesting references.
+	 */
+	export interface ReferenceContext {
+
+		/**
+		 * Include the declaration of the current symbol.
+		 */
+		readonly includeDeclaration: boolean;
+	}
+
+	/**
+	 * The reference provider interface defines the contract between extensions and
+	 * the [find references](https://code.visualstudio.com/docs/editor/editingevolved#_peek)-feature.
+	 */
+	export interface ReferenceProvider {
+
+		/**
+		 * Provide a set of project-wide references for the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param context Additional information about the references request.
+		 * @param token A cancellation token.
+		 *
+		 * @returns An array of locations or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideReferences(document: TextDocument, position: Position, context: ReferenceContext, token: CancellationToken): ProviderResult<Location[]>;
+	}
+
 	export namespace languages {
 
 		/**
@@ -3754,6 +3786,19 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerHoverProvider(selector: DocumentSelector, provider: HoverProvider): Disposable;
+
+		/**
+		 * Register a reference provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A reference provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerReferenceProvider(selector: DocumentSelector, provider: ReferenceProvider): Disposable;
 
 		/**
 		 * Register a folding range provider.
