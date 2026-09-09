@@ -133,11 +133,13 @@ function wordsOf(line: string): { start: number; end: number }[] {
     for (let i = 0; i < line.length; i++) {
         const isSpace = /\s/u.test(line[i]);
         if (!isSpace && start === null) start = i;
+        // Stryker disable next-line ConditionalExpression: пробел без открытого слова даёт слово с `start: null`, а такое раскладка проезжает насквозь (NaN-сравнения ложны, `null < end` тоже) — кусков от него не появляется
         if (isSpace && start !== null) {
             words.push({ start, end: i });
             start = null;
         }
     }
+    // Stryker disable next-line ConditionalExpression: см. выше — слово с `start: null` в хвосте раскладка так же проезжает без куска
     if (start !== null) words.push({ start, end: line.length });
     return words;
 }

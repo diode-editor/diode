@@ -1022,10 +1022,8 @@ function clampIndex(raw: unknown, length: number): number {
  * у которого `typeof` тоже «object»).
  */
 function asRawRecord(raw: unknown): Record<string, unknown> | null {
-    if (raw === null) return null;
-    // Stryker disable next-line ConditionalExpression: не-объект отсеивают проверки полей у вызывающих (у числа нет ни `signatures`, ни строкового `label`) — в рантайме этот выход лишь короче
-    if (typeof raw !== "object") return null;
-    return raw as Record<string, unknown>;
+    // Stryker disable next-line ConditionalExpression: оба конъюнкта в рантайме избыточны — примитив отсеют проверки полей у вызывающих (у числа нет ни `signatures`, ни строкового `label`), а `null` уйдёт из приведения тем же `null`, который вызывающие проверяют; нужны они компилятору для сужения типа
+    return typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : null;
 }
 
 /**

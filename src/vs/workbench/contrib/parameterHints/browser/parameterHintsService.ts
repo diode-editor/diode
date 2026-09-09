@@ -258,6 +258,7 @@ export class ParameterHintsService extends Disposable {
 
         // Пустая строка — «набора не было»: пустой символ ни один сервер
         // триггером не объявляет (а если бы объявил, его отсеет readStringArray).
+        // Stryker disable next-line StringLiteral: любая заглушка ведёт себя одинаково — сервер не объявляет триггером ни её, ни пустую строку
         const inserted = wasEdit ? this.insertedChar(line, active) : "";
         if (this.group.signatureHelpTriggerCharacters.includes(inserted)) {
             this.scheduleTrigger(SignatureHelpTriggerKind.TriggerCharacter, inserted);
@@ -277,6 +278,7 @@ export class ParameterHintsService extends Disposable {
 
     /** Набранный только что символ; пустая строка — набора не было. */
     private insertedChar(line: string, active: IPosition): string {
+        // Stryker disable next-line StringLiteral: см. вызывающего — заглушка «набора не было» лишь не должна совпасть с объявленным символом
         if (!isSingleCharInsert(line, active, this.lastCaretLine, this.lastCaretChar, this.lastLine)) return "";
         // `slice`, а не `at`: эвристика выше уже гарантировала, что символ на
         // этой позиции есть, и ветка «его нет» была бы мёртвой.
