@@ -18,17 +18,22 @@ const MULTIPLE_SIGNATURES = "parameterHintsVisible && parameterHintsMultipleSign
  * триггер-символу сервера («(», «,»), — а команда нужна, когда каретку вернули
  * в уже написанный вызов.
  *
- * Основной бинд — чорд Ctrl+K Ctrl+P: канонический VS Code-овский
+ * Основной бинд — чорд Ctrl+K Ctrl+Space: канонический VS Code-овский
  * Ctrl+Shift+Space на legacy-tier'е неотличим от Ctrl+Space (терминал шлёт тот
  * же байт 0x00), а Ctrl+Space уже занят `triggerSuggest` — то есть без чорда
  * фича осталась бы недоступной с клавиатуры там, где терминал не кодирует
  * модификаторы. Канонический бинд объявлен вторым и работает, где доезжает.
+ *
+ * Вторая клавиша чорда — именно Ctrl+Space: «как автодополнение, только про
+ * параметры». Ctrl+K Ctrl+P занят палитрой команд (её legacy-фолбэк вместо
+ * Ctrl+Shift+P), а Ctrl+K Ctrl+I недостижим на legacy — там Ctrl+I приезжает
+ * байтом Tab.
  */
 export const triggerParameterHintsAction: CommandAction = {
     id: "editor.action.triggerParameterHints",
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Trigger Parameter Hints",
-    keybinding: parseChord("ctrl+k ctrl+p"),
+    keybinding: parseChord("ctrl+k ctrl+space"),
     keybindings: [parseKeybinding("ctrl+shift+space")],
     when: "textInputFocus",
     run(accessor) {

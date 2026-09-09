@@ -696,11 +696,11 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         expect(service().isOpen()).toBe(false);
     });
 
-    it("аккорд Ctrl+K Ctrl+P открывает подсказку", async () => {
+    it("аккорд Ctrl+K Ctrl+Space открывает подсказку", async () => {
         group().signatureHelpSource = () => Promise.resolve(help());
 
         h.testApp.sendKey("Ctrl+K");
-        h.testApp.sendKey("Ctrl+P");
+        h.testApp.sendKey("Ctrl+Space");
         await flushMicrotasks();
 
         expect(service().isOpen()).toBe(true);

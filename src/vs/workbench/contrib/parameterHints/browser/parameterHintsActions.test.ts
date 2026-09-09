@@ -52,7 +52,9 @@ describe("parameterHintsActions — объявления", () => {
     });
 
     it("ручной вызов: аккорд основной, Ctrl+Shift+Space — вторым биндом", () => {
-        expect(keybindingOf(triggerParameterHintsAction)).toBe("Ctrl+K Ctrl+P");
+        // Ctrl+K Ctrl+P занят палитрой команд (legacy-фолбэк Ctrl+Shift+P),
+        // поэтому вторая клавиша чорда — Ctrl+Space.
+        expect(keybindingOf(triggerParameterHintsAction)).toBe("Ctrl+K Ctrl+Space");
         // Канонический бинд VS Code остаётся вторым: на legacy-tier'е он
         // неотличим от Ctrl+Space, который уже занят triggerSuggest.
         expect(triggerParameterHintsAction.keybindings).toHaveLength(1);

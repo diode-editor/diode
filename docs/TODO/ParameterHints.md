@@ -66,14 +66,20 @@ UI — contrib `parameterHints`: `ParameterHintsElement` (рамка, счётч
 
 | Команда | Бинд | Что делает |
 |---|---|---|
-| `editor.action.triggerParameterHints` | Ctrl+K Ctrl+P, Ctrl+Shift+Space | Показать подсказку для вызова под кареткой |
+| `editor.action.triggerParameterHints` | Ctrl+K Ctrl+Space, Ctrl+Shift+Space | Показать подсказку для вызова под кареткой |
 | `showNextParameterHint` / `showPrevParameterHint` | Down / Up (и Alt+Down / Alt+Up) | Следующая/предыдущая перегрузка |
 | `closeParameterHints` | Escape | Закрыть попап |
 
-Аккорд Ctrl+K Ctrl+P объявлен основным биндом, а не канонический
+Аккорд Ctrl+K Ctrl+Space объявлен основным биндом, а не канонический
 Ctrl+Shift+Space: на legacy-tier'е тот неотличим от Ctrl+Space, который уже
 занят `triggerSuggest`, — без запасного пути ручной вызов был бы недоступен там,
 где терминал не кодирует модификаторы. Канонический бинд объявлен вторым.
+
+Вторая клавиша чорда — Ctrl+Space («как автодополнение, только про параметры»):
+мнемонически напрашивавшийся Ctrl+K Ctrl+P занят палитрой команд (её
+legacy-фолбэк вместо Ctrl+Shift+P), а Ctrl+K Ctrl+I на legacy недостижим —
+там Ctrl+I приезжает байтом Tab. Конфликт с палитрой поймал не юнит-тест, а
+e2e-сценарий `encoding`, который открывает палитру именно этим чордом.
 
 Стрелки и Escape перехватываются, только пока попап показан, — и уступают
 попапу автодополнения, если открыт и он (`!suggestWidgetVisible` в `when`). В
