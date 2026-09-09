@@ -6,6 +6,7 @@ import type { CompletionResolver, CompletionSource } from "../../../../editor/co
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { HoverSource } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
+import type { SignatureHelpSource } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -195,6 +196,25 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * команде Find All References; в редакторы не раздаётся (group-level).
      */
     public referenceSource?: ReferenceSource;
+
+    /**
+     * Источник подсказки параметров (host/харнесс подключает сюда провайдеры
+     * расширений через `languages.provideSignatureHelp`). Читается
+     * `ParameterHintsService`; в редакторы не раздаётся (group-level).
+     */
+    public signatureHelpSource?: SignatureHelpSource;
+
+    /**
+     * Символы, после набора которых подсказка параметров открывается сама
+     * («(», «,», «<» у tsserver) — их объявляет language server.
+     */
+    public signatureHelpTriggerCharacters: readonly string[] = [];
+
+    /**
+     * Символы, перезапрашивающие ПОКАЗАННУЮ подсказку («)» у tsserver): по ним
+     * подсказка не открывается, но обновляется, пока висит.
+     */
+    public signatureHelpRetriggerCharacters: readonly string[] = [];
 
     /**
      * Save-участник, прокидываемый в каждый редактор группы (host/харнесс

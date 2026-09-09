@@ -97,8 +97,10 @@ export interface ContextKeyTypes {
     // referenceSearchVisible: boolean;
     // inReferenceSearchEditor: boolean;
     // codeActionMenuVisible: boolean;
-    // parameterHintsVisible: boolean;
-    // parameterHintsMultipleSignatures: boolean;
+    /** True while the parameter hints popup is visible. */
+    parameterHintsVisible: boolean;
+    /** True when the shown signature help has more than one overload (arrows switch them). */
+    parameterHintsMultipleSignatures: boolean;
 
     // -- Debugger contexts --
     // debuggersAvailable: boolean;
@@ -285,8 +287,8 @@ export const allContextKeys: ContextKey[] = [
     // "referenceSearchVisible",
     // "inReferenceSearchEditor",
     // "codeActionMenuVisible",
-    // "parameterHintsVisible",
-    // "parameterHintsMultipleSignatures",
+    "parameterHintsVisible",
+    "parameterHintsMultipleSignatures",
 
     // -- Debugger contexts --
     // "debuggersAvailable",

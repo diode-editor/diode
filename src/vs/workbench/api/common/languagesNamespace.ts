@@ -1,5 +1,11 @@
 import type * as vscode from "vscode";
 
+import type {
+    ICoreParameterInfo,
+    ICoreSignature,
+    ICoreSignatureHelp,
+} from "../../../editor/common/languages/iSignatureHelpSource.ts";
+
 import { matchDocumentSelector } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -9,10 +15,12 @@ import {
     EventEmitter,
     Position,
     Range,
+    SignatureHelpTriggerKind,
     SnippetString,
     Uri,
 } from "./vscodeTypes.ts";
 import type {
+    IWireSignatureHelpParams,
     WireCompletionItem,
     WireCompletionResult,
     WireDefinitionLocation,
@@ -76,6 +84,19 @@ export interface IHoverRegistration {
 export interface IReferenceRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.ReferenceProvider;
+}
+
+/**
+ * Зарегистрированный провайдер подсказки параметров. Триггер- и
+ * ретриггер-символы объявляет сервер: клиент передаёт их либо rest-аргументами,
+ * либо объектом-метаданными (вторую форму он выбирает, когда сервер прислал
+ * `retriggerCharacters`).
+ */
+export interface ISignatureHelpRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.SignatureHelpProvider;
+    readonly triggerCharacters: readonly string[];
+    readonly retriggerCharacters: readonly string[];
 }
 
 /** Wire-параметры запроса completion (host → subprocess). */
@@ -209,6 +230,101 @@ function readHoverBlock(block: unknown): string | null {
     return `\`\`\`${b.language}\n${b.value}\n\`\`\``;
 }
 
+/**
+ * Третий аргумент `registerSignatureHelpProvider`: либо объект-метаданные
+ * (эту форму выбирает стоковый клиент, когда сервер прислал
+ * `retriggerCharacters`), либо rest-строки триггер-символов.
+ */
+function readSignatureHelpMetadata(rest: readonly (string | vscode.SignatureHelpProviderMetadata)[]): {
+    triggerCharacters: readonly string[];
+    retriggerCharacters: readonly string[];
+} {
+    const first = rest[0];
+    if (typeof first === "object" && first !== null) {
+        return {
+            triggerCharacters: readStringList(first.triggerCharacters),
+            retriggerCharacters: readStringList(first.retriggerCharacters),
+        };
+    }
+    return { triggerCharacters: readStringList(rest), retriggerCharacters: [] };
+}
+
+/** Массив строк из утиного значения; всё лишнее отбрасывается. */
+function readStringList(raw: unknown): readonly string[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((item): item is string => typeof item === "string");
+}
+
+/**
+ * `vscode.SignatureHelp` (утиный тип) → форма ядра; `null` — форма чужая или
+ * подсказки нет. Разбор строгий: битая сигнатура или параметр отбраковывают
+ * весь ответ, и хендлер спрашивает следующего провайдера. Причина та же, что у
+ * `parseWireSignatureHelp`: `activeSignature`/`activeParameter` — индексы, и
+ * выброс одного элемента сдвинул бы подсветку на соседний параметр молча.
+ */
+function serializeSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const help = raw as { signatures?: unknown; activeSignature?: unknown; activeParameter?: unknown };
+    if (!Array.isArray(help.signatures) || help.signatures.length === 0) return null;
+
+    const signatures: ICoreSignature[] = [];
+    for (const item of help.signatures) {
+        const signature = serializeSignature(item);
+        if (signature === null) return null;
+        signatures.push(signature);
+    }
+
+    return {
+        signatures,
+        activeSignature: typeof help.activeSignature === "number" ? help.activeSignature : 0,
+        activeParameter: typeof help.activeParameter === "number" ? help.activeParameter : 0,
+    };
+}
+
+/** Одна сигнатура (`vscode.SignatureInformation`); `null` — форма чужая. */
+function serializeSignature(raw: unknown): ICoreSignature | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const item = raw as { label?: unknown; documentation?: unknown; parameters?: unknown; activeParameter?: unknown };
+    if (typeof item.label !== "string") return null;
+
+    const parameters: ICoreParameterInfo[] = [];
+    if (item.parameters !== undefined) {
+        if (!Array.isArray(item.parameters)) return null;
+        for (const parameter of item.parameters) {
+            const serialized = serializeParameter(parameter);
+            if (serialized === null) return null;
+            parameters.push(serialized);
+        }
+    }
+
+    const documentation = readDocumentationText(item.documentation);
+    return {
+        label: item.label,
+        parameters,
+        ...(documentation === undefined ? {} : { documentation }),
+        ...(typeof item.activeParameter === "number" ? { activeParameter: item.activeParameter } : {}),
+    };
+}
+
+/** Один параметр (`vscode.ParameterInformation`); `null` — форма чужая. */
+function serializeParameter(raw: unknown): ICoreParameterInfo | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const item = raw as { label?: unknown; documentation?: unknown };
+    const label = serializeParameterLabel(item.label);
+    if (label === null) return null;
+    const documentation = readDocumentationText(item.documentation);
+    return { label, ...(documentation === undefined ? {} : { documentation }) };
+}
+
+/** Метка параметра: подстрока метки сигнатуры либо пара офсетов `[start, end)`. */
+function serializeParameterLabel(raw: unknown): string | readonly [number, number] | null {
+    if (typeof raw === "string") return raw;
+    if (!Array.isArray(raw) || raw.length !== 2) return null;
+    const [start, end] = raw as unknown[];
+    if (typeof start !== "number" || typeof end !== "number") return null;
+    return [start, end];
+}
+
 /** Токен отмены-заглушка (запросы completion короткоживущие, отмена не нужна). */
 function neverCancelledToken(): vscode.CancellationToken {
     return {
@@ -281,7 +397,11 @@ function readInsertText(item: vscode.CompletionItem, label: string): string {
 
 /** Читает `documentation` (строка или `MarkdownString { value }`). */
 function readDocumentation(item: vscode.CompletionItem): string | undefined {
-    const doc = (item as { documentation?: unknown }).documentation;
+    return readDocumentationText((item as { documentation?: unknown }).documentation);
+}
+
+/** `string | MarkdownString` → строка сырого markdown; чужая форма → `undefined`. */
+function readDocumentationText(doc: unknown): string | undefined {
     if (typeof doc === "string") return doc;
     if (typeof doc === "object" && doc !== null && typeof (doc as { value?: unknown }).value === "string") {
         return (doc as { value: string }).value;
@@ -402,6 +522,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     definitionRegistrations: readonly IDefinitionRegistration[];
     hoverRegistrations: readonly IHoverRegistration[];
     referenceRegistrations: readonly IReferenceRegistration[];
+    signatureHelpRegistrations: readonly ISignatureHelpRegistration[];
 } {
     const { rpc, documentSync } = ctx;
     const registrations: ICompletionRegistration[] = [];
@@ -409,6 +530,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     const definitionRegistrations: IDefinitionRegistration[] = [];
     const hoverRegistrations: IHoverRegistration[] = [];
     const referenceRegistrations: IReferenceRegistration[] = [];
+    const signatureHelpRegistrations: ISignatureHelpRegistration[] = [];
 
     // Кэш ответов completion для resolve. Держим последние COMPLETION_CACHE_DEPTH
     // ответов: пользователь резолвит пункт из текущего списка, а гонка «ответ
@@ -435,6 +557,12 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         for (const reg of registrations) {
             for (const char of reg.triggerCharacters) triggerCharacters.add(char);
         }
+        const signatureTriggers = new Set<string>();
+        const signatureRetriggers = new Set<string>();
+        for (const reg of signatureHelpRegistrations) {
+            for (const char of reg.triggerCharacters) signatureTriggers.add(char);
+            for (const char of reg.retriggerCharacters) signatureRetriggers.add(char);
+        }
         rpc.notify("languages.updateSubscriptions", {
             hasCompletionProviders: registrations.length > 0,
             hasFoldingProviders: foldingRegistrations.length > 0,
@@ -446,6 +574,12 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             // клиент передаёт их в registerCompletionItemProvider — до этой
             // задачи мы их хранили и не читали.
             completionTriggerCharacters: [...triggerCharacters],
+            hasSignatureHelpProviders: signatureHelpRegistrations.length > 0,
+            // Символы, после которых ядро само открывает подсказку («(», «,»,
+            // «<» у tsserver), и ретриггеры («)») — они перезапрашивают
+            // подсказку, только пока она показана.
+            signatureHelpTriggerCharacters: [...signatureTriggers],
+            signatureHelpRetriggerCharacters: [...signatureRetriggers],
         });
     }
 
@@ -518,6 +652,49 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             hovers.push({ contents, ...(range === null ? {} : { range }) });
         }
         return hovers;
+    });
+
+    rpc.handleRequest("languages.provideSignatureHelp", async (params): Promise<ICoreSignatureHelp | null> => {
+        const p = params as IWireSignatureHelpParams;
+        const doc: ExtHostTextDocument = documentSync.sync({
+            uri: p.uri,
+            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
+            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
+            text: p.text ?? "",
+        });
+        const position = new Position(p.line ?? 0, p.character ?? 0);
+        const context = {
+            triggerKind: p.triggerKind ?? SignatureHelpTriggerKind.Invoke,
+            triggerCharacter: p.triggerCharacter,
+            isRetrigger: p.isRetrigger === true,
+            activeSignatureHelp: p.activeSignatureHelp,
+        };
+        const token = neverCancelledToken();
+
+        // В отличие от hover/references результаты НЕ склеиваются: vscode API
+        // предписывает спрашивать провайдеров по очереди до первого валидного
+        // ответа (у подсказки один активный параметр — склеивать нечего).
+        for (const reg of signatureHelpRegistrations) {
+            if (!matchDocumentSelector(reg.selector, doc)) continue;
+            let result: unknown;
+            try {
+                result = await Promise.resolve(
+                    reg.provider.provideSignatureHelp(
+                        doc as unknown as vscode.TextDocument,
+                        position as unknown as vscode.Position,
+                        token,
+                        context as unknown as vscode.SignatureHelpContext,
+                    ),
+                );
+            } catch {
+                // Сбойный провайдер не роняет остальные: `result` остаётся
+                // неприсвоенным, и его отсеивает сериализация ниже — своего
+                // `continue` тут нет намеренно, иначе ветка неотличима от неё.
+            }
+            const help = serializeSignatureHelp(result);
+            if (help !== null) return help;
+        }
+        return null;
     });
 
     rpc.handleRequest("languages.provideReferences", async (params): Promise<WireReference[]> => {
@@ -837,6 +1014,29 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             }) as unknown as vscode.Disposable;
         },
 
+        registerSignatureHelpProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.SignatureHelpProvider,
+            ...rest: (string | vscode.SignatureHelpProviderMetadata)[]
+        ): vscode.Disposable => {
+            const registration: ISignatureHelpRegistration = { selector, provider, ...readSignatureHelpMetadata(rest) };
+            signatureHelpRegistrations.push(registration);
+            // Как у completion, сигналим не только на переходе 0↔1: у второго
+            // провайдера могут быть свои триггер-символы.
+            if (signatureHelpRegistrations.length === 1 || registration.triggerCharacters.length > 0) {
+                pushSubscriptions();
+            }
+            return new DisposableImpl(() => {
+                const idx = signatureHelpRegistrations.indexOf(registration);
+                if (idx >= 0) {
+                    signatureHelpRegistrations.splice(idx, 1);
+                    if (signatureHelpRegistrations.length === 0 || registration.triggerCharacters.length > 0) {
+                        pushSubscriptions();
+                    }
+                }
+            }) as unknown as vscode.Disposable;
+        },
+
         // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
         // под capabilities сервера). Закрытие каждого — по образцу definition:
         // seam + RPC + UI-потребитель; см. таблицу стабов в docs/TODO/LSP.md. ──
@@ -855,7 +1055,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         registerOnTypeFormattingEditProvider: registerNoopProvider,
         registerRenameProvider: registerNoopProvider,
         registerSelectionRangeProvider: registerNoopProvider,
-        registerSignatureHelpProvider: registerNoopProvider,
         registerDocumentSemanticTokensProvider: registerNoopProvider,
         registerDocumentRangeSemanticTokensProvider: registerNoopProvider,
         registerInlayHintsProvider: registerNoopProvider,
@@ -873,5 +1072,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         definitionRegistrations,
         hoverRegistrations,
         referenceRegistrations,
+        signatureHelpRegistrations,
     };
 }

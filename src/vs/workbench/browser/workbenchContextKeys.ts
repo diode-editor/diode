@@ -24,6 +24,8 @@ import { REFERENCES_VIEWLET_ID } from "../contrib/references/browser/referencesC
 import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
+import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
+import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
@@ -63,6 +65,7 @@ export class WorkbenchContextKeys extends Disposable {
         FindServiceDIToken,
         CompletionServiceDIToken,
         HoverServiceDIToken,
+        ParameterHintsServiceDIToken,
         TerminalServiceDIToken,
         TerminalEnvironmentServiceDIToken,
         InputWidgetServiceDIToken,
@@ -81,6 +84,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly findService: FindService,
         private readonly completionService: CompletionService,
         private readonly hoverService: HoverService,
+        private readonly parameterHints: ParameterHintsService,
         private readonly terminalService: TerminalService,
         private readonly terminalEnv: TerminalEnvironmentService,
         private readonly inputWidgetService: InputWidgetService,
@@ -120,6 +124,7 @@ export class WorkbenchContextKeys extends Disposable {
         const active = this.activeElement();
         this.completionService.onFocusChanged(active instanceof EditorElement);
         this.hoverService.onFocusChanged(active instanceof EditorElement);
+        this.parameterHints.onFocusChanged(active instanceof EditorElement);
     };
 
     public update(): void {
@@ -191,6 +196,8 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("findWidgetVisible", this.findService.isVisible());
         this.contextKeys.set("suggestWidgetVisible", this.completionService.isOpen());
         this.contextKeys.set("editorHoverVisible", this.hoverService.isOpen());
+        this.contextKeys.set("parameterHintsVisible", this.parameterHints.isOpen());
+        this.contextKeys.set("parameterHintsMultipleSignatures", this.parameterHints.hasMultipleSignatures());
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         this.contextKeys.set("terminalIsOpen", this.terminalService.hasOpenTerminals);
 

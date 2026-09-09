@@ -51,6 +51,8 @@ import {
 } from "../contrib/references/browser/referencesComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
+import { ParameterHintsComponentDIToken } from "../contrib/parameterHints/browser/parameterHintsComponent.ts";
+import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
 import { TerminalPanelComponentDIToken } from "../contrib/terminal/browser/terminalPanelComponent.ts";
@@ -209,6 +211,10 @@ export class WorkbenchComponent extends Component {
         const hoverComponent = this.register(accessor.get(HoverComponentDIToken));
         // Stryker disable next-line CallExpression: сервис всё равно резолвится (его держит WorkbenchContextKeys) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
         this.register(accessor.get(HoverServiceDIToken));
+        // Подсказка параметров — третья пара того же вида.
+        const parameterHintsComponent = this.register(accessor.get(ParameterHintsComponentDIToken));
+        // Stryker disable next-line CallExpression: как и hover-сервис, он резолвится через WorkbenchContextKeys — register() лишь передаёт владение жизнью
+        this.register(accessor.get(ParameterHintsServiceDIToken));
         const findComponent = this.register(accessor.get(FindComponentDIToken));
         this.register(accessor.get(FindServiceDIToken));
         this.statusBarComponent = this.register(statusBarComponent);
@@ -280,6 +286,9 @@ export class WorkbenchComponent extends Component {
         suggestComponent.attachHost(this.view);
         // Hover-попап — там же, в глобальном overlay-слое у каретки.
         hoverComponent.attachHost(this.view);
+        // Подсказка параметров — тот же слой, но якорится НАД кареткой, чтобы не
+        // делить место с попапом автодополнения.
+        parameterHintsComponent.attachHost(this.view);
         // Find-виджеты — по одному на группу, на локальном overlay-слое каждой;
         // компонент создаёт их лениво по первому Ctrl+F в группе.
         findComponent.hostProvider = (groupId) => this.editorPartComponent.groupOverlayHost(groupId);

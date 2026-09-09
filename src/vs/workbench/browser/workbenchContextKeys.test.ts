@@ -6,6 +6,7 @@ import { ContextKeyService } from "../../platform/contextkey/common/contextKeySe
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
+import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
@@ -29,6 +30,7 @@ function makeHarness() {
     const setActive = vi.fn();
     const onFocusChanged = vi.fn();
     const onHoverFocusChanged = vi.fn();
+    const onParameterHintsFocusChanged = vi.fn();
     const cancelPendingChord = vi.fn();
     let envListener: (() => void) | null = null;
 
@@ -54,6 +56,11 @@ function makeHarness() {
         { isVisible: () => false } as unknown as FindService,
         { isOpen: () => false, onFocusChanged } as unknown as CompletionService,
         { isOpen: () => false, onFocusChanged: onHoverFocusChanged } as unknown as HoverService,
+        {
+            isOpen: () => false,
+            hasMultipleSignatures: () => false,
+            onFocusChanged: onParameterHintsFocusChanged,
+        } as unknown as ParameterHintsService,
         { hasOpenTerminals: false } as unknown as TerminalService,
         terminalEnv as unknown as TerminalEnvironmentService,
         { setActive } as unknown as InputWidgetService,
@@ -74,6 +81,7 @@ function makeHarness() {
         setActive,
         onFocusChanged,
         onHoverFocusChanged,
+        onParameterHintsFocusChanged,
         cancelPendingChord,
         dispatcher,
         fireEnvChange: () => envListener?.(),

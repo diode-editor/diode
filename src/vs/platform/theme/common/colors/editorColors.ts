@@ -117,4 +117,10 @@ export const editorColors = {
         defaults: { dark: "#454545", light: "#C8C8C8" },
         description: "Border color of the editor hover.",
     },
+    // Активный параметр в подсказке (VS Code выводит этот цвет из
+    // list.highlightForeground — у нас значения запечены, как у соседей выше).
+    "editorHoverWidget.highlightForeground": {
+        defaults: { dark: "#2AAAFF", light: "#0066BF" },
+        description: "Foreground color of the active item in the parameter hint.",
+    },
 } as const satisfies ColorContribution;

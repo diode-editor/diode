@@ -199,6 +199,19 @@ export const extensionHostModule: ContainerModule = (container) => {
         // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
         group.referenceSource = (req) => host.provideReferences(req);
 
+        // Signature help: провайдеры расширений (languages.provideSignatureHelp)
+        // подключаются как источник подсказки параметров (читает
+        // ParameterHintsService при наборе «(» и по команде).
+        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
+        group.signatureHelpSource = (req) => host.provideSignatureHelp(req);
+        // Триггер-символы объявляет сервер уже после активации — как у completion.
+        group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
+        group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
+        host.onSignatureHelpTriggerCharactersChanged(() => {
+            group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
+            group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
+        });
+
         // Folding: провайдеры расширений (languages.provideFoldingRanges)
         // подключаются как источник областей сворачивания группы (читает
         // EditorComponent при пересчёте, мержит поверх indentation-фолдов).
