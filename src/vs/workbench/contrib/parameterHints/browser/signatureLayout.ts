@@ -55,8 +55,9 @@ function indexOfWithBoundary(haystack: string, needle: string): number {
     }
 }
 
+/** Word-символ (пустая строка — «соседа нет», она границей не считается). */
 function isWordChar(char: string): boolean {
-    return char !== "" && /\w/u.test(char);
+    return /^\w$/u.test(char);
 }
 
 /**
@@ -83,30 +84,27 @@ export function wrapSignature(label: string, width: number): ISignatureChunk[] {
 function wrapLine(line: string, base: number, width: number, chunks: ISignatureChunk[]): void {
     const widths = cumulativeWidths(line);
     const measure = (from: number, to: number): number => widths[to] - widths[from];
-    // Границы строки-кандидата в офсетах `line`; -1 — строка ещё не начата.
-    let lineStart = -1;
-    let lineEnd = -1;
+    // Границы строки-кандидата в офсетах `line`; `null` — строка ещё не начата.
+    let lineStart: number | null = null;
+    let lineEnd = 0;
     const flush = (): void => {
-        if (lineStart === -1) return;
+        if (lineStart === null) return;
         chunks.push({ text: line.slice(lineStart, lineEnd), start: base + lineStart });
-        lineStart = -1;
+        lineStart = null;
     };
 
     for (const word of wordsOf(line)) {
         // Слово влезает в остаток строки — забираем его вместе с разделителем,
         // который стоит перед ним в метке (кусок обязан быть непрерывным).
-        if (lineStart !== -1 && measure(lineStart, word.end) <= width) {
+        if (lineStart !== null && measure(lineStart, word.end) <= width) {
             lineEnd = word.end;
             continue;
         }
         flush();
-        if (measure(word.start, word.end) <= width) {
-            lineStart = word.start;
-            lineEnd = word.end;
-            continue;
-        }
-        // Слово шире строки: режем его по ширине, хвост становится текущей строкой.
+        // Слово шире строки — режем его по ширине; хвост (или всё слово, если
+        // оно помещается) становится началом новой строки.
         let cut = word.start;
+        // Stryker disable next-line EqualityOperator: на слове ровно в ширину обе границы дают тот же разбор — кусок закрывается либо здесь, либо flush'ем следующего слова
         while (measure(cut, word.end) > width) {
             const next = offsetAtWidth(line, widths, cut, width);
             // Символ шире всей строки (широкий CJK при width 1) — сдвигаемся на
@@ -126,16 +124,16 @@ function wrapLine(line: string, base: number, width: number, chunks: ISignatureC
 /** Слова строки (непробельные куски) с офсетами. */
 function wordsOf(line: string): { start: number; end: number }[] {
     const words: { start: number; end: number }[] = [];
-    let start = -1;
+    let start: number | null = null;
     for (let i = 0; i < line.length; i++) {
         const isSpace = /\s/u.test(line[i]);
-        if (!isSpace && start === -1) start = i;
-        if (isSpace && start !== -1) {
+        if (!isSpace && start === null) start = i;
+        if (isSpace && start !== null) {
             words.push({ start, end: i });
-            start = -1;
+            start = null;
         }
     }
-    if (start !== -1) words.push({ start, end: line.length });
+    if (start !== null) words.push({ start, end: line.length });
     return words;
 }
 
@@ -157,6 +155,7 @@ function cumulativeWidths(line: string): number[] {
 function offsetAtWidth(line: string, widths: readonly number[], from: number, width: number): number {
     let offset = from;
     for (const slot of new DisplayLine(line).slots) {
+        // Stryker disable next-line EqualityOperator: графема, начинающаяся ровно на `from`, всё равно перетирает `offset` следующей итерацией — пропуск её меняет только число сравнений
         if (slot.offset < from) continue;
         if (widths[slot.offset + slot.length] - widths[from] > width) break;
         offset = slot.offset + slot.length;

@@ -1208,16 +1208,18 @@ export class ExtensionHost extends Disposable {
             this.hoverSubscribed = p.hasHoverProviders === true;
             this.referencesSubscribed = p.hasReferenceProviders === true;
             this.signatureHelpSubscribed = p.hasSignatureHelpProviders === true;
-            const signatureBefore =
-                this.signatureHelpTriggerCharactersValue.join("") +
-                "\u0000" +
-                this.signatureHelpRetriggerCharactersValue.join("");
+            // Сериализуем пару списков целиком: склейка join'ом уравняла бы
+            // ["ab"] и ["a", "b"], и смена набора прошла бы мимо слушателей.
+            const signatureBefore = JSON.stringify([
+                this.signatureHelpTriggerCharactersValue,
+                this.signatureHelpRetriggerCharactersValue,
+            ]);
             this.signatureHelpTriggerCharactersValue = readStringArray(p.signatureHelpTriggerCharacters);
             this.signatureHelpRetriggerCharactersValue = readStringArray(p.signatureHelpRetriggerCharacters);
-            const signatureAfter =
-                this.signatureHelpTriggerCharactersValue.join("") +
-                "\u0000" +
-                this.signatureHelpRetriggerCharactersValue.join("");
+            const signatureAfter = JSON.stringify([
+                this.signatureHelpTriggerCharactersValue,
+                this.signatureHelpRetriggerCharactersValue,
+            ]);
             if (signatureBefore !== signatureAfter) {
                 for (const cb of [...this.signatureHelpTriggerCharactersListeners]) cb();
             }

@@ -30,6 +30,7 @@ const GREET_SHORT: ICoreSignature = {
     label: "greet(name: string): void",
     parameters: [{ label: "name: string" }],
 };
+const GREET_EMPTY: ICoreSignature = { label: "greet(): void", parameters: [] };
 
 function help(patch: Partial<ICoreSignatureHelp> = {}): ICoreSignatureHelp {
     return { signatures: [GREET], activeSignature: 0, activeParameter: 0, ...patch };
@@ -94,8 +95,48 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
             isRetrigger: false,
         });
         expect(seen[0].text).toContain("const other");
-        expect(seen[0].triggerCharacter).toBeUndefined();
-        expect(seen[0].activeSignatureHelp).toBeUndefined();
+        // Пустых ключей в запросе нет вовсе: он уходит по RPC на каждое нажатие.
+        expect(Object.keys(seen[0]).sort()).toEqual([
+            "character",
+            "isRetrigger",
+            "languageId",
+            "line",
+            "text",
+            "triggerKind",
+            "uri",
+        ]);
+    });
+
+    it("ручной вызов отменяет отложенный авто-запрос", async () => {
+        const source = vi.fn(() => Promise.resolve(help()));
+        group().signatureHelpSource = source;
+        service().triggerDelayMs = 50;
+
+        h.testApp.sendKey("End");
+        h.testApp.sendKey("("); // запланировал авто-запрос
+        await service().trigger(); // ручной вызов обгоняет его
+        await flushTimers();
+        await flushMicrotasks();
+
+        // Отложенный запрос снят — иначе после ручного прилетел бы второй ответ.
+        expect(source).toHaveBeenCalledTimes(1);
+    });
+
+    it("попап закрыли мимо сервиса (клик снаружи) — следующий запрос идёт без эха", async () => {
+        const seen: ISignatureHelpRequest[] = [];
+        group().signatureHelpSource = (request) => {
+            seen.push(request);
+            return Promise.resolve(help());
+        };
+
+        await service().trigger();
+        // Overlay-сессия закрылась сама (pointerPolicy) — сервис об этом не знает
+        // и держит прежний результат; запрос всё равно обязан быть «первым».
+        component().close();
+        await service().trigger();
+
+        expect(seen[1].isRetrigger).toBe(false);
+        expect(Object.keys(seen[1])).not.toContain("activeSignatureHelp");
     });
 
     it("набор триггер-символа сервера открывает подсказку сам", async () => {
@@ -159,6 +200,22 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         });
         // Эхо показанной подсказки — по нему сервер удерживает перегрузку.
         expect(seen[1].activeSignatureHelp).toEqual({ ...help(), activeSignature: 0 });
+    });
+
+    it("подсказка открывается и на строке, отличной от первой", async () => {
+        const source = vi.fn(() => Promise.resolve(help()));
+        group().signatureHelpSource = source;
+
+        // Кэш каретки хранит НОМЕР строки: обнулись он на второй строке —
+        // вставка перестала бы опознаваться как набор.
+        group().getActiveEditor()?.goToPosition(1, 0);
+        h.testApp.sendKey("End");
+        h.testApp.sendKey("(");
+        await flushTimers();
+        await flushMicrotasks();
+
+        expect(source).toHaveBeenCalledTimes(1);
+        expect(service().isOpen()).toBe(true);
     });
 
     it("движение каретки при открытом попапе — ретриггер с ContentChange", async () => {
@@ -263,6 +320,89 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         expect(seen[1]).toMatchObject({ triggerKind: SignatureHelpTriggerKind.ContentChange, isRetrigger: true });
     });
 
+    it("три перегрузки: next и prev ходят в разные стороны", async () => {
+        group().signatureHelpSource = () =>
+            Promise.resolve(help({ signatures: [GREET, GREET_SHORT, GREET_EMPTY] }));
+
+        await service().trigger();
+        expect(lines()[0]).toBe("1/3 greet(name: string, age: number): void");
+
+        service().nextSignature();
+        expect(lines()[0]).toBe("2/3 greet(name: string): void");
+
+        service().previousSignature();
+        expect(lines()[0]).toBe("1/3 greet(name: string, age: number): void");
+
+        // Назад с первой — на последнюю, а не на вторую.
+        service().previousSignature();
+        expect(lines()[0]).toBe("3/3 greet(): void");
+    });
+
+    it("выбранную сервером перегрузку показываем сразу, выход за список сбрасываем", async () => {
+        let activeSignature = 1;
+        group().signatureHelpSource = () =>
+            Promise.resolve(help({ signatures: [GREET, GREET_SHORT], activeSignature }));
+
+        await service().trigger();
+        expect(lines()[0]).toBe("2/2 greet(name: string): void");
+
+        // Ровно длина списка — уже за границей.
+        activeSignature = 2;
+        service().close();
+        await service().trigger();
+        expect(lines()[0]).toBe("1/2 greet(name: string, age: number): void");
+    });
+
+    it("close() гасит содержимое попапа и отложенный запрос", async () => {
+        const source = vi.fn(() => Promise.resolve(help()));
+        group().signatureHelpSource = source;
+        service().triggerDelayMs = 50;
+
+        await service().trigger();
+        expect(component().view.hint).not.toBeNull();
+
+        h.testApp.sendKey("End");
+        h.testApp.sendKey("("); // запланировал перезапрос
+        service().close();
+        await flushTimers();
+        await flushMicrotasks();
+
+        // Содержимое очищено (иначе оно мигнёт при следующем открытии), а
+        // отложенный запрос снят.
+        expect(component().view.hint).toBeNull();
+        expect(source).toHaveBeenCalledTimes(1);
+    });
+
+    it("активного параметра нет (-1): подсветки и описания параметра тоже нет", async () => {
+        group().signatureHelpSource = () =>
+            Promise.resolve(
+                help({
+                    activeParameter: -1,
+                    signatures: [
+                        {
+                            label: "greet(name: string): void",
+                            documentation: "Здоровается.",
+                            parameters: [{ label: "name: string", documentation: "кого" }],
+                        },
+                    ],
+                }),
+            );
+
+        await service().trigger();
+
+        expect(component().view.hint?.activeSpan).toEqual([0, 0]);
+        // Описание параметра не подставляется наугад — только описание сигнатуры.
+        expect(component().view.hint?.documentation).toEqual(["Здоровается."]);
+    });
+
+    it("сигнатура без описаний не даёт пустых блоков", async () => {
+        group().signatureHelpSource = () => Promise.resolve(help({ signatures: [GREET_EMPTY] }));
+
+        await service().trigger();
+
+        expect(component().view.hint?.documentation).toEqual([]);
+    });
+
     it("перегрузки листаются локально, без обращения к источнику", async () => {
         const source = vi.fn(() => Promise.resolve(help({ signatures: [GREET, GREET_SHORT] })));
         group().signatureHelpSource = source;
@@ -292,13 +432,18 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         expect(service().hasMultipleSignatures()).toBe(false);
     });
 
-    it("одна сигнатура: счётчика нет и стрелки её не листают", async () => {
+    it("одна сигнатура: счётчика нет, попап даже не пересобирается", async () => {
         group().signatureHelpSource = () => Promise.resolve(help({ signatures: [GREET_SHORT] }));
 
         await service().trigger();
+        const shown = component().view.hint;
 
         expect(service().hasMultipleSignatures()).toBe(false);
         service().nextSignature();
+        service().previousSignature();
+
+        // Тот же объект, а не равный: листать нечего — и перерисовывать нечего.
+        expect(component().view.hint).toBe(shown);
         expect(lines()).toEqual(["greet(name: string): void"]);
     });
 
@@ -380,13 +525,19 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         expect(service().isOpen()).toBe(false);
     });
 
-    it("каретка ушла из вьюпорта за время запроса — попап не открывается", async () => {
+    it("каретка ушла из вьюпорта за время запроса — попап не открывается и закрывается", async () => {
         group().signatureHelpSource = () => Promise.resolve(help());
         const editor = group().getActiveEditor()!;
-        editor.getCaretAnchor = () => null;
 
+        // Показанный попап без якоря жить не может — уход каретки его гасит.
         await service().trigger();
+        expect(service().isOpen()).toBe(true);
+        editor.getCaretAnchor = () => null;
+        await service().trigger();
+        expect(service().isOpen()).toBe(false);
 
+        // И повторно уже не открывается.
+        await service().trigger();
         expect(service().isOpen()).toBe(false);
     });
 
@@ -417,7 +568,8 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("смена активного редактора закрывает попап и переносит подписки", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help());
+        const source = vi.fn(() => Promise.resolve(help()));
+        group().signatureHelpSource = source;
         const first = group().getActiveEditor()!;
         await service().trigger();
         expect(service().isOpen()).toBe(true);
@@ -425,11 +577,29 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         group().openFile(ws.path("other.ts"));
         expect(service().isOpen()).toBe(false);
 
-        // Правка в ПРЕЖНЕМ редакторе больше не трогает подсказку нового.
+        // Правка в ПРЕЖНЕМ редакторе больше не доходит до сервиса: подписки сняты.
         await service().trigger();
-        expect(service().isOpen()).toBe(true);
+        const before = source.mock.calls.length;
         first.viewState.insertText("x");
         await flushTimers();
+        await flushMicrotasks();
+        expect(source).toHaveBeenCalledTimes(before);
+        expect(service().isOpen()).toBe(true);
+    });
+
+    it("набор триггер-символа сразу после смены редактора открывает подсказку", async () => {
+        const source = vi.fn(() => Promise.resolve(help()));
+        group().signatureHelpSource = source;
+
+        // Кэш каретки принадлежит прежнему редактору: без пересборки на привязке
+        // первое же нажатие в новом файле не сойдётся по длине строки.
+        group().openFile(ws.path("other.ts"));
+        h.workbench.focusEditor();
+        h.testApp.sendKey("(");
+        await flushTimers();
+        await flushMicrotasks();
+
+        expect(source).toHaveBeenCalledTimes(1);
         expect(service().isOpen()).toBe(true);
     });
 

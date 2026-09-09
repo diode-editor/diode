@@ -120,6 +120,17 @@ describe("ExtensionHost — гейт подсказки параметров (in
             triggerKind: SignatureHelpTriggerKind.Invoke,
             isRetrigger: false,
         });
+        // Ключей `triggerCharacter`/`activeSignatureHelp` в проводе быть не должно
+        // вовсе: `{ x: undefined }` — лишний байт на каждом нажатии клавиши.
+        expect(Object.keys(seen[0] as Record<string, unknown>).sort()).toEqual([
+            "character",
+            "isRetrigger",
+            "languageId",
+            "line",
+            "text",
+            "triggerKind",
+            "uri",
+        ]);
         expect(seen[1]).toEqual({
             uri: "file:///a.ts",
             languageId: "typescript",
@@ -131,6 +142,7 @@ describe("ExtensionHost — гейт подсказки параметров (in
             isRetrigger: true,
             activeSignatureHelp: HELP,
         });
+        expect(Object.keys(seen[1] as Record<string, unknown>)).toContain("activeSignatureHelp");
     });
 
     it("чужая форма подписки читается как «провайдеров нет»", async () => {
@@ -190,14 +202,35 @@ describe("ExtensionHost — гейт подсказки параметров (in
         await flushMicrotasks();
         expect(changed).toHaveBeenCalledTimes(2);
 
-        // Отписались — смена символов больше не будит слушателя; повторный
-        // dispose идемпотентен.
+        // Границы элементов важны: ["ab"] и ["a", "b"] — разные наборы, хотя
+        // склейка без разделителя уравняла бы их.
+        peer.notify("languages.updateSubscriptions", {
+            hasSignatureHelpProviders: true,
+            signatureHelpTriggerCharacters: ["ab"],
+            signatureHelpRetriggerCharacters: [],
+        });
+        await flushMicrotasks();
+        expect(changed).toHaveBeenCalledTimes(3);
+        peer.notify("languages.updateSubscriptions", {
+            hasSignatureHelpProviders: true,
+            signatureHelpTriggerCharacters: ["a", "b"],
+            signatureHelpRetriggerCharacters: [],
+        });
+        await flushMicrotasks();
+        expect(changed).toHaveBeenCalledTimes(4);
+
+        // Второй слушатель — чтобы двойной dispose первого не снял ЕГО:
+        // `splice` по индексу -1 срезал бы последнего в списке.
+        const other = vi.fn();
+        host.onSignatureHelpTriggerCharactersChanged(other);
         subscription.dispose();
         subscription.dispose();
+
         peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
         await flushMicrotasks();
         expect(host.signatureHelpTriggerCharacters).toEqual([]);
-        expect(changed).toHaveBeenCalledTimes(2);
+        expect(changed).toHaveBeenCalledTimes(4);
+        expect(other).toHaveBeenCalledTimes(1);
     });
 
     it("документ ровно в лимит проходит, больше лимита — отсекается с записью в лог", async () => {

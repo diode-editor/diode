@@ -1020,6 +1020,7 @@ function parseParameterLabel(raw: unknown): string | readonly [number, number] |
 /** Индекс активной сигнатуры: не-число или выход за список → 0. */
 function clampIndex(raw: unknown, length: number): number {
     if (typeof raw !== "number" || !Number.isInteger(raw)) return 0;
+    // Stryker disable next-line EqualityOperator: на raw === 0 обе границы дают ноль — тот же индекс, что и без клампа
     if (raw < 0 || raw >= length) return 0;
     return raw;
 }

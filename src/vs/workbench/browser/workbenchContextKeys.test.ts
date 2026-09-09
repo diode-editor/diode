@@ -145,7 +145,10 @@ describe("WorkbenchContextKeys", () => {
 
         expect(h.cancelPendingChord).toHaveBeenCalledTimes(1);
         expect(h.contextKeys.get("textInputFocus")).toBe(false);
-        // Активный элемент — не редактор (фокус-менеджера нет) → попап закрывается.
+        // Активный элемент — не редактор (фокус-менеджера нет) → попапы закрываются:
+        // и автодополнение, и hover, и подсказка параметров.
         expect(h.onFocusChanged).toHaveBeenCalledWith(false);
+        expect(h.onHoverFocusChanged).toHaveBeenCalledWith(false);
+        expect(h.onParameterHintsFocusChanged).toHaveBeenCalledWith(false);
     });
 });

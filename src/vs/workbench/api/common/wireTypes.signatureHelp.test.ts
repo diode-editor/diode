@@ -78,6 +78,15 @@ describe("wireTypes — parseWireSignatureHelp", () => {
         expect(
             parseWireSignatureHelp({ signatures: [{ label: "f(a)", parameters: [{ label: [1, Infinity] }] }] }),
         ).toBeNull();
+        expect(
+            parseWireSignatureHelp({ signatures: [{ label: "f(a)", parameters: [{ label: [Infinity, 1] }] }] }),
+        ).toBeNull();
+        // Тройка офсетов — не пара: без проверки длины разбор молча взял бы первые два.
+        expect(
+            parseWireSignatureHelp({ signatures: [{ label: "f(a)", parameters: [{ label: [1, 2, 3] }] }] }),
+        ).toBeNull();
+        // `parameters` числом: перебор по нему не просто пуст, а невозможен.
+        expect(parseWireSignatureHelp({ signatures: [{ label: "f(a)", parameters: 42 }] })).toBeNull();
     });
 
     it("сигнатура без параметров и без документации — валидна", () => {
@@ -101,15 +110,13 @@ describe("wireTypes — parseWireSignatureHelp", () => {
     });
 
     it("activeSignature вне списка и не-целое приводится к нулю", () => {
-        for (const activeSignature of [7, -1, 0.5, "0", undefined]) {
+        // Ровно длина списка — уже за границей (индексы 0-based).
+        for (const activeSignature of [7, 1, -1, 0.5, "0", undefined]) {
             expect(parseWireSignatureHelp({ ...HELP, activeSignature })?.activeSignature).toBe(0);
         }
-        expect(
-            parseWireSignatureHelp({
-                signatures: [HELP.signatures[0], { label: "greet(): void" }],
-                activeSignature: 1,
-            })?.activeSignature,
-        ).toBe(1);
+        const two = { signatures: [HELP.signatures[0], { label: "greet(): void" }] };
+        expect(parseWireSignatureHelp({ ...two, activeSignature: 1 })?.activeSignature).toBe(1);
+        expect(parseWireSignatureHelp({ ...two, activeSignature: 2 })?.activeSignature).toBe(0);
     });
 
     it("activeParameter: -1 («нет активного») доезжает как есть, мусор — нулём", () => {
@@ -119,11 +126,17 @@ describe("wireTypes — parseWireSignatureHelp", () => {
         expect(parseWireSignatureHelp({ ...HELP, activeParameter: undefined })?.activeParameter).toBe(0);
     });
 
-    it("activeParameter сигнатуры отбраковывается только нечислом", () => {
-        const parsed = parseWireSignatureHelp({
-            signatures: [{ label: "f(a)", parameters: [{ label: "a" }], activeParameter: "нет" }],
+    it("activeParameter сигнатуры отбраковывается нечислом и бесконечностью", () => {
+        for (const activeParameter of ["нет", Infinity, NaN]) {
+            const parsed = parseWireSignatureHelp({
+                signatures: [{ label: "f(a)", parameters: [{ label: "a" }], activeParameter }],
+            });
+            expect(parsed?.signatures[0].activeParameter).toBeUndefined();
+        }
+        const ok = parseWireSignatureHelp({
+            signatures: [{ label: "f(a)", parameters: [{ label: "a" }], activeParameter: 0 }],
         });
-        expect(parsed?.signatures[0].activeParameter).toBeUndefined();
+        expect(ok?.signatures[0].activeParameter).toBe(0);
     });
 });
 

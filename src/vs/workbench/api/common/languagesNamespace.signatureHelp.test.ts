@@ -338,6 +338,21 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             provideSignatureHelp: () => ({ signatures: [42] }) as unknown as vscode.SignatureHelp,
         });
         languages.registerSignatureHelpProvider({ language: "typescript" }, {
+            provideSignatureHelp: () => ({ signatures: [null] }) as unknown as vscode.SignatureHelp,
+        });
+        languages.registerSignatureHelpProvider({ language: "typescript" }, {
+            provideSignatureHelp: () =>
+                ({ signatures: [{ label: "f(a)", parameters: 42 }] }) as unknown as vscode.SignatureHelp,
+        });
+        languages.registerSignatureHelpProvider({ language: "typescript" }, {
+            provideSignatureHelp: () =>
+                ({ signatures: [{ label: "f(a)", parameters: [{ label: [1, 2, 3] }] }] }) as unknown as vscode.SignatureHelp,
+        });
+        languages.registerSignatureHelpProvider({ language: "typescript" }, {
+            provideSignatureHelp: () =>
+                ({ signatures: [{ label: "f(a)", parameters: [{ label: ["x", 1] }] }] }) as unknown as vscode.SignatureHelp,
+        });
+        languages.registerSignatureHelpProvider({ language: "typescript" }, {
             provideSignatureHelp: () =>
                 ({ signatures: [{ label: "f(a)", parameters: "нет" }] }) as unknown as vscode.SignatureHelp,
         });
@@ -369,13 +384,18 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
                 ({ signatures: [{ label: "now(): Date" }] }) as unknown as vscode.SignatureHelp,
         });
 
-        const result = await stub.callRequest("languages.provideSignatureHelp", requestParams());
+        const result = (await stub.callRequest("languages.provideSignatureHelp", requestParams())) as {
+            signatures: Record<string, unknown>[];
+        };
 
         expect(result).toEqual({
             signatures: [{ label: "now(): Date", parameters: [] }],
             activeSignature: 0,
             activeParameter: 0,
         });
+        // Ключей `documentation`/`activeParameter` в проводе быть не должно вовсе:
+        // `{ documentation: undefined }` — это лишний байт на каждом ответе.
+        expect(Object.keys(result.signatures[0]).sort()).toEqual(["label", "parameters"]);
     });
 
     it("параметр без документации доезжает голой меткой", async () => {
@@ -398,6 +418,30 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             activeSignature: 0,
             activeParameter: 0,
         });
+        const parameter = (result as { signatures: { parameters: Record<string, unknown>[] }[] }).signatures[0]
+            .parameters[0];
+        expect(Object.keys(parameter)).toEqual(["label"]);
+    });
+
+    it("выбранная сервером перегрузка доезжает как есть", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        languages.registerSignatureHelpProvider({ language: "typescript" }, {
+            provideSignatureHelp: () =>
+                ({
+                    signatures: [{ label: "f(a)" }, { label: "f(a, b)" }],
+                    activeSignature: 1,
+                    activeParameter: 1,
+                }) as unknown as vscode.SignatureHelp,
+        });
+
+        const result = (await stub.callRequest("languages.provideSignatureHelp", requestParams())) as {
+            activeSignature: number;
+            activeParameter: number;
+        };
+
+        expect(result.activeSignature).toBe(1);
+        expect(result.activeParameter).toBe(1);
     });
 
     it("метка параметра парой офсетов и активные индексы сериализуются как есть", async () => {

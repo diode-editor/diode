@@ -88,9 +88,8 @@ export class ParameterHintsElement extends TUIElement {
     }
 
     /** Отступ метки под счётчиком перегрузок: `1/2 ` слева от сигнатуры. */
-    private get labelIndent(): number {
-        const counter = this.hintValue?.counter;
-        return counter == null ? 0 : counter.length + 1;
+    private labelIndentFor(hint: IParameterHint): number {
+        return hint.counter === null ? 0 : hint.counter.length + 1;
     }
 
     private layoutFor(textWidth: number): readonly IHintLine[] {
@@ -109,14 +108,12 @@ export class ParameterHintsElement extends TUIElement {
         const hint = this.hintValue;
         if (hint === null) return [];
         const lines: IHintLine[] = [];
-        const chunks: readonly ISignatureChunk[] = wrapSignature(
-            hint.label,
-            Math.max(1, textWidth - this.labelIndent),
-        );
+        const indent = this.labelIndentFor(hint);
+        const chunks: readonly ISignatureChunk[] = wrapSignature(hint.label, Math.max(1, textWidth - indent));
         for (const [index, chunk] of chunks.entries()) {
             // Счётчик рисуется отдельно, поэтому в строку метки не входит —
             // зато её отступ одинаков на всех строках переноса.
-            const prefix = index === 0 && hint.counter !== null ? hint.counter + " " : " ".repeat(this.labelIndent);
+            const prefix = index === 0 && hint.counter !== null ? hint.counter + " " : " ".repeat(indent);
             lines.push({
                 text: prefix + chunk.text,
                 labelStart: chunk.start,
@@ -137,7 +134,7 @@ export class ParameterHintsElement extends TUIElement {
 
     private textWidthFor(hint: IParameterHint): number {
         const natural = Math.max(
-            naturalWidth(hint.label) + this.labelIndent,
+            naturalWidth(hint.label) + this.labelIndentFor(hint),
             ...hint.documentation.map(naturalWidth),
             MIN_WIDTH - TEXT_X - RIGHT_PAD - BORDER_THICKNESS,
         );

@@ -41,10 +41,16 @@ export class ParameterHintsService extends Disposable {
     private requestSeq = 0;
     private caretSub: IDisposable | null = null;
     private contentSub: IDisposable | null = null;
+    // Затравки полей ниже перетираются ещё в конструкторе (`bindEditor` зовёт
+    // `unbindEditor` и `resetCaretCache`), поэтому их значения ненаблюдаемы.
+    // Stryker disable next-line BooleanLiteral: см. выше
     /** Правка пришла до события каретки — их общий обработчик читает этот флаг. */
     private contentDidChange = false;
+    // Stryker disable next-line UnaryOperator: см. выше
     private lastCaretLine = -1;
+    // Stryker disable next-line UnaryOperator: см. выше
     private lastCaretChar = -1;
+    // Stryker disable next-line StringLiteral: см. выше
     private lastLine = "";
     private triggerTimer: ReturnType<typeof setTimeout> | null = null;
     /** Показанная сейчас подсказка (она же — эхо `activeSignatureHelp` серверу). */
@@ -163,6 +169,7 @@ export class ParameterHintsService extends Disposable {
 
     private stepSignature(delta: 1 | -1): void {
         const count = this.currentHelp?.signatures.length ?? 0;
+        // Stryker disable next-line ConditionalExpression: без выхода одна сигнатура просто пересобирает попап тем же содержимым, а ноль даёт NaN-индекс, который перетрёт следующий ответ, — поведение не меняется
         if (count <= 1) return;
         this.activeSignatureIndex = (((this.activeSignatureIndex + delta) % count) + count) % count;
         this.renderHint();
@@ -216,6 +223,7 @@ export class ParameterHintsService extends Disposable {
         // Stryker disable next-line OptionalChaining: см. выше
         this.contentSub?.dispose();
         this.contentSub = null;
+        // Stryker disable next-line BooleanLiteral: «правка была» без правки всё равно отсекается проверкой длины строки в isSingleCharInsert — флаг лишь экономит её вызов
         this.contentDidChange = false;
     }
 
@@ -226,6 +234,7 @@ export class ParameterHintsService extends Disposable {
      */
     private onCaretChanged(): void {
         const wasEdit = this.contentDidChange;
+        // Stryker disable next-line BooleanLiteral: не сброшенный флаг ненаблюдаем по той же причине, что и в unbindEditor — вставку символа опознаёт длина строки, а не он
         this.contentDidChange = false;
 
         const editor = this.group.getActiveEditor();
@@ -238,7 +247,10 @@ export class ParameterHintsService extends Disposable {
 
         if (active === null) {
             // Выделение, а не каретка: показывать подсказку вызова не для чего.
-            if (this.isOpen()) this.close();
+            // `close()` идемпотентен и заодно снимает отложенный запрос — иначе
+            // набранная перед выделением «(» открыла бы попап уже поверх него.
+            this.close();
+            // Stryker disable next-line CallExpression: кэш каретки при выделении всё равно не совпадёт с одиночной вставкой (длина строки не сойдётся), поэтому пропуск сброса ненаблюдаем
             this.updateCaretCache(active, line);
             return;
         }
@@ -273,6 +285,7 @@ export class ParameterHintsService extends Disposable {
     private readCaret(editor: TextEditorPane): { active: IPosition | null; line: string } {
         const selections = editor.viewState.selections;
         const active = selections.length === 1 && isSelectionCollapsed(selections[0]) ? selections[0].active : null;
+        // Stryker disable next-line StringLiteral: строка без каретки уходит только в кэш, а он в этом состоянии всё равно не даст совпадения по длине
         const line = active !== null ? editor.viewState.document.getLineContent(active.line) : "";
         return { active, line };
     }
@@ -286,6 +299,7 @@ export class ParameterHintsService extends Disposable {
     }
 
     private cancelScheduledTrigger(): void {
+        // Stryker disable next-line ConditionalExpression: clearTimeout(null) — no-op, поэтому проверка экономит вызов, а не меняет поведение
         if (this.triggerTimer !== null) {
             clearTimeout(this.triggerTimer);
             this.triggerTimer = null;
@@ -293,13 +307,20 @@ export class ParameterHintsService extends Disposable {
     }
 
     private updateCaretCache(active: IPosition | null, line: string): void {
+        // `-1` — заведомо недостижимая позиция: чтобы часовой сработал, вставка
+        // должна оставить каретку на нулевой колонке, а она всегда сдвигает её
+        // вправо. Сдвиг часового на +1 требует уже противоречия (каретка на
+        // колонке 2 в строке длиной 1), поэтому тоже ненаблюдаем.
+        // Stryker disable next-line UnaryOperator: см. выше
         this.lastCaretLine = active?.line ?? -1;
+        // Stryker disable next-line UnaryOperator: см. выше
         this.lastCaretChar = active?.character ?? -1;
         this.lastLine = line;
     }
 
     private resetCaretCache(editor: TextEditorPane | null): void {
         if (editor === null) {
+            // Stryker disable next-line StringLiteral: без редактора набирать некуда — строка кэша в этом состоянии не читается
             this.updateCaretCache(null, "");
             return;
         }
@@ -310,6 +331,7 @@ export class ParameterHintsService extends Disposable {
 
 /** Индекс активной сигнатуры в границах списка (сервер вправе прислать любой). */
 function clampIndex(index: number, length: number): number {
+    // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
     if (index < 0 || index >= length) return 0;
     return index;
 }

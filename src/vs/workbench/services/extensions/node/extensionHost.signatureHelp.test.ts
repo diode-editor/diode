@@ -94,7 +94,9 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
         });
         try {
             expect(await lazy.group.signatureHelpSource!(requestFor("file:///a.ts", 0))).toBeNull();
+            // Пока провайдеров нет, ядро не должно считать «(» триггером.
             expect(lazy.group.signatureHelpTriggerCharacters).toEqual([]);
+            expect(lazy.group.signatureHelpRetriggerCharacters).toEqual([]);
         } finally {
             await lazy.dispose();
         }

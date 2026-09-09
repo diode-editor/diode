@@ -83,6 +83,42 @@ describe("ParameterHintsElement — раскладка", () => {
         );
     });
 
+    it("короткая сигнатура растягивает попап до минимальной ширины", () => {
+        const element = new ParameterHintsElement();
+        element.setHint(hint({ label: "f()", activeSpan: [0, 0] }));
+
+        // MIN_WIDTH = 20: попап уже этого не бывает, иначе рамка липнет к тексту.
+        expect(element.getMinIntrinsicWidth(0)).toBe(20);
+        expectScreen(
+            render(element),
+            screen`
+                ╭──────────────────╮
+                │ f()              │
+                ╰──────────────────╯
+            `,
+        );
+    });
+
+    it("счётчик расширяет попап, а не съедает метку", () => {
+        const withCounter = new ParameterHintsElement();
+        withCounter.setHint(hint({ counter: "1/2" }));
+        const without = new ParameterHintsElement();
+        without.setHint(hint());
+
+        // «1/2 » — четыре колонки сверх метки, иначе сигнатуру пришлось бы переносить.
+        expect(withCounter.getMinIntrinsicWidth(0)).toBe(without.getMinIntrinsicWidth(0) + 4);
+        expect(withCounter.linesFor(60)).toEqual(["1/2 greet(name: string): void"]);
+    });
+
+    it("строки контента: метка, пустой разделитель, описание", () => {
+        const element = new ParameterHintsElement();
+        element.setHint(hint({ documentation: ["кого приветствуем"] }));
+
+        expect(element.isEmpty).toBe(false);
+        // Разделитель — пустая строка в модели: его ширину рисовалка берёт из кадра.
+        expect(element.linesFor(40)).toEqual(["greet(name: string): void", "", "кого приветствуем"]);
+    });
+
     it("описания идут под разделителем, по разделителю на блок", () => {
         const element = new ParameterHintsElement();
         element.setHint(hint({ documentation: ["name: кого приветствуем", "Здоровается с человеком."] }));
@@ -181,6 +217,50 @@ describe("ParameterHintsElement — цвета", () => {
         expect(backend.getFgAt(new Point(2, 2))).toBe(vars["editorHoverWidget.foreground"]);
         // Счётчик первой строки — тоже обычным цветом.
         expect(backend.getFgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.foreground"]);
+    });
+
+    it("фон закрашен и там, где текста нет — под попапом не просвечивает редактор", () => {
+        const element = new ParameterHintsElement();
+        element.setHint(hint());
+        const backend = render(element);
+        const width = element.getMinIntrinsicWidth(0);
+
+        // Колонка правого паддинга: символа нет, но фон обязан быть попаповый.
+        expect(backend.getTextAt(new Point(width - 2, 1), 1)).toBe(" ");
+        expect(backend.getBgAt(new Point(width - 2, 1))).toBe(vars["editorHoverWidget.background"]);
+    });
+
+    it("линия-разделитель рисуется цветом рамки", () => {
+        const element = new ParameterHintsElement();
+        element.setHint(hint({ documentation: ["кого приветствуем"] }));
+        const backend = render(element);
+
+        expect(backend.getTextAt(new Point(2, 2), 3)).toBe("───");
+        expect(backend.getFgAt(new Point(2, 2))).toBe(vars["editorHoverWidget.border"]);
+    });
+
+    it("описание не подсвечивается, даже когда диапазон накрывает нулевой офсет", () => {
+        const element = new ParameterHintsElement();
+        // Диапазон [0, 5] — начало МЕТКИ; строки описания к метке отношения не имеют.
+        element.setHint(hint({ activeSpan: [0, 5], documentation: ["кого приветствуем"] }));
+        const backend = render(element);
+
+        expect(backend.getFgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.highlightForeground"]);
+        expect(backend.getFgAt(new Point(2, 3))).toBe(vars["editorHoverWidget.foreground"]);
+    });
+
+    it("подсветка берёт и первый символ перенесённой строки", () => {
+        const element = new ParameterHintsElement();
+        element.maxWidth = 26;
+        const label = "greet(name: string, age: number): void";
+        // `string` начинает вторую строку переноса — офсет 12 в метке.
+        element.setHint(hint({ label, counter: "1/2", activeSpan: [12, 18] }));
+        const backend = render(element);
+
+        expect(backend.getTextAt(new Point(6, 2), 6)).toBe("string");
+        expect(backend.getFgAt(new Point(6, 2))).toBe(vars["editorHoverWidget.highlightForeground"]);
+        // Следом за диапазоном — обычный цвет.
+        expect(backend.getFgAt(new Point(12, 2))).toBe(vars["editorHoverWidget.foreground"]);
     });
 
     it("пустой диапазон не подсвечивает ничего", () => {

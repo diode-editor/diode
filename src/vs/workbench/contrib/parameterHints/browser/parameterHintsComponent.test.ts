@@ -65,6 +65,23 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         component.dispose();
     });
 
+    it("места ровно в высоту попапа хватает — он остаётся сверху", () => {
+        const component = new ParameterHintsComponent();
+        const body = new BodyElement();
+        const app = TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+        component.setHint(HINT);
+        const height = component.view.getMaxIntrinsicHeight(component.view.getMaxIntrinsicWidth(0));
+
+        // Граница включительная: попап ровно упирается в верх экрана.
+        component.openAt({ screenX: 10, screenY: height, preferBelow: true });
+        app.render();
+
+        expect(component.view.globalPosition.y).toBe(0);
+
+        component.dispose();
+    });
+
     it("сверху места нет — попап уходит под каретку, а не накрывает её", () => {
         const component = new ParameterHintsComponent();
         const body = new BodyElement();
