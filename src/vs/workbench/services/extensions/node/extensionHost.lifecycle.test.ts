@@ -265,6 +265,27 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(() => host.registerExtension(makeReg("ext.b", "/b.js"))).toThrow(/disposed/);
     });
 
+    it("disposeNow снимает субпроцесс сигналом — синхронно, без ожидания прощания", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        host.disposeNow();
+
+        // Перезагрузка окна дальше блокирует event loop: вежливое «попроси и
+        // подожди» не доехало бы, и субпроцесс остался бы жить сиротой.
+        expect(child.signals).toEqual(["SIGKILL"]);
+        expect(child.killed).toBe(true);
+    });
+
+    it("disposeNow без поднятого субпроцесса просто гасит host", () => {
+        const host = spawnReadyHost(new FakeChild(), new FakeEditorOptions());
+
+        host.disposeNow();
+
+        expect(() => host.registerExtension(makeReg("ext.a", "/a.js"))).toThrow(/disposed/);
+    });
+
     it("unregister is a no-op for an unknown extension", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());

@@ -9,10 +9,16 @@ import type {
 import { areEnginesCompatible } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import type { IInstalledExtension } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
-import { listInstalledExtensions } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
+import {
+    listInstalledExtensions,
+    uninstallExtension,
+} from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
+import { installFromRegistry } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
 import type {
     ExtensionAvailability,
+    IExtensionInstallResult,
     IExtensionListEntry,
+    IExtensionOperationResult,
     IExtensionsWorkbenchService,
 } from "../common/extensionsWorkbench.ts";
 
@@ -30,6 +36,8 @@ import type {
 export class ExtensionsWorkbenchService extends Disposable implements IExtensionsWorkbenchService {
     private readonly listeners = new Set<() => void>();
     private readonly metaCache = new Map<string, IRegistryExtensionMeta | undefined>();
+    /** Что ставили/удаляли в этой сессии: до перезагрузки окна вклады не поедут. */
+    private readonly pendingReload = new Set<string>();
 
     private index: IRegistryIndex | null = null;
     // Оба поля наполняет конструктор: установленное известно сразу, без сети,
@@ -84,6 +92,49 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return meta;
     }
 
+    /**
+     * Установка последней совместимой версии. Она же «обновить»: `installVsix`
+     * внутри сносит прочие версии того же id, поэтому отдельной операции
+     * обновления не существует.
+     */
+    public async install(id: string): Promise<IExtensionInstallResult> {
+        try {
+            const { version } = await installFromRegistry(this.source, id, {
+                extensionsDir: this.extensionsDir,
+                host: this.host,
+            });
+            this.markChanged(id);
+            return { ok: true, version };
+        } catch (error) {
+            return { ok: false, error: messageOf(error) };
+        }
+    }
+
+    /** Удаление всех установленных версий расширения. */
+    public uninstall(id: string): Promise<IExtensionOperationResult> {
+        try {
+            const { removed } = uninstallExtension(id, this.extensionsDir);
+            if (removed.length === 0) {
+                // Нечего удалять — это не успех: карточка осталась бы с кнопкой
+                // Uninstall, которая ничего не делает.
+                return Promise.resolve({ ok: false, error: `Extension ${id} is not installed` });
+            }
+            this.markChanged(id);
+            return Promise.resolve({ ok: true });
+        } catch (error) {
+            return Promise.resolve({ ok: false, error: messageOf(error) });
+        }
+    }
+
+    /**
+     * Состав установленного изменился: перечитываем диск и помечаем расширение
+     * как ждущее перезагрузки окна — вклады сканируются один раз на старте.
+     */
+    private markChanged(id: string): void {
+        this.pendingReload.add(id);
+        this.reloadInstalled();
+    }
+
     public onDidChange(listener: () => void): IDisposable {
         this.listeners.add(listener);
         return { dispose: () => this.listeners.delete(listener) };
@@ -102,7 +153,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         } catch (error) {
             // Прошлый успешный индекс не выбрасываем: показать устаревший список
             // лучше, чем пустой, а причина видна отдельной строкой.
-            this.catalogError = error instanceof Error ? error.message : String(error);
+            this.catalogError = messageOf(error);
         }
         this.installed = listInstalledExtensions(this.extensionsDir);
         this.rebuildEntries();
@@ -127,7 +178,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             installedById.delete(entry.id);
         }
         for (const installed of installedById.values()) {
-            entries.push(toSideloadedEntry(installed));
+            entries.push(toSideloadedEntry(installed, this.pendingReload.has(installed.id)));
         }
         return entries;
     }
@@ -143,6 +194,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             latestVersion: entry.latest.version,
             installedVersion: installed?.version ?? null,
             availability: availabilityOf(entry, installed, this.host),
+            needsReload: this.pendingReload.has(entry.id),
         };
     }
 
@@ -172,7 +224,7 @@ function availabilityOf(
  * или чужой каталог в `extensions/`): всё, что о нём известно, — его манифест.
  * Такая запись всегда `installed`: сравнивать не с чем.
  */
-function toSideloadedEntry(installed: IInstalledExtension): IExtensionListEntry {
+function toSideloadedEntry(installed: IInstalledExtension, needsReload: boolean): IExtensionListEntry {
     const dot = installed.id.indexOf(".");
     return {
         id: installed.id,
@@ -184,5 +236,11 @@ function toSideloadedEntry(installed: IInstalledExtension): IExtensionListEntry 
         latestVersion: null,
         installedVersion: installed.version,
         availability: "installed",
+        needsReload,
     };
+}
+
+/** Текст ошибки операции — то, что увидит пользователь на странице. */
+function messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }

@@ -35,7 +35,7 @@ describe("LifecycleService", () => {
         const { lifecycle } = makeServices();
         const onQuit = vi.fn();
 
-        const request = lifecycle.requestQuit(onQuit);
+        const request = lifecycle.requestShutdown(onQuit);
 
         // До первого await: чистый выход не откладывается на микротаск.
         expect(onQuit).toHaveBeenCalledOnce();
@@ -47,7 +47,7 @@ describe("LifecycleService", () => {
         const onQuit = vi.fn();
         lifecycle.registerShutdownParticipant({ collectDirty: () => [] });
 
-        await lifecycle.requestQuit(onQuit);
+        await lifecycle.requestShutdown(onQuit);
 
         expect(dialogService.getOpenConfirmSaveDialog()).toBeNull();
         expect(onQuit).toHaveBeenCalledOnce();
@@ -60,7 +60,7 @@ describe("LifecycleService", () => {
         const second = dirtyItem("b.txt");
         lifecycle.registerShutdownParticipant({ collectDirty: () => [first, second] });
 
-        const request = lifecycle.requestQuit(onQuit);
+        const request = lifecycle.requestShutdown(onQuit);
 
         dialogService.getOpenConfirmSaveDialog()!.onSave?.();
         await vi.waitFor(() => {
@@ -82,7 +82,7 @@ describe("LifecycleService", () => {
         const second = dirtyItem("b.txt");
         lifecycle.registerShutdownParticipant({ collectDirty: () => [dirtyItem("a.txt"), second] });
 
-        const request = lifecycle.requestQuit(onQuit);
+        const request = lifecycle.requestShutdown(onQuit);
         dialogService.getOpenConfirmSaveDialog()!.onCancel?.();
         await request;
 
@@ -97,7 +97,7 @@ describe("LifecycleService", () => {
         const second = dirtyItem("b.txt", { isStillDirty: () => secondStillDirty });
         lifecycle.registerShutdownParticipant({ collectDirty: () => [dirtyItem("a.txt"), second] });
 
-        const request = lifecycle.requestQuit(onQuit);
+        const request = lifecycle.requestShutdown(onQuit);
         // Пока открыт диалог по a.txt, b.txt перестаёт быть грязным (вкладку закрыли).
         secondStillDirty = false;
         dialogService.getOpenConfirmSaveDialog()!.onDontSave?.();
@@ -113,7 +113,7 @@ describe("LifecycleService", () => {
         lifecycle.registerShutdownParticipant({ collectDirty: () => [dirtyItem("a.txt")] });
         lifecycle.registerShutdownParticipant({ collectDirty: () => [dirtyItem("b.txt")] });
 
-        const request = lifecycle.requestQuit(onQuit);
+        const request = lifecycle.requestShutdown(onQuit);
 
         dialogService.getOpenConfirmSaveDialog()!.onDontSave?.();
         await vi.waitFor(() => {

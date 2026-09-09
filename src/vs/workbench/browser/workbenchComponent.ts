@@ -519,7 +519,7 @@ export class WorkbenchComponent extends Component {
     public requestQuit(accessor: ServiceAccessor): void {
         // Последовательность confirm-save живёт в LifecycleService; сам выход
         // (teardown TUI + process.exit) остаётся колбэком владельца приложения.
-        void this.lifecycleService.requestQuit(() => {
+        void this.lifecycleService.requestShutdown(() => {
             this.doQuit(accessor);
         });
     }

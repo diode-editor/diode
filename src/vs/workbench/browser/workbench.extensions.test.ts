@@ -43,6 +43,7 @@ const ENTRY: IExtensionListEntry = {
     latestVersion: "1.2.0",
     installedVersion: null,
     availability: "available",
+    needsReload: false,
 };
 
 const META: IRegistryExtensionMeta = {
@@ -64,6 +65,8 @@ function fakeService(): IExtensionsWorkbenchService {
         refresh: () => Promise.resolve(),
         getEntries: () => [ENTRY],
         getCatalogError: () => null,
+        install: () => Promise.resolve({ ok: true as const, version: "1.0.0" }),
+        uninstall: () => Promise.resolve({ ok: true as const }),
         getMeta: () => Promise.resolve(META),
         onDidChange: () => ({ dispose: () => {} }),
     };
@@ -76,6 +79,8 @@ interface IHarness {
     readonly extensionsList: () => ListViewElement;
     readonly contextKey: (key: "extensionsViewletVisible") => boolean | undefined;
     readonly activeUri: () => string | undefined;
+    /** id сфокусированного элемента — фокус после открытия вкладки. */
+    readonly focusedId: () => string | undefined;
 }
 
 describe("Workbench — магазин расширений в сайдбаре end-to-end", () => {
@@ -121,6 +126,7 @@ describe("Workbench — магазин расширений в сайдбаре 
             },
             contextKey: (key) => contextKeys.get(key),
             activeUri: () => editors.getActivePane()?.uri.toString(),
+            focusedId: () => testApp.app.focusManager?.activeElement?.id,
         };
     }
 
@@ -168,5 +174,9 @@ describe("Workbench — магазин расширений в сайдбаре 
         const shown = h.screen();
         expect(shown).toContain("Acme Tools");
         expect(shown).toContain("Readme from the registry");
+        // Кнопка установки есть и держит фокус: вкладку фокусируют ещё до
+        // первого кадра страницы, и раньше фокусировать было нечего.
+        expect(shown).toContain("[ Install ]");
+        expect(h.focusedId()).toBe("extensionPageButton-install");
     });
 });

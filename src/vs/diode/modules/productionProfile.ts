@@ -24,6 +24,7 @@ import type { ExtensionsModuleContext } from "./extensionsModule.ts";
 import { extensionsModule } from "./extensionsModule.ts";
 import { fileWatcherModule } from "./fileWatcherModule.ts";
 import { keybindingsModule } from "./keybindingsModule.ts";
+import { lifecycleModule } from "./lifecycleModule.ts";
 import { loggingModule } from "./loggingModule.ts";
 import { markersModule } from "./markersModule.ts";
 import { stateModule } from "./stateModule.ts";
@@ -54,6 +55,8 @@ export interface ProductionProfileContext {
     keybindingsResource: string;
     /** Магазин расширений: источник реестра (`--registry`), каталог установки и версии сборки. */
     extensions: ExtensionsModuleContext;
+    /** Перезагрузка окна (`workbench.action.reloadWindow`) — владелец процесса заменяет себя новым. */
+    reloadWindow: () => void;
 }
 
 /**
@@ -83,6 +86,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(fileWatcherModule)
         .use(markersModule, { settingsResource: ctx.settingsResource, keybindingsResource: ctx.keybindingsResource })
         .use(workbenchModule)
+        .use(lifecycleModule, { reloadWindow: ctx.reloadWindow })
         .use(extensionsModule, ctx.extensions)
         .use(extensionHostModule);
 }

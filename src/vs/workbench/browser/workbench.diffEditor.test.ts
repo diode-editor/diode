@@ -7,6 +7,7 @@ import { settle } from "../../../TestUtils/timing.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
+import { StatusBarServiceDIToken } from "../services/statusbar/common/statusBarService.ts";
 import { FileSystemProviderRegistry } from "../../platform/files/common/fileSystemProviderRegistry.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../common/coreTokens.ts";
@@ -286,7 +287,7 @@ describe("Workbench — вкладка diff, отказы", () => {
         bindApp(app.app);
         commands.execute("workbench.openFile", ws.path("a.txt"));
         await settle(0);
-        return { workbench, commands, editors, app };
+        return { workbench, commands, editors, app, statusBar: container.get(StatusBarServiceDIToken) };
     }
 
     it("ошибка чтения оригинала не открывает вкладку и не роняет команду", async () => {
@@ -302,11 +303,15 @@ describe("Workbench — вкладка diff, отказы", () => {
     });
 
     it("сообщение о невозможности сравнить со временем исчезает", async () => {
-        const { workbench, commands, app } = await withFailingProvider();
+        const { workbench, commands, app, statusBar } = await withFailingProvider();
 
         vi.useFakeTimers();
         commands.execute(COMPARE);
-        await vi.advanceTimersByTimeAsync(COMPARE_NOTICE_MS + 10);
+        await vi.advanceTimersByTimeAsync(10);
+        // Запись адресуема своим id — по нему её прячут и переписывают.
+        expect(statusBar.entries().map((e) => e.id)).toContain("diff.compare.notice");
+
+        await vi.advanceTimersByTimeAsync(COMPARE_NOTICE_MS);
         vi.useRealTimers();
         app.render();
 
@@ -438,7 +443,7 @@ describe("Workbench — дифф на широком терминале (side-by
         bindApp(app.app);
         commands.execute("workbench.openFile", ws.path("a.txt"));
         await settle(0);
-        return { workbench, commands, editors, app };
+        return { workbench, commands, editors, app, statusBar: container.get(StatusBarServiceDIToken) };
     }
 
     it("команда открывает две колонки с подписями сторон и выровненной правкой", async () => {

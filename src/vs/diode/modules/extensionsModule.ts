@@ -3,6 +3,10 @@ import type { IHostVersions } from "../../platform/extensionManagement/common/re
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
 import {
+    ExtensionPageActions,
+    ExtensionPageActionsDIToken,
+} from "../../workbench/contrib/extensions/browser/extensionPageActions.ts";
+import {
     ExtensionsComponent,
     ExtensionsComponentDIToken,
     ExtensionsEditorTargetDIToken,
@@ -37,6 +41,9 @@ export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (
         ExtensionsWorkbenchServiceDIToken,
         () => new ExtensionsWorkbenchService(createRegistrySource(registry, onProblem), extensionsDir, host),
     );
+    // Действия страницы: установка/удаление с прогрессом и сообщением, плюс
+    // перезагрузка окна командой.
+    container.bind(ExtensionPageActionsDIToken, ExtensionPageActions);
     container.bind(ExtensionsComponentDIToken, ExtensionsComponent);
     // Страница расширения — обычная вкладка: открывает её полоса редакторов,
     // `EditorService` соответствует шву структурно.

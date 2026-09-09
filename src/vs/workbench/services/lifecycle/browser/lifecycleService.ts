@@ -34,11 +34,12 @@ export interface IShutdownParticipant {
 }
 
 /**
- * Жизненный цикл приложения (аналог vscode `ILifecycleService`, срез quit):
- * {@link requestQuit} последовательно спрашивает про каждый «грязный» элемент
- * участников через `DialogService.confirmSave`; Cancel прерывает выход,
- * иначе по завершении зовётся `onQuit` (остановку TuiApplication/process.exit
- * передаёт владелец приложения — WorkbenchComponent).
+ * Жизненный цикл приложения (аналог vscode `ILifecycleService`, срез shutdown):
+ * {@link requestShutdown} последовательно спрашивает про каждый «грязный» элемент
+ * участников через `DialogService.confirmSave`; Cancel прерывает прощание,
+ * иначе по завершении зовётся `onProceed`. Что именно случится дальше — выход
+ * (`WorkbenchComponent`) или перезагрузка окна (`reloadWindowAction`) — решает
+ * вызывающий: сценариев два, а протокол прощания один.
  */
 export class LifecycleService {
     public static dependencies = [DialogServiceDIToken] as const;
@@ -52,11 +53,11 @@ export class LifecycleService {
     }
 
     /**
-     * Запрос на выход: без «грязных» элементов `onQuit` зовётся синхронно
-     * (до первого await), иначе — после последнего подтверждения. Cancel в
-     * любом диалоге оставляет приложение открытым.
+     * Запрос на прощание с сессией: без «грязных» элементов `onProceed` зовётся
+     * синхронно (до первого await), иначе — после последнего подтверждения.
+     * Cancel в любом диалоге оставляет приложение как есть.
      */
-    public async requestQuit(onQuit: () => void): Promise<void> {
+    public async requestShutdown(onProceed: () => void): Promise<void> {
         for (const participant of this.participants) {
             for (const item of participant.collectDirty()) {
                 if (!item.isStillDirty()) continue;
@@ -65,6 +66,6 @@ export class LifecycleService {
                 if (choice === "save") await item.save();
             }
         }
-        onQuit();
+        onProceed();
     }
 }

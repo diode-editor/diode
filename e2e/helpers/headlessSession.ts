@@ -63,7 +63,9 @@ export class HeadlessSession {
     public readonly cols: number;
     public readonly rows: number;
     private readonly child: ChildProcess;
-    private readonly ws: WebSocket;
+    /** Не readonly: перезагрузка окна поднимает новый процесс на том же порту. */
+    private ws: WebSocket;
+    private readonly port: number;
     private nextId = 1;
     private readonly pending = new Map<number, { resolve: (r: unknown) => void; reject: (e: Error) => void }>();
     private stderr = "";
@@ -83,18 +85,40 @@ export class HeadlessSession {
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
             env: hermeticSpawnEnv(options.env),
         });
-        const session = new HeadlessSession(child, cols, rows, await connectWithRetry(`ws://127.0.0.1:${String(port)}`, 30_000));
+        const session = new HeadlessSession(
+            child,
+            cols,
+            rows,
+            port,
+            await connectWithRetry(`ws://127.0.0.1:${String(port)}`, 30_000),
+        );
         return session;
     }
 
-    private constructor(child: ChildProcess, cols: number, rows: number, ws: WebSocket) {
+    private constructor(child: ChildProcess, cols: number, rows: number, port: number, ws: WebSocket) {
         this.child = child;
         this.cols = cols;
         this.rows = rows;
+        this.port = port;
         this.ws = ws;
         this.child.stderr?.on("data", (chunk: Buffer) => {
             this.stderr += chunk.toString();
         });
+        this.listenToSocket();
+    }
+
+    /**
+     * Ждёт новое окно после `workbench.action.reloadWindow`: процесс заменяет
+     * себя новым с теми же аргументами, поэтому инспектор поднимается на том же
+     * порту — прежний сокет к этому моменту уже мёртв.
+     */
+    public async reconnect(timeoutMs = 30_000): Promise<void> {
+        this.ws.close();
+        this.ws = await connectWithRetry(`ws://127.0.0.1:${String(this.port)}`, timeoutMs);
+        this.listenToSocket();
+    }
+
+    private listenToSocket(): void {
         this.ws.on("message", (data: WebSocket.RawData) => {
             const res = JSON.parse(data.toString()) as InspectorResponse;
             const waiter = this.pending.get(res.id);

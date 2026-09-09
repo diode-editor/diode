@@ -19,6 +19,7 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
 
 import { ExtensionEditorPane } from "./extensionEditorPane.ts";
+import type { IExtensionPageActions } from "./extensionPageActions.ts";
 import { ExtensionsComponent, type IExtensionsEditorTarget } from "./extensionsComponent.ts";
 
 /** Реестр view не участвует в юнит-тестах компонента — контейнер собирает workbench. */
@@ -52,6 +53,7 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
+        needsReload: false,
         ...overrides,
     };
 }
@@ -97,6 +99,15 @@ class FakeService implements IExtensionsWorkbenchService {
         return Promise.resolve(this.metas[id]);
     }
 
+    // Установку и удаление вьюлет не делает — они живут на странице расширения.
+    public install(): Promise<{ ok: true; version: string }> {
+        return Promise.resolve({ ok: true, version: "1.0.0" });
+    }
+
+    public uninstall(): Promise<{ ok: true }> {
+        return Promise.resolve({ ok: true });
+    }
+
     public onDidChange(listener: () => void): { dispose: () => void } {
         this.listeners.add(listener);
         return { dispose: () => this.listeners.delete(listener) };
@@ -115,11 +126,18 @@ function fakeTarget(): { target: IExtensionsEditorTarget; opened: IEditorPane[] 
     return { target: { openPane: (pane) => opened.push(pane) }, opened };
 }
 
+/** Действия страницы вьюлету нужны только чтобы передать их открытой вкладке. */
+const PAGE_ACTIONS: IExtensionPageActions = {
+    install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
+    uninstall: () => Promise.resolve({ ok: true }),
+    reloadWindow: () => {},
+};
+
 function make(
     service: IExtensionsWorkbenchService,
     target: IExtensionsEditorTarget = fakeTarget().target,
 ): ExtensionsComponent {
-    return new ExtensionsComponent(service, NULL_VIEWS_SERVICE, target);
+    return new ExtensionsComponent(service, NULL_VIEWS_SERVICE, target, PAGE_ACTIONS);
 }
 
 function render(component: ExtensionsComponent, w = 44, h = 16): MockTerminalBackend {
@@ -372,7 +390,7 @@ describe("ExtensionsComponent", () => {
     it("показ секции ведёт в строку поиска и читает каталог", () => {
         const service = new FakeService([entry({ id: "acme.tools" })]);
         const views = recordingViewsService();
-        const component = new ExtensionsComponent(service, views.service, fakeTarget().target);
+        const component = new ExtensionsComponent(service, views.service, fakeTarget().target, PAGE_ACTIONS);
 
         // Тот же путь, которым секцию показывает ViewsService (команда, reveal).
         views.descriptor().focus();

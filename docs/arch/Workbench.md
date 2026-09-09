@@ -433,13 +433,24 @@ hide-toggle (`isHiddenByDefault`). См.
   через late-init шов `attachHost(BodyElement)` — его зовёт владелец корневой
   view (`WorkbenchComponent`) после её постройки.
 - **Жизненный цикл (этап 5c)** — `Services/LifecycleService.ts`:
-  `requestQuit(onQuit)` последовательно спрашивает про «грязные» элементы
-  участников через `DialogService.confirmSave` (Cancel прерывает выход; чистый
+  `requestShutdown(onProceed)` последовательно спрашивает про «грязные» элементы
+  участников через `DialogService.confirmSave` (Cancel прерывает прощание; чистый
   выход — синхронно, до первого await). Шов — интерфейс `IShutdownParticipant`
   (`collectDirty(): IShutdownDirtyItem[]` — имя + `isStillDirty()` + `save()`
   с overwrite): Workbench объявляет, `EditorService` реализует
-  структурно, регистрирует его `WorkbenchComponent`; сам выход (teardown TUI +
-  `process.exit`) остаётся колбэком `onQuit` от владельца приложения.
+  структурно, регистрирует его `WorkbenchComponent`; что произойдёт после
+  прощания — колбэк вызывающего. Сценариев два, протокол один:
+  - **выход** (`quitAction` → `QuitHandlerDIToken` → `WorkbenchComponent`):
+    teardown TUI + `process.exit`;
+  - **перезагрузка окна** (`reloadWindowAction` → `WindowReloadHandlerDIToken`,
+    `services/lifecycle/common/windowReload.ts`): владелец приложения (`main.ts`)
+    отпускает терминал, сокет инспектора, extension host и состояние сессии, а
+    затем заменяет процесс новым с теми же аргументами
+    (`base/node/restartProcess.ts`). Первый reload превращает текущий процесс в
+    супервизор (`spawnSync` со `stdio: "inherit"`), дальнейшие делает уже он —
+    так терминал не отбирается у нового окна и процессы не копятся. Нужна
+    перезагрузка потому, что вклады расширений сканируются один раз на старте:
+    установленное из UI начинает работать именно после неё.
 - **Статус-бар — эталонная пара Service ↔ Component** (пилот, этап 4):
   - `Services/StatusBarService.ts` — реестр записей статус-бара (аналог
     `IStatusbarService` VS Code): `addEntry(IStatusBarEntry) → IStatusBarEntryHandle`
@@ -714,7 +725,9 @@ hide-toggle (`isHiddenByDefault`). См.
     (`restored` — в `mount()`, `eventually` — из `main.ts` через
     `runEventuallyPhase()`; см. «Workbench-contributions»). Выход (`quitAction`)
     делегируется корню через шов `QuitHandlerDIToken` → `requestQuit`: confirm-save
-    через `LifecycleService`, затем teardown TUI + `process.exit`. Наследник
+    через `LifecycleService`, затем teardown TUI + `process.exit`; перезагрузка
+    окна (`reloadWindowAction`) идёт тем же протоколом прощания, но заканчивается
+    не выходом, а перезапуском процесса (шов `WindowReloadHandlerDIToken`). Наследник
     `ThemedComponent`: `updateStyles()` красит корень (fg/bg body) и hover-цвет
     сэшей. Единственный компонент с lifecycle за пределами конструктора — bootstrap
     ведёт `main.ts`: `setWorkspaceFolder` → `mount()` (contribution'ы фазы

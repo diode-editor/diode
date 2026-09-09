@@ -48,7 +48,7 @@
 - [~] `activationEvents`: `*`, `onStartupFinished`, `onLanguage:*` — сделаны (`ExtensionHost.registerExtension` = bookkeeping, `activateByEvent` активирует по событию; фаеринг — `main.ts` + `EditorService.onActiveEditorChanged` seam). Пример: builtin `diode-settings` (автодополнение settings.json, `onLanguage:json`). Остаётся `onCommand:*` (нужен await активации во время dispatch команды).
 - [x] Lazy activation — расширение не грузится до триггера (subprocess поднимается только на `activateByEvent`).
 - [ ] `IDisposable`-цепочка: при unload корректно убираются все contributions (TokenizationRegistry, CommandRegistry, …).
-- [ ] Reload расширения (dispose → re-register).
+- [~] Reload расширения (dispose → re-register). Грубый ответ есть — **перезагрузка окна** (`workbench.action.reloadWindow`, `base/node/restartProcess.ts`): процесс поднимается заново с теми же аргументами, сессия восстанавливается, вклады сканируются на старте. Именно её просит магазин после установки. Горячий reload одного расширения без перезапуска — по-прежнему впереди и требует dispose-цепочки выше.
 
 ## Phase 8 — [~] Extension host (ядро готово)
 

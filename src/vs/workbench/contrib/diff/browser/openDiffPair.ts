@@ -14,13 +14,14 @@ import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { showTransientNotice, TRANSIENT_NOTICE_MS } from "../../../services/statusbar/common/transientNotice.ts";
 import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 /** Схема вкладки диффа: не ресурс на диске, а пара «источник ↔ источник». */
 const DIFF_SCHEME = "diode-diff";
 
 /** Сколько держать нотис о том, что сравнение не удалось. */
-export const COMPARE_NOTICE_MS = 4000;
+export const COMPARE_NOTICE_MS = TRANSIENT_NOTICE_MS;
 
 /**
  * Сторона сравнения. Вид источника выводится из полей (см. {@link resolveSide}):
@@ -267,15 +268,7 @@ function resolveLanguageId(accessor: ServiceAccessor, options: IOpenDiffPairOpti
 
 /** Транзиентный нотис в статус-баре — единая форма отказов сравнения. */
 export function showCompareNotice(accessor: ServiceAccessor, text: string): void {
-    const handle = accessor.get(StatusBarServiceDIToken).addEntry({
-        id: "diff.compare.notice",
-        text,
-        alignment: "left",
-        priority: 100,
-    });
-    setTimeout(() => {
-        handle.dispose();
-    }, COMPARE_NOTICE_MS);
+    showTransientNotice(accessor.get(StatusBarServiceDIToken), "diff.compare.notice", text);
 }
 
 /** Имя файла для меток вкладки/колонок: basename пути uri. */
