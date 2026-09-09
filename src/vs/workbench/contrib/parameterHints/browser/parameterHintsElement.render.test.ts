@@ -144,17 +144,25 @@ describe("ParameterHintsElement — раскладка", () => {
         expect(element.linesFor(30)).toEqual(["greet(name: string): void"]);
     });
 
-    it("высота клампится: длинное описание обрезается", () => {
+    it("высота клампится: лишние строки описания срезаются, рамка цела", () => {
         const element = new ParameterHintsElement();
+        element.maxWidth = 30;
         element.maxHeight = 5;
-        element.setHint(hint({ documentation: ["раз два три четыре пять шесть семь восемь девять десять"] }));
+        element.setHint(hint({ documentation: ["раз два три четыре пять шесть семь восемь"] }));
 
+        // Контента на четыре строки, а внутрь рамки влезает три.
+        expect(element.linesFor(26)).toHaveLength(4);
         expect(element.getMinIntrinsicHeight(0)).toBe(5);
-        // Строк контента больше, чем влезает: внутрь рамки попали первые три.
-        expect(element.linesFor(30).length).toBeGreaterThan(3);
-        const backend = render(element);
-        const bottom = backend.getTextAt(new Point(0, 4), element.getMinIntrinsicWidth(0));
-        expect(bottom).toMatch(/^╰─+╯$/u);
+        expectScreen(
+            render(element),
+            screen`
+                ╭────────────────────────────╮
+                │ greet(name: string): void  │
+                │ ────────────────────────── │
+                │ раз два три четыре пять    │
+                ╰────────────────────────────╯
+            `,
+        );
     });
 
     it("без подсказки элемент не занимает места и не падает при рендере", () => {
@@ -249,16 +257,22 @@ describe("ParameterHintsElement — цвета", () => {
         expect(backend.getFgAt(new Point(2, 3))).toBe(vars["editorHoverWidget.foreground"]);
     });
 
-    it("подсветка берёт и первый символ перенесённой строки", () => {
+    it("подсветка берёт первый символ перенесённой строки, но не отступ под счётчиком", () => {
         const element = new ParameterHintsElement();
         element.maxWidth = 26;
         const label = "greet(name: string, age: number): void";
-        // `string` начинает вторую строку переноса — офсет 12 в метке.
-        element.setHint(hint({ label, counter: "1/2", activeSpan: [12, 18] }));
+        // Параметр `name: string` (офсеты 6–18) переносом разрезан: его хвост
+        // `string` начинается со второй строки, с офсета 12.
+        element.setHint(hint({ label, counter: "1/2", activeSpan: [6, 18] }));
         const backend = render(element);
 
         expect(backend.getTextAt(new Point(6, 2), 6)).toBe("string");
         expect(backend.getFgAt(new Point(6, 2))).toBe(vars["editorHoverWidget.highlightForeground"]);
+        // Отступ под счётчиком офсетами метки не является: считай его частью
+        // метки — и подсветка первого параметра залила бы пустое место.
+        for (const x of [2, 3, 4, 5]) {
+            expect(backend.getFgAt(new Point(x, 2))).toBe(vars["editorHoverWidget.foreground"]);
+        }
         // Следом за диапазоном — обычный цвет.
         expect(backend.getFgAt(new Point(12, 2))).toBe(vars["editorHoverWidget.foreground"]);
     });

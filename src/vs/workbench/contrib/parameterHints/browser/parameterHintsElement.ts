@@ -203,6 +203,7 @@ export class ParameterHintsElement extends TUIElement {
             const line = lines[i];
             const y = BORDER_THICKNESS + i;
             if (line.separator) {
+                // Stryker disable next-line ObjectLiteral: drawBox уже залил внутренность цветом рамки, поэтому явный стиль совпадает с унаследованным — он стоит ради независимости от заливки
                 context.drawText(TEXT_X, y, "─".repeat(textWidth), { fg: border, bg: background });
                 continue;
             }

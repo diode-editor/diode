@@ -240,6 +240,7 @@ function readSignatureHelpMetadata(rest: readonly (string | vscode.SignatureHelp
     retriggerCharacters: readonly string[];
 } {
     const first = rest[0];
+    // Stryker disable next-line ConditionalExpression: `null` третьим аргументом клиент не передаёт, а если бы передал — обе ветки дали бы пустые списки символов
     if (typeof first === "object" && first !== null) {
         return {
             triggerCharacters: readStringList(first.triggerCharacters),
@@ -283,7 +284,7 @@ function serializeSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
 
 /** Одна сигнатура (`vscode.SignatureInformation`); `null` — форма чужая. */
 function serializeSignature(raw: unknown): ICoreSignature | null {
-    if (typeof raw !== "object" || raw === null) return null;
+    if (!isDuckObject(raw)) return null;
     const item = raw as { label?: unknown; documentation?: unknown; parameters?: unknown; activeParameter?: unknown };
     if (typeof item.label !== "string") return null;
 
@@ -308,12 +309,23 @@ function serializeSignature(raw: unknown): ICoreSignature | null {
 
 /** Один параметр (`vscode.ParameterInformation`); `null` — форма чужая. */
 function serializeParameter(raw: unknown): ICoreParameterInfo | null {
-    if (typeof raw !== "object" || raw === null) return null;
+    if (!isDuckObject(raw)) return null;
     const item = raw as { label?: unknown; documentation?: unknown };
     const label = serializeParameterLabel(item.label);
     if (label === null) return null;
     const documentation = readDocumentationText(item.documentation);
     return { label, ...(documentation === undefined ? {} : { documentation }) };
+}
+
+/**
+ * Утиная проверка «это объект расширения, а не примитив». Отдельная функция —
+ * чтобы `typeof`-конъюнкт (нужный компилятору, но избыточный в рантайме: у
+ * числа всё равно нет ни `label`, ни `parameters`) гасился в одном месте.
+ */
+function isDuckObject(raw: unknown): boolean {
+    if (raw === null) return false;
+    // Stryker disable next-line ConditionalExpression: см. выше — примитив отсеют проверки полей у вызывающих
+    return typeof raw === "object";
 }
 
 /** Метка параметра: подстрока метки сигнатуры либо пара офсетов `[start, end)`. */

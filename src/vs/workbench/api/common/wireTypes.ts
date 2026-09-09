@@ -941,9 +941,8 @@ export interface IWireSignatureHelpParams {
  * элемента сдвинул бы подсветку на соседний параметр молча.
  */
 export function parseWireSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
-    // Stryker disable next-line ConditionalExpression: не-объект отсеивается и строкой ниже (у него нет массива `signatures`); проверка стоит ради `null`, на котором чтение поля кинуло бы
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
+    const obj = asRawRecord(raw);
+    if (obj === null) return null;
     if (!Array.isArray(obj.signatures)) return null;
 
     const signatures: ICoreSignature[] = [];
@@ -959,16 +958,14 @@ export function parseWireSignatureHelp(raw: unknown): ICoreSignatureHelp | null 
         activeSignature: clampIndex(obj.activeSignature, signatures.length),
         // `-1` — легальное «активного параметра нет» (noActiveParameterSupport),
         // поэтому нижней границы здесь нет, только отбраковка не-чисел.
-        activeParameter: typeof obj.activeParameter === "number" && Number.isFinite(obj.activeParameter)
-            ? obj.activeParameter
-            : 0,
+        activeParameter: finiteNumber(obj.activeParameter) ?? 0,
     };
 }
 
 /** Одна сигнатура из сырого ответа; `null` — форма чужая. */
 function parseWireSignature(raw: unknown): ICoreSignature | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
+    const obj = asRawRecord(raw);
+    if (obj === null) return null;
     if (typeof obj.label !== "string") return null;
 
     const parameters: ICoreParameterInfo[] = [];
@@ -981,47 +978,73 @@ function parseWireSignature(raw: unknown): ICoreSignature | null {
         }
     }
 
+    const documentation = nonEmptyString(obj.documentation);
+    const activeParameter = finiteNumber(obj.activeParameter);
     return {
         label: obj.label,
         parameters,
-        ...(typeof obj.documentation === "string" && obj.documentation !== ""
-            ? { documentation: obj.documentation }
-            : {}),
-        ...(typeof obj.activeParameter === "number" && Number.isFinite(obj.activeParameter)
-            ? { activeParameter: obj.activeParameter }
-            : {}),
+        ...(documentation === null ? {} : { documentation }),
+        ...(activeParameter === null ? {} : { activeParameter }),
     };
 }
 
 /** Один параметр; метка — подстрока метки сигнатуры либо пара офсетов. */
 function parseWireParameter(raw: unknown): ICoreParameterInfo | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
+    const obj = asRawRecord(raw);
+    if (obj === null) return null;
     const label = parseParameterLabel(obj.label);
     if (label === null) return null;
-    return {
-        label,
-        ...(typeof obj.documentation === "string" && obj.documentation !== ""
-            ? { documentation: obj.documentation }
-            : {}),
-    };
+    const documentation = nonEmptyString(obj.documentation);
+    return { label, ...(documentation === null ? {} : { documentation }) };
 }
 
 /** Метка параметра: строка или пара конечных офсетов `[start, end)`. */
 function parseParameterLabel(raw: unknown): string | readonly [number, number] | null {
     if (typeof raw === "string") return raw;
     if (!Array.isArray(raw) || raw.length !== 2) return null;
-    const [start, end] = raw as unknown[];
-    if (typeof start !== "number" || !Number.isFinite(start)) return null;
-    if (typeof end !== "number" || !Number.isFinite(end)) return null;
+    const start = finiteNumber(raw[0]);
+    const end = finiteNumber(raw[1]);
+    if (start === null || end === null) return null;
     return [start, end];
 }
 
-/** Индекс активной сигнатуры: не-число или выход за список → 0. */
+/** Индекс активной сигнатуры: не-целое или выход за список → 0. */
 function clampIndex(raw: unknown, length: number): number {
-    if (typeof raw !== "number" || !Number.isInteger(raw)) return 0;
-    // Stryker disable next-line EqualityOperator: на raw === 0 обе границы дают ноль — тот же индекс, что и без клампа
-    if (raw < 0 || raw >= length) return 0;
+    const index = integerNumber(raw);
+    if (index === null) return 0;
+    // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
+    if (index < 0 || index >= length) return 0;
+    return index;
+}
+
+/**
+ * Сырое значение как объект-словарь; `null` — не объект (в том числе `null`,
+ * у которого `typeof` тоже «object»).
+ */
+function asRawRecord(raw: unknown): Record<string, unknown> | null {
+    if (raw === null) return null;
+    // Stryker disable next-line ConditionalExpression: не-объект отсеивают проверки полей у вызывающих (у числа нет ни `signatures`, ни строкового `label`) — в рантайме этот выход лишь короче
+    if (typeof raw !== "object") return null;
+    return raw as Record<string, unknown>;
+}
+
+/**
+ * Конечное число из сырого поля; `null` — не число, NaN или Infinity.
+ * `Number.isFinite` типы не приводит (для строки `"1"` он уже false), но и не
+ * сужает их для компилятора — отсюда приведение вместо второй проверки.
+ */
+function finiteNumber(raw: unknown): number | null {
+    return Number.isFinite(raw) ? (raw as number) : null;
+}
+
+/** Целое из сырого поля; `null` — не число или дробное (см. {@link finiteNumber}). */
+function integerNumber(raw: unknown): number | null {
+    return Number.isInteger(raw) ? (raw as number) : null;
+}
+
+/** Непустая строка из сырого поля; `null` — не строка или пустая. */
+function nonEmptyString(raw: unknown): string | null {
+    if (typeof raw !== "string" || raw === "") return null;
     return raw;
 }
 

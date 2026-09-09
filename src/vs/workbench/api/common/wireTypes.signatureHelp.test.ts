@@ -97,10 +97,21 @@ describe("wireTypes — parseWireSignatureHelp", () => {
         });
     });
 
-    it("пустая документация не доезжает до попапа", () => {
+    it("пустая и нестроковая документация не доезжает до попапа", () => {
         expect(
             parseWireSignatureHelp({
                 signatures: [{ label: "f(a)", documentation: "", parameters: [{ label: "a", documentation: "" }] }],
+            }),
+        ).toEqual({
+            signatures: [{ label: "f(a)", parameters: [{ label: "a" }] }],
+            activeSignature: 0,
+            activeParameter: 0,
+        });
+        // Число вместо строки — не «непустая документация», а мусор: в попап
+        // такое уехало бы как `documentation: 42`.
+        expect(
+            parseWireSignatureHelp({
+                signatures: [{ label: "f(a)", documentation: 42, parameters: [{ label: "a", documentation: 7 }] }],
             }),
         ).toEqual({
             signatures: [{ label: "f(a)", parameters: [{ label: "a" }] }],

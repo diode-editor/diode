@@ -48,16 +48,18 @@ function indexOfWithBoundary(haystack: string, needle: string): number {
     for (;;) {
         const index = haystack.indexOf(needle, from);
         if (index === -1) return -1;
-        const before = index === 0 ? "" : haystack[index - 1];
-        const after = haystack[index + needle.length] ?? "";
+        // `charAt` вместо индексации: за краями строки он отдаёт пустую строку,
+        // которая word-символом не считается, — тернарники с `??` не нужны.
+        const before = haystack.charAt(index - 1);
+        const after = haystack.charAt(index + needle.length);
         if (!isWordChar(before) && !isWordChar(after)) return index;
         from = index + 1;
     }
 }
 
-/** Word-символ (пустая строка — «соседа нет», она границей не считается). */
+/** Word-символ; пустая строка («соседа нет») им не считается. */
 function isWordChar(char: string): boolean {
-    return /^\w$/u.test(char);
+    return /\w/u.test(char);
 }
 
 /**
@@ -96,6 +98,7 @@ function wrapLine(line: string, base: number, width: number, chunks: ISignatureC
     for (const word of wordsOf(line)) {
         // Слово влезает в остаток строки — забираем его вместе с разделителем,
         // который стоит перед ним в метке (кусок обязан быть непрерывным).
+        // Stryker disable next-line ConditionalExpression: без начатой строки `measure(null, …)` даёт NaN, и сравнение всё равно ложно — проверка лишь называет причину
         if (lineStart !== null && measure(lineStart, word.end) <= width) {
             lineEnd = word.end;
             continue;
@@ -123,8 +126,10 @@ function wrapLine(line: string, base: number, width: number, chunks: ISignatureC
 
 /** Слова строки (непробельные куски) с офсетами. */
 function wordsOf(line: string): { start: number; end: number }[] {
+    // Stryker disable next-line ArrayDeclaration: непустая затравка проезжает раскладку насквозь (у строки нет `end`, а NaN-сравнения ложны) — кусков она не добавляет
     const words: { start: number; end: number }[] = [];
     let start: number | null = null;
+    // Stryker disable next-line EqualityOperator: лишняя итерация за концом строки даёт пустое слово нулевой ширины, которое сливается с предыдущим куском (а на пустой строке не даёт куска вовсе)
     for (let i = 0; i < line.length; i++) {
         const isSpace = /\s/u.test(line[i]);
         if (!isSpace && start === null) start = i;
@@ -155,7 +160,7 @@ function cumulativeWidths(line: string): number[] {
 function offsetAtWidth(line: string, widths: readonly number[], from: number, width: number): number {
     let offset = from;
     for (const slot of new DisplayLine(line).slots) {
-        // Stryker disable next-line EqualityOperator: графема, начинающаяся ровно на `from`, всё равно перетирает `offset` следующей итерацией — пропуск её меняет только число сравнений
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: графемы левее `from` дают отрицательную ширину и всё равно перетираются следующей итерацией — пропуск экономит сравнения, а не меняет разбор
         if (slot.offset < from) continue;
         if (widths[slot.offset + slot.length] - widths[from] > width) break;
         offset = slot.offset + slot.length;

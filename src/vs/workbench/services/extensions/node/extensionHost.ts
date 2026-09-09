@@ -854,8 +854,13 @@ export class ExtensionHost extends Disposable {
                 line: req.line,
                 character: req.character,
                 triggerKind: req.triggerKind,
+                // Оба спреда — про чистоту payload'а: `undefined`-ключи всё равно
+                // выбрасывает JSON-транспорт RPC, поэтому за границей канала
+                // разницы не видно (потому и Stryker disable).
+                // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.triggerCharacter === undefined ? {} : { triggerCharacter: req.triggerCharacter }),
                 isRetrigger: req.isRetrigger,
+                // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.activeSignatureHelp === undefined ? {} : { activeSignatureHelp: req.activeSignatureHelp }),
             },
             this.options.signatureHelpTimeoutMs,
@@ -1518,10 +1523,14 @@ export class ExtensionHost extends Disposable {
  * расширение без описанных событий сохраняет прежнее поведение — активируется
  * на общем стартовом `activateByEvent("*")`.
  */
-/** Массив строк из сырого RPC-поля; всё нестроковое отбрасывается. */
+/**
+ * Массив непустых строк из сырого RPC-поля. Пустая строка отбрасывается вместе
+ * с нестроковым мусором: как «символ-триггер» она совпала бы с любым событием
+ * каретки, где набора не было.
+ */
 function readStringArray(raw: unknown): readonly string[] {
     if (!Array.isArray(raw)) return [];
-    return raw.filter((item): item is string => typeof item === "string");
+    return raw.filter((item): item is string => typeof item === "string" && item !== "");
 }
 
 function normalizeActivationEvents(events: readonly string[] | undefined): readonly string[] {

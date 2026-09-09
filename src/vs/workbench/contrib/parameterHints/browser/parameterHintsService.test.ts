@@ -22,6 +22,11 @@ function flushTimers(): Promise<void> {
     return new Promise((res) => setTimeout(res, 5));
 }
 
+/** Ждёт заведомо дольше задержки авто-триггера (проверки «запрос НЕ ушёл»). */
+function waitPastDelay(ms: number): Promise<void> {
+    return new Promise((res) => setTimeout(res, ms));
+}
+
 const GREET: ICoreSignature = {
     label: "greet(name: string, age: number): void",
     parameters: [{ label: "name: string" }, { label: "age: number" }],
@@ -110,12 +115,12 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     it("ручной вызов отменяет отложенный авто-запрос", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
         group().signatureHelpSource = source;
-        service().triggerDelayMs = 50;
+        service().triggerDelayMs = 20;
 
         h.testApp.sendKey("End");
         h.testApp.sendKey("("); // запланировал авто-запрос
         await service().trigger(); // ручной вызов обгоняет его
-        await flushTimers();
+        await waitPastDelay(60);
         await flushMicrotasks();
 
         // Отложенный запрос снят — иначе после ручного прилетел бы второй ответ.
@@ -216,6 +221,44 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
         expect(source).toHaveBeenCalledTimes(1);
         expect(service().isOpen()).toBe(true);
+    });
+
+    it("обычный символ при открытом попапе — ретриггер ContentChange, а не триггер-символ", async () => {
+        const seen: ISignatureHelpRequest[] = [];
+        group().signatureHelpSource = (request) => {
+            seen.push(request);
+            return Promise.resolve(help());
+        };
+
+        await service().trigger();
+        h.testApp.sendKey("End");
+        h.testApp.sendKey("x");
+        await flushTimers();
+        await flushMicrotasks();
+
+        // «x» не объявлен сервером ни триггером, ни ретриггером — в контексте
+        // он не должен появиться, иначе сервер решит, что набрали «x(».
+        expect(seen.at(-1)).toMatchObject({
+            triggerKind: SignatureHelpTriggerKind.ContentChange,
+            isRetrigger: true,
+        });
+        expect(seen.at(-1)?.triggerCharacter).toBeUndefined();
+    });
+
+    it("мультикурсор: подсказку вызова показывать не для чего", async () => {
+        const source = vi.fn(() => Promise.resolve(help()));
+        group().signatureHelpSource = source;
+
+        await service().trigger();
+        expect(service().isOpen()).toBe(true);
+
+        // Два курсора — «одна каретка в вызове» больше не про этот случай.
+        h.testApp.sendKey("Ctrl+Alt+ArrowDown");
+        expect(group().getActiveEditor()?.viewState.selections).toHaveLength(2);
+        await flushTimers();
+        await flushMicrotasks();
+
+        expect(service().isOpen()).toBe(false);
     });
 
     it("движение каретки при открытом попапе — ретриггер с ContentChange", async () => {
@@ -356,7 +399,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     it("close() гасит содержимое попапа и отложенный запрос", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
         group().signatureHelpSource = source;
-        service().triggerDelayMs = 50;
+        service().triggerDelayMs = 20;
 
         await service().trigger();
         expect(component().view.hint).not.toBeNull();
@@ -364,7 +407,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         h.testApp.sendKey("End");
         h.testApp.sendKey("("); // запланировал перезапрос
         service().close();
-        await flushTimers();
+        await waitPastDelay(60);
         await flushMicrotasks();
 
         // Содержимое очищено (иначе оно мигнёт при следующем открытии), а
@@ -499,10 +542,18 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("активная сигнатура вне диапазона списка не роняет попап", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help({ activeSignature: 7 }));
+        let activeSignature = 7;
+        group().signatureHelpSource = () => Promise.resolve(help({ activeSignature }));
 
         await service().trigger();
+        expect(service().isOpen()).toBe(true);
+        expect(lines()).toEqual([GREET.label]);
 
+        // Отрицательный индекс — тоже мимо списка: без клампа обращение к
+        // signatures[-1] уронило бы рендер.
+        activeSignature = -1;
+        service().close();
+        await service().trigger();
         expect(service().isOpen()).toBe(true);
         expect(lines()).toEqual([GREET.label]);
     });

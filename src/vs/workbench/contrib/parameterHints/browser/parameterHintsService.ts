@@ -108,6 +108,7 @@ export class ParameterHintsService extends Disposable {
             isRetrigger,
             // Эхо показанной подсказки: по нему сервер удерживает перегрузку,
             // которую пользователь выбрал стрелками (tsserver ищет её по метке).
+            // Stryker disable next-line ConditionalExpression: открытый попап без сохранённого результата недостижим — `close()` гасит и сессию, и результат вместе
             ...(isRetrigger && this.currentHelp !== null
                 ? { activeSignatureHelp: { ...this.currentHelp, activeSignature: this.activeSignatureIndex } }
                 : {}),
@@ -255,27 +256,28 @@ export class ParameterHintsService extends Disposable {
             return;
         }
 
-        const inserted = wasEdit ? this.insertedChar(line, active) : null;
-        if (inserted !== null && this.group.signatureHelpTriggerCharacters.includes(inserted)) {
+        // Пустая строка — «набора не было»: пустой символ ни один сервер
+        // триггером не объявляет (а если бы объявил, его отсеет readStringArray).
+        const inserted = wasEdit ? this.insertedChar(line, active) : "";
+        if (this.group.signatureHelpTriggerCharacters.includes(inserted)) {
             this.scheduleTrigger(SignatureHelpTriggerKind.TriggerCharacter, inserted);
         } else if (this.isOpen()) {
             // Ретриггер-символ (`)`) отличается от прочих правок только тем, что
             // сервер получает его в контексте — ответ на нём обычно пустой,
             // и подсказка закрывается сама.
-            const retrigger =
-                inserted !== null && this.group.signatureHelpRetriggerCharacters.includes(inserted) ? inserted : null;
+            const isRetriggerChar = this.group.signatureHelpRetriggerCharacters.includes(inserted);
             this.scheduleTrigger(
-                retrigger === null ? SignatureHelpTriggerKind.ContentChange : SignatureHelpTriggerKind.TriggerCharacter,
-                retrigger ?? undefined,
+                isRetriggerChar ? SignatureHelpTriggerKind.TriggerCharacter : SignatureHelpTriggerKind.ContentChange,
+                isRetriggerChar ? inserted : undefined,
             );
         }
 
         this.updateCaretCache(active, line);
     }
 
-    /** Набранный только что символ (ровно одна вставка у каретки) или `null`. */
-    private insertedChar(line: string, active: IPosition): string | null {
-        if (!isSingleCharInsert(line, active, this.lastCaretLine, this.lastCaretChar, this.lastLine)) return null;
+    /** Набранный только что символ; пустая строка — набора не было. */
+    private insertedChar(line: string, active: IPosition): string {
+        if (!isSingleCharInsert(line, active, this.lastCaretLine, this.lastCaretChar, this.lastLine)) return "";
         // `slice`, а не `at`: эвристика выше уже гарантировала, что символ на
         // этой позиции есть, и ветка «его нет» была бы мёртвой.
         return line.slice(active.character - 1, active.character);
@@ -320,7 +322,7 @@ export class ParameterHintsService extends Disposable {
 
     private resetCaretCache(editor: TextEditorPane | null): void {
         if (editor === null) {
-            // Stryker disable next-line StringLiteral: без редактора набирать некуда — строка кэша в этом состоянии не читается
+            // Stryker disable next-line CallExpression,StringLiteral: без редактора набирать некуда — кэш в этом состоянии не читается, а следующая привязка перезапишет его целиком
             this.updateCaretCache(null, "");
             return;
         }

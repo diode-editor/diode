@@ -174,12 +174,13 @@ describe("ExtensionHost — гейт подсказки параметров (in
 
         peer.notify("languages.updateSubscriptions", {
             hasSignatureHelpProviders: true,
-            signatureHelpTriggerCharacters: ["(", ",", 7],
+            signatureHelpTriggerCharacters: ["(", ",", 7, ""],
             signatureHelpRetriggerCharacters: [")"],
         });
         await flushMicrotasks();
 
-        // Нестроковый элемент отброшен, остальное доехало.
+        // Нестроковый элемент и пустая строка отброшены, остальное доехало:
+        // «пустой символ» совпал бы с любым событием каретки без набора.
         expect(host.signatureHelpTriggerCharacters).toEqual(["(", ","]);
         expect(host.signatureHelpRetriggerCharacters).toEqual([")"]);
         expect(changed).toHaveBeenCalledTimes(1);
