@@ -172,7 +172,7 @@ describe("parseRgMatchLine", () => {
         expect(parseRgMatchLine(line)).toBeNull();
     });
 
-    // ── Кап хвоста превью (докс: docs/TODO/SearchPerformance.md, случай 1) ────────
+    // ── Кап хвоста превью ─────────────────────────────────────────────────────────
 
     it("режет preview.after до 256 символов — матч в минифицированной строке остаётся ограниченным", () => {
         const line = matchLine({

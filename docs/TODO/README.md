@@ -6,6 +6,8 @@
 Статусы: `[ ]` — открыта, `[~]` — в работе, `[x]` — сделана.
 
 Завершённые задачи из трекера убираем — история живёт в git и в `docs/arch/`.
+Задачи движка (не хватает API/виджета/поведения tuidom) ведутся в репозитории
+[tuidom](https://github.com/tuidom/tuidom), не здесь (см. AGENTS.md).
 
 ---
 
@@ -31,46 +33,41 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Крупные задачи
 
-- [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points (реестр contributions #164, MenuRegistry #166, vscode-канон меню #168 — меню-бар на реестре, co-location placement, IMenu, MenuId-класс; QuickAccess #169, Configuration #170, Color #171 — все contribution points перенесены)
+- [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points; основное сделано, остались хвосты MenuRegistry (серые пункты попапа, `when`-фильтр палитры, `alt`/hide-toggle/вложенные подменю)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
-- [x] [TuidomContracts (tuidom)](https://github.com/tuidom/tuidom/blob/main/docs/TuidomContracts.md) — нестыковки в контрактах ядра tuidom по аудиту зрелости (2026-07-27); **все Н1–Н8 закрыты (2026-08-01)**; документ уехал вместе с tuidom в его репозиторий
-- [x] [TuidomExtraction](TuidomExtraction.md) — аудит и вынос tuidom в отдельный репозиторий: **сделано (2026-08-13)** — движок живёт в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom), diode потребляет пакеты `@tuidom/*` из npm
-- [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, panel, terminal, menuBar): по критерию «публичный API не упоминает понятий Diode» им место у нас. Quick pick по этому критерию уже переехал
-- [~] [ListControls](ListControls.md) — два списочных контрола: data-driven `TreeViewElement` остаётся намеренно (внешнее API расширений — `TreeDataProvider`), `ListViewElement` — для собственных списков workbench; техдолг — дублирование механик и union-instanceof в `listFocus`/`list.*`
-- [~] [WhenContext](WhenContext.md) — система контекста when (остался полноценный парсер when-выражений)
+- [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, panel, terminal, menuBar): по критерию «публичный API не упоминает понятий Diode» им место у нас
+- [~] [ListControls](ListControls.md) — два списочных контрола (`TreeViewElement` data-driven / `ListViewElement` DOM-строки): решение зафиксировано, остался техдолг (дублирование механик, union-instanceof)
+- [~] [WhenContext](WhenContext.md) — остался полноценный парсер when-выражений вместо `new Function`
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate готов; далее scope-селекторы, async/background токенизация)
-- [~] [Theming](Theming.md) — цветовые темы (встроенные темы из VS Code + пикер со сменой готовы; далее темы от расширений, hot-swap токен-темы)
-- [~] [Diff](Diff.md) — дифф-редактор и вкладка Changes. План разбит на 7 этапов, каждый отгружается отдельно. Этапы 0 (вендоринг `DefaultLinesDiffComputer` + корпус на 58 фикстур), 1 (живой гуттер: реестр провайдеров ФС по схеме, `git:` в builtin-расширении, `QuickDiffService` — бары двигаются при наборе, до сохранения) 2 (diff view model: строки вью + свёртка неизменённых кусков) 3 (абстракция editor pane), 5 (inline diff-редактор: вкладка «файл ↔ HEAD» с подсветкой и свёрткой) и 6 (вкладка Changes: вьюлет Source Control в сайдбаре на `ListViewElement` — режимы плоско/дерево, инлайн-кнопка Open File, контекстное меню, активация открывает дифф напрямую одной вкладкой) готовы, этап 4 растворился; следующий — этап 7, side-by-side и раскрытие регионов (сценарии и фазировка вынесены в [DiffViewer](DiffViewer.md))
-- [~] [DiffViewer](DiffViewer.md) — смотрелка изменений: side-by-side режим и семейство команд сравнения (два файла, буфер обмена, сохранённая версия, произвольная ревизия) — продолжение [Diff](Diff.md) этап 7; user stories US-1…US-36 как приёмочный чек-лист; фазы 1, 3, 4 готовы, оставшиеся поглощает [DiffEditable](DiffEditable.md)
-- [~] [DiffEditable](DiffEditable.md) — дифф «без компромиссов»: вкладка как композиция двух настоящих редакторов (стороны редактируются прямо в диффе, живой пересчёт, undo/find бесплатно), путь к «Compare New Untitled Text Files»; 5 PR: git:-модель + Open File at Revision → view zones → DiffEditorPane v2 → живость + миграция + untitled → хвосты
-- [x] [SourceControlGraph](SourceControlGraph.md) — панель GRAPH: настоящий граф коммитов (порт pipe-модели lazygit), страница истории с «Load More…», бейджи refs и команды на коммите — включая Reset to Commit, которого в VS Code нет. Реализовано; в документе остались follow-up'ы (пикер ref'ов, compare/diff коммита, действия на бейджах)
-- [~] [SourceControl](SourceControl.md) — полный Source Control как в VS Code: группы ресурсов (Staged/Changes/Merge/Untracked), stage/unstage/discard с multi-select, встроенный commit input box, sync/branch/stash/remote и меню «⋯» с подменю. Спека команд + user stories US-1…32 (приёмочный чек-лист e2e) готовы; реализация — фазы 1–12 по трекеру в документе
-- [~] [Search](Search.md) — поиск по файлам (ripgrep в сайдбаре). Готово: движок rg + пакетирование в SEA, поиск по мере ввода с тумблерами Aa/`\b`/`.*`; панель — merged одно-view контейнер с «⋯»-меню (View as List/Tree с галочкой, поэтапный Collapse All/Expand All), include/exclude за «···» (Ctrl+Shift+J), режимы list/tree VS Code-семантики (дерево каталогов со сжатием цепочек), кольцо фокуса Down/Up, Enter/клик открывает файл на позиции матча. Дальше — кросс-платформенный rg, replace
-- [~] [MultiCursor](MultiCursor.md) — мульти-курсор: слияние выделений в сеттере, каретки ячейками (аппаратный курсор терминала один), Ctrl+Alt+↑/↓ и Alt+клик, семейство «выделить следующее вхождение» (Ctrl+D, Ctrl+K Ctrl+D, Ctrl+Shift+L). Дальше — распределяющая вставка, колоночное выделение, связка `matchCase` с find-виджетом
-- [~] [Marketplace](Marketplace.md) — курируемый магазин расширений: формат реестра (index + meta, sha256, engines), файловый источник + `--registry`/install-by-id, наполнение PR-ами и публикация на `diode-editor.github.io/registry/v1/`, HTTP-источник (`--install-extension <id>` без флагов ставит из публичного реестра) и прогон магазина на текущем коде (`e2e/marketplace/` — ставит последние версии всех опубликованных расширений и проверяет, что они работают) **готовы**; шаг 4 — [ExtensionsView](ExtensionsView.md) (магазин в UI, заменяет старую модель Phase 10 из [Extensions](Extensions.md)) — тоже готов
-- [x] [ExtensionsView](ExtensionsView.md) — магазин расширений из редактора: вьюлет `EXTENSIONS` в сайдбаре (поиск по каталогу + секция установленных, бейджи Installed/Update/Incompatible/Reload), страница расширения отдельной вкладкой (метаданные + readme текстом) и установка/обновление/удаление кнопками с перезагрузкой окна (`workbench.action.reloadWindow`) — US-1…US-21 закрыты
-- [~] [WordWrap](WordWrap.md) — перенос строк по словам (`editor.wordWrap`/`editor.wordWrapColumn`, Alt+Z): v1 готова — проекция «строка → ряды-фрагменты», навигация по рядам, дифф форсит off; открыты follow-up'ы (wrappingIndent, wrap в диффе, affinity, персист toggle)
+- [~] [Theming](Theming.md) — цветовые темы (встроенные + пикер готовы; далее темы от расширений, live-reload)
+- [~] [DiffViewer](DiffViewer.md) — смотрелка изменений: остались фаза 2 (интерактив: раскрытие свёртки жестом, Switch Side, F7) и фаза 6 (краевые случаи: большой файл, бинарник, whitespace). История движка и этапов — [Diff](Diff.md), дифф v2 на двух настоящих редакторах — [DiffEditable](DiffEditable.md) (сделан, в конце — follow-up'ы)
+- [~] [SourceControl](SourceControl.md) — полный Source Control сделан (фазы 0–14); открыты follow-up'ы: `diode.scm.publishBusy`, UI-e2e для sync/branch/stash
+- [~] [Search](Search.md) — поиск по файлам: базовый срез готов; дальше — кросс-платформенный rg, replace, `search.exclude`, история запросов
+- [~] [MultiCursor](MultiCursor.md) — мульти-курсор готов; дальше — распределяющая вставка, колоночное выделение, связка `matchCase` с find-виджетом
+- [x] [Marketplace](Marketplace.md) — курируемый магазин расширений сделан (шаги 1–4: формат реестра, файловый + HTTP-источники, `--install-extension <id>` из публичного реестра, прогон магазина `e2e/marketplace/`); открытые вопросы — в документах Marketplace/ExtensionsView
+- [x] [ExtensionsView](ExtensionsView.md) — магазин из редактора сделан (вьюлет EXTENSIONS, страница расширения, установка/обновление/удаление с перезагрузкой окна); открытые вопросы — в конце документа
+- [~] [WordWrap](WordWrap.md) — перенос строк по словам (`editor.wordWrap`, Alt+Z): v1 готова; открыты follow-up'ы (wrappingIndent, wrap в диффе, affinity, персист toggle)
 - [ ] [PieceTree](PieceTree.md) — текстовый бэкенд документа (большие файлы, undo, snapshots)
-- [~] [Extensions](Extensions.md) — VS Code-совместимые расширения (Phases 1, 8 готовы; 6, 9 частично; в работе — active-editor API)
-- [~] [LSP](LSP.md) — стоковые language servers поверх extension host (клиент — builtin `diode-lsp-typescript` на стоковом `vscode-languageclient`). Платформа готова end-to-end со стоковым `typescript-language-server`: document sync (didOpen/didChange живого буфера), Go to Definition (F12, кросс-файловый), hover (Ctrl+K Ctrl+U, попап у каретки), Find All References (Ctrl+K Ctrl+R, панель в сайдбаре), подсказка параметров (попап у каретки по «(»), диагностики → MarkerService (squiggle + Problems). Далее — SEA-упаковка курируемых серверов, второй язык (gopls/basedpyright), закрытие остальных стабов (rename, implementations, …) по таблице в LSP.md
-- [x] [References](References.md) — Find All References: ссылки на символ из стокового language server'а в отдельном вьюлете сайдбара REFERENCES (файлы со счётчиком, строки кода с подсветкой вхождения, Enter открывает на позиции, F4/Shift+F4 обходят из редактора). Строки списка общие с панелью поиска, текст строк добирается из открытой модели или с диска. Дальше — implementations/type definition на тех же рельсах, история запросов, peek
-- [x] [ParameterHints](ParameterHints.md) — подсказка параметров: попап над строкой вызова с сигнатурой из стокового language server'а (активный параметр подсвечен, счётчик перегрузок `1/2`, Up/Down листают их). Открывается сама на триггер-символ сервера (`(`, `,`, `<`) и по Ctrl+K Ctrl+Space; следует за запятыми, пока набирают аргументы. Дальше — markdown-рендерер для описаний и скролл длинного текста
-- [~] [Suggest](Suggest.md) — автодополнение: подсказки стокового `typescript-language-server` в попапе (триггер-символы, серверные сортировка/фильтрация, `isIncomplete`), панель описания по Ctrl+Space с ленивым `resolve` и персистом, авто-импорт одной undo-транзакцией со вставкой. Дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
-- [~] [E2E](E2E.md) — e2e тесты против SEA-бинаря (Phase 1 и Phase 3 готовы: изолированный запуск, механика ожиданий `waitForIdle`, локаторы + `inspectState`, мышь в сценариях, параллельный прогон; открыто — кросс-платформенность Phase 1.x)
+- [~] [Extensions](Extensions.md) — VS Code-совместимые расширения: открыты фазы 2–7 (темы/иконки, language configuration, snippets, commands/menus, configuration, activation), 8b (views), 9 (внешние расширения); дистрибуция — [Marketplace](Marketplace.md)
+- [~] [LSP](LSP.md) — платформа готова end-to-end со стоковым `typescript-language-server` (definition, hover, references, parameter hints, диагностики, автодополнение); далее — второй язык (gopls/basedpyright), закрытие остальных стабов (rename, implementations, …) по таблице в LSP.md
+- [x] [References](References.md) — Find All References сделан (вьюлет REFERENCES, F4/Shift+F4); дальше — implementations/type definition на тех же рельсах, история запросов, peek
+- [x] [ParameterHints](ParameterHints.md) — подсказка параметров сделана (попап по триггер-символам и Ctrl+K Ctrl+Space, перегрузки Up/Down); дальше — markdown в описаниях, скролл длинного текста
+- [~] [Suggest](Suggest.md) — автодополнение работает; дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
+- [~] [E2E](E2E.md) — инфраструктура готова; открыто — кросс-платформенность Phase 1.x и найденный дефект фокуса (find + вторая вкладка)
 - [ ] [MutationGateFlake](MutationGateFlake.md) — PR-гейт мутаций на неизменном коммите даёт разные наборы выживших (балл гуляет 97–100%), а локально те же файлы дают 100%: Stryker подбирает тесты через `vitest --related` и часть покрытия теряет. Улики и что попробовать — в документе; смежно — база диффа разъезжается, и в скоуп попадают чужие файлы
-- [x] [EditorGroups](EditorGroups.md) — сплиты области редактора: полоса групп по одной оси (Ctrl+\, фокус Ctrl+1..5/чорды, перенос/копия/join, resize/maximize, ось-тумблер, Open to the Side), undo и модель — на документ (реестр с ref-count), find-виджет на группу, персист полосы; API расширений — ViewColumn/showTextDocument/window.tabGroups/onDidChangeVisibleTextEditors/vscode.diff поверх snapshot-протокола, document sync пер-модель + didClose. В документе — follow-up'ы (Quick Open Ctrl+Enter, read-only на документ и др.)
 - [ ] [Inspector](Inspector.md) — рефакторинг TUIElement-иерархии + основа приложения → inspector-протокол (`--inspect-tui`) для e2e
-- [~] [ReadonlyEditor](ReadonlyEditor.md) — режим «только чтение» у редактора (аналог `EditorOption.readOnly`); флаг + гейт команд + замок на вкладке + detached pane готовы; далее — конфиг-слой `files.readonly*`
-- [~] [Logging](Logging.md) — единый ILogService + RingBufferSink/FileSink (Phases 1–3.5 готовы); Output UI готов; далее CLI flags, vscode API
-- [~] [LongLinePerformance](LongLinePerformance.md) — базовый фриз длинных строк снят порогом `STOP_RENDERING_LINE_AFTER` (ветка `worktree-long-line-perf`, не влита); межредакторная связь через кадр снята damage-tracking'ом кадра (экран — ретейн-буфер, кадр перерисовывает только повреждённые области; сплит с 10k-строкой 3.4 → 1.35 мс/клавишу). Открыто: пер-строчный кеш `DisplayLine`, reveal-по-клику, конфиг порога
-- [x] [SearchPerformance](SearchPerformance.md) — тормоза курсора в дереве результатов поиска устранены полностью (случаи 1–6): кап `preview.after` у истока, кэш `DisplayLine` в лейбле, dirty-гейт кадра ввода (1 кадр на нажатие), виртуализация стилевого прохода списка, damage-tracking кадра, инкрементальная проекция при стриме; 538 мс → 0.9 мс на итерацию бенча
-- [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (диагностика + бенчмарки готовы; фиксы — далее)
+- [~] [ReadonlyEditor](ReadonlyEditor.md) — read-only редактор готов; далее — конфиг-слой `files.readonly*`, сообщение при попытке правки
+- [~] [Logging](Logging.md) — ILogService + Output UI готовы; далее — inner tracing extension host, CLI flags, фильтры/Clear в Output
+- [~] [LongLinePerformance](LongLinePerformance.md) — фриз длинных строк снят порогом рендера, межредакторная связь — damage-tracking'ом; открыто: пер-строчный кеш `DisplayLine`, reveal-по-клику, конфиг порога
+- [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (главные блокеры сняты; остались точечные фиксы)
 - [ ] [EnvironmentTuning](EnvironmentTuning.md) — подсказки пользователю по тюнингу окружения (терминал/tmux/ssh); пункты — tmux extended-keys для Ctrl+Tab, лимит inotify (ENOSPC) с уведомлением как в VS Code
-- [~] [Folding](Folding.md) — сворачивание кода (#86, #87); indentation-фолдинг end-to-end готов, далее — API-провайдеры расширений, region-маркеры, hover-контролы
-- [~] [Uri](Uri.md) — первоклассная идентичность ресурса (#108, #107); ядро/ext-host на `Uri`, `untitled:` как схема, `workspace.fs` роутится по схеме — готово; далее реестр провайдеров ФС и `untitled:`-провайдер
-- [~] [Problems](Problems.md) — панель диагностик и squiggly (маркер-сервис как в VS Code); готово: seam + squiggle + валидатор settings.json + нижняя Panel с деревом Problems (reveal, фокус); далее — счётчик в статус-баре, доп. поставщики (LSP/matchers/расширения)
-- [ ] [TerminalPanelBugs](TerminalPanelBugs.md) — баги нижней Panel и терминала, найденные e2e-тестированием MVP: фокус остаётся на скрытом/умершем терминале (ввод уходит в невидимый шелл и выполняется), Toggle Terminal после смерти шелла, активная вкладка не переживает рестарт, колесо не скроллит вывод; enabler — `TUIDom.sendMouse` в инспекторе
-- [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал (node-pty + @xterm/headless как in-process tmux); интегрировано: вкладка TERMINAL в нижней Panel, `TerminalService`+`TerminalPanelComponent`, команды toggle/new, SEA-упаковка нативного node-pty в основном пайплайне; далее — кросс-платформенная упаковка (macOS/Windows) + CI-матрица, UX (скролбэк/выделение/копирование/ссылки/bracketed-paste), список нескольких терминалов, тема-реактивная ANSI-палитра, проброс клавиш (commandsToSkipShell)
+- [~] [Folding](Folding.md) — indentation-фолдинг и API-провайдеры готовы; далее — region-маркеры/language-configuration, hover-контролы, персист свёрток
+- [~] [Uri](Uri.md) — ядро на `Uri` готово; далее — `untitled:`-провайдер, язык безымянных буферов
+- [~] [Problems](Problems.md) — маркер-сервис, squiggle и панель готовы; далее — счётчик в статус-баре, доп. поставщики (расширения/matchers)
+- [~] [TerminalPanelBugs](TerminalPanelBugs.md) — баги панели/терминала из e2e-прогона MVP закрыты; осталась необработанная ошибка спавна шелла на неподдерживаемой платформе
+- [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал интегрирован; далее — кросс-платформенная упаковка + CI-матрица, UX (скролбэк/выделение/ссылки), список терминалов, тема-реактивная ANSI-палитра, commandsToSkipShell
+- [x] [EditorGroups](EditorGroups.md) — сплиты области редактора сделаны (включая API расширений); в документе остались follow-up'ы (Quick Open Ctrl+Enter, read-only на документ, сплит untitled/дифф-вкладок)
+- [x] [SourceControlGraph](SourceControlGraph.md) — панель GRAPH сделана; в документе остались follow-up'ы (пикер ref'ов, compare/diff коммита, действия на бейджах)
 
 ---
 
@@ -92,19 +89,13 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 ## Unicode и отображение символов
 
 ### [ ] Системная ширина символов: кодоген таблиц + рантайм-проба ambiguous-width
-Ручная таблица в `UnicodeWidth.ts` неизбежно отстаёт от Unicode (класс бага
-«пропущенный диапазон», см. закрытый #60). Два направления:
-- **Кодоген** — генерировать `isWide`/`isZeroWidth` из официальных Unicode-файлов
-  (`EastAsianWidth.txt` + `emoji-data.txt`) скриптом `scripts/gen-unicode-width.mjs`
-  в отдельный generated-модуль. Убирает «пропущенные диапазоны» навсегда.
-- **Рантайм-проба (CPR)** — ширина *ambiguous-width* символов (`·≈→↔–—…№`, EAW=A)
-  и часть emoji терминально-зависимы; terminfo/`TERM` этого НЕ содержит (там только
-  возможности). Единственный источник правды — спросить сам терминал: напечатать
-  символ → послать `ESC[6n` (Cursor Position Report) → по ответу `ESC[row;colR`
-  вычислить фактическую ширину. Одноразовый probe в bootstrap для набора спорных
-  символов, кэшировать результат. Опционально — mode 2027 (grapheme clustering).
-
-Файлы: `tuidom/common/unicodeWidth.ts`, bootstrap в `src/App/`/`main.ts`, `tuidom/backend/`.
+Таблицы `isWide`/`isZeroWidth` живут в движке (`unicodeWidth` в `@tuidom/core`) —
+кодоген из официальных Unicode-файлов делается в репозитории tuidom. Наша часть —
+**рантайм-проба (CPR)**: ширина *ambiguous-width* символов (`·≈→↔–—…№`, EAW=A) и части
+emoji терминально-зависима, terminfo этого не содержит; единственный источник правды —
+спросить сам терминал (напечатать символ → `ESC[6n` → вычислить фактическую ширину).
+Одноразовый probe в bootstrap для набора спорных символов, кэшировать результат.
+Опционально — mode 2027 (grapheme clustering).
 
 ---
 
@@ -133,59 +124,13 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 дереве приложения, `keypress` надо гасить (или диспатчить от корня), а не
 доставлять мимо капчер-обработчиков.
 
-## События и скролл
-
-### [ ] #5 Пересчёт координат событий мыши в ScrollableElement
-Сейчас `ScrollableElement` не корректирует `localX`/`localY` событий мыши с учётом `scrollTop`/`scrollLeft`. Потребители вынуждены вручную пересчитывать координаты (пример — `WASDScrollableElement`, строки 40–41). Нужно разобраться:
-- Должен ли `ScrollableElement` автоматически транслировать координаты мыши в контентные координаты (аналогично CSS overflow scroll в браузере)?
-- Или ввести хелпер / дополнительное свойство `contentX`/`contentY` в событии?
-- Учесть, что `renderViewport` уже работает в терминах `viewport.scrollTop`/`scrollLeft` — координаты рендера и событий должны быть согласованы.
-
-Файлы: `tuidom/ui/scrollbar/scrollableElement.ts`, `src/demos/WASDScrollableElement.ts`, `tuidom/dom/events/`
-
 ---
 
 ## Layout
 
 ### [ ] View-секции сайдбара — follow-up'ы
-Пилот (контейнер Source Control: CHANGES + GRAPH) готов: `browser/parts/views/`
-(PaneView + ViewsService), см. arch/Workbench.md. Search мигрирован на
-merged одно-view контейнер (`mergeSingleView`): заголовок секции слит с
-заголовком контейнера, как в VS Code, — вопрос закрыт. Осталось:
+Пилот (контейнер Source Control) и merged одно-view контейнеры (Search) готовы —
+`browser/parts/views/`, см. arch/Workbench.md. Осталось:
 - Перенос view между контейнерами (модель уже допускает: `containerId` в
   реестре view-дескрипторов) + персист размещения.
 - Explorer — миграция на merged-контейнер по готовому пути Search.
-- ~~View GRAPH: настоящий граф коммитов (рёбра, ветки) вместо плоского списка~~ —
-  сделано, см. [SourceControlGraph](SourceControlGraph.md); осталась активация
-  коммита (показ диффа/деталей) — там же в follow-up'ах.
-
-### [ ] #6 HFlexElement / VStack — поддержка нескольких Fill с весами
-Сейчас `HFlexElement` поддерживает максимум один `fill`-ребёнок. Нужно расширить:
-- Разрешить несколько Fill-детей с весами (1fr, 2fr, ...) — оставшееся пространство делится пропорционально
-- Применить ту же логику к будущему VFlexElement или унифицировать в один FlexContainer(direction)
-
-Файлы: `tuidom/ui/layout/hFlexElement.ts`
-
----
-
-## Рефакторинг примитивов
-
-### [ ] #3 IScrollable — перейти на геометрические примитивы
-`IScrollable` использует отдельные числовые поля `contentHeight`, `contentWidth`, `scrollTop`, `scrollLeft`. Нужно перейти на примитивы из `Common/GeometryPromitives.ts`:
-- `contentHeight`/`contentWidth` → `Size`
-- `scrollTop`/`scrollLeft` → `Offset` или `Point`
-- Обновить `isScrollable` и все использования интерфейса
-
-Файлы: `tuidom/ui/scrollbar/iScrollable.ts`, `tuidom/common/geometryPromitives.ts`
-
----
-
-## Фокус
-
-### [ ] #4 Автоматический фокус на старте приложения
-Сейчас при запуске приложения `activeElement` не установлен — чтобы элемент начал получать события, приходится вручную вызывать `app.focusManager!.setFocus(widget)`. Нужно:
-- Продумать систему автоматической установки `activeElement` при старте: авто-фокус на первый focusable элемент, или `autofocus`-атрибут на элементе
-- Поддержать `autofocus` свойство на `TUIElement` — при `app.run()` FocusManager ищет первый элемент с `autofocus` и ставит фокус
-- Фолбэк: если ни у одного элемента нет `autofocus`, фокусить первый элемент с `focusable`
-
-Файлы: `tuidom/dom/events/focusManager.ts`, `src/vs/base/browser/TuiApplication.ts`, `tuidom/dom/tuiElement.ts`

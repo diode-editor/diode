@@ -21,33 +21,13 @@ LSP-протокол diode не пишет. Language server поднимает *
 `initialize`, TS-диагностики доезжают до squiggle + панели Problems, кросс-файловый
 go-to-definition работает; сервер-внук корректно убивается на `dispose()`.
 
-План итерации — один PR, четыре шага:
+Итерация «платформа» сделана целиком: document sync, definition-провайдер + F12,
+runway для стокового `vscode-languageclient` (builtin `diode-lsp-typescript`,
+`version` в лок-степе с `extensions/VSCODE_VERSION`), закрытие настоящим
+`typescript-language-server` (резолв: настройка → workspace `node_modules/.bin` →
+bundled → PATH), видимость запуска (`window.withProgress` + `createOutputChannel`).
 
-1. **[x] document sync** — наивный push `editor.didOpen`/`editor.didChange`
-   (полный текст) host → subprocess; `workspace.onDidOpen/onDidChangeTextDocument`
-   фаерятся с настоящим текстом буфера. Без него languageclient не шлёт серверу ни байта.
-2. **[x] definition-провайдер** — `languages.registerDefinitionProvider` по образцу
-   completion/folding (core seam `iDefinitionSource` → RPC `languages.provideDefinition`)
-   + UI-команда Go to Definition (F12) с кросс-файловой навигацией.
-3. **[x] runway для languageclient** — перенос наивных стабов спайка
-   (`vscodeTypes` value-классы, no-op `register*Provider`, naive-события),
-   `diagnostics.publish` → `MarkerService` (squiggle + Problems без правок),
-   builtin-расширение `diode-lsp-typescript` (бандл с `vscode-languageclient@10`
-   проходит гейт RELATIVE_REQUIRE; `version: "1.127.0"` в лок-степе с
-   `extensions/VSCODE_VERSION` — тест в `vscodeNamespace.identity.test.ts`).
-4. **[x] закрытие стоковым сервером** — тесты с настоящим `typescript-language-server`
-   (правило: тесты над ИЗМЕНЯЕМЫМ кодом — правка без сохранения должна быть видна
-   серверу), e2e + скриншот-демо. Сервер резолвится: настройка
-   `diode.lsp.typescript.serverPath` → workspace `node_modules/.bin` → PATH;
-   `tsserverPath` — для песочниц без своего TypeScript
-   (`initializationOptions.tsserver.path`). Dev-прогон «из коробки»: воркспейс
-   с `typescript-language-server` в devDeps работает без настроек.
-5. **[x] видимость запуска** — настоящий `window.withProgress` (спиннер в
-   статус-баре: клиент оборачивает `client.start()` + `progressOnInitialization`
-   для серверного прогресса) и настоящий `window.createOutputChannel`
-   (канал в панели Output).
-
-## Document sync (шаг 1 — сделано)
+## Document sync (сделано; конспект решений)
 
 - RPC-нотификации `editor.didOpen` / `editor.didChange`
   (`IWireDocumentSyncSnapshot`: `uri`, `languageId`, `version` = `versionId` модели —
@@ -69,18 +49,10 @@ go-to-definition работает; сервер-внук корректно уб
 
 ### Осознанные люфты (закрывать по мере надобности)
 
-- ~~**`editor.didClose` нет**~~ — закрыт в [EditorGroups](EditorGroups.md):
-  закрытие последней вкладки документа шлёт `editor.didClose` →
-  `onDidCloseTextDocument` + сброс didOpen-дедупа (повторное открытие снова
-  фаерит didOpen, как требует LSP).
 - **Инкрементальные правки не передаются** — всегда полный текст. Настоящий
   debounce/инкрементальный sync — когда перф покажет.
-- ~~**Синхронизируется только активный редактор**~~ — закрыт в
-  [EditorGroups](EditorGroups.md): document sync подписан пер-МОДЕЛЬ (didOpen на
-  каждое открытие, didChange из любой группы — активна она или нет; документ в
-  двух группах даёт один didChange).
 - Расширение без подписок document sync видит текст только по save/completion/folding
-  pull-путям (статус-кво до этой задачи).
+  pull-путям.
 
 ## Автодополнение (итерация «suggest × LSP»)
 
@@ -132,7 +104,7 @@ go-to-definition работает; сервер-внук корректно уб
 |---|---|---|
 | `workspace.onDidOpenTextDocument` | real | — (шаг 1) |
 | `workspace.onDidChangeTextDocument` | real | — (шаг 1; одна full-range правка) |
-| `workspace.onDidCloseTextDocument` | no-op | продюсер закрытия вкладки → `editor.didClose` → fire + сброс didOpen-дедупа |
+| `workspace.onDidCloseTextDocument` | real | — (закрыт в [EditorGroups](EditorGroups.md): `editor.didClose` + сброс didOpen-дедупа) |
 | `languages.registerDefinitionProvider` | real | — (шаг 2: seam `iDefinitionSource` → RPC `languages.provideDefinition`, таймаут 5000 мс — холодный сервер; UI — `DefinitionService` + F12, кросс-файловая навигация паттерном Problems reveal) |
 | `languages.registerCompletionItemProvider` | real | seam `iCompletionSource` → RPC `languages.provideCompletionItems` (ответ `{items, isIncomplete}`) + `languages.resolveCompletionItem` (описание, авто-импорт); `triggerCharacters` доезжают через `languages.updateSubscriptions`; UI — попап с панелью описания. **Грабля**: конвертер клиента конструирует `new code.CompletionList(...)` на КАЖДЫЙ ответ, а `new code.SnippetString(...)` — на сниппет-пункт; без этих классов в стабе конвертация падала целиком, и ошибка была видна только в `client.outputChannel` (0 пунктов, тишина) |
 | `languages.createDiagnosticCollection` | naive | работает: notify `diagnostics.publish` → `diagnosticsSink` → `MarkerService.changeOne` (squiggle + Problems); наивность — related information не передаётся, маркеры мёртвого subprocess'а не сбрасываются до рестарта |
@@ -153,33 +125,13 @@ go-to-definition работает; сервер-внук корректно уб
 
 ## Отложенное (за рамками итерации)
 
-- **[x] SEA-упаковка серверов — СДЕЛАНО** (итерация «вшитый сервер»):
-  `ts-server.bundle` (~13 МБ: однофайловый `cli.mjs` сервера + минимальный
-  `typescript/lib` без локалей/tsc/ATA) едет в обеих трубах поставки (SEA-ассет /
-  файл рядом с `main.js` в self-extract), распаковывается в XDG-кэш
-  (`~/.cache/diode/ts-server/<version>-<sha256[0:12]>`) атомарно и
-  конкурентно-безопасно (`extractBundleToCache`: mkdir-lock + tmp + `.diode-ready`
-  + rename — схема self-extract-стаба). Рантайм «как VS Code»: сервер запускается
-  `process.execPath` субпроцесса (dev/self-extract — настоящий node; SEA —
-  diode-бинарь в node-режиме `DIODE_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`;
-  динамический `import()` из вшитого SEA-main перехвачен embedder-хуком, а
-  `require(esm)` не берёт top-level await cli.mjs — поэтому в бандле лежит
-  CJS-шим `run-cli.cjs`, чей `import()` идёт настоящим ESM-loader'ом).
-  Резолв: настройка → workspace `node_modules/.bin` → **bundled (дефолт)** → PATH;
-  для bundled — `tsserver.path` из поставки + ATA выключен. Компромисс ленивой
-  распаковки: она стартует fire-and-forget при регистрации builtin'ов (вне
-  критического пути первого кадра), целевые пути детерминированы и раздаются
-  через configDefaults заранее; клиент при гонке коротко поллит готовность (5 с).
-  E2E-пруф — `e2e/lspBundled.test.ts`: SEA и self-extract на голом окружении
-  (PATH без node, воркспейс без node_modules, без настроек).
-  - открытые вопросы: размер бинаря (+~55 МБ) vs отдельный распаковываемый
-    артефакт; кросс-платформенность кэша; прогон e2e на «голой» машине без
-    node_modules/node.
+- **SEA-упаковка серверов сделана** (`ts-server.bundle`, распаковка в XDG-кэш,
+  запуск `process.execPath` в node-режиме `DIODE_RUN_AS_NODE=1`; e2e —
+  `e2e/lspBundled.test.ts`). Открытые вопросы: размер бинаря (+~55 МБ) vs
+  отдельный распаковываемый артефакт; кросс-платформенность кэша.
 - **Второй язык** (gopls — один бинарь; python — basedpyright): не добавляет новых
-  seam'ов; рецепт «как добавить язык» появится в шаге 3 (декларативная таблица
-  `{ languageIds, serverResolver }` в builtin-клиенте).
-- **Ленивая активация уже есть** (`onLanguage:<id>` в `activationEvents`) — клиент
-  обязан объявлять её, чтобы не грузить сервер на старте без файлов языка.
+  seam'ов; рецепт «как добавить язык» — декларативная таблица
+  `{ languageIds, serverResolver }` в builtin-клиенте.
 - Инкрементальный sync + debounce; позиция курсора в didChange (для серверов,
   которым нужна — сейчас не передаётся).
 - **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,

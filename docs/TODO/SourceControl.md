@@ -10,13 +10,14 @@ sync/branch/stash/remote-операции и меню «⋯» с подменю.
 контекстном меню и палитре, а клавиатурный курсор раскрывает кнопку без мыши.
 Stage/unstage/discard инлайн-кнопок нет — осознанное отклонение от VS Code.
 
-Этот документ — одновременно **спека** (номенклатура команд и меню), **приёмочный
-чек-лист** (user stories US-1…US-32: при реализации каждая закрывается e2e-тестом, после
-релиза по ним проводится ручное тестирование) и **трекер фазировки**.
+**Статус: сделано (фазы 0–14 — группы ресурсов, staging/discard, commit input box,
+sync/branch/stash/remote, меню «⋯», статус-бар, живое слежение, прогресс операций).**
+Документ остаётся **спекой** (номенклатура команд и меню) и **приёмочным чек-листом**
+(US-1…US-32 — по ним ручное тестирование); открытое — в разделе «Follow-up'ы».
 
 Связанные решения: транспорт остаётся на приватных двусторонних командах (`scm`-неймспейс
-vscode.d.ts не раскомментируем — см. [Diff.md](Diff.md), пункт F); одно репо, без
-clone/init/мультирепо.
+vscode.d.ts не раскомментируем — см. «Оставшийся долг» в [Diff.md](Diff.md)); одно репо,
+без clone/init/мультирепо.
 
 ---
 
@@ -368,70 +369,19 @@ UI-подтверждения. Ручной прогон после релиза
 
 ---
 
-## Фазировка
+## Follow-up'ы
 
-Каждый PR самодостаточен, с тестами колокацией, e2e (функциональный тест и/или
-сценарий-демо с PNG per docs/PR.md) и реальным запуском перед «готово» (DoD AGENTS.md).
-
-- [x] **0. Спека** — этот документ + строка в README трекера.
-- [x] **1. Группы ресурсов** — протокол `group` в publishChanges, `scmChangeGroups.ts`,
-      заголовки-секции в списке, новые id строк, rowMeta. Гейт: US-1; декорации
-      файлового дерева не изменились.
-- [x] **2. Транспорты мутаций** — `diode.git.stage/unstage/clean` в расширении: мьютекс,
-      валидация uri, envelope, refresh после мутации; интеграционные тесты на temp-репо
-      (unborn HEAD, clean tracked/untracked).
-- [x] **3. Stage/Unstage + multi-select + меню v2** — `ScmMenuContext v2` (uris+groups),
-      `MenuId.ScmResourceGroupContext`, `stagingActions.ts`, `getSelectedChanges()`,
-      меню на папках и заголовках групп. Гейт: US-2…9, US-12 (без discard).
-- [x] **4. Discard** — `DialogService.confirm()`, `git.clean/cleanAll` с раздельными
-      текстами tracked/untracked/mixed. Гейт: US-10, US-11.
-- [x] **5. Commit input box** — `InputElement.inspectState` (tuidom), `header` в
-      `IViewContainerDescriptor` + VFlex в `attachContainer`, `scmInputComponent.ts`,
-      ключ `scmInputFocus`, `workbench.scm.focus`/`scm.action.focusChanges`, персист
-      черновика, `input.selectionBackground` в реестр цветов. Гейт: US-13…15.
-- [x] **6. Commit** — диспетчер `diode.git.op` (первая операция — commit),
-      commit-семейство, Ctrl+Enter, `git.undoCommit`. Гейт: US-16…20.
-      Отклонение от таблицы: noVerify-семейство не гейтится конфигом
-      `git.allowNoVerifyCommit` (when-выражений по конфигу нет) и урезано до
-      трёх команд без Amend-вариантов; Signed-off — отложено.
-- [x] **7. Repo-state + меню-инфра** — `diode.scm.publishRepoState`, `ScmRepoStateService`,
-      when-ключи; `ISubmenuContribution.visible`, `gitMenus.ts`, каркас «⋯».
-      Гейт: часть US-30 (структура, пустые подменю скрыты).
-- [x] **8. Sync** — pull/push/fetch/sync/publish, `gitOpClient.ts` (диалоги
-      auth/rejected/no-upstream/conflict), e2e с bare-remote. Гейт: US-21…24, US-32.
-- [x] **9. Branch** — checkout/create/rename/delete, merge/rebase + abort, ref-пикер
-      (`diode.git.query refs`). Гейт: US-25…28.
-- [x] **10. Stash** — stash-семейство + пикер (`diode.git.query stashes`). Гейт: US-29.
-- [x] **11. Remote/Tags/прочее** — remote/tag-команды, `git.showOutput`,
-      noVerify/commitEmpty/cherryPick. Гейт: US-30 полностью.
-      Отклонение: Delete Remote Tag выбирает из локальных тегов (без
-      `ls-remote --tags` — сетевой пикер отложен).
-- [x] **12. Статус-бар** — ветка (+ merge/rebase-суффикс) и счётчики `↓N ↑M` слева,
-      клик → `git.checkout` / `git.sync` (без upstream — `git.publish`).
-- [x] **13. Живое слежение** — раскладка watcher'ов VS Code в расширении поверх
-      настоящего `workspace.createFileSystemWatcher`: рабочее дерево, служебный
-      каталог из `rev-parse --git-dir --git-common-dir` (работает в linked
-      worktree, где `.git` — файл), общий каталог и transient-watcher ref'а
-      upstream'а; гейты `git.autorefresh` и «пока идёт мутация — ждём».
-      Гейт: `extensions/git/git.watch.integration.test.ts`, сценарий-демо
-      `scmLiveWatch`.
-
-- [x] **14. Прогресс операций** — спиннер после названия занятой секции
-      (`CHANGES ⠹`) и в подписи кнопки Commit/Sync («⠹ Committing…»), долгие
-      сетевые операции дублируются записью статус-бара; мутирующие git-команды на
-      это время гаснут через `enablement: !gitOperationInProgress` (аналог
-      `operationInProgress` git-расширения VS Code). Модель и такт — общий
-      `ProgressService` (`platform/progress`), обёртка стоит внутри транспортных
-      швов (`runGitOp`, `runGitTransport`), потому что промис операции наверху не
-      ждёт никто. Гейт: `e2e/scmProgress.functional.test.ts` (настоящий
-      pre-commit-хук со `sleep`), сценарий-демо `scmProgress`.
-      Осознанно не покрыто: занятость **расширения** наружу не публикуется, так
-      что фоновый refresh по watcher'у и чужая операция в очереди мутаций
-      спиннера не дают. Follow-up — push-канал `diode.scm.publishBusy`.
-      Не сделано из-за движка: пункты попапа «⋯» на время операции остаются
-      обычными на вид (у `MenuItemEntry` в `@tuidom/elements` нет `disabled` —
-      см. [WorkbenchContributions.md](WorkbenchContributions.md)); исполнить их
-      всё равно нельзя.
+- [ ] **`diode.scm.publishBusy`** — занятость расширения наружу не публикуется:
+  фоновый refresh по watcher'у и чужая операция в очереди мутаций спиннера не
+  дают (сделан только прогресс операций, запущенных из ядра).
+- [ ] **Серые пункты попапа «⋯» на время операции** — ждёт `disabled` у
+  `MenuItemEntry` в движке (см. [WorkbenchContributions.md](WorkbenchContributions.md));
+  исполнить недоступный пункт и сейчас нельзя.
+- [ ] **UI-e2e с bare-remote для sync/branch/stash** — сейчас эти потоки покрыты
+  юнитами + ручным прогоном по чек-листу.
+- Отклонения от спеки, зафиксированные при реализации: noVerify-семейство без
+  гейта конфигом и без Amend-вариантов; Signed-off отложен; Delete Remote Tag
+  выбирает из локальных тегов (сетевой пикер `ls-remote --tags` отложен).
 
 ## Покрытие автоматизацией (снимок на момент реализации)
 

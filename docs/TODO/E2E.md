@@ -1,56 +1,18 @@
 # E2E и Inspector-протокол
 
-## Phase 1 — [~] E2E против собранного SEA-бинаря
+Инфраструктура готова (Phase 1 — прогон против SEA-бинаря, Phase 3 — функциональные
+e2e: изолированный запуск, settle-механика `waitForIdle`, локаторы + `inspectState`,
+мышь, параллельный прогон). Как этим пользоваться — [docs/TESTING.md](../TESTING.md),
+раздел «E2E». Phase 2 (inspector-протокол) — отдельный документ: [Inspector.md](Inspector.md).
 
-Готово: `vitest.e2e.config.ts` + `npm run test:e2e`; helpers (`buildOnce`, `DiodeSession` поверх `node-pty`, `AnsiScreen`-парсер); сьюты `sea-startup` / `sea-assets` / `sea-extensions` (см. `e2e/`). Подробности — [docs/TESTING.md](../TESTING.md) (раздел «E2E»).
+## Открыто (Phase 1.x — кросс-платформенность)
 
-**Открыто (Phase 1.x):**
 - [ ] CI: документировать build-essential / python3 для нативной сборки `node-pty`. Возможна замена на `@homebridge/node-pty-prebuilt-multiarch` при проблемах.
 - [ ] Расширить кейсы: открытие директории как workspace + проверка, что fixture виден в файловом дереве.
 - [ ] Снять зависимость от точной фразы из комментария (`fixture used`) — заменить на стабильный маркер в фикстуре.
-- [ ] **e2e-cross-platform**: `renders fixture text on screen` и `applies syntax highlighting` пропускаются на Windows и macOS. На Windows ConPTY инжектирует `CSI K` / clearing sequences после resize, стирая строки которые рендерер уже вывел; `stdout.on("resize")` внутри ConPTY-процесса ненадёжен → delta-рендерер не знает что нужен полный redraw. Нужно либо добавить в `NodeTerminalBackend` принудительный механизм полного сброса при потере синхронизации (watchdog по неизменному грид-хешу?), либо перейти на Inspector-протокол (Phase 2) для e2e вместо PTY-парсинга.
+- [ ] **e2e-cross-platform**: `renders fixture text on screen` и `applies syntax highlighting` пропускаются на Windows и macOS. На Windows ConPTY инжектирует `CSI K` / clearing sequences после resize, стирая строки которые рендерер уже вывел; `stdout.on("resize")` внутри ConPTY-процесса ненадёжен → delta-рендерер не знает что нужен полный redraw. Нужно либо добавить в `NodeTerminalBackend` принудительный механизм полного сброса при потере синхронизации (watchdog по неизменному грид-хешу?), либо перейти на Inspector-протокол для e2e вместо PTY-парсинга.
 
-## Phase 2 — Inspector-протокол
-
-Вынесено в отдельный документ: [Inspector.md](Inspector.md) — там же подготовительный рефакторинг TUIElement-иерархии и выделение основы приложения, на которой поднимается порт инспектора.
-
-## Phase 3 — [x] Инфраструктура функциональных e2e
-
-Phase 1 давала «запустился и что-то нарисовал», Phase 2 — инспектор. Между ними
-зияла дыра: **функциональные** e2e, которые водят приложение как пользователь и
-проверяют поведение. Дыру видно по тестированию PR #197 (панель Output): шесть
-дефектов прошли мимо 5882 зелёных юнит-тестов и 100% покрытия, потому что
-смотреть туда, куда смотрит пользователь, было нечем и неудобно.
-
-Закрыто — итог в [docs/TESTING.md](../TESTING.md) (раздел «E2E»). Что сделано:
-
-- [x] **Изолированный запуск для всех потребителей** — `e2e/helpers/appSession.ts`
-  (`prepareAppEnv` + `startHeadlessApp`/`startPtyApp`) и vitest-обёртки
-  `e2e/helpers/useApp.ts` (`useHeadlessApp`/`usePtyApp`). Один временный корень
-  изолирует `--user-data-dir` + HOME/XDG + cwd. `runScenario` и все сьюты
-  (`mouse`, `inspector-real-app`, `sea-*`, `selfextract`, `editorconfig-stock`)
-  переведены; прогон больше не трогает реальный `~/.diode` и корзину.
-- [x] **Словарь фокуса** — `focusedLeaf`/`focusPath` (`e2e/helpers/query.ts`),
-  `session.focusedType()` и `waitForFocus(type)`.
-- [x] **Локаторы вместо координат** — селектор-адрес (`$`/`$$`/`boxOf`/`centerOf`
-  в `query.ts`), `session.node`/`nodes`/`clickNode`/`wheelNode`; контентный
-  `clickText`. `panelTabPoint`-костыль заменён геометрией из
-  `PanelContainerElement.inspectState().tabs`.
-- [x] **Читаемый дамп кадра при падении** — `dumpFrame` (`e2e/helpers/frame.ts`) +
-  `dumpSession` (кадр + путь фокуса + скелет дерева + stderr), печатается из
-  `onTestFailed`.
-- [x] **Мышь в сценариях** — `ScenarioDriver` получил
-  `getDocument`/`waitForNode`/`sendMouse`/`click`/`clickNode`/`wheel`.
-- [x] **Пробы переписаны** — `e2e/outputPanel.test.ts` и
-  `e2e/outputPanelRegression.test.ts` на общих хелперах: 0 `sleep`, выделение
-  из `editor.state.selections`, координаты из `inspectState`/`clickText`.
-  `probeHarness.ts` удалён.
-- [x] **Механика ожиданий (Phase 2)** — серверный `TUIDom.waitForIdle` +
-  settle-глаголы + `waitUntil`; `inspectState()` виджетов в `NodeSnapshot.state`.
-- [x] **Параллельный прогон** — сборка в `globalSetup`, `fileParallelism` с
-  дефолтом «половина ядер», ручка `DIODE_E2E_WORKERS`.
-
-### Найденные дефекты
+## Найденные дефекты
 
 - [ ] **Открытый find + открытие второй вкладки роняет фокус, ввод уходит в
   невидимую вкладку.** `Ctrl+F` → набрать запрос → `Ctrl+P` → выбрать другой файл

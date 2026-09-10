@@ -2,7 +2,7 @@
 
 Часть архитектуры Diode — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
 История миграции Controllers → Workbench (задача завершена, слой Controllers растворён) —
-[../TODO/WorkbenchRefactoring.md](../TODO/WorkbenchRefactoring.md).
+в git (`docs/TODO/WorkbenchRefactoring.md` до удаления).
 
 Прикладной слой приложения. Здесь живут **сервисы** (логика приложения) и **компоненты**
 (UI-сборка поверх контролов TUIDom) — как в VS Code (services + Part/ViewPane), а также
