@@ -45,6 +45,12 @@ import {
     revealDefinitionAsideAction,
 } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { hideHoverAction, showHoverAction } from "../../contrib/hover/browser/hoverActions.ts";
+import {
+    closeParameterHintsAction,
+    showNextParameterHintAction,
+    showPrevParameterHintAction,
+    triggerParameterHintsAction,
+} from "../../contrib/parameterHints/browser/parameterHintsActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import { openKeybindingsAction, openSettingsAction } from "../../contrib/preferences/browser/preferencesActions.ts";
 import {
@@ -323,6 +329,7 @@ export const builtinActions: readonly CommandAction[] = [
     revealDefinitionAction,
     revealDefinitionAsideAction,
     showHoverAction,
+    triggerParameterHintsAction,
 
     // Clipboard
     clipboardCopyAction,
@@ -411,6 +418,12 @@ export const builtinActions: readonly CommandAction[] = [
     // Escape при открытом hover-попапе — тот же хвостовой приём, что у
     // hideSuggestWidget: биндинг `editorHoverVisible` перебивает editor-команды.
     hideHoverAction,
+    // Тот же приём для подсказки параметров: Escape закрывает её, а стрелки
+    // листают перегрузки — и то, и другое обязано перебить editor-команды, но
+    // только пока попап показан (`parameterHintsVisible` в `when`).
+    closeParameterHintsAction,
+    showNextParameterHintAction,
+    showPrevParameterHintAction,
 
     // Layout / Panel / Terminal (этап 11: run-обработчики поверх LayoutService/
     // PanelService/TerminalService). Ключи не пересекаются с editor/find/suggest-

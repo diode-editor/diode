@@ -23,7 +23,11 @@ import {
     MarkdownString,
     Position,
     ProgressLocation,
+    ParameterInformation,
     Range,
+    SignatureHelp,
+    SignatureHelpTriggerKind,
+    SignatureInformation,
     SymbolInformation,
     SnippetString,
     SymbolKind,
@@ -40,6 +44,41 @@ const RANGE = new Range(1, 2, 3, 4);
 const URI = Uri.file("/proj/a.ts");
 
 describe("vscodeTypes — LSP value-классы", () => {
+    it("SignatureHelp: конструктор без аргументов даёт пустые поля", () => {
+        // Конвертер клиента делает `new code.SignatureHelp()` и заполняет поля
+        // присваиванием — пустой конструктор обязан пережить это без падений,
+        // а `signatures` обязан быть массивом (по нему сразу идёт обход).
+        const help = new SignatureHelp();
+        expect(help.signatures).toEqual([]);
+        expect(help.activeSignature).toBe(0);
+        expect(help.activeParameter).toBe(0);
+    });
+
+    it("SignatureInformation / ParameterInformation: метки и документация", () => {
+        const signature = new SignatureInformation("greet(name: string): void");
+        expect(signature.label).toBe("greet(name: string): void");
+        expect(signature.parameters).toEqual([]);
+        expect(signature.documentation).toBeUndefined();
+        expect(signature.activeParameter).toBeUndefined();
+
+        const withDocs = new SignatureInformation("f()", new MarkdownString("**док**"));
+        expect((withDocs.documentation as MarkdownString).value).toBe("**док**");
+
+        // Метка параметра — строка ИЛИ пара офсетов (клиент объявляет серверу
+        // labelOffsetSupport, так что вторая форма приезжает как есть).
+        expect(new ParameterInformation("name: string").label).toBe("name: string");
+        expect(new ParameterInformation([6, 18]).label).toEqual([6, 18]);
+        expect(new ParameterInformation("name", "кого").documentation).toBe("кого");
+    });
+
+    it("SignatureHelpTriggerKind: значения протокола", () => {
+        // Их сравнивает codeConverter клиента на КАЖДОМ запросе — разъедься
+        // они с протоколом, сервер получил бы чужой triggerKind.
+        expect(SignatureHelpTriggerKind.Invoke).toBe(1);
+        expect(SignatureHelpTriggerKind.TriggerCharacter).toBe(2);
+        expect(SignatureHelpTriggerKind.ContentChange).toBe(3);
+    });
+
     it("Location: Range как есть, Position сворачивается в пустой Range", () => {
         expect(new Location(URI, RANGE).range).toBe(RANGE);
         const fromPosition = new Location(URI, new Position(5, 7));

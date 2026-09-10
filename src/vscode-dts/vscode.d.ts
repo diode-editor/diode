@@ -3730,6 +3730,192 @@ declare module "vscode" {
 		provideReferences(document: TextDocument, position: Position, context: ReferenceContext, token: CancellationToken): ProviderResult<Location[]>;
 	}
 
+	/**
+	 * Represents a parameter of a callable-signature. A parameter can
+	 * have a label and a doc-comment.
+	 */
+	export class ParameterInformation {
+
+		/**
+		 * The label of this signature.
+		 *
+		 * Either a string or inclusive start and exclusive end offsets within its containing
+		 * {@link SignatureInformation.label signature label}. *Note*: A label of type string must be
+		 * a substring of its containing signature information's {@link SignatureInformation.label label}.
+		 */
+		label: string | [number, number];
+
+		/**
+		 * The human-readable doc-comment of this signature. Will be shown
+		 * in the UI but can be omitted.
+		 */
+		documentation?: string | MarkdownString;
+
+		/**
+		 * Creates a new parameter information object.
+		 *
+		 * @param label A label string or inclusive start and exclusive end offsets within its containing signature label.
+		 * @param documentation A doc string.
+		 */
+		constructor(label: string | [number, number], documentation?: string | MarkdownString);
+	}
+
+	/**
+	 * Represents the signature of something callable. A signature
+	 * can have a label, like a function-name, a doc-comment, and
+	 * a set of parameters.
+	 */
+	export class SignatureInformation {
+
+		/**
+		 * The label of this signature. Will be shown in
+		 * the UI.
+		 */
+		label: string;
+
+		/**
+		 * The human-readable doc-comment of this signature. Will be shown
+		 * in the UI but can be omitted.
+		 */
+		documentation?: string | MarkdownString;
+
+		/**
+		 * The parameters of this signature.
+		 */
+		parameters: ParameterInformation[];
+
+		/**
+		 * The index of the active parameter.
+		 *
+		 * If provided, this is used in place of {@linkcode SignatureHelp.activeParameter}.
+		 */
+		activeParameter?: number;
+
+		/**
+		 * Creates a new signature information object.
+		 *
+		 * @param label A label string.
+		 * @param documentation A doc string.
+		 */
+		constructor(label: string, documentation?: string | MarkdownString);
+	}
+
+	/**
+	 * Signature help represents the signature of something
+	 * callable. There can be multiple signatures but only one
+	 * active and only one active parameter.
+	 */
+	export class SignatureHelp {
+
+		/**
+		 * One or more signatures.
+		 */
+		signatures: SignatureInformation[];
+
+		/**
+		 * The active signature.
+		 */
+		activeSignature: number;
+
+		/**
+		 * The active parameter of the active signature.
+		 */
+		activeParameter: number;
+	}
+
+	/**
+	 * How a {@linkcode SignatureHelpProvider} was triggered.
+	 */
+	export enum SignatureHelpTriggerKind {
+		/**
+		 * Signature help was invoked manually by the user or by a command.
+		 */
+		Invoke = 1,
+
+		/**
+		 * Signature help was triggered by a trigger character.
+		 */
+		TriggerCharacter = 2,
+
+		/**
+		 * Signature help was triggered by the cursor moving or by the document content changing.
+		 */
+		ContentChange = 3,
+	}
+
+	/**
+	 * Additional information about the context in which a
+	 * {@linkcode SignatureHelpProvider.provideSignatureHelp SignatureHelpProvider} was triggered.
+	 */
+	export interface SignatureHelpContext {
+		/**
+		 * Action that caused signature help to be triggered.
+		 */
+		readonly triggerKind: SignatureHelpTriggerKind;
+
+		/**
+		 * Character that caused signature help to be triggered.
+		 *
+		 * This is `undefined` when signature help is not triggered by typing, such as when manually invoking
+		 * signature help or when moving the cursor.
+		 */
+		readonly triggerCharacter: string | undefined;
+
+		/**
+		 * `true` if signature help was already showing when it was triggered.
+		 *
+		 * Retriggers occur when the signature help is already active and can be caused by actions such as
+		 * typing a trigger character, a cursor move, or document content changes.
+		 */
+		readonly isRetrigger: boolean;
+
+		/**
+		 * The currently active {@linkcode SignatureHelp}.
+		 *
+		 * The `activeSignatureHelp` has its {@linkcode SignatureHelp.activeSignature activeSignature} field updated based on
+		 * the user arrowing through available signatures.
+		 */
+		readonly activeSignatureHelp: SignatureHelp | undefined;
+	}
+
+	/**
+	 * The signature help provider interface defines the contract between extensions and
+	 * the [parameter hints](https://code.visualstudio.com/docs/editor/intellisense)-feature.
+	 */
+	export interface SignatureHelpProvider {
+
+		/**
+		 * Provide help for the signature at the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @param context Information about how signature help was triggered.
+		 *
+		 * @returns Signature help or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideSignatureHelp(document: TextDocument, position: Position, token: CancellationToken, context: SignatureHelpContext): ProviderResult<SignatureHelp>;
+	}
+
+	/**
+	 * Metadata about a registered {@linkcode SignatureHelpProvider}.
+	 */
+	export interface SignatureHelpProviderMetadata {
+		/**
+		 * List of characters that trigger signature help.
+		 */
+		readonly triggerCharacters: readonly string[];
+
+		/**
+		 * List of characters that re-trigger signature help.
+		 *
+		 * These trigger characters are only active when signature help is already showing. All trigger characters
+		 * are also counted as re-trigger characters.
+		 */
+		readonly retriggerCharacters: readonly string[];
+	}
+
 	export namespace languages {
 
 		/**
@@ -3799,6 +3985,30 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerReferenceProvider(selector: DocumentSelector, provider: ReferenceProvider): Disposable;
+
+		/**
+		 * Register a signature help provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are sorted
+		 * by their {@link languages.match score} and called sequentially until a provider returns a
+		 * valid result.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A signature help provider.
+		 * @param triggerCharacters Trigger signature help when the user types one of the characters, like `,` or `(`.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerSignatureHelpProvider(selector: DocumentSelector, provider: SignatureHelpProvider, ...triggerCharacters: string[]): Disposable;
+
+		/**
+		 * @see {@link languages.registerSignatureHelpProvider}
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A signature help provider.
+		 * @param metadata Information about the provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerSignatureHelpProvider(selector: DocumentSelector, provider: SignatureHelpProvider, metadata: SignatureHelpProviderMetadata): Disposable;
 
 		/**
 		 * Register a folding range provider.

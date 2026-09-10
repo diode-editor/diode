@@ -2,11 +2,14 @@
 
 Статус: **[~] платформа готова** — document sync + definition (F12) + диагностики +
 автодополнение (Ctrl+Space, триггер-символы, панель описания, авто-импорт) + hover
-(Ctrl+K Ctrl+U) + Find All References (Ctrl+K Ctrl+R, панель в сайдбаре) работают со
+(Ctrl+K Ctrl+U) + Find All References (Ctrl+K Ctrl+R, панель в сайдбаре) +
+подсказка параметров (попап у каретки по «(») работают со
 стоковым `typescript-language-server` end-to-end (юнит-интеграция
 `extensionHost.typescriptLsp.test.ts`, `.completion.test.ts`, `.hover.test.ts`,
-`.references.test.ts`; e2e `e2e/gotoDefinition.test.ts`, `e2e/references.test.ts`;
-скриншот-сценарии `goto-definition`, `lsp-completion`, `references`).
+`.references.test.ts`, `.signatureHelp.test.ts`; e2e `e2e/gotoDefinition.test.ts`,
+`e2e/references.test.ts`, `e2e/parameterHints.test.ts`;
+скриншот-сценарии `goto-definition`, `lsp-completion`, `references`,
+`parameter-hints`).
 Открыто — «Отложенное» ниже (второй язык, закрытие остальных стабов).
 
 ## Архитектура (проверена спайком, ветка `worktree-lsp-spike`)
@@ -136,6 +139,7 @@ go-to-definition работает; сервер-внук корректно уб
 | `languages.match` | real | скоринг через `matchDocumentSelector` (10/0) — vscode-languageclient фильтрует ИМ документы для синхронизации с сервером; наивное «всегда 10» скармливало ts-серверу markdown и роняло его хендлеры |
 | `languages.registerHoverProvider` | real | seam `iHoverSource` → RPC `languages.provideHover` (таймаут 5000 мс — тот же холодный сервер); **несколько провайдеров** конкатенируются в порядке регистрации (по `WireHover` на непустой ответ), сбойный пропускается; wire несёт сырой markdown, стрип — в UI (`stripMarkdown` в `HoverService`). UI — contrib `hover` (пара `HoverService`/`HoverComponent` по образцу suggest, элемент `HoverElement` с рамкой и переносом), Ctrl+K Ctrl+U (не VS Code-овский Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает байтом Tab, и тот чорд там недостижим и занят фолбэком мультикурсора; одиночный `alt+буква` в дефолты не берём — `alt` layout-sensitive и молчит на кириллице), Escape/правка/каретка/фокус закрывают. Люфты v1: контент — плоский текст (markdown-рендерера нет), высота клампится без скролла, мышиного триггера нет |
 | `languages.registerReferenceProvider` | real | seam `iReferenceSource` → RPC `languages.provideReferences` (таймаут 5000 мс — поиск ссылок по проекту дороже одиночного перехода); в параметрах LSP-контекст `includeDeclaration` (шлём `true`, как VS Code); **несколько провайдеров** конкатенируются в порядке регистрации, сбойный пропускается. UI — contrib `references`: вьюлет сайдбара REFERENCES (`ReferencesComponent` + `ReferencesService`), файлы со счётчиком и строки кода с подсветкой вхождения — строки общие с панелью поиска (`searchResultRows`). Текст строк LSP не отдаёт: добираем сами (`referencePreview.ts`) из открытой модели, иначе с диска. Ctrl+K Ctrl+R (и канонический Shift+Alt+F12 вторым биндом), F4/Shift+F4 — обход ссылок из редактора. Люфты v1: нет истории запросов, удаления результата из списка, иерархии каталогов и peek-виджета |
+| `languages.registerSignatureHelpProvider` | real | seam `iSignatureHelpSource` → RPC `languages.provideSignatureHelp` (таймаут 5000 мс — тот же холодный сервер, что у hover). В отличие от hover/references ответы НЕ склеиваются: провайдеров обходим по очереди и берём первый непустой (так предписывает vscode API). **Грабля класса-ловушки**: конвертер клиента конструирует `new code.SignatureHelp()` (без аргументов), `SignatureInformation`, `ParameterInformation` на каждый ответ и читает `code.SignatureHelpTriggerKind.*` на каждом запросе — все четыре пришлось добавить в стаб. Поддержаны ОБЕ перегрузки регистрации (метаданные объектом и rest-строки): клиент выбирает первую, когда сервер прислал `retriggerCharacters`. Триггер-символы (`(`, `,`, `<`) и ретриггеры (`)`) едут в ядро через `languages.updateSubscriptions` — тот же канал, что у completion. UI — contrib `parameterHints`: попап НАД строкой каретки (автодополнение предпочитает низ), счётчик перегрузок, подсветка активного параметра, Ctrl+K Ctrl+Space (канонический Ctrl+Shift+Space вторым биндом), Up/Down листают перегрузки, уступая попапу автодополнения. Люфты v1 — [ParameterHints.md](ParameterHints.md) |
 | остальные `register*Provider` (23) | no-op | закрытие по образцу definition/hover/references: core seam + RPC `languages.provideX` + UI-потребитель (rename, implementations и т.д.; для implementations/typeDefinition/declaration панель ссылок уже готова) |
 | `workspace.applyEdit` | no-op | врёт `true`; закрытие: RPC `workspace.applyEdit` → `EditorService`/`BulkEdit` (нужен rename/code actions) |
 | `workspace.getWorkspaceFolder` | naive | префикс-матч + fallback на первую папку |

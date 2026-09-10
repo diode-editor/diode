@@ -98,6 +98,14 @@ import {
     DefinitionServiceDIToken,
 } from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
 import { HoverComponent, HoverComponentDIToken } from "../../workbench/contrib/hover/browser/hoverComponent.ts";
+import {
+    ParameterHintsComponent,
+    ParameterHintsComponentDIToken,
+} from "../../workbench/contrib/parameterHints/browser/parameterHintsComponent.ts";
+import {
+    ParameterHintsService,
+    ParameterHintsServiceDIToken,
+} from "../../workbench/contrib/parameterHints/browser/parameterHintsService.ts";
 import { HoverService, HoverServiceDIToken } from "../../workbench/contrib/hover/browser/hoverService.ts";
 import {
     ReferencesComponent,
@@ -321,6 +329,10 @@ export const workbenchModule: ContainerModule = (container) => {
     // (hoverSource группы, стрип markdown, закрытие по фокусу/каретке).
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
+    // Подсказка параметров: та же пара — компонент владеет попапом у каретки,
+    // сервис ходит в signatureHelpSource группы и ловит набор триггер-символов.
+    container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
+    container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
     // References: вьюлет сайдбара со ссылками + сервис, который его наполняет
     // (referenceSource группы → текст строк → панель).
     container.bind(ReferencesComponentDIToken, ReferencesComponent);

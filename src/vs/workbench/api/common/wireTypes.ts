@@ -10,6 +10,12 @@ import type {
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
+import type {
+    ICoreParameterInfo,
+    ICoreSignature,
+    ICoreSignatureHelp,
+    SignatureHelpTriggerKind,
+} from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
@@ -902,6 +908,159 @@ export async function requestReferences(
     // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
     if (outcome === TIMED_OUT) return [];
     return wireToCoreReferences(parseWireReferences(outcome));
+}
+
+// ─── Signature Help (LSP) ────────────────────────────────────────────────────
+
+/**
+ * Параметры запроса подсказки параметров (host → subprocess). К форме
+ * hover-запроса добавлен LSP-контекст: чем спровоцирован запрос и что показано
+ * сейчас (по нему сервер удерживает выбранную пользователем перегрузку).
+ */
+export interface IWireSignatureHelpParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    readonly text: string;
+    readonly line: number;
+    readonly character: number;
+    readonly triggerKind: SignatureHelpTriggerKind;
+    readonly triggerCharacter?: string;
+    readonly isRetrigger: boolean;
+    readonly activeSignatureHelp?: ICoreSignatureHelp;
+}
+
+/**
+ * Разбирает сырой ответ подсказки. Отдельной `Wire`-формы у неё нет:
+ * диапазонов подсказка не несёт, поэтому проволочная и ядерная формы совпадают
+ * до байта — дублировать типы ради переименования незачем.
+ *
+ * Разбор СТРОГИЙ (в отличие от drop+skip у hover): битая сигнатура или параметр
+ * роняют весь ответ в `null`. Причина — индексы: `activeSignature` и
+ * `activeParameter` осмысленны только против полного списка, и выброс одного
+ * элемента сдвинул бы подсветку на соседний параметр молча.
+ */
+export function parseWireSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
+    const obj = asRawRecord(raw);
+    if (obj === null) return null;
+    if (!Array.isArray(obj.signatures)) return null;
+
+    const signatures: ICoreSignature[] = [];
+    for (const item of obj.signatures) {
+        const signature = parseWireSignature(item);
+        if (signature === null) return null;
+        signatures.push(signature);
+    }
+    if (signatures.length === 0) return null;
+
+    return {
+        signatures,
+        activeSignature: clampIndex(obj.activeSignature, signatures.length),
+        // `-1` — легальное «активного параметра нет» (noActiveParameterSupport),
+        // поэтому нижней границы здесь нет, только отбраковка не-чисел.
+        activeParameter: finiteNumber(obj.activeParameter) ?? 0,
+    };
+}
+
+/** Одна сигнатура из сырого ответа; `null` — форма чужая. */
+function parseWireSignature(raw: unknown): ICoreSignature | null {
+    const obj = asRawRecord(raw);
+    if (obj === null) return null;
+    if (typeof obj.label !== "string") return null;
+
+    const parameters: ICoreParameterInfo[] = [];
+    if (obj.parameters !== undefined) {
+        if (!Array.isArray(obj.parameters)) return null;
+        for (const item of obj.parameters) {
+            const parameter = parseWireParameter(item);
+            if (parameter === null) return null;
+            parameters.push(parameter);
+        }
+    }
+
+    const documentation = nonEmptyString(obj.documentation);
+    const activeParameter = finiteNumber(obj.activeParameter);
+    return {
+        label: obj.label,
+        parameters,
+        ...(documentation === null ? {} : { documentation }),
+        ...(activeParameter === null ? {} : { activeParameter }),
+    };
+}
+
+/** Один параметр; метка — подстрока метки сигнатуры либо пара офсетов. */
+function parseWireParameter(raw: unknown): ICoreParameterInfo | null {
+    const obj = asRawRecord(raw);
+    if (obj === null) return null;
+    const label = parseParameterLabel(obj.label);
+    if (label === null) return null;
+    const documentation = nonEmptyString(obj.documentation);
+    return { label, ...(documentation === null ? {} : { documentation }) };
+}
+
+/** Метка параметра: строка или пара конечных офсетов `[start, end)`. */
+function parseParameterLabel(raw: unknown): string | readonly [number, number] | null {
+    if (typeof raw === "string") return raw;
+    if (!Array.isArray(raw) || raw.length !== 2) return null;
+    const start = finiteNumber(raw[0]);
+    const end = finiteNumber(raw[1]);
+    if (start === null || end === null) return null;
+    return [start, end];
+}
+
+/** Индекс активной сигнатуры: не-целое или выход за список → 0. */
+function clampIndex(raw: unknown, length: number): number {
+    const index = integerNumber(raw);
+    if (index === null) return 0;
+    // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
+    if (index < 0 || index >= length) return 0;
+    return index;
+}
+
+/**
+ * Сырое значение как объект-словарь; `null` — не объект (в том числе `null`,
+ * у которого `typeof` тоже «object»).
+ */
+function asRawRecord(raw: unknown): Record<string, unknown> | null {
+    // Stryker disable next-line ConditionalExpression: оба конъюнкта в рантайме избыточны — примитив отсеют проверки полей у вызывающих (у числа нет ни `signatures`, ни строкового `label`), а `null` уйдёт из приведения тем же `null`, который вызывающие проверяют; нужны они компилятору для сужения типа
+    return typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : null;
+}
+
+/**
+ * Конечное число из сырого поля; `null` — не число, NaN или Infinity.
+ * `Number.isFinite` типы не приводит (для строки `"1"` он уже false), но и не
+ * сужает их для компилятора — отсюда приведение вместо второй проверки.
+ */
+function finiteNumber(raw: unknown): number | null {
+    return Number.isFinite(raw) ? (raw as number) : null;
+}
+
+/** Целое из сырого поля; `null` — не число или дробное (см. {@link finiteNumber}). */
+function integerNumber(raw: unknown): number | null {
+    return Number.isInteger(raw) ? (raw as number) : null;
+}
+
+/** Непустая строка из сырого поля; `null` — не строка или пустая. */
+function nonEmptyString(raw: unknown): string | null {
+    if (typeof raw !== "string" || raw === "") return null;
+    return raw;
+}
+
+/**
+ * Запрашивает у subprocess'а подсказку параметров с таймаутом. `null` — на
+ * таймаут, ошибку RPC или невалидный ответ (попап просто не откроется; как и
+ * hover, подсказка не блокирует набор). `request` — голая функция для
+ * юнит-тестов через {@link InProcessChannelPair} без форка subprocess'а.
+ */
+export async function requestSignatureHelp(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireSignatureHelpParams,
+    timeoutMs: number,
+): Promise<ICoreSignatureHelp | null> {
+    const outcome = await raceWithTimeout(request("languages.provideSignatureHelp", params), timeoutMs);
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не объект с `signatures`, поэтому разбор ниже вернул бы тот же `null`; ранний выход только называет причину
+    if (outcome === TIMED_OUT) return null;
+    return parseWireSignatureHelp(outcome);
 }
 
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────

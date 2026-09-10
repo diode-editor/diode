@@ -620,8 +620,12 @@ function wordStart(line: string, character: number): number {
 /**
  * Общая эвристика «вставлен ровно один символ у каретки» (набор с клавиатуры, а
  * не вставка блока/удаление). `charClass` — необязательный фильтр по символу.
+ *
+ * Экспортируется ради второго потребителя — подсказки параметров
+ * (`contrib/parameterHints`): у неё та же задача «отличить набор символа от
+ * движения каретки», и своя копия эвристики разъезжалась бы с этой.
  */
-function isSingleCharInsert(
+export function isSingleCharInsert(
     line: string,
     active: IPosition,
     lastLineIndex: number,

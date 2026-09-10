@@ -230,6 +230,14 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     group.hoverSource = (req) => host.provideHover(req);
     // References (LSP): источник ссылок на символ — как в extensionHostModule.
     group.referenceSource = (req) => host.provideReferences(req);
+    // Signature help (LSP): источник подсказки параметров — как в extensionHostModule.
+    group.signatureHelpSource = (req) => host.provideSignatureHelp(req);
+    group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
+    group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
+    host.onSignatureHelpTriggerCharactersChanged(() => {
+        group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
+        group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
+    });
     // Folding (#87): источник областей сворачивания — провайдеры расширений через host.
     group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
     host.onFoldingProvidersChanged(() => {

@@ -63,6 +63,9 @@ describe("LanguagesNamespace — registerReferenceProvider", () => {
                     hasDefinitionProviders: false,
                     hasHoverProviders: false,
                     hasReferenceProviders: true,
+                    hasSignatureHelpProviders: false,
+                    signatureHelpTriggerCharacters: [],
+                    signatureHelpRetriggerCharacters: [],
                     completionTriggerCharacters: [],
                 },
             },
@@ -84,6 +87,9 @@ describe("LanguagesNamespace — registerReferenceProvider", () => {
             hasDefinitionProviders: false,
             hasHoverProviders: false,
             hasReferenceProviders: false,
+            hasSignatureHelpProviders: false,
+            signatureHelpTriggerCharacters: [],
+            signatureHelpRetriggerCharacters: [],
             completionTriggerCharacters: [],
         });
         // Повторный dispose — идемпотентен, без лишних нотификаций.

@@ -900,6 +900,58 @@ export class Hover {
 }
 
 /** Наивный WorkspaceEdit — хранит правки, применение — за `workspace.applyEdit`. */
+/**
+ * Как был вызван signature-help-провайдер. Значения — из vscode API; их читает
+ * конвертер стокового клиента (`codeConverter.asSignatureHelpTriggerKind`
+ * сравнивает `code.SignatureHelpTriggerKind.*` на КАЖДОМ запросе), поэтому
+ * enum обязан существовать, даже если бы мы его сами не использовали.
+ */
+export enum SignatureHelpTriggerKind {
+    Invoke = 1,
+    TriggerCharacter = 2,
+    ContentChange = 3,
+}
+
+/**
+ * Параметр сигнатуры. `label` — либо подстрока метки сигнатуры, либо пара
+ * офсетов `[start, end)` внутри неё: клиент объявляет серверу
+ * `labelOffsetSupport: true`, так что вторая форма — легальный ответ.
+ */
+export class ParameterInformation {
+    public label: string | [number, number];
+    public documentation?: string | MarkdownString;
+
+    public constructor(label: string | [number, number], documentation?: string | MarkdownString) {
+        this.label = label;
+        this.documentation = documentation;
+    }
+}
+
+/** Одна сигнатура (перегрузка) вызываемого символа. */
+export class SignatureInformation {
+    public label: string;
+    public documentation?: string | MarkdownString;
+    public parameters: ParameterInformation[] = [];
+    public activeParameter?: number;
+
+    public constructor(label: string, documentation?: string | MarkdownString) {
+        this.label = label;
+        this.documentation = documentation;
+    }
+}
+
+/**
+ * Подсказка параметров целиком. Конструктор БЕЗ аргументов — `protocolConverter`
+ * клиента делает `new code.SignatureHelp()` и заполняет поля присваиванием (та
+ * же грабля, что с `CompletionList`: без класса конвертация ответа падала бы
+ * целиком, а след ушёл бы только в `client.outputChannel`).
+ */
+export class SignatureHelp {
+    public signatures: SignatureInformation[] = [];
+    public activeSignature = 0;
+    public activeParameter = 0;
+}
+
 export class WorkspaceEdit {
     private readonly edits = new Map<string, { range: Range; newText: string }[]>();
 
