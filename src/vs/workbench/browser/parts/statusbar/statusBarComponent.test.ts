@@ -53,6 +53,7 @@ describe("StatusBarComponent", () => {
         expect(statusSegments(component.view)).toEqual([
             { text: "legacy", side: "left" },
             { text: "Ln 1, Col 1", side: "right" },
+            { text: "Tab Size: 4", side: "right" },
             { text: "UTF-8", side: "right" },
             { text: "LF", side: "right" },
             // NULL_LANGUAGE_SERVICE не знает display name — беджик показывает
@@ -79,7 +80,7 @@ describe("StatusBarComponent", () => {
         editor.viewState.selections = [];
 
         // Язык остаётся: активный редактор есть, пропадает только Ln/Col.
-        expect(statusTexts(component.view)).toEqual(["legacy", "UTF-8", "LF", "plaintext"]);
+        expect(statusTexts(component.view)).toEqual(["legacy", "Tab Size: 4", "UTF-8", "LF", "plaintext"]);
     });
 
     it("shows the terminal tier as the first segment", () => {

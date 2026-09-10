@@ -13,7 +13,7 @@ import { createStatusBarHarness } from "./statusBarComponent.testUtils.ts";
  * ровно два пробела — как в VS Code.
  */
 const LEFT_TEXT = " legacy ";
-const RIGHT_TEXT = " Ln 1, Col 1  UTF-8  LF  plaintext ";
+const RIGHT_TEXT = " Ln 1, Col 1  Tab Size: 4  UTF-8  LF  plaintext ";
 
 describe("StatusBarComponent — кадр", () => {
     let savedEnv: NodeJS.ProcessEnv;
@@ -47,9 +47,9 @@ describe("StatusBarComponent — кадр", () => {
     }
 
     it("паддинги по краям, левые сегменты слева, правые прижаты к правому краю", () => {
-        const line = renderLine(47);
-        // 1 (padL) + левый сегмент + centerFill + правая группа + 1 (padR) = 47.
-        const fill = " ".repeat(47 - 1 - LEFT_TEXT.length - RIGHT_TEXT.length - 1);
+        const line = renderLine(62);
+        // 1 (padL) + левый сегмент + centerFill + правая группа + 1 (padR) = 62.
+        const fill = " ".repeat(62 - 1 - LEFT_TEXT.length - RIGHT_TEXT.length - 1);
         expect(line).toBe(` ${LEFT_TEXT}${fill}${RIGHT_TEXT} `);
     });
 

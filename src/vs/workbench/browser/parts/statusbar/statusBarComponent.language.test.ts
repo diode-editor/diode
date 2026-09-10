@@ -48,6 +48,7 @@ describe("StatusBarComponent — language badge", () => {
         expect(statusSegments(component.view)).toEqual([
             { text: "legacy", side: "left" },
             { text: "Ln 1, Col 1", side: "right" },
+            { text: "Tab Size: 4", side: "right" },
             { text: "UTF-8", side: "right" },
             { text: "LF", side: "right" },
             { text: "TypeScript", side: "right" },

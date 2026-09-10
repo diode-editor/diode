@@ -42,7 +42,7 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         const { component, source } = createStatusBarHarness();
         source.openEditor();
 
-        expect(itemTexts(component)).toEqual(["legacy", "Ln 1, Col 1", "UTF-8", "LF", "plaintext"]);
+        expect(itemTexts(component)).toEqual(["legacy", "Ln 1, Col 1", "Tab Size: 4", "UTF-8", "LF", "plaintext"]);
     });
 
     it("сегмент кодировки показывает statusLabel и трекает setEncoding без ручного обновления", () => {
