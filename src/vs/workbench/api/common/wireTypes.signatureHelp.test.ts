@@ -56,6 +56,8 @@ describe("wireTypes — parseWireSignatureHelp", () => {
     it("не-объект, отсутствие сигнатур и пустой список — подсказки нет", () => {
         expect(parseWireSignatureHelp("junk")).toBeNull();
         expect(parseWireSignatureHelp(null)).toBeNull();
+        // `undefined` приезжает, когда субпроцесс ответил пустотой.
+        expect(parseWireSignatureHelp(undefined)).toBeNull();
         expect(parseWireSignatureHelp({ signatures: "нет" })).toBeNull();
         expect(parseWireSignatureHelp({ signatures: [] })).toBeNull();
     });
