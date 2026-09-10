@@ -6,14 +6,27 @@
 
 ## Слои и оси
 
-- [ ] **find/suggest → `editor/contrib`.** Сервисные части фич редактора
-  (`FindService`/`CompletionService` и их компоненты) живут в
-  `workbench/contrib/{find,suggest}`, у vscode — `editor/contrib`. DI-запрет
+- [ ] **Фичи редактора → `editor/contrib`.** В `workbench/contrib/` живут
+  `find`, `suggest`, `hover`, `gotoDefinition`, `parameterHints` — у vscode все
+  они в `editor/contrib/` (`parameterHints` там разложен на
+  `parameterHints.ts`/`parameterHintsModel.ts`/`parameterHintsWidget.ts`/
+  `provideSignatureHelp.ts` — импорты видно в наших же diff-фикстурах,
+  `editor/common/diff/__fixtures__/ts-unfragmented-diffing/1.tst`). DI-запрет
   для editor-слоя снят (токен объявляется рядом со своим типом, пилот —
-  `editor/contrib/contextmenu`), но переезду мешает не он: оба сервиса честно
-  зависят от `EditorService` (workbench-понятия групп/вкладок) и
-  `Find/SuggestComponentDIToken` (workbench). Нужна развязка — в upstream
-  editor-contrib работают с одним `ICodeEditor`, а не с сервисом групп.
+  `editor/contrib/contextmenu`), но переезду мешает не он: сервисы честно
+  зависят от `EditorService` (workbench-понятия групп/вкладок) и от своих
+  `*ComponentDIToken` (workbench). Нужна развязка — в upstream editor-contrib
+  работают с одним `ICodeEditor`, а не с сервисом групп.
+
+  Смежное следствие той же развязки: у vscode реестр провайдеров
+  (`ILanguageFeaturesService.signatureHelpProvider` и соседи) живёт в ядре
+  редактора со скорингом селекторов, а extension host регистрируется в него
+  через `MainThreadLanguageFeatures`. У нас реестра в ядре нет: на фичу — одна
+  функция-шов (`EditorService.signatureHelpSource`, `hoverSource`, …), матчинг
+  селекторов и обход провайдеров живут в субпроцессе, а метаданные вроде
+  триггер-символов пушатся нотификацией `languages.updateSubscriptions`.
+  Переезд в `editor/contrib` без реестра даст фичам editor-слоя зависимость на
+  workbench-шов — то есть решать эти два пункта имеет смысл вместе.
 - [ ] **Single-process исключения env-оси** (`EXCEPTIONS` в
   `scripts/check-layers.mjs`): «browser»-сторона напрямую зовёт node-сервисы
   (`services/search/node`, `services/terminalEnvironment/node`,

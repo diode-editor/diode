@@ -7,8 +7,9 @@ import { ParameterHintsServiceDIToken } from "./parameterHintsService.ts";
  * Стрелки листают перегрузки, только когда их больше одной, попап показан — и
  * НЕ показан попап автодополнения: у каретки они живут одновременно (подсказка
  * сверху, автодополнение снизу), и в этой паре стрелки принадлежат списку
- * пунктов. В VS Code тот же порядок задан весом кейбинда (suggest —
- * EditorContrib+90, parameter hints — +75), у нас его выражает `when`.
+ * пунктов. В VS Code тот же порядок задан весами кейбиндов (у suggest он выше),
+ * у нас его выражает `when` — весов в реестре нет, выигрывает последний с
+ * проходящим условием.
  */
 const MULTIPLE_SIGNATURES = "parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible";
 
