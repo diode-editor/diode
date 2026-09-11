@@ -5,6 +5,7 @@ import {
     DEFS_PY,
     installBasedpyright,
     MAIN_PY,
+    MARKETPLACE_OFFLINE,
     PY_LANGUAGE_SERVICE,
     until,
     type IInstalledBasedpyright,
@@ -18,10 +19,11 @@ import { Uri } from "../../../../base/common/uri.ts";
 
 let installed: IInstalledBasedpyright;
 
-describe("ExtensionHost — references от стокового basedpyright", () => {
+// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от стокового basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
-    }, 60_000);
+    }, 120_000);
 
     afterAll(() => {
         installed.dispose();

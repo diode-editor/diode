@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
     CLIENT_CRASH_PATTERNS,
     installBasedpyright,
+    MARKETPLACE_OFFLINE,
     PY_LANGUAGE_SERVICE,
     until,
     type IInstalledBasedpyright,
@@ -21,10 +22,11 @@ const MAIN_PY = 'text = "hi"\ntext.\n';
 
 let installed: IInstalledBasedpyright;
 
-describe("ExtensionHost — completion от стокового basedpyright", () => {
+// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от стокового basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
-    }, 60_000);
+    }, 120_000);
 
     afterAll(() => {
         installed.dispose();

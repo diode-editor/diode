@@ -1,23 +1,20 @@
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { BASEDPYRIGHT_ID, MARKETPLACE_OFFLINE } from "../src/TestUtils/basedpyrightFixture.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Python LSP от НАСТОЯЩЕГО стороннего basedpyright.vsix в SEA-бинаре: vsix
- * ставится штатным `--install-extension`, клиент внутри него форкает вшитый
+ * Python LSP от НАСТОЯЩЕГО стороннего basedpyright в SEA-бинаре: расширение
+ * ставится ИЗ МАГАЗИНА штатным `--install-extension <id>` (последняя
+ * опубликованная версия — версию в репозитории не пиним: обновилась запись и
+ * сломалась, значит краснеем и идём чинить), клиент внутри vsix форкает вшитый
  * сервер (TransportKind.ipc → fork process.execPath — это и есть прогон
  * env-фикса runAsNode под SEA). Ассерты ждут текст, которого НЕТ в буфере
  * (грабля «слабый ассерт прячет неработающую фичу» из docs/TODO/Suggest.md).
  */
-
-const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
-const VSIX = resolve(REPO_ROOT, "e2e/fixtures/basedpyright/detachhead.basedpyright-1.40.0.vsix");
 
 const DEFS_PY = 'def greet(name: str) -> str:\n    return "hi " + name\n';
 // Ошибка типов: greet возвращает str, а reply аннотирован int → squiggle.
@@ -40,8 +37,9 @@ async function waitForServerReady(session: {
 }
 
 // Extension-host subprocess + форк language-сервера — Linux-only, как hover /
-// gotoDefinition / editorconfig-stock (см. docs/TODO/E2E.md).
-describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
+// gotoDefinition / editorconfig-stock (см. docs/TODO/E2E.md); без сети сьют
+// пропускается — расширение приезжает из магазина.
+describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый basedpyright.vsix (Python LSP)",
     () => {
         beforeAll(async () => {
@@ -51,7 +49,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
         it("hover: Ctrl+K Ctrl+U показывает сигнатуру из другого файла", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
-                installVsix: [VSIX],
+                installVsix: [BASEDPYRIGHT_ID],
                 open: ["main.py"],
             });
             await session.waitForNode("EditorElement");
@@ -83,7 +81,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
         it("F12 прыгает в объявление greet в defs.py", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
-                installVsix: [VSIX],
+                installVsix: [BASEDPYRIGHT_ID],
                 open: ["main.py"],
             });
             await session.waitForNode("EditorElement");
@@ -115,7 +113,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
         it("точка открывает попап с членами int из typeshed", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
-                installVsix: [VSIX],
+                installVsix: [BASEDPYRIGHT_ID],
                 open: ["main.py"],
             });
             await session.waitForNode("EditorElement");
@@ -138,7 +136,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
         it("«(» открывает подсказку параметров с сигнатурой greet", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
-                installVsix: [VSIX],
+                installVsix: [BASEDPYRIGHT_ID],
                 open: ["main.py"],
             });
             await session.waitForNode("EditorElement");
@@ -157,7 +155,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
         it("Ctrl+K Ctrl+R собирает ссылки из двух файлов во вьюлет REFERENCES", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
-                installVsix: [VSIX],
+                installVsix: [BASEDPYRIGHT_ID],
                 // Вьюлет сайдбара собирается только при открытой папке (см. references.test.ts).
                 open: [".", "main.py"],
             });

@@ -198,13 +198,13 @@ registry/v1/meta/<id>.json
 
 - [x] **Кандидат: `detachhead.basedpyright` 1.40.0** — опубликован: запись
   `proxy-openvsx` в `diode-editor.github.io` (URL артефакта open-vsx + sha256
-  `67e47122039ab2a687dd31e470eaa282093efefe7ad20f502c76331b8d058333`, сверен с
-  e2e-фикстурой) и поведенческий смоук в `e2e/marketplace/checks.ts`
-  (установка по id → undercurl-диагностика «is not assignable» на .py-файле).
-  Проверен в Diode насквозь (сьюты `extensionHost.pythonLsp*`, e2e
-  `pythonLsp.test.ts`, сценарий `python-lsp`; герметичные тесты живут на
-  закоммиченной фикстуре `e2e/fixtures/basedpyright/` и на магазин не
-  переводятся). Деталь: приложение держит курируемый дефолт
+  `67e47122039ab2a687dd31e470eaa282093efefe7ad20f502c76331b8d058333`) и
+  поведенческий смоук в `e2e/marketplace/checks.ts` (установка по id →
+  undercurl-диагностика «is not assignable» на .py-файле). Все сьюты на
+  стоковый basedpyright (`extensionHost.pythonLsp*`, e2e `pythonLsp.test.ts`,
+  сценарий `python-lsp`) берут расширение ИЗ МАГАЗИНА — последнюю
+  опубликованную версию, закоммиченного vsix в репозитории нет; политика —
+  [TESTING.md](../TESTING.md). Деталь: приложение держит курируемый дефолт
   `basedpyright.importStrategy: "useBundled"` (`curatedConfigInjection` в
   `main.ts`) — без него активация падает на API ms-python.python (см.
   [LSP.md](LSP.md)); смоук магазина доказывает, что дефолт применяется и при

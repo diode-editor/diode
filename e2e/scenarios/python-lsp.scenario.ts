@@ -4,15 +4,14 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Python из коробки: НАСТОЯЩИЙ сторонний basedpyright.vsix (фикстура с
-// open-vsx) ставится штатным installVsix, его вшитый сервер даёт диагностику
-// (squiggle на намеренной ошибке типов), hover с сигнатурой из другого файла
-// и вьюлет REFERENCES. Демо закрывает видимую часть: сигнатура и строки
-// объявления добраны из defs.py, которого нет в открытом буфере.
+// Python из коробки: НАСТОЯЩИЙ сторонний basedpyright ставится ИЗ МАГАЗИНА
+// (последняя опубликованная версия, установка по id), его вшитый сервер даёт
+// диагностику (squiggle на намеренной ошибке типов), hover с сигнатурой из
+// другого файла и вьюлет REFERENCES. Демо закрывает видимую часть: сигнатура
+// и строки объявления добраны из defs.py, которого нет в открытом буфере.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "pySample");
 const mainFile = resolve(sampleDir, "main.py");
-const vsix = resolve(repoRoot, "e2e", "fixtures", "basedpyright", "detachhead.basedpyright-1.40.0.vsix");
 
 /** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) — сигнал «сервер поднялся». */
 const UNDERCURL = 8;
@@ -21,7 +20,8 @@ export default defineScenario({
     name: "python-lsp",
     title: "Python LSP из коробки: basedpyright — squiggle, hover, references",
     open: [sampleDir, mainFile],
-    installVsix: [vsix],
+    installVsix: ["detachhead.basedpyright"],
+    network: true,
     cols: 100,
     rows: 24,
     // Extension-host сценарии гоняют subprocess + форк сервера — Linux only.

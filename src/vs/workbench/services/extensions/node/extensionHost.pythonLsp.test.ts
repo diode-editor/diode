@@ -5,6 +5,7 @@ import {
     DEFS_PY,
     installBasedpyright,
     MAIN_PY,
+    MARKETPLACE_OFFLINE,
     PY_LANGUAGE_SERVICE,
     until,
     type IInstalledBasedpyright,
@@ -23,11 +24,12 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 let installed: IInstalledBasedpyright;
 
-describe("ExtensionHost — стоковый basedpyright.vsix (Python LSP, сквозняк)", () => {
+// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpyright.vsix (Python LSP, сквозняк)", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
         expect(installed.registration.id).toBe("detachhead.basedpyright");
-    }, 60_000);
+    }, 120_000);
 
     afterAll(() => {
         installed.dispose();

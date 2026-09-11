@@ -146,10 +146,11 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   `curatedConfigInjection` в `main.ts` (манифестный `fromEnvironment` зовёт API
   ms-python.python без try/catch и роняет активацию). Гейты — сьюты
   `extensionHost.pythonLsp*`, e2e `pythonLsp.test.ts`, сценарий `python-lsp`;
-  vsix запиннен фикстурой `e2e/fixtures/basedpyright/`. Folding у python —
-  indentation-based ядра (сервер `textDocument/foldingRange` не реализует).
-  Дальше — запись `proxy-openvsx` в реестре магазина
-  ([Marketplace.md](Marketplace.md)) и gopls (маршрут «бинарь в PATH»).
+  vsix приезжает из магазина — последняя опубликованная версия, без
+  закоммиченной фикстуры (политика — [TESTING.md](../TESTING.md)). Folding у
+  python — indentation-based ядра (сервер `textDocument/foldingRange` не
+  реализует). Запись `proxy-openvsx` в реестре магазина — сделана
+  ([Marketplace.md](Marketplace.md)); дальше — gopls (маршрут «бинарь в PATH»).
 - Инкрементальный sync + debounce; позиция курсора в didChange (для серверов,
   которым нужна — сейчас не передаётся).
 - **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,
