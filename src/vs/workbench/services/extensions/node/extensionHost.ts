@@ -52,6 +52,7 @@ import {
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
     parseWireDiagnosticsPublish,
+    parseWireApplyWorkspaceEditParams,
     parseWireEditorEdits,
     parseWireShowTextDocumentParams,
     parseWireFileDecorations,
@@ -1113,6 +1114,11 @@ export class ExtensionHost extends Disposable {
             const p = params as { uri?: unknown; edits?: unknown };
             if (typeof p.uri !== "string") return false;
             return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits));
+        });
+        // Сабпроцесс просит применить workspace edit (`workspace.applyEdit`):
+        // текстовые правки по ресурсам, all-or-nothing по валидации.
+        rpc.handleRequest("workspace.applyEdit", (params): unknown => {
+            return this.editorOptions.applyWorkspaceEdit(parseWireApplyWorkspaceEditParams(params));
         });
         // Сабпроцесс просит исполнить команду ядра (напр. встроенную
         // editor.action.trimTrailingWhitespace). Нормализуем через Promise —

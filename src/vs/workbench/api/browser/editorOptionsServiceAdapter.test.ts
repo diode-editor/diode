@@ -204,7 +204,10 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(applyExternalEdits).not.toHaveBeenCalled();
 
         expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), [edit])).toBe(true);
-        expect(applyExternalEdits).toHaveBeenCalledOnce();
+        expect(applyExternalEdits).toHaveBeenCalledExactlyOnceWith(
+            [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" }],
+            "extension edit",
+        );
     });
 
     it("applyActiveEditorEdits() — false, если нет активного редактора или пустой список", () => {

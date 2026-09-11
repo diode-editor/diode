@@ -52,7 +52,7 @@ export interface IActiveEditorMeta {
 
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
-import type { IWireEditorEdit, IWireSelection } from "./wireTypes.ts";
+import type { IWireEditorEdit, IWireResourceTextEdits, IWireSelection } from "./wireTypes.ts";
 
 /**
  * Тонкий «port» поверх {@link EditorService}, нужный
@@ -85,4 +85,13 @@ export interface IEditorOptionsService {
      * его uri не совпадает с `uri`, либо применять нечего.
      */
     applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean;
+    /**
+     * Применяет workspace edit (`workspace.applyEdit`): текстовые правки по
+     * ресурсам, каждый документ — своим undoable-батчем. All-or-nothing по
+     * валидации: если хоть один ресурс не открыт ни в одной вкладке или
+     * read-only — не применяется НИЧЕГО и возвращается `false` (правка
+     * закрытых файлов — люфт v1, см. docs/TODO/LSP.md). Пустой список — тоже
+     * `false`: вакуумный успех пустого edit'а субпроцесс отвечает сам, без RPC.
+     */
+    applyWorkspaceEdit(edits: readonly IWireResourceTextEdits[]): boolean;
 }

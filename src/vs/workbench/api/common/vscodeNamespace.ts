@@ -48,6 +48,7 @@ import {
     SignatureHelpTriggerKind,
     SignatureInformation,
     SnippetString,
+    SnippetTextEdit,
     SymbolInformation,
     SymbolKind,
     SymbolTag,
@@ -185,6 +186,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         ParameterInformation,
         SignatureHelpTriggerKind,
         WorkspaceEdit,
+        // SnippetTextEdit конструирует конвертер клиента на сниппет-правку
+        // внутри WorkspaceEdit — без класса падала бы конвертация всего edit'а.
+        SnippetTextEdit,
         ThemeColor,
         FileDecoration,
         OverviewRulerLane,
