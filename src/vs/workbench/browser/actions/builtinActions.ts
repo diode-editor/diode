@@ -232,6 +232,7 @@ import {
     previousEditorInGroupAction,
 } from "./tabActions.ts";
 import { TAB_CLOSE_ACTIONS } from "./tabCloseActions.ts";
+import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
 import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whitespaceActions.ts";
 
 /**
@@ -335,6 +336,8 @@ export const builtinActions: readonly CommandAction[] = [
     revealDefinitionAsideAction,
     showHoverAction,
     triggerParameterHintsAction,
+    formatDocumentAction,
+    formatSelectionAction,
 
     // Clipboard
     clipboardCopyAction,

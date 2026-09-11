@@ -14,6 +14,8 @@ import type {
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
+import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreSignatureHelp,
@@ -71,6 +73,7 @@ import {
     requestHover,
     requestReferences,
     requestSignatureHelp,
+    requestFormattingEdits,
     requestFoldingRanges,
     requestWillSaveEdits,
     type SerializedDecorationRenderOptions,
@@ -203,6 +206,13 @@ export interface IExtensionHostOptions {
      */
     readonly signatureHelpTimeoutMs?: number;
     /**
+     * Тайм-аут на ответ провайдеров форматирования
+     * (`languages.provideFormattingEdits`), мс. По истечении команда молча
+     * ничего не меняет. Default: 5000 — тот же холодный language server, а
+     * формат целого документа дороже точечных запросов.
+     */
+    readonly formattingTimeoutMs?: number;
+    /**
      * Логгер для lifecycle-событий host'а (канал `extensions.host`). Подканалы
      * `extensions.host.rpc` / `.stdout` / `.stderr` берутся из {@link logService}, если передан.
      */
@@ -320,6 +330,7 @@ export class ExtensionHost extends Disposable {
             | "hoverTimeoutMs"
             | "referencesTimeoutMs"
             | "signatureHelpTimeoutMs"
+            | "formattingTimeoutMs"
         >
     >;
     private readonly logger: ILogger | undefined;
@@ -366,6 +377,8 @@ export class ExtensionHost extends Disposable {
     private referencesSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные провайдеры подсказки параметров (см. `languages.updateSubscriptions`). */
     private signatureHelpSubscribed = false;
+    /** Есть ли в субпроцессе провайдеры форматирования — документные или range (см. `languages.updateSubscriptions`). */
+    private formattingSubscribed = false;
     /** Символы, открывающие подсказку параметров («(», «,», «<» у tsserver). */
     private signatureHelpTriggerCharactersValue: readonly string[] = [];
     /** Символы, перезапрашивающие подсказку, пока она показана («)» у tsserver). */
@@ -417,6 +430,7 @@ export class ExtensionHost extends Disposable {
             hoverTimeoutMs: options.hoverTimeoutMs ?? 5000,
             referencesTimeoutMs: options.referencesTimeoutMs ?? 5000,
             signatureHelpTimeoutMs: options.signatureHelpTimeoutMs ?? 5000,
+            formattingTimeoutMs: options.formattingTimeoutMs ?? 5000,
         };
         this.logger = options.logger;
         this.rpcLogger = options.rpcLogger;
@@ -869,6 +883,53 @@ export class ExtensionHost extends Disposable {
         );
     }
 
+    /**
+     * Запрашивает у субпроцесса правки форматирования документа или диапазона
+     * (`languages.provideFormattingEdits`). `null` — форматтера нет: субпроцесс
+     * мёртв, провайдеры не зарегистрированы либо ни один не матчит документ
+     * (командный слой показывает «нет форматтера»). Пустой массив — менять
+     * нечего, документ слишком большой или таймаут `formattingTimeoutMs`
+     * (молчаливый no-op). Подключается в `EditorService.formattingSource`
+     * (wiring в module/харнессе).
+     */
+    public async provideFormattingEdits(req: IFormattingRequest): Promise<readonly ITextEdit[] | null> {
+        const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null || !this.formattingSubscribed) return null;
+        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping formatting: document too large", {
+                uri: req.uri,
+                length: req.text.length,
+            });
+            return [];
+        }
+        return requestFormattingEdits(
+            (method, params) => rpc.request(method, params),
+            {
+                uri: req.uri,
+                languageId: req.languageId,
+                text: req.text,
+                tabSize: req.tabSize,
+                insertSpaces: req.insertSpaces,
+                // Спред — про чистоту payload'а: `undefined`-ключи всё равно
+                // выбрасывает JSON-транспорт RPC, поэтому за границей канала
+                // разницы не видно.
+                // Stryker disable next-line ConditionalExpression: см. выше
+                ...(req.range === undefined
+                    ? {}
+                    : {
+                          range: {
+                              startLine: req.range.start.line,
+                              startCharacter: req.range.start.character,
+                              endLine: req.range.end.line,
+                              endCharacter: req.range.end.character,
+                          },
+                      }),
+            },
+            this.options.formattingTimeoutMs,
+        );
+    }
+
     /** Символы, открывающие подсказку параметров (объединение по регистрациям). */
     public get signatureHelpTriggerCharacters(): readonly string[] {
         return this.signatureHelpTriggerCharactersValue;
@@ -1220,6 +1281,7 @@ export class ExtensionHost extends Disposable {
                 hasReferenceProviders?: unknown;
                 completionTriggerCharacters?: unknown;
                 hasSignatureHelpProviders?: unknown;
+                hasFormattingProviders?: unknown;
                 signatureHelpTriggerCharacters?: unknown;
                 signatureHelpRetriggerCharacters?: unknown;
             };
@@ -1235,6 +1297,7 @@ export class ExtensionHost extends Disposable {
             this.hoverSubscribed = p.hasHoverProviders === true;
             this.referencesSubscribed = p.hasReferenceProviders === true;
             this.signatureHelpSubscribed = p.hasSignatureHelpProviders === true;
+            this.formattingSubscribed = p.hasFormattingProviders === true;
             // Сериализуем пару списков целиком: склейка join'ом уравняла бы
             // ["ab"] и ["a", "b"], и смена набора прошла бы мимо слушателей.
             const signatureBefore = JSON.stringify([
@@ -1491,6 +1554,8 @@ export class ExtensionHost extends Disposable {
         this.referencesSubscribed = false;
         // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed выше
         this.signatureHelpSubscribed = false;
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed выше
+        this.formattingSubscribed = false;
         this.documentSyncSubscribed = false;
         this.pendingDidChange.clear();
         // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.

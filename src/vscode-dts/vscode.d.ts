@@ -4273,6 +4273,68 @@ declare module "vscode" {
 		readonly retriggerCharacters: readonly string[];
 	}
 
+	/**
+	 * Value-object describing what options formatting should use.
+	 */
+	export interface FormattingOptions {
+
+		/**
+		 * Size of a tab in spaces.
+		 */
+		tabSize: number;
+
+		/**
+		 * Prefer spaces over tabs.
+		 */
+		insertSpaces: boolean;
+
+		/**
+		 * Signature for further properties.
+		 */
+		[key: string]: boolean | number | string;
+	}
+
+	/**
+	 * The document formatting provider interface defines the contract between extensions and
+	 * the formatting-feature.
+	 */
+	export interface DocumentFormattingEditProvider {
+
+		/**
+		 * Provide formatting edits for a whole document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param options Options controlling formatting.
+		 * @param token A cancellation token.
+		 * @returns A set of text edits or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentFormattingEdits(document: TextDocument, options: FormattingOptions, token: CancellationToken): ProviderResult<TextEdit[]>;
+	}
+
+	/**
+	 * The document formatting provider interface defines the contract between extensions and
+	 * the formatting-feature.
+	 */
+	export interface DocumentRangeFormattingEditProvider {
+
+		/**
+		 * Provide formatting edits for a range in a document.
+		 *
+		 * The given range is a hint and providers can decide to format a smaller
+		 * or larger range. Often this is done by adjusting the start and end
+		 * of the range to full syntax nodes.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param range The range which should be formatted.
+		 * @param options Options controlling formatting.
+		 * @param token A cancellation token.
+		 * @returns A set of text edits or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentRangeFormattingEdits(document: TextDocument, range: Range, options: FormattingOptions, token: CancellationToken): ProviderResult<TextEdit[]>;
+	}
+
 	export namespace languages {
 
 		/**
@@ -4366,6 +4428,36 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerSignatureHelpProvider(selector: DocumentSelector, provider: SignatureHelpProvider, metadata: SignatureHelpProviderMetadata): Disposable;
+
+		/**
+		 * Register a formatting provider for a document.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are sorted
+		 * by their {@link languages.match score} and the best-matching provider is used. Failure
+		 * of the selected provider will cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A document formatting edit provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDocumentFormattingEditProvider(selector: DocumentSelector, provider: DocumentFormattingEditProvider): Disposable;
+
+		/**
+		 * Register a formatting provider for a document range.
+		 *
+		 * *Note:* A document range provider is also a {@link DocumentFormattingEditProvider document formatter}
+		 * which means there is no need to {@link languages.registerDocumentFormattingEditProvider register} a document
+		 * formatter when also registering a range provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are sorted
+		 * by their {@link languages.match score} and the best-matching provider is used. Failure
+		 * of the selected provider will cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A document range formatting edit provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable;
 
 		/**
 		 * Register a folding range provider.

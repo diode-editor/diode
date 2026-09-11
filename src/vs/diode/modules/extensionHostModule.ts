@@ -204,6 +204,12 @@ export const extensionHostModule: ContainerModule = (container) => {
         // ParameterHintsService при наборе «(» и по команде).
         // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
         group.signatureHelpSource = (req) => host.provideSignatureHelp(req);
+
+        // Formatting: провайдеры расширений (languages.provideFormattingEdits)
+        // подключаются как formatting-источник группы (читают команды
+        // editor.action.formatDocument / formatSelection).
+        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
+        group.formattingSource = (req) => host.provideFormattingEdits(req);
         // Триггер-символы объявляет сервер уже после активации — как у completion.
         group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
         group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
