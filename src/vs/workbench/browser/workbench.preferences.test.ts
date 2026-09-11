@@ -35,11 +35,40 @@ describe("Workbench — Preferences commands", () => {
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
         });
 
-        it("openGlobalKeybindings seeds a missing keybindings.json and opens it", () => {
-            h.commands.execute("workbench.action.openGlobalKeybindings");
+        it("openGlobalKeybindingsFile seeds a missing keybindings.json and opens it", () => {
+            h.commands.execute("workbench.action.openGlobalKeybindingsFile");
 
             expect(fs.readFileSync(keybindingsFile, "utf-8")).toBe("[]\n");
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(keybindingsFile));
+        });
+
+        it("openGlobalKeybindings opens the Keyboard Shortcuts tab, not the JSON", () => {
+            h.commands.execute("workbench.action.openGlobalKeybindings");
+
+            const pane = h.container.get(EditorServiceDIToken).getActivePane();
+            expect(pane).not.toBeNull();
+            expect(pane!.uri.scheme).toBe("keybindings");
+            expect(pane!.label).toBe("Keyboard Shortcuts");
+            expect(fs.existsSync(keybindingsFile)).toBe(false);
+
+            // Вкладка обязана дойти до кадра: шапка колонок и настоящие строки
+            // биндингов (список алфавитный, конкретный бинд может не попасть в
+            // видимое окно — достаточно колонки Source с дефолтными записями).
+            h.testApp.render();
+            const screen = h.testApp.backend.screenToString();
+            expect(screen).toContain("Keybinding");
+            expect(screen).toContain("Source");
+            expect(screen).toContain("Default");
+        });
+
+        it("повторное openGlobalKeybindings переключает на открытую вкладку, а не плодит вторую", () => {
+            const editorService = h.container.get(EditorServiceDIToken);
+            h.commands.execute("workbench.action.openGlobalKeybindings");
+            const openedCount = editorService.getPanes().length;
+
+            h.commands.execute("workbench.action.openGlobalKeybindings");
+
+            expect(editorService.getPanes().length).toBe(openedCount);
         });
 
         it("does not overwrite an existing settings.json", () => {

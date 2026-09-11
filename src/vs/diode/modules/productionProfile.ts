@@ -27,6 +27,7 @@ import { keybindingsModule } from "./keybindingsModule.ts";
 import { lifecycleModule } from "./lifecycleModule.ts";
 import { loggingModule } from "./loggingModule.ts";
 import { markersModule } from "./markersModule.ts";
+import { preferencesModule } from "./preferencesModule.ts";
 import { stateModule } from "./stateModule.ts";
 import { themeModule } from "./themeModule.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";
@@ -88,5 +89,6 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(workbenchModule)
         .use(lifecycleModule, { reloadWindow: ctx.reloadWindow })
         .use(extensionsModule, ctx.extensions)
+        .use(preferencesModule)
         .use(extensionHostModule);
 }

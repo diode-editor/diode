@@ -5,7 +5,7 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
-import { openKeybindingsAction, openSettingsAction } from "./preferencesActions.ts";
+import { openKeybindingsAction, openKeybindingsFileAction, openSettingsAction } from "./preferencesActions.ts";
 
 describe("PreferencesActions", () => {
     it("declares VS Code-compatible ids, titles and default bindings", () => {
@@ -13,6 +13,11 @@ describe("PreferencesActions", () => {
         expect(openSettingsAction.title).toBe("Preferences: Open User Settings");
         expect(openKeybindingsAction.id).toBe("workbench.action.openGlobalKeybindings");
         expect(openKeybindingsAction.title).toBe("Preferences: Open Keyboard Shortcuts");
+        expect(openKeybindingsFileAction.id).toBe("workbench.action.openGlobalKeybindingsFile");
+        expect(openKeybindingsFileAction.title).toBe("Preferences: Open Keyboard Shortcuts (JSON)");
+        // JSON — запасной ход без дефолтной клавиши, как в VS Code.
+        expect(openKeybindingsFileAction.keybinding).toBeUndefined();
+        expect(openKeybindingsFileAction.keybindings).toBeUndefined();
     });
 
     it("registers each command with its title and default keybinding", () => {
@@ -22,13 +27,16 @@ describe("PreferencesActions", () => {
 
         registerAction(commands, keybindings, accessor, openSettingsAction);
         registerAction(commands, keybindings, accessor, openKeybindingsAction);
+        registerAction(commands, keybindings, accessor, openKeybindingsFileAction);
 
         expect(commands.has("workbench.action.openSettings")).toBe(true);
         expect(commands.has("workbench.action.openGlobalKeybindings")).toBe(true);
+        expect(commands.has("workbench.action.openGlobalKeybindingsFile")).toBe(true);
 
         const settingsChord = keybindings.getKeybindingForCommand("workbench.action.openSettings");
         expect(settingsChord && formatKeybinding(settingsChord)).toBe("Ctrl+,");
         const kbChord = keybindings.getKeybindingForCommand("workbench.action.openGlobalKeybindings");
         expect(kbChord && formatKeybinding(kbChord)).toBe("Ctrl+K Ctrl+S");
+        expect(keybindings.getKeybindingForCommand("workbench.action.openGlobalKeybindingsFile")).toBeUndefined();
     });
 });
