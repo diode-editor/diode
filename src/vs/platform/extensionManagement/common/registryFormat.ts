@@ -32,10 +32,12 @@ export const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$/i;
 
 /**
  * Курационная классификация: `proxy-openvsx` — протестированный нами сток из
- * openvsx (версия запинена URL + sha256), `native` — нативное diode-расширение.
+ * openvsx (версия запинена URL + sha256), `proxy-hosted` — такой же сток, но не
+ * опубликованный на Open VSX: немодифицированный vsix перевыложен в самом
+ * реестре под лицензией расширения, `native` — нативное diode-расширение.
  * В install-флоу не участвует — нужна странице расширения и политике наполнения.
  */
-export type RegistryExtensionKind = "proxy-openvsx" | "native";
+export type RegistryExtensionKind = "proxy-openvsx" | "proxy-hosted" | "native";
 
 /** Откуда берётся `.vsix` версии. `origin` — provenance для UI/аудита, поведение клиента от него не зависит. */
 export type RegistryArtifact =
@@ -114,7 +116,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 function isKind(value: unknown): value is RegistryExtensionKind {
-    return value === "proxy-openvsx" || value === "native";
+    return value === "proxy-openvsx" || value === "proxy-hosted" || value === "native";
 }
 
 /** Валидирует engines: объект хотя бы с одним из полей `diode`/`vscode`-строк. */
