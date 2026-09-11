@@ -12,7 +12,7 @@ import type {
     IEditorOptionsService,
     IEditorOptionsState,
 } from "../common/iEditorOptionsService.ts";
-import type { IWireEditorEdit, IWireSelection } from "../common/wireTypes.ts";
+import type { IWireEditorEdit, IWireResourceTextEdits, IWireSelection } from "../common/wireTypes.ts";
 
 /**
  * Реализация {@link IEditorOptionsService} поверх {@link EditorService}.
@@ -123,14 +123,39 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         // честно отвечаем `false` — у расширения `TextEditor.edit()` резолвится
         // этим значением, и врать ему об успехе нельзя. Так же ведёт себя VS Code.
         if (editor === null || editor.readOnly || edits.length === 0) return false;
+        this.applyEditsTo(editor, edits, "extension edit");
+        return true;
+    }
+
+    public applyWorkspaceEdit(edits: readonly IWireResourceTextEdits[]): boolean {
+        // Пустой список — мусорный запрос: вакуумный успех пустого edit'а
+        // субпроцесс отвечает сам, не отправляя RPC. Здесь ничего не применено —
+        // врать `true` нельзя.
+        if (edits.length === 0) return false;
+        // Сначала валидация ВСЕХ ресурсов, потом применение: применённый
+        // «наполовину» workspace edit хуже честного отказа (у VS Code чисто
+        // текстовый edit — all-or-nothing).
+        const targets: { editor: TextEditorPane; edits: readonly IWireEditorEdit[] }[] = [];
+        for (const entry of edits) {
+            const editor = this.anyEditorFor(entry.resource);
+            if (editor === null || editor.readOnly) return false;
+            targets.push({ editor, edits: entry.edits });
+        }
+        for (const target of targets) {
+            this.applyEditsTo(target.editor, target.edits, "workspace edit");
+        }
+        return true;
+    }
+
+    /** Применяет wire-правки к документу редактора одним undoable-батчем. */
+    private applyEditsTo(editor: TextEditorPane, edits: readonly IWireEditorEdit[], label: string): void {
         const doc = editor.model.document;
         const textEdits: ITextEdit[] = edits.map((edit) => {
             const start = clampPosition(doc, edit.range.startLine, edit.range.startCharacter);
             const end = clampPosition(doc, edit.range.endLine, edit.range.endCharacter);
             return createTextEdit(createRange(start.line, start.character, end.line, end.character), edit.text);
         });
-        editor.applyExternalEdits(textEdits, "extension edit");
-        return true;
+        editor.applyExternalEdits(textEdits, label);
     }
 
     /**

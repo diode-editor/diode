@@ -44,6 +44,9 @@ class FakeOptionsService implements IEditorOptionsService {
     public applyActiveEditorEdits(): boolean {
         return false;
     }
+    public applyWorkspaceEdit(): boolean {
+        return false;
+    }
 }
 
 function createHost(svc: IEditorOptionsService): ExtensionHost {

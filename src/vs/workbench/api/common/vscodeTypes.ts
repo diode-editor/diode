@@ -300,6 +300,31 @@ export class TextEdit {
 }
 
 /**
+ * Сниппет-правка (`vscode.SnippetTextEdit`). Класс-ловушка конвертера клиента:
+ * на LSP `SnippetTextEdit` он делает `new code.SnippetTextEdit(...)` — без
+ * класса упала бы конвертация всего `WorkspaceEdit`. Интерактивных табстопов
+ * у нас нет: применение вырезает плейсхолдеры (как у completion-сниппетов).
+ */
+export class SnippetTextEdit {
+    public range: Range;
+    public snippet: SnippetString;
+    public keepWhitespace?: boolean;
+
+    public constructor(range: Range, snippet: SnippetString) {
+        this.range = range;
+        this.snippet = snippet;
+    }
+
+    public static replace(range: Range, snippet: SnippetString): SnippetTextEdit {
+        return new SnippetTextEdit(range, snippet);
+    }
+
+    public static insert(position: Position, snippet: SnippetString): SnippetTextEdit {
+        return new SnippetTextEdit(new Range(position, position), snippet);
+    }
+}
+
+/**
  * Разновидность области сворачивания (`vscode.FoldingRangeKind`). Значения
  * совпадают с VS Code; `Region` — маркеры `#region`/`#endregion`.
  */
@@ -965,38 +990,104 @@ export class SignatureHelp {
     public activeParameter = 0;
 }
 
+/** Полный набор правок одного ресурса — внутренняя проекция для сериализации applyEdit. */
+export interface IResourceEditEntry {
+    readonly uri: Uri;
+    readonly edits: readonly (TextEdit | SnippetTextEdit)[];
+}
+
+/**
+ * Правки уровня workspace (`vscode.WorkspaceEdit`). Текстовые правки копятся
+ * per-uri в порядке добавления; `set` принимает обе формы конвертера клиента —
+ * `TextEdit[]` и пары `[TextEdit, metadata]` (metadata отбрасывается). По dts
+ * `get`/`entries` отдают только `TextEdit`; сниппет-правки хранятся и видны
+ * через {@link resourceEdits} — их приземляет сериализация `workspace.applyEdit`
+ * (плейсхолдеры вырезаются, как у completion). Файловые операции
+ * (create/rename/delete) только УЧИТЫВАЮТСЯ ({@link hasFileOperations}):
+ * применение не поддержано, `workspace.applyEdit` с ними честно ответит `false`.
+ */
 export class WorkspaceEdit {
-    private readonly edits = new Map<string, { range: Range; newText: string }[]>();
+    private readonly textEdits = new Map<string, { uri: Uri; edits: (TextEdit | SnippetTextEdit)[] }>();
+    private fileOperationCount = 0;
 
     public replace(uri: Uri, range: Range, newText: string): void {
-        this.push(uri, { range, newText });
+        this.push(uri, new TextEdit(range, newText));
     }
 
     public insert(uri: Uri, position: Position, newText: string): void {
-        this.push(uri, { range: new Range(position, position), newText });
+        this.push(uri, new TextEdit(new Range(position, position), newText));
     }
 
     public delete(uri: Uri, range: Range): void {
-        this.push(uri, { range, newText: "" });
+        this.push(uri, new TextEdit(range, ""));
     }
 
     public has(uri: Uri): boolean {
-        return this.edits.has(uri.toString());
+        return this.textEdits.has(uri.toString());
     }
 
-    public get(uri: Uri): { range: Range; newText: string }[] {
-        return this.edits.get(uri.toString()) ?? [];
+    public set(
+        uri: Uri,
+        edits:
+            | ReadonlyArray<TextEdit | SnippetTextEdit>
+            | ReadonlyArray<[TextEdit | SnippetTextEdit, unknown]>
+            | null
+            | undefined,
+    ): void {
+        const key = uri.toString();
+        if (edits === null || edits === undefined || edits.length === 0) {
+            this.textEdits.delete(key);
+            return;
+        }
+        const list: (TextEdit | SnippetTextEdit)[] = [];
+        for (const entry of edits) {
+            const edit = Array.isArray(entry) ? entry[0] : entry;
+            if (edit instanceof TextEdit || edit instanceof SnippetTextEdit) list.push(edit);
+        }
+        this.textEdits.set(key, { uri, edits: list });
+    }
+
+    public get(uri: Uri): TextEdit[] {
+        const entry = this.textEdits.get(uri.toString());
+        if (entry === undefined) return [];
+        return entry.edits.filter((edit): edit is TextEdit => edit instanceof TextEdit);
+    }
+
+    public entries(): [Uri, TextEdit[]][] {
+        return [...this.textEdits.values()].map((entry) => [entry.uri, this.get(entry.uri)]);
+    }
+
+    /** Все правки по ресурсам, включая сниппетные (вне vscode API — для сериализации). */
+    public resourceEdits(): readonly IResourceEditEntry[] {
+        return [...this.textEdits.values()];
+    }
+
+    public createFile(): void {
+        this.fileOperationCount += 1;
+    }
+
+    public deleteFile(): void {
+        this.fileOperationCount += 1;
+    }
+
+    public renameFile(): void {
+        this.fileOperationCount += 1;
+    }
+
+    /** Есть ли файловые операции (create/rename/delete) — applyEdit их не поддерживает. */
+    public get hasFileOperations(): boolean {
+        return this.fileOperationCount > 0;
     }
 
     public get size(): number {
-        return this.edits.size;
+        return this.textEdits.size + this.fileOperationCount;
     }
 
-    private push(uri: Uri, edit: { range: Range; newText: string }): void {
+    private push(uri: Uri, edit: TextEdit): void {
         const key = uri.toString();
-        const list = this.edits.get(key) ?? [];
-        list.push(edit);
-        this.edits.set(key, list);
+        const entry = this.textEdits.get(key) ?? { uri, edits: [] };
+        entry.edits.push(edit);
+        this.textEdits.set(key, entry);
     }
 }
 

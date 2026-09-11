@@ -9,6 +9,7 @@ import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
 import {
     DisposableImpl,
     EndOfLine,
@@ -16,12 +17,17 @@ import {
     FileSystemError,
     Position,
     Range,
+    SnippetTextEdit,
     TextDocumentSaveReason,
     TextEdit,
     Uri,
+    WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import {
+    type IWireApplyWorkspaceEditParams,
+    type IWireEditorEdit,
     type IWireReadFileResult,
+    type IWireResourceTextEdits,
     parseWireDocumentSyncSnapshot,
     parseWireWatcherEvents,
     type WireTextEdit,
@@ -55,6 +61,26 @@ function serializeTextEdit(edit: TextEdit): WireTextEdit {
         },
         text: edit.newText,
     };
+}
+
+/**
+ * Сериализует правку из `WorkspaceEdit` в wire-форму `workspace.applyEdit`.
+ * Сниппет-правка становится обычным текстом (плейсхолдеры вырезаются — как у
+ * completion, интерактивных табстопов нет). Чистая EOL-правка
+ * (`TextEdit.setEndOfLine`) текстом не является — пропускается (`null`).
+ */
+function serializeWorkspaceTextEdit(edit: TextEdit | SnippetTextEdit): IWireEditorEdit | null {
+    const range = {
+        startLine: edit.range.start.line,
+        startCharacter: edit.range.start.character,
+        endLine: edit.range.end.line,
+        endCharacter: edit.range.end.character,
+    };
+    if (edit instanceof SnippetTextEdit) {
+        return { range, text: stripSnippetPlaceholders(edit.snippet.value) };
+    }
+    if (edit.newEol !== undefined && edit.newText === "" && edit.range.isEmpty) return null;
+    return { range, text: edit.newText };
 }
 
 /** Валидный Event, который никогда не стреляет (хост его не фаерит). */
@@ -418,7 +444,28 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         onDidChangeNotebookDocument: naiveEvent(),
         onDidSaveNotebookDocument: naiveEvent(),
         notebookDocuments: [] as readonly unknown[],
-        applyEdit: (): Thenable<boolean> => Promise.resolve(true),
+        // `workspace.applyEdit`: текстовые правки уезжают хосту одним запросом
+        // и применяются per-документ undoable-батчами (см. `IEditorOptionsService`).
+        // Файловые операции WorkspaceEdit не поддержаны — честный `false` без
+        // запроса: VS Code применяет такой edit атомарно, «наполовину» нельзя.
+        applyEdit: (edit: vscode.WorkspaceEdit): Thenable<boolean> => {
+            if (!(edit instanceof WorkspaceEdit)) return Promise.resolve(false);
+            if (edit.hasFileOperations) return Promise.resolve(false);
+            const resources: IWireResourceTextEdits[] = [];
+            for (const entry of edit.resourceEdits()) {
+                const edits: IWireEditorEdit[] = [];
+                for (const item of entry.edits) {
+                    const serialized = serializeWorkspaceTextEdit(item);
+                    if (serialized !== null) edits.push(serialized);
+                }
+                if (edits.length > 0) resources.push({ resource: entry.uri.toString(), edits });
+            }
+            // Пустой edit (или один шум вроде чистых EOL-правок) — вакуумный
+            // успех, как у VS Code: применять нечего, но и отказа нет.
+            if (resources.length === 0) return Promise.resolve(true);
+            const params: IWireApplyWorkspaceEditParams = { edits: resources };
+            return rpc.request("workspace.applyEdit", params) as Promise<boolean>;
+        },
         getWorkspaceFolder: (uri: vscode.Uri): vscode.WorkspaceFolder | undefined => {
             const p = (uri as unknown as Uri).fsPath;
             const found = workspaceFolders.find((f) => p === f.uri.fsPath || p.startsWith(f.uri.fsPath + "/"));

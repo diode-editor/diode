@@ -109,6 +109,9 @@ class FakeEditorOptions implements IEditorOptionsService {
     public applyActiveEditorEdits(): boolean {
         return false;
     }
+    public applyWorkspaceEdit(): boolean {
+        return false;
+    }
 }
 
 function makeReg(id: string): IExtensionRegistration {
