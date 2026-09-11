@@ -67,10 +67,10 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
 }
 
 /**
- * Диапазон Format Selection из первичного выделения: нормализованный
+ * Диапазон запроса из первичного выделения (Format Selection, Quick Fix):
  * anchor/active; пустое выделение — строка каретки целиком (как VS Code).
  */
-function selectionRange(
+export function selectionRange(
     selection: { anchor: { line: number; character: number }; active: { line: number; character: number } } | undefined,
     text: string,
 ): IRange {
