@@ -41,10 +41,22 @@ export type KeybindingResolution =
     | { kind: "chord"; chord: KeybindingChord }
     | { kind: "none" };
 
+/** Where a registry entry came from — drives the Source column and reset semantics in the shortcuts editor. */
+export type KeybindingSource = "default" | "extension" | "user";
+
+/** Read-only view of a registry entry (shortcuts editor, user-rule bookkeeping). */
+export interface IKeybindingEntrySnapshot {
+    readonly chord: KeybindingChord;
+    readonly commandId: string;
+    readonly when?: string;
+    readonly source: KeybindingSource;
+}
+
 interface KeybindingEntry {
     chord: KeybindingChord;
     commandId: string;
     when?: string;
+    source: KeybindingSource;
 }
 
 const specialKeyMap: Record<string, string> = {
@@ -136,8 +148,39 @@ export function formatKeybinding(chord: KeybindingChord): string {
     return chord.map(formatPart).join(" ");
 }
 
-/** Structural equality of two chords (used for `-command` unbind matching). */
-function chordsEqual(a: KeybindingChord, b: KeybindingChord): boolean {
+// Reverse of specialKeyMap: event key value → spec name ("ArrowUp" → "up", " " → "space").
+const specialKeyNames: Record<string, string> = Object.fromEntries(
+    Object.entries(specialKeyMap).map(([spec, key]) => [key, spec]),
+);
+
+function serializeKey(key: string): string {
+    return specialKeyNames[key] ?? key.toLowerCase();
+}
+
+/** Serializes a single part into spec form, e.g. "ctrl+shift+k". */
+function serializePart(part: Keybinding): string {
+    const segments: string[] = [];
+    if (part.ctrlKey) segments.push("ctrl");
+    if (part.shiftKey) segments.push("shift");
+    if (part.altKey) segments.push("alt");
+    if (part.metaKey) segments.push("meta");
+    segments.push(serializeKey(part.key));
+    return segments.join("+");
+}
+
+/**
+ * Serializes a chord into the spec form accepted by {@link parseChord} and
+ * keybindings.json, e.g. "ctrl+k ctrl+u". Inverse of parseChord up to key
+ * casing (keys outside the special-key table serialize lower-case, which is
+ * how parseChord normalizes them anyway). Display formatting is
+ * {@link formatKeybinding}, not this.
+ */
+export function serializeChord(chord: KeybindingChord): string {
+    return chord.map(serializePart).join(" ");
+}
+
+/** Structural equality of two chords (`-command` unbind matching, conflict grouping). */
+export function chordsEqual(a: KeybindingChord, b: KeybindingChord): boolean {
     if (a.length !== b.length) return false;
     return a.every((part, i) => {
         const other = b[i];
@@ -177,11 +220,17 @@ export class KeybindingRegistry implements IDisposable {
     // Events accumulated for an in-progress chord (empty when not in chord mode).
     private pendingEvents: KeyboardEventLike[] = [];
 
-    public register(chord: Keybinding | KeybindingChord, commandId: string, when?: string): IDisposable {
+    public register(
+        chord: Keybinding | KeybindingChord,
+        commandId: string,
+        when?: string,
+        source: KeybindingSource = "default",
+    ): IDisposable {
         const entry: KeybindingEntry = {
             chord: Array.isArray(chord) ? chord : [chord],
             commandId,
             when,
+            source,
         };
         this.entries.push(entry);
         return {
@@ -195,14 +244,28 @@ export class KeybindingRegistry implements IDisposable {
     /**
      * Removes registered bindings for a command (VS Code `-command` unbind).
      * With a `chord`, only the entry matching that exact combination is removed;
-     * without one, every binding for the command is removed.
+     * without one, every binding for the command is removed. Returns the removed
+     * entries so a caller (user-rule bookkeeping) can restore them on reset.
      */
-    public removeBindings(commandId: string, chord?: KeybindingChord): void {
+    public removeBindings(commandId: string, chord?: KeybindingChord): IKeybindingEntrySnapshot[] {
+        const removed: IKeybindingEntrySnapshot[] = [];
         this.entries = this.entries.filter((entry) => {
             if (entry.commandId !== commandId) return true;
             if (chord && !chordsEqual(entry.chord, chord)) return true;
+            removed.push(entry);
             return false;
         });
+        return removed;
+    }
+
+    /** All registered bindings, in registration order (last one wins on resolve). */
+    public listBindings(): readonly IKeybindingEntrySnapshot[] {
+        return this.entries.map((entry) => ({
+            chord: entry.chord,
+            commandId: entry.commandId,
+            when: entry.when,
+            source: entry.source,
+        }));
     }
 
     /**

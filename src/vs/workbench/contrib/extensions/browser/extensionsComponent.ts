@@ -1,14 +1,11 @@
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import { InputElement } from "@tuidom/elements/inputbox/inputElement";
-import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
-import { ListViewElement } from "@tuidom/elements/list/listViewElement";
-import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
-import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyViewElement.ts";
+import { FilteredListControl } from "../../../browser/parts/views/filteredListControl.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
@@ -76,10 +73,13 @@ export class ExtensionsComponent extends Component {
         ExtensionPageActionsDIToken,
     ] as const;
 
-    private readonly root: HeaderBodyViewElement;
-    private readonly queryInput = new InputElement();
+    private readonly control = new FilteredListControl({
+        viewId: "extensionsView",
+        listId: "extensionsList",
+        placeholder: "Search Extensions",
+    });
     /** Публичен для команд list-навигации и тестов (конвенция SearchComponent). */
-    public readonly list = new ListViewElement({ typeahead: false });
+    public readonly list: ListViewElement;
     private readonly actions = new Map<string, RowAction>();
     /** Идёт чтение каталога: пустой список в этот момент — «ещё не знаем», а не «пусто». */
     private loading = false;
@@ -92,21 +92,14 @@ export class ExtensionsComponent extends Component {
     ) {
         super();
 
-        this.queryInput.placeholder = "Search Extensions";
-        this.queryInput.onChange = () => {
+        this.list = this.control.list;
+        this.control.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
+        this.control.onQueryChange = () => {
             this.rebuildRows();
         };
-
-        this.list.id = "extensionsList";
-        this.list.onActivate = (element) => {
-            // Список не принимает строки без id — здесь он гарантированно есть.
-            this.activateRow(element.id!);
+        this.control.onActivateRow = (rowId) => {
+            this.activateRow(rowId);
         };
-
-        const header = new PaddingContainerElement(this.queryInput, { left: 1, right: 1 });
-        this.root = new HeaderBodyViewElement(header, new ScrollBarDecorator(this.list));
-        this.root.id = "extensionsView";
-        this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
 
         this.register(service.onDidChange(() => this.rebuildRows()));
         this.rebuildRows();
@@ -116,7 +109,7 @@ export class ExtensionsComponent extends Component {
             containerId: EXTENSIONS_VIEWLET_ID,
             title: "EXTENSIONS",
             order: 10,
-            body: this.root,
+            body: this.control.view,
             focus: () => {
                 this.focus();
             },
@@ -124,7 +117,7 @@ export class ExtensionsComponent extends Component {
     }
 
     public get view(): TUIElement {
-        return this.root;
+        return this.control.view;
     }
 
     /**
@@ -132,7 +125,7 @@ export class ExtensionsComponent extends Component {
      * вьюлета в сеть не ходим, а показ без списка бессмыслен.
      */
     public focus(): void {
-        this.queryInput.focus();
+        this.control.focusInput();
         void this.withLoadingRow(() => this.service.ensureLoaded());
     }
 
@@ -158,7 +151,7 @@ export class ExtensionsComponent extends Component {
 
     /** Текущий запрос — наблюдаемость для тестов. */
     public getQuery(): string {
-        return this.queryInput.inputState.value;
+        return this.control.getQuery();
     }
 
     private rebuildRows(): void {
@@ -190,10 +183,10 @@ export class ExtensionsComponent extends Component {
         }
 
         if (this.list.rowCount === 0) {
-            const row = new TextLabelElement(this.loading ? "Loading extensions…" : "No extensions found");
-            row.id = this.loading ? LOADING_ROW_ID : EMPTY_ROW_ID;
-            row.setColors("descriptionForeground", INHERITED_BG);
-            this.list.appendRow(row);
+            this.control.showPlaceholderRow(
+                this.loading ? LOADING_ROW_ID : EMPTY_ROW_ID,
+                this.loading ? "Loading extensions…" : "No extensions found",
+            );
         }
     }
 

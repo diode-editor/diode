@@ -52,7 +52,11 @@ import {
     triggerParameterHintsAction,
 } from "../../contrib/parameterHints/browser/parameterHintsActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
-import { openKeybindingsAction, openSettingsAction } from "../../contrib/preferences/browser/preferencesActions.ts";
+import {
+    openKeybindingsAction,
+    openKeybindingsFileAction,
+    openSettingsAction,
+} from "../../contrib/preferences/browser/preferencesActions.ts";
 import {
     gotoLineAction,
     quickOpenAction,
@@ -246,6 +250,7 @@ export const builtinActions: readonly CommandAction[] = [
     toggleActiveEditorReadonlyInSessionAction,
     openSettingsAction,
     openKeybindingsAction,
+    openKeybindingsFileAction,
     showAboutDialogAction,
     reloadWindowAction,
     quitAction,

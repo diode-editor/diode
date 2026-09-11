@@ -32,6 +32,9 @@ describe("registerExtensionKeybindings", () => {
         const chord = registry.getKeybindingForCommand("regionfolder.wrapWithRegion");
         expect(chord).toBeDefined();
         expect(formatKeybinding(chord!)).toBe("Ctrl+M Ctrl+R");
+        // Источник записи — "extension" (колонка Source во вкладке шорткатов).
+        const entry = registry.listBindings().find((b) => b.commandId === "regionfolder.wrapWithRegion");
+        expect(entry?.source).toBe("extension");
     });
 
     it("платформенный оверрайд mac/win/linux побеждает key", () => {
