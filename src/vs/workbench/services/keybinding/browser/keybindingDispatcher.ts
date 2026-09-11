@@ -9,14 +9,12 @@ import type { Keybinding, KeybindingRegistry } from "../../../../platform/keybin
 import {
     formatKeybinding,
     KeybindingRegistryDIToken,
-    parseChord,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type {
     CommandTrigger,
     ModifierReleaseArmory,
 } from "../../../../platform/keybinding/common/modifierReleaseArmory.ts";
 import { ModifierReleaseArmoryDIToken } from "../../../../platform/keybinding/common/modifierReleaseArmory.ts";
-import type { IUserKeybindingRule } from "../../../../platform/keybinding/node/keybindingsService.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
@@ -361,19 +359,4 @@ export class KeybindingDispatcher extends Disposable {
         this.setChordHint(null);
     }
 
-    /**
-     * Applies user `keybindings.json` rules. A `-command` rule unbinds (the exact key, or all
-     * bindings for the command if no key); other rules add a binding that wins over defaults.
-     * `when` may reference tier / cap_* / mode_* / os.
-     */
-    public applyUserKeybindings(rules: readonly IUserKeybindingRule[]): void {
-        for (const rule of rules) {
-            if (rule.command.startsWith("-")) {
-                const commandId = rule.command.slice(1);
-                this.keybindings.removeBindings(commandId, rule.key ? parseChord(rule.key) : undefined);
-            } else {
-                this.register(this.keybindings.register(parseChord(rule.key), rule.command, rule.when, "user"));
-            }
-        }
-    }
 }
