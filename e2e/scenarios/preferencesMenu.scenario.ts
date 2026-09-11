@@ -1,10 +1,11 @@
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Preferences entry points: the File menu gains "Settings" and "Keyboard
-// Shortcuts", each showing its default shortcut (Ctrl+, / Ctrl+K Ctrl+S) and
-// opening the corresponding JSON file. The screenshot captures the menu — the
-// visible surface of the feature; the open/seed behaviour is covered by unit
-// tests (Ctrl+, can't be encoded through the terminal-input DSL headless).
+// Preferences entry points in the File menu: "Settings" (Ctrl+,) opens
+// settings.json, "Keyboard Shortcuts" (Ctrl+K Ctrl+S) opens the shortcuts
+// editor tab (see keyboardShortcuts.scenario.ts), and "Keyboard Shortcuts
+// (JSON)" opens keybindings.json. The screenshot captures the menu — the
+// visible surface of these entry points; the open/seed behaviour is covered by
+// unit tests (Ctrl+, can't be encoded through the terminal-input DSL headless).
 
 export default defineScenario({
     name: "preferences-menu",
