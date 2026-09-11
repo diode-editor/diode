@@ -488,12 +488,14 @@ hide-toggle (`isHiddenByDefault`). См.
     инспектора/e2e стабильны.
   - Сегменты публикуют workbench-contribution'ы (инстанцируются реестром в фазе
     `restored`, см. «Workbench-contributions»): `Services/EditorStatusContribution.ts`
-    (правые, порядок VS Code: `Ln X, Col Y` · Encoding · EOL · Language; Encoding/EOL
-    кликабельны — команды `changeEncoding`/`changeEOL` через `CommandRegistry`) и
+    (правые, порядок VS Code: `Ln X, Col Y` · Indentation (`Spaces: N`/`Tab Size: N`)
+    · Encoding · EOL · Language; Encoding/EOL кликабельны — команды
+    `changeEncoding`/`changeEOL` через `CommandRegistry`; Indentation инертен —
+    команд смены отступов пока нет) и
     `Services/TerminalEnvironment/TerminalEnvStatusContribution.ts` (tier + моды).
     Активный редактор приходит через **интерфейсный шов**: Workbench объявляет
     `IActiveEditorStatusSource`/`IActiveEditorStatus` (минимальный срез:
-    `onActiveEditorChanged`, курсор/encoding/EOL/язык), `EditorService`
+    `onActiveEditorChanged`, курсор/отступы/encoding/EOL/язык), `EditorService`
     соответствует ему структурно; связывание — биндинг
     `ActiveEditorStatusSourceDIToken` в `Modules/WorkbenchModule.ts`.
     Chord-хинт публикует `KeybindingDispatcher` как обычную запись сервиса.

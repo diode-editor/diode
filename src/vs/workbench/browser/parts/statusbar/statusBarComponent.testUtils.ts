@@ -34,6 +34,7 @@ export class FakeStatusEditor implements IActiveEditorStatus {
     private readonly doc: TextDocument;
     private encodingValue = "utf8";
     private readonly encodingListeners = new Set<() => void>();
+    private readonly indentListeners = new Set<() => void>();
 
     public constructor(text = "", languageId = "plaintext") {
         this.doc = new TextDocument(text, languageId);
@@ -65,6 +66,13 @@ export class FakeStatusEditor implements IActiveEditorStatus {
         for (const listener of [...this.encodingListeners]) listener();
     }
 
+    /** Меняет действующий отступ view-state'а и файрит смену — как `EditorComponent.setIndentOptions`. */
+    public setIndentOptions(patch: { tabSize?: number; insertSpaces?: boolean }): void {
+        if (patch.tabSize !== undefined) this.viewState.tabSize = patch.tabSize;
+        if (patch.insertSpaces !== undefined) this.viewState.insertSpaces = patch.insertSpaces;
+        for (const listener of [...this.indentListeners]) listener();
+    }
+
     public onDidChangeCursorPosition(listener: () => void): IDisposable {
         return this.viewState.onDidChangeCursorPosition(listener);
     }
@@ -80,6 +88,16 @@ export class FakeStatusEditor implements IActiveEditorStatus {
     public onDidChangeEncoding(listener: () => void): IDisposable {
         this.encodingListeners.add(listener);
         return { dispose: () => this.encodingListeners.delete(listener) };
+    }
+
+    public onDidChangeIndentOptions(listener: () => void): IDisposable {
+        this.indentListeners.add(listener);
+        return { dispose: () => this.indentListeners.delete(listener) };
+    }
+
+    /** Живые indent-подписки — тест утечки: смена активного редактора обязана их снимать. */
+    public get indentListenerCount(): number {
+        return this.indentListeners.size;
     }
 }
 

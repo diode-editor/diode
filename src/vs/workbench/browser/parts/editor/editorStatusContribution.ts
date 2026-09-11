@@ -25,6 +25,7 @@ export interface IActiveEditorStatus {
     onDidChangeLanguage(listener: () => void): IDisposable;
     onDidChangeEol(listener: () => void): IDisposable;
     onDidChangeEncoding(listener: () => void): IDisposable;
+    onDidChangeIndentOptions(listener: () => void): IDisposable;
 }
 
 /** Поставщик активного редактора для {@link EditorStatusContribution}. */
@@ -38,9 +39,11 @@ export const EditorStatusContributionDIToken = token<EditorStatusContribution>("
 
 /**
  * Публикует в {@link StatusBarService} сегменты активного редактора — правые,
- * в порядке VS Code: `Ln X, Col Y` · Encoding · EOL · Language. Encoding и EOL
- * кликабельны — исполняют команды пикеров через `CommandRegistry`. Подписан на
- * смену активного редактора и его события (курсор/язык/EOL/кодировка).
+ * в порядке VS Code: `Ln X, Col Y` · Indentation · Encoding · EOL · Language.
+ * Encoding и EOL кликабельны — исполняют команды пикеров через
+ * `CommandRegistry`; Indentation пока инертен (команд смены отступов нет).
+ * Подписан на смену активного редактора и его события
+ * (курсор/отступы/язык/EOL/кодировка).
  */
 export class EditorStatusContribution extends Disposable {
     public static dependencies = [
@@ -51,6 +54,7 @@ export class EditorStatusContribution extends Disposable {
     ] as const;
 
     private cursorHandle: IStatusBarEntryHandle | null = null;
+    private indentationHandle: IStatusBarEntryHandle | null = null;
     private encodingHandle: IStatusBarEntryHandle | null = null;
     private eolHandle: IStatusBarEntryHandle | null = null;
     private languageHandle: IStatusBarEntryHandle | null = null;
@@ -77,6 +81,7 @@ export class EditorStatusContribution extends Disposable {
         this.register({
             dispose: () => {
                 this.cursorHandle?.dispose();
+                this.indentationHandle?.dispose();
                 this.encodingHandle?.dispose();
                 this.eolHandle?.dispose();
                 this.languageHandle?.dispose();
@@ -107,6 +112,9 @@ export class EditorStatusContribution extends Disposable {
             editor.onDidChangeEncoding(() => {
                 this.update();
             }),
+            editor.onDidChangeIndentOptions(() => {
+                this.update();
+            }),
         ];
     }
 
@@ -126,6 +134,15 @@ export class EditorStatusContribution extends Disposable {
                 text,
                 alignment: "right",
                 priority: 100,
+            }),
+        );
+        this.indentationHandle = this.setSegment(this.indentationHandle, this.indentationSegment(editor), (text) =>
+            this.statusBar.addEntry({
+                id: "status.editor.indentation",
+                name: "Editor Indentation",
+                text,
+                alignment: "right",
+                priority: 95,
             }),
         );
         this.encodingHandle = this.setSegment(this.encodingHandle, this.encodingSegment(editor), (text) =>
@@ -174,6 +191,17 @@ export class EditorStatusContribution extends Disposable {
             return current;
         }
         return create(text);
+    }
+
+    /**
+     * VS Code-style indentation indicator: "Spaces: N" when the editor indents
+     * with spaces, "Tab Size: N" when with tabs. Null without an active editor.
+     */
+    private indentationSegment(editor: IActiveEditorStatus | null): string | null {
+        if (editor === null) return null;
+        const viewState = editor.viewState;
+        const tabSize = viewState.tabSize.toString();
+        return viewState.insertSpaces ? `Spaces: ${tabSize}` : `Tab Size: ${tabSize}`;
     }
 
     /**
