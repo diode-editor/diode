@@ -30,8 +30,10 @@ import {
     SignatureInformation,
     SymbolInformation,
     SnippetString,
+    SnippetTextEdit,
     SymbolKind,
     SymbolTag,
+    TextEdit,
     TypeHierarchyItem,
     Uri,
     WorkspaceEdit,
@@ -183,9 +185,82 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(edit.has(URI)).toBe(true);
         const edits = edit.get(URI);
         expect(edits).toHaveLength(2);
+        expect(edits[0]).toBeInstanceOf(TextEdit);
         expect(edits[0].newText).toBe("new");
         expect(edits[1].range.isEmpty).toBe(true);
         expect(edit.get(Uri.file("/proj/b.ts"))[0].newText).toBe("");
+    });
+
+    it("WorkspaceEdit.set: обе формы конвертера (плоская и пары с metadata), null/[] очищает", () => {
+        const edit = new WorkspaceEdit();
+        // Плоская форма (`item.changes` у конвертера клиента).
+        edit.set(URI, [new TextEdit(RANGE, "a")]);
+        expect(edit.get(URI).map((e) => e.newText)).toEqual(["a"]);
+
+        // Пары [edit, metadata] (`item.documentChanges`); set ЗАМЕНЯЕТ прежний список.
+        edit.set(URI, [
+            [new TextEdit(RANGE, "b"), { needsConfirmation: false, label: "l" }],
+            [new TextEdit(RANGE, "c"), undefined],
+        ]);
+        expect(edit.get(URI).map((e) => e.newText)).toEqual(["b", "c"]);
+
+        // Мусор в списке отбрасывается, а не превращается в правку — и не
+        // оседает даже во внутреннем полном представлении.
+        edit.set(URI, [new TextEdit(RANGE, "d"), {} as never]);
+        expect(edit.get(URI).map((e) => e.newText)).toEqual(["d"]);
+        expect(edit.resourceEdits()[0].edits).toHaveLength(1);
+
+        edit.set(URI, null);
+        expect(edit.has(URI)).toBe(false);
+        edit.set(URI, [new TextEdit(RANGE, "e")]);
+        edit.set(URI, []);
+        expect(edit.has(URI)).toBe(false);
+        edit.set(URI, [new TextEdit(RANGE, "f")]);
+        edit.set(URI, undefined);
+        expect(edit.has(URI)).toBe(false);
+    });
+
+    it("WorkspaceEdit: entries/get отдают только TextEdit, resourceEdits — вместе со сниппетными", () => {
+        const edit = new WorkspaceEdit();
+        const snippet = new SnippetTextEdit(RANGE, new SnippetString("x$1"));
+        edit.set(URI, [new TextEdit(RANGE, "t"), snippet]);
+
+        expect(edit.get(URI).map((e) => e.newText)).toEqual(["t"]);
+        const entries = edit.entries();
+        expect(entries).toHaveLength(1);
+        expect(entries[0][0]).toBe(URI);
+        expect(entries[0][1].map((e) => e.newText)).toEqual(["t"]);
+
+        const resources = edit.resourceEdits();
+        expect(resources).toHaveLength(1);
+        expect(resources[0].uri).toBe(URI);
+        expect(resources[0].edits).toEqual([expect.any(TextEdit), snippet]);
+    });
+
+    it("WorkspaceEdit: файловые операции учитываются, но не хранятся как текст", () => {
+        const edit = new WorkspaceEdit();
+        expect(edit.hasFileOperations).toBe(false);
+        edit.createFile();
+        edit.deleteFile();
+        edit.renameFile();
+        expect(edit.hasFileOperations).toBe(true);
+        // `size` — «затронутые ресурсы»: текстовые + файловые операции.
+        edit.replace(URI, RANGE, "x");
+        expect(edit.size).toBe(4);
+        expect(edit.entries()).toHaveLength(1);
+    });
+
+    it("SnippetTextEdit: конструктор и статики replace/insert (класс-ловушка конвертера)", () => {
+        const snippet = new SnippetString("s");
+        const direct = new SnippetTextEdit(RANGE, snippet);
+        expect(direct.range).toBe(RANGE);
+        expect(direct.snippet).toBe(snippet);
+
+        expect(SnippetTextEdit.replace(RANGE, snippet).range).toBe(RANGE);
+        const inserted = SnippetTextEdit.insert(new Position(1, 2), snippet);
+        expect(inserted.range.isEmpty).toBe(true);
+        expect(inserted.range.start).toEqual(new Position(1, 2));
+        expect(inserted.snippet).toBe(snippet);
     });
 
     it("CompletionList: items/isIncomplete как есть, дефолты — пустой полный список", () => {

@@ -132,6 +132,9 @@ class FakeEditorOptions implements IEditorOptionsService {
     public applyActiveEditorEdits(): boolean {
         return false;
     }
+    public applyWorkspaceEdit(): boolean {
+        return false;
+    }
     public fireSelectionChanged(selections: IActiveEditorSelections): void {
         this.selectionCb?.(selections);
     }

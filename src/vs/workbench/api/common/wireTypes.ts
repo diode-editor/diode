@@ -1305,6 +1305,40 @@ export function parseWireEditorEdits(raw: unknown): IWireEditorEdit[] {
     return result;
 }
 
+// ─── Workspace edit (workspace.applyEdit, #196) ──────────────────────────────
+
+/** Текстовые правки одного ресурса внутри workspace edit. */
+export interface IWireResourceTextEdits {
+    readonly resource: string;
+    readonly edits: readonly IWireEditorEdit[];
+}
+
+/**
+ * Параметры `workspace.applyEdit` (subprocess → host): текстовые правки по
+ * ресурсам. Файловые операции WorkspaceEdit не поддержаны — субпроцесс отвечает
+ * `false` сам, не отправляя запрос.
+ */
+export interface IWireApplyWorkspaceEditParams {
+    readonly edits: readonly IWireResourceTextEdits[];
+}
+
+/** Ресурсы без единой валидной правки отбрасываются (им нечего применять). */
+export function parseWireApplyWorkspaceEditParams(raw: unknown): IWireResourceTextEdits[] {
+    if (typeof raw !== "object" || raw === null) return [];
+    const list = (raw as Record<string, unknown>).edits;
+    if (!Array.isArray(list)) return [];
+    const result: IWireResourceTextEdits[] = [];
+    for (const item of list) {
+        if (typeof item !== "object" || item === null) continue;
+        const obj = item as Record<string, unknown>;
+        if (typeof obj.resource !== "string") continue;
+        const edits = parseWireEditorEdits(obj.edits);
+        if (edits.length === 0) continue;
+        result.push({ resource: obj.resource, edits });
+    }
+    return result;
+}
+
 // ─── Decorations (Chunk 4 — host-bridge) ─────────────────────────────────────
 
 /**

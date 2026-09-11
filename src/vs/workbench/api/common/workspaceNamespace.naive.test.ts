@@ -16,7 +16,6 @@ import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 /** Наивная поверхность workspace, отсутствующая в активной части vscode.d.ts (runtime опережает декларацию). */
 interface INaiveWorkspaceSurface {
     notebookDocuments: readonly unknown[];
-    applyEdit(edit: unknown): Thenable<boolean>;
     registerTextDocumentContentProvider(scheme: string, provider: unknown): { dispose(): void };
     getWorkspaceFolder(uri: unknown): { name: string } | undefined;
     createFileSystemWatcher(glob: string): {
@@ -67,9 +66,8 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
         expect(makeWorkspace().naive.notebookDocuments).toEqual([]);
     });
 
-    it("applyEdit наивно подтверждает; registerTextDocumentContentProvider — валидный Disposable", async () => {
+    it("registerTextDocumentContentProvider — валидный Disposable", () => {
         const { naive } = makeWorkspace();
-        await expect(naive.applyEdit({})).resolves.toBe(true);
         const disposable = naive.registerTextDocumentContentProvider("scheme", {});
         expect(() => disposable.dispose()).not.toThrow();
     });
