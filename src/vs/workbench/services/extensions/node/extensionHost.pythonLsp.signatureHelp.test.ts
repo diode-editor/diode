@@ -4,12 +4,12 @@ import {
     CLIENT_CRASH_PATTERNS,
     DEFS_PY,
     installBasedpyright,
-    MARKETPLACE_OFFLINE,
     PY_LANGUAGE_SERVICE,
     until,
     type IInstalledBasedpyright,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 

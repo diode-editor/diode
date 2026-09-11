@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { BASEDPYRIGHT_ID, MARKETPLACE_OFFLINE } from "../src/TestUtils/basedpyrightFixture.ts";
+import { BASEDPYRIGHT_ID } from "../src/TestUtils/basedpyrightFixture.ts";
+import { MARKETPLACE_OFFLINE } from "../src/TestUtils/marketplaceEnv.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
