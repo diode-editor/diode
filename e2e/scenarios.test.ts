@@ -16,7 +16,9 @@ describe("screenshot scenarios", () => {
     });
 
     for (const spec of scenarios) {
-        const skip = spec.skipOn?.includes(process.platform) ?? false;
+        const skip =
+            (spec.skipOn?.includes(process.platform) ?? false) ||
+            (spec.network === true && process.env.DIODE_E2E_OFFLINE === "1");
         it.skipIf(skip)(`renders "${spec.name}"`, async () => {
             const shots = await runScenario(spec);
 

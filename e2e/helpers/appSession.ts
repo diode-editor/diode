@@ -32,7 +32,11 @@ export interface AppEnvOptions {
     settings?: Readonly<Record<string, unknown>> | string;
     /** keybindings.json активного профиля. */
     keybindings?: readonly { key: string; command: string }[];
-    /** `.vsix`, устанавливаемые до запуска (тот же путь, что `--install-extension`). */
+    /**
+     * Что установить до запуска (тот же путь, что `--install-extension`): путь к
+     * `.vsix` либо id записи из публичного магазина — различение как у CLI, по
+     * суффиксу `.vsix`. Установка по id ходит в сеть.
+     */
     installVsix?: readonly string[];
     /**
      * Каталог-фикстура user-data-dir, чьё содержимое копируется в изолированный

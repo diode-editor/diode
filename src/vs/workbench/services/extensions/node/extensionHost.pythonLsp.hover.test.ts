@@ -5,6 +5,7 @@ import {
     DEFS_PY,
     installBasedpyright,
     MAIN_PY,
+    MARKETPLACE_OFFLINE,
     PY_LANGUAGE_SERVICE,
     until,
     type IInstalledBasedpyright,
@@ -20,10 +21,11 @@ import type { ICoreHover } from "../../../../editor/common/languages/iHoverSourc
 
 let installed: IInstalledBasedpyright;
 
-describe("ExtensionHost — hover от стокового basedpyright", () => {
+// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стокового basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
-    }, 60_000);
+    }, 120_000);
 
     afterAll(() => {
         installed.dispose();

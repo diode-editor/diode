@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
+import { waitUntil } from "../helpers/waitFor.ts";
 
 /**
  * Смоук-чеки расширений из магазина: «поставилось» — половина ответа, вторая
@@ -30,6 +31,8 @@ export interface IMarketplaceCheck {
     readonly id: string;
     /** Пути внутри каталога установленного расширения, обязанные существовать. */
     readonly expectFiles: readonly string[];
+    /** Таймаут кейса, если стандартного мало (холодный старт language-сервера). */
+    readonly timeoutMs?: number;
     /** Поднимает редактор на этом user-data-dir и проверяет работу расширения. */
     run(ctx: ICheckContext): Promise<void>;
 }
@@ -93,6 +96,43 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             const project = join(ctx.root, "editorconfig-project");
             cpSync(join(FIXTURES, "editorconfig", "project"), project, { recursive: true });
             await expectTabSize(ctx, join(project, "indent.tabbed"), 3);
+        },
+    },
+    {
+        // kind: "proxy-openvsx" — настоящий basedpyright с open-vsx (Python LSP).
+        // Активация целиком держится на курируемом дефолте
+        // `basedpyright.importStrategy: "useBundled"` (`curatedConfigInjection` в
+        // src/vs/diode/main.ts): манифестный `fromEnvironment` зовёт API
+        // ms-python.python и роняет activate(). Установка из магазина обязана
+        // пройти тем же путём регистрации, что применяет дефолт, — чек это
+        // доказывает наблюдаемым результатом, а не фактом распаковки.
+        id: "detachhead.basedpyright",
+        expectFiles: [
+            "package.json",
+            "dist/extension.js",
+            "dist/server.js",
+            "dist/typeshed-fallback/stdlib/builtins.pyi",
+        ],
+        // Холодный старт bundled-сервера — десятки секунд поверх скачивания
+        // 6.4 МБ артефакта: стандартных 240 с кейсу впритык.
+        timeoutMs: 420_000,
+        run: async (ctx) => {
+            // Намеренная ошибка типов: str не присваивается int → сервер шлёт
+            // диагностику «is not assignable», редактор рисует undercurl
+            // (StyleFlags.Undercurl === 8) — стандартный readiness-сигнал наших
+            // LSP e2e (см. e2e/pythonLsp.test.ts).
+            const file = join(ctx.root, "typed.py");
+            writeFileSync(file, 'reply: int = "hi"\nprint(reply)\n');
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle от basedpyright", timeoutMs: 180_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
         },
     },
 ];

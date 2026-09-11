@@ -4,6 +4,7 @@ import {
     CLIENT_CRASH_PATTERNS,
     DEFS_PY,
     installBasedpyright,
+    MARKETPLACE_OFFLINE,
     PY_LANGUAGE_SERVICE,
     until,
     type IInstalledBasedpyright,
@@ -22,10 +23,11 @@ const MAIN_PY = "from defs import greet\n\ngreet(\n";
 
 let installed: IInstalledBasedpyright;
 
-describe("ExtensionHost — signature help от стокового basedpyright", () => {
+// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help от стокового basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
-    }, 60_000);
+    }, 120_000);
 
     afterAll(() => {
         installed.dispose();

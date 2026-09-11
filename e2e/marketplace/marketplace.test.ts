@@ -94,7 +94,8 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
                     removeTempDir(root);
                 }
             },
-            240_000,
+            // Чек с холодным стартом language-сервера просит таймаут больше общего.
+            check?.timeoutMs ?? 240_000,
         );
     }
 
