@@ -1,0 +1,11 @@
+{
+    "name": "will-save-trim",
+    "displayName": "Will-Save Trim",
+    "description": "E2E test extension: onWillSaveTextDocument participant that trims trailing whitespace and appends a final newline.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    }
+}
