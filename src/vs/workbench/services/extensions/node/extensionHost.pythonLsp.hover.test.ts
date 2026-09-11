@@ -5,12 +5,12 @@ import {
     DEFS_PY,
     installBasedpyright,
     MAIN_PY,
-    MARKETPLACE_OFFLINE,
     PY_LANGUAGE_SERVICE,
     until,
     type IInstalledBasedpyright,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
 

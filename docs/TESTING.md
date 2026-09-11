@@ -284,6 +284,16 @@ expect(ed?.state?.hasSelection).toBe(true);
   репозиторий сайта. Герметичность здесь жертвуется сознательно: обновилась запись и сьюты
   покраснели — это не шум, а сигнал бежать и чинить (совместимость diode либо запись магазина).
 
+Следствие разделения: **сетевой стоковый сьют не может быть единственным гейтом нашего
+контракта.** Его предмет — работа чужого кода в Diode; если по пути он опирается на наш контракт
+(will-save participants, `TextEditor.options`, completion-провайдеры, core-команды…), этот
+контракт обязан быть отдельно закрыт герметичным тестом на синтетическом расширении — иначе в
+оффлайне и при пропуске сетевых сьютов контракт остаётся без гейта. Прецедент — миграция
+`editorconfig-stock`: проводка `group.saveParticipant` получила герметичный e2e на фикстуре
+`user-data-with-will-save` (`e2e/sea-extensions.test.ts`), а тест делегирования в
+`extensionHost.willSave.test.ts` перешёл со своей копии команды на настоящую из
+`whitespaceActions.ts`.
+
 Как расширение попадает в тест:
 
 - **e2e и сценарии** — установка по id: `installVsix: ["<publisher>.<name>"]` (аргумент без
@@ -292,15 +302,14 @@ expect(ed?.state?.hasSelection).toBe(true);
 - **Юнит-сьюты ext-host'а** — fetch-хелпер по образцу `fetchBasedpyrightVsix()`
   (`src/TestUtils/basedpyrightFixture.ts`): клиентский резолв версии (мета →
   `resolveCompatibleVersion` → `sha256`) + кэш в `node_modules/.cache`.
-- Всюду — скип в оффлайне: `DIODE_E2E_OFFLINE=1` пропускает такие сьюты (юнитам —
-  `skipIf(MARKETPLACE_OFFLINE)`, сценариям — `network: true`).
+- Всюду — скип в оффлайне: `DIODE_E2E_OFFLINE=1` пропускает такие сьюты (юнитам и e2e —
+  `skipIf(MARKETPLACE_OFFLINE)` из `src/TestUtils/marketplaceEnv.ts`, сценариям — `network: true`).
 
 Действующие сьюты по этой конвенции: `extensionHost.pythonLsp*`, `e2e/pythonLsp.test.ts`,
-сценарий `python-lsp`. Ещё на закоммиченных `.vsix`-фикстурах (миграция по мере публикации в
-реестре): `e2e/editorconfig-stock.test.ts` (EditorConfig), сценарий `regionFolding`
-(maptz.regionfolder — в магазине пока не опубликован). Новые тесты на стоковые расширения
-пишутся сразу по конвенции; предпосылка — расширение опубликовано в магазине
-([Marketplace.md](TODO/Marketplace.md)).
+сценарий `python-lsp`, `e2e/editorconfig-stock.test.ts`. Ещё на закоммиченной `.vsix`-фикстуре
+(миграция по мере публикации в реестре): сценарий `regionFolding` (maptz.regionfolder — в
+магазине пока не опубликован). Новые тесты на стоковые расширения пишутся сразу по конвенции;
+предпосылка — расширение опубликовано в магазине ([Marketplace.md](TODO/Marketplace.md)).
 
 ### Extensions view (герметичный сьют)
 

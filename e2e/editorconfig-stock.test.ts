@@ -6,31 +6,36 @@ import { fileURLToPath } from "node:url";
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { MARKETPLACE_OFFLINE } from "../src/TestUtils/marketplaceEnv.ts";
 import { homeIsolationEnv } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { findNode } from "./helpers/inspectorClient.ts";
 import { DiodeSession } from "./helpers/runDiode.ts";
 
 /**
- * WP9 — сквозная интеграция стокового расширения `EditorConfig.EditorConfig`
+ * Сквозная интеграция стокового расширения `EditorConfig.EditorConfig`
  * (немодифицированный `.vsix` из open-vsx) с Diode:
  *
- *   1. установка реального `.vsix` новым CLI-флагом `--install-extension`
- *      (первая проверка установщика WP7.5 на настоящем артефакте);
+ *   1. установка ИЗ МАГАЗИНА по id CLI-флагом `--install-extension` —
+ *      последняя опубликованная совместимая версия, без пина в тесте
+ *      (конвенция — docs/TESTING.md «Тесты на стоковые расширения»);
  *   2. запуск собранного SEA-бинаря и проверка всех свойств EditorConfig на
  *      реальном коде расширения — отступы, trim_trailing_whitespace,
  *      insert_final_newline, end_of_line (LF↔CRLF), charset (graceful degrade),
  *      команда `EditorConfig.generate`, completion в `.editorconfig`.
  *
+ * Предмет сьюта — работа ЧУЖОГО кода в Diode; наши контракты, на которые он
+ * опирается (will-save participants, `TextEditor.options`, смена EOL, encoding,
+ * contributed-команды, completion-провайдеры), закрыты герметичными сьютами на
+ * синтетических расширениях — этот сьют их не заменяет и не дублирует.
+ *
  * Save-трансформации проверяются по БАЙТАМ на диске (не через inspector).
  * Готовность/состояние UI — через TUIDom-inspector. Ввод — через pty.
  */
 
-const EC_VERSION = "0.18.2";
 const EC_ID = "EditorConfig.EditorConfig";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
-const VSIX_PATH = path.resolve(here, "fixtures", "editorconfig", `${EC_ID}-${EC_VERSION}.vsix`);
 const PROJECT_FIXTURE = path.resolve(here, "fixtures", "editorconfig", "project");
 
 const SAVE = "\x13"; // Ctrl+S → workbench.action.files.save
@@ -62,7 +67,7 @@ function runCli(binary: string, args: readonly string[]): Promise<CliResult> {
 // Ctrl+Space), and Windows ConPTY does not deliver injected input reliably — the
 // same reason the repo's screen-content e2e are Linux-only. The Linux e2e job is
 // the reference for this integration proof.
-describe.skipIf(process.platform === "win32")("SEA binary — stock editorconfig-vscode integration (WP9)", () => {
+describe.skipIf(process.platform === "win32" || MARKETPLACE_OFFLINE)("SEA binary — stock editorconfig-vscode integration", () => {
     let binary: string;
     let tempRoot: string;
     let userDataDir: string;
@@ -73,14 +78,19 @@ describe.skipIf(process.platform === "win32")("SEA binary — stock editorconfig
         tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "diode-ec-e2e-"));
         userDataDir = path.join(tempRoot, "user-data-root");
 
-        // (1) Install the REAL .vsix via the CLI — exercises WP7.5 on a real artifact.
-        const install = await runCli(binary, ["--user-data-dir", userDataDir, "--install-extension", VSIX_PATH]);
+        // (1) Install from the public marketplace by id — the user's own path
+        // (registry meta → latest compatible version → download → sha256 → unpack).
+        const install = await runCli(binary, ["--user-data-dir", userDataDir, "--install-extension", EC_ID]);
         expect(install.stderr).toBe("");
         expect(install.code).toBe(0);
-        expect(install.stdout).toContain(`Installed ${EC_ID}@${EC_VERSION}`);
+        // The version is whatever the registry currently publishes — parse it from
+        // the CLI report instead of pinning it here (docs/TESTING.md convention).
+        const installed = new RegExp(`Installed ${EC_ID}@(\\S+)`).exec(install.stdout);
+        expect(installed).not.toBeNull();
+        const version = installed![1];
 
         // Unpacked into the layout the scanner expects, with bundled node_modules.
-        const extDir = path.join(userDataDir, "extensions", `${EC_ID}-${EC_VERSION}`);
+        const extDir = path.join(userDataDir, "extensions", `${EC_ID}-${version}`);
         expect(fs.existsSync(path.join(extDir, "package.json"))).toBe(true);
         expect(fs.existsSync(path.join(extDir, "out", "editorConfigMain.js"))).toBe(true);
         expect(fs.existsSync(path.join(extDir, "node_modules", "editorconfig", "lib", "index.js"))).toBe(true);
@@ -204,15 +214,17 @@ describe.skipIf(process.platform === "win32")("SEA binary — stock editorconfig
         expect(bytes.toString("binary")).toBe("line1\nline2\n");
     });
 
-    it("degrades gracefully for an unsupported charset (latin1) without crashing", async () => {
+    it("handles charset=latin1 (extension re-opens the document with an encoding) without crashing", async () => {
         const project = copyProject();
         const file = path.join(project, "sample.latin");
         session = await startEditor([file]);
         await waitForEditor(session);
 
-        // handleDocumentEncoding → openTextDocument(uri, {encoding:'iso88591'}); WP7 degrades
-        // to utf-8 with a warning instead of throwing. Give it a moment, then assert the app
-        // is still alive and rendering the editor (no host/subprocess crash).
+        // handleDocumentEncoding → openTextDocument(uri, {encoding:'iso88591'}): iso88591
+        // поддержан ядром (SUPPORTED_ENCODINGS), а неизвестный id молча откатился бы к utf-8 —
+        // оба поведения зафиксированы юнитами (workspaceNamespace.test.ts, encoding.test.ts).
+        // Здесь проверяется устойчивость приложения ЦЕЛИКОМ: give it a moment, then assert
+        // the app is still alive and rendering the editor (no host/subprocess crash).
         await sleep(2_000);
         const root = await session.getDocument();
         expect(session.isExited).toBe(false);

@@ -36,9 +36,6 @@ const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 /** id записи в реестре; e2e-сьюты ставят его напрямую через `--install-extension`. */
 export const BASEDPYRIGHT_ID = "detachhead.basedpyright";
 
-/** Сьюты на магазине пропускаются в оффлайне — тот же флаг, что у e2e (docs/TESTING.md). */
-export const MARKETPLACE_OFFLINE = process.env["DIODE_E2E_OFFLINE"] === "1";
-
 /** Кэш скачанных vsix; в node_modules — вне рабочего дерева и переживает прогоны. */
 const VSIX_CACHE_DIR = path.join(REPO_ROOT, "node_modules", ".cache", "diode-stock-vsix");
 
