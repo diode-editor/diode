@@ -4,6 +4,7 @@ import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { HoverSource } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { SignatureHelpSource } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -203,6 +204,14 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * `ParameterHintsService`; в редакторы не раздаётся (group-level).
      */
     public signatureHelpSource?: SignatureHelpSource;
+
+    /**
+     * Formatting-источник (host/харнесс подключает сюда провайдеры расширений
+     * через `languages.provideFormattingEdits`). Читается командами
+     * `editor.action.formatDocument` / `formatSelection`; в редакторы не
+     * раздаётся (group-level).
+     */
+    public formattingSource?: FormattingSource;
 
     /**
      * Символы, после набора которых подсказка параметров открывается сама

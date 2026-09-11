@@ -20,6 +20,7 @@ import {
     Uri,
 } from "./vscodeTypes.ts";
 import type {
+    IWireFormattingParams,
     IWireSignatureHelpParams,
     WireCompletionItem,
     WireCompletionResult,
@@ -97,6 +98,18 @@ export interface ISignatureHelpRegistration {
     readonly provider: vscode.SignatureHelpProvider;
     readonly triggerCharacters: readonly string[];
     readonly retriggerCharacters: readonly string[];
+}
+
+/** Зарегистрированный провайдер форматирования документа. */
+export interface IFormattingRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DocumentFormattingEditProvider;
+}
+
+/** Зарегистрированный провайдер форматирования диапазона. */
+export interface IRangeFormattingRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DocumentRangeFormattingEditProvider;
 }
 
 /** Wire-параметры запроса completion (host → subprocess). */
@@ -535,6 +548,8 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     hoverRegistrations: readonly IHoverRegistration[];
     referenceRegistrations: readonly IReferenceRegistration[];
     signatureHelpRegistrations: readonly ISignatureHelpRegistration[];
+    formattingRegistrations: readonly IFormattingRegistration[];
+    rangeFormattingRegistrations: readonly IRangeFormattingRegistration[];
 } {
     const { rpc, documentSync } = ctx;
     const registrations: ICompletionRegistration[] = [];
@@ -543,6 +558,8 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     const hoverRegistrations: IHoverRegistration[] = [];
     const referenceRegistrations: IReferenceRegistration[] = [];
     const signatureHelpRegistrations: ISignatureHelpRegistration[] = [];
+    const formattingRegistrations: IFormattingRegistration[] = [];
+    const rangeFormattingRegistrations: IRangeFormattingRegistration[] = [];
 
     // Кэш ответов completion для resolve. Держим последние COMPLETION_CACHE_DEPTH
     // ответов: пользователь резолвит пункт из текущего списка, а гонка «ответ
@@ -592,6 +609,10 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             // подсказку, только пока она показана.
             signatureHelpTriggerCharacters: [...signatureTriggers],
             signatureHelpRetriggerCharacters: [...signatureRetriggers],
+            // Один флаг на оба вида форматирования: какой именно провайдер
+            // матчит документ, решает handler по запросу (`null` = «нет
+            // форматтера» для этого документа/вида).
+            hasFormattingProviders: formattingRegistrations.length > 0 || rangeFormattingRegistrations.length > 0,
         });
     }
 
@@ -748,6 +769,94 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             }
         }
         return references;
+    });
+
+    // Форматирование (#196): один RPC на оба вида — с `range` спрашиваются
+    // range-провайдеры (Format Selection), без — документные. Провайдеров
+    // может быть несколько: берём ПЕРВЫЙ матчащий по порядку регистрации
+    // (VS Code выбирает лучший по score / дефолтному форматтеру — люфт v1).
+    // `null` в ответе — провайдера под документ нет, командный слой покажет
+    // «нет форматтера»; сбой или пустой результат — пустой массив (no-op).
+    rpc.handleRequest("languages.provideFormattingEdits", async (params): Promise<WireTextEdit[] | null> => {
+        const p = params as IWireFormattingParams;
+        const doc: ExtHostTextDocument = documentSync.sync({
+            uri: p.uri,
+            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
+            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
+            text: p.text ?? "",
+        });
+        const options = {
+            tabSize: p.tabSize ?? 4,
+            insertSpaces: p.insertSpaces ?? true,
+        } as vscode.FormattingOptions;
+        const token = neverCancelledToken();
+
+        let result: unknown;
+        if (p.range !== undefined) {
+            const reg = rangeFormattingRegistrations.find((r) => matchDocumentSelector(r.selector, doc));
+            if (reg === undefined) return null;
+            const range = new Range(
+                p.range.startLine,
+                p.range.startCharacter,
+                p.range.endLine,
+                p.range.endCharacter,
+            );
+            try {
+                result = await Promise.resolve(
+                    reg.provider.provideDocumentRangeFormattingEdits(
+                        doc as unknown as vscode.TextDocument,
+                        range as unknown as vscode.Range,
+                        options,
+                        token,
+                    ),
+                );
+            } catch {
+                // Сбойный провайдер — пустой ответ (no-op), не «нет форматтера»:
+                // `result` остаётся неприсвоенным, его отсеет проверка ниже.
+            }
+        } else {
+            const docReg = formattingRegistrations.find((r) => matchDocumentSelector(r.selector, doc));
+            if (docReg !== undefined) {
+                try {
+                    result = await Promise.resolve(
+                        docReg.provider.provideDocumentFormattingEdits(
+                            doc as unknown as vscode.TextDocument,
+                            options,
+                            token,
+                        ),
+                    );
+                } catch {
+                    // Симметрично range-ветке: сбой = пустой ответ.
+                }
+            } else {
+                // Документного провайдера нет, но range-провайдер — это тоже
+                // форматтер документа (пометка vscode API у registerDocument-
+                // RangeFormattingEditProvider): форматируем полный диапазон.
+                const rangeReg = rangeFormattingRegistrations.find((r) => matchDocumentSelector(r.selector, doc));
+                if (rangeReg === undefined) return null;
+                const lastLine = doc.lineCount - 1;
+                const fullRange = new Range(0, 0, lastLine, doc.lineAt(lastLine).text.length);
+                try {
+                    result = await Promise.resolve(
+                        rangeReg.provider.provideDocumentRangeFormattingEdits(
+                            doc as unknown as vscode.TextDocument,
+                            fullRange as unknown as vscode.Range,
+                            options,
+                            token,
+                        ),
+                    );
+                } catch {
+                    // Симметрично: сбой = пустой ответ.
+                }
+            }
+        }
+        if (!Array.isArray(result)) return [];
+        const edits: WireTextEdit[] = [];
+        for (const item of result) {
+            const wire = serializeTextEdit(item);
+            if (wire !== null) edits.push(wire);
+        }
+        return edits;
     });
 
     rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult> => {
@@ -1049,6 +1158,38 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             }) as unknown as vscode.Disposable;
         },
 
+        registerDocumentFormattingEditProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentFormattingEditProvider,
+        ): vscode.Disposable => {
+            const registration: IFormattingRegistration = { selector, provider };
+            formattingRegistrations.push(registration);
+            if (formattingRegistrations.length === 1) pushSubscriptions();
+            return new DisposableImpl(() => {
+                const idx = formattingRegistrations.indexOf(registration);
+                if (idx >= 0) {
+                    formattingRegistrations.splice(idx, 1);
+                    if (formattingRegistrations.length === 0) pushSubscriptions();
+                }
+            }) as unknown as vscode.Disposable;
+        },
+
+        registerDocumentRangeFormattingEditProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentRangeFormattingEditProvider,
+        ): vscode.Disposable => {
+            const registration: IRangeFormattingRegistration = { selector, provider };
+            rangeFormattingRegistrations.push(registration);
+            if (rangeFormattingRegistrations.length === 1) pushSubscriptions();
+            return new DisposableImpl(() => {
+                const idx = rangeFormattingRegistrations.indexOf(registration);
+                if (idx >= 0) {
+                    rangeFormattingRegistrations.splice(idx, 1);
+                    if (rangeFormattingRegistrations.length === 0) pushSubscriptions();
+                }
+            }) as unknown as vscode.Disposable;
+        },
+
         // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
         // под capabilities сервера). Закрытие каждого — по образцу definition:
         // seam + RPC + UI-потребитель; см. таблицу стабов в docs/TODO/LSP.md. ──
@@ -1062,8 +1203,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         registerCodeLensProvider: registerNoopProvider,
         registerDocumentLinkProvider: registerNoopProvider,
         registerColorProvider: registerNoopProvider,
-        registerDocumentFormattingEditProvider: registerNoopProvider,
-        registerDocumentRangeFormattingEditProvider: registerNoopProvider,
         registerOnTypeFormattingEditProvider: registerNoopProvider,
         registerRenameProvider: registerNoopProvider,
         registerSelectionRangeProvider: registerNoopProvider,
@@ -1085,5 +1224,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         hoverRegistrations,
         referenceRegistrations,
         signatureHelpRegistrations,
+        formattingRegistrations,
+        rangeFormattingRegistrations,
     };
 }

@@ -9,7 +9,16 @@ import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTe
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
+import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
+import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
+import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { formatDocumentAction } from "../../../browser/actions/formatActions.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import {
+    StatusBarServiceDIToken,
+    type StatusBarService,
+} from "../../../services/statusbar/common/statusBarService.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
@@ -113,6 +122,22 @@ describe("ExtensionHost — стоковый maptz.regionfolder (#194)", () => {
             activateEvents: ["onStartupFinished"],
         });
         try {
+            // Гейт #196: после wrapWithRegion расширение делает fire-and-forget
+            // executeCommand("editor.action.formatDocument"). Регистрируем
+            // НАСТОЯЩУЮ команду (как builtinActions в проде) — вызов обязан
+            // исполниться, а не отклониться «command not found».
+            const notices: string[] = [];
+            const statusBar = {
+                addEntry: (entry: { text: string }) => {
+                    notices.push(entry.text);
+                    return { dispose: () => undefined };
+                },
+            } as unknown as StatusBarService;
+            const accessor = new Container();
+            accessor.bind(EditorServiceDIToken, () => harness.group);
+            accessor.bind(StatusBarServiceDIToken, () => statusBar);
+            registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, formatDocumentAction);
+
             await harness.flushRpc(8);
             await settle();
 
@@ -133,6 +158,11 @@ describe("ExtensionHost — стоковый maptz.regionfolder (#194)", () => {
             const wrapped = lines.findIndex((l) => l.includes("int c = 3;"));
             expect(lines[wrapped - 1]).toContain("#region");
             expect(lines[wrapped + 1]).toContain("#endregion");
+
+            // Fire-and-forget formatDocument дошёл до настоящей команды: для
+            // csharp форматтера нет — команда честно показала notice, а не
+            // упала «command not found» на RPC.
+            expect(notices).toEqual(["No formatter for 'csharp' installed"]);
 
             // Правка undoable — откатывается штатным undo редактора одним шагом.
             editor.undo();
