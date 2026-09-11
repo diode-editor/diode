@@ -299,17 +299,19 @@ expect(ed?.state?.hasSelection).toBe(true);
 - **e2e и сценарии** — установка по id: `installVsix: ["<publisher>.<name>"]` (аргумент без
   суффикса `.vsix` CLI трактует как id из публичного реестра — тот же путь, что у пользователя).
   Сценарию — пометка `network: true`.
-- **Юнит-сьюты ext-host'а** — fetch-хелпер по образцу `fetchBasedpyrightVsix()`
-  (`src/TestUtils/basedpyrightFixture.ts`): клиентский резолв версии (мета →
+- **Юнит-сьюты ext-host'а** — общий хелпер `fetchStockVsix(id)`
+  (`src/TestUtils/stockVsix.ts`): клиентский резолв версии (мета →
   `resolveCompatibleVersion` → `sha256`) + кэш в `node_modules/.cache`.
 - Всюду — скип в оффлайне: `DIODE_E2E_OFFLINE=1` пропускает такие сьюты (юнитам и e2e —
   `skipIf(MARKETPLACE_OFFLINE)` из `src/TestUtils/marketplaceEnv.ts`, сценариям — `network: true`).
 
 Действующие сьюты по этой конвенции: `extensionHost.pythonLsp*`, `e2e/pythonLsp.test.ts`,
-сценарий `python-lsp`, `e2e/editorconfig-stock.test.ts`. Ещё на закоммиченной `.vsix`-фикстуре
-(миграция по мере публикации в реестре): сценарий `regionFolding` (maptz.regionfolder — в
-магазине пока не опубликован). Новые тесты на стоковые расширения пишутся сразу по конвенции;
-предпосылка — расширение опубликовано в магазине ([Marketplace.md](TODO/Marketplace.md)).
+сценарий `python-lsp`, `e2e/editorconfig-stock.test.ts`, `extensionHost.maptzRegionfolder`,
+сценарий `region-folding`. Закоммиченных сторонних `.vsix` в репозитории больше нет; стока,
+которого нет на Open VSX, это тоже касается — такой vsix перевыкладывается в реестре
+(`kind: "proxy-hosted"`, лицензия должна разрешать редистрибуцию). Новые тесты на стоковые
+расширения пишутся сразу по конвенции; предпосылка — расширение опубликовано в магазине
+([Marketplace.md](TODO/Marketplace.md)).
 
 ### Extensions view (герметичный сьют)
 
