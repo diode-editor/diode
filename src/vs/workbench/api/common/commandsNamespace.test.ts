@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
+
+import { describe, expect, it, vi } from "vitest";
 
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
@@ -12,7 +14,7 @@ const microtasks = async (turns = 4): Promise<void> => {
  * Поднимает пару endpoint'ов: `sub` — «subprocess» с commands namespace,
  * `host` — «хост», на котором тест регистрирует хендлеры/наблюдает уведомления.
  */
-function createBridge(): {
+function createBridge(getActiveTextEditor?: () => vscode.TextEditor | undefined): {
     commands: ReturnType<typeof buildCommandsNamespace>;
     host: RpcEndpoint;
     dispose: () => void;
@@ -20,7 +22,7 @@ function createBridge(): {
     const [chSub, chHost] = createInProcessChannelPair();
     const sub = new RpcEndpoint(chSub);
     const host = new RpcEndpoint(chHost);
-    const commands = buildCommandsNamespace(sub);
+    const commands = buildCommandsNamespace(sub, getActiveTextEditor);
     return {
         commands,
         host,
@@ -167,6 +169,89 @@ describe("CommandsNamespace (subprocess)", () => {
         );
         const result = await commands.executeCommand<number>("ext.this");
         expect(result).toBe(7);
+        dispose();
+    });
+
+    it("registerTextEditorCommand: колбэк получает активный редактор, edit-builder и args", async () => {
+        const editor = { document: { fileName: "/f.py" } } as unknown as vscode.TextEditor;
+        const { commands, dispose } = createBridge(() => editor);
+        const seen: unknown[][] = [];
+        commands.registerTextEditorCommand("ext.te", (ed, edit, ...args) => {
+            seen.push([ed, edit, ...args]);
+        });
+
+        await commands.executeCommand("ext.te", "a", 2);
+
+        expect(seen).toHaveLength(1);
+        expect(seen[0][0]).toBe(editor);
+        // Инертный edit-builder существует и не бросает (все методы — no-op).
+        const edit = seen[0][1] as vscode.TextEditorEdit;
+        const pos = { line: 0, character: 0 } as vscode.Position;
+        expect(edit.insert(pos, "x")).toBeUndefined();
+        expect(edit.replace(pos, "y")).toBeUndefined();
+        expect(edit.delete({ start: pos, end: pos } as vscode.Range)).toBeUndefined();
+        expect(edit.setEndOfLine(1)).toBeUndefined();
+        expect(seen[0].slice(2)).toEqual(["a", 2]);
+        dispose();
+    });
+
+    it("registerTextEditorCommand: без активного редактора колбэк НЕ исполняется (семантика VS Code)", async () => {
+        const { commands, dispose } = createBridge(() => undefined);
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            let ran = false;
+            commands.registerTextEditorCommand("ext.te.noeditor", () => {
+                ran = true;
+            });
+
+            const result = await commands.executeCommand("ext.te.noeditor");
+
+            expect(ran).toBe(false);
+            expect(result).toBeUndefined();
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining("ext.te.noeditor"));
+        } finally {
+            warn.mockRestore();
+        }
+        dispose();
+    });
+
+    it("registerTextEditorCommand: сборка без геттера редактора (нет window) — no-op, не TypeError", async () => {
+        const { commands, dispose } = createBridge(); // геттер не передан
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            let ran = false;
+            commands.registerTextEditorCommand("ext.te.nogetter", () => {
+                ran = true;
+            });
+            await expect(commands.executeCommand("ext.te.nogetter")).resolves.toBeUndefined();
+            expect(ran).toBe(false);
+        } finally {
+            warn.mockRestore();
+        }
+        dispose();
+    });
+
+    it("registerTextEditorCommand: thisArg привязывается, dispose снимает команду", async () => {
+        const editor = {} as vscode.TextEditor;
+        const { commands, host, dispose } = createBridge(() => editor);
+        const unregistered: string[] = [];
+        host.handleNotification("commands.unregisterCommand", (p) => unregistered.push((p as { id: string }).id));
+        const ctx = { value: 11 };
+        let seenValue = 0;
+        const disposable = commands.registerTextEditorCommand(
+            "ext.te.this",
+            function (this: typeof ctx) {
+                seenValue = this.value;
+            },
+            ctx,
+        );
+
+        await commands.executeCommand("ext.te.this");
+        expect(seenValue).toBe(11);
+
+        disposable.dispose();
+        await microtasks();
+        expect(unregistered).toEqual(["ext.te.this"]);
         dispose();
     });
 });
