@@ -661,6 +661,47 @@ hide-toggle (`isHiddenByDefault`). См.
     значило бы показать пустую страницу первым кадром.
   - `browser/parts/views/headerBodyViewElement.ts` — общая раскладка «шапка
     натуральной высоты + тело на остаток» (Search и Extensions).
+  - `browser/parts/views/filteredListControl.ts` — общий каркас «строка поиска +
+    виртуализованный список» поверх `HeaderBodyViewElement`: владеет проводкой
+    (запрос → `onQueryChange`, активация строки → `onActivateRow`, плейсхолдер
+    пустого состояния), строки строит потребитель. Вынесен на третьем потребителе
+    (Extensions, Keyboard Shortcuts) по конвенции #291; статус потребителей —
+    [../TODO/ListControls.md](../TODO/ListControls.md).
+- **Preferences-кластер** — редактор keyboard shortcuts как в VS Code:
+  - `contrib/preferences/browser/preferencesActions.ts` — `Preferences: Open
+    Keyboard Shortcuts` (Ctrl+K Ctrl+S) открывает вкладку UI, а `…(JSON)` —
+    `keybindings.json` (VS Code parity; прежний биндинг вёл в JSON).
+  - `contrib/preferences/common/keybindingsEditorModel.ts` — чистая модель строк
+    (`listBindings()` × `listCommands()` → `IKeybindingItem`, строка на каждую
+    запись реестра плюс команды без биндинга) и фильтр (`@source:`, `@conflicts`,
+    fuzzy по title/id/комбинации).
+  - `contrib/preferences/browser/keybindingRows.ts` — чистая раскладка колонок
+    `Command | Keybinding | When | Source` под ширину (табличного контрола в
+    tuidom нет — колонки считаются руками, приём `extensionRows.ts`).
+  - `contrib/preferences/browser/keybindingsEditorPane.ts` — вкладка `IEditorPane`
+    с ресурсом `keybindings:global` (идентичность — `openPane`), поверх
+    `FilteredListControl`; колонки пересобираются на смену ширины в раскладке
+    (приём `ExtensionPageElement`). Enter/двойной клик → рекордер, контекст-меню
+    Change/Add/Remove/Reset/Copy/Show Conflicts. Открытие — шов
+    `IKeybindingsEditorTarget` (`EditorService` структурно, биндинг в
+    `diode/modules/preferencesModule.ts`).
+  - `contrib/preferences/browser/keybindingRecorderComponent.ts` — модальный
+    оверлей «нажмите комбинацию»: сфокусированный корень со `stopPropagation`
+    отсекает диспатчер, закрытие по парному keypress (пиннинг к цели keydown).
+    Предупреждает о непереносимых на legacy комбинациях
+    (`platform/keybinding/common/keybindingPortability.ts`).
+  - `services/keybinding/common/iKeybindingsEditorService.ts` +
+    `services/keybinding/node/keybindingsEditorService.ts` — единственный владелец
+    user-слоя биндингов: применяет `keybindings.json` на bootstrap (переезд
+    `applyUserKeybindings` из `KeybindingDispatcher`) и мутирует из UI
+    (`defineKeybinding`/`removeKeybinding`/`resetKeybinding`) с мгновенным
+    применением к реестру И записью в файл (`keybindingsFileEditor.ts`, JSONC-
+    правки через jsonc-parser). Контракт в `common/`, реализация в `node/` — как
+    у Extensions-кластера. Сессионный леджер эффектов user-правил даёт reset без
+    Reload Window; file-watcher нет (ручные правки — после Reload).
+  - `platform/keybinding/common/keybindingConflicts.ts` — конфликт-детекция
+    (одна комбинация + пересекающийся when; when-пересечение упрощено до
+    равенства строк, не SAT).
 - **Find/Suggest-кластер (этап 10)** — поиск по файлу и автодополнение поверх
   активного редактора (`EditorService`):
   - `Components/Editor/FindComponent.ts` — `ThemedComponent`; **композиционный
