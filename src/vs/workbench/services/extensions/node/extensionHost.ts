@@ -15,6 +15,7 @@ import type {
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
@@ -74,6 +75,8 @@ import {
     requestReferences,
     requestSignatureHelp,
     requestFormattingEdits,
+    requestCodeActions,
+    requestApplyCodeAction,
     requestFoldingRanges,
     requestWillSaveEdits,
     type SerializedDecorationRenderOptions,
@@ -213,6 +216,18 @@ export interface IExtensionHostOptions {
      */
     readonly formattingTimeoutMs?: number;
     /**
+     * Тайм-аут на ответ code-action-провайдеров
+     * (`languages.provideCodeActions`), мс. Default: 5000 — тот же холодный
+     * language server.
+     */
+    readonly codeActionsTimeoutMs?: number;
+    /**
+     * Тайм-аут применения code action (`languages.applyCodeAction`), мс.
+     * Default: 10000 — внутри живут ЕЩЁ два круга RPC: ленивый
+     * codeAction/resolve до сервера и `workspace.applyEdit` обратно до хоста.
+     */
+    readonly applyCodeActionTimeoutMs?: number;
+    /**
      * Логгер для lifecycle-событий host'а (канал `extensions.host`). Подканалы
      * `extensions.host.rpc` / `.stdout` / `.stderr` берутся из {@link logService}, если передан.
      */
@@ -331,6 +346,8 @@ export class ExtensionHost extends Disposable {
             | "referencesTimeoutMs"
             | "signatureHelpTimeoutMs"
             | "formattingTimeoutMs"
+            | "codeActionsTimeoutMs"
+            | "applyCodeActionTimeoutMs"
         >
     >;
     private readonly logger: ILogger | undefined;
@@ -379,6 +396,8 @@ export class ExtensionHost extends Disposable {
     private signatureHelpSubscribed = false;
     /** Есть ли в субпроцессе провайдеры форматирования — документные или range (см. `languages.updateSubscriptions`). */
     private formattingSubscribed = false;
+    /** Есть ли в субпроцессе зарегистрированные code-action-провайдеры (см. `languages.updateSubscriptions`). */
+    private codeActionsSubscribed = false;
     /** Символы, открывающие подсказку параметров («(», «,», «<» у tsserver). */
     private signatureHelpTriggerCharactersValue: readonly string[] = [];
     /** Символы, перезапрашивающие подсказку, пока она показана («)» у tsserver). */
@@ -431,6 +450,8 @@ export class ExtensionHost extends Disposable {
             referencesTimeoutMs: options.referencesTimeoutMs ?? 5000,
             signatureHelpTimeoutMs: options.signatureHelpTimeoutMs ?? 5000,
             formattingTimeoutMs: options.formattingTimeoutMs ?? 5000,
+            codeActionsTimeoutMs: options.codeActionsTimeoutMs ?? 5000,
+            applyCodeActionTimeoutMs: options.applyCodeActionTimeoutMs ?? 10000,
         };
         this.logger = options.logger;
         this.rpcLogger = options.rpcLogger;
@@ -930,6 +951,63 @@ export class ExtensionHost extends Disposable {
         );
     }
 
+    /**
+     * Запрашивает у субпроцесса code actions для диапазона
+     * (`languages.provideCodeActions`). `null` — действий взять неоткуда:
+     * субпроцесс мёртв, провайдеры не зарегистрированы либо ни один не матчит
+     * документ. Пустой массив — действий не нашлось, документ слишком большой
+     * или таймаут. Подключается в `EditorService.codeActionSource.provide`.
+     */
+    public async provideCodeActions(req: ICodeActionRequest): Promise<readonly ICoreCodeAction[] | null> {
+        const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null || !this.codeActionsSubscribed) return null;
+        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping code actions: document too large", {
+                uri: req.uri,
+                length: req.text.length,
+            });
+            return [];
+        }
+        return requestCodeActions(
+            (method, params) => rpc.request(method, params),
+            {
+                uri: req.uri,
+                languageId: req.languageId,
+                text: req.text,
+                range: {
+                    startLine: req.range.start.line,
+                    startCharacter: req.range.start.character,
+                    endLine: req.range.end.line,
+                    endCharacter: req.range.end.character,
+                },
+                // Спред — про чистоту payload'а: `undefined`-ключи всё равно
+                // выбрасывает JSON-транспорт RPC.
+                // Stryker disable next-line ConditionalExpression: см. выше
+                ...(req.only === undefined ? {} : { only: req.only }),
+            },
+            this.options.codeActionsTimeoutMs,
+        );
+    }
+
+    /**
+     * Просит субпроцесс применить закэшированное действие
+     * (`languages.applyCodeAction`): ленивый resolve + правки через
+     * `workspace.applyEdit` + команда действия — всё на его стороне. `false` —
+     * субпроцесса нет, действие протухло, правки не легли или таймаут
+     * `applyCodeActionTimeoutMs`. Подключается в `EditorService.codeActionSource.apply`.
+     */
+    public async applyCodeAction(id: string): Promise<boolean> {
+        const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: пара «канала нет, но подписка есть» недостижима — см. provideCodeActions
+        if (rpc === null || !this.codeActionsSubscribed) return false;
+        return requestApplyCodeAction(
+            (method, params) => rpc.request(method, params),
+            id,
+            this.options.applyCodeActionTimeoutMs,
+        );
+    }
+
     /** Символы, открывающие подсказку параметров (объединение по регистрациям). */
     public get signatureHelpTriggerCharacters(): readonly string[] {
         return this.signatureHelpTriggerCharactersValue;
@@ -1282,6 +1360,7 @@ export class ExtensionHost extends Disposable {
                 completionTriggerCharacters?: unknown;
                 hasSignatureHelpProviders?: unknown;
                 hasFormattingProviders?: unknown;
+                hasCodeActionsProviders?: unknown;
                 signatureHelpTriggerCharacters?: unknown;
                 signatureHelpRetriggerCharacters?: unknown;
             };
@@ -1298,6 +1377,7 @@ export class ExtensionHost extends Disposable {
             this.referencesSubscribed = p.hasReferenceProviders === true;
             this.signatureHelpSubscribed = p.hasSignatureHelpProviders === true;
             this.formattingSubscribed = p.hasFormattingProviders === true;
+            this.codeActionsSubscribed = p.hasCodeActionsProviders === true;
             // Сериализуем пару списков целиком: склейка join'ом уравняла бы
             // ["ab"] и ["a", "b"], и смена набора прошла бы мимо слушателей.
             const signatureBefore = JSON.stringify([
@@ -1556,6 +1636,8 @@ export class ExtensionHost extends Disposable {
         this.signatureHelpSubscribed = false;
         // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed выше
         this.formattingSubscribed = false;
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed выше
+        this.codeActionsSubscribed = false;
         this.documentSyncSubscribed = false;
         this.pendingDidChange.clear();
         // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.

@@ -11,6 +11,7 @@ import {
     CancellationTokenSource,
     CodeAction,
     CodeActionKind,
+    CodeActionTriggerKind,
     CodeLens,
     CompletionItem,
     CompletionItemKind,
@@ -107,11 +108,17 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
 
     const window = createWindowNamespace(ctx);
     const workspace = createWorkspaceNamespace(ctx);
-    const { languages } = createLanguagesNamespace(ctx);
     // WP4: commands bridge поверх симметричного rpc (локальная Map команд +
     // прокси в host CommandRegistry). Геттер активного редактора нужен
     // registerTextEditorCommand — команда исполняется только при активном редакторе.
+    // Собирается ДО languages: applyCodeAction исполняет команды действий.
     const commands = buildCommandsNamespace(rpc, () => window.activeTextEditor);
+    const { languages } = createLanguagesNamespace(ctx, {
+        // Правки code action ложатся тем же путём, что workspace.applyEdit;
+        // команды действия — локальный реестр с прокси-мостом до хоста.
+        applyEdit: (edit) => workspace.applyEdit(edit),
+        executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
+    });
 
     // Наивный `env` — vscode-languageclient читает language/appName; клипборд и
     // openExternal честно отказывают (TUI не открывает внешние URL).
@@ -176,6 +183,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         CodeLens,
         CodeAction,
         CodeActionKind,
+        // CodeActionTriggerKind читает c2p-конвертер клиента на каждом запросе
+        // code actions (asCodeActionTriggerKind) — enum обязан быть настоящим.
+        CodeActionTriggerKind,
         DocumentLink,
         DocumentHighlightKind,
         InlayHint,

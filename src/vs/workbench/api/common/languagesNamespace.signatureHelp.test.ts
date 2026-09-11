@@ -73,6 +73,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
         expect(subs()[1].params).toMatchObject({
             hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
+            hasCodeActionsProviders: false,
             signatureHelpTriggerCharacters: [],
             signatureHelpRetriggerCharacters: [],
         });
@@ -117,6 +118,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
         expect(stub.notifies.at(-1)?.params).toMatchObject({
             hasSignatureHelpProviders: true,
             hasFormattingProviders: false,
+            hasCodeActionsProviders: false,
             signatureHelpTriggerCharacters: [],
             signatureHelpRetriggerCharacters: [")"],
         });

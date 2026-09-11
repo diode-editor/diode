@@ -10,6 +10,9 @@ import { matchDocumentSelector } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
+    CodeAction,
+    CodeActionKind,
+    CodeActionTriggerKind,
     CompletionTriggerKind,
     DisposableImpl,
     EventEmitter,
@@ -18,8 +21,10 @@ import {
     SignatureHelpTriggerKind,
     SnippetString,
     Uri,
+    WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import type {
+    IWireCodeActionParams,
     IWireFormattingParams,
     IWireSignatureHelpParams,
     WireCompletionItem,
@@ -28,6 +33,7 @@ import type {
     WireFoldingRange,
     WireHover,
     WireMarker,
+    WireCodeAction,
     WireReference,
     WireResolvedCompletionItem,
     WireTextEdit,
@@ -100,6 +106,18 @@ export interface ISignatureHelpRegistration {
     readonly retriggerCharacters: readonly string[];
 }
 
+/**
+ * Зарегистрированный code-action-провайдер. `providedKinds` — из
+ * `CodeActionProviderMetadata.providedCodeActionKinds`: непустой список
+ * позволяет НЕ спрашивать провайдера, когда запрошенный `only` заведомо
+ * не пересекается с его видами.
+ */
+export interface ICodeActionRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.CodeActionProvider;
+    readonly providedKinds: readonly string[];
+}
+
 /** Зарегистрированный провайдер форматирования документа. */
 export interface IFormattingRegistration {
     readonly selector: vscode.DocumentSelector;
@@ -134,6 +152,23 @@ interface ICachedCompletion {
 
 /** Сколько последних ответов completion держим ради resolve. */
 const COMPLETION_CACHE_DEPTH = 2;
+
+/**
+ * Кэшированный элемент ответа code actions: действие (тот же объект, что
+ * вернул провайдер, — resolve обязан получить его же) + регистрация,
+ * у чьего провайдера спрашивать resolveCodeAction.
+ */
+interface ICachedCodeAction {
+    readonly item: vscode.CodeAction | vscode.Command;
+    readonly registration: ICodeActionRegistration;
+}
+
+/** Пересечение диапазонов, границы включительно (как `vscode.Range.intersection`). */
+function rangesIntersect(a: Range, b: Range): boolean {
+    const startsBeforeOrAt = (x: Position, y: Position): boolean =>
+        x.line < y.line || (x.line === y.line && x.character <= y.character);
+    return startsBeforeOrAt(a.start, b.end) && startsBeforeOrAt(b.start, a.end);
+}
 
 /** Wire-параметры запроса folding (host → subprocess). */
 interface IWireFoldingParams {
@@ -540,7 +575,29 @@ function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | n
  * результат. Наличие провайдеров сигналится хосту через
  * `languages.updateSubscriptions` (0↔1) — без провайдеров хост не гоняет RPC.
  */
-export function createLanguagesNamespace(ctx: IVscodeHostContext): {
+/**
+ * Зависимости applyCodeAction, живущие в соседних namespace'ах: правки
+ * применяются через `workspace.applyEdit` (RPC до хоста внутри), команды
+ * действия — через `commands.executeCommand` (локальный реестр + прокси-мост).
+ * Ассемблер передаёт настоящие функции; дефолт — честные отказы для тестов,
+ * которым applyCodeAction не нужен.
+ */
+export interface ICodeActionDeps {
+    readonly applyEdit: (edit: vscode.WorkspaceEdit) => Thenable<boolean>;
+    readonly executeCommand: (command: string, ...args: unknown[]) => Thenable<unknown>;
+}
+
+const NULL_CODE_ACTION_DEPS: ICodeActionDeps = {
+    // Stryker disable next-line ArrowFunction: `undefined` и `Promise<false>` для applyCodeAction неотличимы — оба читаются как «не применилось»
+    applyEdit: () => Promise.resolve(false),
+    // Stryker disable next-line StringLiteral: текст диагностического reject'а глотает catch applyCodeAction — ненаблюдаем
+    executeCommand: () => Promise.reject(new Error("commands bridge is not wired")),
+};
+
+export function createLanguagesNamespace(
+    ctx: IVscodeHostContext,
+    codeActionDeps: ICodeActionDeps = NULL_CODE_ACTION_DEPS,
+): {
     languages: typeof vscode.languages;
     registrations: readonly ICompletionRegistration[];
     foldingRegistrations: readonly IFoldingRegistration[];
@@ -550,6 +607,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     signatureHelpRegistrations: readonly ISignatureHelpRegistration[];
     formattingRegistrations: readonly IFormattingRegistration[];
     rangeFormattingRegistrations: readonly IRangeFormattingRegistration[];
+    codeActionRegistrations: readonly ICodeActionRegistration[];
 } {
     const { rpc, documentSync } = ctx;
     const registrations: ICompletionRegistration[] = [];
@@ -560,6 +618,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
     const signatureHelpRegistrations: ISignatureHelpRegistration[] = [];
     const formattingRegistrations: IFormattingRegistration[] = [];
     const rangeFormattingRegistrations: IRangeFormattingRegistration[] = [];
+    const codeActionRegistrations: ICodeActionRegistration[] = [];
 
     // Кэш ответов completion для resolve. Держим последние COMPLETION_CACHE_DEPTH
     // ответов: пользователь резолвит пункт из текущего списка, а гонка «ответ
@@ -579,6 +638,42 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         const [rawCacheId, rawIndex] = id.split(".");
         const bucket = completionCache.get(Number(rawCacheId));
         return bucket?.[Number(rawIndex)] ?? null;
+    }
+
+    // Кэш ответов code actions для apply/resolve — та же схема вёдер, что у
+    // completion: применять нужно ТОТ ЖЕ объект действия, который вернул
+    // провайдер (у клиента это ProtocolCodeAction с приватным `data`).
+    const codeActionCache = new Map<number, readonly ICachedCodeAction[]>();
+
+    function rememberCodeActions(cacheId: number, items: readonly ICachedCodeAction[]): void {
+        codeActionCache.set(cacheId, items);
+        const excess = codeActionCache.size - COMPLETION_CACHE_DEPTH;
+        for (const key of [...codeActionCache.keys()].slice(0, excess)) codeActionCache.delete(key);
+    }
+
+    /** Достаёт действие по id вида `"<cacheId>.<index>"`; `null` — ведро вытеснено. */
+    function findCachedCodeAction(id: string): ICachedCodeAction | null {
+        const [rawCacheId, rawIndex] = id.split(".");
+        const bucket = codeActionCache.get(Number(rawCacheId));
+        return bucket?.[Number(rawIndex)] ?? null;
+    }
+
+    // Хранилища ВСЕХ DiagnosticCollection расширений: из них собирается
+    // контекст code actions (те же объекты Diagnostic, что публиковал клиент).
+    const diagnosticStores: Map<string, readonly vscode.Diagnostic[]>[] = [];
+
+    /** Диагностики ресурса, пересекающиеся с диапазоном (по всем коллекциям). */
+    function diagnosticsIntersecting(resource: string, range: Range): vscode.Diagnostic[] {
+        const found: vscode.Diagnostic[] = [];
+        for (const store of diagnosticStores) {
+            // Stryker disable next-line ArrayDeclaration: фолбэк-массив немедленно фильтруется по range — содержимое ненаблюдаемо
+            for (const diag of store.get(resource) ?? []) {
+                const diagRange = (diag as { range?: Range }).range;
+                if (diagRange === undefined) continue;
+                if (rangesIntersect(diagRange, range)) found.push(diag);
+            }
+        }
+        return found;
     }
 
     function pushSubscriptions(): void {
@@ -613,6 +708,7 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             // матчит документ, решает handler по запросу (`null` = «нет
             // форматтера» для этого документа/вида).
             hasFormattingProviders: formattingRegistrations.length > 0 || rangeFormattingRegistrations.length > 0,
+            hasCodeActionsProviders: codeActionRegistrations.length > 0,
         });
     }
 
@@ -859,6 +955,143 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         return edits;
     });
 
+    // Code actions (#196): контекст-диагностики собираются ЗДЕСЬ из локальных
+    // DiagnosticCollection (те же объекты, что публиковал клиент, — с приватным
+    // `data`, по которому сервер матчит фиксы), а не едут с хоста lossy-копией.
+    // Обходим ВСЕ матчащие провайдеры (как VS Code), метаданные
+    // `providedCodeActionKinds` отсекают заведомо нерелевантных при `only`.
+    // `null` в ответе — ни одного провайдера под документ.
+    rpc.handleRequest("languages.provideCodeActions", async (params): Promise<WireCodeAction[] | null> => {
+        const p = params as IWireCodeActionParams;
+        const doc: ExtHostTextDocument = documentSync.sync({
+            uri: p.uri,
+            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
+            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
+            text: p.text ?? "",
+        });
+        const range = new Range(
+            p.range.startLine,
+            p.range.startCharacter,
+            p.range.endLine,
+            p.range.endCharacter,
+        );
+        const only = typeof p.only === "string" ? new CodeActionKind(p.only) : undefined;
+        const context = {
+            triggerKind: CodeActionTriggerKind.Invoke,
+            diagnostics: diagnosticsIntersecting(doc.uri.toString(), range),
+            only,
+        } as unknown as vscode.CodeActionContext;
+        const token = neverCancelledToken();
+
+        let matched = false;
+        // Stryker disable next-line UpdateOperator: направление счётчика ненаблюдаемо — вёдра различает уникальность id, а не порядок
+        const cacheId = nextCacheId++;
+        const cached: ICachedCodeAction[] = [];
+        const wire: WireCodeAction[] = [];
+        for (const reg of codeActionRegistrations) {
+            if (!matchDocumentSelector(reg.selector, doc)) continue;
+            // Метаданные видов: провайдер, чьи виды не пересекаются с `only`,
+            // не спрашивается вовсе (ровно для этого метаданные и объявляют).
+            if (
+                only !== undefined &&
+                reg.providedKinds.length > 0 &&
+                !reg.providedKinds.some((kind) => only.intersects(new CodeActionKind(kind)))
+            ) {
+                matched = true; // провайдер под документ есть — просто не про этот вид
+                continue;
+            }
+            matched = true;
+            let result: unknown;
+            try {
+                result = await Promise.resolve(
+                    reg.provider.provideCodeActions(
+                        doc as unknown as vscode.TextDocument,
+                        range as unknown as vscode.Range,
+                        context,
+                        token,
+                    ),
+                );
+            } catch {
+                // Сбойный провайдер не роняет остальные: `result` остаётся
+                // неприсвоенным, и его отсеивает проверка ниже.
+            }
+            if (!Array.isArray(result)) continue;
+            for (const item of result as (vscode.CodeAction | vscode.Command)[]) {
+                if (item == null || typeof (item as { title?: unknown }).title !== "string") continue;
+                // `only` фильтрует по виду; голые команды вида не имеют и при
+                // запрошенном `only` отбрасываются (как в VS Code).
+                const action: CodeAction | undefined = item instanceof CodeAction ? item : undefined;
+                const kind = action?.kind;
+                if (only !== undefined && (kind === undefined || !only.contains(kind))) continue;
+                const id = `${String(cacheId)}.${String(cached.length)}`;
+                cached.push({ item, registration: reg });
+                wire.push({
+                    id,
+                    title: (item as { title: string }).title,
+                    ...(kind === undefined ? {} : { kind: kind.value }),
+                    ...(action?.isPreferred === true ? { isPreferred: true } : {}),
+                });
+            }
+        }
+        if (!matched) return null;
+        rememberCodeActions(cacheId, cached);
+        return wire;
+    });
+
+    // Применение закэшированного действия: ленивый resolve (правки многих
+    // серверов приезжают только по codeAction/resolve), затем правки через
+    // `workspace.applyEdit` (существующий RPC до хоста) и команда действия.
+    rpc.handleRequest("languages.applyCodeAction", async (params): Promise<boolean> => {
+        const id = (params as { id?: unknown }).id;
+        if (typeof id !== "string") return false;
+        const found = findCachedCodeAction(id);
+        if (found === null) return false;
+
+        /** Исполняет команду действия; `false` — команда упала. */
+        async function runActionCommand(command: vscode.Command): Promise<boolean> {
+            try {
+                await codeActionDeps.executeCommand(command.command, ...(command.arguments ?? []));
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        // Голая команда (`vscode.Command`): исполняем и всё.
+        if (!(found.item instanceof CodeAction)) {
+            return runActionCommand(found.item as vscode.Command);
+        }
+
+        let action: CodeAction = found.item;
+        const resolve = found.registration.provider.resolveCodeAction?.bind(found.registration.provider);
+        // Stryker disable next-line ConditionalExpression: подмена на true вызвала бы отсутствующий resolve, но TypeError упал бы внутри try и был бы проглочен — ненаблюдаемо
+        const canResolve = resolve !== undefined;
+        if (action.edit === undefined && canResolve) {
+            try {
+                const resolved = await Promise.resolve(resolve!(action as never, neverCancelledToken()));
+                if (resolved != null) action = resolved as CodeAction;
+            } catch {
+                // Сбойный resolve — применяем то, что есть (обычно command).
+            }
+        }
+
+        let applied = false;
+        if (action.edit instanceof WorkspaceEdit) {
+            const ok = await codeActionDeps.applyEdit(action.edit as unknown as vscode.WorkspaceEdit);
+            // Правки не легли — команду не запускаем: VS Code применяет edit
+            // ПЕРЕД командой, и продолжать после отказа значило бы исполнить
+            // действие наполовину.
+            if (!ok) return false;
+            applied = true;
+        }
+        const command = action.command as vscode.Command | undefined;
+        if (command !== undefined && typeof command.command === "string") {
+            if (!(await runActionCommand(command))) return false;
+            applied = true;
+        }
+        return applied;
+    });
+
     rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult> => {
         const p = params as IWireCompletionParams;
         const doc: ExtHostTextDocument = documentSync.sync({
@@ -994,6 +1227,9 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         // Оригинальные Diagnostic'и расширения (контракт get/forEach); wire-форма
         // считается на публикации.
         const store = new Map<string, readonly vscode.Diagnostic[]>();
+        // Регистрируем хранилище для сборки контекста code actions: провайдер
+        // должен видеть ТЕ ЖЕ объекты диагностик, что публиковал клиент.
+        diagnosticStores.push(store);
 
         const resourceOf = (uri: unknown): string => {
             if (typeof uri === "string") return Uri.parse(uri).toString();
@@ -1190,6 +1426,27 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
             }) as unknown as vscode.Disposable;
         },
 
+        registerCodeActionsProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.CodeActionProvider,
+            metadata?: vscode.CodeActionProviderMetadata,
+        ): vscode.Disposable => {
+            // Stryker disable next-line ArrayDeclaration: фолбэк-массив тут же вычищается map+filter — содержимое ненаблюдаемо
+            const providedKinds = (metadata?.providedCodeActionKinds ?? [])
+                .map((kind) => (kind as { value?: unknown }).value)
+                .filter((value): value is string => typeof value === "string");
+            const registration: ICodeActionRegistration = { selector, provider, providedKinds };
+            codeActionRegistrations.push(registration);
+            if (codeActionRegistrations.length === 1) pushSubscriptions();
+            return new DisposableImpl(() => {
+                const idx = codeActionRegistrations.indexOf(registration);
+                if (idx >= 0) {
+                    codeActionRegistrations.splice(idx, 1);
+                    if (codeActionRegistrations.length === 0) pushSubscriptions();
+                }
+            }) as unknown as vscode.Disposable;
+        },
+
         // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
         // под capabilities сервера). Закрытие каждого — по образцу definition:
         // seam + RPC + UI-потребитель; см. таблицу стабов в docs/TODO/LSP.md. ──
@@ -1199,7 +1456,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         registerDocumentHighlightProvider: registerNoopProvider,
         registerDocumentSymbolProvider: registerNoopProvider,
         registerWorkspaceSymbolProvider: registerNoopProvider,
-        registerCodeActionsProvider: registerNoopProvider,
         registerCodeLensProvider: registerNoopProvider,
         registerDocumentLinkProvider: registerNoopProvider,
         registerColorProvider: registerNoopProvider,
@@ -1226,5 +1482,6 @@ export function createLanguagesNamespace(ctx: IVscodeHostContext): {
         signatureHelpRegistrations,
         formattingRegistrations,
         rangeFormattingRegistrations,
+        codeActionRegistrations,
     };
 }

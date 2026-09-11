@@ -4335,6 +4335,389 @@ declare module "vscode" {
 		provideDocumentRangeFormattingEdits(document: TextDocument, range: Range, options: FormattingOptions, token: CancellationToken): ProviderResult<TextEdit[]>;
 	}
 
+	/**
+	 * Kind of a code action.
+	 *
+	 * Kinds are a hierarchical list of identifiers separated by `.`, e.g. `"refactor.extract.function"`.
+	 *
+	 * Code action kinds are used by the editor for UI elements such as the refactoring context menu. Users
+	 * can also trigger code actions with a specific kind with the `editor.action.codeAction` command.
+	 */
+	export class CodeActionKind {
+		/**
+		 * Empty kind.
+		 */
+		static readonly Empty: CodeActionKind;
+
+		/**
+		 * Base kind for quickfix actions: `quickfix`.
+		 *
+		 * Quick fix actions address a problem in the code and are shown in the normal code action context menu.
+		 */
+		static readonly QuickFix: CodeActionKind;
+
+		/**
+		 * Base kind for refactoring actions: `refactor`
+		 *
+		 * Refactoring actions are shown in the refactoring context menu.
+		 */
+		static readonly Refactor: CodeActionKind;
+
+		/**
+		 * Base kind for refactoring extraction actions: `refactor.extract`
+		 *
+		 * Example extract actions:
+		 *
+		 * - Extract method
+		 * - Extract function
+		 * - Extract variable
+		 * - Extract interface from class
+		 * - ...
+		 */
+		static readonly RefactorExtract: CodeActionKind;
+
+		/**
+		 * Base kind for refactoring inline actions: `refactor.inline`
+		 *
+		 * Example inline actions:
+		 *
+		 * - Inline function
+		 * - Inline variable
+		 * - Inline constant
+		 * - ...
+		 */
+		static readonly RefactorInline: CodeActionKind;
+
+		/**
+		 * Base kind for refactoring move actions: `refactor.move`
+		 *
+		 * Example move actions:
+		 *
+		 * - Move a function to a new file
+		 * - Move a property between classes
+		 * - Move method to base class
+		 * - ...
+		 */
+		static readonly RefactorMove: CodeActionKind;
+
+		/**
+		 * Base kind for refactoring rewrite actions: `refactor.rewrite`
+		 *
+		 * Example rewrite actions:
+		 *
+		 * - Convert JavaScript function to class
+		 * - Add or remove parameter
+		 * - Encapsulate field
+		 * - Make method static
+		 * - ...
+		 */
+		static readonly RefactorRewrite: CodeActionKind;
+
+		/**
+		 * Base kind for source actions: `source`
+		 *
+		 * Source code actions apply to the entire file. They must be explicitly requested and will not show in the
+		 * normal [lightbulb](https://code.visualstudio.com/docs/editor/editingevolved#_code-action) menu. Source actions
+		 * can be run on save using `editor.codeActionsOnSave` and are also shown in the `source` context menu.
+		 */
+		static readonly Source: CodeActionKind;
+
+		/**
+		 * Base kind for an organize imports source action: `source.organizeImports`.
+		 */
+		static readonly SourceOrganizeImports: CodeActionKind;
+
+		/**
+		 * Base kind for auto-fix source actions: `source.fixAll`.
+		 *
+		 * Fix all actions automatically fix errors that have a clear fix that do not require user input.
+		 * They should not suppress errors or perform unsafe fixes such as generating new types or classes.
+		 */
+		static readonly SourceFixAll: CodeActionKind;
+
+		/**
+		 * Base kind for all code actions applying to the entire notebook's scope. CodeActionKinds using
+		 * this should always begin with `notebook.`
+		 *
+		 * This requires that new CodeActions be created for it and contributed via extensions.
+		 * Pre-existing kinds can not just have the new `notebook.` prefix added to them, as the functionality
+		 * is unique to the full-notebook scope.
+		 *
+		 * Notebook CodeActionKinds can be initialized as either of the following (both resulting in `notebook.source.xyz`):
+		 * - `const newKind =  CodeActionKind.Notebook.append(CodeActionKind.Source.append('xyz').value)`
+		 * - `const newKind =  CodeActionKind.Notebook.append('source.xyz')`
+		 *
+		 * Example Kinds/Actions:
+		 * - `notebook.source.organizeImports` (might move all imports to a new top cell)
+		 * - `notebook.source.normalizeVariableNames` (might rename all variables to a standardized casing format)
+		 */
+		static readonly Notebook: CodeActionKind;
+
+		/**
+		 * Private constructor, use static `CodeActionKind.XYZ` to derive from an existing code action kind.
+		 *
+		 * @param value The value of the kind, such as `refactor.extract.function`.
+		 */
+		private constructor(value: string);
+
+		/**
+		 * String value of the kind, e.g. `"refactor.extract.function"`.
+		 */
+		readonly value: string;
+
+		/**
+		 * Create a new kind by appending a more specific selector to the current kind.
+		 *
+		 * Does not modify the current kind.
+		 */
+		append(parts: string): CodeActionKind;
+
+		/**
+		 * Checks if this code action kind intersects `other`.
+		 *
+		 * The kind `"refactor.extract"` for example intersects `refactor`, `"refactor.extract"` and `"refactor.extract.function"`,
+		 * but not `"unicorn.refactor.extract"`, or `"refactor.extractAll"`.
+		 *
+		 * @param other Kind to check.
+		 */
+		intersects(other: CodeActionKind): boolean;
+
+		/**
+		 * Checks if `other` is a sub-kind of this `CodeActionKind`.
+		 *
+		 * The kind `"refactor.extract"` for example contains `"refactor.extract"` and ``"refactor.extract.function"`,
+		 * but not `"unicorn.refactor.extract"`, or `"refactor.extractAll"` or `refactor`.
+		 *
+		 * @param other Kind to check.
+		 */
+		contains(other: CodeActionKind): boolean;
+	}
+
+	/**
+	 * The reason why code actions were requested.
+	 */
+	export enum CodeActionTriggerKind {
+		/**
+		 * Code actions were explicitly requested by the user or by an extension.
+		 */
+		Invoke = 1,
+
+		/**
+		 * Code actions were requested automatically.
+		 *
+		 * This typically happens when current selection in a file changes, but can
+		 * also be triggered when file content changes.
+		 */
+		Automatic = 2,
+	}
+
+	/**
+	 * Contains additional diagnostic information about the context in which
+	 * a {@link CodeActionProvider.provideCodeActions code action} is run.
+	 */
+	export interface CodeActionContext {
+		/**
+		 * The reason why code actions were requested.
+		 */
+		readonly triggerKind: CodeActionTriggerKind;
+
+		/**
+		 * An array of diagnostics.
+		 */
+		readonly diagnostics: readonly Diagnostic[];
+
+		/**
+		 * Requested kind of actions to return.
+		 *
+		 * Actions not of this kind are filtered out before being shown by the [lightbulb](https://code.visualstudio.com/docs/editor/editingevolved#_code-action).
+		 */
+		readonly only: CodeActionKind | undefined;
+	}
+
+	/**
+	 * A code action represents a change that can be performed in code, e.g. to fix a problem or
+	 * to refactor code.
+	 *
+	 * A CodeAction must set either {@linkcode CodeAction.edit edit} and/or a {@linkcode CodeAction.command command}. If both are supplied, the `edit` is applied first, then the command is executed.
+	 */
+	export class CodeAction {
+
+		/**
+		 * A short, human-readable, title for this code action.
+		 */
+		title: string;
+
+		/**
+		 * A {@link WorkspaceEdit workspace edit} this code action performs.
+		 */
+		edit?: WorkspaceEdit;
+
+		/**
+		 * {@link Diagnostic Diagnostics} that this code action resolves.
+		 */
+		diagnostics?: Diagnostic[];
+
+		/**
+		 * A {@link Command} this code action executes.
+		 *
+		 * If this command throws an exception, the editor displays the exception message to users in the editor at the
+		 * current cursor position.
+		 */
+		command?: Command;
+
+		/**
+		 * {@link CodeActionKind Kind} of the code action.
+		 *
+		 * Used to filter code actions.
+		 */
+		kind?: CodeActionKind;
+
+		/**
+		 * Marks this as a preferred action. Preferred actions are used by the `auto fix` command and can be targeted
+		 * by keybindings.
+		 *
+		 * A quick fix should be marked preferred if it properly addresses the underlying error.
+		 * A refactoring should be marked preferred if it is the most reasonable choice of actions to take.
+		 */
+		isPreferred?: boolean;
+
+		/**
+		 * Marks that the code action cannot currently be applied.
+		 *
+		 * - Disabled code actions are not shown in automatic [lightbulb](https://code.visualstudio.com/docs/editor/editingevolved#_code-action)
+		 * code action menu.
+		 *
+		 * - Disabled actions are shown as faded out in the code action menu when the user request a more specific type
+		 * of code action, such as refactorings.
+		 *
+		 * - If the user has a [keybinding](https://code.visualstudio.com/docs/editor/refactoring#_keybindings-for-code-actions)
+		 * that auto applies a code action and only a disabled code actions are returned, the editor will show the user an
+		 * error message with `reason` in the editor.
+		 */
+		disabled?: {
+			/**
+			 * Human readable description of why the code action is currently disabled.
+			 *
+			 * This is displayed in the code actions UI.
+			 */
+			readonly reason: string;
+		};
+
+		/**
+		 * Creates a new code action.
+		 *
+		 * A code action must have at least a {@link CodeAction.title title} and {@link CodeAction.edit edits}
+		 * and/or a {@link CodeAction.command command}.
+		 *
+		 * @param title The title of the code action.
+		 * @param kind The kind of the code action.
+		 */
+		constructor(title: string, kind?: CodeActionKind);
+	}
+
+	/**
+	 * Provides contextual actions for code. Code actions typically either fix problems or beautify/refactor code.
+	 *
+	 * Code actions are surfaced to users in a few different ways:
+	 *
+	 * - The [lightbulb](https://code.visualstudio.com/docs/editor/editingevolved#_code-action) feature, which shows
+	 *   a list of code actions at the current cursor position. The lightbulb's list of actions includes both quick fixes
+	 *   and refactorings.
+	 * - As commands that users can run, such as `Refactor`. Users can run these from the command palette or with keybindings.
+	 * - As source actions, such `Organize Imports`.
+	 * - {@link CodeActionKind.QuickFix Quick fixes} are shown in the problems view.
+	 * - Change applied on save by the `editor.codeActionsOnSave` setting.
+	 */
+	export interface CodeActionProvider<T extends CodeAction = CodeAction> {
+		/**
+		 * Get code actions for a given range in a document.
+		 *
+		 * Only return code actions that are relevant to user for the requested range. Also keep in mind how the
+		 * returned code actions will appear in the UI. The lightbulb widget and `Refactor` commands for instance show
+		 * returned code actions as a list, so do not return a large number of code actions that will overwhelm the user.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param range The selector or range for which the command was invoked. This will always be a
+		 * {@link Selection selection} if the actions are being requested in the currently active editor.
+		 * @param context Provides additional information about what code actions are being requested. You can use this
+		 * to see what specific type of code actions are being requested by the editor in order to return more relevant
+		 * actions and avoid returning irrelevant code actions that the editor will discard.
+		 * @param token A cancellation token.
+		 *
+		 * @returns An array of code actions, such as quick fixes or refactorings. The lack of a result can be signaled
+		 * by returning `undefined`, `null`, or an empty array.
+		 *
+		 * We also support returning `Command` for legacy reasons, however all new extensions should return
+		 * `CodeAction` object instead.
+		 */
+		provideCodeActions(document: TextDocument, range: Range | Selection, context: CodeActionContext, token: CancellationToken): ProviderResult<Array<Command | T>>;
+
+		/**
+		 * Given a code action fill in its {@linkcode CodeAction.edit edit}-property. Changes to
+		 * all other properties, like title, are ignored. A code action that has an edit
+		 * will not be resolved.
+		 *
+		 * *Note* that a code action provider that returns commands, not code actions, cannot successfully
+		 * implement this function. Returning commands is deprecated and instead code actions should be
+		 * returned.
+		 *
+		 * @param codeAction A code action.
+		 * @param token A cancellation token.
+		 * @returns The resolved code action or a thenable that resolves to such. It is OK to return the given
+		 * `item`. When no result is returned, the given `item` will be used.
+		 */
+		resolveCodeAction?(codeAction: T, token: CancellationToken): ProviderResult<T>;
+	}
+
+	/**
+	 * Metadata about the type of code actions that a {@link CodeActionProvider} provides.
+	 */
+	export interface CodeActionProviderMetadata {
+		/**
+		 * List of {@link CodeActionKind CodeActionKinds} that a {@link CodeActionProvider} may return.
+		 *
+		 * This list is used to determine if a given `CodeActionProvider` should be invoked or not.
+		 * To avoid unnecessary computation, every `CodeActionProvider` should list use `providedCodeActionKinds`. The
+		 * list of kinds may either be generic, such as `[CodeActionKind.Refactor]`, or list out every kind provided,
+		 * such as `[CodeActionKind.Refactor.Extract.append('function'), CodeActionKind.Refactor.Extract.append('constant'), ...]`.
+		 */
+		readonly providedCodeActionKinds?: readonly CodeActionKind[];
+
+		/**
+		 * Static documentation for a class of code actions.
+		 *
+		 * Documentation from the provider is shown in the code actions menu if either:
+		 *
+		 * - Code actions of `kind` are requested by the editor. In this case, the editor will show the documentation that
+		 *   most closely matches the requested code action kind. For example, if a provider has documentation for
+		 *   both `Refactor` and `RefactorExtract`, when the user requests code actions for `RefactorExtract`,
+		 *   the editor will use the documentation for `RefactorExtract` instead of the documentation for `Refactor`.
+		 *
+		 * - Any code actions of `kind` are returned by the provider.
+		 *
+		 * At most one documentation entry will be shown per provider.
+		 */
+		readonly documentation?: ReadonlyArray<{
+			/**
+			 * The kind of the code action being documented.
+			 *
+			 * If the kind is generic, such as `CodeActionKind.Refactor`, the documentation will be shown whenever any
+			 * refactorings are returned. If the kind if more specific, such as `CodeActionKind.RefactorExtract`, the
+			 * documentation will only be shown when extract refactoring code actions are returned.
+			 */
+			readonly kind: CodeActionKind;
+
+			/**
+			 * Command that displays the documentation to the user.
+			 *
+			 * This can display the documentation directly in the editor or open a website using {@linkcode env.openExternal};
+			 *
+			 * The title of this documentation code action is taken from {@linkcode Command.title}
+			 */
+			readonly command: Command;
+		}>;
+	}
+
 	export namespace languages {
 
 		/**
@@ -4458,6 +4841,20 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable;
+
+		/**
+		 * Register a code action provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A code action provider.
+		 * @param metadata Metadata about the kind of code actions the provider provides.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerCodeActionsProvider(selector: DocumentSelector, provider: CodeActionProvider, metadata?: CodeActionProviderMetadata): Disposable;
 
 		/**
 		 * Register a folding range provider.
