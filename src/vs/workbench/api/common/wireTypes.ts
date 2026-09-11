@@ -1105,6 +1105,88 @@ export async function requestFormattingEdits(
     );
 }
 
+// ─── Code actions (LSP, #196) ────────────────────────────────────────────────
+
+/**
+ * Параметры запроса code actions (host → subprocess). Контекстные диагностики
+ * НЕ едут: субпроцесс собирает их из своих DiagnosticCollection по пересечению
+ * с `range` — так провайдер получает те же объекты, что публиковал сервер.
+ */
+export interface IWireCodeActionParams {
+    readonly uri: string;
+    readonly languageId?: string;
+    readonly text?: string;
+    readonly range: IWireRange;
+    /** LSP `CodeActionContext.only` (`source.organizeImports` и т.п.). */
+    readonly only?: string;
+}
+
+/** Один code action в wire-форме — метаданные без правок (они в кэше субпроцесса). */
+export interface WireCodeAction {
+    /** Ключ в кэше субпроцесса (`"<cacheId>.<index>"`) для `languages.applyCodeAction`. */
+    readonly id: string;
+    readonly title: string;
+    readonly kind?: string;
+    readonly isPreferred?: boolean;
+}
+
+/** Валидирует один wire-code-action; `null`, если форма не распознана. */
+function parseWireCodeAction(raw: unknown): WireCodeAction | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка полей ниже
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.id !== "string" || obj.id === "") return null;
+    if (typeof obj.title !== "string") return null;
+    return {
+        id: obj.id,
+        title: obj.title,
+        ...(typeof obj.kind === "string" ? { kind: obj.kind } : {}),
+        ...(obj.isPreferred === true ? { isPreferred: true } : {}),
+    };
+}
+
+/** Разбирает ответ провайдеров: невалидные элементы отбрасываются поштучно. */
+export function parseWireCodeActions(raw: unknown): WireCodeAction[] {
+    if (!Array.isArray(raw)) return [];
+    const result: WireCodeAction[] = [];
+    for (const item of raw) {
+        const parsed = parseWireCodeAction(item);
+        if (parsed !== null) result.push(parsed);
+    }
+    return result;
+}
+
+/**
+ * Запрашивает у subprocess'а список code actions с таймаутом. Трёхзначный
+ * контракт — как у форматирования: `null` — нет провайдера под документ,
+ * пустой массив — действий нет либо таймаут/битый ответ.
+ */
+export async function requestCodeActions(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireCodeActionParams,
+    timeoutMs: number,
+): Promise<readonly WireCodeAction[] | null> {
+    const outcome = await raceWithTimeout(request("languages.provideCodeActions", params), timeoutMs);
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив и не null, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
+    if (outcome === TIMED_OUT) return [];
+    if (outcome === null) return null;
+    return parseWireCodeActions(outcome);
+}
+
+/**
+ * Просит субпроцесс применить закэшированное действие (`languages.applyCodeAction`):
+ * резолв + правки существующим `workspace.applyEdit` + команда действия — всё
+ * на стороне субпроцесса. `false` — таймаут, не-boolean ответ или честный отказ.
+ */
+export async function requestApplyCodeAction(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    id: string,
+    timeoutMs: number,
+): Promise<boolean> {
+    const outcome = await raceWithTimeout(request("languages.applyCodeAction", { id }), timeoutMs);
+    return outcome === true;
+}
+
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────
 
 /** Параметры `window.progress.start` (subprocess → host). */

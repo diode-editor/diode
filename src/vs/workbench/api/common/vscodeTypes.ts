@@ -748,6 +748,14 @@ export class CodeActionKind {
     }
 }
 
+/** Чем спровоцирован запрос code actions (`vscode.CodeActionTriggerKind`). */
+export enum CodeActionTriggerKind {
+    /** Явный запрос пользователя или расширения (команда). */
+    Invoke = 1,
+    /** Автоматический запрос (смена выделения/правка) — у нас пока не используется. */
+    Automatic = 2,
+}
+
 export class Diagnostic {
     public range: Range;
     public message: string;

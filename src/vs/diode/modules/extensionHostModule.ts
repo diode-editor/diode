@@ -210,6 +210,17 @@ export const extensionHostModule: ContainerModule = (container) => {
         // editor.action.formatDocument / formatSelection).
         // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
         group.formattingSource = (req) => host.provideFormattingEdits(req);
+
+        // Code actions: провайдеры расширений (languages.provideCodeActions /
+        // applyCodeAction) — источник действий группы (читают команды
+        // editor.action.organizeImports / fixAll).
+        // Stryker disable next-line ObjectLiteral: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
+        group.codeActionSource = {
+            // Stryker disable next-line ArrowFunction: см. выше
+            provide: (req) => host.provideCodeActions(req),
+            // Stryker disable next-line ArrowFunction: см. выше
+            apply: (id) => host.applyCodeAction(id),
+        };
         // Триггер-символы объявляет сервер уже после активации — как у completion.
         group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
         group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;

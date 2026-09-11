@@ -4,6 +4,7 @@ import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { HoverSource } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
@@ -212,6 +213,14 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * раздаётся (group-level).
      */
     public formattingSource?: FormattingSource;
+
+    /**
+     * Code-action-источник (host/харнесс подключает сюда провайдеры расширений
+     * через `languages.provideCodeActions` / `applyCodeAction`). Читается
+     * командами `editor.action.organizeImports` / `fixAll`; в редакторы не
+     * раздаётся (group-level).
+     */
+    public codeActionSource?: CodeActionSource;
 
     /**
      * Символы, после набора которых подсказка параметров открывается сама

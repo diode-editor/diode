@@ -234,6 +234,11 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     group.signatureHelpSource = (req) => host.provideSignatureHelp(req);
     // Formatting (LSP): источник правок форматирования — как в extensionHostModule.
     group.formattingSource = (req) => host.provideFormattingEdits(req);
+    // Code actions (LSP): источник действий — как в extensionHostModule.
+    group.codeActionSource = {
+        provide: (req) => host.provideCodeActions(req),
+        apply: (id) => host.applyCodeAction(id),
+    };
     group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
     group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
     host.onSignatureHelpTriggerCharactersChanged(() => {
