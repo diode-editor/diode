@@ -2,10 +2,13 @@ import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { ICoreCodeAction } from "../../../editor/common/languages/iCodeActionSource.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice } from "../../services/statusbar/common/transientNotice.ts";
+
+import { selectionRange } from "./formatActions.ts";
 
 // ─── Code actions (#196) ────────────────────────────────────
 //
@@ -73,6 +76,67 @@ export const organizeImportsAction: CommandAction = {
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         return runSourceAction(accessor, "source.organizeImports", "organize imports");
+    },
+};
+
+/**
+ * Меню code actions у каретки/выделения: запрашивает ВСЕ доступные действия
+ * (без `only`), показывает их в quick pick и применяет выбранное.
+ * Matches VS Code's `editor.action.quickFix` (Ctrl+.; точка не кодируется
+ * legacy-терминалом с Ctrl — досягаемый везде второй бинд Ctrl+K Ctrl+Q).
+ */
+export const quickFixAction: CommandAction = {
+    id: "editor.action.quickFix",
+    title: "Quick Fix",
+    keybinding: parseKeybinding("ctrl+."),
+    keybindings: [parseChord("ctrl+k ctrl+q")],
+    when: "textInputFocus && !editorReadonly",
+    async run(accessor) {
+        const group = accessor.get(EditorServiceDIToken);
+        const statusBar = accessor.get(StatusBarServiceDIToken);
+        const quickInput = accessor.get(QuickInputServiceDIToken);
+        const editor = group.getActiveEditor();
+        if (editor === null) return;
+
+        const notice = (text: string): void => {
+            showTransientNotice(statusBar, "codeAction.notice", text);
+        };
+
+        const source = group.codeActionSource;
+        if (source === undefined) {
+            notice("No code actions available");
+            return;
+        }
+
+        const text = editor.getText();
+        const actions = await source.provide({
+            uri: editor.uri.toString(),
+            languageId: editor.languageId,
+            text,
+            // Каретка/выделение — как VS Code: действия по месту (пустое
+            // выделение — строка каретки, чтобы накрыть диагностики строки).
+            range: selectionRange(editor.viewState.selections[0], text),
+        });
+        if (actions === null || actions.length === 0) {
+            notice("No code actions available");
+            return;
+        }
+
+        const items = actions.map((action) => ({
+            label: action.title,
+            ...(action.kind === undefined ? {} : { description: action.kind }),
+            ...(action.isPreferred === true ? { badge: "preferred" } : {}),
+        }));
+        const picked = await quickInput.quickPick({
+            title: "Code Actions",
+            placeholder: "Select Code Action",
+            items,
+        });
+        if (picked === undefined) return; // отмена — не событие
+
+        const pick = actions[items.indexOf(picked)];
+        const applied = await source.apply(pick.id);
+        if (!applied) notice(`Code action failed: ${pick.title}`);
     },
 };
 

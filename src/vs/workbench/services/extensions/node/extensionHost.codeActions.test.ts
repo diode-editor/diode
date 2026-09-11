@@ -5,7 +5,11 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { fixAllAction, organizeImportsAction } from "../../../browser/actions/codeActionActions.ts";
+import { fixAllAction, organizeImportsAction, quickFixAction } from "../../../browser/actions/codeActionActions.ts";
+import {
+    QuickInputServiceDIToken,
+    type QuickInputService,
+} from "../../../browser/parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import {
     StatusBarServiceDIToken,
@@ -17,10 +21,13 @@ import {
 // resolve/правки через workspace.applyEdit → буфер. Командный путь действия —
 // обратный executeCommand в субпроцессе.
 
-function registerCodeActionCommands(harness: {
-    commandRegistry: Parameters<typeof registerAction>[0];
-    group: unknown;
-}): string[] {
+function registerCodeActionCommands(
+    harness: {
+        commandRegistry: Parameters<typeof registerAction>[0];
+        group: unknown;
+    },
+    pickLabel?: string,
+): string[] {
     const notices: string[] = [];
     const statusBar = {
         addEntry: (entry: { text: string }) => {
@@ -28,12 +35,20 @@ function registerCodeActionCommands(harness: {
             return { dispose: () => undefined };
         },
     } as unknown as StatusBarService;
+    const quickInput = {
+        quickPick: (opts: { items: readonly { label: string }[] }) =>
+            Promise.resolve(
+                pickLabel === undefined ? undefined : opts.items.find((item) => item.label === pickLabel),
+            ),
+    } as unknown as QuickInputService;
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => harness.group as never);
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
+    accessor.bind(QuickInputServiceDIToken, () => quickInput);
     const keybindings = new KeybindingRegistry();
     registerAction(harness.commandRegistry, keybindings, accessor, organizeImportsAction);
     registerAction(harness.commandRegistry, keybindings, accessor, fixAllAction);
+    registerAction(harness.commandRegistry, keybindings, accessor, quickFixAction);
     return notices;
 }
 
@@ -73,6 +88,25 @@ describe("ExtensionHost — code actions (subprocess)", () => {
             await settle();
 
             expect(harness.group.getActiveEditor()?.getText()).toBe("QUIET TEXT");
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    it("quickFix-меню: выбранное действие проходит весь цикл до буфера", async () => {
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: "list.txt", content: "note" },
+            extensions: [extensionFixture("test.providesCodeActions", "providesCodeActions.cjs")],
+        });
+        try {
+            // Пользователь выбирает командное quickfix-действие фикстуры.
+            registerCodeActionCommands(harness, "Append marker");
+            await settle();
+
+            await harness.commandRegistry.execute("editor.action.quickFix");
+            await settle();
+
+            expect(harness.group.getActiveEditor()?.getText()).toBe("note!fixed");
         } finally {
             await harness.dispose();
         }
