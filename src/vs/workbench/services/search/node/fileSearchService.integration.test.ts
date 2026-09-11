@@ -143,10 +143,16 @@ describe("FileSearchService — integration against real project", () => {
             expect(top5.some((p) => p.includes("commandRegistry.ts"))).toBe(true);
         });
 
-        it('"ks": KeybindingRegistry scores above files with k...s scattered', () => {
-            const results = service.search("kr");
-            const top5 = relativePaths(results.slice(0, 5));
-            expect(top5.some((p) => p.includes("keybindingRegistry.ts"))).toBe(true);
+        it('"kr": keybindingRegistry.ts ties for the top score among "kr" matches', () => {
+            // Позиция в топ-5 кодировала размер репозитория: любой новый
+            // `keybinding*`-файл с тем же boundary-паттерном (k в начале, R на
+            // camelCase-границе) делит счёт и выталкивает соседа из среза.
+            // Сверяем счёт, а не позицию (приём «wbc»-теста выше).
+            const results = service.search("kr", 2000);
+            const registryScore = scoreOf(results, "keybindingRegistry.ts");
+            expect(registryScore).toBeDefined();
+            const maxScore = Math.max(...results.map((r) => r.score));
+            expect(registryScore).toBe(maxScore);
         });
 
         it('"co": files sharing the Command* prefix score alike', () => {

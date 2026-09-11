@@ -25,6 +25,7 @@ export default defineConfig({
         "src/**/*.bench.ts", // перф-бенчмарки, гоняются отдельным test:perf
         "src/TestUtils/perfFixtures.ts", // фикстуры только для бенчей (шим)
         "src/vs/workbench/api/common/testStubRpc.ts", // тестовый стаб RpcEndpoint для unit-тестов namespace'ов
+        "src/TestUtils/basedpyrightFixture.ts", // обвязка сьютов pythonLsp*: скачивание vsix из магазина (ошибочные ветки — сеть/битый реестр) и ветка таймаута until() достижимы только в красном прогоне
         "src/**/*.stories.ts",
         "src/demos/**",
         "src/vs/diode/main.ts",

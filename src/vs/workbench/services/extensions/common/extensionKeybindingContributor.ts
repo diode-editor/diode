@@ -51,5 +51,5 @@ function applyKeybinding(kb: IKeybindingContribution, registry: KeybindingRegist
         registry.removeBindings(kb.command.slice(1), chord);
         return;
     }
-    registry.register(chord, kb.command, kb.when);
+    registry.register(chord, kb.command, kb.when, "extension");
 }

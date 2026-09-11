@@ -45,6 +45,7 @@ import {
     EXTENSIONS_VIEWLET_ID,
     ExtensionsComponentDIToken,
 } from "../contrib/extensions/browser/extensionsComponent.ts";
+import { KeybindingRecorderComponentDIToken } from "../contrib/preferences/browser/keybindingRecorderComponent.ts";
 import {
     REFERENCES_VIEWLET_ID,
     ReferencesComponentDIToken,
@@ -62,6 +63,7 @@ import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.
 import { EditorService, EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
+import { KeybindingsEditorServiceDIToken } from "../services/keybinding/common/iKeybindingsEditorService.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
 import type { LifecycleService } from "../services/lifecycle/browser/lifecycleService.ts";
@@ -286,6 +288,9 @@ export class WorkbenchComponent extends Component {
         suggestComponent.attachHost(this.view);
         // Hover-попап — там же, в глобальном overlay-слое у каретки.
         hoverComponent.attachHost(this.view);
+        // Рекордер комбинаций вкладки Keyboard Shortcuts — модальный оверлей
+        // того же слоя.
+        this.register(accessor.get(KeybindingRecorderComponentDIToken)).attachHost(this.view);
         // Подсказка параметров — тот же слой, но якорится НАД кареткой, чтобы не
         // делить место с попапом автодополнения.
         parameterHintsComponent.attachHost(this.view);
@@ -300,7 +305,9 @@ export class WorkbenchComponent extends Component {
         this.register(registerVscodeDiffCommand(commands, accessor));
         // Apply user keybindings AFTER all defaults so they take precedence (the registry
         // resolves the last-registered matching binding) and so `-command` unbinds can remove defaults.
-        this.dispatcher.applyUserKeybindings(userKeybindings);
+        // Применяет их KeybindingsEditorService — он же владеет леджером эффектов
+        // user-правил (reset во вкладке шорткатов возвращает снятые дефолты).
+        this.register(accessor.get(KeybindingsEditorServiceDIToken)).applyUserKeybindings(userKeybindings);
 
         // Главное меню строится ПОСЛЕ применения user keybindings: шорткаты
         // пунктов резолвятся из реестра биндингов на момент постройки модели.

@@ -52,7 +52,11 @@ import {
     triggerParameterHintsAction,
 } from "../../contrib/parameterHints/browser/parameterHintsActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
-import { openKeybindingsAction, openSettingsAction } from "../../contrib/preferences/browser/preferencesActions.ts";
+import {
+    openKeybindingsAction,
+    openKeybindingsFileAction,
+    openSettingsAction,
+} from "../../contrib/preferences/browser/preferencesActions.ts";
 import {
     gotoLineAction,
     quickOpenAction,
@@ -228,6 +232,7 @@ import {
     previousEditorInGroupAction,
 } from "./tabActions.ts";
 import { TAB_CLOSE_ACTIONS } from "./tabCloseActions.ts";
+import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
 import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whitespaceActions.ts";
 
 /**
@@ -246,6 +251,7 @@ export const builtinActions: readonly CommandAction[] = [
     toggleActiveEditorReadonlyInSessionAction,
     openSettingsAction,
     openKeybindingsAction,
+    openKeybindingsFileAction,
     showAboutDialogAction,
     reloadWindowAction,
     quitAction,
@@ -330,6 +336,8 @@ export const builtinActions: readonly CommandAction[] = [
     revealDefinitionAsideAction,
     showHoverAction,
     triggerParameterHintsAction,
+    formatDocumentAction,
+    formatSelectionAction,
 
     // Clipboard
     clipboardCopyAction,

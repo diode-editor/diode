@@ -26,6 +26,7 @@ import {
     DocumentLink,
     EndOfLine,
     EventEmitter,
+    ExtensionMode,
     FileChangeType,
     FileDecoration,
     FileSystemError,
@@ -108,8 +109,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
     const workspace = createWorkspaceNamespace(ctx);
     const { languages } = createLanguagesNamespace(ctx);
     // WP4: commands bridge поверх симметричного rpc (локальная Map команд +
-    // прокси в host CommandRegistry).
-    const commands = buildCommandsNamespace(rpc);
+    // прокси в host CommandRegistry). Геттер активного редактора нужен
+    // registerTextEditorCommand — команда исполняется только при активном редакторе.
+    const commands = buildCommandsNamespace(rpc, () => window.activeTextEditor);
 
     // Наивный `env` — vscode-languageclient читает language/appName; клипборд и
     // openExternal честно отказывают (TUI не открывает внешние URL).
@@ -123,6 +125,17 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
             writeText: (): Thenable<void> => Promise.resolve(),
         },
         openExternal: (): Thenable<boolean> => Promise.resolve(false),
+    } as unknown;
+
+    // Наивный `extensions` — каталог установленных расширений субпроцессу не
+    // раздаётся, поэтому getExtension честно отвечает undefined (для типового
+    // потребителя это правильный ответ: pyright-семейство так детектит Pylance /
+    // ms-python, которых в Diode действительно нет). Состав каталога в жизни
+    // субпроцесса не меняется — onDidChange никогда не стреляет.
+    const extensions = {
+        all: [] as const,
+        getExtension: (): undefined => undefined,
+        onDidChange: new EventEmitter<void>().event,
     } as unknown;
 
     const namespace = {
@@ -174,6 +187,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         TypeHierarchyItem,
         CancellationError,
         CancellationTokenSource,
+        // context.extensionMode сравнивают с enum'ом (basedpyright выбирает между
+        // bundled-сервером и dev-обвязкой) — без runtime-поля сравнение всегда false.
+        ExtensionMode,
         LogLevel,
         ProgressLocation,
         MarkdownString,
@@ -208,6 +224,7 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         languages,
         commands,
         env,
+        extensions,
     } as unknown as typeof vscode;
 
     return { namespace, configStore: ctx.configStore };

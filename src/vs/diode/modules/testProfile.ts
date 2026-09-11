@@ -26,6 +26,7 @@ import { keybindingsModuleDefault } from "./keybindingsModule.ts";
 import { lifecycleModule } from "./lifecycleModule.ts";
 import { loggingModuleDefault } from "./loggingModule.ts";
 import { markersModule } from "./markersModule.ts";
+import { preferencesModule } from "./preferencesModule.ts";
 import { stateModuleDefault } from "./stateModule.ts";
 import { themeModule } from "./themeModule.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";
@@ -79,7 +80,8 @@ export function createTestContainer(): TestContainerHandle {
             registry: path.join(tmpdir(), "diode-tests-no-registry"),
             extensionsDir: path.join(tmpdir(), "diode-tests-no-extensions"),
             host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION },
-        });
+        })
+        .use(preferencesModule);
 
     // Перебиваем прод-фабрику терминальных сессий на фейк: тесты не спавнят реальные
     // PTY. Каждый вызов возвращает свежий FakeTerminalSurface; тесты, которым нужен

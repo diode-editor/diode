@@ -124,8 +124,9 @@ registry/v1/meta/<id>.json
   по сети: в PR они ещё не опубликованы. Воркфлоу — `pull_request`, не
   `pull_request_target`: URL приходят из недоверенного PR.
 - В реестре три записи, по одной на каждую форму, которую магазин обязан уметь:
-  `EditorConfig.EditorConfig` — прокси на сток из open-vsx (пин подтверждён: sha256
-  скачанного совпал с нашей e2e-фикстурой); `test.tab-setter` — своё рантайм-расширение
+  `EditorConfig.EditorConfig` — прокси на сток из open-vsx (пин подтверждён при
+  публикации сверкой sha256 скачанного артефакта; e2e-фикстура `.vsix` с тех пор
+  удалена — сьюты ставят расширение из магазина); `test.tab-setter` — своё рантайм-расширение
   (`main`, subprocess extension host; ставит `tabSize=7` при активации);
   `test.sample-lang` — своё декларативное расширение (вклад языка `.diodesample` и
   грамматики, кода нет вовсе, ext-host не поднимается). Оба `native` синтетические и
@@ -195,6 +196,20 @@ registry/v1/meta/<id>.json
 записью в `versions[]`. Стоковое
 расширение может быть заменено нашим форком/патчем позже — это смена артефакта в
 новой версии записи, схему не трогает.
+
+- [x] **Кандидат: `detachhead.basedpyright` 1.40.0** — опубликован: запись
+  `proxy-openvsx` в `diode-editor.github.io` (URL артефакта open-vsx + sha256
+  `67e47122039ab2a687dd31e470eaa282093efefe7ad20f502c76331b8d058333`) и
+  поведенческий смоук в `e2e/marketplace/checks.ts` (установка по id →
+  undercurl-диагностика «is not assignable» на .py-файле). Все сьюты на
+  стоковый basedpyright (`extensionHost.pythonLsp*`, e2e `pythonLsp.test.ts`,
+  сценарий `python-lsp`) берут расширение ИЗ МАГАЗИНА — последнюю
+  опубликованную версию, закоммиченного vsix в репозитории нет; политика —
+  [TESTING.md](../TESTING.md). Деталь: приложение держит курируемый дефолт
+  `basedpyright.importStrategy: "useBundled"` (`curatedConfigInjection` в
+  `main.ts`) — без него активация падает на API ms-python.python (см.
+  [LSP.md](LSP.md)); смоук магазина доказывает, что дефолт применяется и при
+  установке из реестра.
 
 ## Шаг 4: Extensions view — [ExtensionsView.md](ExtensionsView.md)
 

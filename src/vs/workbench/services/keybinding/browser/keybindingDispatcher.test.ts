@@ -368,33 +368,6 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
     });
 });
 
-describe("KeybindingDispatcher — пользовательские keybindings", () => {
-    it("правило добавляет биндинг, который перебивает дефолтный", () => {
-        const h = createHarness();
-        h.bind("ctrl+s", "test.save");
-        h.commands.register("user.custom", () => {
-            h.executed.push("user.custom");
-        });
-
-        h.dispatcher.applyUserKeybindings([{ key: "ctrl+s", command: "user.custom" }]);
-        h.dispatcher.dispatchKeyDown(keyDown({ key: "s", ctrlKey: true }));
-
-        expect(h.executed).toEqual(["user.custom"]);
-    });
-
-    it("«-command» с ключом снимает конкретный биндинг, без ключа — все", () => {
-        const h = createHarness();
-        h.bind("ctrl+s", "test.save");
-        h.bind("ctrl+shift+s", "test.save");
-
-        h.dispatcher.applyUserKeybindings([{ key: "ctrl+s", command: "-test.save" }]);
-        h.dispatcher.dispatchKeyDown(keyDown({ key: "s", ctrlKey: true }));
-        expect(h.executed).toEqual([]);
-        h.dispatcher.dispatchKeyDown(keyDown({ key: "s", ctrlKey: true, shiftKey: true }));
-        expect(h.executed).toEqual(["test.save"]);
-
-        h.dispatcher.applyUserKeybindings([{ key: "", command: "-test.save" }]);
-        h.dispatcher.dispatchKeyDown(keyDown({ key: "s", ctrlKey: true, shiftKey: true }));
-        expect(h.executed).toEqual(["test.save"]);
-    });
-});
+// Применение пользовательских правил keybindings.json уехало из диспатчера в
+// KeybindingsEditorService — его тесты лежат рядом с сервисом
+// (keybindingsEditorService.test.ts).

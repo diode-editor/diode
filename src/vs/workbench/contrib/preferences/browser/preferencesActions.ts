@@ -5,8 +5,17 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
-import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { KeybindingsResourceDIToken, SettingsResourceDIToken } from "../../../common/coreTokens.ts";
+import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import {
+    KeybindingRegistryDIToken,
+    parseChord,
+    parseKeybinding,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { ClipboardDIToken, KeybindingsResourceDIToken, SettingsResourceDIToken } from "../../../common/coreTokens.ts";
+import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
+
+import { KeybindingRecorderComponentDIToken } from "./keybindingRecorderComponent.ts";
+import { KeybindingsEditorPane, KeybindingsEditorTargetDIToken } from "./keybindingsEditorPane.ts";
 
 /**
  * Opens a user-config file (settings.json / keybindings.json) as an editor tab.
@@ -46,9 +55,9 @@ export const openSettingsAction: CommandAction = {
 };
 
 /**
- * Open the user keybindings.json (VS Code `workbench.action.openGlobalKeybindings`).
- * As with settings, we open the JSON file directly. Default chord matches VS Code
- * (Ctrl+K Ctrl+S).
+ * Open the Keyboard Shortcuts editor tab (VS Code
+ * `workbench.action.openGlobalKeybindings`). Default chord matches VS Code
+ * (Ctrl+K Ctrl+S); the raw keybindings.json is a separate command, as upstream.
  */
 export const openKeybindingsAction: CommandAction = {
     id: "workbench.action.openGlobalKeybindings",
@@ -56,6 +65,28 @@ export const openKeybindingsAction: CommandAction = {
     shortTitle: "Keyboard Shortcuts",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 20 }],
     keybinding: parseChord("ctrl+k ctrl+s"),
+    run(accessor) {
+        const pane = new KeybindingsEditorPane(
+            accessor.get(KeybindingRegistryDIToken),
+            accessor.get(CommandRegistryDIToken),
+            accessor.get(KeybindingsEditorServiceDIToken),
+            accessor.get(KeybindingRecorderComponentDIToken),
+            accessor.get(ContextMenuServiceDIToken),
+            accessor.get(ClipboardDIToken),
+        );
+        accessor.get(KeybindingsEditorTargetDIToken).openPane(pane);
+    },
+};
+
+/**
+ * Open the user keybindings.json (VS Code `workbench.action.openGlobalKeybindingsFile`).
+ * No default binding, as upstream: the JSON is the escape hatch, the UI tab is primary.
+ */
+export const openKeybindingsFileAction: CommandAction = {
+    id: "workbench.action.openGlobalKeybindingsFile",
+    title: "Preferences: Open Keyboard Shortcuts (JSON)",
+    shortTitle: "Keyboard Shortcuts (JSON)",
+    menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 21 }],
     run(accessor) {
         openUserConfigFile(accessor, accessor.get(KeybindingsResourceDIToken), "keybindings");
     },

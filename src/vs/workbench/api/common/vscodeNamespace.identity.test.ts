@@ -171,6 +171,38 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(vscode.version).toMatch(/^\d+\.\d+\.\d+$/);
     });
 
+    it("registerTextEditorCommand получает ИМЕННО window.activeTextEditor (проводка геттера)", async () => {
+        const { rpc, fireActiveEditorChanged } = makeStubRpc();
+        const vscode = buildVscodeNamespace(rpc).namespace;
+        fireActiveEditorChanged("/f.py");
+        let delivered: unknown;
+        vscode.commands.registerTextEditorCommand("test.te", (editor) => {
+            delivered = editor;
+        });
+        await vscode.commands.executeCommand("test.te");
+        expect(delivered).toBeDefined();
+        expect(delivered).toBe(vscode.window.activeTextEditor);
+    });
+
+    it("extensions — наивный namespace: getExtension честно undefined, all пуст, onDidChange подписываем", () => {
+        const { rpc } = makeStubRpc();
+        const vscode = buildVscodeNamespace(rpc).namespace;
+        // pyright-семейство детектит Pylance/ms-python через getExtension —
+        // undefined здесь семантически верный ответ, а не заглушка-обман.
+        expect(vscode.extensions.getExtension("ms-python.vscode-pylance")).toBeUndefined();
+        expect(vscode.extensions.all).toEqual([]);
+        const sub = vscode.extensions.onDidChange(() => undefined);
+        sub.dispose();
+    });
+
+    it("ExtensionMode — runtime-enum (context.extensionMode сравнивают с ним)", () => {
+        const { rpc } = makeStubRpc();
+        const vscode = buildVscodeNamespace(rpc).namespace;
+        expect(vscode.ExtensionMode.Production).toBe(1);
+        expect(vscode.ExtensionMode.Development).toBe(2);
+        expect(vscode.ExtensionMode.Test).toBe(3);
+    });
+
     it("env — наивные поля, которые читает vscode-languageclient", async () => {
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc).namespace as unknown as {

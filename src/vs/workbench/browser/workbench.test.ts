@@ -8,6 +8,7 @@ import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
+import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
 import { statusSegments, statusTexts } from "./parts/statusbar/statusBarComponent.testUtils.ts";
@@ -244,7 +245,7 @@ describe("Workbench — chords", () => {
         }
     });
 
-    it("Ctrl+K then Ctrl+S breaks the chord and is consumed (no save, no leak)", () => {
+    it("Ctrl+K then Ctrl+S resolves the chord (opens Keyboard Shortcuts, no save, no leak)", () => {
         const h = createAppTestHarness();
         h.workbench.openFile("/tmp/chord-ctrls.txt");
         h.workbench.focusEditor();
@@ -253,7 +254,11 @@ describe("Workbench — chords", () => {
         h.testApp.sendKey("Ctrl+K");
         h.testApp.sendKey("Ctrl+S");
 
+        expect(executeSpy).toHaveBeenCalledWith("workbench.action.openGlobalKeybindings");
         expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
+        // Активной стала вкладка шорткатов; текст редактора цел — 's' не протёк.
+        expect(h.container.get(EditorServiceDIToken).getActivePane()?.uri.scheme).toBe("keybindings");
+        h.commands.execute("workbench.action.previousEditorInGroup");
         expect(editorText(h.testApp)).toBe("");
     });
 

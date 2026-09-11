@@ -10,7 +10,7 @@
 `e2e/references.test.ts`, `e2e/parameterHints.test.ts`;
 скриншот-сценарии `goto-definition`, `lsp-completion`, `references`,
 `parameter-hints`).
-Открыто — «Отложенное» ниже (второй язык, закрытие остальных стабов).
+Открыто — «Отложенное» ниже (gopls, реестр для basedpyright, закрытие остальных стабов).
 
 ## Архитектура (проверена спайком, ветка `worktree-lsp-spike`)
 
@@ -93,8 +93,14 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   no-op канал молча теряет их; клиентский outputChannel обязан быть настоящим.
 - `vscode.version` должен быть валидным VS Code semver (`1.127.0`, лок-степ с
   `extensions/VSCODE_VERSION`) — languageclient проверяет `^1.91.0`.
-- Под SEA `process.execPath` — это diode-бинарь: спавнить сервер только
-  `{ command }`-формой (никаких `TransportKind.ipc`/fork).
+- Под SEA `process.execPath` — это diode-бинарь: наши builtin-клиенты спавнят
+  сервер `{ command }`-формой. Для СТОРОННИХ расширений, которые форкают
+  execPath сами (`TransportKind.ipc` у basedpyright), subprocess ext-host'а
+  чистит наследуемое окружение: `DIODE_EXTENSION_HOST` снят,
+  `DIODE_RUN_AS_NODE=1` — любой форк diode-бинаря из расширения работает как
+  node (`main.ts` проверяет RUN_AS_NODE первым; env-фикс — в
+  `runExtensionHostSubprocess`, гейт — `extensionHost.fork.test.ts` + e2e
+  `pythonLsp.test.ts` на настоящем SEA).
 
 ## Таблица стабов vscode API (заполняется по шагам 2–3)
 
@@ -112,13 +118,17 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
 | `languages.registerHoverProvider` | real | seam `iHoverSource` → RPC `languages.provideHover` (таймаут 5000 мс — тот же холодный сервер); **несколько провайдеров** конкатенируются в порядке регистрации (по `WireHover` на непустой ответ), сбойный пропускается; wire несёт сырой markdown, стрип — в UI (`stripMarkdown` в `HoverService`). UI — contrib `hover` (пара `HoverService`/`HoverComponent` по образцу suggest, элемент `HoverElement` с рамкой и переносом), Ctrl+K Ctrl+U (не VS Code-овский Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает байтом Tab, и тот чорд там недостижим и занят фолбэком мультикурсора; одиночный `alt+буква` в дефолты не берём — `alt` layout-sensitive и молчит на кириллице), Escape/правка/каретка/фокус закрывают. Люфты v1: контент — плоский текст (markdown-рендерера нет), высота клампится без скролла, мышиного триггера нет |
 | `languages.registerReferenceProvider` | real | seam `iReferenceSource` → RPC `languages.provideReferences` (таймаут 5000 мс — поиск ссылок по проекту дороже одиночного перехода); в параметрах LSP-контекст `includeDeclaration` (шлём `true`, как VS Code); **несколько провайдеров** конкатенируются в порядке регистрации, сбойный пропускается. UI — contrib `references`: вьюлет сайдбара REFERENCES (`ReferencesComponent` + `ReferencesService`), файлы со счётчиком и строки кода с подсветкой вхождения — строки общие с панелью поиска (`searchResultRows`). Текст строк LSP не отдаёт: добираем сами (`referencePreview.ts`) из открытой модели, иначе с диска. Ctrl+K Ctrl+R (и канонический Shift+Alt+F12 вторым биндом), F4/Shift+F4 — обход ссылок из редактора. Люфты v1: нет истории запросов, удаления результата из списка, иерархии каталогов и peek-виджета |
 | `languages.registerSignatureHelpProvider` | real | seam `iSignatureHelpSource` → RPC `languages.provideSignatureHelp` (таймаут 5000 мс — тот же холодный сервер, что у hover). В отличие от hover/references ответы НЕ склеиваются: провайдеров обходим по очереди и берём первый непустой (так предписывает vscode API). **Грабля класса-ловушки**: конвертер клиента конструирует `new code.SignatureHelp()` (без аргументов), `SignatureInformation`, `ParameterInformation` на каждый ответ и читает `code.SignatureHelpTriggerKind.*` на каждом запросе — все четыре пришлось добавить в стаб. Поддержаны ОБЕ перегрузки регистрации (метаданные объектом и rest-строки): клиент выбирает первую, когда сервер прислал `retriggerCharacters`. Триггер-символы (`(`, `,`, `<`) и ретриггеры (`)`) едут в ядро через `languages.updateSubscriptions` — тот же канал, что у completion. UI — contrib `parameterHints`: попап НАД строкой каретки (автодополнение предпочитает низ), счётчик перегрузок, подсветка активного параметра, Ctrl+K Ctrl+Space (канонический Ctrl+Shift+Space вторым биндом), Up/Down листают перегрузки, уступая попапу автодополнения. Люфты v1 — [ParameterHints.md](ParameterHints.md) |
-| остальные `register*Provider` (23) | no-op | закрытие по образцу definition/hover/references: core seam + RPC `languages.provideX` + UI-потребитель (rename, implementations и т.д.; для implementations/typeDefinition/declaration панель ссылок уже готова) |
+| `languages.registerDocument(Range)FormattingEditProvider` | real | seam `iFormattingSource` → ОДИН RPC `languages.provideFormattingEdits` на оба вида (`range` в параметрах = Format Selection; таймаут 5000 мс). Трёхзначный ответ: `null` — нет провайдера под документ (UI показывает «No formatter for 'x'» transient-notice в статус-баре, свой beautifier НЕ пишем — решение по открытому вопросу #196), `[]` — менять нечего/сбой/таймаут (молчаливый no-op). Провайдеров может быть несколько — берём первый матчащий по порядку регистрации (VS Code выбирает по score/default formatter — люфт v1); документный запрос без документного провайдера падает на range-провайдер полным диапазоном (пометка vscode API). UI — команды `editor.action.formatDocument` (Shift+Alt+F — только kitty/csi-u: legacy шлёт `ESC F` без shift-флага; досягаемый везде второй бинд Ctrl+K Ctrl+E) / `formatSelection` (Ctrl+K Ctrl+F; пустое выделение = строка каретки): снапшот + tabSize/insertSpaces активного редактора уходят в запрос, правки ложатся одним undoable-батчем, каретка после применения схлопывается в одну на прежнем месте (мультикурсорная семантика `applyEdits` форматтеру чужая); устаревший ответ (текст/вкладка сменились за время RPC) отбрасывается. Люфты v1: onType-формат не в охвате, `formatOnSave` — отдельным PR |
+| остальные `register*Provider` (21) | no-op | закрытие по образцу definition/hover/references: core seam + RPC `languages.provideX` + UI-потребитель (rename, implementations и т.д.; для implementations/typeDefinition/declaration панель ссылок уже готова) |
 | `workspace.applyEdit` | real | RPC `workspace.applyEdit` → `IEditorOptionsService.applyWorkspaceEdit` (тот же приёмник, что `TextEditor.edit` из #194): текстовые правки по ресурсам, per-документ undoable-батч, all-or-nothing по валидации (закрытый/чужой/read-only ресурс — честный `false` без применения). **Классы-ловушки** конвертера клиента закрыты: `WorkspaceEdit.set` принимает обе формы (`TextEdit[]` и пары `[TextEdit, metadata]`), `SnippetTextEdit` конструируем (применяется текстом со стрипом плейсхолдеров, как completion). Люфты v1: файловые операции WorkspaceEdit не поддержаны (edit с ними целиком отвечает `false`, субпроцесс даже не шлёт RPC); правки только по ОТКРЫТЫМ документам; undo per-документ, а не одним шагом на весь edit; чистые EOL-правки пропускаются. Фундамент code actions / rename (#196) |
 | `workspace.getWorkspaceFolder` | naive | префикс-матч + fallback на первую папку |
 | `workspace.createFileSystemWatcher` | готово | настоящие watcher'ы поверх `ITreeFileWatcher` ядра (`RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude`); детали — [arch/Extensions.md](../arch/Extensions.md) |
 | `workspace.onDid/Will{Create,Delete,Rename}Files`, notebook-события | no-op | продюсеры файловых операций ядра → RPC |
 | `window.withProgress` | real | запись статус-бара с анимированным спиннером (`ProgressStatusBarAdapter`); message/increment серверного workDoneProgress обновляют текст; отмена НЕ поддержана — токен никогда не стреляет (`ProgressPart` languageclient'а это переживает); на смерть subprocess'а host сам гасит живые спиннеры |
-| `window.tabGroups` | no-op | пустые группы; закрытие: проекция вкладок группы |
+| `window.tabGroups` | naive | проекция вкладок группы: снимки `Tab` на момент вызова (идентичность не гарантируется), `onDidChangeTabs` живой, `close` работает; на них опирается pull-диагностика languageclient 10 (basedpyright) |
+| `vscode.extensions` | naive | `getExtension` честно `undefined`, `all` пуст, `onDidChange` не стреляет — каталог расширений субпроцессу не раздаётся; для pyright-семейства (детект Pylance/ms-python) это правильный ответ |
+| `ExtensionContext` | naive | `subscriptions` + `extensionPath`/`extensionUri`/`asAbsolutePath` (корень установки vsix едет от host'а в регистрации; builtin'ы — от каталога `filename`) + `extensionMode: Production`; memento/secrets/storageUri — нет |
+| `commands.registerTextEditorCommand` | naive | обёртка над `registerCommand`: без активного редактора — warn + no-op (семантика VS Code), edit-builder инертный (батч-правки — за `workspace.applyEdit`-путём) |
 | `window.showTextDocument` | naive | возвращает активный редактор; закрытие: RPC открытия ресурса |
 | `window.createOutputChannel` | real | канал в панели Output (`extensions.<slug(name)>`, label = name; `ExtensionOutputAdapter`): append/appendLine/LogOutputChannel-методы с уровнями, `show()` открывает панель на канале; люфты — `clear`/`replace` no-op (журнал ретенционный), trace/debug фильтруются уровнем логгера |
 | `env` (appName/language/clipboard/openExternal) | naive | честные значения; клипборд пуст, openExternal отказывает |
@@ -129,9 +139,19 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   запуск `process.execPath` в node-режиме `DIODE_RUN_AS_NODE=1`; e2e —
   `e2e/lspBundled.test.ts`). Открытые вопросы: размер бинаря (+~55 МБ) vs
   отдельный распаковываемый артефакт; кросс-платформенность кэша.
-- **Второй язык** (gopls — один бинарь; python — basedpyright): не добавляет новых
-  seam'ов; рецепт «как добавить язык» — декларативная таблица
-  `{ languageIds, serverResolver }` в builtin-клиенте.
+- **Второй язык — Python сделан, причём другим маршрутом**: не строка в таблице
+  builtin-клиента, а НАСТОЯЩИЙ сторонний `detachhead.basedpyright`.vsix с
+  open-vsx как есть (ставится `--install-extension`, ни строчки нашего кода
+  расширения); доработки стаба и env-фикс fork/SEA — в таблице и «граблях»
+  выше, курируемый дефолт `basedpyright.importStrategy: "useBundled"` —
+  `curatedConfigInjection` в `main.ts` (манифестный `fromEnvironment` зовёт API
+  ms-python.python без try/catch и роняет активацию). Гейты — сьюты
+  `extensionHost.pythonLsp*`, e2e `pythonLsp.test.ts`, сценарий `python-lsp`;
+  vsix приезжает из магазина — последняя опубликованная версия, без
+  закоммиченной фикстуры (политика — [TESTING.md](../TESTING.md)). Folding у
+  python — indentation-based ядра (сервер `textDocument/foldingRange` не
+  реализует). Запись `proxy-openvsx` в реестре магазина — сделана
+  ([Marketplace.md](Marketplace.md)); дальше — gopls (маршрут «бинарь в PATH»).
 - Инкрементальный sync + debounce; позиция курсора в didChange (для серверов,
   которым нужна — сейчас не передаётся).
 - **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,

@@ -6,12 +6,13 @@ import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { buildVscodeNamespace } from "../../../api/common/vscodeNamespace.ts";
+import { ExtensionMode, Uri } from "../../../api/common/vscodeTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
 
 /**
  * Сообщения protocol host -> subprocess. RPC-методы:
  *
- * - `host.activateExtension({ id, mainPath, configDefaults? })` -> `null`.
+ * - `host.activateExtension({ id, mainPath, extensionPath?, configDefaults? })` -> `null`.
  *   Кладёт `configDefaults` (дефолты `contributes.configuration`) в config store,
  *   загружает CJS-модуль через `createRequire`, вызывает `module.activate(context)`.
  *   Бросает на ошибках загрузки/активации.
@@ -36,6 +37,10 @@ interface ExtensionModule {
 
 interface ExtensionContext {
     readonly subscriptions: { dispose: () => unknown }[];
+    readonly extensionPath: string;
+    readonly extensionUri: Uri;
+    readonly extensionMode: ExtensionMode;
+    asAbsolutePath(relativePath: string): string;
 }
 
 /**
@@ -50,6 +55,18 @@ export function runExtensionHostSubprocess(): void {
         console.error("[ext-host] subprocess started without IPC channel; exiting");
         process.exit(2);
     }
+
+    // Дети этого процесса — НЕ extension host'ы. Сторонние расширения спавнят
+    // `process.execPath` в обход наших резолверов (`cp.fork` внутри
+    // vscode-languageclient при `TransportKind.ipc` — путь basedpyright); под SEA
+    // execPath — сам diode-бинарь, и унаследованный `DIODE_EXTENSION_HOST` увёл бы
+    // ребёнка в ext-host-ветку (exit 2 без IPC-регистрации). Свой флаг мы уже
+    // прочитали (иначе не были бы здесь) — снимаем его из наследуемого окружения
+    // и включаем node-режим: `main.ts` проверяет `DIODE_RUN_AS_NODE` ПЕРВЫМ,
+    // поэтому любой форк diode-бинаря отсюда работает как node (runAsNode.ts);
+    // в dev execPath — настоящий node, и флаг безвреден.
+    delete process.env.DIODE_EXTENSION_HOST;
+    process.env.DIODE_RUN_AS_NODE = "1";
 
     // Расширение, забывшее поймать свой промис, не должно убивать extension host.
     // Реальный кейс (#194): maptz.regionfolder после wrapWithRegion делает
@@ -69,7 +86,7 @@ export function runExtensionHostSubprocess(): void {
     const extensions = new Map<string, ActivatedExtension>();
 
     rpc.handleRequest("host.activateExtension", async (params): Promise<unknown> => {
-        const { id, mainPath, source, filename, configDefaults } = parseActivateParams(params);
+        const { id, mainPath, source, filename, extensionPath, configDefaults } = parseActivateParams(params);
         if (extensions.has(id)) {
             throw new Error(`Extension "${id}" already activated`);
         }
@@ -80,7 +97,18 @@ export function runExtensionHostSubprocess(): void {
         if (typeof loaded.activate !== "function") {
             throw new Error(`Extension "${id}" has no activate() in ${filename ?? mainPath}`);
         }
-        const context: ExtensionContext = { subscriptions: [] };
+        // Корень расширения: для user-vsix приходит от host'а (каталог установки);
+        // builtin'ы из in-memory source его не имеют — берём каталог filename
+        // (синтетический путь): asAbsolutePath у них указывает «в бандл», честнее
+        // фиктивного, а сравнение extensionMode работает всегда.
+        const rootPath = extensionPath ?? path.dirname((mainPath ?? filename) as string);
+        const context: ExtensionContext = {
+            subscriptions: [],
+            extensionPath: rootPath,
+            extensionUri: Uri.file(rootPath),
+            extensionMode: ExtensionMode.Production,
+            asAbsolutePath: (relativePath: string): string => path.join(rootPath, relativePath),
+        };
         const active: ActivatedExtension = { id, mod: loaded, context };
         extensions.set(id, active);
         try {
@@ -186,6 +214,7 @@ function parseActivateParams(raw: unknown): {
     mainPath: string | undefined;
     source: string | undefined;
     filename: string | undefined;
+    extensionPath: string | undefined;
     configDefaults: Record<string, unknown> | undefined;
 } {
     if (typeof raw !== "object" || raw === null) {
@@ -196,6 +225,7 @@ function parseActivateParams(raw: unknown): {
         mainPath?: unknown;
         source?: unknown;
         filename?: unknown;
+        extensionPath?: unknown;
         configDefaults?: unknown;
     };
     if (typeof obj.id !== "string" || obj.id === "") {
@@ -218,6 +248,7 @@ function parseActivateParams(raw: unknown): {
         mainPath: hasMain ? (obj.mainPath as string) : undefined,
         source: hasSource ? (obj.source as string) : undefined,
         filename: hasSource ? (obj.filename as string) : undefined,
+        extensionPath: typeof obj.extensionPath === "string" && obj.extensionPath !== "" ? obj.extensionPath : undefined,
         configDefaults,
     };
 }

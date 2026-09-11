@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
@@ -15,6 +16,7 @@ const fixturePath = resolve(here, "fixtures", "sample.hello");
 const userDataPath = resolve(here, "fixtures", "user-data-with-hello");
 const tabbedFixturePath = resolve(here, "fixtures", "tabbed.txt");
 const tabSetterUserDataPath = resolve(here, "fixtures", "user-data-with-tab-setter");
+const willSaveUserDataPath = resolve(here, "fixtures", "user-data-with-will-save");
 
 const KEYWORD_FG = packRgb(0xc5, 0x86, 0xc0); // keyword.control — Dark Modern / Dark+ purple
 const STRING_FG = packRgb(0xce, 0x91, 0x78); // string — Dark+ orange
@@ -111,6 +113,39 @@ describe("SEA binary — user extensions", () => {
             // tab at column 0 with tabSize=7 → 'indented' starts at column 7
             expect(indent).toBe(7);
             expect(indentedRow).toBe(indentedPos.y);
+        },
+    );
+
+    itLinuxOnly(
+        "will-save участник user extension трансформирует байты при Ctrl+S (проводка saveParticipant)",
+        async () => {
+            // Герметичный гейт проводки extensionHostModule: `group.saveParticipant`
+            // обязан быть привязан к `host.willSaveTextDocument`. Юниты willSave
+            // гоняют участника на харнессе, а этот тест — в реальном приложении;
+            // до него единственным гейтом был СЕТЕВОЙ сьют стокового editorconfig.
+            const { session, env } = await usePtyApp({
+                seedUserData: willSaveUserDataPath,
+                files: { "trim.txt": "one  \ntwo\t" },
+                open: ["trim.txt"],
+                inspect: true,
+            });
+            await session.waitForDocument(
+                (root) => findNode(root, (n) => n.type === "EditorElement") !== null,
+                { timeoutMs: 20_000 },
+            );
+
+            // Ctrl+S шлётся повторно до преображения байтов: save() гоняет
+            // участника безусловно, повтор само-синхронизируется с асинхронной
+            // активацией расширения (тот же приём, что в editorconfig-stock).
+            const fp = join(env.workspaceDir, "trim.txt");
+            const deadline = Date.now() + 25_000;
+            let bytes = readFileSync(fp, "utf8");
+            while (Date.now() < deadline && bytes !== "one\ntwo\n") {
+                session.write("\x13"); // Ctrl+S → workbench.action.files.save
+                await new Promise((r) => setTimeout(r, 400));
+                bytes = readFileSync(fp, "utf8");
+            }
+            expect(bytes).toBe("one\ntwo\n");
         },
     );
 });

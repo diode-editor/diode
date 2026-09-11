@@ -41,6 +41,7 @@ describe("Workbench — menu bar wiring", () => {
             "Save As...",
             "Settings",
             "Keyboard Shortcuts",
+            "Keyboard Shortcuts (JSON)",
             "Close Editor",
             "Reload Window",
             "Exit",

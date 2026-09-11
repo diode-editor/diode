@@ -1063,6 +1063,48 @@ export async function requestSignatureHelp(
     return parseWireSignatureHelp(outcome);
 }
 
+// ─── Formatting (LSP, #196) ──────────────────────────────────────────────────
+
+/**
+ * Параметры запроса форматирования (host → subprocess). Один RPC на оба вида:
+ * с `range` субпроцесс спрашивает range-провайдеры (Format Selection), без —
+ * документные (Format Document).
+ */
+export interface IWireFormattingParams {
+    readonly uri: string;
+    readonly languageId?: string;
+    readonly text?: string;
+    /** `vscode.FormattingOptions` активного редактора. */
+    readonly tabSize?: number;
+    readonly insertSpaces?: boolean;
+    /** Диапазон Format Selection; отсутствие поля — весь документ. */
+    readonly range?: IWireRange;
+}
+
+/**
+ * Запрашивает у subprocess'а правки форматирования с таймаутом. Трёхзначный
+ * ответ — как у {@link import("../../../editor/common/languages/iFormattingSource.ts").FormattingSource}:
+ * `null` — нет провайдера под документ («нет форматтера»), пустой массив —
+ * менять нечего либо таймаут/битый ответ (молчаливый no-op: врать «нет
+ * форматтера» из-за медленного сервера нельзя).
+ */
+export async function requestFormattingEdits(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireFormattingParams,
+    timeoutMs: number,
+): Promise<readonly ITextEdit[] | null> {
+    const outcome = await raceWithTimeout(request("languages.provideFormattingEdits", params), timeoutMs);
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив и не null, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
+    if (outcome === TIMED_OUT) return [];
+    if (outcome === null) return null;
+    return parseWireEditorEdits(outcome).map((edit) =>
+        createTextEdit(
+            createRange(edit.range.startLine, edit.range.startCharacter, edit.range.endLine, edit.range.endCharacter),
+            edit.text,
+        ),
+    );
+}
+
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────
 
 /** Параметры `window.progress.start` (subprocess → host). */
