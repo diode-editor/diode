@@ -10,7 +10,7 @@
 `e2e/references.test.ts`, `e2e/parameterHints.test.ts`;
 скриншот-сценарии `goto-definition`, `lsp-completion`, `references`,
 `parameter-hints`).
-Открыто — «Отложенное» ниже (второй язык, закрытие остальных стабов).
+Открыто — «Отложенное» ниже (gopls, реестр для basedpyright, закрытие остальных стабов).
 
 ## Архитектура (проверена спайком, ветка `worktree-lsp-spike`)
 
@@ -93,8 +93,14 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   no-op канал молча теряет их; клиентский outputChannel обязан быть настоящим.
 - `vscode.version` должен быть валидным VS Code semver (`1.127.0`, лок-степ с
   `extensions/VSCODE_VERSION`) — languageclient проверяет `^1.91.0`.
-- Под SEA `process.execPath` — это diode-бинарь: спавнить сервер только
-  `{ command }`-формой (никаких `TransportKind.ipc`/fork).
+- Под SEA `process.execPath` — это diode-бинарь: наши builtin-клиенты спавнят
+  сервер `{ command }`-формой. Для СТОРОННИХ расширений, которые форкают
+  execPath сами (`TransportKind.ipc` у basedpyright), subprocess ext-host'а
+  чистит наследуемое окружение: `DIODE_EXTENSION_HOST` снят,
+  `DIODE_RUN_AS_NODE=1` — любой форк diode-бинаря из расширения работает как
+  node (`main.ts` проверяет RUN_AS_NODE первым; env-фикс — в
+  `runExtensionHostSubprocess`, гейт — `extensionHost.fork.test.ts` + e2e
+  `pythonLsp.test.ts` на настоящем SEA).
 
 ## Таблица стабов vscode API (заполняется по шагам 2–3)
 
@@ -118,7 +124,10 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
 | `workspace.createFileSystemWatcher` | готово | настоящие watcher'ы поверх `ITreeFileWatcher` ядра (`RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude`); детали — [arch/Extensions.md](../arch/Extensions.md) |
 | `workspace.onDid/Will{Create,Delete,Rename}Files`, notebook-события | no-op | продюсеры файловых операций ядра → RPC |
 | `window.withProgress` | real | запись статус-бара с анимированным спиннером (`ProgressStatusBarAdapter`); message/increment серверного workDoneProgress обновляют текст; отмена НЕ поддержана — токен никогда не стреляет (`ProgressPart` languageclient'а это переживает); на смерть subprocess'а host сам гасит живые спиннеры |
-| `window.tabGroups` | no-op | пустые группы; закрытие: проекция вкладок группы |
+| `window.tabGroups` | naive | проекция вкладок группы: снимки `Tab` на момент вызова (идентичность не гарантируется), `onDidChangeTabs` живой, `close` работает; на них опирается pull-диагностика languageclient 10 (basedpyright) |
+| `vscode.extensions` | naive | `getExtension` честно `undefined`, `all` пуст, `onDidChange` не стреляет — каталог расширений субпроцессу не раздаётся; для pyright-семейства (детект Pylance/ms-python) это правильный ответ |
+| `ExtensionContext` | naive | `subscriptions` + `extensionPath`/`extensionUri`/`asAbsolutePath` (корень установки vsix едет от host'а в регистрации; builtin'ы — от каталога `filename`) + `extensionMode: Production`; memento/secrets/storageUri — нет |
+| `commands.registerTextEditorCommand` | naive | обёртка над `registerCommand`: без активного редактора — warn + no-op (семантика VS Code), edit-builder инертный (батч-правки — за `workspace.applyEdit`-путём) |
 | `window.showTextDocument` | naive | возвращает активный редактор; закрытие: RPC открытия ресурса |
 | `window.createOutputChannel` | real | канал в панели Output (`extensions.<slug(name)>`, label = name; `ExtensionOutputAdapter`): append/appendLine/LogOutputChannel-методы с уровнями, `show()` открывает панель на канале; люфты — `clear`/`replace` no-op (журнал ретенционный), trace/debug фильтруются уровнем логгера |
 | `env` (appName/language/clipboard/openExternal) | naive | честные значения; клипборд пуст, openExternal отказывает |
@@ -129,9 +138,18 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   запуск `process.execPath` в node-режиме `DIODE_RUN_AS_NODE=1`; e2e —
   `e2e/lspBundled.test.ts`). Открытые вопросы: размер бинаря (+~55 МБ) vs
   отдельный распаковываемый артефакт; кросс-платформенность кэша.
-- **Второй язык** (gopls — один бинарь; python — basedpyright): не добавляет новых
-  seam'ов; рецепт «как добавить язык» — декларативная таблица
-  `{ languageIds, serverResolver }` в builtin-клиенте.
+- **Второй язык — Python сделан, причём другим маршрутом**: не строка в таблице
+  builtin-клиента, а НАСТОЯЩИЙ сторонний `detachhead.basedpyright`.vsix с
+  open-vsx как есть (ставится `--install-extension`, ни строчки нашего кода
+  расширения); доработки стаба и env-фикс fork/SEA — в таблице и «граблях»
+  выше, курируемый дефолт `basedpyright.importStrategy: "useBundled"` —
+  `curatedConfigInjection` в `main.ts` (манифестный `fromEnvironment` зовёт API
+  ms-python.python без try/catch и роняет активацию). Гейты — сьюты
+  `extensionHost.pythonLsp*`, e2e `pythonLsp.test.ts`, сценарий `python-lsp`;
+  vsix запиннен фикстурой `e2e/fixtures/basedpyright/`. Folding у python —
+  indentation-based ядра (сервер `textDocument/foldingRange` не реализует).
+  Дальше — запись `proxy-openvsx` в реестре магазина
+  ([Marketplace.md](Marketplace.md)) и gopls (маршрут «бинарь в PATH»).
 - Инкрементальный sync + debounce; позиция курсора в didChange (для серверов,
   которым нужна — сейчас не передаётся).
 - **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,

@@ -899,6 +899,19 @@ export class Hover {
     }
 }
 
+/**
+ * Режим запуска расширения (`context.extensionMode`). У нас расширения всегда
+ * работают как установленные (`Production`): режимов `--extensionDevelopmentPath`
+ * / `--extensionTestsPath` в Diode нет. Расширения сравнивают значение с enum'ом
+ * (`context.extensionMode === ExtensionMode.Development` у basedpyright), поэтому
+ * enum обязан существовать в namespace.
+ */
+export enum ExtensionMode {
+    Production = 1,
+    Development = 2,
+    Test = 3,
+}
+
 /** Наивный WorkspaceEdit — хранит правки, применение — за `workspace.applyEdit`. */
 /**
  * Как был вызван signature-help-провайдер. Значения — из vscode API; их читает
