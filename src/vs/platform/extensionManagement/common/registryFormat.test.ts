@@ -67,6 +67,13 @@ describe("parseRegistryIndex", () => {
         });
     });
 
+    it.each(["proxy-openvsx", "proxy-hosted", "native"] as const)("kind %s принимается", (kind) => {
+        const { index, problems } = parseRegistryIndex(indexText([indexEntry({ kind })]));
+        expect(problems).toEqual([]);
+        expect(index.extensions).toHaveLength(1);
+        expect(index.extensions[0].kind).toBe(kind);
+    });
+
     it.each([
         ["не-строка", 42],
         ["пустая строка", ""],

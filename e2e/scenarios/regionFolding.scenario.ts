@@ -5,9 +5,9 @@ import { frameToText } from "../helpers/frame.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Folding ranges contributed by a STOCK extension (#194): the real
-// maptz.regionfolder `.vsix` is installed into the scenario's user-data dir, and
-// its `#region`/`#endregion` markers become foldable ranges on top of the
-// indentation folds.
+// maptz.regionfolder is installed FROM THE MARKETPLACE (latest compatible
+// version, no pin — docs/TESTING.md convention), and its `#region`/`#endregion`
+// markers become foldable ranges on top of the indentation folds.
 //
 // The demo exists because the visible half of this feature is what unit tests
 // can't see: a `#region` header sits at the same indent as its body, so the
@@ -15,13 +15,13 @@ import { defineScenario, repoRoot } from "./framework.ts";
 // ("const" rendering as "│onst"). The resting screenshot is the assertion.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "regionFolding.ts");
-const vsix = resolve(repoRoot, "e2e", "fixtures", "maptz-regionfolder", "maptz.regionfolder-1.0.22.vsix");
 
 export default defineScenario({
     name: "region-folding",
     title: "Extension-provided #region folds (maptz.regionfolder)",
     open: [repoRoot, sampleFile],
-    installVsix: [vsix],
+    installVsix: ["maptz.regionfolder"],
+    network: true,
     cols: 100,
     rows: 20,
     // Extension-host scenarios run the subprocess — Linux only, like
