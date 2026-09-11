@@ -62,6 +62,23 @@ describe("buildKeybindingItems", () => {
         expect(items.map((item) => item.commandId)).toEqual(["a.cmd", "z.cmd", "m.cmd"]);
     });
 
+    it("конфликтующие записи помечены, остальные — нет", () => {
+        const items = buildKeybindingItems(
+            [
+                binding({ commandId: "save", chord: parseChord("ctrl+s") }),
+                binding({ commandId: "other", chord: parseChord("ctrl+s") }),
+                binding({ commandId: "hover", chord: parseChord("f1") }),
+            ],
+            [command("save", "Save"), command("other", "Other"), command("hover", "Hover"), command("free", "Free")],
+        );
+
+        expect(items.find((item) => item.commandId === "save")!.hasConflict).toBe(true);
+        expect(items.find((item) => item.commandId === "other")!.hasConflict).toBe(true);
+        expect(items.find((item) => item.commandId === "hover")!.hasConflict).toBe(false);
+        // Строка без биндинга конфликтовать не может.
+        expect(items.find((item) => item.commandId === "free")!.hasConflict).toBe(false);
+    });
+
     it("источник записи доезжает до строки", () => {
         const items = buildKeybindingItems(
             [binding({ commandId: "save", source: "user" })],
@@ -113,6 +130,25 @@ describe("filterKeybindingItems", () => {
 
     it("несовпавшее отфильтровывается", () => {
         expect(filterKeybindingItems(items, "zzzzzz")).toEqual([]);
+    });
+
+    it("@conflicts отбирает только конфликтующие; добавка комбинации сужает до её группы", () => {
+        const conflicted = buildKeybindingItems(
+            [
+                binding({ commandId: "save", chord: parseChord("ctrl+s") }),
+                binding({ commandId: "other", chord: parseChord("ctrl+s") }),
+                binding({ commandId: "dupF6a", chord: parseChord("f6") }),
+                binding({ commandId: "dupF6b", chord: parseChord("f6") }),
+                binding({ commandId: "clean", chord: parseChord("f1") }),
+            ],
+            [],
+        );
+
+        const all = filterKeybindingItems(conflicted, "@conflicts");
+        expect(all.map((entry) => entry.item.commandId).sort()).toEqual(["dupF6a", "dupF6b", "other", "save"]);
+
+        const group = filterKeybindingItems(conflicted, "@conflicts f6");
+        expect(group.map((entry) => entry.item.commandId).sort()).toEqual(["dupF6a", "dupF6b"]);
     });
 
     it("@source: отбирает по источнику, остаток запроса — fuzzy", () => {

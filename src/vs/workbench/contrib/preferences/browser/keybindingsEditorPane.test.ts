@@ -331,12 +331,37 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(h.service.resets).toEqual(["save"]);
     });
 
-    it("у строки без биндинга нет Remove", () => {
+    it("у строки без биндинга нет Remove и Show Conflicts", () => {
         const h = makeHarness();
         h.render();
 
-        const entries = h.menuOf("Never Bound").filter((entry) => "label" in entry && entry.label === "Remove Keybinding");
-        expect(entries).toEqual([]);
+        const labels = h.menuOf("Never Bound").map((entry) => ("label" in entry ? entry.label : "—"));
+        expect(labels).not.toContain("Remove Keybinding");
+        expect(labels).not.toContain("Show Conflicts");
+    });
+
+    it("Show Conflicts сеет фильтр @conflicts с комбинацией строки", () => {
+        const h = makeHarness();
+        h.render();
+
+        entryByLabel(h.menuOf("Save File"), "Show Conflicts").onSelect?.();
+
+        const input = h.pane.view.querySelectorAll("InputElement")[0] as InputElement;
+        expect(input.inputState.value).toBe("@conflicts ctrl+s");
+    });
+
+    it("конфликтующие строки доезжают до кадра и фильтруются @conflicts", () => {
+        const h = makeHarness();
+        h.registry.register(parseChord("ctrl+s"), "hover", undefined, "user");
+        h.service.emit();
+        h.render();
+
+        h.pane.setFilter("@conflicts");
+
+        const screen = h.render();
+        expect(screen).toContain("Save File");
+        expect(screen).toContain("Show Hover");
+        expect(screen).not.toContain("Never Bound");
     });
 
     it("Copy Command ID кладёт id в буфер", () => {

@@ -12,6 +12,7 @@ function item(overrides: Partial<IKeybindingItem> = {}): IKeybindingItem {
         chord: parseChord("ctrl+s"),
         when: undefined,
         source: "default",
+        hasConflict: false,
         ...overrides,
     };
 }
@@ -76,6 +77,25 @@ describe("describeKeybindingRow", () => {
     });
 });
 
+describe("конфликт", () => {
+    it("прокидывается в раскладку и красит колонку Keybinding при сборке", () => {
+        const layout = describeKeybindingRow(filtered({ hasConflict: true }), WIDTH);
+        expect(layout.conflict).toBe(true);
+
+        // Сборка с конфликтом не падает и несёт тот же текст (цвет — char-стили).
+        const row = buildKeybindingRow("kb-0", layout, {
+            dimFg: "descriptionForeground",
+            highlightFg: "list.highlightForeground",
+            conflictFg: "editorWarning.foreground",
+        });
+        expect(row.getText()).toBe(layout.text);
+    });
+
+    it("бесконфликтная строка флага не несёт", () => {
+        expect(describeKeybindingRow(filtered(), WIDTH).conflict).toBe(false);
+    });
+});
+
 describe("шапка таблицы", () => {
     it("колонки шапки совпадают с колонками строк", () => {
         const header = describeKeybindingHeaderRow(WIDTH);
@@ -101,6 +121,7 @@ describe("buildKeybindingRow", () => {
         const row = buildKeybindingRow("kb-0", layout, {
             dimFg: "descriptionForeground",
             highlightFg: "list.highlightForeground",
+            conflictFg: "editorWarning.foreground",
         });
 
         expect(row.id).toBe("kb-0");

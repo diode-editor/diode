@@ -1,4 +1,5 @@
 import type { ICommandSnapshot } from "../../../../platform/commands/common/commandRegistry.ts";
+import { findConflictingBindings } from "../../../../platform/keybinding/common/keybindingConflicts.ts";
 import type {
     IKeybindingEntrySnapshot,
     KeybindingChord,
@@ -23,6 +24,8 @@ export interface IKeybindingItem {
     readonly when: string | undefined;
     /** `null` — у строки без биндинга источника нет. */
     readonly source: KeybindingSource | null;
+    /** Есть запись с той же комбинацией и пересекающимся when ({@link findConflictingBindings}). */
+    readonly hasConflict: boolean;
 }
 
 /** Строка после фильтра; `titleMatch` — для посимвольной подсветки title. */
@@ -37,8 +40,9 @@ export function buildKeybindingItems(
 ): IKeybindingItem[] {
     const titles = new Map(commands.map((command) => [command.id, command.title]));
     const bound = new Set<string>();
+    const conflicting = findConflictingBindings(bindings);
 
-    const items: IKeybindingItem[] = bindings.map((entry) => {
+    const items: IKeybindingItem[] = bindings.map((entry, index) => {
         bound.add(entry.commandId);
         return {
             commandId: entry.commandId,
@@ -46,12 +50,20 @@ export function buildKeybindingItems(
             chord: entry.chord,
             when: entry.when,
             source: entry.source,
+            hasConflict: conflicting.has(index),
         };
     });
 
     for (const command of commands) {
         if (bound.has(command.id)) continue;
-        items.push({ commandId: command.id, title: command.title, chord: null, when: undefined, source: null });
+        items.push({
+            commandId: command.id,
+            title: command.title,
+            chord: null,
+            when: undefined,
+            source: null,
+            hasConflict: false,
+        });
     }
 
     // Сортировка по title (дальше по id — у биндинга неизвестной команды title
@@ -59,9 +71,10 @@ export function buildKeybindingItems(
     return items.sort((a, b) => a.title.localeCompare(b.title) || a.commandId.localeCompare(b.commandId));
 }
 
-/** Префикс-фильтры запроса (`@source:user`) — срезаются до fuzzy-части. */
+/** Префикс-фильтры запроса (`@source:user`, `@conflicts`) — срезаются до fuzzy-части. */
 interface IParsedQuery {
     readonly source: KeybindingSource | null;
+    readonly conflictsOnly: boolean;
     readonly text: string;
 }
 
@@ -73,25 +86,30 @@ const SOURCE_FILTERS: Record<string, KeybindingSource> = {
 
 function parseQuery(query: string): IParsedQuery {
     let source: KeybindingSource | null = null;
+    let conflictsOnly = false;
     const rest: string[] = [];
     for (const word of query.trim().split(/\s+/)) {
         const filter = SOURCE_FILTERS[word.toLowerCase()];
         if (filter !== undefined) source = filter;
+        else if (word.toLowerCase() === "@conflicts") conflictsOnly = true;
         else rest.push(word);
     }
-    return { source, text: rest.join(" ") };
+    return { source, conflictsOnly, text: rest.join(" ") };
 }
 
 /**
- * Фильтр списка: `@source:` — точный отбор по источнику, остальное — fuzzy по
- * title, id команды и display-форме биндинга. Подсветка возвращается только для
- * совпадения по title: подсвечивать колонку клавиш по fuzzy-огрызку — шум.
+ * Фильтр списка: `@source:` — точный отбор по источнику, `@conflicts` — только
+ * конфликтующие записи, остальное — fuzzy по title, id команды и display-форме
+ * биндинга (поэтому `@conflicts ctrl+k ctrl+u` сужает до группы одной
+ * комбинации). Подсветка возвращается только для совпадения по title:
+ * подсвечивать колонку клавиш по fuzzy-огрызку — шум.
  */
 export function filterKeybindingItems(items: readonly IKeybindingItem[], query: string): IFilteredKeybindingItem[] {
     const parsed = parseQuery(query);
     const result: IFilteredKeybindingItem[] = [];
     for (const item of items) {
         if (parsed.source !== null && item.source !== parsed.source) continue;
+        if (parsed.conflictsOnly && !item.hasConflict) continue;
         if (parsed.text === "") {
             result.push({ item, titleMatch: null });
             continue;

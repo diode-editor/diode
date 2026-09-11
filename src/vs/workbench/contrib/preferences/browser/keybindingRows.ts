@@ -53,6 +53,8 @@ export interface IKeybindingRowLayout {
     readonly sourceSpan: ISpan;
     /** Индексы подсвеченных символов title (fuzzy-совпадение), уже в границах видимого. */
     readonly matchIndices: readonly number[];
+    /** Конфликтующая запись — колонка Keybinding красится предупреждением. */
+    readonly conflict: boolean;
 }
 
 /** Цвета кусков строки (выделение и hover рисует сам `ListViewElement`). */
@@ -61,6 +63,8 @@ export interface IKeybindingRowStyles {
     readonly dimFg: StyleColor;
     /** Подсветка fuzzy-совпадения в title. */
     readonly highlightFg: StyleColor;
+    /** Колонка Keybinding конфликтующей записи. */
+    readonly conflictFg: StyleColor;
 }
 
 const SOURCE_LABELS = { default: "Default", extension: "Extension", user: "User" } as const;
@@ -101,6 +105,7 @@ export function describeKeybindingRow(
         whenSpan: { start: whenStart, length: whenCell.length },
         sourceSpan: { start: sourceStart, length: sourceCell.length },
         matchIndices,
+        conflict: item.hasConflict,
     };
 }
 
@@ -120,6 +125,7 @@ export function buildKeybindingRow(
     row.id = id;
     paintSpan(row, layout.whenSpan, styles.dimFg);
     paintSpan(row, layout.sourceSpan, styles.dimFg);
+    if (layout.conflict) paintSpan(row, layout.keySpan, styles.conflictFg);
     for (const index of layout.matchIndices) {
         row.setCharStyle(index, { fg: styles.highlightFg });
     }

@@ -15,6 +15,7 @@ import type {
     KeybindingChord,
     KeybindingRegistry,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { serializeChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { FilteredListControl } from "../../../browser/parts/views/filteredListControl.ts";
 import type { IKeybindingsEditorService } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
@@ -60,6 +61,7 @@ const ERROR_ROW_ID = "kbError";
 const ROW_STYLES: IKeybindingRowStyles = {
     dimFg: "descriptionForeground",
     highlightFg: "list.highlightForeground",
+    conflictFg: "editorWarning.foreground",
 };
 
 /**
@@ -233,6 +235,15 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
             });
         }
         entries.push({ type: "separator" });
+        if (item.chord !== null) {
+            const chord = item.chord;
+            entries.push({
+                label: "Show Conflicts",
+                onSelect: () => {
+                    this.setFilter(`@conflicts ${serializeChord(chord)}`);
+                },
+            });
+        }
         entries.push({
             label: "Copy Command ID",
             onSelect: () => {
