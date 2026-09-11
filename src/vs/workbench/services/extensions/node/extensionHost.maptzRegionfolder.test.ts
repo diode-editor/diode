@@ -1,11 +1,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
+import { fetchStockVsix } from "../../../../../TestUtils/stockVsix.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -23,21 +24,17 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
  * Сквозная проверка СТОКОВОГО (немодифицированного) расширения
- * `maptz.regionfolder@1.0.22` на реальном extension host'е Diode (#194).
+ * `maptz.regionfolder` на реальном extension host'е Diode (#194).
  *
- * Расширение ставится из настоящего `.vsix` (тот же путь, что `--install-extension`),
- * грузится реальным кодом (`out/extension.js` + `require("./engine/...")`),
- * активируется по `onStartupFinished` и регистрирует folding-провайдер. Проверяем,
- * что `#region`-свёртки csharp-файла реально доезжают в редактор.
+ * Vsix приезжает ИЗ МАГАЗИНА последней совместимой версией (см. stockVsix.ts,
+ * конвенция — docs/TESTING.md; в оффлайне сьют пропускается), ставится штатным
+ * `installVsix` (тот же путь, что `--install-extension`), грузится реальным
+ * кодом (`out/extension.js` + `require("./engine/...")`), активируется по
+ * `onStartupFinished` и регистрирует folding-провайдер. Проверяем, что
+ * `#region`-свёртки csharp-файла реально доезжают в редактор.
  */
 
-const here = fileURLToPath(new URL(".", import.meta.url));
-const VSIX_PATH = path.resolve(
-    here,
-    "../../../../../../e2e/fixtures/maptz-regionfolder/maptz.regionfolder-1.0.22.vsix",
-);
 const EXT_ID = "maptz.regionfolder";
-const EXT_VERSION = "1.0.22";
 
 /** Язык-сервис, размечающий всё как csharp (у maptz есть [csharp]-маркеры). */
 const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
@@ -49,20 +46,21 @@ const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
 // C#-файл со стоковым C#-маркером региона (`/* #region */ … /* #endregion */`).
 const CSHARP_TEXT = ["/* #region Helpers */", "int a = 1;", "int b = 2;", "/* #endregion */", "int c = 3;"].join("\n");
 
-describe("ExtensionHost — стоковый maptz.regionfolder (#194)", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.regionfolder (#194)", () => {
     let tmpRoot: string;
     let mainPath: string;
+    let extVersion: string;
 
     beforeAll(async () => {
         tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "diode-maptz-"));
         const extensionsDir = path.join(tmpRoot, "extensions");
-        const installed = await installVsix(VSIX_PATH, extensionsDir);
+        const installed = await installVsix((await fetchStockVsix(EXT_ID)).vsixPath, extensionsDir);
         expect(installed.id).toBe(EXT_ID);
-        expect(installed.version).toBe(EXT_VERSION);
-        const extDir = path.join(extensionsDir, `${EXT_ID}-${EXT_VERSION}`);
+        extVersion = installed.version;
+        const extDir = path.join(extensionsDir, `${EXT_ID}-${extVersion}`);
         mainPath = path.join(extDir, "out", "extension.js");
         expect(fs.existsSync(mainPath)).toBe(true);
-    });
+    }, 120_000);
 
     afterAll(() => {
         fs.rmSync(tmpRoot, { recursive: true, force: true });
@@ -71,7 +69,7 @@ describe("ExtensionHost — стоковый maptz.regionfolder (#194)", () => {
     function maptzRegistration(): IExtensionRegistration {
         return {
             id: EXT_ID,
-            manifest: { name: "regionfolder", publisher: "maptz", version: EXT_VERSION },
+            manifest: { name: "regionfolder", publisher: "maptz", version: extVersion },
             mainPath,
             // contributes.configuration → maptz.regionfolder default {}
             configDefaults: { "maptz.regionfolder": {} },
