@@ -114,6 +114,12 @@ export class EditorComponent extends Component {
      * host, который проецирует выделение в субпроцесс) должен это пережить.
      */
     private readonly selectionListeners: (() => void)[] = [];
+    /**
+     * Подписчики на смену действующих настроек отступа. Как и
+     * {@link selectionListeners}, живут на компоненте: view-state пересоздаётся
+     * при перечитке документа, а подписка (статус-бар) обязана это пережить.
+     */
+    private readonly indentListeners: (() => void)[] = [];
 
     /** Редактирующая поверхность этой вью — для acting-view путей модели. */
     public get editTarget(): ITextFileEditTarget {
@@ -147,6 +153,32 @@ export class EditorComponent extends Component {
                 if (idx >= 0) this.selectionListeners.splice(idx, 1);
             },
         };
+    }
+
+    /**
+     * Подписка на смену действующих настроек отступа (`tabSize`/`insertSpaces`):
+     * решение расширения, перечитка конфига или пере-детекция при перечитке
+     * файла с диска. Файрится только при фактическом сдвиге значений.
+     */
+    public onDidChangeIndentOptions(cb: () => void): IDisposable {
+        this.indentListeners.push(cb);
+        return {
+            dispose: (): void => {
+                const idx = this.indentListeners.indexOf(cb);
+                if (idx >= 0) this.indentListeners.splice(idx, 1);
+            },
+        };
+    }
+
+    /** Сообщает подписчикам отступов, если действующие значения сдвинулись. */
+    private notifyIndentIfChanged(before: { tabSize: number; insertSpaces: boolean }): void {
+        if (
+            this.editorViewState.tabSize === before.tabSize &&
+            this.editorViewState.insertSpaces === before.insertSpaces
+        ) {
+            return;
+        }
+        for (const cb of [...this.indentListeners]) cb();
     }
 
     /** Перевешивает форвардинг cursor-change на текущий view-state. */
@@ -252,12 +284,15 @@ export class EditorComponent extends Component {
         // вовсе. Заметнее всего это было на смене канала Output, где пересборка
         // происходит на каждое переключение.
         const hadFocus = holdsFocus(this.editor);
+        const indentBefore = { tabSize: this.editorViewState.tabSize, insertSpaces: this.editorViewState.insertSpaces };
         this.editorViewState.dispose();
         this.editorViewState = new EditorViewState(this.model.document);
         this.editorViewState.readOnly = wasReadOnly;
         // Настройки отступа — свойство редактора, как и read-only: новый
         // view-state знает только встроенные дефолты, конфиг помнит компонент.
         this.applyIndentConfigurationToViewState();
+        // Пере-детекция по новому содержимому могла сменить действующий отступ.
+        this.notifyIndentIfChanged(indentBefore);
         this.tokenStore.dispose();
         this.tokenStore = new DocumentTokenStore(
             this.model.document,
@@ -401,7 +436,10 @@ export class EditorComponent extends Component {
         // совпавшее с текущим значение — тоже решение, и перечитка конфига не
         // должна его отменять.
         if (applied) this.editorViewState.indentExplicitlySet = true;
-        if (changed) this.editor.markDirty();
+        if (changed) {
+            this.editor.markDirty();
+            for (const cb of [...this.indentListeners]) cb();
+        }
     }
 
     /**
@@ -412,9 +450,11 @@ export class EditorComponent extends Component {
      * пересоздаётся при перечитке документа, а настройки обязаны пережить это.
      */
     public applyIndentConfiguration(config: IIndentConfiguration): void {
+        const before = { tabSize: this.editorViewState.tabSize, insertSpaces: this.editorViewState.insertSpaces };
         this.indentConfiguration = config;
         this.applyIndentConfigurationToViewState();
         this.editor.markDirty();
+        this.notifyIndentIfChanged(before);
     }
 
     private applyIndentConfigurationToViewState(): void {

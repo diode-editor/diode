@@ -27,7 +27,7 @@
 
 Отдельного списка «слоёв, где можно DI» нет — его заменяет ось зависимостей: импорт токена подчиняется тем же правилам слоёв, что и любой другой импорт. Проверяет `npm run valid-layers-check`, включая правило «файл с `token<T>()` берёт `T` из своего слоя или ниже» — токен не может вести к типу из слоя выше себя.
 
-Нижняя граница: **`tuidom/` токенов не объявляет и `diContainer` не импортирует** — движок не тянет DI-модель Diode (кандидат на отдельный репозиторий; сторож — в `check-layers`).
+Нижняя граница: **пакеты `@tuidom/*` токенов не объявляют и `diContainer` не импортируют** — движок живёт в отдельном репозитории и физически не может тянуть DI-модель Diode.
 
 Сквозные токены ядра, у которых нет файла-владельца (`TuiApplicationDIToken`, `TerminalBackendDIToken`, `ClipboardDIToken` и др.), живут в `src/vs/workbench/common/coreTokens.ts`. Размещение там части сервисных токенов — наследие прежнего правила «токены только в workbench»; новые токены туда не добавлять, объявлять рядом с типом.
 
@@ -45,9 +45,6 @@ export const EditorServiceDIToken = token<EditorService>("EditorService");
 Компилятор проверяет, что типы токенов совпадают с типами параметров:
 
 ```typescript
-import { StatusBarServiceDIToken } from "../Services/StatusBarService.ts";
-import { ThemeServiceDIToken } from "../../Theme/ThemeTokens.ts";
-
 export class StatusBarComponent extends ThemedComponent {
     static dependencies = [StatusBarServiceDIToken, ThemeServiceDIToken] as const;
 
@@ -58,24 +55,14 @@ export class StatusBarComponent extends ThemedComponent {
 }
 ```
 
-Если зависимостей нет:
-
-```typescript
-export class StatusBarService extends Disposable {
-    static dependencies = [] as const;
-
-    constructor() {
-        super();
-    }
-}
-```
+Без зависимостей — `static dependencies = [] as const;`.
 
 ## Регистрация в контейнере
 
 Контейнер конфигурируется в точке входа (`main.ts`). Одна строка на сервис:
 
 ```typescript
-import { Container } from "./Common/DiContainer.ts";
+import { Container } from "../vs/platform/instantiation/common/diContainer.ts";
 
 const container = new Container()
     .bind(TuiApplicationDIToken, () => application) // фабрика для leaf-сервисов
@@ -89,35 +76,14 @@ const workbench = container.get(WorkbenchComponentDIToken);
 - **Класс** — `bind(token, Class)` — контейнер читает `Class.dependencies` и резолвит автоматически
 - **Фабрика** — `bind(token, () => value)` — произвольная логика создания
 
-## Что проверяет компилятор
+## Гарантии
 
-При `bind(token, Class)` TypeScript проверяет:
-- Тип `Token<T>` совпадает с типом экземпляра класса
-- Массив `static dependencies` соответствует параметрам конструктора: количество, порядок, типы
-
-Ошибка компиляции если:
-- Перепутан порядок зависимостей
-- Пропущена или лишняя зависимость  
-- Тип токена не совпадает с типом параметра
-- Токен привязан к классу неправильного типа
-
-## Что проверяется в рантайме
-
-- Отсутствие биндинга → `Error: No binding for "ServiceName"`
-- Циклическая зависимость → `Error: Circular dependency detected: A → B → A`
-
-## Singleton-семантика
-
-Все биндинги — lazy singletons. Первый вызов `get(token)` создаёт экземпляр, последующие возвращают кешированный.
-
-## Прямое создание без контейнера
-
-Классы остаются plain — `static dependencies` не влияет на конструктор.
-В тестах можно создавать экземпляры напрямую:
-
-```typescript
-const component = new StatusBarComponent(fakeStatusBarService, themeService);
-```
+- Компилятор при `bind(token, Class)` проверяет тип токена и соответствие
+  `static dependencies` параметрам конструктора (количество, порядок, типы).
+- Рантайм: отсутствие биндинга и циклическая зависимость — понятные ошибки.
+- Все биндинги — lazy singletons.
+- Классы остаются plain (`static dependencies` не влияет на конструктор) — в
+  тестах экземпляры создаются напрямую, `new StatusBarComponent(fake, theme)`.
 
 ## Модули и профили
 
@@ -126,7 +92,7 @@ const component = new StatusBarComponent(fakeStatusBarService, themeService);
 `(container, ctx) => void`. Модули собираются в **профили** — фабрики готовых
 контейнеров под конкретный сценарий (production, test).
 
-Файлы: `src/vs/diode/modules/` (исключение — `terminalEnvironmentModule`, живёт рядом со своим сервисом в `src/vs/workbench/Services/TerminalEnvironment/`).
+Файлы: `src/vs/diode/modules/` (исключение — `terminalEnvironmentModule`, живёт рядом со своим сервисом в `src/vs/workbench/services/terminalEnvironment/node/`).
 
 ### `ContainerModule<Ctx>`
 
@@ -150,23 +116,12 @@ const container = new Container()
 
 ### Существующие модули
 
-| Модуль | Контекст | Что регистрирует |
-|--------|----------|------------------|
-| `coreModule` | `{ app }` | `ServiceAccessor`, `TuiApplication` |
-| `coreModuleLate` | — | Только `ServiceAccessor`. Для тестов, где `TuiApplication` создаётся позже от view корневого компонента. |
-| `commandsModule` | — | `CommandRegistry`, `KeybindingRegistry`, `ContextKeyService` |
-| `themeModule` | `{ theme }` | `ThemeService` |
-| `tokenizationModule` | `{ tokenizationRegistry, tokenStyleResolver, languageService }` | Соответствующие токены. Реализации передаются снаружи. |
-| `backendModule` | `{ clipboard }` | `Clipboard` |
-| `backendModuleDefault` | — | `Clipboard` с `InMemoryClipboard` по умолчанию |
-| `configurationModule` | `{ configurationService, configurationRegistry }` | `IConfigurationService` (готовый экземпляр из `loadConfiguration(paths, …, registry)`) + `ConfigurationRegistry` (реестр схем настроек) |
-| `configurationModuleDefault` | — | `NULL_CONFIGURATION_SERVICE` + настоящий `ConfigurationRegistry` из `CONFIGURATION_CONTRIBUTIONS` (тесты и demo) |
-| `stateModule` | `{ stateService }` | `IStateService` — машинное состояние UI/сессии (готовый экземпляр из `loadState(paths)`; см. [arch/State.md](arch/State.md)) |
-| `stateModuleDefault` | — | `IStateService` с `NULL_STATE_SERVICE` (тесты и demo) |
-| `loggingModule` | `{ logService }` | `ILogService` (production-экземпляр из `main.ts`) |
-| `loggingModuleDefault` | — | `ILogService` с `NULL_LOG_SERVICE` (тесты) |
-| `extensionHostModule` | — | `ExtensionHost` (+ адаптеры: `EditorOptionsServiceAdapter`/`EditorDecorationsServiceAdapter` поверх `EditorService` (Workbench), `FileDecorationsServiceAdapter` поверх `ExplorerService` (Workbench), `ThemeColorResolverAdapter` поверх `ThemeService`) |
-| `workbenchModule` | — | Пары Service ↔ Component слоя Workbench: `StatusBarService`+`StatusBarComponent`, contribution'ы статус-бара (`EditorStatusContribution`, `TerminalEnvStatusContribution`), `KeybindingDispatcher`, `DialogService`, `LifecycleService`; Panel-кластер — `PanelService`+`PanelComponent`, `ProblemsComponent`, `TerminalService`+`TerminalPanelComponent` (+ прод-фабрика `TerminalSessionFactory` → `EmbeddedTerminalSession`), `DiagnosticsService`; Explorer-кластер — `ExplorerService`+`ExplorerComponent`, `FileOperationsService`, `InputWidgetService`; QuickInput-кластер — `QuickInputComponent` (общий виджет), `QuickInputService`, `FileSearchService`, quick-access-провайдеры (`Files`/`Commands`/`GotoLine` + явный список `QUICK_ACCESS_PROVIDERS` и `QuickAccessRegistry`), `QuickOpenService`; Editor-кластер — `EditorService`+`EditorGroupComponent`; Find/Suggest-кластер — `FindService`+`FindComponent` и `CompletionService`+`SuggestComponent`; Shell-кластер (этап 11) — `LayoutService`, `WorkbenchStateService`, `WorkbenchContextKeys`, `MenuRegistry`+`MenuService`+`MenuBarComponent`; корневой `WorkbenchComponent` (этап 12). Швы → `EditorService`: `ActiveEditorStatusSource`, `DiagnosticsEditorSource`, `MarkerRevealTarget`, `GotoLineEditorSource`; шов → `WorkbenchComponent`: `WorkspaceFolderOpener` (Open Folder) |
+Актуальный список — файлы `src/vs/diode/modules/` (по модулю на домен: core,
+commands, theme, tokenization, backend, configuration, state, logging, markers,
+keybindings, workspace, fileWatcher, extensionHost, workbench). У части модулей
+есть `*Default`-вариант с null-реализациями для тестов и demo. Крупнейший —
+`workbenchModule`: все пары Service ↔ Component слоя Workbench и швы между ними;
+состав смотреть в самом файле, а не здесь (список дрейфует).
 
 ### Профили
 

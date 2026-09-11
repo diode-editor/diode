@@ -34,11 +34,9 @@ import {
     uninstallExtension,
 } from "../platform/extensionManagement/node/extensionInstaller.ts";
 import { installFromRegistry } from "../platform/extensionManagement/node/installFromRegistry.ts";
+import { flattenConfigDefaults } from "../platform/extensions/common/configDefaults.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
-import type {
-    ICommandContribution,
-    IConfigurationContribution,
-} from "../platform/extensions/common/iExtensionManifest.ts";
+import type { ICommandContribution } from "../platform/extensions/common/iExtensionManifest.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
 import { loadUserKeybindings } from "../platform/keybinding/node/keybindingsService.ts";
@@ -431,7 +429,8 @@ async function runEditor(): Promise<void> {
     for (const ext of userExtensions) {
         if (typeof ext.manifest.main !== "string" || ext.manifest.main === "") continue;
         const dirName = ext.location.slice(USER_PREFIX.length).replace(/\/$/, "");
-        const mainPath = path.resolve(userDataPaths.extensionsDir, dirName, ext.manifest.main);
+        const extensionPath = path.resolve(userDataPaths.extensionsDir, dirName);
+        const mainPath = path.resolve(extensionPath, ext.manifest.main);
         try {
             const reg: IExtensionRegistration = {
                 id: ext.id,
@@ -441,7 +440,11 @@ async function runEditor(): Promise<void> {
                     version: ext.manifest.version,
                 },
                 mainPath,
-                configDefaults: flattenConfigDefaults(ext.manifest.contributes?.configuration),
+                extensionPath,
+                configDefaults: {
+                    ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
+                    ...curatedConfigInjection(ext.id),
+                },
                 commandTitles: collectCommandTitles(ext.manifest.contributes?.commands),
                 activationEvents: ext.manifest.activationEvents,
             };
@@ -608,11 +611,6 @@ async function preloadGrammarsForFiles(
 }
 
 /**
- * Сплющивает `contributes.configuration` расширения в dotted-map дефолтов
- * (`{ "editorconfig.generateAuto": true }`). Ключи `properties` — уже полные
- * dotted-пути настроек. Блок может быть объектом или массивом объектов.
- */
-/**
  * Синтетические config-дефолты host'а для builtin-расширений (в манифесте их
  * нет — это внутренний seam, не пользовательские настройки).
  *
@@ -638,22 +636,22 @@ function builtinConfigInjection(manifestName: string, logger: ILogger): Record<s
     };
 }
 
-function flattenConfigDefaults(
-    configuration: IConfigurationContribution | readonly IConfigurationContribution[] | undefined,
-): Record<string, unknown> | undefined {
-    if (configuration === undefined) return undefined;
-    const blocks = Array.isArray(configuration) ? configuration : [configuration];
-    const defaults: Record<string, unknown> = {};
-    for (const block of blocks as readonly IConfigurationContribution[]) {
-        const properties = block.properties;
-        if (properties === undefined) continue;
-        for (const [key, schema] of Object.entries(properties) as [string, unknown][]) {
-            if (schema !== null && typeof schema === "object" && "default" in schema) {
-                defaults[key] = schema.default;
-            }
-        }
+/**
+ * Курируемые config-дефолты host'а для КОНКРЕТНЫХ сторонних расширений — слой
+ * поверх дефолтов их манифеста, ниже пользовательских настроек (переопределяемы).
+ *
+ * basedpyright: манифестный дефолт `importStrategy: "fromEnvironment"` ищет
+ * pip-установку сервера через API расширения ms-python.python и падает всей
+ * активацией, когда того нет (наш `extensions.getExtension` честно отвечает
+ * undefined, а вызов в activate() не обёрнут в try/catch — проверено на 1.40.0).
+ * В Diode питон-расширения Microsoft не существует, поэтому единственный рабочий
+ * путь — вшитый в vsix сервер; включаем его дефолтом.
+ */
+function curatedConfigInjection(extensionId: string): Record<string, unknown> {
+    if (extensionId === "detachhead.basedpyright") {
+        return { "basedpyright.importStrategy": "useBundled" };
     }
-    return Object.keys(defaults).length > 0 ? defaults : undefined;
+    return {};
 }
 
 /**

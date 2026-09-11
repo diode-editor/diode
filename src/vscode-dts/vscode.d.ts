@@ -602,6 +602,23 @@ declare module "vscode" {
 		export function registerCommand(command: string, callback: (...args: any[]) => any, thisArg?: any): Disposable;
 
 		/**
+		 * Registers a text editor command that can be invoked via a keyboard shortcut,
+		 * a menu item, an action, or directly.
+		 *
+		 * Text editor commands are different from ordinary {@link commands.registerCommand commands} as
+		 * they only execute when there is an active editor when the command is called. Also, the
+		 * command handler of an editor command has access to the active editor and to an
+		 * {@link TextEditorEdit edit}-builder. Note that the edit-builder is only valid while the
+		 * callback executes.
+		 *
+		 * @param command A unique identifier for the command.
+		 * @param callback A command handler function with access to an {@link TextEditor editor} and an {@link TextEditorEdit edit}.
+		 * @param thisArg The `this` context used when invoking the handler function.
+		 * @returns Disposable which unregisters this command on disposal.
+		 */
+		export function registerTextEditorCommand(command: string, callback: (textEditor: TextEditor, edit: TextEditorEdit, ...args: any[]) => void, thisArg?: any): Disposable;
+
+		/**
 		 * Executes the command denoted by the given command identifier.
 		 *
 		 * * *Note 1:* When executing an editor command not all types are allowed to
@@ -616,6 +633,77 @@ declare module "vscode" {
 		 * the command handler function doesn't return anything.
 		 */
 		export function executeCommand<T = unknown>(command: string, ...rest: any[]): Thenable<T>;
+	}
+
+	/**
+	 * Represents an extension.
+	 *
+	 * To get an instance of an `Extension` use {@link extensions.getExtension getExtension}.
+	 */
+	export interface Extension<T> {
+
+		/**
+		 * The canonical extension identifier in the form of: `publisher.name`.
+		 */
+		readonly id: string;
+
+		/**
+		 * The uri of the directory containing the extension.
+		 */
+		readonly extensionUri: Uri;
+
+		/**
+		 * The absolute file path of the directory containing this extension. Shorthand
+		 * notation for {@link Extension.extensionUri Extension.extensionUri.fsPath} (independent of the uri scheme).
+		 */
+		readonly extensionPath: string;
+
+		/**
+		 * `true` if the extension has been activated.
+		 */
+		readonly isActive: boolean;
+
+		/**
+		 * The parsed contents of the extension's package.json.
+		 */
+		readonly packageJSON: any;
+
+		/**
+		 * The public API exported by this extension (return value of `activate`).
+		 * It is an invalid action to access this field before this extension has been activated.
+		 */
+		readonly exports: T;
+
+		/**
+		 * Activates this extension and returns its public API.
+		 *
+		 * @returns A promise that will resolve when this extension has been activated.
+		 */
+		activate(): Thenable<T>;
+	}
+
+	/**
+	 * The ExtensionMode is provided on the `ExtensionContext` and indicates the
+	 * mode the specific extension is running in.
+	 */
+	export enum ExtensionMode {
+		/**
+		 * The extension is installed normally (for example, from the marketplace
+		 * or VSIX) in the editor.
+		 */
+		Production = 1,
+
+		/**
+		 * The extension is running from an `--extensionDevelopmentPath` provided
+		 * when launching the editor.
+		 */
+		Development = 2,
+
+		/**
+		 * The extension is running from an `--extensionTestsPath` and
+		 * the extension host is running unit tests.
+		 */
+		Test = 3,
 	}
 
 	/**
@@ -639,6 +727,88 @@ declare module "vscode" {
 			 */
 			dispose(): any;
 		}[];
+
+		/**
+		 * The uri of the directory containing the extension.
+		 */
+		readonly extensionUri: Uri;
+
+		/**
+		 * The absolute file path of the directory containing the extension. Shorthand
+		 * notation for {@link TextDocument.uri ExtensionContext.extensionUri.fsPath} (independent of the uri scheme).
+		 */
+		readonly extensionPath: string;
+
+		/**
+		 * Get the absolute path of a resource contained in the extension.
+		 *
+		 * *Note* that an absolute uri can be constructed via {@linkcode Uri.joinPath} and
+		 * {@linkcode ExtensionContext.extensionUri extensionUri}, e.g. `vscode.Uri.joinPath(context.extensionUri, relativePath);`
+		 *
+		 * @param relativePath A relative path to a resource contained in the extension.
+		 * @returns The absolute path of the resource.
+		 */
+		asAbsolutePath(relativePath: string): string;
+
+		/**
+		 * The mode the extension is running in. See {@link ExtensionMode}
+		 * for possible values and scenarios.
+		 */
+		readonly extensionMode: ExtensionMode;
+	}
+
+	/**
+	 * Namespace for dealing with installed extensions. Extensions are represented
+	 * by an {@link Extension}-interface which enables reflection on them.
+	 *
+	 * Extension writers can provide APIs to other extensions by returning their API public
+	 * surface from the `activate`-call.
+	 *
+	 * ```javascript
+	 * export function activate(context: vscode.ExtensionContext) {
+	 * 	let api = {
+	 * 		sum(a, b) {
+	 * 			return a + b;
+	 * 		},
+	 * 		mul(a, b) {
+	 * 			return a * b;
+	 * 		}
+	 * 	};
+	 * 	// 'export' public api-surface
+	 * 	return api;
+	 * }
+	 * ```
+	 * When depending on the API of another extension add an `extensionDependencies`-entry
+	 * to `package.json`, and use the {@link extensions.getExtension getExtension}-function
+	 * and the {@link Extension.exports exports}-property, like below:
+	 *
+	 * ```javascript
+	 * let mathExt = extensions.getExtension('genius.math');
+	 * let importedApi = mathExt.exports;
+	 *
+	 * console.log(importedApi.mul(42, 1));
+	 * ```
+	 */
+	export namespace extensions {
+
+		/**
+		 * Get an extension by its full identifier in the form of: `publisher.name`.
+		 *
+		 * @param extensionId An extension identifier.
+		 * @returns An extension or `undefined`.
+		 */
+		export function getExtension<T = any>(extensionId: string): Extension<T> | undefined;
+
+		/**
+		 * All extensions currently known to the system.
+		 */
+		export const all: readonly Extension<any>[];
+
+		/**
+		 * An event which fires when `extensions.all` changes. This can happen when extensions are
+		 * installed, uninstalled, enabled or disabled.
+		 */
+		export const onDidChange: Event<void>;
 	}
 
 	/**

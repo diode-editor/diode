@@ -26,9 +26,8 @@ Windows/macOS (см. [E2E.md](E2E.md)).
 - `EditorTabStripElement` → упростить (ручной `rebuildHFlex` поверх `HFlex`)
 - `PopupMenuElement` → border+padding+VStack как композиция
 
-⚠️ Блокер: `HFlex`/`VStack` держат **один** `fill`-ребёнок (TODO #6 в
-[README](README.md)). Перед заменой лейаутеров, возможно, доработать
-`FlexContainer` (несколько fill с весами).
+⚠️ Блокер: `HFlex`/`VStack` держат **один** `fill`-ребёнок. Несколько fill с
+весами — доработка движка в репозитории tuidom.
 
 ### B. Контроллеры под видом элемента → логику в слой Workbench
 - `MenuBarElement` (`tuidom/ui/menu/menuBarElement.ts`) — держит `activeMenu`,
@@ -75,8 +74,8 @@ Workbench-модели Service ↔ Component), `EditorGroupComponent` ↔
 ## Порядок фаз (инкрементально — не всё сразу)
 1. **Основа**: извлечь `bootstrapApp()`, перевести `main.ts` и
    `ExtensionTestHarness` на неё. Низкий риск, прямой фундамент инспектора.
-2. **Лейаутеры (A)**: при необходимости сперва `FlexContainer` (TODO #6), затем
-   `EditorGroup`/`Body`/`Workbench`/`TabStrip`/`PopupMenu` на композицию.
+2. **Лейаутеры (A)**: при необходимости сперва `FlexContainer` (несколько fill —
+   в tuidom), затем `EditorGroup`/`Body`/`Workbench`/`TabStrip`/`PopupMenu` на композицию.
 3. **MenuBar (B)**: логику MenuBar целиком в `MenuService`/`MenuBarComponent`, тонкий `MenuBarElement`.
 4. **ContextMenuLayer (B)**: `OverlayManager` + тонкий контейнер, мигрировать
    потребителей по одному.

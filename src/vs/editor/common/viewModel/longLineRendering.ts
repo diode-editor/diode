@@ -3,8 +3,7 @@
  *
  * Живёт в editor-слое (а не в tuidom): это **политика/копирайт редактора**, не
  * общий примитив. tuidom-механизмы (`DisplayLine.stopAfter`, `measureTextWidth`)
- * порог не знают — редактор передаёт его параметром. См.
- * [docs/TODO/TuidomExtraction.md](../../../../../docs/TODO/TuidomExtraction.md).
+ * порог не знают — редактор передаёт его параметром.
  */
 
 /**

@@ -8,8 +8,8 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// Межвиджетная развязка кадра damage-tracking'ом (docs/TODO/LongLinePerformance.md,
-// «Глубже»; docs/TODO/SearchPerformance.md, случай 4). Запуск: `npm run test:perf`.
+// Межвиджетная развязка кадра damage-tracking'ом
+// (docs/TODO/LongLinePerformance.md). Запуск: `npm run test:perf`.
 //
 // Одна итерация = печать символа + Backspace через настоящий парсер ввода
 // (~2 полных синхронных кадра). Сравнение пары фикстур отвечает на вопрос

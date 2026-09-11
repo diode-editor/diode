@@ -314,6 +314,11 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         this.component.setIndentOptions(patch);
     }
 
+    /** Смена действующих настроек отступа (см. `EditorComponent.onDidChangeIndentOptions`). */
+    public onDidChangeIndentOptions(listener: () => void): IDisposable {
+        return this.component.onDidChangeIndentOptions(listener);
+    }
+
     public applyIndentConfiguration(config: IIndentConfiguration): void {
         this.component.applyIndentConfiguration(config);
     }

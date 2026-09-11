@@ -8,8 +8,8 @@ import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
 import { buildFileRow, buildMatchRow, type ISearchRowStyles } from "./searchResultRows.ts";
 
-// Сквозной репро тормозов курсора в дереве результатов поиска
-// (docs/TODO/SearchPerformance.md). Запуск: `npm run test:perf`.
+// Сквозной репро тормозов курсора в дереве результатов поиска.
+// Запуск: `npm run test:perf`.
 //
 // Одна итерация = ArrowDown + ArrowUp через настоящий парсер ввода, то есть
 // 4 полных синхронных кадра (keydown + keypress на каждое нажатие). Три

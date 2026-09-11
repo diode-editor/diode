@@ -93,59 +93,6 @@ it("renders a 6x3 box", () => {
 
 `renderElement` покрывает только single-shot рендер (layout → render → flush). Мультифреймовые сценарии, доступ к `TerminalScreen` или ненулевой `globalPosition` — ручной сетап, не форсим хелпер.
 
----
-
-## Editor
-
-Тестируем модели данных: `TextDocument`, `EditorViewState`, `UndoManager`. Это чистая логика без UI — unit-тесты в классическом смысле.
-
-### Что проверяем
-- Вставку, удаление, замену текста в `TextDocument`
-- Мульти-курсор, выделения, навигацию в `EditorViewState`
-- Undo/redo стек
-- Folding-регионы
-
-### Паттерны
-- Простые тесты — создаём `TextDocument` и `EditorViewState` напрямую
-- Для сложных сценариев (folding + cursors) используем DSL из `EditorTestUtils/TrackDSL.ts`
-
-```ts
-it("types with two cursors on the same line", () => {
-    const doc = new TextDocument("aabb");
-    const state = new EditorViewState(doc, [
-        createCursorSelection(0, 2),
-        createCursorSelection(0, 0),
-    ]);
-    state.type("X");
-    expect(doc.getText()).toBe("XaaXbb");
-});
-```
-
----
-
-## Rendering
-
-Тестируем примитивы рендеринга: ячейки, грид, diff-алгоритм, ANSI-вывод.
-
-### Что проверяем
-- Корректность `Cell` (сравнение, клонирование)
-- Операции `Grid` (инициализация, запись/чтение ячеек, копирование)
-- Diff-рендеринг в `TerminalRenderer` (минимальный ANSI-вывод)
-- Парсинг и упаковку цветов
-
-### Паттерны
-Прямое создание объектов, проверка через `expect`:
-
-```ts
-it("produces no output when grids are identical", () => {
-    const a = new Grid(new Size(3, 2));
-    const b = new Grid(new Size(3, 2));
-    b.copyAllCellsFrom(a);
-    renderer.render(a, b);
-    expect(output).toBe("");
-});
-```
-
 ### Ассерт на саму ячейку: `char`, `width`, `style`
 
 `backend.getBgAt/getFgAt/getTextAt` отвечают только про цвета и текст. Когда виджет кладёт
@@ -165,41 +112,29 @@ expect(app.app.screen.getCell(new Point(gw + 1, 0)).style).toBe(StyleFlags.None)
 
 ---
 
-## Input
+## Editor
 
-Тестируем пайплайн парсинга ввода: токенизация сырых байтов, парсинг клавиш, сериализация.
+Тестируем модели данных: `TextDocument`, `EditorViewState`, `UndoManager`. Это чистая логика без UI — unit-тесты в классическом смысле.
 
 ### Что проверяем
-- Токенизацию stdin-потока (`tokenize`)
-- Парсинг клавиатурных событий (`KeyInputParser`)
-- Обратную сериализацию клавиш (`serializeKey`)
-- Обработку мыши
+- Вставку, удаление, замену текста в `TextDocument`
+- Мульти-курсор, выделения, навигацию в `EditorViewState`
+- Undo/redo стек
+- Folding-регионы
 
 ### Паттерны
-Чистые функции — подаём вход, проверяем выход:
+- Простые тесты — создаём `TextDocument` и `EditorViewState` напрямую
+- Для сложных сценариев (folding + cursors) используем DSL из `src/vs/editor/test/common/trackDSL.ts`
 
 ```ts
-it("parses simple character", () => {
-    const result = parseInput("a");
-    expect(result.key).toBe("a");
-});
-```
-
----
-
-## Common
-
-Тестируем DI-контейнер и базовые утилиты.
-
-### Паттерны
-Классические unit-тесты без зависимостей:
-
-```ts
-it("resolves a registered token", () => {
-    const container = new Container();
-    const token = new Token<string>("test");
-    container.bind(token, () => "value");
-    expect(container.get(token)).toBe("value");
+it("types with two cursors on the same line", () => {
+    const doc = new TextDocument("aabb");
+    const state = new EditorViewState(doc, [
+        createCursorSelection(0, 2),
+        createCursorSelection(0, 0),
+    ]);
+    state.type("X");
+    expect(doc.getText()).toBe("XaaXbb");
 });
 ```
 
@@ -391,14 +326,12 @@ npm run test:coverage      # = vitest run --coverage
 - если покрытие падает ниже зафиксированной планки — прогон/CI **краснеет**;
 - если покрытие выросло — vitest сам поднимает числа порогов в конфиге (коммить их).
 
-Бэклог недопокрытого реального кода — [TODO/Coverage.md](TODO/Coverage.md).
-
 ### Что и почему исключаем из метрики
 
 Исключения (`coverage.exclude`) добавляем **только** если файл попадает в одну из категорий:
 
 1. **Чистые типы** — интерфейсы `I*.ts`, `*.d.ts`, barrel-`index.ts`. Исполнять нечего; чистый интерфейс добавляем в **явный список** exclude (глоб `I*.ts` НЕ используем — см. ниже).
-2. **Непокрываемое юнит-тестами** — реальный tty (`NodeTerminalBackend`), subprocess-точка входа (`ExtensionHostSubprocess`), SEA-детект (`IsSea`, `createDefaultAssetAccess`), RPC-стаб в subprocess (`VscodeNamespace`), DI-проводка (`Workbench/Modules/**`), null-object заглушки. Это проверяется e2e (`vitest.e2e.config.ts`), а не юнит-тестами.
+2. **Непокрываемое юнит-тестами** — subprocess-точка входа (`extensionHostSubprocess`), SEA-детект (`isSea`, `createDefaultAssetAccess`), RPC-стаб в subprocess (`vscodeNamespace`), DI-проводка (`vs/diode/modules/**`), null-object заглушки. Это проверяется e2e (`vitest.e2e.config.ts`), а не юнит-тестами.
 
 **Важно:** реальную логику в файлах с префиксом `I*` (например хелперы `createRange` в `IRange.ts`, `NULL_STATE` в `IState.ts`, `isScrollable` в `IScrollable.ts`) **не прячем** — её покрываем. Поэтому интерфейсы исключаем поимённо, а не глобом `src/**/I*.ts`.
 

@@ -53,7 +53,7 @@ export const ScmChangesServiceDIToken = token<ScmChangesService>("ScmChangesServ
  *
  * Транспорт — команда (как у {@link CommandOriginalResourceProvider}) и по той же
  * причине: канонический путь — `scm`-неймспейс, но он в `vscode.d.ts` ещё
- * закомментирован (docs/TODO/Diff.md, пункт F). Граница владения уже правильная —
+ * закомментирован («Оставшийся долг» в docs/TODO/Diff.md). Граница владения уже правильная —
  * что «изменено» и с каким статусом, знает только расширение, — поэтому переход
  * на `scm` заменит источник, а не этот сервис.
  */

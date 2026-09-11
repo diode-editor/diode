@@ -1,7 +1,7 @@
 # Read-only редактор
 
 Режим «только чтение» у редактора — аналог `EditorOption.readOnly` в VS Code.
-Задача выросла из Output-панели (Phase 4 в [Logging.md](Logging.md)): VS Code
+Задача выросла из Output-панели ([Logging.md](Logging.md)): VS Code
 рендерит Output не своим виджетом, а read-only редактором над моделью с языком
 `log` (`outputView.ts`, `OutputEditor extends AbstractTextResourceEditor`).
 

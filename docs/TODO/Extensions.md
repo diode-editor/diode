@@ -28,10 +28,8 @@
 ## Phase 5 — Commands и keybindings
 
 - [ ] `contributes.commands` — регистрация в `CommandRegistry` без runtime callback (заглушка пока нет extension host).
-- [x] `contributes.keybindings` — регистрация в `KeybindingRegistry` с `when`-клаузами (#194,
-  `extensionKeybindingContributor.ts`; `key`/`mac`/`linux`/`win`, `-command` для снятия;
-  регистрируются после builtin, так что расширение переопределяет встроенный аккорд).
 - [ ] `contributes.menus` / `submenus` — пункты в menu bar / context menus.
+  (`contributes.keybindings` сделан — #194, `extensionKeybindingContributor.ts`.)
 
 ## Phase 6 — Configuration
 
@@ -45,8 +43,7 @@
 
 ## Phase 7 — Активация и lifecycle
 
-- [~] `activationEvents`: `*`, `onStartupFinished`, `onLanguage:*` — сделаны (`ExtensionHost.registerExtension` = bookkeeping, `activateByEvent` активирует по событию; фаеринг — `main.ts` + `EditorService.onActiveEditorChanged` seam). Пример: builtin `diode-settings` (автодополнение settings.json, `onLanguage:json`). Остаётся `onCommand:*` (нужен await активации во время dispatch команды).
-- [x] Lazy activation — расширение не грузится до триггера (subprocess поднимается только на `activateByEvent`).
+- [~] `activationEvents`: `*`, `onStartupFinished`, `onLanguage:*` и lazy activation сделаны. Остаётся `onCommand:*` (нужен await активации во время dispatch команды).
 - [ ] `IDisposable`-цепочка: при unload корректно убираются все contributions (TokenizationRegistry, CommandRegistry, …).
 - [~] Reload расширения (dispose → re-register). Грубый ответ есть — **перезагрузка окна** (`workbench.action.reloadWindow`, `base/node/restartProcess.ts`): процесс поднимается заново с теми же аргументами, сессия восстанавливается, вклады сканируются на старте. Именно её просит магазин после установки. Горячий reload одного расширения без перезапуска — по-прежнему впереди и требует dispose-цепочки выше.
 

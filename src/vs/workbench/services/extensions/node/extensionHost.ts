@@ -504,6 +504,7 @@ export class ExtensionHost extends Disposable {
                     mainPath: reg.mainPath,
                     source: reg.source,
                     filename: reg.filename,
+                    extensionPath: reg.extensionPath,
                     configDefaults: reg.configDefaults,
                 });
                 this.extensions.add(reg.id);

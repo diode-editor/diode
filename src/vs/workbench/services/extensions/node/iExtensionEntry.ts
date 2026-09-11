@@ -33,6 +33,15 @@ export interface IExtensionRegistration {
     };
     /** Путь к модулю на ФС subprocess'а. Взаимоисключающе с `source`. */
     readonly mainPath?: string;
+    /**
+     * Корень установленного расширения на ФС — каталог `<extensionsDir>/
+     * <publisher>.<name>-<version>` (user-vsix). Из него subprocess строит
+     * `context.extensionPath` / `extensionUri` / `asAbsolutePath` — так
+     * расширение находит свои ресурсы внутри установки (bundled language-сервер
+     * basedpyright — `context.asAbsolutePath("dist/server.js")`). Для builtin'ов
+     * из in-memory `source` отсутствует — subprocess возьмёт каталог `filename`.
+     */
+    readonly extensionPath?: string;
     /** Исходник CJS-модуля для in-memory загрузки. Требует `filename`. Взаимоисключающе с `mainPath`. */
     readonly source?: string;
     /** Синтетический абсолютный путь-идентичность для `source`. */
