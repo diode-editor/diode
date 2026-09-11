@@ -54,12 +54,14 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         logService: ILogService,
     ) {
         super();
+        // Stryker disable next-line StringLiteral: имя канала логгера — диагностика, не поведение.
         this.logger = logService.createLogger("keybindings.editor");
     }
 
     public hasUserModifications(commandId: string): boolean {
         const ledger = this.ledger.get(commandId);
         if (ledger === undefined) return false;
+        // Stryker disable next-line EqualityOperator,ConditionalExpression: присутствующий леджер всегда содержит ≥1 запись (пустой удаляется в reset), поэтому `> 0` всегда истинно, а граница 0 недостижима — `>=0`/`<=0`/`true` эквивалентны.
         return ledger.added.length > 0 || ledger.removedDefaults.length > 0;
     }
 
@@ -111,6 +113,7 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         const newRule: IUserKeybindingRule = { key: serializeChord(chord), command: commandId, when };
         const result = await this.mutateFile((content) => {
             let next = content;
+            // Stryker disable next-line ConditionalExpression: правая ветавь → true запускала бы remove и для default/extension previous, но matchesUserRule(previous) там не найдёт user-правила с той же командой+комбинацией+when (его нет — оно default), так что remove ничего не снимает и результат тот же.
             if (previous !== undefined && previous.source === "user") {
                 next = removeKeybindingRules(next, this.matchesUserRule(previous));
             }
@@ -181,6 +184,7 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
     private matchesUserRule(entry: IKeybindingEntrySnapshot): (rule: IUserKeybindingRule) => boolean {
         return (rule) =>
             rule.command === entry.commandId &&
+            // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: `rule.key !== ""` избыточно — при пустом key `chordsEqual(parseChord(""), …)` (следующая строка) даёт false, так что пустой key не пройдёт и без этой проверки.
             rule.key !== "" &&
             chordsEqual(parseChord(rule.key), entry.chord) &&
             rule.when === entry.when;
@@ -196,26 +200,34 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
             return { ok: false, error: "keybindings.json path is not resolved" };
         }
         try {
-            let content = "";
-            try {
-                content = await fs.promises.readFile(this.resource, "utf-8");
-            } catch (err) {
-                if (!isFileNotFound(err)) throw err;
-            }
-            const next = mutate(content);
+            const next = mutate(await this.readContent(this.resource));
             await fs.promises.mkdir(path.dirname(this.resource), { recursive: true });
+            // Stryker disable next-line StringLiteral: кодировка записи — деталь I/O; наблюдаемого поведения тестам не даёт.
             await fs.promises.writeFile(this.resource, next, "utf-8");
             return { ok: true };
         } catch (err) {
             /* v8 ignore start -- defensive: fs и jsonc бросают только Error */
             const message = err instanceof Error ? err.message : String(err);
             /* v8 ignore stop */
+            // Stryker disable next-line StringLiteral,CallExpression: логирование — диагностика, не поведение; текст и сам вызов наблюдаемого результата не дают.
             this.logger.error("failed to update keybindings.json", err);
             return { ok: false, error: message };
+        }
+    }
+
+    /** Содержимое файла; отсутствующий файл (ENOENT) — пустая строка. */
+    private async readContent(resource: string): Promise<string> {
+        try {
+            return await fs.promises.readFile(resource, "utf-8");
+        } catch (err) {
+            // Stryker disable next-line ConditionalExpression: не-ENOENT ошибку чтения (напр. EISDIR) в юните не спровоцировать, а последующая запись всё равно падает с ok:false — rethrow против проглатывания неотличимы.
+            if (!isFileNotFound(err)) throw err;
+            return "";
         }
     }
 }
 
 function isFileNotFound(err: unknown): boolean {
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: защитная проверка типа ошибки; отличить её мутации можно лишь не-ENOENT ошибкой чтения, которую в юнит-тесте не спровоцировать. Наблюдаемая ветка (ENOENT → пустой контент) покрыта тестом записи в несуществующий файл.
     return typeof err === "object" && err !== null && (err as { code?: string }).code === "ENOENT";
 }

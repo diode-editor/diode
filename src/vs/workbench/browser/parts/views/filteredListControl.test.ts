@@ -56,14 +56,17 @@ describe("FilteredListControl — проводка", () => {
         expect(activated).toEqual(["row-1"]);
     });
 
-    it("молчит, когда колбэки не назначены", () => {
+    it("молчит, когда колбэки не назначены — input, активация и setQuery", () => {
         const control = make();
         appendRow(control, "row-1", "First");
 
         expect(() => {
             control.input.onChange?.("x");
             control.list.onActivate?.(control.view.querySelector("#row-1")!);
+            // setQuery без onQueryChange не должен падать (optional chaining).
+            control.setQuery("y");
         }).not.toThrow();
+        expect(control.getQuery()).toBe("y");
     });
 
     it("focusInput/focusList фокусируют свои элементы", () => {

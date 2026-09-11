@@ -120,7 +120,7 @@ function makeHarness(): IHarness {
 
     const rowOf = (title: string) => {
         const rows = pane.view.querySelectorAll("TextLabelElement");
-        const row = rows.find((candidate) => (candidate as { getText(): string }).getText().startsWith(title));
+        const row = rows.find((candidate) => (candidate as unknown as { getText(): string }).getText().startsWith(title));
         expect(row, `строка «${title}» не найдена`).toBeDefined();
         return row!;
     };
@@ -168,10 +168,20 @@ describe("KeybindingsEditorPane — контракт вкладки", () => {
 
         expect(h.pane.uri.toString()).toBe(keybindingsEditorUri().toString());
         expect(h.pane.uri.scheme).toBe(KEYBINDINGS_EDITOR_SCHEME);
+        // Путь ресурса фиксированный ("global") — идентичность единственной вкладки.
+        expect(keybindingsEditorUri().path).toBe("global");
         expect(h.pane.label).toBe("Keyboard Shortcuts");
         expect(h.pane.readOnly).toBe(true);
         expect(h.pane.isModified).toBe(false);
         expect(h.pane.getSelectedTexts()).toEqual([]);
+    });
+
+    it("несёт свои id: корень, контейнер контрола и список", () => {
+        const h = makeHarness();
+
+        expect(h.pane.view.id).toBe("keybindingsEditor");
+        expect(h.pane.view.querySelector("#keybindingsEditorView")).not.toBeNull();
+        expect(h.pane.view.querySelector("#keybindingsList")).not.toBeNull();
     });
 
     it("onDidChangeState отдаёт отписываемую заглушку", () => {
@@ -207,6 +217,11 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(screen).toContain("Extension");
         // Команда без биндинга — тоже строка, с тире вместо клавиши.
         expect(screen).toContain("Never Bound");
+        // Плейсхолдер строки поиска виден на пустом запросе.
+        expect(screen).toContain("Type to search keybindings");
+        // Без ошибки и при непустом списке — ни строки ошибки, ни заглушки.
+        expect(screen).not.toContain("Failed to update keybindings.json");
+        expect(screen).not.toContain("No keybindings found");
     });
 
     it("setFilter фильтрует список (путь «Show Conflicts»)", () => {
@@ -234,6 +249,16 @@ describe("KeybindingsEditorPane — кадр", () => {
 
         h.pane.setFilter("hover");
 
+        expect(h.render()).toContain("Show Hover");
+    });
+
+    it("до первой раскладки строки не строятся — guard по width", () => {
+        const h = makeHarness();
+        // setFilter триггерит rebuildRows, но раскладки ещё не было (width null).
+        h.pane.setFilter("hover");
+        const list = h.pane.view.querySelector("#keybindingsList") as unknown as { rowCount: number };
+        expect(list.rowCount).toBe(0);
+        // После рендера (раскладка задаёт width) строки появляются.
         expect(h.render()).toContain("Show Hover");
     });
 
@@ -386,6 +411,9 @@ describe("KeybindingsEditorPane — действия строки", () => {
         h.service.result = { ok: true };
         h.activateRowOf("Save File");
         await settle();
+        // Успешная мутация сама список НЕ перестраивает — обновление приходит
+        // событием сервиса; до emit строка ошибки ещё на месте.
+        expect(h.render()).toContain("disk full");
         h.service.emit();
         expect(h.render()).not.toContain("disk full");
     });
@@ -411,6 +439,20 @@ describe("KeybindingsEditorPane — действия строки", () => {
 
         expect(delegate.getOwner()).toBe(h.pane.view);
         expect(delegate.getAnchor()).toEqual({ screenX: 3, screenY: 4 });
+    });
+
+    it("меню несёт разделитель между правками и Copy Command ID", () => {
+        const h = makeHarness();
+        h.render();
+
+        const menu = h.menuOf("Save File");
+
+        // Разделитель присутствует…
+        const sepIndex = menu.findIndex((entry) => "type" in entry && entry.type === "separator");
+        expect(sepIndex).toBeGreaterThanOrEqual(0);
+        // …и стоит перед Copy Command ID.
+        const copyIndex = menu.findIndex((entry) => "label" in entry && entry.label === "Copy Command ID");
+        expect(copyIndex).toBeGreaterThan(sepIndex);
     });
 
     it("шапка и заглушки не активируются и меню не несут", () => {

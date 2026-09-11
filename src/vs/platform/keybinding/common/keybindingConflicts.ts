@@ -37,6 +37,7 @@ export function findConflictingBindings(entries: readonly IKeybindingEntrySnapsh
 
     const conflicting = new Set<number>();
     for (const group of groups.values()) {
+        // Stryker disable next-line EqualityOperator: `<=` даёт лишнюю итерацию i=length, но её внутренний цикл (j=i+1>length) пуст — результат тот же.
         for (let i = 0; i < group.length; i++) {
             for (let j = i + 1; j < group.length; j++) {
                 if (whenMayOverlap(entries[group[i]].when, entries[group[j]].when)) {

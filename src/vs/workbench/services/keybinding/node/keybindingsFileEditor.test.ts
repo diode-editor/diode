@@ -1,8 +1,13 @@
+import { parse as parseJsonc } from "jsonc-parser";
 import { describe, expect, it } from "vitest";
 
 import { chordsEqual, parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 import { appendKeybindingRule, removeKeybindingRules } from "./keybindingsFileEditor.ts";
+
+function rules(content: string): { key?: string; command: string; when?: string }[] {
+    return parseJsonc(content, [], { allowTrailingComma: true }) as { key?: string; command: string; when?: string }[];
+}
 
 /** Фикстура с комментариями и trailing comma — то, что реально пишут руками. */
 const FIXTURE = `[
@@ -13,15 +18,19 @@ const FIXTURE = `[
 `;
 
 describe("appendKeybindingRule", () => {
-    it("дописывает правило в конец, сохраняя комментарии", () => {
+    it("дописывает правило в конец, сохраняя комментарии и прежние правила", () => {
         const next = appendKeybindingRule(FIXTURE, { key: "ctrl+k ctrl+u", command: "editor.action.showHover" });
 
         expect(next).toContain("// мой любимый бинд");
-        expect(next).toContain('"key": "ctrl+k ctrl+u"');
-        expect(next).toContain('"command": "editor.action.showHover"');
-        // Прежние правила на месте.
-        expect(next).toContain("startFindReplaceAction");
-        expect(next.indexOf("showHover")).toBeGreaterThan(next.indexOf("custom.command"));
+        // Добавление (insertion), а не перезапись последнего: было 2 правила — стало 3.
+        const parsed = rules(next);
+        expect(parsed).toHaveLength(3);
+        expect(parsed.map((r) => r.command)).toEqual([
+            "editor.action.startFindReplaceAction",
+            "custom.command",
+            "editor.action.showHover",
+        ]);
+        expect(parsed[2].key).toBe("ctrl+k ctrl+u");
     });
 
     it("when пишется только когда он есть", () => {
@@ -32,11 +41,14 @@ describe("appendKeybindingRule", () => {
         expect(withoutWhen).not.toContain('"when"');
     });
 
-    it("пустой и отсутствующий файл стартует с пустого массива", () => {
-        for (const content of ["", "   \n"]) {
+    it("пустой и пробельный файл стартует с валидного пустого массива", () => {
+        for (const content of ["", "   \n\t "]) {
             const next = appendKeybindingRule(content, { key: "f7", command: "a.b" });
-            expect(next).toContain('"key": "f7"');
-            expect(next.trim().startsWith("[")).toBe(true);
+            // Ровно одно правило в валидном массиве (не мусор, не перезапись).
+            const parsed = rules(next);
+            expect(Array.isArray(parsed)).toBe(true);
+            expect(parsed).toHaveLength(1);
+            expect(parsed[0]).toMatchObject({ key: "f7", command: "a.b" });
         }
     });
 });
@@ -99,5 +111,39 @@ describe("removeKeybindingRules", () => {
     it("файл не-массив возвращается как есть", () => {
         const content = '{ "not": "an array" }\n';
         expect(removeKeybindingRules(content, () => true)).toBe(content);
+    });
+
+    it("предикат видит правила нормализованными: when пустой/отсутствующий → undefined, key → строка", () => {
+        const content = `[
+    { "key": "ctrl+s", "command": "a", "when": "listFocus" },
+    { "key": "", "command": "b", "when": "" },
+    { "command": "c" },
+    { "key": 9, "command": "d", "when": 5 },
+    5,
+    null,
+    { "key": "orphan" },
+    { "command": "" }
+]
+`;
+        const seen: { key: unknown; command: string; when: unknown }[] = [];
+        removeKeybindingRules(content, (rule) => {
+            seen.push({ key: rule.key, command: rule.command, when: rule.when });
+            return false;
+        });
+
+        // Не-объект (5), правило без command ({key:"orphan"}) и с пустым command
+        // до предиката не доходят.
+        expect(seen.map((r) => r.command)).toEqual(["a", "b", "c", "d"]);
+        // when: непустая строка сохраняется; пустая, отсутствующая и НЕ-строка → undefined.
+        expect(seen.map((r) => r.when)).toEqual(["listFocus", undefined, undefined, undefined]);
+        // key: строка сохраняется; отсутствующая и НЕ-строка → "".
+        expect(seen.map((r) => r.key)).toEqual(["ctrl+s", "", "", ""]);
+    });
+
+    it("непустое содержимое не сбрасывается в пустой массив", () => {
+        const content = '[{ "key": "ctrl+s", "command": "keep" }]\n';
+
+        // predicate=false ничего не удаляет — но ensureArrayContent не должен затереть файл.
+        expect(removeKeybindingRules(content, () => false)).toContain("keep");
     });
 });

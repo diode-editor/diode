@@ -11,6 +11,10 @@ const CASES: readonly [string, boolean][] = [
     ["f6", false],
     ["ctrl+k ctrl+u", false],
     ["shift+f6", false],
+    // ctrl+shift+<функциональная>: ключ не одиночный alnum — переносимо
+    // (якоря ^…$ в регексе обязаны держать «ровно один символ»).
+    ["ctrl+shift+f5", false],
+    ["ctrl+shift+f12", false],
     ["ctrl+shift+p", true],
     ["ctrl+shift+5", true],
     ["meta+x", true],

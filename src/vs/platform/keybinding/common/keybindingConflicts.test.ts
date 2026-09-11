@@ -15,8 +15,10 @@ describe("whenMayOverlap", () => {
         expect(whenMayOverlap("textViewFocus", undefined)).toBe(true);
     });
 
-    it("непустые when сравниваются нормализованной строкой", () => {
+    it("непустые when сравниваются нормализованной строкой — обе стороны тримятся", () => {
         expect(whenMayOverlap("textViewFocus", "textViewFocus ")).toBe(true);
+        // Пробел слева тоже нормализуется (иначе a.trim() не проверен).
+        expect(whenMayOverlap("  textViewFocus", "textViewFocus")).toBe(true);
         expect(whenMayOverlap("textViewFocus", "listFocus")).toBe(false);
     });
 });

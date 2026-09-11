@@ -109,6 +109,24 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(recorder.isOpen()).toBe(false);
         expect(() => recorder.record("x")).toThrow(/host is not attached/);
     });
+
+    it("dispose до первой записи не падает (session ещё null)", () => {
+        const recorder = new KeybindingRecorderComponent({ tier: "kitty" });
+
+        // session === null — ?. в dispose обязателен, иначе TypeError.
+        expect(() => recorder.dispose()).not.toThrow();
+    });
+
+    it("оверлей: id рекордера, фокус на нём и заголовок «Define Keybinding»", () => {
+        const { testApp, recorder } = makeHost();
+
+        void recorder.record("Save File");
+        testApp.render();
+
+        expect(testApp.querySelector("#keybindingRecorder")).not.toBeNull();
+        expect(testApp.focusedElement?.id).toBe("keybindingRecorder");
+        expect(testApp.backend.screenToString()).toContain("Define Keybinding");
+    });
 });
 
 describe("KeybindingRecorderComponent — терминальные предупреждения", () => {
@@ -123,14 +141,25 @@ describe("KeybindingRecorderComponent — терминальные предуп�
         expect(testApp.backend.screenToString()).toContain("May not be available on legacy terminals");
     });
 
-    it("переносимая комбинация предупреждения не несёт", () => {
-        const { testApp, recorder } = makeHost();
+    it("на kitty-tier переносимая комбинация не несёт НИ предупреждения, НИ legacy-заметки", () => {
+        const { testApp, recorder } = makeHost("kitty");
 
         void recorder.record("Save File");
         testApp.sendKey("Ctrl+S");
         testApp.render();
 
-        expect(testApp.backend.screenToString()).not.toContain("May not be available");
+        const screen = testApp.backend.screenToString();
+        // Ни ветка переносимости (parts>0 && requiresExtendedKeys), ни legacy-ветка
+        // (tier === "legacy") не должны сработать на kitty с переносимой комбинацией.
+        expect(screen).not.toContain("May not be available");
+        expect(screen).not.toContain("Legacy terminal");
+        // Строка предупреждения пуста: под подсказкой (Enter — accept …) идёт
+        // пустая строка, а не какой-либо текст (fallback warning === "").
+        const lines = screen.split("\n");
+        const hintRow = lines.findIndex((l) => l.includes("accept"));
+        expect(hintRow).toBeGreaterThanOrEqual(0);
+        // Внутри рамки следом за подсказкой — строка без букв (только рамка/пробелы).
+        expect(lines[hintRow + 1]).not.toMatch(/[A-Za-z]/);
     });
 
     it("на legacy-tier видна постоянная приглушённая заметка", () => {

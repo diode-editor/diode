@@ -3,6 +3,8 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { parse as parseJsonc } from "jsonc-parser";
+
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import type { IKeybindingEntrySnapshot } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { chordsEqual, KeybindingRegistry, parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -27,6 +29,7 @@ interface IHarness {
     /** Снапшот записи команды из реестра — «строка вкладки», над которой работает мутация. */
     entryOf(commandId: string, chordSpec?: string): IKeybindingEntrySnapshot;
     fileContent(): string;
+    rules(): { key?: string; command: string; when?: string }[];
     resolves(chordSpec: string): string | undefined;
 }
 
@@ -54,6 +57,12 @@ function makeHarness(fileContent?: string): IHarness {
             return entry!;
         },
         fileContent: () => fs.readFileSync(file, "utf-8"),
+        rules: () =>
+            parseJsonc(fs.readFileSync(file, "utf-8"), [], { allowTrailingComma: true }) as {
+                key?: string;
+                command: string;
+                when?: string;
+            }[],
         resolves: (chordSpec) => {
             const chord = parseChord(chordSpec);
             let result: string | undefined;
@@ -243,6 +252,21 @@ describe("hasUserModifications", () => {
         h.service.applyUserKeybindings([{ key: "ctrl+s", command: "-test.save" }]);
         expect(h.service.hasUserModifications("test.save")).toBe(true);
     });
+
+    it("true когда есть ТОЛЬКО добавленный биндинг (removedDefaults пуст)", async () => {
+        const h = makeHarness();
+        // Добавление без previous: added=[…], removedDefaults=[] — проверяет левую ветку ||.
+        await h.service.defineKeybinding("brand.new", parseChord("f6"));
+        expect(h.service.hasUserModifications("brand.new")).toBe(true);
+    });
+
+    it("true когда снят ТОЛЬКО дефолт (added пуст) — правая ветка ||", async () => {
+        const h = makeHarness();
+        h.registry.register(parseChord("ctrl+s"), "test.save");
+        // remove дефолта: removedDefaults=[…], added=[] — правая ветка ||.
+        await h.service.removeKeybinding(h.entryOf("test.save"));
+        expect(h.service.hasUserModifications("test.save")).toBe(true);
+    });
 });
 
 describe("исходы и события", () => {
@@ -309,5 +333,193 @@ describe("исходы и события", () => {
         await service.defineKeybinding("x", parseChord("f6"));
 
         expect(fired).toBe(0);
+    });
+
+    it("remove и reset тоже эмитят onDidChange", async () => {
+        const h = makeHarness();
+        h.registry.register(parseChord("ctrl+s"), "test.save");
+        let fired = 0;
+        h.service.onDidChange(() => {
+            fired++;
+        });
+
+        await h.service.removeKeybinding(h.entryOf("test.save"));
+        expect(fired).toBe(1);
+
+        await h.service.resetKeybinding("test.save");
+        expect(fired).toBe(2);
+    });
+});
+
+describe("выбор правила и запись файла — тонкости", () => {
+    it("define без previous поверх непустого файла не трогает существующие правила", async () => {
+        const h = makeHarness(`[
+    { "key": "ctrl+h", "command": "other.command" }
+]
+`);
+        h.registry.register(parseChord("ctrl+s"), "test.save");
+
+        const result = await h.service.defineKeybinding("test.save", parseChord("f6"));
+
+        expect(result.ok).toBe(true);
+        const rules = h.rules();
+        // Обе записи на месте: чужое правило не снято (ветка «previous === undefined» не идёт в remove).
+        expect(rules.map((r) => r.command).sort()).toEqual(["other.command", "test.save"]);
+    });
+
+    it("define в несуществующий файл даёт ровно одно валидное правило", async () => {
+        const h = makeHarness();
+        h.registry.register(parseChord("ctrl+s"), "test.save");
+
+        await h.service.defineKeybinding("test.save", parseChord("f6"), h.entryOf("test.save"));
+
+        const rules = h.rules();
+        expect(Array.isArray(rules)).toBe(true);
+        // Новое правило + unbind дефолта — ровно два, файл валиден (стартовый контент чистый).
+        expect(rules).toHaveLength(2);
+        expect(rules.map((r) => r.command).sort()).toEqual(["-test.save", "test.save"]);
+        // Файл заканчивается закрытой скобкой массива — стартовый контент был "",
+        // а не мусор (иначе modify оставил бы хвост после `]`).
+        expect(h.fileContent().trimEnd().endsWith("]")).toBe(true);
+    });
+
+    it("matchesUserRule снимает ровно совпадающее правило: другое command/key/when остаются", async () => {
+        // Четыре user-правила, отличающиеся ровно одним полем от цели {save, ctrl+s, listFocus}.
+        const h = makeHarness(`[
+    { "key": "ctrl+s", "command": "save", "when": "listFocus" },
+    { "key": "ctrl+s", "command": "other", "when": "listFocus" },
+    { "key": "ctrl+x", "command": "save", "when": "listFocus" },
+    { "key": "ctrl+s", "command": "save", "when": "editorFocus" }
+]
+`);
+        h.service.applyUserKeybindings([
+            { key: "ctrl+s", command: "save", when: "listFocus" },
+            { key: "ctrl+s", command: "other", when: "listFocus" },
+            { key: "ctrl+x", command: "save", when: "listFocus" },
+            { key: "ctrl+s", command: "save", when: "editorFocus" },
+        ]);
+        const target = h.registry
+            .listBindings()
+            .find((b) => b.commandId === "save" && b.when === "listFocus" && chordsEqual(b.chord, parseChord("ctrl+s")))!;
+
+        await h.service.removeKeybinding(target);
+
+        const rules = h.rules();
+        // Снята ровно цель; остальные три (другой command / key / when) на месте.
+        expect(rules).toHaveLength(3);
+        expect(rules.some((r) => r.command === "save" && r.key === "ctrl+s" && r.when === "listFocus")).toBe(false);
+        expect(rules.some((r) => r.command === "other")).toBe(true);
+        expect(rules.some((r) => r.key === "ctrl+x")).toBe(true);
+        expect(rules.some((r) => r.when === "editorFocus")).toBe(true);
+    });
+
+    it("remove снимает ТОЛЬКО user-правило с совпадающим when (matchesUserRule чувствителен к when)", async () => {
+        // Файл и реестр в bootstrap-состоянии: два user-правила одной команды и
+        // комбинации, различаются when.
+        const h = makeHarness(`[
+    { "key": "f6", "command": "dup.cmd", "when": "listFocus" },
+    { "key": "f6", "command": "dup.cmd", "when": "textViewFocus" }
+]
+`);
+        h.service.applyUserKeybindings([
+            { key: "f6", command: "dup.cmd", when: "listFocus" },
+            { key: "f6", command: "dup.cmd", when: "textViewFocus" },
+        ]);
+
+        const listFocusEntry = h.registry
+            .listBindings()
+            .find((b) => b.commandId === "dup.cmd" && b.when === "listFocus")!;
+        await h.service.removeKeybinding(listFocusEntry);
+
+        const remaining = h.rules().filter((r) => r.command === "dup.cmd");
+        expect(remaining).toHaveLength(1);
+        expect(remaining[0].when).toBe("textViewFocus");
+    });
+
+    it("remove user-правила без when не задевает user-правило с when на той же комбинации", async () => {
+        const h = makeHarness(`[
+    { "key": "f6", "command": "dup.cmd" },
+    { "key": "f6", "command": "dup.cmd", "when": "listFocus" }
+]
+`);
+        h.service.applyUserKeybindings([
+            { key: "f6", command: "dup.cmd" },
+            { key: "f6", command: "dup.cmd", when: "listFocus" },
+        ]);
+
+        const noWhenEntry = h.registry
+            .listBindings()
+            .find((b) => b.commandId === "dup.cmd" && b.when === undefined)!;
+        await h.service.removeKeybinding(noWhenEntry);
+
+        const remaining = h.rules().filter((r) => r.command === "dup.cmd");
+        expect(remaining).toHaveLength(1);
+        expect(remaining[0].when).toBe("listFocus");
+    });
+
+    it("проваленный reset (ошибка записи) НЕ трогает реестр — ранний выход по !result.ok", async () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+s"), "test.save");
+        const blocker = ws.path("blocker");
+        fs.writeFileSync(blocker, "", "utf-8");
+        const service = new KeybindingsEditorService(registry, path.join(blocker, "keybindings.json"), NULL_LOG_SERVICE);
+        // Bootstrap-снятие дефолта наполняет леджер (removedDefaults), файл не пишет.
+        service.applyUserKeybindings([{ key: "ctrl+s", command: "-test.save" }]);
+        expect(registry.getKeybindingForCommand("test.save")).toBeUndefined();
+
+        const result = await service.resetKeybinding("test.save");
+
+        // Запись упала → реестр остаётся в снятом состоянии, дефолт НЕ возвращён.
+        expect(result.ok).toBe(false);
+        expect(registry.getKeybindingForCommand("test.save")).toBeUndefined();
+    });
+
+    it("remove единственного user-биндинга очищает леджер (added фильтруется, не уезжает в removedDefaults)", async () => {
+        const h = makeHarness(`[{ "key": "f6", "command": "my.cmd" }]\n`);
+        h.service.applyUserKeybindings([{ key: "f6", command: "my.cmd" }]);
+        expect(h.service.hasUserModifications("my.cmd")).toBe(true);
+
+        await h.service.removeKeybinding(h.entryOf("my.cmd", "f6"));
+
+        // added отфильтрован до пустого И ничего не попало в removedDefaults → нет правок.
+        expect(h.service.hasUserModifications("my.cmd")).toBe(false);
+    });
+
+    it("remove одного из двух user-биндингов оставляет другой живым и он снимается reset'ом", async () => {
+        const h = makeHarness(`[
+    { "key": "f6", "command": "dup.cmd" },
+    { "key": "f7", "command": "dup.cmd" }
+]
+`);
+        h.service.applyUserKeybindings([
+            { key: "f6", command: "dup.cmd" },
+            { key: "f7", command: "dup.cmd" },
+        ]);
+
+        await h.service.removeKeybinding(h.entryOf("dup.cmd", "f6"));
+        // f7 всё ещё действует…
+        expect(h.resolves("f7")).toBe("dup.cmd");
+
+        await h.service.resetKeybinding("dup.cmd");
+        // …и reset снимает именно его (леджер.added хранил f7, не f6).
+        expect(h.resolves("f7")).toBeUndefined();
+    });
+
+    it("reset убирает и прямое правило, и -command той же команды, чужие не трогает", async () => {
+        const h = makeHarness();
+        h.registry.register(parseChord("ctrl+s"), "test.save");
+        h.registry.register(parseChord("ctrl+h"), "other.command");
+        // Наберём файлу и прямое user-правило, и unbind этой же команды, и чужое.
+        await h.service.defineKeybinding("test.save", parseChord("f6"), h.entryOf("test.save")); // add + -test.save
+        await h.service.defineKeybinding("other.command", parseChord("f7"), h.entryOf("other.command"));
+
+        await h.service.resetKeybinding("test.save");
+
+        const commands = h.rules().map((r) => r.command);
+        expect(commands).not.toContain("test.save");
+        expect(commands).not.toContain("-test.save");
+        // Чужие правила остались.
+        expect(commands).toContain("other.command");
+        expect(commands).toContain("-other.command");
     });
 });

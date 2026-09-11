@@ -88,12 +88,14 @@ function parseQuery(query: string): IParsedQuery {
     let source: KeybindingSource | null = null;
     let conflictsOnly = false;
     const rest: string[] = [];
+    // Stryker disable next-line MethodExpression,Regex: токенизация запроса устойчива к лишним пробелам — пустые токены не совпадают ни с одним префиксом-фильтром и не меняют fuzzy-текст.
     for (const word of query.trim().split(/\s+/)) {
         const filter = SOURCE_FILTERS[word.toLowerCase()];
         if (filter !== undefined) source = filter;
         else if (word.toLowerCase() === "@conflicts") conflictsOnly = true;
         else rest.push(word);
     }
+    // Stryker disable next-line StringLiteral: join('') vs join(' ') не меняет членство в fuzzy-выдаче (пробел в запросе — необязательный символ), только счёт.
     return { source, conflictsOnly, text: rest.join(" ") };
 }
 

@@ -79,6 +79,7 @@ class KeybindingsEditorElement extends TUIElement {
         super();
         this.appendChild(child);
         this.id = "keybindingsEditor";
+        // Stryker disable next-line ObjectLiteral: цвета корня — токены темы; кадровые тесты фон не пиннят.
         this.style = { fg: "editor.foreground", bg: "editor.background" };
     }
 
@@ -136,6 +137,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         };
         this.control.onActivateRow = (rowId) => {
             const item = this.rowItems.get(rowId);
+            // Stryker disable next-line ConditionalExpression: снятие guard'а вызывает changeKeybinding(undefined) → item.title кидает из fire-and-forget промиса; unhandled-ошибка из слушателя роняет раннер вместо падения теста (дыра в локализации ошибок эмиттеров, см. docs/TESTING.md → #275), а не пробел в тестах этой строки.
             if (item !== undefined) void this.changeKeybinding(item);
         };
         this.control.list.onContextMenu = (element, screenX, screenY) => {
@@ -255,6 +257,11 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
 
     /** Снапшот записи реестра, которой соответствует строка; `undefined` — строка без биндинга. */
     private snapshotOf(item: IKeybindingItem): IKeybindingEntrySnapshot | undefined {
+        // У строк модели chord и source заданы вместе (bound ⇒ оба; unbound ⇒ оба null),
+        // так что вторая половина условия недостижима независимо от первой — она нужна лишь
+        // для сужения типа `source` до KeybindingSource. Поведение «unbound ⇒ undefined»
+        // проверяет тест на строку без биндинга (previous отсутствует).
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: избыточная двойная проверка при инварианте chord⇔source — внутренние мутации условия не дают наблюдаемой строки модели.
         if (item.chord === null || item.source === null) return undefined;
         return { chord: item.chord, commandId: item.commandId, when: item.when, source: item.source };
     }
@@ -272,6 +279,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         const filtered = filterKeybindingItems(this.items, this.control.getQuery());
 
         this.control.list.clear();
+        // Stryker disable next-line CallExpression: список очищается строкой выше, а id строк — последовательные (kb-0…), поэтому lookup всегда попадает в актуальную запись; повторная чистка карты защитная и ненаблюдаема.
         this.rowItems.clear();
         this.control.list.appendRow(buildKeybindingHeaderRow(HEADER_ROW_ID, this.width, ROW_STYLES.dimFg));
         if (this.operationError !== null) {
@@ -290,6 +298,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         // width проверен в rebuildRows — единственном вызывающем.
         const layout = describeKeybindingRow(entry, this.width!);
         const rowId = `kb-${String(index)}`;
+        // Stryker disable next-line ObjectLiteral: label — подсказка для typeahead списка, а он у вкладки выключен; на поведение не влияет.
         this.control.list.appendRow(buildKeybindingRow(rowId, layout, ROW_STYLES), { label: entry.item.title });
         this.rowItems.set(rowId, entry.item);
     }

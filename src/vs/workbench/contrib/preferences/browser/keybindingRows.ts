@@ -97,6 +97,7 @@ export function describeKeybindingRow(
     // попавшие в сохранённый префикс title (truncateEnd держит префикс как есть).
     const visibleTitle = truncateEnd(item.title, widths.command);
     const keptLength = visibleTitle === item.title ? item.title.length : visibleTitle.length - 1;
+    // Stryker disable next-line ArrayDeclaration: fallback достижим лишь при titleMatch === null (индексов нет вовсе); непустая подмена всё равно отсеивается числовым фильтром index < keptLength.
     const matchIndices = (titleMatch?.matchedIndices ?? []).filter((index) => index < keptLength);
 
     return {

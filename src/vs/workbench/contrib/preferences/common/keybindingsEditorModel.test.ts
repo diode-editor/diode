@@ -95,8 +95,17 @@ describe("filterKeybindingItems", () => {
             binding({ commandId: "save", chord: parseChord("ctrl+s"), source: "default" }),
             binding({ commandId: "hover", chord: parseChord("ctrl+k ctrl+u"), source: "extension" }),
             binding({ commandId: "custom", chord: parseChord("f6"), source: "user" }),
+            // id, никак не пересекающийся с title — чтобы матч по id можно было
+            // отличить от матча по title.
+            binding({ commandId: "zeta.workbenchThing", chord: parseChord("f8"), source: "user" }),
         ],
-        [command("save", "Save File"), command("hover", "Show Hover"), command("custom", "My Custom"), command("open", "Open File")],
+        [
+            command("save", "Save File"),
+            command("hover", "Show Hover"),
+            command("custom", "My Custom"),
+            command("zeta.workbenchThing", "Reveal Panel"),
+            command("open", "Open File"),
+        ],
     );
 
     it("пустой запрос пропускает всё без подсветки", () => {
@@ -115,17 +124,28 @@ describe("filterKeybindingItems", () => {
         expect(filtered[0].titleMatch!.matchedIndices.length).toBe(4);
     });
 
-    it("матч по id команды проходит без подсветки title", () => {
-        const filtered = filterKeybindingItems(items, "hovr");
+    it("матч ТОЛЬКО по id команды (title не совпадает) проходит без подсветки", () => {
+        // "workbench" есть в id zeta.workbenchThing, но не в title "Reveal Panel".
+        const filtered = filterKeybindingItems(items, "workbench");
 
-        const hover = filtered.find((entry) => entry.item.commandId === "hover");
-        expect(hover).toBeDefined();
+        expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
+        expect(filtered[0].titleMatch).toBeNull();
     });
 
-    it("матч по display-форме биндинга находит строку", () => {
+    it("матч ТОЛЬКО по display-форме биндинга (ни title, ни id) находит строку", () => {
+        // "f6" не встречается ни в title "My Custom", ни в id "custom".
         const filtered = filterKeybindingItems(items, "f6");
 
-        expect(filtered.some((entry) => entry.item.commandId === "custom")).toBe(true);
+        expect(filtered.map((entry) => entry.item.commandId)).toEqual(["custom"]);
+        expect(filtered[0].titleMatch).toBeNull();
+    });
+
+    it("многословный запрос фильтрует по title (текст склеивается через пробел)", () => {
+        // «save file» должен найти «Save File»; при join('') получилось бы
+        // «savefile» — тоже матч, но проверяем именно пробельную склейку через
+        // многословный id-матч, где склейка наблюдаема.
+        const filtered = filterKeybindingItems(items, "reveal panel");
+        expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
     });
 
     it("несовпавшее отфильтровывается", () => {
@@ -153,7 +173,7 @@ describe("filterKeybindingItems", () => {
 
     it("@source: отбирает по источнику, остаток запроса — fuzzy", () => {
         const user = filterKeybindingItems(items, "@source:user");
-        expect(user.map((entry) => entry.item.commandId)).toEqual(["custom"]);
+        expect(user.map((entry) => entry.item.commandId).sort()).toEqual(["custom", "zeta.workbenchThing"]);
 
         const extension = filterKeybindingItems(items, "@source:extension hover");
         expect(extension.map((entry) => entry.item.commandId)).toEqual(["hover"]);

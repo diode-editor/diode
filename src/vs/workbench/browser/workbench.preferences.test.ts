@@ -105,7 +105,7 @@ describe("Workbench — Preferences commands", () => {
 
             // Активируем строку команды (Enter/двойной клик) → рекордер.
             const rows = pane.view.querySelectorAll("TextLabelElement");
-            const row = rows.find((r) => (r as { getText(): string }).getText().startsWith("Recorder Target"))!;
+            const row = rows.find((r) => (r as unknown as { getText(): string }).getText().startsWith("Recorder Target"))!;
             const list = pane.view.querySelector("#keybindingsList")!;
             (list as unknown as { onActivate: ((el: unknown) => void) | null }).onActivate?.(row);
             h.testApp.render();
