@@ -1,10 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import type { KeybindingsEditorPane } from "../contrib/preferences/browser/keybindingsEditorPane.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
 describe("Workbench — Preferences commands", () => {
@@ -79,6 +80,62 @@ describe("Workbench — Preferences commands", () => {
 
             expect(fs.readFileSync(settingsFile, "utf-8")).toBe('{ "editor.tabSize": 2 }\n');
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
+        });
+    });
+
+    describe("запись биндинга из вкладки — сквозной путь", () => {
+        let keybindingsFile: string;
+
+        beforeEach(() => {
+            ws = createTempWorkspace({ prefix: "diode-prefs-" });
+            keybindingsFile = ws.path("user-data/User/keybindings.json");
+            h = createAppTestHarness({ keybindingsResource: keybindingsFile });
+        });
+
+        it("рекордер пишет комбинацию: файл на диске, строка обновилась, команда работает сразу", async () => {
+            const executed: string[] = [];
+            h.commands.register("test.custom", () => {
+                executed.push("test.custom");
+            }, "Recorder Target");
+
+            h.commands.execute("workbench.action.openGlobalKeybindings");
+            h.testApp.render();
+            const pane = h.container.get(EditorServiceDIToken).getActivePane()!;
+            expect(pane.uri.scheme).toBe("keybindings");
+
+            // Активируем строку команды (Enter/двойной клик) → рекордер.
+            const rows = pane.view.querySelectorAll("TextLabelElement");
+            const row = rows.find((r) => (r as { getText(): string }).getText().startsWith("Recorder Target"))!;
+            const list = pane.view.querySelector("#keybindingsList")!;
+            (list as unknown as { onActivate: ((el: unknown) => void) | null }).onActivate?.(row);
+            h.testApp.render();
+            expect(h.testApp.backend.screenToString()).toContain("Press desired key combination");
+
+            // Клавиши в рекордере копятся, а не исполняются: Ctrl+S не сохраняет.
+            const executeSpy = vi.spyOn(h.commands, "execute");
+            h.testApp.sendKey("Ctrl+S");
+            expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
+            // Передумали: сотрём попытку отменой нельзя — просто примем F6 новой записью.
+            h.testApp.sendKey("Escape");
+            (list as unknown as { onActivate: ((el: unknown) => void) | null }).onActivate?.(row);
+            h.testApp.sendKey("F6");
+            h.testApp.sendKey("Enter");
+
+            await vi.waitFor(() => {
+                expect(fs.existsSync(keybindingsFile)).toBe(true);
+                expect(fs.readFileSync(keybindingsFile, "utf-8")).toContain('"key": "f6"');
+            });
+            expect(fs.readFileSync(keybindingsFile, "utf-8")).toContain('"command": "test.custom"');
+
+            // Строка вкладки обновилась (фильтр — чтобы строка попала в видимое окно)…
+            (pane as KeybindingsEditorPane).setFilter("Recorder Target");
+            h.testApp.render();
+            const screen = h.testApp.backend.screenToString();
+            expect(screen).toContain("Recorder Target");
+            expect(screen).toContain("F6");
+            // …и команда исполняется по новой комбинации в том же сеансе (урок #194).
+            h.testApp.sendKey("F6");
+            expect(executed).toEqual(["test.custom"]);
         });
     });
 

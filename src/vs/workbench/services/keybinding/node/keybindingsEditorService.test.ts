@@ -228,6 +228,23 @@ describe("resetKeybinding", () => {
     });
 });
 
+describe("hasUserModifications", () => {
+    it("false без правок, true после define и bootstrap-unbind, false после reset", async () => {
+        const h = makeHarness();
+        h.registry.register(parseChord("ctrl+s"), "test.save");
+        expect(h.service.hasUserModifications("test.save")).toBe(false);
+
+        await h.service.defineKeybinding("test.save", parseChord("f6"), h.entryOf("test.save"));
+        expect(h.service.hasUserModifications("test.save")).toBe(true);
+
+        await h.service.resetKeybinding("test.save");
+        expect(h.service.hasUserModifications("test.save")).toBe(false);
+
+        h.service.applyUserKeybindings([{ key: "ctrl+s", command: "-test.save" }]);
+        expect(h.service.hasUserModifications("test.save")).toBe(true);
+    });
+});
+
 describe("исходы и события", () => {
     it("null-путь (тесты/демо без user-data) — честный отказ, реестр не тронут", async () => {
         const registry = new KeybindingRegistry();

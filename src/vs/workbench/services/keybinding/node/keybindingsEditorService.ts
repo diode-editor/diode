@@ -57,6 +57,12 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         this.logger = logService.createLogger("keybindings.editor");
     }
 
+    public hasUserModifications(commandId: string): boolean {
+        const ledger = this.ledger.get(commandId);
+        if (ledger === undefined) return false;
+        return ledger.added.length > 0 || ledger.removedDefaults.length > 0;
+    }
+
     public onDidChange(cb: () => void): IDisposable {
         this.listeners.add(cb);
         return { dispose: () => this.listeners.delete(cb) };

@@ -60,6 +60,12 @@ export interface IKeybindingsEditorService extends IDisposable {
      */
     resetKeybinding(commandId: string): Promise<IKeybindingMutationResult>;
 
+    /**
+     * Есть ли у команды пользовательские правки в этом сеансе (добавленные
+     * user-биндинги или снятые дефолты) — гейт пункта «Reset Keybinding».
+     */
+    hasUserModifications(commandId: string): boolean;
+
     /** Изменился набор действующих биндингов (любая успешная мутация). */
     onDidChange(cb: () => void): IDisposable;
 }

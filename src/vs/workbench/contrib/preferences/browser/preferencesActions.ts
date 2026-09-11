@@ -5,13 +5,16 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import {
     KeybindingRegistryDIToken,
     parseChord,
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { KeybindingsResourceDIToken, SettingsResourceDIToken } from "../../../common/coreTokens.ts";
+import { ClipboardDIToken, KeybindingsResourceDIToken, SettingsResourceDIToken } from "../../../common/coreTokens.ts";
+import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
 
+import { KeybindingRecorderComponentDIToken } from "./keybindingRecorderComponent.ts";
 import { KeybindingsEditorPane, KeybindingsEditorTargetDIToken } from "./keybindingsEditorPane.ts";
 
 /**
@@ -66,6 +69,10 @@ export const openKeybindingsAction: CommandAction = {
         const pane = new KeybindingsEditorPane(
             accessor.get(KeybindingRegistryDIToken),
             accessor.get(CommandRegistryDIToken),
+            accessor.get(KeybindingsEditorServiceDIToken),
+            accessor.get(KeybindingRecorderComponentDIToken),
+            accessor.get(ContextMenuServiceDIToken),
+            accessor.get(ClipboardDIToken),
         );
         accessor.get(KeybindingsEditorTargetDIToken).openPane(pane);
     },

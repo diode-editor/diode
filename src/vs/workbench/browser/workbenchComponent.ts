@@ -45,6 +45,7 @@ import {
     EXTENSIONS_VIEWLET_ID,
     ExtensionsComponentDIToken,
 } from "../contrib/extensions/browser/extensionsComponent.ts";
+import { KeybindingRecorderComponentDIToken } from "../contrib/preferences/browser/keybindingRecorderComponent.ts";
 import {
     REFERENCES_VIEWLET_ID,
     ReferencesComponentDIToken,
@@ -287,6 +288,9 @@ export class WorkbenchComponent extends Component {
         suggestComponent.attachHost(this.view);
         // Hover-попап — там же, в глобальном overlay-слое у каретки.
         hoverComponent.attachHost(this.view);
+        // Рекордер комбинаций вкладки Keyboard Shortcuts — модальный оверлей
+        // того же слоя.
+        this.register(accessor.get(KeybindingRecorderComponentDIToken)).attachHost(this.view);
         // Подсказка параметров — тот же слой, но якорится НАД кареткой, чтобы не
         // делить место с попапом автодополнения.
         parameterHintsComponent.attachHost(this.view);
