@@ -372,7 +372,7 @@ export class KeybindingDispatcher extends Disposable {
                 const commandId = rule.command.slice(1);
                 this.keybindings.removeBindings(commandId, rule.key ? parseChord(rule.key) : undefined);
             } else {
-                this.register(this.keybindings.register(parseChord(rule.key), rule.command, rule.when));
+                this.register(this.keybindings.register(parseChord(rule.key), rule.command, rule.when, "user"));
             }
         }
     }
