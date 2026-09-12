@@ -537,17 +537,6 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * Показывает/прячет лампочку code actions в гуттере (индикатор строки
-     * каретки, где есть действия). Повтор того же значения — no-op, чтобы
-     * фоновые перезапросы LightbulbService не дёргали перерисовку впустую.
-     */
-    public setLightbulbLine(line: number | null): void {
-        if (this.editor.lightbulbLine === line) return;
-        this.editor.lightbulbLine = line;
-        this.editor.markDirty();
-    }
-
-    /**
      * Внешние декорации владельца вью (панель диффа): фоны added/removed-строк,
      * intra-line спаны, маркеры `-`/`+`, наполнение зон. Цвета — токены темы,
      * резолвятся при отрисовке.

@@ -103,10 +103,6 @@ import {
     ParameterHintsComponentDIToken,
 } from "../../workbench/contrib/parameterHints/browser/parameterHintsComponent.ts";
 import {
-    LightbulbService,
-    LightbulbServiceDIToken,
-} from "../../workbench/contrib/lightbulb/browser/lightbulbService.ts";
-import {
     ParameterHintsService,
     ParameterHintsServiceDIToken,
 } from "../../workbench/contrib/parameterHints/browser/parameterHintsService.ts";
@@ -337,9 +333,6 @@ export const workbenchModule: ContainerModule = (container) => {
     // сервис ходит в signatureHelpSource группы и ловит набор триггер-символов.
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
-    // Лампочка code actions: индикатор в гуттере строки каретки — сервис
-    // ходит в codeActionSource группы с дебаунсом (triggerKind Automatic).
-    container.bind(LightbulbServiceDIToken, LightbulbService);
     // References: вьюлет сайдбара со ссылками + сервис, который его наполняет
     // (referenceSource группы → текст строк → панель).
     container.bind(ReferencesComponentDIToken, ReferencesComponent);
