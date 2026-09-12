@@ -977,8 +977,7 @@ export function createLanguagesNamespace(
         );
         const only = typeof p.only === "string" ? new CodeActionKind(p.only) : undefined;
         const context = {
-            // Automatic — только явной двойкой с провода; всё остальное — Invoke.
-            triggerKind: p.triggerKind === 2 ? CodeActionTriggerKind.Automatic : CodeActionTriggerKind.Invoke,
+            triggerKind: CodeActionTriggerKind.Invoke,
             diagnostics: diagnosticsIntersecting(doc.uri.toString(), range),
             only,
         } as unknown as vscode.CodeActionContext;

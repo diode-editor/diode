@@ -1119,8 +1119,6 @@ export interface IWireCodeActionParams {
     readonly range: IWireRange;
     /** LSP `CodeActionContext.only` (`source.organizeImports` и т.п.). */
     readonly only?: string;
-    /** LSP `CodeActionContext.triggerKind`: 1=Invoke (default), 2=Automatic (лампочка). */
-    readonly triggerKind?: number;
 }
 
 /** Один code action в wire-форме — метаданные без правок (они в кэше субпроцесса). */

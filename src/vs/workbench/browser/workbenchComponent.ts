@@ -53,7 +53,6 @@ import {
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
 import { ParameterHintsComponentDIToken } from "../contrib/parameterHints/browser/parameterHintsComponent.ts";
-import { LightbulbServiceDIToken } from "../contrib/lightbulb/browser/lightbulbService.ts";
 import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
@@ -218,9 +217,6 @@ export class WorkbenchComponent extends Component {
         const parameterHintsComponent = this.register(accessor.get(ParameterHintsComponentDIToken));
         // Stryker disable next-line CallExpression: как и hover-сервис, он резолвится через WorkbenchContextKeys — register() лишь передаёт владение жизнью
         this.register(accessor.get(ParameterHintsServiceDIToken));
-        // Лампочка code actions — индикатор в гуттере, живёт весь сеанс.
-        // Stryker disable next-line CallExpression: сервис самодостаточен (подписки в конструкторе) — register() лишь передаёт владение жизнью
-        this.register(accessor.get(LightbulbServiceDIToken));
         const findComponent = this.register(accessor.get(FindComponentDIToken));
         this.register(accessor.get(FindServiceDIToken));
         this.statusBarComponent = this.register(statusBarComponent);

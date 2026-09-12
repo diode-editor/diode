@@ -985,8 +985,6 @@ export class ExtensionHost extends Disposable {
                 // выбрасывает JSON-транспорт RPC.
                 // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.only === undefined ? {} : { only: req.only }),
-                // Stryker disable next-line ConditionalExpression: см. выше
-                ...(req.triggerKind === undefined ? {} : { triggerKind: req.triggerKind }),
             },
             this.options.codeActionsTimeoutMs,
         );

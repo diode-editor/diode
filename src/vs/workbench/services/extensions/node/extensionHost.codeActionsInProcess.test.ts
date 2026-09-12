@@ -95,8 +95,6 @@ describe("ExtensionHost — гейт code actions (in-process)", () => {
 
         expect(await host.provideCodeActions(requestOf("x", { range: createRange(1, 2, 3, 4) }))).toBeNull();
         await host.provideCodeActions(requestOf("x", { only: "source.organizeImports" }));
-        // Automatic-триггер лампочки едет как есть (команды поля не шлют).
-        await host.provideCodeActions(requestOf("x", { triggerKind: 2 }));
 
         expect(seen).toEqual([
             {
@@ -111,13 +109,6 @@ describe("ExtensionHost — гейт code actions (in-process)", () => {
                 text: "x",
                 range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 },
                 only: "source.organizeImports",
-            },
-            {
-                uri: "file:///a.py",
-                languageId: "python",
-                text: "x",
-                range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 },
-                triggerKind: 2,
             },
         ]);
     });

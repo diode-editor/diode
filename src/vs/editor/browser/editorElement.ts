@@ -63,11 +63,6 @@ const GUTTER_LEFT_PADDING = 2;
 // Nerd Font fa-angle used for the file-tree arrows, so they don't crowd the text.
 const FOLD_ICON_EXPANDED = "\ueab4"; //  nf-cod-chevron_down
 const FOLD_ICON_COLLAPSED = "\ueab6"; //  nf-cod-chevron_right
-// Codicon lightbulb \u2014 \u0438\u043d\u0434\u0438\u043a\u0430\u0442\u043e\u0440 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 code actions \u043d\u0430 \u0441\u0442\u0440\u043e\u043a\u0435 \u043a\u0430\u0440\u0435\u0442\u043a\u0438.
-// \u0416\u0438\u0432\u0451\u0442 \u0432 change-bar-\u043a\u043e\u043b\u043e\u043d\u043a\u0435 (\u0441\u043b\u0435\u0432\u0430 \u043e\u0442 fold-\u0448\u0435\u0432\u0440\u043e\u043d\u0430) \u0438 \u043d\u0430 \u0441\u0432\u043e\u0435\u0439 \u0441\u0442\u0440\u043e\u043a\u0435
-// \u041f\u0415\u0420\u0415\u041a\u0420\u042b\u0412\u0410\u0415\u0422 change-bar (\u043a\u0430\u043a glyph margin VS Code) \u2014 \u0448\u0438\u0440\u0438\u043d\u0430 \u0433\u0443\u0442\u0442\u0435\u0440\u0430 \u043e\u0442
-// \u043f\u043e\u044f\u0432\u043b\u0435\u043d\u0438\u044f \u043b\u0430\u043c\u043f\u043e\u0447\u043a\u0438 \u043d\u0435 \u043c\u0435\u043d\u044f\u0435\u0442\u0441\u044f, \u0438 \u0442\u0435\u043a\u0441\u0442 \u043d\u0435 \u043f\u0440\u044b\u0433\u0430\u0435\u0442.
-const LIGHTBULB_ICON = "\uea61"; //  nf-cod-lightbulb
 // Blank columns padding the fold chevron inside the gutter: one gap after the
 // line number and one before the text, so the chevron doesn't crowd either. The
 // chevron itself sits between them → a 3-column fold margin.
@@ -129,12 +124,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     public markerDecorations: readonly IMarkerDecoration[] = NO_MARKER_DECORATIONS;
     /** Gutter change-bar decorations (SCM/git dirty-diff) for the open document (pushed by the controller). */
     public gutterChangeDecorations: readonly IGutterChangeDecoration[] = NO_GUTTER_CHANGE_DECORATIONS;
-
-    /**
-     * Логическая строка с индикатором code actions (лампочка в гуттере);
-     * `null` — не показывать. Выставляет LightbulbService через компонент.
-     */
-    public lightbulbLine: number | null = null;
     /** Внешние декорации владельца вью (дифф): фоны строк/диапазонов, маркеры, зоны. */
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
 
@@ -510,16 +499,6 @@ export class EditorElement extends TUIElement implements IScrollable {
                 if (change !== undefined && !isContinuation) {
                     const char = change.dashed ? GUTTER_CHANGE_BAR_DASHED : GUTTER_CHANGE_BAR;
                     context.setCell(foldCol - 1, screenY, { char, fg: change.color, bg: rowGutBg });
-                }
-                // Лампочка code actions — та же колонка, рисуется ПОСЛЕ
-                // change-bar'а: на строке каретки индикатор действий важнее
-                // dirty-diff-полоски (ровно так VS Code перекрывает glyph margin).
-                if (this.lightbulbLine === logLine && !isContinuation) {
-                    context.setCell(foldCol - 1, screenY, {
-                        char: LIGHTBULB_ICON,
-                        fg: this.styleVar("editorLightBulb.foreground"),
-                        bg: rowGutBg,
-                    });
                 }
                 const foldState = isContinuation ? undefined : foldHeaderByLine.get(logLine);
                 // Collapsed regions always show their chevron; expanded ones only
