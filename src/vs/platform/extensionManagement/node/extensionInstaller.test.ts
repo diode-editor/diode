@@ -82,6 +82,38 @@ describe("ExtensionInstaller", () => {
         expect(fs.existsSync(path.join(dir, "[Content_Types].xml"))).toBe(false);
     });
 
+    // Платформенные vsix несут нативные серверы (bundled ruff): zip хранит
+    // unix-права в external attributes, и без их восстановления spawn бинаря
+    // падает EACCES. chmod детерминирован (не режется umask).
+    it.skipIf(process.platform === "win32")("восстанавливает exec-бит нативного бинаря из zip-атрибутов", async () => {
+        const vsixPath = path.join(vsixDir, "acme.native.vsix");
+        await new Promise<void>((resolve, reject) => {
+            const zip = new yazl.ZipFile();
+            zip.addBuffer(
+                Buffer.from(JSON.stringify({ name: "native", publisher: "acme", version: "1.0.0", engines: {} })),
+                "extension/package.json",
+            );
+            zip.addBuffer(Buffer.from("#!/bin/sh\necho ok\n"), "extension/bundled/bin/server", { mode: 0o100755 });
+            zip.addBuffer(Buffer.from("just data"), "extension/bundled/data.txt", { mode: 0o100644 });
+            const out = fs.createWriteStream(vsixPath);
+            out.on("close", () => {
+                resolve();
+            });
+            out.on("error", reject);
+            zip.outputStream.on("error", reject);
+            zip.outputStream.pipe(out);
+            zip.end();
+        });
+
+        await installVsix(vsixPath, extensionsDir);
+
+        const dir = path.join(extensionsDir, "acme.native-1.0.0");
+        const serverMode = fs.statSync(path.join(dir, "bundled/bin/server")).mode;
+        const dataMode = fs.statSync(path.join(dir, "bundled/data.txt")).mode;
+        expect(serverMode & 0o111).not.toBe(0); // исполняемый
+        expect(dataMode & 0o111).toBe(0); // обычный файл exec-бит не получил
+    });
+
     it("установленное расширение видит scanExtensions", async () => {
         const vsix = await makeVsix(
             "acme.hello.vsix",
