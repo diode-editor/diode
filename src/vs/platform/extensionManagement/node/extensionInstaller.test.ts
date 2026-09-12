@@ -82,6 +82,77 @@ describe("ExtensionInstaller", () => {
         expect(fs.existsSync(path.join(dir, "[Content_Types].xml"))).toBe(false);
     });
 
+    // Платформенные vsix несут нативные серверы (bundled ruff): zip хранит
+    // unix-права в external attributes, и без их восстановления spawn бинаря
+    // падает EACCES. chmod детерминирован (не режется umask).
+    it.skipIf(process.platform === "win32")("восстанавливает exec-бит нативного бинаря из zip-атрибутов", async () => {
+        const vsixPath = path.join(vsixDir, "acme.native.vsix");
+        await new Promise<void>((resolve, reject) => {
+            const zip = new yazl.ZipFile();
+            zip.addBuffer(
+                Buffer.from(JSON.stringify({ name: "native", publisher: "acme", version: "1.0.0", engines: {} })),
+                "extension/package.json",
+            );
+            zip.addBuffer(Buffer.from("#!/bin/sh\necho ok\n"), "extension/bundled/bin/server", { mode: 0o100755 });
+            zip.addBuffer(Buffer.from("just data"), "extension/bundled/data.txt", { mode: 0o100644 });
+            const out = fs.createWriteStream(vsixPath);
+            out.on("close", () => {
+                resolve();
+            });
+            out.on("error", reject);
+            zip.outputStream.on("error", reject);
+            zip.outputStream.pipe(out);
+            zip.end();
+        });
+
+        await installVsix(vsixPath, extensionsDir);
+
+        const dir = path.join(extensionsDir, "acme.native-1.0.0");
+        const serverMode = fs.statSync(path.join(dir, "bundled/bin/server")).mode;
+        const dataMode = fs.statSync(path.join(dir, "bundled/data.txt")).mode;
+        expect(serverMode & 0o111).not.toBe(0); // исполняемый
+        expect(dataMode & 0o111).toBe(0); // обычный файл exec-бит не получил
+    });
+
+    // Контр-кейс гарда versionMadeBy: у архива от не-unix упаковщика верхние
+    // биты external attributes — мусор, а не st_mode; доверять им нельзя.
+    // yazl всегда пишет unix (3) в host-байт version-made-by, поэтому подделываем
+    // его в 0 (MS-DOS) прямо в central directory собранного zip.
+    it.skipIf(process.platform === "win32")("не доверяет exec-битам архива от не-unix упаковщика", async () => {
+        const vsixPath = path.join(vsixDir, "acme.dos.vsix");
+        await new Promise<void>((resolve, reject) => {
+            const zip = new yazl.ZipFile();
+            zip.addBuffer(
+                Buffer.from(JSON.stringify({ name: "dos", publisher: "acme", version: "1.0.0", engines: {} })),
+                "extension/package.json",
+            );
+            // Exec-бит в атрибутах есть, но после подделки host-байта он — мусор.
+            zip.addBuffer(Buffer.from("binary-ish"), "extension/bundled/bin/tool", { mode: 0o100755 });
+            const out = fs.createWriteStream(vsixPath);
+            out.on("close", () => {
+                resolve();
+            });
+            out.on("error", reject);
+            zip.outputStream.on("error", reject);
+            zip.outputStream.pipe(out);
+            zip.end();
+        });
+        const bytes = fs.readFileSync(vsixPath);
+        // Записи central directory: сигнатура PK\x01\x02, host-OS — старший байт
+        // version-made-by по смещению +5 от сигнатуры.
+        for (let i = 0; i + 5 < bytes.length; i++) {
+            if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b && bytes[i + 2] === 0x01 && bytes[i + 3] === 0x02) {
+                bytes[i + 5] = 0;
+            }
+        }
+        fs.writeFileSync(vsixPath, bytes);
+
+        await installVsix(vsixPath, extensionsDir);
+
+        const toolMode = fs.statSync(path.join(extensionsDir, "acme.dos-1.0.0", "bundled/bin/tool")).mode;
+        expect(toolMode & 0o111).toBe(0);
+    });
+
     it("установленное расширение видит scanExtensions", async () => {
         const vsix = await makeVsix(
             "acme.hello.vsix",

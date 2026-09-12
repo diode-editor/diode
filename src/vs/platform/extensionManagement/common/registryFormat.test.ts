@@ -183,8 +183,23 @@ describe("parseRegistryMeta", () => {
         expect(meta.homepage).toBeUndefined();
         expect(meta.readme).toBeUndefined();
         expect(meta.versions[0]?.artifact).toEqual({ type: "path", path: "artifacts/acme.markdown-tools-1.2.0.vsix" });
+        expect(meta.versions[0]?.targetPlatform).toBeUndefined();
         expect(meta.versions[0]?.size).toBeUndefined();
         expect(meta.versions[0]?.publishedAt).toBeUndefined();
+    });
+
+    // Одна semver-версия платформенными записями: словарь таргетов клиент не
+    // сверяет (неизвестный просто не совпадёт с платформой хоста) — обе записи
+    // обязаны пережить разбор как есть.
+    it("targetPlatform сохраняется; одна версия несколькими платформенными записями валидна", () => {
+        const { meta, problems } = parseRegistryMeta(
+            metaText([
+                versionRecord({ targetPlatform: "linux-x64" }),
+                versionRecord({ targetPlatform: "somearch-someos" }),
+            ]),
+        );
+        expect(problems).toEqual([]);
+        expect(meta.versions.map((v) => v.targetPlatform)).toEqual(["linux-x64", "somearch-someos"]);
     });
 
     it("опциональные поля с пустой строкой — undefined", () => {
@@ -245,6 +260,8 @@ describe("parseRegistryMeta", () => {
         ["sha256 не hex-64", versionRecord({ sha256: "abc" })],
         ["sha256 длиннее 64", versionRecord({ sha256: "a".repeat(65) })],
         ["sha256 uppercase", versionRecord({ sha256: "A".repeat(64) })],
+        ["targetPlatform не строка", versionRecord({ targetPlatform: 7 })],
+        ["targetPlatform пустая строка", versionRecord({ targetPlatform: "" })],
         ["size не число", versionRecord({ size: "big" })],
         ["publishedAt не строка", versionRecord({ publishedAt: 5 })],
         ["publishedAt пустая строка", versionRecord({ publishedAt: "" })],
