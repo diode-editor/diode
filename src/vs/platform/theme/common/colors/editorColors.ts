@@ -18,6 +18,10 @@ export const editorColors = {
         defaults: { dark: "#C6C6C6", light: "#171184" },
         description: "Color of the active editor line number.",
     },
+    "editorLightBulb.foreground": {
+        defaults: { dark: "#FFCC00", light: "#DDB100" },
+        description: "The color used for the lightbulb actions icon.",
+    },
     "editorCursor.foreground": {
         defaults: { dark: "#AEAFAD", light: "#000000" },
         description: "Color of the editor cursor.",

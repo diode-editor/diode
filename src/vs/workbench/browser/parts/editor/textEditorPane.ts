@@ -220,6 +220,11 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         this.model.applyExternalEdits(edits, label, this.component.editTarget);
     }
 
+    /** Лампочка code actions в гуттере этой вью; `null` — спрятать. */
+    public setLightbulbLine(line: number | null): void {
+        this.component.setLightbulbLine(line);
+    }
+
     public undo(): void {
         if (this.readOnly) return;
         // Действующая вью — эта: ей восстанавливается снимок выделений шага.

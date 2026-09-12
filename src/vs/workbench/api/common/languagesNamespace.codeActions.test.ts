@@ -124,7 +124,13 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(contexts[0].diagnostics).toHaveLength(1);
         expect(contexts[0].diagnostics[0]).toBe(inRange as unknown as vscode.Diagnostic);
         expect(contexts[0].only).toBeUndefined();
-        expect(contexts[0].triggerKind).toBe(1); // Invoke
+        expect(contexts[0].triggerKind).toBe(1); // Invoke — дефолт без поля
+
+        // Automatic (лампочка) — только явной двойкой; мусор откатывается в Invoke.
+        await stub.callRequest("languages.provideCodeActions", requestParams({ triggerKind: 2 }));
+        expect(contexts[1].triggerKind).toBe(2);
+        await stub.callRequest("languages.provideCodeActions", requestParams({ triggerKind: "2" }));
+        expect(contexts[2].triggerKind).toBe(1);
     });
 
     it("границы пересечения: касание конца диапазона включается, старт за концом — нет", async () => {

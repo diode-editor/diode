@@ -1,5 +1,15 @@
 import type { IRange } from "../core/iRange.ts";
 
+/** Чем спровоцирован запрос code actions (значения `vscode.CodeActionTriggerKind`). */
+export const CodeActionTriggerKind = {
+    /** Явный запрос пользователя (команда, меню). */
+    Invoke: 1,
+    /** Автоматический запрос (индикатор-лампочка на движение каретки). */
+    Automatic: 2,
+} as const;
+
+export type CodeActionTriggerKind = (typeof CodeActionTriggerKind)[keyof typeof CodeActionTriggerKind];
+
 /**
  * Запрос «какие code actions доступны в этом диапазоне», отправляемый
  * code-action-источнику. Несёт полный снапшот текста (у хоста нет реестра
@@ -22,6 +32,12 @@ export interface ICodeActionRequest {
      * без фильтра.
      */
     readonly only?: string;
+    /**
+     * LSP `CodeActionContext.triggerKind`: Invoke — явный запрос (команды),
+     * Automatic — фоновый (лампочка). Отсутствие — Invoke; на Automatic серверы
+     * вправе не считать дорогие рефакторинги.
+     */
+    readonly triggerKind?: CodeActionTriggerKind;
 }
 
 /**
