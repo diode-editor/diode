@@ -139,12 +139,27 @@ describe("resolveCompatibleVersion", () => {
         },
     );
 
-    it("более высокая universal-версия побеждает платформенную ниже — semver главнее специфичности", () => {
-        const versions = [
-            version("1.0.0", { vscode: "*" }, "linux-x64"),
-            version("1.1.0", { vscode: "*" }),
-        ];
-        expect(resolveCompatibleVersion(versions, LINUX_HOST)?.version).toBe("1.1.0");
+    // Обе перестановки: специфичность не должна перебивать semver, даже когда
+    // платформенная запись сравнивается с уже выбранной universal повыше.
+    it.each([
+        ["платформенная раньше", ["linux-x64", undefined]],
+        ["universal раньше", [undefined, "linux-x64"]],
+    ] satisfies [string, (string | undefined)[]][])(
+        "более высокая universal-версия побеждает платформенную ниже — %s",
+        (_label, order) => {
+            const [firstTarget, secondTarget] = order;
+            const versions = [
+                version(firstTarget === undefined ? "1.1.0" : "1.0.0", { vscode: "*" }, firstTarget),
+                version(secondTarget === undefined ? "1.1.0" : "1.0.0", { vscode: "*" }, secondTarget),
+            ];
+            expect(resolveCompatibleVersion(versions, LINUX_HOST)?.version).toBe("1.1.0");
+        },
+    );
+
+    it("при равных платформенных записях одного таргета побеждает первая", () => {
+        const first = version("1.0.0", { vscode: "*" }, "linux-x64");
+        const duplicate = version("1.0.0", { vscode: "*" }, "linux-x64");
+        expect(resolveCompatibleVersion([first, duplicate], LINUX_HOST)).toBe(first);
     });
 
     it("платформенный набор без universal: хост берёт свой таргет, чужие не участвуют", () => {

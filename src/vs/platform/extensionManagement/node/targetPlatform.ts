@@ -28,6 +28,7 @@ export function currentTargetPlatform(
             if (arch === "x64") return "darwin-x64";
             if (arch === "arm64") return "darwin-arm64";
             return undefined;
+        // Stryker disable next-line ConditionalExpression: удаление тела default эквивалентно — выпадение из switch и так возвращает undefined
         default:
             return undefined;
     }
