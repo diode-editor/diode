@@ -58,6 +58,15 @@ export interface IRegistryVersion {
     readonly artifact: RegistryArtifact;
     /** sha256 содержимого `.vsix`, hex lowercase — проверяется перед установкой. */
     readonly sha256: string;
+    /**
+     * Платформенный таргет артефакта в терминах VS Code Marketplace / Open VSX
+     * (`linux-x64`, `darwin-arm64`, …); не задан — universal-артефакт. Одна
+     * semver-версия может присутствовать несколькими записями с разными
+     * `targetPlatform` — выбор за {@link resolveCompatibleVersion}. Значение не
+     * сверяется со словарём таргетов намеренно: неизвестный клиенту таргет
+     * просто не совпадёт с его платформой (реестр может обогнать клиента).
+     */
+    readonly targetPlatform?: string;
     /** Размер `.vsix` в байтах (информационное, для UI). */
     readonly size?: number;
     /** ISO-дата публикации (информационное). */
@@ -168,11 +177,13 @@ function parseVersionRecord(value: unknown): IRegistryVersion | undefined {
     if (artifact === undefined) return undefined;
     const sha256 = record["sha256"];
     if (typeof sha256 !== "string" || !SHA256_RE.test(sha256)) return undefined;
+    const targetPlatform = record["targetPlatform"];
+    if (targetPlatform !== undefined && !isNonEmptyString(targetPlatform)) return undefined;
     const size = record["size"];
     if (size !== undefined && typeof size !== "number") return undefined;
     const publishedAt = record["publishedAt"];
     if (publishedAt !== undefined && !isNonEmptyString(publishedAt)) return undefined;
-    return { version, engines, artifact, sha256, size, publishedAt };
+    return { version, engines, artifact, sha256, targetPlatform, size, publishedAt };
 }
 
 /** Общие для index-записи и меты поля идентичности; `undefined` при любой невалидности. */

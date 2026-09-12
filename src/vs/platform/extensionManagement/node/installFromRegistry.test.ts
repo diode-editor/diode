@@ -34,6 +34,8 @@ interface IVersionSeed {
     readonly manifest?: object;
     /** Подменить sha256 в записи реестра (для mismatch-кейса). */
     readonly sha256?: string;
+    /** Платформенный таргет записи (universal — не задан). */
+    readonly targetPlatform?: string;
 }
 
 describe("installFromRegistry", () => {
@@ -58,14 +60,20 @@ describe("installFromRegistry", () => {
         const id = `${publisher}.${name}`;
         const versionRecords = [];
         for (const seed of versions) {
-            const relPath = `artifacts/${id}-${seed.version}.vsix`;
-            const vsix = await buildVsixBuffer(seed.manifest ?? { publisher, name, version: seed.version });
+            const suffix = seed.targetPlatform === undefined ? "" : `@${seed.targetPlatform}`;
+            const relPath = `artifacts/${id}-${seed.version}${suffix}.vsix`;
+            // Платформенный маркер в манифесте — чтобы тест мог доказать, ЧЕЙ
+            // артефакт реально распакован, а не только какая версия выбрана.
+            const vsix = await buildVsixBuffer(
+                seed.manifest ?? { publisher, name, version: seed.version, description: seed.targetPlatform ?? "universal" },
+            );
             await fs.promises.writeFile(path.join(registryDir, relPath), vsix);
             versionRecords.push({
                 version: seed.version,
                 engines: seed.engines,
                 artifact: { type: "path", path: relPath },
                 sha256: seed.sha256 ?? (await sha256File(path.join(registryDir, relPath))),
+                targetPlatform: seed.targetPlatform,
             });
         }
         const meta = {
@@ -129,14 +137,16 @@ describe("installFromRegistry", () => {
         expect(result.version).toBe("1.0.0");
     });
 
-    it("запрошенной версии нет — ошибка с перечислением имеющихся через запятую", async () => {
+    it("запрошенной версии нет — ошибка с хостом и перечислением имеющихся", async () => {
         await seedExtension("acme", "hello", [
             { version: "1.0.0", engines: { vscode: "*" } },
             { version: "1.1.0", engines: { vscode: "*" } },
         ]);
         await expect(
             installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST, version: "9.9.9" }),
-        ).rejects.toThrow(/no version 9\.9\.9 .*available: 1\.0\.0, 1\.1\.0/);
+        ).rejects.toThrow(
+            /no version 9\.9\.9 for this host \(diode 0\.3\.0, vscode 1\.127\.0\).*available: 1\.0\.0 \(vscode \*\), 1\.1\.0 \(vscode \*\)/,
+        );
     });
 
     it("нет совместимой версии — ошибка перечисляет версии и их engines", async () => {
@@ -149,6 +159,70 @@ describe("installFromRegistry", () => {
             /no version compatible .*diode 0\.3\.0, vscode 1\.127\.0.*1\.0\.0 \(diode \^9\.0\.0, vscode \^1\.90\.0\), 1\.1\.0 \(vscode \^99\.0\.0\), 1\.2\.0 \(diode \^9\.0\.0\)/,
         );
         expect(listInstalledExtensions(extensionsDir)).toEqual([]);
+    });
+
+    // Путь платформенных vsix (ruff): одна версия — несколько записей с
+    // разными targetPlatform, установиться обязан артефакт своего таргета.
+    describe("targetPlatform", () => {
+        const LINUX_HOST: IHostVersions = { ...HOST, targetPlatform: "linux-x64" };
+
+        /** description из манифеста установленного расширения — маркер артефакта из seedExtension. */
+        function installedDescription(id: string, version: string): string {
+            const manifestPath = path.join(extensionsDir, `${id}-${version}`, "package.json");
+            return (JSON.parse(fs.readFileSync(manifestPath, "utf8")) as { description: string }).description;
+        }
+
+        it("из платформенных записей одной версии ставится артефакт таргета хоста", async () => {
+            await seedExtension("acme", "hello", [
+                { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "darwin-arm64" },
+                { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "linux-x64" },
+                { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "win32-x64" },
+            ]);
+
+            const result = await installFromRegistry(source(), "acme.hello", { extensionsDir, host: LINUX_HOST });
+
+            expect(result.version).toBe("1.0.0");
+            expect(installedDescription("acme.hello", "1.0.0")).toBe("linux-x64");
+        });
+
+        it("точная запрошенная версия тоже фильтруется по платформе — чужой бинарь не ставится", async () => {
+            await seedExtension("acme", "hello", [
+                { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "darwin-arm64" },
+                { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "linux-x64" },
+            ]);
+
+            const result = await installFromRegistry(source(), "acme.hello", {
+                extensionsDir,
+                host: LINUX_HOST,
+                version: "1.0.0",
+            });
+
+            expect(installedDescription("acme.hello", "1.0.0")).toBe("linux-x64");
+        });
+
+        it("точная версия есть только под чужой таргет — ошибка с платформой хоста", async () => {
+            await seedExtension("acme", "hello", [
+                { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "darwin-arm64" },
+            ]);
+            await expect(
+                installFromRegistry(source(), "acme.hello", { extensionsDir, host: LINUX_HOST, version: "1.0.0" }),
+            ).rejects.toThrow(
+                /no version 1\.0\.0 for this host \(diode 0\.3\.0, vscode 1\.127\.0, linux-x64\).*available: 1\.0\.0 \(vscode \*, darwin-arm64\)/,
+            );
+            expect(listInstalledExtensions(extensionsDir)).toEqual([]);
+        });
+
+        it("хост без таргета среди платформенных записей ставит universal", async () => {
+            await seedExtension("acme", "hello", [
+                { version: "1.1.0", engines: { vscode: "*" }, targetPlatform: "linux-x64" },
+                { version: "1.0.0", engines: { vscode: "*" } },
+            ]);
+
+            const result = await installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST });
+
+            expect(result.version).toBe("1.0.0");
+            expect(installedDescription("acme.hello", "1.0.0")).toBe("universal");
+        });
     });
 
     it("неизвестный id — ошибка «not found in registry»", async () => {

@@ -3,12 +3,13 @@ import { describe, expect, it } from "vitest";
 import type { IRegistryEngines, IRegistryVersion } from "./registryFormat.ts";
 import { isVersionCompatible, resolveCompatibleVersion, type IHostVersions } from "./resolveCompatibleVersion.ts";
 
-function version(v: string, engines: IRegistryEngines): IRegistryVersion {
+function version(v: string, engines: IRegistryEngines, targetPlatform?: string): IRegistryVersion {
     return {
         version: v,
         engines,
         artifact: { type: "path", path: `artifacts/x-${v}.vsix` },
         sha256: "a".repeat(64),
+        targetPlatform,
     };
 }
 
@@ -49,6 +50,26 @@ describe("isVersionCompatible", () => {
         ["неразбираемый диапазон", { vscode: "не-диапазон" }, HOST, false],
     ] satisfies [string, IRegistryEngines, IHostVersions, boolean][])("%s", (_label, engines, host, expected) => {
         expect(isVersionCompatible(version("1.0.0", engines), host)).toBe(expected);
+    });
+});
+
+/** Хост с платформенным таргетом — путь платформенных vsix (charliermarsh.ruff). */
+const LINUX_HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0", targetPlatform: "linux-x64" };
+
+describe("isVersionCompatible: targetPlatform", () => {
+    it.each([
+        ["universal совместима с платформенным хостом", undefined, LINUX_HOST, true],
+        ["таргет совпал", "linux-x64", LINUX_HOST, true],
+        ["таргет не совпал", "darwin-arm64", LINUX_HOST, false],
+        // Хост без таргета (экзотическая платформа) не должен получить чужой нативный бинарь.
+        ["платформенная запись при хосте без таргета", "linux-x64", HOST, false],
+        ["universal при хосте без таргета", undefined, HOST, true],
+    ] satisfies [string, string | undefined, IHostVersions, boolean][])("%s", (_label, target, host, expected) => {
+        expect(isVersionCompatible(version("1.0.0", { vscode: "*" }, target), host)).toBe(expected);
+    });
+
+    it("платформенное несовпадение режет запись даже с проходящими engines", () => {
+        expect(isVersionCompatible(version("1.0.0", { vscode: "^1.90.0" }, "win32-x64"), LINUX_HOST)).toBe(false);
     });
 });
 
@@ -103,5 +124,47 @@ describe("resolveCompatibleVersion", () => {
             version("1.2.0", { vscode: "*" }),
         ];
         expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.2.0");
+    });
+
+    // Обе перестановки: платформенная запись обязана победить не порядком в
+    // списке, а правилом «специфичнее — точнее».
+    it.each([
+        ["universal раньше", [undefined, "linux-x64"]],
+        ["платформенная раньше", ["linux-x64", undefined]],
+    ] satisfies [string, (string | undefined)[]][])(
+        "при равной версии платформенная запись побеждает universal — %s",
+        (_label, order) => {
+            const versions = order.map((target) => version("1.0.0", { vscode: "*" }, target));
+            expect(resolveCompatibleVersion(versions, LINUX_HOST)?.targetPlatform).toBe("linux-x64");
+        },
+    );
+
+    it("более высокая universal-версия побеждает платформенную ниже — semver главнее специфичности", () => {
+        const versions = [
+            version("1.0.0", { vscode: "*" }, "linux-x64"),
+            version("1.1.0", { vscode: "*" }),
+        ];
+        expect(resolveCompatibleVersion(versions, LINUX_HOST)?.version).toBe("1.1.0");
+    });
+
+    it("платформенный набор без universal: хост берёт свой таргет, чужие не участвуют", () => {
+        const versions = [
+            version("1.0.0", { vscode: "*" }, "darwin-arm64"),
+            version("1.0.0", { vscode: "*" }, "linux-x64"),
+            version("1.0.0", { vscode: "*" }, "win32-x64"),
+        ];
+        expect(resolveCompatibleVersion(versions, LINUX_HOST)?.targetPlatform).toBe("linux-x64");
+    });
+
+    it("хост без таргета среди платформенных записей берёт только universal", () => {
+        const versions = [
+            version("1.1.0", { vscode: "*" }, "linux-x64"),
+            version("1.0.0", { vscode: "*" }),
+        ];
+        expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.0.0");
+    });
+
+    it("нет записи под таргет хоста и нет universal — undefined", () => {
+        expect(resolveCompatibleVersion([version("1.0.0", { vscode: "*" }, "darwin-x64")], LINUX_HOST)).toBeUndefined();
     });
 });

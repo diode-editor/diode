@@ -34,6 +34,7 @@ import {
     uninstallExtension,
 } from "../platform/extensionManagement/node/extensionInstaller.ts";
 import { installFromRegistry } from "../platform/extensionManagement/node/installFromRegistry.ts";
+import { currentTargetPlatform } from "../platform/extensionManagement/node/targetPlatform.ts";
 import { flattenConfigDefaults } from "../platform/extensions/common/configDefaults.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
 import type { ICommandContribution } from "../platform/extensions/common/iExtensionManifest.ts";
@@ -267,7 +268,7 @@ async function runEditor(): Promise<void> {
         extensions: {
             registry: cli.registry,
             extensionsDir: userDataPaths.extensionsDir,
-            host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION },
+            host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
             onProblem: (problem) => {
                 extensionsLogger.warn(problem);
             },
@@ -553,7 +554,7 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                 });
                 result = await installFromRegistry(source, target, {
                     extensionsDir,
-                    host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION },
+                    host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
                 });
             }
             const { id, version, previous } = result;

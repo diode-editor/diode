@@ -13,6 +13,7 @@ import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import { TuiApplicationDIToken } from "../../workbench/common/coreTokens.ts";
 import { TerminalSessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { terminalEnvironmentModule } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts";
+import { currentTargetPlatform } from "../../platform/extensionManagement/node/targetPlatform.ts";
 import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
 import { darkPlusTheme } from "../../workbench/services/themes/common/themes/darkPlus.ts";
 
@@ -79,7 +80,7 @@ export function createTestContainer(): TestContainerHandle {
         .use(extensionsModule, {
             registry: path.join(tmpdir(), "diode-tests-no-registry"),
             extensionsDir: path.join(tmpdir(), "diode-tests-no-extensions"),
-            host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION },
+            host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
         })
         .use(preferencesModule);
 

@@ -7,6 +7,7 @@ import * as path from "node:path";
 import yazl from "yazl";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { currentTargetPlatform } from "../src/vs/platform/extensionManagement/node/targetPlatform.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 
 /**
@@ -99,11 +100,81 @@ describe("SEA binary — install from file registry", () => {
                 ],
             }),
         );
+        // Второе расширение — только платформенные записи одной версии: запись
+        // ТЕКУЩЕГО таргета машины с настоящим артефактом и чужая с битым путём.
+        // Ставится оно, только если склейка main.ts реально передала
+        // targetPlatform хоста в резолв (юниты передают его руками — этот шов
+        // без e2e не покрыт ничем).
+        const hostTarget = currentTargetPlatform();
+        if (hostTarget !== undefined) {
+            const platformedRel = `artifacts/acme.platformed-2.0.0@${hostTarget}.vsix`;
+            const platformedVsix = path.join(registryDir, platformedRel);
+            await buildVsix(platformedVsix, {
+                "extension/package.json": JSON.stringify({
+                    name: "platformed",
+                    publisher: "acme",
+                    version: "2.0.0",
+                    engines: { vscode: "^1.100.0" },
+                }),
+                "extension.vsixmanifest": "<PackageManifest/>",
+            });
+            const platformedSha = crypto
+                .createHash("sha256")
+                .update(await fs.promises.readFile(platformedVsix))
+                .digest("hex");
+            await fs.promises.writeFile(
+                path.join(registryDir, "meta", "acme.platformed.json"),
+                JSON.stringify({
+                    schemaVersion: 1,
+                    id: "acme.platformed",
+                    publisher: "acme",
+                    name: "platformed",
+                    displayName: "Platformed",
+                    description: "Platform-specific artifacts",
+                    kind: "native",
+                    versions: [
+                        {
+                            version: "2.0.0",
+                            engines: { vscode: "^1.100.0" },
+                            artifact: { type: "path", path: platformedRel },
+                            sha256: platformedSha,
+                            targetPlatform: hostTarget,
+                        },
+                        {
+                            version: "2.0.0",
+                            engines: { vscode: "^1.100.0" },
+                            artifact: { type: "path", path: "artifacts/does-not-exist.vsix" },
+                            sha256: "0".repeat(64),
+                            targetPlatform: hostTarget === "darwin-arm64" ? "linux-x64" : "darwin-arm64",
+                        },
+                    ],
+                }),
+            );
+        }
     }, 180_000);
 
     afterAll(async () => {
         await fs.promises.rm(tempRoot, { recursive: true, force: true });
     });
+
+    it.skipIf(currentTargetPlatform() === undefined)(
+        "platform-specific record of the host's target is picked over the foreign one",
+        async () => {
+            const userData = path.join(tempRoot, "user-data-platformed");
+            const install = await runCli(binary, [
+                "--user-data-dir",
+                userData,
+                "--registry",
+                registryDir,
+                "--install-extension",
+                "acme.platformed",
+            ]);
+            expect(install.stderr).toBe("");
+            expect(install.code).toBe(0);
+            expect(install.stdout).toContain("Installed acme.platformed@2.0.0");
+            expect(fs.existsSync(path.join(userData, "extensions", "acme.platformed-2.0.0", "package.json"))).toBe(true);
+        },
+    );
 
     it("installs by id from --registry and lists it", async () => {
         const install = await runCli(binary, [

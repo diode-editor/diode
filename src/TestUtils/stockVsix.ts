@@ -7,6 +7,7 @@ import { DIODE_VERSION } from "../vs/base/common/version.ts";
 import { resolveCompatibleVersion } from "../vs/platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import { createRegistrySource, DEFAULT_REGISTRY_URL } from "../vs/platform/extensionManagement/node/createRegistrySource.ts";
 import { sha256File } from "../vs/platform/extensionManagement/node/installFromRegistry.ts";
+import { currentTargetPlatform } from "../vs/platform/extensionManagement/node/targetPlatform.ts";
 import { VSCODE_SHIM_VERSION } from "../vs/workbench/api/common/vscodeShimVersion.ts";
 
 /**
@@ -37,11 +38,18 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
     if (meta === undefined) {
         throw new Error(`${id} is not published in the registry at ${DEFAULT_REGISTRY_URL}`);
     }
-    const version = resolveCompatibleVersion(meta.versions, { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION });
+    const version = resolveCompatibleVersion(meta.versions, {
+        diode: DIODE_VERSION,
+        vscode: VSCODE_SHIM_VERSION,
+        targetPlatform: currentTargetPlatform(),
+    });
     if (version === undefined) {
         throw new Error(`${id}: no version compatible with this build in the registry`);
     }
-    const cached = path.join(VSIX_CACHE_DIR, `${id}-${version.version}.vsix`);
+    // Платформенный vsix кэшируется под своим таргетом: общий кэш может жить
+    // в примонтированном node_modules, который переживает смену платформы.
+    const platformSuffix = version.targetPlatform === undefined ? "" : `@${version.targetPlatform}`;
+    const cached = path.join(VSIX_CACHE_DIR, `${id}-${version.version}${platformSuffix}.vsix`);
     if (fs.existsSync(cached) && (await sha256File(cached)) === version.sha256) {
         return { vsixPath: cached, version: version.version };
     }
