@@ -93,6 +93,26 @@ describe("createCodeActionsOnSaveParticipant", () => {
         expect(read).toBe(false);
     });
 
+    it("provide вернул null (нет матчащего провайдера) — apply не дёргается", async () => {
+        let applied = 0;
+        const source: CodeActionSource = {
+            provide: () => Promise.resolve(null),
+            apply: () => {
+                applied++;
+                return Promise.resolve(true);
+            },
+        };
+        const participant = createCodeActionsOnSaveParticipant(
+            host({
+                configuration: config({ "editor.codeActionsOnSave": { "source.fixAll": true } }),
+                codeActionSource: () => source,
+            }),
+        );
+
+        expect(await participant(SNAPSHOT)).toEqual([]);
+        expect(applied).toBe(0);
+    });
+
     it("без панели диапазон и текст берутся из снапшота", async () => {
         const provided: { text: string; endLine: number; endCharacter: number }[] = [];
         const source: CodeActionSource = {
@@ -115,9 +135,26 @@ describe("createCodeActionsOnSaveParticipant", () => {
     });
 });
 
+/** Фейковая панель для формат-участника: текст, viewState и журнал правок. */
+function fakePane(getText: () => string): {
+    pane: TextEditorPane;
+    applied: { edits: number; label: string }[];
+} {
+    const applied: { edits: number; label: string }[] = [];
+    const pane = {
+        getText,
+        viewState: { tabSize: 4, insertSpaces: true, selections: [] as ISelection[] },
+        applyExternalEdits: (edits: readonly unknown[], label: string) => {
+            applied.push({ edits: edits.length, label });
+        },
+    } as unknown as TextEditorPane;
+    return { pane, applied };
+}
+
 describe("createFormatOnSaveParticipant", () => {
-    it("настройка выключена — источник не дёргается", async () => {
+    it("настройка выключена — источник не дёргается даже при живой панели", async () => {
         let called = false;
+        const { pane } = fakePane(() => "x");
         const participant = createFormatOnSaveParticipant(
             host({
                 configuration: config({}),
@@ -125,10 +162,58 @@ describe("createFormatOnSaveParticipant", () => {
                     called = true;
                     return Promise.resolve([]);
                 },
+                paneForUri: () => pane,
             }),
         );
         expect(await participant(SNAPSHOT)).toEqual([]);
         expect(called).toBe(false);
+    });
+
+    it("включена, панель есть, но источника нет (host отвалился) — no-op", async () => {
+        const { pane, applied } = fakePane(() => "x");
+        const participant = createFormatOnSaveParticipant(
+            host({
+                configuration: config({ "editor.formatOnSave": true }),
+                paneForUri: () => pane,
+            }),
+        );
+        expect(await participant(SNAPSHOT)).toEqual([]);
+        expect(applied).toEqual([]);
+    });
+
+    it("успешный формат: правки применяются с меткой Format on Save, результат пуст", async () => {
+        const { pane, applied } = fakePane(() => "x");
+        const participant = createFormatOnSaveParticipant(
+            host({
+                configuration: config({ "editor.formatOnSave": true }),
+                formattingSource: () => () =>
+                    Promise.resolve([
+                        { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, text: "y" },
+                    ]),
+                paneForUri: () => pane,
+            }),
+        );
+
+        expect(await participant(SNAPSHOT)).toEqual([]);
+        expect(applied).toEqual([{ edits: 1, label: "Format on Save" }]);
+    });
+
+    it("устаревший ответ (текст сменился за время RPC) — правки не применяются", async () => {
+        let reads = 0;
+        const { pane, applied } = fakePane(() => (reads++ === 0 ? "old" : "new"));
+        const participant = createFormatOnSaveParticipant(
+            host({
+                configuration: config({ "editor.formatOnSave": true }),
+                formattingSource: () => () =>
+                    Promise.resolve([
+                        { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, text: "y" },
+                    ]),
+                paneForUri: () => pane,
+            }),
+        );
+
+        expect(await participant(SNAPSHOT)).toEqual([]);
+        expect(applied).toEqual([]);
     });
 
     it("включена, но панели нет (файл сохраняется без вью) — no-op", async () => {

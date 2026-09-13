@@ -277,7 +277,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("с дефолтами источники не дёргаются, поведение сохранения не меняется", async () => {
+        it("с дефолтами источники не дёргаются и save остаётся синхронным", async () => {
             const ctrl = createEditorService();
             const fp = writeFile("off.txt", "as is\n");
             ctrl.openFile(fp);
@@ -298,10 +298,30 @@ describe("EditorService — сохранение по настройкам onSav
                 return Promise.resolve([]);
             };
 
-            await ctrl.getActiveEditor()!.save();
+            fs.rmSync(fp);
+            const pending = ctrl.getActiveEditor()!.save();
 
-            expect(touched).toBe(0);
+            // Пайплайн пуст (обе настройки выключены, host не подключён) —
+            // запись случилась ДО первого await, в этом же тике.
             expect(fs.readFileSync(fp, "utf-8")).toBe("as is\n");
+            await pending;
+            expect(touched).toBe(0);
+            ctrl.dispose();
+        });
+
+        it("настройка включена, но её источник не подключён — участник не в списке, save синхронный", async () => {
+            // Гейты collectSaveParticipants попарные: codeActions без источника
+            // и формат с выключенной настройкой обязаны выпасть из пайплайна.
+            const ctrl = createEditorService({ "editor.codeActionsOnSave": { "source.fixAll": true } });
+            const fp = writeFile("halfoff.txt", "x\n");
+            ctrl.openFile(fp);
+            ctrl.formattingSource = () => Promise.resolve([]);
+
+            fs.rmSync(fp);
+            const pending = ctrl.getActiveEditor()!.save();
+
+            expect(fs.readFileSync(fp, "utf-8")).toBe("x\n");
+            await pending;
             ctrl.dispose();
         });
 
@@ -331,7 +351,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("настройки включены, но источников нет (host не подключён) — save работает", async () => {
+        it("настройки включены, но источников нет (host не подключён) — save работает и остаётся синхронным", async () => {
             const ctrl = createEditorService({
                 "editor.codeActionsOnSave": { "source.fixAll": true },
                 "editor.formatOnSave": true,
@@ -339,9 +359,31 @@ describe("EditorService — сохранение по настройкам onSav
             const fp = writeFile("nosrc.txt", "x");
             ctrl.openFile(fp);
 
-            const outcome = await ctrl.getActiveEditor()!.save();
+            fs.rmSync(fp);
+            const pending = ctrl.getActiveEditor()!.save();
 
-            expect(outcome).toBe("saved");
+            expect(fs.readFileSync(fp, "utf-8")).toBe("x");
+            await expect(pending).resolves.toBe("saved");
+            ctrl.dispose();
+        });
+
+        it("формат идёт по панели СОХРАНЯЕМОГО файла, а не первой попавшейся", async () => {
+            const ctrl = createEditorService({ "editor.formatOnSave": true });
+            writeFile("first.txt", "first\n");
+            const fp = writeFile("second.txt", "second\n");
+            ctrl.openFile(path.join(ws.dir, "first.txt"));
+            ctrl.openFile(fp);
+
+            const texts: string[] = [];
+            ctrl.formattingSource = (req) => {
+                texts.push(req.text);
+                return Promise.resolve([]);
+            };
+
+            await ctrl.getActiveEditor()!.save();
+
+            // Панель ищется по uri снапшота: запрос обязан нести текст second.txt.
+            expect(texts).toEqual(["second\n"]);
             ctrl.dispose();
         });
     });

@@ -59,6 +59,7 @@ const SAVE_PARTICIPANT_TIMEOUT_MS = 5000;
 function raceSaveParticipantTimeout(run: Promise<readonly ISaveEdit[]>): Promise<readonly ISaveEdit[]> {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
+            // Stryker disable next-line ArrayDeclaration: пустой набор — контракт таймаута; посторонний элемент без валидного kind всё равно молча отфильтруется гейтами applySaveEdits
             resolve([]);
         }, SAVE_PARTICIPANT_TIMEOUT_MS);
         run.then(

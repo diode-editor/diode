@@ -2,36 +2,25 @@ import { describe, expect, it } from "vitest";
 
 import { editorConfiguration } from "./editorConfiguration.ts";
 
-// Схема — контракт: по ней генерируется каталог настроек (diode-settings) и
-// валидируется settings.json, поэтому ключи прибиты дословно.
+// Схема настроек onSave (#196, хвост): дефолты ОБЯЗАНЫ быть выключены — с
+// ними поведение сохранения не меняется ни на байт. Тип и описание — контракт
+// валидатора settings.json и автодополнения ключей (diode-settings).
 
-describe("editorConfiguration — схема настроек переноса", () => {
-    it("editor.wordWrap: enum четырёх режимов с дефолтом off", () => {
-        expect(editorConfiguration.properties["editor.wordWrap"]).toEqual({
-            type: "string",
-            enum: ["off", "on", "wordWrapColumn", "bounded"],
-            default: "off",
-            description:
-                "Controls how lines should wrap: never ('off'), at the viewport width ('on'), or at " +
-                "`editor.wordWrapColumn` ('wordWrapColumn'/'bounded'; both are capped by the viewport width).",
-        });
+describe("editorConfiguration — onSave-настройки", () => {
+    it("editor.formatOnSave: boolean, выключен по умолчанию", () => {
+        const schema = editorConfiguration.properties["editor.formatOnSave"];
+        expect(schema.type).toBe("boolean");
+        expect(schema.default).toBe(false);
+        expect(schema.description).toContain("Format a file on save");
     });
 
-    it("editor.wordWrapColumn: число с дефолтом 80", () => {
-        expect(editorConfiguration.properties["editor.wordWrapColumn"]).toEqual({
-            type: "number",
-            default: 80,
-            description: "Controls the wrapping column when `editor.wordWrap` is 'wordWrapColumn' or 'bounded'.",
-        });
-    });
-
-    it("editor.detectIndentation: булево с дефолтом true", () => {
-        expect(editorConfiguration.properties["editor.detectIndentation"]).toEqual({
-            type: "boolean",
-            default: true,
-            description:
-                "Controls whether `editor.tabSize` and `editor.insertSpaces` are automatically detected " +
-                "from the file contents when a file is opened.",
-        });
+    it("editor.codeActionsOnSave: object, пустой по умолчанию, описание про иерархию kind'ов", () => {
+        const schema = editorConfiguration.properties["editor.codeActionsOnSave"];
+        expect(schema.type).toBe("object");
+        expect(schema.default).toEqual({});
+        // Обе половины склейки: «run on save» есть только в первой,
+        // «hierarchically» — только во второй.
+        expect(schema.description).toContain("run on save");
+        expect(schema.description).toContain("hierarchically");
     });
 });

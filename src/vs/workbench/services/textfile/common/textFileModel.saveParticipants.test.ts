@@ -130,6 +130,28 @@ describe("TextFileModel — композиция save-участников", () 
         }
     });
 
+    it("таймер таймаута снимается, когда участник ответил сам (resolve и reject)", async () => {
+        vi.useFakeTimers();
+        try {
+            const controller = createEditorPane();
+            const fp = ws.writeFile("timers.txt", "x");
+            controller.openFile(Uri.file(fp));
+
+            controller.saveParticipants = () => [
+                () => Promise.resolve([]),
+                () => Promise.reject(new Error("boom")),
+            ];
+
+            await controller.save();
+
+            // Оба участника завершились сами — «страховочных» 5с-таймеров не осталось.
+            expect(vi.getTimerCount()).toBe(0);
+            controller.dispose();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("провайдер участников дергается на КАЖДОЕ сохранение (живые настройки)", async () => {
         const controller = createEditorPane();
         const fp = ws.writeFile("live.txt", "x");

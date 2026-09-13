@@ -114,10 +114,26 @@ describe("TextFileModel — save participant", () => {
         const controller = createEditorPane();
         const fp = writeFile("plain.txt", "keep   \n");
         controller.openFile(Uri.file(fp));
+        fs.rmSync(fp);
 
-        await controller.save();
+        const pending = controller.save();
 
+        // Запись случилась ДО первого await — файл уже на диске в этом же тике.
         expect(fs.readFileSync(fp, "utf-8")).toBe("keep   \n");
+        await expect(pending).resolves.toBe("saved");
+        controller.dispose();
+    });
+
+    it("без участников saveAs остаётся синхронной записью", async () => {
+        const controller = createEditorPane();
+        const fp = writeFile("plain2.txt", "sync\n");
+        controller.openFile(Uri.file(fp));
+
+        const dst = ws.path("plain2-dst.txt");
+        const pending = controller.saveAs(dst);
+
+        expect(fs.readFileSync(dst, "utf-8")).toBe("sync\n");
+        await pending;
         controller.dispose();
     });
 });
