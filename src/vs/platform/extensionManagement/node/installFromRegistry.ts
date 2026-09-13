@@ -5,7 +5,7 @@ import * as path from "node:path";
 
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import type { IRegistryVersion } from "../common/registryFormat.ts";
-import { resolveCompatibleVersion, type IHostVersions } from "../common/resolveCompatibleVersion.ts";
+import { matchesHostPlatform, resolveCompatibleVersion, type IHostVersions } from "../common/resolveCompatibleVersion.ts";
 import { installVsix, uninstallExtension } from "./extensionInstaller.ts";
 
 /**
@@ -38,15 +38,22 @@ export function sha256File(filePath: string): Promise<string> {
     });
 }
 
-/** `1.2.0 (diode ^0.3.0, vscode ^1.90.0)` — для сообщения «нет совместимой версии». */
+/** `1.2.0 (diode ^0.3.0, vscode ^1.90.0, linux-x64)` — для сообщения «нет совместимой версии». */
 function describeVersion(v: IRegistryVersion): string {
     const engines = [
         v.engines.diode !== undefined ? `diode ${v.engines.diode}` : undefined,
         v.engines.vscode !== undefined ? `vscode ${v.engines.vscode}` : undefined,
+        v.targetPlatform,
     ]
         .filter((part) => part !== undefined)
         .join(", ");
     return `${v.version} (${engines})`;
+}
+
+/** `diode 0.3.0, vscode 1.127.0, linux-x64` — хост в сообщениях об ошибках. */
+function describeHost(host: IHostVersions): string {
+    const parts = [`diode ${host.diode}`, `vscode ${host.vscode}`, host.targetPlatform];
+    return parts.filter((part) => part !== undefined).join(", ");
 }
 
 /**
@@ -70,17 +77,20 @@ export async function installFromRegistry(
 
     let picked: IRegistryVersion | undefined;
     if (options.version !== undefined) {
-        picked = meta.versions.find((v) => v.version === options.version);
+        // Точная версия обходит engines-матчинг (пользователь сказал «эту»), но
+        // не платформу: платформенных записей одной версии несколько, и чужой
+        // нативный бинарь бесполезен на этом хосте при любом желании.
+        picked = meta.versions.find((v) => v.version === options.version && matchesHostPlatform(v, options.host));
         if (picked === undefined) {
             throw new Error(
-                `Extension "${extensionId}" has no version ${options.version} in registry; available: ${meta.versions.map((v) => v.version).join(", ")}`,
+                `Extension "${extensionId}" has no version ${options.version} for this host (${describeHost(options.host)}) in registry; available: ${meta.versions.map(describeVersion).join(", ")}`,
             );
         }
     } else {
         picked = resolveCompatibleVersion(meta.versions, options.host);
         if (picked === undefined) {
             throw new Error(
-                `Extension "${extensionId}" has no version compatible with this build (diode ${options.host.diode}, vscode ${options.host.vscode}); available: ${meta.versions.map(describeVersion).join(", ")}`,
+                `Extension "${extensionId}" has no version compatible with this build (${describeHost(options.host)}); available: ${meta.versions.map(describeVersion).join(", ")}`,
             );
         }
     }

@@ -12,6 +12,13 @@ export interface IHostVersions {
     readonly diode: string;
     /** Версия vscode-шима (лок-степ с `extensions/VSCODE_VERSION`). */
     readonly vscode: string;
+    /**
+     * Платформенный таргет хоста (`linux-x64`, `darwin-arm64`, … —
+     * `currentTargetPlatform()` из `node/targetPlatform.ts`). Не задан —
+     * совместимы только universal-записи: экзотическая платформа без таргета
+     * не должна получить артефакт с чужим нативным бинарём.
+     */
+    readonly targetPlatform?: string;
 }
 
 /** Заглушка версии в dev-запуске через tsx (`src/vs/base/common/version.ts`). */
@@ -46,9 +53,22 @@ function satisfies(version: string, range: string): boolean {
  * У сборки без релизной версии (dev, nightly) diode-канал считается пройденным:
  * иначе на таких сборках не поставить ни одного нативного расширения. У
  * vscode-канала исключения нет — версия шима всегда реальна.
+ * Платформенная запись дополнительно обязана совпасть таргетом
+ * ({@link matchesHostPlatform}).
  */
 export function isVersionCompatible(version: IRegistryVersion, host: IHostVersions): boolean {
-    return areEnginesCompatible(version.engines, host);
+    return matchesHostPlatform(version, host) && areEnginesCompatible(version.engines, host);
+}
+
+/**
+ * Платформенное правило само по себе: запись без `targetPlatform` (universal)
+ * совместима с любым хостом, платформенная — только при точном совпадении
+ * таргетов. Отдельно от {@link isVersionCompatible}, потому что путь точной
+ * версии (`--install-extension id` с `version`) сознательно обходит
+ * engines-матчинг, но чужой нативный бинарь не должен пройти и там.
+ */
+export function matchesHostPlatform(version: IRegistryVersion, host: IHostVersions): boolean {
+    return version.targetPlatform === undefined || version.targetPlatform === host.targetPlatform;
 }
 
 /**
@@ -69,7 +89,10 @@ export function areEnginesCompatible(engines: IRegistryEngines, host: IHostVersi
 
 /**
  * Выбирает наивысшую версию, совместимую с хостом; нет совместимых —
- * `undefined`. Порядок `versions` не является контрактом формата — сравниваем сами.
+ * `undefined`. Порядок `versions` не является контрактом формата — сравниваем
+ * сами. При равном semver платформенная запись побеждает universal: если
+ * реестр опубликовал обе, платформенная точнее (universal остаётся фолбэком
+ * для хостов без таргета).
  */
 export function resolveCompatibleVersion(
     versions: readonly IRegistryVersion[],
@@ -81,7 +104,13 @@ export function resolveCompatibleVersion(
         // Парсер формата пропускает только semver-версии, но IRegistryVersion
         // может быть собран программно — неразбираемая версия не участвует.
         if (semver.valid(candidate.version) === null) continue;
-        if (best === undefined || semver.gt(candidate.version, best.version)) {
+        if (
+            best === undefined ||
+            semver.gt(candidate.version, best.version) ||
+            (semver.eq(candidate.version, best.version) &&
+                best.targetPlatform === undefined &&
+                candidate.targetPlatform !== undefined)
+        ) {
             best = candidate;
         }
     }

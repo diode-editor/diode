@@ -47,8 +47,19 @@ views, Phase 9 — внешние расширения), [docs/arch/Extensions.m
   (чтобы список показывал версию и совместимость без ленивых фетчей).
 - `meta/<id>.json`: идентичность + `repository?`/`license?`/`homepage?`/`readme?`
   (inline markdown — контент страницы расширения в табе) + `versions[]`; версия —
-  `{ version, engines, artifact, sha256, size?, publishedAt? }`. `engines` обязан
-  нести хотя бы одно из `diode`/`vscode`; `sha256` обязателен (hex lowercase).
+  `{ version, engines, artifact, sha256, targetPlatform?, size?, publishedAt? }`.
+  `engines` обязан нести хотя бы одно из `diode`/`vscode`; `sha256` обязателен
+  (hex lowercase). `targetPlatform` — платформенный таргет артефакта в словаре
+  VS Code Marketplace / Open VSX (`linux-x64`, `darwin-arm64`, …); не задан —
+  universal. Одна semver-версия может лежать несколькими записями с разными
+  `targetPlatform` (путь платформенных vsix: `charliermarsh.ruff` публикует
+  только их); клиент (`resolveCompatibleVersion`) берёт запись своего таргета
+  (`currentTargetPlatform()`: `process.platform` × `process.arch`; alpine/musl
+  не детектится — сборок diode под musl нет), universal совместим с любым
+  хостом, при равной версии платформенная запись точнее universal. **Записи с
+  `targetPlatform` обязаны гейтиться `engines.diode: ">=0.4.0"`**: клиенты
+  ≤0.3.0 поля не знают, считают платформенные записи дубликатами одной версии
+  и поставили бы артефакт произвольной платформы.
 - Артефакт — union: `{ type: "url", url, origin?: "openvsx" | "github-release" }`
   (origin — provenance, поведение не меняет) или `{ type: "path", path }`
   (POSIX-relative внутри корня; для файлового source).

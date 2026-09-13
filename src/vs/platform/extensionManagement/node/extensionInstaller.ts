@@ -162,6 +162,13 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                 }
                 /* v8 ignore stop */
 
+                // Unix-права записи живут в верхних 16 битах externalFileAttributes,
+                // когда архив собран на unix (старший байт versionMadeBy === 3).
+                // Восстанавливаем исполняемость: платформенные vsix несут нативные
+                // серверы (bundled ruff), и без exec-бита их spawn падает EACCES.
+                const unixMode = entry.versionMadeBy >>> 8 === 3 ? entry.externalFileAttributes >>> 16 : 0;
+                const executable = (unixMode & 0o111) !== 0;
+
                 zipfile.openReadStream(entry, (streamErr, readStream) => {
                     /* v8 ignore start -- defensive: openReadStream ошибается лишь на
                        повреждённых/неподдерживаемых записях, что не воспроизводится в тестах */
@@ -176,6 +183,9 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                     readStream.on("error", reject);
                     writeStream.on("error", reject);
                     writeStream.on("close", () => {
+                        // chmod после записи, а не mode у createWriteStream: тот
+                        // режется umask'ом процесса и недетерминирован.
+                        if (executable) fs.chmodSync(target, 0o755);
                         zipfile.readEntry();
                     });
                     readStream.pipe(writeStream);
