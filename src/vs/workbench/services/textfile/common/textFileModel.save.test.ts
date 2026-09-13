@@ -7,7 +7,7 @@ import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/
 import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 
-import type { ISaveEdit } from "./iSaveParticipant.ts";
+import type { ISaveEdit, SaveParticipant } from "./iSaveParticipant.ts";
 
 describe("TextFileModel — save participant", () => {
     let ws: ITempWorkspace;
@@ -24,15 +24,23 @@ describe("TextFileModel — save participant", () => {
         return ws.writeFile(name, content);
     }
 
+    function setParticipant(controller: TextEditorPane, participant: SaveParticipant): void {
+        const provider = (): SaveParticipant[] => [participant];
+        controller.saveParticipants = provider;
+        // Пара геттер/сеттер панели — сквозной проброс в модель.
+        expect(controller.saveParticipants).toBe(provider);
+    }
+
     it("применяет текстовые правки участника перед записью", async () => {
         const controller = createEditorPane();
         const fp = writeFile("a.txt", "abc   \n");
         controller.openFile(Uri.file(fp));
         // Удаляем хвостовые пробелы: правка стирает диапазон 3..6 строки 0.
-        controller.saveParticipant = () =>
+        setParticipant(controller, () =>
             Promise.resolve<ISaveEdit[]>([
                 { kind: "text", range: { start: { line: 0, character: 3 }, end: { line: 0, character: 6 } }, text: "" },
-            ]);
+            ]),
+        );
 
         await controller.save();
 
@@ -44,7 +52,7 @@ describe("TextFileModel — save participant", () => {
         const controller = createEditorPane();
         const fp = writeFile("clamp.txt", "ab\ncd");
         controller.openFile(Uri.file(fp));
-        controller.saveParticipant = () =>
+        setParticipant(controller, () =>
             Promise.resolve<ISaveEdit[]>([
                 // line/char за верхней границей → (последняя строка, её длина)
                 {
@@ -64,7 +72,8 @@ describe("TextFileModel — save participant", () => {
                     range: { start: { line: 0, character: 1 }, end: { line: 0, character: 1 } },
                     text: "C",
                 },
-            ]);
+            ]),
+        );
 
         await controller.save();
 
@@ -76,7 +85,7 @@ describe("TextFileModel — save participant", () => {
         const controller = createEditorPane();
         const fp = writeFile("eol.txt", "a\nb\n");
         controller.openFile(Uri.file(fp));
-        controller.saveParticipant = () => Promise.resolve<ISaveEdit[]>([{ kind: "eol", eol: EndOfLine.CRLF }]);
+        setParticipant(controller, () => Promise.resolve<ISaveEdit[]>([{ kind: "eol", eol: EndOfLine.CRLF }]));
 
         await controller.save();
 
@@ -88,10 +97,11 @@ describe("TextFileModel — save participant", () => {
         const controller = createEditorPane();
         const fp = writeFile("src.txt", "hi   \n");
         controller.openFile(Uri.file(fp));
-        controller.saveParticipant = () =>
+        setParticipant(controller, () =>
             Promise.resolve<ISaveEdit[]>([
                 { kind: "text", range: { start: { line: 0, character: 2 }, end: { line: 0, character: 5 } }, text: "" },
-            ]);
+            ]),
+        );
 
         const dst = ws.path("dst.txt");
         await controller.saveAs(dst);
@@ -100,7 +110,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("без участника save остаётся синхронной записью", async () => {
+    it("без участников save остаётся синхронной записью", async () => {
         const controller = createEditorPane();
         const fp = writeFile("plain.txt", "keep   \n");
         controller.openFile(Uri.file(fp));

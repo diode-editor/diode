@@ -10,6 +10,7 @@ import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageSe
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
+import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
@@ -104,6 +105,13 @@ export interface IExtensionHarnessOptions {
      */
     readonly configuration?: unknown;
     /**
+     * Сервис настроек ЯДРА (`EditorService` и его onSave-участники). По
+     * умолчанию — NULL-заглушка; тесты codeActionsOnSave/formatOnSave передают
+     * стаб с нужными ключами. Не путать с `configuration` — снапшотом для
+     * subprocess'а.
+     */
+    readonly configurationService?: IConfigurationService;
+    /**
      * Пути папок воркспейса (`workspace.workspaceFolders`). По умолчанию — tmpDir.
      */
     readonly workspaceFolders?: readonly string[];
@@ -172,7 +180,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         options.languageService ?? NULL_LANGUAGE_SERVICE,
-        NULL_CONFIGURATION_SERVICE,
+        options.configurationService ?? NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),

@@ -44,6 +44,12 @@ import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 
 import { EditorGroup, type GroupId } from "./editorGroupModel.ts";
+import {
+    createCodeActionsOnSaveParticipant,
+    createFormatOnSaveParticipant,
+    enabledCodeActionKindsOnSave,
+    type IOnSaveParticipantHost,
+} from "./onSaveParticipants.ts";
 
 export const EditorServiceDIToken = token<EditorService>("EditorService");
 
@@ -129,6 +135,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Подписка на выделение активного редактора; перевешивается при его смене. */
     private activeSelectionSubscription?: IDisposable;
     private saveParticipantValue?: SaveParticipant;
+    /** Участник `editor.codeActionsOnSave` (см. {@link collectSaveParticipants}). */
+    private readonly codeActionsOnSaveParticipant: SaveParticipant;
+    /** Участник `editor.formatOnSave` (см. {@link collectSaveParticipants}). */
+    private readonly formatOnSaveParticipant: SaveParticipant;
     private foldingRangeSourceValue?: FoldingRangeSource;
     /**
      * Монотонный счётчик номеров безымянных буферов (`Untitled-1`, `Untitled-2`, …).
@@ -235,9 +245,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     public signatureHelpRetriggerCharacters: readonly string[] = [];
 
     /**
-     * Save-участник, прокидываемый в каждый редактор группы (host/харнесс
-     * подключает сюда `onWillSaveTextDocument`). Присваивание раздаёт участника
-     * уже открытым редакторам и всем последующим (в openFile).
+     * Save-участник расширений (host/харнесс подключает сюда
+     * `onWillSaveTextDocument`). Модели читают его через провайдер пайплайна
+     * ({@link collectSaveParticipants}) в момент сохранения — присваивание в
+     * любой момент видно и уже открытым редакторам, и всем последующим.
      */
     public get saveParticipant(): SaveParticipant | undefined {
         return this.saveParticipantValue;
@@ -245,9 +256,34 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
 
     public set saveParticipant(participant: SaveParticipant | undefined) {
         this.saveParticipantValue = participant;
-        for (const editor of this.textPanes()) {
-            editor.saveParticipant = participant;
+    }
+
+    /**
+     * Пайплайн сохранения, собираемый В МОМЕНТ save по живым настройкам
+     * (порядок VS Code: code actions → формат → will-save расширений; правки
+     * каждого ложатся в буфер до следующего и до записи на диск). С дефолтами
+     * (обе настройки выключены) список состоит из одного will-save участника —
+     * поведение сохранения не меняется; без host'а он пуст, и save остаётся
+     * синхронным.
+     */
+    private collectSaveParticipants(): readonly SaveParticipant[] {
+        const participants: SaveParticipant[] = [];
+        if (
+            this.codeActionSource !== undefined &&
+            enabledCodeActionKindsOnSave(this.configurationService).length > 0
+        ) {
+            participants.push(this.codeActionsOnSaveParticipant);
         }
+        if (
+            this.formattingSource !== undefined &&
+            this.configurationService.get<boolean>("editor.formatOnSave") === true
+        ) {
+            participants.push(this.formatOnSaveParticipant);
+        }
+        if (this.saveParticipantValue !== undefined) {
+            participants.push(this.saveParticipantValue);
+        }
+        return participants;
     }
 
     /**
@@ -350,6 +386,17 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.fileWatcher = fileWatcher;
         this.contextMenuController = contextMenuController;
         this.logger = logService.createLogger("workbench.editorGroups");
+        // Участники сохранения по настройкам (`editor.codeActionsOnSave` /
+        // `editor.formatOnSave`): источники читаются лениво — host подключает
+        // их уже после создания сервиса.
+        const onSaveHost: IOnSaveParticipantHost = {
+            configuration: configurationService,
+            codeActionSource: () => this.codeActionSource,
+            formattingSource: () => this.formattingSource,
+            paneForUri: (uri) => this.textPanes().find((pane) => pane.uri.toString() === uri) ?? null,
+        };
+        this.codeActionsOnSaveParticipant = createCodeActionsOnSaveParticipant(onSaveHost);
+        this.formatOnSaveParticipant = createFormatOnSaveParticipant(onSaveHost);
         // Полоса групп начинается с единственной — она же активная.
         this.activeGroupValue = this.createGroup();
         // Владение оставшимися группами: схлопнутые чистятся по ходу, остальные —
@@ -1080,7 +1127,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     private wireModel(model: TextFileModel): void {
         model.fileWatcher = this.fileWatcher;
-        model.saveParticipant = this.saveParticipantValue;
+        model.saveParticipants = () => this.collectSaveParticipants();
         model.onDidSave = () => {
             // saveAs мог сменить ресурс — реестр перепривязывает ключ.
             this.modelRegistry.handleUriChanged(model);

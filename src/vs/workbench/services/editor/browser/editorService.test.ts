@@ -829,18 +829,26 @@ describe("EditorService", () => {
     });
 
     describe("save participant & onEditorSaved", () => {
-        it("раздаёт saveParticipant существующим и будущим редакторам", () => {
+        it("saveParticipant виден существующим и будущим редакторам (пайплайн собирается в момент save)", async () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.txt", "x"));
 
-            const participant = (): Promise<never[]> => Promise.resolve([]);
+            const saved: string[] = [];
+            const participant = (snapshot: { uri: string }): Promise<never[]> => {
+                saved.push(snapshot.uri);
+                return Promise.resolve([]);
+            };
+            // Присваивание ПОСЛЕ открытия: host подключается позже первого файла.
             ctrl.saveParticipant = participant;
             expect(ctrl.saveParticipant).toBe(participant);
-            expect(ctrl.getActiveEditor()?.saveParticipant).toBe(participant);
 
-            // Новый редактор получает участника при открытии.
-            ctrl.openFile(writeFile("b.txt", "y"));
-            expect(ctrl.getEditor(1)?.saveParticipant).toBe(participant);
+            await ctrl.getActiveEditor()?.save();
+            const bPath = writeFile("b.txt", "y");
+            ctrl.openFile(bPath);
+            await ctrl.getActiveEditor()?.save();
+
+            expect(saved).toHaveLength(2);
+            expect(saved[1]).toBe(Uri.file(bPath).toString());
         });
 
         it("onEditorSaved стреляет при сохранении и отписывается через dispose", async () => {
