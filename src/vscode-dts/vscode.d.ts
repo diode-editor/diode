@@ -729,6 +729,33 @@ declare module "vscode" {
 		}[];
 
 		/**
+		 * A memento object that stores state in the context
+		 * of the currently opened {@link workspace.workspaceFolders workspace}.
+		 */
+		readonly workspaceState: Memento;
+
+		/**
+		 * A memento object that stores state independent
+		 * of the current opened {@link workspace.workspaceFolders workspace}.
+		 */
+		readonly globalState: Memento & {
+			/**
+			 * Set the keys whose values should be synchronized across devices when synchronizing user-data
+			 * like configuration, extensions, and mementos.
+			 *
+			 * Note that this function defines the whole set of keys whose values are synchronized:
+			 *  - calling it with an empty array stops synchronization for this memento
+			 *  - calling it with a non-empty array replaces all keys whose values are synchronized
+			 *
+			 * For any given set of keys this function needs to be called only once but there is no harm in
+			 * repeatedly calling it.
+			 *
+			 * @param keys The set of keys whose values are synced.
+			 */
+			setKeysForSync(keys: readonly string[]): void;
+		};
+
+		/**
 		 * The uri of the directory containing the extension.
 		 */
 		readonly extensionUri: Uri;
@@ -755,6 +782,49 @@ declare module "vscode" {
 		 * for possible values and scenarios.
 		 */
 		readonly extensionMode: ExtensionMode;
+	}
+
+	/**
+	 * A memento represents a storage utility. It can store and retrieve
+	 * values.
+	 */
+	export interface Memento {
+
+		/**
+		 * Returns the stored keys.
+		 *
+		 * @returns The stored keys.
+		 */
+		keys(): readonly string[];
+
+		/**
+		 * Return a value.
+		 *
+		 * @param key A string.
+		 * @returns The stored value or `undefined`.
+		 */
+		get<T>(key: string): T | undefined;
+
+		/**
+		 * Return a value.
+		 *
+		 * @param key A string.
+		 * @param defaultValue A value that should be returned when there is no
+		 * value (`undefined`) with the given key.
+		 * @returns The stored value or the defaultValue.
+		 */
+		get<T>(key: string, defaultValue: T): T;
+
+		/**
+		 * Store a value. The value must be JSON-stringifyable.
+		 *
+		 * *Note* that using `undefined` as value removes the key from the underlying
+		 * storage.
+		 *
+		 * @param key A string.
+		 * @param value A value. MUST not contain cyclic references.
+		 */
+		update(key: string, value: any): Thenable<void>;
 	}
 
 	/**
@@ -3324,6 +3394,99 @@ declare module "vscode" {
 		 * @returns A new file system watcher instance. Must be disposed when no longer needed.
 		 */
 		export function createFileSystemWatcher(globPattern: GlobPattern, ignoreCreateEvents?: boolean, ignoreChangeEvents?: boolean, ignoreDeleteEvents?: boolean): FileSystemWatcher;
+
+		/**
+		 * When true, the user has explicitly trusted the contents of the workspace.
+		 */
+		export const isTrusted: boolean;
+
+		/**
+		 * Event that fires when the current workspace has been trusted.
+		 */
+		export const onDidGrantWorkspaceTrust: Event<void>;
+	}
+
+	/**
+	 * Namespace for localization-related functionality in the extension API. To use this properly,
+	 * you must have `l10n` defined in your extension manifest and have bundle.l10n.<language>.json files.
+	 * For more information on how to generate bundle.l10n.<language>.json files, check out the
+	 * [vscode-l10n repo](https://github.com/microsoft/vscode-l10n).
+	 *
+	 * Note: Built-in extensions (for example, Git, TypeScript Language Features, GitHub Authentication)
+	 * are excluded from the `l10n` property requirement. In other words, they do not need to specify
+	 * a `l10n` in the extension manifest because their translated strings come from Language Packs.
+	 */
+	export namespace l10n {
+		/**
+		 * Marks a string for localization. If a localized bundle is available for the language specified by
+		 * {@link env.language} and the bundle has a localized value for this message, then that localized
+		 * value will be returned (with injected {@link args} values for any templated values).
+		 *
+		 * @param message - The message to localize. Supports index templating where strings like `{0}` and `{1}` are
+		 * replaced by the item at that index in the {@link args} array.
+		 * @param args - The arguments to be used in the localized string. The index of the argument is used to
+		 * match the template placeholder in the localized string.
+		 * @returns localized string with injected arguments.
+		 *
+		 * @example
+		 * l10n.t('Hello {0}!', 'World');
+		 */
+		export function t(message: string, ...args: Array<string | number | boolean>): string;
+
+		/**
+		 * Marks a string for localization. If a localized bundle is available for the language specified by
+		 * {@link env.language} and the bundle has a localized value for this message, then that localized
+		 * value will be returned (with injected {@link args} values for any templated values).
+		 *
+		 * @param message The message to localize. Supports named templating where strings like `{foo}` and `{bar}` are
+		 * replaced by the value in the Record for that key (foo, bar, etc).
+		 * @param args The arguments to be used in the localized string. The name of the key in the record is used to
+		 * match the template placeholder in the localized string.
+		 * @returns localized string with injected arguments.
+		 *
+		 * @example
+		 * l10n.t('Hello {name}', { name: 'Erich' });
+		 */
+		export function t(message: string, args: Record<string, string | number | boolean>): string;
+		/**
+		 * Marks a string for localization. If a localized bundle is available for the language specified by
+		 * {@link env.language} and the bundle has a localized value for this message, then that localized
+		 * value will be returned (with injected args values for any templated values).
+		 *
+		 * @param options The options to use when localizing the message.
+		 * @returns localized string with injected arguments.
+		 */
+		export function t(options: {
+			/**
+			 * The message to localize. If {@link options.args args} is an array, this message supports index templating where strings like
+			 * `{0}` and `{1}` are replaced by the item at that index in the {@link options.args args} array. If `args` is a `Record`,
+			 * this supports named templating where strings like `{foo}` and `{bar}` are replaced by the value in
+			 * the Record for that key (foo, bar, etc).
+			 */
+			message: string;
+			/**
+			 * The arguments to be used in the localized string. As an array, the index of the argument is used to
+			 * match the template placeholder in the localized string. As a `Record`, the key is used to match the template
+			 * placeholder in the localized string.
+			 */
+			args?: Array<string | number | boolean> | Record<string, string | number | boolean>;
+			/**
+			 * A comment to help translators understand the context of the message.
+			 */
+			comment: string | string[];
+		}): string;
+		/**
+		 * The bundle of localized strings that have been loaded for the extension.
+		 * It's undefined if no bundle has been loaded. The bundle is typically not loaded if
+		 * there was no bundle found or when we are running with the default language.
+		 */
+		export const bundle: { [key: string]: string } | undefined;
+		/**
+		 * The URI of the localization bundle that has been loaded for the extension.
+		 * It's undefined if no bundle has been loaded. The bundle is typically not loaded if
+		 * there was no bundle found or when we are running with the default language.
+		 */
+		export const uri: Uri | undefined;
 	}
 
 	/**
@@ -4718,6 +4881,89 @@ declare module "vscode" {
 		}>;
 	}
 
+	/**
+	 * Represents the severity of a language status item.
+	 */
+	/**
+	 * Represents the severity level of a language status.
+	 */
+	export enum LanguageStatusSeverity {
+		/**
+		 * Informational severity level.
+		 */
+		Information = 0,
+		/**
+		 * Warning severity level.
+		 */
+		Warning = 1,
+		/**
+		 * Error severity level.
+		 */
+		Error = 2
+	}
+
+	/**
+	 * A language status item is the preferred way to present language status reports for the active text editors,
+	 * such as selected linter or notifying about a configuration problem.
+	 */
+	export interface LanguageStatusItem {
+
+		/**
+		 * The identifier of this item.
+		 */
+		readonly id: string;
+
+		/**
+		 * The short name of this item, like 'Java Language Status', etc.
+		 */
+		name: string | undefined;
+
+		/**
+		 * A {@link DocumentSelector selector} that defines for what editors
+		 * this item shows.
+		 */
+		selector: DocumentSelector;
+
+		/**
+		 * The severity of this item.
+		 *
+		 * Defaults to {@link LanguageStatusSeverity.Information information}. You can use this property to
+		 * signal to users that there is a problem that needs attention, like a missing executable or an
+		 * invalid configuration.
+		 */
+		severity: LanguageStatusSeverity;
+
+		/**
+		 * The text to show for the entry. You can embed icons in the text by leveraging the syntax:
+		 *
+		 * `My text $(icon-name) contains icons like $(icon-name) this one.`
+		 *
+		 * Where the icon-name is taken from the ThemeIcon [icon set](https://code.visualstudio.com/api/references/icons-in-labels#icon-listing), e.g.
+		 * `light-bulb`, `thumbsup`, `zap` etc.
+		 */
+		text: string;
+
+		/**
+		 * Optional, human-readable details for this item.
+		 */
+		detail?: string;
+
+		/**
+		 * Controls whether the item is shown as "busy". Defaults to `false`.
+		 */
+		busy: boolean;
+
+		/**
+		 * A {@linkcode Command command} for this item.
+		 */
+		command: Command | undefined;
+
+		/**
+		 * Dispose and free associated resources.
+		 */
+		dispose(): void;
+	}
+
 	export namespace languages {
 
 		/**
@@ -4872,6 +5118,15 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerFoldingRangeProvider(selector: DocumentSelector, provider: FoldingRangeProvider): Disposable;
+
+		/**
+		 * Creates a new {@link LanguageStatusItem language status item}.
+		 *
+		 * @param id The identifier of the item.
+		 * @param selector The document selector that defines for what editors the item shows.
+		 * @returns A new language status item.
+		 */
+		export function createLanguageStatusItem(id: string, selector: DocumentSelector): LanguageStatusItem;
 	}
 
 	/**

@@ -488,6 +488,13 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         registerTextDocumentContentProvider: (): vscode.Disposable =>
             new DisposableImpl(() => undefined) as unknown as vscode.Disposable,
 
+        // Модели доверия воркспейса у Diode нет — открытое всегда доверено
+        // (как VS Code с выключенным workspace trust). Ruff по этому флагу
+        // выбирает между native server и legacy ruff-lsp; `false` уводил бы
+        // его в принудительный bundled-путь с предупреждением в логе.
+        isTrusted: true,
+        onDidGrantWorkspaceTrust: naiveEvent<void>(),
+
         onWillSaveTextDocument: (
             listener: (e: vscode.TextDocumentWillSaveEvent) => unknown,
             thisArgs?: unknown,

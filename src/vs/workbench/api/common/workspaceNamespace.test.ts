@@ -24,6 +24,20 @@ function makeCtx() {
     return { stub, ctx, workspace: createWorkspaceNamespace(ctx) };
 }
 
+describe("WorkspaceNamespace — workspace trust (naive)", () => {
+    it("открытый воркспейс всегда доверен, событие подписываемо и не стреляет", () => {
+        const { workspace } = makeCtx();
+        expect(workspace.isTrusted).toBe(true);
+
+        const listener = vi.fn();
+        const subscription = workspace.onDidGrantWorkspaceTrust(listener);
+        expect(listener).not.toHaveBeenCalled();
+        expect(() => {
+            subscription.dispose();
+        }).not.toThrow();
+    });
+});
+
 describe("WorkspaceNamespace — configuration", () => {
     it("getConfiguration читает из pushed workspace.initialize", () => {
         const { stub, workspace } = makeCtx();

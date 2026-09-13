@@ -8,6 +8,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { buildVscodeNamespace } from "../../../api/common/vscodeNamespace.ts";
 import { ExtensionMode, Uri } from "../../../api/common/vscodeTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
+import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
 
 /**
  * Сообщения protocol host -> subprocess. RPC-методы:
@@ -40,6 +41,8 @@ interface ExtensionContext {
     readonly extensionPath: string;
     readonly extensionUri: Uri;
     readonly extensionMode: ExtensionMode;
+    readonly globalState: IExtensionMemento;
+    readonly workspaceState: IExtensionMemento;
     asAbsolutePath(relativePath: string): string;
 }
 
@@ -107,6 +110,10 @@ export function runExtensionHostSubprocess(): void {
             extensionPath: rootPath,
             extensionUri: Uri.file(rootPath),
             extensionMode: ExtensionMode.Production,
+            // In-memory memento (setKeysForSync — только у globalState, как в
+            // vscode API); без него activate() ruff падал на globalState.get.
+            globalState: createExtensionMemento(true),
+            workspaceState: createExtensionMemento(false),
             asAbsolutePath: (relativePath: string): string => path.join(rootPath, relativePath),
         };
         const active: ActivatedExtension = { id, mod: loaded, context };
