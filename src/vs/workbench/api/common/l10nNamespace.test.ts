@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createL10nNamespace } from "./l10nNamespace.ts";
 
-const l10n = createL10nNamespace();
+// Namespace собирается в beforeEach, а не на уровне модуля: вызов при импорте
+// исполняется до активации мутанта Stryker в том же воркере, и мутант тела
+// createL10nNamespace выживал бы ложно (поймано CI-джобой mutation).
+let l10n: ReturnType<typeof createL10nNamespace>;
 
 describe("vscode.l10n (без бандла переводов)", () => {
+    beforeEach(() => {
+        l10n = createL10nNamespace();
+    });
     it("t(message) возвращает строку как есть", () => {
         expect(l10n.t("Server failed to start.")).toBe("Server failed to start.");
     });
