@@ -1285,6 +1285,20 @@ export function createLanguagesNamespace(
 
     const languagesNs = {
         createDiagnosticCollection,
+        // Наивный language status item: держатель полей с честным dispose, в UI
+        // ничего не проецируется (в статус-баре места под язык-статус нет).
+        // Ruff держит в нём состояние сервера и обновляет text/severity/busy.
+        createLanguageStatusItem: (id: string, selector: vscode.DocumentSelector): vscode.LanguageStatusItem => ({
+            id,
+            selector,
+            name: undefined,
+            text: "",
+            detail: undefined,
+            severity: 0,
+            command: undefined,
+            busy: false,
+            dispose: () => undefined,
+        }),
         // Настоящий match: vscode-languageclient фильтрует ИМ документы для
         // синхронизации с сервером (textSynchronization.js) — наивный «всегда 10»
         // скармливал ts-серверу markdown и meta-обёртки, сервер ронял хендлеры.

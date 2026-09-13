@@ -672,6 +672,12 @@ export enum DiagnosticTag {
     Deprecated = 2,
 }
 
+export enum LanguageStatusSeverity {
+    Information = 0,
+    Warning = 1,
+    Error = 2,
+}
+
 export enum CompletionItemTag {
     Deprecated = 1,
 }

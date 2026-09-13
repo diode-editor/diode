@@ -135,4 +135,33 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             }
         },
     },
+    {
+        // kind: "proxy-openvsx", ПЛАТФОРМЕННЫЕ vsix — настоящий ruff с open-vsx
+        // (Python-линт/формат). Чек доказывает весь платформенный маршрут
+        // магазина наблюдаемым результатом: запись `targetPlatform` текущей
+        // машины → её артефакт → распаковка с восстановлением exec-бита →
+        // spawn нативного `ruff server` из бандла → диагностика в кадре.
+        // Плюс курируемый дефолт `ruff.importStrategy: "useBundled"`
+        // (`curatedConfigInjection` в src/vs/diode/main.ts).
+        id: "charliermarsh.ruff",
+        expectFiles: ["package.json", "dist/extension.js", "bundled/libs/bin/ruff"],
+        timeoutMs: 420_000,
+        run: async (ctx) => {
+            // Неиспользуемый импорт → F401 из дефолтного набора правил → сервер
+            // шлёт диагностику, редактор рисует undercurl (StyleFlags.Undercurl
+            // === 8) — стандартный readiness-сигнал наших LSP e2e.
+            const file = join(ctx.root, "lint.py");
+            writeFileSync(file, "import sys\n\nprint(1)\n");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle от ruff", timeoutMs: 180_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
 ];

@@ -127,8 +127,11 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
 | `workspace.onDid/Will{Create,Delete,Rename}Files`, notebook-события | no-op | продюсеры файловых операций ядра → RPC |
 | `window.withProgress` | real | запись статус-бара с анимированным спиннером (`ProgressStatusBarAdapter`); message/increment серверного workDoneProgress обновляют текст; отмена НЕ поддержана — токен никогда не стреляет (`ProgressPart` languageclient'а это переживает); на смерть subprocess'а host сам гасит живые спиннеры |
 | `window.tabGroups` | naive | проекция вкладок группы: снимки `Tab` на момент вызова (идентичность не гарантируется), `onDidChangeTabs` живой, `close` работает; на них опирается pull-диагностика languageclient 10 (basedpyright) |
-| `vscode.extensions` | naive | `getExtension` честно `undefined`, `all` пуст, `onDidChange` не стреляет — каталог расширений субпроцессу не раздаётся; для pyright-семейства (детект Pylance/ms-python) это правильный ответ |
-| `ExtensionContext` | naive | `subscriptions` + `extensionPath`/`extensionUri`/`asAbsolutePath` (корень установки vsix едет от host'а в регистрации; builtin'ы — от каталога `filename`) + `extensionMode: Production`; memento/secrets/storageUri — нет |
+| `vscode.extensions` | naive | `getExtension` честно `undefined`, `all` пуст, `onDidChange` не стреляет — каталог расширений субпроцессу не раздаётся; для pyright-семейства (детект Pylance/ms-python) это правильный ответ; ruff по тому же `undefined` не находит Python-окружений и садится на bundled-бинарь |
+| `ExtensionContext` | naive | `subscriptions` + `extensionPath`/`extensionUri`/`asAbsolutePath` (корень установки vsix едет от host'а в регистрации; builtin'ы — от каталога `filename`) + `extensionMode: Production` + **in-memory memento** `globalState`/`workspaceState` (`extensionMemento.ts`: честные get/update/keys в пределах жизни субпроцесса, `setKeysForSync` — только у globalState; без memento activate() ruff падал на `globalState.get`); secrets/storageUri — нет |
+| `workspace.isTrusted` / `onDidGrantWorkspaceTrust` | naive | модели доверия нет — всегда `true`, событие не стреляет; по флагу ruff выбирает native server vs legacy ruff-lsp |
+| `languages.createLanguageStatusItem` | naive | держатель полей с честным dispose, в UI не проецируется; ruff держит в нём состояние сервера. Enum `LanguageStatusSeverity` — в стабе |
+| `l10n` | naive | `t` подставляет плейсхолдеры (`{0}`/`{name}`/options-форма — `l10nNamespace.ts`), бандлов переводов нет (`bundle`/`uri` — `undefined`); ruff зовёт `t` на каждое пользовательское сообщение |
 | `commands.registerTextEditorCommand` | naive | обёртка над `registerCommand`: без активного редактора — warn + no-op (семантика VS Code), edit-builder инертный (батч-правки — за `workspace.applyEdit`-путём) |
 | `window.showTextDocument` | naive | возвращает активный редактор; закрытие: RPC открытия ресурса |
 | `window.createOutputChannel` | real | канал в панели Output (`extensions.<slug(name)>`, label = name; `ExtensionOutputAdapter`): append/appendLine/LogOutputChannel-методы с уровнями, `show()` открывает панель на канале; люфты — `clear`/`replace` no-op (журнал ретенционный), trace/debug фильтруются уровнем логгера |
@@ -153,6 +156,24 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   python — indentation-based ядра (сервер `textDocument/foldingRange` не
   реализует). Запись `proxy-openvsx` в реестре магазина — сделана
   ([Marketplace.md](Marketplace.md)); дальше — gopls (маршрут «бинарь в PATH»).
+- **Второй Python-сервер — ruff сделан (#305)**: настоящий `charliermarsh.ruff`
+  с open-vsx рядом с basedpyright — линт-диагностики (pull с re-pull на
+  правку буфера), quickfix по диагностике (safe-фикс `isPreferred`),
+  `source.organizeImports.ruff` / `source.fixAll.ruff` (иерархический матч
+  команд #196 без единой правки шва), формат документа/выделения от нативного
+  `ruff server` (Python не нужен). Дистрибуция — **платформенные vsix**
+  (universal у ruff нет): ось `targetPlatform` в магазине + восстановление
+  exec-бита нативных бинарей в `installVsix` (PR 1, diode#306), запись 6
+  платформ в реестре ([Marketplace.md](Marketplace.md)). Курируемый дефолт
+  `ruff.importStrategy: "useBundled"` (`curatedConfigInjection`; манифестный
+  `fromEnvironment` сканирует окружение — bundled детерминирован, а
+  `nativeServer: "auto"` сам выбирает native: bundled заведомо ≥ 0.5.3).
+  Стаб-добавки — memento/l10n/languageStatus/isTrusted (таблица выше). Гейты —
+  сьюты `extensionHost.ruffLsp*` + `extensionHost.pythonDuo` (оба сервера
+  разом: диагностики сливаются, формат отдаёт ruff), e2e `ruffLsp.test.ts`,
+  сценарий `ruff-lint`, смоук магазина. Нюанс фикстур: дефолтный набор правил
+  ruff 0.16 включает F401/I001, но НЕ E711 (и фикс E711 — unsafe, Fix All его
+  не берёт).
 - Инкрементальный sync + debounce; позиция курсора в didChange (для серверов,
   которым нужна — сейчас не передаётся).
 - **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,

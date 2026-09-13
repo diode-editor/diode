@@ -2,6 +2,7 @@ import type * as vscode from "vscode";
 
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
+import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -36,6 +37,7 @@ import {
     FoldingRangeKind,
     Hover,
     InlayHint,
+    LanguageStatusSeverity,
     Location,
     LogLevel,
     MarkdownString,
@@ -229,12 +231,18 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         TabInputNotebook,
         TabInputNotebookDiff,
         TabInputTerminal,
+        // Статус language server'а (languages.createLanguageStatusItem) — ruff
+        // сравнивает и выставляет severity этим enum'ом на каждый апдейт статуса.
+        LanguageStatusSeverity,
         window,
         workspace,
         languages,
         commands,
         env,
         extensions,
+        // l10n без бандлов переводов: t подставляет плейсхолдеры, bundle/uri
+        // честно undefined (ruff зовёт t на каждое пользовательское сообщение).
+        l10n: createL10nNamespace(),
     } as unknown as typeof vscode;
 
     return { namespace, configStore: ctx.configStore };
