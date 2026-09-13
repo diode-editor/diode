@@ -647,10 +647,20 @@ function builtinConfigInjection(manifestName: string, logger: ILogger): Record<s
  * undefined, а вызов в activate() не обёрнут в try/catch — проверено на 1.40.0).
  * В Diode питон-расширения Microsoft не существует, поэтому единственный рабочий
  * путь — вшитый в vsix сервер; включаем его дефолтом.
+ *
+ * ruff: манифестный дефолт `importStrategy: "fromEnvironment"` активацию не
+ * роняет (без ms-python расширение честно падает на bundled), но сканирует
+ * окружение и зависит от PATH; вшитый в платформенный vsix нативный бинарь —
+ * детерминированный native server без Python вовсе (`nativeServer: "auto"`
+ * выбирает его сам: bundled ruff заведомо ≥ 0.5.3). Пользовательский
+ * `settings.json` может вернуть `fromEnvironment` — слой переопределяем.
  */
 function curatedConfigInjection(extensionId: string): Record<string, unknown> {
     if (extensionId === "detachhead.basedpyright") {
         return { "basedpyright.importStrategy": "useBundled" };
+    }
+    if (extensionId === "charliermarsh.ruff") {
+        return { "ruff.importStrategy": "useBundled" };
     }
     return {};
 }

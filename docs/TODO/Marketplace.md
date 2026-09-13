@@ -225,6 +225,18 @@ registry/v1/meta/<id>.json
   [LSP.md](LSP.md)); смоук магазина доказывает, что дефолт применяется и при
   установке из реестра.
 
+- [x] **Кандидат: `charliermarsh.ruff` 2026.80.0** — опубликован (#305):
+  первая запись с **платформенными артефактами** — universal-сборки у ruff
+  нет, шесть записей одной версии с `targetPlatform`
+  (linux/darwin/win32 × x64/arm64; alpine/armhf не включены — таких хостов у
+  diode нет) и гейтом `engines.diode: ">=0.3.1"` (политика — раздел «Формат
+  данных»). Внутри vsix — нативный бинарь `bundled/libs/bin/ruff`, его
+  исполняемость восстанавливает `installVsix` (exec-бит из zip-атрибутов).
+  Курируемый дефолт `ruff.importStrategy: "useBundled"` — детерминированный
+  native server без Python (см. [LSP.md](LSP.md)). Смоук магазина — undercurl
+  F401 на .py-файле; сьюты `extensionHost.ruffLsp*`, e2e `ruffLsp.test.ts` и
+  сценарий `ruff-lint` берут расширение ИЗ МАГАЗИНА.
+
 ## Шаг 4: Extensions view — [ExtensionsView.md](ExtensionsView.md)
 
 Просмотр магазина из редактора: вьюлет сайдбара (поиск + каталог + установленные),
