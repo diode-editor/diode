@@ -26,6 +26,23 @@ describe("vscode.l10n (без бандла переводов)", () => {
         expect(l10n.t("keep {2} and {foo}", "only-zero")).toBe("keep {2} and {foo}");
     });
 
+    it("плейсхолдер без аргументов вовсе — строка как есть, без обращения к args", () => {
+        expect(l10n.t("hello {0}")).toBe("hello {0}");
+        // options-форма — единственный путь, где args именно undefined (рест
+        // всегда даёт массив): подстановка не должна трогать args вовсе.
+        expect(l10n.t({ message: "keep {0}", comment: "c" })).toBe("keep {0}");
+    });
+
+    it("объект среди НЕСКОЛЬКИХ rest-аргументов — не record-форма", () => {
+        // Форма t(message, record) — ровно один объект вторым аргументом;
+        // с хвостом аргументов это rest-путь, объект стрингифицируется.
+        expect(l10n.t("{0} {1}", { a: 1 } as unknown as string, "z")).toBe("[object Object] z");
+    });
+
+    it("null вторым аргументом — rest-путь, а не record", () => {
+        expect(l10n.t("hi {0}", null as unknown as string)).toBe("hi null");
+    });
+
     it("falsy-аргументы подставляются, а не пропускаются", () => {
         expect(l10n.t("{0} and {flag}", 0)).toBe("0 and {flag}");
         expect(l10n.t("flag={flag}", { flag: false })).toBe("flag=false");

@@ -38,6 +38,9 @@ describe("createExtensionMemento", () => {
         const globalState = createExtensionMemento(true);
         const workspaceState = createExtensionMemento(false);
         expect(workspaceState.setKeysForSync).toBeUndefined();
-        expect(() => globalState.setKeysForSync?.(["a"])).not.toThrow();
+        // Именно функция, а не опциональный no-op: расширения зовут её без
+        // проверки существования — undefined.call уронил бы activate().
+        expect(typeof globalState.setKeysForSync).toBe("function");
+        expect(globalState.setKeysForSync?.(["a"])).toBeUndefined();
     });
 });
