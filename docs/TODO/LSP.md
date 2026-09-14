@@ -100,7 +100,11 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   `DIODE_RUN_AS_NODE=1` — любой форк diode-бинаря из расширения работает как
   node (`main.ts` проверяет RUN_AS_NODE первым; env-фикс — в
   `runExtensionHostSubprocess`, гейт — `extensionHost.fork.test.ts` + e2e
-  `pythonLsp.test.ts` на настоящем SEA).
+  `pythonLsp.test.ts` на настоящем SEA). Продолжение грабли: `Files.resolve()`
+  vscode-languageserver'а (так eslint ищет линтер в проекте) форкает execPath с
+  `execArgv: ["-e", <скрипт>]` — runAsNode обязан понимать eval-режим node,
+  иначе расширение молча не линтит, а ошибка видна только в канале Output
+  (гейт — `runAsNode.eval.test.ts` + e2e `eslintLsp.test.ts` на настоящем SEA).
 
 ## Таблица стабов vscode API (заполняется по шагам 2–3)
 
