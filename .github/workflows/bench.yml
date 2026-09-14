@@ -1,0 +1,66 @@
+# Бенчмарк открытия файла (e2e/bench/benchOpen.ts) на CI.
+#
+# Цифры со shared-раннера шумные, поэтому джоба ничего не гейтит — она снимает
+# отчёт и открывает PR с обновлением docs/public/BENCH-OPEN.md (+ сырой JSON).
+# Публикация через PR сознательно: цифры смотрим глазами до мержа, шумный
+# прогон просто закрываем.
+#
+# PR, созданный GITHUB_TOKEN, не триггерит CI-workflow'ы — для docs-only
+# изменения это ок; при желании прогнать CI — close/reopen руками.
+name: Bench
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Раз в неделю: чаще цифры без гейта читать некому.
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bench-open:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+
+      # node-pty собирается из исходников, если для текущей версии Node нет
+      # prebuild (та же оговорка, что в ci.yml / e2e).
+      - name: Install build deps for node-pty
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential python3
+
+      - run: npm install
+
+      - run: npm run build:sea
+
+      - name: Run open-file benchmark
+        run: npm run bench:open -- --md=docs/public/BENCH-OPEN.md --json=docs/public/bench/open.json
+        env:
+          DIODE_E2E_BINARY: ${{ github.workspace }}/dist/diode
+
+      - name: Open PR with the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="bench/open-report-${{ github.run_id }}"
+          git checkout -b "$branch"
+          git add docs/public/BENCH-OPEN.md docs/public/bench/open.json
+          if git diff --cached --quiet; then
+            echo "Отчёт не изменился — PR не нужен."
+            exit 0
+          fi
+          git commit -m "docs(bench): отчёт бенчмарка открытия файла ($(date -u +%Y-%m-%d))"
+          git push origin "$branch"
+          gh pr create \
+            --title "docs(bench): отчёт бенчмарка открытия файла ($(date -u +%Y-%m-%d))" \
+            --body "$(printf 'Автоматический отчёт джобы bench.yml (run %s, commit %s).\n\nЦифры со shared-раннера — смотрим глазами и мержим, если прогон не шумный.\n\n---\n\n%s' "${{ github.run_id }}" "${{ github.sha }}" "$(cat docs/public/BENCH-OPEN.md)")"
