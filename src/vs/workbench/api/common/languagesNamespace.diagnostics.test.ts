@@ -66,12 +66,16 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         rich.code = { value: "no-extra-semi", target: Uri.parse("https://eslint.org/docs/rules/no-extra-semi") } as never;
         const garbage = new Diagnostic(new Range(1, 0, 1, 1), "x");
         garbage.code = { targetOnly: true } as never;
+        // null — тоже typeof "object": ветка rich-формы обязана его пережить.
+        const nullCode = new Diagnostic(new Range(2, 0, 2, 1), "y");
+        nullCode.code = null as never;
 
-        collection.set(FILE as unknown as vscode.Uri, [rich, garbage] as unknown as vscode.Diagnostic[]);
+        collection.set(FILE as unknown as vscode.Uri, [rich, garbage, nullCode] as unknown as vscode.Diagnostic[]);
 
         const markers = published(stub)[0]?.markers ?? [];
         expect(markers[0]).toMatchObject({ code: "no-extra-semi" });
         expect(markers[1]).not.toHaveProperty("code");
+        expect(markers[2]).not.toHaveProperty("code");
     });
 
     it("кривые поля диагностики уходят к дефолтам (severity 0, пустой range, строковый message)", () => {

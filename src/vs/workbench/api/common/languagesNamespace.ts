@@ -51,10 +51,7 @@ function toWireMarker(diag: unknown): WireMarker {
     const r = d.range ?? { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
     // code бывает и rich-формой { value, target } (ссылка на доку правила —
     // так шлёт eslint); wire несёт только value, target TUI некуда открывать.
-    const rawCode =
-        typeof d.code === "object" && d.code !== null && "value" in d.code
-            ? (d.code as { value: unknown }).value
-            : d.code;
+    const rawCode = typeof d.code === "object" && d.code !== null ? (d.code as { value?: unknown }).value : d.code;
     const code = typeof rawCode === "string" || typeof rawCode === "number" ? String(rawCode) : undefined;
     return {
         severity: typeof d.severity === "number" ? d.severity : 0,
