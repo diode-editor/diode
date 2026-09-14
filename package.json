@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:perf": "vitest bench --run --config vitest.perf.config.ts",
+    "bench:open": "tsx e2e/bench/benchOpen.ts",
     "test:mutation": "node scripts/mutation-diff.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ extensions/",

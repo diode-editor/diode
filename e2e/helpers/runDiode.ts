@@ -32,6 +32,13 @@ export interface DiodeSessionOptions {
      * (см. `getSelfExtractPath()` и `selfextract.test.ts`).
      */
     binary?: string;
+    /**
+     * Хук на каждый чанк stdout, вызывается синхронно в момент прихода данных.
+     * Нужен бенчмаркам (`e2e/bench/`): они записывают таймстемп каждого чанка,
+     * чтобы восстановить момент появления содержимого на экране точнее, чем
+     * позволяет поллинг `waitFor`.
+     */
+    onData?: (data: string) => void;
 }
 
 /**
@@ -47,6 +54,7 @@ export class DiodeSession {
     private buffer = "";
     private exited = false;
     private exitCode: number | null = null;
+    private exitSignalCode: number | null = null;
     private readonly waiters: Array<() => void> = [];
     private inspectorWs: WebSocket | null = null;
 
@@ -75,21 +83,29 @@ export class DiodeSession {
             env,
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
         });
-        return new DiodeSession(term, cols, rows, inspectorPort);
+        return new DiodeSession(term, cols, rows, inspectorPort, options.onData ?? null);
     }
 
-    private constructor(term: pty.IPty, cols: number, rows: number, inspectorPort: number | null) {
+    private constructor(
+        term: pty.IPty,
+        cols: number,
+        rows: number,
+        inspectorPort: number | null,
+        onData: ((data: string) => void) | null,
+    ) {
         this.term = term;
         this.cols = cols;
         this.rows = rows;
         this.inspectorPort = inspectorPort;
         this.term.onData((data) => {
             this.buffer += data;
+            onData?.(data);
             for (const w of this.waiters.splice(0)) w();
         });
-        this.term.onExit(({ exitCode }) => {
+        this.term.onExit(({ exitCode, signal }) => {
             this.exited = true;
             this.exitCode = exitCode;
+            this.exitSignalCode = signal ?? null;
             for (const w of this.waiters.splice(0)) w();
         });
     }
@@ -100,6 +116,11 @@ export class DiodeSession {
 
     public get code(): number | null {
         return this.exitCode;
+    }
+
+    /** Номер сигнала, убившего процесс (например 9 при OOM-kill), или null. */
+    public get exitSignal(): number | null {
+        return this.exitSignalCode;
     }
 
     public getRawOutput(): string {
