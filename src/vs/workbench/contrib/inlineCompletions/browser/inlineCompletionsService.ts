@@ -11,7 +11,6 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
-import { isSingleCharInsert } from "../../suggest/browser/completionService.ts";
 import type { CompletionService } from "../../suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../../suggest/browser/completionService.ts";
 
@@ -63,10 +62,6 @@ export class InlineCompletionsService extends Disposable {
     // Маркер «была правка контента», выставляется content-листенером и
     // потребляется в onCaretChanged (view-state там уже консистентен).
     private contentDidChange = false;
-    // Кэш прошлого состояния строки/каретки для эвристики «вставлен 1 символ».
-    private lastCaretLine = -1;
-    private lastCaretChar = -1;
-    private lastLine = "";
     private autoTriggerTimer: ReturnType<typeof setTimeout> | null = null;
     // Номер последнего запроса к источнику: ответ с чужим номером устарел.
     private requestSeq = 0;
@@ -267,7 +262,6 @@ export class InlineCompletionsService extends Disposable {
         this.hide();
         this.cancelAutoTrigger();
         this.requestSeq++;
-        this.resetCaretCache(editor);
         if (editor === null) return;
         this.contentSub = editor.onDidChangeContent(() => {
             this.contentDidChange = true;
@@ -287,8 +281,9 @@ export class InlineCompletionsService extends Disposable {
 
     /**
      * Единый обработчик изменения каретки/текста. Живая сессия либо сжимается/
-     * растёт локально (набранное совпадает с подсказкой), либо гаснет; набор
-     * символа при погашенной планирует авто-запрос.
+     * растёт локально (набранное совпадает с подсказкой), либо гаснет; правка
+     * при погашенной планирует авто-запрос (как upstream — рефетч на любое
+     * изменение текста: одиночный символ, paste, Backspace, Enter).
      */
     private onCaretChanged(): void {
         const wasEdit = this.contentDidChange;
@@ -300,7 +295,6 @@ export class InlineCompletionsService extends Disposable {
         if (editor === null) {
             this.hide();
             this.cancelAutoTrigger();
-            this.resetCaretCache(null);
             return;
         }
 
@@ -310,7 +304,6 @@ export class InlineCompletionsService extends Disposable {
             if (caret !== null) {
                 // Набранное совпадает с подсказкой — сжать/растить без перезапроса.
                 this.show(session);
-                this.updateCaretCacheFromEditor(editor);
                 return;
             }
             this.hide();
@@ -318,21 +311,12 @@ export class InlineCompletionsService extends Disposable {
 
         const selections = editor.viewState.selections;
         const single = selections.length === 1 && isSelectionCollapsed(selections[0]);
-        const active = single ? selections[0].active : null;
-        const line = active !== null ? editor.viewState.document.getLineContent(active.line) : "";
 
-        if (
-            !suppressed &&
-            wasEdit &&
-            single &&
-            active !== null &&
-            isSingleCharInsert(line, active, this.lastCaretLine, this.lastCaretChar, this.lastLine)
-        ) {
+        if (!suppressed && wasEdit && single) {
             this.scheduleAutoTrigger();
         } else {
             this.cancelAutoTrigger();
         }
-        this.updateCaretCache(active, line);
     }
 
     private scheduleAutoTrigger(): void {
@@ -348,27 +332,6 @@ export class InlineCompletionsService extends Disposable {
             clearTimeout(this.autoTriggerTimer);
             this.autoTriggerTimer = null;
         }
-    }
-
-    private updateCaretCacheFromEditor(editor: TextEditorPane): void {
-        const selections = editor.viewState.selections;
-        const active = selections.length === 1 && isSelectionCollapsed(selections[0]) ? selections[0].active : null;
-        const line = active !== null ? editor.viewState.document.getLineContent(active.line) : "";
-        this.updateCaretCache(active, line);
-    }
-
-    private updateCaretCache(active: IPosition | null, line: string): void {
-        this.lastCaretLine = active?.line ?? -1;
-        this.lastCaretChar = active?.character ?? -1;
-        this.lastLine = line;
-    }
-
-    private resetCaretCache(editor: TextEditorPane | null): void {
-        if (editor === null) {
-            this.updateCaretCache(null, "");
-            return;
-        }
-        this.updateCaretCacheFromEditor(editor);
     }
 }
 

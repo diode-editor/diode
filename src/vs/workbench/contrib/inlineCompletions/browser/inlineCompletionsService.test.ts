@@ -324,21 +324,23 @@ describe("InlineCompletionsService — гейты", () => {
 
     it("ответ, пережитый правкой документа, не показывается", async () => {
         const fake = makeEditor("a", 1);
-        let resolveSource!: (v: readonly ICoreInlineCompletionItem[]) => void;
+        const resolvers: ((v: readonly ICoreInlineCompletionItem[]) => void)[] = [];
         const source = (): Promise<readonly ICoreInlineCompletionItem[]> =>
             new Promise((resolve) => {
-                resolveSource = resolve;
+                resolvers.push(resolve);
             });
         const service = makeService(makeGroup(fake.editor, source).group);
 
         const pending = service.trigger();
-        // Правка + возврат каретки в ту же позицию: versionId уже другой.
+        // Правка + возврат каретки в ту же позицию: versionId уже другой (правка
+        // заодно планирует свой авто-запрос — его резолвер второй в массиве).
         fake.type("a", 1);
         await tick();
-        resolveSource([{ insertText: "-stale" }]);
+        resolvers[0]([{ insertText: "-stale" }]);
         await pending;
 
         expect(fake.setGhostText).not.toHaveBeenCalledWith(expect.objectContaining({ lines: ["-stale"] }));
+        expect(service.isOpen()).toBe(false);
     });
 });
 
