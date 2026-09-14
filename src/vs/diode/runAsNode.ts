@@ -22,13 +22,40 @@ import * as path from "node:path";
  * Ограничение: ведущие `--*`-аргументы пропускаются без интерпретации — SEA не
  * умеет node-флаги из командной строки (`--max-old-space-size` от
  * `maxTsServerMemory` игнорируется; при надобности — трансляция в NODE_OPTIONS).
+ * Исключение — `-e`/`--eval`: исполняется как у node (см. ниже).
  */
 export function runAsNode(): void {
     // Под SEA argv[1] — плейсхолдер вшитого main; пользовательские аргументы —
     // argv.slice(2) (та же арифметика, что у parseCliArgs редакторной ветки).
     const args = process.argv.slice(2);
     let scriptIndex = 0;
-    while (scriptIndex < args.length && args[scriptIndex].startsWith("--")) scriptIndex++;
+    while (scriptIndex < args.length && (args[scriptIndex].startsWith("--") || args[scriptIndex] === "-e")) {
+        // `-e <код>` — eval-режим node: CJS-модуль в cwd, argv без слота
+        // скрипта (как у настоящего node). Так `Files.resolve()`
+        // vscode-languageserver'а ищет библиотеку линтера в проекте:
+        // fork(execPath, "", { execArgv: ["-e", <resolve-скрипт>] }) — скрипт
+        // говорит с родителем по IPC fork'а (проверено стоковым eslint).
+        if (args[scriptIndex] === "-e" || args[scriptIndex] === "--eval") {
+            const code = args[scriptIndex + 1];
+            if (code === undefined) {
+                process.stderr.write("diode (run-as-node): -e requires an argument\n");
+                process.exit(9);
+            }
+            process.argv = [process.argv[0], ...args.slice(scriptIndex + 2)];
+            const evalPath = path.join(process.cwd(), "[eval]");
+            type CompilableEvalModule = InstanceType<typeof Module> & {
+                _compile(source: string, filename: string): void;
+            };
+            const evalModule = new Module("[eval]") as CompilableEvalModule;
+            evalModule.filename = evalPath;
+            evalModule.paths = (Module as unknown as { _nodeModulePaths(dir: string): string[] })._nodeModulePaths(
+                process.cwd(),
+            );
+            evalModule._compile(code, evalPath);
+            return;
+        }
+        scriptIndex++;
+    }
     const script = args[scriptIndex];
     if (script === undefined) {
         process.stderr.write("diode (run-as-node): no script path in argv\n");

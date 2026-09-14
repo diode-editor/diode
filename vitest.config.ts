@@ -27,10 +27,12 @@ export default defineConfig({
         "src/vs/workbench/api/common/testStubRpc.ts", // тестовый стаб RpcEndpoint для unit-тестов namespace'ов
         "src/TestUtils/basedpyrightFixture.ts", // обвязка сьютов pythonLsp*: ветка таймаута until() достижима только в красном прогоне
         "src/TestUtils/stockVsix.ts", // скачивание vsix из магазина (ошибочные ветки — сеть/битый реестр — достижимы только в красном прогоне)
+        "src/TestUtils/eslintFixture.ts", // обвязка сьютов eslintLsp*: npm-установка библиотеки достижима только на холодном кэше (сеть), гонка rename — только в параллельном забеге
         "src/**/*.stories.ts",
         "src/demos/**",
         "src/vs/diode/main.ts",
-        "src/vs/diode/runAsNode.ts", // node-режим SEA-бинаря (DIODE_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled
+        "src/vs/diode/runAsNode.ts", // node-режим SEA-бинаря (DIODE_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled; eval-режим — runAsNode.eval.test.ts (child-process, v8-покрытие форк не видит)
+        "src/vs/diode/runAsNode.testEntry.ts", // child-process вход runAsNode.eval.test.ts — исполняется только в форке
         "src/vs/workbench/services/extensions/node/loadTsServer.ts", // выбор источника бандла завязан на SEA/self-extract окружение; чистая распаковка — extractBundleToCache (юниты), сквозняк — e2e lspBundled
         "src/StoryRunner/**",
         "src/vs/workbench/services/extensions/node/__fixtures__/**",

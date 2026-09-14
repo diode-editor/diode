@@ -100,7 +100,11 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   `DIODE_RUN_AS_NODE=1` — любой форк diode-бинаря из расширения работает как
   node (`main.ts` проверяет RUN_AS_NODE первым; env-фикс — в
   `runExtensionHostSubprocess`, гейт — `extensionHost.fork.test.ts` + e2e
-  `pythonLsp.test.ts` на настоящем SEA).
+  `pythonLsp.test.ts` на настоящем SEA). Продолжение грабли: `Files.resolve()`
+  vscode-languageserver'а (так eslint ищет линтер в проекте) форкает execPath с
+  `execArgv: ["-e", <скрипт>]` — runAsNode обязан понимать eval-режим node,
+  иначе расширение молча не линтит, а ошибка видна только в канале Output
+  (гейт — `runAsNode.eval.test.ts` + e2e `eslintLsp.test.ts` на настоящем SEA).
 
 ## Таблица стабов vscode API (заполняется по шагам 2–3)
 
@@ -113,7 +117,7 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
 | `workspace.onDidCloseTextDocument` | real | — (закрыт в [EditorGroups](EditorGroups.md): `editor.didClose` + сброс didOpen-дедупа) |
 | `languages.registerDefinitionProvider` | real | — (шаг 2: seam `iDefinitionSource` → RPC `languages.provideDefinition`, таймаут 5000 мс — холодный сервер; UI — `DefinitionService` + F12, кросс-файловая навигация паттерном Problems reveal) |
 | `languages.registerCompletionItemProvider` | real | seam `iCompletionSource` → RPC `languages.provideCompletionItems` (ответ `{items, isIncomplete}`) + `languages.resolveCompletionItem` (описание, авто-импорт); `triggerCharacters` доезжают через `languages.updateSubscriptions`; UI — попап с панелью описания. **Грабля**: конвертер клиента конструирует `new code.CompletionList(...)` на КАЖДЫЙ ответ, а `new code.SnippetString(...)` — на сниппет-пункт; без этих классов в стабе конвертация падала целиком, и ошибка была видна только в `client.outputChannel` (0 пунктов, тишина) |
-| `languages.createDiagnosticCollection` | naive | работает: notify `diagnostics.publish` → `diagnosticsSink` → `MarkerService.changeOne` (squiggle + Problems); наивность — related information не передаётся, маркеры мёртвого subprocess'а не сбрасываются до рестарта |
+| `languages.createDiagnosticCollection` | naive | работает: notify `diagnostics.publish` → `diagnosticsSink` → `MarkerService.changeOne` (squiggle + Problems); rich-форма `code: { value, target }` (так шлёт eslint — код правила + ссылка на доку) уезжает своим value, target TUI некуда открывать; наивность — related information не передаётся, маркеры мёртвого subprocess'а не сбрасываются до рестарта |
 | `languages.match` | real | скоринг через `matchDocumentSelector` (10/0) — vscode-languageclient фильтрует ИМ документы для синхронизации с сервером; наивное «всегда 10» скармливало ts-серверу markdown и роняло его хендлеры |
 | `languages.registerHoverProvider` | real | seam `iHoverSource` → RPC `languages.provideHover` (таймаут 5000 мс — тот же холодный сервер); **несколько провайдеров** конкатенируются в порядке регистрации (по `WireHover` на непустой ответ), сбойный пропускается; wire несёт сырой markdown, стрип — в UI (`stripMarkdown` в `HoverService`). UI — contrib `hover` (пара `HoverService`/`HoverComponent` по образцу suggest, элемент `HoverElement` с рамкой и переносом), Ctrl+K Ctrl+U (не VS Code-овский Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает байтом Tab, и тот чорд там недостижим и занят фолбэком мультикурсора; одиночный `alt+буква` в дефолты не берём — `alt` layout-sensitive и молчит на кириллице), Escape/правка/каретка/фокус закрывают. Люфты v1: контент — плоский текст (markdown-рендерера нет), высота клампится без скролла, мышиного триггера нет |
 | `languages.registerReferenceProvider` | real | seam `iReferenceSource` → RPC `languages.provideReferences` (таймаут 5000 мс — поиск ссылок по проекту дороже одиночного перехода); в параметрах LSP-контекст `includeDeclaration` (шлём `true`, как VS Code); **несколько провайдеров** конкатенируются в порядке регистрации, сбойный пропускается. UI — contrib `references`: вьюлет сайдбара REFERENCES (`ReferencesComponent` + `ReferencesService`), файлы со счётчиком и строки кода с подсветкой вхождения — строки общие с панелью поиска (`searchResultRows`). Текст строк LSP не отдаёт: добираем сами (`referencePreview.ts`) из открытой модели, иначе с диска. Ctrl+K Ctrl+R (и канонический Shift+Alt+F12 вторым биндом), F4/Shift+F4 — обход ссылок из редактора. Люфты v1: нет истории запросов, удаления результата из списка, иерархии каталогов и peek-виджета |
@@ -132,6 +136,8 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
 | `workspace.isTrusted` / `onDidGrantWorkspaceTrust` | naive | модели доверия нет — всегда `true`, событие не стреляет; по флагу ruff выбирает native server vs legacy ruff-lsp |
 | `languages.createLanguageStatusItem` | naive | держатель полей с честным dispose, в UI не проецируется; ruff держит в нём состояние сервера. Enum `LanguageStatusSeverity` — в стабе |
 | `l10n` | naive | `t` подставляет плейсхолдеры (`{0}`/`{name}`/options-форма — `l10nNamespace.ts`), бандлов переводов нет (`bundle`/`uri` — `undefined`); ruff зовёт `t` на каждое пользовательское сообщение |
+| `vscode.tasks` | naive | `registerTaskProvider` регистрирует в никуда (disposable честный), `taskExecutions` пуст, события не стреляют — слоя тасков в ядре нет, provideTasks никто не позовёт. Без стаба `eslint.lintTask.enable: true` ронял бы клиент vscode-eslint целиком |
+| `window.showQuickPick` | naive | всегда `undefined` — валидная семантика «пользователь отменил» (типовой потребитель — pickFolder мульти-рут-команд vscode-eslint; однопапочный Diode до выбора не доходит). Настоящий пикер — вместе с проводкой QuickInputService до субпроцесса |
 | `commands.registerTextEditorCommand` | naive | обёртка над `registerCommand`: без активного редактора — warn + no-op (семантика VS Code), edit-builder инертный (батч-правки — за `workspace.applyEdit`-путём) |
 | `window.showTextDocument` | naive | возвращает активный редактор; закрытие: RPC открытия ресурса |
 | `window.createOutputChannel` | real | канал в панели Output (`extensions.<slug(name)>`, label = name; `ExtensionOutputAdapter`): append/appendLine/LogOutputChannel-методы с уровнями, `show()` открывает панель на канале; люфты — `clear`/`replace` no-op (журнал ретенционный), trace/debug фильтруются уровнем логгера |
@@ -205,6 +211,24 @@ diode ручные, так что `"explicit"` ≡ `true`) и `editor.formatOnSa
   сценарий `ruff-lint`, смоук магазина. Нюанс фикстур: дефолтный набор правил
   ruff 0.16 включает F401/I001, но НЕ E711 (и фикс E711 — unsafe, Fix All его
   не берёт).
+- **Третий язык — JavaScript/ESLint сделан**: настоящий `dbaeumer.vscode-eslint`
+  с open-vsx как есть (запись `proxy-openvsx`, universal — платформенной оси
+  не нужно). Новый маршрут дистрибуции сервера: расширение НЕ бандлит линтер —
+  eslintServer резолвит библиотеку eslint из `node_modules` ПРОЕКТА (нет
+  библиотеки/конфига — нет линта, честное сообщение расширения). Диагностики —
+  push (`publishDiagnostics`, а не pull basedpyright/ruff), quickfix по правилу
+  (`isPreferred`), `source.fixAll.eslint` руками и через `editor.codeActionsOnSave`
+  (#310); первый жилец middleware `workspace/configuration` — однопапочного
+  `getConfiguration(section, scope-игнорируется)` хватает. Стаб-добавки — rich-code
+  диагностик + no-op `tasks`/`showQuickPick` (таблица выше); курируемых дефолтов
+  НЕ потребовалось. Гейты — сьюты `extensionHost.eslintLsp*` (фикстура
+  `eslintFixture.ts`: кэшируемый `npm install eslint` + симлинк в воркспейс),
+  e2e `eslintLsp.test.ts` (fix on save сквозь SEA), сценарий `eslint-lint`
+  (первый с `prepare`-хуком фреймворка), смоук магазина. Осознанные люфты:
+  `eslint.createConfig` падает (нет `createTerminal`), кнопки-действия
+  `show*Message` не выбираются (диалоги «no config found» деградируют до
+  текста), ссылки на доку правил не открываются (`env.openExternal` отказывает),
+  `eslint.format.enable` не гоняли (формат закрыт ruff-стеком).
 - Инкрементальный sync + debounce; позиция курсора в didChange (для серверов,
   которым нужна — сейчас не передаётся).
 - **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,

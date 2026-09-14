@@ -236,6 +236,16 @@ registry/v1/meta/<id>.json
   native server без Python (см. [LSP.md](LSP.md)). Смоук магазина — undercurl
   F401 на .py-файле; сьюты `extensionHost.ruffLsp*`, e2e `ruffLsp.test.ts` и
   сценарий `ruff-lint` берут расширение ИЗ МАГАЗИНА.
+- [x] **Кандидат: `dbaeumer.vscode-eslint` 3.0.34** — опубликован: запись
+  `proxy-openvsx`, universal (платформенной оси и гейта `engines.diode` не
+  требуется). Особенность: расширение НЕ бандлит линтер — eslintServer
+  резолвит библиотеку eslint из `node_modules` открытого проекта, поэтому все
+  тестовые обвязки доносят её сами (`eslintFixture.ts`: кэшируемый
+  `npm install eslint` + симлинк в воркспейс; закоммитить такую фикстуру
+  нельзя). Курируемых дефолтов не потребовалось. Смоук магазина — undercurl
+  no-extra-semi на .js-файле; сьюты `extensionHost.eslintLsp*`, e2e
+  `eslintLsp.test.ts` (fix on save) и сценарий `eslint-lint` берут расширение
+  ИЗ МАГАЗИНА.
 
 ## Шаг 4: Extensions view — [ExtensionsView.md](ExtensionsView.md)
 

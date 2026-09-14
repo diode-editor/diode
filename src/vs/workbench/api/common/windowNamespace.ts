@@ -762,6 +762,13 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             },
         } as unknown as vscode.TabGroups,
 
+        // Наивный quickPick: UI-выбора у субпроцесса нет, резолв undefined —
+        // валидная семантика «пользователь отменил» (типовой потребитель —
+        // pickFolder мульти-рут-команд vscode-eslint; однопапочный Diode до
+        // выбора и не доходит). Настоящий пикер — вместе с проводкой
+        // QuickInputService до субпроцесса.
+        showQuickPick: (): Thenable<undefined> => Promise.resolve(undefined),
+
         // `window.showTextDocument` (3 перегрузки): нормализуем в один запрос
         // хосту; к моменту резолва `editor.layoutChanged` уже применён (хост
         // флашит его перед ответом), так что редактор существует в снимке.

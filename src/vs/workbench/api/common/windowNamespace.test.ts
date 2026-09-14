@@ -120,6 +120,20 @@ describe("WindowNamespace", () => {
         ]);
     });
 
+    it("showQuickPick — наивный: резолвится undefined («пользователь отменил»), rpc не трогает", async () => {
+        const { stub, window } = makeCtx();
+        // Утиный каст: наивный член дормантной части dts активную поверхность
+        // не расширяет (конвенция env/tasks-стабов).
+        const pending = (window as unknown as {
+            showQuickPick(items: readonly string[]): Thenable<string | undefined>;
+        }).showQuickPick(["a", "b"]);
+        // Именно thenable, не голый undefined: вызывающие делают .then().
+        expect(typeof pending.then).toBe("function");
+        expect(await pending).toBeUndefined();
+        expect(stub.requests).toHaveLength(0);
+        expect(stub.notifies).toHaveLength(0);
+    });
+
     it("window.state сфокусировано; onDidChangeWindowState регистрируется и не стреляет", () => {
         const { window } = makeCtx();
         expect(window.state).toEqual({ focused: true, active: true });

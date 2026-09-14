@@ -68,6 +68,11 @@ const EXCLUDED = [
     // сьюты с настоящим субпроцессом (extensionHost.context/fork/pythonLsp*),
     // из покрытия vitest он исключён по той же причине.
     /^src\/vs\/workbench\/services\/extensions\/node\/extensionHostSubprocess\.ts$/,
+    // Тот же процессный барьер: runAsNode исполняется ТОЛЬКО в форке diode-бинаря
+    // (DIODE_RUN_AS_NODE), а его гейты — child-process (runAsNode.eval.test.ts,
+    // смоук build-sea, e2e lspBundled/eslintLsp) — покрытие в __stryker__ не
+    // возвращают; из покрытия vitest файл исключён по той же причине.
+    /^src\/vs\/diode\/runAsNode(\.testEntry)?\.ts$/,
     // Точка входа приложения: разбор CLI, бутстрап DI и подъём TUI. Юнит-тестов
     // у неё нет по устройству — она же исключена из покрытия в vitest.config.ts,
     // — поэтому все её мутанты выходят «не покрыты ни одним тестом» и убить их
