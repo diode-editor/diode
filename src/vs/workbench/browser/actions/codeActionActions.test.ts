@@ -206,14 +206,19 @@ describe("editor.action.organizeImports / fixAll", () => {
             {
                 provide: () =>
                     Promise.resolve([
-                        { id: "1.0", title: "Src organize", kind: "source.organizeImports" },
-                        { id: "1.1", title: "Refactor extract", kind: "refactor.extract" },
-                        { id: "1.2", title: "Weird kind", kind: "weird.kind" },
-                        { id: "1.3", title: "Fix sub", kind: "quickfix.special" },
-                        { id: "1.4", title: "Bare command" },
-                        { id: "1.5", title: "Refactor preferred", kind: "refactor", isPreferred: true },
-                        { id: "1.6", title: "Fix plain", kind: "quickfix" },
-                        { id: "1.7", title: "Fix preferred", kind: "quickfix", isPreferred: true },
+                        // preferred первым, обычный сразу за ним: insertion-sort
+                        // V8 зовёт compare(новый, существующий), и вставка
+                        // второго элемента гарантированно идёт веткой «a обычный,
+                        // b preferred» (`: 1` — на CI она осталась непокрытой,
+                        // main покраснел по храповику ветвей).
+                        { id: "1.0", title: "Fix preferred", kind: "quickfix", isPreferred: true },
+                        { id: "1.1", title: "Fix plain", kind: "quickfix" },
+                        { id: "1.2", title: "Src organize", kind: "source.organizeImports" },
+                        { id: "1.3", title: "Refactor extract", kind: "refactor.extract" },
+                        { id: "1.4", title: "Weird kind", kind: "weird.kind" },
+                        { id: "1.5", title: "Fix sub", kind: "quickfix.special" },
+                        { id: "1.6", title: "Bare command" },
+                        { id: "1.7", title: "Refactor preferred", kind: "refactor", isPreferred: true },
                         { id: "1.8", title: "Src exact", kind: "source" },
                     ]),
                 apply: () => Promise.resolve(true),
@@ -224,8 +229,8 @@ describe("editor.action.organizeImports / fixAll", () => {
 
         expect(setup.pickCalls[0]?.items.map((i) => i.label)).toEqual([
             "Fix preferred",
-            "Fix sub",
             "Fix plain",
+            "Fix sub",
             "Refactor preferred",
             "Refactor extract",
             "Src organize",
@@ -234,7 +239,7 @@ describe("editor.action.organizeImports / fixAll", () => {
             "Bare command",
         ]);
         // Выбор мапится в id ИСХОДНОГО действия, а не в позицию до сортировки.
-        expect(setup.appliedIds).toEqual(["1.7"]);
+        expect(setup.appliedIds).toEqual(["1.0"]);
     });
 
     it("quickFix: отмена меню — тишина; отказ apply — notice; пусто/нет источника — notice без меню", async () => {
