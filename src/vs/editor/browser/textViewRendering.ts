@@ -239,11 +239,14 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
         const screenX = startColumn + col;
         if (screenX >= contentCols) break;
         const char = displayLine.charAtColumn(col);
+        /* v8 ignore start -- defensive: col шагает по ширинам слотов от 0 и на колонку-продолжение широкого символа не попадает (в отличие от paintTextLine, где displayCol стартует с произвольного scrollLeft) */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: недостижимый защитный гард, см. v8 ignore
         if (char === "") {
             // Колонка-продолжение широкого символа — её красит Grid.
             col++;
             continue;
         }
+        /* v8 ignore stop */
         const slot = displayLine.graphemeAtColumn(col);
         /* v8 ignore start -- defensive: в пределах displayWidth слот есть всегда (см. paintTextLine) */
         // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: недостижимый защитный гард, см. v8 ignore

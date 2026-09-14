@@ -117,6 +117,8 @@ function makeEditor(lineContent: string, character: number): FakeEditor {
 interface FakeGroup {
     group: EditorService;
     setActiveEditor: (editor: TextEditorPane | null) => void;
+    /** Смена активного БЕЗ события — окно между закрытием вкладки и событием. */
+    setActiveEditorSilently: (editor: TextEditorPane | null) => void;
 }
 
 function makeGroup(editor: TextEditorPane | null, source: EditorService["inlineCompletionSource"]): FakeGroup {
@@ -135,6 +137,9 @@ function makeGroup(editor: TextEditorPane | null, source: EditorService["inlineC
         setActiveEditor: (next) => {
             active = next;
             for (const l of [...listeners]) l(next);
+        },
+        setActiveEditorSilently: (next) => {
+            active = next;
         },
     };
 }
@@ -234,6 +239,14 @@ describe("InlineCompletionsService — показ", () => {
                     { insertText: "log()", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } },
                     // range на другой строке.
                     { insertText: "confuse", range: { start: { line: 1, character: 0 }, end: { line: 1, character: 3 } } },
+                    // range не покрывает каретку.
+                    { insertText: "control", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } } },
+                    // filterText совпал, а insertText с набранным не начинается.
+                    {
+                        insertText: "xyz",
+                        filterText: "console",
+                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+                    },
                     // полностью набранный текст — хвоста нет.
                     { insertText: "con", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } },
                     { insertText: "st y = 1;" },
@@ -320,6 +333,76 @@ describe("InlineCompletionsService — гейты", () => {
 
         expect(fake.setGhostText).toHaveBeenLastCalledWith(expect.objectContaining({ lines: ["-second"] }));
         expect(fake.setGhostText).not.toHaveBeenCalledWith(expect.objectContaining({ lines: ["-first"] }));
+    });
+
+    it("ревалидация после await: смена редактора / versionId / мультикурсор / каретка / попап", async () => {
+        const deferred = (): {
+            source: () => Promise<readonly ICoreInlineCompletionItem[]>;
+            resolvers: ((v: readonly ICoreInlineCompletionItem[]) => void)[];
+        } => {
+            const resolvers: ((v: readonly ICoreInlineCompletionItem[]) => void)[] = [];
+            return {
+                resolvers,
+                source: () =>
+                    new Promise<readonly ICoreInlineCompletionItem[]>((resolve) => {
+                        resolvers.push(resolve);
+                    }),
+            };
+        };
+        const ITEM = [{ insertText: "-tail" }];
+
+        // Активный редактор тихо сменился, пока ждали ответ.
+        const switched = makeEditor("ab", 2);
+        const other = makeEditor("zz", 2);
+        const d1 = deferred();
+        const g1 = makeGroup(switched.editor, d1.source);
+        const s1 = makeService(g1.group);
+        const p1 = s1.trigger();
+        g1.setActiveEditorSilently(other.editor);
+        d1.resolvers[0](ITEM);
+        await p1;
+        expect(s1.isOpen()).toBe(false);
+
+        // Правка сдвинула versionId (ответ резолвится ДО дебаунс-перезапроса).
+        const edited = makeEditor("ab", 2);
+        const d2 = deferred();
+        const s2 = makeService(makeGroup(edited.editor, d2.source).group);
+        const p2 = s2.trigger();
+        edited.type("ab", 2); // содержимое то же, versionId другой
+        d2.resolvers[0](ITEM);
+        await p2;
+        expect(s2.isOpen()).toBe(false);
+
+        // Мультикурсор появился за время запроса.
+        const multi = makeEditor("ab", 2);
+        const d3 = deferred();
+        const s3 = makeService(makeGroup(multi.editor, d3.source).group);
+        const p3 = s3.trigger();
+        multi.setCursorCount(2);
+        d3.resolvers[0](ITEM);
+        await p3;
+        expect(s3.isOpen()).toBe(false);
+
+        // Каретка ушла (без правки).
+        const moved = makeEditor("ab", 2);
+        const d4 = deferred();
+        const s4 = makeService(makeGroup(moved.editor, d4.source).group);
+        const p4 = s4.trigger();
+        moved.move(0, 1);
+        d4.resolvers[0](ITEM);
+        await p4;
+        expect(s4.isOpen()).toBe(false);
+
+        // Suggest-попап открылся за время запроса.
+        const popup = makeEditor("ab", 2);
+        const d5 = deferred();
+        let popupOpen = false;
+        const s5 = makeService(makeGroup(popup.editor, d5.source).group, { popupOpen: () => popupOpen });
+        const p5 = s5.trigger();
+        popupOpen = true;
+        d5.resolvers[0](ITEM);
+        await p5;
+        expect(s5.isOpen()).toBe(false);
     });
 
     it("ответ, пережитый правкой документа, не показывается", async () => {
@@ -411,6 +494,61 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
         await service.trigger();
 
+        fake.move(0, 1);
+
+        expect(service.isOpen()).toBe(false);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+    });
+
+    it("каретка ушла с конца строки — подсказка гаснет", async () => {
+        const fake = makeEditor("abc", 3);
+        const source = items({ insertText: "cde", range: { start: { line: 0, character: 2 }, end: { line: 0, character: 3 } } });
+        const service = makeService(makeGroup(fake.editor, source).group);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        // Каретка внутри заменяемого диапазона, но не в конце строки.
+        fake.move(0, 2);
+
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("мультикурсор при живой сессии гасит подсказку", async () => {
+        const fake = makeEditor("ab", 2);
+        const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        fake.setCursorCount(2);
+
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("активный редактор тихо сменился на другой — cursor-событие старого гасит подсказку", async () => {
+        const fake = makeEditor("ab", 2);
+        const other = makeEditor("zz", 2);
+        const fakeGroup = makeGroup(fake.editor, items({ insertText: "cde" }));
+        const service = makeService(fakeGroup.group);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        fakeGroup.setActiveEditorSilently(other.editor);
+        fake.move(0, 1);
+
+        expect(service.isOpen()).toBe(false);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+    });
+
+    it("каретка дёрнулась, когда активного редактора уже нет — подсказка гаснет", async () => {
+        const fake = makeEditor("ab", 2);
+        const fakeGroup = makeGroup(fake.editor, items({ insertText: "cde" }));
+        const service = makeService(fakeGroup.group);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        // Окно между закрытием вкладки и событием onActiveEditorChanged:
+        // cursor-событие старого редактора приходит при active === null.
+        fakeGroup.setActiveEditorSilently(null);
         fake.move(0, 1);
 
         expect(service.isOpen()).toBe(false);

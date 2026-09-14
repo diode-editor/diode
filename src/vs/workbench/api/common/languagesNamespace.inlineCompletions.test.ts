@@ -161,6 +161,25 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         ]);
     });
 
+    it("дефолты params: без languageId/line/character/triggerKind — позиция (0,0), Automatic", async () => {
+        const { stub, ctx } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const seen: { pos?: vscode.Position; context?: vscode.InlineCompletionContext } = {};
+        languages.registerInlineCompletionItemProvider("plaintext", {
+            provideInlineCompletionItems: (_doc, position, context) => {
+                seen.pos = position;
+                seen.context = context;
+                return [];
+            },
+        });
+
+        await stub.callRequest("languages.provideInlineCompletions", { uri: URI });
+
+        expect(seen.pos?.line).toBe(0);
+        expect(seen.pos?.character).toBe(0);
+        expect(seen.context?.triggerKind).toBe(1); // Automatic
+    });
+
     it("null/undefined/мусор от провайдера — пустой ответ; пустой insertText отбрасывается", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
@@ -174,7 +193,20 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         );
         languages.registerInlineCompletionItemProvider(
             { language: "typescript" },
-            { provideInlineCompletionItems: () => [new InlineCompletionItem("") as never, "junk" as never] },
+            // items не массив (InlineCompletionList с мусором внутри).
+            { provideInlineCompletionItems: () => ({ items: 42 }) as never },
+        );
+        languages.registerInlineCompletionItemProvider(
+            { language: "typescript" },
+            {
+                provideInlineCompletionItems: () =>
+                    [
+                        new InlineCompletionItem(""),
+                        "junk",
+                        // insertText не строка и не SnippetString — drop+skip.
+                        { insertText: 42 },
+                    ] as never,
+            },
         );
 
         expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toEqual([]);

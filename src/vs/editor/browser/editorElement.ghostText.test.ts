@@ -150,6 +150,38 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getFgAt(new Point(gutterW + 1 + 2 + tabWidth, 0))).toBe(GHOST_FG);
     });
 
+    it("горизонтальный скролл: колонки подсказки левее вьюпорта пропускаются", () => {
+        // Строка каретки длиннее вьюпорта; скролл вправо уводит начало
+        // подсказки за левый край — видим только её хвост.
+        const viewState = new EditorViewState(new TextDocument("0123456789abcdefghij"));
+        const editor = new EditorElement(viewState);
+        editor.setStyleVars(STYLE_VARS);
+        editor.setGhostText({ line: 0, character: 20, lines: ["GHOST-TAIL"] });
+        viewState.scrollLeft = 24; // старт подсказки (кол. 20) левее вьюпорта
+        const app = TestApp.createWithContent(editor, new Size(16, 3));
+        app.render();
+
+        const gutterW = editor.gutterWidth;
+        // Первые 4 колонки подсказки отрезаны скроллом: видно "T-TAIL".
+        expect(app.backend.getTextAt(new Point(gutterW, 0), 6)).toBe("T-TAIL");
+        expect(app.backend.getFgAt(new Point(gutterW, 0))).toBe(GHOST_FG);
+    });
+
+    it("широкий символ подсказки, не влезающий у правого края, рисуется пробелом", () => {
+        const { app, editor } = createEditor("x", {
+            line: 0,
+            character: 1,
+            lines: ["a".repeat(16) + "你hidden"],
+        });
+
+        const gutterW = editor.gutterWidth; // 6 → contentCols = 18
+        const contentCols = 24 - gutterW;
+        // «你» ложится на последнюю колонку (screenX 17): целиком не влезает → пробел.
+        const row = app.backend.getTextAt(new Point(gutterW, 0), contentCols);
+        expect(row.includes("你")).toBe(false);
+        expect(row.startsWith("x" + "a".repeat(16))).toBe(true);
+    });
+
     it("inspectState отдаёт подсказку для e2e-ассертов", () => {
         const { editor } = createEditor("alpha", { line: 0, character: 5, lines: ["-x", "y"] });
         expect(editor.inspectState().ghostText).toEqual({ line: 0, character: 5, lines: ["-x", "y"] });
