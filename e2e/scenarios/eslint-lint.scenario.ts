@@ -56,9 +56,20 @@ export default defineScenario({
 
         // Каретка на первой строке (`const unused = 1;;`) → quickfix-меню
         // (Ctrl+K Ctrl+Q — досягаемый везде чорд): фиксы настоящего eslint.
-        await editor.sendKey("Ctrl+K");
-        await editor.sendKey("Ctrl+Q");
-        await editor.waitForText((t) => t.includes("no-extra-semi"), { timeoutMs: 60_000 });
+        // Меню наполняется ОДНИМ запросом с 5с-таймаутом: попади он в занятый
+        // сервер — меню останется пустым навсегда, сколько ни жди (пойманный
+        // флак). Поэтому не ждём одного открытия 60с, а переоткрываем меню.
+        for (let attempt = 0; ; attempt++) {
+            await editor.sendKey("Ctrl+K");
+            await editor.sendKey("Ctrl+Q");
+            try {
+                await editor.waitForText((t) => t.includes("no-extra-semi"), { timeoutMs: 20_000 });
+                break;
+            } catch (err) {
+                if (attempt >= 2) throw err;
+                await editor.sendKey("Escape");
+            }
+        }
         await editor.capture("quickfix");
 
         // Escape закрывает меню → Ctrl+S: codeActionsOnSave прогоняет

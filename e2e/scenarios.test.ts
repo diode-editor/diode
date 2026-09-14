@@ -19,7 +19,12 @@ describe("screenshot scenarios", () => {
         const skip =
             (spec.skipOn?.includes(process.platform) ?? false) ||
             (spec.network === true && process.env.DIODE_E2E_OFFLINE === "1");
-        it.skipIf(skip)(`renders "${spec.name}"`, async () => {
+        // 300с вместо дефолтных 60с e2e: extension-host сценарии на холодном
+        // раннере включают prepare (npm install библиотеки у eslint-lint),
+        // установку расширения из магазина и старт language-сервера — та же
+        // планка, что у extension-host e2e-сьютов (поймано красным main #312:
+        // eslint-lint уложился на PR-прогоне и вышел за 60с на пуш-прогоне).
+        it.skipIf(skip)(`renders "${spec.name}"`, { timeout: 300_000 }, async () => {
             const shots = await runScenario(spec);
 
             expect(shots.length).toBeGreaterThan(0);
