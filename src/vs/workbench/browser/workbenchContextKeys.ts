@@ -26,6 +26,8 @@ import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
+import type { InlineCompletionsService } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
+import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
@@ -66,6 +68,7 @@ export class WorkbenchContextKeys extends Disposable {
         CompletionServiceDIToken,
         HoverServiceDIToken,
         ParameterHintsServiceDIToken,
+        InlineCompletionsServiceDIToken,
         TerminalServiceDIToken,
         TerminalEnvironmentServiceDIToken,
         InputWidgetServiceDIToken,
@@ -85,6 +88,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly completionService: CompletionService,
         private readonly hoverService: HoverService,
         private readonly parameterHints: ParameterHintsService,
+        private readonly inlineCompletions: InlineCompletionsService,
         private readonly terminalService: TerminalService,
         private readonly terminalEnv: TerminalEnvironmentService,
         private readonly inputWidgetService: InputWidgetService,
@@ -198,6 +202,11 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("editorHoverVisible", this.hoverService.isOpen());
         this.contextKeys.set("parameterHintsVisible", this.parameterHints.isOpen());
         this.contextKeys.set("parameterHintsMultipleSignatures", this.parameterHints.hasMultipleSignatures());
+        this.contextKeys.set("inlineSuggestionVisible", this.inlineCompletions.isOpen());
+        this.contextKeys.set(
+            "inlineSuggestionHasIndentationLessThanTabSize",
+            this.inlineCompletions.hasIndentationLessThanTabSize(),
+        );
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         this.contextKeys.set("terminalIsOpen", this.terminalService.hasOpenTerminals);
 

@@ -46,6 +46,11 @@ import {
 } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { hideHoverAction, showHoverAction } from "../../contrib/hover/browser/hoverActions.ts";
 import {
+    commitInlineSuggestAction,
+    hideInlineSuggestAction,
+    triggerInlineSuggestAction,
+} from "../../contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
+import {
     closeParameterHintsAction,
     showNextParameterHintAction,
     showPrevParameterHintAction,
@@ -418,6 +423,12 @@ export const builtinActions: readonly CommandAction[] = [
     nextMatchAction,
     previousMatchAction,
     closeFindWidgetAction,
+    // Призрачные подсказки — ПЕРЕД suggest-экшенами: при открытом попапе Tab и
+    // Escape должны достаться попапу (последний зарегистрированный побеждает);
+    // у commit к тому же `!suggestWidgetVisible` в `when`.
+    triggerInlineSuggestAction,
+    commitInlineSuggestAction,
+    hideInlineSuggestAction,
     selectNextSuggestionAction,
     selectPrevSuggestionAction,
     selectNextPageSuggestionAction,
