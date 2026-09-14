@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, linkEslintLibrary } from "../../src/TestUtils/eslintFixture.ts";
+import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
@@ -46,19 +47,37 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("const unused"));
 
-        // Дождаться, пока настоящий eslintServer отлинтит открытый файл.
+        // Дождаться диагностик настоящего eslintServer. Не по undercurl'у:
+        // builtin TS-клиент линтит .js тоже, его подчёркивания приходят раньше
+        // и делают сигнал ложным (см. e2e/helpers/eslintReady.ts).
+        await waitForEslintDiagnostics({
+            key: (name) => editor.sendKey(name),
+            text: (value) => editor.sendText(value),
+            waitForText: (predicate, opts) => editor.waitForText(predicate, opts),
+        });
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от eslint", timeoutMs: 180_000, intervalMs: 500 },
+            { describe: "undercurl squiggle от eslint", timeoutMs: 30_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
 
         // Каретка на первой строке (`const unused = 1;;`) → quickfix-меню
         // (Ctrl+K Ctrl+Q — досягаемый везде чорд): фиксы настоящего eslint.
-        await editor.sendKey("Ctrl+K");
-        await editor.sendKey("Ctrl+Q");
-        await editor.waitForText((t) => t.includes("no-extra-semi"), { timeoutMs: 60_000 });
+        // Меню наполняется ОДНИМ запросом с 5с-таймаутом: попади он в занятый
+        // сервер — меню останется пустым навсегда, сколько ни жди (пойманный
+        // флак). Поэтому не ждём одного открытия 60с, а переоткрываем меню.
+        for (let attempt = 0; ; attempt++) {
+            await editor.sendKey("Ctrl+K");
+            await editor.sendKey("Ctrl+Q");
+            try {
+                await editor.waitForText((t) => t.includes("no-extra-semi"), { timeoutMs: 20_000 });
+                break;
+            } catch (err) {
+                if (attempt >= 2) throw err;
+                await editor.sendKey("Escape");
+            }
+        }
         await editor.capture("quickfix");
 
         // Escape закрывает меню → Ctrl+S: codeActionsOnSave прогоняет

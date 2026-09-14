@@ -196,6 +196,47 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(setup.notices).toEqual([]);
     });
 
+    it("quickFix: сортировка меню — quickfix выше refactor/source, preferred первым в группе, apply по своему id", async () => {
+        // Порядок провайдеров (многословный tsserver первым) не должен
+        // выталкивать фиксы линтера за край попапа — поймано на живом дуэте
+        // tsserver+eslint: 16 рефакторингов хоронили 9 quickfix'ов.
+        // Виды нарочно перемешаны и покрывают обе формы каждого ранга (точный
+        // kind и подвид), незнакомый вид и голую команду — хвост списка.
+        const setup = makeSetup(
+            {
+                provide: () =>
+                    Promise.resolve([
+                        { id: "1.0", title: "Src organize", kind: "source.organizeImports" },
+                        { id: "1.1", title: "Refactor extract", kind: "refactor.extract" },
+                        { id: "1.2", title: "Weird kind", kind: "weird.kind" },
+                        { id: "1.3", title: "Fix sub", kind: "quickfix.special" },
+                        { id: "1.4", title: "Bare command" },
+                        { id: "1.5", title: "Refactor preferred", kind: "refactor", isPreferred: true },
+                        { id: "1.6", title: "Fix plain", kind: "quickfix" },
+                        { id: "1.7", title: "Fix preferred", kind: "quickfix", isPreferred: true },
+                        { id: "1.8", title: "Src exact", kind: "source" },
+                    ]),
+                apply: () => Promise.resolve(true),
+            },
+            { pickLabel: "Fix preferred" },
+        );
+        await quickFixAction.run(setup.accessor);
+
+        expect(setup.pickCalls[0]?.items.map((i) => i.label)).toEqual([
+            "Fix preferred",
+            "Fix sub",
+            "Fix plain",
+            "Refactor preferred",
+            "Refactor extract",
+            "Src organize",
+            "Src exact",
+            "Weird kind",
+            "Bare command",
+        ]);
+        // Выбор мапится в id ИСХОДНОГО действия, а не в позицию до сортировки.
+        expect(setup.appliedIds).toEqual(["1.7"]);
+    });
+
     it("quickFix: отмена меню — тишина; отказ apply — notice; пусто/нет источника — notice без меню", async () => {
         const cancelled = makeSetup({
             provide: () => Promise.resolve([{ id: "1.0", title: "Fix" }]),

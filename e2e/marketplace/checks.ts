@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, LINT_JS, linkEslintLibrary } from "../../src/TestUtils/eslintFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
+import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
@@ -168,8 +169,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
     {
         // kind: "proxy-openvsx" — стоковый ESLint. Библиотеку eslint расширение
         // НЕ бандлит (сервер резолвит её из node_modules проекта) — чек доносит
-        // её в воркспейс симлинком из npm-кэша фикстуры и наблюдает диагностику
-        // настоящего eslintServer в кадре.
+        // её в воркспейс симлинком из npm-кэша фикстуры и ждёт диагностику
+        // настоящего eslintServer. Не по undercurl'у: builtin TS-клиент линтит
+        // .js тоже, и его подчёркивание делало бы чек ложно-зелёным при мёртвом
+        // eslint (см. e2e/helpers/eslintReady.ts).
         id: "dbaeumer.vscode-eslint",
         expectFiles: ["package.json", "client/out/extension.js", "server/out/eslintServer.js"],
         timeoutMs: 420_000,
@@ -180,11 +183,11 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             linkEslintLibrary(ctx.root, ensureEslintLibrary());
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
             try {
-                await waitUntil(
-                    () => app.session.captureFrame(),
-                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
-                    { describe: "undercurl squiggle от eslint", timeoutMs: 180_000, intervalMs: 500 },
-                );
+                await waitForEslintDiagnostics({
+                    key: (name) => app.session.sendKey(name),
+                    text: (value) => app.session.sendText(value),
+                    waitForText: (predicate, opts) => app.session.waitForText(predicate, opts),
+                });
             } finally {
                 await app.dispose();
             }
