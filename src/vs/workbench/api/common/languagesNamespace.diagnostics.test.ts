@@ -58,6 +58,22 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         ]);
     });
 
+    it("rich-code { value, target } уезжает своим value; мусорный объект — без code", () => {
+        const { stub, languages } = makeLanguages();
+        const collection = languages.createDiagnosticCollection("eslint");
+        const rich = new Diagnostic(new Range(0, 17, 0, 18), "Unnecessary semicolon.");
+        // Так шлёт eslint: код правила + ссылка на его доку.
+        rich.code = { value: "no-extra-semi", target: Uri.parse("https://eslint.org/docs/rules/no-extra-semi") } as never;
+        const garbage = new Diagnostic(new Range(1, 0, 1, 1), "x");
+        garbage.code = { targetOnly: true } as never;
+
+        collection.set(FILE as unknown as vscode.Uri, [rich, garbage] as unknown as vscode.Diagnostic[]);
+
+        const markers = published(stub)[0]?.markers ?? [];
+        expect(markers[0]).toMatchObject({ code: "no-extra-semi" });
+        expect(markers[1]).not.toHaveProperty("code");
+    });
+
     it("кривые поля диагностики уходят к дефолтам (severity 0, пустой range, строковый message)", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection();

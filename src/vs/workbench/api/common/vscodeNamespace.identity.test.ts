@@ -195,6 +195,30 @@ describe("VscodeNamespace — стабильная идентичность acti
         sub.dispose();
     });
 
+    it("tasks — наивный namespace: registerTaskProvider отдаёт disposable, события подписываем", () => {
+        const { rpc } = makeStubRpc();
+        // Утиный каст как у env-теста: no-op namespace дормантной части dts
+        // (`vscode.tasks`) активную поверхность не расширяет.
+        const vscode = buildVscodeNamespace(rpc).namespace as unknown as {
+            tasks: {
+                registerTaskProvider(type: string, provider: unknown): { dispose(): void };
+                taskExecutions: readonly unknown[];
+                onDidStartTask(listener: () => void): { dispose(): void };
+                onDidEndTask(listener: () => void): { dispose(): void };
+            };
+        };
+        // vscode-eslint зовёт это при `eslint.lintTask.enable: true` — включённая
+        // пользователем настройка не должна ронять клиент целиком.
+        const registration = vscode.tasks.registerTaskProvider("eslint", {
+            provideTasks: () => [],
+            resolveTask: () => undefined,
+        });
+        registration.dispose();
+        expect(vscode.tasks.taskExecutions).toEqual([]);
+        vscode.tasks.onDidStartTask(() => undefined).dispose();
+        vscode.tasks.onDidEndTask(() => undefined).dispose();
+    });
+
     it("ExtensionMode — runtime-enum (context.extensionMode сравнивают с ним)", () => {
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc).namespace;

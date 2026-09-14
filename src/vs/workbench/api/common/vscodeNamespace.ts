@@ -147,6 +147,19 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         onDidChange: new EventEmitter<void>().event,
     } as unknown;
 
+    // Наивный `tasks` — провайдер регистрируется в никуда: слоя тасков в ядре
+    // нет, и provideTasks никто никогда не позовёт (типовой потребитель —
+    // vscode-eslint при `eslint.lintTask.enable: true`; без стаба включённая
+    // пользователем настройка роняла бы клиент целиком). Настоящая проводка —
+    // вместе со слоем тасков.
+    const tasks = {
+        registerTaskProvider: (): vscode.Disposable =>
+            new DisposableImpl(() => undefined) as unknown as vscode.Disposable,
+        taskExecutions: [] as const,
+        onDidStartTask: new EventEmitter<never>().event,
+        onDidEndTask: new EventEmitter<never>().event,
+    } as unknown;
+
     const namespace = {
         // vscode-languageclient требует валидный VS Code semver (^1.91.0).
         // Лок-степ с extensions/VSCODE_VERSION — проверяет vscodeNamespace.identity.test.
@@ -243,6 +256,7 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         // l10n без бандлов переводов: t подставляет плейсхолдеры, bundle/uri
         // честно undefined (ruff зовёт t на каждое пользовательское сообщение).
         l10n: createL10nNamespace(),
+        tasks,
     } as unknown as typeof vscode;
 
     return { namespace, configStore: ctx.configStore };
