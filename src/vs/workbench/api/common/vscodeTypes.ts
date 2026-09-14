@@ -482,6 +482,44 @@ export class CompletionList<T extends CompletionItem = CompletionItem> {
     }
 }
 
+/** Чем спровоцирован запрос инлайн-подсказки (`InlineCompletionContext.triggerKind`). */
+export enum InlineCompletionTriggerKind {
+    Invoke = 0,
+    Automatic = 1,
+}
+
+/**
+ * Пункт инлайн-подсказки (`vscode.InlineCompletionItem`). Конструктор — как в
+ * d.ts: `(insertText, range?, command?)`. Понадобится и конвертеру стокового
+ * `vscode-languageclient` (он делает `new code.InlineCompletionItem(...)` на
+ * каждый ответ сервера — отсутствие класса молча убивает фичу целиком).
+ */
+export class InlineCompletionItem {
+    public insertText: string | SnippetString;
+    public filterText?: string;
+    public range?: Range;
+    public command?: { command: string; title: string; arguments?: unknown[] };
+
+    public constructor(
+        insertText: string | SnippetString,
+        range?: Range,
+        command?: { command: string; title: string; arguments?: unknown[] },
+    ) {
+        this.insertText = insertText;
+        this.range = range;
+        this.command = command;
+    }
+}
+
+/** Список инлайн-подсказок (`vscode.InlineCompletionList`). */
+export class InlineCompletionList {
+    public items: InlineCompletionItem[];
+
+    public constructor(items: InlineCompletionItem[]) {
+        this.items = items;
+    }
+}
+
 /**
  * Текст вставки со сниппет-синтаксисом (`vscode.SnippetString`). Сниппет-сессий
  * (табстопы, Tab-переходы) у нас нет — класс нужен как носитель значения:

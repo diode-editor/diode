@@ -300,7 +300,7 @@ describe("InlineCompletionsService — гейты", () => {
 
     it("устаревший ответ отброшен: новый запрос обгоняет старый", async () => {
         const fake = makeEditor("a", 1);
-        let resolveFirst: ((v: readonly ICoreInlineCompletionItem[]) => void) | null = null;
+        let resolveFirst!: (v: readonly ICoreInlineCompletionItem[]) => void;
         let calls = 0;
         const source = (): Promise<readonly ICoreInlineCompletionItem[]> => {
             calls++;
@@ -315,7 +315,7 @@ describe("InlineCompletionsService — гейты", () => {
 
         const first = service.trigger();
         await service.trigger();
-        resolveFirst?.([{ insertText: "-first" }]);
+        resolveFirst([{ insertText: "-first" }]);
         await first;
 
         expect(fake.setGhostText).toHaveBeenLastCalledWith(expect.objectContaining({ lines: ["-second"] }));
@@ -324,7 +324,7 @@ describe("InlineCompletionsService — гейты", () => {
 
     it("ответ, пережитый правкой документа, не показывается", async () => {
         const fake = makeEditor("a", 1);
-        let resolveSource: ((v: readonly ICoreInlineCompletionItem[]) => void) | null = null;
+        let resolveSource!: (v: readonly ICoreInlineCompletionItem[]) => void;
         const source = (): Promise<readonly ICoreInlineCompletionItem[]> =>
             new Promise((resolve) => {
                 resolveSource = resolve;
@@ -335,7 +335,7 @@ describe("InlineCompletionsService — гейты", () => {
         // Правка + возврат каретки в ту же позицию: versionId уже другой.
         fake.type("a", 1);
         await tick();
-        resolveSource?.([{ insertText: "-stale" }]);
+        resolveSource([{ insertText: "-stale" }]);
         await pending;
 
         expect(fake.setGhostText).not.toHaveBeenCalledWith(expect.objectContaining({ lines: ["-stale"] }));

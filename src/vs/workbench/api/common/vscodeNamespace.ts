@@ -37,6 +37,9 @@ import {
     FoldingRangeKind,
     Hover,
     InlayHint,
+    InlineCompletionItem,
+    InlineCompletionList,
+    InlineCompletionTriggerKind,
     LanguageStatusSeverity,
     Location,
     LogLevel,
@@ -170,6 +173,11 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         CompletionList,
         CompletionTriggerKind,
         SnippetString,
+        // InlineCompletionItem/List конструирует конвертер languageclient на
+        // каждом ответе inline-completion-сервера — классы обязаны быть настоящими.
+        InlineCompletionItem,
+        InlineCompletionList,
+        InlineCompletionTriggerKind,
         EndOfLine,
         TextDocumentSaveReason,
         FileChangeType,

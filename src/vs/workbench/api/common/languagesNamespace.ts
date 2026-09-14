@@ -16,6 +16,7 @@ import {
     CompletionTriggerKind,
     DisposableImpl,
     EventEmitter,
+    InlineCompletionTriggerKind,
     Position,
     Range,
     SignatureHelpTriggerKind,
@@ -32,6 +33,7 @@ import type {
     WireDefinitionLocation,
     WireFoldingRange,
     WireHover,
+    WireInlineCompletionItem,
     WireMarker,
     WireCodeAction,
     WireReference,
@@ -67,6 +69,12 @@ export interface ICompletionRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.CompletionItemProvider;
     readonly triggerCharacters: readonly string[];
+}
+
+/** Зарегистрированный inline-completion-провайдер (ghost text). */
+export interface IInlineCompletionRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.InlineCompletionItemProvider;
 }
 
 /** Зарегистрированный провайдер областей сворачивания. */
@@ -168,6 +176,18 @@ function rangesIntersect(a: Range, b: Range): boolean {
     const startsBeforeOrAt = (x: Position, y: Position): boolean =>
         x.line < y.line || (x.line === y.line && x.character <= y.character);
     return startsBeforeOrAt(a.start, b.end) && startsBeforeOrAt(b.start, a.end);
+}
+
+/** Wire-параметры запроса inline completions (host → subprocess). */
+interface IWireInlineCompletionParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId?: string;
+    readonly text?: string;
+    readonly line?: number;
+    readonly character?: number;
+    /** `InlineCompletionTriggerKind`; по умолчанию `Automatic`. */
+    readonly triggerKind?: number;
 }
 
 /** Wire-параметры запроса folding (host → subprocess). */
@@ -600,6 +620,7 @@ export function createLanguagesNamespace(
 ): {
     languages: typeof vscode.languages;
     registrations: readonly ICompletionRegistration[];
+    inlineCompletionRegistrations: readonly IInlineCompletionRegistration[];
     foldingRegistrations: readonly IFoldingRegistration[];
     definitionRegistrations: readonly IDefinitionRegistration[];
     hoverRegistrations: readonly IHoverRegistration[];
@@ -611,6 +632,7 @@ export function createLanguagesNamespace(
 } {
     const { rpc, documentSync } = ctx;
     const registrations: ICompletionRegistration[] = [];
+    const inlineCompletionRegistrations: IInlineCompletionRegistration[] = [];
     const foldingRegistrations: IFoldingRegistration[] = [];
     const definitionRegistrations: IDefinitionRegistration[] = [];
     const hoverRegistrations: IHoverRegistration[] = [];
@@ -709,6 +731,7 @@ export function createLanguagesNamespace(
             // форматтера» для этого документа/вида).
             hasFormattingProviders: formattingRegistrations.length > 0 || rangeFormattingRegistrations.length > 0,
             hasCodeActionsProviders: codeActionRegistrations.length > 0,
+            hasInlineCompletionProviders: inlineCompletionRegistrations.length > 0,
         });
     }
 
@@ -1180,6 +1203,76 @@ export function createLanguagesNamespace(
         };
     });
 
+    /**
+     * Сериализует пункт инлайн-подсказки (утиный тип `vscode.InlineCompletionItem`):
+     * `insertText` — строка либо `SnippetString` (плейсхолдеры вырезаются, чтобы
+     * сниппет-синтаксис не попал ни в превью, ни в буфер). `null` — форма чужая
+     * или текст пуст (drop+skip).
+     */
+    function serializeInlineCompletionItem(item: unknown): WireInlineCompletionItem | null {
+        if (typeof item !== "object" || item === null) return null;
+        const obj = item as { insertText?: unknown; filterText?: unknown; range?: unknown };
+        let insertText: string;
+        if (typeof obj.insertText === "string") {
+            insertText = obj.insertText;
+        } else if (obj.insertText instanceof SnippetString) {
+            insertText = stripSnippetPlaceholders(obj.insertText.value);
+        } else {
+            return null;
+        }
+        if (insertText === "") return null;
+        const range = serializeDefinitionRange(obj.range);
+        return {
+            insertText,
+            ...(typeof obj.filterText === "string" ? { filterText: obj.filterText } : {}),
+            ...(range === null ? {} : { range }),
+        };
+    }
+
+    rpc.handleRequest("languages.provideInlineCompletions", async (params): Promise<WireInlineCompletionItem[]> => {
+        const p = params as IWireInlineCompletionParams;
+        const doc: ExtHostTextDocument = documentSync.sync({
+            uri: p.uri,
+            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
+            text: p.text ?? "",
+        });
+        const position = new Position(p.line ?? 0, p.character ?? 0);
+        const token = neverCancelledToken();
+        // selectedCompletionInfo не поддержан: пока открыт suggest-попап, ядро
+        // ghost text не запрашивает вовсе (люфт v1 — docs/TODO/InlineCompletions.md).
+        const context = {
+            triggerKind: p.triggerKind ?? InlineCompletionTriggerKind.Automatic,
+            selectedCompletionInfo: undefined,
+        } as unknown as vscode.InlineCompletionContext;
+
+        const items: WireInlineCompletionItem[] = [];
+        for (const reg of inlineCompletionRegistrations) {
+            if (!matchDocumentSelector(reg.selector, doc)) continue;
+            let result: unknown;
+            try {
+                result = await Promise.resolve(
+                    reg.provider.provideInlineCompletionItems(
+                        doc as unknown as vscode.TextDocument,
+                        position as unknown as vscode.Position,
+                        context,
+                        token,
+                    ),
+                );
+            } catch {
+                continue; // сбойный провайдер не роняет остальные
+            }
+            if (result == null) continue;
+            // `InlineCompletionItem[] | InlineCompletionList` — нормализуем к массиву.
+            const rawItems = Array.isArray(result) ? result : ((result as { items?: unknown }).items ?? []);
+            if (!Array.isArray(rawItems)) continue;
+            for (const item of rawItems) {
+                const wire = serializeInlineCompletionItem(item);
+                if (wire !== null) items.push(wire);
+            }
+        }
+        return items;
+    });
+
     rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[]> => {
         const p = params as IWireFoldingParams;
         const doc: ExtHostTextDocument = documentSync.sync({
@@ -1480,7 +1573,21 @@ export function createLanguagesNamespace(
         registerDocumentRangeSemanticTokensProvider: registerNoopProvider,
         registerInlayHintsProvider: registerNoopProvider,
         registerInlineValuesProvider: registerNoopProvider,
-        registerInlineCompletionItemProvider: registerNoopProvider,
+        registerInlineCompletionItemProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.InlineCompletionItemProvider,
+        ): vscode.Disposable => {
+            const registration: IInlineCompletionRegistration = { selector, provider };
+            inlineCompletionRegistrations.push(registration);
+            if (inlineCompletionRegistrations.length === 1) pushSubscriptions();
+            return new DisposableImpl(() => {
+                const idx = inlineCompletionRegistrations.indexOf(registration);
+                if (idx >= 0) {
+                    inlineCompletionRegistrations.splice(idx, 1);
+                    if (inlineCompletionRegistrations.length === 0) pushSubscriptions();
+                }
+            }) as unknown as vscode.Disposable;
+        },
         registerLinkedEditingRangeProvider: registerNoopProvider,
         registerCallHierarchyProvider: registerNoopProvider,
         registerTypeHierarchyProvider: registerNoopProvider,
@@ -1489,6 +1596,7 @@ export function createLanguagesNamespace(
     return {
         languages: languagesNs as unknown as typeof vscode.languages,
         registrations,
+        inlineCompletionRegistrations,
         foldingRegistrations,
         definitionRegistrations,
         hoverRegistrations,

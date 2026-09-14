@@ -183,6 +183,9 @@ export const extensionHostModule: ContainerModule = (container) => {
         host.onCompletionTriggerCharactersChanged((characters) => {
             group.completionTriggerCharacters = characters;
         });
+        // Inline completions (ghost text): источник призрачных подсказок —
+        // провайдеры расширений через host (читает InlineCompletionsService).
+        group.inlineCompletionSource = (req) => host.provideInlineCompletions(req);
 
         // Definition: провайдеры расширений (languages.provideDefinition)
         // подключаются как источник целей Go to Definition (читает DefinitionService).

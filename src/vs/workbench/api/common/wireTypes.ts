@@ -9,6 +9,7 @@ import type {
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
+import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreParameterInfo,
@@ -598,6 +599,96 @@ export async function requestResolveCompletionItem(
     const outcome = await raceWithTimeout(request("languages.resolveCompletionItem", { id }), timeoutMs);
     if (outcome === TIMED_OUT) return null;
     return parseWireResolvedCompletionItem(outcome);
+}
+
+// ─── Inline completions (ghost text) ─────────────────────────────────────────
+
+/**
+ * Wire-форма пункта инлайн-подсказки (subprocess → host). `insertText` уже
+ * нормализован субпроцессом: `SnippetString` сериализуется текстом со стрипом
+ * плейсхолдеров.
+ */
+export interface WireInlineCompletionItem {
+    readonly insertText: string;
+    /** Гейт показа: заменяемый текст — префикс `filterText ?? insertText`. */
+    readonly filterText?: string;
+    /** Заменяемый диапазон (по d.ts — в пределах одной строки). */
+    readonly range?: IWireRange;
+}
+
+/** Параметры запроса inline completions (host → subprocess). */
+export interface IWireInlineCompletionParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    readonly text: string;
+    readonly line: number;
+    readonly character: number;
+    /** `InlineCompletionTriggerKind`: 0 — Invoke, 1 — Automatic. */
+    readonly triggerKind: number;
+}
+
+/** Валидирует один wire-пункт инлайн-подсказки; `null` — форма не распознана. */
+function parseWireInlineCompletionItem(raw: unknown): WireInlineCompletionItem | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.insertText !== "string" || obj.insertText === "") return null;
+    const range = parseWireRange(obj.range);
+    return {
+        insertText: obj.insertText,
+        ...(typeof obj.filterText === "string" ? { filterText: obj.filterText } : {}),
+        ...(range !== undefined ? { range } : {}),
+    };
+}
+
+/**
+ * Разбирает сырой ответ `languages.provideInlineCompletions` в массив валидных
+ * пунктов. Невалидные элементы отбрасываются (drop+skip), а не роняют ответ.
+ */
+export function parseWireInlineCompletionItems(raw: unknown): WireInlineCompletionItem[] {
+    if (!Array.isArray(raw)) return [];
+    const result: WireInlineCompletionItem[] = [];
+    for (const item of raw) {
+        const parsed = parseWireInlineCompletionItem(item);
+        if (parsed !== null) result.push(parsed);
+    }
+    return result;
+}
+
+/** Переводит wire-пункты в core-пункты ({@link ICoreInlineCompletionItem}). */
+export function wireToCoreInlineCompletionItems(
+    wire: readonly WireInlineCompletionItem[],
+): ICoreInlineCompletionItem[] {
+    return wire.map((item) => ({
+        insertText: item.insertText,
+        ...(item.filterText !== undefined ? { filterText: item.filterText } : {}),
+        ...(item.range !== undefined
+            ? {
+                  range: createRange(
+                      item.range.startLine,
+                      item.range.startCharacter,
+                      item.range.endLine,
+                      item.range.endCharacter,
+                  ),
+              }
+            : {}),
+    }));
+}
+
+/**
+ * Запрашивает у subprocess'а инлайн-подсказки с таймаутом. Возвращает пустой
+ * массив на таймаут, ошибку RPC или невалидный ответ (ghost text — best-effort,
+ * не блокирует UI). `request` — голая функция для юнит-тестов через
+ * {@link InProcessChannelPair} без форка subprocess'а (как {@link requestCompletionItems}).
+ */
+export async function requestInlineCompletions(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireInlineCompletionParams,
+    timeoutMs: number,
+): Promise<readonly ICoreInlineCompletionItem[]> {
+    const outcome = await raceWithTimeout(request("languages.provideInlineCompletions", params), timeoutMs);
+    if (outcome === TIMED_OUT) return [];
+    return wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(outcome));
 }
 
 // ─── Folding (#87) ───────────────────────────────────────────────────────────
