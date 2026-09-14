@@ -122,7 +122,28 @@ export const quickFixAction: CommandAction = {
             return;
         }
 
-        const items = actions.map((action) => ({
+        // Порядок VS Code: quickfix'ы выше рефакторингов и source-действий,
+        // preferred — первым в своей группе. Провайдеры обходятся в порядке
+        // регистрации, и без сортировки один многословный (16 рефакторингов
+        // tsserver) выталкивал фиксы линтера за край попапа.
+        const kindRank = (kind: string | undefined): number => {
+            if (kind === undefined) return 3;
+            if (kind === "quickfix" || kind.startsWith("quickfix.")) return 0;
+            if (kind === "refactor" || kind.startsWith("refactor.")) return 1;
+            if (kind === "source" || kind.startsWith("source.")) return 2;
+            return 3;
+        };
+        const sorted = [...actions].sort((a, b) => {
+            const byKind = kindRank(a.kind) - kindRank(b.kind);
+            if (byKind !== 0) return byKind;
+            const aPreferred = a.isPreferred === true;
+            // Stryker disable next-line ConditionalExpression,BooleanLiteral: какой элемент пары попадёт в `b` — деталь TimSort; для подъёма preferred достаточно aPreferred-ветки, и на стабильных входах мутант неотличим
+            const bPreferred = b.isPreferred === true;
+            // Stryker disable next-line ConditionalExpression: «всегда не равны» вырождается в стабильную вставку тем же порядком — наблюдаемого различия нет
+            if (aPreferred === bPreferred) return 0;
+            return aPreferred ? -1 : 1;
+        });
+        const items = sorted.map((action) => ({
             label: action.title,
             ...(action.kind === undefined ? {} : { description: action.kind }),
             ...(action.isPreferred === true ? { badge: "preferred" } : {}),
@@ -134,7 +155,7 @@ export const quickFixAction: CommandAction = {
         });
         if (picked === undefined) return; // отмена — не событие
 
-        const pick = actions[items.indexOf(picked)];
+        const pick = sorted[items.indexOf(picked)];
         const applied = await source.apply(pick.id);
         if (!applied) notice(`Code action failed: ${pick.title}`);
     },

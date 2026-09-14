@@ -13,6 +13,7 @@ import {
 } from "../src/TestUtils/eslintFixture.ts";
 import { MARKETPLACE_OFFLINE } from "../src/TestUtils/marketplaceEnv.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
+import { waitForEslintDiagnostics } from "./helpers/eslintReady.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
@@ -53,12 +54,18 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             });
             await session.waitForNode("EditorElement");
 
-            // Сервер поднялся и отлинтил файл — undercurl в кадре; save после
-            // этого не упрётся в холодный старт.
+            // Дождаться диагностик именно eslint (undercurl — ложный сигнал:
+            // builtin TS-клиент линтит .js тоже, см. helpers/eslintReady.ts);
+            // после этого save не упрётся в холодный старт сервера.
+            await waitForEslintDiagnostics({
+                key: (name) => session.sendKey(name),
+                text: (value) => session.sendText(value),
+                waitForText: (predicate, opts) => session.waitForText(predicate, opts),
+            });
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от eslint", timeoutMs: 180_000, intervalMs: 500 },
+                { describe: "undercurl squiggle от eslint", timeoutMs: 30_000, intervalMs: 500 },
             );
             expect(frameToText(await session.captureFrame())).toContain("const unused = 1;;");
 

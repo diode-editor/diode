@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, linkEslintLibrary } from "../../src/TestUtils/eslintFixture.ts";
+import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
@@ -46,11 +47,18 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("const unused"));
 
-        // Дождаться, пока настоящий eslintServer отлинтит открытый файл.
+        // Дождаться диагностик настоящего eslintServer. Не по undercurl'у:
+        // builtin TS-клиент линтит .js тоже, его подчёркивания приходят раньше
+        // и делают сигнал ложным (см. e2e/helpers/eslintReady.ts).
+        await waitForEslintDiagnostics({
+            key: (name) => editor.sendKey(name),
+            text: (value) => editor.sendText(value),
+            waitForText: (predicate, opts) => editor.waitForText(predicate, opts),
+        });
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от eslint", timeoutMs: 180_000, intervalMs: 500 },
+            { describe: "undercurl squiggle от eslint", timeoutMs: 30_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
 
