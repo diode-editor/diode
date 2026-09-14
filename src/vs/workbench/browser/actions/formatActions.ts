@@ -1,9 +1,9 @@
 import { comparePositions, positionsEqual } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
-import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
+import { applyFormattingEdits } from "../parts/editor/applyFormattingEdits.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice } from "../../services/statusbar/common/transientNotice.ts";
@@ -55,15 +55,9 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
     if (edits.length === 0) return;
     const current = group.getActiveEditor();
     if (current !== editor || editor.getText() !== text) return;
-    const caret = editor.viewState.selections[0]?.active ?? { line: 0, character: 0 };
-    editor.applyExternalEdits(edits, label);
-    // `applyEdits` ставит каретку на каждую правку (мультикурсорная семантика
-    // batch-редактирования) — у форматтера их десятки. Возвращаем ОДНУ каретку
-    // на прежнее место, клампнутое к новому тексту (как VS Code).
-    const lines = editor.getText().split("\n");
-    const line = Math.min(caret.line, lines.length - 1);
-    const character = Math.min(caret.character, lines[line].length);
-    editor.viewState.selections = [createSelection(line, character, line, character)];
+    // Общий с format-on-save хвост: undoable-батч + схлопывание выделений в
+    // одну каретку на прежнем месте (как VS Code).
+    applyFormattingEdits(editor, edits, label);
 }
 
 /**

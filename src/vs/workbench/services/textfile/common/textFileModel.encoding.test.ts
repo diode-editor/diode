@@ -201,10 +201,12 @@ describe("TextFileModel — encoding axis", () => {
         controller.reopenWithEncoding("windows1251");
 
         let seen: string | null = null;
-        controller.saveParticipant = (snapshot) => {
-            seen = snapshot.encoding;
-            return Promise.resolve([]);
-        };
+        controller.saveParticipants = () => [
+            (snapshot) => {
+                seen = snapshot.encoding;
+                return Promise.resolve([]);
+            },
+        ];
         await controller.save();
         expect(seen).toBe("windows1251");
         controller.dispose();

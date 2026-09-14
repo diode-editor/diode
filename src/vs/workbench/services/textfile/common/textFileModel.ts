@@ -46,6 +46,36 @@ interface IDiskStat {
 let nextUndoContextId = 1;
 
 /**
+ * Потолок ожидания ОДНОГО save-участника, мс. Тот же порядок, что таймауты
+ * языковых RPC (5000 — холодный language server): участники живут за RPC к
+ * subprocess extension host'у, и молчащий участник не должен вешать сохранение.
+ */
+const SAVE_PARTICIPANT_TIMEOUT_MS = 5000;
+
+/**
+ * Ограничивает ответ участника таймаутом: по истечении резолвится пустым
+ * набором правок (сохраняем как есть), не дожидаясь зависшего промиса.
+ */
+function raceSaveParticipantTimeout(run: Promise<readonly ISaveEdit[]>): Promise<readonly ISaveEdit[]> {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            // Stryker disable next-line ArrayDeclaration: пустой набор — контракт таймаута; посторонний элемент без валидного kind всё равно молча отфильтруется гейтами applySaveEdits
+            resolve([]);
+        }, SAVE_PARTICIPANT_TIMEOUT_MS);
+        run.then(
+            (edits) => {
+                clearTimeout(timer);
+                resolve(edits);
+            },
+            (err: unknown) => {
+                clearTimeout(timer);
+                reject(err instanceof Error ? err : new Error(String(err)));
+            },
+        );
+    });
+}
+
+/**
  * Ресурс свежесозданной модели: безымянный буфер без номера. Номер назначает группа
  * ({@link TextFileModel.setUntitled}) — она владеет счётчиком; до этого модель ещё
  * никто не видит.
@@ -225,12 +255,17 @@ export class TextFileModel extends Disposable {
     }
 
     /**
-     * Save-участник (`onWillSaveTextDocument`): вызывается перед записью на диск,
-     * возвращает undoable-правки (trim/insert-final-newline/EOL из editorconfig).
-     * Инъектируется извне (EditorService ← host/харнесс); ядро не знает
-     * про extension-слой. Не задан ⇒ save остаётся синхронным.
+     * Провайдер save-участников (`onWillSaveTextDocument`, code actions / формат
+     * on-save): вызывается В МОМЕНТ сохранения — состав пайплайна зависит от
+     * живых настроек, и модель не должна кэшировать его между сохранениями.
+     * Участники исполняются последовательно: каждый получает СВЕЖИЙ снапшот
+     * (предыдущий мог править буфер — code actions применяются субпроцессом
+     * через `workspace.applyEdit` прямо во время await), его правки применяются
+     * к буферу (undoable) до вызова следующего. Инъектируется извне
+     * (EditorService ← host/харнесс); ядро не знает про extension-слой.
+     * Не задан или список пуст ⇒ save остаётся синхронным.
      */
-    public saveParticipant?: SaveParticipant;
+    public saveParticipants?: () => readonly SaveParticipant[];
 
     public onDidChangeContent(listener: () => void): IDisposable {
         this.contentChangeListeners.push(listener);
@@ -544,11 +579,11 @@ export class TextFileModel extends Disposable {
             this.setDiskConflict(true);
             return "conflict";
         }
-        // Когда участник не задан — до writeFileSync нет ни одного await, запись
+        // Когда участников нет — до writeFileSync нет ни одного await, запись
         // остаётся синхронной в текущем тике (вызовы save() без await работают).
-        const participant = this.saveParticipant;
-        if (participant !== undefined) {
-            await this.runSaveParticipant(participant);
+        const participants = this.saveParticipants?.() ?? [];
+        if (participants.length > 0) {
+            await this.runSaveParticipants(participants);
         }
         fs.writeFileSync(this.filePath, encodeText(this.doc.serialize(), this.encodingValue));
         this.diskStat = this.readDiskStat(this.filePath);
@@ -592,21 +627,34 @@ export class TextFileModel extends Disposable {
     }
 
     /**
-     * Собирает снапшот, дожидается участника и применяет вернувшиеся правки к
-     * буферу (undoable) до записи. Выделено, чтобы переиспользовать в saveAs.
+     * Прогоняет участников последовательно: каждому — свежий снапшот (предыдущий
+     * мог править буфер), его правки применяются (undoable) до следующего.
+     * Выделено, чтобы переиспользовать в saveAs.
+     *
+     * Участник ограничен {@link SAVE_PARTICIPANT_TIMEOUT_MS}: провайдеры живут в
+     * subprocess extension host, и зависший участник не должен блокировать запись
+     * на диск — по таймауту сохраняем как есть (как VS Code). Правки, доехавшие
+     * после, лягут в буфер обычным путём и просто оставят его «грязным».
+     * Сбойный (бросивший) участник пропускается по той же причине.
      */
-    private async runSaveParticipant(participant: SaveParticipant): Promise<void> {
-        const snapshot: ISaveSnapshot = {
-            uri: this.uriValue.toString(),
-            languageId: this.doc.languageId,
-            versionId: this.doc.versionId,
-            isDirty: this.isModified,
-            text: this.doc.getText(),
-            eol: this.doc.eol,
-            encoding: this.encodingValue,
-        };
-        const edits = await participant(snapshot);
-        this.applySaveEdits(edits);
+    private async runSaveParticipants(participants: readonly SaveParticipant[]): Promise<void> {
+        for (const participant of participants) {
+            const snapshot: ISaveSnapshot = {
+                uri: this.uriValue.toString(),
+                languageId: this.doc.languageId,
+                versionId: this.doc.versionId,
+                isDirty: this.isModified,
+                text: this.doc.getText(),
+                eol: this.doc.eol,
+                encoding: this.encodingValue,
+            };
+            try {
+                const edits = await raceSaveParticipantTimeout(participant(snapshot));
+                this.applySaveEdits(edits);
+            } catch {
+                // Сбойный участник не блокирует запись; следующий идёт своим чередом.
+            }
+        }
     }
 
     /**
@@ -687,9 +735,9 @@ export class TextFileModel extends Disposable {
     public async saveAs(newPath: string): Promise<void> {
         // Смена идентичности на месте: у безымянного буфера это переход untitled: → file:.
         this.uriValue = Uri.file(path.resolve(newPath));
-        const participant = this.saveParticipant;
-        if (participant !== undefined) {
-            await this.runSaveParticipant(participant);
+        const participants = this.saveParticipants?.() ?? [];
+        if (participants.length > 0) {
+            await this.runSaveParticipants(participants);
         }
         fs.writeFileSync(newPath, encodeText(this.doc.serialize(), this.encodingValue));
         this.diskStat = this.readDiskStat(newPath);

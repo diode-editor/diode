@@ -47,5 +47,20 @@ export const editorConfiguration: IConfigurationNode = {
             description:
                 "Controls the wrapping column when `editor.wordWrap` is 'wordWrapColumn' or 'bounded'.",
         },
+        "editor.formatOnSave": {
+            type: "boolean",
+            default: false,
+            description: "Format a file on save. A formatter must be available (an extension providing it).",
+        },
+        // Форма VS Code: объект «kind → включён ли» (`{"source.fixAll": true}`).
+        // Значения true | "explicit" | "always" включают вид, false | "never" —
+        // выключают; все сохранения diode ручные, так что "explicit" ≡ true.
+        "editor.codeActionsOnSave": {
+            type: "object",
+            default: {},
+            description:
+                "Code action kinds to be run on save (e.g. `{\"source.fixAll\": true}`). " +
+                "Kinds match hierarchically: `source.fixAll` also runs `source.fixAll.ruff`.",
+        },
     },
 };

@@ -148,12 +148,12 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         this.model.fileWatcher = watcher;
     }
 
-    public get saveParticipant(): SaveParticipant | undefined {
-        return this.model.saveParticipant;
+    public get saveParticipants(): (() => readonly SaveParticipant[]) | undefined {
+        return this.model.saveParticipants;
     }
 
-    public set saveParticipant(participant: SaveParticipant | undefined) {
-        this.model.saveParticipant = participant;
+    public set saveParticipants(provider: (() => readonly SaveParticipant[]) | undefined) {
+        this.model.saveParticipants = provider;
     }
 
     public get foldingRangeSource(): FoldingRangeSource | undefined {
