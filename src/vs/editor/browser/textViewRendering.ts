@@ -207,6 +207,75 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
     }
 }
 
+export interface IPaintPhantomTextParams {
+    /** Дисплейные слоты фантомной строки — считает вызывающий (свой tabSize). */
+    displayLine: DisplayLine;
+    screenY: number;
+    gutterW: number;
+    contentCols: number;
+    /**
+     * Контентная колонка, где лежит колонка 0 фантома. Может быть отрицательной
+     * (строка каретки прокручена влево) — невидимые колонки пропускаются.
+     */
+    startColumn: number;
+    fg: number;
+    bg: number;
+    /** Пакованные {@link StyleFlags} фантома (ghost text — курсив). */
+    style: number;
+}
+
+/**
+ * Рисует фантомный текст, которого нет в документе (ghost text инлайн-подсказок):
+ * хвост строки каретки после `startColumn` либо целую zone-строку. Тот же
+ * поцельный обход по дисплейным колонкам, что у {@link paintTextLine} — табы и
+ * широкие символы ведут себя как в настоящем тексте, — но без токенов: весь
+ * фантом красится одним стилем.
+ */
+export function paintPhantomText(context: RenderContext, params: IPaintPhantomTextParams): void {
+    const { displayLine, screenY, gutterW, contentCols, startColumn, fg, bg, style } = params;
+
+    let col = 0;
+    while (col < displayLine.displayWidth) {
+        const screenX = startColumn + col;
+        if (screenX >= contentCols) break;
+        const char = displayLine.charAtColumn(col);
+        if (char === "") {
+            // Колонка-продолжение широкого символа — её красит Grid.
+            col++;
+            continue;
+        }
+        const slot = displayLine.graphemeAtColumn(col);
+        /* v8 ignore start -- defensive: в пределах displayWidth слот есть всегда (см. paintTextLine) */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: недостижимый защитный гард, см. v8 ignore
+        if (slot === undefined) {
+            col++;
+            continue;
+        }
+        /* v8 ignore stop */
+        const width = slot.displayWidth;
+        if (screenX < 0) {
+            // Колонка левее вьюпорта (горизонтальный скролл) — пропуск.
+            col += width;
+            continue;
+        }
+
+        if (slot.grapheme === "\t") {
+            // Таб — по пробелу на колонку (Grid поддерживает только width 1 и 2).
+            for (let i = 0; i < width && screenX + i < contentCols; i++) {
+                context.setCell(gutterW + screenX + i, screenY, { char: " ", fg, bg, style, width: 1 });
+            }
+            col += width;
+        } else if (width === 2 && screenX + 1 >= contentCols) {
+            // Широкий символ не влезает у правого края — вместо него пробел.
+            context.setCell(gutterW + screenX, screenY, { char: " ", fg, bg, style, width: 1 });
+            col++;
+        } else {
+            context.setCell(gutterW + screenX, screenY, { char, fg, bg, style, width });
+            col += width;
+        }
+    }
+}
+
 /**
  * Локальные (внутри виджета) координаты ячейки каретки первичного курсора, или
  * `null`, если каретка вне видимой области. Одна математика на два потребителя:
