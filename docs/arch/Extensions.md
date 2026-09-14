@@ -55,7 +55,7 @@
 `Extensions/builtin/diode-settings/` — code-расширение, активируется **только** по `onLanguage:json`/`onLanguage:jsonc` (доказательство лениости: пока не открыт JSON — не грузится). В `activate()` регистрирует `registerCompletionItemProvider` с селектором `pattern:"**/settings.json"` → в `settings.json` подсказывает известные ключи настроек. Каталог ключей **вшит на этапе сборки**: `scripts/generate-settings-schema.mjs` (запускается из `build-extensions.mjs` перед esbuild) собирает ключи из app-дефолтов (`Configuration/defaults.ts`) + `contributes.configuration` всех builtin и пишет `settings-schema.generated.ts`, который бандлится в `out/extension.cjs`. Никакого рантайм-API за схемой расширение не ходит.
 
 ## Правило роста `vscode.d.ts` (важно)
-`Extensions/Api/vscode.d.ts` — стадийная копия upstream `microsoft/vscode:src/vscode-dts/vscode.d.ts`, всё line-commented кроме активной поверхности. Это дословная копия реального API, а не стаб под реализацию. Инвариант: **файл меняется ТОЛЬКО снятием `// `**.
+`src/vscode-dts/vscode.d.ts` — стадийная копия upstream `microsoft/vscode:src/vscode-dts/vscode.d.ts`, всё line-commented кроме активной поверхности. Это дословная копия реального API, а не стаб под реализацию. Инвариант: **файл меняется ТОЛЬКО снятием `// `**.
 
 Структура файла:
 1. **Шапка** — провенанс (upstream tag + commit SHA + permalink) и ссылка сюда.
@@ -65,7 +65,7 @@
 
 **Пиннинг.** Тег зафиксирован в шапке и согласован с `extensions/VSCODE_VERSION` (сейчас `1.127.0`) — держи их в лок-степе. Пин нужен, чтобы обновление upstream шло **ручным трёхсторонним merge**: base = `vscode.d.ts` запинненной версии, theirs = новый upstream, ours = наш файл с раскомментированными блоками.
 
-**Как добавить API.** Найди нужный блок в дормантной части и подними **дословно** (сняв `// `) в активный модуль — не сужать / не переписывать / не переоформлять (комментарии тоже upstream). Если блок тянет ещё не раскомментированный тип (dependency closure) — раскомментируй и его. Runtime-значение может опережать типовую декларацию (namespace отдаётся через `as unknown as typeof vscode`).
+**Как добавить API.** Найди нужный блок в дормантной части и подними **дословно** (сняв `// `) в активный модуль — не сужать / не переписывать / не переоформлять (комментарии тоже upstream). Если блок тянет ещё не раскомментированный тип (dependency closure) — раскомментируй и его. Runtime-значение может опережать типовую декларацию (namespace отдаётся через `as unknown as typeof vscode`). Поднял поверхность или поменял статус стаба — **в том же PR обнови публичную матрицу** [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md): она ведётся руками и держится актуальной именно этой дисциплиной.
 
 **Bounded member-level uncommenting.** Для «тяжёлого по closure» блока (namespace/интерфейс/класс, чьё полное upstream-тело тянет непрактичное дерево зависимостей) можно раскомментировать **подмножество членов**, оставив прочие в дормантной части. Каждая раскомментированная строка обязана быть **байт-в-байт** равна upstream. Так сделаны, например, `window`/`workspace`/`languages` (только реализованные функции), `TextEditor` (`document`/`selection`/`selections`/`options`/`edit`), `ExtensionContext` (`subscriptions`), `TextDocument`/`FileStat`/`CompletionItem` (подмножество полей).
 
