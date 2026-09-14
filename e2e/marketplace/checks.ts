@@ -2,6 +2,7 @@ import { cpSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, LINT_JS, linkEslintLibrary } from "../../src/TestUtils/eslintFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
@@ -158,6 +159,31 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
                     { describe: "undercurl squiggle от ruff", timeoutMs: 180_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx" — стоковый ESLint. Библиотеку eslint расширение
+        // НЕ бандлит (сервер резолвит её из node_modules проекта) — чек доносит
+        // её в воркспейс симлинком из npm-кэша фикстуры и наблюдает диагностику
+        // настоящего eslintServer в кадре.
+        id: "dbaeumer.vscode-eslint",
+        expectFiles: ["package.json", "client/out/extension.js", "server/out/eslintServer.js"],
+        timeoutMs: 420_000,
+        run: async (ctx) => {
+            writeFileSync(join(ctx.root, "eslint.config.mjs"), ESLINT_FLAT_CONFIG);
+            const file = join(ctx.root, "lint.js");
+            writeFileSync(file, LINT_JS);
+            linkEslintLibrary(ctx.root, ensureEslintLibrary());
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle от eslint", timeoutMs: 180_000, intervalMs: 500 },
                 );
             } finally {
                 await app.dispose();

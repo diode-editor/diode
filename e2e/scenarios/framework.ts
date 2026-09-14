@@ -110,6 +110,14 @@ export interface ScenarioSpec {
      * установленного расширения не показывает ни секции INSTALLED, ни бейджей.
      */
     seedUserData?: string;
+    /**
+     * Подготовка ДО старта приложения — для воркспейсов, которые нельзя
+     * закоммитить фикстурой (например `node_modules` с библиотекой eslint:
+     * расширение её не бандлит). Вызывается только когда сценарий реально
+     * запускается, поэтому сетевая подготовка не бьёт по офлайн-прогонам,
+     * пропускающим сценарий по `network: true`.
+     */
+    prepare?(): Promise<void>;
     run(driver: ScenarioDriver): Promise<void>;
 }
 
@@ -137,6 +145,7 @@ export function defineScenario(spec: ScenarioSpec): ScenarioSpec {
  * используется.
  */
 export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
+    await spec.prepare?.();
     const app = await startHeadlessApp({
         open: spec.open ?? [],
         cwd: repoRoot,
