@@ -81,9 +81,18 @@ export class InlineCompletionsService extends Disposable {
             this.bindEditor(editor);
         });
         this.bindEditor(this.group.getActiveEditor());
+        // Попап закрылся (Esc, accept, уход из слова) — место освободилось:
+        // перезапрашиваем подсказку, иначе призрак появился бы только на
+        // следующей правке (VS Code на закрытии виджета так же пересеивает
+        // inline-состояние). Дебаунс-планировщик, а не прямой trigger: сам
+        // trigger перепроверит все гейты (редактор, каретка в конце строки).
+        const popupCloseSub = this.completionService.onDidClose(() => {
+            this.scheduleAutoTrigger();
+        });
         this.register({
             dispose: () => {
                 activeEditorSub.dispose();
+                popupCloseSub.dispose();
                 this.unbindEditor();
                 this.cancelAutoTrigger();
                 this.hide();

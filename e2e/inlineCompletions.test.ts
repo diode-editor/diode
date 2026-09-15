@@ -96,6 +96,42 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.waitForState("EditorElement", (s) => s?.lineCount === 3, { timeoutMs: 5000 });
     }, 120_000);
 
+    it("Esc закрывает suggest-попап — и призрак появляется без дополнительной правки", async () => {
+        const { session } = await useHeadlessApp({
+            seedUserData: userData,
+            // Слово «fibber» в буфере держит word-based попап живым на «fib»:
+            // на полном триггере призрака попап гарантированно открыт.
+            files: { "sample.ts": "// fibber demo\n" },
+            open: ["sample.ts"],
+        });
+        await session.waitForNode("EditorElement");
+        await session.key("End");
+        await session.key("Enter");
+        // До полного триггера: попап открываем ЯВНО (Ctrl+Space, «fi» —
+        // префикс «fibber»), чтобы правка ниже гарантированно пришлась на
+        // открытый попап — без гонки с таймингами авто-suggest.
+        await session.text("function fi");
+        await session.key("Ctrl+Space");
+        await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
+
+        // Правка при открытом попапе: запрос призрака дропается гейтом —
+        // подсказка НЕ показывается, попап остаётся («fib» всё ещё префикс).
+        await session.key("b");
+        await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
+        const held = await session.node("EditorElement");
+        expect(held?.state?.ghostText ?? null).toBeNull();
+
+        // Esc закрывает попап; повторный запрос уходит сам — БЕЗ новой правки.
+        await session.key("Escape");
+        await session.waitForNoNode("CompletionListElement", { timeoutMs: 5000 });
+        const withGhost = await session.waitForState(
+            "EditorElement",
+            (s) => (s?.ghostText ?? null) !== null,
+            { timeoutMs: 5000 },
+        );
+        expect((withGhost.state?.ghostText as IGhostState).lines[0]).toBe("onacci(n) {");
+    }, 120_000);
+
     it("Escape гасит подсказку, не трогая документ", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,

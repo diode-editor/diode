@@ -21,8 +21,11 @@ docs/arch/Extensions.md («Inline-completion seam»).
 - **Нет отмены RPC.** У upstream настоящий `CancellationToken` через границу;
   у нас — дебаунс 50 мс + seq-гард + таймаут 5000 мс (как у всех провайдеров).
 - **`selectedCompletionInfo` не поддержан.** При открытом suggest-попапе ghost
-  не запрашивается и не показывается вовсе; upstream показывает «augmentation»
-  выбранного пункта и пере-запрашивает провайдеров на каждую смену выбора.
+  не запрашивается (показанный ДО попапа — остаётся); закрытие попапа
+  (`CompletionService.onDidClose`) перезапрашивает подсказку, так что Esc по
+  попапу сразу приводит призрака. Upstream идёт дальше: показывает
+  «augmentation» выбранного пункта и пере-запрашивает провайдеров на каждую
+  смену выбора.
 - **Lifecycle-хуки не реализованы**: `handleItemDidShow` / `handlePartialAccept`
   / `handleEndOfLifetime` / `$freeInlineCompletionsList`, идентичность
   `(pid, idx)`. Нужны провайдерам с телеметрией (Copilot); потребуют bucket-кэш

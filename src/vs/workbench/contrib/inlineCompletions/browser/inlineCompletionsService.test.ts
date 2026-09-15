@@ -147,13 +147,25 @@ function makeGroup(editor: TextEditorPane | null, source: EditorService["inlineC
 function makeService(
     group: EditorService,
     options: { popupOpen?: () => boolean; enabled?: boolean } = {},
-): InlineCompletionsService {
-    const completion = { isOpen: options.popupOpen ?? (() => false) } as unknown as CompletionService;
+): InlineCompletionsService & { firePopupClose: () => void } {
+    const closeListeners: (() => void)[] = [];
+    const completion = {
+        isOpen: options.popupOpen ?? (() => false),
+        onDidClose: (l: () => void) => {
+            closeListeners.push(l);
+            return { dispose: () => closeListeners.splice(closeListeners.indexOf(l), 1) };
+        },
+    } as unknown as CompletionService;
     const configuration = {
         get: (key: string) => (key === "editor.inlineSuggest.enabled" ? (options.enabled ?? true) : undefined),
     } as unknown as IConfigurationService;
-    const service = new InlineCompletionsService(group, completion, configuration);
+    const service = new InlineCompletionsService(group, completion, configuration) as InlineCompletionsService & {
+        firePopupClose: () => void;
+    };
     service.autoTriggerDelayMs = 0; // детерминированный авто-запрос в тестах
+    service.firePopupClose = () => {
+        for (const l of [...closeListeners]) l();
+    };
     return service;
 }
 
@@ -598,6 +610,41 @@ describe("InlineCompletionsService — жизнь сессии", () => {
 
         expect(service.isOpen()).toBe(false);
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+    });
+
+    it("закрытие suggest-попапа перезапрашивает подсказку без правки (Esc → призрак)", async () => {
+        const fake = makeEditor("con", 3);
+        const source = vi.fn(items({ insertText: "sole.log();" }));
+        let popupOpen = true;
+        const service = makeService(makeGroup(fake.editor, source).group, { popupOpen: () => popupOpen });
+
+        // Пока попап открыт — запросов нет.
+        fake.type("con", 3);
+        await tick();
+        expect(source).not.toHaveBeenCalled();
+
+        // Esc закрыл попап: подписка обязана перезапросить и показать призрака.
+        popupOpen = false;
+        service.firePopupClose();
+        await tick();
+
+        expect(source).toHaveBeenCalledTimes(1);
+        expect(service.isOpen()).toBe(true);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 3, lines: ["sole.log();"] });
+    });
+
+    it("закрытие попапа без активного редактора — no-op (trigger сам гейтит)", async () => {
+        const fake = makeEditor("con", 3);
+        const source = vi.fn(items({ insertText: "x" }));
+        const g = makeGroup(fake.editor, source);
+        const service = makeService(g.group);
+        g.setActiveEditor(null);
+
+        service.firePopupClose();
+        await tick();
+
+        expect(source).not.toHaveBeenCalled();
+        expect(service.isOpen()).toBe(false);
     });
 
     it("первое событие каретки без правки ничего не запрашивает", async () => {

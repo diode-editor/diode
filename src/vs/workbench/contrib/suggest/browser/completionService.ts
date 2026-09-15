@@ -214,6 +214,12 @@ export class CompletionService extends Disposable {
     }
 
     public close(): void {
+        // Закрытие ОТКРЫТОГО попапа — событие для подписчиков (призрачные
+        // подсказки перезапрашиваются, когда попап освобождает место — VS Code
+        // так же «пересеивает» inline-состояние на закрытии виджета). Флаг
+        // снимается до сайд-эффектов: close() зовут либерально (bindEditor —
+        // безусловно), и холостые вызовы событием быть не должны.
+        const wasOpen = this.isOpen();
         this.cancelAutoSuggest();
         this.component.close();
         this.activeEditor = null;
@@ -223,7 +229,27 @@ export class CompletionService extends Disposable {
         this.isIncomplete = false;
         // Ответ «в полёте» больше не нужен: его seq устареет и будет отброшен.
         this.requestSeq++;
+        if (wasOpen) {
+            for (const listener of [...this.closeListeners]) listener();
+        }
     }
+
+    /**
+     * Подписка на закрытие попапа (Esc, accept, уход каретки из слова, смена
+     * редактора/фокуса — все пути сходятся в {@link close}). Не фаерится, если
+     * попап и так был закрыт.
+     */
+    public onDidClose(listener: () => void): IDisposable {
+        this.closeListeners.push(listener);
+        return {
+            dispose: () => {
+                const index = this.closeListeners.indexOf(listener);
+                if (index >= 0) this.closeListeners.splice(index, 1);
+            },
+        };
+    }
+
+    private readonly closeListeners: (() => void)[] = [];
 
     /** Открыт ли попап (для `suggestWidgetVisible` и делегаторов команд). */
     public isOpen(): boolean {

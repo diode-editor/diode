@@ -215,6 +215,33 @@ describe("CompletionService", () => {
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
     });
 
+    it("onDidClose фаерится на закрытии ОТКРЫТОГО попапа и молчит на холостых close", async () => {
+        const { service } = setup(ITEMS);
+        const closed = vi.fn();
+        const subscription = service.onDidClose(closed);
+
+        // Попап ещё не открывался — close() (его зовут либерально, например
+        // bindEditor) не должен изображать событие закрытия.
+        service.close();
+        expect(closed).not.toHaveBeenCalled();
+
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+        service.hide(); // Esc-путь сходится в close()
+        expect(closed).toHaveBeenCalledTimes(1);
+
+        // Повторное закрытие уже закрытого — не событие.
+        service.close();
+        expect(closed).toHaveBeenCalledTimes(1);
+
+        // Отписка снимает слушателя; повторный dispose — безвредный no-op.
+        await service.trigger();
+        subscription.dispose();
+        subscription.dispose();
+        service.close();
+        expect(closed).toHaveBeenCalledTimes(1);
+    });
+
     it("передаёт корректный запрос источнику", async () => {
         const { service, source } = setup(ITEMS);
         await service.trigger();
