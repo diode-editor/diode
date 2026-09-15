@@ -16,9 +16,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { createWriteStream, mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { createWriteStream, mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { packRgb } from "@tuidom/core/common/colorUtils";
@@ -47,7 +47,7 @@ const SIZES: readonly SizeSpec[] = [
     { key: "medium", kind: "ts", amount: 2_000, runs: 11, timeoutMs: 30_000 },
     { key: "large", kind: "ts", amount: 20_000, runs: 7, timeoutMs: 60_000 },
     { key: "xlarge", kind: "ts", amount: 200_000, runs: 5, timeoutMs: 120_000 },
-    { key: "log500m", kind: "log", amount: 500 * MiB, runs: 3, timeoutMs: 180_000 },
+    { key: "log500m", kind: "log", amount: 500 * MiB, runs: 3, timeoutMs: 300_000 },
 ];
 
 // ── Предикаты по экрану ──────────────────────────────────────────────────────
@@ -454,8 +454,14 @@ async function main(): Promise<void> {
     };
 
     const markdown = renderMarkdown(report);
-    if (cli.jsonPath !== null) writeFileSync(cli.jsonPath, JSON.stringify(report, null, 2) + "\n");
-    if (cli.mdPath !== null) writeFileSync(cli.mdPath, markdown);
+    if (cli.jsonPath !== null) {
+        mkdirSync(dirname(cli.jsonPath), { recursive: true });
+        writeFileSync(cli.jsonPath, JSON.stringify(report, null, 2) + "\n");
+    }
+    if (cli.mdPath !== null) {
+        mkdirSync(dirname(cli.mdPath), { recursive: true });
+        writeFileSync(cli.mdPath, markdown);
+    }
     console.log(markdown);
 }
 
