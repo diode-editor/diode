@@ -1,0 +1,439 @@
+{
+  "generatedAt": "2026-09-15T20:05:59.237Z",
+  "commit": "270b9a2fadff",
+  "binaryVersion": "nightly-270b9a2",
+  "env": {
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cores": 4,
+    "memGb": 16,
+    "platform": "linux 6.17.0-1022-azure"
+  },
+  "floors": {
+    "binaryMs": 146.37151300000005,
+    "nodeMs": 5.078377000000046
+  },
+  "sizes": [
+    {
+      "key": "small",
+      "kind": "ts",
+      "fixtureBytes": 6159,
+      "fixtureLines": 100,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 449.37461699999994,
+          "highlightMs": 449.37461699999994,
+          "exitCode": null,
+          "signal": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 425.3081820000002,
+          "highlightMs": 425.3081820000002,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 448.94287699999995,
+          "highlightMs": 448.94287699999995,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 441.52042600000004,
+          "highlightMs": 441.52042600000004,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 464.41045299999996,
+          "highlightMs": 464.41045299999996,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 445.6060670000006,
+          "highlightMs": 445.6060670000006,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 435.4062869999998,
+          "highlightMs": 435.4062869999998,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 448.20514399999956,
+          "highlightMs": 448.20514399999956,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 428.76765500000056,
+          "highlightMs": 428.76765500000056,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 474.6292190000004,
+          "highlightMs": 474.6292190000004,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 455.4079609999999,
+          "highlightMs": 455.4079609999999,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 437.1772949999995,
+          "highlightMs": 437.1772949999995,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 445.6060670000006,
+        "min": 425.3081820000002,
+        "max": 474.6292190000004
+      },
+      "highlight": {
+        "median": 445.6060670000006,
+        "min": 425.3081820000002,
+        "max": 474.6292190000004
+      }
+    },
+    {
+      "key": "medium",
+      "kind": "ts",
+      "fixtureBytes": 129759,
+      "fixtureLines": 2000,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 463.6674860000003,
+          "highlightMs": 463.6674860000003,
+          "exitCode": null,
+          "signal": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 475.7227949999997,
+          "highlightMs": 475.7227949999997,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 480.73844700000154,
+          "highlightMs": 480.73844700000154,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 471.345100999999,
+          "highlightMs": 471.345100999999,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 457.78673700000036,
+          "highlightMs": 457.78673700000036,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 474.95017000000007,
+          "highlightMs": 474.95017000000007,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 463.1928339999995,
+          "highlightMs": 463.1928339999995,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 459.925201,
+          "highlightMs": 459.925201,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 469.65736899999865,
+          "highlightMs": 469.65736899999865,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 487.7898430000005,
+          "highlightMs": 487.7898430000005,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 458.4838689999997,
+          "highlightMs": 458.4838689999997,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 474.21578600000066,
+          "highlightMs": 474.21578600000066,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 471.345100999999,
+        "min": 457.78673700000036,
+        "max": 487.7898430000005
+      },
+      "highlight": {
+        "median": 471.345100999999,
+        "min": 457.78673700000036,
+        "max": 487.7898430000005
+      }
+    },
+    {
+      "key": "large",
+      "kind": "ts",
+      "fixtureBytes": 1337759,
+      "fixtureLines": 20000,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 675.8038830000005,
+          "highlightMs": 675.8038830000005,
+          "exitCode": null,
+          "signal": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 655.2524199999989,
+          "highlightMs": 655.2524199999989,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 672.8069250000008,
+          "highlightMs": 672.8069250000008,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 673.5961360000001,
+          "highlightMs": 673.5961360000001,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 673.0480439999992,
+          "highlightMs": 673.0480439999992,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 705.7754590000004,
+          "highlightMs": 705.7754590000004,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 672.1333350000023,
+          "highlightMs": 672.1333350000023,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 657.8532470000027,
+          "highlightMs": 657.8532470000027,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 672.8069250000008,
+        "min": 655.2524199999989,
+        "max": 705.7754590000004
+      },
+      "highlight": {
+        "median": 672.8069250000008,
+        "min": 655.2524199999989,
+        "max": 705.7754590000004
+      }
+    },
+    {
+      "key": "xlarge",
+      "kind": "ts",
+      "fixtureBytes": 13777759,
+      "fixtureLines": 200000,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 3124.5762780000005,
+          "highlightMs": 3124.5762780000005,
+          "exitCode": null,
+          "signal": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 3266.5207609999998,
+          "highlightMs": 3266.5207609999998,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 3061.6786930000017,
+          "highlightMs": 3061.6786930000017,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 3159.545761000001,
+          "highlightMs": 3159.545761000001,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 3026.568877000005,
+          "highlightMs": 3026.568877000005,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 3002.3096069999956,
+          "highlightMs": 3002.3096069999956,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 3061.6786930000017,
+        "min": 3002.3096069999956,
+        "max": 3266.5207609999998
+      },
+      "highlight": {
+        "median": 3061.6786930000017,
+        "min": 3002.3096069999956,
+        "max": 3266.5207609999998
+      }
+    },
+    {
+      "key": "log500m",
+      "kind": "log",
+      "fixtureBytes": 521477377,
+      "fixtureLines": 5295839,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 98454.57292899999,
+          "highlightMs": null,
+          "exitCode": null,
+          "signal": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 88357.840482,
+          "highlightMs": null,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 98608.88207999998,
+          "highlightMs": null,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 88541.14347199997,
+          "highlightMs": null,
+          "exitCode": null,
+          "signal": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 88541.14347199997,
+        "min": 88357.840482,
+        "max": 98608.88207999998
+      },
+      "highlight": null
+    }
+  ]
+}
