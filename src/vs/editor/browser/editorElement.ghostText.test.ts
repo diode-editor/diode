@@ -252,6 +252,9 @@ describe("ghostTextEquals", () => {
         const a: IGhostText = { line: 1, character: 2, lines: ["x", "y"] };
         expect(ghostTextEquals(a, { line: 1, character: 2, lines: ["x", "y"] })).toBe(true);
         expect(ghostTextEquals(a, { line: 1, character: 2, lines: ["x"] })).toBe(false);
+        // И в обратную сторону: b длиннее при общем префиксе — every() этого
+        // не увидит, разницу обязана ловить проверка длин.
+        expect(ghostTextEquals({ line: 1, character: 2, lines: ["x"] }, a)).toBe(false);
         expect(ghostTextEquals(a, { line: 1, character: 2, lines: ["x", "z"] })).toBe(false);
         expect(ghostTextEquals(a, { line: 1, character: 3, lines: ["x", "y"] })).toBe(false);
         expect(ghostTextEquals(a, { line: 2, character: 2, lines: ["x", "y"] })).toBe(false);

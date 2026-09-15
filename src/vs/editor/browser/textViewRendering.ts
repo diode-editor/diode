@@ -246,20 +246,22 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
         if (screenX >= contentCols) break;
         const char = displayLine.charAtColumn(col);
         /* v8 ignore start -- defensive: col шагает по ширинам слотов от 0 и на колонку-продолжение широкого символа не попадает (в отличие от paintTextLine, где displayCol стартует с произвольного scrollLeft) */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator: недостижимый защитный гард, см. v8 ignore
+        // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator: недостижимый защитный гард, см. v8 ignore
         if (char === "") {
             // Колонка-продолжение широкого символа — её красит Grid.
             col++;
             continue;
         }
+        // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator
         /* v8 ignore stop */
         const slot = displayLine.graphemeAtColumn(col);
         /* v8 ignore start -- defensive: в пределах displayWidth слот есть всегда (см. paintTextLine) */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement,UpdateOperator: недостижимый защитный гард, см. v8 ignore
+        // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,UpdateOperator: недостижимый защитный гард, см. v8 ignore
         if (slot === undefined) {
             col++;
             continue;
         }
+        // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,UpdateOperator
         /* v8 ignore stop */
         const width = slot.displayWidth;
         // Пропуск отрицательных колонок — тоже про скорость: setCell левее
@@ -278,17 +280,17 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
             // fg/style, невидимых на пробеле; наблюдаемое у ветки — только шаг
             // col (его проверяют позиции следующих символов). Мутанты заливки
             // неубиваемы — гасим оптом.
-            // Stryker disable ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral: см. выше
+            // Stryker disable ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression: см. выше
             for (let i = 0; i < width && screenX + i < contentCols; i++) {
                 context.setCell(gutterW + screenX + i, screenY, { char: " ", fg, bg, style, width: 1 });
             }
-            // Stryker restore ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral
+            // Stryker restore ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression
             col += width;
         } else if (width === 2 && screenX + 1 >= contentCols) {
             // Широкий символ не влезает у правого края — вместо него пробел.
             // Пробел у края неотличим от фонового пробела (см. таб выше);
             // наблюдаемое у ветки — что широкий символ НЕ нарисован (тест края).
-            // Stryker disable next-line ArithmeticOperator,ObjectLiteral,StringLiteral: см. выше
+            // Stryker disable next-line ArithmeticOperator,ObjectLiteral,StringLiteral,CallExpression: см. выше
             context.setCell(gutterW + screenX, screenY, { char: " ", fg, bg, style, width: 1 });
             col++;
         } else {

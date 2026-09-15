@@ -600,6 +600,44 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
+    it("первое событие каретки без правки ничего не запрашивает", async () => {
+        const fake = makeEditor("ab", 2);
+        const source = vi.fn(items({ insertText: "cde" }));
+        makeService(makeGroup(fake.editor, source).group);
+
+        fake.move(0, 2); // чистое движение сразу после создания сервиса
+        await tick();
+
+        expect(source).not.toHaveBeenCalled();
+    });
+
+    it("две правки подряд — два авто-запроса (подавление не липнет)", async () => {
+        const fake = makeEditor("ab", 2);
+        const source = vi.fn(items());
+        const service = makeService(makeGroup(fake.editor, source).group);
+
+        fake.type("ab ", 3);
+        await tick();
+        fake.type("ab x", 4);
+        await tick();
+
+        expect(source).toHaveBeenCalledTimes(2);
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("правка поверх отложенного запроса перезапускает дебаунс, а не копит таймеры", async () => {
+        const fake = makeEditor("ab", 2);
+        const source = vi.fn(items());
+        const service = makeService(makeGroup(fake.editor, source).group);
+        service.autoTriggerDelayMs = 5;
+
+        fake.type("ab ", 3); // планирует t1
+        fake.type("ab x", 4); // планирует t2, t1 обязан быть снят
+        await tick(30);
+
+        expect(source).toHaveBeenCalledTimes(1);
+    });
+
     it("ручной триггер отменяет отложенный авто-запрос (не два RPC)", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items({ insertText: "cde" }));
@@ -737,6 +775,18 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         const calls = fake.setGhostText.mock.calls.length;
         service.hide();
         expect(fake.setGhostText.mock.calls.length).toBe(calls);
+    });
+
+    it("dispose гасит видимую подсказку", async () => {
+        const fake = makeEditor("ab", 2);
+        const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
+        await service.trigger();
+        expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 2, lines: ["cde"] });
+
+        service.dispose();
+
+        expect(service.isOpen()).toBe(false);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
     it("dispose гасит подсказку и снимает подписки", async () => {

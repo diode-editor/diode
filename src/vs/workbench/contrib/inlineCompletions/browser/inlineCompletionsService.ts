@@ -54,6 +54,7 @@ export class InlineCompletionsService extends Disposable {
 
     private session: IInlineSession | null = null;
     /** Гейт Tab против отступа — см. context key `inlineSuggestionHasIndentationLessThanTabSize`. */
+    // Stryker disable next-line BooleanLiteral: значение инициализатора никогда не читается — show() переписывает поле до появления сессии, hide() возвращает true
     private indentationLessThanTabSize = true;
 
     // Подписки на активный редактор (пере-навешиваются при смене активного).
@@ -324,7 +325,7 @@ export class InlineCompletionsService extends Disposable {
         const selections = editor.viewState.selections;
         // Гейт повторяется в trigger() до RPC — «расширяющий» мутант лишь
         // планирует запрос, который сам себя отсечёт; ненаблюдаемо.
-        // Stryker disable next-line LogicalOperator: см. выше
+        // Stryker disable next-line LogicalOperator,ConditionalExpression,EqualityOperator: см. выше
         const single = selections.length === 1 && isSelectionCollapsed(selections[0]);
 
         if (!suppressed && wasEdit && single) {

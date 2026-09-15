@@ -472,6 +472,10 @@ export class EditorElement extends TUIElement implements IScrollable {
                 // недостижимы — гасим с причиной.
                 // Stryker disable next-line ConditionalExpression,EqualityOperator,ArithmeticOperator: см. выше
                 if (ghost !== null && zoneRow.anchor === ghost.line && zoneRow.offset + 1 < ghost.lines.length) {
+                    // Лишняя колонка у «<=»-мутанта клиппится прямоугольником
+                    // элемента (setCell на промахе молча выходит) — гасим, как
+                    // клип-отсевы paintCarets.
+                    // Stryker disable next-line EqualityOperator: см. выше
                     for (let x = 0; x < contentCols; x++) {
                         context.setCell(gutterW + x, screenY, { char: " ", fg: ghostFg, bg: editorBg });
                     }
