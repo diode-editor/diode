@@ -859,6 +859,11 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         other.type("zz ", 3);
         await tick();
         expect(source).toHaveBeenCalledTimes(1);
+
+        // Подписка на закрытие попапа тоже снята.
+        service.firePopupClose();
+        await tick();
+        expect(source).toHaveBeenCalledTimes(1);
     });
 });
 

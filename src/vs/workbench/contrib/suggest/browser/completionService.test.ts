@@ -234,12 +234,16 @@ describe("CompletionService", () => {
         service.close();
         expect(closed).toHaveBeenCalledTimes(1);
 
-        // Отписка снимает слушателя; повторный dispose — безвредный no-op.
+        // Отписка снимает слушателя; повторный dispose — безвредный no-op и
+        // НЕ задевает других подписчиков (splice(-1) снял бы последнего).
+        const other = vi.fn();
+        service.onDidClose(other);
         await service.trigger();
         subscription.dispose();
         subscription.dispose();
         service.close();
         expect(closed).toHaveBeenCalledTimes(1);
+        expect(other).toHaveBeenCalledTimes(1);
     });
 
     it("передаёт корректный запрос источнику", async () => {
