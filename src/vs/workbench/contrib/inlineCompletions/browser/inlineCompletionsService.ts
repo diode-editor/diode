@@ -62,6 +62,7 @@ export class InlineCompletionsService extends Disposable {
     private contentSub: IDisposable | null = null;
     // Маркер «была правка контента», выставляется content-листенером и
     // потребляется в onCaretChanged (view-state там уже консистентен).
+    // Stryker disable next-line BooleanLiteral: инициализатор не читается — bindEditor в конструкторе тут же сбрасывает флаг через unbindEditor
     private contentDidChange = false;
     private autoTriggerTimer: ReturnType<typeof setTimeout> | null = null;
     // Номер последнего запроса к источнику: ответ с чужим номером устарел.

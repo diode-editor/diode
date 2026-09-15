@@ -111,6 +111,8 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("panelVisible")).toBe(true); // из LayoutService
         expect(h.contextKeys.get("findWidgetVisible")).toBe(false);
         expect(h.contextKeys.get("suggestWidgetVisible")).toBe(false);
+        expect(h.contextKeys.get("inlineSuggestionVisible")).toBe(false);
+        expect(h.contextKeys.get("inlineSuggestionHasIndentationLessThanTabSize")).toBe(true);
         expect(h.contextKeys.get("terminalIsOpen")).toBe(false);
         expect(h.contextKeys.get("tier")).toBe("legacy");
         expect(h.contextKeys.get("os")).toBe("linux");
