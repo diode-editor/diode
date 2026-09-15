@@ -4,6 +4,7 @@ import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { HoverSource } from "../../../../editor/common/languages/iHoverSource.ts";
@@ -187,6 +188,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * их объявляет language server, а host передаёт сюда.
      */
     public completionTriggerCharacters: readonly string[] = [];
+
+    /**
+     * Источник инлайн-подсказок (host/харнесс подключает сюда провайдеры
+     * расширений через `languages.provideInlineCompletions`). Читается
+     * `InlineCompletionsService`; в редакторы не раздаётся (group-level).
+     */
+    public inlineCompletionSource?: InlineCompletionSource;
 
     /**
      * Definition-источник (host/харнесс подключает сюда провайдеры расширений

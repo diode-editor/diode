@@ -70,6 +70,13 @@ export const editorColors = {
         defaults: { dark: "#EEEEEE", light: "#6C6C6C" },
         description: "Foreground color of hints in the editor.",
     },
+    // Opaque approximations of VS Code's #ffffff56 (dark) / #0007 (light)
+    // composited over the editor bg — терминальный рендер без альфы (та же
+    // политика, что у `editor.wordHighlightBackground`).
+    "editorGhostText.foreground": {
+        defaults: { dark: "#6A6A6A", light: "#888888" },
+        description: "Foreground color of the ghost text in the editor.",
+    },
     "editorGutter.background": {
         defaults: null,
         description: "Background color of the editor gutter.",

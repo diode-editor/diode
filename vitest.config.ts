@@ -59,6 +59,7 @@ export default defineConfig({
         // Чистые типы, выпавшие из рантайм-графа после перевода импортов в
         // import type (eslint --fix при переезде на vs-раскладку):
         "src/vs/editor/common/languages/iCompletionSource.ts",
+        "src/vs/editor/common/languages/iInlineCompletionSource.ts",
         "src/vs/editor/common/languages/iFoldingSource.ts",
         "src/vs/editor/common/model/iDocumentLanguageChange.ts",
         "src/vs/platform/clipboard/common/iFileClipboard.ts",

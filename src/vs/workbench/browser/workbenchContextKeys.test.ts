@@ -6,6 +6,7 @@ import { ContextKeyService } from "../../platform/contextkey/common/contextKeySe
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
+import type { InlineCompletionsService } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
@@ -61,6 +62,7 @@ function makeHarness() {
             hasMultipleSignatures: () => false,
             onFocusChanged: onParameterHintsFocusChanged,
         } as unknown as ParameterHintsService,
+        { isOpen: () => false, hasIndentationLessThanTabSize: () => true } as unknown as InlineCompletionsService,
         { hasOpenTerminals: false } as unknown as TerminalService,
         terminalEnv as unknown as TerminalEnvironmentService,
         { setActive } as unknown as InputWidgetService,
@@ -109,6 +111,8 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("panelVisible")).toBe(true); // из LayoutService
         expect(h.contextKeys.get("findWidgetVisible")).toBe(false);
         expect(h.contextKeys.get("suggestWidgetVisible")).toBe(false);
+        expect(h.contextKeys.get("inlineSuggestionVisible")).toBe(false);
+        expect(h.contextKeys.get("inlineSuggestionHasIndentationLessThanTabSize")).toBe(true);
         expect(h.contextKeys.get("terminalIsOpen")).toBe(false);
         expect(h.contextKeys.get("tier")).toBe("legacy");
         expect(h.contextKeys.get("os")).toBe("linux");

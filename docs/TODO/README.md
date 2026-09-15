@@ -54,6 +54,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [x] [References](References.md) — Find All References сделан (вьюлет REFERENCES, F4/Shift+F4); дальше — implementations/type definition на тех же рельсах, история запросов, peek
 - [x] [ParameterHints](ParameterHints.md) — подсказка параметров сделана (попап по триггер-символам и Ctrl+K Ctrl+Space, перегрузки Up/Down); дальше — markdown в описаниях, скролл длинного текста
 - [~] [Suggest](Suggest.md) — автодополнение работает; дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
+- [~] [InlineCompletions](InlineCompletions.md) — призрачные подсказки (ghost text) v1 сделаны end-to-end (`registerInlineCompletionItemProvider`, Tab/Esc, view zones); открыты люфты (mid-line, partial accept, lifecycle-хуки, `selectedCompletionInfo`) и часть 2 — реальный LLM-провайдер
 - [~] [E2E](E2E.md) — инфраструктура готова; открыто — кросс-платформенность Phase 1.x и найденный дефект фокуса (find + вторая вкладка)
 - [ ] [MutationGateFlake](MutationGateFlake.md) — PR-гейт мутаций на неизменном коммите даёт разные наборы выживших (балл гуляет 97–100%), а локально те же файлы дают 100%: Stryker подбирает тесты через `vitest --related` и часть покрытия теряет. Улики и что попробовать — в документе; смежно — база диффа разъезжается, и в скоуп попадают чужие файлы
 - [ ] [Inspector](Inspector.md) — рефакторинг TUIElement-иерархии + основа приложения → inspector-протокол (`--inspect-tui`) для e2e

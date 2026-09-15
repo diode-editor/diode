@@ -9,6 +9,7 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
+import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
@@ -352,6 +353,11 @@ export class TextEditorPane extends Disposable implements IEditorPane {
 
     public setGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
         this.component.setGutterChangeDecorations(decorations);
+    }
+
+    /** Ставит/снимает призрачную подсказку (ghost text инлайн-подсказок). */
+    public setGhostText(ghost: IGhostText | null): void {
+        this.component.setGhostText(ghost);
     }
 
     public revealRange(range: IRange): void {

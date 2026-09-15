@@ -51,6 +51,7 @@ import {
     ReferencesComponentDIToken,
 } from "../contrib/references/browser/referencesComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
+import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
 import { ParameterHintsComponentDIToken } from "../contrib/parameterHints/browser/parameterHintsComponent.ts";
 import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
@@ -217,6 +218,10 @@ export class WorkbenchComponent extends Component {
         const parameterHintsComponent = this.register(accessor.get(ParameterHintsComponentDIToken));
         // Stryker disable next-line CallExpression: как и hover-сервис, он резолвится через WorkbenchContextKeys — register() лишь передаёт владение жизнью
         this.register(accessor.get(ParameterHintsServiceDIToken));
+        // Призрачные подсказки: сервис без компонента — рисует прямо в редакторе
+        // (TextEditorPane.setGhostText), попапов и overlay-сессий у него нет.
+        // Stryker disable next-line CallExpression: резолвится и через WorkbenchContextKeys — register() лишь передаёт владение жизнью
+        this.register(accessor.get(InlineCompletionsServiceDIToken));
         const findComponent = this.register(accessor.get(FindComponentDIToken));
         this.register(accessor.get(FindServiceDIToken));
         this.statusBarComponent = this.register(statusBarComponent);

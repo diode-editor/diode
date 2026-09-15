@@ -10,6 +10,7 @@ import type { ITokenizationSupport } from "../../../../editor/common/languages/i
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
+import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
@@ -544,6 +545,15 @@ export class EditorComponent extends Component {
     public setDecorations(decorations: IExternalDecorations): void {
         this.editor.decorations = decorations;
         this.editor.markDirty();
+    }
+
+    /**
+     * Ставит/снимает призрачную подсказку (ghost text инлайн-подсказок).
+     * Перечитка документа с диска пересоздаёт `EditorElement` — подсказка
+     * при этом гаснет сама (сервис к тому моменту её уже инвалидировал).
+     */
+    public setGhostText(ghost: IGhostText | null): void {
+        this.editor.setGhostText(ghost);
     }
 
     /** Scrolls a range into view (expanding folds if needed) and repaints. */
