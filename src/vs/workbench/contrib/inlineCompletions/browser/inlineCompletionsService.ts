@@ -101,6 +101,10 @@ export class InlineCompletionsService extends Disposable {
      * `inlineSuggestionHasIndentationLessThanTabSize`, дефолт true).
      */
     public hasIndentationLessThanTabSize(): boolean {
+        // Поле сбрасывается в true вместе со снятием сессии (hide) — пара
+        // «session === null, поле false» недостижима, ветка мутационно
+        // эквивалентна чтению поля напрямую.
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: см. выше
         return this.session === null || this.indentationLessThanTabSize;
     }
 
@@ -126,6 +130,7 @@ export class InlineCompletionsService extends Disposable {
         if (caret.character !== lineContent.length) return;
 
         const versionId = editor.viewState.document.versionId;
+        // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
         const seq = ++this.requestSeq;
         const items = await source({
             uri: editor.uri.toString(),
@@ -163,10 +168,12 @@ export class InlineCompletionsService extends Disposable {
         const caret = this.validCaretForSession(session, editor);
         /* v8 ignore start -- defensive: onCaretChanged гасит сессию раньше, чем
            расхождение доживёт до команды (диспетчер обновляет ключи перед резолвом) */
+        // Stryker disable ConditionalExpression,LogicalOperator,BlockStatement,CallExpression: недостижимый защитный гард, см. v8 ignore
         if (editor === null || caret === null) {
             this.hide();
             return;
         }
+        // Stryker restore ConditionalExpression,LogicalOperator,BlockStatement,CallExpression
         /* v8 ignore stop */
         this.hide();
         // Правка ниже синхронно дёрнет onCaretChanged — не даём ей перезапросить.
@@ -187,6 +194,7 @@ export class InlineCompletionsService extends Disposable {
         if (this.session === null) return;
         this.session.editor.setGhostText(null);
         this.session = null;
+        // Stryker disable next-line BooleanLiteral: пара к гарду session === null в hasIndentationLessThanTabSize — расхождение недостижимо
         this.indentationLessThanTabSize = true;
     }
 
@@ -261,6 +269,7 @@ export class InlineCompletionsService extends Disposable {
         this.unbindEditor();
         this.hide();
         this.cancelAutoTrigger();
+        // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
         this.requestSeq++;
         if (editor === null) return;
         this.contentSub = editor.onDidChangeContent(() => {
@@ -294,6 +303,9 @@ export class InlineCompletionsService extends Disposable {
         const editor = this.group.getActiveEditor();
         if (editor === null) {
             this.hide();
+            // Отмена дублирует гейт: trigger() без активного редактора — no-op
+            // до RPC, так что снятие таймера здесь мутационно ненаблюдаемо.
+            // Stryker disable next-line CallExpression: см. выше
             this.cancelAutoTrigger();
             return;
         }
@@ -310,6 +322,9 @@ export class InlineCompletionsService extends Disposable {
         }
 
         const selections = editor.viewState.selections;
+        // Гейт повторяется в trigger() до RPC — «расширяющий» мутант лишь
+        // планирует запрос, который сам себя отсечёт; ненаблюдаемо.
+        // Stryker disable next-line LogicalOperator: см. выше
         const single = selections.length === 1 && isSelectionCollapsed(selections[0]);
 
         if (!suppressed && wasEdit && single) {
@@ -328,6 +343,9 @@ export class InlineCompletionsService extends Disposable {
     }
 
     private cancelAutoTrigger(): void {
+        // true-ветка мутанта — clearTimeout(null): безвредный no-op, гард тут
+        // только экономит вызов. «Не отменять вовсе» ловят тесты отмены.
+        // Stryker disable next-line ConditionalExpression: см. выше
         if (this.autoTriggerTimer !== null) {
             clearTimeout(this.autoTriggerTimer);
             this.autoTriggerTimer = null;
@@ -353,13 +371,11 @@ export function computeIndentationLessThanTabSize(
 
     let width = 0;
     for (const char of ghostFirstLine) {
-        if (char === " ") {
-            width += 1;
-        } else if (char === "\t") {
-            width += tabSize - (width % tabSize);
-        } else {
-            break;
-        }
+        // Таб всегда добивает ширину до кратной tabSize границы, то есть до
+        // >= tabSize (width здесь всегда < tabSize — иначе вышли бы раньше).
+        if (char === "\t") return false;
+        if (char !== " ") break;
+        width += 1;
         if (width >= tabSize) return false;
     }
     return true;

@@ -466,7 +466,11 @@ export class EditorElement extends TUIElement implements IScrollable {
                 // Зона призрачной подсказки: строки `lines[1..]` под строкой
                 // каретки (offset 0 зоны = lines[1]). Свои зоны редактор заводит
                 // только под ghost — конфликт с зонами владельца невозможен
-                // (см. setGhostText).
+                // (см. setGhostText). Проверки якоря и offset'а держатся на
+                // инварианте setGhostText (единственная зона на ghost.line
+                // размером ровно lines.length - 1): их «ослабляющие» мутанты
+                // недостижимы — гасим с причиной.
+                // Stryker disable next-line ConditionalExpression,EqualityOperator,ArithmeticOperator: см. выше
                 if (ghost !== null && zoneRow.anchor === ghost.line && zoneRow.offset + 1 < ghost.lines.length) {
                     for (let x = 0; x < contentCols; x++) {
                         context.setCell(gutterW + x, screenY, { char: " ", fg: ghostFg, bg: editorBg });

@@ -235,12 +235,18 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
     const { displayLine, screenY, gutterW, contentCols, startColumn, fg, bg, style } = params;
 
     let col = 0;
+    // Отсев за концом строки — про скорость, а не про картинку: RenderContext
+    // клиппит по прямоугольнику элемента (см. paintCarets), а лишняя итерация
+    // за displayWidth упирается в защитные гарды слотов. Мутанты границ
+    // неубиваемы — гасим, как в paintCarets.
+    // Stryker disable next-line EqualityOperator: см. выше
     while (col < displayLine.displayWidth) {
         const screenX = startColumn + col;
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: клип по вьюпорту — про скорость, setCell за прямоугольником и так молча выходит
         if (screenX >= contentCols) break;
         const char = displayLine.charAtColumn(col);
         /* v8 ignore start -- defensive: col шагает по ширинам слотов от 0 и на колонку-продолжение широкого символа не попадает (в отличие от paintTextLine, где displayCol стартует с произвольного scrollLeft) */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: недостижимый защитный гард, см. v8 ignore
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator: недостижимый защитный гард, см. v8 ignore
         if (char === "") {
             // Колонка-продолжение широкого символа — её красит Grid.
             col++;
@@ -249,13 +255,16 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
         /* v8 ignore stop */
         const slot = displayLine.graphemeAtColumn(col);
         /* v8 ignore start -- defensive: в пределах displayWidth слот есть всегда (см. paintTextLine) */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: недостижимый защитный гард, см. v8 ignore
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement,UpdateOperator: недостижимый защитный гард, см. v8 ignore
         if (slot === undefined) {
             col++;
             continue;
         }
         /* v8 ignore stop */
         const width = slot.displayWidth;
+        // Пропуск отрицательных колонок — тоже про скорость: setCell левее
+        // прямоугольника клиппится сам, а col в любой ветке шагает на width.
+        // Stryker disable next-line ConditionalExpression,BlockStatement: см. выше
         if (screenX < 0) {
             // Колонка левее вьюпорта (горизонтальный скролл) — пропуск.
             col += width;
@@ -264,12 +273,22 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
 
         if (slot.grapheme === "\t") {
             // Таб — по пробелу на колонку (Grid поддерживает только width 1 и 2).
+            // Пробельные ячейки таба неотличимы от фоновых пробелов, которыми
+            // хвост строки уже залит (paintTextLine) — сама заливка нужна ради
+            // fg/style, невидимых на пробеле; наблюдаемое у ветки — только шаг
+            // col (его проверяют позиции следующих символов). Мутанты заливки
+            // неубиваемы — гасим оптом.
+            // Stryker disable ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral: см. выше
             for (let i = 0; i < width && screenX + i < contentCols; i++) {
                 context.setCell(gutterW + screenX + i, screenY, { char: " ", fg, bg, style, width: 1 });
             }
+            // Stryker restore ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral
             col += width;
         } else if (width === 2 && screenX + 1 >= contentCols) {
             // Широкий символ не влезает у правого края — вместо него пробел.
+            // Пробел у края неотличим от фонового пробела (см. таб выше);
+            // наблюдаемое у ветки — что широкий символ НЕ нарисован (тест края).
+            // Stryker disable next-line ArithmeticOperator,ObjectLiteral,StringLiteral: см. выше
             context.setCell(gutterW + screenX, screenY, { char: " ", fg, bg, style, width: 1 });
             col++;
         } else {

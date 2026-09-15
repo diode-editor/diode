@@ -86,7 +86,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         expect(seen.context?.triggerKind).toBe(1);
         expect(seen.context?.selectedCompletionInfo).toBeUndefined();
         expect(ctx.registry.get(URI as unknown as vscode.Uri)?.getText()).toBe("con\n");
-        expect(result).toEqual([
+        expect(result).toStrictEqual([
             {
                 insertText: "console.log()",
                 range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 },
@@ -109,7 +109,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
 
         const result = await stub.callRequest("languages.provideInlineCompletions", requestParams());
 
-        expect(result).toEqual([{ insertText: "log(msg)" }]);
+        expect(result).toStrictEqual([{ insertText: "log(msg)" }]);
     });
 
     it("filterText уезжает в wire-пункт", async () => {
@@ -126,7 +126,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             },
         );
 
-        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toEqual([
+        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toStrictEqual([
             { insertText: "console.log()", filterText: "console" },
         ]);
     });
@@ -155,7 +155,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             { provideInlineCompletionItems: () => [new InlineCompletionItem("b") as never] },
         );
 
-        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toEqual([
+        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toStrictEqual([
             { insertText: "a" },
             { insertText: "b" },
         ]);
@@ -178,6 +178,8 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
         expect(seen.context?.triggerKind).toBe(1); // Automatic
+        // Без text снапшот документа — пустая строка, не мусор.
+        expect(ctx.registry.get(URI as unknown as vscode.Uri)?.getText()).toBe("");
     });
 
     it("null/undefined/мусор от провайдера — пустой ответ; пустой insertText отбрасывается", async () => {
@@ -198,6 +200,11 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         );
         languages.registerInlineCompletionItemProvider(
             { language: "typescript" },
+            // null/undefined среди пунктов — drop+skip, не падение сериализатора.
+            { provideInlineCompletionItems: () => [null, undefined] as never },
+        );
+        languages.registerInlineCompletionItemProvider(
+            { language: "typescript" },
             {
                 provideInlineCompletionItems: () =>
                     [
@@ -209,6 +216,6 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             },
         );
 
-        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toEqual([]);
+        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toStrictEqual([]);
     });
 });

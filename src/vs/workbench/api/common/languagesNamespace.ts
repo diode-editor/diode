@@ -1210,6 +1210,10 @@ export function createLanguagesNamespace(
      * или текст пуст (drop+skip).
      */
     function serializeInlineCompletionItem(item: unknown): WireInlineCompletionItem | null {
+        // Клауза typeof — защитная: не-объект без .insertText отсеет следующий
+        // гард (примитив со строковым insertText невозможен) — её мутанты
+        // эквивалентны. null отсекается по-настоящему (доступ к полю бросил бы).
+        // Stryker disable next-line ConditionalExpression: см. выше
         if (typeof item !== "object" || item === null) return null;
         const obj = item as { insertText?: unknown; filterText?: unknown; range?: unknown };
         let insertText: string;
@@ -1233,6 +1237,7 @@ export function createLanguagesNamespace(
         const p = params as IWireInlineCompletionParams;
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
+            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",
         });
@@ -1259,11 +1264,14 @@ export function createLanguagesNamespace(
                     ),
                 );
             } catch {
-                continue; // сбойный провайдер не роняет остальные
+                // Сбойный провайдер не роняет остальные: `result` остаётся
+                // неприсвоенным, и его отсеивает общая проверка ниже — своего
+                // `continue` тут нет намеренно, иначе ветка неотличима от неё
+                // (тот же приём, что у hover).
             }
             if (result == null) continue;
             // `InlineCompletionItem[] | InlineCompletionList` — нормализуем к массиву.
-            const rawItems = Array.isArray(result) ? result : ((result as { items?: unknown }).items ?? []);
+            const rawItems = Array.isArray(result) ? result : (result as { items?: unknown }).items;
             if (!Array.isArray(rawItems)) continue;
             for (const item of rawItems) {
                 const wire = serializeInlineCompletionItem(item);

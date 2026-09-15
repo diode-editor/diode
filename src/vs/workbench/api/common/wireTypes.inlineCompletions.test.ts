@@ -31,7 +31,7 @@ describe("parseWireInlineCompletionItems", () => {
                 "junk",
                 null,
             ]),
-        ).toEqual([WIRE_ITEM, { insertText: "plain" }]);
+        ).toStrictEqual([WIRE_ITEM, { insertText: "plain" }]);
     });
 
     it("не-массив — пустой список", () => {
@@ -40,7 +40,7 @@ describe("parseWireInlineCompletionItems", () => {
     });
 
     it("кривой range отбрасывается, пункт остаётся", () => {
-        expect(parseWireInlineCompletionItems([{ insertText: "x", range: { startLine: "a" } }])).toEqual([
+        expect(parseWireInlineCompletionItems([{ insertText: "x", range: { startLine: "a" } }])).toStrictEqual([
             { insertText: "x" },
         ]);
     });
@@ -48,7 +48,7 @@ describe("parseWireInlineCompletionItems", () => {
 
 describe("wireToCoreInlineCompletionItems", () => {
     it("переводит wire-диапазон в core-IRange", () => {
-        expect(wireToCoreInlineCompletionItems([WIRE_ITEM])).toEqual([
+        expect(wireToCoreInlineCompletionItems([WIRE_ITEM])).toStrictEqual([
             {
                 insertText: "console.log()",
                 filterText: "console",
@@ -58,14 +58,14 @@ describe("wireToCoreInlineCompletionItems", () => {
     });
 
     it("необязательные поля не материализуются", () => {
-        expect(wireToCoreInlineCompletionItems([{ insertText: "x" }])).toEqual([{ insertText: "x" }]);
+        expect(wireToCoreInlineCompletionItems([{ insertText: "x" }])).toStrictEqual([{ insertText: "x" }]);
     });
 });
 
 describe("requestInlineCompletions", () => {
     it("валидный ответ конвертируется в core-пункты", async () => {
         const result = await requestInlineCompletions(() => Promise.resolve([WIRE_ITEM]), PARAMS, 1000);
-        expect(result).toEqual([
+        expect(result).toStrictEqual([
             {
                 insertText: "console.log()",
                 filterText: "console",

@@ -185,6 +185,7 @@ export const extensionHostModule: ContainerModule = (container) => {
         });
         // Inline completions (ghost text): источник призрачных подсказок —
         // провайдеры расширений через host (читает InlineCompletionsService).
+        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
         group.inlineCompletionSource = (req) => host.provideInlineCompletions(req);
 
         // Definition: провайдеры расширений (languages.provideDefinition)

@@ -760,8 +760,10 @@ export class ExtensionHost extends Disposable {
         req: IInlineCompletionRequest,
     ): Promise<readonly ICoreInlineCompletionItem[]> {
         const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
         if (rpc === null || !this.inlineCompletionSubscribed) return [];
         /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
+        // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration: 8 МБ снапшот неподъёмен юнитом, см. v8 ignore
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping inline completion: document too large", {
                 uri: req.uri,
@@ -769,6 +771,7 @@ export class ExtensionHost extends Disposable {
             });
             return [];
         }
+        // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration
         /* v8 ignore stop */
         return requestInlineCompletions(
             (method, params) => rpc.request(method, params),

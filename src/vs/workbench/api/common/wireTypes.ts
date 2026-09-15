@@ -630,6 +630,9 @@ export interface IWireInlineCompletionParams {
 
 /** Валидирует один wire-пункт инлайн-подсказки; `null` — форма не распознана. */
 function parseWireInlineCompletionItem(raw: unknown): WireInlineCompletionItem | null {
+    // Клауза typeof — защитная: не-объект без .insertText отсеет следующий гард
+    // (примитив со строковым insertText невозможен) — её мутанты эквивалентны.
+    // Stryker disable next-line ConditionalExpression: см. выше
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as Record<string, unknown>;
     if (typeof obj.insertText !== "string" || obj.insertText === "") return null;
@@ -687,6 +690,9 @@ export async function requestInlineCompletions(
     timeoutMs: number,
 ): Promise<readonly ICoreInlineCompletionItem[]> {
     const outcome = await raceWithTimeout(request("languages.provideInlineCompletions", params), timeoutMs);
+    // Ранний return — экономия работы: TIMED_OUT-символ не массив, и парсер
+    // ниже дал бы тот же `[]` — мутант гарда эквивалентен.
+    // Stryker disable next-line ConditionalExpression: см. выше
     if (outcome === TIMED_OUT) return [];
     return wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(outcome));
 }

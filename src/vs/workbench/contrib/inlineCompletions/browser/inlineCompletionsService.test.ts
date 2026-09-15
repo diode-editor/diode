@@ -239,12 +239,30 @@ describe("InlineCompletionsService — показ", () => {
                     { insertText: "log()", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } },
                     // range на другой строке.
                     { insertText: "confuse", range: { start: { line: 1, character: 0 }, end: { line: 1, character: 3 } } },
+                    // start на другой строке (end — на строке каретки).
+                    { insertText: "con-BAD1", range: { start: { line: 1, character: 0 }, end: { line: 0, character: 3 } } },
+                    // end на другой строке (start — на строке каретки).
+                    { insertText: "con-BAD2", range: { start: { line: 0, character: 0 }, end: { line: 1, character: 3 } } },
+                    // range начинается ПРАВЕЕ каретки.
+                    { insertText: "-BAD3", range: { start: { line: 0, character: 4 }, end: { line: 0, character: 5 } } },
                     // range не покрывает каретку.
                     { insertText: "control", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } } },
                     // filterText совпал, а insertText с набранным не начинается.
                     {
                         insertText: "xyz",
                         filterText: "console",
+                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+                    },
+                    // insertText длиннее typed, filterText совпал — но insertText не начинается с typed.
+                    {
+                        insertText: "xyzabc",
+                        filterText: "console",
+                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+                    },
+                    // filterText НЕ совпал — insertText совпадает, но гейт по filterText отбрасывает.
+                    {
+                        insertText: "con-BAD4",
+                        filterText: "nope",
                         range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
                     },
                     // полностью набранный текст — хвоста нет.
@@ -257,6 +275,35 @@ describe("InlineCompletionsService — показ", () => {
         await service.trigger();
 
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 3, lines: ["st y = 1;"] });
+    });
+
+    it("range, начинающийся ровно в каретке, — валидная вставка", async () => {
+        const fake = makeEditor("con", 3);
+        const item: ICoreInlineCompletionItem = {
+            insertText: "tinue;",
+            range: { start: { line: 0, character: 3 }, end: { line: 0, character: 3 } },
+        };
+        const service = makeService(makeGroup(fake.editor, items(item)).group);
+
+        await service.trigger();
+
+        expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 3, lines: ["tinue;"] });
+    });
+
+    it("повторный запрос с пустым ответом гасит показанную подсказку", async () => {
+        const fake = makeEditor("ab", 2);
+        let empty = false;
+        const source = (): Promise<readonly ICoreInlineCompletionItem[]> =>
+            Promise.resolve(empty ? [] : [{ insertText: "cde" }]);
+        const service = makeService(makeGroup(fake.editor, source).group);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        empty = true;
+        await service.trigger();
+
+        expect(service.isOpen()).toBe(false);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
     it("пустой ответ и ошибка источника не показывают ничего", async () => {
@@ -403,6 +450,16 @@ describe("InlineCompletionsService — гейты", () => {
         d5.resolvers[0](ITEM);
         await p5;
         expect(s5.isOpen()).toBe(false);
+
+        // Каретка ушла на другую строку (та же колонка — ловит именно строка).
+        const movedLine = makeEditor("ab", 2);
+        const d6 = deferred();
+        const s6 = makeService(makeGroup(movedLine.editor, d6.source).group);
+        const p6 = s6.trigger();
+        movedLine.move(1, 2);
+        d6.resolvers[0](ITEM);
+        await p6;
+        expect(s6.isOpen()).toBe(false);
     });
 
     it("ответ, пережитый правкой документа, не показывается", async () => {
@@ -513,6 +570,61 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(service.isOpen()).toBe(false);
     });
 
+    it("каретка на другой строке (та же колонка) гасит подсказку", async () => {
+        const fake = makeEditor("ab", 2);
+        const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        // Колонка совпадает с прежней — расхождение видит только проверка строки.
+        fake.move(1, 2);
+
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("строка укоротилась ниже начала сессии — подсказка гаснет, а не съезжает", async () => {
+        const fake = makeEditor("ab", 2);
+        let calls = 0;
+        const source = (): Promise<readonly ICoreInlineCompletionItem[]> => {
+            calls++;
+            return Promise.resolve(calls === 1 ? [{ insertText: "cde" }] : []);
+        };
+        const service = makeService(makeGroup(fake.editor, source).group);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        // Backspace за начало сессии: каретка в конце строки, но ЛЕВЕЕ start.
+        fake.type("a", 1);
+
+        expect(service.isOpen()).toBe(false);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+    });
+
+    it("ручной триггер отменяет отложенный авто-запрос (не два RPC)", async () => {
+        const fake = makeEditor("ab", 2);
+        const source = vi.fn(items({ insertText: "cde" }));
+        const service = makeService(makeGroup(fake.editor, source).group);
+
+        fake.type("ab ", 3); // планирует авто-запрос
+        await service.trigger(); // ручной — должен снять таймер
+        await tick();
+
+        expect(source).toHaveBeenCalledTimes(1);
+    });
+
+    it("чистое движение каретки отменяет отложенный авто-запрос", async () => {
+        const fake = makeEditor("ab\ncd", 2);
+        const source = vi.fn(items({ insertText: "xyz" }));
+        const service = makeService(makeGroup(fake.editor, source).group);
+        expect(service.isOpen()).toBe(false);
+
+        fake.type("ab ", 3); // планирует авто-запрос
+        fake.move(1, 3); // движение без правки — отложенный запрос снимается
+        await tick();
+
+        expect(source).not.toHaveBeenCalled();
+    });
+
     it("мультикурсор при живой сессии гасит подсказку", async () => {
         const fake = makeEditor("ab", 2);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
@@ -568,6 +680,50 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
+    it("после смены редактора события старого не запускают запросов (подписки сняты)", async () => {
+        const fake = makeEditor("ab", 2);
+        const other = makeEditor("zz", 2);
+        const source = vi.fn(items({ insertText: "cde" }));
+        const g = makeGroup(fake.editor, source);
+        const service = makeService(g.group);
+
+        g.setActiveEditor(other.editor);
+        // Правка в СТАРОМ редакторе: его подписки сняты — запросов нет.
+        fake.type("ab ", 3);
+        await tick();
+
+        expect(source).not.toHaveBeenCalled();
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("смена редактора снимает отложенный авто-запрос старого", async () => {
+        const fake = makeEditor("ab", 2);
+        const other = makeEditor("zz", 2);
+        const source = vi.fn(items({ insertText: "cde" }));
+        const g = makeGroup(fake.editor, source);
+        makeService(g.group);
+
+        fake.type("ab ", 3); // планирует авто-запрос на старом
+        g.setActiveEditor(other.editor); // bindEditor обязан снять таймер
+        await tick();
+
+        expect(source).not.toHaveBeenCalled();
+    });
+
+    it("смена редактора не тащит «была правка» на новый: чистое движение не запрашивает", async () => {
+        const fake = makeEditor("ab", 2);
+        const other = makeEditor("zz", 2);
+        const source = vi.fn(items({ insertText: "cde" }));
+        const g = makeGroup(fake.editor, source);
+        makeService(g.group);
+
+        g.setActiveEditor(other.editor);
+        other.move(0, 2); // движение без правки на новом редакторе
+        await tick();
+
+        expect(source).not.toHaveBeenCalled();
+    });
+
     it("hide() гасит подсказку (Escape)", async () => {
         const fake = makeEditor("ab", 2);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
@@ -585,16 +741,27 @@ describe("InlineCompletionsService — жизнь сессии", () => {
 
     it("dispose гасит подсказку и снимает подписки", async () => {
         const fake = makeEditor("ab", 2);
+        const other = makeEditor("zz", 2);
         const source = vi.fn(items({ insertText: "cde" }));
-        const service = makeService(makeGroup(fake.editor, source).group);
+        const g = makeGroup(fake.editor, source);
+        const service = makeService(g.group);
         await service.trigger();
 
-        service.dispose();
+        fake.type("ab ", 3); // отложенный авто-запрос…
+        service.dispose(); // …dispose обязан снять и его
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+        await tick();
+        expect(source).toHaveBeenCalledTimes(1); // только исходный trigger
 
-        fake.type("ab ", 3);
+        fake.type("ab x", 4);
         await tick();
         expect(source).toHaveBeenCalledTimes(1); // после dispose набор не запрашивает
+
+        // И смена активного редактора больше не перевешивает подписки.
+        g.setActiveEditor(other.editor);
+        other.type("zz ", 3);
+        await tick();
+        expect(source).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -670,5 +837,11 @@ describe("computeIndentationLessThanTabSize", () => {
         expect(computeIndentationLessThanTabSize("ab  ", 4, "    x", 4)).toBe(true);
         // Подсказка без отступа → true.
         expect(computeIndentationLessThanTabSize("    ", 4, "x", 4)).toBe(true);
+        // Скан отступа подсказки останавливается на первом непробельном
+        // символе — длинный непробельный хвост ширину не набирает.
+        expect(computeIndentationLessThanTabSize("    ", 4, "xxxx", 4)).toBe(true);
+        // «В отступе» — про текст ДО каретки: непробельный хвост правее каретки
+        // не выводит её из отступа.
+        expect(computeIndentationLessThanTabSize("  xx", 2, "    y", 4)).toBe(false);
     });
 });

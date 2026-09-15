@@ -17,12 +17,20 @@ import { EditorElement } from "./editorElement.ts";
  */
 
 const GHOST_FG = packRgb(0x6a, 0x6a, 0x6a);
+const EDITOR_FG = packRgb(0xd4, 0xd4, 0xd4);
 const BG = packRgb(0x1e, 0x1e, 0x1e);
 
 const STYLE_VARS = {
     "editor.background": BG,
+    "editor.foreground": EDITOR_FG,
     "editorGhostText.foreground": GHOST_FG,
 };
+
+/** Стиль как у EditorComponent.applyEditorStyle — фон/цвет редактора настоящие. */
+function styleEditor(editor: EditorElement): void {
+    editor.setStyleVars(STYLE_VARS);
+    editor.style = { fg: "editor.foreground", bg: "editor.background" };
+}
 
 function createEditor(
     text: string,
@@ -31,7 +39,7 @@ function createEditor(
 ): { app: TestApp; editor: EditorElement } {
     const viewState = new EditorViewState(new TextDocument(text));
     const editor = new EditorElement(viewState);
-    editor.setStyleVars(STYLE_VARS);
+    styleEditor(editor);
     editor.setGhostText(ghost);
     const app = TestApp.createWithContent(editor, size);
     app.render();
@@ -68,8 +76,52 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getTextAt(new Point(gutterW, 2), 5)).toBe("three");
         // Гуттер зоны пуст — номер строки не тратится.
         expect(app.backend.getTextAt(new Point(0, 1), gutterW)).toBe(" ".repeat(gutterW));
-        // bravo уехал под зону.
-        expect(app.backend.getTextAt(new Point(gutterW, 3), 5)).toBe("bravo");
+        // Хвост zone-строки за текстом залит фоном редактора (не мусором грида).
+        const contentCols = 24 - gutterW;
+        expect(app.backend.getTextAt(new Point(gutterW + 5, 1), contentCols - 5)).toBe(" ".repeat(contentCols - 5));
+        expect(app.backend.getBgAt(new Point(gutterW + 10, 1))).toBe(BG);
+        expect(app.backend.getBgAt(new Point(gutterW + contentCols - 1, 2))).toBe(BG);
+        // bravo уехал под зону — и хвост подсказки НЕ дорисован на его строке.
+        expect(app.backend.getTextAt(new Point(gutterW, 3), 9)).toBe("bravo    ");
+    });
+
+    it("чужие зоны переживают однострочную подсказку (свои зоны не трогаются)", () => {
+        const viewState = new EditorViewState(new TextDocument("alpha\nbravo"));
+        viewState.setViewZones([{ afterLine: 1, size: 1 }]); // зона владельца вью
+        const editor = new EditorElement(viewState);
+        editor.setStyleVars(STYLE_VARS);
+
+        editor.setGhostText({ line: 0, character: 5, lines: ["-tail"] });
+        expect(viewState.viewZones).toEqual([{ afterLine: 1, size: 1 }]);
+
+        editor.setGhostText(null);
+        expect(viewState.viewZones).toEqual([{ afterLine: 1, size: 1 }]);
+    });
+
+    it("каретка не в конце строки — хвост рисуется с её колонки поверх текста (защитный кламп)", () => {
+        const { app, editor } = createEditor("ab", { line: 0, character: 1, lines: ["ZZ"] });
+
+        const gutterW = editor.gutterWidth;
+        // min(character, len): рисуем с колонки 1 — «b» перекрыт фантомом.
+        expect(app.backend.getTextAt(new Point(gutterW, 0), 4)).toBe("aZZ ");
+    });
+
+    it("word wrap: хвост подсказки рисуется на последнем фрагменте с учётом его начала", () => {
+        const text = "a".repeat(15); // шире контентной области → перенос
+        const viewState = new EditorViewState(new TextDocument(text));
+        viewState.wordWrap = "on";
+        const editor = new EditorElement(viewState);
+        styleEditor(editor);
+        editor.setGhostText({ line: 0, character: 15, lines: ["GH"] });
+        const app = TestApp.createWithContent(editor, new Size(16, 4));
+        app.render();
+
+        const gutterW = editor.gutterWidth; // 6 → contentCols = 10
+        // 15 «a» → фрагменты [0..10) и [10..15); хвост на втором ряду с
+        // колонки 15 - fragStartCol(10) = 5 — старт фрагмента учтён.
+        expect(app.backend.getTextAt(new Point(gutterW, 0), 10)).toBe("a".repeat(10));
+        expect(app.backend.getTextAt(new Point(gutterW, 1), 8)).toBe("aaaaaGH ");
+        expect(app.backend.getFgAt(new Point(gutterW + 5, 1))).toBe(GHOST_FG);
     });
 
     it("снятие подсказки убирает и хвост, и зоны", () => {
@@ -128,7 +180,9 @@ describe("EditorElement — ghost text", () => {
         const gutterW = editor.gutterWidth;
         const contentCols = 24 - gutterW;
         const row = app.backend.getTextAt(new Point(gutterW, 0), contentCols);
-        expect(row.startsWith("ab-очень-")).toBe(true);
+        // Полное равенство до последней колонки: обрезка не превращает
+        // обычные символы в пробелы (это судьба только широких у края).
+        expect(row).toBe(("ab-очень-длинный-призрачный-хвост").slice(0, contentCols));
         // Ничего не вылезло за границу элемента (ширина приложения = 24).
         expect(row.length).toBe(contentCols);
     });
@@ -146,6 +200,8 @@ describe("EditorElement — ghost text", () => {
         // от её текста), а не по экранной колонке — осознанный люфт v1.
         expect(app.backend.getTextAt(new Point(gutterW + 1, 0), 1)).toBe("你");
         const tabWidth = 4 - (2 % 4); // таб на колонке 2 подсказки → до границы 4
+        // Ячейки таба — пробелы (не литеральный "\t").
+        expect(app.backend.getTextAt(new Point(gutterW + 1 + 2, 0), tabWidth)).toBe(" ".repeat(tabWidth));
         expect(app.backend.getTextAt(new Point(gutterW + 1 + 2 + tabWidth, 0), 2)).toBe("ok");
         expect(app.backend.getFgAt(new Point(gutterW + 1 + 2 + tabWidth, 0))).toBe(GHOST_FG);
     });
