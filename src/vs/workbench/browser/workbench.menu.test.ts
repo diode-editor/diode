@@ -226,6 +226,11 @@ describe("Workbench — menu bar wiring", () => {
         expect(itemLabels(popup)).toEqual([
             "Select All",
             "Expand Selection (Word)",
+            "Copy Line Up",
+            "Copy Line Down",
+            "Move Line Up",
+            "Move Line Down",
+            "Duplicate Selection",
             "Add Cursor Above",
             "Add Cursor Below",
             "Add Cursors to Line Ends",

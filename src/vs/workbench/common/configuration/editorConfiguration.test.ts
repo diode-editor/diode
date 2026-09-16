@@ -6,6 +6,15 @@ import { editorConfiguration } from "./editorConfiguration.ts";
 // ними поведение сохранения не меняется ни на байт. Тип и описание — контракт
 // валидатора settings.json и автодополнения ключей (diode-settings).
 
+describe("editorConfiguration — emptySelectionClipboard", () => {
+    it("boolean, включён по умолчанию — как в VS Code", () => {
+        const schema = editorConfiguration.properties["editor.emptySelectionClipboard"];
+        expect(schema.type).toBe("boolean");
+        expect(schema.default).toBe(true);
+        expect(schema.description).toContain("copies the current line");
+    });
+});
+
 describe("editorConfiguration — onSave-настройки", () => {
     it("editor.formatOnSave: boolean, выключен по умолчанию", () => {
         const schema = editorConfiguration.properties["editor.formatOnSave"];

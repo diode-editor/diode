@@ -28,6 +28,11 @@ export const editorConfiguration: IConfigurationNode = {
             default: 3,
             description: "Controls the minimal number of visible leading lines around the cursor.",
         },
+        "editor.emptySelectionClipboard": {
+            type: "boolean",
+            default: true,
+            description: "Controls whether copying without a selection copies the current line.",
+        },
         "editor.contextmenu": {
             type: "boolean",
             default: true,

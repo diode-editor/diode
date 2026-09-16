@@ -21,6 +21,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {"key":"editor.contextmenu","type":"boolean","default":true,"description":"Controls whether the editor shows the context menu."},
     {"key":"editor.cursorSurroundingLines","type":"number","default":3,"description":"Controls the minimal number of visible leading lines around the cursor."},
     {"key":"editor.detectIndentation","type":"boolean","default":true,"description":"Controls whether `editor.tabSize` and `editor.insertSpaces` are automatically detected from the file contents when a file is opened."},
+    {"key":"editor.emptySelectionClipboard","type":"boolean","default":true,"description":"Controls whether copying without a selection copies the current line."},
     {"key":"editor.formatOnSave","type":"boolean","default":false,"description":"Format a file on save. A formatter must be available (an extension providing it)."},
     {"key":"editor.inlineSuggest.enabled","type":"boolean","default":true,"description":"Controls whether to automatically show inline suggestions in the editor."},
     {"key":"editor.insertSpaces","type":"boolean","default":true,"description":"Insert spaces when pressing Tab."},

@@ -26,6 +26,15 @@ import type { IUndoElement } from "../model/iUndoElement.ts";
 import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
 
 import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
+import type { ILineOperationResult, ITextToCopy } from "./lineOperations.ts";
+import {
+    computeCopyLines,
+    computeCutEdits,
+    computeDeleteLines,
+    computeDuplicateSelection,
+    computeMoveLines,
+    computeTextToCopy,
+} from "./lineOperations.ts";
 import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 import { LineBreaksCache } from "./lineBreaksCache.ts";
 
@@ -1786,6 +1795,160 @@ export class EditorViewState {
         const anchor = remap(sel.anchor);
         const active = remap(sel.active);
         return createSelection(anchor.line, anchor.character, active.line, active.character);
+    }
+
+    // ─── Line operations (VS Code editor/contrib/linesOperations) ───
+
+    /** Дублирует строки выделений, оставляя выделения на верхней копии (Shift+Alt+Up VS Code). */
+    public copyLinesUp(): IUndoElement | undefined {
+        return this.applyLineOperation("copyLinesUp", computeCopyLines(this.document, this.sortedSelections(), false));
+    }
+
+    /** Дублирует строки выделений, перенося выделения на нижнюю копию (Shift+Alt+Down VS Code). */
+    public copyLinesDown(): IUndoElement | undefined {
+        return this.applyLineOperation("copyLinesDown", computeCopyLines(this.document, this.sortedSelections(), true));
+    }
+
+    /**
+     * Дубль выделения: копия текста за выделением становится новым выделением,
+     * схлопнутая каретка дублирует свою строку вниз (`editor.action.duplicateSelection`).
+     */
+    public duplicateSelection(): IUndoElement | undefined {
+        return this.applyLineOperation("duplicateSelection", computeDuplicateSelection(this.document, this.sortedSelections()));
+    }
+
+    /** Перемещает строки выделений на строку вверх (Alt+Up); у верхнего края — no-op. */
+    public moveLinesUp(): IUndoElement | undefined {
+        return this.applyLineOperation("moveLinesUp", computeMoveLines(this.document, this.sortedSelections(), false));
+    }
+
+    /** Перемещает строки выделений на строку вниз (Alt+Down); у нижнего края — no-op. */
+    public moveLinesDown(): IUndoElement | undefined {
+        return this.applyLineOperation("moveLinesDown", computeMoveLines(this.document, this.sortedSelections(), true));
+    }
+
+    /** Удаляет строки выделений целиком (Ctrl+Shift+K), оставляя каретку в прежней колонке. */
+    public deleteLines(): IUndoElement | undefined {
+        return this.applyLineOperation("deleteLines", computeDeleteLines(this.document, this.sortedSelections()));
+    }
+
+    /**
+     * Общий финал строчных операций: применить готовые правки, сдвинуть фолды
+     * и поставить ЗАРАНЕЕ посчитанные выделения (в отличие от
+     * {@link applyEdits}, где каретка встаёт в конец каждой правки). Позиции
+     * клампятся к документу: чистые функции держат колонку каретки, а строка
+     * под ней могла стать короче.
+     */
+    private applyLineOperation(label: string, computed: ILineOperationResult | null): IUndoElement | undefined {
+        if (this.readOnly || computed === null) return undefined;
+        const beforeSelections = this.cloneSelections();
+        const versionBefore = this.document.versionId;
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(computed.edits);
+        this.adjustFoldingRegionsForEdits(computed.edits);
+        this.selections = computed.afterSelections.map((sel) => this.clampSelectionToDocument(sel));
+        this.ensureCursorVisible();
+        return {
+            label,
+            versionBefore,
+            versionAfter: appliedVersion,
+            forwardEdits: computed.edits,
+            backwardEdits: inverseEdits,
+            beforeSelections,
+            afterSelections: this.cloneSelections(),
+        };
+    }
+
+    /**
+     * Кламп выделения к границам документа (строка → её длина). Он несёт
+     * семантику, а не только защиту: deleteLines сажает каретку блока с
+     * последней строкой на строку ЗА новым концом документа — именно кламп
+     * возвращает её на новый конец.
+     */
+    private clampSelectionToDocument(sel: ISelection): ISelection {
+        const clamp = (pos: IPosition): IPosition => {
+            const line = Math.max(0, Math.min(pos.line, this.document.lineCount - 1));
+            return { line, character: Math.max(0, Math.min(pos.character, this.document.getLineLength(line))) };
+        };
+        return { anchor: clamp(sel.anchor), active: clamp(sel.active), idealColumn: sel.idealColumn };
+    }
+
+    // ─── Clipboard (emptySelectionClipboard) ────────────────
+
+    /**
+     * Текст для Copy/Cut с семантикой `editor.emptySelectionClipboard`:
+     * пустые выделения отдают свою строку целиком (см. {@link computeTextToCopy}).
+     */
+    public getTextToCopy(emptySelectionClipboard: boolean): ITextToCopy {
+        return computeTextToCopy(this.document, this.sortedSelections(), emptySelectionClipboard);
+    }
+
+    /**
+     * Удаление под Cut: непустые выделения теряют диапазон, пустые (при
+     * включённой настройке) — строку целиком. Каретки встают в начала правок —
+     * стандартный путь {@link computeSelectionsAfterEdits}, как у deleteLeft.
+     */
+    public cutSelections(emptySelectionClipboard: boolean): IUndoElement | undefined {
+        if (this.readOnly) return undefined;
+        const edits = computeCutEdits(this.document, this.sortedSelections(), emptySelectionClipboard);
+        if (edits.length === 0) return undefined;
+        const beforeSelections = this.cloneSelections();
+        const versionBefore = this.document.versionId;
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
+        this.adjustFoldingRegionsForEdits(edits);
+        this.selections = this.computeSelectionsAfterEdits(edits);
+        this.ensureCursorVisible();
+        return {
+            label: "cut",
+            versionBefore,
+            versionAfter: appliedVersion,
+            forwardEdits: edits,
+            backwardEdits: inverseEdits,
+            beforeSelections,
+            afterSelections: this.cloneSelections(),
+        };
+    }
+
+    /**
+     * Вставка из буфера. `pasteOnNewLine` — линейная вставка VS Code: строка,
+     * скопированная ПУСТЫМ выделением (одна строка с завершающим `\n`),
+     * ложится строкой выше курсорной, каретка остаётся у своего текста.
+     * Линейность действует на каждую пустую каретку отдельно; непустые
+     * выделения и любой другой текст вставляются как обычный type.
+     */
+    public pasteText(text: string, pasteOnNewLine: boolean): IUndoElement | undefined {
+        // «Одна строка с завершающим \n». Пустой текст (length - 1 === -1 ===
+        // indexOf) сюда тоже проходит, и это безобидно: обе ветки для него —
+        // пустые правки; вызывающие всё равно гейтят пустой буфер.
+        const linewise = pasteOnNewLine && text.indexOf("\n") === text.length - 1;
+        if (!linewise) return this.insertText(text);
+        if (this.readOnly) return undefined;
+        const beforeSelections = this.cloneSelections();
+        const versionBefore = this.document.versionId;
+        const sorted = this.sortedSelections();
+        const edits = sorted.map((sel) =>
+            isSelectionCollapsed(sel)
+                ? createTextEdit(createRange(sel.active.line, 0, sel.active.line, 0), text)
+                : createTextEdit(selectionToRange(sel), text),
+        );
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
+        this.adjustFoldingRegionsForEdits(edits);
+        // Стандартный расчёт сажает каретку в конец вставленного — это начало
+        // строки, куда съехал текст пустой каретки; ей возвращается её колонка.
+        this.selections = this.computeSelectionsAfterEdits(edits).map((after, i) =>
+            isSelectionCollapsed(sorted[i])
+                ? createCursorSelection(after.active.line, sorted[i].active.character)
+                : after,
+        );
+        this.ensureCursorVisible();
+        return {
+            label: "paste",
+            versionBefore,
+            versionAfter: appliedVersion,
+            forwardEdits: edits,
+            backwardEdits: inverseEdits,
+            beforeSelections,
+            afterSelections: this.cloneSelections(),
+        };
     }
 
     // ─── Auto-expand ────────────────────────────────────────

@@ -12,6 +12,7 @@ import { registerAction } from "../../../platform/actions/common/commandAction.t
 import type { IClipboard } from "../../../platform/clipboard/common/iClipboard.ts";
 import { OscClipboard } from "../../../platform/clipboard/common/oscClipboard.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
+import { IConfigurationServiceDIToken } from "../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
@@ -54,7 +55,7 @@ function createGroup(): EditorService {
     );
 }
 
-function openEditor(content: string, clipboard: IClipboard) {
+function openEditor(content: string, clipboard: IClipboard, emptySelectionClipboard = true) {
     const ctrl = createGroup();
     const filePath = ws.writeFile("doc.txt", content);
     ctrl.openFile(filePath);
@@ -65,6 +66,11 @@ function openEditor(content: string, clipboard: IClipboard) {
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => ctrl);
     accessor.bind(ClipboardDIToken, () => clipboard);
+    accessor.bind(IConfigurationServiceDIToken, () => ({
+        ...NULL_CONFIGURATION_SERVICE,
+        get: <T>(key: string, defaultValue?: T): T | undefined =>
+            key === "editor.emptySelectionClipboard" ? (emptySelectionClipboard as T) : defaultValue,
+    }));
 
     async function exec(action: CommandAction): Promise<void> {
         registerAction(commands, new KeybindingRegistry(), accessor, action);
@@ -108,14 +114,46 @@ describe("clipboardCopyAction", () => {
         expect(await clipboard.readText()).toBe("прежнее");
     });
 
-    it("leaves the clipboard untouched when nothing is selected", async () => {
+    it("пустое выделение копирует строку целиком (emptySelectionClipboard)", async () => {
         const clipboard = memoryClipboard("previous");
-        const { editor, exec } = openEditor("hello world", clipboard);
+        const { editor, exec } = openEditor("hello world\nsecond", clipboard);
+        editor.viewState.selections = [createCursorSelection(0, 3)];
+
+        await exec(clipboardCopyAction);
+
+        expect(await clipboard.readText()).toBe("hello world\n");
+        expect(editor.getText()).toBe("hello world\nsecond");
+    });
+
+    it("при выключенном emptySelectionClipboard пустое выделение не трогает буфер", async () => {
+        const clipboard = memoryClipboard("previous");
+        const { editor, exec } = openEditor("hello world", clipboard, false);
         editor.viewState.selections = [createCursorSelection(0, 3)];
 
         await exec(clipboardCopyAction);
 
         expect(await clipboard.readText()).toBe("previous");
+    });
+
+    it("настройка не задана вовсе — действует дефолт true, строка копируется", async () => {
+        const clipboard = memoryClipboard();
+        const ctrl = createGroup();
+        const filePath = ws.writeFile("doc.txt", "hello world");
+        ctrl.openFile(filePath);
+        const editor = ctrl.getActiveEditor();
+        if (editor === null) throw new Error("no active editor");
+        editor.viewState.selections = [createCursorSelection(0, 3)];
+        const commands = new CommandRegistry();
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => ctrl);
+        accessor.bind(ClipboardDIToken, () => clipboard);
+        // NULL-сервис возвращает undefined — сработать обязан дефолт `?? true`.
+        accessor.bind(IConfigurationServiceDIToken, () => NULL_CONFIGURATION_SERVICE);
+        registerAction(commands, new KeybindingRegistry(), accessor, clipboardCopyAction);
+
+        await commands.execute(clipboardCopyAction.id);
+
+        expect(await clipboard.readText()).toBe("hello world\n");
     });
 
     it("склеивает выделения мультикурсора через перевод строки", async () => {
@@ -151,9 +189,20 @@ describe("clipboardCutAction", () => {
         expect(editor.getText()).toBe("world");
     });
 
-    it("does nothing when the selection is empty", async () => {
+    it("пустое выделение вырезает строку целиком (emptySelectionClipboard)", async () => {
+        const clipboard = memoryClipboard();
+        const { editor, exec } = openEditor("first\nsecond", clipboard);
+        editor.viewState.selections = [createCursorSelection(0, 3)];
+
+        await exec(clipboardCutAction);
+
+        expect(await clipboard.readText()).toBe("first\n");
+        expect(editor.getText()).toBe("second");
+    });
+
+    it("при выключенном emptySelectionClipboard пустое выделение не режет ничего", async () => {
         const clipboard = memoryClipboard("previous");
-        const { editor, exec } = openEditor("hello world", clipboard);
+        const { editor, exec } = openEditor("hello world", clipboard, false);
         editor.viewState.selections = [createCursorSelection(0, 3)];
 
         await exec(clipboardCutAction);
@@ -205,19 +254,22 @@ describe("clipboardPasteAction", () => {
         await exec(clipboardPasteAction);
 
         expect(editor.getText()).toBe("hello world");
+        // Ранний выход обязан случиться ДО правки: пустая вставка иначе бампает
+        // версию документа и пачкает буфер («грязная» вкладка без изменений).
+        expect(editor.isModified).toBe(false);
     });
 });
 
 describe("clipboardCutAction defensive delete handling", () => {
     it("still copies to the clipboard but pushes no undo when the delete is a no-op", async () => {
         // A real editor with a non-empty selection always produces an undo on
-        // deleteLeft(); this stub forces the defensive `if (undo)` false branch.
+        // cutSelections(); this stub forces pushUndo(undefined) — pane guards it.
         const clipboard = memoryClipboard();
         const pushUndo = vi.fn();
         const editor = {
             viewState: {
-                getSelectedTexts: () => ["selected"],
-                deleteLeft: () => undefined,
+                getTextToCopy: () => ({ text: "selected", isFromEmptySelection: false }),
+                cutSelections: () => undefined,
             },
             pushUndo,
         };
@@ -225,12 +277,80 @@ describe("clipboardCutAction defensive delete handling", () => {
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ({ getActiveEditor: () => editor }) as never);
         accessor.bind(ClipboardDIToken, () => clipboard);
+        accessor.bind(IConfigurationServiceDIToken, () => NULL_CONFIGURATION_SERVICE);
 
         registerAction(commands, new KeybindingRegistry(), accessor, clipboardCutAction);
         await commands.execute(clipboardCutAction.id);
 
         expect(await clipboard.readText()).toBe("selected");
-        expect(pushUndo).not.toHaveBeenCalled();
+        expect(pushUndo).toHaveBeenCalledWith(undefined);
+    });
+});
+
+describe("линейная вставка строки, скопированной пустым выделением", () => {
+    it("copy без выделения → paste кладёт строку выше курсорной, каретка остаётся у текста", async () => {
+        const clipboard = memoryClipboard();
+        const { editor, exec } = openEditor("first\nsecond\nthird", clipboard);
+        editor.viewState.selections = [createCursorSelection(0, 2)];
+        await exec(clipboardCopyAction);
+
+        editor.viewState.selections = [createCursorSelection(2, 3)];
+        await exec(clipboardPasteAction);
+
+        expect(editor.getText()).toBe("first\nsecond\nfirst\nthird");
+        expect(editor.viewState.selections[0].active).toEqual({ line: 3, character: 3 });
+    });
+
+    it("cut пустым выделением → paste восстанавливает строку выше курсорной", async () => {
+        const clipboard = memoryClipboard();
+        const { editor, exec } = openEditor("first\nsecond", clipboard);
+        editor.viewState.selections = [createCursorSelection(0, 0)];
+        await exec(clipboardCutAction);
+        expect(editor.getText()).toBe("second");
+
+        // Каретка не в нулевой колонке: обычная вставка разорвала бы слово, и
+        // только линейная кладёт строку целиком выше курсорной.
+        editor.viewState.selections = [createCursorSelection(0, 3)];
+        await exec(clipboardPasteAction);
+        expect(editor.getText()).toBe("first\nsecond");
+        expect(editor.viewState.selections[0].active).toEqual({ line: 1, character: 3 });
+    });
+
+    it("строка, скопированная НЕпустым выделением, вставляется в позицию каретки", async () => {
+        const clipboard = memoryClipboard();
+        const { editor, exec } = openEditor("first\nsecond", clipboard);
+        editor.viewState.selections = [createSelection(0, 0, 1, 0)]; // "first\n" целиком
+        await exec(clipboardCopyAction);
+
+        editor.viewState.selections = [createCursorSelection(1, 3)];
+        await exec(clipboardPasteAction);
+
+        expect(editor.getText()).toBe("first\nsecfirst\nond");
+    });
+
+    it("тот же текст, записанный в буфер мимо copy, вставляется как обычно", async () => {
+        const clipboard = memoryClipboard("stranger\n");
+        const { editor, exec } = openEditor("ab", clipboard);
+        editor.viewState.selections = [createCursorSelection(0, 1)];
+
+        await exec(clipboardPasteAction);
+
+        // Метаданных о линейности нет — текст ложится в позицию каретки.
+        expect(editor.getText()).toBe("astranger\nb");
+    });
+
+    it("при выключенном emptySelectionClipboard линейной вставки нет", async () => {
+        const clipboard = memoryClipboard();
+        // Копируем с включённой настройкой, вставляем с выключенной.
+        const first = openEditor("line\nrest", clipboard);
+        first.editor.viewState.selections = [createCursorSelection(0, 0)];
+        await first.exec(clipboardCopyAction);
+
+        const second = openEditor("ab", clipboard, false);
+        second.editor.viewState.selections = [createCursorSelection(0, 1)];
+        await second.exec(clipboardPasteAction);
+
+        expect(second.editor.getText()).toBe("aline\nb");
     });
 });
 
