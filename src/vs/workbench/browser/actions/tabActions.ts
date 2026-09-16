@@ -24,13 +24,45 @@ function cycleMruStep(accessor: ServiceAccessor, direction: 1 | -1): void {
     });
 }
 
+/**
+ * Шаг по вкладкам в ВИЗУАЛЬНОМ порядке (VS Code `nextEditor`/`previousEditor`,
+ * Ctrl+PgDn/PgUp): все группы слева направо, с заворотом. Без hold-сессии —
+ * каждый шаг сразу коммитится; за MRU-переключение отвечает пара Ctrl+Tab
+ * ({@link nextEditorInGroupAction}). Alt-дубль — для терминалов, где
+ * Ctrl+PgUp/PgDn заняты их собственными вкладками (gnome-terminal и т.п.).
+ */
+export const nextEditorAction: CommandAction = {
+    id: "workbench.action.nextEditor",
+    title: "Open Next Editor",
+    shortTitle: "Next Editor",
+    menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 1 }],
+    keybinding: parseKeybinding("ctrl+pagedown"),
+    keybindings: [parseKeybinding("alt+pagedown")],
+    when: "textViewFocus",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).cycleEditor(1);
+    },
+};
+
+export const previousEditorAction: CommandAction = {
+    id: "workbench.action.previousEditor",
+    title: "Open Previous Editor",
+    shortTitle: "Previous Editor",
+    menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 2 }],
+    keybinding: parseKeybinding("ctrl+pageup"),
+    keybindings: [parseKeybinding("alt+pageup")],
+    when: "textViewFocus",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).cycleEditor(-1);
+    },
+};
+
 export const nextEditorInGroupAction: CommandAction = {
     id: "workbench.action.nextEditorInGroup",
     title: "Next Editor In Group",
-    shortTitle: "Next Editor",
+    shortTitle: "Next Used Editor",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 10 }],
     keybinding: parseKeybinding("ctrl+tab"),
-    keybindings: [parseKeybinding("ctrl+pagedown"), parseKeybinding("alt+pagedown")],
     when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, 1);
@@ -40,10 +72,9 @@ export const nextEditorInGroupAction: CommandAction = {
 export const previousEditorInGroupAction: CommandAction = {
     id: "workbench.action.previousEditorInGroup",
     title: "Previous Editor In Group",
-    shortTitle: "Previous Editor",
+    shortTitle: "Previous Used Editor",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 20 }],
     keybinding: parseKeybinding("ctrl+shift+tab"),
-    keybindings: [parseKeybinding("ctrl+pageup"), parseKeybinding("alt+pageup")],
     when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, -1);

@@ -600,7 +600,14 @@ hide-toggle (`isHiddenByDefault`). См.
     (`collectDirty` — дедуп по документу). События: `onActiveEditorChanged`
     (смена вкладки активной группы ЛИБО активной группы), `onEditorSaved`,
     `onDidChangeEditors` (агрегат групп), `onDidActiveGroupChange`,
-    `onDidGroupsChange({kind: added|removed|moved})`.
+    `onDidGroupsChange({kind: added|removed|moved})`, `onDidChangeMruCycle`
+    (агрегат серий Ctrl+Tab групп — снимок замороженного MRU-списка с позицией
+    цикла на каждом шаге, `null` на конце серии; питает оверлей переключателя).
+    Переключение вкладок: `cycleMru`/`endMruCycle` — MRU-серия Ctrl+Tab
+    (уход фокуса в другую группу завершает серию прежней), `cycleEditor(±1)` —
+    шаг по ВИЗУАЛЬНОМУ порядку вкладок всей полосы с заворотом (VS Code
+    `nextEditor`/`previousEditor`, Ctrl+PgDn/PgUp) — без hold-сессии, каждый
+    шаг коммитится в MRU сразу.
   - `parts/editor/editorPartComponent.ts` — часть «область редактора» (аналог
     `EditorPart`): владеет `tuidom/ui/editorpart/EditorPartElement` (полоса N
     вью + N−1 сашей, нормированные веса, min-клампы 20×5, максимизация,
@@ -619,7 +626,18 @@ hide-toggle (`isHiddenByDefault`). См.
     табам возвращает в группу (`activateTab`/`closeTab`, закрытие «грязной»
     вкладки — `EditorService.onRequestConfirmClose(group, index)`); любой фокус
     в поддереве капчурится → `notifyGroupFocused` (клик мышью делает группу
-    активной).
+    активной). Разводка меток тёзок вынесена в `parts/editor/tabLabels.ts`
+    (`computeTabLabels`) — общая с оверлеем переключателя.
+  - `parts/editor/tabSwitcherComponent.ts` + `tabSwitcherElement.ts` — видимый
+    список серии Ctrl+Tab (аналог editor picker'а VS Code): пока Ctrl удержан,
+    поверх редактора висит MRU-список вкладок текущей группы с подсветкой
+    позиции цикла (метки `computeTabLabels`, иконки, маркер изменённости;
+    скользящее окно `maxVisibleItems`); гаснет по концу серии. Компонент чисто
+    реактивный поверх `EditorService.onDidChangeMruCycle` (+ страховка
+    `onDidActiveGroupChange`), команды про него не знают; overlay-сессия —
+    passthrough без фокуса и без гашения глобальных биндов, хост — late-init
+    шов `attachHost(BodyElement)`. Элемент — композиция `QuickPickFrameElement`
+    + HFlex-строк, презентационный (ввода не принимает).
   - `Parts/Editor/DiffEditorPane2.ts` — живая дифф-вкладка (DiffEditable):
     **композиция двух настоящих редакторов** — стороны это `TextFileModel` +
     `EditorComponent` в `TextEditorPane` (file-сторона — общая модель из

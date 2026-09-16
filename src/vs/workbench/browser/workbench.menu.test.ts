@@ -341,9 +341,12 @@ describe("Workbench — menu bar wiring", () => {
         expect(itemLabels(popup)).toEqual([
             "Go to File...",
             "Go to Line/Column...",
+            // Пара визуального цикла (Ctrl+PgDn/PgUp) — перед MRU-парой, как в VS Code.
             "Next Editor",
-            "Alternate Editor",
             "Previous Editor",
+            "Next Used Editor",
+            "Alternate Editor",
+            "Previous Used Editor",
         ]);
     });
 
@@ -363,6 +366,16 @@ describe("Workbench — menu bar wiring", () => {
         const popup = openMenu(testApp, "g");
 
         entryByLabel(popup, "Next Editor").onSelect?.();
+
+        expect(executeSpy).toHaveBeenCalledWith("workbench.action.nextEditor");
+    });
+
+    it("Go → Next Used Editor runs the MRU cycle command", () => {
+        const { testApp, commands } = createAppTestHarness();
+        const executeSpy = vi.spyOn(commands, "execute");
+        const popup = openMenu(testApp, "g");
+
+        entryByLabel(popup, "Next Used Editor").onSelect?.();
 
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.nextEditorInGroup");
     });

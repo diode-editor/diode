@@ -10,6 +10,16 @@ import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 export type GroupId = number;
 
 /**
+ * Снимок идущей серии Ctrl+Tab для видимого списка переключателя: замороженный
+ * MRU-список серии и позиция цикла в нём. `null` в событии
+ * {@link EditorGroup.onDidChangeMruCycle} означает «серия кончилась».
+ */
+export interface MruCycleState {
+    readonly panes: readonly IEditorPane[];
+    readonly pointer: number;
+}
+
+/**
  * Модель одной группы редакторов: список вкладок, активная вкладка и MRU-порядок
  * (Ctrl+Tab). Извлечена из `EditorService` под сплиты — сервис владеет полосой
  * таких групп и остаётся фасадом «активной группы» для потребителей.
@@ -45,6 +55,7 @@ export class EditorGroup extends Disposable {
 
     private editorsChangedListeners: (() => void)[] = [];
     private activePaneListeners: ((pane: IEditorPane | null) => void)[] = [];
+    private mruCycleListeners: ((state: MruCycleState | null) => void)[] = [];
 
     public constructor(public readonly id: GroupId) {
         super();
@@ -82,6 +93,22 @@ export class EditorGroup extends Disposable {
             dispose: () => {
                 const idx = this.activePaneListeners.indexOf(cb);
                 if (idx >= 0) this.activePaneListeners.splice(idx, 1);
+            },
+        };
+    }
+
+    /**
+     * Жизнь серии Ctrl+Tab: снимок замороженного списка с позицией цикла на
+     * каждом шаге ({@link cycleMru}) и `null`, когда серия кончилась — по
+     * коммиту ({@link endMruCycle}), обычному переключению или структурному
+     * изменению группы. Подписчик — видимый список переключателя вкладок.
+     */
+    public onDidChangeMruCycle(cb: (state: MruCycleState | null) => void): IDisposable {
+        this.mruCycleListeners.push(cb);
+        return {
+            dispose: () => {
+                const idx = this.mruCycleListeners.indexOf(cb);
+                if (idx >= 0) this.mruCycleListeners.splice(idx, 1);
             },
         };
     }
@@ -155,7 +182,7 @@ export class EditorGroup extends Disposable {
         if (!mru) {
             if (this.cyclingActive) {
                 this.commitActiveToMru();
-                this.cyclingActive = false;
+                this.stopMruCycle();
             }
             this.moveToMruFront(this.panes[index]);
         }
@@ -189,7 +216,8 @@ export class EditorGroup extends Disposable {
         const length = this.mruCycleList.length;
         /* v8 ignore start -- defensive: cyclingActive is cleared on any structural change, so the frozen list always has ≥2 open editors here */
         if (length < 2) {
-            this.cyclingActive = false;
+            // Stryker disable next-line CallExpression: ветка недостижима по той же причине, что и для покрытия
+            this.stopMruCycle();
             return;
         }
         /* v8 ignore stop */
@@ -199,11 +227,13 @@ export class EditorGroup extends Disposable {
         const targetIndex = this.panes.indexOf(target);
         /* v8 ignore start -- defensive: closing a tab clears cyclingActive, so the frozen target is always still open */
         if (targetIndex < 0) {
-            this.cyclingActive = false;
+            // Stryker disable next-line CallExpression: ветка недостижима по той же причине, что и для покрытия
+            this.stopMruCycle();
             return;
         }
         /* v8 ignore stop */
         this.activateTab(targetIndex, { mru: true });
+        this.fireMruCycleChanged({ panes: [...this.mruCycleList], pointer: this.mruCyclePointer });
     }
 
     /**
@@ -216,7 +246,7 @@ export class EditorGroup extends Disposable {
     public endMruCycle(): void {
         if (!this.cyclingActive) return;
         this.commitActiveToMru();
-        this.cyclingActive = false;
+        this.stopMruCycle();
     }
 
     /** Снимок MRU-порядка (mru[0] — самый недавний). Для тестов и диагностики. */
@@ -245,7 +275,7 @@ export class EditorGroup extends Disposable {
      */
     private removePaneAt(index: number, pane: IEditorPane, { dispose }: { dispose: boolean }): void {
         // Структурное изменение делает замороженный список серии невалидным.
-        this.cyclingActive = false;
+        this.stopMruCycle();
 
         this.panes.splice(index, 1);
         const mruIndex = this.mruOrder.indexOf(pane);
@@ -287,8 +317,22 @@ export class EditorGroup extends Disposable {
         /* v8 ignore stop */
     }
 
+    /**
+     * Гасит серию Ctrl+Tab и извещает подписчиков цикла. No-op вне серии, чтобы
+     * структурные изменения без идущей серии не будили список переключателя.
+     */
+    private stopMruCycle(): void {
+        if (!this.cyclingActive) return;
+        this.cyclingActive = false;
+        this.fireMruCycleChanged(null);
+    }
+
     private fireEditorsChanged(): void {
         for (const cb of [...this.editorsChangedListeners]) cb();
+    }
+
+    private fireMruCycleChanged(state: MruCycleState | null): void {
+        for (const cb of [...this.mruCycleListeners]) cb(state);
     }
 
     private fireActivePaneChanged(pane: IEditorPane | null): void {

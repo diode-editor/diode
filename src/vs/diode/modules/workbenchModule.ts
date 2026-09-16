@@ -24,6 +24,10 @@ import {
     EditorStatusContribution,
     EditorStatusContributionDIToken,
 } from "../../workbench/browser/parts/editor/editorStatusContribution.ts";
+import {
+    TabSwitcherComponent,
+    TabSwitcherComponentDIToken,
+} from "../../workbench/browser/parts/editor/tabSwitcherComponent.ts";
 import { PanelComponent, PanelComponentDIToken } from "../../workbench/browser/parts/panel/panelComponent.ts";
 import {
     PanelFocusContribution,
@@ -318,6 +322,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // (по групповому контролу tab strip + контент на группу).
     container.bind(EditorServiceDIToken, EditorService);
     container.bind(EditorPartComponentDIToken, EditorPartComponent);
+    // Оверлей серии Ctrl+Tab: видимый MRU-список вкладок текущей группы.
+    container.bind(TabSwitcherComponentDIToken, TabSwitcherComponent);
     // Find/Suggest-кластер (этап 10): компоненты владеют виджетами и
     // overlay-сессиями (suggest — глобальный body-слой у каретки, find —
     // локальный слой группы; host'ы прикрепляет WorkbenchComponent через attachHost),

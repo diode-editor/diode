@@ -44,7 +44,7 @@ import { TextFileModelRegistry } from "../../textfile/common/textFileModelRegist
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 
-import { EditorGroup, type GroupId } from "./editorGroupModel.ts";
+import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
 import {
     createCodeActionsOnSaveParticipant,
     createFormatOnSaveParticipant,
@@ -150,6 +150,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
 
     private activeGroupListeners: ((group: EditorGroup) => void)[] = [];
     private groupsChangedListeners: ((event: IGroupsChangeEvent) => void)[] = [];
+    private mruCycleListeners: ((state: MruCycleState | null) => void)[] = [];
 
     /**
      * Хук view-слоя «влезет ли ещё одна группа» ({@link EditorPartComponent}
@@ -467,6 +468,22 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         };
     }
 
+    /**
+     * Жизнь серии Ctrl+Tab любой группы полосы (практически — активной: цикл
+     * запускают команды через фасад): снимок замороженного MRU-списка с позицией
+     * цикла на каждом шаге и `null`, когда серия кончилась. Подписчик — оверлей
+     * переключателя вкладок ({@link import("../../../browser/parts/editor/tabSwitcherComponent.ts").TabSwitcherComponent}).
+     */
+    public onDidChangeMruCycle(cb: (state: MruCycleState | null) => void): IDisposable {
+        this.mruCycleListeners.push(cb);
+        return {
+            dispose: () => {
+                const idx = this.mruCycleListeners.indexOf(cb);
+                if (idx >= 0) this.mruCycleListeners.splice(idx, 1);
+            },
+        };
+    }
+
     /** Структурное изменение полосы: группа добавлена/удалена/переставлена. */
     public onDidGroupsChange(cb: (event: IGroupsChangeEvent) => void): IDisposable {
         this.groupsChangedListeners.push(cb);
@@ -726,6 +743,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Смена активной группы + фасадные события (без передачи фокуса). */
     private makeGroupActive(group: EditorGroup): void {
         if (group === this.activeGroupValue) return;
+        // Уход фокуса в другую группу завершает идущую серию Ctrl+Tab прежней:
+        // выбранная в серии вкладка фиксируется в MRU, оверлей переключателя
+        // получает `null` и гаснет.
+        this.activeGroupValue.endMruCycle();
         this.activeGroupValue = group;
         // Табы/контент групп не меняются, но фасадные потребители («активный
         // редактор воркбенча») обязаны переехать: статус-бар, host, autoReveal.
@@ -761,6 +782,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                     this.collapseGroup(group);
                 }
             }),
+            group.onDidChangeMruCycle((state) => {
+                this.fireMruCycleChanged(state);
+            }),
         ];
         this.groupSubscriptions.set(group.id, subscriptions);
         return group;
@@ -794,6 +818,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
 
     private fireActiveGroupChanged(group: EditorGroup): void {
         for (const cb of [...this.activeGroupListeners]) cb(group);
+    }
+
+    private fireMruCycleChanged(state: MruCycleState | null): void {
+        for (const cb of [...this.mruCycleListeners]) cb(state);
     }
 
     private fireGroupsChanged(event: IGroupsChangeEvent): void {
@@ -1195,6 +1223,39 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Снимок MRU-порядка активной группы (mru[0] — самый недавний). */
     public getMruOrder(): IEditorPane[] {
         return this.activeGroupValue.getMruOrder();
+    }
+
+    /**
+     * Шаг по вкладкам в ВИЗУАЛЬНОМ порядке (VS Code `nextEditor` /
+     * `previousEditor`, Ctrl+PgDn/PgUp): вкладки всех групп слева направо, с
+     * заворотом на краях полосы. В отличие от MRU-цикла Ctrl+Tab здесь нет
+     * hold-сессии — каждый шаг сразу коммитится (обычный `activateTab` сам
+     * двигает цель в начало MRU). У пустой активной группы «вперёд» начинает с
+     * первой вкладки полосы, «назад» — с последней.
+     */
+    public cycleEditor(direction: 1 | -1): void {
+        const entries: { group: EditorGroup; index: number }[] = [];
+        for (const group of this.groupsList) {
+            for (let index = 0; index < group.editorCount; index++) entries.push({ group, index });
+        }
+        if (entries.length < 2) return;
+
+        const active = this.activeGroupValue;
+        const current = entries.findIndex((entry) => entry.group === active && entry.index === active.activeIndex);
+        const base = current >= 0 ? current + direction : direction === 1 ? 0 : -1;
+        const target = entries[((base % entries.length) + entries.length) % entries.length];
+
+        if (target.group === active) {
+            active.activateTab(target.index);
+            return;
+        }
+        // Переход через границу группы: цель становится активной группой (тот же
+        // порядок, что у moveActiveTabToGroup — сначала группа, потом вкладка).
+        // Идущую серию Ctrl+Tab источника завершаем как при любом уходе из группы.
+        active.endMruCycle();
+        this.activeGroupValue = target.group;
+        target.group.activateTab(target.index);
+        this.fireActiveGroupChanged(target.group);
     }
 
     /** Закрывает вкладку активной группы (события и фокус — контракт группы). */

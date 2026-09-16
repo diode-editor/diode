@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingRegistry, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
     ModifierReleaseArmory,
     ModifierReleaseArmoryDIToken,
@@ -12,8 +12,10 @@ import { EditorServiceDIToken } from "../../services/editor/browser/editorServic
 
 import {
     closeActiveEditorAction,
+    nextEditorAction,
     nextEditorInGroupAction,
     openPreviousRecentlyUsedEditorInGroupAction,
+    previousEditorAction,
     previousEditorInGroupAction,
 } from "./tabActions.ts";
 
@@ -33,6 +35,7 @@ interface GroupStub {
     editorCount: number;
     activateTab: (index: number) => void;
     cycleMru?: (direction: 1 | -1) => void;
+    cycleEditor?: (direction: 1 | -1) => void;
     endMruCycle?: () => void;
     closeTab: (index: number) => void;
     /** Активная группа сервиса — цель команды, когда адреса в аргументах нет. */
@@ -90,6 +93,51 @@ describe("TabActions", () => {
         commands.execute("workbench.action.previousEditorInGroup");
 
         expect(cycleMru).toHaveBeenCalledWith(-1);
+    });
+
+    // Метаданные пары визуального цикла — пользовательский контракт: заголовки
+    // видит палитра, Alt-дубли нужны терминалам, где Ctrl+PgUp/PgDn заняты их
+    // собственными вкладками, when держит команды в текстовом фокусе.
+    it("метаданные nextEditor/previousEditor: заголовки, бинды с Alt-дублями, when", () => {
+        expect(nextEditorAction.title).toBe("Open Next Editor");
+        expect(previousEditorAction.title).toBe("Open Previous Editor");
+        expect(nextEditorAction.when).toBe("textViewFocus");
+        expect(previousEditorAction.when).toBe("textViewFocus");
+        expect(nextEditorAction.keybinding).toEqual(parseKeybinding("ctrl+pagedown"));
+        expect(nextEditorAction.keybindings).toEqual([parseKeybinding("alt+pagedown")]);
+        expect(previousEditorAction.keybinding).toEqual(parseKeybinding("ctrl+pageup"));
+        expect(previousEditorAction.keybindings).toEqual([parseKeybinding("alt+pageup")]);
+    });
+
+    // Ctrl+PgDn/PgUp — ВИЗУАЛЬНЫЙ порядок (VS Code nextEditor/previousEditor):
+    // без hold-сессии, отпускание модификатора фиксировать нечего.
+    it("nextEditor / previousEditor циклируют по визуальному порядку без hold-сессии", () => {
+        const cycleEditor = vi.fn();
+        const endMruCycle = vi.fn();
+        const group: GroupStub = {
+            activeIndex: 0,
+            editorCount: 3,
+            activateTab: vi.fn(),
+            cycleEditor,
+            endMruCycle,
+            closeTab: vi.fn(),
+        };
+
+        const { commands, keybindings, accessor, armory } = setupActionTest(group);
+        registerAction(commands, keybindings, accessor, nextEditorAction);
+        registerAction(commands, keybindings, accessor, previousEditorAction);
+
+        armory.withTrigger({ ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, () => {
+            commands.execute("workbench.action.nextEditor");
+        });
+        expect(cycleEditor).toHaveBeenCalledWith(1);
+
+        commands.execute("workbench.action.previousEditor");
+        expect(cycleEditor).toHaveBeenCalledWith(-1);
+
+        // Ничего не взведено даже при запуске с зажатым Ctrl.
+        armory.fireRelease("Control");
+        expect(endMruCycle).not.toHaveBeenCalled();
     });
 
     it("arms the trigger's hold modifier so releasing it commits the MRU cycle", () => {
