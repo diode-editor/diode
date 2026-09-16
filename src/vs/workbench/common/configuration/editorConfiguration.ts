@@ -52,6 +52,11 @@ export const editorConfiguration: IConfigurationNode = {
             default: false,
             description: "Format a file on save. A formatter must be available (an extension providing it).",
         },
+        "editor.inlineSuggest.enabled": {
+            type: "boolean",
+            default: true,
+            description: "Controls whether to automatically show inline suggestions in the editor.",
+        },
         // Форма VS Code: объект «kind → включён ли» (`{"source.fixAll": true}`).
         // Значения true | "explicit" | "always" включают вид, false | "never" —
         // выключают; все сохранения diode ручные, так что "explicit" ≡ true.

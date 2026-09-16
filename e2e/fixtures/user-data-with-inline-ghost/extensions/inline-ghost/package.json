@@ -1,0 +1,11 @@
+{
+    "name": "inline-ghost",
+    "displayName": "Inline Ghost",
+    "description": "E2E demo extension: canned inline completions (ghost text) with an artificial LLM-like delay.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    }
+}

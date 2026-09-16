@@ -101,6 +101,14 @@ export interface ContextKeyTypes {
     parameterHintsVisible: boolean;
     /** True when the shown signature help has more than one overload (arrows switch them). */
     parameterHintsMultipleSignatures: boolean;
+    /** True while an inline suggestion (ghost text) is showing. */
+    inlineSuggestionVisible: boolean;
+    /**
+     * True unless the shown inline suggestion starts with at least a tab's worth
+     * of indentation while the cursor sits inside the line's indentation — then
+     * Tab keeps indenting instead of accepting (VS Code semantics; default true).
+     */
+    inlineSuggestionHasIndentationLessThanTabSize: boolean;
 
     // -- Debugger contexts --
     // debuggersAvailable: boolean;
@@ -289,6 +297,8 @@ export const allContextKeys: ContextKey[] = [
     // "codeActionMenuVisible",
     "parameterHintsVisible",
     "parameterHintsMultipleSignatures",
+    "inlineSuggestionVisible",
+    "inlineSuggestionHasIndentationLessThanTabSize",
 
     // -- Debugger contexts --
     // "debuggersAvailable",

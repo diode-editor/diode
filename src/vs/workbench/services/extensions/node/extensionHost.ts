@@ -14,6 +14,10 @@ import type {
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
+import type {
+    ICoreInlineCompletionItem,
+    IInlineCompletionRequest,
+} from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
@@ -69,6 +73,7 @@ import {
     parseWireWatcherCreate,
     parseWireWatcherDispose,
     requestCompletionItems,
+    requestInlineCompletions,
     requestResolveCompletionItem,
     requestDefinition,
     requestHover,
@@ -177,6 +182,13 @@ export interface IExtensionHostOptions {
      * показывает пустой список. Default: 1500.
      */
     readonly completionTimeoutMs?: number;
+    /**
+     * Тайм-аут на ответ inline-completion-провайдеров
+     * (`languages.provideInlineCompletions`), мс. По истечении призрачная
+     * подсказка просто не показывается. Default: 5000 — щедрее completion:
+     * за провайдером может стоять холодный LLM-бэкенд.
+     */
+    readonly inlineCompletionTimeoutMs?: number;
     /**
      * Тайм-аут на ответ провайдеров областей сворачивания
      * (`languages.provideFoldingRanges`), мс. По истечении ядро откатывается на
@@ -340,6 +352,7 @@ export class ExtensionHost extends Disposable {
             | "shutdownTimeoutMs"
             | "willSaveTimeoutMs"
             | "completionTimeoutMs"
+            | "inlineCompletionTimeoutMs"
             | "foldingTimeoutMs"
             | "definitionTimeoutMs"
             | "hoverTimeoutMs"
@@ -384,6 +397,8 @@ export class ExtensionHost extends Disposable {
     private completionSubscribed = false;
     /** Триггер-символы completion-провайдеров субпроцесса (см. `languages.updateSubscriptions`). */
     private completionTriggerCharactersValue: readonly string[] = [];
+    /** Есть ли в субпроцессе зарегистрированные inline-completion-провайдеры (см. `languages.updateSubscriptions`). */
+    private inlineCompletionSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
     private foldingSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные definition-провайдеры (см. `languages.updateSubscriptions`). */
@@ -444,6 +459,7 @@ export class ExtensionHost extends Disposable {
             shutdownTimeoutMs: options.shutdownTimeoutMs ?? 1500,
             willSaveTimeoutMs: options.willSaveTimeoutMs ?? 1500,
             completionTimeoutMs: options.completionTimeoutMs ?? 1500,
+            inlineCompletionTimeoutMs: options.inlineCompletionTimeoutMs ?? 5000,
             foldingTimeoutMs: options.foldingTimeoutMs ?? 1500,
             definitionTimeoutMs: options.definitionTimeoutMs ?? 5000,
             hoverTimeoutMs: options.hoverTimeoutMs ?? 5000,
@@ -730,6 +746,44 @@ export class ExtensionHost extends Disposable {
             (method, params) => rpc.request(method, params),
             id,
             this.options.completionTimeoutMs,
+        );
+    }
+
+    /**
+     * Запрашивает у субпроцесса инлайн-подсказки для позиции каретки
+     * (`languages.provideInlineCompletions`). Возвращает `[]`, если субпроцесса
+     * нет, никто не зарегистрировал провайдеры, документ слишком большой или
+     * расширение не ответило за `inlineCompletionTimeoutMs`. Подключается в
+     * `EditorService.inlineCompletionSource` (wiring в module/харнессе).
+     */
+    public async provideInlineCompletions(
+        req: IInlineCompletionRequest,
+    ): Promise<readonly ICoreInlineCompletionItem[]> {
+        const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null || !this.inlineCompletionSubscribed) return [];
+        /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
+        // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration: 8 МБ снапшот неподъёмен юнитом, см. v8 ignore
+        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping inline completion: document too large", {
+                uri: req.uri,
+                length: req.text.length,
+            });
+            return [];
+        }
+        // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration
+        /* v8 ignore stop */
+        return requestInlineCompletions(
+            (method, params) => rpc.request(method, params),
+            {
+                uri: req.uri,
+                languageId: req.languageId,
+                text: req.text,
+                line: req.line,
+                character: req.character,
+                triggerKind: req.triggerKind,
+            },
+            this.options.inlineCompletionTimeoutMs,
         );
     }
 
@@ -1361,10 +1415,12 @@ export class ExtensionHost extends Disposable {
                 hasSignatureHelpProviders?: unknown;
                 hasFormattingProviders?: unknown;
                 hasCodeActionsProviders?: unknown;
+                hasInlineCompletionProviders?: unknown;
                 signatureHelpTriggerCharacters?: unknown;
                 signatureHelpRetriggerCharacters?: unknown;
             };
             this.completionSubscribed = p.hasCompletionProviders === true;
+            this.inlineCompletionSubscribed = p.hasInlineCompletionProviders === true;
             const triggerBefore = this.completionTriggerCharactersValue;
             this.completionTriggerCharactersValue = readStringArray(p.completionTriggerCharacters);
             if (triggerBefore.join("") !== this.completionTriggerCharactersValue.join("")) {
@@ -1626,6 +1682,8 @@ export class ExtensionHost extends Disposable {
         this.willSaveSubscribed = false;
         this.didSaveSubscribed = false;
         this.completionSubscribed = false;
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed ниже
+        this.inlineCompletionSubscribed = false;
         this.foldingSubscribed = false;
         this.definitionSubscribed = false;
         // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне

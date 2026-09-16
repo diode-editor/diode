@@ -74,6 +74,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
             hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
+            hasInlineCompletionProviders: false,
             signatureHelpTriggerCharacters: [],
             signatureHelpRetriggerCharacters: [],
         });
@@ -119,6 +120,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
             hasSignatureHelpProviders: true,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
+            hasInlineCompletionProviders: false,
             signatureHelpTriggerCharacters: [],
             signatureHelpRetriggerCharacters: [")"],
         });

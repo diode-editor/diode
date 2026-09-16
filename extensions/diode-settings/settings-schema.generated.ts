@@ -22,6 +22,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {"key":"editor.cursorSurroundingLines","type":"number","default":3,"description":"Controls the minimal number of visible leading lines around the cursor."},
     {"key":"editor.detectIndentation","type":"boolean","default":true,"description":"Controls whether `editor.tabSize` and `editor.insertSpaces` are automatically detected from the file contents when a file is opened."},
     {"key":"editor.formatOnSave","type":"boolean","default":false,"description":"Format a file on save. A formatter must be available (an extension providing it)."},
+    {"key":"editor.inlineSuggest.enabled","type":"boolean","default":true,"description":"Controls whether to automatically show inline suggestions in the editor."},
     {"key":"editor.insertSpaces","type":"boolean","default":true,"description":"Insert spaces when pressing Tab."},
     {"key":"editor.tabSize","type":"number","default":4,"description":"The number of spaces a tab is equal to."},
     {"key":"editor.wordWrap","type":"string","default":"off","description":"Controls how lines should wrap: never ('off'), at the viewport width ('on'), or at `editor.wordWrapColumn` ('wordWrapColumn'/'bounded'; both are capped by the viewport width).","enum":["off","on","wordWrapColumn","bounded"]},

@@ -190,6 +190,10 @@ import {
     CompletionService,
     CompletionServiceDIToken,
 } from "../../workbench/contrib/suggest/browser/completionService.ts";
+import {
+    InlineCompletionsService,
+    InlineCompletionsServiceDIToken,
+} from "../../workbench/contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import { SuggestComponent, SuggestComponentDIToken } from "../../workbench/contrib/suggest/browser/suggestComponent.ts";
 import {
     TerminalFocusFallbackDIToken,
@@ -321,6 +325,10 @@ export const workbenchModule: ContainerModule = (container) => {
     // источники/триггеры/accept, item.command → CommandRegistry напрямую).
     container.bind(SuggestComponentDIToken, SuggestComponent);
     container.bind(CompletionServiceDIToken, CompletionService);
+    // Призрачные подсказки (inline suggest): сервис без компонента — ghost text
+    // рисует сам редактор (TextEditorPane.setGhostText), источник — провайдеры
+    // расширений через inlineCompletionSource группы.
+    container.bind(InlineCompletionsServiceDIToken, InlineCompletionsService);
     // Go to Definition: сервис без компонента — цели отдаёт definitionSource
     // группы (провайдеры расширений), навигация — паттерн Problems reveal.
     container.bind(DefinitionServiceDIToken, DefinitionService);

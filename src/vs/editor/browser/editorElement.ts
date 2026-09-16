@@ -23,6 +23,8 @@ import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/language
 import { NULL_TOKEN_STYLE_RESOLVER } from "../common/languages/iTokenStyleResolver.ts";
 import type { IExternalDecorations, IViewZoneDecoration } from "../common/model/iEditorDecoration.ts";
 import { EMPTY_EXTERNAL_DECORATIONS } from "../common/model/iEditorDecoration.ts";
+import type { IGhostText } from "../common/model/iGhostText.ts";
+import { ghostTextEquals } from "../common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
@@ -39,6 +41,7 @@ import {
     docPositionAt,
     forEachRangeCell,
     paintCarets,
+    paintPhantomText,
     paintRangeBackground,
     paintTextLine,
     SELECTION_BG,
@@ -129,6 +132,35 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private lineWidthCache: LineWidthCache | null = null;
     private occurrenceCache: { versionId: number; line: number; character: number; ranges: IRange[] } | null = null;
+    /** Текущая призрачная подсказка; `null` — не показывать. См. {@link setGhostText}. */
+    private ghostTextValue: IGhostText | null = null;
+
+    public get ghostText(): IGhostText | null {
+        return this.ghostTextValue;
+    }
+
+    /**
+     * Ставит/снимает призрачную подсказку (ghost text инлайн-подсказок). Хвост
+     * первой строки рисует {@link render} на строке каретки; под остальные
+     * строки элемент сам заводит view zones. Зоны редактора и внешние зоны
+     * владельца вью ({@link decorations}) взаимоисключающи: ghost ставится
+     * только на редакторе файла, где `setViewZones` больше никто не зовёт —
+     * у диффа зонами владеет `diffEditorPane2`, и ghost там выключен.
+     */
+    public setGhostText(ghost: IGhostText | null): void {
+        if (ghostTextEquals(this.ghostTextValue, ghost)) return;
+        const hadZones = (this.ghostTextValue?.lines.length ?? 1) > 1;
+        this.ghostTextValue = ghost;
+        const needsZones = ghost !== null && ghost.lines.length > 1;
+        // setViewZones заменяет ВЕСЬ набор зон — не трогаем его, пока ghost
+        // зонами не пользовался: чужие зоны (буде появятся) не пострадают.
+        if (hadZones || needsZones) {
+            this.viewState.setViewZones(
+                needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : [],
+            );
+        }
+        this.markDirty();
+    }
 
     public get contentHeight(): number {
         return this.viewState.getViewLineCount();
@@ -188,6 +220,14 @@ export class EditorElement extends TUIElement implements IScrollable {
             hasSelection: selections.some((s) => !s.collapsed),
             foldedRegions: vs.foldedRegions.map((r) => ({ startLine: r.startLine, endLine: r.endLine })),
             viewZones: vs.viewZones.map((z) => ({ afterLine: z.afterLine, size: z.size })),
+            ghostText:
+                this.ghostTextValue === null
+                    ? null
+                    : {
+                          line: this.ghostTextValue.line,
+                          character: this.ghostTextValue.character,
+                          lines: [...this.ghostTextValue.lines],
+                      },
         };
     }
 
@@ -343,6 +383,10 @@ export class EditorElement extends TUIElement implements IScrollable {
         const digitCount =
             gutterW - GUTTER_LEFT_PADDING - this.gutterMarkerColumns - FOLD_GAP_LEFT - 1 - FOLD_GAP_RIGHT;
         const foldFg = this.styleVar("editorGutter.foldingControlForeground");
+        // Призрачная подсказка: цвет и стиль резолвятся раз за кадр. Курсив —
+        // как ghost text VS Code (font-style: italic у .ghost-text-decoration).
+        const ghost = this.ghostTextValue;
+        const ghostFg = ghost !== null ? this.styleVar("editorGhostText.foreground") : 0;
 
         // Fold-region headers by their (logical) start line, so the gutter can draw
         // a chevron and the header line a collapsed marker without scanning per cell.
@@ -418,6 +462,34 @@ export class EditorElement extends TUIElement implements IScrollable {
             if (zoneRow !== null) {
                 for (let x = 0; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", bg: gutBg });
+                }
+                // Зона призрачной подсказки: строки `lines[1..]` под строкой
+                // каретки (offset 0 зоны = lines[1]). Свои зоны редактор заводит
+                // только под ghost — конфликт с зонами владельца невозможен
+                // (см. setGhostText). Проверки якоря и offset'а держатся на
+                // инварианте setGhostText (единственная зона на ghost.line
+                // размером ровно lines.length - 1): их «ослабляющие» мутанты
+                // недостижимы — гасим с причиной.
+                // Stryker disable next-line ConditionalExpression,EqualityOperator,ArithmeticOperator: см. выше
+                if (ghost !== null && zoneRow.anchor === ghost.line && zoneRow.offset + 1 < ghost.lines.length) {
+                    // Лишняя колонка у «<=»-мутанта клиппится прямоугольником
+                    // элемента (setCell на промахе молча выходит) — гасим, как
+                    // клип-отсевы paintCarets.
+                    // Stryker disable next-line EqualityOperator: см. выше
+                    for (let x = 0; x < contentCols; x++) {
+                        context.setCell(gutterW + x, screenY, { char: " ", fg: ghostFg, bg: editorBg });
+                    }
+                    paintPhantomText(context, {
+                        displayLine: this.viewState.displayLineFor(ghost.lines[zoneRow.offset + 1]),
+                        screenY,
+                        gutterW,
+                        contentCols,
+                        startColumn: 0,
+                        fg: ghostFg,
+                        bg: editorBg,
+                        style: StyleFlags.Italic,
+                    });
+                    continue;
                 }
                 const zoneDecoration = zoneDecorationByAnchor.get(zoneRow.anchor);
                 const zoneLine = zoneDecoration?.lines?.[zoneRow.offset];
@@ -599,6 +671,26 @@ export class EditorElement extends TUIElement implements IScrollable {
                         bg: editorBg,
                     });
                 }
+            }
+
+            // Хвост призрачной подсказки на строке каретки: `lines[0]` серым
+            // курсивом сразу после колонки `character` (сервис ставит ghost
+            // только на конце строки — рисуем в области за текстом, которую
+            // paintTextLine уже залил фоном). При wrap хвост — на последнем
+            // фрагменте, там же, где конец текста строки.
+            if (ghost !== null && ghost.line === rowLogLine && isLastFragment) {
+                const ghostStartCol =
+                    dl.offsetToColumn(Math.min(ghost.character, lineContent.length)) - scrollLeft - fragStartCol;
+                paintPhantomText(context, {
+                    displayLine: this.viewState.displayLineFor(ghost.lines[0]),
+                    screenY,
+                    gutterW,
+                    contentCols,
+                    startColumn: ghostStartCol,
+                    fg: ghostFg,
+                    bg: editorBg,
+                    style: StyleFlags.Italic,
+                });
             }
         }
 
