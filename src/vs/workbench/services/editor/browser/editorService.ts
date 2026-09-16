@@ -11,6 +11,11 @@ import type { HoverSource } from "../../../../editor/common/languages/iHoverSour
 import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { SignatureHelpSource } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
+import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import {
+    LanguageConfigurationServiceDIToken,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
+} from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
@@ -91,6 +96,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         IFileWatcherDIToken,
         ContextMenuControllerDIToken,
         ILogServiceDIToken,
+        LanguageConfigurationServiceDIToken,
     ] as const;
 
     /**
@@ -122,6 +128,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private tokenizationRegistry: TokenizationRegistry;
     private tokenStyleResolver: ITokenStyleResolver;
     private languageService: ILanguageService;
+    private languageConfigurationService: ILanguageConfigurationService;
     private configurationService: IConfigurationService;
     /** Transient-состояние Alt+Z: `null` — действует конфиг (см. {@link toggleWordWrap}). */
     private wordWrapSessionOverride: "off" | "on" | null = null;
@@ -384,6 +391,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         fileWatcher: IFileWatcher,
         contextMenuController: ContextMenuController,
         logService: ILogService,
+        // Опционален с NULL-дефолтом, как параметр EditorComponent: два десятка
+        // тестовых конструкторов сервиса живут без авто-закрытия скобок.
+        languageConfigurationService: ILanguageConfigurationService = NULL_LANGUAGE_CONFIGURATION_SERVICE,
     ) {
         super();
         this.themeService = themeService;
@@ -394,6 +404,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.undoRedoService = undoRedoService;
         this.fileWatcher = fileWatcher;
         this.contextMenuController = contextMenuController;
+        this.languageConfigurationService = languageConfigurationService;
         this.logger = logService.createLogger("workbench.editorGroups");
         // Участники сохранения по настройкам (`editor.codeActionsOnSave` /
         // `editor.formatOnSave`): источники читаются лениво — host подключает
@@ -1180,7 +1191,12 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * вкладка; без неё вкладка владеет моделью единолично (untitled, detached).
      */
     private createPaneForModel(model: TextFileModel, modelOwnership?: IDisposable): TextEditorPane {
-        const component = new EditorComponent(this.tokenizationRegistry, this.tokenStyleResolver, model);
+        const component = new EditorComponent(
+            this.tokenizationRegistry,
+            this.tokenStyleResolver,
+            model,
+            this.languageConfigurationService,
+        );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // Политика контекстного меню редактора слушает "contextmenu" на обвязке
         // пары: ScrollBarDecorator переживает пересоздание EditorElement при

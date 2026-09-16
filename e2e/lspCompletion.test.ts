@@ -109,9 +109,13 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const linesBefore = (await session.node("EditorElement"))?.state?.lineCount;
             await session.key("{");
             await session.waitForText((text) => !text.includes("toPrecision"), { timeoutMs: 60_000 });
+            // `{` — пара из language configuration языка: вставляется `{}`, каретка внутри.
+            await session.waitForText((text) => text.includes("reply.to{}"), { timeoutMs: 60_000 });
 
             await session.key("Enter");
-            await session.waitForState("EditorElement", (state) => state?.lineCount === (linesBefore as number) + 1, {
+            // Enter между скобками разворачивает блок: закрывающая уходит на свою
+            // строку, каретка встаёт на пустую середину — отсюда +2 строки, а не +1.
+            await session.waitForState("EditorElement", (state) => state?.lineCount === (linesBefore as number) + 2, {
                 timeoutMs: 60_000,
             });
             const frame = frameToText(await session.captureFrame());

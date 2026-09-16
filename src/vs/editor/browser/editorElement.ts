@@ -19,6 +19,8 @@ import {
     selectionToRange,
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
+import { findSurroundingPair, planAutoClose } from "../common/languages/autoClosing.ts";
+import type { IResolvedLanguageConfiguration } from "../common/languages/languageConfiguration.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../common/languages/iTokenStyleResolver.ts";
 import type { IExternalDecorations, IViewZoneDecoration } from "../common/model/iEditorDecoration.ts";
@@ -102,6 +104,16 @@ export class EditorElement extends TUIElement implements IScrollable {
      * are supplied by an LSP semantic-tokens provider).
      */
     public tokenStyleResolver: ITokenStyleResolver = NULL_TOKEN_STYLE_RESOLVER;
+
+    /**
+     * Источник language configuration документа для авто-закрытия скобок и
+     * auto-surround. Функция, а не снимок: язык у буфера может смениться
+     * (Save As с другим расширением), а конфигурация — доехать позже
+     * (ленивая загрузка). `undefined` из источника (нет владельца, язык ещё
+     * грузится) — обычный набор без пар, как и `null`-источник (standalone
+     * редакторы, дифф).
+     */
+    public languageConfigurationSource: (() => IResolvedLanguageConfiguration | undefined) | null = null;
 
     public get tabSize(): number {
         return this.viewState.tabSize;
@@ -1077,9 +1089,64 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         // Printable character: single char, no ctrl/alt/meta modifiers
         if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+            if (this.tryTypePaired(event.key)) return;
             this.pushUndo(this.viewState.type(event.key));
             return;
         }
+    }
+
+    /**
+     * Перехват печатного символа парами языка: auto-surround непустых
+     * выделений, typeover закрывающей и вставка авто-закрывающейся пары.
+     * `false` — символ не парный (или каретки не сошлись в решении) и должен
+     * набраться как обычно.
+     *
+     * Решение общее на все каретки: разъехавшиеся контексты (у одной typeover,
+     * у другой вставка) откатываются к обычному набору — предсказуемее, чем
+     * половинчатое срабатывание (упрощение v1 против пер-курсорных команд
+     * VS Code).
+     */
+    private tryTypePaired(char: string): boolean {
+        const config = this.languageConfigurationSource?.();
+        if (config === undefined) return false;
+        const selections = this.viewState.selections;
+
+        // Auto-surround: выделение обрамляется парой, а не затирается.
+        if (selections.every((sel) => !isSelectionCollapsed(sel))) {
+            const pair = findSurroundingPair(char, config.surroundingPairs);
+            if (pair === undefined) return false;
+            this.pushUndo(this.viewState.surroundSelections(pair[0], pair[1]));
+            return true;
+        }
+        if (!selections.every((sel) => isSelectionCollapsed(sel))) return false;
+
+        const decisions = selections.map((sel) =>
+            planAutoClose({
+                typedChar: char,
+                lineContent: this.viewState.document.getLineContent(sel.active.line),
+                column: sel.active.character,
+                autoClosingPairs: config.autoClosingPairs,
+                autoCloseBefore: config.autoCloseBefore,
+            }),
+        );
+        const first = decisions[0];
+        // Решение общее на все каретки: `every` по набору уже включает и `first`.
+        if (decisions.every((d) => d.kind === "typeover")) {
+            this.viewState.typeOverClosingChar();
+            return true;
+        }
+        if (
+            // Stryker disable next-line ConditionalExpression: `first` — один из `decisions`, так что
+            // проверку уже делает `every` ниже; здесь она нужна типам (сужает union, чтобы был `first.close`)
+            first.kind === "autoClose" &&
+            // Stryker disable next-line ConditionalExpression: сравнение закрывающих уже отсеивает
+            // не-autoClose (у них `close` отсутствует); проверка вида нужна типам — без неё нет `d.close`
+            decisions.every((d) => d.kind === "autoClose" && d.close === first.close)
+        ) {
+            this.pushUndo(this.viewState.typeWithAutoClose(char, first.close));
+            return true;
+        }
+        return false;
     }
 
     private handlePaste(event: TUIPasteEvent): void {
