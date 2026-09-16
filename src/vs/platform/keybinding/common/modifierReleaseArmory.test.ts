@@ -136,4 +136,66 @@ describe("armOnHoldRelease within a trigger context", () => {
         armory.fireRelease("Control"); // outer context → fires
         expect(outer).toHaveBeenCalledTimes(1);
     });
+
+    // Запасной путь к концу hold-сессии там, где keyup модификатора не приходит
+    // (legacy-терминал): нажатие, которое сессию не продлило, её коммитит.
+    describe("commitStaleAfter — коммит по нажатию, не продлившему сессию", () => {
+        it("коммитит взвод, номер которого не изменился за время нажатия", () => {
+            const armory = new ModifierReleaseArmory();
+            const commit = vi.fn();
+            armory.arm("Control", commit);
+
+            const before = armory.pendingGeneration;
+            armory.commitStaleAfter(before);
+
+            expect(commit).toHaveBeenCalledTimes(1);
+            // Взвод снят: последующее отпускание Ctrl второй раз не коммитит.
+            armory.fireRelease("Control");
+            expect(commit).toHaveBeenCalledTimes(1);
+            expect(armory.pendingGeneration).toBeNull();
+        });
+
+        it("НЕ коммитит, если нажатие перевзвело сессию (следующий шаг того же цикла)", () => {
+            const armory = new ModifierReleaseArmory();
+            const first = vi.fn();
+            const second = vi.fn();
+            armory.arm("Control", first);
+
+            const before = armory.pendingGeneration;
+            armory.arm("Control", second); // шаг цикла перевзвёл сессию
+            armory.commitStaleAfter(before);
+
+            expect(first).not.toHaveBeenCalled();
+            expect(second).not.toHaveBeenCalled();
+            // Живая сессия: коммитится по отпусканию модификатора, как обычно.
+            armory.fireRelease("Control");
+            expect(second).toHaveBeenCalledTimes(1);
+        });
+
+        it("взвод, снятый отпусканием модификатора, повторно не коммитится", () => {
+            const armory = new ModifierReleaseArmory();
+            const commit = vi.fn();
+            armory.arm("Control", commit);
+            const before = armory.pendingGeneration;
+
+            // Keyup успел прийти раньше, чем нажатие дошло до commitStaleAfter
+            // (kitty шлёт и то, и другое): взвод уже снят, второй коммит не нужен.
+            armory.fireRelease("Control");
+            armory.commitStaleAfter(before);
+
+            expect(commit).toHaveBeenCalledTimes(1);
+        });
+
+        it("без взвода на момент нажатия — no-op (в том числе когда взвод появился ВО время него)", () => {
+            const armory = new ModifierReleaseArmory();
+            const commit = vi.fn();
+
+            const before = armory.pendingGeneration; // null — ничего не взведено
+            armory.arm("Control", commit); // сессия началась этим самым нажатием
+            armory.commitStaleAfter(before);
+
+            expect(commit).not.toHaveBeenCalled();
+            expect(armory.pendingGeneration).not.toBeNull();
+        });
+    });
 });

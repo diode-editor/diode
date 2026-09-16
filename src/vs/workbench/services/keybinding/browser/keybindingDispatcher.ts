@@ -204,6 +204,19 @@ export class KeybindingDispatcher extends Disposable {
      * Returns true if the key was consumed (caller should preventDefault).
      */
     public dispatchKeyDown(event: TUIKeyboardEvent): boolean {
+        // Нажатие, которое не продлило идущую hold-сессию, её завершает: на
+        // legacy-терминале keyup модификатора не приходит вовсе, и серия Ctrl+Tab
+        // (вместе с её видимым списком) иначе жила бы до следующего переключения.
+        // Сами модификаторы приходят отдельными keydown — они серию не рвут.
+        const armedBefore = isModifierKey(event.key) ? null : this.armory.pendingGeneration;
+        try {
+            return this.dispatchResolvedKeyDown(event);
+        } finally {
+            this.armory.commitStaleAfter(armedBefore);
+        }
+    }
+
+    private dispatchResolvedKeyDown(event: TUIKeyboardEvent): boolean {
         this.updateContextKeys();
         this.clearChordTimeout();
         this.clearNotFoundTimer();

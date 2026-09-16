@@ -28,9 +28,13 @@ export default defineScenario({
 
         // Соседняя вкладка — 4-пробельный TypeScript. Тот же редактор, те же
         // настройки, тот же Tab: разошлись именно детекции.
+        // Ctrl+Tab держит hold-сессию и показывает список переключателя поверх
+        // редактора; Ctrl+End её завершает (следующее нажатие — конец серии
+        // там, где терминал не шлёт keyup модификатора), и текст вкладки снова
+        // виден целиком — поэтому ждём его ПОСЛЕ перевода каретки.
         await editor.sendKey("Ctrl+Tab");
-        await editor.waitForText((t) => t.includes("const doubled"));
         await editor.sendKey("Ctrl+End");
+        await editor.waitForText((t) => t.includes("const doubled"));
         await editor.sendKey("Tab");
         await editor.waitForText((t) => t.includes("Col 5"));
         await editor.capture("four-space-ts");

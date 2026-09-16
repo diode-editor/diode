@@ -1,5 +1,3 @@
-import * as path from "node:path";
-
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
 import type { TabInfo } from "@tuidom/elements/editorgroup/editorTabStripElement";
@@ -15,6 +13,7 @@ import {} from "../../../services/themes/common/themeTokens.ts";
 import type { EditorTitleMenuContext } from "../../actions/menuContexts.ts";
 import { Component } from "../../component.ts";
 
+import { computeTabLabels } from "./tabLabels.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
 /**
@@ -165,7 +164,7 @@ export class EditorGroupComponent extends Component {
 
     private syncTabs(): void {
         const editors = this.group.getPanes();
-        const labels = this.computeTabLabels();
+        const labels = computeTabLabels(editors, (editor) => this.editorService.displayName(editor));
         const tabs: TabInfo[] = editors.map((editor, i) => {
             const fi = getFileIcon(this.editorService.displayName(editor));
             return {
@@ -179,55 +178,5 @@ export class EditorGroupComponent extends Component {
 
         this.tabStrip.setTabs(tabs);
         this.tabStrip.activeIndex = this.group.activeIndex;
-    }
-
-    /**
-     * Метки вкладок: обычно это имя файла, но если несколько открытых файлов
-     * ЭТОЙ группы делят один basename, к ним добавляется минимальный различающий
-     * суффикс родительского пути (как в VS Code), чтобы вкладки нельзя было
-     * спутать. Дизамбигуация пер-стрип: чужие группы свои метки разводят сами.
-     */
-    private computeTabLabels(): string[] {
-        const editors = this.group.getPanes();
-        const names = editors.map((editor) => this.editorService.displayName(editor));
-        const groups = new Map<string, number[]>();
-        names.forEach((name, i) => {
-            const arr = groups.get(name);
-            if (arr) arr.push(i);
-            else groups.set(name, [i]);
-        });
-
-        const labels = [...names];
-        for (const indices of groups.values()) {
-            if (indices.length < 2) continue;
-            const dirs = indices.map((i) => {
-                const uri = editors[i].uri;
-                // Гейт по схеме, а не по «путь непустой»: fsPath у не-file схемы вернёт
-                // мусор, а не бросит. В группу тёзок не-file и не попадёт — метки
-                // безымянных буферов уникальны по построению (Untitled-N).
-                /* v8 ignore start -- defensive: одинаковый displayName бывает только у файлов */
-                if (uri.scheme !== "file") return [];
-                /* v8 ignore stop */
-                // Путь уже абсолютный: подъём в Uri.file идёт через path.resolve.
-                return path.dirname(uri.fsPath).split(path.sep).filter(Boolean);
-            });
-            const maxK = Math.max(0, ...dirs.map((d) => d.length));
-            indices.forEach((editorIndex, a) => {
-                // Минимальный хвост родительского пути, отличающий этот файл от
-                // остальных в группе. Файлы-тёзки всегда различаются по пути
-                // (дедуп в openFile), поэтому уникальный хвост существует всегда.
-                let suffix = dirs[a].slice(-maxK).join(path.sep);
-                for (let k = 1; k <= maxK; k++) {
-                    const mine = dirs[a].slice(-k).join(path.sep);
-                    const collision = dirs.some((d, b) => b !== a && d.slice(-k).join(path.sep) === mine);
-                    if (!collision) {
-                        suffix = mine;
-                        break;
-                    }
-                }
-                labels[editorIndex] = `${names[editorIndex]} — ${suffix}`;
-            });
-        }
-        return labels;
     }
 }

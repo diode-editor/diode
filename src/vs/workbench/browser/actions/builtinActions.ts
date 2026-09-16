@@ -232,8 +232,10 @@ import {
 } from "../../contrib/references/browser/referencesActions.ts";
 import {
     closeActiveEditorAction,
+    nextEditorAction,
     nextEditorInGroupAction,
     openPreviousRecentlyUsedEditorInGroupAction,
+    previousEditorAction,
     previousEditorInGroupAction,
 } from "./tabActions.ts";
 import { TAB_CLOSE_ACTIONS } from "./tabCloseActions.ts";
@@ -381,7 +383,9 @@ export const builtinActions: readonly CommandAction[] = [
     navigateForwardAction,
 
     // Tabs
+    nextEditorAction,
     nextEditorInGroupAction,
+    previousEditorAction,
     previousEditorInGroupAction,
     openPreviousRecentlyUsedEditorInGroupAction,
     closeActiveEditorAction,

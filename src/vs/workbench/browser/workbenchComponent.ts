@@ -81,6 +81,7 @@ import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
 import { DiffEditorPane2 } from "./parts/editor/diffEditorPane2.ts";
 import { EditorPartComponent, EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
+import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 import { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import { PanelComponentDIToken } from "./parts/panel/panelComponent.ts";
 import { QuickInputComponentDIToken } from "./parts/quickinput/quickInputComponent.ts";
@@ -293,6 +294,9 @@ export class WorkbenchComponent extends Component {
         suggestComponent.attachHost(this.view);
         // Hover-попап — там же, в глобальном overlay-слое у каретки.
         hoverComponent.attachHost(this.view);
+        // Оверлей серии Ctrl+Tab (MRU-список вкладок) — passthrough-сессия
+        // того же слоя; показ/скрытие ведут события EditorService.
+        this.register(accessor.get(TabSwitcherComponentDIToken)).attachHost(this.view);
         // Рекордер комбинаций вкладки Keyboard Shortcuts — модальный оверлей
         // того же слоя.
         this.register(accessor.get(KeybindingRecorderComponentDIToken)).attachHost(this.view);
