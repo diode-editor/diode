@@ -199,6 +199,14 @@ import {
     toggleSidebarAction,
 } from "./layoutActions.ts";
 import {
+    copyLinesDownAction,
+    copyLinesUpAction,
+    deleteLinesAction,
+    duplicateSelectionAction,
+    moveLinesDownAction,
+    moveLinesUpAction,
+} from "./lineOperationActions.ts";
+import {
     listFocusFirstAction,
     listFocusLastAction,
     listFocusPageDownAction,
@@ -314,6 +322,14 @@ export const builtinActions: readonly CommandAction[] = [
     selectAllAction,
     indentLinesAction,
     outdentLinesAction,
+
+    // Line operations (дубль/перенос/удаление строк)
+    copyLinesUpAction,
+    copyLinesDownAction,
+    moveLinesUpAction,
+    moveLinesDownAction,
+    duplicateSelectionAction,
+    deleteLinesAction,
 
     // End of line
     convertToLfAction,

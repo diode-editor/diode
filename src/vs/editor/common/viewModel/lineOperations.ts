@@ -1,0 +1,436 @@
+import type { IPosition } from "../core/iPosition.ts";
+import { createRange } from "../core/iRange.ts";
+import type { ISelection } from "../core/iSelection.ts";
+import {
+    createCursorSelection,
+    createSelection,
+    isSelectionCollapsed,
+    selectionToRange,
+} from "../core/iSelection.ts";
+import type { ITextEdit } from "../core/iTextEdit.ts";
+import { createDeleteEdit, createInsertEdit, createTextEdit } from "../core/iTextEdit.ts";
+import type { ITextDocument } from "../model/iTextDocument.ts";
+
+/**
+ * Строчные операции редактора (перенос VS Code `editor/contrib/linesOperations`
+ * и клипбордной семантики `emptySelectionClipboard`) — чистые функции: по
+ * документу и выделениям считают правки и итоговые выделения, ничего не
+ * применяя. Применяет их {@link EditorViewState} — там документ, фолды и undo.
+ *
+ * Контракт входа: `selections` — нормализованный список view-state'а
+ * (документный порядок, без пересечений).
+ */
+export type ILineOperationsDocument = Pick<
+    ITextDocument,
+    "lineCount" | "getLineContent" | "getLineLength" | "getTextInRange"
+>;
+
+export interface ILineOperationResult {
+    edits: ITextEdit[];
+    afterSelections: ISelection[];
+}
+
+/** Строчный блок выделения: конец на колонке 0 следующей строки её не захватывает (семантика VS Code). */
+function selectionLineBlock(sel: ISelection): { startLine: number; endLine: number } {
+    const range = selectionToRange(sel);
+    let endLine = range.end.line;
+    if (endLine > range.start.line && range.end.character === 0) {
+        endLine--;
+    }
+    return { startLine: range.start.line, endLine };
+}
+
+/** Строки блока, склеенные `\n` — вставляемый текст дублирования/перемещения. */
+function blockText(doc: ILineOperationsDocument, block: { startLine: number; endLine: number }): string {
+    const lines: string[] = [];
+    for (let line = block.startLine; line <= block.endLine; line++) {
+        lines.push(doc.getLineContent(line));
+    }
+    return lines.join("\n");
+}
+
+// ─── Duplicate lines (Copy Line Up / Down) ──────────────────
+
+/**
+ * Дублирование строк выделений (`editor.action.copyLinesUpAction/DownAction`).
+ * Текст в обоих направлениях одинаков (копия встаёт вплотную к оригиналу);
+ * различие — где остаётся выделение: Up держит его на верхней копии, Down — на
+ * нижней. Два выделения, чьи блоки делят строку, не дублируют её дважды
+ * (семантика VS Code: дубль делает верхнее, нижнее игнорируется).
+ */
+export function computeCopyLines(
+    doc: ILineOperationsDocument,
+    selections: readonly ISelection[],
+    down: boolean,
+): ILineOperationResult {
+    const blocks = selections.map(selectionLineBlock);
+
+    // Отсев блоков, наступающих на строку предыдущего оставленного блока.
+    const kept: boolean[] = [];
+    let prevKept: { startLine: number; endLine: number } | null = null;
+    for (const block of blocks) {
+        if (prevKept !== null && prevKept.endLine >= block.startLine) {
+            kept.push(false);
+        } else {
+            kept.push(true);
+            prevKept = block;
+        }
+    }
+
+    const edits: ITextEdit[] = [];
+    for (let i = 0; i < blocks.length; i++) {
+        if (!kept[i]) continue;
+        const text = blockText(doc, blocks[i]);
+        if (down) {
+            // Копия НАД блоком: оригинал съезжает вниз, выделение остаётся с ним.
+            edits.push(createInsertEdit(blocks[i].startLine, 0, text + "\n"));
+        } else {
+            // Копия ПОД блоком: выделение остаётся на верхнем оригинале.
+            edits.push(createInsertEdit(blocks[i].endLine, doc.getLineLength(blocks[i].endLine), "\n" + text));
+        }
+    }
+
+    const shiftLine = (line: number): number => {
+        let delta = 0;
+        for (let j = 0; j < blocks.length; j++) {
+            if (!kept[j]) continue;
+            const size = blocks[j].endLine - blocks[j].startLine + 1;
+            // Вставка-вниз стоит В НАЧАЛЕ блока и двигает сам блок; вставка-вверх
+            // стоит в конце его последней строки и двигает только строки ниже.
+            if (down ? line >= blocks[j].startLine : line > blocks[j].endLine) {
+                delta += size;
+            }
+        }
+        return line + delta;
+    };
+
+    const afterSelections = selections.map((sel) =>
+        createSelection(
+            shiftLine(sel.anchor.line),
+            sel.anchor.character,
+            shiftLine(sel.active.line),
+            sel.active.character,
+        ),
+    );
+
+    return { edits, afterSelections };
+}
+
+// ─── Duplicate selection ────────────────────────────────────
+
+/**
+ * Дубль выделения (`editor.action.duplicateSelection`): копия выделенного
+ * текста встаёт сразу за выделением и становится новым выделением; схлопнутая
+ * каретка дублирует свою строку вниз (как Copy Line Down). В отличие от
+ * {@link computeCopyLines}, каретки на одной строке не схлопываются — каждая
+ * вставляет свою копию (семантика VS Code).
+ */
+export function computeDuplicateSelection(
+    doc: ILineOperationsDocument,
+    selections: readonly ISelection[],
+): ILineOperationResult {
+    const edits: ITextEdit[] = [];
+    const afterSelections: ISelection[] = [];
+
+    // Тот же накопительный проход, что у computeSelectionsAfterEdits: правки
+    // идут в документном порядке, каждая следующая позиция сдвигается на уже
+    // вставленное (строки — всегда, колонки — только в пределах одной строки).
+    let accLineDelta = 0;
+    let accCharDelta = 0;
+    let lastEditLine = -1;
+
+    for (const sel of selections) {
+        const collapsed = isSelectionCollapsed(sel);
+        const range = selectionToRange(sel);
+        const insertAt: IPosition = collapsed ? { line: range.start.line, character: 0 } : range.end;
+        const text = collapsed
+            ? doc.getLineContent(range.start.line) + "\n"
+            : doc.getTextInRange(range);
+        edits.push(createInsertEdit(insertAt.line, insertAt.character, text));
+
+        const startChar = insertAt.line === lastEditLine ? insertAt.character + accCharDelta : insertAt.character;
+        const mappedStart: IPosition = { line: insertAt.line + accLineDelta, character: startChar };
+        const insertedLines = text.split("\n");
+        const mappedEnd: IPosition =
+            insertedLines.length === 1
+                ? { line: mappedStart.line, character: mappedStart.character + insertedLines[0].length }
+                : {
+                      line: mappedStart.line + insertedLines.length - 1,
+                      character: insertedLines[insertedLines.length - 1].length,
+                  };
+
+        if (collapsed) {
+            // Каретка остаётся у своего текста — тот съехал на строку вниз.
+            afterSelections.push(createCursorSelection(mappedStart.line + 1, sel.active.character));
+        } else {
+            // Новое выделение — вставленная копия.
+            afterSelections.push(
+                createSelection(mappedStart.line, mappedStart.character, mappedEnd.line, mappedEnd.character),
+            );
+        }
+
+        accLineDelta += insertedLines.length - 1;
+        if (insertedLines.length === 1) {
+            accCharDelta = (insertAt.line === lastEditLine ? accCharDelta : 0) + insertedLines[0].length;
+            lastEditLine = insertAt.line;
+        } else {
+            accCharDelta = 0;
+            lastEditLine = -1;
+        }
+    }
+
+    return { edits, afterSelections };
+}
+
+// ─── Move lines ─────────────────────────────────────────────
+
+interface IMergedLineBlock {
+    startLine: number;
+    endLine: number;
+    /** Индексы выделений, чьи блоки слились в этот. */
+    memberIndices: number[];
+}
+
+/**
+ * Слияние строчных блоков выделений: пересекающиеся И СМЕЖНЫЕ блоки едут/
+ * удаляются одним куском — иначе их правки пересеклись бы (и VS Code сливает
+ * так же: `endLineNumber + 1 >= startLineNumber` следующего).
+ */
+function mergeAdjacentBlocks(selections: readonly ISelection[]): IMergedLineBlock[] {
+    const merged: IMergedLineBlock[] = [];
+    for (let i = 0; i < selections.length; i++) {
+        const block = selectionLineBlock(selections[i]);
+        const last = merged[merged.length - 1];
+        if (last !== undefined && block.startLine <= last.endLine + 1) {
+            last.endLine = Math.max(last.endLine, block.endLine);
+            last.memberIndices.push(i);
+        } else {
+            merged.push({ startLine: block.startLine, endLine: block.endLine, memberIndices: [i] });
+        }
+    }
+    return merged;
+}
+
+/**
+ * Перемещение строк выделений на строку вверх/вниз
+ * (`editor.action.moveLinesUpAction/DownAction`): блок меняется местами с
+ * соседней строкой, выделения переезжают вместе со своим текстом. Блок,
+ * упёршийся в край документа, остаётся на месте; `null` — двигать нечего.
+ */
+export function computeMoveLines(
+    doc: ILineOperationsDocument,
+    selections: readonly ISelection[],
+    down: boolean,
+): ILineOperationResult | null {
+    const edits: ITextEdit[] = [];
+    const movedSelections = new Set<number>();
+
+    for (const block of mergeAdjacentBlocks(selections)) {
+        if (down ? block.endLine >= doc.lineCount - 1 : block.startLine <= 0) continue;
+        const text = blockText(doc, block);
+        if (down) {
+            const swapped = doc.getLineContent(block.endLine + 1);
+            edits.push(
+                createTextEdit(
+                    createRange(block.startLine, 0, block.endLine + 1, doc.getLineLength(block.endLine + 1)),
+                    swapped + "\n" + text,
+                ),
+            );
+        } else {
+            const swapped = doc.getLineContent(block.startLine - 1);
+            edits.push(
+                createTextEdit(
+                    createRange(block.startLine - 1, 0, block.endLine, doc.getLineLength(block.endLine)),
+                    text + "\n" + swapped,
+                ),
+            );
+        }
+        for (const index of block.memberIndices) {
+            movedSelections.add(index);
+        }
+    }
+
+    if (edits.length === 0) return null;
+
+    const lineDelta = down ? 1 : -1;
+    const afterSelections = selections.map((sel, i) =>
+        movedSelections.has(i)
+            ? createSelection(
+                  sel.anchor.line + lineDelta,
+                  sel.anchor.character,
+                  sel.active.line + lineDelta,
+                  sel.active.character,
+              )
+            : sel,
+    );
+    return { edits, afterSelections };
+}
+
+// ─── Delete lines ───────────────────────────────────────────
+
+/**
+ * Правка, удаляющая строки блока ЦЕЛИКОМ, вместе с ограничивающим переводом
+ * строки: обычно со своим завершающим, у блока с последней строкой документа —
+ * с предшествующим (завершающего нет), у блока во весь документ — только
+ * содержимое (документ без единственной строки не бывает). Семантика VS Code
+ * (`DeleteLinesCommand` и cut пустого выделения).
+ */
+function deleteWholeLinesEdit(
+    doc: ILineOperationsDocument,
+    block: { startLine: number; endLine: number },
+): ITextEdit {
+    if (block.endLine < doc.lineCount - 1) {
+        return createDeleteEdit(block.startLine, 0, block.endLine + 1, 0);
+    }
+    if (block.startLine > 0) {
+        return createDeleteEdit(
+            block.startLine - 1,
+            doc.getLineLength(block.startLine - 1),
+            block.endLine,
+            doc.getLineLength(block.endLine),
+        );
+    }
+    return createDeleteEdit(0, 0, block.endLine, doc.getLineLength(block.endLine));
+}
+
+/**
+ * Удаление строк выделений (`editor.action.deleteLines`, Ctrl+Shift+K).
+ * Смежные блоки сливаются в один; после удаления на месте каждого блока
+ * остаётся каретка в прежней колонке (колонка первого выделения блока —
+ * кламп к длине строки делает применяющая сторона).
+ */
+export function computeDeleteLines(
+    doc: ILineOperationsDocument,
+    selections: readonly ISelection[],
+): ILineOperationResult {
+    const edits: ITextEdit[] = [];
+    const afterSelections: ISelection[] = [];
+    let removedSoFar = 0;
+
+    for (const block of mergeAdjacentBlocks(selections)) {
+        edits.push(deleteWholeLinesEdit(doc, block));
+        const caretLine =
+            block.endLine < doc.lineCount - 1
+                ? block.startLine - removedSoFar
+                : Math.max(0, block.startLine - 1 - removedSoFar);
+        afterSelections.push(createCursorSelection(caretLine, selections[block.memberIndices[0]].active.character));
+        removedSoFar += block.endLine - block.startLine + 1;
+    }
+
+    return { edits, afterSelections };
+}
+
+// ─── Clipboard: emptySelectionClipboard ─────────────────────
+
+export interface ITextToCopy {
+    /** Текст для буфера; пустая строка — копировать нечего. */
+    text: string;
+    /**
+     * Текст пришёл из ЕДИНСТВЕННОГО пустого выделения — маркер линейной
+     * вставки: paste такой строки кладёт её строкой выше курсорной.
+     */
+    isFromEmptySelection: boolean;
+}
+
+/**
+ * Текст для Copy/Cut с семантикой `emptySelectionClipboard` (VS Code
+ * `getPlainTextToCopy`): пустые выделения копируют свою строку целиком (с
+ * `\n`; соседние каретки на одной строке — один раз), непустые — свой текст;
+ * склейка — через `\n`. При выключенной настройке пустые выделения не дают
+ * ничего.
+ */
+export function computeTextToCopy(
+    doc: ILineOperationsDocument,
+    selections: readonly ISelection[],
+    emptySelectionClipboard: boolean,
+): ITextToCopy {
+    const hasNonEmpty = selections.some((sel) => !isSelectionCollapsed(sel));
+
+    if (!hasNonEmpty) {
+        if (!emptySelectionClipboard) return { text: "", isFromEmptySelection: false };
+        let text = "";
+        let prevLine = -1;
+        for (const sel of selections) {
+            if (sel.active.line !== prevLine) {
+                text += doc.getLineContent(sel.active.line) + "\n";
+            }
+            prevLine = sel.active.line;
+        }
+        return { text, isFromEmptySelection: selections.length === 1 };
+    }
+
+    const hasEmpty = selections.some(isSelectionCollapsed);
+    if (hasEmpty && emptySelectionClipboard) {
+        // Смешанный набор: пустые каретки несут строку целиком (без своего \n —
+        // разделителем служит склейка), непустые — выделенное.
+        const parts: string[] = [];
+        let prevLine = -1;
+        for (const sel of selections) {
+            const range = selectionToRange(sel);
+            if (isSelectionCollapsed(sel)) {
+                if (range.start.line !== prevLine) {
+                    parts.push(doc.getLineContent(range.start.line));
+                }
+            } else {
+                parts.push(doc.getTextInRange(range));
+            }
+            prevLine = range.start.line;
+        }
+        return { text: parts.join("\n"), isFromEmptySelection: false };
+    }
+
+    const parts = selections
+        .filter((sel) => !isSelectionCollapsed(sel))
+        .map((sel) => doc.getTextInRange(selectionToRange(sel)));
+    return { text: parts.join("\n"), isFromEmptySelection: false };
+}
+
+/**
+ * Правки для Cut: непустые выделения удаляют свой диапазон; пустые (при
+ * включённом `emptySelectionClipboard`) — свою строку целиком. Хвостовая
+ * цепочка смежных строк-блоков, дотянувшаяся до конца документа, сливается в
+ * один блок: правка последней строки удаляет ПРЕДШЕСТВУЮЩИЙ `\n` и иначе
+ * пересеклась бы с правкой строки над ней. Блок, чью строку уже задевает
+ * непустое выделение, пропускается — две правки не должны спорить за текст.
+ */
+export function computeCutEdits(
+    doc: ILineOperationsDocument,
+    selections: readonly ISelection[],
+    emptySelectionClipboard: boolean,
+): ITextEdit[] {
+    const nonEmpty = selections.filter((sel) => !isSelectionCollapsed(sel));
+    const edits: ITextEdit[] = nonEmpty.map((sel) => createTextEdit(selectionToRange(sel), ""));
+    if (!emptySelectionClipboard) return edits;
+
+    const emptyLines: number[] = [];
+    for (const sel of selections) {
+        if (!isSelectionCollapsed(sel)) continue;
+        const line = sel.active.line;
+        if (emptyLines[emptyLines.length - 1] === line) continue; // две каретки на строке — один дубль
+        const touchedByNonEmpty = nonEmpty.some((other) => {
+            const range = selectionToRange(other);
+            return range.start.line <= line && line <= range.end.line;
+        });
+        if (!touchedByNonEmpty) emptyLines.push(line);
+    }
+
+    // Строки-блоки: по одному на строку; хвост, дотянувшийся до конца
+    // документа, склеивается в один блок (см. док-комментарий).
+    for (let i = 0; i < emptyLines.length; i++) {
+        let endLine = emptyLines[i];
+        if (endLine === doc.lineCount - 1 || (i + 1 < emptyLines.length && emptyLines[i + 1] === endLine + 1)) {
+            let j = i;
+            while (j + 1 < emptyLines.length && emptyLines[j + 1] === emptyLines[j] + 1) {
+                j++;
+            }
+            if (emptyLines[j] === doc.lineCount - 1) {
+                edits.push(deleteWholeLinesEdit(doc, { startLine: emptyLines[i], endLine: emptyLines[j] }));
+                i = j;
+                continue;
+            }
+        }
+        edits.push(deleteWholeLinesEdit(doc, { startLine: emptyLines[i], endLine }));
+    }
+
+    return edits.sort((a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character);
+}
