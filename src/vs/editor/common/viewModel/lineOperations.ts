@@ -78,6 +78,7 @@ export function computeCopyLines(
     }
 
     const edits: ITextEdit[] = [];
+    // Stryker disable next-line EqualityOperator: лишняя итерация читает kept[length] === undefined и гасится continue
     for (let i = 0; i < blocks.length; i++) {
         if (!kept[i]) continue;
         const text = blockText(doc, blocks[i]);
@@ -92,6 +93,7 @@ export function computeCopyLines(
 
     const shiftLine = (line: number): number => {
         let delta = 0;
+        // Stryker disable next-line EqualityOperator: лишняя итерация читает kept[length] === undefined и гасится continue
         for (let j = 0; j < blocks.length; j++) {
             if (!kept[j]) continue;
             const size = blocks[j].endLine - blocks[j].startLine + 1;
@@ -137,6 +139,7 @@ export function computeDuplicateSelection(
     // вставленное (строки — всегда, колонки — только в пределах одной строки).
     let accLineDelta = 0;
     let accCharDelta = 0;
+    // Stryker disable next-line UnaryOperator: до первой правки accCharDelta = 0, поэтому значение стартового сентинела не наблюдаемо
     let lastEditLine = -1;
 
     for (const sel of selections) {
@@ -173,8 +176,13 @@ export function computeDuplicateSelection(
         if (insertedLines.length === 1) {
             accCharDelta = (insertAt.line === lastEditLine ? accCharDelta : 0) + insertedLines[0].length;
             lastEditLine = insertAt.line;
+            // Сброс после многострочной вставки (ветка else ниже). Мутанты ветки
+            // эквивалентны: следующая правка всегда на строке НИЖЕ многострочной
+            // вставки, поэтому застрявшие accCharDelta/lastEditLine не читаются.
+            // Stryker disable next-line BlockStatement: см. выше
         } else {
             accCharDelta = 0;
+            // Stryker disable next-line UnaryOperator: см. выше
             lastEditLine = -1;
         }
     }
@@ -309,11 +317,12 @@ export function computeDeleteLines(
 
     for (const block of mergeAdjacentBlocks(selections)) {
         edits.push(deleteWholeLinesEdit(doc, block));
-        const caretLine =
-            block.endLine < doc.lineCount - 1
-                ? block.startLine - removedSoFar
-                : Math.max(0, block.startLine - 1 - removedSoFar);
-        afterSelections.push(createCursorSelection(caretLine, selections[block.memberIndices[0]].active.character));
+        // Строка, вставшая на место блока. У блока с последней строкой документа
+        // такой строки нет — выражение даёт строку ЗА новым концом, и кламп
+        // применяющей стороны сажает каретку на новый конец (как в VS Code).
+        afterSelections.push(
+            createCursorSelection(block.startLine - removedSoFar, selections[block.memberIndices[0]].active.character),
+        );
         removedSoFar += block.endLine - block.startLine + 1;
     }
 
@@ -387,11 +396,13 @@ export function computeTextToCopy(
 
 /**
  * Правки для Cut: непустые выделения удаляют свой диапазон; пустые (при
- * включённом `emptySelectionClipboard`) — свою строку целиком. Хвостовая
- * цепочка смежных строк-блоков, дотянувшаяся до конца документа, сливается в
- * один блок: правка последней строки удаляет ПРЕДШЕСТВУЮЩИЙ `\n` и иначе
- * пересеклась бы с правкой строки над ней. Блок, чью строку уже задевает
- * непустое выделение, пропускается — две правки не должны спорить за текст.
+ * включённом `emptySelectionClipboard`) — свою строку целиком. Каретки
+ * смежных строк сливаются в один блок ({@link mergeAdjacentBlocks}): текст и
+ * итоговые каретки от слияния не меняются, а правки перестают пересекаться —
+ * блок с последней строкой документа удаляет ПРЕДШЕСТВУЮЩИЙ `\n`, и без
+ * слияния он спорил бы за него с правкой строки выше. Каретка на строке,
+ * которую уже задевает непустое выделение, пропускается — по той же причине.
+ * Порядок правок не значим: применяющая сторона сортирует сама.
  */
 export function computeCutEdits(
     doc: ILineOperationsDocument,
@@ -402,35 +413,15 @@ export function computeCutEdits(
     const edits: ITextEdit[] = nonEmpty.map((sel) => createTextEdit(selectionToRange(sel), ""));
     if (!emptySelectionClipboard) return edits;
 
-    const emptyLines: number[] = [];
-    for (const sel of selections) {
-        if (!isSelectionCollapsed(sel)) continue;
+    const cutCarets = selections.filter(isSelectionCollapsed).filter((sel) => {
         const line = sel.active.line;
-        if (emptyLines[emptyLines.length - 1] === line) continue; // две каретки на строке — один дубль
-        const touchedByNonEmpty = nonEmpty.some((other) => {
+        return !nonEmpty.some((other) => {
             const range = selectionToRange(other);
             return range.start.line <= line && line <= range.end.line;
         });
-        if (!touchedByNonEmpty) emptyLines.push(line);
+    });
+    for (const block of mergeAdjacentBlocks(cutCarets)) {
+        edits.push(deleteWholeLinesEdit(doc, block));
     }
-
-    // Строки-блоки: по одному на строку; хвост, дотянувшийся до конца
-    // документа, склеивается в один блок (см. док-комментарий).
-    for (let i = 0; i < emptyLines.length; i++) {
-        let endLine = emptyLines[i];
-        if (endLine === doc.lineCount - 1 || (i + 1 < emptyLines.length && emptyLines[i + 1] === endLine + 1)) {
-            let j = i;
-            while (j + 1 < emptyLines.length && emptyLines[j + 1] === emptyLines[j] + 1) {
-                j++;
-            }
-            if (emptyLines[j] === doc.lineCount - 1) {
-                edits.push(deleteWholeLinesEdit(doc, { startLine: emptyLines[i], endLine: emptyLines[j] }));
-                i = j;
-                continue;
-            }
-        }
-        edits.push(deleteWholeLinesEdit(doc, { startLine: emptyLines[i], endLine }));
-    }
-
-    return edits.sort((a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character);
+    return edits;
 }

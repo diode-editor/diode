@@ -1858,16 +1858,18 @@ export class EditorViewState {
         };
     }
 
-    /** Кламп выделения к границам документа (строка → её длина). */
+    /**
+     * Кламп выделения к границам документа (строка → её длина). Он несёт
+     * семантику, а не только защиту: deleteLines сажает каретку блока с
+     * последней строкой на строку ЗА новым концом документа — именно кламп
+     * возвращает её на новый конец.
+     */
     private clampSelectionToDocument(sel: ISelection): ISelection {
         const clamp = (pos: IPosition): IPosition => {
             const line = Math.max(0, Math.min(pos.line, this.document.lineCount - 1));
-            const character = Math.max(0, Math.min(pos.character, this.document.getLineLength(line)));
-            return line === pos.line && character === pos.character ? pos : { line, character };
+            return { line, character: Math.max(0, Math.min(pos.character, this.document.getLineLength(line))) };
         };
-        const anchor = clamp(sel.anchor);
-        const active = clamp(sel.active);
-        return anchor === sel.anchor && active === sel.active ? sel : { anchor, active, idealColumn: sel.idealColumn };
+        return { anchor: clamp(sel.anchor), active: clamp(sel.active), idealColumn: sel.idealColumn };
     }
 
     // ─── Clipboard (emptySelectionClipboard) ────────────────
@@ -1914,7 +1916,10 @@ export class EditorViewState {
      * выделения и любой другой текст вставляются как обычный type.
      */
     public pasteText(text: string, pasteOnNewLine: boolean): IUndoElement | undefined {
-        const linewise = pasteOnNewLine && text.length > 0 && text.indexOf("\n") === text.length - 1;
+        // «Одна строка с завершающим \n». Пустой текст (length - 1 === -1 ===
+        // indexOf) сюда тоже проходит, и это безобидно: обе ветки для него —
+        // пустые правки; вызывающие всё равно гейтят пустой буфер.
+        const linewise = pasteOnNewLine && text.indexOf("\n") === text.length - 1;
         if (!linewise) return this.insertText(text);
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();

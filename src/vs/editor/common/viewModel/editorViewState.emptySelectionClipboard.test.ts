@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import { createCursorSelection, createSelection } from "../core/iSelection.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
@@ -23,6 +24,21 @@ describe("EditorViewState.getTextToCopy", () => {
     it("непустое выделение отдаёт свой текст без маркера", () => {
         const s = state("alpha\nbeta", [createSelection(0, 0, 0, 5)]);
         expect(s.getTextToCopy(true)).toEqual({ text: "alpha", isFromEmptySelection: false });
+    });
+
+    it("каретка не на первой строке отдаёт свою строку", () => {
+        const s = state("alpha\nbeta", [createCursorSelection(1, 2)]);
+        expect(s.getTextToCopy(true)).toEqual({ text: "beta\n", isFromEmptySelection: true });
+    });
+
+    it("смешанный набор: первая каретка не на первой строке несёт свою строку", () => {
+        const s = state("alpha\nbeta\ngamma", [createCursorSelection(1, 1), createSelection(2, 0, 2, 2)]);
+        expect(s.getTextToCopy(true)).toEqual({ text: "beta\nga", isFromEmptySelection: false });
+    });
+
+    it("при выключенной настройке смешанный набор отдаёт только выделенное", () => {
+        const s = state("alpha\nbeta", [createCursorSelection(0, 1), createSelection(1, 0, 1, 2)]);
+        expect(s.getTextToCopy(false)).toEqual({ text: "be", isFromEmptySelection: false });
     });
 
     it("несколько пустых кареток отдают свои строки, маркера линейности нет", () => {
@@ -118,6 +134,26 @@ describe("EditorViewState.cutSelections", () => {
         s.cutSelections(true);
         expect(s.document.getText()).toBe("beta");
     });
+
+    it("каретка ниже выделения режет свою строку", () => {
+        const s = state("alpha\nbeta\ngamma", [createSelection(0, 0, 0, 3), createCursorSelection(2, 1)]);
+        s.cutSelections(true);
+        expect(s.document.getText()).toBe("ha\nbeta");
+    });
+
+    it("read-only: cut — no-op без undo", () => {
+        const s = state("alpha", [createCursorSelection(0, 0)]);
+        s.readOnly = true;
+        expect(s.cutSelections(true)).toBeUndefined();
+        expect(s.document.getText()).toBe("alpha");
+    });
+
+    it("cut строки сдвигает фолд-регионы ниже", () => {
+        const s = state("a\nb\nc\nd", [createCursorSelection(0, 0)]);
+        s.setFoldingRegions([createFoldingRegion(2, 3)]);
+        s.cutSelections(true);
+        expect(s.foldedRegions).toEqual([createFoldingRegion(1, 2)]);
+    });
 });
 
 describe("EditorViewState.pasteText", () => {
@@ -169,5 +205,20 @@ describe("EditorViewState.pasteText", () => {
         s.pasteText("\n", true);
         expect(s.document.getText()).toBe("\nalpha");
         expect(s.selections[0].active).toEqual({ line: 1, character: 3 });
+    });
+
+    it("линейная вставка сдвигает фолд-регионы ниже", () => {
+        const s = state("a\nb\nc\nd", [createCursorSelection(0, 0)]);
+        s.setFoldingRegions([createFoldingRegion(2, 3)]);
+        s.pasteText("x\n", true);
+        expect(s.foldedRegions).toEqual([createFoldingRegion(3, 4)]);
+    });
+
+    it("линейная вставка в конце файла прокручивает вьюпорт за кареткой", () => {
+        const doc = Array.from({ length: 30 }, (_, i) => `line${String(i)}`).join("\n");
+        const s = state(doc, [createCursorSelection(29, 0)]);
+        s.scrollTop = 6; // каретка у нижнего края вьюпорта 80x24
+        s.pasteText("x\n", true);
+        expect(s.scrollTop).toBe(7);
     });
 });

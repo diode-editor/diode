@@ -135,6 +135,27 @@ describe("clipboardCopyAction", () => {
         expect(await clipboard.readText()).toBe("previous");
     });
 
+    it("настройка не задана вовсе — действует дефолт true, строка копируется", async () => {
+        const clipboard = memoryClipboard();
+        const ctrl = createGroup();
+        const filePath = ws.writeFile("doc.txt", "hello world");
+        ctrl.openFile(filePath);
+        const editor = ctrl.getActiveEditor();
+        if (editor === null) throw new Error("no active editor");
+        editor.viewState.selections = [createCursorSelection(0, 3)];
+        const commands = new CommandRegistry();
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => ctrl);
+        accessor.bind(ClipboardDIToken, () => clipboard);
+        // NULL-сервис возвращает undefined — сработать обязан дефолт `?? true`.
+        accessor.bind(IConfigurationServiceDIToken, () => NULL_CONFIGURATION_SERVICE);
+        registerAction(commands, new KeybindingRegistry(), accessor, clipboardCopyAction);
+
+        await commands.execute(clipboardCopyAction.id);
+
+        expect(await clipboard.readText()).toBe("hello world\n");
+    });
+
     it("склеивает выделения мультикурсора через перевод строки", async () => {
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("alpha beta", clipboard);
@@ -233,6 +254,9 @@ describe("clipboardPasteAction", () => {
         await exec(clipboardPasteAction);
 
         expect(editor.getText()).toBe("hello world");
+        // Ранний выход обязан случиться ДО правки: пустая вставка иначе бампает
+        // версию документа и пачкает буфер («грязная» вкладка без изменений).
+        expect(editor.isModified).toBe(false);
     });
 });
 
@@ -284,8 +308,24 @@ describe("линейная вставка строки, скопированно
         await exec(clipboardCutAction);
         expect(editor.getText()).toBe("second");
 
+        // Каретка не в нулевой колонке: обычная вставка разорвала бы слово, и
+        // только линейная кладёт строку целиком выше курсорной.
+        editor.viewState.selections = [createCursorSelection(0, 3)];
         await exec(clipboardPasteAction);
         expect(editor.getText()).toBe("first\nsecond");
+        expect(editor.viewState.selections[0].active).toEqual({ line: 1, character: 3 });
+    });
+
+    it("строка, скопированная НЕпустым выделением, вставляется в позицию каретки", async () => {
+        const clipboard = memoryClipboard();
+        const { editor, exec } = openEditor("first\nsecond", clipboard);
+        editor.viewState.selections = [createSelection(0, 0, 1, 0)]; // "first\n" целиком
+        await exec(clipboardCopyAction);
+
+        editor.viewState.selections = [createCursorSelection(1, 3)];
+        await exec(clipboardPasteAction);
+
+        expect(editor.getText()).toBe("first\nsecfirst\nond");
     });
 
     it("тот же текст, записанный в буфер мимо copy, вставляется как обычно", async () => {

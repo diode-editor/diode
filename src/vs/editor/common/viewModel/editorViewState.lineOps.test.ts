@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { createFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
+import { createRange } from "../core/iRange.ts";
 import { createCursorSelection, createSelection } from "../core/iSelection.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
@@ -62,6 +64,54 @@ describe("EditorViewState.copyLinesDown", () => {
         expect(s.copyLinesDown()).toBeUndefined();
         expect(s.document.getText()).toBe("a\nb");
     });
+
+    it("три каретки — две на одной строке и одна ниже — дублируют каждую строку по разу", () => {
+        const s = state("alpha\nbeta\ngamma", [
+            createCursorSelection(0, 1),
+            createCursorSelection(0, 3),
+            createCursorSelection(2, 0),
+        ]);
+        s.copyLinesDown();
+        expect(s.document.getText()).toBe("alpha\nalpha\nbeta\ngamma\ngamma");
+        expect(s.selections.map((sel) => sel.active)).toEqual([
+            { line: 1, character: 1 },
+            { line: 1, character: 3 },
+            { line: 4, character: 0 },
+        ]);
+    });
+
+    it("многострочный блок не на нулевой строке сдвигает выделение ровно на свой размер", () => {
+        const s = state("a\nb\nc\nd\ne\nf", [createSelection(1, 0, 2, 1)]);
+        s.copyLinesDown();
+        expect(s.document.getText()).toBe("a\nb\nc\nb\nc\nd\ne\nf");
+        expect(s.selections[0].anchor).toEqual({ line: 3, character: 0 });
+        expect(s.selections[0].active).toEqual({ line: 4, character: 1 });
+    });
+
+    it("фолд-регионы съезжают под вставленным дублем", () => {
+        const s = state("a\nb\nc\nd", [createCursorSelection(0, 0)]);
+        s.setFoldingRegions([createFoldingRegion(2, 3)]);
+        s.copyLinesDown();
+        expect(s.foldedRegions).toEqual([createFoldingRegion(3, 4)]);
+    });
+
+    it("дубль в конце файла прокручивает вьюпорт за уехавшей кареткой", () => {
+        const doc = Array.from({ length: 30 }, (_, i) => `line${String(i)}`).join("\n");
+        const s = state(doc, [createCursorSelection(29, 0)]);
+        s.scrollTop = 6; // каретка у нижнего края вьюпорта 80x24
+        s.copyLinesDown();
+        expect(s.scrollTop).toBe(7);
+    });
+
+    it("форма правки: дубль вниз вставляется НАД блоком, дубль вверх — ПОД ним", () => {
+        // Форма — контракт undo/redo и сдвига фолдов (forwardEdits переигрывает
+        // redo): текст совпадает у обеих форм, а side-эффекты — нет.
+        const down = state("alpha\nbeta", [createCursorSelection(0, 2)]);
+        expect(down.copyLinesDown()?.forwardEdits).toEqual([{ range: createRange(0, 0, 0, 0), text: "alpha\n" }]);
+
+        const up = state("alpha\nbeta", [createCursorSelection(0, 2)]);
+        expect(up.copyLinesUp()?.forwardEdits).toEqual([{ range: createRange(0, 5, 0, 5), text: "\nalpha" }]);
+    });
 });
 
 describe("EditorViewState.copyLinesUp", () => {
@@ -91,6 +141,13 @@ describe("EditorViewState.copyLinesUp", () => {
         ]);
     });
 
+    it("каретка ниже дублируемого блока съезжает на его размер", () => {
+        const s = state("a\nb\nc", [createCursorSelection(0, 0), createCursorSelection(2, 0)]);
+        s.copyLinesUp();
+        expect(s.document.getText()).toBe("a\na\nb\nc\nc");
+        expect(s.selections.map((sel) => sel.active.line)).toEqual([0, 3]);
+    });
+
     it("undo-элемент возвращает документ и выделения назад", () => {
         const s = state("a\nb", [createCursorSelection(0, 0)]);
         const undo = s.copyLinesUp();
@@ -104,9 +161,60 @@ describe("EditorViewState.copyLinesUp", () => {
 describe("EditorViewState.duplicateSelection", () => {
     it("схлопнутая каретка дублирует строку вниз", () => {
         const s = state("alpha\nbeta", [createCursorSelection(0, 2)]);
-        s.duplicateSelection();
+        const undo = s.duplicateSelection();
         expect(s.document.getText()).toBe("alpha\nalpha\nbeta");
         expect(s.selections[0].active).toEqual({ line: 1, character: 2 });
+        expect(undo?.label).toBe("duplicateSelection");
+    });
+
+    it("схлопнутая каретка над выделением: строки ниже съезжают на строку дубля", () => {
+        const s = state("ab\ncd\nef", [createCursorSelection(0, 1), createSelection(2, 0, 2, 2)]);
+        s.duplicateSelection();
+        expect(s.document.getText()).toBe("ab\nab\ncd\nefef");
+        expect(s.selections[0].active).toEqual({ line: 1, character: 1 });
+        expect(s.selections[1].anchor).toEqual({ line: 3, character: 2 });
+        expect(s.selections[1].active).toEqual({ line: 3, character: 4 });
+    });
+
+    it("выделения на разных строках не наследуют колоночный сдвиг друг друга", () => {
+        const s = state("ab\ncd", [createSelection(0, 0, 0, 2), createSelection(1, 0, 1, 2)]);
+        s.duplicateSelection();
+        expect(s.document.getText()).toBe("abab\ncdcd");
+        expect(s.selections[1].anchor).toEqual({ line: 1, character: 2 });
+        expect(s.selections[1].active).toEqual({ line: 1, character: 4 });
+    });
+
+    it("дубль строки кареткой не сдвигает колоночный счёт выделения той же строки", () => {
+        const s = state("abcdef", [createCursorSelection(0, 0), createSelection(0, 2, 0, 4)]);
+        s.duplicateSelection();
+        expect(s.document.getText()).toBe("abcdef\nabcdcdef");
+        expect(s.selections[0].active).toEqual({ line: 1, character: 0 });
+        expect(s.selections[1].anchor).toEqual({ line: 1, character: 4 });
+        expect(s.selections[1].active).toEqual({ line: 1, character: 6 });
+    });
+
+    it("три выделения на одной строке: колоночный сдвиг копится по всем", () => {
+        const s = state("ab cd ef", [
+            createSelection(0, 0, 0, 2),
+            createSelection(0, 3, 0, 5),
+            createSelection(0, 6, 0, 8),
+        ]);
+        s.duplicateSelection();
+        expect(s.document.getText()).toBe("abab cdcd efef");
+        expect(s.selections[2].anchor).toEqual({ line: 0, character: 12 });
+        expect(s.selections[2].active).toEqual({ line: 0, character: 14 });
+    });
+
+    it("колоночный сдвиг не переносится через границу строки", () => {
+        const s = state("ab\ncd ef", [
+            createSelection(0, 0, 0, 2),
+            createSelection(1, 0, 1, 2),
+            createSelection(1, 3, 1, 5),
+        ]);
+        s.duplicateSelection();
+        expect(s.document.getText()).toBe("abab\ncdcd efef");
+        expect(s.selections[2].anchor).toEqual({ line: 1, character: 7 });
+        expect(s.selections[2].active).toEqual({ line: 1, character: 9 });
     });
 
     it("непустое выделение дублируется вплотную и выделяет копию", () => {
@@ -184,9 +292,10 @@ describe("EditorViewState.moveLinesDown", () => {
 describe("EditorViewState.moveLinesUp", () => {
     it("меняет строку каретки местами со строкой выше", () => {
         const s = state("a\nb\nc", [createCursorSelection(1, 0)]);
-        s.moveLinesUp();
+        const undo = s.moveLinesUp();
         expect(s.document.getText()).toBe("b\na\nc");
         expect(s.selections[0].active).toEqual({ line: 0, character: 0 });
+        expect(undo?.label).toBe("moveLinesUp");
     });
 
     it("на первой строке — no-op", () => {
@@ -254,6 +363,13 @@ describe("EditorViewState.deleteLines", () => {
         s.deleteLines();
         expect(s.document.getText()).toBe("b\nd\ne");
         expect(s.selections.map((sel) => sel.active.line)).toEqual([0, 1]);
+    });
+
+    it("удалённые выше строки укорачивают посадку каретки следующего блока", () => {
+        const s = state("a\nb\nc\nd\ne\nf", [createCursorSelection(1, 0), createCursorSelection(3, 0)]);
+        s.deleteLines();
+        expect(s.document.getText()).toBe("a\nc\ne\nf");
+        expect(s.selections.map((sel) => sel.active.line)).toEqual([1, 2]);
     });
 
     it("выделение до колонки 0 не удаляет свою последнюю строку", () => {

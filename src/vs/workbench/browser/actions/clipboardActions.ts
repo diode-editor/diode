@@ -29,6 +29,7 @@ export const clipboardCopyAction: CommandAction = {
         const text = joinSelectedTexts(editorService.getActivePane()?.getSelectedTexts() ?? []);
         if (text !== "") {
             await accessor.get(ClipboardDIToken).writeText(text);
+            // Stryker disable next-line ObjectLiteral: пустой объект эквивалентен — отсутствующий isFromEmptySelection читается как false
             inMemoryClipboardMetadata.set(text, { isFromEmptySelection: false });
             return;
         }

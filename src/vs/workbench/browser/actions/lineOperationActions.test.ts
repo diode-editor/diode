@@ -13,7 +13,7 @@ import { CommandRegistry } from "../../../platform/commands/common/commandRegist
 import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingRegistry, parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
@@ -166,6 +166,40 @@ describe("line operation actions", () => {
             registerAction(commands, new KeybindingRegistry(), accessor, action);
             expect(() => commands.execute(action.id)).not.toThrow();
         }
+    });
+
+    it("метаданные запиннены: id/title/бинды/when — пользовательский контракт", () => {
+        expect(copyLinesUpAction.id).toBe("editor.action.copyLinesUpAction");
+        expect(copyLinesUpAction.title).toBe("Copy Line Up");
+        expect(copyLinesUpAction.keybinding).toEqual(parseKeybinding("ctrl+shift+alt+up"));
+        expect(copyLinesUpAction.when).toBe("textInputFocus && !editorReadonly");
+
+        expect(copyLinesDownAction.id).toBe("editor.action.copyLinesDownAction");
+        expect(copyLinesDownAction.title).toBe("Copy Line Down");
+        expect(copyLinesDownAction.keybinding).toEqual(parseKeybinding("ctrl+shift+alt+down"));
+        expect(copyLinesDownAction.when).toBe("textInputFocus && !editorReadonly");
+
+        expect(moveLinesUpAction.id).toBe("editor.action.moveLinesUpAction");
+        expect(moveLinesUpAction.title).toBe("Move Line Up");
+        expect(moveLinesUpAction.keybinding).toEqual(parseKeybinding("alt+up"));
+        expect(moveLinesUpAction.when).toBe("textInputFocus && !editorReadonly");
+
+        expect(moveLinesDownAction.id).toBe("editor.action.moveLinesDownAction");
+        expect(moveLinesDownAction.title).toBe("Move Line Down");
+        expect(moveLinesDownAction.keybinding).toEqual(parseKeybinding("alt+down"));
+        expect(moveLinesDownAction.when).toBe("textInputFocus && !editorReadonly");
+
+        expect(duplicateSelectionAction.id).toBe("editor.action.duplicateSelection");
+        expect(duplicateSelectionAction.title).toBe("Duplicate Selection");
+        expect(duplicateSelectionAction.keybinding).toBeUndefined();
+        expect(duplicateSelectionAction.when).toBe("textInputFocus && !editorReadonly");
+
+        expect(deleteLinesAction.id).toBe("editor.action.deleteLines");
+        expect(deleteLinesAction.title).toBe("Delete Line");
+        expect(deleteLinesAction.keybinding).toEqual(parseKeybinding("ctrl+shift+k"));
+        // Аккорд — единственный досягаемый на legacy-tier'е.
+        expect(deleteLinesAction.keybindings).toEqual([{ keys: parseChord("ctrl+k ctrl+k"), when: "tier == 'legacy'" }]);
+        expect(deleteLinesAction.when).toBe("textInputFocus && !editorReadonly");
     });
 
     it("no-op у края не кладёт элемент в undo-стек", async () => {
