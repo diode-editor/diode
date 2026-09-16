@@ -207,6 +207,36 @@ describe("EditorViewState.duplicateSelection", () => {
         expect(s.selections[2].active).toEqual({ line: 0, character: 14 });
     });
 
+    it("каретка между двумя выделениями одной строки не теряет их колоночный сдвиг", () => {
+        // Правка каретки встаёт в НАЧАЛО строки, то есть левее правки первого
+        // выделения: накопительная «дельта последней строки» такой порядок не
+        // описывала и сбивала посадку третьего выделения.
+        const s = state("ab cd ef", [
+            createSelection(0, 0, 0, 2),
+            createCursorSelection(0, 3),
+            createSelection(0, 6, 0, 8),
+        ]);
+        s.duplicateSelection();
+        expect(s.document.getText()).toBe("ab cd ef\nabab cd efef");
+        expect(s.selections[0].anchor).toEqual({ line: 1, character: 2 });
+        expect(s.selections[0].active).toEqual({ line: 1, character: 4 });
+        // Каретка стояла перед `c`; в строке с двумя вставленными копиями `c`
+        // теперь на колонке 5 — каретка держится за свой символ, а не за колонку.
+        expect(s.selections[1].active).toEqual({ line: 1, character: 5 });
+        expect(s.selections[2].anchor).toEqual({ line: 1, character: 10 });
+        expect(s.selections[2].active).toEqual({ line: 1, character: 12 });
+    });
+
+    it("многострочное выделение и выделение правее него на его последней строке", () => {
+        // Копия многострочного выделения кончается НЕ в нулевой колонке: хвост
+        // строки уезжает за неё, и позиция следующей правки считается от неё.
+        const s = state("ab\ncd ef", [createSelection(0, 0, 1, 2), createSelection(1, 3, 1, 5)]);
+        s.duplicateSelection();
+        expect(s.document.getText()).toBe("ab\ncdab\ncd efef");
+        expect(s.selections[1].anchor).toEqual({ line: 2, character: 5 });
+        expect(s.selections[1].active).toEqual({ line: 2, character: 7 });
+    });
+
     it("колоночный сдвиг не переносится через границу строки", () => {
         const s = state("ab\ncd ef", [
             createSelection(0, 0, 0, 2),

@@ -1,4 +1,5 @@
 import type { IPosition } from "../core/iPosition.ts";
+import { comparePositions } from "../core/iPosition.ts";
 import { createRange } from "../core/iRange.ts";
 import type { ISelection } from "../core/iSelection.ts";
 import {
@@ -131,63 +132,68 @@ export function computeDuplicateSelection(
     doc: ILineOperationsDocument,
     selections: readonly ISelection[],
 ): ILineOperationResult {
-    const edits: ITextEdit[] = [];
-    const afterSelections: ISelection[] = [];
-
-    // Тот же накопительный проход, что у computeSelectionsAfterEdits: правки
-    // идут в документном порядке, каждая следующая позиция сдвигается на уже
-    // вставленное (строки — всегда, колонки — только в пределах одной строки).
-    let accLineDelta = 0;
-    let accCharDelta = 0;
-    // Stryker disable next-line UnaryOperator: до первой правки accCharDelta = 0, поэтому значение стартового сентинела не наблюдаемо
-    let lastEditLine = -1;
-
-    for (const sel of selections) {
+    const plans = selections.map((sel) => {
         const collapsed = isSelectionCollapsed(sel);
         const range = selectionToRange(sel);
-        const insertAt: IPosition = collapsed ? { line: range.start.line, character: 0 } : range.end;
-        const text = collapsed
-            ? doc.getLineContent(range.start.line) + "\n"
-            : doc.getTextInRange(range);
-        edits.push(createInsertEdit(insertAt.line, insertAt.character, text));
+        return {
+            collapsed,
+            // Каретка дублирует строку целиком (вставка в её начало), выделение —
+            // свой текст (вставка сразу за ним).
+            insertAt: collapsed ? { line: range.start.line, character: 0 } : range.end,
+            text: collapsed ? doc.getLineContent(range.start.line) + "\n" : doc.getTextInRange(range),
+            active: sel.active,
+        };
+    });
 
-        const startChar = insertAt.line === lastEditLine ? insertAt.character + accCharDelta : insertAt.character;
-        const mappedStart: IPosition = { line: insertAt.line + accLineDelta, character: startChar };
-        const insertedLines = text.split("\n");
-        const mappedEnd: IPosition =
-            insertedLines.length === 1
-                ? { line: mappedStart.line, character: mappedStart.character + insertedLines[0].length }
-                : {
-                      line: mappedStart.line + insertedLines.length - 1,
-                      character: insertedLines[insertedLines.length - 1].length,
-                  };
-
-        if (collapsed) {
-            // Каретка остаётся у своего текста — тот съехал на строку вниз.
-            afterSelections.push(createCursorSelection(mappedStart.line + 1, sel.active.character));
-        } else {
-            // Новое выделение — вставленная копия.
-            afterSelections.push(
-                createSelection(mappedStart.line, mappedStart.character, mappedEnd.line, mappedEnd.character),
-            );
-        }
-
-        accLineDelta += insertedLines.length - 1;
-        if (insertedLines.length === 1) {
-            accCharDelta = (insertAt.line === lastEditLine ? accCharDelta : 0) + insertedLines[0].length;
-            lastEditLine = insertAt.line;
-        } else {
-            // Сброс после многострочной вставки. Мутанты ветки эквивалентны:
-            // следующая правка всегда на строке НИЖЕ многострочной вставки,
-            // поэтому застрявшие accCharDelta/lastEditLine не читаются.
-            // Stryker disable BlockStatement,UnaryOperator: см. выше
-            accCharDelta = 0;
-            lastEditLine = -1;
-            // Stryker restore BlockStatement,UnaryOperator
+    // Позиции переносятся ПРОГОНОМ вставок в документном порядке, с переносом и
+    // самих точек вставки: правка каретки встаёт в начало строки, то есть ЛЕВЕЕ
+    // правки выделения с той же строки, и накопительными дельтами «сдвиг
+    // последней тронутой строки» такой порядок не описывается.
+    const insertPoints = plans.map((plan) => plan.insertAt);
+    const carets = plans.map((plan) => plan.active);
+    const order = plans.map((_, i) => i).sort((a, b) => comparePositions(plans[a].insertAt, plans[b].insertAt));
+    for (const i of order) {
+        const at = insertPoints[i];
+        const text = plans[i].text;
+        for (let k = 0; k < plans.length; k++) {
+            // Точка собственной вставки не двигается: копия встаёт именно там.
+            if (k !== i) insertPoints[k] = shiftThroughInsert(insertPoints[k], at, text);
+            carets[k] = shiftThroughInsert(carets[k], at, text);
         }
     }
 
+    const edits = plans.map((plan) => createInsertEdit(plan.insertAt.line, plan.insertAt.character, plan.text));
+    const afterSelections = plans.map((plan, i) => {
+        // Каретка остаётся у своего текста — тот съехал под копию строки.
+        if (plan.collapsed) return createCursorSelection(carets[i].line, carets[i].character);
+        // Новое выделение — вставленная копия.
+        const start = insertPoints[i];
+        const end = shiftThroughInsert(start, start, plan.text);
+        return createSelection(start.line, start.character, end.line, end.character);
+    });
+
     return { edits, afterSelections };
+}
+
+/**
+ * Позиция после применения одной вставки `text` в точке `at`. Позиции левее
+ * вставки не двигаются; на строке вставки хвост уезжает на последнюю строку
+ * вставленного текста и продолжается сразу за ней.
+ */
+function shiftThroughInsert(pos: IPosition, at: IPosition, text: string): IPosition {
+    if (comparePositions(pos, at) < 0) return pos;
+    const insertedLines = text.split("\n");
+    const lineDelta = insertedLines.length - 1;
+    if (lineDelta === 0) {
+        return pos.line === at.line ? { line: pos.line, character: pos.character + text.length } : pos;
+    }
+    if (pos.line === at.line) {
+        return {
+            line: pos.line + lineDelta,
+            character: pos.character - at.character + insertedLines[lineDelta].length,
+        };
+    }
+    return { line: pos.line + lineDelta, character: pos.character };
 }
 
 // ─── Move lines ─────────────────────────────────────────────
