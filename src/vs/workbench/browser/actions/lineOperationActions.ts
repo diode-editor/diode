@@ -1,6 +1,6 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
 // ─── Line operations ────────────────────────────────────────
@@ -84,6 +84,9 @@ export const deleteLinesAction: CommandAction = {
     id: "editor.action.deleteLines",
     title: "Delete Line",
     keybinding: parseKeybinding("ctrl+shift+k"),
+    // На legacy-tier'е `ctrl+shift+k` неотличим от `ctrl+k` (лидера аккордов) —
+    // та же норма, что у selectHighlights: досягаемый везде аккорд-фолбэк.
+    keybindings: [{ keys: parseChord("ctrl+k ctrl+k"), when: "tier == 'legacy'" }],
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
