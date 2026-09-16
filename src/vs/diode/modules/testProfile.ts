@@ -5,6 +5,7 @@ import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { DIODE_VERSION } from "../../base/common/version.ts";
+import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
@@ -61,6 +62,7 @@ export function createTestContainer(): TestContainerHandle {
             tokenizationRegistry: new TokenizationRegistry(),
             tokenStyleResolver: NULL_TOKEN_STYLE_RESOLVER,
             languageService: NULL_LANGUAGE_SERVICE,
+            languageConfigurationService: NULL_LANGUAGE_CONFIGURATION_SERVICE,
         })
         .use(configurationModuleDefault)
         .use(stateModuleDefault)

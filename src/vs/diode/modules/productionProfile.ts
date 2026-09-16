@@ -1,5 +1,6 @@
 import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
+import type { ILanguageConfigurationService } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
@@ -43,6 +44,7 @@ export interface ProductionProfileContext {
     tokenizationRegistry: TokenizationRegistry;
     tokenStyleResolver: ITokenStyleResolver;
     languageService: ILanguageService;
+    languageConfigurationService: ILanguageConfigurationService;
     configurationService: IConfigurationService;
     configurationRegistry: ConfigurationRegistry;
     stateService: IStateService;
@@ -75,6 +77,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
             tokenizationRegistry: ctx.tokenizationRegistry,
             tokenStyleResolver: ctx.tokenStyleResolver,
             languageService: ctx.languageService,
+            languageConfigurationService: ctx.languageConfigurationService,
         })
         .use(configurationModule, {
             configurationService: ctx.configurationService,

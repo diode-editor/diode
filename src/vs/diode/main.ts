@@ -58,6 +58,7 @@ import { ExtensionHostDIToken } from "../workbench/services/extensions/node/exte
 import { runExtensionHostSubprocess } from "../workbench/services/extensions/node/extensionHostSubprocess.ts";
 import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/extensions/node/loadTsServer.ts";
 import type { IExtensionRegistration } from "../workbench/services/extensions/node/iExtensionEntry.ts";
+import { LanguageConfigurationService } from "../workbench/services/language/common/languageConfigurationService.ts";
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
 import { DEFAULT_COLOR_THEME } from "../workbench/services/themes/common/themes/builtinThemes.ts";
@@ -232,6 +233,10 @@ async function runEditor(): Promise<void> {
     const languageRegistry = new LanguageRegistry();
     for (const ext of allExtensions) languageRegistry.register(ext);
 
+    // Конфигурации языков (`language-configuration.json`) — ленивые, по тому же
+    // адресному пространству ассетов, что и грамматики.
+    const languageConfigurationService = new LanguageConfigurationService(assets, languageRegistry, extensionsLogger);
+
     const tokenizationRegistry = new TokenizationRegistry();
     const tokenizationContributor = new ExtensionTokenizationContributor(
         assets,
@@ -254,6 +259,7 @@ async function runEditor(): Promise<void> {
         tokenizationRegistry,
         tokenStyleResolver,
         languageService: languageRegistry,
+        languageConfigurationService,
         configurationService,
         configurationRegistry,
         stateService,
