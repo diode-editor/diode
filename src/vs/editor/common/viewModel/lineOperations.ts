@@ -145,14 +145,15 @@ export function computeDuplicateSelection(
         };
     });
 
-    // Позиции переносятся ПРОГОНОМ вставок в документном порядке, с переносом и
-    // самих точек вставки: правка каретки встаёт в начало строки, то есть ЛЕВЕЕ
-    // правки выделения с той же строки, и накопительными дельтами «сдвиг
-    // последней тронутой строки» такой порядок не описывается.
+    // Позиции переносятся ПРОГОНОМ вставок — с переносом и самих точек вставки:
+    // правка каретки встаёт в начало строки, то есть ЛЕВЕЕ правки выделения с
+    // той же строки, и накопительными дельтами «сдвиг последней тронутой
+    // строки» такой порядок не описывается. Порядок прогона не важен: сдвиги
+    // коммутируют (см. {@link shiftThroughInsert} — однострочная вставка правит
+    // только колонку, многострочная только номер строки).
     const insertPoints = plans.map((plan) => plan.insertAt);
     const carets = plans.map((plan) => plan.active);
-    const order = plans.map((_, i) => i).sort((a, b) => comparePositions(plans[a].insertAt, plans[b].insertAt));
-    for (const i of order) {
+    for (let i = 0; i < plans.length; i++) {
         const at = insertPoints[i];
         const text = plans[i].text;
         for (let k = 0; k < plans.length; k++) {
@@ -176,22 +177,20 @@ export function computeDuplicateSelection(
 }
 
 /**
- * Позиция после применения одной вставки `text` в точке `at`. Позиции левее
- * вставки не двигаются; на строке вставки хвост уезжает на последнюю строку
- * вставленного текста и продолжается сразу за ней.
+ * Позиция после применения одной вставки `text` в точке `at` (позиции левее
+ * вставки не двигаются).
+ *
+ * Многострочная вставка правит только НОМЕР СТРОКИ, не колонку — это верно в
+ * силу инварианта дублирования: копия кончается ровно тем, что стоит слева от
+ * точки вставки (`at.character` символов её строки), поэтому хвост встаёт в ту
+ * же колонку, куда указывал до вставки. Функция живёт здесь, а не в общем
+ * `core/`, именно потому, что опирается на этот инвариант.
  */
 function shiftThroughInsert(pos: IPosition, at: IPosition, text: string): IPosition {
     if (comparePositions(pos, at) < 0) return pos;
-    const insertedLines = text.split("\n");
-    const lineDelta = insertedLines.length - 1;
+    const lineDelta = text.split("\n").length - 1;
     if (lineDelta === 0) {
         return pos.line === at.line ? { line: pos.line, character: pos.character + text.length } : pos;
-    }
-    if (pos.line === at.line) {
-        return {
-            line: pos.line + lineDelta,
-            character: pos.character - at.character + insertedLines[lineDelta].length,
-        };
     }
     return { line: pos.line + lineDelta, character: pos.character };
 }
