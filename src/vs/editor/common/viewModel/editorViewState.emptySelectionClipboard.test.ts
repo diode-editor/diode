@@ -148,6 +148,17 @@ describe("EditorViewState.cutSelections", () => {
         expect(s.document.getText()).toBe("alpha");
     });
 
+    it("cut прокручивает вьюпорт к каретке, если та ушла с экрана", () => {
+        // Пользователь укатил экран колесом от каретки и нажал Ctrl+X: правка
+        // идёт у каретки, значит показать надо её (как в VS Code).
+        const doc = Array.from({ length: 40 }, (_, i) => `line${String(i)}`).join("\n");
+        const s = state(doc, [createCursorSelection(0, 0)]);
+        s.scrollTop = 15;
+        s.cutSelections(true);
+        expect(s.document.getText().startsWith("line1\n")).toBe(true);
+        expect(s.scrollTop).toBe(0);
+    });
+
     it("cut строки сдвигает фолд-регионы ниже", () => {
         const s = state("a\nb\nc\nd", [createCursorSelection(0, 0)]);
         s.setFoldingRegions([createFoldingRegion(2, 3)]);
