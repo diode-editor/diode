@@ -1,3 +1,5 @@
+import type { ILanguageConfigurationService } from "../../editor/common/languages/iLanguageConfigurationService.ts";
+import { LanguageConfigurationServiceDIToken } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
@@ -12,18 +14,21 @@ export interface TokenizationModuleContext {
     tokenizationRegistry: TokenizationRegistry;
     tokenStyleResolver: ITokenStyleResolver;
     languageService: ILanguageService;
+    languageConfigurationService: ILanguageConfigurationService;
 }
 
 /**
- * Подсветка синтаксиса: реестр грамматик, резолвер стилей и language service.
- * Все три реализации передаются снаружи — в production это нагруженный
- * `TokenizationRegistry` + `TokenThemeResolver`, в тестах — пустые/NULL-стабы.
+ * Языки: реестр грамматик, резолвер стилей, language service и конфигурации
+ * языков (`language-configuration.json`). Все реализации передаются снаружи —
+ * в production это нагруженный `TokenizationRegistry` + `TokenThemeResolver` +
+ * `LanguageConfigurationService`, в тестах — пустые/NULL-стабы.
  */
 export const tokenizationModule: ContainerModule<TokenizationModuleContext> = (
     container,
-    { tokenizationRegistry, tokenStyleResolver, languageService },
+    { tokenizationRegistry, tokenStyleResolver, languageService, languageConfigurationService },
 ) => {
     container.bind(TokenizationRegistryDIToken, () => tokenizationRegistry);
     container.bind(TokenStyleResolverDIToken, () => tokenStyleResolver);
     container.bind(LanguageServiceDIToken, () => languageService);
+    container.bind(LanguageConfigurationServiceDIToken, () => languageConfigurationService);
 };
