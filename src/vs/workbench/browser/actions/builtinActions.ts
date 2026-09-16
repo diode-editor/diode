@@ -108,6 +108,7 @@ import { selectThemeAction } from "../../contrib/themes/browser/themeActions.ts"
 
 import { quitAction, reloadWindowAction, showAboutDialogAction } from "./appActions.ts";
 import { clipboardCopyAction, clipboardCutAction, clipboardPasteAction } from "./clipboardActions.ts";
+import { COMMENT_ACTIONS } from "./commentActions.ts";
 import { showEditorContextMenuAction } from "./contextMenuActions.ts";
 import {
     cursorBottomAction,
@@ -332,6 +333,9 @@ export const builtinActions: readonly CommandAction[] = [
     moveLinesDownAction,
     duplicateSelectionAction,
     deleteLinesAction,
+
+    // Comments (токены — из language configuration активного языка)
+    ...COMMENT_ACTIONS,
 
     // End of line
     convertToLfAction,
