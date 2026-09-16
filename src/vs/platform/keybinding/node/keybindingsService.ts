@@ -21,7 +21,7 @@ export interface IUserKeybindingRule {
     readonly command: string;
     /** Optional when-clause (can reference tier / cap_* / mode_* / os). */
     readonly when?: string;
-    /** Optional command arguments (accepted; execution wiring is a follow-up). */
+    /** Optional command argument, passed as the command's first argument (VS Code semantics). */
     readonly args?: unknown;
 }
 

@@ -270,7 +270,11 @@ export class KeybindingDispatcher extends Disposable {
                 altKey: event.altKey,
                 metaKey: event.metaKey,
             };
-            this.armory.withTrigger(trigger, () => this.commands.execute(res.commandId));
+            // `args` пользовательского правила (keybindings.json) — первым аргументом
+            // команды, как в VS Code. Без args команда зовётся без аргументов, чтобы
+            // не подсовывать undefined командам с дефолтами параметров.
+            const commandArgs = res.args === undefined ? [] : [res.args];
+            this.armory.withTrigger(trigger, () => this.commands.execute(res.commandId, ...commandArgs));
             // Every keydown emits a paired keypress (preventDefault on keydown does not
             // suppress it — only swallowNextKeyPress does). Once a command consumed the
             // keydown, that keypress must not ALSO trigger the focused widget's default

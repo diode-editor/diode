@@ -36,8 +36,10 @@ Preferences-кластер. Ключевое:
   зарезервировано (`common/quickPickItem.ts`), не задействовано.
 - **Миграция Search на `FilteredListControl`** — его шапка сложнее связки
   (include/exclude, тумблеры), потребует слота под доп. элементы.
-- **`args` у user-правил** — парсится, но не исполняется (отмечено в
-  `IUserKeybindingRule`).
+- ~~**`args` у user-правил**~~ — сделано: args из keybindings.json доезжают до
+  `execute` первым аргументом (реестр → диспатчер → команда), редактор биндов их
+  сохраняет; quick open (`workbench.action.quickOpen` и родня) принимает
+  строковый префилл. Сценарий — `e2e/scenarios/quickOpenPrefill.scenario.ts`.
 
 ## Известные упрощения
 

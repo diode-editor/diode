@@ -94,13 +94,18 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
                 );
                 this.ledgerFor(commandId).removedDefaults.push(...removed);
             } else {
-                this.registerUserBinding(rule.command, parseChord(rule.key), rule.when);
+                this.registerUserBinding(rule.command, parseChord(rule.key), rule.when, rule.args);
             }
         }
     }
 
-    private registerUserBinding(commandId: string, chord: KeybindingChord, when: string | undefined): void {
-        const disposable = this.register(this.keybindings.register(chord, commandId, when, "user"));
+    private registerUserBinding(
+        commandId: string,
+        chord: KeybindingChord,
+        when: string | undefined,
+        args?: unknown,
+    ): void {
+        const disposable = this.register(this.keybindings.register(chord, commandId, when, "user", args));
         this.ledgerFor(commandId).added.push({ chord, disposable });
     }
 
@@ -110,7 +115,10 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         previous?: IKeybindingEntrySnapshot,
     ): Promise<IKeybindingMutationResult> {
         const when = previous?.when;
-        const newRule: IUserKeybindingRule = { key: serializeChord(chord), command: commandId, when };
+        // args живут только у user-правил (VS Code правит такое правило на месте,
+        // сохраняя args); у default/extension-записей их не бывает.
+        const args = previous?.source === "user" ? previous.args : undefined;
+        const newRule: IUserKeybindingRule = { key: serializeChord(chord), command: commandId, when, args };
         const result = await this.mutateFile((content) => {
             let next = content;
             // Stryker disable next-line ConditionalExpression: правая ветавь → true запускала бы remove и для default/extension previous, но matchesUserRule(previous) там не найдёт user-правила с той же командой+комбинацией+when (его нет — оно default), так что remove ничего не снимает и результат тот же.
@@ -129,7 +137,7 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         if (!result.ok) return result;
 
         if (previous !== undefined) this.unregisterEntry(previous);
-        this.registerUserBinding(commandId, chord, when);
+        this.registerUserBinding(commandId, chord, when, args);
         this.emitDidChange();
         return result;
     }
@@ -161,7 +169,7 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         if (ledger !== undefined) {
             for (const applied of ledger.added) applied.disposable.dispose();
             for (const removed of ledger.removedDefaults) {
-                this.keybindings.register(removed.chord, removed.commandId, removed.when, removed.source);
+                this.keybindings.register(removed.chord, removed.commandId, removed.when, removed.source, removed.args);
             }
             this.ledger.delete(commandId);
         }

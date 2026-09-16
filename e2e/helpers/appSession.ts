@@ -31,7 +31,7 @@ export interface AppEnvOptions {
     /** settings.json активного профиля — объект (сериализуется) или готовая строка. */
     settings?: Readonly<Record<string, unknown>> | string;
     /** keybindings.json активного профиля. */
-    keybindings?: readonly { key: string; command: string }[];
+    keybindings?: readonly { key: string; command: string; when?: string; args?: unknown }[];
     /**
      * Что установить до запуска (тот же путь, что `--install-extension`): путь к
      * `.vsix` либо id записи из публичного магазина — различение как у CLI, по

@@ -23,6 +23,8 @@ function ruleAsJson(rule: IUserKeybindingRule): Record<string, unknown> {
     const json: Record<string, unknown> = { key: rule.key, command: rule.command };
     // Stryker disable next-line ConditionalExpression,EqualityOperator: обратная ветка пишет `when: undefined`, а jsonc-parser undefined-значение опускает — результат неотличим.
     if (rule.when !== undefined) json.when = rule.when;
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: та же симметрия — `args: undefined` jsonc-parser опускает.
+    if (rule.args !== undefined) json.args = rule.args;
     return json;
 }
 
