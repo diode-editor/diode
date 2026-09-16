@@ -391,6 +391,23 @@ export class CompletionService extends Disposable {
             this.close();
             return;
         }
+        // Добор с момента запроса обязан продолжать слово. Провайдерскую границу
+        // пересчитывать нельзя (см. ниже), и без этой проверки попап переживал
+        // ЛЮБОЙ несловесный символ: `refineFilter` при непопадании оставляет
+        // последний непустой список, так что виджет оставался видимым со
+        // стухшими пунктами. А пока он видим, Enter забирает себе
+        // `acceptSelectedSuggestion` (when: suggestWidgetVisible) — вместо
+        // переноса строки набранное молча заменялось пунктом списка:
+        // `cons{` + Enter давали `console`.
+        const trigger = this.triggerCaret;
+        // `trigger === null` при открытом попапе недостижимо: снимок каретки ставит
+        // trigger() вместе с prefixRange, а снимает только close() — проверка тут
+        // ради сужения типа.
+        // Stryker disable next-line ConditionalExpression: недостижимая ветка, см. выше
+        if (trigger !== null && !isWordRun(line.slice(trigger.character, active.character))) {
+            this.close();
+            return;
+        }
         // Границу, заданную провайдером, своим wordStart пересчитывать нельзя:
         // она намеренно проходит там, где у ядра границы слова нет (кавычка
         // ключа в settings.json, точка у dot-accessor'ов tsserver) — пересчёт
@@ -634,6 +651,14 @@ export class CompletionService extends Disposable {
             }),
         ]);
     }
+}
+
+/** Все ли символы куска — «словесные» (см. {@link WORD_CHAR}); пустой кусок — да. */
+function isWordRun(text: string): boolean {
+    for (const char of text) {
+        if (!WORD_CHAR.test(char)) return false;
+    }
+    return true;
 }
 
 /** Индекс начала «слова» под курсором (скан назад по {@link WORD_CHAR}). */

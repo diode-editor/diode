@@ -34,6 +34,16 @@ export default defineScenario({
         // фантом (в т.ч. строки-зоны ниже, у них пустой гуттер). Расширение
         // активируется асинхронно — при неудаче перепечатываем последний символ
         // (новая правка → новый авто-запрос), паттерн region-folding.
+        //
+        // Esc после перепечатки — обязателен, а не подстраховка: набор `b`
+        // поднимает word-based попап («Fibonacci» лежит в самом буфере), а
+        // `InlineCompletionsService.trigger` при открытом попапе выходит сразу —
+        // призраку некуда встать. Без Esc первая же ретрая гасила подсказку
+        // навсегда, и все 10 попыток крутились впустую: сценарий проходил
+        // только когда призрак успевал к ПЕРВОМУ ожиданию (на загруженной
+        // машине — примерно в двух прогонах из трёх). Esc закрывает попап, а
+        // закрытие пере-сеет inline-состояние (onDidClose) — это штатный путь
+        // «Esc по попапу приводит призрака».
         let ghostShown = false;
         for (let attempt = 0; attempt < 10 && !ghostShown; attempt++) {
             try {
@@ -42,6 +52,7 @@ export default defineScenario({
             } catch {
                 await editor.sendKey("Backspace");
                 await editor.sendKey("b");
+                await editor.sendKey("Escape");
             }
         }
         if (!ghostShown) throw new Error("inline-completion: ghost text не появился за 10 попыток");
