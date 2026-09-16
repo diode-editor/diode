@@ -913,6 +913,58 @@ describe("CompletionService", () => {
         });
     });
 
+    // Пока попап видим, Enter принадлежит `acceptSelectedSuggestion`
+    // (when: suggestWidgetVisible) — открытый «на всякий случай» попап крадёт
+    // перенос строки и заменяет набранное пунктом списка. Поэтому любой
+    // несловесный добор обязан его закрывать, в том числе когда границу
+    // префикса задал провайдер (её пересчёт запрещён, см. refilterOpen).
+    describe("несловесный добор закрывает попап", () => {
+        /** Пункты tsserver-формы: у всех общий range, то есть граница «от провайдера». */
+        const PROVIDER_ANCHORED: ICoreCompletionItem[] = [
+            {
+                label: "console",
+                insertText: "console",
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } },
+            },
+            {
+                label: "const",
+                insertText: "const",
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } },
+            },
+        ];
+
+        it("`{` после провайдерского префикса закрывает попап (Enter снова печатает)", async () => {
+            const { service, fake } = setup(PROVIDER_ANCHORED, "cons", 4, "cons");
+            await service.trigger();
+            expect(service.isOpen()).toBe(true);
+
+            fake.type("cons{", 5);
+
+            expect(service.isOpen()).toBe(false);
+        });
+
+        it("тот же добор буквами попап не трогает", async () => {
+            const { service, fake } = setup(PROVIDER_ANCHORED, "cons", 4, "cons");
+            await service.trigger();
+
+            fake.type("conso", 5);
+
+            expect(service.isOpen()).toBe(true);
+        });
+
+        it("`(` и пробел закрывают его так же", async () => {
+            for (const tail of ["(", " "]) {
+                const { service, fake } = setup(PROVIDER_ANCHORED, "cons", 4, "cons");
+                await service.trigger();
+                expect(service.isOpen()).toBe(true);
+
+                fake.type(`cons${tail}`, 5);
+
+                expect(service.isOpen()).toBe(false);
+            }
+        });
+    });
+
     it("word-based: без источника предлагает слова из документа", async () => {
         const fake = makeEditor("ind", 3, "indent_style indent_size root ab");
         const { service, component } = createService(makeGroup(fake.editor, undefined));
@@ -1199,7 +1251,20 @@ describe("CompletionService", () => {
     it("набор небуквенного символа (граница слова) закрывает открытый попап", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
-        fake.type("ind ", 4); // пробел сдвинул начало слова → wordStart != prefixStart
+        fake.type("ind ", 4); // пробел — несловесный добор
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("уехавшее начало слова закрывает попап, даже когда добора не было", async () => {
+        // Правка ЛЕВЕЕ каретки (удалили пробел перед словом): добора с триггера
+        // нет, поэтому проверку «добор словесный» этот путь проходит, а слово
+        // теперь начинается не там, где встал префикс.
+        const { service, fake } = setup(ITEMS, "a ind", 5, "a ind");
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        fake.type("aind", 4);
+
         expect(service.isOpen()).toBe(false);
     });
 

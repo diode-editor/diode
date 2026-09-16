@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { getBinaryPath } from "./helpers/buildOnce.ts";
+import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
@@ -95,6 +96,27 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const [left, right] =
                 details!.box.x < list!.box.x ? [details!.box, list!.box] : [list!.box, details!.box];
             expect(left.x + left.width).toBeLessThanOrEqual(right.x);
+
+            // Несловесный символ закрывает попап, и Enter снова печатает перевод
+            // строки. Пока список оставался видимым, Enter забирал себе
+            // `acceptSelectedSuggestion` (when: suggestWidgetVisible) и молча
+            // заменял набранное пунктом — пользователь видел «стёрлась часть
+            // текста». Проверяем на живом сервере: границу префикса здесь задал
+            // он сам (range после точки), а именно её нельзя пересчитывать.
+            for (const key of ["t", "o"]) await session.key(key);
+            await session.waitForText((text) => text.includes("reply.to"), { timeoutMs: 60_000 });
+
+            const linesBefore = (await session.node("EditorElement"))?.state?.lineCount;
+            await session.key("{");
+            await session.waitForText((text) => !text.includes("toPrecision"), { timeoutMs: 60_000 });
+
+            await session.key("Enter");
+            await session.waitForState("EditorElement", (state) => state?.lineCount === (linesBefore as number) + 1, {
+                timeoutMs: 60_000,
+            });
+            const frame = frameToText(await session.captureFrame());
+            expect(frame).toContain("reply.to{");
+            expect(frame).not.toContain("reply.toFixed");
         });
     },
 );
