@@ -168,9 +168,11 @@ describe("EditorViewState.duplicateSelection", () => {
     });
 
     it("схлопнутая каретка над выделением: строки ниже съезжают на строку дубля", () => {
-        const s = state("ab\ncd\nef", [createCursorSelection(0, 1), createSelection(2, 0, 2, 2)]);
+        // Хвостовые строки ниже выделения — чтобы ошибка сдвига не маскировалась
+        // клампом выделений к концу документа.
+        const s = state("ab\ncd\nef\ngh\nij", [createCursorSelection(0, 1), createSelection(2, 0, 2, 2)]);
         s.duplicateSelection();
-        expect(s.document.getText()).toBe("ab\nab\ncd\nefef");
+        expect(s.document.getText()).toBe("ab\nab\ncd\nefef\ngh\nij");
         expect(s.selections[0].active).toEqual({ line: 1, character: 1 });
         expect(s.selections[1].anchor).toEqual({ line: 3, character: 2 });
         expect(s.selections[1].active).toEqual({ line: 3, character: 4 });

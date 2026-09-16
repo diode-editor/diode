@@ -176,14 +176,14 @@ export function computeDuplicateSelection(
         if (insertedLines.length === 1) {
             accCharDelta = (insertAt.line === lastEditLine ? accCharDelta : 0) + insertedLines[0].length;
             lastEditLine = insertAt.line;
-            // Сброс после многострочной вставки (ветка else ниже). Мутанты ветки
-            // эквивалентны: следующая правка всегда на строке НИЖЕ многострочной
-            // вставки, поэтому застрявшие accCharDelta/lastEditLine не читаются.
-            // Stryker disable next-line BlockStatement: см. выше
         } else {
+            // Сброс после многострочной вставки. Мутанты ветки эквивалентны:
+            // следующая правка всегда на строке НИЖЕ многострочной вставки,
+            // поэтому застрявшие accCharDelta/lastEditLine не читаются.
+            // Stryker disable BlockStatement,UnaryOperator: см. выше
             accCharDelta = 0;
-            // Stryker disable next-line UnaryOperator: см. выше
             lastEditLine = -1;
+            // Stryker restore BlockStatement,UnaryOperator
         }
     }
 
@@ -413,12 +413,15 @@ export function computeCutEdits(
     const edits: ITextEdit[] = nonEmpty.map((sel) => createTextEdit(selectionToRange(sel), ""));
     if (!emptySelectionClipboard) return edits;
 
-    const cutCarets = selections.filter(isSelectionCollapsed).filter((sel) => {
+    const cutCarets = selections.filter((sel) => {
         const line = sel.active.line;
-        return !nonEmpty.some((other) => {
-            const range = selectionToRange(other);
-            return range.start.line <= line && line <= range.end.line;
-        });
+        return (
+            isSelectionCollapsed(sel) &&
+            !nonEmpty.some((other) => {
+                const range = selectionToRange(other);
+                return range.start.line <= line && line <= range.end.line;
+            })
+        );
     });
     for (const block of mergeAdjacentBlocks(cutCarets)) {
         edits.push(deleteWholeLinesEdit(doc, block));
