@@ -137,6 +137,8 @@ describe("Workbench — menu bar wiring", () => {
             "Find",
             "Find Next",
             "Find Previous",
+            "Toggle Line Comment",
+            "Toggle Block Comment",
         ]);
     });
 
