@@ -347,6 +347,32 @@ describe("KeybindingDispatcher — swallow печатающих клавиш и 
     });
 });
 
+describe("KeybindingDispatcher — args биндинга", () => {
+    it("args правила уходят команде единственным аргументом (VS Code-семантика)", () => {
+        const h = createHarness();
+        const received: unknown[][] = [];
+        h.commands.register("test.withArgs", (...args: unknown[]) => {
+            received.push(args);
+        });
+        h.keybindings.register(parseKeybinding("f6"), "test.withArgs", undefined, "user", { text: "src/" });
+
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "F6" }))).toBe(true);
+        expect(received).toEqual([[{ text: "src/" }]]);
+    });
+
+    it("биндинг без args зовёт команду вовсе без аргументов (не с undefined)", () => {
+        const h = createHarness();
+        const received: unknown[][] = [];
+        h.commands.register("test.noArgs", (...args: unknown[]) => {
+            received.push(args);
+        });
+        h.keybindings.register(parseKeybinding("f6"), "test.noArgs");
+
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "F6" }));
+        expect(received).toEqual([[]]);
+    });
+});
+
 describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
     it("CSI-u raw-ключ промоутит tier (noteExtendedKeysObserved), дальше — no-op", () => {
         const h = createHarness();

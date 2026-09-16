@@ -41,6 +41,15 @@ describe("appendKeybindingRule", () => {
         expect(withoutWhen).not.toContain('"when"');
     });
 
+    it("args пишется только когда он есть — и произвольной формы", () => {
+        const withArgs = appendKeybindingRule("[]\n", { key: "f7", command: "a.b", args: { text: "src/" } });
+        const parsedWithArgs = parseJsonc(withArgs, [], { allowTrailingComma: true }) as { args?: unknown }[];
+        expect(parsedWithArgs[0].args).toEqual({ text: "src/" });
+
+        const withoutArgs = appendKeybindingRule("[]\n", { key: "f7", command: "a.b" });
+        expect(withoutArgs).not.toContain('"args"');
+    });
+
     it("пустой и пробельный файл стартует с валидного пустого массива", () => {
         for (const content of ["", "   \n\t "]) {
             const next = appendKeybindingRule(content, { key: "f7", command: "a.b" });

@@ -37,7 +37,7 @@ export type KeybindingChord = Keybinding[];
  *  - "none":    nothing matched (and any pending chord was reset).
  */
 export type KeybindingResolution =
-    | { kind: "command"; commandId: string; when?: string }
+    | { kind: "command"; commandId: string; when?: string; args?: unknown }
     | { kind: "chord"; chord: KeybindingChord }
     | { kind: "none" };
 
@@ -50,6 +50,8 @@ export interface IKeybindingEntrySnapshot {
     readonly commandId: string;
     readonly when?: string;
     readonly source: KeybindingSource;
+    /** Аргумент команды (VS Code `args` у правила): передаётся первым аргументом `execute`. */
+    readonly args?: unknown;
 }
 
 interface KeybindingEntry {
@@ -57,6 +59,7 @@ interface KeybindingEntry {
     commandId: string;
     when?: string;
     source: KeybindingSource;
+    args?: unknown;
 }
 
 const specialKeyMap: Record<string, string> = {
@@ -225,12 +228,14 @@ export class KeybindingRegistry implements IDisposable {
         commandId: string,
         when?: string,
         source: KeybindingSource = "default",
+        args?: unknown,
     ): IDisposable {
         const entry: KeybindingEntry = {
             chord: Array.isArray(chord) ? chord : [chord],
             commandId,
             when,
             source,
+            args,
         };
         this.entries.push(entry);
         return {
@@ -265,6 +270,7 @@ export class KeybindingRegistry implements IDisposable {
             commandId: entry.commandId,
             when: entry.when,
             source: entry.source,
+            args: entry.args,
         }));
     }
 
@@ -300,7 +306,7 @@ export class KeybindingRegistry implements IDisposable {
             if (!whenPasses(entry) || !prefixMatches(entry)) continue;
             if (entry.chord.length === seq.length) {
                 this.pendingEvents = [];
-                return { kind: "command", commandId: entry.commandId, when: entry.when };
+                return { kind: "command", commandId: entry.commandId, when: entry.when, args: entry.args };
             }
             hasLongerCandidate = true;
         }

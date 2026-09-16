@@ -29,7 +29,7 @@ interface IHarness {
     /** Снапшот записи команды из реестра — «строка вкладки», над которой работает мутация. */
     entryOf(commandId: string, chordSpec?: string): IKeybindingEntrySnapshot;
     fileContent(): string;
-    rules(): { key?: string; command: string; when?: string }[];
+    rules(): { key?: string; command: string; when?: string; args?: unknown }[];
     resolves(chordSpec: string): string | undefined;
 }
 
@@ -62,6 +62,7 @@ function makeHarness(fileContent?: string): IHarness {
                 key?: string;
                 command: string;
                 when?: string;
+                args?: unknown;
             }[],
         resolves: (chordSpec) => {
             const chord = parseChord(chordSpec);
@@ -98,6 +99,22 @@ describe("applyUserKeybindings (bootstrap)", () => {
         h.service.applyUserKeybindings([{ key: "", command: "-test.save" }]);
         expect(h.resolves("ctrl+shift+s")).toBeUndefined();
     });
+
+    it("args правила доезжают до реестра и резолюции (бинд с префиллом)", () => {
+        const h = makeHarness();
+
+        h.service.applyUserKeybindings([
+            { key: "f6", command: "workbench.action.quickOpen", args: "src/" },
+        ]);
+
+        const res = h.registry.resolveKey({ ...parseChord("f6")[0] });
+        expect(res).toEqual({
+            kind: "command",
+            commandId: "workbench.action.quickOpen",
+            when: undefined,
+            args: "src/",
+        });
+    });
 });
 
 describe("defineKeybinding", () => {
@@ -133,6 +150,20 @@ describe("defineKeybinding", () => {
         expect(content).not.toContain("-my.command");
         expect(h.resolves("f7")).toBe("my.command");
         expect(h.resolves("f6")).toBeUndefined();
+    });
+
+    it("перебинд user-правила сохраняет его args — в файле и в реестре", async () => {
+        const h = makeHarness();
+        h.service.applyUserKeybindings([{ key: "f6", command: "my.command", args: { text: "src/" } }]);
+
+        const result = await h.service.defineKeybinding("my.command", parseChord("f7"), h.entryOf("my.command"));
+
+        expect(result.ok).toBe(true);
+        const written = h.rules();
+        expect(written).toHaveLength(1);
+        expect(written[0]).toMatchObject({ key: "f7", command: "my.command", args: { text: "src/" } });
+        const res = h.registry.resolveKey({ ...parseChord("f7")[0] });
+        expect(res.kind === "command" && res.args).toEqual({ text: "src/" });
     });
 
     it("без previous — добавление ещё одного биндинга", async () => {
@@ -224,6 +255,22 @@ describe("resetKeybinding", () => {
         expect(result.ok).toBe(true);
         expect(h.fileContent()).not.toContain("-test.save");
         expect(h.resolves("ctrl+s")).toBe("test.save");
+    });
+
+    it("восстановленная после reset запись сохраняет args (снапшот леджера)", async () => {
+        const h = makeHarness(`[
+    { "key": "f6", "command": "-ext.withArgs" }
+]
+`);
+        h.registry.register(parseChord("f6"), "ext.withArgs", undefined, "extension", { verbose: true });
+        h.service.applyUserKeybindings([{ key: "f6", command: "-ext.withArgs" }]);
+        expect(h.resolves("f6")).toBeUndefined();
+
+        const result = await h.service.resetKeybinding("ext.withArgs");
+
+        expect(result.ok).toBe(true);
+        const res = h.registry.resolveKey({ ...parseChord("f6")[0] });
+        expect(res.kind === "command" && res.args).toEqual({ verbose: true });
     });
 
     it("reset команды без user-правил — no-op с ok", async () => {

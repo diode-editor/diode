@@ -96,7 +96,7 @@ export interface ScenarioSpec {
      * через меню-бар оставляет фокус в меню — и последующий ввод не доходит до
      * редактора. Привязка команды к клавише убирает этот шум из сценария.
      */
-    userKeybindings?: readonly { key: string; command: string }[];
+    userKeybindings?: readonly { key: string; command: string; when?: string; args?: unknown }[];
     /**
      * Дополнительные аргументы CLI (перед списком открываемых путей). Нужны
      * сценариям, которым важен источник данных, а не только содержимое

@@ -488,6 +488,26 @@ describe("QuickOpenService — files mode", () => {
     });
 });
 
+describe("QuickOpenService — префилл запроса (show с текстом, не только префиксом)", () => {
+    it("show('текст') префиллит строку ввода и сразу фильтрует файлы по нему", () => {
+        const { service, view, fileSearch } = createService([makeSearchResult("src/app.ts")]);
+        service.show("app");
+        expect(view.getQuery()).toBe("app");
+        expect(fileSearch.search).toHaveBeenCalledWith("app", 50);
+    });
+
+    it("show('>текст') активирует режим команд и фильтрует по тексту", () => {
+        const { service, commands, view } = createService();
+        commands.register("cmd.match", () => {}, "Open Settings");
+        commands.register("cmd.other", () => {}, "Close Editor");
+        service.show(">settings");
+        expect(view.getQuery()).toBe(">settings");
+        const labels = view.items.map((i) => i.label);
+        expect(labels).toContain("Open Settings");
+        expect(labels).not.toContain("Close Editor");
+    });
+});
+
 describe("QuickOpenService — commands mode", () => {
     it("open('commands') sets placeholder", () => {
         const { service, commands, view } = createService();
