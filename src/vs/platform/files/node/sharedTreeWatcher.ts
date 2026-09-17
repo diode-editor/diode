@@ -126,8 +126,8 @@ export class SharedTreeWatcher implements ITreeFileWatcher {
 function covers(traversal: ITraversal, base: string, recursive: boolean): boolean {
     if (traversal.root === base) return traversal.recursive || !recursive;
     if (!traversal.recursive) return false;
-    if (!isAncestor(traversal.root, base)) return false;
-    return reanchorsCleanly(traversal, base);
+    const relative = relativeUnder(traversal.root, base);
+    return relative !== null && reanchorsCleanly(traversal, relative);
 }
 
 /**
@@ -149,12 +149,12 @@ function covers(traversal: ITraversal, base: string, recursive: boolean): boolea
  * Не выполнилось — заводим свой обход: лишний обход дешевле молча не
  * доставленных событий.
  */
-function reanchorsCleanly(traversal: ITraversal, base: string): boolean {
+function reanchorsCleanly(traversal: ITraversal, relativeBase: string): boolean {
     if (!traversal.excludes.every(isAnchorAgnostic)) return false;
     // Шагаем от корня обхода к базе ровно по тем каталогам, в которые chokidar
-    // должен был зайти; `isAncestor` уже гарантировал, что путь не выходит вверх.
+    // должен был зайти.
     let current = traversal.root;
-    for (const segment of path.relative(traversal.root, base).split(path.sep)) {
+    for (const segment of relativeBase.split(path.sep)) {
         current = path.join(current, segment);
         if (isExcluded(traversal.root, current, traversal.excludes)) return false;
     }
@@ -181,16 +181,27 @@ function filterForSubscriber(
 ): readonly ITreeFileChange[] {
     if (root === subscriber.base && recursive === subscriber.recursive) return changes;
     return changes.filter((change) => {
-        const relative = path.relative(subscriber.base, change.path);
-        if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) return false;
+        const relative = relativeUnder(subscriber.base, change.path);
+        if (relative === null || relative === "") return false; // вне базы либо сама база
         return subscriber.recursive || !relative.includes(path.sep);
     });
 }
 
-/** Строго ли `parent` предок `child` (оба — нормализованные абсолютные пути). */
-function isAncestor(parent: string, child: string): boolean {
-    const relative = path.relative(parent, child);
-    return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+/**
+ * Путь `child` относительно `parent`, либо `null`, если он вне поддерева
+ * (равный путь даёт `""` — строгость определяет вызывающий).
+ *
+ * Оба пути уже нормализованы (`path.resolve` на базе, chokidar склеивает
+ * события от корня обхода), поэтому хватает префикса по границе сегмента —
+ * и это заметно дешевле `path.relative` на каждое файловое событие. Разделитель
+ * в префиксе обязателен: `/repo/srcx` не лежит в `/repo/src`.
+ */
+function relativeUnder(parent: string, child: string): string | null {
+    if (child === parent) return "";
+    // Корень (`/`, на Windows `C:\`) — единственный путь, который сам кончается
+    // разделителем; второй подряд превратил бы префикс в несуществующий.
+    const prefix = parent.endsWith(path.sep) ? parent : parent + path.sep;
+    return child.startsWith(prefix) ? child.slice(prefix.length) : null;
 }
 
 /** Ключ сравнения наборов excludes: порядок шаблонов ничего не значит. */

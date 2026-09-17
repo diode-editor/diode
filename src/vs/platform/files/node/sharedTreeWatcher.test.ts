@@ -22,12 +22,14 @@ class FakeTreeWatcher implements ITreeFileWatcher {
     public readonly traversals: {
         readonly root: string;
         readonly options: ITreeFileWatchOptions;
-        readonly emit: (...changes: readonly ITreeFileChange[]) => void;
-        disposed: boolean;
+        /** Отдаёт пачку **тем же** массивом: по нему видно, копировал ли её слой. */
+        readonly emit: (batch: readonly ITreeFileChange[]) => void;
+        /** Именно счётчик, а не флаг: лишний `close()` — это баг, и его должно быть видно. */
+        disposeCount: number;
     }[] = [];
 
     public get liveCount(): number {
-        return this.traversals.filter((t) => !t.disposed).length;
+        return this.traversals.filter((t) => t.disposeCount === 0).length;
     }
 
     public watchTree(
@@ -38,15 +40,13 @@ class FakeTreeWatcher implements ITreeFileWatcher {
         const traversal = {
             root: rootPath,
             options,
-            emit: (...changes: readonly ITreeFileChange[]) => {
-                onChanges(changes);
-            },
-            disposed: false,
+            emit: onChanges,
+            disposeCount: 0,
         };
         this.traversals.push(traversal);
         return {
             dispose: () => {
-                traversal.disposed = true;
+                traversal.disposeCount++;
             },
         };
     }
@@ -149,6 +149,18 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(2);
     });
 
+    it("каталог с ведущими точками лежит внутри, а не снаружи", () => {
+        const delegate = new FakeTreeWatcher();
+        const shared = new SharedTreeWatcher(delegate);
+
+        shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
+        // `..foo` начинается на `..`, но наверх не выходит — префикс считаем по
+        // границе сегмента, а не по первым двум символам.
+        shared.watchTree("/repo/..foo", { recursive: true, excludes: [] }, () => undefined);
+
+        expect(delegate.traversals).toHaveLength(1);
+    });
+
     it("обход предка, заведённый позже, старых подписчиков к себе не забирает", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
@@ -242,7 +254,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
 
         shared.watchTree("/repo", { recursive: true, excludes: [] }, (c) => root.push([...c]));
         shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => nested.push([...c]));
-        delegate.traversals[0].emit(...created("/repo/a.ts", "/repo/src/b.ts", "/repo/src/deep/c.ts"));
+        delegate.traversals[0].emit(created("/repo/a.ts", "/repo/src/b.ts", "/repo/src/deep/c.ts"));
 
         expect(root).toEqual([created("/repo/a.ts", "/repo/src/b.ts", "/repo/src/deep/c.ts")]);
         expect(nested).toEqual([created("/repo/src/b.ts", "/repo/src/deep/c.ts")]);
@@ -255,7 +267,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
 
         shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
         shared.watchTree("/repo/.git", { recursive: false, excludes: [] }, (c) => batches.push([...c]));
-        delegate.traversals[0].emit(...created("/repo/.git/HEAD", "/repo/.git/refs/heads/main", "/repo/a.ts"));
+        delegate.traversals[0].emit(created("/repo/.git/HEAD", "/repo/.git/refs/heads/main", "/repo/a.ts"));
 
         expect(batches).toEqual([created("/repo/.git/HEAD")]);
     });
@@ -267,9 +279,33 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
 
         shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
         shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => batches.push([...c]));
-        delegate.traversals[0].emit(...created("/repo/src", "/repo/src/a.ts"));
+        delegate.traversals[0].emit(created("/repo/src", "/repo/src/a.ts"));
 
         expect(batches).toEqual([created("/repo/src/a.ts")]);
+    });
+
+    it("путь выше базы подписчику не приходит", () => {
+        const delegate = new FakeTreeWatcher();
+        const shared = new SharedTreeWatcher(delegate);
+        const batches: ITreeFileChange[][] = [];
+
+        shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
+        shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => batches.push([...c]));
+        delegate.traversals[0].emit(created("/repo", "/repo/srcx/a.ts", "/repo/src/a.ts"));
+
+        expect(batches).toEqual([created("/repo/src/a.ts")]);
+    });
+
+    it("нерекурсивный запрос на корне обхода тоже видит только прямых детей", () => {
+        const delegate = new FakeTreeWatcher();
+        const shared = new SharedTreeWatcher(delegate);
+        const batches: ITreeFileChange[][] = [];
+
+        shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
+        shared.watchTree("/repo", { recursive: false, excludes: [] }, (c) => batches.push([...c]));
+        delegate.traversals[0].emit(created("/repo/a.ts", "/repo/src/b.ts"));
+
+        expect(batches).toEqual([created("/repo/a.ts")]);
     });
 
     it("пачка, в которой подписчику ничего не досталось, его не будит", () => {
@@ -279,21 +315,23 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
 
         shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
         shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => batches.push([...c]));
-        delegate.traversals[0].emit(...created("/repo/a.ts"));
+        delegate.traversals[0].emit(created("/repo/a.ts"));
 
         expect(batches).toEqual([]);
     });
 
-    it("подписчик собственного обхода получает пачку как есть", () => {
+    it("единственному подписчику своего обхода пачка достаётся без копии", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: (readonly ITreeFileChange[])[] = [];
 
         shared.watchTree("/repo", { recursive: true, excludes: [] }, (c) => batches.push(c));
         const batch = created("/repo/a.ts");
-        delegate.traversals[0].emit(...batch);
+        delegate.traversals[0].emit(batch);
 
-        expect(batches[0]).toEqual(batch);
+        // Тот же массив, а не равный ему: типовой случай (обход ровно под один
+        // запрос) не должен платить за фильтрацию.
+        expect(batches[0]).toBe(batch);
     });
 
     it("рекурсивность и excludes уезжают делегату как попросили", () => {
@@ -316,7 +354,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         const first = shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
         shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => batches.push([...c]));
         first.dispose();
-        delegate.traversals[0].emit(...created("/repo/src/a.ts"));
+        delegate.traversals[0].emit(created("/repo/src/a.ts"));
 
         expect(delegate.liveCount).toBe(1);
         expect(batches).toEqual([created("/repo/src/a.ts")]);
@@ -342,9 +380,20 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
         const second = shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => batches.push([...c]));
         second.dispose();
-        delegate.traversals[0].emit(...created("/repo/src/a.ts"));
+        delegate.traversals[0].emit(created("/repo/src/a.ts"));
 
         expect(batches).toEqual([]);
+    });
+
+    it("повторный dispose не закрывает обход второй раз", () => {
+        const delegate = new FakeTreeWatcher();
+        const shared = new SharedTreeWatcher(delegate);
+
+        const subscription = shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
+        subscription.dispose();
+        subscription.dispose();
+
+        expect(delegate.traversals[0].disposeCount).toBe(1);
     });
 
     it("повторный dispose не уносит чужую подписку", () => {
@@ -381,7 +430,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
             first.dispose();
         });
         shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => batches.push([...c]));
-        delegate.traversals[0].emit(...created("/repo/src/a.ts"));
+        delegate.traversals[0].emit(created("/repo/src/a.ts"));
 
         expect(batches).toEqual([created("/repo/src/a.ts")]);
         expect(delegate.liveCount).toBe(1);
@@ -398,7 +447,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
             second.dispose();
         });
         const second = shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => batches.push([...c]));
-        delegate.traversals[0].emit(...created("/repo/src/a.ts"));
+        delegate.traversals[0].emit(created("/repo/src/a.ts"));
 
         expect(batches).toEqual([]);
     });
@@ -411,7 +460,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         shared.watchTree("/repo", { recursive: true, excludes: [] }, () => {
             shared.watchTree("/repo/src", { recursive: true, excludes: [] }, (c) => late.push([...c]));
         });
-        delegate.traversals[0].emit(...created("/repo/src/a.ts"));
+        delegate.traversals[0].emit(created("/repo/src/a.ts"));
 
         expect(delegate.traversals).toHaveLength(1);
         expect(late).toEqual([]);
@@ -434,6 +483,8 @@ describe("SharedTreeWatcher — лог", () => {
 
         shared.watchTree("/repo/src", { recursive: true, excludes: [] }, () => undefined);
         expect(entries.at(-1)?.message).toContain("reusing");
+        // Без пары «чей обход» / «кого подписали» строка ничего не диагностирует.
+        expect(entries.at(-1)?.args).toEqual([{ root: "/repo", base: "/repo/src" }]);
     });
 });
 
