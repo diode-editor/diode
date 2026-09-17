@@ -1,5 +1,8 @@
 import type { TUIFocusEvent } from "@tuidom/core/dom/events/tuiFocusEvent";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { VFlexElement, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { describe, expect, it, vi } from "vitest";
 
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
@@ -139,6 +142,36 @@ describe("WorkbenchContextKeys", () => {
         h.contextKeys.reset("tier");
         h.fireEnvChange();
         expect(h.contextKeys.get("tier")).toBeUndefined();
+    });
+
+    it("filesExplorerFocus взводится ровно по пути предков до view проводника", () => {
+        const h = makeHarness();
+        // Настоящее дерево — ключ считается по getAncestorPath активного элемента.
+        const body = new VFlexElement();
+        const explorerView = new VFlexElement();
+        explorerView.id = "explorerView";
+        const rowInExplorer = new FillerElement();
+        explorerView.addChild(rowInExplorer, { height: vflexFixed(1), width: "fill" });
+        const outsider = new FillerElement();
+        outsider.id = "someOtherView";
+        body.addChild(explorerView, { height: vflexFixed(1), width: "fill" });
+        body.addChild(outsider, { height: vflexFixed(1), width: "fill" });
+
+        const focusOn = (element: TUIElement | null): void => {
+            h.service.attachView({ focusManager: { activeElement: element } } as unknown as BodyElement);
+            h.service.update();
+        };
+
+        focusOn(rowInExplorer);
+        expect(h.contextKeys.get("filesExplorerFocus")).toBe(true);
+
+        // Фокус вне проводника — ключ обязан упасть.
+        focusOn(outsider);
+        expect(h.contextKeys.get("filesExplorerFocus")).toBe(false);
+
+        // Фокуса нет вовсе (`activeElement === null`) — тоже false, а не undefined.
+        focusOn(null);
+        expect(h.contextKeys.get("filesExplorerFocus")).toBe(false);
     });
 
     it("handleFocusChange cancels a pending chord, refreshes keys and notifies completion", () => {

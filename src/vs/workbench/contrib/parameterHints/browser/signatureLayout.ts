@@ -1,6 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 
-import type { ICoreSignature } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type { ICoreParameterInfo, ICoreSignature } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 
 /**
  * Кусок метки сигнатуры, помещающийся в одну строку попапа. `start` — офсет
@@ -25,9 +25,9 @@ export interface ISignatureChunk {
  * `nameLength`.
  */
 export function activeParameterSpan(signature: ICoreSignature, index: number): readonly [number, number] {
-    // Не `.at(index)`: при отрицательном индексе он отсчитывает с конца и подсветил
-    // бы последний параметр вместо «активного нет».
-    const parameter = index < 0 ? undefined : signature.parameters[index];
+    // Чтение по индексу даёт undefined и за краем, и на отрицательном; `.at(index)`
+    // здесь нельзя — он отсчитал бы с конца и подсветил последний параметр.
+    const parameter = signature.parameters[index] as ICoreParameterInfo | undefined;
     if (parameter === undefined) return [0, 0];
     if (typeof parameter.label !== "string") {
         const [start, end] = parameter.label;

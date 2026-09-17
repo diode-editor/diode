@@ -74,9 +74,13 @@ describe("buildRefsLabel", () => {
         expect(styles[0]).toBe(GRAPH_CURRENT_REF_STYLE);
         // Первый символ тега — после «main» и пробела-разделителя.
         expect(styles[text.indexOf("v1.0")]).toBe(COMMIT_STYLE);
+        // Цвет на КАЖДЫЙ символ: разъехавшийся массив сдвинул бы подсветку.
+        expect(styles).toHaveLength(text.length);
+        expect(styles.slice(0, "main".length)).toEqual(Array.from("main", () => GRAPH_CURRENT_REF_STYLE));
 
         const remote = buildRefsLabel([ref("origin/main", "remote")], COMMIT_STYLE);
         expect(remote.styles[0]).toBe(GRAPH_REMOTE_REF_STYLE);
+        expect(remote.styles).toHaveLength(remote.text.length);
     });
 
     it("разделитель до темы коммита остаётся неокрашенным", () => {
@@ -87,8 +91,12 @@ describe("buildRefsLabel", () => {
 
     it("не влезающие бейджи схлопываются в +N", () => {
         const refs = ["release/2026-08-alpha", "release/2026-08-beta", "hotfix"].map((n) => ref(n, "head"));
-        const { text } = buildRefsLabel(refs, COMMIT_STYLE);
+        const { text, styles } = buildRefsLabel(refs, COMMIT_STYLE);
         expect(text.trim()).toBe("release/2026-08-alpha +2");
+        // «+2» тоже красится посимвольно — и вся метка остаётся выровненной.
+        expect(styles).toHaveLength(text.length);
+        const plusAt = text.indexOf(" +2");
+        expect(styles.slice(plusAt, plusAt + " +2".length)).toEqual(Array.from(" +2", () => "descriptionForeground"));
     });
 
     it("первый бейдж показывается всегда, даже если он один длиннее потолка", () => {
