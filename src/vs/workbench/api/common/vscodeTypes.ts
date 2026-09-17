@@ -800,13 +800,35 @@ export enum CodeActionTriggerKind {
     Automatic = 2,
 }
 
+/**
+ * `vscode.DiagnosticRelatedInformation` — сопутствующее сообщение с местом в
+ * коде («а здесь это объявлено»).
+ *
+ * Класс-ловушка: конвертер vscode-languageclient конструирует его на КАЖДУЮ
+ * диагностику с related information, а такие шлёт любой сервер (у tsserver это
+ * TS2741 «Property … is missing», дубликаты идентификаторов и далее по списку).
+ * Без класса падал `new code.DiagnosticRelatedInformation(...)`, и вместе с ним
+ * — вся пачка диагностик: файл оставался вообще без squiggle, а ошибка была
+ * видна только в output-канале клиента.
+ */
+export class DiagnosticRelatedInformation {
+    public location: Location;
+    public message: string;
+
+    public constructor(location: Location, message: string) {
+        this.location = location;
+        this.message = message;
+    }
+}
+
 export class Diagnostic {
     public range: Range;
     public message: string;
     public severity: DiagnosticSeverity;
     public source?: string;
     public code?: string | number | { value: string | number; target: Uri };
-    public relatedInformation?: unknown[];
+    /** Наивность: до маркеров не доезжает (wire его не несёт) — см. docs/TODO/LSP.md. */
+    public relatedInformation?: DiagnosticRelatedInformation[];
     public tags?: DiagnosticTag[];
 
     public constructor(range: Range, message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error) {

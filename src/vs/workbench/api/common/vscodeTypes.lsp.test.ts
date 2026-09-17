@@ -12,6 +12,7 @@ import {
     CompletionList,
     CompletionTriggerKind,
     Diagnostic,
+    DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DiagnosticTag,
     DocumentHighlightKind,
@@ -95,6 +96,19 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(diag.range).toBe(RANGE);
         expect(diag.message).toBe("boom");
         expect(new Diagnostic(RANGE, "warn", DiagnosticSeverity.Warning).severity).toBe(DiagnosticSeverity.Warning);
+    });
+
+    it("DiagnosticRelatedInformation: хранит место и сообщение, ложится в Diagnostic", () => {
+        const location = new Location(URI, RANGE);
+        const related = new DiagnosticRelatedInformation(location, "'retries' is declared here");
+
+        expect(related.location).toBe(location);
+        expect(related.message).toBe("'retries' is declared here");
+
+        // Конвертер клиента складывает их в диагностику массивом.
+        const diag = new Diagnostic(RANGE, "Property 'retries' is missing");
+        diag.relatedInformation = [related];
+        expect(diag.relatedInformation).toEqual([related]);
     });
 
     it("CodeActionKind: contains/intersects/append", () => {
