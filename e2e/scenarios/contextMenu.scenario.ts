@@ -23,11 +23,13 @@ export default defineScenario({
         await editor.capture("editor");
         await editor.sendKey("Escape");
 
-        // Focus the explorer via the View menu (Alt+V → "Explorer") — the tier-independent
+        // Focus the explorer via the View menu (Alt+V → "Explorer", three steps down
+        // past the pre-selected Command Palette) — the tier-independent
         // entry point other scenarios also use. Opening the file above auto-revealed and
         // selected it in the tree, so the cursor is already on a concrete node.
         await editor.sendKey("Alt+V");
         await editor.waitForText((t) => t.includes("Explorer"));
+        await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
