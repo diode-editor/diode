@@ -6,7 +6,7 @@ import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
-import { Diagnostic, DiagnosticSeverity, Range, Uri } from "./vscodeTypes.ts";
+import { Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, Location, Range, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 function makeLanguages(stub: IStubRpc = makeStubRpc()) {
@@ -76,6 +76,38 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         expect(markers[0]).toMatchObject({ code: "no-extra-semi" });
         expect(markers[1]).not.toHaveProperty("code");
         expect(markers[2]).not.toHaveProperty("code");
+    });
+
+    it("диагностика с related information публикуется; само поле в wire не едет", () => {
+        const { stub, languages } = makeLanguages();
+        const collection = languages.createDiagnosticCollection("ts");
+        // Так приходит TS2741 «Property … is missing»: сообщение + место
+        // объявления. Раньше такая диагностика вообще не доживала до публикации
+        // — конвертер клиента падал на отсутствующем классе.
+        const diag = new Diagnostic(new Range(5, 4, 5, 10), "Property 'retries' is missing");
+        diag.relatedInformation = [
+            new DiagnosticRelatedInformation(
+                new Location(Uri.file("/proj/config.ts"), new Range(2, 4, 2, 11)),
+                "'retries' is declared here",
+            ),
+        ];
+
+        collection.set(FILE as unknown as vscode.Uri, [diag as unknown as vscode.Diagnostic]);
+
+        const markers = published(stub)[0]?.markers ?? [];
+        expect(markers).toHaveLength(1);
+        expect(markers[0]).toMatchObject({
+            startLine: 5,
+            startCharacter: 4,
+            endLine: 5,
+            endCharacter: 10,
+            message: "Property 'retries' is missing",
+        });
+        // Наивность wire-формы (docs/TODO/LSP.md): related information до маркеров
+        // не доезжает — но и публикацию не ломает.
+        expect(markers[0]).not.toHaveProperty("relatedInformation");
+        // Оригинальный объект расширения в коллекции цел — его читают code actions.
+        expect(collection.get(FILE as unknown as vscode.Uri)?.[0].relatedInformation).toHaveLength(1);
     });
 
     it("кривые поля диагностики уходят к дефолтам (severity 0, пустой range, строковый message)", () => {

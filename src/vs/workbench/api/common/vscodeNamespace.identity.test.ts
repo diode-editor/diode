@@ -118,6 +118,11 @@ describe("VscodeNamespace — стабильная идентичность acti
             // Поверхность vscode-languageclient (LSP): он extends-ит эти типы на require.
             "Location",
             "Diagnostic",
+            // Конвертер диагностик конструирует его на КАЖДУЮ диагностику с
+            // related information (у tsserver это TS2741 «Property … is missing»
+            // и дубликаты идентификаторов): без класса падала вся пачка —
+            // файл оставался вообще без squiggle.
+            "DiagnosticRelatedInformation",
             "DiagnosticSeverity",
             "DiagnosticTag",
             "CodeLens",

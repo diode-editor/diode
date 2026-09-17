@@ -21,6 +21,7 @@ import {
     CompletionTriggerKind,
     DecorationRangeBehavior,
     Diagnostic,
+    DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DiagnosticTag,
     DisposableImpl,
@@ -201,6 +202,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         FoldingRangeKind,
         Location,
         Diagnostic,
+        // Класс-ловушка: конвертер клиента конструирует его на каждую диагностику
+        // с related information, без него падала вся пачка диагностик.
+        DiagnosticRelatedInformation,
         DiagnosticSeverity,
         DiagnosticTag,
         CodeLens,
