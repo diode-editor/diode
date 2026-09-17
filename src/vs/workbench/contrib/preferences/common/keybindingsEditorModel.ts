@@ -1,3 +1,5 @@
+import type { FuzzyMatch } from "../../../../base/common/fuzzySearch.ts";
+import { fuzzyMatchBest } from "../../../../base/common/fuzzySearch.ts";
 import type { ICommandSnapshot } from "../../../../platform/commands/common/commandRegistry.ts";
 import { findConflictingBindings } from "../../../../platform/keybinding/common/keybindingConflicts.ts";
 import type {
@@ -6,8 +8,6 @@ import type {
     KeybindingSource,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import type { FuzzyMatch } from "../../../../base/common/fuzzySearch.ts";
-import { fuzzyMatchBest } from "../../../../base/common/fuzzySearch.ts";
 
 /**
  * Модель вкладки Keyboard Shortcuts: чистые функции без DI — состав строк из
@@ -78,7 +78,8 @@ interface IParsedQuery {
     readonly text: string;
 }
 
-const SOURCE_FILTERS: Record<string, KeybindingSource> = {
+// Partial: ключ — произвольное слово запроса, и «не фильтр» — штатный исход.
+const SOURCE_FILTERS: Partial<Record<string, KeybindingSource>> = {
     "@source:default": "default",
     "@source:extension": "extension",
     "@source:user": "user",

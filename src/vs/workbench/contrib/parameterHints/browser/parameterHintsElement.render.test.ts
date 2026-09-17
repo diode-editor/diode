@@ -11,7 +11,7 @@ import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleV
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
-import { ParameterHintsElement, type IParameterHint } from "./parameterHintsElement.ts";
+import { type IParameterHint, ParameterHintsElement } from "./parameterHintsElement.ts";
 
 const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
 

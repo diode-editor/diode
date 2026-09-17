@@ -143,9 +143,8 @@ describe("TextSearchService (against real ripgrep)", () => {
         // on the first result means later chunks arrive after the cancel flag is set.
         const manyLines = Array.from({ length: 20_000 }, () => "foo").join("\n") + "\n";
         setup({ "big.txt": manyLines });
-        let handle: ISearchHandle;
         let seen = 0;
-        handle = service.search(query(), ws.dir, () => {
+        const handle: ISearchHandle = service.search(query(), ws.dir, () => {
             seen++;
             handle.cancel();
         });

@@ -2,7 +2,7 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
-import { GIT_OP_COMMAND, parseGitOpResult, type GitOpResult } from "../common/gitProtocol.ts";
+import { GIT_OP_COMMAND, type GitOpResult, parseGitOpResult } from "../common/gitProtocol.ts";
 
 import { gitProgressTarget, gitProgressTitle } from "./gitProgress.ts";
 

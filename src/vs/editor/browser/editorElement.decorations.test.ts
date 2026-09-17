@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { IExternalDecorations } from "../common/model/iEditorDecoration.ts";
 import { TextDocument } from "../common/model/textDocument.ts";

@@ -5,14 +5,14 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { getFileIcon } from "../../base/common/fileIcons.ts";
 import {
-    ModifierReleaseArmoryDIToken,
     type ModifierReleaseArmory,
+    ModifierReleaseArmoryDIToken,
 } from "../../platform/keybinding/common/modifierReleaseArmory.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
-import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
+import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 
 describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () => {
     let ws: ITempWorkspace;

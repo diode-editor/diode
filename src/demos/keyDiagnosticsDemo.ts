@@ -14,10 +14,10 @@
  * Press keys (Ctrl+Tab, Ctrl+Shift+L, …). Ctrl+C to exit.
  */
 
-import { addCleanup, isCtrlC, stdin, stdout, writeDirect } from "./demoSetup.ts";
 import type { KeyPressEvent } from "@tuidom/core/input/keyEvent";
 import { KeyInputParser } from "@tuidom/core/input/keyInputParser";
 import { tokenize } from "@tuidom/core/input/tokenize";
+
 import type { CommandAction } from "../vs/platform/actions/common/commandAction.ts";
 import { formatKeybinding, type Keybinding } from "../vs/platform/keybinding/common/keybindingRegistry.ts";
 import {
@@ -36,6 +36,8 @@ import {
     emptyCapabilities,
     resolveTier,
 } from "../vs/workbench/services/terminalEnvironment/node/terminalEnvironmentModel.ts";
+
+import { addCleanup, isCtrlC, stdin, stdout, writeDirect } from "./demoSetup.ts";
 
 // ── Replicate the rest of diode's input modes (demoSetup already did Kitty + raw mode) ──
 const MODIFY_OTHER_KEYS_ENABLE = "\x1b[>4;2m";
@@ -190,7 +192,9 @@ stdin.on("data", (chunk: string) => {
         if (isCsiU && !sawCsiU) {
             sawCsiU = true;
             stdout.write(
-                "    " + green("→ CSI-u key seen — extended-keys confirmed; diode would upgrade tier to csi-u") + "\r\n",
+                "    " +
+                    green("→ CSI-u key seen — extended-keys confirmed; diode would upgrade tier to csi-u") +
+                    "\r\n",
             );
         }
 

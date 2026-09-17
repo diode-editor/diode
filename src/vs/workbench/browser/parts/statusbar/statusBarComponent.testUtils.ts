@@ -1,8 +1,9 @@
-import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { HFlexElement, HFlexLayoutStyle } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";

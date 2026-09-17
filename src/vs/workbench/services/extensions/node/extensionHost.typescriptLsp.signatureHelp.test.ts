@@ -70,9 +70,9 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 describe("ExtensionHost — подсказка параметров от стокового typescript-language-server", () => {
     beforeAll(async () => {
         // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
-        const { buildExtensions } = await import(
+        const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
-        );
+        )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 

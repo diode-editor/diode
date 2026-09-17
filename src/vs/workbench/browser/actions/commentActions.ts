@@ -1,6 +1,6 @@
 import { LanguageConfigurationServiceDIToken } from "../../../editor/common/languages/iLanguageConfigurationService.ts";
-import type { EditorViewState } from "../../../editor/common/viewModel/editorViewState.ts";
 import type { IUndoElement } from "../../../editor/common/model/iUndoElement.ts";
+import type { EditorViewState } from "../../../editor/common/viewModel/editorViewState.ts";
 import {
     addLineComment,
     removeLineComment,
@@ -30,9 +30,7 @@ async function withCommentRule(
     const document = editor.viewState.document;
     const versionBefore = document.versionId;
 
-    const configuration = await accessor
-        .get(LanguageConfigurationServiceDIToken)
-        .ensureLoaded(document.languageId);
+    const configuration = await accessor.get(LanguageConfigurationServiceDIToken).ensureLoaded(document.languageId);
     if (configuration.comments === undefined) return;
     // Пока конфигурация читалась с диска, пользователь мог переключить
     // вкладку или продолжить печатать — команда обязана примениться к тому

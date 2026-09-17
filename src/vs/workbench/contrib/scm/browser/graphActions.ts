@@ -2,7 +2,6 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
-
 import { SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 
 import { runGitOp, withGitProgress } from "./gitOpClient.ts";

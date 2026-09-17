@@ -15,8 +15,14 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
  * `files.watcher`, а не роняют процесс.
  */
 export const fileWatcherModule: ContainerModule = (container) => {
-    container.bind(IFileWatcherDIToken, () => new ChokidarFileWatcher(container.get(ILogServiceDIToken).createLogger("files.watcher")));
-    container.bind(ITreeFileWatcherDIToken, () => new ChokidarTreeWatcher(container.get(ILogServiceDIToken).createLogger("files.watcher")));
+    container.bind(
+        IFileWatcherDIToken,
+        () => new ChokidarFileWatcher(container.get(ILogServiceDIToken).createLogger("files.watcher")),
+    );
+    container.bind(
+        ITreeFileWatcherDIToken,
+        () => new ChokidarTreeWatcher(container.get(ILogServiceDIToken).createLogger("files.watcher")),
+    );
 };
 
 /** Тесты/дефолт: no-op watcher'ы (live-watch выключен, если фейк не подставлен). */

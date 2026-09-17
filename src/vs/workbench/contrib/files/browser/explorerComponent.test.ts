@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
@@ -16,12 +16,12 @@ import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService
 import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { MENU_CONTRIBUTIONS } from "../../../browser/actions/menuContributions.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 /** Собирает ContextMenuService для explorer-меню поверх переданного CommandRegistry. */
 function makeContextMenuService(commands: CommandRegistry): ContextMenuService {
@@ -50,7 +50,13 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         opened.push(filePath as string);
     });
     const service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
-    const component = new ExplorerComponent(service, commands, clipboard, makeContextMenuService(commands), makeViewsHarness().service);
+    const component = new ExplorerComponent(
+        service,
+        commands,
+        clipboard,
+        makeContextMenuService(commands),
+        makeViewsHarness().service,
+    );
     return {
         service,
         component,

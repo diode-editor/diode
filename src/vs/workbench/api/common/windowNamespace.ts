@@ -30,11 +30,7 @@ import {
  * из layout-диффера.
  */
 function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T> {
-    return ((
-        listener: (e: T) => unknown,
-        thisArgs?: unknown,
-        disposables?: vscode.Disposable[],
-    ): vscode.Disposable => {
+    return ((listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]): vscode.Disposable => {
         const bound: (e: T) => unknown = thisArgs != null ? (e) => listener.call(thisArgs, e) : listener;
         listeners.push(bound);
         const disposable = new DisposableImpl(() => {
@@ -210,7 +206,9 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     });
 
     /** Ключи вкладок снимка: `groupId:uri`. */
-    function tabKeys(snapshot: IWireEditorLayout): Map<string, { group: IWireTabGroupSnapshot; tab: IWireTabSnapshot }> {
+    function tabKeys(
+        snapshot: IWireEditorLayout,
+    ): Map<string, { group: IWireTabGroupSnapshot; tab: IWireTabSnapshot }> {
         const keys = new Map<string, { group: IWireTabGroupSnapshot; tab: IWireTabSnapshot }>();
         for (const group of snapshot.groups) {
             for (const tab of group.tabs) {
@@ -225,7 +223,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         const pairs: string[] = [];
         for (const group of snapshot.groups) {
             const active = group.tabs.find((tab) => tab.isActive);
-            if (active !== undefined && active.kind === "text") {
+            if (active?.kind === "text") {
                 pairs.push(selectionKey(group.groupId, active.uri));
             }
         }
@@ -267,7 +265,9 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         const closedGroups = previous.groups.filter((group) => !aliveGroups.has(group.groupId));
         const changedGroups = next.groups.filter((group) => {
             const before = prevGroups.get(group.groupId);
-            return before !== undefined && (before.isActive !== group.isActive || before.viewColumn !== group.viewColumn);
+            return (
+                before !== undefined && (before.isActive !== group.isActive || before.viewColumn !== group.viewColumn)
+            );
         });
         if (openedGroups.length > 0 || closedGroups.length > 0 || changedGroups.length > 0) {
             const event = {
@@ -425,7 +425,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
 
     function makeEditorProxy(document: ExtHostTextDocument, groupId: number): vscode.TextEditor {
         const primarySelection = (): vscode.Selection => {
-            const primary = editorSelections(groupId, document.uri.toString())[0];
+            const primary = editorSelections(groupId, document.uri.toString()).at(0);
             if (primary === undefined) {
                 return new Selection(new Position(0, 0), new Position(0, 0)) as unknown as vscode.Selection;
             }
@@ -577,7 +577,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             const editors: vscode.TextEditor[] = [];
             for (const group of layout.groups) {
                 const active = group.tabs.find((tab) => tab.isActive);
-                if (active === undefined || active.kind !== "text") continue;
+                if (active?.kind !== "text") continue;
                 editors.push(getEditorFor(registry.getOrCreate(Uri.parse(active.uri)), group.groupId));
             }
             return editors;
@@ -727,7 +727,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 return layout.groups.map(makeTabGroup);
             },
             get activeTabGroup(): vscode.TabGroup {
-                const active = layout.groups.find((group) => group.isActive) ?? layout.groups[0];
+                const active = layout.groups.find((group) => group.isActive) ?? layout.groups.at(0);
                 if (active === undefined) {
                     return {
                         isActive: true,
@@ -755,7 +755,10 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     return rpc.request("editor.closeTabs", { tabs }) as Promise<boolean>;
                 }
                 const groupIds = (items as vscode.TabGroup[]).map((group) => {
-                    const snapshot = layout.groups.find((g) => g.viewColumn === group.viewColumn);
+                    // Снимок несёт viewColumn числом, у vscode.TabGroup это enum ViewColumn —
+                    // сравниваем как числа, это одна и та же величина.
+                    const column: number = group.viewColumn;
+                    const snapshot = layout.groups.find((g) => g.viewColumn === column);
                     return snapshot?.groupId ?? -1;
                 });
                 return rpc.request("editor.closeGroups", { groupIds }) as Promise<boolean>;
@@ -777,10 +780,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             columnOrOptions?: vscode.ViewColumn | vscode.TextDocumentShowOptions,
             preserveFocus?: boolean,
         ): Thenable<vscode.TextEditor> => {
-            const uri =
-                documentOrUri instanceof Uri
-                    ? (documentOrUri as Uri)
-                    : (documentOrUri as vscode.TextDocument).uri;
+            const uri = documentOrUri instanceof Uri ? documentOrUri : (documentOrUri as vscode.TextDocument).uri;
             const options: vscode.TextDocumentShowOptions =
                 typeof columnOrOptions === "number"
                     ? { viewColumn: columnOrOptions, preserveFocus }
@@ -801,16 +801,21 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                       }
                     : {}),
             };
-            return (rpc.request("editor.showTextDocument", params) as Promise<{ uri: string; groupId: number }>).then(
-                (result) => {
-                    // Защитный фолбэк (харнессы со стаб-RPC отвечают undefined):
-                    // без результата отдаём активный редактор — прежняя семантика.
-                    if (result === null || typeof result !== "object") {
-                        return windowNs.activeTextEditor as vscode.TextEditor;
-                    }
-                    return getEditorFor(registry.getOrCreate(Uri.parse(result.uri)), result.groupId);
-                },
-            );
+            return (
+                rpc.request("editor.showTextDocument", params) as Promise<
+                    { uri: string; groupId: number } | null | undefined
+                >
+            ).then((result) => {
+                // Защитный фолбэк (харнессы со стаб-RPC отвечают undefined):
+                // без ответа собираем редактор по тому же uri, который и просили
+                // показать, в активной группе — `getEditorFor` мемоизирует по
+                // паре (группа, uri), так что это тот же объект, что и
+                // `activeTextEditor`, когда открывали активный документ.
+                if (result === null || typeof result !== "object") {
+                    return getEditorFor(registry.getOrCreate(uri), effectiveActiveGroupId());
+                }
+                return getEditorFor(registry.getOrCreate(Uri.parse(result.uri)), result.groupId);
+            });
         },
         // Настоящий withProgress: жизненный цикл уезжает хосту нотификациями
         // window.progress.{start,report,end} — статус-бар показывает спиннер,
@@ -831,7 +836,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             } as unknown as vscode.CancellationToken;
             rpc.notify("window.progress.start", { handle, title: options.title ?? "" });
             const progress: vscode.Progress<{ message?: string; increment?: number }> = {
-                report: (value) => {
+                report: (value: unknown) => {
                     const v = (typeof value === "object" && value !== null ? value : {}) as {
                         message?: unknown;
                         increment?: unknown;

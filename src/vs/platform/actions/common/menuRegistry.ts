@@ -5,6 +5,7 @@ import type {
     MenuSeparatorEntry,
     MenuSubmenuEntry,
 } from "@tuidom/elements/menu/popupMenuElement";
+
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../commands/common/commandRegistry.ts";
 import type { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
@@ -91,11 +92,12 @@ function collectSorted<T extends { group?: string; order?: number }>(items: read
         if (bucket) bucket.push({ item, index });
         else groups.set(key, [{ item, index }]);
     });
-    return [...groups.keys()].sort(compareGroups).map((key) => {
-        const bucket = groups.get(key)!;
-        bucket.sort((a, b) => (a.item.order ?? 0) - (b.item.order ?? 0) || a.index - b.index);
-        return bucket.map((entry) => entry.item);
-    });
+    return [...groups.entries()]
+        .sort(([left], [right]) => compareGroups(left, right))
+        .map(([, bucket]) => {
+            bucket.sort((a, b) => (a.item.order ?? 0) - (b.item.order ?? 0) || a.index - b.index);
+            return bucket.map((entry) => entry.item);
+        });
 }
 
 /**
@@ -189,8 +191,10 @@ export class MenuRegistry {
             const groupEntries: ResolvedMenuEntry[] = [];
             for (const item of bucket) {
                 if (isSubmenuContribution(item)) {
-                    // null от резолвера — подменю выброшено (пустое/цикл).
-                    const entry = resolveSubmenu!(this.toSubmenuEntry(item));
+                    // null от резолвера — подменю выброшено (пустое/цикл). Сам
+                    // резолвер здесь заведомо есть: без него submenu-записи
+                    // отсеял фильтр выше, и «нет резолвера» = тот же выброс.
+                    const entry = resolveSubmenu?.(this.toSubmenuEntry(item)) ?? null;
                     if (entry !== null) groupEntries.push(entry);
                 } else {
                     groupEntries.push(this.toEntry(item, context));

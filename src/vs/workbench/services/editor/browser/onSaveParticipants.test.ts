@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ISelection } from "../../../../editor/common/core/iSelection.ts";
 import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -32,11 +33,13 @@ const SNAPSHOT: ISaveSnapshot = {
     versionId: 1,
     isDirty: true,
     text: "one\ntwo",
-    eol: 0,
+    eol: EndOfLine.LF,
     encoding: "utf8",
 };
 
-function host(overrides: Partial<IOnSaveParticipantHost> & { configuration: IConfigurationService }): IOnSaveParticipantHost {
+function host(
+    overrides: Partial<IOnSaveParticipantHost> & { configuration: IConfigurationService },
+): IOnSaveParticipantHost {
     return {
         codeActionSource: () => undefined,
         formattingSource: () => undefined,

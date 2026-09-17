@@ -1,8 +1,8 @@
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import type { SelectBoxElement } from "@tuidom/elements/selectbox/selectBoxElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Point, Size } from "@tuidom/core/common/geometryPromitives";
-import type { SelectBoxElement } from "@tuidom/elements/selectbox/selectBoxElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../base/common/uri.ts";
@@ -157,7 +157,10 @@ describe("Workbench — Output panel", () => {
         // контейнер зовёт focus своей единственной секции — та поднимает редактор
         // канала и подменяет тело view (до этого секция рисует подсказку).
         const outputTab = (): TUIElement =>
-            h.container.get(PanelServiceDIToken).getViews().find((v) => v.id === OUTPUT_VIEW_ID)!.content!;
+            h.container
+                .get(PanelServiceDIToken)
+                .getViews()
+                .find((v) => v.id === OUTPUT_VIEW_ID)!.content!;
         const placeholder = "#viewPlaceholder-workbench-panel-output";
         expect(outputTab().querySelector(placeholder)).not.toBeNull();
 
@@ -177,7 +180,7 @@ describe("Workbench — Output panel", () => {
         h.commands.execute(TOGGLE_OUTPUT);
         h.testApp.render();
 
-        const editor = h.container.get(EditorServiceDIToken).getActiveEditor()!.view.getChild()!;
+        const editor = h.container.get(EditorServiceDIToken).getActiveEditor()!.view.getChild();
         const origin = editor.globalPosition;
         // Левая колонка гуттера и последняя строка вьюпорта: и то и другое —
         // «пустой» фон редактора, который и выбивался из панели.

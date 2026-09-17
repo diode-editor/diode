@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
@@ -76,7 +75,9 @@ describe("workspace.createFileSystemWatcher — проводка RPC", () => {
         const seen: string[] = [];
         watcher.onDidChange((uri) => seen.push(uri.fsPath));
 
-        expect(() => stub.fire("workspace.watcher.events", "не объект")).not.toThrow();
+        expect(() => {
+            stub.fire("workspace.watcher.events", "не объект");
+        }).not.toThrow();
         expect(seen).toEqual([]);
     });
 
@@ -94,6 +95,8 @@ describe("workspace.createFileSystemWatcher — проводка RPC", () => {
         const watcher = workspace.createFileSystemWatcher("**");
 
         expect(stub.notifies.filter((n) => n.method === "workspace.watcher.create")).toEqual([]);
-        expect(() => watcher.dispose()).not.toThrow();
+        expect(() => {
+            watcher.dispose();
+        }).not.toThrow();
     });
 });

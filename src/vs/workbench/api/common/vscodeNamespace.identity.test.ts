@@ -163,7 +163,9 @@ describe("VscodeNamespace — стабильная идентичность acti
 
     it("version — валидный VS Code semver в лок-степе с extensions/VSCODE_VERSION", async () => {
         const { readFile } = await import("node:fs/promises");
-        const pinned = (await readFile(new URL("../../../../../extensions/VSCODE_VERSION", import.meta.url), "utf8")).trim();
+        const pinned = (
+            await readFile(new URL("../../../../../extensions/VSCODE_VERSION", import.meta.url), "utf8")
+        ).trim();
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc).namespace;
         // vscode-languageclient проверяет semver `^1.91.0` — «diode-phase-1» его ронял.

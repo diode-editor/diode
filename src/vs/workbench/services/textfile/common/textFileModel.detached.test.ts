@@ -73,7 +73,9 @@ describe("TextFileModel — модель без прикреплённых вь�
         model.onDidSaveDocument(() => {});
 
         subscription.dispose();
-        expect(() => subscription.dispose()).not.toThrow();
+        expect(() => {
+            subscription.dispose();
+        }).not.toThrow();
         model.dispose();
     });
 });

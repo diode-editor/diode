@@ -4,8 +4,8 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
-
 import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
+
 import { GitBranchMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
@@ -85,9 +85,7 @@ export const gitCheckoutAction: CommandAction = {
     title: "Git: Checkout to...",
     shortTitle: "Checkout to...",
     when: "gitHasRepo",
-    menus: [
-        { menuId: MenuId.ViewTitle, group: "2_git_top", order: 30, visible: inChangesMenu, when: "gitHasRepo" },
-    ],
+    menus: [{ menuId: MenuId.ViewTitle, group: "2_git_top", order: 30, visible: inChangesMenu, when: "gitHasRepo" }],
     async run(accessor) {
         const refs = await queryRefs(accessor);
         const picked = await accessor.get(QuickInputServiceDIToken).quickPick({

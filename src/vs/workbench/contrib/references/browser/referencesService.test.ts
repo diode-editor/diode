@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { settle } from "../../../../../TestUtils/timing.ts";
-
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
@@ -70,7 +69,7 @@ function fakeExplorer(root: string | null = ROOT): ExplorerService {
     return { getRootPath: () => root } as unknown as ExplorerService;
 }
 
-function fakeProviders(disk: Record<string, string>): IFileSystemProviderRegistry {
+function fakeProviders(disk: Partial<Record<string, string>>): IFileSystemProviderRegistry {
     return {
         readFile: (uri: Uri) => {
             const text = disk[uri.fsPath];
@@ -102,10 +101,7 @@ describe("ReferencesService — findReferences", () => {
             fakeGroup({
                 source: (req) => {
                     requests.push(req);
-                    return Promise.resolve([
-                        reference(`${ROOT}/src/defs.ts`, 0, 16, 21),
-                        reference(MAIN, 2, 14, 19),
-                    ]);
+                    return Promise.resolve([reference(`${ROOT}/src/defs.ts`, 0, 16, 21), reference(MAIN, 2, 14, 19)]);
                 },
             }),
             fakeExplorer(),
@@ -221,7 +217,9 @@ describe("ReferencesService — findReferences", () => {
             readFile: () => {
                 if (!hang) return Promise.resolve(new TextEncoder().encode(MAIN_TEXT));
                 return new Promise<Uint8Array>((resolve) => {
-                    releaseRead = () => resolve(new TextEncoder().encode(MAIN_TEXT));
+                    releaseRead = () => {
+                        resolve(new TextEncoder().encode(MAIN_TEXT));
+                    };
                 });
             },
         } as unknown as IFileSystemProviderRegistry;

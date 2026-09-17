@@ -1,8 +1,9 @@
+import { Disposable } from "@tuidom/core/common/disposable";
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
+import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { BoxContainerElement } from "@tuidom/elements/layout/boxContainerElement";
 import { FitContentElement } from "@tuidom/elements/layout/fitContentElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
@@ -13,7 +14,6 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import { requiresExtendedKeys } from "../../../../platform/keybinding/common/keybindingPortability.ts";
 import type { Keybinding, KeybindingChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { Disposable } from "@tuidom/core/common/disposable";
 import { DIALOG_STYLES } from "../../../browser/parts/dialogs/dialogComponent.ts";
 
 export const KeybindingRecorderComponentDIToken = token<KeybindingRecorderComponent>("KeybindingRecorderComponent");
@@ -141,7 +141,7 @@ export class KeybindingRecorderComponent extends Disposable {
         this.titleLabel.setText(commandTitle);
         this.updateLabels();
 
-        this.session ??= this.host.overlayLayer.createSession(this.root, new Point(0, 0), {
+        const session = (this.session ??= this.host.overlayLayer.createSession(this.root, new Point(0, 0), {
             // Stryker disable next-line BooleanLiteral: стартовая невидимость сразу перекрывается open() в openCentered().
             visible: false,
             restoreFocus: true,
@@ -151,8 +151,8 @@ export class KeybindingRecorderComponent extends Disposable {
             closeOnEscape: false,
             // Stryker disable next-line StringLiteral: pointer-политика не проверяется в клавиатурных тестах рекордера.
             pointerPolicy: "modal",
-        });
-        this.openCentered();
+        }));
+        this.openCentered(this.host, session);
         this.root.focus();
 
         return new Promise((resolve) => {
@@ -229,8 +229,7 @@ export class KeybindingRecorderComponent extends Disposable {
     }
 
     /** Центрирует окно по экрану хоста и открывает сессию (приём DialogService). */
-    private openCentered(): void {
-        const host = this.host!;
+    private openCentered(host: BodyElement, session: OverlaySessionHandle): void {
         const width = this.root.getMaxIntrinsicWidth(0);
         const height = this.root.getMaxIntrinsicHeight(width);
         // Stryker disable next-line MethodExpression: центрирование по X — косметика позиции, покадрово не проверяется.
@@ -238,7 +237,7 @@ export class KeybindingRecorderComponent extends Disposable {
         // Stryker disable next-line MethodExpression,ArithmeticOperator: центрирование по Y — косметика позиции, покадрово не проверяется.
         const py = Math.max(0, Math.floor((host.layoutSize.height - height) / 2));
         // Stryker disable next-line CallExpression: setPosition — только позиция оверлея; open() ниже определяет наблюдаемое (isOpen).
-        this.session!.setPosition(new Point(px, py));
-        this.session!.open();
+        session.setPosition(new Point(px, py));
+        session.open();
     }
 }

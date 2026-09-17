@@ -1,4 +1,5 @@
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 

@@ -2,15 +2,15 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Uri } from "../../../base/common/uri.ts";
-import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
+import { Uri } from "../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
+import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IDiffEditorPane2Input } from "../../browser/parts/editor/diffEditorPane2.ts";
@@ -179,9 +179,9 @@ describe("EditorLayoutServiceAdapter", () => {
         editor.viewState.type("dirty");
         const group = service.activeGroup;
 
-        await expect(
-            adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] }),
-        ).resolves.toBe(false);
+        await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] })).resolves.toBe(
+            false,
+        );
         expect(group.editorCount).toBe(1);
     });
 
@@ -203,9 +203,9 @@ describe("EditorLayoutServiceAdapter", () => {
         const confirms: { index: number; sameGroup: boolean }[] = [];
         service.onRequestConfirmClose = (g, index) => confirms.push({ index, sameGroup: g === group });
 
-        await expect(
-            adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] }),
-        ).resolves.toBe(false);
+        await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] })).resolves.toBe(
+            false,
+        );
         // Решение за пользователем: адаптер лишь поднял confirm той же группы/вкладки.
         expect(confirms).toEqual([{ index: 0, sameGroup: true }]);
         expect(group.editorCount).toBe(1);

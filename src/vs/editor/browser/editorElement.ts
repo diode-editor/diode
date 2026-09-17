@@ -1,7 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import type { DisplayLine } from "@tuidom/core/common/displayLine";
-import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import { Point } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
@@ -9,6 +9,7 @@ import type { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TUIPasteEvent } from "@tuidom/core/dom/events/tuiPasteEvent";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { IScrollable } from "@tuidom/elements/scrollbar/iScrollable";
+
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import type { IRange } from "../common/core/iRange.ts";
@@ -20,9 +21,9 @@ import {
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
 import { findSurroundingPair, planAutoClose } from "../common/languages/autoClosing.ts";
-import type { IResolvedLanguageConfiguration } from "../common/languages/languageConfiguration.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../common/languages/iTokenStyleResolver.ts";
+import type { IResolvedLanguageConfiguration } from "../common/languages/languageConfiguration.ts";
 import type { IExternalDecorations, IViewZoneDecoration } from "../common/model/iEditorDecoration.ts";
 import { EMPTY_EXTERNAL_DECORATIONS } from "../common/model/iEditorDecoration.ts";
 import type { IGhostText } from "../common/model/iGhostText.ts";
@@ -177,9 +178,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         // setViewZones заменяет ВЕСЬ набор зон — не трогаем его, пока ghost
         // зонами не пользовался: чужие зоны (буде появятся) не пострадают.
         if (hadZones || needsZones) {
-            this.viewState.setViewZones(
-                needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : [],
-            );
+            this.viewState.setViewZones(needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : []);
         }
         this.markDirty();
     }
@@ -199,9 +198,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         // editor on long lines (worst of all in the Output panel). Bound once to
         // the document, which is fixed per EditorElement (a disk reload builds a
         // fresh element).
-        if (this.lineWidthCache === null) {
-            this.lineWidthCache = new LineWidthCache(this.viewState.document, this.tabSize);
-        }
+        this.lineWidthCache ??= new LineWidthCache(this.viewState.document, this.tabSize);
         this.lineWidthCache.setTabSize(this.tabSize);
         return this.lineWidthCache.getMaxWidth();
     }
@@ -304,7 +301,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.viewportWidth = textWidth;
         this.viewState.viewportHeight = size.height;
         if (changed && this.viewState.isWordWrapActive) {
-            queueMicrotask(() => this.markDirty());
+            queueMicrotask(() => {
+                this.markDirty();
+            });
         }
         return size;
     }

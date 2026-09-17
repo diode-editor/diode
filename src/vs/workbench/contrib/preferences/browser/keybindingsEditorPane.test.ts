@@ -11,7 +11,11 @@ import type {
     IKeybindingEntrySnapshot,
     KeybindingChord,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { chordsEqual, KeybindingRegistry, parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    chordsEqual,
+    KeybindingRegistry,
+    parseChord,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type {
     IKeybindingMutationResult,
     IKeybindingsEditorService,
@@ -120,7 +124,9 @@ function makeHarness(): IHarness {
 
     const rowOf = (title: string) => {
         const rows = pane.view.querySelectorAll("TextLabelElement");
-        const row = rows.find((candidate) => (candidate as unknown as { getText(): string }).getText().startsWith(title));
+        const row = rows.find((candidate) =>
+            (candidate as unknown as { getText(): string }).getText().startsWith(title),
+        );
         expect(row, `строка «${title}» не найдена`).toBeDefined();
         return row!;
     };
@@ -462,9 +468,11 @@ describe("KeybindingsEditorPane — действия строки", () => {
         const header = h.pane.view.querySelector("#kbHeader")!;
 
         (list as unknown as { onActivate: ((el: unknown) => void) | null }).onActivate?.(header);
-        (
-            list as unknown as { onContextMenu: ((el: unknown, x: number, y: number) => void) | null }
-        ).onContextMenu?.(header, 1, 1);
+        (list as unknown as { onContextMenu: ((el: unknown, x: number, y: number) => void) | null }).onContextMenu?.(
+            header,
+            1,
+            1,
+        );
 
         expect(h.recorder.recordedTitles).toEqual([]);
         expect(h.service.defines).toEqual([]);

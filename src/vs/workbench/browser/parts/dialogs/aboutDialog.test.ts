@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { DIODE_VERSION } from "../../../../base/common/version.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";

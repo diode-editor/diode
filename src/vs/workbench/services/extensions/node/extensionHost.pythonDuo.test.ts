@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+    type IInstalledBasedpyright,
     installBasedpyright,
     PY_LANGUAGE_SERVICE,
     until,
-    type IInstalledBasedpyright,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
-import { installRuff, type IInstalledRuff } from "../../../../../TestUtils/ruffFixture.ts";
+import { type IInstalledRuff, installRuff } from "../../../../../TestUtils/ruffFixture.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
@@ -65,10 +65,10 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
             // Оба сервера дошли до одного файла: F401 от ruff, ошибка типов от
             // basedpyright (его холодный старт — десятки секунд, ruff давно готов).
             await until("F401 от ruff", () =>
-                Promise.resolve(latestByOwner((m) => /F401|unused/.test(`${String(m.code ?? "")} ${m.message}`) ) ?? null),
+                Promise.resolve(latestByOwner((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`)) ?? null),
             );
             await until("ошибка типов от basedpyright", () =>
-                Promise.resolve(latestByOwner((m) => /is not assignable/.test(m.message)) ?? null),
+                Promise.resolve(latestByOwner((m) => m.message.includes("is not assignable")) ?? null),
             );
 
             // Формат: единственный формат-провайдер — ruff; правки чинят присваивание.

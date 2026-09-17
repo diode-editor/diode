@@ -15,7 +15,10 @@ export function parseForEachRefZ(stdout: string): IGitRef[] {
     const refs: IGitRef[] = [];
     for (const line of stdout.split("\n")) {
         if (line === "") continue;
-        const [refname, sha, subject] = line.split("\0");
+        const fields = line.split("\0");
+        const refname = fields.at(0);
+        const sha = fields.at(1);
+        const subject = fields.at(2);
         if (refname === undefined || sha === undefined) continue;
         let kind: IGitRef["kind"];
         let name: string;
@@ -53,8 +56,10 @@ export function parseStashListZ(stdout: string): IGitStash[] {
     const stashes: IGitStash[] = [];
     for (const line of stdout.split("\n")) {
         if (line === "") continue;
-        const [index, description] = line.split("\0");
-        if (index === undefined || !index.startsWith("stash@{")) continue;
+        const fields = line.split("\0");
+        const index = fields.at(0);
+        const description = fields.at(1);
+        if (!index?.startsWith("stash@{")) continue;
         stashes.push({ index, description: description ?? "" });
     }
     return stashes;

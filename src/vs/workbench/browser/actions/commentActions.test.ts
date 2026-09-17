@@ -1,17 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { createCursorSelection, createSelection } from "../../../editor/common/core/iSelection.ts";
 import type { ILanguageConfigurationService } from "../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { LanguageConfigurationServiceDIToken } from "../../../editor/common/languages/iLanguageConfigurationService.ts";
+import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
+import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import {
     EMPTY_LANGUAGE_CONFIGURATION,
     type IResolvedLanguageConfiguration,
 } from "../../../editor/common/languages/languageConfiguration.ts";
-import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
-import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
 import { TextDocument } from "../../../editor/common/model/textDocument.ts";
 import { EditorViewState } from "../../../editor/common/viewModel/editorViewState.ts";
@@ -21,7 +20,12 @@ import { CommandRegistry } from "../../../platform/commands/common/commandRegist
 import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry, parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    KeybindingRegistry,
+    parseChord,
+    parseKeybinding,
+} from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";

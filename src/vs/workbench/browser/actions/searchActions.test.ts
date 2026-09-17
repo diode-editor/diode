@@ -58,9 +58,10 @@ describe("showSearchAction", () => {
         const ctx = new ContextKeyService();
         ctx.set("tier", "kitty");
 
-        expect(keybindings.resolveKey({ key: "k", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, ctx).kind).toBe(
-            "chord",
-        );
+        expect(
+            keybindings.resolveKey({ key: "k", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, ctx)
+                .kind,
+        ).toBe("chord");
         expect(
             keybindings.resolveKey({ key: "f", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }, ctx),
         ).toEqual({ kind: "command", commandId: "workbench.view.search" });

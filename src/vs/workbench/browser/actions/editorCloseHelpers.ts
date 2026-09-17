@@ -28,9 +28,7 @@ export async function closeTabsWithConfirm(
     // группы, поэтому getPane по ним всегда что-то возвращает. Держим его ради
     // сужения типа, но убить мутанта в нём нечем.
     // Stryker disable MethodExpression,ConditionalExpression: см. выше
-    const targets = indices
-        .map((index) => group.getPane(index))
-        .filter((pane): pane is IEditorPane => pane !== null);
+    const targets = indices.map((index) => group.getPane(index)).filter((pane): pane is IEditorPane => pane !== null);
     // Stryker restore MethodExpression,ConditionalExpression
 
     for (const pane of targets) {
@@ -72,6 +70,9 @@ export function closeGroupEditorsWithConfirm(
     service: EditorService,
     group: EditorGroup,
 ): Promise<boolean> {
-    const indices = group.getPanes().map((_pane, index) => index).reverse();
+    const indices = group
+        .getPanes()
+        .map((_pane, index) => index)
+        .reverse();
     return closeTabsWithConfirm(accessor, service, group, indices);
 }

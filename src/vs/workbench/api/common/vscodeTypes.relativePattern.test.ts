@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- `base` помечен deprecated намеренно (дословность поверхности upstream), и сьют проверяет именно его. */
 import { describe, expect, it } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";

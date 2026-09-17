@@ -1,13 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-    LONG_LINE_TRUNCATION_BADGE_WIDTH,
-    STOP_RENDERING_LINE_AFTER,
-} from "./longLineRendering.ts";
 import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { LineWidthCache } from "./lineWidthCache.ts";
+import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 
 describe("LineWidthCache", () => {
     it("reports the widest line", () => {

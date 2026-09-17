@@ -1,12 +1,12 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/core/common/geometryPromitives";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { createTestContainer } from "../../../../diode/modules/testProfile.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { WorkbenchComponent } from "../../../browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../../../browser/workbenchComponent.ts";

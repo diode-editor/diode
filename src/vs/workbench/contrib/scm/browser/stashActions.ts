@@ -8,9 +8,7 @@ import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { runGitQuery } from "./syncActions.ts";
 
 /** Стэши из query для пикеров; расширение не активно/деградация — пусто. */
-export async function queryStashes(
-    accessor: ServiceAccessor,
-): Promise<{ index: string; description: string }[]> {
+export async function queryStashes(accessor: ServiceAccessor): Promise<{ index: string; description: string }[]> {
     const raw = (await runGitQuery(accessor, "stashes")) as { stashes?: unknown } | null;
     if (raw === null || !Array.isArray(raw.stashes)) return [];
     return raw.stashes.filter(
@@ -35,7 +33,10 @@ async function pickStash(accessor: ServiceAccessor, title: string): Promise<stri
 }
 
 /** Общий поток `git stash push`: опциональное сообщение → op. */
-async function stashPush(accessor: ServiceAccessor, flags: { includeUntracked?: boolean; staged?: boolean }): Promise<void> {
+async function stashPush(
+    accessor: ServiceAccessor,
+    flags: { includeUntracked?: boolean; staged?: boolean },
+): Promise<void> {
     const message = await accessor.get(QuickInputServiceDIToken).input({
         title: "Stash",
         placeholder: "Stash message (optional)",

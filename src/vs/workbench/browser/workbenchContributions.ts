@@ -11,8 +11,8 @@ import { HistoryServiceDIToken } from "../services/history/browser/historyServic
 import { TerminalEnvStatusContributionDIToken } from "../services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
 
 import { EditorStatusContributionDIToken } from "./parts/editor/editorStatusContribution.ts";
-import { ProgressStatusBarContributionDIToken } from "./parts/statusbar/progressStatusBarContribution.ts";
 import { PanelFocusContributionDIToken } from "./parts/panel/panelFocusContribution.ts";
+import { ProgressStatusBarContributionDIToken } from "./parts/statusbar/progressStatusBarContribution.ts";
 import { ViewProgressContributionDIToken } from "./parts/views/viewProgressContribution.ts";
 import { ViewTitleActionsContributionDIToken } from "./parts/views/viewTitleActionsContribution.ts";
 

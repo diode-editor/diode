@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
@@ -33,7 +32,10 @@ describe("LanguagesNamespace — registerDefinitionProvider", () => {
         const { languages } = createLanguagesNamespace(ctx);
         const subs = () => stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
 
-        const first = languages.registerDefinitionProvider({ language: "typescript" }, { provideDefinition: () => null });
+        const first = languages.registerDefinitionProvider(
+            { language: "typescript" },
+            { provideDefinition: () => null },
+        );
         expect(subs()).toEqual([
             {
                 method: "languages.updateSubscriptions",
@@ -54,7 +56,10 @@ describe("LanguagesNamespace — registerDefinitionProvider", () => {
             },
         ]);
 
-        const second = languages.registerDefinitionProvider({ language: "typescript" }, { provideDefinition: () => null });
+        const second = languages.registerDefinitionProvider(
+            { language: "typescript" },
+            { provideDefinition: () => null },
+        );
         expect(subs()).toHaveLength(1);
 
         first.dispose();
@@ -92,7 +97,10 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
                 provideDefinition: (document, position) => {
                     seen.doc = document;
                     seen.pos = position;
-                    return new Location(DEFS as unknown as vscode.Uri, new Range(2, 4, 2, 9)) as unknown as vscode.Location;
+                    return new Location(
+                        DEFS as unknown as vscode.Uri,
+                        new Range(2, 4, 2, 9),
+                    ) as unknown as vscode.Location;
                 },
             },
         );
@@ -230,7 +238,10 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             {
                 provideDefinition: () => {
                     calls.push("ok");
-                    return new Location(DEFS as unknown as vscode.Uri, new Range(0, 0, 0, 3)) as unknown as vscode.Location;
+                    return new Location(
+                        DEFS as unknown as vscode.Uri,
+                        new Range(0, 0, 0, 3),
+                    ) as unknown as vscode.Location;
                 },
             },
         );

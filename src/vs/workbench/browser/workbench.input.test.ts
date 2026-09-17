@@ -1,6 +1,6 @@
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { typeText } from "../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";

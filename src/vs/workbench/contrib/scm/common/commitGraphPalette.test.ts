@@ -61,10 +61,7 @@ describe("createGraphPalette", () => {
 
     it("повторный sha в странице берётся по первому вхождению", () => {
         // `git log` печатает коммит дважды, когда в него приходят две ветки.
-        const palette = createGraphPalette([
-            commit("a", [{ kind: "head", current: true }]),
-            commit("a", []),
-        ]);
+        const palette = createGraphPalette([commit("a", [{ kind: "head", current: true }]), commit("a", [])]);
         expect(palette.styleFor("a", null)).toBe(GRAPH_CURRENT_REF_STYLE);
     });
 });
@@ -74,7 +71,7 @@ describe("цвета на уложенном графе", () => {
     function nodeStyles(commits: readonly IGraphCommit[], palette = createGraphPalette([])): (string | undefined)[] {
         const lines = renderCommitGraph(commits, null, palette.styleFor);
         return lines.map((line) => {
-            const index = [...line.text].findIndex((ch) => ch === "○" || ch === "◎");
+            const index = Array.from(line.text).findIndex((ch) => ch === "○" || ch === "◎");
             return line.styles[index];
         });
     }
@@ -109,7 +106,13 @@ describe("цвета на уложенном графе", () => {
             { sha: "1", refs: [{ kind: "head", current: true }] },
             { sha: "2", refs: [] },
         ]);
-        const styles = nodeStyles([{ sha: "1", parents: ["2"] }, { sha: "2", parents: [] }], palette);
+        const styles = nodeStyles(
+            [
+                { sha: "1", parents: ["2"] },
+                { sha: "2", parents: [] },
+            ],
+            palette,
+        );
         expect(styles).toEqual([GRAPH_CURRENT_REF_STYLE, GRAPH_CURRENT_REF_STYLE]);
     });
 });

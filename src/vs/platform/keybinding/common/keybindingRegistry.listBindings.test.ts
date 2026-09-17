@@ -19,7 +19,7 @@ describe("KeybindingRegistry.listBindings", () => {
         expect(chordsEqual(bindings[1].chord, parseChord("ctrl+k ctrl+u"))).toBe(true);
     });
 
-    it("records the source of each entry, defaulting to \"default\"", () => {
+    it('records the source of each entry, defaulting to "default"', () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+s"), "save");
         registry.register(parseKeybinding("ctrl+e"), "ext.command", undefined, "extension");
@@ -78,7 +78,11 @@ describe("KeybindingRegistry.removeBindings — returned snapshots", () => {
 
 describe("chordsEqual", () => {
     it("compares keys case-insensitively and modifiers exactly", () => {
-        expect(chordsEqual(parseChord("ctrl+s"), [{ key: "S", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }])).toBe(true);
+        expect(
+            chordsEqual(parseChord("ctrl+s"), [
+                { key: "S", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false },
+            ]),
+        ).toBe(true);
         expect(chordsEqual(parseChord("ctrl+s"), parseChord("ctrl+shift+s"))).toBe(false);
     });
 

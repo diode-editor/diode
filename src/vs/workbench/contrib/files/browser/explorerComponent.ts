@@ -1,6 +1,7 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";

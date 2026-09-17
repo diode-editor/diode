@@ -1,6 +1,6 @@
+import type { HFlexElement } from "@tuidom/elements/layout/hFlexElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { HFlexElement } from "@tuidom/elements/layout/hFlexElement";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";

@@ -1,11 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { BoxElement } from "@tuidom/elements/layout/boxElement";
 import type { MenuEntry, MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { PopupMenuElement } from "@tuidom/elements/menu/popupMenuElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench/browser/actions/menuContributions.ts";
 import { MenuId } from "../../actions/common/menuId.ts";

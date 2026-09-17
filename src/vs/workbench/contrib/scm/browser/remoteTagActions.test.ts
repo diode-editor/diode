@@ -7,8 +7,6 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
-import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
-import { QUERY_COMMAND } from "./syncActions.ts";
 import {
     gitAddRemoteAction,
     gitCreateTagAction,
@@ -18,6 +16,8 @@ import {
     gitShowOutputAction,
     REMOTE_TAG_ACTIONS,
 } from "./remoteTagActions.ts";
+import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
+import { QUERY_COMMAND } from "./syncActions.ts";
 
 interface IHarness {
     accessor: ServiceAccessor;

@@ -1,12 +1,13 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import type { CompletionDetailsContent } from "@tuidom/elements/completionlist/completionDetailsElement";
 import type { CompletionListItem } from "@tuidom/elements/completionlist/completionListElement";
+
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
-import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
     ICoreCompletionItem,
     ICoreCompletionResult,
@@ -17,9 +18,9 @@ import type { CommandRegistry } from "../../../../platform/commands/common/comma
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
+import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SUGGEST_DETAILS_VISIBLE_STATE } from "../../../common/stateKeys.ts";
-import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 

@@ -55,11 +55,11 @@ import {
     ViewProgressContribution,
     ViewProgressContributionDIToken,
 } from "../../workbench/browser/parts/views/viewProgressContribution.ts";
+import { ViewsService, ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import {
     ViewTitleActionsContribution,
     ViewTitleActionsContributionDIToken,
 } from "../../workbench/browser/parts/views/viewTitleActionsContribution.ts";
-import { ViewsService, ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
 import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/browser/workbenchContributions.ts";
@@ -102,24 +102,11 @@ import {
     DefinitionServiceDIToken,
 } from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
 import { HoverComponent, HoverComponentDIToken } from "../../workbench/contrib/hover/browser/hoverComponent.ts";
-import {
-    ParameterHintsComponent,
-    ParameterHintsComponentDIToken,
-} from "../../workbench/contrib/parameterHints/browser/parameterHintsComponent.ts";
-import {
-    ParameterHintsService,
-    ParameterHintsServiceDIToken,
-} from "../../workbench/contrib/parameterHints/browser/parameterHintsService.ts";
 import { HoverService, HoverServiceDIToken } from "../../workbench/contrib/hover/browser/hoverService.ts";
 import {
-    ReferencesComponent,
-    ReferencesComponentDIToken,
-    ReferencesRevealTargetDIToken,
-} from "../../workbench/contrib/references/browser/referencesComponent.ts";
-import {
-    ReferencesService,
-    ReferencesServiceDIToken,
-} from "../../workbench/contrib/references/browser/referencesService.ts";
+    InlineCompletionsService,
+    InlineCompletionsServiceDIToken,
+} from "../../workbench/contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import {
     DiagnosticsEditorSourceDIToken,
     DiagnosticsService,
@@ -135,6 +122,14 @@ import {
     OutputChannelActionsDIToken,
 } from "../../workbench/contrib/output/browser/outputChannelActions.ts";
 import { OutputComponent, OutputComponentDIToken } from "../../workbench/contrib/output/browser/outputComponent.ts";
+import {
+    ParameterHintsComponent,
+    ParameterHintsComponentDIToken,
+} from "../../workbench/contrib/parameterHints/browser/parameterHintsComponent.ts";
+import {
+    ParameterHintsService,
+    ParameterHintsServiceDIToken,
+} from "../../workbench/contrib/parameterHints/browser/parameterHintsService.ts";
 import {
     CommandsQuickAccessProvider,
     CommandsQuickAccessProviderDIToken,
@@ -158,6 +153,15 @@ import {
     QuickAccessRegistry,
     QuickAccessRegistryDIToken,
 } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
+import {
+    ReferencesComponent,
+    ReferencesComponentDIToken,
+    ReferencesRevealTargetDIToken,
+} from "../../workbench/contrib/references/browser/referencesComponent.ts";
+import {
+    ReferencesService,
+    ReferencesServiceDIToken,
+} from "../../workbench/contrib/references/browser/referencesService.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
 import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
 import { CommandOriginalResourceProvider } from "../../workbench/contrib/scm/browser/commandOriginalResourceProvider.ts";
@@ -176,11 +180,11 @@ import {
     ScmRepoStateService,
     ScmRepoStateServiceDIToken,
 } from "../../workbench/contrib/scm/browser/repoStateService.ts";
-import { ScmInputComponent, ScmInputComponentDIToken } from "../../workbench/contrib/scm/browser/scmInputComponent.ts";
 import {
     ScmBusyContextContribution,
     ScmBusyContextContributionDIToken,
 } from "../../workbench/contrib/scm/browser/scmBusyContextContribution.ts";
+import { ScmInputComponent, ScmInputComponentDIToken } from "../../workbench/contrib/scm/browser/scmInputComponent.ts";
 import {
     ScmStatusBarContribution,
     ScmStatusBarContributionDIToken,
@@ -194,10 +198,6 @@ import {
     CompletionService,
     CompletionServiceDIToken,
 } from "../../workbench/contrib/suggest/browser/completionService.ts";
-import {
-    InlineCompletionsService,
-    InlineCompletionsServiceDIToken,
-} from "../../workbench/contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import { SuggestComponent, SuggestComponentDIToken } from "../../workbench/contrib/suggest/browser/suggestComponent.ts";
 import {
     TerminalFocusFallbackDIToken,

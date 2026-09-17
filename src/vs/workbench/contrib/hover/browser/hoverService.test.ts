@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";

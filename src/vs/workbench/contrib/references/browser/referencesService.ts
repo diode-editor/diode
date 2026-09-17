@@ -2,8 +2,8 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import { findWordRangeAt } from "../../../../editor/common/core/wordClassification.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
+import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
@@ -103,7 +103,7 @@ export class ReferencesService {
 
 /** Стоит ли каретка на слове — гейт запроса (искать ссылки на пробел незачем). */
 function isOnWord(text: string, line: number, character: number): boolean {
-    const lineText = text.split("\n")[line];
+    const lineText = text.split("\n").at(line);
     if (lineText === undefined) return false;
     return findWordRangeAt(lineText, character) !== null;
 }

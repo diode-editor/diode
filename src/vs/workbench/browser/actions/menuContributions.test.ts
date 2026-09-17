@@ -80,7 +80,7 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
         );
     }
 
-    function labels(menuId: MenuId, context?: unknown, contextKeys?: ContextKeyService): (string | "─")[] {
+    function labels(menuId: MenuId, context?: unknown, contextKeys?: ContextKeyService): string[] {
         return registryOfBuiltins(contextKeys)
             .getMenuItems(menuId, context)
             .map((e) => (e.type === "separator" ? "─" : e.label));

@@ -1,5 +1,5 @@
-import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 
 import type { QuickInputComponent } from "./quickInputComponent.ts";
 import { QuickInputComponentDIToken } from "./quickInputComponent.ts";

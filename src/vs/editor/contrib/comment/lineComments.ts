@@ -42,8 +42,7 @@ function analyzeLine(content: string, token: string, line: number): ILineInfo {
     const indentLength = getLeadingWhitespace(content).length;
     const isBlank = indentLength === content.length;
     const isCommented = !isBlank && content.startsWith(token, indentLength);
-    const markerLength =
-        token.length + (isCommented && content[indentLength + token.length] === " " ? 1 : 0);
+    const markerLength = token.length + (isCommented && content[indentLength + token.length] === " " ? 1 : 0);
     return { line, indentLength, isBlank, isCommented, markerLength };
 }
 
@@ -76,8 +75,7 @@ export function planLineComments(
     const considered = allBlank && mode === "toggle" ? infos : infos.filter((info) => !info.isBlank);
     if (considered.length === 0) return null;
 
-    const shouldRemove =
-        mode === "remove" || (mode === "toggle" && considered.every((info) => info.isCommented));
+    const shouldRemove = mode === "remove" || (mode === "toggle" && considered.every((info) => info.isCommented));
 
     const edits: ITextEdit[] = [];
     // Stryker disable next-line ArrayDeclaration: аккумулятор сдвигов; лишняя запись в нём

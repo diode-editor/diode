@@ -6,28 +6,29 @@ import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+
 import { EditorElement } from "../../editor/browser/editorElement.ts";
 import { isTextViewElement } from "../../editor/browser/iTextViewElement.ts";
 import { registerContextKeys } from "../../platform/contextkey/common/contextKeys.ts";
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
+import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
-import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
-import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
-import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
-import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
-import { REFERENCES_VIEWLET_ID } from "../contrib/references/browser/referencesComponent.ts";
-import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
-import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
-import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import type { InlineCompletionsService } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
+import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
+import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
+import { REFERENCES_VIEWLET_ID } from "../contrib/references/browser/referencesComponent.ts";
+import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
+import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
+import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
+import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
@@ -167,14 +168,13 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("activeEditorGroupIndex", this.editorService.viewColumnOf(this.editorService.activeGroup));
         this.contextKeys.set(
             "activeEditorGroupLast",
-            this.editorService.activeGroup ===
-                this.editorService.groups[this.editorService.groups.length - 1],
+            this.editorService.activeGroup === this.editorService.groups[this.editorService.groups.length - 1],
         );
         // Фокус в дереве Explorer — по пути предков до его view (id
         // "explorerView" ставит ExplorerComponent): нового шва к компоненту не нужно.
         this.contextKeys.set(
             "filesExplorerFocus",
-            active !== null && active.getAncestorPath().some((element) => element.id === "explorerView"),
+            active?.getAncestorPath().some((element) => element.id === "explorerView") === true,
         );
         this.contextKeys.set("panelVisible", this.layoutService.isPanelVisible());
         this.contextKeys.set(

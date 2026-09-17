@@ -1,5 +1,6 @@
 import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
+
 import type { ILanguageConfigurationService } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../editor/common/languages/iTokenStyleResolver.ts";
@@ -10,9 +11,9 @@ import type { IConfigurationService } from "../../platform/configuration/common/
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
 import type { ILogService } from "../../platform/log/common/iLogService.ts";
-import type { ILogHistory } from "../../workbench/services/output/common/output.ts";
 import type { IStateService } from "../../platform/state/common/iStateService.ts";
 import type { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
+import type { ILogHistory } from "../../workbench/services/output/common/output.ts";
 import { terminalEnvironmentModule } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts";
 import type { ThemeRegistry } from "../../workbench/services/themes/common/themeRegistry.ts";
 

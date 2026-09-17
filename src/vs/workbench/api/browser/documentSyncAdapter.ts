@@ -1,6 +1,6 @@
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
-import type { TextFileModel } from "../../services/textfile/common/textFileModel.ts";
 import type { ExtensionHost } from "../../services/extensions/node/extensionHost.ts";
+import type { TextFileModel } from "../../services/textfile/common/textFileModel.ts";
 import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 
 /** Снапшот документа модели для document sync push'а (`editor.didOpen`/`didChange`). */

@@ -2,6 +2,7 @@ import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
@@ -9,10 +10,7 @@ import { FilteredListControl } from "../../../browser/parts/views/filteredListCo
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
-import {
-    ExtensionsWorkbenchServiceDIToken,
-    filterExtensionEntries,
-} from "../common/extensionsWorkbench.ts";
+import { ExtensionsWorkbenchServiceDIToken, filterExtensionEntries } from "../common/extensionsWorkbench.ts";
 
 import { ExtensionEditorPane } from "./extensionEditorPane.ts";
 import type { IExtensionPageActions } from "./extensionPageActions.ts";
@@ -101,7 +99,11 @@ export class ExtensionsComponent extends Component {
             this.activateRow(rowId);
         };
 
-        this.register(service.onDidChange(() => this.rebuildRows()));
+        this.register(
+            service.onDidChange(() => {
+                this.rebuildRows();
+            }),
+        );
         this.rebuildRows();
 
         viewsService.registerView({

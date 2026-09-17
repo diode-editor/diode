@@ -2,12 +2,7 @@ import type { IPosition } from "../core/iPosition.ts";
 import { comparePositions } from "../core/iPosition.ts";
 import { createRange } from "../core/iRange.ts";
 import type { ISelection } from "../core/iSelection.ts";
-import {
-    createCursorSelection,
-    createSelection,
-    isSelectionCollapsed,
-    selectionToRange,
-} from "../core/iSelection.ts";
+import { createCursorSelection, createSelection, isSelectionCollapsed, selectionToRange } from "../core/iSelection.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 import { createDeleteEdit, createInsertEdit, createTextEdit } from "../core/iTextEdit.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
@@ -213,7 +208,7 @@ function mergeAdjacentBlocks(selections: readonly ISelection[]): IMergedLineBloc
     const merged: IMergedLineBlock[] = [];
     for (let i = 0; i < selections.length; i++) {
         const block = selectionLineBlock(selections[i]);
-        const last = merged[merged.length - 1];
+        const last = merged.at(-1);
         if (last !== undefined && block.startLine <= last.endLine + 1) {
             last.endLine = Math.max(last.endLine, block.endLine);
             last.memberIndices.push(i);
@@ -288,10 +283,7 @@ export function computeMoveLines(
  * содержимое (документ без единственной строки не бывает). Семантика VS Code
  * (`DeleteLinesCommand` и cut пустого выделения).
  */
-function deleteWholeLinesEdit(
-    doc: ILineOperationsDocument,
-    block: { startLine: number; endLine: number },
-): ITextEdit {
+function deleteWholeLinesEdit(doc: ILineOperationsDocument, block: { startLine: number; endLine: number }): ITextEdit {
     if (block.endLine < doc.lineCount - 1) {
         return createDeleteEdit(block.startLine, 0, block.endLine + 1, 0);
     }

@@ -1,13 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
-
 import type { TUIFocusEvent } from "@tuidom/core/dom/events/tuiFocusEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
 import type { InlineCompletionsService } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
+import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
@@ -15,8 +16,6 @@ import type { HistoryService } from "../services/history/browser/historyService.
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
-
-import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
 
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";

@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
-
 import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+import { describe, expect, it, vi } from "vitest";
+
 import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CHECKED_ICON } from "../../../../platform/actions/common/menuRegistry.ts";
@@ -64,7 +64,9 @@ const CONTRIBUTIONS: MenuContribution[] = [
 function scmHarness(views = [CHANGES, GRAPH]): IViewsHarness {
     const h = makeViewsHarness(CONTRIBUTIONS);
     h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
-    views.forEach((id, index) => h.service.registerView(testView(id, "scm", (index + 1) * 10)));
+    views.forEach((id, index) => {
+        h.service.registerView(testView(id, "scm", (index + 1) * 10));
+    });
     h.service.attachContainer("scm");
     return h;
 }
@@ -242,7 +244,10 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         // Контейнер стал merged — своего заголовка нет, меню открывает секция.
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
         const views = submenu(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")), "Views");
-        expect(entriesOf(views).map((e) => (e.type === "separator" ? null : e.icon))).toEqual([CHECKED_ICON, undefined]);
+        expect(entriesOf(views).map((e) => (e.type === "separator" ? null : e.icon))).toEqual([
+            CHECKED_ICON,
+            undefined,
+        ]);
     });
 
     it("пункт подменю переключает видимость секции", () => {
@@ -266,11 +271,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         h.service.setViewVisible(GRAPH, false);
         // Секция скрыта, но зарегистрирована — переключатель нужен, чтобы её вернуть.
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
-        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual([
-            "Checkout to…",
-            "---",
-            "Views",
-        ]);
+        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual(["Checkout to…", "---", "Views"]);
     });
 
     it("merged без команд контейнера: в подменю только переключатель секций", () => {

@@ -11,12 +11,6 @@
 // TUIDom и ниже остаются чистыми, а виджет `TerminalViewElement` видит только
 // `ITerminalSurface`. См. docs/TODO/IntegratedTerminal.md.
 
-import type { IBufferCell, Terminal } from "@xterm/headless";
-// @xterm/headless — CJS-пакет: под нативным ESM-загрузчиком (tsx/esm) named-import
-// не работает в рантайме, поэтому берём значение default-импортом, а тип — отдельно.
-import xtermHeadless from "@xterm/headless";
-import type { IPty } from "node-pty";
-
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import type {
@@ -27,6 +21,12 @@ import type {
     TerminalMouseEventData,
 } from "@tuidom/core/common/iTerminalSurface";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import type { IBufferCell, Terminal } from "@xterm/headless";
+// @xterm/headless — CJS-пакет: под нативным ESM-загрузчиком (tsx/esm) named-import
+// не работает в рантайме, поэтому берём значение default-импортом, а тип — отдельно.
+import xtermHeadless from "@xterm/headless";
+import type { IPty } from "node-pty";
+
 import { xtermPaletteToRgb } from "../common/xtermPalette.ts";
 
 import { loadNodePty } from "./loadNodePty.ts";

@@ -8,6 +8,7 @@ import { Container, type ServiceAccessor } from "../../../../platform/instantiat
 import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { SCM_VIEWLET_ID } from "../common/scmViews.ts";
 
 import {
     scmFocusChangesAction,
@@ -18,8 +19,6 @@ import {
     scmViewAsTreeAction,
     showScmAction,
 } from "./changesActions.ts";
-import { SCM_VIEWLET_ID } from "../common/scmViews.ts";
-
 import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
@@ -61,7 +60,8 @@ describe("showScmAction", () => {
 
         // …и аккорд по-прежнему резолвится на kitty — эмулятор мог занять Ctrl+Shift+G.
         expect(
-            keybindings.resolveKey({ key: "k", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, ctx).kind,
+            keybindings.resolveKey({ key: "k", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, ctx)
+                .kind,
         ).toBe("chord");
         expect(
             keybindings.resolveKey({ key: "g", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }, ctx),

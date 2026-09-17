@@ -1,11 +1,10 @@
 import { Disposable } from "@tuidom/core/common/disposable";
 import { measureTextWidth } from "@tuidom/core/common/measureTextWidth";
-import {
-    LONG_LINE_TRUNCATION_BADGE_WIDTH,
-    STOP_RENDERING_LINE_AFTER,
-} from "./longLineRendering.ts";
+
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
+
+import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 
 /** Sentinel for "width of this line not computed yet / invalidated". */
 const UNCOMPUTED = -1;

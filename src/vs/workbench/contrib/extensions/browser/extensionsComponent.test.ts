@@ -5,17 +5,16 @@ import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { describe, expect, it } from "vitest";
 
-import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
-import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
-
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import {
-    REGISTRY_SCHEMA_VERSION,
     type IRegistryExtensionMeta,
+    REGISTRY_SCHEMA_VERSION,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
 
 import { ExtensionEditorPane } from "./extensionEditorPane.ts";
@@ -45,9 +44,9 @@ function recordingViewsService(): { service: ViewsService; descriptor: () => { f
 function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExtensionListEntry {
     const [publisher, name] = overrides.id.split(".");
     return {
-        publisher: publisher!,
-        name: name!,
-        displayName: name!,
+        publisher: publisher,
+        name: name,
+        displayName: name,
         description: "",
         kind: "native",
         latestVersion: "1.0.0",
@@ -172,7 +171,7 @@ describe("ExtensionsComponent", () => {
 
     it("строка поиска не прижата к краям панели", () => {
         const component = make(new FakeService([]));
-        const line = render(component).screenToString().split("\n")[0]!;
+        const line = render(component).screenToString().split("\n")[0];
         expect(line.startsWith(" ")).toBe(true);
         expect(line.endsWith(" ")).toBe(true);
     });
@@ -260,7 +259,12 @@ describe("ExtensionsComponent", () => {
 
     it("установленное из магазина видно и в каталоге с бейджем, и в своей секции", () => {
         const service = new FakeService([
-            entry({ id: "acme.tools", displayName: "Acme Tools", installedVersion: "1.0.0", availability: "installed" }),
+            entry({
+                id: "acme.tools",
+                displayName: "Acme Tools",
+                installedVersion: "1.0.0",
+                availability: "installed",
+            }),
         ]);
         const component = make(service);
         const screen = render(component).screenToString();
@@ -322,7 +326,15 @@ describe("ExtensionsComponent", () => {
 
     it("при ошибке каталога установленные всё равно видны", () => {
         const service = new FakeService(
-            [entry({ id: "local.helper", displayName: "Helper", latestVersion: null, installedVersion: "0.1.0", availability: "installed" })],
+            [
+                entry({
+                    id: "local.helper",
+                    displayName: "Helper",
+                    latestVersion: null,
+                    installedVersion: "0.1.0",
+                    availability: "installed",
+                }),
+            ],
             "offline",
         );
         const screen = render(make(service)).screenToString();
@@ -363,7 +375,10 @@ describe("ExtensionsComponent", () => {
         const component = make(service);
         typeQuery(component, "acme");
 
-        service.update([entry({ id: "acme.tools", displayName: "Acme Tools" }), entry({ id: "other.thing", displayName: "Other Thing" })]);
+        service.update([
+            entry({ id: "acme.tools", displayName: "Acme Tools" }),
+            entry({ id: "other.thing", displayName: "Other Thing" }),
+        ]);
         const screen = render(component).screenToString();
         expect(screen).toContain("Acme Tools");
         expect(screen).not.toContain("Other Thing");
@@ -459,7 +474,9 @@ describe("ExtensionsComponent", () => {
             const component = make(service, target);
 
             await component.openExtensionPage("acme.tools");
-            expect(renderElement(opened[0]!.view, 40, 20, { themeVars: true }).screenToString()).toContain("Readme body");
+            expect(renderElement(opened[0].view, 40, 20, { themeVars: true }).screenToString()).toContain(
+                "Readme body",
+            );
         });
 
         it("сбой чтения меты не оставляет пустую вкладку — причина на странице", async () => {
@@ -469,12 +486,17 @@ describe("ExtensionsComponent", () => {
             const component = make(service, target);
 
             await component.openExtensionPage("acme.tools");
-            expect(renderElement(opened[0]!.view, 70, 20, { themeVars: true }).screenToString()).toContain("ENOTFOUND");
+            expect(renderElement(opened[0].view, 70, 20, { themeVars: true }).screenToString()).toContain("ENOTFOUND");
         });
 
         it("запись из секции установленных открывает ту же вкладку", async () => {
             const service = new FakeService([
-                entry({ id: "acme.tools", displayName: "Acme Tools", installedVersion: "1.0.0", availability: "installed" }),
+                entry({
+                    id: "acme.tools",
+                    displayName: "Acme Tools",
+                    installedVersion: "1.0.0",
+                    availability: "installed",
+                }),
             ]);
             const { target, opened } = fakeTarget();
             const component = make(service, target);
@@ -497,12 +519,13 @@ describe("ExtensionsComponent", () => {
 
         it("не-Error отказ реестра тоже доезжает текстом", async () => {
             const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
             service.getMeta = () => Promise.reject("registry said no");
             const { target, opened } = fakeTarget();
             const component = make(service, target);
 
             await component.openExtensionPage("acme.tools");
-            expect(renderElement(opened[0]!.view, 70, 20, { themeVars: true }).screenToString()).toContain(
+            expect(renderElement(opened[0].view, 70, 20, { themeVars: true }).screenToString()).toContain(
                 "registry said no",
             );
         });

@@ -5,9 +5,9 @@ import { filterExtensionEntries, type IExtensionListEntry } from "./extensionsWo
 function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExtensionListEntry {
     const [publisher, name] = overrides.id.split(".");
     return {
-        publisher: publisher!,
-        name: name!,
-        displayName: name!,
+        publisher: publisher,
+        name: name,
+        displayName: name,
         description: "",
         kind: "native",
         latestVersion: "1.0.0",

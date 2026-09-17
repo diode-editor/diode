@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { NULL_LANGUAGE_SERVICE, type ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
+import { type ILanguageService, NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { installVsix } from "../vs/platform/extensionManagement/node/extensionInstaller.ts";
 import { flattenConfigDefaults } from "../vs/platform/extensions/common/configDefaults.ts";
 import type { IExtensionManifest } from "../vs/platform/extensions/common/iExtensionManifest.ts";
@@ -53,7 +53,8 @@ export const LINT_JS = "const unused = 1;;\n";
  * Flat-конфиг только на core-правилах — ничего, кроме пакета `eslint`, в
  * фикстурный воркспейс не ставится.
  */
-export const ESLINT_FLAT_CONFIG = 'export default [\n    { rules: { "no-unused-vars": "error", "no-extra-semi": "error" } },\n];\n';
+export const ESLINT_FLAT_CONFIG =
+    'export default [\n    { rules: { "no-unused-vars": "error", "no-extra-semi": "error" } },\n];\n';
 
 export interface IInstalledEslint {
     readonly registration: IExtensionRegistration;
@@ -71,11 +72,16 @@ export async function installEslint(): Promise<IInstalledEslint> {
     const { id, version } = await installVsix((await fetchStockVsix(ESLINT_ID)).vsixPath, extensionsDir);
     const installRoot = path.join(extensionsDir, `${id}-${version}`);
     const manifest = JSON.parse(fs.readFileSync(path.join(installRoot, "package.json"), "utf8")) as IExtensionManifest;
+    // Расширение без `main` активировать нечем — падаем с внятным текстом,
+    // а не разыменованием undefined в глубине резолва.
+    /* v8 ignore start -- у стокового vsix main есть всегда; ветка достижима только на битом манифесте */
+    if (manifest.main === undefined) throw new Error(`${installRoot}: в манифесте нет main`);
+    /* v8 ignore stop */
     return {
         registration: {
             id,
             manifest: { name: manifest.name, publisher: manifest.publisher, version: manifest.version },
-            mainPath: path.resolve(installRoot, manifest.main as string),
+            mainPath: path.resolve(installRoot, manifest.main),
             extensionPath: installRoot,
             configDefaults: flattenConfigDefaults(manifest.contributes?.configuration),
             activationEvents: manifest.activationEvents,

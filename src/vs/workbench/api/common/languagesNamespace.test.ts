@@ -310,7 +310,11 @@ describe("LanguagesNamespace", () => {
         } as never);
         languages.registerFoldingRangeProvider(["csharp"], {
             // Валидный + битый start + битый end — оба битых отсеются сериализатором.
-            provideFoldingRanges: () => [{ start: 1, end: 2 }, { start: "x", end: 2 }, { start: 3, end: "x" }],
+            provideFoldingRanges: () => [
+                { start: 1, end: 2 },
+                { start: "x", end: 2 },
+                { start: 3, end: "x" },
+            ],
         } as never);
         // Запрос без languageId/text — ветки дефолтов (languageId скипается, text → "").
         // ExtHostTextDocument без languageId остаётся csharp по предыдущему upsert? Нет —

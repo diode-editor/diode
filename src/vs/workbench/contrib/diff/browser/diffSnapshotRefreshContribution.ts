@@ -1,4 +1,5 @@
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { DiffSide } from "../../../../editor/common/diff/diffSide.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";

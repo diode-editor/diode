@@ -213,7 +213,10 @@ describe("push и его реакции", () => {
         h.setOpResults([{ ok: false, kind: "push-rejected", message: "[rejected]" }, { ok: true }]);
         await gitPushAction.run(h.accessor);
         expect(h.dialogs).toEqual(["Push Rejected"]);
-        expect(h.ops).toEqual([{ op: "push", params: {} }, { op: "pull", params: undefined }]);
+        expect(h.ops).toEqual([
+            { op: "push", params: {} },
+            { op: "pull", params: undefined },
+        ]);
     });
 
     it("отказ в диалогах rejected/publish — второй операции нет", async () => {

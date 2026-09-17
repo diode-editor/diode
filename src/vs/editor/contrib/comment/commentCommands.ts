@@ -1,15 +1,15 @@
 import type { ICommentRule } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
-import { createSelection, selectionToRange } from "../../common/core/iSelection.ts";
 import type { ISelection } from "../../common/core/iSelection.ts";
+import { createSelection, selectionToRange } from "../../common/core/iSelection.ts";
 import type { ITextEdit } from "../../common/core/iTextEdit.ts";
 import { getLeadingWhitespace } from "../../common/languages/autoIndent.ts";
 import type { IUndoElement } from "../../common/model/iUndoElement.ts";
 import type { EditorViewState } from "../../common/viewModel/editorViewState.ts";
 
-import { planToggleBlockComment } from "./blockComments.ts";
 import type { IBlockCommentPlan } from "./blockComments.ts";
-import { planLineComments, remapPositionForShifts } from "./lineComments.ts";
+import { planToggleBlockComment } from "./blockComments.ts";
 import type { ILineShift, LineCommentMode } from "./lineComments.ts";
+import { planLineComments, remapPositionForShifts } from "./lineComments.ts";
 
 /**
  * Команды комментирования (VS Code `editor/contrib/comment`) — чистые функции

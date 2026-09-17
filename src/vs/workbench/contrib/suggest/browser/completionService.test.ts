@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -133,8 +133,9 @@ function makeGroup(
 function makeStateService(): IStateService {
     const store = new Map<string, unknown>();
     return {
-        get: <T,>(descriptor: IStateDescriptor<T>): T => (store.get(descriptor.key) as T | undefined) ?? descriptor.default,
-        store: <T,>(descriptor: IStateDescriptor<T>, value: T): void => {
+        get: <T>(descriptor: IStateDescriptor<T>): T =>
+            (store.get(descriptor.key) as T | undefined) ?? descriptor.default,
+        store: <T>(descriptor: IStateDescriptor<T>, value: T): void => {
             store.set(descriptor.key, value);
         },
         openWorkspace: () => undefined,
@@ -323,12 +324,18 @@ describe("CompletionService", () => {
 
         it("состояние тумблера переживает пересоздание сервиса", async () => {
             const state = makeStateService();
-            const first = setupWithResolver(vi.fn(() => Promise.resolve(null)), state);
+            const first = setupWithResolver(
+                vi.fn(() => Promise.resolve(null)),
+                state,
+            );
             await first.service.trigger();
             first.service.toggleDetails();
             expect(first.component.detailsVisible).toBe(true);
 
-            const second = setupWithResolver(vi.fn(() => Promise.resolve(null)), state);
+            const second = setupWithResolver(
+                vi.fn(() => Promise.resolve(null)),
+                state,
+            );
             expect(second.component.detailsVisible).toBe(true);
         });
 

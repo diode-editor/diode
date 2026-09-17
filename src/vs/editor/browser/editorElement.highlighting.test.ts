@@ -1,11 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/core/common/geometryPromitives";
-import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TerminalScreen } from "@tuidom/core/rendering/terminalScreen";
+import { describe, expect, it, vi } from "vitest";
+
+import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
@@ -95,9 +95,7 @@ describe("EditorElement tokenization — вырожденный вьюпорт",
         editor.layout(BoxConstraints.tight(size));
         editor.performStyleResolution(ROOT_STYLE_CONTEXT);
         const spy = vi.spyOn(store, "tokenizeUpTo");
-        editor.render(
-            new RenderContext(backendScreen, new Offset(0, 0), new Rect(new Point(0, 0), new Size(20, 1))),
-        );
+        editor.render(new RenderContext(backendScreen, new Offset(0, 0), new Rect(new Point(0, 0), new Size(20, 1))));
 
         expect(spy).not.toHaveBeenCalled();
     });

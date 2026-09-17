@@ -7,6 +7,7 @@ import {
     SearchComponentDIToken,
 } from "../../contrib/search/browser/searchComponent.ts";
 import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
+
 import { viewMenuVisible } from "./menuContexts.ts";
 
 /** nf-cod-collapse_all — inline-кнопка заголовка Search. */

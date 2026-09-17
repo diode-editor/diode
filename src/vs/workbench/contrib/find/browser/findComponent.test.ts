@@ -1,11 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
-
-import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+import { describe, expect, it, vi } from "vitest";
+
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";

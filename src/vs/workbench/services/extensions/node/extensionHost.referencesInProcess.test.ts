@@ -40,9 +40,10 @@ function requestOf(text: string): IReferenceRequest {
     return { uri: "file:///a.ts", languageId: "typescript", text, line: 0, character: 0, includeDeclaration: true };
 }
 
-function makeHost(
-    options: { warn?: ILogger["warn"]; referencesTimeoutMs?: number } = {},
-): { host: ExtensionHost; peer: RpcEndpoint } {
+function makeHost(options: { warn?: ILogger["warn"]; referencesTimeoutMs?: number } = {}): {
+    host: ExtensionHost;
+    peer: RpcEndpoint;
+} {
     const logger =
         options.warn === undefined
             ? undefined

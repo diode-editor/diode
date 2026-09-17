@@ -99,7 +99,11 @@ describe("extractBundleToCache", () => {
         // Собираем заголовок руками: packBundle такой путь не пропустит.
         const evil = packBundle([{ virtualPath: "ok.txt", data: Buffer.from("x") }]);
         const patched = Buffer.from(evil);
-        const json = patched.toString("utf8", 12, 12 + new DataView(patched.buffer, patched.byteOffset + 8, 4).getUint32(0, true));
+        const json = patched.toString(
+            "utf8",
+            12,
+            12 + new DataView(patched.buffer, patched.byteOffset + 8, 4).getUint32(0, true),
+        );
         const evilJson = json.replace("ok.txt", "../evi");
         expect(evilJson.length).toBe(json.length); // длина заголовка не меняется
         patched.write(evilJson, 12, "utf8");

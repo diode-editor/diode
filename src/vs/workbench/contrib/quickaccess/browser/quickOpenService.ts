@@ -1,9 +1,10 @@
 import { Disposable } from "@tuidom/core/common/disposable";
-import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
-import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import { QuickInputComponentDIToken } from "../../../browser/parts/quickinput/quickInputComponent.ts";
+import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 import type { QuickAccessRegistry } from "../common/quickAccessRegistry.ts";
 import { QuickAccessRegistryDIToken } from "../common/quickAccessRegistry.ts";

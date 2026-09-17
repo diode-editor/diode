@@ -10,8 +10,8 @@ import {
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
     parseWireCompletionItems,
-    parseWireEditorEdits,
     parseWireCompletionResult,
+    parseWireEditorEdits,
     parseWireEditorLayout,
     parseWireFoldingRanges,
     parseWireReadFileResult,
@@ -19,11 +19,11 @@ import {
     parseWireSelections,
     parseWireShowTextDocumentParams,
     parseWireTextEdits,
-    reviveWireUri,
     requestCompletionItems,
     requestFoldingRanges,
     requestResolveCompletionItem,
     requestWillSaveEdits,
+    reviveWireUri,
     wireToCoreCompletionItems,
     wireToCoreFoldingRegions,
     wireToSaveEdits,
@@ -611,7 +611,9 @@ describe("WireTypes — parseWireEditorLayout", () => {
 
     it("битая вкладка роняет весь снимок → null", () => {
         expect(parseWireEditorLayout(layoutOf({}))).toBeNull();
-        expect(parseWireEditorLayout({ groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [42] }] })).toBeNull();
+        expect(
+            parseWireEditorLayout({ groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [42] }] }),
+        ).toBeNull();
         expect(parseWireEditorLayout(layoutOf(layoutTab({ uri: "" })))).toBeNull();
         expect(parseWireEditorLayout(layoutOf(layoutTab({ label: 5 })))).toBeNull();
         expect(parseWireEditorLayout(layoutOf(layoutTab({ isActive: "yes" })))).toBeNull();
@@ -623,9 +625,11 @@ describe("WireTypes — parseWireEditorLayout", () => {
 describe("WireTypes — parseWireShowTextDocumentParams", () => {
     it("минимальная форма — только uri; опциональные поля подхватываются", () => {
         expect(parseWireShowTextDocumentParams({ uri: "file:///a.ts" })).toEqual({ uri: "file:///a.ts" });
-        expect(
-            parseWireShowTextDocumentParams({ uri: "file:///a.ts", viewColumn: -2, preserveFocus: true }),
-        ).toEqual({ uri: "file:///a.ts", viewColumn: -2, preserveFocus: true });
+        expect(parseWireShowTextDocumentParams({ uri: "file:///a.ts", viewColumn: -2, preserveFocus: true })).toEqual({
+            uri: "file:///a.ts",
+            viewColumn: -2,
+            preserveFocus: true,
+        });
     });
 
     it("не-объект и пустой/нестроковый uri → null", () => {
@@ -663,7 +667,12 @@ describe("WireTypes — parseWireShowTextDocumentParams", () => {
 
 describe("WireTypes — parseWireCloseTabsParams", () => {
     it("парсит адресацию вкладок парами (groupId, uri)", () => {
-        const raw = { tabs: [{ groupId: 1, uri: "file:///a.ts" }, { groupId: 2, uri: "file:///b.ts" }] };
+        const raw = {
+            tabs: [
+                { groupId: 1, uri: "file:///a.ts" },
+                { groupId: 2, uri: "file:///b.ts" },
+            ],
+        };
         expect(parseWireCloseTabsParams(raw)).toEqual(raw);
     });
 

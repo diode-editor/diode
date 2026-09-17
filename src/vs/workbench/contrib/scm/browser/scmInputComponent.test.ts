@@ -1,8 +1,8 @@
+import { BoxConstraints } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import { BoxConstraints } from "@tuidom/core/common/geometryPromitives";
-import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -38,7 +38,8 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
 const REPO_STATE = {
     branch: "main",
     detached: false,
-    upstream: "origin/main",
+    // `null` — ветка без upstream (git.publish); тип должен это допускать.
+    upstream: "origin/main" as string | null,
     ahead: 0,
     behind: 0,
     remotes: ["origin"],
@@ -277,7 +278,9 @@ describe("ScmInputComponent — кнопка действия", () => {
         // Disabled-вид рендерится secondary-цветами без падений.
         h.publishChanges(0);
         expect(h.component.actionButton.isDisabled()).toBe(true);
-        expect(renderElement(h.component.view, 30, SCM_INPUT_HEIGHT, { themeVars: true }).screenToString()).toContain("Commit");
+        expect(renderElement(h.component.view, 30, SCM_INPUT_HEIGHT, { themeVars: true }).screenToString()).toContain(
+            "Commit",
+        );
     });
 
     it("клик мышью активирует включённую кнопку и игнорирует задизейбленную", () => {
@@ -373,8 +376,9 @@ describe("ScmInputComponent — кнопка во время операции", 
         h.publishRepoState();
         h.publishChanges(1);
 
-        void h.progress.withProgress({ location: "view", viewId: "workbench.scm.graph", title: "Loading History…" }, () =>
-            new Promise<void>(() => {}),
+        void h.progress.withProgress(
+            { location: "view", viewId: "workbench.scm.graph", title: "Loading History…" },
+            () => new Promise<void>(() => {}),
         );
         vi.advanceTimersByTime(1000);
         expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: false });

@@ -1,4 +1,5 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import type { ITreeFileChange } from "../../../platform/files/common/iTreeFileWatcher.ts";
 
 /**

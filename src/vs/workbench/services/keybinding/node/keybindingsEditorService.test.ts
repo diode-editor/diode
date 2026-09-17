@@ -1,13 +1,16 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { parse as parseJsonc } from "jsonc-parser";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import type { IKeybindingEntrySnapshot } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { chordsEqual, KeybindingRegistry, parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    chordsEqual,
+    KeybindingRegistry,
+    parseChord,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 
 import { KeybindingsEditorService } from "./keybindingsEditorService.ts";
@@ -103,9 +106,7 @@ describe("applyUserKeybindings (bootstrap)", () => {
     it("args правила доезжают до реестра и резолюции (бинд с префиллом)", () => {
         const h = makeHarness();
 
-        h.service.applyUserKeybindings([
-            { key: "f6", command: "workbench.action.quickOpen", args: "src/" },
-        ]);
+        h.service.applyUserKeybindings([{ key: "f6", command: "workbench.action.quickOpen", args: "src/" }]);
 
         const res = h.registry.resolveKey({ ...parseChord("f6")[0] });
         expect(res).toEqual({
@@ -345,7 +346,11 @@ describe("исходы и события", () => {
         // Путь «в файл внутри файла» — запись гарантированно падает.
         const blocker = ws.path("blocker");
         fs.writeFileSync(blocker, "", "utf-8");
-        const service = new KeybindingsEditorService(registry, path.join(blocker, "keybindings.json"), NULL_LOG_SERVICE);
+        const service = new KeybindingsEditorService(
+            registry,
+            path.join(blocker, "keybindings.json"),
+            NULL_LOG_SERVICE,
+        );
 
         const result = await service.defineKeybinding("test.save", parseChord("f6"));
 
@@ -447,7 +452,9 @@ describe("выбор правила и запись файла — тонкос�
         ]);
         const target = h.registry
             .listBindings()
-            .find((b) => b.commandId === "save" && b.when === "listFocus" && chordsEqual(b.chord, parseChord("ctrl+s")))!;
+            .find(
+                (b) => b.commandId === "save" && b.when === "listFocus" && chordsEqual(b.chord, parseChord("ctrl+s")),
+            )!;
 
         await h.service.removeKeybinding(target);
 
@@ -494,9 +501,7 @@ describe("выбор правила и запись файла — тонкос�
             { key: "f6", command: "dup.cmd", when: "listFocus" },
         ]);
 
-        const noWhenEntry = h.registry
-            .listBindings()
-            .find((b) => b.commandId === "dup.cmd" && b.when === undefined)!;
+        const noWhenEntry = h.registry.listBindings().find((b) => b.commandId === "dup.cmd" && b.when === undefined)!;
         await h.service.removeKeybinding(noWhenEntry);
 
         const remaining = h.rules().filter((r) => r.command === "dup.cmd");
@@ -509,7 +514,11 @@ describe("выбор правила и запись файла — тонкос�
         registry.register(parseChord("ctrl+s"), "test.save");
         const blocker = ws.path("blocker");
         fs.writeFileSync(blocker, "", "utf-8");
-        const service = new KeybindingsEditorService(registry, path.join(blocker, "keybindings.json"), NULL_LOG_SERVICE);
+        const service = new KeybindingsEditorService(
+            registry,
+            path.join(blocker, "keybindings.json"),
+            NULL_LOG_SERVICE,
+        );
         // Bootstrap-снятие дефолта наполняет леджер (removedDefaults), файл не пишет.
         service.applyUserKeybindings([{ key: "ctrl+s", command: "-test.save" }]);
         expect(registry.getKeybindingForCommand("test.save")).toBeUndefined();

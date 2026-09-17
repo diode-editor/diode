@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
@@ -216,7 +215,12 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
                     viewColumn: 1,
                     isActive: true,
                     tabs: [
-                        { ...tab("diff://1", { isActive: true, label: "дифф" }), kind: "diff", original: A, modified: B },
+                        {
+                            ...tab("diff://1", { isActive: true, label: "дифф" }),
+                            kind: "diff",
+                            original: A,
+                            modified: B,
+                        },
                         { ...tab("diff://2", { label: "без сторон" }), kind: "diff" },
                     ],
                 },
@@ -243,7 +247,12 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
                     viewColumn: 1,
                     isActive: true,
                     tabs: [
-                        { ...tab("diff://1", { isActive: true, label: "дифф" }), kind: "diff", original: A, modified: B },
+                        {
+                            ...tab("diff://1", { isActive: true, label: "дифф" }),
+                            kind: "diff",
+                            original: A,
+                            modified: B,
+                        },
                         { ...tab("diff://2", { label: "без сторон" }), kind: "diff" },
                     ],
                 },
@@ -273,7 +282,14 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
                     groupId: 1,
                     viewColumn: 1,
                     isActive: true,
-                    tabs: [{ ...tab("diff://1", { isActive: true, label: "дифф" }), kind: "diff", original: A, modified: B }],
+                    tabs: [
+                        {
+                            ...tab("diff://1", { isActive: true, label: "дифф" }),
+                            kind: "diff",
+                            original: A,
+                            modified: B,
+                        },
+                    ],
                 },
                 { groupId: 2, viewColumn: 2, isActive: false, tabs: [tab(B, { isActive: true })] },
             ],
@@ -312,7 +328,12 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         tabs.onDidChangeTextEditorViewColumn((e) => events.push(e));
 
         // Активная вкладка группы 2 — дифф: текстового редактора (и кэша) у неё нет.
-        const diffTab = { ...tab("diff://1", { isActive: true, label: "дифф" }), kind: "diff", original: A, modified: B };
+        const diffTab = {
+            ...tab("diff://1", { isActive: true, label: "дифф" }),
+            kind: "diff",
+            original: A,
+            modified: B,
+        };
         stub.fire("editor.layoutChanged", {
             groups: [
                 { groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] },

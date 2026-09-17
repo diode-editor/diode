@@ -1,6 +1,7 @@
 import type { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
 import type { EditorPartOrientation } from "@tuidom/elements/editorpart/editorPartElement";
 import { EditorPartElement } from "@tuidom/elements/editorpart/editorPartElement";
+
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -154,7 +155,10 @@ export class EditorPartComponent extends Component {
         }
         for (const group of groups) {
             if (!this.groupComponents.has(group.id)) {
-                this.groupComponents.set(group.id, new EditorGroupComponent(group, this.editorService, this.contextMenuService));
+                this.groupComponents.set(
+                    group.id,
+                    new EditorGroupComponent(group, this.editorService, this.contextMenuService),
+                );
             }
         }
 

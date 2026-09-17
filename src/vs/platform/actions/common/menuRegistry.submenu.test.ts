@@ -1,6 +1,6 @@
+import type { MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { describe, expect, it } from "vitest";
 
-import type { MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
 import { KeybindingRegistry } from "../../keybinding/common/keybindingRegistry.ts";

@@ -1,6 +1,6 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describe, expect, it, vi } from "vitest";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -67,7 +67,8 @@ function fakeSource(editor: IQuickDiffEditor | null) {
 function fakeConfig(values: Record<string, unknown> = {}) {
     const listeners: ((e: { affectsConfiguration(s: string): boolean }) => void)[] = [];
     const service = {
-        get: <T>(key: string): T | undefined => values[key] as T | undefined,
+        // Сигнатура сервиса дженерик, но фейку достаточно отдать значение как есть.
+        get: (key: string): never => values[key] as never,
         onDidChangeConfiguration: (cb: (e: { affectsConfiguration(s: string): boolean }) => void): IDisposable => {
             listeners.push(cb);
             return { dispose: () => listeners.splice(listeners.indexOf(cb), 1) };
@@ -95,7 +96,7 @@ function fakeTheme(colors: Record<string, number>) {
     return {
         service,
         recolor: (next: Record<string, number>) => {
-            for (const key of Object.keys(colors)) delete colors[key];
+            for (const key of Object.keys(colors)) Reflect.deleteProperty(colors, key);
             Object.assign(colors, next);
             for (const cb of [...listeners]) cb();
         },

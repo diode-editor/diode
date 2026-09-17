@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import type { ITerminalSessionOptions, TerminalSessionFactory } from "../common/terminalSessionFactory.ts";
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 function buildHarness() {
     const views = makeViewsHarness();

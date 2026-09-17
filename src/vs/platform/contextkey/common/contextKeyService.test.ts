@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ContextKeyService } from "./contextKeyService.ts";
 import { registerContextKeys } from "./contextKeys.ts";
+import { ContextKeyService } from "./contextKeyService.ts";
 
 describe("ContextKeyService", () => {
     it("returns undefined for unset keys", () => {

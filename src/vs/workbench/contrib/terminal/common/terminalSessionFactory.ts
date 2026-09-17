@@ -4,6 +4,7 @@
 
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 export interface ITerminalSessionOptions {

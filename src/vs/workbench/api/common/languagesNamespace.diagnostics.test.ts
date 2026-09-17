@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
@@ -63,7 +62,10 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         const collection = languages.createDiagnosticCollection("eslint");
         const rich = new Diagnostic(new Range(0, 17, 0, 18), "Unnecessary semicolon.");
         // Так шлёт eslint: код правила + ссылка на его доку.
-        rich.code = { value: "no-extra-semi", target: Uri.parse("https://eslint.org/docs/rules/no-extra-semi") } as never;
+        rich.code = {
+            value: "no-extra-semi",
+            target: Uri.parse("https://eslint.org/docs/rules/no-extra-semi"),
+        } as never;
         const garbage = new Diagnostic(new Range(1, 0, 1, 1), "x");
         garbage.code = { targetOnly: true } as never;
         // null — тоже typeof "object": ветка rich-формы обязана его пережить.
@@ -87,6 +89,22 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
             owner: "ext:diagnostics",
             markers: [{ severity: 0, startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0, message: "" }],
         });
+    });
+
+    it("не-строковый message: rich-форма отдаёт свой value, всё прочее — не «[object Object]»", () => {
+        const { stub, languages } = makeLanguages();
+        const collection = languages.createDiagnosticCollection("rich");
+        collection.set(FILE as unknown as vscode.Uri, [
+            // MarkdownString и подобные несут текст в `value`.
+            { message: { value: "**bold** rule" } } as unknown as vscode.Diagnostic,
+            // Объект без `value` текстом не является — пустая строка, а не «[object Object]».
+            { message: { nope: 1 } } as unknown as vscode.Diagnostic,
+            // Примитив нестрокового типа печатается как есть.
+            { message: 42 } as unknown as vscode.Diagnostic,
+        ]);
+
+        const messages = published(stub)[0].markers.map((m) => (m as { message: string }).message);
+        expect(messages).toEqual(["**bold** rule", "", "42"]);
     });
 
     it("set(entries[]) — перегрузка массива пар; string-uri нормализуется", () => {
@@ -171,7 +189,9 @@ describe("LanguagesNamespace — no-op поверхность для vscode-lang
         ]) {
             const disposable = ns[name]({}, {});
             expect(disposable, name).toBeDefined();
-            expect(() => disposable.dispose(), name).not.toThrow();
+            expect(() => {
+                disposable.dispose();
+            }, name).not.toThrow();
         }
         const match = (languages as unknown as { match(selector: unknown, doc: unknown): number }).match;
         // Настоящий скоринг: markdown-документ НЕ матчится ts-селектору —

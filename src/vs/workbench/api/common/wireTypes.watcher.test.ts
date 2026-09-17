@@ -23,7 +23,11 @@ describe("parseWireWatcherCreate", () => {
             ignoreChangeEvents: "да",
             ignoreDeleteEvents: 1,
         });
-        expect(parsed).toMatchObject({ ignoreCreateEvents: true, ignoreChangeEvents: false, ignoreDeleteEvents: false });
+        expect(parsed).toMatchObject({
+            ignoreCreateEvents: true,
+            ignoreChangeEvents: false,
+            ignoreDeleteEvents: false,
+        });
     });
 
     it("структурно чужой запрос — null", () => {
@@ -71,7 +75,13 @@ describe("parseWireWatcherEvents", () => {
         expect(
             parseWireWatcherEvents({
                 id: 2,
-                events: [null, "нет", { type: "moved", uri: "file:///a" }, { type: "changed", uri: "" }, { type: "changed" }],
+                events: [
+                    null,
+                    "нет",
+                    { type: "moved", uri: "file:///a" },
+                    { type: "changed", uri: "" },
+                    { type: "changed" },
+                ],
             }),
         ).toEqual({ id: 2, events: [] });
     });

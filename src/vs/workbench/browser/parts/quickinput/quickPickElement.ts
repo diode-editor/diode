@@ -10,8 +10,9 @@ import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFl
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-import { CONTENT_PAD, QuickPickFrameElement } from "./quickPickFrameElement.ts";
 import type { QuickPickAcceptMode, QuickPickItem, ValidationSeverity } from "../../../common/quickPickItem.ts";
+
+import { CONTENT_PAD, QuickPickFrameElement } from "./quickPickFrameElement.ts";
 import { buildItemRow, rowId } from "./quickPickRows.ts";
 
 /**
@@ -137,10 +138,10 @@ export class QuickPickElement extends TUIElement {
             this.handleKeyDown(event.key, event);
         });
         this.addEventListener("mousemove", (event) => {
-            this.handleMouseMove(event as TUIMouseEvent);
+            this.handleMouseMove(event);
         });
         this.addEventListener("click", (event) => {
-            this.handleClick(event as TUIMouseEvent);
+            this.handleClick(event);
         });
     }
 

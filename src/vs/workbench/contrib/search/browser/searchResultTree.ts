@@ -38,8 +38,11 @@ export function buildSearchTree<T extends { readonly relPath: string }>(
     const root: TrieNode<T> = { folders: new Map(), files: [] };
 
     for (const item of items) {
-        const segments = item.relPath.split("/");
-        const name = segments.pop()!;
+        // Имя и папки режем по последнему «/», а не через split+pop: так имя
+        // получается строкой по построению, без утверждения «массив непуст».
+        const lastSlash = item.relPath.lastIndexOf("/");
+        const name = item.relPath.slice(lastSlash + 1);
+        const segments = lastSlash < 0 ? [] : item.relPath.slice(0, lastSlash).split("/");
         let node = root;
         for (const segment of segments) {
             let next = node.folders.get(segment);

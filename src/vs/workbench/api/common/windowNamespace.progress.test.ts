@@ -60,17 +60,12 @@ describe("WindowNamespace — window.withProgress (настоящий)", () => {
             ),
         ).rejects.toThrow("failed");
 
-        expect(progressNotifies(stub).map((n) => n.method)).toEqual([
-            "window.progress.start",
-            "window.progress.end",
-        ]);
+        expect(progressNotifies(stub).map((n) => n.method)).toEqual(["window.progress.start", "window.progress.end"]);
     });
 
     it("handle уникален per-вызов; без title уезжает пустая строка", async () => {
         const { stub, window } = makeWindow();
-        await window.withProgress({ location: ProgressLocation.Window as never, title: "a" }, () =>
-            Promise.resolve(1),
-        );
+        await window.withProgress({ location: ProgressLocation.Window as never, title: "a" }, () => Promise.resolve(1));
         await window.withProgress({ location: ProgressLocation.Window as never }, () => Promise.resolve(2));
 
         const starts = progressNotifies(stub).filter((n) => n.method === "window.progress.start");

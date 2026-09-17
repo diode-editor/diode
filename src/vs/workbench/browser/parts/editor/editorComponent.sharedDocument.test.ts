@@ -152,10 +152,7 @@ describe("EditorComponent: один документ в двух вью", () => 
     });
 
     it("фолды второй вью сдвигаются под правку первой", () => {
-        const { a, b } = openTwice(
-            "folds.txt",
-            ["top", "if {", "  in1", "  in2", "}", "tail"].join("\n"),
-        );
+        const { a, b } = openTwice("folds.txt", ["top", "if {", "  in1", "  in2", "}", "tail"].join("\n"));
         b.viewState.setFoldingRegions([{ startLine: 1, endLine: 4, isCollapsed: true }]);
 
         // A вставляет строку выше региона.

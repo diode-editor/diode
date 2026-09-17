@@ -1,7 +1,9 @@
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
-import { vflexFill, vflexFit, VFlexElement } from "@tuidom/elements/layout/vFlexElement";
+import { VFlexElement, vflexFill, vflexFit } from "@tuidom/elements/layout/vFlexElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+
+import { listRowId } from "../../../../base/common/listRowId.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -11,11 +13,12 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import type { ScmMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { Component } from "../../../browser/component.ts";
-import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SCM_VIEW_MODE_STATE, type ScmViewMode } from "../../../common/stateKeys.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
+import { SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
 
 import type { IScmChange, ScmChangesService, ScmGroupId } from "./changesService.ts";
 import { SCM_GROUP_IDS, ScmChangesServiceDIToken } from "./changesService.ts";
@@ -31,8 +34,6 @@ import {
 } from "./scmChangeRows.ts";
 import { buildScmTree, displayPath, type ScmTreeNode, sortChangesFlat } from "./scmChangeTree.ts";
 import type { ScmInputComponent } from "./scmInputComponent.ts";
-import { SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
-
 import { SCM_INPUT_HEIGHT, ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 export const ChangesComponentDIToken = token<ChangesComponent>("ChangesComponent");
@@ -134,18 +135,19 @@ export class ChangesComponent extends Component {
             title: "CHANGES",
             order: 10,
             body: this.view,
-            focus: () => this.focus(),
+            focus: () => {
+                this.focus();
+            },
             // Контролы коммита занимают 4 строки (поле + зазор + кнопка +
             // padding снизу) — дефолтных трёх на секцию уже не хватает.
             minBodyHeight: SCM_INPUT_HEIGHT + 3,
         });
 
         this.list.onActivate = (element) => {
-            // Список не принимает строки без id — здесь он гарантированно есть.
-            this.activateRow(element.id!);
+            this.activateRow(listRowId(element));
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
-            const meta = this.rowMeta.get(element.id!);
+            const meta = this.rowMeta.get(listRowId(element));
             if (meta === undefined) return;
             this.showContextMenu(meta, screenX, screenY);
         };
@@ -178,8 +180,7 @@ export class ChangesComponent extends Component {
     public getSelectedChanges(): readonly IScmChange[] {
         const changes: IScmChange[] = [];
         for (const element of this.list.getSelectedElements()) {
-            // Список не принимает строки без id — здесь он гарантированно есть.
-            const meta = this.rowMeta.get(element.id!);
+            const meta = this.rowMeta.get(listRowId(element));
             if (meta?.kind === "file") changes.push(meta.change);
         }
         return changes;

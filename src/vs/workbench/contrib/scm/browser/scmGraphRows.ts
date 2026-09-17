@@ -1,5 +1,6 @@
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+
 import type { IGraphLine } from "../common/commitGraph.ts";
 import { GRAPH_CURRENT_REF_STYLE, GRAPH_REMOTE_REF_STYLE } from "../common/commitGraphPalette.ts";
 
@@ -91,7 +92,7 @@ export function buildRefsLabel(
         if (shown > 0 && text.length + piece.length > REFS_MAX_WIDTH) break;
         const style = refStyle(ref, commitStyle);
         text += piece;
-        for (let i = 0; i < piece.length; i++) styles.push(style);
+        for (let rest = piece.length; rest > 0; rest--) styles.push(style);
         shown++;
     }
 
@@ -99,7 +100,7 @@ export function buildRefsLabel(
     if (hidden > 0) {
         const piece = ` +${hidden}`;
         text += piece;
-        for (let i = 0; i < piece.length; i++) styles.push("descriptionForeground");
+        for (let rest = piece.length; rest > 0; rest--) styles.push("descriptionForeground");
     }
 
     // Разделитель до темы коммита — вне подсветки бейджей.

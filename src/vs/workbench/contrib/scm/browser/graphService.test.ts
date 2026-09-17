@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
 import type { IScmCommit } from "./graphService.ts";
@@ -87,7 +86,12 @@ describe("ScmGraphService", () => {
         expect(changed).toHaveBeenCalledTimes(2);
 
         publish(commands, [
-            commit({ sha: SHA_A, subject: "s", parents: [SHA_B], refs: [{ name: "main", kind: "head", current: true }] }),
+            commit({
+                sha: SHA_A,
+                subject: "s",
+                parents: [SHA_B],
+                refs: [{ name: "main", kind: "head", current: true }],
+            }),
         ]);
         expect(changed).toHaveBeenCalledTimes(3);
     });
@@ -191,7 +195,9 @@ describe("ScmGraphService: канал «нужна ли история»", () =>
     it("расширения ещё нет — сигнал молча теряется, его подберёт pull", () => {
         const { service, commands } = setup();
 
-        expect(() => service.setActive(true)).not.toThrow();
+        expect(() => {
+            service.setActive(true);
+        }).not.toThrow();
         expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(true);
     });
 });

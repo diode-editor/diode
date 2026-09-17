@@ -1,6 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { describe, expect, it, vi } from "vitest";
 
 import { PanelService } from "./panelService.ts";
 

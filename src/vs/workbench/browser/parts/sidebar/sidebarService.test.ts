@@ -1,6 +1,6 @@
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { describe, expect, it, vi } from "vitest";
 
-import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
 
 import { SidebarService } from "./sidebarService.ts";

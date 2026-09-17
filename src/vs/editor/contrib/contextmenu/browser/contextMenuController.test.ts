@@ -1,12 +1,11 @@
-import { describe, expect, it } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import type { MenuItemEntry, PopupMenuElement } from "@tuidom/elements/menu/popupMenuElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { MENU_CONTRIBUTIONS } from "../../../../workbench/browser/actions/menuContributions.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -15,6 +14,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { MENU_CONTRIBUTIONS } from "../../../../workbench/browser/actions/menuContributions.ts";
 import { EditorElement } from "../../../browser/editorElement.ts";
 import { createSelection } from "../../../common/core/iSelection.ts";
 import { TextDocument } from "../../../common/model/textDocument.ts";
@@ -47,7 +47,9 @@ function setup(text = "hello world\nsecond line", configuration?: IConfiguration
         commands.register(id, () => executed.push(id), title);
     }
     const contextMenuService = new ContextMenuService(
-        new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS)),
+        new MenuService(
+            new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
+        ),
     );
     const controller = new ContextMenuController(contextMenuService, configuration ?? NULL_CONFIGURATION_SERVICE);
     controller.attach(view);
@@ -148,9 +150,7 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
 
         rightClick(app, editor, GUTTER + 2, 0);
         const popup = openPopup(app);
-        popup?.entries
-            .find((e): e is MenuItemEntry => e.type !== "separator" && e.label === "Copy")
-            ?.onSelect?.();
+        popup?.entries.find((e): e is MenuItemEntry => e.type !== "separator" && e.label === "Copy")?.onSelect?.();
 
         expect(executed).toEqual(["editor.action.clipboardCopyAction"]);
         expect(app.root.overlayLayer.hasVisibleItems()).toBe(false);
@@ -217,7 +217,13 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
 
     it("ignores an already-prevented contextmenu event", () => {
         const { app, editor } = setup();
-        editor.addEventListener("contextmenu", (e) => e.preventDefault(), { capture: true });
+        editor.addEventListener(
+            "contextmenu",
+            (e) => {
+                e.preventDefault();
+            },
+            { capture: true },
+        );
 
         rightClick(app, editor, GUTTER + 2, 0);
 

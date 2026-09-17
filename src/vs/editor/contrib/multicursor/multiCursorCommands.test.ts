@@ -365,8 +365,6 @@ describe("selectHighlights (Ctrl+Shift+L)", () => {
         selectHighlights(state);
         expect(state.selections).toHaveLength(1);
     });
-
-
 });
 
 describe("insertCursorAtEndOfEachLineSelected (Ctrl+Shift+Alt+I)", () => {

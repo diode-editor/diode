@@ -99,9 +99,20 @@ describe("TerminalEnvironmentModel", () => {
         // хинт стоил и комбинации (Ctrl+Shift+F приезжал как Ctrl+F), и legacy-фоллбэка.
         it("не верит env-флагам терминала внутри tmux", () => {
             expect(
-                detectExtendedKeysHint({ TERM: "tmux-256color", TERM_PROGRAM: "tmux", KITTY_WINDOW_ID: "1", TMUX: "/tmp/tmux-1000/default,1,0" }),
+                detectExtendedKeysHint({
+                    TERM: "tmux-256color",
+                    TERM_PROGRAM: "tmux",
+                    KITTY_WINDOW_ID: "1",
+                    TMUX: "/tmp/tmux-1000/default,1,0",
+                }),
             ).toBe(false);
-            expect(detectExtendedKeysHint({ TERM: "tmux-256color", WEZTERM_PANE: "0", TMUX: "/tmp/tmux-1000/default,1,0" })).toBe(false);
+            expect(
+                detectExtendedKeysHint({
+                    TERM: "tmux-256color",
+                    WEZTERM_PANE: "0",
+                    TMUX: "/tmp/tmux-1000/default,1,0",
+                }),
+            ).toBe(false);
         });
 
         // Явный $TERM внутри tmux — это уже настройка пользователя (`default-terminal`),

@@ -1,9 +1,11 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
-import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
-import { QuickPickElement } from "./quickPickElement.ts";
+import type { BodyElement } from "@tuidom/elements/body/bodyElement";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../component.ts";
+
+import { QuickPickElement } from "./quickPickElement.ts";
 
 export const QuickInputComponentDIToken = token<QuickInputComponent>("QuickInputComponent");
 

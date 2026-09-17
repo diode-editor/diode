@@ -1,6 +1,7 @@
 import type { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
-import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -58,7 +59,7 @@ export class ContextMenuController {
     }
 
     private onContextMenu(event: TUIContextMenuEvent): void {
-        const editor = findEditor(event.target as TUIElement | null);
+        const editor = findEditor(event.target);
         if (!editor || event.defaultPrevented) return;
 
         editor.focus();

@@ -74,9 +74,7 @@ export interface ScmGraphMenuContext {
 export const scmGraphShaArg = (context: unknown): readonly unknown[] => [(context as ScmGraphMenuContext).sha];
 
 /** Аргумент Copy Commit Message — тема коммита под меню. */
-export const scmGraphSubjectArg = (context: unknown): readonly unknown[] => [
-    (context as ScmGraphMenuContext).subject,
-];
+export const scmGraphSubjectArg = (context: unknown): readonly unknown[] => [(context as ScmGraphMenuContext).subject];
 
 /**
  * Контекст меню «⋯» view-секции сайдбара (`MenuId.ViewTitle`):
@@ -140,9 +138,7 @@ export const editorTabTargetArg = (context: unknown): readonly unknown[] => {
 };
 
 /** Аргумент файловых команд вкладки — путь её файла. */
-export const editorTabPathArg = (context: unknown): readonly unknown[] => [
-    (context as EditorTitleMenuContext).path,
-];
+export const editorTabPathArg = (context: unknown): readonly unknown[] => [(context as EditorTitleMenuContext).path];
 
 /** Видимость файловых пунктов: у вкладки есть файл на диске. */
 export const editorTabIsFile = (context: unknown): boolean => (context as EditorTitleMenuContext).path !== null;
@@ -155,5 +151,4 @@ export const editorTabHasTabsToTheRight = (context: unknown): boolean =>
     (context as EditorTitleMenuContext).hasTabsToTheRight;
 
 /** Видимость Close Saved: в группе есть вкладки без несохранённых правок. */
-export const editorTabHasSavedTabs = (context: unknown): boolean =>
-    (context as EditorTitleMenuContext).hasSavedTabs;
+export const editorTabHasSavedTabs = (context: unknown): boolean => (context as EditorTitleMenuContext).hasSavedTabs;

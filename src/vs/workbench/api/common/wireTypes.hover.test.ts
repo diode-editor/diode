@@ -20,7 +20,10 @@ describe("wireTypes — parseWireHovers", () => {
                 { contents: ["const a: number", 7], range: RANGE },
                 { contents: ["без range"] },
             ]),
-        ).toEqual([{ contents: ["const a: number"], range: RANGE }, { contents: ["без range"], range: undefined }]);
+        ).toEqual([
+            { contents: ["const a: number"], range: RANGE },
+            { contents: ["без range"], range: undefined },
+        ]);
     });
 
     it("кривой range валидного hover'а отбрасывается, contents остаются", () => {
@@ -32,12 +35,10 @@ describe("wireTypes — parseWireHovers", () => {
 
 describe("wireTypes — wireToCoreHovers", () => {
     it("переводит wire-диапазон в core IRange; hover без range остаётся без него", () => {
-        expect(
-            wireToCoreHovers([
-                { contents: ["сигнатура"], range: RANGE },
-                { contents: ["документация"] },
-            ]),
-        ).toEqual([{ contents: ["сигнатура"], range: createRange(2, 4, 2, 9) }, { contents: ["документация"] }]);
+        expect(wireToCoreHovers([{ contents: ["сигнатура"], range: RANGE }, { contents: ["документация"] }])).toEqual([
+            { contents: ["сигнатура"], range: createRange(2, 4, 2, 9) },
+            { contents: ["документация"] },
+        ]);
     });
 });
 

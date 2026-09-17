@@ -23,10 +23,7 @@ export interface IExtensionButtonState {
     readonly needsReload: boolean;
 }
 
-export function describeExtensionButtons(
-    entry: IExtensionListEntry,
-    state: IExtensionButtonState,
-): IExtensionButton[] {
+export function describeExtensionButtons(entry: IExtensionListEntry, state: IExtensionButtonState): IExtensionButton[] {
     const buttons: IExtensionButton[] = [];
     // Перезагрузка идёт первой: после установки это следующий шаг пользователя,
     // и фокус страницы встаёт именно на неё.

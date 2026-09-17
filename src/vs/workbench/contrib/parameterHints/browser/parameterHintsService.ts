@@ -86,7 +86,10 @@ export class ParameterHintsService extends Disposable {
      * Запрашивает подсказку для позиции каретки и показывает попап. No-op, если
      * нет активного редактора или источника; пустой ответ закрывает попап.
      */
-    public async trigger(triggerKind: TriggerKind = SignatureHelpTriggerKind.Invoke, character?: string): Promise<void> {
+    public async trigger(
+        triggerKind: TriggerKind = SignatureHelpTriggerKind.Invoke,
+        character?: string,
+    ): Promise<void> {
         this.cancelScheduledTrigger();
         const editor = this.group.getActiveEditor();
         if (editor === null) return;

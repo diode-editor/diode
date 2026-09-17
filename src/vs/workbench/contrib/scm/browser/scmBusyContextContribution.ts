@@ -29,7 +29,11 @@ export class ScmBusyContextContribution extends Disposable implements IWorkbench
         private readonly contextKeys: ContextKeyService,
     ) {
         super();
-        this.register(progress.onDidChange(() => this.update()));
+        this.register(
+            progress.onDidChange(() => {
+                this.update();
+            }),
+        );
         this.update();
     }
 

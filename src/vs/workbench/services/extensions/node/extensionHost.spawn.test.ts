@@ -1,9 +1,9 @@
 import { EventEmitter } from "node:events";
 import type * as nodeModule from "node:module";
 
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { registerAndActivate } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { NULL_COMMAND_SERVICE } from "../../../api/common/iCommandService.ts";
 import type {

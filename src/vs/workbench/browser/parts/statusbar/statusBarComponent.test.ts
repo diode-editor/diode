@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { HFlexElement } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { clickSegment, createStatusBarHarness, statusSegments, statusTexts } from "./statusBarComponent.testUtils.ts";
 
@@ -227,7 +226,8 @@ describe("StatusBarComponent", () => {
 
             const childrenBefore = component.view.getChildren();
             const labelBefore = childrenBefore.find(
-                (child) => "getText" in child && (child as { getText(): string }).getText() === " Ln 1, Col 1 ",
+                (child): child is TextLabelElement =>
+                    child instanceof TextLabelElement && child.getText() === " Ln 1, Col 1 ",
             );
             expect(labelBefore).toBeDefined();
 
@@ -235,7 +235,7 @@ describe("StatusBarComponent", () => {
 
             // Тот же массив детей и тот же экземпляр лейбла — изменился только текст.
             expect(component.view.getChildren()).toEqual(childrenBefore);
-            expect((labelBefore as { getText(): string }).getText()).toBe(" Ln 1, Col 2 ");
+            expect(labelBefore?.getText()).toBe(" Ln 1, Col 2 ");
         });
 
         it("adding and removing a segment rebuilds the row, reusing pooled labels", () => {

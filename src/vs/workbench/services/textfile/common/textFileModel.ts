@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+
 import { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -703,7 +704,7 @@ export class TextFileModel extends Disposable {
         const previous = this.doc.eol;
         if (previous === eol) return;
 
-        const acting = target ?? this.editTargets[0];
+        const acting = target ?? this.editTargets.at(0);
         const selections = acting?.cloneSelections() ?? [];
         const version = this.doc.versionId;
         this.doc.setEol(eol);
@@ -823,7 +824,7 @@ export class TextFileModel extends Disposable {
      * выделения точно); остальные вью ремапятся по событию документа.
      */
     public applyExternalEdits(edits: readonly ITextEdit[], label: string, target?: ITextFileEditTarget): void {
-        const acting = target ?? this.editTargets[0];
+        const acting = target ?? this.editTargets.at(0);
         if (acting === undefined) return;
         const element = acting.applyEdits(edits, label);
         if (element) this.undoManagerValue.pushUndoElement(element);

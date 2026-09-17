@@ -242,9 +242,7 @@ describe("builtin git plugin (integration)", () => {
         expect(initial.commits[0].shortSha).toMatch(/^[0-9a-f]{4,}$/);
         // Корневой коммит — без родителей; ветка приезжает бейджем с current.
         expect(initial.commits[0].parents).toEqual([]);
-        expect(initial.commits[0].refs).toContainEqual(
-            expect.objectContaining({ kind: "head", current: true }),
-        );
+        expect(initial.commits[0].refs).toContainEqual(expect.objectContaining({ kind: "head", current: true }));
         expect(initial.commits[0].author).not.toBe("");
         expect(initial.commits[0].timestamp).toBeGreaterThan(0);
 
@@ -311,8 +309,7 @@ describe("builtin git plugin (integration)", () => {
 
         const dir = harness.tmpDir;
         const uriOf = (rel: string): string => Uri.file(path.join(dir, rel)).toString();
-        const porcelain = (): string =>
-            execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString();
+        const porcelain = (): string => execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString();
 
         // stage: modified + untracked уходят в индекс.
         const staged = (await harness.commandRegistry.execute(STAGE_COMMAND, [

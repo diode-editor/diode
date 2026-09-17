@@ -26,11 +26,11 @@ const BUNDLED_POLL_MS = 100;
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const configuration = vscode.workspace.getConfiguration("diode.lsp.typescript");
-    if (configuration.get<boolean>("enabled", true) !== true) return;
-    const settingPath = configuration.get<string>("serverPath", "") ?? "";
-    const bundledServerPath = configuration.get<string>("bundledServerPath", "") ?? "";
-    const bundledTsserverPath = configuration.get<string>("bundledTsserverPath", "") ?? "";
-    const serverRuntime = configuration.get<string>("serverRuntime", "node") ?? "node";
+    if (!configuration.get<boolean>("enabled", true)) return;
+    const settingPath = configuration.get<string>("serverPath", "");
+    const bundledServerPath = configuration.get<string>("bundledServerPath", "");
+    const bundledTsserverPath = configuration.get<string>("bundledTsserverPath", "");
+    const serverRuntime = configuration.get<string>("serverRuntime", "node");
     const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
     const runtime = { command: process.execPath, runAsNodeFlag: serverRuntime === "diode-as-node" };
 
@@ -42,9 +42,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // ждём публикации кэша (rename атомарен: existsSync entry = готовность).
         const hasEarlierCandidate =
             (settingPath !== "" && existsSync(settingPath)) ||
-            workspaceRoots.some((root) =>
-                existsSync(`${root}/node_modules/typescript-language-server/lib/cli.mjs`),
-            );
+            workspaceRoots.some((root) => existsSync(`${root}/node_modules/typescript-language-server/lib/cli.mjs`));
         if (!hasEarlierCandidate && bundledServerPath !== "" && !existsSync(bundledServerPath)) {
             await waitForFile(bundledServerPath, BUNDLED_WAIT_MS);
         }
@@ -68,8 +66,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // (workspace)»). Для вшитого пути выключаем ATA: typingsInstaller не
         // пакуется, а третий уровень форков + npm нам не нужен.
         const tsserverPath =
-            (configuration.get<string>("tsserverPath", "") ?? "") ||
-            (resolved.isBundled ? bundledTsserverPath : "");
+            configuration.get<string>("tsserverPath", "") || (resolved.isBundled ? bundledTsserverPath : "");
         const initializationOptions = {
             ...(tsserverPath !== "" ? { tsserver: { path: tsserverPath } } : {}),
             ...(resolved.isBundled ? { disableAutomaticTypingAcquisition: true } : {}),

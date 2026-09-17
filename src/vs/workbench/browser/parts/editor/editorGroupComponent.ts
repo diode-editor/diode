@@ -4,6 +4,7 @@ import type { TabInfo } from "@tuidom/elements/editorgroup/editorTabStripElement
 import { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
+
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -117,7 +118,7 @@ export class EditorGroupComponent extends Component {
      */
     private showTabContextMenu(index: number, screenX: number, screenY: number): void {
         const panes = this.group.getPanes();
-        const pane = panes[index];
+        const pane = panes.at(index);
         /* v8 ignore start -- индекс приходит из tab strip и всегда указывает на существующую вкладку */
         // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
         if (pane === undefined) return;

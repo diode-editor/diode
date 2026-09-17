@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { describe, expect, it } from "vitest";
+
 import { Uri } from "../../../../base/common/uri.ts";
 
 import type { IEditorPane } from "./iEditorPane.ts";

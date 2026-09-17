@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { REGISTRY_SCHEMA_VERSION, type IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
+import {
+    type IRegistryExtensionMeta,
+    REGISTRY_SCHEMA_VERSION,
+} from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
 import { buildExtensionBodyLines, buildExtensionHeaderLines, statusLine, wrapText } from "./extensionPageContent.ts";
@@ -113,7 +116,10 @@ describe("statusLine", () => {
 
 describe("buildExtensionHeaderLines", () => {
     it("шапка несёт идентичность, статус, версию, требования и вид записи", () => {
-        const lines = buildExtensionHeaderLines({ entry: entry(), meta: meta(), metaError: null, operationError: null }, 60);
+        const lines = buildExtensionHeaderLines(
+            { entry: entry(), meta: meta(), metaError: null, operationError: null },
+            60,
+        );
         // Сравниваем строки целиком, вместе с тоном: цвет здесь — часть смысла
         // (что имя, что справочная строка, что предупреждение), и ассерт на один
         // текст пропустил бы перекрашивание половины страницы.
@@ -208,7 +214,12 @@ describe("buildExtensionHeaderLines", () => {
     it("нет записи в реестре — ни лицензии, ни ссылок: их брать неоткуда", () => {
         const lines = buildExtensionHeaderLines(
             {
-                entry: entry({ latestVersion: null, installedVersion: "0.1.0", availability: "installed", kind: undefined }),
+                entry: entry({
+                    latestVersion: null,
+                    installedVersion: "0.1.0",
+                    availability: "installed",
+                    kind: undefined,
+                }),
                 meta: undefined,
                 metaError: null,
                 operationError: null,
@@ -258,7 +269,12 @@ describe("buildExtensionHeaderLines", () => {
 describe("buildExtensionBodyLines", () => {
     it("readme переносится по ширине и идёт обычным тоном — это содержимое", () => {
         const lines = buildExtensionBodyLines(
-            { entry: entry(), meta: meta({ readme: "# Acme\n\nalpha beta gamma delta" }), metaError: null, operationError: null },
+            {
+                entry: entry(),
+                meta: meta({ readme: "# Acme\n\nalpha beta gamma delta" }),
+                metaError: null,
+                operationError: null,
+            },
             12,
         );
         expect(lines).toEqual([

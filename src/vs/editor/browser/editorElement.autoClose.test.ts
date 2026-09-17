@@ -1,6 +1,6 @@
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { describe, expect, it } from "vitest";
 
-import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";
 import {
     EMPTY_LANGUAGE_CONFIGURATION,
@@ -88,10 +88,7 @@ describe("EditorElement — авто-закрытие при наборе", () =
 
     it("typeover только у части кареток — набирается обычный символ у всех", () => {
         // Первая каретка перед `}` (перешагнула бы), вторая — в тексте.
-        const { editor, viewState } = makeEditor("{}\nab", [
-            createCursorSelection(0, 1),
-            createCursorSelection(1, 1),
-        ]);
+        const { editor, viewState } = makeEditor("{}\nab", [createCursorSelection(0, 1), createCursorSelection(1, 1)]);
         press(editor, "}");
         expect(viewState.document.getText()).toBe("{}}\na}b");
     });
@@ -118,10 +115,7 @@ describe("EditorElement — авто-закрытие при наборе", () =
     it("каретки с разъехавшимся контекстом откатываются к обычному набору", () => {
         // Первая каретка в конце строки (вставила бы пару), вторая посреди
         // слова (обычный набор) — решения не сошлись, набираем как есть.
-        const { editor, viewState } = makeEditor("a\nword", [
-            createCursorSelection(0, 1),
-            createCursorSelection(1, 2),
-        ]);
+        const { editor, viewState } = makeEditor("a\nword", [createCursorSelection(0, 1), createCursorSelection(1, 2)]);
         press(editor, "{");
         expect(viewState.document.getText()).toBe("a{\nwo{rd");
     });

@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";

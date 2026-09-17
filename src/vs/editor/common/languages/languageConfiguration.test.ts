@@ -16,10 +16,7 @@ describe("resolveLanguageConfiguration", () => {
                 ["{", "}"],
                 ["[", "]"],
             ],
-            autoClosingPairs: [
-                ["{", "}"],
-                { open: "'", close: "'", notIn: ["string", "comment"] },
-            ],
+            autoClosingPairs: [["{", "}"], { open: "'", close: "'", notIn: ["string", "comment"] }],
             surroundingPairs: [["(", ")"], { open: '"', close: '"' }],
             autoCloseBefore: ";)",
         });

@@ -1,11 +1,10 @@
-import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import * as fs from "node:fs";
-import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
@@ -14,12 +13,13 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
-import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { loadConfiguration } from "../../../../platform/configuration/node/configurationService.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
+import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
@@ -663,7 +663,12 @@ describe("EditorService", () => {
                 undefined,
                 new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS),
             );
-            return { cfg, dispose: () => cfgWs.dispose() };
+            return {
+                cfg,
+                dispose: () => {
+                    cfgWs.dispose();
+                },
+            };
         }
 
         it("определяет отступ по файлу, а не по дефолту editor.tabSize", async () => {

@@ -5,7 +5,7 @@ import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
 
-import { ParameterHintsElement, type IParameterHint } from "./parameterHintsElement.ts";
+import { type IParameterHint, ParameterHintsElement } from "./parameterHintsElement.ts";
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const ParameterHintsComponentDIToken = token<ParameterHintsComponent>("ParameterHintsComponent");

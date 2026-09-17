@@ -17,7 +17,15 @@ function fakeViews(): { views: ViewsService; frames: Map<string, string | null>;
             state.calls++;
         },
     } as unknown as ViewsService;
-    return { views, get frames() { return state.frames; }, get calls() { return state.calls; } };
+    return {
+        views,
+        get frames() {
+            return state.frames;
+        },
+        get calls() {
+            return state.calls;
+        },
+    };
 }
 
 describe("ViewProgressContribution", () => {
@@ -38,10 +46,12 @@ describe("ViewProgressContribution", () => {
         const contribution = new ViewProgressContribution(progress, target.views);
 
         let done!: () => void;
-        const running = progress.withProgress({ location: "view", viewId: CHANGES, title: "Committing…" }, () =>
-            new Promise<void>((resolve) => {
-                done = resolve;
-            }),
+        const running = progress.withProgress(
+            { location: "view", viewId: CHANGES, title: "Committing…" },
+            () =>
+                new Promise<void>((resolve) => {
+                    done = resolve;
+                }),
         );
 
         // До задержки показа кадра нет — заголовок не трогаем вовсе.
@@ -62,10 +72,12 @@ describe("ViewProgressContribution", () => {
         // должна снова гасить спиннер у той, что давно закончилась.
         const callsAfterRemoval = target.calls;
         let doneGraph!: () => void;
-        const graph = progress.withProgress({ location: "view", viewId: GRAPH, title: "Refreshing…" }, () =>
-            new Promise<void>((resolve) => {
-                doneGraph = resolve;
-            }),
+        const graph = progress.withProgress(
+            { location: "view", viewId: GRAPH, title: "Refreshing…" },
+            () =>
+                new Promise<void>((resolve) => {
+                    doneGraph = resolve;
+                }),
         );
         vi.advanceTimersByTime(300);
         expect(target.frames.get(GRAPH)).toBe("⠋");
@@ -84,10 +96,12 @@ describe("ViewProgressContribution", () => {
         const contribution = new ViewProgressContribution(progress, target.views);
 
         let doneGraph!: () => void;
-        const graph = progress.withProgress({ location: "view", viewId: GRAPH, title: "Refreshing…" }, () =>
-            new Promise<void>((resolve) => {
-                doneGraph = resolve;
-            }),
+        const graph = progress.withProgress(
+            { location: "view", viewId: GRAPH, title: "Refreshing…" },
+            () =>
+                new Promise<void>((resolve) => {
+                    doneGraph = resolve;
+                }),
         );
         vi.advanceTimersByTime(300);
         expect(target.frames.get(GRAPH)).toBe("⠋");
@@ -117,7 +131,10 @@ describe("ViewProgressContribution", () => {
         const contribution = new ViewProgressContribution(progress, target.views);
         contribution.dispose();
 
-        void progress.withProgress({ location: "view", viewId: CHANGES, title: "Committing…" }, () => new Promise<void>(() => {}));
+        void progress.withProgress(
+            { location: "view", viewId: CHANGES, title: "Committing…" },
+            () => new Promise<void>(() => {}),
+        );
         vi.advanceTimersByTime(1000);
         expect(target.calls).toBe(0);
     });

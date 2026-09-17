@@ -168,9 +168,9 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
     }
 
     private insertPane(uri: Uri): FakeHistoryPane {
-        const pane = new FakeHistoryPane(uri, this.lineCounts.get(uri.toString()) ?? UNBOUNDED, (moved) =>
-            this.fireSelection(moved),
-        );
+        const pane = new FakeHistoryPane(uri, this.lineCounts.get(uri.toString()) ?? UNBOUNDED, (moved) => {
+            this.fireSelection(moved);
+        });
         this.activeGroupValue.panes.push(pane);
         return pane;
     }

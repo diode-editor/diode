@@ -23,7 +23,9 @@ function makeAccessor(hasCommand = true): {
     const progress = new ProgressService();
     let release!: () => void;
     const pending = new Promise<unknown>((resolve) => {
-        release = () => resolve({ ok: true });
+        release = () => {
+            resolve({ ok: true });
+        };
     });
     const services = new Map<unknown, unknown>([
         [ProgressServiceDIToken, progress],

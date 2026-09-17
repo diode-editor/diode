@@ -41,10 +41,7 @@ export function appendKeybindingRule(content: string, rule: IUserKeybindingRule)
  * массиве (не-объекты и правила без command предикату не показываются) —
  * файл руками правит пользователь, и битая запись не должна ронять операцию.
  */
-export function removeKeybindingRules(
-    content: string,
-    predicate: (rule: IUserKeybindingRule) => boolean,
-): string {
+export function removeKeybindingRules(content: string, predicate: (rule: IUserKeybindingRule) => boolean): string {
     const base = ensureArrayContent(content);
     // Stryker disable next-line ObjectLiteral,ArrayDeclaration,BooleanLiteral: опции толерантности парсера — на корректном и на tolerant-разбираемом входе результат тот же.
     const parsed: unknown = parseJsonc(base, [], { allowTrailingComma: true });

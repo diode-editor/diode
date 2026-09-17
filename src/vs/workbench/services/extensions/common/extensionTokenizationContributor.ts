@@ -1,4 +1,5 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import { joinVirtualPath } from "../../../../base/common/assets/assetBundleFormat.ts";
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";

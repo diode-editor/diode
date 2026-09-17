@@ -1,19 +1,17 @@
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import {
-    createExtensionTestHarness,
-    type IExtensionHarness,
-} from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
+
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 // Автодополнение поверх СТОКОВОГО стека (правило AGENTS: фича поверх стокового
@@ -74,9 +72,9 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 describe("ExtensionHost — completion от стокового typescript-language-server", () => {
     beforeAll(async () => {
         // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
-        const { buildExtensions } = await import(
+        const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
-        );
+        )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 

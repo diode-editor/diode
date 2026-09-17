@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -12,6 +12,9 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { SEARCH_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
+import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import type {
     IFileMatch,
     ISearchHandle,
@@ -20,9 +23,6 @@ import type {
 } from "../../../services/search/common/textSearch.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
-import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
-import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
-import { SEARCH_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import type { ExplorerService } from "../../files/browser/explorerService.ts";
 
 import { type ISearchRevealTarget, SearchComponent } from "./searchComponent.ts";
@@ -660,7 +660,10 @@ describe("SearchComponent", () => {
 
     describe("кольцо фокуса (Down/Up между инпутами и списком)", () => {
         function makeFocusable(withDetails: boolean): { component: SearchComponent; app: TestApp } {
-            const component = make(fakeSearch([fileMatch("/work/project/a.ts", [[1, "", "foo", ""]])]).service, fakeExplorer(ROOT));
+            const component = make(
+                fakeSearch([fileMatch("/work/project/a.ts", [[1, "", "foo", ""]])]).service,
+                fakeExplorer(ROOT),
+            );
             if (withDetails) component.toggleQueryDetails(true, false);
             const app = TestApp.createWithContent(component.view, new Size(40, 14));
             return { component, app };

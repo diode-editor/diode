@@ -11,7 +11,10 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { IRegistryExtensionMeta } from "../../platform/extensionManagement/common/registryFormat.ts";
 import { REGISTRY_SCHEMA_VERSION } from "../../platform/extensionManagement/common/registryFormat.ts";
-import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../contrib/extensions/common/extensionsWorkbench.ts";
+import type {
+    IExtensionListEntry,
+    IExtensionsWorkbenchService,
+} from "../contrib/extensions/common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../contrib/extensions/common/extensionsWorkbench.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 

@@ -1,10 +1,5 @@
+import type { TerminalCell, TerminalMouseAction, TerminalMouseButton } from "@tuidom/core/common/iTerminalSurface";
 import { describe, expect, it, vi } from "vitest";
-
-import type {
-    TerminalCell,
-    TerminalMouseAction,
-    TerminalMouseButton,
-} from "@tuidom/core/common/iTerminalSurface";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 

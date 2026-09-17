@@ -1,5 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import { Uri } from "../../../base/common/uri.ts";
+import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
@@ -171,7 +173,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
             return pane instanceof TextEditorPane ? pane : null;
         }
         const editor = this.group.getActiveTabEditor();
-        if (editor === null || editor.uri.toString() !== uri) return null;
+        if (editor?.uri.toString() !== uri) return null;
         return editor;
     }
 
@@ -197,7 +199,7 @@ function clampPosition(
 
 /** Все выделения редактора в wire-форме (первое — первичное). */
 function wireSelectionsOf(editor: TextEditorPane): IWireSelection[] {
-    return (editor.viewState?.selections ?? []).map((sel) => ({
+    return editor.viewState.selections.map((sel) => ({
         anchorLine: sel.anchor.line,
         anchorCharacter: sel.anchor.character,
         activeLine: sel.active.line,
@@ -215,7 +217,7 @@ function metaOf(editor: TextEditorPane | null): IActiveEditorMeta {
         languageId: editor.languageId,
         isDirty: editor.isModified,
         encoding: editor.encoding,
-        eol: editor.eol === 2 ? 2 : 1,
+        eol: editor.eol === EndOfLine.CRLF ? 2 : 1,
         selection,
     };
 }

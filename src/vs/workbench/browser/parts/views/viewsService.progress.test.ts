@@ -15,7 +15,9 @@ function paneBusy(paneView: PaneViewElement, id: string): boolean {
 function scmHarness(views: string[]): IViewsHarness {
     const h = makeViewsHarness();
     h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
-    views.forEach((id, index) => h.service.registerView(testView(id, "scm", (index + 1) * 10)));
+    views.forEach((id, index) => {
+        h.service.registerView(testView(id, "scm", (index + 1) * 10));
+    });
     h.service.attachContainer("scm");
     return h;
 }
@@ -86,14 +88,18 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.registerView(testView("panel.problems", PANEL, 20));
         h.service.attachContainer(PANEL);
 
-        expect(() => h.service.setViewSpinner("panel.problems", "⠋")).not.toThrow();
+        expect(() => {
+            h.service.setViewSpinner("panel.problems", "⠋");
+        }).not.toThrow();
         const header = h.paneView(PANEL).querySelector("#paneHeader-panel-problems");
         expect(header?.inspectState()?.busy).toBe(true);
     });
 
     it("прогресс незарегистрированной view — молчаливый no-op", () => {
         const h = scmHarness(["scm.changes"]);
-        expect(() => h.service.setViewSpinner("search", "⠋")).not.toThrow();
+        expect(() => {
+            h.service.setViewSpinner("search", "⠋");
+        }).not.toThrow();
     });
 
     it("кадр до attachContainer запоминается и доезжает при показе контейнера", () => {

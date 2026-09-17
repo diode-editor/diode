@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { WheelDirection } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";

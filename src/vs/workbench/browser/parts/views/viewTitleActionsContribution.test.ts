@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 
-import { ViewTitleActionsContribution } from "./viewTitleActionsContribution.ts";
 import type { ViewsService } from "./viewsService.ts";
+import { ViewTitleActionsContribution } from "./viewTitleActionsContribution.ts";
 
 function fakeViews(): { views: ViewsService; refreshes: () => number } {
     const state = { count: 0 };

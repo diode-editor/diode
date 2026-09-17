@@ -1,4 +1,5 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 
 export class ThemeService {

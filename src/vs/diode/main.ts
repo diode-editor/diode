@@ -2,14 +2,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { HeadlessCaptureBackend } from "@tuidom/headless-backend/headlessCaptureBackend";
-import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
+import { HeadlessCaptureBackend } from "@tuidom/headless-backend/headlessCaptureBackend";
 import { waitForIdle } from "@tuidom/inspector/idleWaiter";
 import type { AttachedInspector } from "@tuidom/inspector/index";
 import { attachInspector } from "@tuidom/inspector/index";
 import type { InspectorDriver } from "@tuidom/inspector/InspectorDriver";
+import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
+
 import { joinVirtualPath } from "../base/common/assets/assetBundleFormat.ts";
 import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess.ts";
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
@@ -40,6 +41,7 @@ import { scanExtensions } from "../platform/extensions/common/extensionScanner.t
 import type { ICommandContribution } from "../platform/extensions/common/iExtensionManifest.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
+import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import { loadUserKeybindings } from "../platform/keybinding/node/keybindingsService.ts";
 import type { ILogger } from "../platform/log/common/iLogger.ts";
 import { LogService } from "../platform/log/common/logService.ts";
@@ -53,11 +55,10 @@ import { TuiApplicationDIToken } from "../workbench/common/coreTokens.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
 import { registerExtensionKeybindings } from "../workbench/services/extensions/common/extensionKeybindingContributor.ts";
 import { ExtensionTokenizationContributor } from "../workbench/services/extensions/common/extensionTokenizationContributor.ts";
-import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import { ExtensionHostDIToken } from "../workbench/services/extensions/node/extensionHost.ts";
 import { runExtensionHostSubprocess } from "../workbench/services/extensions/node/extensionHostSubprocess.ts";
-import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/extensions/node/loadTsServer.ts";
 import type { IExtensionRegistration } from "../workbench/services/extensions/node/iExtensionEntry.ts";
+import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/extensions/node/loadTsServer.ts";
 import { LanguageConfigurationService } from "../workbench/services/language/common/languageConfigurationService.ts";
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
@@ -560,7 +561,11 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                 });
                 result = await installFromRegistry(source, target, {
                     extensionsDir,
-                    host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
+                    host: {
+                        diode: DIODE_VERSION,
+                        vscode: VSCODE_SHIM_VERSION,
+                        targetPlatform: currentTargetPlatform(),
+                    },
                 });
             }
             const { id, version, previous } = result;

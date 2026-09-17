@@ -24,9 +24,7 @@ const IDLE = { busy: false, needsReload: false };
 
 describe("describeExtensionButtons", () => {
     it("не установлено — одна кнопка Install", () => {
-        expect(describeExtensionButtons(entry(), IDLE)).toEqual([
-            { kind: "install", label: "Install", enabled: true },
-        ]);
+        expect(describeExtensionButtons(entry(), IDLE)).toEqual([{ kind: "install", label: "Install", enabled: true }]);
     });
 
     it("установлена последняя версия — только удаление", () => {

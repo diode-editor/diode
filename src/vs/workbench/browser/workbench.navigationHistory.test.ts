@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import type { PopupMenuElement } from "@tuidom/elements/menu/popupMenuElement";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../base/common/uri.ts";
@@ -52,8 +52,7 @@ describe("Workbench — навигационная история (Go Back / Go 
 
     it("Go to Definition + Back возвращает ровно в точку вызова", async () => {
         h.activeEditor().goToPosition(12, 3);
-        editors().definitionSource = () =>
-            Promise.resolve([{ uri: uri("beta.ts"), range: createRange(20, 5, 20, 9) }]);
+        editors().definitionSource = () => Promise.resolve([{ uri: uri("beta.ts"), range: createRange(20, 5, 20, 9) }]);
 
         await h.commands.execute("editor.action.revealDefinition");
         expect(caret()).toMatchObject({ uri: uri("beta.ts"), line: 20, character: 5 });

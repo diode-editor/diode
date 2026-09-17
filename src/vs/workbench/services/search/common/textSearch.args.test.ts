@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildRgArgs, validateRegex, type ITextSearchQuery } from "./textSearch.ts";
+import { buildRgArgs, type ITextSearchQuery, validateRegex } from "./textSearch.ts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

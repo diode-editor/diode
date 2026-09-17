@@ -1,14 +1,15 @@
 import * as fs from "node:fs";
 
+import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
-import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
+
+import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 
 /** The visible Save As InputBox is the QuickPickElement carrying a seeded query. */
 function openInputBox(testApp: TestApp): QuickPickElement {

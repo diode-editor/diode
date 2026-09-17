@@ -40,5 +40,4 @@ export class HeaderBodyLayout extends TUIElement {
 
         return size;
     }
-
 }

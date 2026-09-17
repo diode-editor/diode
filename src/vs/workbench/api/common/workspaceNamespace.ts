@@ -8,8 +8,8 @@ import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
+import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     DisposableImpl,
     EndOfLine,
@@ -88,6 +88,15 @@ function naiveEvent<T = never>(): vscode.Event<T> {
     return new EventEmitter<T>().event;
 }
 
+/**
+ * То же, но с пустой полезной нагрузкой (`Event<void>` у upstream). Отдельная
+ * обёртка, а не `naiveEvent<void>()`: `void` допустим в аннотации возврата, но
+ * не явным type-аргументом вызова.
+ */
+function naiveVoidEvent(): vscode.Event<void> {
+    return naiveEvent();
+}
+
 /** Wire-параметры запроса will-save (host → subprocess). */
 interface IWireWillSaveParams {
     /** Ресурс как `uri.toString()`. */
@@ -157,8 +166,12 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     // Слежение ведёт ядро: оно владеет excludes (`files.watcherExclude`) и
     // бюджетом inotify. Субпроцесс держит только эмиттеры и id.
     const fsWatchers = new SubprocessFileSystemWatchers({
-        create: (request) => rpc.notify("workspace.watcher.create", request),
-        dispose: (id) => rpc.notify("workspace.watcher.dispose", { id }),
+        create: (request) => {
+            rpc.notify("workspace.watcher.create", request);
+        },
+        dispose: (id) => {
+            rpc.notify("workspace.watcher.dispose", { id });
+        },
     });
     rpc.handleNotification("workspace.watcher.events", (params) => {
         const events = parseWireWatcherEvents(params);
@@ -493,7 +506,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // выбирает между native server и legacy ruff-lsp; `false` уводил бы
         // его в принудительный bundled-путь с предупреждением в логе.
         isTrusted: true,
-        onDidGrantWorkspaceTrust: naiveEvent<void>(),
+        onDidGrantWorkspaceTrust: naiveVoidEvent(),
 
         onWillSaveTextDocument: (
             listener: (e: vscode.TextDocumentWillSaveEvent) => unknown,

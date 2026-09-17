@@ -8,7 +8,6 @@ import { StatusBarServiceDIToken } from "../../../services/statusbar/common/stat
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
 import { ScmChangesServiceDIToken, type ScmGroupId } from "./changesService.ts";
-import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 import {
     COMMIT_ACTIONS,
     gitCommitAction,
@@ -17,6 +16,7 @@ import {
     gitCommitStagedAction,
     gitUndoCommitAction,
 } from "./commitActions.ts";
+import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 interface IHarness {
     accessor: ServiceAccessor;
@@ -133,7 +133,10 @@ describe("git.commit (smart)", () => {
         await gitCommitAction.run(h.accessor);
 
         expect(h.ops).toEqual([
-            { op: "commit", params: { message: "feat: msg", amend: false, all: false, noVerify: false, allowEmpty: false } },
+            {
+                op: "commit",
+                params: { message: "feat: msg", amend: false, all: false, noVerify: false, allowEmpty: false },
+            },
         ]);
         expect(h.message.value).toBe("");
         expect(h.confirms).toBe(0);

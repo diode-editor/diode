@@ -5,8 +5,9 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 
-import { REGISTRY_SCHEMA_VERSION, type IRegistryEngines } from "../common/registryFormat.ts";
+import { type IRegistryEngines, REGISTRY_SCHEMA_VERSION } from "../common/registryFormat.ts";
 import type { IHostVersions } from "../common/resolveCompatibleVersion.ts";
+
 import { listInstalledExtensions } from "./extensionInstaller.ts";
 import { FileExtensionRegistrySource } from "./fileRegistrySource.ts";
 import { installFromRegistry, sha256File } from "./installFromRegistry.ts";
@@ -65,7 +66,12 @@ describe("installFromRegistry", () => {
             // Платформенный маркер в манифесте — чтобы тест мог доказать, ЧЕЙ
             // артефакт реально распакован, а не только какая версия выбрана.
             const vsix = await buildVsixBuffer(
-                seed.manifest ?? { publisher, name, version: seed.version, description: seed.targetPlatform ?? "universal" },
+                seed.manifest ?? {
+                    publisher,
+                    name,
+                    version: seed.version,
+                    description: seed.targetPlatform ?? "universal",
+                },
             );
             await fs.promises.writeFile(path.join(registryDir, relPath), vsix);
             versionRecords.push({
@@ -232,9 +238,7 @@ describe("installFromRegistry", () => {
     });
 
     it("sha256 mismatch — отказ, ничего не установлено", async () => {
-        await seedExtension("acme", "hello", [
-            { version: "1.0.0", engines: { vscode: "*" }, sha256: "b".repeat(64) },
-        ]);
+        await seedExtension("acme", "hello", [{ version: "1.0.0", engines: { vscode: "*" }, sha256: "b".repeat(64) }]);
         await expect(installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST })).rejects.toThrow(
             /sha256 mismatch .*refusing to install/,
         );

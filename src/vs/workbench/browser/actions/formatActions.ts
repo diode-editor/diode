@@ -1,12 +1,12 @@
 import { comparePositions, positionsEqual } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { applyFormattingEdits } from "../parts/editor/applyFormattingEdits.ts";
+import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice } from "../../services/statusbar/common/transientNotice.ts";
+import { applyFormattingEdits } from "../parts/editor/applyFormattingEdits.ts";
 
 // ─── Formatting (#196) ──────────────────────────────────────
 //

@@ -6,6 +6,7 @@ import type { HFlexChildSize } from "@tuidom/elements/layout/hFlexElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+
 import { CHECKED_ICON } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -140,7 +141,7 @@ export class StatusBarComponent extends Component {
             const index = pool.length;
             const label = new TextLabelElement("");
             label.addEventListener("click", (event) => {
-                if ((event as TUIMouseEvent).button !== "left") return;
+                if (event.button !== "left") return;
                 const current = side === "left" ? this.currentLeft : this.currentRight;
                 current[index]?.onClick?.();
             });
@@ -193,20 +194,23 @@ export class StatusBarComponent extends Component {
     }
 
     private visibilityMenuEntries(target: IStatusBarEntry | null): MenuEntry[] {
-        const entries: MenuEntry[] = this.statusBarService
-            .allEntries()
-            .filter((entry) => entry.name !== undefined)
-            .map((entry) => {
-                const visible = !this.statusBarService.isHidden(entry.id);
-                return {
-                    label: entry.name!,
+        // flatMap, а не filter+map: имя отсеивается и достаётся в одном месте,
+        // так что «оно тут точно есть» не приходится утверждать отдельно.
+        const entries: MenuEntry[] = this.statusBarService.allEntries().flatMap((entry) => {
+            const name = entry.name;
+            if (name === undefined) return [];
+            const visible = !this.statusBarService.isHidden(entry.id);
+            return [
+                {
+                    label: name,
                     id: entry.id,
                     icon: visible ? CHECKED_ICON : undefined,
-                    onSelect: () => {
+                    onSelect: (): void => {
                         this.statusBarService.setHidden(entry.id, visible);
                     },
-                };
-            });
+                },
+            ];
+        });
         if (target?.name === undefined) return entries;
         return [
             ...entries,

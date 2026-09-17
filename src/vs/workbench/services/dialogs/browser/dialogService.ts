@@ -1,7 +1,8 @@
 import { Disposable } from "@tuidom/core/common/disposable";
 import { Point } from "@tuidom/core/common/geometryPromitives";
-import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
+import type { BodyElement } from "@tuidom/elements/body/bodyElement";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { AboutDialog } from "../../../browser/parts/dialogs/aboutDialog.ts";
 import { ConfirmDialog, type ConfirmDialogOptions } from "../../../browser/parts/dialogs/confirmDialog.ts";

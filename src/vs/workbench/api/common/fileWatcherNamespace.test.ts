@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 
-import { resolveGlobPattern, SubprocessFileSystemWatchers, type IWatcherTransport } from "./fileWatcherNamespace.ts";
+import { type IWatcherTransport, resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import { RelativePattern } from "./vscodeTypes.ts";
 import type { IWireWatcherCreate } from "./wireTypes.ts";
 
@@ -56,7 +56,9 @@ describe("resolveGlobPattern", () => {
         expect(resolveGlobPattern(null as unknown as never, "/repo")).toBeNull();
         expect(resolveGlobPattern(42 as unknown as never, "/repo")).toBeNull();
         expect(resolveGlobPattern({ baseUri: 42, pattern: "*" } as unknown as never, "/repo")).toBeNull();
-        expect(resolveGlobPattern({ baseUri: { fsPath: "" }, base: "", pattern: "*" } as unknown as never, "/repo")).toBeNull();
+        expect(
+            resolveGlobPattern({ baseUri: { fsPath: "" }, base: "", pattern: "*" } as unknown as never, "/repo"),
+        ).toBeNull();
     });
 });
 

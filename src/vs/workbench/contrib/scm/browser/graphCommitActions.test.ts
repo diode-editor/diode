@@ -276,8 +276,7 @@ describe("команды коммита в графе", () => {
 
     it("аргумент резолвится из контекста меню: sha всем, кроме Copy Commit Message", () => {
         const context: ScmGraphMenuContext = { sha: SHA, shortSha: SHA.slice(0, 8), subject: "feat: панель" };
-        const argOf = (action: (typeof GRAPH_COMMIT_ACTIONS)[number]): unknown =>
-            action.menus![0].args!(context)[0];
+        const argOf = (action: (typeof GRAPH_COMMIT_ACTIONS)[number]): unknown => action.menus![0].args!(context)[0];
 
         expect(argOf(graphCopyCommitMessageAction)).toBe("feat: панель");
         for (const action of GRAPH_COMMIT_ACTIONS) {

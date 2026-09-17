@@ -30,7 +30,11 @@ export class ViewProgressContribution extends Disposable implements IWorkbenchCo
         private readonly views: ViewsService,
     ) {
         super();
-        this.register(progress.onDidChange(() => this.sync()));
+        this.register(
+            progress.onDidChange(() => {
+                this.sync();
+            }),
+        );
     }
 
     private sync(): void {

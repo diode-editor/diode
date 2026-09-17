@@ -9,7 +9,7 @@ function matchLine(opts: {
     path: string;
     text: string;
     lineNumber: number;
-    submatches: Array<{ text: string; start: number; end: number }>;
+    submatches: { text: string; start: number; end: number }[];
 }): string {
     return JSON.stringify({
         type: "match",
@@ -71,7 +71,12 @@ describe("parseRgMatchLine", () => {
     it("returns null when the line number is not a number", () => {
         const line = JSON.stringify({
             type: "match",
-            data: { path: { text: "/a.ts" }, lines: { text: "x" }, line_number: null, submatches: [{ start: 0, end: 1 }] },
+            data: {
+                path: { text: "/a.ts" },
+                lines: { text: "x" },
+                line_number: null,
+                submatches: [{ start: 0, end: 1 }],
+            },
         });
         expect(parseRgMatchLine(line)).toBeNull();
     });

@@ -87,8 +87,20 @@ export const gitCommitAction: CommandAction = {
     keybinding: { keys: parseKeybinding("ctrl+enter"), when: "scmInputFocus" },
 };
 
-export const gitCommitStagedAction = commitAction("git.commitStaged", "Git: Commit Staged", "Commit Staged", {}, { group: "2_staged", order: 10 });
-export const gitCommitAllAction = commitAction("git.commitAll", "Git: Commit All", "Commit All", { all: true }, { group: "3_all", order: 10 });
+export const gitCommitStagedAction = commitAction(
+    "git.commitStaged",
+    "Git: Commit Staged",
+    "Commit Staged",
+    {},
+    { group: "2_staged", order: 10 },
+);
+export const gitCommitAllAction = commitAction(
+    "git.commitAll",
+    "Git: Commit All",
+    "Commit All",
+    { all: true },
+    { group: "3_all", order: 10 },
+);
 export const gitCommitAmendAction = commitAction(
     "git.commitAmend",
     "Git: Commit (Amend)",

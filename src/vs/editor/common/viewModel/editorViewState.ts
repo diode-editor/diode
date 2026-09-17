@@ -1,5 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IMultiCursorFindSession } from "../../contrib/multicursor/iMultiCursorFindSession.ts";
 import type { IPosition } from "../core/iPosition.ts";
@@ -7,12 +8,7 @@ import { comparePositions, createPosition } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
 import { createRange, rangeContainsPosition } from "../core/iRange.ts";
 import type { ISelection } from "../core/iSelection.ts";
-import {
-    createCursorSelection,
-    createSelection,
-    isSelectionCollapsed,
-    selectionToRange,
-} from "../core/iSelection.ts";
+import { createCursorSelection, createSelection, isSelectionCollapsed, selectionToRange } from "../core/iSelection.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 import { createTextEdit } from "../core/iTextEdit.ts";
 import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
@@ -26,6 +22,7 @@ import type { IUndoElement } from "../model/iUndoElement.ts";
 import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
 
 import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
+import { LineBreaksCache } from "./lineBreaksCache.ts";
 import type { ILineOperationResult, ITextToCopy } from "./lineOperations.ts";
 import {
     computeCopyLines,
@@ -36,7 +33,6 @@ import {
     computeTextToCopy,
 } from "./lineOperations.ts";
 import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
-import { LineBreaksCache } from "./lineBreaksCache.ts";
 
 /** Режим переноса строк — значения `editor.wordWrap` (VS Code). */
 export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
@@ -269,9 +265,7 @@ export class EditorViewState {
     /** Ленивый кеш break-offsets с актуальными параметрами. */
     private wrapBreaks(wrapWidth: number): LineBreaksCache {
         // Stryker disable next-line ConditionalExpression: чистая мемоизация — пересозданный с теми же параметрами кеш даёт тот же результат, только медленнее
-        if (this.lineBreaksCacheValue === null) {
-            this.lineBreaksCacheValue = new LineBreaksCache(this.document, this.tabSize, wrapWidth);
-        }
+        this.lineBreaksCacheValue ??= new LineBreaksCache(this.document, this.tabSize, wrapWidth);
         this.lineBreaksCacheValue.setParams(this.tabSize, wrapWidth);
         return this.lineBreaksCacheValue;
     }
@@ -999,8 +993,18 @@ export class EditorViewState {
         const edits: ITextEdit[] = [];
         for (const sel of sorted) {
             const range = selectionToRange(sel);
-            edits.push(createTextEdit(createRange(range.start.line, range.start.character, range.start.line, range.start.character), open));
-            edits.push(createTextEdit(createRange(range.end.line, range.end.character, range.end.line, range.end.character), close));
+            edits.push(
+                createTextEdit(
+                    createRange(range.start.line, range.start.character, range.start.line, range.start.character),
+                    open,
+                ),
+            );
+            edits.push(
+                createTextEdit(
+                    createRange(range.end.line, range.end.character, range.end.line, range.end.character),
+                    close,
+                ),
+            );
         }
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         // Stryker disable next-line CallExpression: как и в typeWithAutoClose — обрамление
@@ -1291,8 +1295,7 @@ export class EditorViewState {
         if (currentRow < 0) {
             // Каретка на скрытой строке (до reconcileHiddenCursors): прежняя
             // построчная посадка на ближайшую видимую строку.
-            const fallbackLine =
-                direction === -1 ? this.previousVisibleLine(pos.line) : this.nextVisibleLine(pos.line);
+            const fallbackLine = direction === -1 ? this.previousVisibleLine(pos.line) : this.nextVisibleLine(pos.line);
             if (fallbackLine < 0) return null;
             const dl = this.displayLineFor(this.document.getLineContent(fallbackLine));
             return { line: fallbackLine, character: dl.columnToOffset(idealAbs), idealColumn: idealAbs };
@@ -1301,11 +1304,11 @@ export class EditorViewState {
         const { rowDocLine } = this.buildProjection();
         let targetRow = currentRow + direction;
         // Ряды-зоны (< 0) проскакиваются; индекс за краем вью даёт undefined —
-        // он сам останавливает скан (не < 0) и он же — признак «некуда».
+        // он сам останавливает скан (не < 0), а выход за границы значит «некуда».
         while (rowDocLine[targetRow] < 0) {
             targetRow += direction;
         }
-        if (rowDocLine[targetRow] === undefined) return null;
+        if (targetRow < 0 || targetRow >= rowDocLine.length) return null;
 
         const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentRow));
         return this.landOnRow(targetRow, idealInRow);
@@ -1316,10 +1319,7 @@ export class EditorViewState {
      * не-последнего фрагмента каретка не переезжает границу (offset на границе
      * принадлежит уже следующему ряду) — кламп к последней графеме фрагмента.
      */
-    private landOnRow(
-        targetRow: number,
-        idealInRow: number,
-    ): { line: number; character: number; idealColumn: number } {
+    private landOnRow(targetRow: number, idealInRow: number): { line: number; character: number; idealColumn: number } {
         const targetLine = this.buildProjection().rowDocLine[targetRow];
         const targetStartCol = this.viewLineStartColumn(targetRow);
         const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
@@ -1503,9 +1503,7 @@ export class EditorViewState {
      */
     public toggleCursorAt(line: number, character: number): void {
         const position = createPosition(line, character);
-        const covering = this.selections.findIndex((sel) =>
-            rangeContainsPosition(selectionToRange(sel), position),
-        );
+        const covering = this.selections.findIndex((sel) => rangeContainsPosition(selectionToRange(sel), position));
         if (covering >= 0) {
             if (this.selections.length === 1) return;
             this.selections = this.selections.filter((_, i) => i !== covering);
@@ -1623,7 +1621,7 @@ export class EditorViewState {
             const { rowDocLine } = this.buildProjection();
             let targetRow = targetView;
             while (rowDocLine[targetRow] < 0) targetRow--;
-            if (rowDocLine[targetRow] === undefined) {
+            if (targetRow < 0) {
                 targetRow = targetView;
                 while (rowDocLine[targetRow] < 0) targetRow++;
             }
@@ -1914,7 +1912,10 @@ export class EditorViewState {
      * схлопнутая каретка дублирует свою строку вниз (`editor.action.duplicateSelection`).
      */
     public duplicateSelection(): IUndoElement | undefined {
-        return this.applyLineOperation("duplicateSelection", computeDuplicateSelection(this.document, this.sortedSelections()));
+        return this.applyLineOperation(
+            "duplicateSelection",
+            computeDuplicateSelection(this.document, this.sortedSelections()),
+        );
     }
 
     /** Перемещает строки выделений на строку вверх (Alt+Up); у верхнего края — no-op. */

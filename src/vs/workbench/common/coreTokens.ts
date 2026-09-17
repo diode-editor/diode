@@ -1,5 +1,6 @@
 import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
+
 import type { ILanguageService } from "../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";

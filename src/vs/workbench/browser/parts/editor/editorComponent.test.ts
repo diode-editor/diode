@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
@@ -262,13 +262,29 @@ describe("EditorComponent + TextFileModel (пара)", () => {
         });
 
         it("сдвиг tabSize просит перерисовку, совпадение — нет", () => {
-            expect(repaintsEditor((ctrl) => ctrl.setIndentOptions({ tabSize: 2 }))).toBe(true);
-            expect(repaintsEditor((ctrl) => ctrl.setIndentOptions({ tabSize: 4 }))).toBe(false);
+            expect(
+                repaintsEditor((ctrl) => {
+                    ctrl.setIndentOptions({ tabSize: 2 });
+                }),
+            ).toBe(true);
+            expect(
+                repaintsEditor((ctrl) => {
+                    ctrl.setIndentOptions({ tabSize: 4 });
+                }),
+            ).toBe(false);
         });
 
         it("сдвиг insertSpaces просит перерисовку, совпадение — нет", () => {
-            expect(repaintsEditor((ctrl) => ctrl.setIndentOptions({ insertSpaces: true }))).toBe(true);
-            expect(repaintsEditor((ctrl) => ctrl.setIndentOptions({ insertSpaces: false }))).toBe(false);
+            expect(
+                repaintsEditor((ctrl) => {
+                    ctrl.setIndentOptions({ insertSpaces: true });
+                }),
+            ).toBe(true);
+            expect(
+                repaintsEditor((ctrl) => {
+                    ctrl.setIndentOptions({ insertSpaces: false });
+                }),
+            ).toBe(false);
         });
     });
 
@@ -332,7 +348,11 @@ describe("EditorComponent + TextFileModel (пара)", () => {
         });
 
         it("просит перерисовку", () => {
-            expect(repaintsEditor((ctrl) => ctrl.applyIndentConfiguration({ tabSize: 2 }))).toBe(true);
+            expect(
+                repaintsEditor((ctrl) => {
+                    ctrl.applyIndentConfiguration({ tabSize: 2 });
+                }),
+            ).toBe(true);
         });
 
         it("не перетирает отступ, выставленный расширением", () => {

@@ -6,12 +6,12 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
-import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
+import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
 import { refreshExtensionsAction, showExtensionsAction } from "./extensionsActions.ts";
-import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
 import type { ExtensionsComponent } from "./extensionsComponent.ts";
+import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
 
 /** Контейнер с фейками ровно тех сервисов, которые дёргают эти два экшена. */
 function makeAccessor(): {
@@ -24,7 +24,10 @@ function makeAccessor(): {
     let refreshes = 0;
     const accessor = new Container();
     const progress = new ProgressService();
-    accessor.bind(SidebarServiceDIToken, () => ({ showViewlet: (id: string) => shown.push(id) }) as unknown as SidebarService);
+    accessor.bind(
+        SidebarServiceDIToken,
+        () => ({ showViewlet: (id: string) => shown.push(id) }) as unknown as SidebarService,
+    );
     accessor.bind(ProgressServiceDIToken, () => progress);
     accessor.bind(
         ExtensionsComponentDIToken,
@@ -67,7 +70,7 @@ describe("extensionsActions", () => {
 
     it("показ вьюлета переключает сайдбар на магазин", () => {
         const h = makeAccessor();
-        showExtensionsAction.run?.(h.accessor);
+        showExtensionsAction.run(h.accessor);
         expect(h.shown).toEqual([EXTENSIONS_VIEWLET_ID]);
     });
 
@@ -75,7 +78,7 @@ describe("extensionsActions", () => {
         const h = makeAccessor();
         const start = vi.spyOn(h.progress, "withProgress");
 
-        await refreshExtensionsAction.run?.(h.accessor);
+        await refreshExtensionsAction.run(h.accessor);
 
         expect(h.refreshes).toBe(1);
         expect(start).toHaveBeenCalledWith(

@@ -23,7 +23,7 @@ export function resolveAddressedTab(service: EditorService, args: readonly unkno
     if (!hasTabAddress(args)) return null;
     const [groupId, index] = args as [number, number];
     const group = service.groups.find((candidate) => candidate.id === groupId);
-    if (group === undefined || group.getPane(index) === null) return null;
+    if (group?.getPane(index) == null) return null;
     return { group, index };
 }
 

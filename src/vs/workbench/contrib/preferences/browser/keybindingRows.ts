@@ -5,7 +5,6 @@ import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { formatKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-
 import type { IFilteredKeybindingItem } from "../common/keybindingsEditorModel.ts";
 
 /**
@@ -75,10 +74,7 @@ function cell(text: string, width: number): string {
     return truncated + " ".repeat(Math.max(0, width - measureTextWidth(truncated)));
 }
 
-export function describeKeybindingRow(
-    filtered: IFilteredKeybindingItem,
-    width: number,
-): IKeybindingRowLayout {
+export function describeKeybindingRow(filtered: IFilteredKeybindingItem, width: number): IKeybindingRowLayout {
     const { item, titleMatch } = filtered;
     const widths = columnWidths(width);
     const gap = " ".repeat(GAP);
@@ -114,7 +110,15 @@ export function describeKeybindingRow(
 export function describeKeybindingHeaderRow(width: number): string {
     const widths = columnWidths(width);
     const gap = " ".repeat(GAP);
-    return cell("Command", widths.command) + gap + cell("Keybinding", widths.key) + gap + cell("When", widths.when) + gap + cell("Source", widths.source);
+    return (
+        cell("Command", widths.command) +
+        gap +
+        cell("Keybinding", widths.key) +
+        gap +
+        cell("When", widths.when) +
+        gap +
+        cell("Source", widths.source)
+    );
 }
 
 export function buildKeybindingRow(

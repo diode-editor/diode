@@ -6,10 +6,10 @@ import * as path from "node:path";
 import type { FSWatcher } from "chokidar";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ITreeFileChange, ITreeFileWatchOptions } from "../common/iTreeFileWatcher.ts";
 import type { LogEntry } from "../../log/common/iLogService.ts";
 import { LogLevel } from "../../log/common/logLevel.ts";
 import { LogService } from "../../log/common/logService.ts";
+import type { ITreeFileChange, ITreeFileWatchOptions } from "../common/iTreeFileWatcher.ts";
 
 import { ChokidarTreeWatcher, isExcluded } from "./chokidarTreeWatcher.ts";
 
@@ -109,7 +109,9 @@ describe("ChokidarTreeWatcher", () => {
         try {
             const watcher = new TestTreeWatcher();
             const batches: (readonly ITreeFileChange[])[] = [];
-            const subscription = watcher.watchTree("/repo", { recursive: true, excludes: [] }, (changes) => batches.push(changes));
+            const subscription = watcher.watchTree("/repo", { recursive: true, excludes: [] }, (changes) =>
+                batches.push(changes),
+            );
 
             watcher.created[0].fire("add", "/repo/a.ts");
             subscription.dispose();
@@ -154,10 +156,8 @@ describe("ChokidarTreeWatcher — настоящий chokidar", () => {
         fs.mkdirSync(path.join(root, "src"));
         const seen: string[] = [];
         const watcher = new ChokidarTreeWatcher();
-        const subscription = watcher.watchTree(
-            root,
-            { recursive: true, excludes: ["**/node_modules/**"] },
-            (changes) => seen.push(...changes.map((c) => c.path)),
+        const subscription = watcher.watchTree(root, { recursive: true, excludes: ["**/node_modules/**"] }, (changes) =>
+            seen.push(...changes.map((c) => c.path)),
         );
         try {
             // Ждём готовности: до события `ready` chokidar считает найденное

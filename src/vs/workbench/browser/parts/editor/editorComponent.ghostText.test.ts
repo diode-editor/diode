@@ -1,6 +1,6 @@
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";

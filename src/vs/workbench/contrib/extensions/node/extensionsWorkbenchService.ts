@@ -1,13 +1,14 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import type { IExtensionRegistrySource } from "../../../../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import type {
     IRegistryExtensionMeta,
     IRegistryIndex,
     IRegistryIndexEntry,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
-import { areEnginesCompatible } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
+import { areEnginesCompatible } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import type { IInstalledExtension } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
 import {
     listInstalledExtensions,
@@ -58,7 +59,11 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         // INSTALLED была наполнена ещё до первого запроса к реестру.
         this.installed = listInstalledExtensions(extensionsDir);
         this.entries = this.computeEntries();
-        this.register({ dispose: () => this.listeners.clear() });
+        this.register({
+            dispose: () => {
+                this.listeners.clear();
+            },
+        });
     }
 
     public ensureLoaded(): Promise<void> {
@@ -183,7 +188,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return entries;
     }
 
-    private toCatalogEntry(entry: IRegistryIndexEntry, installed: IInstalledExtension | undefined): IExtensionListEntry {
+    private toCatalogEntry(
+        entry: IRegistryIndexEntry,
+        installed: IInstalledExtension | undefined,
+    ): IExtensionListEntry {
         return {
             id: entry.id,
             publisher: entry.publisher,
@@ -201,7 +209,6 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private fireChange(): void {
         for (const listener of [...this.listeners]) listener();
     }
-
 }
 
 /**

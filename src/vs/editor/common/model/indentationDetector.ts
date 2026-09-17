@@ -2,6 +2,12 @@ import { CharCode } from "../../../base/common/charCode.ts";
 
 import type { ITextDocument } from "./iTextDocument.ts";
 
+// `charCodeAt` отдаёт number, а CharCode — enum: сравнивать их напрямую линтер
+// не даёт (no-unsafe-enum-comparison). Берём значения один раз как числа.
+const SPACE: number = CharCode.Space;
+const TAB: number = CharCode.Tab;
+const COMMA: number = CharCode.Comma;
+
 export interface DetectedIndentation {
     readonly insertSpaces: boolean;
     readonly tabSize: number;
@@ -60,13 +66,13 @@ export function computeIndentationStep(a: string, aIndent: number, b: string, bI
     let aSpaces = 0;
     let aTabs = 0;
     for (let j = i; j < aIndent; j++) {
-        if (a.charCodeAt(j) === CharCode.Space) aSpaces++;
+        if (a.charCodeAt(j) === SPACE) aSpaces++;
         else aTabs++;
     }
     let bSpaces = 0;
     let bTabs = 0;
     for (let j = i; j < bIndent; j++) {
-        if (b.charCodeAt(j) === CharCode.Space) bSpaces++;
+        if (b.charCodeAt(j) === SPACE) bSpaces++;
         else bTabs++;
     }
 
@@ -89,9 +95,9 @@ export function computeIndentationStep(a: string, aIndent: number, b: string, bI
         // проверки «шаг ненулевой» не нужно: при `bSpaces === 0` чтение `a` по
         // индексу −1 даёт NaN и условие не проходит.
         const looksLikeAlignment =
-            b.charCodeAt(bSpaces) !== CharCode.Space &&
-            a.charCodeAt(bSpaces - 1) === CharCode.Space &&
-            a.charCodeAt(a.length - 1) === CharCode.Comma;
+            b.charCodeAt(bSpaces) !== SPACE &&
+            a.charCodeAt(bSpaces - 1) === SPACE &&
+            a.charCodeAt(a.length - 1) === COMMA;
         return { step: spacesDiff, looksLikeAlignment };
     }
     // Табы и пробелы вперемешку по строкам: сигнал годен, только если пробелы
@@ -135,8 +141,8 @@ export function detectIndentation(document: ITextDocument, defaults: IIndentatio
         let indent = -1;
         for (let j = 0; j < lineText.length; j++) {
             const charCode = lineText.charCodeAt(j);
-            if (charCode === CharCode.Tab) tabs++;
-            else if (charCode === CharCode.Space) spaces++;
+            if (charCode === TAB) tabs++;
+            else if (charCode === SPACE) spaces++;
             else {
                 indent = j;
                 break;

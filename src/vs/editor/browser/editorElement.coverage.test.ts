@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { describe, expect, it, vi } from "vitest";
+
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createSelection } from "../common/core/iSelection.ts";
 import { createLineTokens, createToken } from "../common/languages/iLineTokens.ts";

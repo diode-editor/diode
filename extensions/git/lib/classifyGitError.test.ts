@@ -20,9 +20,9 @@ describe("classifyGitStderr", () => {
     });
 
     it("dirty-worktree, push-rejected, no-upstream, not-merged", () => {
-        expect(classifyGitStderr("error: Your local changes to the following files would be overwritten by merge")).toBe(
-            "dirty-worktree",
-        );
+        expect(
+            classifyGitStderr("error: Your local changes to the following files would be overwritten by merge"),
+        ).toBe("dirty-worktree");
         expect(classifyGitStderr(" ! [rejected] main -> main (non-fast-forward)")).toBe("push-rejected");
         expect(classifyGitStderr("error: failed to push some refs to 'origin'")).toBe("push-rejected");
         expect(classifyGitStderr("fatal: The current branch feature has no upstream branch.")).toBe("no-upstream");

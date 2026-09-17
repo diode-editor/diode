@@ -1,6 +1,6 @@
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { describe, expect, it } from "vitest";
 
-import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { IGraphLine } from "../common/commitGraph.ts";
 import { GRAPH_CURRENT_REF_STYLE, GRAPH_REMOTE_REF_STYLE } from "../common/commitGraphPalette.ts";
 
@@ -17,7 +17,7 @@ import {
 const COMMIT_STYLE = "scmGraph.foreground1";
 
 function line(text: string): IGraphLine {
-    return { text, styles: [...text].map(() => COMMIT_STYLE) };
+    return { text, styles: Array.from(text, () => COMMIT_STYLE) };
 }
 
 function commit(fields: Partial<IScmCommit> & { sha: string }): IScmCommit {
@@ -99,7 +99,11 @@ describe("buildRefsLabel", () => {
 
 describe("buildCommitRow", () => {
     it("id строки — полный sha, тема коммита попадает в строку", () => {
-        const parts = buildCommitRow(commit({ sha: "a".repeat(40), subject: "feat: панель" }), line("○ "), COMMIT_STYLE);
+        const parts = buildCommitRow(
+            commit({ sha: "a".repeat(40), subject: "feat: панель" }),
+            line("○ "),
+            COMMIT_STYLE,
+        );
         expect(parts.root.id).toBe("a".repeat(40));
         expect(parts.graph.getText()).toBe("○ ");
         expect(parts.subject.getText()).toBe("feat: панель");

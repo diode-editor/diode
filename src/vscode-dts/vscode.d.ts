@@ -3986,6 +3986,16 @@ declare module "vscode" {
 		documentation?: string | MarkdownString;
 
 		/**
+		 * A string that should be used when filtering a set of
+		 * completion items. When `falsy` the {@link CompletionItem.label label}
+		 * is used.
+		 *
+		 * Note that the filter text is matched against the leading word (prefix) which is defined
+		 * by the {@linkcode CompletionItem.range range}-property.
+		 */
+		filterText?: string;
+
+		/**
 		 * A string or snippet that should be inserted in a document when selecting
 		 * this completion. When `falsy` the {@link CompletionItem.label label}
 		 * is used.

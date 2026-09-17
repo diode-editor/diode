@@ -1,6 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Disposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
@@ -75,7 +76,11 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         this.element.style = { fg: "editor.foreground", bg: "editor.background" };
         this.view = this.element;
 
-        this.register(service.onDidChange(() => this.syncEntry()));
+        this.register(
+            service.onDidChange(() => {
+                this.syncEntry();
+            }),
+        );
     }
 
     public get label(): string {

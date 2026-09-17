@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
+import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { SettingsResourceDIToken } from "../common/coreTokens.ts";
 import { ProblemsComponent, ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";

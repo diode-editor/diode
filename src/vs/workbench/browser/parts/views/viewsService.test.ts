@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
 
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
@@ -98,6 +98,11 @@ describe("ViewsService", () => {
         h.focus("scm");
         expect(focusChanges).not.toHaveBeenCalled();
         expect(focusGraph).toHaveBeenCalledOnce();
+
+        // Харнесс не молчит на опечатке в id контейнера.
+        expect(() => {
+            h.focus("nope");
+        }).toThrow(/is not registered/);
     });
 
     it("view можно регистрировать раньше контейнера (компоненты создаются раньше workbench)", () => {
@@ -129,9 +134,13 @@ describe("ViewsService", () => {
     it("focusContainer до attach и на контейнере без view — тихие no-op", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
-        expect(() => h.service.focusContainer("scm")).not.toThrow();
+        expect(() => {
+            h.service.focusContainer("scm");
+        }).not.toThrow();
         h.service.attachContainer("scm");
-        expect(() => h.service.focusContainer("scm")).not.toThrow();
+        expect(() => {
+            h.service.focusContainer("scm");
+        }).not.toThrow();
     });
 
     it("все секции свёрнуты — фокус первой view контейнера", () => {
@@ -152,8 +161,12 @@ describe("ViewsService", () => {
     it("attach незарегистрированного контейнера — ошибки", () => {
         const h = makeViewsHarness();
         h.service.registerView(view("x", "ghost", 1));
-        expect(() => h.service.attachContainer("ghost")).toThrow(/is not registered/);
-        expect(() => h.service.attachContainer("missing")).toThrow(/unknown container id/);
+        expect(() => {
+            h.service.attachContainer("ghost");
+        }).toThrow(/is not registered/);
+        expect(() => {
+            h.service.attachContainer("missing");
+        }).toThrow(/unknown container id/);
     });
 
     it("обращение к незнакомой view — ошибка", () => {
@@ -276,7 +289,9 @@ describe("ViewsService — тело и виджет заголовка view", ()
 
         h.service.setViewVisible("scm.graph", true);
         expect(h.paneView("scm").querySelector("#graph-next")).toBe(next);
-        expect(() => h.service.setViewBody("scm.graph", next)).not.toThrow();
+        expect(() => {
+            h.service.setViewBody("scm.graph", next);
+        }).not.toThrow();
     });
 
     it("виджет заголовка едет в заголовок секции", () => {

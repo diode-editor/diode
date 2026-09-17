@@ -1,4 +1,5 @@
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -32,7 +33,11 @@ export class ScmStatusBarContribution extends Disposable {
         private readonly commands: CommandRegistry,
     ) {
         super();
-        this.register(repoState.onDidChangeState(() => this.update()));
+        this.register(
+            repoState.onDidChangeState(() => {
+                this.update();
+            }),
+        );
         this.register({
             dispose: () => {
                 this.branchHandle?.dispose();

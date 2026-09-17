@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CLIENT_CRASH_PATTERNS, PY_LANGUAGE_SERVICE, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
-import { installRuff, LINT_PY, RUFF_ID, type IInstalledRuff } from "../../../../../TestUtils/ruffFixture.ts";
+import { type IInstalledRuff, installRuff, LINT_PY, RUFF_ID } from "../../../../../TestUtils/ruffFixture.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -55,9 +55,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый ruff.vs
 
             // Pull-диагностика от НАСТОЯЩЕГО bundled `ruff server` — readiness-сигнал.
             const f401 = await until("диагностика F401 в lint.py", () => {
-                const hit = markersFor(lintUri).find((m) =>
-                    /F401|unused/.test(`${String(m.code ?? "")} ${m.message}`),
-                );
+                const hit = markersFor(lintUri).find((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`));
                 return Promise.resolve(hit ?? null);
             });
             // `import sys` — первая строка файла.
@@ -65,15 +63,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый ruff.vs
 
             // ИЗМЕНЯЕМЫЙ КОД: удаляем неиспользуемый импорт БЕЗ сохранения на
             // диск — клиент обязан пере-запросить pull-диагностику живого буфера.
-            harness.group.getActiveEditor()?.applyExternalEdits(
-                [createTextEdit(createRange(0, 0, 1, 0), "")],
-                "drop unused import",
-            );
+            harness.group
+                .getActiveEditor()
+                ?.applyExternalEdits([createTextEdit(createRange(0, 0, 1, 0), "")], "drop unused import");
             await until("F401 ушла после правки", () =>
                 Promise.resolve(
-                    markersFor(lintUri).some((m) => /F401|unused/.test(`${String(m.code ?? "")} ${m.message}`))
-                        ? null
-                        : true,
+                    markersFor(lintUri).some((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`)) ? null : true,
                 ),
             );
 

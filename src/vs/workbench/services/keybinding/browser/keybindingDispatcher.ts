@@ -1,5 +1,6 @@
 import { Disposable } from "@tuidom/core/common/disposable";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -375,5 +376,4 @@ export class KeybindingDispatcher extends Disposable {
         this.swallowNextKeyPress = false;
         this.setChordHint(null);
     }
-
 }

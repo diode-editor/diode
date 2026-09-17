@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type { HFlexLayoutStyle } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { CHECKED_ICON } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";

@@ -7,18 +7,15 @@ import { StatusBarServiceDIToken } from "../../../services/statusbar/common/stat
 
 import { runGitOp } from "./gitOpClient.ts";
 
-function makeAccessor(opts: {
-    has?: boolean;
-    execute?: () => unknown;
-}): { accessor: ServiceAccessor; notices: string[] } {
+function makeAccessor(opts: { has?: boolean; execute?: () => unknown }): {
+    accessor: ServiceAccessor;
+    notices: string[];
+} {
     const notices: string[] = [];
     const services = new Map<unknown, unknown>([
         // Прогресс операций: транспортные швы просят его у контейнера.
         [ProgressServiceDIToken, new ProgressService()],
-        [
-            CommandRegistryDIToken,
-            { has: () => opts.has !== false, execute: opts.execute ?? (() => ({ ok: true })) },
-        ],
+        [CommandRegistryDIToken, { has: () => opts.has !== false, execute: opts.execute ?? (() => ({ ok: true })) }],
         [
             StatusBarServiceDIToken,
             {

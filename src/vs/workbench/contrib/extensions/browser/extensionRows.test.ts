@@ -1,6 +1,5 @@
-import { describe, expect, it } from "vitest";
-
 import { Point } from "@tuidom/core/common/geometryPromitives";
+import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
@@ -55,7 +54,9 @@ describe("describeExtensionRow", () => {
     it("ждём перезагрузки — бейдж говорит об этом раньше всего остального", () => {
         // Установленную версию видно, но работать она начнёт только после
         // перезагрузки окна — это и есть главное про такую запись.
-        const row = describeExtensionRow(entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true }));
+        const row = describeExtensionRow(
+            entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true }),
+        );
         expect(row.text).toBe("Acme Tools  1.0.0  Reload");
         expect(row.badge?.kind).toBe("reload");
     });

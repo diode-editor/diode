@@ -1,9 +1,9 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Size } from "@tuidom/core/common/geometryPromitives";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
-import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 
@@ -39,11 +39,19 @@ function repaintsEditor(act: (pane: TextEditorPane) => void): boolean {
 
 describe("EditorComponent.setWordWrap", () => {
     it("смена режима доезжает до экрана (markDirty)", () => {
-        expect(repaintsEditor((pane) => pane.setWordWrap("on", 80))).toBe(true);
+        expect(
+            repaintsEditor((pane) => {
+                pane.setWordWrap("on", 80);
+            }),
+        ).toBe(true);
     });
 
     it("повторное применение тех же значений — no-op без перерисовки", () => {
-        expect(repaintsEditor((pane) => pane.setWordWrap("off", 80))).toBe(false);
+        expect(
+            repaintsEditor((pane) => {
+                pane.setWordWrap("off", 80);
+            }),
+        ).toBe(false);
     });
 
     it("включение переноса сбрасывает горизонтальный скролл и показывает ряд каретки", () => {

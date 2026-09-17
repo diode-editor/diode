@@ -36,6 +36,8 @@ describe("DiskFileSystemProvider", () => {
 
     it("onDidChangeFile is a no-op subscription", () => {
         const provider = new DiskFileSystemProvider();
-        expect(() => provider.onDidChangeFile().dispose()).not.toThrow();
+        expect(() => {
+            provider.onDidChangeFile().dispose();
+        }).not.toThrow();
     });
 });

@@ -2,13 +2,14 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
-import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
@@ -16,8 +17,8 @@ import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
-import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
+import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
@@ -781,5 +782,5 @@ export class EditorComponent extends Component {
 /** Держит ли фокус сам виджет или что-то в его поддереве. */
 function holdsFocus(editor: EditorElement): boolean {
     const active = editor.getRoot()?.focusManager?.activeElement ?? null;
-    return active !== null && active.getAncestorPath().includes(editor);
+    return active?.getAncestorPath().includes(editor) === true;
 }

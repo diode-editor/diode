@@ -1,6 +1,6 @@
+import { reject } from "@tuidom/core/common/typingUtils";
 import { expect } from "vitest";
 
-import { reject } from "@tuidom/core/common/typingUtils";
 import { comparePositions } from "../../common/core/iPosition.ts";
 import type { ISelection } from "../../common/core/iSelection.ts";
 import {

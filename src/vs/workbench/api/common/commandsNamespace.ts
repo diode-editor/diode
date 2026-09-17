@@ -69,7 +69,7 @@ export function buildCommandsNamespace(
                 console.warn(`Cannot execute text editor command "${id}": no active text editor`);
                 return undefined;
             }
-            return callback.call(thisArg, editor, noopTextEditorEdit, ...args);
+            callback.call(thisArg, editor, noopTextEditorEdit, ...args);
         });
     };
 

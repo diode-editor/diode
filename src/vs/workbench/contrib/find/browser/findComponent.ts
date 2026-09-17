@@ -1,14 +1,15 @@
 import { Disposable } from "@tuidom/core/common/disposable";
 import { Point } from "@tuidom/core/common/geometryPromitives";
+import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import type { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
-import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { BoxContainerElement } from "@tuidom/elements/layout/boxContainerElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { SizedBoxElement } from "@tuidom/elements/layout/sizedBoxElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 

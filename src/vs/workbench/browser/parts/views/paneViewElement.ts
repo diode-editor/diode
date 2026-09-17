@@ -95,8 +95,12 @@ export class PaneViewElement extends TUIElement {
             weight: 1,
             lastBodyHeight: 0,
         };
-        header.onToggle = () => this.toggleCollapsed(record.id);
-        header.onDrag = (boundaryScreenY) => this.dragBoundary(record, boundaryScreenY);
+        header.onToggle = () => {
+            this.toggleCollapsed(record.id);
+        };
+        header.onDrag = (boundaryScreenY) => {
+            this.dragBoundary(record, boundaryScreenY);
+        };
         header.onMenu = (anchor) => this.onDidRequestPaneMenu?.(record.id, anchor);
         header.onAction = (actionId) => this.onDidRequestPaneAction?.(record.id, actionId);
         this.panes.push(record);

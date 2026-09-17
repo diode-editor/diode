@@ -1,11 +1,10 @@
 import * as fs from "node:fs";
 
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
-
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
@@ -212,9 +211,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         const left = groups[0].getPanes()[0];
         const right = groups[1].getPanes()[0];
         expect(left !== right).toBe(true);
-        expect(
-            (left as { model?: unknown }).model === (right as { model?: unknown }).model,
-        ).toBe(true);
+        expect((left as { model?: unknown }).model === (right as { model?: unknown }).model).toBe(true);
     });
 
     it("US-4: новая пустая группа фокусируема и принимает открытие файла", () => {

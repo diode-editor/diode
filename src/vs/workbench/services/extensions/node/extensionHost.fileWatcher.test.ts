@@ -1,12 +1,12 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITreeFileChange } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
-import type { IExtensionFileWatcher } from "../../../api/common/iExtensionFileWatcher.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
+import type { IExtensionFileWatcher } from "../../../api/common/iExtensionFileWatcher.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
@@ -45,7 +45,9 @@ function makeFakeWatcher(): IExtensionFileWatcher & {
     return {
         calls,
         disposed,
-        fire: (index, changes) => sinks[index](changes),
+        fire: (index, changes) => {
+            sinks[index](changes);
+        },
         watch: (base, recursive, onChanges): IDisposable => {
             const index = calls.length;
             calls.push({ base, recursive });
@@ -186,17 +188,21 @@ describe("toWatcherEvents", () => {
     };
 
     it("путь матчится относительно базы", () => {
-        expect(toWatcherEvents({ ...request, pattern: "src/*.ts" }, [
-            { type: "changed", path: "/repo/src/a.ts" },
-            { type: "changed", path: "/repo/other/a.ts" },
-        ])).toEqual([{ type: "changed", uri: Uri.file("/repo/src/a.ts").toString() }]);
+        expect(
+            toWatcherEvents({ ...request, pattern: "src/*.ts" }, [
+                { type: "changed", path: "/repo/src/a.ts" },
+                { type: "changed", path: "/repo/other/a.ts" },
+            ]),
+        ).toEqual([{ type: "changed", uri: Uri.file("/repo/src/a.ts").toString() }]);
     });
 
     it("события вне базы и сама база отбрасываются", () => {
-        expect(toWatcherEvents(request, [
-            { type: "changed", path: "/elsewhere/a.ts" },
-            { type: "changed", path: "/repo" },
-        ])).toEqual([]);
+        expect(
+            toWatcherEvents(request, [
+                { type: "changed", path: "/elsewhere/a.ts" },
+                { type: "changed", path: "/repo" },
+            ]),
+        ).toEqual([]);
     });
 
     it("ignore-флаги режут свой вид событий", () => {
@@ -205,8 +211,8 @@ describe("toWatcherEvents", () => {
             { type: "changed", path: "/repo/b.ts" },
             { type: "deleted", path: "/repo/c.ts" },
         ];
-        expect(
-            toWatcherEvents({ ...request, ignoreCreateEvents: true, ignoreDeleteEvents: true }, changes),
-        ).toEqual([{ type: "changed", uri: Uri.file("/repo/b.ts").toString() }]);
+        expect(toWatcherEvents({ ...request, ignoreCreateEvents: true, ignoreDeleteEvents: true }, changes)).toEqual([
+            { type: "changed", uri: Uri.file("/repo/b.ts").toString() },
+        ]);
     });
 });

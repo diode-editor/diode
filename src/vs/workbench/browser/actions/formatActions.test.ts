@@ -7,8 +7,8 @@ import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { FormattingSource, IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken, type EditorService } from "../../services/editor/browser/editorService.ts";
-import { StatusBarServiceDIToken, type StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
+import { type EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { type StatusBarService, StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
 
 import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
 

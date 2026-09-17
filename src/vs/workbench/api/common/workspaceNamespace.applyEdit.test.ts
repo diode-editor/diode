@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
@@ -108,7 +107,9 @@ describe("workspace.applyEdit — продюсер RPC", () => {
             edits: [
                 {
                     resource: URI_A.toString(),
-                    edits: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "foo(bar)" }],
+                    edits: [
+                        { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "foo(bar)" },
+                    ],
                 },
             ],
         });

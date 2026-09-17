@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-    REGISTRY_SCHEMA_VERSION,
     parseRegistryIndex,
     parseRegistryMeta,
+    REGISTRY_SCHEMA_VERSION,
     searchRegistryIndex,
 } from "./registryFormat.ts";
 
@@ -155,7 +155,12 @@ describe("parseRegistryMeta", () => {
                         publishedAt: "2026-08-01T00:00:00Z",
                     }),
                 ],
-                { repository: "https://github.com/acme/mt", license: "MIT", homepage: "https://acme.dev", readme: "# MT" },
+                {
+                    repository: "https://github.com/acme/mt",
+                    license: "MIT",
+                    homepage: "https://acme.dev",
+                    readme: "# MT",
+                },
             ),
             "acme.markdown-tools",
         );
@@ -290,7 +295,9 @@ describe("parseRegistryMeta", () => {
     });
 
     it("url-артефакт без origin валиден", () => {
-        const { meta } = parseRegistryMeta(metaText([versionRecord({ artifact: { type: "url", url: "https://x/y.vsix" } })]));
+        const { meta } = parseRegistryMeta(
+            metaText([versionRecord({ artifact: { type: "url", url: "https://x/y.vsix" } })]),
+        );
         expect(meta.versions[0]?.artifact).toEqual({ type: "url", url: "https://x/y.vsix", origin: undefined });
     });
 

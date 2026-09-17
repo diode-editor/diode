@@ -1,4 +1,5 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";

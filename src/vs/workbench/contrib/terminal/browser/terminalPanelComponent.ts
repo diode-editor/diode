@@ -1,5 +1,6 @@
 import { Disposable } from "@tuidom/core/common/disposable";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
@@ -119,5 +120,5 @@ export class TerminalPanelComponent extends Disposable {
 /** Держит ли фокус сам виджет или что-то в его поддереве. */
 function holdsFocus(widget: TerminalViewElement): boolean {
     const active = widget.getRoot()?.focusManager?.activeElement ?? null;
-    return active !== null && active.getAncestorPath().includes(widget);
+    return active?.getAncestorPath().includes(widget) === true;
 }

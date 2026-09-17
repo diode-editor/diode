@@ -1,13 +1,10 @@
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import {
-    createExtensionTestHarness,
-    type IExtensionHarness,
-} from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -18,7 +15,8 @@ import { Container } from "../../../../platform/instantiation/common/diContainer
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatDocumentAction } from "../../../browser/actions/formatActions.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
-import { StatusBarServiceDIToken, type StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
+import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 // Форматирование поверх СТОКОВОГО стека (правило AGENTS: фича поверх стокового
@@ -71,9 +69,9 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 describe("ExtensionHost — форматирование от стокового typescript-language-server", () => {
     beforeAll(async () => {
         // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
-        const { buildExtensions } = await import(
+        const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
-        );
+        )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 

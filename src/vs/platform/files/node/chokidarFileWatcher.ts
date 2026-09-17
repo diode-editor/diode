@@ -1,6 +1,6 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import chokidar, { type FSWatcher } from "chokidar";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { describeFileWatchError } from "../common/fileWatchErrors.ts";
 import type { IFileWatcher } from "../common/iFileWatcher.ts";

@@ -12,8 +12,14 @@ function displayGroupOf(group: ScmGroupId): ScmGroupId {
     return group === "untracked" ? "worktree" : group;
 }
 
+/**
+ * Группа, у которой есть собственный заголовок: `untracked` своего не имеет и
+ * приезжает под «Changes» (см. {@link displayGroupOf}).
+ */
+export type ScmDisplayGroupId = Exclude<ScmGroupId, "untracked">;
+
 /** Заголовки групп — как resource groups в VS Code. */
-export const SCM_GROUP_LABELS: Readonly<Partial<Record<ScmGroupId, string>>> = {
+export const SCM_GROUP_LABELS: Readonly<Record<ScmDisplayGroupId, string>> = {
     merge: "Merge Changes",
     index: "Staged Changes",
     worktree: "Changes",
@@ -23,7 +29,7 @@ export const SCM_GROUP_LABELS: Readonly<Partial<Record<ScmGroupId, string>>> = {
  * Порядок показа непустых групп. `untracked` здесь нет намеренно — он
  * приезжает под заголовком «Changes» (см. {@link displayGroupOf}).
  */
-const DISPLAY_ORDER: readonly ScmGroupId[] = ["merge", "index", "worktree"];
+const DISPLAY_ORDER: readonly ScmDisplayGroupId[] = ["merge", "index", "worktree"];
 
 /** Непустая группа изменений в порядке показа. */
 export interface IScmChangeGroup {
@@ -48,9 +54,9 @@ export function groupChanges(changes: readonly IScmChange[]): readonly IScmChang
         }
         bucket.push(change);
     }
-    return DISPLAY_ORDER.filter((id) => byGroup.has(id)).map((id) => ({
-        id,
-        label: SCM_GROUP_LABELS[id]!,
-        changes: byGroup.get(id)!,
-    }));
+    return DISPLAY_ORDER.flatMap((id) => {
+        const changes = byGroup.get(id);
+        if (changes === undefined) return [];
+        return [{ id, label: SCM_GROUP_LABELS[id], changes }];
+    });
 }

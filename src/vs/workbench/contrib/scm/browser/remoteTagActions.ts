@@ -4,8 +4,8 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-
 import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
+
 import { GitRemotesMenu, GitTagsMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { pickRemote, queryRefs } from "./syncActions.ts";
