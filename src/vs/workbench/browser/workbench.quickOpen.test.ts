@@ -198,3 +198,96 @@ describe("Workbench — Go to Line", () => {
         expect(activeEditor().getActiveEditor()?.primaryCursorLine).toBe(14);
     });
 });
+
+/**
+ * Пикер открытых редакторов целиком через живой Workbench: аккорд Ctrl+K Ctrl+P
+ * → провайдер `edt ` → переключение вкладки. Проводку (DI-швы к EditorService и
+ * ExplorerService, запись в QUICK_ACCESS_PROVIDERS, экшен с биндом) видит
+ * только такой тест: юнит-тесты провайдера работают со своими фейками.
+ */
+describe("Workbench — пикер открытых редакторов (Ctrl+K Ctrl+P)", () => {
+    let ws: ITempWorkspace;
+    let h: IAppHarness;
+
+    function editorService(): EditorService {
+        return (h.workbench as unknown as { editorService: EditorService }).editorService;
+    }
+
+    function picker(): QuickPickElement {
+        return h.testApp.querySelector("QuickPickElement") as QuickPickElement;
+    }
+
+    beforeEach(async () => {
+        ws = createTempWorkspace({
+            prefix: "diode-open-editors-",
+            files: {
+                "alpha.txt": "Alpha content",
+                "nested/beta.txt": "Beta content",
+            },
+        });
+        h = createAppTestHarness({ workspaceFolder: ws.dir });
+        await h.workbench.activate();
+        await h.workbench.fileIndexReady;
+        h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
+        h.commands.execute("workbench.openFile", ws.path("nested/beta.txt"));
+        h.testApp.render();
+    });
+
+    afterEach(() => {
+        h.dispose();
+        ws.dispose();
+        vi.restoreAllMocks();
+    });
+
+    it("аккорд Ctrl+K Ctrl+P открывает пикер с открытыми вкладками в MRU-порядке", () => {
+        h.workbench.focusEditor();
+        h.testApp.sendKey("Ctrl+K");
+        h.testApp.sendKey("Ctrl+P");
+        h.testApp.render();
+
+        expect(picker().getQuery()).toBe("edt ");
+        // Активная вкладка сверху; путь — относительно корня воркспейса.
+        expect(picker().items.map((item) => item.label)).toEqual(["beta.txt", "alpha.txt"]);
+        expect(picker().items.map((item) => item.description)).toEqual(["nested", ""]);
+    });
+
+    it("команда видна в палитре под своим заголовком и со своим биндом", () => {
+        h.workbench.focusEditor();
+        h.commands.execute("workbench.action.showCommands");
+        h.testApp.render();
+
+        const entry = picker().items.find((item) => item.label === "Show All Editors");
+        expect(entry).toBeDefined();
+        expect(entry?.shortcut).toBe("Ctrl+K Ctrl+P");
+    });
+
+    it("принятие строки переключает на её вкладку", async () => {
+        h.workbench.focusEditor();
+        h.commands.execute("workbench.action.showAllEditors");
+        h.testApp.render();
+
+        const target = picker().items.find((item) => item.label === "alpha.txt")!;
+        picker().onAccept?.(target, picker().items.indexOf(target));
+        await flushMicrotasks(2);
+        h.testApp.render();
+
+        expect(editorService().getActiveEditor()?.fileName).toBe("alpha.txt");
+        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
+    });
+
+    it("несохранённая вкладка помечена в списке точкой", () => {
+        h.workbench.focusEditor();
+        h.commands.execute("workbench.action.showAllEditors");
+        h.testApp.render();
+        expect(picker().items[0].hint).toBeUndefined();
+        h.testApp.sendKey("Escape");
+
+        // Правка активной вкладки — маркер появляется в той же строке.
+        h.workbench.focusEditor();
+        h.testApp.sendKey("x");
+        h.commands.execute("workbench.action.showAllEditors");
+        h.testApp.render();
+
+        expect(picker().items[0].hint).toBe("●");
+    });
+});

@@ -1240,6 +1240,32 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     /**
+     * Вкладки ВСЕХ групп для пикера открытых редакторов: активная группа первой
+     * (её активная вкладка — во главе списка), за ней остальные в порядке
+     * полосы; внутри группы — MRU-порядок ({@link EditorGroup.getMruPanes}).
+     * Глобального MRU-стека у нас нет — он живёт на группе, — и склейка по
+     * полосе от активной группы даёт ровно то, что пикер обещает заголовком:
+     * сверху то, где пользователь только что был.
+     */
+    public getOpenEditorsMru(): IEditorPane[] {
+        const active = this.activeGroupValue;
+        const strip = [active, ...this.groupsList.filter((group) => group !== active)];
+        return strip.flatMap((group) => group.getMruPanes());
+    }
+
+    /**
+     * Показывает уже открытую вкладку: делает её группу активной и активирует
+     * саму вкладку с фокусом (пикер открытых редакторов). Панель не из полосы
+     * (detached-редактор, уже закрытая вкладка) — no-op.
+     */
+    public revealPane(pane: IEditorPane): void {
+        const group = this.groupOf(pane);
+        if (group === null) return;
+        this.makeGroupActive(group);
+        group.activateTab(group.getPanes().indexOf(pane));
+    }
+
+    /**
      * Шаг по вкладкам в ВИЗУАЛЬНОМ порядке (VS Code `nextEditor` /
      * `previousEditor`, Ctrl+PgDn/PgUp): вкладки всех групп слева направо, с
      * заворотом на краях полосы. В отличие от MRU-цикла Ctrl+Tab здесь нет

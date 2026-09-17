@@ -125,3 +125,35 @@ describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycl
         expect(events[1]?.pointer).toBe(2);
     });
 });
+
+describe("EditorGroup — MRU-снимок для пикера открытых редакторов (getMruPanes)", () => {
+    it("недавние первыми: активная вкладка во главе списка", () => {
+        const { group } = groupWith("/a.ts", "/b.ts", "/c.ts");
+
+        expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/c.ts", "/b.ts", "/a.ts"]);
+
+        group.activateTab(0);
+
+        expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/a.ts", "/c.ts", "/b.ts"]);
+    });
+
+    it("вкладка, ни разу не активированная (приехала merge'ом), всё равно в списке — хвостом", () => {
+        const { group } = groupWith("/a.ts", "/b.ts");
+        // mergeGroupInto вставляет чужие вкладки без активации: в mruOrder их нет.
+        group.insertPane(makePane("/merged.ts"));
+
+        expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/b.ts", "/a.ts", "/merged.ts"]);
+    });
+
+    it("закрытая вкладка из списка уходит", () => {
+        const { group } = groupWith("/a.ts", "/b.ts", "/c.ts");
+
+        group.closeTab(2);
+
+        expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/b.ts", "/a.ts"]);
+    });
+
+    it("у пустой группы список пуст", () => {
+        expect(new EditorGroup(1).getMruPanes()).toEqual([]);
+    });
+});

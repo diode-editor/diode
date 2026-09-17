@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { charMask } from "../../../../base/common/fuzzySearch.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -15,6 +16,7 @@ import {
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
@@ -32,6 +34,11 @@ import { CommandsQuickAccessProvider, CommandsQuickAccessProviderDIToken } from 
 import { FilesQuickAccessProvider, FilesQuickAccessProviderDIToken } from "./filesQuickAccessProvider.ts";
 import type { IGotoLineEditor, IGotoLineEditorSource } from "./gotoLineQuickAccessProvider.ts";
 import { GotoLineQuickAccessProvider, GotoLineQuickAccessProviderDIToken } from "./gotoLineQuickAccessProvider.ts";
+import type { IOpenEditorsSource } from "./openEditorsQuickAccessProvider.ts";
+import {
+    OpenEditorsQuickAccessProvider,
+    OpenEditorsQuickAccessProviderDIToken,
+} from "./openEditorsQuickAccessProvider.ts";
 import { QUICK_ACCESS_PROVIDERS } from "./quickAccessProviders.ts";
 import { QuickOpenService } from "./quickOpenService.ts";
 
@@ -85,6 +92,30 @@ function makeFileSearchStub(results: FileSearchResult[] = []): FileSearchService
     } as unknown as FileSearchService;
 }
 
+/** Открытая вкладка глазами пикера `edt `: ресурс, метка, маркер правок. */
+function makeOpenEditorPane(absolutePath: string, modified = false): IEditorPane {
+    return {
+        uri: Uri.file(absolutePath),
+        label: absolutePath.split("/").pop() ?? absolutePath,
+        isModified: modified,
+    } as unknown as IEditorPane;
+}
+
+/** Источник открытых редакторов: MRU-список плюс след перехода на вкладку. */
+interface FakeOpenEditorsSource extends IOpenEditorsSource {
+    revealed: IEditorPane[];
+}
+
+function makeOpenEditorsSource(panes: IEditorPane[] = []): FakeOpenEditorsSource {
+    const revealed: IEditorPane[] = [];
+    return {
+        revealed,
+        getOpenEditorsMru: () => panes,
+        displayName: (editor) => editor.label,
+        revealPane: (editor) => revealed.push(editor),
+    };
+}
+
 /** Реестр с настоящими провайдерами поверх стабов зависимостей (без DI-контейнера). */
 function makeQuickAccessRegistry(deps: {
     fileSearch: FileSearchService;
@@ -92,6 +123,7 @@ function makeQuickAccessRegistry(deps: {
     keybindings: KeybindingRegistry;
     contextKeys: ContextKeyService;
     gotoSource: IGotoLineEditorSource;
+    openEditors: IOpenEditorsSource;
 }): QuickAccessRegistry {
     const instances = new Map<unknown, unknown>([
         [
@@ -103,6 +135,10 @@ function makeQuickAccessRegistry(deps: {
             new CommandsQuickAccessProvider(deps.commands, deps.keybindings, deps.contextKeys),
         ],
         [GotoLineQuickAccessProviderDIToken, new GotoLineQuickAccessProvider(deps.gotoSource, NULL_JUMP_RECORDER)],
+        [
+            OpenEditorsQuickAccessProviderDIToken,
+            new OpenEditorsQuickAccessProvider(deps.openEditors, { getRootPath: () => "/root" }),
+        ],
     ]);
     const accessor: ServiceAccessor = {
         get: (diToken) => instances.get(diToken) as never,
@@ -115,7 +151,10 @@ interface MutableGotoLineSource extends IGotoLineEditorSource {
     getActiveEditor: () => IGotoLineEditor | null;
 }
 
-function createService(fileResults: FileSearchResult[] = []): {
+function createService(
+    fileResults: FileSearchResult[] = [],
+    openPanes: IEditorPane[] = [],
+): {
     service: QuickOpenService;
     commands: CommandRegistry;
     keybindings: KeybindingRegistry;
@@ -126,6 +165,7 @@ function createService(fileResults: FileSearchResult[] = []): {
     component: QuickInputComponent;
     view: QuickPickElement;
     gotoSource: MutableGotoLineSource;
+    openEditors: FakeOpenEditorsSource;
 } {
     const commands = new CommandRegistry();
     const keybindings = new KeybindingRegistry();
@@ -133,8 +173,9 @@ function createService(fileResults: FileSearchResult[] = []): {
     const fileSearch = makeFileSearchStub(fileResults);
     const component = makeComponent();
     const gotoSource: MutableGotoLineSource = { getActiveEditor: () => null };
+    const openEditors = makeOpenEditorsSource(openPanes);
     const service = new QuickOpenService(
-        makeQuickAccessRegistry({ fileSearch, commands, keybindings, contextKeys, gotoSource }),
+        makeQuickAccessRegistry({ fileSearch, commands, keybindings, contextKeys, gotoSource, openEditors }),
         component,
     );
 
@@ -153,6 +194,7 @@ function createService(fileResults: FileSearchResult[] = []): {
         component,
         view: component.view,
         gotoSource,
+        openEditors,
     };
 }
 
@@ -665,6 +707,67 @@ describe("QuickOpenService — mode switching via '>'", () => {
     });
 });
 
+describe("QuickOpenService — open editors mode", () => {
+    function openThree(): { service: QuickOpenService; view: QuickPickElement; openEditors: FakeOpenEditorsSource } {
+        const panes = [
+            makeOpenEditorPane("/root/src/main.ts"),
+            makeOpenEditorPane("/root/readme.md", true),
+            makeOpenEditorPane("/root/src/vs/editor/core.ts"),
+        ];
+        const { service, view, openEditors } = createService([], panes);
+        return { service, view, openEditors };
+    }
+
+    it("префикс «edt » выбирает пикер открытых редакторов, а не файловый поиск", () => {
+        const { service, view } = openThree();
+        service.show(OpenEditorsQuickAccessProvider.PREFIX);
+        expect(view.placeholder).toBe("Show All Opened Editors");
+        expect(view.getQuery()).toBe("edt ");
+    });
+
+    it("список — открытые вкладки в MRU-порядке, с путём и маркером правок", () => {
+        const { service, view } = openThree();
+        service.show(OpenEditorsQuickAccessProvider.PREFIX);
+        expect(view.items.map((item) => item.label)).toEqual(["main.ts", "readme.md", "core.ts"]);
+        expect(view.items.map((item) => item.description)).toEqual(["src", "", "src/vs/editor"]);
+        expect(view.items.map((item) => item.hint)).toEqual([undefined, "●", undefined]);
+    });
+
+    it("ввод фильтрует список тем же fuzzy, что и файловый пикер", () => {
+        const { service, view } = openThree();
+        service.show(OpenEditorsQuickAccessProvider.PREFIX);
+        view.onQueryChange?.("edt cor");
+        expect(view.items.map((item) => item.label)).toEqual(["core.ts"]);
+        expect(view.items[0].labelMatchRanges).toEqual([[0, 3]]);
+    });
+
+    it("принятие строки переключает на её вкладку", async () => {
+        const { service, view, openEditors } = openThree();
+        service.show(OpenEditorsQuickAccessProvider.PREFIX);
+        view.onQueryChange?.("edt readme");
+
+        // Принятие уезжает в микротаску (пикер сперва закрывается) — как у файлов.
+        view.onAccept?.(view.items[0], 0);
+        await new Promise<void>((r) => {
+            queueMicrotask(r);
+        });
+
+        expect(openEditors.revealed.map((pane) => pane.label)).toEqual(["readme.md"]);
+    });
+
+    it("стирание префикса возвращает файловый поиск", () => {
+        const results = [makeSearchResult("src/main.ts")];
+        const { service, view } = createService(results, [makeOpenEditorPane("/root/only-open.ts")]);
+        service.show(OpenEditorsQuickAccessProvider.PREFIX);
+        expect(view.items.map((item) => item.label)).toEqual(["only-open.ts"]);
+
+        view.onQueryChange?.("main");
+
+        expect(view.placeholder).toBe("Go to File...");
+        expect(view.items.map((item) => item.label)).toEqual(["main.ts"]);
+    });
+});
+
 describe("QuickOpenService — position and size", () => {
     it("open() sets preferredWidth to computed pickerW", () => {
         // 80-wide screen: pickerW = min(80, max(40, 80-4)) = 76
@@ -684,6 +787,7 @@ describe("QuickOpenService — position and size", () => {
                 keybindings: new KeybindingRegistry(),
                 contextKeys: new ContextKeyService(),
                 gotoSource: { getActiveEditor: () => null },
+                openEditors: makeOpenEditorsSource(),
             }),
             component,
         );
@@ -710,6 +814,7 @@ describe("QuickOpenService — position and size", () => {
                 keybindings: new KeybindingRegistry(),
                 contextKeys: new ContextKeyService(),
                 gotoSource: { getActiveEditor: () => null },
+                openEditors: makeOpenEditorsSource(),
             }),
             component,
         );

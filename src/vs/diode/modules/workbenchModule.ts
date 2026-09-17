@@ -143,6 +143,12 @@ import {
     GotoLineQuickAccessProvider,
     GotoLineQuickAccessProviderDIToken,
 } from "../../workbench/contrib/quickaccess/browser/gotoLineQuickAccessProvider.ts";
+import {
+    OpenEditorsQuickAccessProvider,
+    OpenEditorsQuickAccessProviderDIToken,
+    OpenEditorsSourceDIToken,
+    WorkspaceRootSourceDIToken,
+} from "../../workbench/contrib/quickaccess/browser/openEditorsQuickAccessProvider.ts";
 import { QUICK_ACCESS_PROVIDERS } from "../../workbench/contrib/quickaccess/browser/quickAccessProviders.ts";
 import {
     QuickOpenService,
@@ -304,12 +310,18 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickInputServiceDIToken, QuickInputService);
     container.bind(FileSearchServiceDIToken, FileSearchService);
     container.bind(GotoLineEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    // Швы пикера открытых редакторов: список вкладок и переход — EditorService,
+    // корень воркспейса для путей-описаний — ExplorerService (он же переживает
+    // Open Folder, так что пути едут за сменой папки сами).
+    container.bind(OpenEditorsSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(WorkspaceRootSourceDIToken, () => container.get(ExplorerServiceDIToken));
     // Quick-access-провайдеры: явный список (QUICK_ACCESS_PROVIDERS) + реестр,
     // выбирающий провайдера по префиксу запроса; QuickOpenService — контроллер
     // показа, о конкретных префиксах не знает.
     container.bind(FilesQuickAccessProviderDIToken, FilesQuickAccessProvider);
     container.bind(CommandsQuickAccessProviderDIToken, CommandsQuickAccessProvider);
     container.bind(GotoLineQuickAccessProviderDIToken, GotoLineQuickAccessProvider);
+    container.bind(OpenEditorsQuickAccessProviderDIToken, OpenEditorsQuickAccessProvider);
     container.bind(QuickAccessProvidersDIToken, () => QUICK_ACCESS_PROVIDERS);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);
