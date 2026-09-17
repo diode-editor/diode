@@ -1,5 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import { detectEndOfLine, EndOfLine, eolToSequence } from "../core/endOfLine.ts";
+import type { IPosition } from "../core/iPosition.ts";
 import { comparePositions } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
 import { createRange } from "../core/iRange.ts";
@@ -157,12 +159,13 @@ export class TextDocument implements ITextDocument {
         // Collect old texts BEFORE applying any edits
         const oldTexts = docOrder.map((edit) => this.getTextInRange(edit.range));
 
-        // Sort edits in reverse document order for safe application
-        const reversed = [...edits].sort((a, b) => {
-            const cmp = comparePositions(b.range.start, a.range.start);
-            if (cmp !== 0) return cmp;
-            return comparePositions(b.range.end, a.range.end);
-        });
+        // Bottom-up = ровно обратный docOrder, а не отдельная сортировка по
+        // убыванию: сортировка стабильна, поэтому правки с СОВПАДАЮЩИМИ
+        // диапазонами остались бы в исходном порядке батча и, применённые
+        // снизу вверх, склеились бы задом наперёд. Такие правки реальны —
+        // обратные правки двух соседних удалений схлопываются в две вставки
+        // нулевой ширины в одну точку.
+        const reversed = [...docOrder].reverse();
 
         // Apply edits bottom-up (so coordinates of earlier edits stay valid),
         // collect changes, then emit them in document order.
@@ -181,57 +184,52 @@ export class TextDocument implements ITextDocument {
         return { appliedVersion: this.innerVersionId, inverseEdits };
     }
 
+    /**
+     * Строит обратные правки в координатах УЖЕ ПРИМЕНЁННОГО документа.
+     *
+     * Правки не пересекаются и отсортированы по возрастанию, поэтому каждая
+     * следующая начинается не раньше конца предыдущей — и её новую позицию
+     * достаточно отмерить ОТ КОНЦА предыдущей правки: `prevOldEnd` в старых
+     * координатах, `prevNewEnd` в новых. Попала позиция на ту же старую
+     * строку, что и `prevOldEnd`, — она уехала на строку `prevNewEnd.line` со
+     * сдвигом колонки (так ловится склейка строк при удалении переводов);
+     * попала ниже — сдвигается только номер строки, на накопленную разницу
+     * `prevNewEnd.line - prevOldEnd.line`. Оба конца `prevNewEnd` абсолютные,
+     * так что разница накопительная и композиция правок получается сама.
+     */
     private computeInverseEdits(editsInDocOrder: readonly ITextEdit[], oldTexts: string[]): ITextEdit[] {
         const inverse: ITextEdit[] = [];
-        let accLineDelta = 0;
-        let accCharDelta = 0;
-        let lastEditLine = -1;
+        // Конец предыдущей правки в двух системах координат — точка отсчёта
+        // для следующей. До первой правки координаты совпадают.
+        let prev: { readonly oldEnd: IPosition; readonly newEnd: IPosition } | null = null;
 
         for (let i = 0; i < editsInDocOrder.length; i++) {
             const edit = editsInDocOrder[i];
-            const oldText = oldTexts[i];
+            const start = edit.range.start;
 
-            // Compute the new start position (where this edit landed in the new document)
-            const newStartLine = edit.range.start.line + accLineDelta;
-            const newStartChar =
-                edit.range.start.line === lastEditLine
-                    ? edit.range.start.character + accCharDelta
-                    : edit.range.start.character;
+            let newStartLine: number;
+            let newStartChar: number;
+            if (prev === null) {
+                newStartLine = start.line;
+                newStartChar = start.character;
+            } else if (start.line === prev.oldEnd.line) {
+                newStartLine = prev.newEnd.line;
+                newStartChar = prev.newEnd.character + (start.character - prev.oldEnd.character);
+            } else {
+                newStartLine = start.line + (prev.newEnd.line - prev.oldEnd.line);
+                newStartChar = start.character;
+            }
 
-            // Compute the new end position based on the inserted text dimensions
+            // Конец вставленного текста в новых координатах.
             const insertedLines = edit.text.split("\n");
-            const insertedLineCount = insertedLines.length;
-            let newEndLine: number;
-            let newEndChar: number;
+            const lastInserted = insertedLines[insertedLines.length - 1];
+            const newEndLine = newStartLine + insertedLines.length - 1;
+            const newEndChar = insertedLines.length === 1 ? newStartChar + lastInserted.length : lastInserted.length;
 
-            if (insertedLineCount === 1) {
-                newEndLine = newStartLine;
-                newEndChar = newStartChar + insertedLines[0].length;
-            } else {
-                newEndLine = newStartLine + insertedLineCount - 1;
-                newEndChar = insertedLines[insertedLineCount - 1].length;
-            }
+            // Обратная правка возвращает старый текст на место вставленного.
+            inverse.push(createTextEdit(createRange(newStartLine, newStartChar, newEndLine, newEndChar), oldTexts[i]));
 
-            // The inverse edit replaces the inserted text range with the old text
-            inverse.push(createTextEdit(createRange(newStartLine, newStartChar, newEndLine, newEndChar), oldText));
-
-            // Update accumulated deltas
-            const deletedLines = edit.range.end.line - edit.range.start.line;
-            const lineDelta = insertedLineCount - 1 - deletedLines;
-            accLineDelta += lineDelta;
-
-            if (insertedLineCount === 1 && deletedLines === 0) {
-                const charDelta = insertedLines[0].length - (edit.range.end.character - edit.range.start.character);
-                if (edit.range.start.line === lastEditLine) {
-                    accCharDelta += charDelta;
-                } else {
-                    accCharDelta = charDelta;
-                }
-                lastEditLine = edit.range.start.line;
-            } else {
-                accCharDelta = 0;
-                lastEditLine = -1;
-            }
+            prev = { oldEnd: edit.range.end, newEnd: { line: newEndLine, character: newEndChar } };
         }
 
         return inverse;
