@@ -14,9 +14,9 @@
 
 ## Phase 3 — Language configuration runtime
 
-- [~] Загрузка `language-configuration.json` per language (#321, PR 1: `LanguageConfigurationService` — загрузка/парсинг JSONC/кэш по языку; comments, brackets, autoClosingPairs, surroundingPairs, autoCloseBefore).
-- [~] Комментирование по `comments` (#321, PR 2: `editor.action.commentLine` / `blockComment` / `addCommentLine` / `removeCommentLine`).
-- [~] Auto-closing pairs / surrounding pairs в редакторе (#321, PR 3).
+- [x] Загрузка `language-configuration.json` per language (#321, PR 1 → #324: `LanguageConfigurationService` — загрузка/парсинг JSONC/кэш по языку; comments, brackets, autoClosingPairs, surroundingPairs, autoCloseBefore).
+- [x] Комментирование по `comments` (#321, PR 2 → #325: `editor.action.commentLine` / `blockComment` / `addCommentLine` / `removeCommentLine`).
+- [x] Auto-closing pairs / surrounding pairs в редакторе (#321, PR 3 → #326: пара с кареткой внутри, typeover закрывающей, auto-surround выделения; `notIn` string/comment пока не учитывается — у планировщика нет токенов).
 - [ ] On-enter rules (smart indent после `{`, продолжение `//`-комментариев).
 - [ ] Bracket matching, folding markers.
 
