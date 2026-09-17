@@ -161,6 +161,18 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(1);
     });
 
+    it("обход на корне файловой системы тоже делится", () => {
+        const delegate = new FakeTreeWatcher();
+        const shared = new SharedTreeWatcher(delegate);
+
+        // Корень — единственный путь, который сам кончается разделителем
+        // (на Windows это `C:\`, случай куда более житейский).
+        shared.watchTree(path.sep, { recursive: true, excludes: [] }, () => undefined);
+        shared.watchTree(path.join(path.sep, "repo"), { recursive: true, excludes: [] }, () => undefined);
+
+        expect(delegate.traversals).toHaveLength(1);
+    });
+
     it("обход предка, заведённый позже, старых подписчиков к себе не забирает", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);

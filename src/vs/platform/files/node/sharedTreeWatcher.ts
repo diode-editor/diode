@@ -182,14 +182,14 @@ function filterForSubscriber(
     if (root === subscriber.base && recursive === subscriber.recursive) return changes;
     return changes.filter((change) => {
         const relative = relativeUnder(subscriber.base, change.path);
-        if (relative === null || relative === "") return false; // вне базы либо сама база
+        if (relative === null) return false; // вне базы (или сама база — не событие для неё)
         return subscriber.recursive || !relative.includes(path.sep);
     });
 }
 
 /**
- * Путь `child` относительно `parent`, либо `null`, если он вне поддерева
- * (равный путь даёт `""` — строгость определяет вызывающий).
+ * Путь `child` относительно `parent`, либо `null`, если `child` не лежит
+ * **строго внутри** `parent` (равный путь — тоже `null`).
  *
  * Оба пути уже нормализованы (`path.resolve` на базе, chokidar склеивает
  * события от корня обхода), поэтому хватает префикса по границе сегмента —
@@ -197,7 +197,6 @@ function filterForSubscriber(
  * в префиксе обязателен: `/repo/srcx` не лежит в `/repo/src`.
  */
 function relativeUnder(parent: string, child: string): string | null {
-    if (child === parent) return "";
     // Корень (`/`, на Windows `C:\`) — единственный путь, который сам кончается
     // разделителем; второй подряд превратил бы префикс в несуществующий.
     const prefix = parent.endsWith(path.sep) ? parent : parent + path.sep;
