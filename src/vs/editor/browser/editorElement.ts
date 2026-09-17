@@ -81,6 +81,16 @@ const FOLD_COLLAPSED_MARKER = "⋯"; // ⋯ horizontal ellipsis
 const INDENT_GUIDE = "│"; // U+2502 box drawings light vertical
 
 /**
+ * Ячейки направляющих отступа: экранный ряд → занятые в нём колонки. Ряд+колонка,
+ * а не один числовой ключ: ключ вида `y * ширина + x` мутант-делением схлопывает
+ * разные ячейки в одну, и проход маркеров начинает принимать текст за гайд.
+ */
+type IndentGuideCells = ReadonlyMap<number, ReadonlySet<number>>;
+
+/** Пустой набор — ранние выходы {@link EditorElement.paintIndentGuides} не аллоцируют Map. */
+const NO_GUIDE_CELLS: IndentGuideCells = new Map<number, ReadonlySet<number>>();
+
+/**
  * Специализированные цвета редактора (гуттер, подсветки, squiggles, контекстное
  * меню). Основные fg/bg редактора сюда не входят — они задаются через
  * `editor.style = { fg, bg }` (система наследования TUIStyle).
@@ -719,7 +729,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         // Indentation guides for folding regions, drawn over the leading
         // whitespace before the range-highlight passes below — those set only
         // `bg`, so a selection/search background composes over the guide glyph.
-        this.paintIndentGuides(context, geometry, editorBg, primaryLine);
+        // Занятые гайдами ячейки забирает проход маркеров: ему нельзя красить их
+        // fg — см. {@link paintMarkerDecoration}.
+        const indentGuideCells = this.paintIndentGuides(context, geometry, editorBg, primaryLine);
 
         // Intra-line подсветка диффа: яркий фон изменённого фрагмента поверх
         // фона строки; слабее occurrence/selection — те побеждают в наложении.
@@ -768,7 +780,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         // Diagnostic squiggles on top of the content — painted last (after the
         // background passes) so the severity colour and undercurl win.
         for (const decoration of this.markerDecorations) {
-            this.paintMarkerDecoration(context, decoration, geometry);
+            this.paintMarkerDecoration(context, decoration, geometry, indentGuideCells);
         }
 
         // Каретки ячейками — самый верхний слой (как `.cursors-layer` в VS Code): бьют и
@@ -807,15 +819,21 @@ export class EditorElement extends TUIElement implements IScrollable {
      * indent as the code it wraps), so every cell is checked against the body
      * line's own indent. Collapsed regions contribute nothing (their body is
      * hidden).
+     *
+     * Возвращает ячейки кадра, на которые лёг глиф направляющей, — проход
+     * диагностик по ним не красит fg (см. {@link paintMarkerDecoration}).
      */
     private paintIndentGuides(
         context: RenderContext,
         geo: ITextViewportGeometry,
         editorBg: number,
         primaryLine: number,
-    ): void {
+    ): IndentGuideCells {
         const regions = this.viewState.foldedRegions;
-        if (regions.length === 0) return;
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: ранний выход
+        // по пустому списку областей эквивалентен проходу — цикл ниже просто не сделает
+        // ни одной итерации и вернёт пустой набор.
+        if (regions.length === 0) return NO_GUIDE_CELLS;
 
         const doc = this.viewState.document;
         const tabSize = this.tabSize;
@@ -840,7 +858,10 @@ export class EditorElement extends TUIElement implements IScrollable {
             if (minLog < 0) minLog = logLine;
             maxLog = logLine;
         }
-        if (maxLog < 0) return;
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: ранний выход
+        // по «нет видимых строк» эквивалентен проходу — при maxLog ≤ 0 у любой области
+        // firstBody (≥ startLine + 1) больше lastBody, и цикл ниже ничего не рисует.
+        if (maxLog < 0) return NO_GUIDE_CELLS;
 
         // Active guide: the innermost region enclosing the cursor. `regions` is
         // sorted by startLine and enclosing regions are strictly nested, so the
@@ -852,6 +873,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
         }
 
+        const guideCells = new Map<number, Set<number>>();
         const guideFg = this.styleVar("editorIndentGuide.background1");
         const activeFg = this.styleVar("editorIndentGuide.activeBackground1");
 
@@ -875,8 +897,15 @@ export class EditorElement extends TUIElement implements IScrollable {
                 const bodyIndent = computeIndentLevel(doc.getLineContent(logLine), tabSize);
                 if (bodyIndent !== -1 && bodyIndent <= col) continue;
                 context.setCell(screenX, screenY, { char: INDENT_GUIDE, fg, bg: editorBg });
+                const columns = guideCells.get(screenY);
+                // Вложенные области дают НЕСКОЛЬКО гайдов на одном ряду — набор колонок
+                // пополняем, а не заменяем.
+                if (columns === undefined) guideCells.set(screenY, new Set([screenX]));
+                else columns.add(screenX);
             }
         }
+
+        return guideCells;
     }
 
     /**
@@ -885,15 +914,29 @@ export class EditorElement extends TUIElement implements IScrollable {
      * Terminals without undercurl support still show the colour, keeping the
      * marker visible. `bg` is left untouched so a selection/find highlight under
      * the squiggle survives.
+     *
+     * Ячейки направляющих отступа (`indentGuideCells`) получают только волну:
+     * fg там принадлежит гайду, и перекраска превратила бы `│` в сплошную
+     * красную полосу по всему отступу — именно так выглядел файл с ошибками на
+     * каждой строке. В VS Code направляющая живёт своим слоем (`.core-guide`),
+     * а squiggle рисуется отдельными пикселями поверх, так что цвет гайда не
+     * меняется; ячейка терминала несёт один fg, поэтому аналог — оставить цвет
+     * гайду, а диагностике отдать атрибут подчёркивания.
      */
     private paintMarkerDecoration(
         context: RenderContext,
         decoration: IMarkerDecoration,
         geo: ITextViewportGeometry,
+        indentGuideCells: IndentGuideCells,
     ): void {
         const fg = this.severityForeground(decoration.severity);
         forEachRangeCell(this.viewState, decoration.range, geo, (screenX, screenY) => {
-            context.setCell(screenX, screenY, { fg, style: StyleFlags.Undercurl });
+            const onGuide = indentGuideCells.get(screenY)?.has(screenX) === true;
+            context.setCell(
+                screenX,
+                screenY,
+                onGuide ? { style: StyleFlags.Undercurl } : { fg, style: StyleFlags.Undercurl },
+            );
         });
     }
 
