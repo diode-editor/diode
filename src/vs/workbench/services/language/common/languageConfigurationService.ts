@@ -1,11 +1,11 @@
-import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
+import { parse as parseJsonc, type ParseError, printParseErrorCode } from "jsonc-parser";
 
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
     EMPTY_LANGUAGE_CONFIGURATION,
-    resolveLanguageConfiguration,
     type IResolvedLanguageConfiguration,
+    resolveLanguageConfiguration,
 } from "../../../../editor/common/languages/languageConfiguration.ts";
 import type { ILanguageConfiguration } from "../../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";

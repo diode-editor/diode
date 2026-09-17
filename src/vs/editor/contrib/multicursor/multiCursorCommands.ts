@@ -1,7 +1,12 @@
 import type { IRange } from "../../common/core/iRange.ts";
 import { rangesEqual } from "../../common/core/iRange.ts";
 import type { ISelection } from "../../common/core/iSelection.ts";
-import { createCursorSelection, createSelection, isSelectionCollapsed, selectionToRange } from "../../common/core/iSelection.ts";
+import {
+    createCursorSelection,
+    createSelection,
+    isSelectionCollapsed,
+    selectionToRange,
+} from "../../common/core/iSelection.ts";
 import type { EditorViewState } from "../../common/viewModel/editorViewState.ts";
 import { findTextMatches } from "../find/findMatches.ts";
 

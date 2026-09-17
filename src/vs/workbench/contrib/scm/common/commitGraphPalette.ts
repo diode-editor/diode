@@ -68,7 +68,7 @@ export function createGraphPalette(commits: readonly IGraphPaletteCommit[]): IGr
     const styleFor: GraphStyleProvider = (sha, inherited) => {
         const semantic = semanticStyle(byHash.get(sha));
         let style = semantic ?? inherited;
-        if (style === undefined || style === null) {
+        if (style === null) {
             colorIndex = (colorIndex + 1) % GRAPH_PALETTE.length;
             style = GRAPH_PALETTE[colorIndex];
         }

@@ -14,7 +14,8 @@ function apply(lines: string[], which: number[], mode: "toggle" | "add" | "remov
     // Правки одной строки не пересекаются: у плана максимум одна правка на строку.
     for (const edit of p.edits) {
         const { start, end } = edit.range;
-        result[start.line] = result[start.line].slice(0, start.character) + edit.text + result[end.line].slice(end.character);
+        result[start.line] =
+            result[start.line].slice(0, start.character) + edit.text + result[end.line].slice(end.character);
     }
     return result;
 }

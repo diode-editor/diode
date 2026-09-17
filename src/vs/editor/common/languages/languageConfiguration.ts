@@ -52,7 +52,15 @@ function isCharacterPair(value: CharacterPair | IAutoClosingPair | ISurroundingP
     return Array.isArray(value);
 }
 
-function toAutoClosingPair(value: CharacterPair | IAutoClosingPair): IResolvedAutoClosingPair | undefined {
+/**
+ * `Array.isArray` на типизированном значении сужает к `any[]` и роняет типы
+ * записей в `any`; предикат оставляет элементу его тип.
+ */
+function isArrayOf<T>(value: readonly T[] | undefined): value is readonly T[] {
+    return Array.isArray(value);
+}
+
+function toAutoClosingPair(value: CharacterPair | IAutoClosingPair | null): IResolvedAutoClosingPair | undefined {
     // JSONC без валидации схемы: запись может оказаться чем угодно (null, число,
     // строка). Отсекаем только null — на нём падает чтение поля; всё остальное
     // отсеется проверкой на строки ниже (у числа нет ни [0], ни .open).
@@ -66,7 +74,7 @@ function toAutoClosingPair(value: CharacterPair | IAutoClosingPair): IResolvedAu
     return { open, close, notIn: Array.isArray(notIn) ? notIn : [] };
 }
 
-function toCharacterPair(value: CharacterPair | ISurroundingPair | undefined): CharacterPair | undefined {
+function toCharacterPair(value: CharacterPair | ISurroundingPair | null | undefined): CharacterPair | undefined {
     if (value === null || value === undefined) return undefined;
     const open = isCharacterPair(value) ? value[0] : value.open;
     const close = isCharacterPair(value) ? value[1] : value.close;
@@ -81,7 +89,7 @@ function toCharacterPair(value: CharacterPair | ISurroundingPair | undefined): C
  * секция, разобранные записи — без тех, что конвертер отверг.
  */
 function mapSection<T, R>(value: readonly T[] | undefined, convert: (entry: T) => R | undefined): R[] {
-    if (!Array.isArray(value)) return [];
+    if (!isArrayOf(value)) return [];
     const result: R[] = [];
     for (const entry of value) {
         const converted = convert(entry);
@@ -118,7 +126,7 @@ export function resolveLanguageConfiguration(raw: ILanguageConfiguration): IReso
     return { comments, brackets, autoClosingPairs, surroundingPairs, autoCloseBefore };
 }
 
-function resolveComments(raw: ICommentRule | undefined): ICommentRule | undefined {
+function resolveComments(raw: ICommentRule | null | undefined): ICommentRule | undefined {
     if (raw === null || raw === undefined) return undefined;
     const lineComment = typeof raw.lineComment === "string" && raw.lineComment.length > 0 ? raw.lineComment : undefined;
     const blockComment = toCharacterPair(raw.blockComment);

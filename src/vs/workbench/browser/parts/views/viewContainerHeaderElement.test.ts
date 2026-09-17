@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
@@ -156,8 +156,7 @@ describe("ViewContainerHeaderElement", () => {
 
     it("наведение подсвечивает кнопку под курсором, уход — гасит", () => {
         const { header } = makeHeader();
-        const bg = (x: number): number =>
-            renderElement(header, 30, 1, { themeVars: true }).getBgAt(new Point(x, 0));
+        const bg = (x: number): number => renderElement(header, 30, 1, { themeVars: true }).getBgAt(new Point(x, 0));
         const restBg = bg(25);
 
         mouse(header, "mousemove", { localX: 25 });
@@ -169,10 +168,28 @@ describe("ViewContainerHeaderElement", () => {
 
     it("Shift+F10 якорит меню к кнопке ⋯, правый клик — к курсору", () => {
         const { header, onMenu } = makeHeader();
-        header.dispatchEvent(new TUIContextMenuEvent({ trigger: "keyboard", button: "right", screenX: 0, screenY: 0, localX: 0, localY: 0 }));
+        header.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "keyboard",
+                button: "right",
+                screenX: 0,
+                screenY: 0,
+                localX: 0,
+                localY: 0,
+            }),
+        );
         expect(onMenu).toHaveBeenLastCalledWith({ screenX: 27, screenY: 0 });
 
-        header.dispatchEvent(new TUIContextMenuEvent({ trigger: "mouse", button: "right", screenX: 11, screenY: 4, localX: 11, localY: 0 }));
+        header.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: 11,
+                screenY: 4,
+                localX: 11,
+                localY: 0,
+            }),
+        );
         expect(onMenu).toHaveBeenLastCalledWith({ screenX: 11, screenY: 4 });
     });
 });

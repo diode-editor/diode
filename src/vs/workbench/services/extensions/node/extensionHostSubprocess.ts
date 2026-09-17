@@ -2,12 +2,14 @@ import { createRequire, Module } from "node:module";
 import * as path from "node:path";
 
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { buildVscodeNamespace } from "../../../api/common/vscodeNamespace.ts";
 import { ExtensionMode, Uri } from "../../../api/common/vscodeTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
+
 import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
 
 /**
@@ -104,7 +106,8 @@ export function runExtensionHostSubprocess(): void {
         // builtin'ы из in-memory source его не имеют — берём каталог filename
         // (синтетический путь): asAbsolutePath у них указывает «в бандл», честнее
         // фиктивного, а сравнение extensionMode работает всегда.
-        const rootPath = extensionPath ?? path.dirname((mainPath ?? filename) as string);
+        /* v8 ignore next -- одно из двух есть всегда: без mainPath и без filename расширение не загрузилось бы выше */
+        const rootPath = extensionPath ?? path.dirname(mainPath ?? filename ?? "");
         const context: ExtensionContext = {
             subscriptions: [],
             extensionPath: rootPath,
@@ -255,7 +258,8 @@ function parseActivateParams(raw: unknown): {
         mainPath: hasMain ? (obj.mainPath as string) : undefined,
         source: hasSource ? (obj.source as string) : undefined,
         filename: hasSource ? (obj.filename as string) : undefined,
-        extensionPath: typeof obj.extensionPath === "string" && obj.extensionPath !== "" ? obj.extensionPath : undefined,
+        extensionPath:
+            typeof obj.extensionPath === "string" && obj.extensionPath !== "" ? obj.extensionPath : undefined,
         configDefaults,
     };
 }

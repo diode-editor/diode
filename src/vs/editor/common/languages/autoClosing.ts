@@ -39,7 +39,7 @@ export interface IAutoClosePlanParams {
 export function planAutoClose(params: IAutoClosePlanParams): AutoCloseDecision {
     const { typedChar, lineContent, column, autoClosingPairs, autoCloseBefore } = params;
     // За концом строки индекс даёт undefined — это и есть «дальше пусто».
-    const next = lineContent[column];
+    const next = lineContent.at(column);
 
     // Набранная закрывающая уже стоит под кареткой — перепрыгиваем, не плодя `))`.
     if (next === typedChar && autoClosingPairs.some((pair) => pair.close === typedChar)) {
@@ -63,8 +63,9 @@ export function planAutoClose(params: IAutoClosePlanParams): AutoCloseDecision {
     // Симметричная пара (кавычка): после символа слова или той же кавычки не
     // удваиваем — это набор апострофа в тексте, а не открытие строки.
     if (matched.open === matched.close && matched.open.length === 1) {
-        // В начале строки `[-1]` даёт undefined — слева ничего нет, пара открывается.
-        const prev = lineContent[column - 1];
+        // В начале строки слева ничего нет — пара открывается: чтение по индексу −1
+        // даёт undefined (`.at(-1)` здесь нельзя — он отдал бы последний символ).
+        const prev = lineContent[column - 1] as string | undefined;
         if (prev !== undefined && (isWordChar(prev) || prev === typedChar)) return { kind: "plain" };
     }
 

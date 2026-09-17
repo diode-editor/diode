@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-
 import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { describe, expect, it } from "vitest";
+
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 import { WorkbenchTheme } from "../common/workbenchTheme.ts";
 
@@ -47,6 +47,8 @@ describe("applyThemeVars — не-числовые значения пропус
         const theme = new WorkbenchTheme("t", "dark", colors, base.tokenTheme);
         const root = new BodyElement();
         root.setAsRoot();
-        expect(() => applyThemeVars(root, theme)).not.toThrow();
+        expect(() => {
+            applyThemeVars(root, theme);
+        }).not.toThrow();
     });
 });

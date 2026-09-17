@@ -1,8 +1,8 @@
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../platform/log/common/iLogService.ts";
+import type { IOutputSink } from "../../services/extensions/node/extensionHost.ts";
 import type { IOutputChannelRegistry } from "../../services/output/common/output.ts";
 import type { OutputService } from "../../services/output/common/outputService.ts";
-import type { IOutputSink } from "../../services/extensions/node/extensionHost.ts";
 import type { WireOutputLevel } from "../common/wireTypes.ts";
 
 /**

@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
@@ -59,8 +58,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
     it("кладёт снапшот документа в реестр и зовёт провайдер с позицией и triggerKind", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; context?: vscode.InlineCompletionContext } =
-            {};
+        const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; context?: vscode.InlineCompletionContext } = {};
         languages.registerInlineCompletionItemProvider(
             { language: "typescript" },
             {

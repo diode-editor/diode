@@ -28,6 +28,7 @@ import type {
     IWireCodeActionParams,
     IWireFormattingParams,
     IWireSignatureHelpParams,
+    WireCodeAction,
     WireCompletionItem,
     WireCompletionResult,
     WireDefinitionLocation,
@@ -35,13 +36,34 @@ import type {
     WireHover,
     WireInlineCompletionItem,
     WireMarker,
-    WireCodeAction,
     WireReference,
     WireResolvedCompletionItem,
     WireTextEdit,
 } from "./wireTypes.ts";
 
 /** `vscode.Diagnostic` (утиный тип) → {@link WireMarker}; кривые поля — к дефолтам. */
+/**
+ * Текст диагностики: строка как есть, rich-форма (`MarkdownString` и подобные) —
+ * её `value`. Слепой `String()` дал бы здесь «[object Object]» в маркере.
+ */
+function messageText(message: unknown): string {
+    if (typeof message === "string") return message;
+    if (message === undefined || message === null) return "";
+    if (typeof message === "object") {
+        const value = (message as { value?: unknown }).value;
+        return typeof value === "string" ? value : "";
+    }
+    return (message as { toString(): string }).toString();
+}
+
+/**
+ * Строковый вид uri, пришедшего от расширения (свой `Uri` или чужой из другого
+ * рантайма). Отдельной ветки на строку не нужно: у неё `toString()` — она сама.
+ */
+function uriText(uri: unknown): string {
+    return (uri as { toString(): string }).toString();
+}
+
 function toWireMarker(diag: unknown): WireMarker {
     const d = diag as {
         range?: { start: { line: number; character: number }; end: { line: number; character: number } };
@@ -61,7 +83,7 @@ function toWireMarker(diag: unknown): WireMarker {
         startCharacter: r.start.character,
         endLine: r.end.line,
         endCharacter: r.end.character,
-        message: typeof d.message === "string" ? d.message : String(d.message ?? ""),
+        message: messageText(d.message),
         ...(code !== undefined ? { code } : {}),
         ...(typeof d.source === "string" ? { source: d.source } : {}),
     };
@@ -266,12 +288,12 @@ function serializeDefinitionLocation(item: unknown): WireDefinitionLocation | nu
     const link = item as { targetUri?: unknown; targetRange?: unknown; targetSelectionRange?: unknown };
     if (link.targetUri != null) {
         const range = serializeDefinitionRange(link.targetSelectionRange ?? link.targetRange);
-        return range === null ? null : { uri: String(link.targetUri), range };
+        return range === null ? null : { uri: uriText(link.targetUri), range };
     }
     const loc = item as { uri?: unknown; range?: unknown };
     if (loc.uri == null) return null;
     const range = serializeDefinitionRange(loc.range);
-    return range === null ? null : { uri: String(loc.uri), range };
+    return range === null ? null : { uri: uriText(loc.uri), range };
 }
 
 /**
@@ -306,16 +328,17 @@ function readHoverBlock(block: unknown): string | null {
  * (эту форму выбирает стоковый клиент, когда сервер прислал
  * `retriggerCharacters`), либо rest-строки триггер-символов.
  */
-function readSignatureHelpMetadata(rest: readonly (string | vscode.SignatureHelpProviderMetadata)[]): {
+function readSignatureHelpMetadata(rest: readonly unknown[]): {
     triggerCharacters: readonly string[];
     retriggerCharacters: readonly string[];
 } {
-    const first = rest[0];
+    const first = rest.at(0);
     // Stryker disable next-line ConditionalExpression: `null` третьим аргументом клиент не передаёт, а если бы передал — обе ветки дали бы пустые списки символов
     if (typeof first === "object" && first !== null) {
+        const metadata = first as Partial<vscode.SignatureHelpProviderMetadata>;
         return {
-            triggerCharacters: readStringList(first.triggerCharacters),
-            retriggerCharacters: readStringList(first.retriggerCharacters),
+            triggerCharacters: readStringList(metadata.triggerCharacters),
+            retriggerCharacters: readStringList(metadata.retriggerCharacters),
         };
     }
     return { triggerCharacters: readStringList(rest), retriggerCharacters: [] };
@@ -453,15 +476,19 @@ export function stripSnippetPlaceholders(value: string): string {
     // Экранированный `\$` прячем ПЕРВЫМ: иначе `\$5` разбирается как плейсхолдер
     // `$5`, и от него остаётся осиротевший обратный слэш.
     const ESCAPED_DOLLAR = "\u0000";
-    return value
-        .replace(/\\\$/g, ESCAPED_DOLLAR)
-        // `split(",", 1).join("")` вместо `[0]`: даёт первый вариант без ветки
-        // «а вдруг массив пуст» (её не бывает, а покрытие требовало бы теста).
-        .replace(/\$\{(\d+)\|([^|]*)\|\}/g, (_all, _index: string, choices: string) => choices.split(",", 1).join(""))
-        .replace(/\$\{\d+:([^}]*)\}/g, "$1")
-        .replace(/\$\{\d+\}/g, "")
-        .replace(/\$\d+/g, "")
-        .replaceAll(ESCAPED_DOLLAR, "$");
+    return (
+        value
+            .replace(/\\\$/g, ESCAPED_DOLLAR)
+            // `split(",", 1).join("")` вместо `[0]`: даёт первый вариант без ветки
+            // «а вдруг массив пуст» (её не бывает, а покрытие требовало бы теста).
+            .replace(/\$\{(\d+)\|([^|]*)\|\}/g, (_all, _index: string, choices: string) =>
+                choices.split(",", 1).join(""),
+            )
+            .replace(/\$\{\d+:([^}]*)\}/g, "$1")
+            .replace(/\$\{\d+\}/g, "")
+            .replace(/\$\d+/g, "")
+            .replaceAll(ESCAPED_DOLLAR, "$")
+    );
 }
 
 /**
@@ -810,7 +837,9 @@ export function createLanguagesNamespace(
     });
 
     rpc.handleRequest("languages.provideSignatureHelp", async (params): Promise<ICoreSignatureHelp | null> => {
-        const p = params as IWireSignatureHelpParams;
+        // Всё, кроме `uri`, читаем как необязательное: по RPC приезжает что
+        // прислали, и дефолты ниже — не украшение, а обработка недоехавшего поля.
+        const p = params as Pick<IWireSignatureHelpParams, "uri"> & Partial<IWireSignatureHelpParams>;
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
@@ -917,12 +946,7 @@ export function createLanguagesNamespace(
         if (p.range !== undefined) {
             const reg = rangeFormattingRegistrations.find((r) => matchDocumentSelector(r.selector, doc));
             if (reg === undefined) return null;
-            const range = new Range(
-                p.range.startLine,
-                p.range.startCharacter,
-                p.range.endLine,
-                p.range.endCharacter,
-            );
+            const range = new Range(p.range.startLine, p.range.startCharacter, p.range.endLine, p.range.endCharacter);
             try {
                 result = await Promise.resolve(
                     reg.provider.provideDocumentRangeFormattingEdits(
@@ -995,12 +1019,7 @@ export function createLanguagesNamespace(
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",
         });
-        const range = new Range(
-            p.range.startLine,
-            p.range.startCharacter,
-            p.range.endLine,
-            p.range.endCharacter,
-        );
+        const range = new Range(p.range.startLine, p.range.startCharacter, p.range.endLine, p.range.endCharacter);
         const only = typeof p.only === "string" ? new CodeActionKind(p.only) : undefined;
         const context = {
             triggerKind: CodeActionTriggerKind.Invoke,
@@ -1042,15 +1061,18 @@ export function createLanguagesNamespace(
                 // неприсвоенным, и его отсеивает проверка ниже.
             }
             if (!Array.isArray(result)) continue;
-            for (const item of result as (vscode.CodeAction | vscode.Command)[]) {
-                if (item == null || typeof (item as { title?: unknown }).title !== "string") continue;
+            // Элементы — `unknown`: что отдал провайдер расширения, тем и является;
+            // до проверки заголовка это ещё не `CodeAction | Command`.
+            for (const item of result as unknown[]) {
+                if (typeof item !== "object" || item === null) continue;
+                if (typeof (item as { title?: unknown }).title !== "string") continue;
                 // `only` фильтрует по виду; голые команды вида не имеют и при
                 // запрошенном `only` отбрасываются (как в VS Code).
                 const action: CodeAction | undefined = item instanceof CodeAction ? item : undefined;
                 const kind = action?.kind;
                 if (only !== undefined && (kind === undefined || !only.contains(kind))) continue;
                 const id = `${String(cacheId)}.${String(cached.length)}`;
-                cached.push({ item, registration: reg });
+                cached.push({ item: item as vscode.CodeAction | vscode.Command, registration: reg });
                 wire.push({
                     id,
                     title: (item as { title: string }).title,
@@ -1076,7 +1098,7 @@ export function createLanguagesNamespace(
         /** Исполняет команду действия; `false` — команда упала. */
         async function runActionCommand(command: vscode.Command): Promise<boolean> {
             try {
-                await codeActionDeps.executeCommand(command.command, ...(command.arguments ?? []));
+                await codeActionDeps.executeCommand(command.command, ...((command.arguments ?? []) as unknown[]));
                 return true;
             } catch {
                 return false;
@@ -1094,7 +1116,7 @@ export function createLanguagesNamespace(
         const canResolve = resolve !== undefined;
         if (action.edit === undefined && canResolve) {
             try {
-                const resolved = await Promise.resolve(resolve!(action as never, neverCancelledToken()));
+                const resolved = await Promise.resolve(resolve(action as never, neverCancelledToken()));
                 if (resolved != null) action = resolved as CodeAction;
             } catch {
                 // Сбойный resolve — применяем то, что есть (обычно command).
@@ -1337,7 +1359,7 @@ export function createLanguagesNamespace(
 
         const resourceOf = (uri: unknown): string => {
             if (typeof uri === "string") return Uri.parse(uri).toString();
-            return String((uri as { toString(): string }).toString());
+            return (uri as { toString(): string }).toString();
         };
         const publish = (resource: string, diags: readonly vscode.Diagnostic[]): void => {
             rpc.notify("diagnostics.publish", { owner, resource, markers: diags.map(toWireMarker) });

@@ -87,6 +87,7 @@ describe("TextFileModel — композиция save-участников", () 
         controller.saveParticipants = () => [
             () => Promise.reject(new Error("boom")),
             // Отказ не-Error значением — тоже пропуск, а не крах save.
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
             () => Promise.reject("nope"),
             () => Promise.resolve([insertAtStart("ok:")]),
         ];
@@ -137,10 +138,7 @@ describe("TextFileModel — композиция save-участников", () 
             const fp = ws.writeFile("timers.txt", "x");
             controller.openFile(Uri.file(fp));
 
-            controller.saveParticipants = () => [
-                () => Promise.resolve([]),
-                () => Promise.reject(new Error("boom")),
-            ];
+            controller.saveParticipants = () => [() => Promise.resolve([]), () => Promise.reject(new Error("boom"))];
 
             await controller.save();
 

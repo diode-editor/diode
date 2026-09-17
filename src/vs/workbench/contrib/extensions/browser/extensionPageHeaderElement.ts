@@ -7,7 +7,7 @@ import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContaine
 import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-import type { IExtensionButton, ExtensionButtonKind } from "./extensionPageButtons.ts";
+import type { ExtensionButtonKind, IExtensionButton } from "./extensionPageButtons.ts";
 import type { IExtensionPageContent } from "./extensionPageContent.ts";
 import { buildExtensionHeaderLines, TONE_COLORS } from "./extensionPageContent.ts";
 

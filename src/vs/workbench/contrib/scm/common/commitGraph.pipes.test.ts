@@ -24,9 +24,7 @@ function pipe(fromPos: number, toPos: number, fromHash: string, toHash: string, 
 
 describe("getNextPipes", () => {
     it("линия доходит до своего родителя и стартует новая", () => {
-        expect(
-            getNextPipes([pipe(0, 0, "a", "b", PipeKind.Starts)], { sha: "b", parents: ["c"] }, getStyle),
-        ).toEqual([
+        expect(getNextPipes([pipe(0, 0, "a", "b", PipeKind.Starts)], { sha: "b", parents: ["c"] }, getStyle)).toEqual([
             pipe(0, 0, "a", "b", PipeKind.Terminates),
             pipe(0, 0, "b", "c", PipeKind.Starts),
         ]);
@@ -81,7 +79,13 @@ describe("getPipeSets", () => {
     });
 
     it("на каждый коммит приходится ровно один набор пайпов", () => {
-        const sets = getPipeSets([{ sha: "1", parents: ["2"] }, { sha: "2", parents: [] }], getStyle);
+        const sets = getPipeSets(
+            [
+                { sha: "1", parents: ["2"] },
+                { sha: "2", parents: [] },
+            ],
+            getStyle,
+        );
         expect(sets).toHaveLength(2);
     });
 

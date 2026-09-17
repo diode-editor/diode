@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import type { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";

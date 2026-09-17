@@ -84,7 +84,7 @@ class FakeGroup {
     }
 
     public focusGroup(target: { index: number }, _opts: { focus?: boolean } = {}): void {
-        const group = this.groupsList[target.index];
+        const group = this.groupsList.at(target.index);
         if (group !== undefined) this.activeGroupValue = group;
     }
 

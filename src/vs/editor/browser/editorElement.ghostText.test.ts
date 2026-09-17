@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { IGhostText } from "../common/model/iGhostText.ts";
 import { ghostTextEquals } from "../common/model/iGhostText.ts";
@@ -182,7 +182,7 @@ describe("EditorElement — ghost text", () => {
         const row = app.backend.getTextAt(new Point(gutterW, 0), contentCols);
         // Полное равенство до последней колонки: обрезка не превращает
         // обычные символы в пробелы (это судьба только широких у края).
-        expect(row).toBe(("ab-очень-длинный-призрачный-хвост").slice(0, contentCols));
+        expect(row).toBe("ab-очень-длинный-призрачный-хвост".slice(0, contentCols));
         // Ничего не вылезло за границу элемента (ширина приложения = 24).
         expect(row.length).toBe(contentCols);
     });

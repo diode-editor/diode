@@ -4,8 +4,9 @@ import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
-import { vflexFit, vflexFixed, VFlexElement } from "@tuidom/elements/layout/vFlexElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
+import { VFlexElement, vflexFit, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
+
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -226,9 +227,21 @@ export class ScmInputComponent extends Component {
         this.view.id = "scmInputBox";
         this.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
 
-        this.register(this.changesService.onDidChangeChanges(() => this.updateActionButton()));
-        this.register(this.repoState.onDidChangeState(() => this.updateActionButton()));
-        this.register(this.progress.onDidChange(() => this.updateActionButton()));
+        this.register(
+            this.changesService.onDidChangeChanges(() => {
+                this.updateActionButton();
+            }),
+        );
+        this.register(
+            this.repoState.onDidChangeState(() => {
+                this.updateActionButton();
+            }),
+        );
+        this.register(
+            this.progress.onDidChange(() => {
+                this.updateActionButton();
+            }),
+        );
         this.updateActionButton();
     }
 

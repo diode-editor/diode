@@ -46,8 +46,11 @@ export class FilteredListControl {
         this.list = new ListViewElement({ typeahead: options.typeahead ?? false });
         this.list.id = options.listId;
         this.list.onActivate = (element) => {
-            // Список не принимает строки без id — здесь он гарантированно есть.
-            this.onActivateRow?.(element.id!);
+            // Строки без id потребитель не кладёт; попавшая — не адресуется, и
+            // звать по ней обработчик нечем.
+            const rowId = element.id;
+            if (rowId === undefined) return;
+            this.onActivateRow?.(rowId);
         };
 
         const header = new PaddingContainerElement(this.input, { left: 1, right: 1 });

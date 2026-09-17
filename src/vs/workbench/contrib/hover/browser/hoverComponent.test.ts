@@ -1,6 +1,5 @@
-import { describe, expect, it } from "vitest";
-
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { describe, expect, it } from "vitest";
 
 import { HoverComponent } from "./hoverComponent.ts";
 

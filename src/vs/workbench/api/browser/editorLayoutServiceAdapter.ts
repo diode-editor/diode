@@ -1,5 +1,6 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import { Uri } from "../../../base/common/uri.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
@@ -119,7 +120,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         });
     }
 
-    public async closeTabs(params: IWireCloseTabsParams): Promise<boolean> {
+    public closeTabs(params: IWireCloseTabsParams): Promise<boolean> {
         for (const target of params.tabs) {
             const group = this.editors.groups.find((candidate) => candidate.id === target.groupId);
             if (group === undefined) continue; // группа уже схлопнулась — успех-идемпотентность
@@ -135,16 +136,16 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 // возвращаем false, вкладка остаётся.
                 if (this.editors.onRequestConfirmClose) {
                     this.editors.onRequestConfirmClose(group, index);
-                    return false;
+                    return Promise.resolve(false);
                 }
-                return false;
+                return Promise.resolve(false);
             }
             group.closeTab(index);
         }
-        return true;
+        return Promise.resolve(true);
     }
 
-    public async closeGroups(params: IWireCloseGroupsParams): Promise<boolean> {
+    public closeGroups(params: IWireCloseGroupsParams): Promise<boolean> {
         for (const groupId of params.groupIds) {
             const group = this.editors.groups.find((candidate) => candidate.id === groupId);
             if (group === undefined) continue;
@@ -156,12 +157,12 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 /* v8 ignore stop */
                 if (this.editors.needsCloseConfirm(pane)) {
                     if (this.editors.onRequestConfirmClose) this.editors.onRequestConfirmClose(group, index);
-                    return false;
+                    return Promise.resolve(false);
                 }
                 group.closeTab(index);
             }
         }
-        return true;
+        return Promise.resolve(true);
     }
 
     // ─── Снимки ──────────────────────────────────────────────────────────────
@@ -226,7 +227,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         if (viewColumn === VIEW_COLUMN_BESIDE) {
             const index = this.editors.groups.indexOf(this.editors.activeGroup);
             return (
-                this.editors.groups[index + 1] ??
+                this.editors.groups.at(index + 1) ??
                 this.editors.newGroup("after", { focus: false }) ??
                 this.editors.activeGroup
             );

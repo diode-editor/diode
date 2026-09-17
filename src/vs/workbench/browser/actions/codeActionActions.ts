@@ -3,10 +3,10 @@ import type { ICoreCodeAction } from "../../../editor/common/languages/iCodeActi
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice } from "../../services/statusbar/common/transientNotice.ts";
+import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
 
 import { selectionRange } from "./formatActions.ts";
 

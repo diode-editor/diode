@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PY_LANGUAGE_SERVICE, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
-import { installRuff, type IInstalledRuff } from "../../../../../TestUtils/ruffFixture.ts";
+import { type IInstalledRuff, installRuff } from "../../../../../TestUtils/ruffFixture.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -13,7 +13,7 @@ import { Container } from "../../../../platform/instantiation/common/diContainer
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatDocumentAction } from "../../../browser/actions/formatActions.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
-import { StatusBarServiceDIToken, type StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
+import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 // Формат Python поверх СТОКОВОГО стека: настоящий ruff.vsix + вшитый
 // `ruff server` (documentFormatting и rangeFormatting регистрируются

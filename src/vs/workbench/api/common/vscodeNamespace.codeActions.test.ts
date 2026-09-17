@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it, vi } from "vitest";
+import type * as vscode from "vscode";
 
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";

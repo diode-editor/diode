@@ -36,7 +36,7 @@ export function runAsNode(): void {
         // fork(execPath, "", { execArgv: ["-e", <resolve-скрипт>] }) — скрипт
         // говорит с родителем по IPC fork'а (проверено стоковым eslint).
         if (args[scriptIndex] === "-e" || args[scriptIndex] === "--eval") {
-            const code = args[scriptIndex + 1];
+            const code = args.at(scriptIndex + 1);
             if (code === undefined) {
                 process.stderr.write("diode (run-as-node): -e requires an argument\n");
                 process.exit(9);
@@ -56,7 +56,7 @@ export function runAsNode(): void {
         }
         scriptIndex++;
     }
-    const script = args[scriptIndex];
+    const script = args.at(scriptIndex);
     if (script === undefined) {
         process.stderr.write("diode (run-as-node): no script path in argv\n");
         process.exit(9); // как node: exit 9 = invalid argument

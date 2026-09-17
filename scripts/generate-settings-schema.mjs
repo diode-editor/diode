@@ -19,6 +19,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { build } from "esbuild";
+import { format, resolveConfig } from "prettier";
 
 /**
  * Configuration-узлы приложения. У файла узлов есть импорты (типы реестра,
@@ -144,7 +145,11 @@ ${body}
 ];
 `;
     const outPath = resolve(repoRoot, "extensions", "diode-settings", "settings-schema.generated.ts");
-    writeFileSync(outPath, file, "utf8");
+    // Форматируем тем же prettier, которым линтуется репозиторий: иначе
+    // регенерация и `npm run lint` наперегонки правят один файл.
+    const prettierOptions = await resolveConfig(outPath);
+    const formatted = await format(file, { ...prettierOptions, parser: "typescript" });
+    writeFileSync(outPath, formatted, "utf8");
     return { outPath, count: entries.length };
 }
 

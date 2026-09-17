@@ -10,9 +10,10 @@ describe("parseDotGit", () => {
     });
 
     it("linked worktree: свой каталог и отдельный общий", () => {
-        expect(
-            parseDotGit("/main/.git/worktrees/feature\n/main/.git", "/main/.claude/worktrees/feature"),
-        ).toEqual({ path: "/main/.git/worktrees/feature", commonPath: "/main/.git" });
+        expect(parseDotGit("/main/.git/worktrees/feature\n/main/.git", "/main/.claude/worktrees/feature")).toEqual({
+            path: "/main/.git/worktrees/feature",
+            commonPath: "/main/.git",
+        });
     });
 
     it("git без --git-common-dir (до 2.5): общий каталог совпадает с обычным", () => {

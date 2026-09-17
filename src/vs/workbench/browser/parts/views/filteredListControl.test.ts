@@ -56,6 +56,17 @@ describe("FilteredListControl — проводка", () => {
         expect(activated).toEqual(["row-1"]);
     });
 
+    it("элемент без id адресоваться не может — обработчик не зовётся", () => {
+        const control = make();
+        const activated: string[] = [];
+        control.onActivateRow = (rowId) => activated.push(rowId);
+        // В сам список такую строку не положить (appendRow требует id), поэтому
+        // проверяем контракт обработчика напрямую.
+        control.list.onActivate?.(new TextLabelElement("Без id"));
+
+        expect(activated).toEqual([]);
+    });
+
     it("молчит, когда колбэки не назначены — input, активация и setQuery", () => {
         const control = make();
         appendRow(control, "row-1", "First");

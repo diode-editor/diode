@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";

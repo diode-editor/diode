@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ITreeFileWatchOptions, ITreeFileWatcher } from "../../../platform/files/common/iTreeFileWatcher.ts";
+import type { ITreeFileWatcher, ITreeFileWatchOptions } from "../../../platform/files/common/iTreeFileWatcher.ts";
 
 import { FileWatcherAdapter, parseWatcherExclude } from "./fileWatcherAdapter.ts";
 

@@ -1,20 +1,20 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Size } from "@tuidom/core/common/geometryPromitives";
-import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { PanelComponent } from "../../../browser/parts/panel/panelComponent.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import type { TerminalSessionFactory } from "../common/terminalSessionFactory.ts";
 
 import { TerminalPanelComponent } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
-import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 function buildHarness() {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));

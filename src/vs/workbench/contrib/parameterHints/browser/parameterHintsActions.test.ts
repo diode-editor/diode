@@ -85,10 +85,10 @@ describe("parameterHintsActions — делегирование", () => {
     it("каждый экшен дёргает свой метод сервиса", () => {
         const h = makeAccessor();
 
-        triggerParameterHintsAction.run?.(h.accessor);
-        showNextParameterHintAction.run?.(h.accessor);
-        showPrevParameterHintAction.run?.(h.accessor);
-        closeParameterHintsAction.run?.(h.accessor);
+        triggerParameterHintsAction.run(h.accessor);
+        showNextParameterHintAction.run(h.accessor);
+        showPrevParameterHintAction.run(h.accessor);
+        closeParameterHintsAction.run(h.accessor);
 
         expect(h.calls).toEqual(["trigger", "next", "prev", "close"]);
     });

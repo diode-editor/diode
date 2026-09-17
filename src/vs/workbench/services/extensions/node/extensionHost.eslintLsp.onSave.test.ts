@@ -6,11 +6,11 @@ import { until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     ensureEslintLibrary,
     ESLINT_FLAT_CONFIG,
+    type IInstalledEslint,
     installEslint,
     JS_LANGUAGE_SERVICE,
-    LINT_JS,
     linkEslintLibrary,
-    type IInstalledEslint,
+    LINT_JS,
 } from "../../../../../TestUtils/eslintFixture.ts";
 import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
@@ -47,52 +47,48 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
         installed.dispose();
     });
 
-    it(
-        "codeActionsOnSave source.fixAll: save чинит лишнюю `;` в буфере и на диске",
-        { timeout: 240_000 },
-        async () => {
-            const harness = await createExtensionTestHarness({
-                languageService: JS_LANGUAGE_SERVICE,
-                activateEvents: [],
-                extensions: [installed.registration],
-                configurationService: stubConfigurationService({
-                    "editor.codeActionsOnSave": { "source.fixAll": true },
-                }),
-            });
-            try {
-                linkEslintLibrary(harness.tmpDir, eslintNodeModules);
-                harness.writeFile("eslint.config.mjs", ESLINT_FLAT_CONFIG);
-                const lintPath = harness.writeFile("lint.js", LINT_JS);
-                const lintUri = Uri.file(lintPath).toString();
-                harness.group.openFile(lintPath);
-                await harness.host.activateByEvent("onStartupFinished");
+    it("codeActionsOnSave source.fixAll: save чинит лишнюю `;` в буфере и на диске", { timeout: 240_000 }, async () => {
+        const harness = await createExtensionTestHarness({
+            languageService: JS_LANGUAGE_SERVICE,
+            activateEvents: [],
+            extensions: [installed.registration],
+            configurationService: stubConfigurationService({
+                "editor.codeActionsOnSave": { "source.fixAll": true },
+            }),
+        });
+        try {
+            linkEslintLibrary(harness.tmpDir, eslintNodeModules);
+            harness.writeFile("eslint.config.mjs", ESLINT_FLAT_CONFIG);
+            const lintPath = harness.writeFile("lint.js", LINT_JS);
+            const lintUri = Uri.file(lintPath).toString();
+            harness.group.openFile(lintPath);
+            await harness.host.activateByEvent("onStartupFinished");
 
-                // Прогрев: дождаться, пока сервер начнёт отдавать fixAll-действия,
-                // иначе первый save попадёт в холодный старт и его 5с-таймауты.
-                await until("source.fixAll action от eslint", async () => {
-                    const source = harness.group.codeActionSource;
-                    if (source === undefined) return null;
-                    const actions = await source.provide({
-                        uri: lintUri,
-                        languageId: "javascript",
-                        text: LINT_JS,
-                        range: createRange(0, 0, 0, 18),
-                        only: "source.fixAll",
-                    });
-                    return actions !== null && actions.length > 0 ? actions : null;
+            // Прогрев: дождаться, пока сервер начнёт отдавать fixAll-действия,
+            // иначе первый save попадёт в холодный старт и его 5с-таймауты.
+            await until("source.fixAll action от eslint", async () => {
+                const source = harness.group.codeActionSource;
+                if (source === undefined) return null;
+                const actions = await source.provide({
+                    uri: lintUri,
+                    languageId: "javascript",
+                    text: LINT_JS,
+                    range: createRange(0, 0, 0, 18),
+                    only: "source.fixAll",
                 });
+                return actions !== null && actions.length > 0 ? actions : null;
+            });
 
-                const outcome = await harness.group.getActiveEditor()!.save();
+            const outcome = await harness.group.getActiveEditor()!.save();
 
-                expect(outcome).toBe("saved");
-                const buffer = harness.group.getActiveEditor()?.getText() ?? "";
-                // Safe-фикс no-extra-semi применён, no-unused-vars фикса не имеет.
-                expect(buffer).toBe("const unused = 1;\n");
-                // Ключевой контракт onSave: на диск ушёл УЖЕ поправленный текст.
-                expect(fs.readFileSync(lintPath, "utf-8")).toBe(buffer);
-            } finally {
-                await harness.dispose();
-            }
-        },
-    );
+            expect(outcome).toBe("saved");
+            const buffer = harness.group.getActiveEditor()?.getText() ?? "";
+            // Safe-фикс no-extra-semi применён, no-unused-vars фикса не имеет.
+            expect(buffer).toBe("const unused = 1;\n");
+            // Ключевой контракт onSave: на диск ушёл УЖЕ поправленный текст.
+            expect(fs.readFileSync(lintPath, "utf-8")).toBe(buffer);
+        } finally {
+            await harness.dispose();
+        }
+    });
 });

@@ -7,13 +7,12 @@ import yazl from "yazl";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import type { IExtensionRegistrySource } from "../../../../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import {
-    REGISTRY_SCHEMA_VERSION,
     type IRegistryExtensionMeta,
     type IRegistryIndex,
     type IRegistryIndexEntry,
+    REGISTRY_SCHEMA_VERSION,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
-
 import { sha256File } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
 
 import { ExtensionsWorkbenchService } from "./extensionsWorkbenchService.ts";
@@ -23,9 +22,9 @@ const HOST: IHostVersions = { diode: "1.0.0", vscode: "1.90.0" };
 function entry(overrides: Partial<IRegistryIndexEntry> & { id: string }): IRegistryIndexEntry {
     const [publisher, name] = overrides.id.split(".");
     return {
-        publisher: publisher!,
-        name: name!,
-        displayName: name!,
+        publisher: publisher,
+        name: name,
+        displayName: name,
         description: "",
         kind: "native",
         latest: { version: "1.0.0", engines: { vscode: "^1.90.0" } },
@@ -72,7 +71,9 @@ function buildVsix(file: string, manifest: object): Promise<void> {
         const zip = new yazl.ZipFile();
         zip.addBuffer(Buffer.from(JSON.stringify(manifest)), "extension/package.json");
         const out = fs.createWriteStream(file);
-        out.on("close", () => resolve());
+        out.on("close", () => {
+            resolve();
+        });
         out.on("error", reject);
         zip.outputStream.on("error", reject);
         zip.outputStream.pipe(out);
@@ -81,17 +82,9 @@ function buildVsix(file: string, manifest: object): Promise<void> {
 }
 
 /** Кладёт в `extensions/` каталог установленного расширения с манифестом. */
-function installOnDisk(
-    ws: ITempWorkspace,
-    id: string,
-    version: string,
-    manifest: Record<string, unknown> = {},
-): void {
+function installOnDisk(ws: ITempWorkspace, id: string, version: string, manifest: Record<string, unknown> = {}): void {
     const [publisher, name] = id.split(".");
-    ws.writeFile(
-        `extensions/${id}-${version}/package.json`,
-        JSON.stringify({ publisher, name, version, ...manifest }),
-    );
+    ws.writeFile(`extensions/${id}-${version}/package.json`, JSON.stringify({ publisher, name, version, ...manifest }));
 }
 
 describe("ExtensionsWorkbenchService", () => {
@@ -274,6 +267,7 @@ describe("ExtensionsWorkbenchService", () => {
     it("не-Error причина сбоя тоже доезжает текстом", async () => {
         const source = new FakeSource(index());
         const service = createService(source);
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
         source.getIndex = () => Promise.reject("boom");
 
         await service.ensureLoaded();
@@ -388,9 +382,12 @@ describe("ExtensionsWorkbenchService", () => {
                     },
                 ],
             };
-            const source = new FakeSource(index(entry({ id: "acme.tools", latest: { version, engines: { vscode: "^1.90.0" } } })), {
-                "acme.tools": meta,
-            });
+            const source = new FakeSource(
+                index(entry({ id: "acme.tools", latest: { version, engines: { vscode: "^1.90.0" } } })),
+                {
+                    "acme.tools": meta,
+                },
+            );
             source.artifact = vsix;
             return { service: createService(source), source };
         }
@@ -403,7 +400,7 @@ describe("ExtensionsWorkbenchService", () => {
 
             expect(result).toEqual({ ok: true, version: "1.0.0" });
             expect(fs.existsSync(ws!.path("extensions/acme.tools-1.0.0/package.json"))).toBe(true);
-            const card = service.getEntries()[0]!;
+            const card = service.getEntries()[0];
             expect(card.installedVersion).toBe("1.0.0");
             expect(card.availability).toBe("installed");
             // Вклады сканируются на старте — до перезагрузки окна расширение не работает.
@@ -443,7 +440,7 @@ describe("ExtensionsWorkbenchService", () => {
             const result = await service.install("acme.tools");
 
             expect(result.ok).toBe(false);
-            expect(result.ok === false && result.error).toContain("sha256 mismatch");
+            expect(!result.ok && result.error).toContain("sha256 mismatch");
             // Ни следа на диске и никакого «ждём перезагрузки»: ничего не произошло.
             expect(fs.existsSync(ws!.path("extensions/acme.tools-1.0.0"))).toBe(false);
             expect(service.getEntries()[0]?.needsReload).toBe(false);
@@ -468,7 +465,7 @@ describe("ExtensionsWorkbenchService", () => {
 
             expect(result).toEqual({ ok: true });
             expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0"))).toBe(false);
-            const card = service.getEntries()[0]!;
+            const card = service.getEntries()[0];
             expect(card.installedVersion).toBeNull();
             expect(card.needsReload).toBe(true);
         });
@@ -483,22 +480,25 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries()[0]?.needsReload).toBe(false);
         });
 
-        it.skipIf(process.platform === "win32")("сбой файловой системы приезжает текстом, а не исключением", async () => {
-            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
-            installOnDisk(ws, "acme.tools", "1.0.0");
-            const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
-            await service.ensureLoaded();
+        it.skipIf(process.platform === "win32")(
+            "сбой файловой системы приезжает текстом, а не исключением",
+            async () => {
+                ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+                installOnDisk(ws, "acme.tools", "1.0.0");
+                const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
+                await service.ensureLoaded();
 
-            // Каталог расширений только на чтение — снести из него нечего.
-            fs.chmodSync(ws.path("extensions"), 0o500);
-            try {
-                const result = await service.uninstall("acme.tools");
-                expect(result.ok).toBe(false);
-                expect(result.ok === false && result.error).toMatch(/EACCES|EPERM/);
-            } finally {
-                fs.chmodSync(ws.path("extensions"), 0o700);
-            }
-        });
+                // Каталог расширений только на чтение — снести из него нечего.
+                fs.chmodSync(ws.path("extensions"), 0o500);
+                try {
+                    const result = await service.uninstall("acme.tools");
+                    expect(result.ok).toBe(false);
+                    expect(!result.ok && result.error).toMatch(/EACCES|EPERM/);
+                } finally {
+                    fs.chmodSync(ws.path("extensions"), 0o700);
+                }
+            },
+        );
 
         it("ожидание перезагрузки переживает Refresh каталога", async () => {
             const { service, source } = await withInstallable();

@@ -1,21 +1,22 @@
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
-import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
+import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+
 import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { DIODE_VERSION } from "../../base/common/version.ts";
 import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
+import { currentTargetPlatform } from "../../platform/extensionManagement/node/targetPlatform.ts";
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
+import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
 import { TuiApplicationDIToken } from "../../workbench/common/coreTokens.ts";
 import { TerminalSessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { terminalEnvironmentModule } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts";
-import { currentTargetPlatform } from "../../platform/extensionManagement/node/targetPlatform.ts";
-import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
 import { darkPlusTheme } from "../../workbench/services/themes/common/themes/darkPlus.ts";
 
 import { backendModuleDefault } from "./backendModule.ts";
@@ -74,7 +75,11 @@ export function createTestContainer(): TestContainerHandle {
         .use(workbenchModule)
         // Перезагрузка окна в тестах — no-op: настоящий перезапуск процесса
         // унёс бы раннер. Тест, которому важен сам вызов, перебивает биндинг.
-        .use(lifecycleModule, { reloadWindow: () => {} })
+        .use(lifecycleModule, {
+            reloadWindow: () => {
+                /* no-op */
+            },
+        })
         // Магазин — та же продовая проводка, что в приложении, но по путям,
         // которых нет: реестр не читается, каталог установленного пуст, в сеть
         // никто не ходит. Отдельного «пустого» магазина для тестов не держим —

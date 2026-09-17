@@ -7,6 +7,46 @@ on:
     branches: [main]
 
 jobs:
+  # Статические гейты: типы и линт. Отдельной job'ой, а не шагом внутри `test`,
+  # чтобы падение линта не прятало результат тестов (и наоборот) — обе картины
+  # видны в одном прогоне.
+  #
+  # `npm run lint` линтует ровно те же пути, что и локально (src/ + extensions/),
+  # и требует сгенерированный `settings-schema.generated.ts` только как файл на
+  # диске — он закоммичен, так что билд расширений здесь не нужен.
+  static:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - run: npm install
+
+      # continue-on-error на первом гейте, чтобы второй тоже отработал и PR
+      # получил обе картины сразу; красным job делает шаг Gate.
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Gate
+        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure'
+        run: |
+          echo "typecheck: ${{ steps.typecheck.outcome }}"
+          echo "lint:      ${{ steps.lint.outcome }}"
+          echo 'Форматирование и сортировку импортов чинит `npm run lint:fix`, остальное — руками.'
+          exit 1
+
   test:
     runs-on: ubuntu-latest
     permissions:

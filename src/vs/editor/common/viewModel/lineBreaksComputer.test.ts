@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
-
 import { computeLineBreakOffsets, MIN_WRAP_WIDTH } from "./lineBreaksComputer.ts";
+import { STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 
 describe("computeLineBreakOffsets — базовые случаи", () => {
     it("строка, влезающая в ширину, не переносится (null)", () => {

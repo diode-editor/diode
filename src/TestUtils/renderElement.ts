@@ -1,7 +1,8 @@
-import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import type { IRenderElementOptions } from "@tuidom/testing/renderElement";
 import { renderElement as tuidomRenderElement } from "@tuidom/testing/renderElement";
+
 import { computeThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";

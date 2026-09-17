@@ -1,6 +1,6 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describe, expect, it } from "vitest";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import type {
     IConfigurationChangeEvent,
     IConfigurationService,
@@ -20,8 +20,9 @@ class FakeConfig {
         return { dispose: () => {} };
     }
 
-    public get<T>(key: string): T | undefined {
-        return key === "workbench.colorTheme" ? (this.colorTheme as T | undefined) : undefined;
+    // Сигнатура сервиса дженерик, но фейку достаточно отдать значение как есть.
+    public get(key: string): never {
+        return (key === "workbench.colorTheme" ? this.colorTheme : undefined) as never;
     }
 
     /** Эмитит событие смены конфига с указанными затронутыми ключами. */

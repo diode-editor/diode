@@ -5,7 +5,8 @@ import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
-import { REGISTRY_SCHEMA_VERSION, type IRegistryVersion } from "../common/registryFormat.ts";
+import { type IRegistryVersion, REGISTRY_SCHEMA_VERSION } from "../common/registryFormat.ts";
+
 import { HttpExtensionRegistrySource } from "./httpRegistrySource.ts";
 
 /**
@@ -112,7 +113,11 @@ describe("HttpExtensionRegistrySource", () => {
 
     afterAll(async () => {
         server.closeAllConnections();
-        await new Promise<void>((resolve) => server.close(() => resolve()));
+        await new Promise<void>((resolve) =>
+            server.close(() => {
+                resolve();
+            }),
+        );
     });
 
     beforeEach(() => {
@@ -217,7 +222,9 @@ describe("HttpExtensionRegistrySource", () => {
         // Порт занят сервером, соединение на соседний — отказ; undici прячет
         // ECONNREFUSED в cause, и без него текст ошибки ничего не объясняет.
         const port = (server.address() as AddressInfo).port;
-        const source = new HttpExtensionRegistrySource(`http://127.0.0.1:${String(port === 65535 ? port - 1 : port + 1)}/r/`);
+        const source = new HttpExtensionRegistrySource(
+            `http://127.0.0.1:${String(port === 65535 ? port - 1 : port + 1)}/r/`,
+        );
         await expect(source.getIndex()).rejects.toThrow(/index\.json: fetch failed \(.+\)/);
     });
 
@@ -302,9 +309,9 @@ describe("HttpExtensionRegistrySource", () => {
         ["file:///etc/passwd", /must be http/],
     ])("fetchArtifact отвергает артефакт по адресу %j", async (url, expected) => {
         ws = createTempWorkspace();
-        await expect(
-            new HttpExtensionRegistrySource(base).fetchArtifact(urlVersion(url), ws.dir),
-        ).rejects.toThrow(expected);
+        await expect(new HttpExtensionRegistrySource(base).fetchArtifact(urlVersion(url), ws.dir)).rejects.toThrow(
+            expected,
+        );
     });
 
     it("fetchArtifact на HTTP 404 — ошибка со статусом", async () => {

@@ -9,7 +9,7 @@ import { LanguageConfigurationService } from "./languageConfigurationService.ts"
 class MemoryAssets implements IAssetAccess {
     public readCount = 0;
 
-    public constructor(private readonly files: Record<string, string>) {}
+    public constructor(private readonly files: Partial<Record<string, string>>) {}
 
     public read(): Promise<Uint8Array> {
         return Promise.reject(new Error("not used"));
@@ -54,9 +54,7 @@ function createService(
         assets,
         {
             getLanguage: (languageId) =>
-                languageId in configurationPaths
-                    ? { configurationPath: configurationPaths[languageId] }
-                    : undefined,
+                languageId in configurationPaths ? { configurationPath: configurationPaths[languageId] } : undefined,
         },
         logger,
     );
@@ -131,6 +129,7 @@ describe("LanguageConfigurationService", () => {
         // FS-провайдеры и бандл могут реджектить чем угодно — не только Error.
         const logger = createLogger();
         const assets = new MemoryAssets({});
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
         assets.readText = () => Promise.reject("EACCES");
         const service = new LanguageConfigurationService(
             assets,

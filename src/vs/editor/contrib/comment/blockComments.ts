@@ -210,7 +210,10 @@ function wrapRange(range: IRange, open: string, close: string): IBlockCommentPla
             createRange(range.start.line, range.start.character, range.start.line, range.start.character),
             openText,
         ),
-        createTextEdit(createRange(range.end.line, range.end.character, range.end.line, range.end.character), closeText),
+        createTextEdit(
+            createRange(range.end.line, range.end.character, range.end.line, range.end.character),
+            closeText,
+        ),
     ];
     const sameLine = range.start.line === range.end.line;
     return {

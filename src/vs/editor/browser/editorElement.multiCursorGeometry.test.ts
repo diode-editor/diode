@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../TestUtils/TestApp.ts";
-import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
@@ -110,7 +110,11 @@ describe("EditorElement — геометрия вторичных кареток
     it("каретка выше и ниже вьюпорта не рисуется", () => {
         const { app, editor, viewState, gw } = createEditor(makeLines(40), 30, 4);
         viewState.scrollTop = 10;
-        viewState.selections = [createCursorSelection(0, 0), createCursorSelection(11, 0), createCursorSelection(39, 0)];
+        viewState.selections = [
+            createCursorSelection(0, 0),
+            createCursorSelection(11, 0),
+            createCursorSelection(39, 0),
+        ];
         editor.focus();
         app.render();
 

@@ -1,15 +1,15 @@
-import { describe, expect, it } from "vitest";
-
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
-import type { IEditorPane } from "./iEditorPane.ts";
+import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 
+import type { IEditorPane } from "./iEditorPane.ts";
 import { TabSwitcherComponent } from "./tabSwitcherComponent.ts";
 
 // Полный маршрут «событие модели → overlay-сессия → кадр» закрывает

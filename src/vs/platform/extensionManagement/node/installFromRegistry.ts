@@ -5,7 +5,12 @@ import * as path from "node:path";
 
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import type { IRegistryVersion } from "../common/registryFormat.ts";
-import { matchesHostPlatform, resolveCompatibleVersion, type IHostVersions } from "../common/resolveCompatibleVersion.ts";
+import {
+    type IHostVersions,
+    matchesHostPlatform,
+    resolveCompatibleVersion,
+} from "../common/resolveCompatibleVersion.ts";
+
 import { installVsix, uninstallExtension } from "./extensionInstaller.ts";
 
 /**

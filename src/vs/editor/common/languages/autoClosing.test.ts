@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { findSurroundingPair, planAutoClose } from "./autoClosing.ts";
-import { DEFAULT_AUTO_CLOSE_BEFORE } from "./languageConfiguration.ts";
 import type { IResolvedAutoClosingPair } from "./languageConfiguration.ts";
+import { DEFAULT_AUTO_CLOSE_BEFORE } from "./languageConfiguration.ts";
 
 const PAIRS: IResolvedAutoClosingPair[] = [
     { open: "{", close: "}", notIn: [] },
@@ -11,7 +11,13 @@ const PAIRS: IResolvedAutoClosingPair[] = [
     { open: "/**", close: " */", notIn: [] },
 ];
 
-function plan(typedChar: string, lineContent: string, column: number, pairs = PAIRS, before = DEFAULT_AUTO_CLOSE_BEFORE) {
+function plan(
+    typedChar: string,
+    lineContent: string,
+    column: number,
+    pairs = PAIRS,
+    before = DEFAULT_AUTO_CLOSE_BEFORE,
+) {
     return planAutoClose({ typedChar, lineContent, column, autoClosingPairs: pairs, autoCloseBefore: before });
 }
 

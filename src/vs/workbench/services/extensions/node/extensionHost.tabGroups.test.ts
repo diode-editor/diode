@@ -74,9 +74,7 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
 
             const log = await dump(harness);
             // Событие групп: opened с колонкой 2.
-            expect(
-                log.some((entry) => entry.kind === "groups" && (entry.opened ?? []).includes(2)),
-            ).toBe(true);
+            expect(log.some((entry) => entry.kind === "groups" && (entry.opened ?? []).includes(2))).toBe(true);
             // Событие видимых редакторов дошло.
             expect(log.some((entry) => entry.kind === "visible" && entry.count === 2)).toBe(true);
         } finally {

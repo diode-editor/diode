@@ -104,7 +104,7 @@ export class ModifierReleaseArmory {
     public commitStaleAfter(generationBefore: number | null): void {
         // `null` (на момент нажатия ничего не было взведено) отсекается тем же
         // сравнением: номер живого взвода — число и с null никогда не совпадёт.
-        if (this.pending === null || this.pending.generation !== generationBefore) return;
+        if (this.pending?.generation !== generationBefore) return;
         const { commit } = this.pending;
         this.pending = null;
         commit();

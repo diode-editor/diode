@@ -5,7 +5,7 @@ export interface IStatusDecoration {
 }
 
 // Effective single-status letter → badge + `gitDecoration.*` color id.
-const DECORATION_BY_STATUS: Record<string, IStatusDecoration> = {
+const DECORATION_BY_STATUS = {
     M: { badge: "M", colorId: "gitDecoration.modifiedResourceForeground" },
     A: { badge: "A", colorId: "gitDecoration.addedResourceForeground" },
     D: { badge: "D", colorId: "gitDecoration.deletedResourceForeground" },
@@ -14,7 +14,11 @@ const DECORATION_BY_STATUS: Record<string, IStatusDecoration> = {
     "?": { badge: "U", colorId: "gitDecoration.untrackedResourceForeground" },
     "!": { badge: "I", colorId: "gitDecoration.ignoredResourceForeground" },
     U: { badge: "U", colorId: "gitDecoration.conflictingResourceForeground" },
-};
+} satisfies Record<string, IStatusDecoration>;
+
+// Тот же справочник для поиска по ПРОИЗВОЛЬНОЙ букве: `Record<string, T>` отдал бы
+// на любой ключ непустой тип, и проверка на неизвестную букву выглядела бы мёртвой.
+const DECORATION_LOOKUP: Partial<Record<string, IStatusDecoration>> = DECORATION_BY_STATUS;
 
 // Porcelain `XY` codes that denote an unmerged (conflicting) path.
 const UNMERGED_CODES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
@@ -27,7 +31,7 @@ const UNMERGED_CODES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
  */
 export function statusToDecoration(xy: string): IStatusDecoration {
     const code = primaryStatusChar(xy);
-    return DECORATION_BY_STATUS[code] ?? DECORATION_BY_STATUS.M;
+    return DECORATION_LOOKUP[code] ?? DECORATION_BY_STATUS.M;
 }
 
 /** Reduce a two-character `XY` code to the single status letter that drives the badge. */
@@ -63,8 +67,8 @@ export function xyToResourceStates(xy: string): IScmResourceState[] {
         return [{ group: "merge", badge: "U", colorId: DECORATION_BY_STATUS.U.colorId }];
     }
     const states: IScmResourceState[] = [];
-    const x = xy[0];
-    const y = xy[1];
+    const x = xy.at(0);
+    const y = xy.at(1);
     if (x !== undefined && x !== " ") states.push({ group: "index", ...decorationFor(x) });
     if (y !== undefined && y !== " ") states.push({ group: "worktree", ...decorationFor(y) });
     return states;
@@ -72,7 +76,7 @@ export function xyToResourceStates(xy: string): IScmResourceState[] {
 
 /** Бейдж и цвет одной стороны `XY`; неизвестная буква — как modified, с самой буквой. */
 function decorationFor(letter: string): { badge: string; colorId: string } {
-    const deco = DECORATION_BY_STATUS[letter];
+    const deco = DECORATION_LOOKUP[letter];
     if (deco === undefined) return { badge: letter, colorId: DECORATION_BY_STATUS.M.colorId };
     return { badge: deco.badge, colorId: deco.colorId };
 }

@@ -1,6 +1,6 @@
+import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
 import { InlineCompletionsServiceDIToken } from "./inlineCompletionsService.ts";
 

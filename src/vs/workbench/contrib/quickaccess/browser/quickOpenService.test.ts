@@ -1,11 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
-import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
-import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+import { describe, expect, it, vi } from "vitest";
+
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { charMask } from "../../../../base/common/fuzzySearch.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -18,6 +16,9 @@ import {
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
+import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import type {
     FileSearchEntry,
     FileSearchResult,
@@ -31,7 +32,6 @@ import { CommandsQuickAccessProvider, CommandsQuickAccessProviderDIToken } from 
 import { FilesQuickAccessProvider, FilesQuickAccessProviderDIToken } from "./filesQuickAccessProvider.ts";
 import type { IGotoLineEditor, IGotoLineEditorSource } from "./gotoLineQuickAccessProvider.ts";
 import { GotoLineQuickAccessProvider, GotoLineQuickAccessProviderDIToken } from "./gotoLineQuickAccessProvider.ts";
-import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import { QUICK_ACCESS_PROVIDERS } from "./quickAccessProviders.ts";
 import { QuickOpenService } from "./quickOpenService.ts";
 

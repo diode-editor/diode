@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDataProvider";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";

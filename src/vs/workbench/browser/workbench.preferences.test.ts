@@ -94,9 +94,13 @@ describe("Workbench — Preferences commands", () => {
 
         it("рекордер пишет комбинацию: файл на диске, строка обновилась, команда работает сразу", async () => {
             const executed: string[] = [];
-            h.commands.register("test.custom", () => {
-                executed.push("test.custom");
-            }, "Recorder Target");
+            h.commands.register(
+                "test.custom",
+                () => {
+                    executed.push("test.custom");
+                },
+                "Recorder Target",
+            );
 
             h.commands.execute("workbench.action.openGlobalKeybindings");
             h.testApp.render();
@@ -105,7 +109,9 @@ describe("Workbench — Preferences commands", () => {
 
             // Активируем строку команды (Enter/двойной клик) → рекордер.
             const rows = pane.view.querySelectorAll("TextLabelElement");
-            const row = rows.find((r) => (r as unknown as { getText(): string }).getText().startsWith("Recorder Target"))!;
+            const row = rows.find((r) =>
+                (r as unknown as { getText(): string }).getText().startsWith("Recorder Target"),
+            )!;
             const list = pane.view.querySelector("#keybindingsList")!;
             (list as unknown as { onActivate: ((el: unknown) => void) | null }).onActivate?.(row);
             h.testApp.render();

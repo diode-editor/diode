@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it, vi } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace, type ICodeActionDeps } from "./languagesNamespace.ts";
@@ -94,29 +93,37 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         const inRange = new Diagnostic(new Range(2, 0, 2, 6), "unused call");
         const outOfRange = new Diagnostic(new Range(40, 0, 40, 5), "far away");
         const rangeless = { message: "no range at all" } as unknown as Diagnostic;
-        collection.set(Uri.parse(URI) as unknown as vscode.Uri, [
-            inRange,
-            outOfRange,
-            rangeless,
-        ] as unknown as vscode.Diagnostic[]);
+        collection.set(
+            Uri.parse(URI) as unknown as vscode.Uri,
+            [inRange, outOfRange, rangeless] as unknown as vscode.Diagnostic[],
+        );
         // Вторая коллекция без записей по нашему ресурсу — просто пропускается.
         const other = languages.createDiagnosticCollection("other");
-        other.set(Uri.parse("file:///proj/other.py") as unknown as vscode.Uri, [
-            new Diagnostic(new Range(0, 0, 0, 1), "elsewhere"),
-        ] as unknown as vscode.Diagnostic[]);
+        other.set(
+            Uri.parse("file:///proj/other.py") as unknown as vscode.Uri,
+            [new Diagnostic(new Range(0, 0, 0, 1), "elsewhere")] as unknown as vscode.Diagnostic[],
+        );
 
         const contexts: vscode.CodeActionContext[] = [];
         languages.registerCodeActionsProvider("python", {
             provideCodeActions: (doc: vscode.TextDocument, range: vscode.Range, context: vscode.CodeActionContext) => {
                 contexts.push(context);
-                return [editAction("Fix unused", "quickfix", true), editAction("Sort imports", "source.organizeImports")];
+                return [
+                    editAction("Fix unused", "quickfix", true),
+                    editAction("Sort imports", "source.organizeImports"),
+                ];
             },
         } as unknown as vscode.CodeActionProvider);
 
         const result = (await stub.callRequest("languages.provideCodeActions", requestParams())) as unknown[];
         expect(result).toEqual([
-            { id: expect.stringMatching(/^\d+\.0$/), title: "Fix unused", kind: "quickfix", isPreferred: true },
-            { id: expect.stringMatching(/^\d+\.1$/), title: "Sort imports", kind: "source.organizeImports" },
+            {
+                id: expect.stringMatching(/^\d+\.0$/) as unknown,
+                title: "Fix unused",
+                kind: "quickfix",
+                isPreferred: true,
+            },
+            { id: expect.stringMatching(/^\d+\.1$/) as unknown, title: "Sort imports", kind: "source.organizeImports" },
         ]);
         // Контекст: ровно та диагностика, что пересекается с диапазоном, — и
         // тот же ОБЪЕКТ (данные конвертера клиента выживают), без only.
@@ -134,10 +141,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         // старт в (2,9) на той же строке — уже снаружи.
         const touching = new Diagnostic(new Range(2, 8, 2, 12), "touches the end");
         const pastEnd = new Diagnostic(new Range(2, 9, 2, 12), "starts past the end");
-        collection.set(Uri.parse(URI) as unknown as vscode.Uri, [
-            touching,
-            pastEnd,
-        ] as unknown as vscode.Diagnostic[]);
+        collection.set(Uri.parse(URI) as unknown as vscode.Uri, [touching, pastEnd] as unknown as vscode.Diagnostic[]);
 
         const contexts: vscode.CodeActionContext[] = [];
         languages.registerCodeActionsProvider("python", {
@@ -288,7 +292,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         const id = await provideAndPick(stub);
         expect(await stub.callRequest("languages.applyCodeAction", { id })).toBe(true);
         expect(appliedEdits).toHaveLength(1);
-        expect(appliedEdits[0]).toBe(action.edit as unknown as vscode.WorkspaceEdit);
+        expect(appliedEdits[0]).toBe(action.edit as vscode.WorkspaceEdit);
         expect(executed).toEqual([]);
     });
 
@@ -399,7 +403,9 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         // Голая команда БЕЗ arguments — исполняется с пустым списком, не с мусором.
         const noArgs = makeCtx();
         noArgs.languages.registerCodeActionsProvider("python", {
-            provideCodeActions: () => [{ title: "Bare no args", command: "test.noargs" } as unknown as vscode.CodeAction],
+            provideCodeActions: () => [
+                { title: "Bare no args", command: "test.noargs" } as unknown as vscode.CodeAction,
+            ],
         } as unknown as vscode.CodeActionProvider);
         const noArgsId = await provideAndPick(noArgs.stub);
         expect(await noArgs.stub.callRequest("languages.applyCodeAction", { id: noArgsId })).toBe(true);

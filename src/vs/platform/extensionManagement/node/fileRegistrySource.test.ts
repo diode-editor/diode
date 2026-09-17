@@ -3,7 +3,8 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
-import { REGISTRY_SCHEMA_VERSION, type IRegistryVersion } from "../common/registryFormat.ts";
+import { type IRegistryVersion, REGISTRY_SCHEMA_VERSION } from "../common/registryFormat.ts";
+
 import { FileExtensionRegistrySource } from "./fileRegistrySource.ts";
 
 const ID = "acme.markdown-tools";

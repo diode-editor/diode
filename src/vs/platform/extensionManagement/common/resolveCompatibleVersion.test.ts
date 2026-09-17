@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { IRegistryEngines, IRegistryVersion } from "./registryFormat.ts";
-import { isVersionCompatible, resolveCompatibleVersion, type IHostVersions } from "./resolveCompatibleVersion.ts";
+import { type IHostVersions, isVersionCompatible, resolveCompatibleVersion } from "./resolveCompatibleVersion.ts";
 
 function version(v: string, engines: IRegistryEngines, targetPlatform?: string): IRegistryVersion {
     return {
@@ -84,10 +84,7 @@ describe("resolveCompatibleVersion", () => {
     });
 
     it("несовместимая наивысшая пропускается в пользу совместимой ниже", () => {
-        const versions = [
-            version("2.0.0", { vscode: "^99.0.0" }),
-            version("1.2.0", { vscode: "^1.90.0" }),
-        ];
+        const versions = [version("2.0.0", { vscode: "^99.0.0" }), version("1.2.0", { vscode: "^1.90.0" })];
         expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.2.0");
     });
 
@@ -119,10 +116,7 @@ describe("resolveCompatibleVersion", () => {
     });
 
     it("prerelease ниже релиза той же версии", () => {
-        const versions = [
-            version("1.2.0-rc.1", { vscode: "*" }),
-            version("1.2.0", { vscode: "*" }),
-        ];
+        const versions = [version("1.2.0-rc.1", { vscode: "*" }), version("1.2.0", { vscode: "*" })];
         expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.2.0");
     });
 
@@ -172,10 +166,7 @@ describe("resolveCompatibleVersion", () => {
     });
 
     it("хост без таргета среди платформенных записей берёт только universal", () => {
-        const versions = [
-            version("1.1.0", { vscode: "*" }, "linux-x64"),
-            version("1.0.0", { vscode: "*" }),
-        ];
+        const versions = [version("1.1.0", { vscode: "*" }, "linux-x64"), version("1.0.0", { vscode: "*" })];
         expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.0.0");
     });
 

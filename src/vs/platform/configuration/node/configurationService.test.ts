@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import { resolveUserDataPaths } from "../../environment/node/userDataPaths.ts";

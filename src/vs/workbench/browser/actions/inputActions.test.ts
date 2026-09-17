@@ -1,6 +1,6 @@
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { describe, expect, it, vi } from "vitest";
 
-import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import type { IClipboard } from "../../../platform/clipboard/common/iClipboard.ts";

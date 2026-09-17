@@ -2,16 +2,17 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { Offset, Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
-import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { quickPickByTitle, tabLabels } from "../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
+
+import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 
 /**
  * The create/Save-As handlers await the QuickInput promise and then several more

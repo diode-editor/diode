@@ -6,10 +6,10 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
+import type { IExtensionInstallResult, IExtensionOperationResult } from "../common/extensionsWorkbench.ts";
 
 import { ExtensionEditorPane, extensionUri } from "./extensionEditorPane.ts";
 import type { IExtensionPageActions } from "./extensionPageActions.ts";
-import type { IExtensionInstallResult, IExtensionOperationResult } from "../common/extensionsWorkbench.ts";
 
 function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntry {
     return {
@@ -108,17 +108,17 @@ function pressSync(pane: ExtensionEditorPane, kind: string): void {
 
 /** Подписи кнопок шапки — их же читает пользователь. */
 function buttonLabels(pane: ExtensionEditorPane): string[] {
-    const buttons = headerState(pane)["buttons"] as { label: string }[];
+    const buttons = headerState(pane).buttons as { label: string }[];
     return buttons.map((b) => b.label);
 }
 
 function enabledFlags(pane: ExtensionEditorPane): boolean[] {
-    const buttons = headerState(pane)["buttons"] as { enabled: boolean }[];
+    const buttons = headerState(pane).buttons as { enabled: boolean }[];
     return buttons.map((b) => b.enabled);
 }
 
 function headerLines(pane: ExtensionEditorPane): string[] {
-    return headerState(pane)["lines"] as string[];
+    return headerState(pane).lines as string[];
 }
 
 function headerState(pane: ExtensionEditorPane): Record<string, unknown> {
@@ -259,8 +259,8 @@ describe("ExtensionEditorPane", () => {
 
         // Шапка и тело — разные элементы: у каждого свой снимок строк.
         const header = pane.view.querySelector("#extensionPageHeader")!;
-        expect((header.inspectState()!["lines"] as string[]).slice(0, 2)).toEqual(["Acme Tools", "acme.tools"]);
-        expect(pane.view.inspectState()?.["lines"] as string[]).toContain("Readme body");
+        expect((header.inspectState()!.lines as string[]).slice(0, 2)).toEqual(["Acme Tools", "acme.tools"]);
+        expect(pane.view.inspectState()?.lines as string[]).toContain("Readme body");
     });
 
     it("focusEditor отдаёт фокус первому действию — с него начинают на этой странице", () => {
@@ -334,7 +334,9 @@ describe("ExtensionEditorPane", () => {
             ...fakeActions(),
             install: () =>
                 new Promise((resolve) => {
-                    finish = () => resolve({ ok: true, version: "1.0.0" });
+                    finish = () => {
+                        resolve({ ok: true, version: "1.0.0" });
+                    };
                 }),
         };
         const pane = new ExtensionEditorPane(service, actions, entry(), META, null);

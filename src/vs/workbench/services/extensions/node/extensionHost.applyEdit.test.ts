@@ -43,10 +43,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
                 .find((editor) => editor.uri.toString() !== Uri.file(second).toString());
             expect(first).toBeDefined();
 
-            const applied = await harness.commandRegistry.execute("test.applyToFiles", [
-                first!.uri.fsPath,
-                second,
-            ]);
+            const applied = await harness.commandRegistry.execute("test.applyToFiles", [first!.uri.fsPath, second]);
             await settle();
             expect(applied).toBe(true);
             expect(first?.getText()).toBe("Xalpha");

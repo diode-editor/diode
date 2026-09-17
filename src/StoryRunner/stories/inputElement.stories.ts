@@ -1,4 +1,7 @@
-import type { StoryContext, StoryMeta } from "../StoryTypes.ts";
+import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import { VStackElement } from "@tuidom/elements/layout/vStackElement";
+
 import { registerAction } from "../../vs/platform/actions/common/commandAction.ts";
 import { InMemoryClipboard } from "../../vs/platform/clipboard/common/inMemoryClipboard.ts";
 import { CommandRegistry } from "../../vs/platform/commands/common/commandRegistry.ts";
@@ -33,10 +36,7 @@ import {
     InputWidgetService,
     InputWidgetServiceDIToken,
 } from "../../vs/workbench/contrib/files/browser/inputWidgetService.ts";
-import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import { VStackElement } from "@tuidom/elements/layout/vStackElement";
-
-import { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import type { StoryContext, StoryMeta } from "../StoryTypes.ts";
 
 /** Wires up a minimal keybinding stack for a single InputElement. */
 function mountInputKeybindings(ctx: StoryContext, input: InputElement): void {

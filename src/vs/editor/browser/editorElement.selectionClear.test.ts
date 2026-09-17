@@ -1,12 +1,13 @@
-import { describe, expect, it } from "vitest";
-
-import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+import { describe, expect, it } from "vitest";
+
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+
 import { EditorElement } from "./editorElement.ts";
 
 describe("EditorElement in app frame loop", () => {

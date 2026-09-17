@@ -6,10 +6,9 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { ScmGraphMenuContext } from "../../../browser/actions/menuContexts.ts";
 import type { IViewDescriptor, ViewsService } from "../../../browser/parts/views/viewsService.ts";
-
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
-
 import { SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
+
 import { PUBLISH_LOG_COMMAND, ScmGraphService } from "./graphService.ts";
 import { GRAPH_LOAD_MORE_COMMAND, GraphViewComponent } from "./graphViewComponent.ts";
 import { LOAD_MORE_LABEL, LOAD_MORE_ROW_ID } from "./scmGraphRows.ts";
@@ -316,7 +315,9 @@ describe("GraphViewComponent", () => {
     it("focus фокусирует список через дескриптор view", () => {
         const { component, registered } = make();
         // Standalone-компонент без корня: focus не должен бросать.
-        expect(() => registered[0].focus()).not.toThrow();
+        expect(() => {
+            registered[0].focus();
+        }).not.toThrow();
         expect(registered[0].body).toBe(component.view);
     });
 });

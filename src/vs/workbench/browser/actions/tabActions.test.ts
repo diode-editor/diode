@@ -238,8 +238,18 @@ describe("TabActions", () => {
     it("closeActiveEditor closes the addressed tab of another group (tab context menu)", () => {
         const activeClose = vi.fn();
         const otherClose = vi.fn();
-        const activeGroup: TabGroupStub = { id: 1, activeIndex: 0, closeTab: activeClose, getPane: () => ({ isModified: false }) };
-        const otherGroup: TabGroupStub = { id: 2, activeIndex: 0, closeTab: otherClose, getPane: () => ({ isModified: false }) };
+        const activeGroup: TabGroupStub = {
+            id: 1,
+            activeIndex: 0,
+            closeTab: activeClose,
+            getPane: () => ({ isModified: false }),
+        };
+        const otherGroup: TabGroupStub = {
+            id: 2,
+            activeIndex: 0,
+            closeTab: otherClose,
+            getPane: () => ({ isModified: false }),
+        };
         const group: GroupStub = {
             activeIndex: 0,
             editorCount: 1,

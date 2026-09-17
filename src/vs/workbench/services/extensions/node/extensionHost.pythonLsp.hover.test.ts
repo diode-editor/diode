@@ -3,11 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
     CLIENT_CRASH_PATTERNS,
     DEFS_PY,
+    type IInstalledBasedpyright,
     installBasedpyright,
     MAIN_PY,
     PY_LANGUAGE_SERVICE,
     until,
-    type IInstalledBasedpyright,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";

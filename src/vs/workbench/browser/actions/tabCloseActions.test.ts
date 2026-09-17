@@ -1,6 +1,6 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Size } from "@tuidom/core/common/geometryPromitives";
 import { createAppTestHarness, type IAppHarness } from "../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";

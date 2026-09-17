@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireInlineCompletionItems, requestInlineCompletions, wireToCoreInlineCompletionItems } from "./wireTypes.ts";
+import {
+    parseWireInlineCompletionItems,
+    requestInlineCompletions,
+    wireToCoreInlineCompletionItems,
+} from "./wireTypes.ts";
 
 // Inline completions (ghost text): best-effort контракт — таймаут/ошибка/мусор
 // дают пустой список, невалидные пункты отбрасываются drop+skip.

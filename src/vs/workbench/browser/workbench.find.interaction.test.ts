@@ -1,9 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
-
 import type { MouseAction, MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { FindContext } from "./workbench.find.testUtils.ts";
 import { createFindApp, disposeFindApp, type } from "./workbench.find.testUtils.ts";

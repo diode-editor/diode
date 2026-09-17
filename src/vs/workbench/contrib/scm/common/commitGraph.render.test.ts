@@ -21,14 +21,7 @@ const H = GRAPH_HIGHLIGHT_STYLE;
 
 const SELECTED = "selected";
 
-function pipe(
-    fromPos: number,
-    toPos: number,
-    fromHash: string,
-    toHash: string,
-    kind: PipeKind,
-    style: string,
-): IPipe {
+function pipe(fromPos: number, toPos: number, fromHash: string, toHash: string, kind: PipeKind, style: string): IPipe {
     return { fromPos, toPos, fromHash, toHash, kind, style };
 }
 
@@ -42,7 +35,7 @@ function check(
     expectedText: string,
     expectedStyles: readonly (string | undefined)[],
 ): void {
-    expect([...expectedText]).toHaveLength(expectedStyles.length);
+    expect(Array.from(expectedText)).toHaveLength(expectedStyles.length);
     const line = renderPipeSet(pipes, SELECTED, prevCommitHash);
     expect(line.text).toBe(`${expectedText} `);
     expect(line.styles).toEqual([...expectedStyles, undefined]);
@@ -51,10 +44,7 @@ function check(
 describe("renderPipeSet — символы и цвета", () => {
     it("single cell", () => {
         check(
-            [
-                pipe(0, 0, "a", "b", PipeKind.Terminates, CYAN),
-                pipe(0, 0, "b", "c", PipeKind.Starts, GREEN),
-            ],
+            [pipe(0, 0, "a", "b", PipeKind.Terminates, CYAN), pipe(0, 0, "b", "c", PipeKind.Starts, GREEN)],
             "a",
             "○",
             [GREEN],
@@ -63,10 +53,7 @@ describe("renderPipeSet — символы и цвета", () => {
 
     it("single cell, selected", () => {
         check(
-            [
-                pipe(0, 0, "a", SELECTED, PipeKind.Terminates, CYAN),
-                pipe(0, 0, SELECTED, "c", PipeKind.Starts, GREEN),
-            ],
+            [pipe(0, 0, "a", SELECTED, PipeKind.Terminates, CYAN), pipe(0, 0, SELECTED, "c", PipeKind.Starts, GREEN)],
             "a",
             "○",
             [H],
@@ -192,10 +179,7 @@ describe("renderPipeSet — символы и цвета", () => {
 
     it("commit whose previous commit is selected", () => {
         check(
-            [
-                pipe(0, 0, SELECTED, "a2", PipeKind.Terminates, RED),
-                pipe(0, 0, "a2", "a3", PipeKind.Starts, YELLOW),
-            ],
+            [pipe(0, 0, SELECTED, "a2", PipeKind.Terminates, RED), pipe(0, 0, "a2", "a3", PipeKind.Starts, YELLOW)],
             SELECTED,
             "○",
             [YELLOW],
@@ -204,10 +188,7 @@ describe("renderPipeSet — символы и цвета", () => {
 
     it("commit whose previous commit is selected and is a merge commit", () => {
         check(
-            [
-                pipe(0, 0, SELECTED, "a2", PipeKind.Terminates, RED),
-                pipe(1, 1, SELECTED, "b3", PipeKind.Continues, RED),
-            ],
+            [pipe(0, 0, SELECTED, "a2", PipeKind.Terminates, RED), pipe(1, 1, SELECTED, "b3", PipeKind.Continues, RED)],
             SELECTED,
             "○ │",
             [H, undefined, H],
@@ -244,10 +225,7 @@ describe("renderPipeSet — символы и цвета", () => {
     it("клетка, которой не коснулась ни одна линия, остаётся пустой", () => {
         // Дырка между дорожками: колонка 1 не занята и не пересечена.
         check(
-            [
-                pipe(0, 0, "a1", "a2", PipeKind.Continues, RED),
-                pipe(2, 2, "c1", "c2", PipeKind.Continues, GREEN),
-            ],
+            [pipe(0, 0, "a1", "a2", PipeKind.Continues, RED), pipe(2, 2, "c1", "c2", PipeKind.Continues, GREEN)],
             null,
             "○   │",
             [RED, undefined, undefined, undefined, GREEN],
@@ -256,10 +234,7 @@ describe("renderPipeSet — символы и цвета", () => {
 
     it("без выделенного коммита подсветки нет", () => {
         const line = renderPipeSet(
-            [
-                pipe(0, 0, "a", "b", PipeKind.Terminates, CYAN),
-                pipe(0, 0, "b", "c", PipeKind.Starts, GREEN),
-            ],
+            [pipe(0, 0, "a", "b", PipeKind.Terminates, CYAN), pipe(0, 0, "b", "c", PipeKind.Starts, GREEN)],
             null,
             null,
         );

@@ -67,7 +67,11 @@ describe("registerExtensionKeybindings", () => {
         );
         expect(registry.getKeybindingForCommand("editor.action.foo")).toBeDefined();
 
-        registerExtensionKeybindings([ext([{ command: "-editor.action.foo", key: "ctrl+k ctrl+s" }])], registry, "linux");
+        registerExtensionKeybindings(
+            [ext([{ command: "-editor.action.foo", key: "ctrl+k ctrl+s" }])],
+            registry,
+            "linux",
+        );
         expect(registry.getKeybindingForCommand("editor.action.foo")).toBeUndefined();
     });
 
@@ -114,6 +118,8 @@ describe("registerExtensionKeybindings", () => {
             location: "UserExtensions/x/",
             isBuiltin: false,
         };
-        expect(() => registerExtensionKeybindings([noKb], registry, "linux")).not.toThrow();
+        expect(() => {
+            registerExtensionKeybindings([noKb], registry, "linux");
+        }).not.toThrow();
     });
 });

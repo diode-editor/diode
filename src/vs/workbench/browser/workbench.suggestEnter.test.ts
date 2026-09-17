@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
-import type { ICoreCompletionItem } from "../../editor/common/languages/iCompletionSource.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
+import type { ICoreCompletionItem } from "../../editor/common/languages/iCompletionSource.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 
 /**

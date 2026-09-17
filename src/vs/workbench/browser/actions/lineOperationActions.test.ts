@@ -1,4 +1,3 @@
-import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
@@ -13,7 +12,12 @@ import { CommandRegistry } from "../../../platform/commands/common/commandRegist
 import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry, parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    KeybindingRegistry,
+    parseChord,
+    parseKeybinding,
+} from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
@@ -198,7 +202,9 @@ describe("line operation actions", () => {
         expect(deleteLinesAction.title).toBe("Delete Line");
         expect(deleteLinesAction.keybinding).toEqual(parseKeybinding("ctrl+shift+k"));
         // Аккорд — единственный досягаемый на legacy-tier'е.
-        expect(deleteLinesAction.keybindings).toEqual([{ keys: parseChord("ctrl+k ctrl+k"), when: "tier == 'legacy'" }]);
+        expect(deleteLinesAction.keybindings).toEqual([
+            { keys: parseChord("ctrl+k ctrl+k"), when: "tier == 'legacy'" },
+        ]);
         expect(deleteLinesAction.when).toBe("textInputFocus && !editorReadonly");
     });
 

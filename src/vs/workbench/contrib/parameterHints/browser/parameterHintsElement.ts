@@ -5,7 +5,7 @@ import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
-import { wrapSignature, type ISignatureChunk } from "./signatureLayout.ts";
+import { type ISignatureChunk, wrapSignature } from "./signatureLayout.ts";
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 // [│(0)][pad(1)][текст…][pad(w-2)][│(w-1)] — раскладка HoverElement.

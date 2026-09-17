@@ -1,4 +1,5 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
@@ -39,7 +40,11 @@ interface IInlineSession {
  * debounce/seq/ревалидации — по образцу CompletionService/LightbulbService.
  */
 export class InlineCompletionsService extends Disposable {
-    public static dependencies = [EditorServiceDIToken, CompletionServiceDIToken, IConfigurationServiceDIToken] as const;
+    public static dependencies = [
+        EditorServiceDIToken,
+        CompletionServiceDIToken,
+        IConfigurationServiceDIToken,
+    ] as const;
 
     /**
      * Задержка перед авто-запросом после набора (мс) — как upstream-дебаунс
@@ -71,7 +76,11 @@ export class InlineCompletionsService extends Disposable {
     // перезапросить подсказку).
     private suppressAutoTriggerOnce = false;
 
-    public constructor(group: EditorService, completionService: CompletionService, configuration: IConfigurationService) {
+    public constructor(
+        group: EditorService,
+        completionService: CompletionService,
+        configuration: IConfigurationService,
+    ) {
         super();
         this.group = group;
         this.completionService = completionService;

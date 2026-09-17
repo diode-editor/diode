@@ -85,8 +85,20 @@ describe("ExtensionPageActions", () => {
         let finishUninstall = (): void => {};
         const service: IExtensionsWorkbenchService = {
             ...fakeService(),
-            install: () => new Promise((resolve) => (finishInstall = () => resolve({ ok: true, version: "1.2.0" }))),
-            uninstall: () => new Promise((resolve) => (finishUninstall = () => resolve({ ok: true }))),
+            install: () =>
+                new Promise(
+                    (resolve) =>
+                        (finishInstall = () => {
+                            resolve({ ok: true, version: "1.2.0" });
+                        }),
+                ),
+            uninstall: () =>
+                new Promise(
+                    (resolve) =>
+                        (finishUninstall = () => {
+                            resolve({ ok: true });
+                        }),
+                ),
         };
         const { actions, progress } = createActions(service);
 

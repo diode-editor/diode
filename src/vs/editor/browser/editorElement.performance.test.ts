@@ -14,9 +14,9 @@
  * ~44 ms/frame (contentWidth alone) to effectively 0 ms for cursor moves.
  */
 
+import { DisplayLine } from "@tuidom/core/common/displayLine";
 import { describe, expect, it } from "vitest";
 
-import { DisplayLine } from "@tuidom/core/common/displayLine";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { createInsertEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";

@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 
 import { DIODE_VERSION } from "../vs/base/common/version.ts";
 import { resolveCompatibleVersion } from "../vs/platform/extensionManagement/common/resolveCompatibleVersion.ts";
-import { createRegistrySource, DEFAULT_REGISTRY_URL } from "../vs/platform/extensionManagement/node/createRegistrySource.ts";
+import {
+    createRegistrySource,
+    DEFAULT_REGISTRY_URL,
+} from "../vs/platform/extensionManagement/node/createRegistrySource.ts";
 import { sha256File } from "../vs/platform/extensionManagement/node/installFromRegistry.ts";
 import { currentTargetPlatform } from "../vs/platform/extensionManagement/node/targetPlatform.ts";
 import { VSCODE_SHIM_VERSION } from "../vs/workbench/api/common/vscodeShimVersion.ts";

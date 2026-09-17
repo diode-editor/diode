@@ -30,7 +30,10 @@ describe("ProgressService", () => {
 
     it("операция короче задержки не показывается и не заводит тикер", async () => {
         const task = deferred();
-        const running = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
+        const running = service.withProgress(
+            { location: "view", viewId: VIEW, title: "Committing…" },
+            () => task.promise,
+        );
 
         // Занятость видна сразу — кнопки гаснут без задержки.
         expect(service.isBusy(VIEW)).toBe(true);
@@ -51,7 +54,10 @@ describe("ProgressService", () => {
         const listener = vi.fn();
         service.onDidChange(listener);
         const task = deferred();
-        const running = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
+        const running = service.withProgress(
+            { location: "view", viewId: VIEW, title: "Committing…" },
+            () => task.promise,
+        );
 
         vi.advanceTimersByTime(300);
         expect(service.viewProgress().get(VIEW)).toEqual({ spinner: "⠋", title: "Committing…" });
@@ -81,7 +87,10 @@ describe("ProgressService", () => {
         // никто, и подмена любого из них проходит незамеченной.
         const defaults = new ProgressService();
         const task = deferred();
-        const running = defaults.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
+        const running = defaults.withProgress(
+            { location: "view", viewId: VIEW, title: "Committing…" },
+            () => task.promise,
+        );
 
         vi.advanceTimersByTime(299);
         expect(defaults.viewProgress().size).toBe(0);
@@ -238,7 +247,10 @@ describe("ProgressService", () => {
         const listener = vi.fn();
         service.onDidChange(listener);
         const task = deferred();
-        const running = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
+        const running = service.withProgress(
+            { location: "view", viewId: VIEW, title: "Committing…" },
+            () => task.promise,
+        );
 
         vi.advanceTimersByTime(300);
         task.resolve();
@@ -296,7 +308,10 @@ describe("ProgressService", () => {
 
     it("конец операции, пережившей dispose, ничего не ломает", async () => {
         const task = deferred();
-        const running = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => task.promise);
+        const running = service.withProgress(
+            { location: "view", viewId: VIEW, title: "Committing…" },
+            () => task.promise,
+        );
         vi.advanceTimersByTime(300);
 
         // Приложение закрывается посреди операции: запись уже снята, а промис

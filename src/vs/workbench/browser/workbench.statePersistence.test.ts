@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Size } from "@tuidom/core/common/geometryPromitives";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
@@ -103,8 +103,8 @@ describe("Workbench — session state persistence", () => {
         h1.container.get(EditorServiceDIToken).activateTab(0); // группа 1: активна a
         state1.flushSync();
         const weightsBefore = [
-            ...(h1.workbench as unknown as { editorPartComponent: { weights: readonly number[] } })
-                .editorPartComponent.weights,
+            ...(h1.workbench as unknown as { editorPartComponent: { weights: readonly number[] } }).editorPartComponent
+                .weights,
         ];
         h1.dispose();
 

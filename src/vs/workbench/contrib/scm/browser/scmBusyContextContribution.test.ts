@@ -6,7 +6,11 @@ import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 
 import { ScmBusyContextContribution } from "./scmBusyContextContribution.ts";
 
-function make(): { progress: ProgressService; contextKeys: ContextKeyService; contribution: ScmBusyContextContribution } {
+function make(): {
+    progress: ProgressService;
+    contextKeys: ContextKeyService;
+    contribution: ScmBusyContextContribution;
+} {
     const progress = new ProgressService();
     const contextKeys = new ContextKeyService();
     const contribution = new ScmBusyContextContribution(progress, contextKeys);
@@ -24,10 +28,12 @@ describe("ScmBusyContextContribution", () => {
         for (const viewId of [SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID]) {
             const h = make();
             let done!: () => void;
-            const running = h.progress.withProgress({ location: "view", viewId, title: "Committing…" }, () =>
-                new Promise<void>((resolve) => {
-                    done = resolve;
-                }),
+            const running = h.progress.withProgress(
+                { location: "view", viewId, title: "Committing…" },
+                () =>
+                    new Promise<void>((resolve) => {
+                        done = resolve;
+                    }),
             );
 
             // Ключ обязан подняться до задержки показа: команда должна погаснуть

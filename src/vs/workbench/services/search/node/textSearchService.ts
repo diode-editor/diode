@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import {
     buildRgArgs,
     type IFileMatch,
@@ -46,7 +47,12 @@ export class TextSearchService extends Disposable implements ITextSearchService 
     public search(query: ITextSearchQuery, folder: string, onResult: (match: IFileMatch) => void): ISearchHandle {
         const args = buildRgArgs(query, folder);
         if (args === null) {
-            return { complete: Promise.resolve(empty()), cancel: () => {} };
+            return {
+                complete: Promise.resolve(empty()),
+                cancel: () => {
+                    /* отменять нечего — запрос не запускался */
+                },
+            };
         }
 
         const child = spawn(this.rgPath(), args, { cwd: folder });
@@ -100,7 +106,9 @@ export class TextSearchService extends Disposable implements ITextSearchService 
             });
 
             // Spawn-level failure (e.g. rg binary missing) — no stdout/close.
-            child.on("error", (err) => finish(err.message));
+            child.on("error", (err) => {
+                finish(err.message);
+            });
             // rg exit codes: 0 = matches, 1 = no matches, 2 = error (writes stderr).
             child.on("close", (code) => {
                 finish(!cancelled && code === 2 ? stderr.trim() : undefined);

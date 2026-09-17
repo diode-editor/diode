@@ -1,7 +1,8 @@
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
-import { APP_NAME, REPO_URL, DIODE_VERSION } from "../../../../base/common/version.ts";
+
+import { APP_NAME, DIODE_VERSION, REPO_URL } from "../../../../base/common/version.ts";
 
 import { DIALOG_STYLES, DialogComponent } from "./dialogComponent.ts";
 

@@ -41,7 +41,7 @@ export class DefinitionService {
             line: caret.line,
             character: caret.character,
         });
-        const target = locations[0];
+        const target = locations.at(0);
         if (target === undefined) return;
         this.revealLocation(target, toSide);
     }
@@ -67,7 +67,7 @@ export class DefinitionService {
         }
         const editor = this.group.getActiveEditor();
         /* v8 ignore start -- defensive: openUri always opens/activates an editor for the resource */
-        if (editor === null || editor.uri.toString() !== location.uri) return;
+        if (editor?.uri.toString() !== location.uri) return;
         /* v8 ignore stop */
         editor.goToPosition(location.range.start.line, location.range.start.character);
         editor.revealRange(location.range);

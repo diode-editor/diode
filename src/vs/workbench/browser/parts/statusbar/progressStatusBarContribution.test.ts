@@ -30,10 +30,12 @@ describe("ProgressStatusBarContribution", () => {
 
     it("window-прогресс появляется записью со спиннером и снимается", async () => {
         let done!: () => void;
-        const running = progress.withProgress({ location: "window", title: "Pushing…" }, () =>
-            new Promise<void>((resolve) => {
-                done = resolve;
-            }),
+        const running = progress.withProgress(
+            { location: "window", title: "Pushing…" },
+            () =>
+                new Promise<void>((resolve) => {
+                    done = resolve;
+                }),
         );
         expect(texts()).toEqual([]);
 

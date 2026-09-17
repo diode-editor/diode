@@ -1,11 +1,12 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 import { abbreviatePath, truncateEnd } from "@tuidom/core/common/textTruncation";
-import { HFlexElement, hflexFill, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { HFlexElement, hflexFill, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-import { CONTENT_PAD } from "./quickPickFrameElement.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+
+import { CONTENT_PAD } from "./quickPickFrameElement.ts";
 
 /**
  * Строки результатов quick pick для `ListViewElement` — по образцу
@@ -136,11 +137,7 @@ function textWidth(label: TextLabelElement): number {
  * Красит найденные fuzzy-совпадения. Диапазоны приходят в code-unit-оффсетах
  * исходного лейбла — за обрез усечённого текста не заходим.
  */
-function applyMatchHighlight(
-    label: TextLabelElement,
-    text: string,
-    ranges: readonly [number, number][],
-): void {
+function applyMatchHighlight(label: TextLabelElement, text: string, ranges: readonly [number, number][]): void {
     for (const [start, end] of ranges) {
         for (let i = start; i < Math.min(end, text.length); i++) {
             label.setCharStyle(i, { fg: "list.highlightForeground" });

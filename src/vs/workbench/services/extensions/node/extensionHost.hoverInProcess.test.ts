@@ -37,9 +37,10 @@ function requestOf(text: string): IHoverRequest {
     return { uri: "file:///a.ts", languageId: "typescript", text, line: 0, character: 0 };
 }
 
-function makeHost(
-    options: { warn?: ILogger["warn"]; hoverTimeoutMs?: number } = {},
-): { host: ExtensionHost; peer: RpcEndpoint } {
+function makeHost(options: { warn?: ILogger["warn"]; hoverTimeoutMs?: number } = {}): {
+    host: ExtensionHost;
+    peer: RpcEndpoint;
+} {
     const logger =
         options.warn === undefined
             ? undefined

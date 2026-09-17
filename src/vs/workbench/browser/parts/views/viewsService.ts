@@ -3,6 +3,7 @@ import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+
 import { isSubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type {
@@ -17,9 +18,9 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import type { ViewContainerMenuContext, ViewMenuContext } from "../../actions/menuContexts.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
-import { SIDEBAR_VIEWS_STATE, type IViewContainerViewsState } from "../../../common/stateKeys.ts";
+import { type IViewContainerViewsState, SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
+import type { ViewContainerMenuContext, ViewMenuContext } from "../../actions/menuContexts.ts";
 import type { PanelService } from "../panel/panelService.ts";
 import { PanelServiceDIToken } from "../panel/panelService.ts";
 import type { SidebarService } from "../sidebar/sidebarService.ts";
@@ -131,6 +132,23 @@ interface ContainerEntry {
     stack: VFlexElement | null;
     /** Что отдано месту (стопка в сайдбаре, сам PaneView в панели); null — не приаттачен. */
     view: TUIElement | null;
+}
+
+/**
+ * Контейнер после {@link ViewsService.attachContainer}: дескриптор, PaneView и
+ * заголовок появляются РАЗОМ и дальше не исчезают. Методы сборки заголовков и
+ * секций работают только с такими контейнерами, поэтому инвариант объявлен
+ * здесь один раз — вместо non-null-утверждения на каждом чтении.
+ */
+type AttachedEntry = ContainerEntry & {
+    descriptor: IViewContainerDescriptor;
+    paneView: PaneViewElement;
+    header: ViewContainerHeaderElement;
+};
+
+/** Читает контейнер как приаттаченный (см. {@link AttachedEntry}). */
+function attached(entry: ContainerEntry): AttachedEntry {
+    return entry as AttachedEntry;
 }
 
 /**
@@ -456,7 +474,7 @@ export class ViewsService {
         const paneView = entry.paneView;
         if (paneView === null) return;
         const visible = this.visibleViews(entry);
-        const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible[0];
+        const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible.at(0);
         target?.focus();
     }
 
@@ -487,8 +505,8 @@ export class ViewsService {
      * секций — значит переключатель здесь всегда.
      */
     private containerMenuEntries(entry: ContainerEntry): MenuEntry[] {
-        const entries = overflowEntries(this.containerTitleGroups(entry.descriptor!.id));
-        const views = this.viewsSubmenu(entry)!;
+        const entries = overflowEntries(this.containerTitleGroups(attached(entry).descriptor.id));
+        const views = this.buildViewsSubmenu(entry);
         return entries.length > 0 ? [...entries, { type: "separator" }, views] : [views];
     }
 
@@ -498,11 +516,12 @@ export class ViewsService {
      * негде) и переключатель секций живут в «⋯» единственной секции.
      */
     private containerSubmenu(entry: ContainerEntry): MenuSubmenuEntry | null {
-        const own = joinMenuGroups(this.containerTitleGroups(entry.descriptor!.id));
+        const own = joinMenuGroups(this.containerTitleGroups(attached(entry).descriptor.id));
         const views = this.viewsSubmenu(entry);
-        const entries = views === null ? own : own.length > 0 ? [...own, { type: "separator" as const }, views] : [views];
+        const entries =
+            views === null ? own : own.length > 0 ? [...own, { type: "separator" as const }, views] : [views];
         if (entries.length === 0) return null;
-        return { type: "submenu", label: entry.descriptor!.title, entries };
+        return { type: "submenu", label: attached(entry).descriptor.title, entries };
     }
 
     /**
@@ -511,6 +530,11 @@ export class ViewsService {
      */
     private viewsSubmenu(entry: ContainerEntry): MenuSubmenuEntry | null {
         if (entry.views.length < 2) return null;
+        return this.buildViewsSubmenu(entry);
+    }
+
+    /** Само подменю, без условия «секций 2+» — для мест, где оно заведомо есть. */
+    private buildViewsSubmenu(entry: ContainerEntry): MenuSubmenuEntry {
         return {
             type: "submenu",
             label: VIEWS_SUBMENU_LABEL,
@@ -520,7 +544,9 @@ export class ViewsService {
                     label: record.title,
                     id: record.id,
                     icon: visible ? CHECKED_ICON : undefined,
-                    onSelect: () => this.setViewVisible(record.id, !visible),
+                    onSelect: () => {
+                        this.setViewVisible(record.id, !visible);
+                    },
                 };
             }),
         };
@@ -539,7 +565,9 @@ export class ViewsService {
 
     private titleGroups(entry: ContainerEntry): IMenuEntryGroup[] {
         const viewId = this.headerTargetView(entry);
-        return viewId === null ? this.containerTitleGroups(entry.descriptor!.id) : this.viewTitleGroups(viewId);
+        return viewId === null
+            ? this.containerTitleGroups(attached(entry).descriptor.id)
+            : this.viewTitleGroups(viewId);
     }
 
     /**
@@ -564,7 +592,7 @@ export class ViewsService {
         if (!this.isMerged(entry)) return false;
         // Merged: в «⋯» секции уезжает подменю контейнера — его команды целиком
         // (включая inline-группу, рисовать её негде) и переключатель секций.
-        const containerContext: ViewContainerMenuContext = { container: entry.descriptor!.id };
+        const containerContext: ViewContainerMenuContext = { container: attached(entry).descriptor.id };
         return this.menuService.hasItems(MenuId.ViewContainerTitle, containerContext) || entry.views.length >= 2;
     }
 
@@ -572,7 +600,7 @@ export class ViewsService {
     private titleMenuPossible(entry: ContainerEntry): boolean {
         const viewId = this.headerTargetView(entry);
         if (viewId !== null) return this.paneMenuPossible(entry, viewId);
-        const context: ViewContainerMenuContext = { container: entry.descriptor!.id };
+        const context: ViewContainerMenuContext = { container: attached(entry).descriptor.id };
         return this.hasOverflow(MenuId.ViewContainerTitle, context) || entry.views.length >= 2;
     }
 
@@ -597,7 +625,7 @@ export class ViewsService {
 
     /** Пере-резолвит inline-кнопки заголовков контейнера и его видимых секций. */
     private refreshContainerTitleActions(entry: ContainerEntry): void {
-        const paneView = entry.paneView!;
+        const paneView = attached(entry).paneView;
         const headerViewId = this.headerTargetView(entry);
         for (const record of this.visibleViews(entry)) {
             paneView.setPaneActions(record.id, inlineActions(this.viewTitleGroups(record.id)));
@@ -612,7 +640,7 @@ export class ViewsService {
             this.applySpinner(entry, record);
         }
         // Заголовок создан в attachContainer до первой пересборки секций.
-        const header = entry.header!;
+        const header = attached(entry).header;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
         if (!this.isPanel(entry)) return;
@@ -626,7 +654,7 @@ export class ViewsService {
         // осталась бы неприкреплённой, и прогресс секции панели было бы не видно.
         // Stryker disable next-line OptionalChaining: до этого операнда цепочка доходит только при `!hasMenu`, а он ложен ровно тогда, когда секций 2+ и headerRecord пуст — то есть здесь запись всегда есть
         const empty = actions.length === 0 && widget === null && !hasMenu && headerRecord?.spinner == null;
-        this.panelService.setViewActions(entry.descriptor!.id, empty ? null : header);
+        this.panelService.setViewActions(attached(entry).descriptor.id, empty ? null : header);
     }
 
     /**
@@ -634,8 +662,8 @@ export class ViewsService {
      * панели его роль играет полоса контролов таб-строки.
      */
     private applySpinner(entry: ContainerEntry, record: ViewRecord): void {
-        if (this.headerTargetView(entry) === record.id) entry.header!.setSpinnerFrame(record.spinner);
-        else entry.paneView!.setPaneSpinner(record.id, record.spinner);
+        if (this.headerTargetView(entry) === record.id) attached(entry).header.setSpinnerFrame(record.spinner);
+        else attached(entry).paneView.setPaneSpinner(record.id, record.spinner);
     }
 
     /**
@@ -647,8 +675,8 @@ export class ViewsService {
     private syncContainerFrame(entry: ContainerEntry): void {
         const stack = entry.stack;
         if (stack === null) return;
-        const paneView = entry.paneView!;
-        const header = entry.header!;
+        const paneView = attached(entry).paneView;
+        const header = attached(entry).header;
         header.layoutStyle = { height: vflexFixed(1), width: "fill" };
         paneView.layoutStyle = { height: vflexFill(), width: "fill" };
         stack.replaceChildren(this.isMerged(entry) ? [paneView] : [header, paneView]);
@@ -720,7 +748,7 @@ export class ViewsService {
      * скрытой секции сбрасывал бы раскладку остальных.
      */
     private rebuildPanes(entry: ContainerEntry): void {
-        const paneView = entry.paneView!;
+        const paneView = attached(entry).paneView;
         const collapsed = new Set(paneView.getPaneIds().filter((id) => paneView.isCollapsed(id)));
         const weights = paneView.getWeights();
         for (const paneId of [...paneView.getPaneIds()]) {
@@ -754,7 +782,7 @@ export class ViewsService {
 
     /** Write-through по действию пользователя (toggle секции, drag границы, скрытие). */
     private persistContainerState(containerId: string, entry: ContainerEntry): void {
-        const paneView = entry.paneView!;
+        const paneView = attached(entry).paneView;
         const state: IViewContainerViewsState = {
             collapsed: paneView.getPaneIds().filter((id) => paneView.isCollapsed(id)),
             weights: paneView.getWeights(),
@@ -772,7 +800,7 @@ export class ViewsService {
  * они остались от старого формата, срезаем — отступ рисует сам заголовок.
  */
 function containerPaneTitle(entry: ContainerEntry): string {
-    return entry.descriptor!.title.trimStart();
+    return attached(entry).descriptor.title.trimStart();
 }
 
 /**

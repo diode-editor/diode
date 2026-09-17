@@ -1,5 +1,5 @@
-import { Point } from "@tuidom/core/common/geometryPromitives";
 import { packRgb } from "@tuidom/core/common/colorUtils";
+import { Point } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it } from "vitest";
 
 import { expectScreen, screen } from "../../../../../TestUtils/expectScreen.ts";

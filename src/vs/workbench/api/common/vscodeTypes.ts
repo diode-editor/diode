@@ -236,8 +236,7 @@ export class Location {
 
     public constructor(uri: Uri, rangeOrPosition: Range | Position) {
         this.uri = uri;
-        this.range =
-            rangeOrPosition instanceof Range ? rangeOrPosition : new Range(rangeOrPosition, rangeOrPosition);
+        this.range = rangeOrPosition instanceof Range ? rangeOrPosition : new Range(rangeOrPosition, rangeOrPosition);
     }
 }
 
@@ -534,7 +533,7 @@ export class SnippetString {
         this.value = value;
     }
 
-    public appendText(value: string): SnippetString {
+    public appendText(value: string): this {
         this.value += value;
         return this;
     }
@@ -596,7 +595,8 @@ function toBaseUri(base: vscode.WorkspaceFolder | Uri | string): Uri {
     const folderUri = (base as { uri?: unknown }).uri;
     if (folderUri instanceof Uri) return folderUri;
     // Чужая реализация Uri (другой рантайм внутри расширения) — берём её строку.
-    if (typeof folderUri === "object" && folderUri !== null) return Uri.parse(String(folderUri));
+    if (typeof folderUri === "object" && folderUri !== null)
+        return Uri.parse((folderUri as { toString(): string }).toString());
     throw new TypeError("RelativePattern: base must be a WorkspaceFolder, Uri or string");
 }
 
@@ -941,10 +941,12 @@ export class CancellationTokenSource {
     public readonly token: vscode.CancellationToken;
 
     public constructor() {
-        const self = this;
+        // Геттер объекта-литерала стрелкой быть не может, поэтому до состояния
+        // источника он добирается через замыкание, а не через алиас `this`.
+        const isCancelled = (): boolean => this.cancelled;
         this.token = {
             get isCancellationRequested(): boolean {
-                return self.cancelled;
+                return isCancelled();
             },
             onCancellationRequested: this.emitter.event,
         } as unknown as vscode.CancellationToken;
@@ -972,17 +974,17 @@ export class MarkdownString {
         this.value = value;
     }
 
-    public appendText(value: string): MarkdownString {
+    public appendText(value: string): this {
         this.value += value;
         return this;
     }
 
-    public appendMarkdown(value: string): MarkdownString {
+    public appendMarkdown(value: string): this {
         this.value += value;
         return this;
     }
 
-    public appendCodeblock(value: string, language = ""): MarkdownString {
+    public appendCodeblock(value: string, language = ""): this {
         this.value += `\n\`\`\`${language}\n${value}\n\`\`\`\n`;
         return this;
     }
@@ -1103,8 +1105,8 @@ export class WorkspaceEdit {
     public set(
         uri: Uri,
         edits:
-            | ReadonlyArray<TextEdit | SnippetTextEdit>
-            | ReadonlyArray<[TextEdit | SnippetTextEdit, unknown]>
+            | readonly (TextEdit | SnippetTextEdit)[]
+            | readonly [TextEdit | SnippetTextEdit, unknown][]
             | null
             | undefined,
     ): void {
@@ -1233,7 +1235,10 @@ export class TabInputNotebookDiff {
     ) {}
 }
 
-/** Вкладка терминала (Diode не производит). */
-export class TabInputTerminal {
-    public constructor() {}
-}
+/**
+ * Вкладка терминала (Diode не производит). Пустой класс — это и есть поверхность
+ * upstream (`vscode.TabInputTerminal`): расширения узнают её через `instanceof`,
+ * так что заменить объектом или функцией, как предлагает правило, нельзя.
+ */
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- см. комментарий выше
+export class TabInputTerminal {}

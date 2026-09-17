@@ -42,8 +42,7 @@ export function sortAndMergeSelections(selections: readonly ISelection[]): ISele
         index,
     }));
     ordered.sort(
-        (a, b) =>
-            comparePositions(a.range.start, b.range.start) || comparePositions(a.range.end, b.range.end),
+        (a, b) => comparePositions(a.range.start, b.range.start) || comparePositions(a.range.end, b.range.end),
     );
 
     const merged: IOrderedSelection[] = [ordered[0]];
@@ -62,8 +61,7 @@ export function sortAndMergeSelections(selections: readonly ISelection[]): ISele
 
 /** Пересекаются ли соседи; касание считается пересечением, только если одно из них — каретка. */
 function overlaps(previous: IOrderedSelection, current: IOrderedSelection): boolean {
-    const touchCounts =
-        isSelectionCollapsed(previous.selection) || isSelectionCollapsed(current.selection);
+    const touchCounts = isSelectionCollapsed(previous.selection) || isSelectionCollapsed(current.selection);
     const comparison = comparePositions(current.range.start, previous.range.end);
     return touchCounts ? comparison <= 0 : comparison < 0;
 }
@@ -78,7 +76,8 @@ function mergePair(previous: IOrderedSelection, current: IOrderedSelection): IOr
     const activeIsEnd = comparePositions(winner.selection.anchor, winner.selection.active) <= 0;
     const active = activeIsEnd ? end : start;
     const anchor = activeIsEnd ? start : end;
-    const idealColumn = comparePositions(winner.selection.active, active) === 0 ? winner.selection.idealColumn : undefined;
+    const idealColumn =
+        comparePositions(winner.selection.active, active) === 0 ? winner.selection.idealColumn : undefined;
 
     return {
         selection: createSelection(anchor.line, anchor.character, active.line, active.character, idealColumn),

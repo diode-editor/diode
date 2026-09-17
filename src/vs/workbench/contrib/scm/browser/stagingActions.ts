@@ -44,20 +44,17 @@ function transportOp(commandId: string): string {
  * применимости групп (смешанное выделение: stage берёт своё, unstage — своё,
  * ровно как VS Code) и дедуплицируются (MM-файл — две записи, один uri).
  */
-export function resolveScmTargets(
-    accessor: ServiceAccessor,
-    raw: unknown,
-    applicable: readonly ScmGroupId[],
-): Uri[] {
+export function resolveScmTargets(accessor: ServiceAccessor, raw: unknown, applicable: readonly ScmGroupId[]): Uri[] {
     const changes = accessor.get(ScmChangesServiceDIToken).changes;
-    const applicableUris = new Set(
-        changes.filter((c) => applicable.includes(c.group)).map((c) => c.uri.toString()),
-    );
+    const applicableUris = new Set(changes.filter((c) => applicable.includes(c.group)).map((c) => c.uri.toString()));
 
     const candidates: string[] =
         Array.isArray(raw) && raw.every((item): item is string => typeof item === "string")
             ? raw
-            : accessor.get(ChangesComponentDIToken).getSelectedChanges().map((c) => c.uri.toString());
+            : accessor
+                  .get(ChangesComponentDIToken)
+                  .getSelectedChanges()
+                  .map((c) => c.uri.toString());
 
     const seen = new Set<string>();
     const targets: Uri[] = [];
@@ -296,9 +293,7 @@ export const gitCleanAllAction: CommandAction = {
     run(accessor) {
         return discard(
             accessor,
-            accessor
-                .get(ScmChangesServiceDIToken)
-                .changes.map((c) => c.uri.toString()),
+            accessor.get(ScmChangesServiceDIToken).changes.map((c) => c.uri.toString()),
         );
     },
 };

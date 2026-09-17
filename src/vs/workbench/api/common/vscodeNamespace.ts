@@ -6,6 +6,7 @@ import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
     CallHierarchyItem,
     CancellationError,
@@ -75,7 +76,6 @@ import {
     ViewColumn,
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
-import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";

@@ -18,7 +18,7 @@ function ref(relPath: string, range: ReturnType<typeof createRange>): ICoreRefer
 
 /** Источник текста: `open` — «открытые модели», `disk` — файлы на диске. */
 function source(
-    disk: Record<string, string>,
+    disk: Partial<Record<string, string>>,
     open: Record<string, string> = {},
 ): IReferenceTextSource & { reads: string[] } {
     const reads: string[] = [];
@@ -37,7 +37,7 @@ function source(
 describe("buildReferenceGroups", () => {
     it("группирует по файлам, режет строку вокруг ссылки и даёт путь от корня", async () => {
         const src = source({
-            [`${ROOT}/src/a.ts`]: 'const greet = 1;\nexport { greet };\n',
+            [`${ROOT}/src/a.ts`]: "const greet = 1;\nexport { greet };\n",
             [`${ROOT}/src/b.ts`]: 'import { greet } from "./a";\n',
         });
 
@@ -89,7 +89,11 @@ describe("buildReferenceGroups", () => {
         const src = source({ [`${ROOT}/a.ts`]: "aaa\nbbb\nccc\n" });
 
         await buildReferenceGroups(
-            [ref("a.ts", createRange(0, 0, 0, 3)), ref("a.ts", createRange(1, 0, 1, 3)), ref("a.ts", createRange(2, 0, 2, 3))],
+            [
+                ref("a.ts", createRange(0, 0, 0, 3)),
+                ref("a.ts", createRange(1, 0, 1, 3)),
+                ref("a.ts", createRange(2, 0, 2, 3)),
+            ],
             src,
             ROOT,
         );
@@ -98,10 +102,7 @@ describe("buildReferenceGroups", () => {
     });
 
     it("открытая модель важнее диска: видны несохранённые правки", async () => {
-        const src = source(
-            { [`${ROOT}/a.ts`]: "на диске старое\n" },
-            { [`${ROOT}/a.ts`]: "в буфере новое\n" },
-        );
+        const src = source({ [`${ROOT}/a.ts`]: "на диске старое\n" }, { [`${ROOT}/a.ts`]: "в буфере новое\n" });
 
         const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 0, 0, 2))], src, ROOT);
 
@@ -264,11 +265,7 @@ describe("buildReferenceGroups", () => {
         const outside = Uri.file("/opt/lib/other.ts").toString();
         const src = source({ "/opt/lib/other.ts": "export const x = 1;\n" });
 
-        const groups = await buildReferenceGroups(
-            [{ uri: outside, range: createRange(0, 13, 0, 14) }],
-            src,
-            ROOT,
-        );
+        const groups = await buildReferenceGroups([{ uri: outside, range: createRange(0, 13, 0, 14) }], src, ROOT);
 
         expect(groups[0].relPath).toBe("/opt/lib/other.ts");
         expect(groups[0].absolutePath).toBe("/opt/lib/other.ts");

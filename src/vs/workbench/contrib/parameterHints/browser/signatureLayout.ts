@@ -1,6 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 
-import type { ICoreSignature } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type { ICoreParameterInfo, ICoreSignature } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 
 /**
  * Кусок метки сигнатуры, помещающийся в одну строку попапа. `start` — офсет
@@ -25,7 +25,9 @@ export interface ISignatureChunk {
  * `nameLength`.
  */
 export function activeParameterSpan(signature: ICoreSignature, index: number): readonly [number, number] {
-    const parameter = signature.parameters[index];
+    // Чтение по индексу даёт undefined и за краем, и на отрицательном; `.at(index)`
+    // здесь нельзя — он отсчитал бы с конца и подсветил последний параметр.
+    const parameter = signature.parameters[index] as ICoreParameterInfo | undefined;
     if (parameter === undefined) return [0, 0];
     if (typeof parameter.label !== "string") {
         const [start, end] = parameter.label;
@@ -153,7 +155,7 @@ function cumulativeWidths(line: string): number[] {
         total += slot.displayWidth;
         // Внутренние офсеты графемы (суррогатная пара, комбинирующий знак)
         // получают ширину целой графемы: резать внутри неё мы всё равно не будем.
-        for (let i = 0; i < slot.length; i++) widths[++offset] = total;
+        for (let rest = slot.length; rest > 0; rest--) widths[++offset] = total;
     }
     return widths;
 }

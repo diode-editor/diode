@@ -1,11 +1,12 @@
 import * as path from "node:path";
 
-import type { StoryContext, StoryMeta } from "../StoryTypes.ts";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+
 import {
     FileTreeDataProvider,
     type FileTreeNode,
 } from "../../vs/workbench/contrib/files/browser/fileTreeDataProvider.ts";
+import type { StoryContext, StoryMeta } from "../StoryTypes.ts";
 
 export const meta: StoryMeta = {
     title: "FileTree (diode provider)",

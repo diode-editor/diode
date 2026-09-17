@@ -1,7 +1,7 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { describe, expect, it, vi } from "vitest";
 
@@ -82,13 +82,13 @@ function press(target: TUIElement, key: string): boolean {
 
 /** Строки readme, как их показывает элемент (тот же снимок читает инспектор). */
 function lines(element: ExtensionPageElement): string[] {
-    return element.inspectState()["lines"] as string[];
+    return element.inspectState().lines as string[];
 }
 
 /** Строки шапки — они живут в своём элементе и в свой снимок. */
 function headerLines(element: ExtensionPageElement): string[] {
     const header = element.querySelector("#extensionPageHeader")!;
-    return header.inspectState()!["lines"] as string[];
+    return header.inspectState()!.lines as string[];
 }
 
 function buttonElement(element: ExtensionPageElement, kind: ExtensionButtonKind): ButtonElement {
@@ -183,10 +183,9 @@ describe("ExtensionPageElement", () => {
         renderElement(element, 60, 20, { themeVars: true });
         expect(headerLines(element)).toContain("Not installed");
 
-        element.setContent(
-            content({ entry: { ...ENTRY, installedVersion: "1.0.0", availability: "installed" } }),
-            [UNINSTALL],
-        );
+        element.setContent(content({ entry: { ...ENTRY, installedVersion: "1.0.0", availability: "installed" } }), [
+            UNINSTALL,
+        ]);
 
         expect(headerLines(element)).toContain("Installed 1.0.0");
         const frame = renderElement(element, 60, 20, { themeVars: true }).screenToString();

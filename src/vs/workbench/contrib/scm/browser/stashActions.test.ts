@@ -8,7 +8,6 @@ import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogSe
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
-import { QUERY_COMMAND } from "./syncActions.ts";
 import {
     gitStashAction,
     gitStashApplyAction,
@@ -22,6 +21,7 @@ import {
     queryStashes,
     STASH_ACTIONS,
 } from "./stashActions.ts";
+import { QUERY_COMMAND } from "./syncActions.ts";
 
 interface IHarness {
     accessor: ServiceAccessor;

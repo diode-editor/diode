@@ -25,7 +25,11 @@ const AUTH_PATTERNS = [
  */
 export function classifyGitStderr(stderr: string): GitErrorKind {
     if (AUTH_PATTERNS.some((p) => stderr.includes(p))) return "auth";
-    if (stderr.includes("CONFLICT (") || stderr.includes("Automatic merge failed") || stderr.includes("could not apply")) {
+    if (
+        stderr.includes("CONFLICT (") ||
+        stderr.includes("Automatic merge failed") ||
+        stderr.includes("could not apply")
+    ) {
         return "conflict";
     }
     if (stderr.includes("would be overwritten")) return "dirty-worktree";

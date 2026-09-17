@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest";
-
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
-import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 import type { IViewZone } from "../common/viewModel/iViewZone.ts";
+import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
 import { EditorElement } from "./editorElement.ts";
 

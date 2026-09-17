@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDataProvider";
+
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IMarker } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";

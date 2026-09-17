@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { DialogService } from "../../dialogs/browser/dialogService.ts";

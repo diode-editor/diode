@@ -94,6 +94,8 @@ describe("EditorOptionsServiceAdapter", () => {
                 isModified: true,
                 encoding: "windows1251",
                 eol: 2,
+                // У настоящей панели viewState есть всегда; без выделений — пустой список.
+                viewState: { selections: [] },
             }),
         } as unknown as EditorService;
         expect(new EditorOptionsServiceAdapter(withEditor).getActiveEditorMeta()).toEqual({
@@ -219,7 +221,10 @@ describe("EditorOptionsServiceAdapter", () => {
         const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
         const adapter = new EditorOptionsServiceAdapter(group);
         expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), [])).toBe(false);
-        expect(new EditorOptionsServiceAdapter(groupWithNoActiveEditor()).setActiveEditorSelections("x", [])).toBeUndefined();
+        // Без активного редактора — тихий no-op, а не исключение.
+        expect(() => {
+            new EditorOptionsServiceAdapter(groupWithNoActiveEditor()).setActiveEditorSelections("x", []);
+        }).not.toThrow();
     });
 
     it("клампит выделения и правки к границам документа", () => {
@@ -256,7 +261,7 @@ describe("EditorOptionsServiceAdapter", () => {
         adapter.applyActiveEditorEdits(uri, [
             { range: { startLine: -1, startCharacter: -1, endLine: 50, endCharacter: 50 }, text: "z" },
         ]);
-        const applied = applyExternalEdits.mock.calls[0][0];
+        const applied: unknown = applyExternalEdits.mock.calls[0][0];
         expect(applied).toEqual([
             { range: { start: { line: 0, character: 0 }, end: { line: 2, character: 10 } }, text: "z" },
         ]);

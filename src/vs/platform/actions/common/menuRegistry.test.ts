@@ -1,6 +1,6 @@
+import type { MenuEntry, MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { describe, expect, it } from "vitest";
 
-import type { MenuEntry, MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
 import { KeybindingRegistry, parseKeybinding } from "../../keybinding/common/keybindingRegistry.ts";
@@ -38,7 +38,7 @@ function setup(items: IMenuContribution[]): Harness {
     return { registry, commands, keybindings, contextKeys, executed };
 }
 
-function labels(entries: MenuEntry[]): (string | "─")[] {
+function labels(entries: MenuEntry[]): string[] {
     return entries.map((e) => (e.type === "separator" ? "─" : e.label));
 }
 
@@ -267,7 +267,7 @@ describe("MenuRegistry", () => {
             menuId: MenuId.ViewTitle,
             submenu: MenuId.MenubarFileMenu,
             title: "OnlyChanges",
-            visible: (context) => (context as { view?: string })?.view === "changes",
+            visible: (context) => (context as { view?: string } | undefined)?.view === "changes",
         });
         h.registry.appendMenuItem({
             menuId: MenuId.ViewTitle,

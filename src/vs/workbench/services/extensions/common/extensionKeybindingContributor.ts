@@ -1,7 +1,7 @@
-import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
-import { type KeybindingRegistry, parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { IKeybindingContribution } from "../../../../platform/extensions/common/iExtensionManifest.ts";
+import { type KeybindingRegistry, parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
 /**
  * Регистрирует `contributes.keybindings` расширений в {@link KeybindingRegistry}.

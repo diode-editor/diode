@@ -60,7 +60,9 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         };
         expect(channel.name).toBe("TS (Diode)");
         expect(channel.logLevel).toBe(3);
-        expect(() => channel.onDidChangeLogLevel(() => undefined).dispose()).not.toThrow();
+        expect(() => {
+            channel.onDidChangeLogLevel(() => undefined).dispose();
+        }).not.toThrow();
 
         channel.appendLine("language server started");
         channel.info("converted 3 diagnostics");
@@ -73,7 +75,12 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         expect(appends.map((n) => n.params)).toEqual([
             { channel: "extensions.ts-diode", label: "TS (Diode)", level: "info", value: "language server started" },
             { channel: "extensions.ts-diode", label: "TS (Diode)", level: "info", value: "converted 3 diagnostics" },
-            { channel: "extensions.ts-diode", label: "TS (Diode)", level: "error", value: '{"message":"asDiagnostics failed"}' },
+            {
+                channel: "extensions.ts-diode",
+                label: "TS (Diode)",
+                level: "error",
+                value: '{"message":"asDiagnostics failed"}',
+            },
             { channel: "extensions.ts-diode", label: "TS (Diode)", level: "trace", value: "t" },
             { channel: "extensions.ts-diode", label: "TS (Diode)", level: "debug", value: "d" },
             { channel: "extensions.ts-diode", label: "TS (Diode)", level: "warn", value: "w" },
@@ -106,9 +113,15 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
             { channel: "extensions.buffered", label: "Buffered" },
         ]);
         // clear/replace/hide — no-op (журнал ретенционный), не бросают.
-        expect(() => channel.clear()).not.toThrow();
-        expect(() => channel.replace("x")).not.toThrow();
-        expect(() => channel.hide()).not.toThrow();
+        expect(() => {
+            channel.clear();
+        }).not.toThrow();
+        expect(() => {
+            channel.replace("x");
+        }).not.toThrow();
+        expect(() => {
+            channel.hide();
+        }).not.toThrow();
     });
 
     it("slugifyChannelName: lower-case, не-алфанумерика в дефис, пустое имя — fallback", () => {
@@ -133,8 +146,14 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         const { naive } = makeWindow();
         expect(naive.tabGroups.all).toEqual([]);
         expect(naive.tabGroups.activeTabGroup.tabs).toEqual([]);
-        expect(() => naive.tabGroups.onDidChangeTabs(() => undefined).dispose()).not.toThrow();
-        expect(() => naive.tabGroups.onDidChangeTabGroups(() => undefined).dispose()).not.toThrow();
-        expect(() => naive.onDidChangeVisibleTextEditors(() => undefined).dispose()).not.toThrow();
+        expect(() => {
+            naive.tabGroups.onDidChangeTabs(() => undefined).dispose();
+        }).not.toThrow();
+        expect(() => {
+            naive.tabGroups.onDidChangeTabGroups(() => undefined).dispose();
+        }).not.toThrow();
+        expect(() => {
+            naive.onDidChangeVisibleTextEditors(() => undefined).dispose();
+        }).not.toThrow();
     });
 });

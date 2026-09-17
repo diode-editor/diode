@@ -1,4 +1,5 @@
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
+
 import { FileExtensionRegistrySource } from "./fileRegistrySource.ts";
 import { HttpExtensionRegistrySource } from "./httpRegistrySource.ts";
 

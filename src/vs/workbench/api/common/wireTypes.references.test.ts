@@ -71,10 +71,14 @@ describe("wireTypes — requestReferences", () => {
 
     it("includeDeclaration: false доезжает до субпроцесса как есть", async () => {
         const params = { ...PARAMS, includeDeclaration: false };
-        await requestReferences((_method, sent) => {
-            expect(sent).toEqual(params);
-            return Promise.resolve([]);
-        }, params, 1000);
+        await requestReferences(
+            (_method, sent) => {
+                expect(sent).toEqual(params);
+                return Promise.resolve([]);
+            },
+            params,
+            1000,
+        );
     });
 
     it("таймаут → пустой результат (панель просто останется пустой)", async () => {

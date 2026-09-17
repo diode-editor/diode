@@ -46,10 +46,7 @@ export function parseLogZ(stdout: string): ILogEntry[] {
     }
     const entries: ILogEntry[] = [];
     for (let i = 0; i + FIELDS_PER_ENTRY <= fields.length; i += FIELDS_PER_ENTRY) {
-        const [sha, shortSha, parents, decorations, author, timestamp, subject] = fields.slice(
-            i,
-            i + FIELDS_PER_ENTRY,
-        );
+        const [sha, shortSha, parents, decorations, author, timestamp, subject] = fields.slice(i, i + FIELDS_PER_ENTRY);
         if (sha === "") continue;
         entries.push({
             sha,

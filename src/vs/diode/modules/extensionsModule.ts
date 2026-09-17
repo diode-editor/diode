@@ -1,7 +1,6 @@
-import { createRegistrySource } from "../../platform/extensionManagement/node/createRegistrySource.ts";
 import type { IHostVersions } from "../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
+import { createRegistrySource } from "../../platform/extensionManagement/node/createRegistrySource.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
-import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
 import {
     ExtensionPageActions,
     ExtensionPageActionsDIToken,
@@ -11,6 +10,7 @@ import {
     ExtensionsComponentDIToken,
     ExtensionsEditorTargetDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionsComponent.ts";
+import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchService } from "../../workbench/contrib/extensions/node/extensionsWorkbenchService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 

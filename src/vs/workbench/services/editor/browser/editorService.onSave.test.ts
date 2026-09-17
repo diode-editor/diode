@@ -1,11 +1,10 @@
-import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -17,6 +16,7 @@ import { TokenizationRegistry } from "../../../../editor/common/languages/tokeni
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
+import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";

@@ -5,8 +5,8 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
+import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
 import {
     clearReferencesAction,
@@ -121,13 +121,13 @@ describe("referencesActions — делегирование", () => {
     it("каждый экшен дёргает свой сервис", () => {
         const h = makeAccessor();
 
-        findAllReferencesAction.run?.(h.accessor);
-        showReferencesAction.run?.(h.accessor);
-        nextReferenceAction.run?.(h.accessor);
-        previousReferenceAction.run?.(h.accessor);
-        clearReferencesAction.run?.(h.accessor);
-        collapseReferencesAction.run?.(h.accessor);
-        expandReferencesAction.run?.(h.accessor);
+        findAllReferencesAction.run(h.accessor);
+        showReferencesAction.run(h.accessor);
+        nextReferenceAction.run(h.accessor);
+        previousReferenceAction.run(h.accessor);
+        clearReferencesAction.run(h.accessor);
+        collapseReferencesAction.run(h.accessor);
+        expandReferencesAction.run(h.accessor);
 
         expect(h.calls).toEqual([
             "find",

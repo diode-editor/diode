@@ -1,4 +1,5 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";

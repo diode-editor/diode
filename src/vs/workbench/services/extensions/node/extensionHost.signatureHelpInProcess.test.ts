@@ -54,9 +54,10 @@ function requestOf(text: string, patch: Partial<ISignatureHelpRequest> = {}): IS
     };
 }
 
-function makeHost(
-    options: { warn?: ILogger["warn"]; signatureHelpTimeoutMs?: number } = {},
-): { host: ExtensionHost; peer: RpcEndpoint } {
+function makeHost(options: { warn?: ILogger["warn"]; signatureHelpTimeoutMs?: number } = {}): {
+    host: ExtensionHost;
+    peer: RpcEndpoint;
+} {
     const logger =
         options.warn === undefined
             ? undefined

@@ -3,6 +3,7 @@ import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import { HFlexElement, hflexFill, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { LIST_ROW_ACTIVE_STATE } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+
 import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
 
 import type { IScmChange } from "./changesService.ts";
@@ -21,7 +22,7 @@ export const GIT_STATUS_COLOR_IDS = [
 /** Цвета содержимого строк Changes (выделение/hover красит сам ListViewElement). */
 export interface IScmRowStyles {
     /** `gitDecoration.*` id → цвет (число или имя токена темы). */
-    readonly statusColors: Record<string, StyleColor>;
+    readonly statusColors: Partial<Record<string, StyleColor>>;
 }
 
 /** nf-cod-go_to_file () — инлайн-кнопка «открыть сам файл» (клик делегирует контейнер). */

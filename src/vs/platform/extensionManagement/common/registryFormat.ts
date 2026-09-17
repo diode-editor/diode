@@ -132,8 +132,8 @@ function isKind(value: unknown): value is RegistryExtensionKind {
 function parseEngines(value: unknown): IRegistryEngines | undefined {
     const record = asRecord(value);
     if (record === undefined) return undefined;
-    const diode = record["diode"];
-    const vscode = record["vscode"];
+    const diode = record.diode;
+    const vscode = record.vscode;
     if (diode !== undefined && !isNonEmptyString(diode)) return undefined;
     if (vscode !== undefined && !isNonEmptyString(vscode)) return undefined;
     if (diode === undefined && vscode === undefined) return undefined;
@@ -150,15 +150,15 @@ function isSafeRelativePath(value: string): boolean {
 function parseArtifact(value: unknown): RegistryArtifact | undefined {
     const record = asRecord(value);
     if (record === undefined) return undefined;
-    if (record["type"] === "url") {
-        const url = record["url"];
-        const origin = record["origin"];
+    if (record.type === "url") {
+        const url = record.url;
+        const origin = record.origin;
         if (!isNonEmptyString(url)) return undefined;
         if (origin !== undefined && origin !== "openvsx" && origin !== "github-release") return undefined;
         return { type: "url", url, origin };
     }
-    if (record["type"] === "path") {
-        const relPath = record["path"];
+    if (record.type === "path") {
+        const relPath = record.path;
         if (!isNonEmptyString(relPath) || !isSafeRelativePath(relPath)) return undefined;
         return { type: "path", path: relPath };
     }
@@ -169,27 +169,34 @@ function parseArtifact(value: unknown): RegistryArtifact | undefined {
 function parseVersionRecord(value: unknown): IRegistryVersion | undefined {
     const record = asRecord(value);
     if (record === undefined) return undefined;
-    const version = record["version"];
+    const version = record.version;
     if (!isNonEmptyString(version) || semver.valid(version) === null) return undefined;
-    const engines = parseEngines(record["engines"]);
+    const engines = parseEngines(record.engines);
     if (engines === undefined) return undefined;
-    const artifact = parseArtifact(record["artifact"]);
+    const artifact = parseArtifact(record.artifact);
     if (artifact === undefined) return undefined;
-    const sha256 = record["sha256"];
+    const sha256 = record.sha256;
     if (typeof sha256 !== "string" || !SHA256_RE.test(sha256)) return undefined;
-    const targetPlatform = record["targetPlatform"];
+    const targetPlatform = record.targetPlatform;
     if (targetPlatform !== undefined && !isNonEmptyString(targetPlatform)) return undefined;
-    const size = record["size"];
+    const size = record.size;
     if (size !== undefined && typeof size !== "number") return undefined;
-    const publishedAt = record["publishedAt"];
+    const publishedAt = record.publishedAt;
     if (publishedAt !== undefined && !isNonEmptyString(publishedAt)) return undefined;
     return { version, engines, artifact, sha256, targetPlatform, size, publishedAt };
 }
 
 /** Общие для index-записи и меты поля идентичности; `undefined` при любой невалидности. */
-function parseIdentity(
-    record: Record<string, unknown>,
-): { id: string; publisher: string; name: string; displayName: string; description: string; kind: RegistryExtensionKind } | undefined {
+function parseIdentity(record: Record<string, unknown>):
+    | {
+          id: string;
+          publisher: string;
+          name: string;
+          displayName: string;
+          description: string;
+          kind: RegistryExtensionKind;
+      }
+    | undefined {
     const { publisher, name, displayName, description, kind } = record;
     if (
         !isNonEmptyString(publisher) ||
@@ -203,7 +210,7 @@ function parseIdentity(
     // Отдельно валидировать record["id"] как непустую строку избыточно: строгое равенство
     // непустому шаблону `${publisher}.${name}` уже гарантирует и тип, и непустоту.
     const id = `${publisher}.${name}`;
-    if (record["id"] !== id) return undefined;
+    if (record.id !== id) return undefined;
     return { id, publisher, name, displayName, description, kind };
 }
 
@@ -219,7 +226,7 @@ function parseEnvelope(text: string, what: string): Record<string, unknown> {
     if (record === undefined) {
         throw new Error(`Invalid registry ${what}: expected a JSON object`);
     }
-    const schemaVersion = record["schemaVersion"];
+    const schemaVersion = record.schemaVersion;
     if (typeof schemaVersion !== "number") {
         throw new Error(`Invalid registry ${what}: missing "schemaVersion"`);
     }
@@ -236,15 +243,15 @@ function parseIndexEntry(value: unknown): IRegistryIndexEntry | undefined {
     if (record === undefined) return undefined;
     const identity = parseIdentity(record);
     if (identity === undefined) return undefined;
-    const categories = record["categories"];
+    const categories = record.categories;
     if (categories !== undefined && (!Array.isArray(categories) || !categories.every(isNonEmptyString))) {
         return undefined;
     }
-    const latestRecord = asRecord(record["latest"]);
+    const latestRecord = asRecord(record.latest);
     if (latestRecord === undefined) return undefined;
-    const latestVersion = latestRecord["version"];
+    const latestVersion = latestRecord.version;
     if (!isNonEmptyString(latestVersion) || semver.valid(latestVersion) === null) return undefined;
-    const latestEngines = parseEngines(latestRecord["engines"]);
+    const latestEngines = parseEngines(latestRecord.engines);
     if (latestEngines === undefined) return undefined;
     return {
         ...identity,
@@ -259,25 +266,27 @@ function parseIndexEntry(value: unknown): IRegistryIndexEntry | undefined {
  */
 export function parseRegistryIndex(text: string): { index: IRegistryIndex; problems: string[] } {
     const record = parseEnvelope(text, "index");
-    const rawExtensions = record["extensions"];
+    const rawExtensions = record.extensions;
     if (!Array.isArray(rawExtensions)) {
         throw new Error('Invalid registry index: missing "extensions" array');
     }
-    const generatedAt = record["generatedAt"];
+    const generatedAt = record.generatedAt;
     const problems: string[] = [];
     const extensions: IRegistryIndexEntry[] = [];
     for (const [i, raw] of rawExtensions.entries()) {
         const entry = parseIndexEntry(raw);
         if (entry === undefined) {
-            const id = asRecord(raw)?.["id"];
-            problems.push(`registry index: skipping invalid entry #${String(i)}${isNonEmptyString(id) ? ` (${id})` : ""}`);
+            const id = asRecord(raw)?.id;
+            problems.push(
+                `registry index: skipping invalid entry #${String(i)}${isNonEmptyString(id) ? ` (${id})` : ""}`,
+            );
             continue;
         }
         extensions.push(entry);
     }
     return {
         index: {
-            schemaVersion: record["schemaVersion"] as number,
+            schemaVersion: record.schemaVersion as number,
             generatedAt: isNonEmptyString(generatedAt) ? generatedAt : undefined,
             extensions,
         },
@@ -302,7 +311,7 @@ export function parseRegistryMeta(
     if (expectedId !== undefined && identity.id !== expectedId) {
         throw new Error(`Invalid registry meta: id "${identity.id}" does not match expected "${expectedId}"`);
     }
-    const rawVersions = record["versions"];
+    const rawVersions = record.versions;
     if (!Array.isArray(rawVersions)) {
         throw new Error('Invalid registry meta: missing "versions" array');
     }
@@ -315,7 +324,7 @@ export function parseRegistryMeta(
     for (const [i, raw] of rawVersions.entries()) {
         const version = parseVersionRecord(raw);
         if (version === undefined) {
-            const v = asRecord(raw)?.["version"];
+            const v = asRecord(raw)?.version;
             problems.push(
                 `registry meta ${identity.id}: skipping invalid version #${String(i)}${isNonEmptyString(v) ? ` (${v})` : ""}`,
             );
@@ -325,7 +334,7 @@ export function parseRegistryMeta(
     }
     return {
         meta: {
-            schemaVersion: record["schemaVersion"] as number,
+            schemaVersion: record.schemaVersion as number,
             ...identity,
             repository: optional("repository"),
             license: optional("license"),

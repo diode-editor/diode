@@ -142,11 +142,16 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
             },
         });
 
-        const resolved = (await stub.callRequest("languages.resolveCompletionItem", { id })) as WireResolvedCompletionItem;
+        const resolved = (await stub.callRequest("languages.resolveCompletionItem", {
+            id,
+        })) as WireResolvedCompletionItem;
         expect(resolved.detail).toContain("greet");
         expect(resolved.documentation).toBe("Greets someone.");
         expect(resolved.additionalEdits).toEqual([
-            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: 'import { greet } from "./defs";\n' },
+            {
+                range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
+                text: 'import { greet } from "./defs";\n',
+            },
         ]);
     });
 
@@ -159,7 +164,9 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
                 return fresh;
             },
         });
-        const resolved = (await stub.callRequest("languages.resolveCompletionItem", { id })) as WireResolvedCompletionItem;
+        const resolved = (await stub.callRequest("languages.resolveCompletionItem", {
+            id,
+        })) as WireResolvedCompletionItem;
         expect(resolved.detail).toBe("fresh detail");
     });
 
@@ -176,7 +183,9 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
                 return item;
             },
         });
-        const resolved = (await stub.callRequest("languages.resolveCompletionItem", { id })) as WireResolvedCompletionItem;
+        const resolved = (await stub.callRequest("languages.resolveCompletionItem", {
+            id,
+        })) as WireResolvedCompletionItem;
         expect(resolved.additionalEdits).toHaveLength(1);
         const [edit] = resolved.additionalEdits ?? [];
         expect(edit).toMatchObject({ text: "ok" });
@@ -191,7 +200,9 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
             },
             resolveCompletionItem: () => undefined,
         });
-        const resolved = (await stub.callRequest("languages.resolveCompletionItem", { id })) as WireResolvedCompletionItem;
+        const resolved = (await stub.callRequest("languages.resolveCompletionItem", {
+            id,
+        })) as WireResolvedCompletionItem;
         expect(resolved.detail).toBe("original detail");
     });
 

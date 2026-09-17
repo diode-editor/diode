@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { APP_NAME, REPO_URL, DIODE_VERSION } from "./version.ts";
+import { APP_NAME, DIODE_VERSION, REPO_URL } from "./version.ts";
 
 describe("Version", () => {
     it("exposes a non-empty version string", () => {

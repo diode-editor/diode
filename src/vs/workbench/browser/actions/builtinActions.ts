@@ -11,6 +11,7 @@ import {
     selectForCompareAction,
     toggleInlineViewAction,
 } from "../../contrib/diff/browser/compareActions.ts";
+import { refreshExtensionsAction, showExtensionsAction } from "../../contrib/extensions/browser/extensionsActions.ts";
 import {
     fileOpenAction,
     fileOpenFolderAction,
@@ -50,13 +51,13 @@ import {
     hideInlineSuggestAction,
     triggerInlineSuggestAction,
 } from "../../contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
+import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import {
     closeParameterHintsAction,
     showNextParameterHintAction,
     showPrevParameterHintAction,
     triggerParameterHintsAction,
 } from "../../contrib/parameterHints/browser/parameterHintsActions.ts";
-import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import {
     openKeybindingsAction,
     openKeybindingsFileAction,
@@ -67,6 +68,15 @@ import {
     quickOpenAction,
     showCommandsAction,
 } from "../../contrib/quickaccess/browser/quickOpenActions.ts";
+import {
+    clearReferencesAction,
+    collapseReferencesAction,
+    expandReferencesAction,
+    findAllReferencesAction,
+    nextReferenceAction,
+    previousReferenceAction,
+    showReferencesAction,
+} from "../../contrib/references/browser/referencesActions.ts";
 import { BRANCH_ACTIONS } from "../../contrib/scm/browser/branchActions.ts";
 import {
     scmFocusChangesAction,
@@ -79,8 +89,8 @@ import {
 } from "../../contrib/scm/browser/changesActions.ts";
 import { COMMIT_ACTIONS } from "../../contrib/scm/browser/commitActions.ts";
 import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
-import { GRAPH_VIEW_ACTIONS } from "../../contrib/scm/browser/graphActions.ts";
 import { gitMutating } from "../../contrib/scm/browser/gitProgress.ts";
+import { GRAPH_VIEW_ACTIONS } from "../../contrib/scm/browser/graphActions.ts";
 import { GRAPH_COMMIT_ACTIONS } from "../../contrib/scm/browser/graphCommitActions.ts";
 import { gitShowOutputAction, REMOTE_TAG_ACTIONS } from "../../contrib/scm/browser/remoteTagActions.ts";
 import {
@@ -108,6 +118,7 @@ import { selectThemeAction } from "../../contrib/themes/browser/themeActions.ts"
 
 import { quitAction, reloadWindowAction, showAboutDialogAction } from "./appActions.ts";
 import { clipboardCopyAction, clipboardCutAction, clipboardPasteAction } from "./clipboardActions.ts";
+import { fixAllAction, organizeImportsAction, quickFixAction } from "./codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./commentActions.ts";
 import { showEditorContextMenuAction } from "./contextMenuActions.ts";
 import {
@@ -165,6 +176,7 @@ import {
     unfoldAllAction,
     unfoldRecursivelyAction,
 } from "./foldingActions.ts";
+import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
 import {
     inputCopyAction,
     inputCursorEndAction,
@@ -227,19 +239,6 @@ import {
     toggleSearchDetailsAction,
 } from "./searchActions.ts";
 import {
-    refreshExtensionsAction,
-    showExtensionsAction,
-} from "../../contrib/extensions/browser/extensionsActions.ts";
-import {
-    clearReferencesAction,
-    collapseReferencesAction,
-    expandReferencesAction,
-    findAllReferencesAction,
-    nextReferenceAction,
-    previousReferenceAction,
-    showReferencesAction,
-} from "../../contrib/references/browser/referencesActions.ts";
-import {
     closeActiveEditorAction,
     nextEditorAction,
     nextEditorInGroupAction,
@@ -248,8 +247,6 @@ import {
     previousEditorInGroupAction,
 } from "./tabActions.ts";
 import { TAB_CLOSE_ACTIONS } from "./tabCloseActions.ts";
-import { fixAllAction, organizeImportsAction, quickFixAction } from "./codeActionActions.ts";
-import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
 import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whitespaceActions.ts";
 
 /**

@@ -1,16 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import type { HFlexElement } from "@tuidom/elements/layout/hFlexElement";
-import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
-import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
+import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
+import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 import { statusSegments, statusTexts } from "./parts/statusbar/statusBarComponent.testUtils.ts";
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 

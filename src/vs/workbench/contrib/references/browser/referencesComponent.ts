@@ -5,6 +5,7 @@ import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { listRowId } from "../../../../base/common/listRowId.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -17,11 +18,7 @@ import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.t
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
-import {
-    buildFileRow,
-    buildMatchRow,
-    type ISearchRowStyles,
-} from "../../search/browser/searchResultRows.ts";
+import { buildFileRow, buildMatchRow, type ISearchRowStyles } from "../../search/browser/searchResultRows.ts";
 
 import type { IReferenceGroup } from "./referencePreview.ts";
 
@@ -120,8 +117,7 @@ export class ReferencesComponent extends Component {
 
         this.results.id = "referenceResults";
         this.results.onActivate = (element) => {
-            // Список не принимает строки без id — здесь он гарантированно есть.
-            this.activateRow(element.id!);
+            this.activateRow(listRowId(element));
         };
         this.results.onCollapsedChanged = () => {
             this.refreshResultKeys();
@@ -225,11 +221,13 @@ export class ReferencesComponent extends Component {
         // шаг «вперёд» начинает с первой ссылки, «назад» — с последней. Сам
         // курсор в непустом списке есть всегда (ранний выход выше), как и id у
         // строки — список не принимает строки без него.
-        const current = this.referenceRowIds.indexOf(this.results.getCursorElement()!.id!);
-        const next =
-            current === -1
-                ? (delta === 1 ? 0 : count - 1)
-                : (((current + delta) % count) + count) % count;
+        const cursor = this.results.getCursorElement();
+        /* v8 ignore start -- курсор в непустом списке есть всегда (ранний выход выше) */
+        // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
+        if (cursor === null) return;
+        /* v8 ignore stop */
+        const current = this.referenceRowIds.indexOf(listRowId(cursor));
+        const next = current === -1 ? (delta === 1 ? 0 : count - 1) : (((current + delta) % count) + count) % count;
         // setCursorTo сам раскрывает свёрнутых предков строки, так что
         // отдельного expand'а тут не нужно.
         const id = this.referenceRowIds[next];
@@ -259,7 +257,7 @@ export class ReferencesComponent extends Component {
             });
         }
 
-        const first = this.referenceRowIds[0];
+        const first = this.referenceRowIds.at(0);
         if (first !== undefined) this.results.setCursorTo(first);
     }
 

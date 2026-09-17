@@ -3,6 +3,7 @@ import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
+
 import type { IRange } from "../common/core/iRange.ts";
 import type { ISelection } from "../common/core/iSelection.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";

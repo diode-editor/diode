@@ -23,7 +23,9 @@ export interface IDotGit {
  * `null` — вывод структурно чужой (git недоступен, не репозиторий).
  */
 export function parseDotGit(stdout: string, cwd: string): IDotGit | null {
-    const [rawDir, rawCommon] = stdout.split("\n").map((line) => line.trim());
+    const lines = stdout.split("\n").map((line) => line.trim());
+    const rawDir = lines.at(0);
+    const rawCommon = lines.at(1);
     if (rawDir === undefined || rawDir === "") return null;
     const dir = absolute(rawDir, cwd);
     // `--git-common-dir` появился в git 2.5; на более старом git второй строки

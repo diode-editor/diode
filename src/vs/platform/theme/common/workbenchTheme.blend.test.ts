@@ -1,6 +1,6 @@
+import { blendRgb, packRgb } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it } from "vitest";
 
-import { blendRgb, packRgb } from "@tuidom/core/common/colorUtils";
 import { darkModernTheme } from "../../../workbench/services/themes/common/themes/darkModern.ts";
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 import { lightModernTheme } from "../../../workbench/services/themes/common/themes/lightModern.ts";
@@ -32,7 +32,10 @@ describe("WorkbenchTheme — композитинг цветов с blendOver", 
 
     it("подложка берётся из темы, а не из дефолтов реестра", () => {
         const overDark = themeWith({ "statusBar.background": "#000000", "statusBarItem.hoverBackground": "#FFFFFF80" });
-        const overLight = themeWith({ "statusBar.background": "#FFFFFF", "statusBarItem.hoverBackground": "#FFFFFF80" });
+        const overLight = themeWith({
+            "statusBar.background": "#FFFFFF",
+            "statusBarItem.hoverBackground": "#FFFFFF80",
+        });
 
         expect(overDark.getRequiredColor("statusBarItem.hoverBackground")).not.toBe(
             overLight.getRequiredColor("statusBarItem.hoverBackground"),

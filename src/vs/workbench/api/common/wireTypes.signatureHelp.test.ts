@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SignatureHelpTriggerKind } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
-import { parseWireSignatureHelp, requestSignatureHelp, type IWireSignatureHelpParams } from "./wireTypes.ts";
+import { type IWireSignatureHelpParams, parseWireSignatureHelp, requestSignatureHelp } from "./wireTypes.ts";
 
 const PARAMS: IWireSignatureHelpParams = {
     uri: "file:///a.ts",
@@ -29,10 +29,7 @@ describe("wireTypes — parseWireSignatureHelp", () => {
                     {
                         label: "greet(name: string, age: number): void",
                         documentation: "Здоровается.",
-                        parameters: [
-                            { label: "name: string", documentation: "кого" },
-                            { label: [20, 31] },
-                        ],
+                        parameters: [{ label: "name: string", documentation: "кого" }, { label: [20, 31] }],
                         activeParameter: 1,
                     },
                 ],

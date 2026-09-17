@@ -172,7 +172,7 @@ export interface IViewContainerViewsState {
 }
 
 /** Свёрнутость и веса view-секций сайдбара, по контейнерам. */
-export const SIDEBAR_VIEWS_STATE: IStateDescriptor<Record<string, IViewContainerViewsState>> = {
+export const SIDEBAR_VIEWS_STATE: IStateDescriptor<Partial<Record<string, IViewContainerViewsState>>> = {
     key: "workbench.views.state",
     scope: "workspace",
     default: {},

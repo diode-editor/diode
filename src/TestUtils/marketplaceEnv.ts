@@ -4,4 +4,4 @@
  * `DIODE_E2E_OFFLINE=1` пропускает их все — юнитам и e2e через
  * `describe.skipIf(MARKETPLACE_OFFLINE)`, сценариям — через `network: true`.
  */
-export const MARKETPLACE_OFFLINE = process.env["DIODE_E2E_OFFLINE"] === "1";
+export const MARKETPLACE_OFFLINE = process.env.DIODE_E2E_OFFLINE === "1";

@@ -1,13 +1,18 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
-import type { FuzzyMatch } from "../../../../base/common/fuzzySearch.ts";
 import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import type { FuzzyMatch } from "../../../../base/common/fuzzySearch.ts";
 import { parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IFilteredKeybindingItem, IKeybindingItem } from "../common/keybindingsEditorModel.ts";
 
 import type { IKeybindingRowStyles } from "./keybindingRows.ts";
-import { buildKeybindingHeaderRow, buildKeybindingRow, describeKeybindingHeaderRow, describeKeybindingRow } from "./keybindingRows.ts";
+import {
+    buildKeybindingHeaderRow,
+    buildKeybindingRow,
+    describeKeybindingHeaderRow,
+    describeKeybindingRow,
+} from "./keybindingRows.ts";
 
 const STYLES: IKeybindingRowStyles = {
     dimFg: "descriptionForeground",
@@ -31,7 +36,10 @@ function item(overrides: Partial<IKeybindingItem> = {}): IKeybindingItem {
     };
 }
 
-function filtered(overrides: Partial<IKeybindingItem> = {}, titleMatch: IFilteredKeybindingItem["titleMatch"] = null): IFilteredKeybindingItem {
+function filtered(
+    overrides: Partial<IKeybindingItem> = {},
+    titleMatch: IFilteredKeybindingItem["titleMatch"] = null,
+): IFilteredKeybindingItem {
     return { item: item(overrides), titleMatch };
 }
 
@@ -54,16 +62,26 @@ describe("describeKeybindingRow", () => {
         );
 
         expect(layout.text.startsWith("Save File")).toBe(true);
-        expect(layout.text.slice(layout.keySpan.start, layout.keySpan.start + layout.keySpan.length).trimEnd()).toBe("Ctrl+S");
-        expect(layout.text.slice(layout.whenSpan.start, layout.whenSpan.start + layout.whenSpan.length).trimEnd()).toBe("textViewFocus");
-        expect(layout.text.slice(layout.sourceSpan.start, layout.sourceSpan.start + layout.sourceSpan.length).trimEnd()).toBe("Extension");
+        expect(layout.text.slice(layout.keySpan.start, layout.keySpan.start + layout.keySpan.length).trimEnd()).toBe(
+            "Ctrl+S",
+        );
+        expect(layout.text.slice(layout.whenSpan.start, layout.whenSpan.start + layout.whenSpan.length).trimEnd()).toBe(
+            "textViewFocus",
+        );
+        expect(
+            layout.text.slice(layout.sourceSpan.start, layout.sourceSpan.start + layout.sourceSpan.length).trimEnd(),
+        ).toBe("Extension");
     });
 
     it("строка без биндинга показывает тире и пустой источник", () => {
         const layout = describeKeybindingRow(filtered({ chord: null, source: null }), WIDTH);
 
-        expect(layout.text.slice(layout.keySpan.start, layout.keySpan.start + layout.keySpan.length).trimEnd()).toBe("—");
-        expect(layout.text.slice(layout.sourceSpan.start, layout.sourceSpan.start + layout.sourceSpan.length).trimEnd()).toBe("");
+        expect(layout.text.slice(layout.keySpan.start, layout.keySpan.start + layout.keySpan.length).trimEnd()).toBe(
+            "—",
+        );
+        expect(
+            layout.text.slice(layout.sourceSpan.start, layout.sourceSpan.start + layout.sourceSpan.length).trimEnd(),
+        ).toBe("");
     });
 
     it("длинный title обрезается многоточием, не сдвигая колонки", () => {
@@ -132,7 +150,9 @@ describe("шапка таблицы", () => {
 describe("describeKeybindingRow — колонка When и подсветка", () => {
     it("пустой when даёт пустую колонку (не литерал-плейсхолдер)", () => {
         const layout = describeKeybindingRow(filtered({ when: undefined }), WIDTH);
-        expect(layout.text.slice(layout.whenSpan.start, layout.whenSpan.start + layout.whenSpan.length).trim()).toBe("");
+        expect(layout.text.slice(layout.whenSpan.start, layout.whenSpan.start + layout.whenSpan.length).trim()).toBe(
+            "",
+        );
     });
 
     it("подсветка последнего символа НЕполного title сохраняется (keptLength = длина title)", () => {
@@ -178,8 +198,16 @@ describe("buildKeybindingRow — покраска колонок", () => {
     });
 
     it("конфликт красит колонку Keybinding, обычная строка — нет", () => {
-        const conflictRow = buildKeybindingRow("kb-c", describeKeybindingRow(filtered({ hasConflict: true }), WIDTH), STYLES);
-        const plainRow = buildKeybindingRow("kb-p", describeKeybindingRow(filtered({ hasConflict: false }), WIDTH), STYLES);
+        const conflictRow = buildKeybindingRow(
+            "kb-c",
+            describeKeybindingRow(filtered({ hasConflict: true }), WIDTH),
+            STYLES,
+        );
+        const plainRow = buildKeybindingRow(
+            "kb-p",
+            describeKeybindingRow(filtered({ hasConflict: false }), WIDTH),
+            STYLES,
+        );
         const key = describeKeybindingRow(filtered(), WIDTH).keySpan.start;
 
         expect(fgAt(conflictRow, key)).not.toBe(fgAt(plainRow, key));

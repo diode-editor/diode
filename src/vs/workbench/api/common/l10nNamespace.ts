@@ -7,15 +7,20 @@ import type * as vscode from "vscode";
  * расширения (ruff) зовут `l10n.t` на каждое пользовательское сообщение.
  */
 
-type L10nArgs = ReadonlyArray<string | number | boolean> | Record<string, string | number | boolean>;
+// Элементы и значения — с `undefined`: чтение по индексу за краем или по
+// незнакомому ключу штатно даёт его, и подстановка на это опирается.
+type L10nArgs = readonly (string | number | boolean | undefined)[] | Partial<Record<string, string | number | boolean>>;
+
+/** `Array.isArray` сузил бы к `any[]` и потерял тип значений — берём предикат. */
+function isPositionalArgs(args: L10nArgs): args is readonly (string | number | boolean | undefined)[] {
+    return Array.isArray(args);
+}
 
 /** `{0}`/`{name}` → значение из args; незнакомый плейсхолдер остаётся как есть. */
 function substitute(message: string, args: L10nArgs | undefined): string {
     if (args === undefined) return message;
     return message.replace(/\{([^}]+)\}/g, (whole, key: string) => {
-        const value = Array.isArray(args)
-            ? args[Number(key)]
-            : (args as Record<string, string | number | boolean>)[key];
+        const value = isPositionalArgs(args) ? args[Number(key)] : args[key];
         return value === undefined ? whole : String(value);
     });
 }
@@ -31,7 +36,7 @@ function t(...params: unknown[]): string {
     if (params.length === 2 && typeof second === "object" && second !== null && !Array.isArray(second)) {
         return substitute(first, second as Record<string, string | number | boolean>);
     }
-    return substitute(first, params.slice(1) as Array<string | number | boolean>);
+    return substitute(first, params.slice(1) as (string | number | boolean)[]);
 }
 
 export function createL10nNamespace(): typeof vscode.l10n {

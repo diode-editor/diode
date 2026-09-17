@@ -1,4 +1,5 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
@@ -35,6 +36,7 @@ export function stripMarkdown(value: string): string {
             .replace(/\*([^*]+)\*/g, "$1")
             // Ссылки: [текст](url) → текст.
             .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+            // eslint-disable-next-line no-control-regex -- \u0000 здесь и есть служебный маркер, которым выше спрятаны экранированные символы
             .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => escaped[Number(index)])
             .trim()
     );
@@ -109,7 +111,12 @@ export class HoverService extends Disposable {
         // Блок на провайдера: контент одного hover'а склеивается пустой строкой,
         // блоки разных провайдеров разделит линией сам элемент.
         const blocks = hovers
-            .map((hover) => hover.contents.map(stripMarkdown).filter((text) => text !== "").join("\n\n"))
+            .map((hover) =>
+                hover.contents
+                    .map(stripMarkdown)
+                    .filter((text) => text !== "")
+                    .join("\n\n"),
+            )
             .filter((block) => block !== "");
         if (blocks.length === 0) return;
 

@@ -1,22 +1,23 @@
 import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+
 import { Uri } from "../../../../base/common/uri.ts";
+import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
-import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
-import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { HoverSource } from "../../../../editor/common/languages/iHoverSource.ts";
-import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
-import type { SignatureHelpSource } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
-import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
+import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
     LanguageConfigurationServiceDIToken,
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
+import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
+import type { SignatureHelpSource } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
@@ -284,10 +285,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     private collectSaveParticipants(): readonly SaveParticipant[] {
         const participants: SaveParticipant[] = [];
-        if (
-            this.codeActionSource !== undefined &&
-            enabledCodeActionKindsOnSave(this.configurationService).length > 0
-        ) {
+        if (this.codeActionSource !== undefined && enabledCodeActionKindsOnSave(this.configurationService).length > 0) {
             participants.push(this.codeActionsOnSaveParticipant);
         }
         if (
@@ -888,7 +886,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         if (this.detachedPanes.length === 0) return null;
         for (const pane of this.detachedPanes) {
             const active = pane.view.getRoot()?.focusManager?.activeElement ?? null;
-            if (active !== null && active.getAncestorPath().includes(pane.view)) return pane;
+            if (active?.getAncestorPath().includes(pane.view) === true) return pane;
         }
         return null;
     }
@@ -1100,7 +1098,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Группа справа от активной; нет — создаётся (нет места — фолбэк в активную). */
     private resolveBesideGroup(): EditorGroup {
         const index = this.groupsList.indexOf(this.activeGroupValue);
-        const next = this.groupsList[index + 1];
+        const next = this.groupsList.at(index + 1);
         if (next !== undefined) return next;
         if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
             this.logger.info("open beside refused — not enough space, opening in the active group");

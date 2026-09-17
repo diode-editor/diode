@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+
 import type { Uri } from "../../../../base/common/uri.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
@@ -210,7 +211,7 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             /* v8 ignore start -- defensive: openUri либо активирует вкладку ресурса, либо
                заводит её; нечитаемые схемы отсеяны ещё при захвате записи */
             // Stryker disable next-line ConditionalExpression,LogicalOperator: ветка недостижима по той же причине, что и для покрытия
-            if (editor === null || editor.uri.toString() !== entry.uri.toString()) return;
+            if (editor?.uri.toString() !== entry.uri.toString()) return;
             /* v8 ignore stop */
             editor.goToPosition(entry.line, entry.character);
             // goToPosition клампит позицию к границам документа — записываем ту,

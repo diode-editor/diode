@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import { describe, expect, it } from "vitest";
+
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";

@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
-import { FileWatcherAdapter } from "../../../api/browser/fileWatcherAdapter.ts";
 import { ChokidarTreeWatcher } from "../../../../platform/files/node/chokidarTreeWatcher.ts";
+import { FileWatcherAdapter } from "../../../api/browser/fileWatcherAdapter.ts";
 
 /**
  * Сквозной тест `workspace.createFileSystemWatcher` на НАСТОЯЩЕМ субпроцессе и
@@ -94,7 +94,7 @@ describe("workspace.createFileSystemWatcher — сквозь субпроцес�
 
             fs.writeFileSync(path.join(nested, "deep.md"), "содержимое");
             await settle(600);
-            const seen = ((await harness.commandRegistry.execute("demo.watched")) as string[]) ?? [];
+            const seen = ((await harness.commandRegistry.execute("demo.watched")) as string[] | undefined) ?? [];
 
             expect(seen.filter((e) => e.startsWith("md-"))).toEqual([]);
         } finally {

@@ -164,9 +164,7 @@ describe("renderCommitGraph — фикстуры lazygit", () => {
     });
 
     it("with a path that has room to move to the left and continues (5)", () => {
-        expect(
-            render(commits("1 2", "2 3 4", "3 5 4", "5 7 G", "7 8 A", "8 4 E", "4 B", "B C", "C D", "D F")),
-        ).toBe(
+        expect(render(commits("1 2", "2 3 4", "3 5 4", "5 7 G", "7 8 A", "8 4 E", "4 B", "B C", "C D", "D F"))).toBe(
             expected(`
                 1 ○
                 2 ◎─╮

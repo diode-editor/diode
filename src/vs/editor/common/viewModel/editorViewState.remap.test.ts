@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createCursorSelection, createSelection } from "../core/iSelection.ts";
 import { createRange } from "../core/iRange.ts";
+import { createCursorSelection, createSelection } from "../core/iSelection.ts";
 import { createTextEdit } from "../core/iTextEdit.ts";
 import { TextDocument } from "../model/textDocument.ts";
 

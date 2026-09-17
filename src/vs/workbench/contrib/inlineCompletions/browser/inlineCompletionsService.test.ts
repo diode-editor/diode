@@ -248,17 +248,35 @@ describe("InlineCompletionsService — показ", () => {
                 fake.editor,
                 items(
                     // insertText не начинается с набранного в range.
-                    { insertText: "log()", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } },
+                    {
+                        insertText: "log()",
+                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+                    },
                     // range на другой строке.
-                    { insertText: "confuse", range: { start: { line: 1, character: 0 }, end: { line: 1, character: 3 } } },
+                    {
+                        insertText: "confuse",
+                        range: { start: { line: 1, character: 0 }, end: { line: 1, character: 3 } },
+                    },
                     // start на другой строке (end — на строке каретки).
-                    { insertText: "con-BAD1", range: { start: { line: 1, character: 0 }, end: { line: 0, character: 3 } } },
+                    {
+                        insertText: "con-BAD1",
+                        range: { start: { line: 1, character: 0 }, end: { line: 0, character: 3 } },
+                    },
                     // end на другой строке (start — на строке каретки).
-                    { insertText: "con-BAD2", range: { start: { line: 0, character: 0 }, end: { line: 1, character: 3 } } },
+                    {
+                        insertText: "con-BAD2",
+                        range: { start: { line: 0, character: 0 }, end: { line: 1, character: 3 } },
+                    },
                     // range начинается ПРАВЕЕ каретки.
-                    { insertText: "-BAD3", range: { start: { line: 0, character: 4 }, end: { line: 0, character: 5 } } },
+                    {
+                        insertText: "-BAD3",
+                        range: { start: { line: 0, character: 4 }, end: { line: 0, character: 5 } },
+                    },
                     // range не покрывает каретку.
-                    { insertText: "control", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } } },
+                    {
+                        insertText: "control",
+                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                    },
                     // filterText совпал, а insertText с набранным не начинается.
                     {
                         insertText: "xyz",
@@ -514,7 +532,9 @@ describe("InlineCompletionsService — жизнь сессии", () => {
 
     it("Backspace растит ghost обратно (набранное всё ещё префикс)", async () => {
         const fake = makeEditor("abc", 3);
-        const source = vi.fn(items({ insertText: "cde", range: { start: { line: 0, character: 2 }, end: { line: 0, character: 3 } } }));
+        const source = vi.fn(
+            items({ insertText: "cde", range: { start: { line: 0, character: 2 }, end: { line: 0, character: 3 } } }),
+        );
         const service = makeService(makeGroup(fake.editor, source).group);
         await service.trigger();
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 3, lines: ["de"] });
@@ -571,7 +591,10 @@ describe("InlineCompletionsService — жизнь сессии", () => {
 
     it("каретка ушла с конца строки — подсказка гаснет", async () => {
         const fake = makeEditor("abc", 3);
-        const source = items({ insertText: "cde", range: { start: { line: 0, character: 2 }, end: { line: 0, character: 3 } } });
+        const source = items({
+            insertText: "cde",
+            range: { start: { line: 0, character: 2 }, end: { line: 0, character: 3 } },
+        });
         const service = makeService(makeGroup(fake.editor, source).group);
         await service.trigger();
         expect(service.isOpen()).toBe(true);

@@ -11,7 +11,6 @@ import type {
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
-
 import { CompletionServiceDIToken } from "../../suggest/browser/completionService.ts";
 
 import { ParameterHintsComponentDIToken } from "./parameterHintsComponent.ts";
@@ -364,8 +363,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("три перегрузки: next и prev ходят в разные стороны", async () => {
-        group().signatureHelpSource = () =>
-            Promise.resolve(help({ signatures: [GREET, GREET_SHORT, GREET_EMPTY] }));
+        group().signatureHelpSource = () => Promise.resolve(help({ signatures: [GREET, GREET_SHORT, GREET_EMPTY] }));
 
         await service().trigger();
         expect(lines()[0]).toBe("1/3 greet(name: string, age: number): void");

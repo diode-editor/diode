@@ -56,9 +56,7 @@ export const graphBranchAction: CommandAction = {
     title: "Git: Create Branch from Commit...",
     shortTitle: "Create Branch...",
     when: "gitHasRepo",
-    menus: [
-        { menuId: MenuId.ScmGraphContext, group: "2_branch", order: 10, args: scmGraphShaArg, when: "gitHasRepo" },
-    ],
+    menus: [{ menuId: MenuId.ScmGraphContext, group: "2_branch", order: 10, args: scmGraphShaArg, when: "gitHasRepo" }],
     async run(accessor, sha) {
         const ref = shaArg(sha);
         if (ref === null) return;

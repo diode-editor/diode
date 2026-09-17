@@ -4,9 +4,9 @@ import type { IProcessSnapshot, IRestartHooks, ISpawnResult } from "./restartPro
 import {
     currentProcessSnapshot,
     realRestartHooks,
+    RELOAD_EXIT_CODE,
     restartArgs,
     restartProcess,
-    RELOAD_EXIT_CODE,
     SUPERVISED_ENV,
 } from "./restartProcess.ts";
 

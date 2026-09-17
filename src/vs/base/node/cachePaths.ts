@@ -21,6 +21,8 @@ export function userCacheDir(
         return path.join(localAppData, "diode", "cache");
     }
     const cacheHome =
-        env.XDG_CACHE_HOME !== undefined && env.XDG_CACHE_HOME !== "" ? env.XDG_CACHE_HOME : path.join(homedir, ".cache");
+        env.XDG_CACHE_HOME !== undefined && env.XDG_CACHE_HOME !== ""
+            ? env.XDG_CACHE_HOME
+            : path.join(homedir, ".cache");
     return path.join(cacheHome, "diode");
 }

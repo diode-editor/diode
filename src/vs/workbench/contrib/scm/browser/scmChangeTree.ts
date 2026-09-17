@@ -48,8 +48,12 @@ export function buildScmTree(changes: readonly IScmChange[]): readonly ScmTreeNo
     const root: TrieNode = { folders: new Map(), files: [] };
 
     for (const change of changes) {
-        const segments = displayPath(change).split("/");
-        const name = segments.pop()!;
+        // Имя и папки режем по последнему «/», а не через split+pop: так имя
+        // получается строкой по построению, без утверждения «массив непуст».
+        const full = displayPath(change);
+        const lastSlash = full.lastIndexOf("/");
+        const name = full.slice(lastSlash + 1);
+        const segments = lastSlash < 0 ? [] : full.slice(0, lastSlash).split("/");
         let node = root;
         for (const segment of segments) {
             let next = node.folders.get(segment);

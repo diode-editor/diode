@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";

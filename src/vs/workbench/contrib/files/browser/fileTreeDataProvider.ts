@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import chokidar, { type FSWatcher } from "chokidar";
-
 import { Disposable } from "@tuidom/core/common/disposable";
 import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDataProvider";
+import chokidar, { type FSWatcher } from "chokidar";
+
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 
 const EXCLUDED_NAMES = new Set(["node_modules", ".git", ".DS_Store"]);

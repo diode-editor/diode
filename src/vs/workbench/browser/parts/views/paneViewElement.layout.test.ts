@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-
 import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { describe, expect, it } from "vitest";
+
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 
 import { PaneViewElement } from "./paneViewElement.ts";
@@ -113,7 +113,9 @@ describe("PaneViewElement layout", () => {
 
     it("addPane с повторным id бросает, removePane убирает секцию", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
-        expect(() => view.addPane({ id: "a", title: "A", body: new FillerElement() })).toThrow(/duplicate pane id/);
+        expect(() => {
+            view.addPane({ id: "a", title: "A", body: new FillerElement() });
+        }).toThrow(/duplicate pane id/);
         view.removePane("ghost"); // незнакомый id — тихий no-op
         view.removePane("b");
         expect(view.getPaneIds()).toEqual(["a"]);

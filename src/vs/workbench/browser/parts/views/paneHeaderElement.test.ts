@@ -1,8 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { describe, expect, it, vi } from "vitest";
 
 import { PaneHeaderElement } from "./paneHeaderElement.ts";
 
@@ -83,7 +82,7 @@ describe("PaneHeaderElement", () => {
         mouse(header, "mousedown", { localX: 2, screenY: 5 });
         mouse(header, "mousemove", { localX: 2, screenY: 7 });
         mouse(header, "mousemove", { localX: 2, screenY: 5 });
-        expect(onDrag.mock.calls.map(([y]) => y)).toEqual([7, 5]);
+        expect(onDrag.mock.calls.map(([y]: unknown[]) => y)).toEqual([7, 5]);
         mouse(header, "mouseup", { localX: 2, screenY: 5 });
         expect(onToggle).not.toHaveBeenCalled();
     });

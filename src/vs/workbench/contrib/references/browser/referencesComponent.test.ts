@@ -1,8 +1,7 @@
-import { describe, expect, it } from "vitest";
-
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -261,9 +260,7 @@ describe("ReferencesComponent — открытие ссылки", () => {
         expect(reveal.opened).toEqual(["/work/project/src/a.ts"]);
         // lineNumber 7 (1-based) → строка 6 редактора; колонки — из превью.
         expect(reveal.positions).toEqual([[6, 9]]);
-        expect(reveal.ranges).toEqual([
-            { start: { line: 6, character: 9 }, end: { line: 6, character: 14 } },
-        ]);
+        expect(reveal.ranges).toEqual([{ start: { line: 6, character: 9 }, end: { line: 6, character: 14 } }]);
     });
 
     it("активация строки файла сворачивает её, а не открывает файл", () => {
@@ -294,7 +291,9 @@ describe("ReferencesComponent — открытие ссылки", () => {
         const component = make({ reveal: reveal.target });
         component.setResults(twoFiles());
 
-        expect(() => component.results.onActivate!({ id: "нет такой строки" } as never)).not.toThrow();
+        expect(() => {
+            component.results.onActivate!({ id: "нет такой строки" } as never);
+        }).not.toThrow();
         expect(reveal.opened).toEqual([]);
     });
 
@@ -326,11 +325,7 @@ describe("ReferencesComponent — обход по F4", () => {
         expect(component.results.getCursorElement()?.id).toBe("ref:src/a.ts:0");
 
         // Каждый шаг открывал файл на позиции.
-        expect(reveal.opened).toEqual([
-            "/work/project/src/a.ts",
-            "/work/project/src/b.ts",
-            "/work/project/src/a.ts",
-        ]);
+        expect(reveal.opened).toEqual(["/work/project/src/a.ts", "/work/project/src/b.ts", "/work/project/src/a.ts"]);
     });
 
     it("Shift+F4 с первой ссылки заворачивается на последнюю", () => {

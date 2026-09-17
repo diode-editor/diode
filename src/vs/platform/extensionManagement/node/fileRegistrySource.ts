@@ -4,11 +4,11 @@ import * as path from "node:path";
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import {
     EXTENSION_ID_RE,
-    parseRegistryIndex,
-    parseRegistryMeta,
     type IRegistryExtensionMeta,
     type IRegistryIndex,
     type IRegistryVersion,
+    parseRegistryIndex,
+    parseRegistryMeta,
 } from "../common/registryFormat.ts";
 
 /**
@@ -28,7 +28,7 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
     private readonly rootDir: string;
     private readonly onProblem: ((message: string) => void) | undefined;
 
-    constructor(rootDir: string, onProblem?: (message: string) => void) {
+    public constructor(rootDir: string, onProblem?: (message: string) => void) {
         this.rootDir = path.resolve(rootDir);
         this.onProblem = onProblem;
     }
@@ -40,7 +40,10 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
     }
 
     /** Читает и парсит файл; ошибки парсинга оборачиваются путём файла. */
-    private async readAndParse<T>(filePath: string, parse: (text: string) => { value: T; problems: string[] }): Promise<T> {
+    private async readAndParse<T>(
+        filePath: string,
+        parse: (text: string) => { value: T; problems: string[] },
+    ): Promise<T> {
         // Stryker disable next-line StringLiteral: содержимое уходит в JSON.parse, а тот приводит Buffer к строке тем же utf8 — подмена кодировки на путях реестра (JSON всегда utf8) не даёт наблюдаемой разницы
         const text = await fs.promises.readFile(filePath, "utf8");
         try {
@@ -49,18 +52,18 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
             return value;
         } catch (error) {
             // Парсеры формата бросают только Error.
-            throw new Error(`${filePath}: ${(error as Error).message}`);
+            throw new Error(`${filePath}: ${(error as Error).message}`, { cause: error });
         }
     }
 
-    async getIndex(): Promise<IRegistryIndex> {
+    public async getIndex(): Promise<IRegistryIndex> {
         return this.readAndParse(path.join(this.rootDir, "index.json"), (text) => {
             const { index, problems } = parseRegistryIndex(text);
             return { value: index, problems };
         });
     }
 
-    async getMeta(id: string): Promise<IRegistryExtensionMeta | undefined> {
+    public async getMeta(id: string): Promise<IRegistryExtensionMeta | undefined> {
         if (!EXTENSION_ID_RE.test(id)) {
             throw new Error(`Invalid extension id: "${id}"`);
         }
@@ -78,7 +81,7 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
         }
     }
 
-    async fetchArtifact(version: IRegistryVersion, tempDir: string): Promise<string> {
+    public async fetchArtifact(version: IRegistryVersion, tempDir: string): Promise<string> {
         // Файловому источнику скачивать нечего — tempDir не нужен.
         void tempDir;
         const artifact = version.artifact;
@@ -91,8 +94,10 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
         if (resolved !== this.rootDir && !resolved.startsWith(this.rootDir + path.sep)) {
             throw new Error(`Refusing artifact path outside the registry root: ${artifact.path}`);
         }
-        if (!fs.existsSync(resolved)) {
-            throw new Error(`Artifact file not found in registry: ${resolved}`);
+        try {
+            await fs.promises.access(resolved);
+        } catch (error) {
+            throw new Error(`Artifact file not found in registry: ${resolved}`, { cause: error });
         }
         return resolved;
     }

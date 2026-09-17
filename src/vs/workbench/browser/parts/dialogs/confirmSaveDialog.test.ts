@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
-
-import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import { BoxConstraints, Offset, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TerminalScreen } from "@tuidom/core/rendering/terminalScreen";
+import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+import { describe, expect, it } from "vitest";
+
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";

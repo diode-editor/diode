@@ -1,14 +1,13 @@
-import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
-
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestContextMenuService } from "../../../../../TestUtils/testContextMenuService.ts";
@@ -20,6 +19,7 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/i
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
+import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";

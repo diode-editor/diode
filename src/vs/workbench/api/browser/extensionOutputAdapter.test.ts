@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { ContextKeyService } from "../../../platform/contextkey/common/contextKeyService.ts";
 import type { ILogService, ILogSink } from "../../../platform/log/common/iLogService.ts";
-import { LogService } from "../../../platform/log/common/logService.ts";
 import { LogLevel } from "../../../platform/log/common/logLevel.ts";
+import { LogService } from "../../../platform/log/common/logService.ts";
 import { RingBufferSink } from "../../../platform/log/common/ringBufferSink.ts";
 import { OutputChannelRegistry } from "../../services/output/common/outputChannelRegistry.ts";
 import { OutputService } from "../../services/output/common/outputService.ts";

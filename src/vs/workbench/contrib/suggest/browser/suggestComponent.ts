@@ -1,4 +1,5 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
+import type { OverlayAnchorPosition, OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
 import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type {
     CompletionDetailsContent,
@@ -6,10 +7,7 @@ import type {
 } from "@tuidom/elements/completionlist/completionDetailsElement";
 import type { CompletionListElement } from "@tuidom/elements/completionlist/completionListElement";
 import { CompletionWidgetElement } from "@tuidom/elements/completionlist/completionWidgetElement";
-import type {
-    OverlayAnchorPosition,
-    OverlaySessionHandle,
-} from "@tuidom/core/dom/overlayLayer";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
 

@@ -5,11 +5,7 @@ import { ProgressServiceDIToken } from "../../../../platform/progress/common/pro
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
-import {
-    EXTENSIONS_VIEW_ID,
-    EXTENSIONS_VIEWLET_ID,
-    ExtensionsComponentDIToken,
-} from "./extensionsComponent.ts";
+import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
 
 /** nf-cod-refresh — inline-кнопка заголовка Extensions. */
 const REFRESH_ICON = "\ueb37";
@@ -57,9 +53,10 @@ export const refreshExtensionsAction: CommandAction = {
     ],
     async run(accessor) {
         const component = accessor.get(ExtensionsComponentDIToken);
-        await accessor.get(ProgressServiceDIToken).withProgress(
-            { location: "view", viewId: EXTENSIONS_VIEW_ID, title: "Refreshing extensions" },
-            () => component.refresh(),
-        );
+        await accessor
+            .get(ProgressServiceDIToken)
+            .withProgress({ location: "view", viewId: EXTENSIONS_VIEW_ID, title: "Refreshing extensions" }, () =>
+                component.refresh(),
+            );
     },
 };

@@ -2,6 +2,8 @@ import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContaine
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+
+import { listRowId } from "../../../../base/common/listRowId.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -14,8 +16,8 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { renderCommitGraph } from "../common/commitGraph.ts";
 import { createGraphPalette } from "../common/commitGraphPalette.ts";
-
 import { SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
+
 import type { IScmCommit, ScmGraphService } from "./graphService.ts";
 import { ScmGraphServiceDIToken } from "./graphService.ts";
 import { applyGraphLine, buildCommitRow, buildLoadMoreRow, LOAD_MORE_ROW_ID } from "./scmGraphRows.ts";
@@ -94,12 +96,13 @@ export class GraphViewComponent extends Component {
             title: "GRAPH",
             order: 20,
             body: this.view,
-            focus: () => this.focus(),
+            focus: () => {
+                this.focus();
+            },
         });
 
         this.list.onSelect = (element) => {
-            // Список не принимает строки без id — здесь он гарантированно есть.
-            this.setSelected(element.id!);
+            this.setSelected(listRowId(element));
         };
         this.list.onActivate = (element) => {
             // Строка догрузки — единственная активируемая: у коммитов действия
@@ -107,7 +110,7 @@ export class GraphViewComponent extends Component {
             if (element.id === LOAD_MORE_ROW_ID) void this.commands.execute(GRAPH_LOAD_MORE_COMMAND);
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
-            const commit = this.commitsBySha.get(element.id!);
+            const commit = this.commitsBySha.get(listRowId(element));
             if (commit === undefined) return;
             this.showContextMenu(commit, screenX, screenY);
         };

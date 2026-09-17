@@ -6,29 +6,36 @@ import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestContextMenuService } from "../../../../../TestUtils/testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
-import { menuItemsOfAction } from "../../actions/menuContributions.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { closeAllEditorsAction, splitEditorDownAction, splitEditorRightAction } from "../../actions/editorGroupActions.ts";
-import { closeActiveEditorAction } from "../../actions/tabActions.ts";
-import { TAB_CLOSE_ACTIONS } from "../../actions/tabCloseActions.ts";
-import { revealActiveFileInExplorerAction } from "../../actions/layoutActions.ts";
-import { fileCopyPathAction, fileCopyRelativePathAction } from "../../../contrib/files/browser/fileTreeClipboardActions.ts";
+import {
+    fileCopyPathAction,
+    fileCopyRelativePathAction,
+} from "../../../contrib/files/browser/fileTreeClipboardActions.ts";
 import { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import {
+    closeAllEditorsAction,
+    splitEditorDownAction,
+    splitEditorRightAction,
+} from "../../actions/editorGroupActions.ts";
+import { revealActiveFileInExplorerAction } from "../../actions/layoutActions.ts";
+import { menuItemsOfAction } from "../../actions/menuContributions.ts";
+import { closeActiveEditorAction } from "../../actions/tabActions.ts";
+import { TAB_CLOSE_ACTIONS } from "../../actions/tabCloseActions.ts";
 
 import { DiffEditorPane2 } from "./diffEditorPane2.ts";
 import { EditorGroupComponent } from "./editorGroupComponent.ts";

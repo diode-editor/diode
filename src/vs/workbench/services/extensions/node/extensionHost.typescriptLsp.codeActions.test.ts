@@ -80,9 +80,9 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 
 describe("ExtensionHost — code actions от стокового typescript-language-server", () => {
     beforeAll(async () => {
-        const { buildExtensions } = await import(
+        const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
-        );
+        )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 

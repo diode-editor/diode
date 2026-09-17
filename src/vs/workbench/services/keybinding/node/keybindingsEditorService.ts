@@ -20,10 +20,7 @@ import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
 import { KeybindingsResourceDIToken } from "../../../common/coreTokens.ts";
-import type {
-    IKeybindingMutationResult,
-    IKeybindingsEditorService,
-} from "../common/iKeybindingsEditorService.ts";
+import type { IKeybindingMutationResult, IKeybindingsEditorService } from "../common/iKeybindingsEditorService.ts";
 
 import { appendKeybindingRule, removeKeybindingRules } from "./keybindingsFileEditor.ts";
 
@@ -122,7 +119,7 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         const result = await this.mutateFile((content) => {
             let next = content;
             // Stryker disable next-line ConditionalExpression: правая ветавь → true запускала бы remove и для default/extension previous, но matchesUserRule(previous) там не найдёт user-правила с той же командой+комбинацией+when (его нет — оно default), так что remove ничего не снимает и результат тот же.
-            if (previous !== undefined && previous.source === "user") {
+            if (previous?.source === "user") {
                 next = removeKeybindingRules(next, this.matchesUserRule(previous));
             }
             next = appendKeybindingRule(next, newRule);

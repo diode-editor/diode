@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PY_LANGUAGE_SERVICE, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
-import { installRuff, LINT_PY, type IInstalledRuff } from "../../../../../TestUtils/ruffFixture.ts";
+import { type IInstalledRuff, installRuff, LINT_PY } from "../../../../../TestUtils/ruffFixture.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -12,7 +12,7 @@ import { Container } from "../../../../platform/instantiation/common/diContainer
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { fixAllAction, organizeImportsAction } from "../../../browser/actions/codeActionActions.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
-import { StatusBarServiceDIToken, type StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
+import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 // Code actions поверх СТОКОВОГО стека (правило AGENTS): настоящий ruff.vsix +
 // настоящий bundled `ruff server`. Сервер отдаёт source-действия с точными
@@ -108,36 +108,40 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         }
     });
 
-    it("quickfix по диагностике F401: «Remove unused import» с isPreferred, apply правит буфер", { timeout: 240_000 }, async () => {
-        const { harness, lintUri } = await openLintFile();
-        try {
-            // Без `only`, диапазон — строка `import sys`: контекст-диагностики
-            // субпроцесс собирает сам из своих DiagnosticCollection, по ним ruff
-            // матчит фиксы. Ждём именно quickfix-набор (сервер мог ещё линтить).
-            const quickfixes = await until("quickfix-набор для F401", async () => {
-                const source = harness.group.codeActionSource;
-                if (source === undefined) return null;
-                const actions = await source.provide({
-                    uri: lintUri,
-                    languageId: "python",
-                    text: LINT_PY,
-                    range: createRange(0, 0, 0, 10),
+    it(
+        "quickfix по диагностике F401: «Remove unused import» с isPreferred, apply правит буфер",
+        { timeout: 240_000 },
+        async () => {
+            const { harness, lintUri } = await openLintFile();
+            try {
+                // Без `only`, диапазон — строка `import sys`: контекст-диагностики
+                // субпроцесс собирает сам из своих DiagnosticCollection, по ним ruff
+                // матчит фиксы. Ждём именно quickfix-набор (сервер мог ещё линтить).
+                const quickfixes = await until("quickfix-набор для F401", async () => {
+                    const source = harness.group.codeActionSource;
+                    if (source === undefined) return null;
+                    const actions = await source.provide({
+                        uri: lintUri,
+                        languageId: "python",
+                        text: LINT_PY,
+                        range: createRange(0, 0, 0, 10),
+                    });
+                    const found = actions?.filter((a) => a.kind === "quickfix") ?? [];
+                    return found.some((a) => a.title.includes("Remove unused import")) ? found : null;
                 });
-                const found = actions?.filter((a) => a.kind === "quickfix") ?? [];
-                return found.some((a) => /Remove unused import/.test(a.title)) ? found : null;
-            });
 
-            const removeImport = quickfixes.find((a) => /Remove unused import/.test(a.title));
-            expect(removeImport).toBeDefined();
-            // Safe-фикс линтера помечен предпочтительным — его возьмёт Ctrl+. по умолчанию.
-            expect(removeImport?.isPreferred).toBe(true);
+                const removeImport = quickfixes.find((a) => a.title.includes("Remove unused import"));
+                expect(removeImport).toBeDefined();
+                // Safe-фикс линтера помечен предпочтительным — его возьмёт Ctrl+. по умолчанию.
+                expect(removeImport?.isPreferred).toBe(true);
 
-            const applied = await harness.group.codeActionSource!.apply(removeImport!.id);
-            expect(applied).toBe(true);
-            await settle();
-            expect(harness.group.getActiveEditor()?.getText() ?? "").not.toContain("import sys");
-        } finally {
-            await harness.dispose();
-        }
-    });
+                const applied = await harness.group.codeActionSource!.apply(removeImport!.id);
+                expect(applied).toBe(true);
+                await settle();
+                expect(harness.group.getActiveEditor()?.getText() ?? "").not.toContain("import sys");
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
 });

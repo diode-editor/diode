@@ -3,7 +3,11 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { formatKeybinding, parseChord, serializeChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    formatKeybinding,
+    parseChord,
+    serializeChord,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 import { KeybindingRecorderComponent } from "./keybindingRecorderComponent.ts";
 
@@ -114,7 +118,9 @@ describe("KeybindingRecorderComponent — запись", () => {
         const recorder = new KeybindingRecorderComponent({ tier: "kitty" });
 
         // session === null — ?. в dispose обязателен, иначе TypeError.
-        expect(() => recorder.dispose()).not.toThrow();
+        expect(() => {
+            recorder.dispose();
+        }).not.toThrow();
     });
 
     it("оверлей: id рекордера, фокус на нём и заголовок «Define Keybinding»", () => {

@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import {
-    LONG_LINE_TRUNCATION_BADGE_WIDTH,
-    STOP_RENDERING_LINE_AFTER,
-} from "./longLineRendering.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
+import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 
 describe("EditorViewState — revealing the end of a truncated line", () => {
     const VIEWPORT_WIDTH = 80;

@@ -1,5 +1,6 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -7,7 +8,7 @@ import type { ILogService, LogEntry } from "../../../../platform/log/common/iLog
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
 import { logLevelName } from "../../../../platform/log/common/logLevel.ts";
 
-import type { IOutputChannelDescriptor, IOutputChannelRegistry, ILogHistory } from "./output.ts";
+import type { ILogHistory, IOutputChannelDescriptor, IOutputChannelRegistry } from "./output.ts";
 import { LogHistoryDIToken, OutputChannelRegistryDIToken } from "./output.ts";
 
 export const OutputServiceDIToken = token<OutputService>("OutputService");
@@ -24,7 +25,10 @@ function formatArgs(args: readonly unknown[]): string {
     if (args.length === 0) return "";
     const parts = args.map((arg) => {
         try {
-            return JSON.stringify(arg) ?? String(arg);
+            // JSON.stringify(undefined) отдаёт undefined, хотя тип обещает string, —
+            // тогда печатаем сырой вид.
+            const json = JSON.stringify(arg) as string | undefined;
+            return json ?? String(arg);
         } catch {
             return String(arg);
         }

@@ -5,11 +5,11 @@ import { DIODE_VERSION } from "../../../base/common/version.ts";
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import {
     EXTENSION_ID_RE,
-    parseRegistryIndex,
-    parseRegistryMeta,
     type IRegistryExtensionMeta,
     type IRegistryIndex,
     type IRegistryVersion,
+    parseRegistryIndex,
+    parseRegistryMeta,
 } from "../common/registryFormat.ts";
 
 /**
@@ -99,7 +99,7 @@ async function readCapped(response: Response, limit: number, url: URL): Promise<
             chunk = await reader.read();
         } catch (error) {
             // Обрыв соединения на середине тела — сеть, а не данные реестра.
-            throw new Error(`${url.href}: download failed: ${(error as Error).message}`);
+            throw new Error(`${url.href}: download failed: ${(error as Error).message}`, { cause: error });
         }
         if (chunk.done) break;
         total += chunk.value.byteLength;
@@ -119,7 +119,11 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
     private readonly maxJsonBytes: number;
     private readonly maxArtifactBytes: number;
 
-    constructor(baseUrl: string, onProblem?: (message: string) => void, options: IHttpRegistrySourceOptions = {}) {
+    public constructor(
+        baseUrl: string,
+        onProblem?: (message: string) => void,
+        options: IHttpRegistrySourceOptions = {},
+    ) {
         this.baseUrl = toBaseUrl(baseUrl);
         this.onProblem = onProblem;
         this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -135,7 +139,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
                 signal: AbortSignal.timeout(this.timeoutMs),
             });
         } catch (error) {
-            throw new Error(`${url.href}: ${describeFetchError(error)}`);
+            throw new Error(`${url.href}: ${describeFetchError(error)}`, { cause: error });
         }
     }
 
@@ -155,7 +159,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
             return value;
         } catch (error) {
             // Парсеры формата бросают только Error.
-            throw new Error(`${url.href}: ${(error as Error).message}`);
+            throw new Error(`${url.href}: ${(error as Error).message}`, { cause: error });
         }
     }
 
@@ -165,7 +169,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         return (await readCapped(response, this.maxJsonBytes, url)).toString("utf8");
     }
 
-    async getIndex(): Promise<IRegistryIndex> {
+    public async getIndex(): Promise<IRegistryIndex> {
         const url = new URL("index.json", this.baseUrl);
         const text = await this.readJson(await this.request(url), url);
         return this.parse(url, () => {
@@ -174,7 +178,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         });
     }
 
-    async getMeta(id: string): Promise<IRegistryExtensionMeta | undefined> {
+    public async getMeta(id: string): Promise<IRegistryExtensionMeta | undefined> {
         if (!EXTENSION_ID_RE.test(id)) {
             throw new Error(`Invalid extension id: "${id}"`);
         }
@@ -192,7 +196,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         });
     }
 
-    async fetchArtifact(version: IRegistryVersion, tempDir: string): Promise<string> {
+    public async fetchArtifact(version: IRegistryVersion, tempDir: string): Promise<string> {
         const artifact = version.artifact;
         if (artifact.type !== "url") {
             throw new Error(`Artifact type "${artifact.type}" is not supported by the HTTP registry source`);

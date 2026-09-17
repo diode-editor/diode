@@ -1,8 +1,8 @@
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { describe, expect, it, vi } from "vitest";
 
-import { Point, Size } from "@tuidom/core/common/geometryPromitives";
-import { FillerElement } from "@tuidom/elements/layout/fillerElement";
-import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { PaneViewElement } from "./paneViewElement.ts";
@@ -144,7 +144,13 @@ describe("PaneViewElement mouse", () => {
 
     it("делегация: preventDefault на mouseup (capture-фаза предка) гасит toggle", () => {
         const { app, view, headerPos } = makeHarness();
-        view.addEventListener("mouseup", (e) => e.preventDefault(), { capture: true });
+        view.addEventListener(
+            "mouseup",
+            (e) => {
+                e.preventDefault();
+            },
+            { capture: true },
+        );
         const pos = headerPos("a");
         click(app, pos.x + 2, pos.y);
         expect(view.isCollapsed("a")).toBe(false);

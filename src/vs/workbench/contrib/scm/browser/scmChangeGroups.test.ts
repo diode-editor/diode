@@ -17,11 +17,7 @@ function change(rel: string, group: ScmGroupId): IScmChange {
 
 describe("groupChanges", () => {
     it("раскладывает по группам в порядке VS Code, пустые группы опущены", () => {
-        const groups = groupChanges([
-            change("b.ts", "worktree"),
-            change("a.ts", "index"),
-            change("c.ts", "untracked"),
-        ]);
+        const groups = groupChanges([change("b.ts", "worktree"), change("a.ts", "index"), change("c.ts", "untracked")]);
 
         expect(groups.map((g) => [g.id, g.label, g.changes.length])).toEqual([
             ["index", "Staged Changes", 1],

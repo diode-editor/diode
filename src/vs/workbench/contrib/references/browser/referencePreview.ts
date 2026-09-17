@@ -108,12 +108,14 @@ function splitLines(text: string): string[] {
  * конца первой строки.
  */
 function toTextMatch(lines: readonly string[], range: IRange): ITextMatch | null {
-    const line = lines[range.start.line];
+    // Не `.at()`: номер строки приходит от провайдера расширения и на отрицательном
+    // он отсчитал бы с конца файла вместо «такой строки нет». Чтение по индексу
+    // отдаёт undefined и за краем, и на отрицательном — тип об этом молчит.
+    const line = lines[range.start.line] as string | undefined;
     if (line === undefined) return null;
 
     const startColumn = Math.min(range.start.character, line.length);
-    const endColumn =
-        range.end.line === range.start.line ? Math.min(range.end.character, line.length) : line.length;
+    const endColumn = range.end.line === range.start.line ? Math.min(range.end.character, line.length) : line.length;
 
     return {
         // Номер строки — 1-based, как у ripgrep: строки списка общие с поиском.

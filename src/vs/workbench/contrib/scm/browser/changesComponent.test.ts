@@ -1,21 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { describe, expect, it, vi } from "vitest";
+
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IMenu, MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
-import { SCM_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { SCM_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
@@ -315,7 +315,12 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         const h = make();
         publish(h.commands, [
             { rel: "a.txt" },
-            { rel: "conflict.txt", group: "merge", status: "U", colorId: "gitDecoration.conflictingResourceForeground" },
+            {
+                rel: "conflict.txt",
+                group: "merge",
+                status: "U",
+                colorId: "gitDecoration.conflictingResourceForeground",
+            },
         ]);
 
         const screen = frame(h);

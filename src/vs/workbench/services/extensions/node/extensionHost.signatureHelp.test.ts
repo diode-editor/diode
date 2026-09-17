@@ -51,7 +51,11 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
                 requestFor(mainUri, 0, {
                     triggerCharacter: ",",
                     isRetrigger: true,
-                    activeSignatureHelp: { signatures: [{ label: "greet()", parameters: [] }], activeSignature: 0, activeParameter: 0 },
+                    activeSignatureHelp: {
+                        signatures: [{ label: "greet()", parameters: [] }],
+                        activeSignature: 0,
+                        activeParameter: 0,
+                    },
                 }),
             );
 

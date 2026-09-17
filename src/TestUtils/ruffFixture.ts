@@ -51,11 +51,16 @@ export async function installRuff(): Promise<IInstalledRuff> {
     const { id, version } = await installVsix((await fetchStockVsix(RUFF_ID)).vsixPath, extensionsDir);
     const installRoot = path.join(extensionsDir, `${id}-${version}`);
     const manifest = JSON.parse(fs.readFileSync(path.join(installRoot, "package.json"), "utf8")) as IExtensionManifest;
+    // Расширение без `main` активировать нечем — падаем с внятным текстом,
+    // а не разыменованием undefined в глубине резолва.
+    /* v8 ignore start -- у стокового vsix main есть всегда; ветка достижима только на битом манифесте */
+    if (manifest.main === undefined) throw new Error(`${installRoot}: в манифесте нет main`);
+    /* v8 ignore stop */
     return {
         registration: {
             id,
             manifest: { name: manifest.name, publisher: manifest.publisher, version: manifest.version },
-            mainPath: path.resolve(installRoot, manifest.main as string),
+            mainPath: path.resolve(installRoot, manifest.main),
             extensionPath: installRoot,
             configDefaults: {
                 ...flattenConfigDefaults(manifest.contributes?.configuration),

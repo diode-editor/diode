@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
@@ -61,7 +60,9 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
         ]) {
             const disposable = ws[name](() => undefined);
             expect(disposable, name).toBeDefined();
-            expect(() => disposable.dispose(), name).not.toThrow();
+            expect(() => {
+                disposable.dispose();
+            }, name).not.toThrow();
         }
         expect(makeWorkspace().naive.notebookDocuments).toEqual([]);
     });
@@ -69,7 +70,9 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
     it("registerTextDocumentContentProvider — валидный Disposable", () => {
         const { naive } = makeWorkspace();
         const disposable = naive.registerTextDocumentContentProvider("scheme", {});
-        expect(() => disposable.dispose()).not.toThrow();
+        expect(() => {
+            disposable.dispose();
+        }).not.toThrow();
     });
 
     it("getWorkspaceFolder матчит по префиксу пути, иначе первая папка", () => {
@@ -95,9 +98,15 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
         const watcher = naive.createFileSystemWatcher("**/*.ts");
         const sub = watcher.onDidChange(() => undefined);
         expect(watcher.ignoreCreateEvents).toBe(false);
-        expect(() => watcher.onDidCreate(() => undefined).dispose()).not.toThrow();
-        expect(() => watcher.onDidDelete(() => undefined).dispose()).not.toThrow();
+        expect(() => {
+            watcher.onDidCreate(() => undefined).dispose();
+        }).not.toThrow();
+        expect(() => {
+            watcher.onDidDelete(() => undefined).dispose();
+        }).not.toThrow();
         sub.dispose();
-        expect(() => watcher.dispose()).not.toThrow();
+        expect(() => {
+            watcher.dispose();
+        }).not.toThrow();
     });
 });

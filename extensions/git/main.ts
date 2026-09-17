@@ -3,16 +3,6 @@ import * as path from "node:path";
 
 import * as vscode from "vscode";
 
-import type { IDotGit } from "./lib/dotGit.ts";
-import { parseDotGit, refsRoot, upstreamRefPath } from "./lib/dotGit.ts";
-import { showFileAtRevision, toRepoRelativePath } from "./lib/gitShow.ts";
-import { fromGitUri, GIT_SCHEME, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./lib/gitUri.ts";
-import type { IStatusDecoration } from "./lib/map.ts";
-import { statusToDecoration, xyToResourceStates } from "./lib/map.ts";
-import { parsePorcelainStatus } from "./lib/porcelain.ts";
-import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
-import type { GitOpResult, IGitCommitParams } from "./lib/protocol.ts";
-import { GIT_OP_COMMAND } from "./lib/protocol.ts";
 import {
     branchCreateArgs,
     branchDeleteArgs,
@@ -24,16 +14,26 @@ import {
     rebaseArgs,
 } from "./lib/branchArgs.ts";
 import { classifyGitStderr } from "./lib/classifyGitError.ts";
+import type { IDotGit } from "./lib/dotGit.ts";
+import { parseDotGit, refsRoot, upstreamRefPath } from "./lib/dotGit.ts";
+import { showFileAtRevision, toRepoRelativePath } from "./lib/gitShow.ts";
+import { fromGitUri, GIT_SCHEME, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./lib/gitUri.ts";
+import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
+import type { IStatusDecoration } from "./lib/map.ts";
+import { statusToDecoration, xyToResourceStates } from "./lib/map.ts";
+import { parsePorcelainStatus } from "./lib/porcelain.ts";
+import type { GitOpResult, IGitCommitParams } from "./lib/protocol.ts";
+import { GIT_OP_COMMAND } from "./lib/protocol.ts";
 import { FOR_EACH_REF_FORMAT, parseForEachRefZ, parseStashListZ, STASH_LIST_FORMAT } from "./lib/queryParse.ts";
+import { remoteAddArgs, remoteRemoveArgs, tagCreateArgs, tagDeleteArgs } from "./lib/remoteArgs.ts";
 import type { IRepoStatePayload } from "./lib/repoState.ts";
 import { parseBranchHeaders, parseRemotes } from "./lib/repoState.ts";
-import { remoteAddArgs, remoteRemoveArgs, tagCreateArgs, tagDeleteArgs } from "./lib/remoteArgs.ts";
 import { resetArgs, revertArgs } from "./lib/resetArgs.ts";
+import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
+import { runGit } from "./lib/runGit.ts";
 import { stashApplyArgs, stashDropArgs, stashPopArgs, stashPushArgs } from "./lib/stashArgs.ts";
 import { fetchArgs, pullArgs, pushArgs } from "./lib/syncArgs.ts";
 import { isRelevantDotGitEvent, isRelevantWorkingTreeEvent } from "./lib/watch.ts";
-import type { IRunGitError, IRunGitOptions, IRunGitResult } from "./lib/runGit.ts";
-import { runGit } from "./lib/runGit.ts";
 
 /**
  * Built-in Git plugin (subprocess extension, plugin-API only).
@@ -465,13 +465,7 @@ class GitDecorations {
     private async refreshLog(): Promise<void> {
         if (this.isDisposed()) return;
         const limit = this.currentLogLimit();
-        const result = await this.git([
-            "log",
-            "-n",
-            String(limit + 1),
-            ...LOG_FORMAT_ARGS,
-            ...this.logRefArgs(),
-        ]);
+        const result = await this.git(["log", "-n", String(limit + 1), ...LOG_FORMAT_ARGS, ...this.logRefArgs()]);
         const page = result === null ? [] : parseLogZ(result.stdout);
         const hasMore = page.length > limit;
         const payload = { commits: hasMore ? page.slice(0, limit) : page, hasMore };
@@ -814,7 +808,10 @@ class GitDecorations {
         if ("error" in parents || parents.code !== 0) {
             return { ok: false, kind: "git-error", message: "no commit to undo" };
         }
-        const tokens = parents.stdout.trim().split(/\s+/).filter((t) => t !== "");
+        const tokens = parents.stdout
+            .trim()
+            .split(/\s+/)
+            .filter((t) => t !== "");
         if (tokens.length !== 2) {
             return {
                 ok: false,
@@ -986,7 +983,9 @@ class GitDecorations {
     private watch(base: string, pattern: string, onEvent: (uri: vscode.Uri) => void): vscode.Disposable {
         const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(base, pattern));
         const handler = (uri: vscode.Uri): void => {
-            this.guard("fileWatcher", () => onEvent(uri));
+            this.guard("fileWatcher", () => {
+                onEvent(uri);
+            });
         };
         watcher.onDidCreate(handler);
         watcher.onDidChange(handler);
@@ -1082,7 +1081,9 @@ async function detectRepository(
     if (gitEnv !== undefined) opts.env = gitEnv;
     const result = await runGit(["rev-parse", "--show-toplevel", "--git-dir", "--git-common-dir"], opts);
     if ("error" in result || result.code !== 0) return null;
-    const [root, ...rest] = result.stdout.split("\n").map((line) => line.trim());
+    const lines = result.stdout.split("\n").map((line) => line.trim());
+    const root = lines.at(0);
+    const rest = lines.slice(1);
     if (root === undefined || root === "") return null;
     const dotGit = parseDotGit(rest.join("\n"), cwd);
     return dotGit === null ? null : { root, dotGit };

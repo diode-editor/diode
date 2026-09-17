@@ -30,8 +30,16 @@ export class ProgressStatusBarContribution extends Disposable implements IWorkbe
         private readonly statusBar: StatusBarService,
     ) {
         super();
-        this.register(progress.onDidChange(() => this.sync()));
-        this.register({ dispose: () => this.clear() });
+        this.register(
+            progress.onDidChange(() => {
+                this.sync();
+            }),
+        );
+        this.register({
+            dispose: () => {
+                this.clear();
+            },
+        });
     }
 
     private sync(): void {

@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { SignatureHelpTriggerKind as CoreTriggerKind } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
@@ -208,7 +207,11 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             },
         );
 
-        const active = { signatures: [{ label: "greet(): void", parameters: [] }], activeSignature: 0, activeParameter: 0 };
+        const active = {
+            signatures: [{ label: "greet(): void", parameters: [] }],
+            activeSignature: 0,
+            activeParameter: 0,
+        };
         await stub.callRequest(
             "languages.provideSignatureHelp",
             requestParams({ isRetrigger: true, activeSignatureHelp: active, triggerCharacter: "," }),
@@ -329,49 +332,92 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
     it("битая форма от провайдера отбраковывается целиком — спрашиваем следующего", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({ signatures: [{ label: 42 }], activeSignature: 0, activeParameter: 0 }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () => ({ signatures: "нет" }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({ signatures: [{ label: "f(a)", parameters: [{ label: null }] }] }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () => ({ signatures: [42] }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () => ({ signatures: [null] }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({ signatures: [{ label: "f(a)", parameters: 42 }] }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({ signatures: [{ label: "f(a)", parameters: [{ label: [1, 2, 3] }] }] }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({ signatures: [{ label: "f(a)", parameters: [{ label: ["x", 1] }] }] }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({ signatures: [{ label: "f(a)", parameters: "нет" }] }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({ signatures: [{ label: "f(a)", parameters: [null] }] }) as unknown as vscode.SignatureHelp,
-        });
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({
-                    signatures: [{ label: "f(a)", parameters: [{ label: [1, "x"] }] }],
-                }) as unknown as vscode.SignatureHelp,
-        });
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({
+                        signatures: [{ label: 42 }],
+                        activeSignature: 0,
+                        activeParameter: 0,
+                    }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () => ({ signatures: "нет" }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({
+                        signatures: [{ label: "f(a)", parameters: [{ label: null }] }],
+                    }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () => ({ signatures: [42] }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () => ({ signatures: [null] }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({ signatures: [{ label: "f(a)", parameters: 42 }] }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({
+                        signatures: [{ label: "f(a)", parameters: [{ label: [1, 2, 3] }] }],
+                    }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({
+                        signatures: [{ label: "f(a)", parameters: [{ label: ["x", 1] }] }],
+                    }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({ signatures: [{ label: "f(a)", parameters: "нет" }] }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({ signatures: [{ label: "f(a)", parameters: [null] }] }) as unknown as vscode.SignatureHelp,
+            },
+        );
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({
+                        signatures: [{ label: "f(a)", parameters: [{ label: [1, "x"] }] }],
+                    }) as unknown as vscode.SignatureHelp,
+            },
+        );
         languages.registerSignatureHelpProvider(
             { language: "typescript" },
             { provideSignatureHelp: () => help("greet(name: string): void") },
@@ -385,10 +431,13 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
     it("минимальная форма провайдера: без параметров, без документации, без индексов", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({ signatures: [{ label: "now(): Date" }] }) as unknown as vscode.SignatureHelp,
-        });
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({ signatures: [{ label: "now(): Date" }] }) as unknown as vscode.SignatureHelp,
+            },
+        );
 
         const result = (await stub.callRequest("languages.provideSignatureHelp", requestParams())) as {
             signatures: Record<string, unknown>[];
@@ -407,14 +456,17 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
     it("параметр без документации доезжает голой меткой", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({
-                    signatures: [{ label: "greet(name)", parameters: [{ label: "name" }] }],
-                    activeSignature: "нет",
-                    activeParameter: null,
-                }) as unknown as vscode.SignatureHelp,
-        });
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({
+                        signatures: [{ label: "greet(name)", parameters: [{ label: "name" }] }],
+                        activeSignature: "нет",
+                        activeParameter: null,
+                    }) as unknown as vscode.SignatureHelp,
+            },
+        );
 
         const result = await stub.callRequest("languages.provideSignatureHelp", requestParams());
 
@@ -432,14 +484,17 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
     it("выбранная сервером перегрузка доезжает как есть", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        languages.registerSignatureHelpProvider({ language: "typescript" }, {
-            provideSignatureHelp: () =>
-                ({
-                    signatures: [{ label: "f(a)" }, { label: "f(a, b)" }],
-                    activeSignature: 1,
-                    activeParameter: 1,
-                }) as unknown as vscode.SignatureHelp,
-        });
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () =>
+                    ({
+                        signatures: [{ label: "f(a)" }, { label: "f(a, b)" }],
+                        activeSignature: 1,
+                        activeParameter: 1,
+                    }) as unknown as vscode.SignatureHelp,
+            },
+        );
 
         const result = (await stub.callRequest("languages.provideSignatureHelp", requestParams())) as {
             activeSignature: number;

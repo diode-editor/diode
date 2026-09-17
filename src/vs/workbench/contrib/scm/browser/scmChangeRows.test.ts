@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
-
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { LIST_ROW_ACTIVE_STATE } from "@tuidom/elements/list/listViewElement";
+import { describe, expect, it, vi } from "vitest";
+
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 

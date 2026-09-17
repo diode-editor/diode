@@ -1,6 +1,6 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -11,14 +11,14 @@ import { MarkerService } from "../../../../platform/markers/common/markerService
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { PanelComponent } from "../../../browser/parts/panel/panelComponent.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
+import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { type IMarkerRevealEditor, PROBLEMS_VIEW_ID, ProblemsComponent } from "./problemsComponent.ts";
-import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import type { ProblemNode } from "./problemsTreeDataProvider.ts";
-import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 const RESOURCE = "/ws/settings.json";
 

@@ -1,13 +1,17 @@
+import type { TUIFocusEvent } from "@tuidom/core/dom/events/tuiFocusEvent";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { VFlexElement, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { describe, expect, it, vi } from "vitest";
 
-import type { TUIFocusEvent } from "@tuidom/core/dom/events/tuiFocusEvent";
-import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
 import type { InlineCompletionsService } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
+import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
@@ -15,8 +19,6 @@ import type { HistoryService } from "../services/history/browser/historyService.
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
-
-import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
 
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
@@ -140,6 +142,36 @@ describe("WorkbenchContextKeys", () => {
         h.contextKeys.reset("tier");
         h.fireEnvChange();
         expect(h.contextKeys.get("tier")).toBeUndefined();
+    });
+
+    it("filesExplorerFocus взводится ровно по пути предков до view проводника", () => {
+        const h = makeHarness();
+        // Настоящее дерево — ключ считается по getAncestorPath активного элемента.
+        const body = new VFlexElement();
+        const explorerView = new VFlexElement();
+        explorerView.id = "explorerView";
+        const rowInExplorer = new FillerElement();
+        explorerView.addChild(rowInExplorer, { height: vflexFixed(1), width: "fill" });
+        const outsider = new FillerElement();
+        outsider.id = "someOtherView";
+        body.addChild(explorerView, { height: vflexFixed(1), width: "fill" });
+        body.addChild(outsider, { height: vflexFixed(1), width: "fill" });
+
+        const focusOn = (element: TUIElement | null): void => {
+            h.service.attachView({ focusManager: { activeElement: element } } as unknown as BodyElement);
+            h.service.update();
+        };
+
+        focusOn(rowInExplorer);
+        expect(h.contextKeys.get("filesExplorerFocus")).toBe(true);
+
+        // Фокус вне проводника — ключ обязан упасть.
+        focusOn(outsider);
+        expect(h.contextKeys.get("filesExplorerFocus")).toBe(false);
+
+        // Фокуса нет вовсе (`activeElement === null`) — тоже false, а не undefined.
+        focusOn(null);
+        expect(h.contextKeys.get("filesExplorerFocus")).toBe(false);
     });
 
     it("handleFocusChange cancels a pending chord, refreshes keys and notifies completion", () => {

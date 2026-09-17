@@ -44,12 +44,15 @@ function createHeader(
 }
 
 function lines(header: ExtensionPageHeaderElement): string[] {
-    return header.inspectState()["lines"] as string[];
+    return header.inspectState().lines as string[];
 }
 
 /** Строки кадра без хвостовых пробелов — так проще сравнивать раскладку целиком. */
 function frame(screen: MockTerminalBackend): string[] {
-    return screen.screenToString().split("\n").map((row) => row.replace(/\s+$/, ""));
+    return screen
+        .screenToString()
+        .split("\n")
+        .map((row) => row.replace(/\s+$/, ""));
 }
 
 describe("ExtensionPageHeaderElement", () => {
@@ -67,7 +70,15 @@ describe("ExtensionPageHeaderElement", () => {
         // сверху, тело снизу») отводит место в этом же проходе.
         const height = header.getMaxIntrinsicHeight(40);
         expect(height).toBe(lines(header).length + 2);
-        expect(lines(header)).toEqual(["Acme Tools", "acme.tools", "Tools for acme", "", "Not installed", "Latest version: 1.0.0", ""]);
+        expect(lines(header)).toEqual([
+            "Acme Tools",
+            "acme.tools",
+            "Tools for acme",
+            "",
+            "Not installed",
+            "Latest version: 1.0.0",
+            "",
+        ]);
     });
 
     it("раскладка сама собирает строки — шапку можно рисовать и без родителя", () => {
@@ -159,10 +170,9 @@ describe("ExtensionPageHeaderElement", () => {
         app.render();
         expect(app.backend.screenToString()).toContain("[ Install ]");
 
-        header.setContent(
-            content({ entry: { ...ENTRY, installedVersion: "1.0.0", availability: "installed" } }),
-            [UNINSTALL],
-        );
+        header.setContent(content({ entry: { ...ENTRY, installedVersion: "1.0.0", availability: "installed" } }), [
+            UNINSTALL,
+        ]);
         app.render();
 
         // Кадр обновился без ресайза — значит пересборка пометила дерево грязным.

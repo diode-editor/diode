@@ -4,8 +4,8 @@ import * as path from "node:path";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
-import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     KeybindingRegistryDIToken,
     parseChord,

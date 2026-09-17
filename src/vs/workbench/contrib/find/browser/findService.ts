@@ -1,5 +1,6 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -295,9 +296,11 @@ export class FindService extends Disposable {
         if (widget === null || session === undefined) return;
         /* v8 ignore stop */
         session.currentIndex = index;
-        // `matches` и `target` живут и умирают вместе (см. recompute/close), а
-        // сюда попадают только при непустом списке совпадений — значит цель есть.
-        const editor = session.target!;
+        const editor = session.target;
+        /* v8 ignore start -- `matches` и `target` живут и умирают вместе (см. recompute/close), а сюда попадают только при непустом списке совпадений */
+        // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
+        if (editor === null) return;
+        /* v8 ignore stop */
         editor.setSearchDecorations(session.matches, index);
         editor.revealRange(session.matches[index]);
         widget.setCounter(index + 1, session.matches.length);

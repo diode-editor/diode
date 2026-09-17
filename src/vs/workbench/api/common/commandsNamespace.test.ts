@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it, vi } from "vitest";
+import type * as vscode from "vscode";
 
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
@@ -176,7 +175,7 @@ describe("CommandsNamespace (subprocess)", () => {
         const editor = { document: { fileName: "/f.py" } } as unknown as vscode.TextEditor;
         const { commands, dispose } = createBridge(() => editor);
         const seen: unknown[][] = [];
-        commands.registerTextEditorCommand("ext.te", (ed, edit, ...args) => {
+        commands.registerTextEditorCommand("ext.te", (ed, edit, ...args: unknown[]) => {
             seen.push([ed, edit, ...args]);
         });
 
@@ -187,10 +186,12 @@ describe("CommandsNamespace (subprocess)", () => {
         // Инертный edit-builder существует и не бросает (все методы — no-op).
         const edit = seen[0][1] as vscode.TextEditorEdit;
         const pos = { line: 0, character: 0 } as vscode.Position;
-        expect(edit.insert(pos, "x")).toBeUndefined();
-        expect(edit.replace(pos, "y")).toBeUndefined();
-        expect(edit.delete({ start: pos, end: pos } as vscode.Range)).toBeUndefined();
-        expect(edit.setEndOfLine(1)).toBeUndefined();
+        expect(() => {
+            edit.insert(pos, "x");
+            edit.replace(pos, "y");
+            edit.delete({ start: pos, end: pos } as vscode.Range);
+            edit.setEndOfLine(1);
+        }).not.toThrow();
         expect(seen[0].slice(2)).toEqual(["a", 2]);
         dispose();
     });

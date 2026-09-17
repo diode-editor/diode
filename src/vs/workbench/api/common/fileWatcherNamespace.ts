@@ -32,7 +32,9 @@ export interface IResolvedGlobPattern {
  * руками или прийти из своего рантайма; нам достаточно `baseUri`/`base`+`pattern`.
  */
 export function resolveGlobPattern(
-    globPattern: vscode.GlobPattern,
+    // `unknown`, а не `vscode.GlobPattern`: сюда штатно приезжает чужой объект из
+    // другого рантайма расширения — проверки ниже не декоративные.
+    globPattern: unknown,
     workspaceRoot: string | undefined,
 ): IResolvedGlobPattern | null {
     if (typeof globPattern === "string") {
@@ -136,7 +138,9 @@ export class SubprocessFileSystemWatchers {
             onDidCreate: emitter.event,
             onDidChange: emitter.event,
             onDidDelete: emitter.event,
-            dispose: () => emitter.dispose(),
+            dispose: () => {
+                emitter.dispose();
+            },
         } as unknown as vscode.FileSystemWatcher;
     }
 

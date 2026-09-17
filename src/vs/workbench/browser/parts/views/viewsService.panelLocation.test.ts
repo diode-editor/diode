@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+import { describe, expect, it } from "vitest";
+
 import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { containerMenuVisible, viewMenuVisible } from "../../actions/menuContexts.ts";
@@ -19,7 +19,9 @@ const OUTPUT = "workbench.panel.output";
 function panelHarness(views: string[], contributions: MenuContribution[] = []): IViewsHarness {
     const h = makeViewsHarness(contributions);
     h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
-    views.forEach((id, index) => h.service.registerView(testView(id, OUTPUT, (index + 1) * 10)));
+    views.forEach((id, index) => {
+        h.service.registerView(testView(id, OUTPUT, (index + 1) * 10));
+    });
     h.service.attachContainer(OUTPUT);
     return h;
 }
@@ -54,7 +56,9 @@ describe("ViewsService — контейнер в нижней панели", () 
     it("reveal контейнера ведёт фокус в его единственную секцию", () => {
         const h = panelHarness(["output.view"]);
         // Дескриптор стенда несёт focus по умолчанию — важно, что место зовёт его.
-        expect(() => h.service.focusContainer(OUTPUT)).not.toThrow();
+        expect(() => {
+            h.service.focusContainer(OUTPUT);
+        }).not.toThrow();
     });
 
     it("секция без текста подсказки рисует пустую строку, а не падает", () => {
@@ -100,16 +104,19 @@ describe("ViewsService — полоса контролов в таб-строк�
     it("одной кнопки хватает, чтобы полоса появилась", () => {
         // Кнопка — такое же содержимое полосы, как виджет, «⋯» или спиннер:
         // без неё полосы нет, с ней обязана быть.
-        const h = panelHarness(["output.view"], [
-            {
-                menuId: MenuId.ViewTitle,
-                command: "output.clear",
-                title: "Clear",
-                icon: "C",
-                group: "navigation",
-                visible: viewMenuVisible("output.view"),
-            },
-        ]);
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    command: "output.clear",
+                    title: "Clear",
+                    icon: "C",
+                    group: "navigation",
+                    visible: viewMenuVisible("output.view"),
+                },
+            ],
+        );
         expect(h.tabActions(OUTPUT)).not.toBeNull();
     });
 
@@ -136,26 +143,31 @@ describe("ViewsService — полоса контролов в таб-строк�
     });
 
     it("полоса несёт кнопки единственной секции, а «⋯» — её overflow", () => {
-        const h = panelHarness(["output.view"], [
-            {
-                menuId: MenuId.ViewTitle,
-                command: "output.clear",
-                title: "Clear Output",
-                icon: "C",
-                group: "navigation",
-                visible: viewMenuVisible("output.view"),
-            },
-            {
-                menuId: MenuId.ViewTitle,
-                command: "output.openFile",
-                title: "Open Output in Editor",
-                group: "2_open",
-                visible: viewMenuVisible("output.view"),
-            },
-        ]);
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    command: "output.clear",
+                    title: "Clear Output",
+                    icon: "C",
+                    group: "navigation",
+                    visible: viewMenuVisible("output.view"),
+                },
+                {
+                    menuId: MenuId.ViewTitle,
+                    command: "output.openFile",
+                    title: "Open Output in Editor",
+                    group: "2_open",
+                    visible: viewMenuVisible("output.view"),
+                },
+            ],
+        );
 
         const actions = h.tabActions(OUTPUT)!;
-        const labels = actions.querySelectorAll("TextLabelElement").map((l) => (l as TextLabelElement).getText().trim());
+        const labels = actions
+            .querySelectorAll("TextLabelElement")
+            .map((l) => (l as TextLabelElement).getText().trim());
         // Пустое название, кнопка, разделитель, «⋯».
         expect(labels).toEqual(["", "C", "\u2502", "⋯"]);
 
@@ -166,15 +178,18 @@ describe("ViewsService — полоса контролов в таб-строк�
     });
 
     it("при двух секциях полоса несёт команды контейнера и переключатель секций", () => {
-        const h = panelHarness(["output.view", "output.extra"], [
-            {
-                menuId: MenuId.ViewContainerTitle,
-                command: "output.maximize",
-                title: "Maximize Panel",
-                group: "1_panel",
-                visible: containerMenuVisible(OUTPUT),
-            },
-        ]);
+        const h = panelHarness(
+            ["output.view", "output.extra"],
+            [
+                {
+                    menuId: MenuId.ViewContainerTitle,
+                    command: "output.maximize",
+                    title: "Maximize Panel",
+                    group: "1_panel",
+                    visible: containerMenuVisible(OUTPUT),
+                },
+            ],
+        );
 
         h.header(OUTPUT)!.onMenu?.({ screenX: 0, screenY: 0 });
         expect(h.shown.at(-1)!.getEntries!().map((e) => (e.type === "separator" ? "---" : e.label))).toEqual([

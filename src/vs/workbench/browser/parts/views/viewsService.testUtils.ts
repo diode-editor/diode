@@ -1,5 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+
 import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
@@ -104,7 +105,13 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         shown,
         stored,
         root,
-        focus: (containerId) => registered.get(containerId)!.focus(),
+        focus: (containerId) => {
+            // Как и root(): неизвестный контейнер — внятная ошибка, а не падение
+            // на разыменовании undefined.
+            const viewlet = registered.get(containerId);
+            if (viewlet === undefined) throw new Error(`makeViewsHarness: viewlet "" is not registered`);
+            viewlet.focus();
+        },
         tabActions: (containerId) => panelView(containerId)?.actions ?? null,
         paneView: paneViewOf,
         header: (containerId) => {
@@ -124,7 +131,17 @@ export function testView(
 ): IViewDescriptor {
     const body = new FillerElement();
     body.id = `${id}-body`;
-    return { id, containerId, title: id.toUpperCase(), order, body, focus: () => {}, ...extra };
+    return {
+        id,
+        containerId,
+        title: id.toUpperCase(),
+        order,
+        body,
+        focus: () => {
+            /* no-op */
+        },
+        ...extra,
+    };
 }
 
 /** Заголовки секций контейнера в порядке отображения. */

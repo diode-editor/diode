@@ -1,6 +1,6 @@
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { describe, expect, it } from "vitest";
 
-import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 
 import { InputWidgetService } from "./inputWidgetService.ts";

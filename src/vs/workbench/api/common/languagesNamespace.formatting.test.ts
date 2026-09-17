@@ -1,6 +1,5 @@
-import type * as vscode from "vscode";
-
 import { describe, expect, it, vi } from "vitest";
+import type * as vscode from "vscode";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
@@ -63,15 +62,13 @@ describe("LanguagesNamespace — провайдеры форматировани
         doc.dispose();
         expect(flags()).toEqual([true, false]);
 
-        const range = languages.registerDocumentRangeFormattingEditProvider(
-            { language: "typescript" },
-            { provideDocumentRangeFormattingEdits: () => [] } as unknown as vscode.DocumentRangeFormattingEditProvider,
-        );
+        const range = languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
+            provideDocumentRangeFormattingEdits: () => [],
+        } as unknown as vscode.DocumentRangeFormattingEditProvider);
         expect(flags()).toEqual([true, false, true]);
-        const range2 = languages.registerDocumentRangeFormattingEditProvider(
-            { language: "python" },
-            { provideDocumentRangeFormattingEdits: () => [] } as unknown as vscode.DocumentRangeFormattingEditProvider,
-        );
+        const range2 = languages.registerDocumentRangeFormattingEditProvider({ language: "python" }, {
+            provideDocumentRangeFormattingEdits: () => [],
+        } as unknown as vscode.DocumentRangeFormattingEditProvider);
         expect(flags()).toEqual([true, false, true]);
         range2.dispose();
         expect(flags()).toEqual([true, false, true]);
@@ -143,7 +140,9 @@ describe("LanguagesNamespace — провайдеры форматировани
             "languages.provideFormattingEdits",
             requestParams({ range: { startLine: 1, startCharacter: 2, endLine: 2, endCharacter: 4 } }),
         );
-        expect(result).toEqual([{ range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 5 }, text: "x" }]);
+        expect(result).toEqual([
+            { range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 5 }, text: "x" },
+        ]);
         expect(ranges).toEqual([new Range(1, 2, 2, 4)]);
     });
 

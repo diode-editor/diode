@@ -3,32 +3,36 @@ import { createRequire } from "node:module";
 import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+
 import { matchGlob } from "../../../../base/common/glob.ts";
-import type { ITreeFileChange } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type {
     ICompletionRequest,
     ICoreCompletionResult,
     ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
-import type { ICoreDefinitionLocation, IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type {
+    ICoreDefinitionLocation,
+    IDefinitionRequest,
+} from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
+import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
-import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
-import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
-import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
+import type { ITreeFileChange } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -36,32 +40,27 @@ import {
     type IEditorDecorationsService,
     NULL_EDITOR_DECORATIONS_SERVICE,
 } from "../../../api/common/iEditorDecorationsService.ts";
+import { type IEditorLayoutService, NULL_EDITOR_LAYOUT_SERVICE } from "../../../api/common/iEditorLayoutService.ts";
 import type { IEditorOptionsPatch, IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
+import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
 import {
     type IFileDecorationsService,
     NULL_FILE_DECORATIONS_SERVICE,
 } from "../../../api/common/iFileDecorationsService.ts";
-import {
-    type IExtensionFileWatcher,
-    NULL_EXTENSION_FILE_WATCHER,
-} from "../../../api/common/iExtensionFileWatcher.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
-import {
-    type IEditorLayoutService,
-    NULL_EDITOR_LAYOUT_SERVICE,
-} from "../../../api/common/iEditorLayoutService.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
     type IWireDocumentSyncSnapshot,
+    type IWireWatcherCreate,
+    type IWireWatcherEvent,
     parseDecorationRanges,
+    parseWireApplyWorkspaceEditParams,
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
     parseWireDiagnosticsPublish,
-    parseWireApplyWorkspaceEditParams,
     parseWireEditorEdits,
-    parseWireShowTextDocumentParams,
     parseWireFileDecorations,
     parseWireOutputAppend,
     parseWireOutputShow,
@@ -70,23 +69,22 @@ import {
     parseWireProgressStart,
     parseWireReadFileResult,
     parseWireSelections,
+    parseWireShowTextDocumentParams,
     parseWireWatcherCreate,
     parseWireWatcherDispose,
-    requestCompletionItems,
-    requestInlineCompletions,
-    requestResolveCompletionItem,
-    requestDefinition,
-    requestHover,
-    requestReferences,
-    requestSignatureHelp,
-    requestFormattingEdits,
-    requestCodeActions,
     requestApplyCodeAction,
+    requestCodeActions,
+    requestCompletionItems,
+    requestDefinition,
     requestFoldingRanges,
+    requestFormattingEdits,
+    requestHover,
+    requestInlineCompletions,
+    requestReferences,
+    requestResolveCompletionItem,
+    requestSignatureHelp,
     requestWillSaveEdits,
     type SerializedDecorationRenderOptions,
-    type IWireWatcherCreate,
-    type IWireWatcherEvent,
     themeColorIdOf,
     type WireMarker,
     type WireOutputLevel,
@@ -1934,10 +1932,7 @@ export function isRecursiveWatchPattern(pattern: string): boolean {
  * `ignore*Events`. Путь матчится относительно базы в posix-форме — так шаблон
  * `RelativePattern` работает одинаково на всех платформах.
  */
-export function toWatcherEvents(
-    request: IWireWatcherCreate,
-    changes: readonly ITreeFileChange[],
-): IWireWatcherEvent[] {
+export function toWatcherEvents(request: IWireWatcherCreate, changes: readonly ITreeFileChange[]): IWireWatcherEvent[] {
     const events: IWireWatcherEvent[] = [];
     for (const change of changes) {
         if (change.type === "created" && request.ignoreCreateEvents) continue;

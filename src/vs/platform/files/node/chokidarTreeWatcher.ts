@@ -1,12 +1,17 @@
 import * as path from "node:path";
 
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import chokidar, { type FSWatcher } from "chokidar";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { matchAnyGlob } from "../../../base/common/glob.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { describeFileWatchError } from "../common/fileWatchErrors.ts";
-import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions, TreeFileChangeType } from "../common/iTreeFileWatcher.ts";
+import type {
+    ITreeFileChange,
+    ITreeFileWatcher,
+    ITreeFileWatchOptions,
+    TreeFileChangeType,
+} from "../common/iTreeFileWatcher.ts";
 
 /**
  * Окно коалесинга событий, мс. Одна пользовательская операция (checkout,
@@ -16,7 +21,7 @@ import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions, TreeFile
 const COALESCE_MS = 50;
 
 /** Событие chokidar → вид изменения. Каталоги и файлы неразличимы (как в VS Code). */
-const EVENT_TYPES: Record<string, TreeFileChangeType> = {
+const EVENT_TYPES: Partial<Record<string, TreeFileChangeType>> = {
     add: "created",
     addDir: "created",
     change: "changed",
@@ -62,7 +67,7 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
             // `ready`/`raw` и прочие служебные события — не изменения файлов.
             if (type === undefined || typeof changedPath !== "string") return;
             pending.push({ type, path: changedPath });
-            if (timer === null) timer = setTimeout(flush, COALESCE_MS);
+            timer ??= setTimeout(flush, COALESCE_MS);
         });
 
         // Слушатель 'error' обязателен: без него EventEmitter chokidar'а бросает
@@ -94,7 +99,8 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
         return chokidar.watch(rootPath, {
             ignoreInitial: true,
             depth: options.recursive ? undefined : 0,
-            ignored: excludes.length === 0 ? undefined : (candidate: string) => isExcluded(rootPath, candidate, excludes),
+            ignored:
+                excludes.length === 0 ? undefined : (candidate: string) => isExcluded(rootPath, candidate, excludes),
         });
     }
 }

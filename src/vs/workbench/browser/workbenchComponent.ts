@@ -1,6 +1,8 @@
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { WorkbenchLayoutElement } from "@tuidom/elements/workbenchlayout/workbenchLayoutElement";
+
+import { UserKeybindingsDIToken } from "../../diode/modules/keybindingsModule.ts";
 import { registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
@@ -11,13 +13,16 @@ import type { KeybindingRegistry } from "../../platform/keybinding/common/keybin
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
-import { UserKeybindingsDIToken } from "../../diode/modules/keybindingsModule.ts";
 import { ServiceAccessorDIToken, TuiApplicationDIToken } from "../common/coreTokens.ts";
 import {
     WorkbenchContributionsRegistry,
     WorkbenchContributionsRegistryDIToken,
 } from "../common/workbenchContributionsRegistry.ts";
 import { registerVscodeDiffCommand } from "../contrib/diff/browser/compareActions.ts";
+import {
+    EXTENSIONS_VIEWLET_ID,
+    ExtensionsComponentDIToken,
+} from "../contrib/extensions/browser/extensionsComponent.ts";
 import {
     EXPLORER_VIEWLET_ID,
     ExplorerComponent,
@@ -27,35 +32,31 @@ import { ExplorerService, ExplorerServiceDIToken } from "../contrib/files/browse
 import { FileOperationsService, FileOperationsServiceDIToken } from "../contrib/files/browser/fileOperationsService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
 import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
+import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
+import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
+import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import { DiagnosticsServiceDIToken } from "../contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
 import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
+import { ParameterHintsComponentDIToken } from "../contrib/parameterHints/browser/parameterHintsComponent.ts";
+import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
+import { KeybindingRecorderComponentDIToken } from "../contrib/preferences/browser/keybindingRecorderComponent.ts";
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
+import {
+    REFERENCES_VIEWLET_ID,
+    ReferencesComponentDIToken,
+} from "../contrib/references/browser/referencesComponent.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
-import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
 import { ScmRepoStateServiceDIToken } from "../contrib/scm/browser/repoStateService.ts";
 import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
+import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import {
     SEARCH_VIEWLET_ID,
     SearchComponent,
     SearchComponentDIToken,
 } from "../contrib/search/browser/searchComponent.ts";
-import {
-    EXTENSIONS_VIEWLET_ID,
-    ExtensionsComponentDIToken,
-} from "../contrib/extensions/browser/extensionsComponent.ts";
-import { KeybindingRecorderComponentDIToken } from "../contrib/preferences/browser/keybindingRecorderComponent.ts";
-import {
-    REFERENCES_VIEWLET_ID,
-    ReferencesComponentDIToken,
-} from "../contrib/references/browser/referencesComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
-import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
-import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
-import { ParameterHintsComponentDIToken } from "../contrib/parameterHints/browser/parameterHintsComponent.ts";
-import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
-import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
 import { TerminalPanelComponentDIToken } from "../contrib/terminal/browser/terminalPanelComponent.ts";
 import { type TerminalService, TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
@@ -375,8 +376,7 @@ export class WorkbenchComponent extends Component {
             let saveTargets: TextEditorPane[];
             if (pane instanceof TextEditorPane) saveTargets = [pane];
             else if (pane instanceof DiffEditorPane2) saveTargets = this.editorService.dirtyExclusiveDiffSides(pane);
-            /* v8 ignore start -- defensive: прочие вкладки не бывают изменёнными и сюда не попадают */
-            else return;
+            /* v8 ignore start -- defensive: прочие вкладки не бывают изменёнными и сюда не попадают */ else return;
             if (saveTargets.length === 0) return;
             /* v8 ignore stop */
             this.showConfirmSaveDialog(saveTargets.map((target) => target.label).join(", "), {

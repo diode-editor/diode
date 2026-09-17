@@ -1,5 +1,6 @@
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -46,7 +47,12 @@ export const ProblemsComponentDIToken = token<ProblemsComponent>("ProblemsCompon
  * раскрывает его позицию через шов {@link IMarkerRevealTarget}.
  */
 export class ProblemsComponent extends Component {
-    public static dependencies = [MarkerServiceDIToken, ViewsServiceDIToken, MarkerRevealTargetDIToken, JumpRecorderDIToken] as const;
+    public static dependencies = [
+        MarkerServiceDIToken,
+        ViewsServiceDIToken,
+        MarkerRevealTargetDIToken,
+        JumpRecorderDIToken,
+    ] as const;
 
     /** The Problems tree — доступен тестам и оркестрации (фокус, выделение). */
     public readonly tree: TreeViewElement<ProblemNode>;

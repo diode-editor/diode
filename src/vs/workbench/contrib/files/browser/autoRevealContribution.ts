@@ -1,4 +1,5 @@
 import { Disposable } from "@tuidom/core/common/disposable";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import { EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";

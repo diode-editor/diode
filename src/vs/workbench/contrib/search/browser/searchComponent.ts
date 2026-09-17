@@ -9,6 +9,8 @@ import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
+
+import { listRowId } from "../../../../base/common/listRowId.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -21,9 +23,9 @@ import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyVi
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
+import { SEARCH_QUERY_DETAILS_STATE, SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
-import { SEARCH_QUERY_DETAILS_STATE, SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type {
     IFileMatch,
     ISearchHandle,
@@ -226,8 +228,7 @@ export class SearchComponent extends Component {
 
         this.results.id = "searchResults";
         this.results.onActivate = (element) => {
-            // Список не принимает строки без id — здесь он гарантированно есть.
-            this.activateRow(element.id!);
+            this.activateRow(listRowId(element));
         };
         this.results.onCollapsedChanged = () => {
             this.scheduleResultKeysUpdate();
@@ -288,9 +289,7 @@ export class SearchComponent extends Component {
      * что-то глубже корня → свернуть всё рекурсивно; (3) иначе свернуть всё.
      */
     public collapseDeepestLevel(): void {
-        const anyMatchVisible = [...this.rowMeta].some(
-            ([id, meta]) => meta.kind === "match" && this.isRowVisible(id),
-        );
+        const anyMatchVisible = [...this.rowMeta].some(([id, meta]) => meta.kind === "match" && this.isRowVisible(id));
         for (const [id, meta] of this.rowMeta) {
             if (meta.kind === "match") continue;
             if (anyMatchVisible && meta.kind !== "file") continue; // этап 1: только файлы

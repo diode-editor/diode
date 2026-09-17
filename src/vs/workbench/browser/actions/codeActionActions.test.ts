@@ -5,11 +5,10 @@ import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { CodeActionSource, ICodeActionRequest } from "../../../editor/common/languages/iCodeActionSource.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken, type EditorService } from "../../services/editor/browser/editorService.ts";
-import { StatusBarServiceDIToken, type StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
-
 import type { QuickPickItem } from "../../common/quickPickItem.ts";
-import { QuickInputServiceDIToken, type QuickInputService } from "../parts/quickinput/quickInputService.ts";
+import { type EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { type StatusBarService, StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
+import { type QuickInputService, QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
 
 import { fixAllAction, organizeImportsAction, quickFixAction } from "./codeActionActions.ts";
 
@@ -40,9 +39,7 @@ function makeSetup(
         languageId: "python",
         getText: () => "import b\nimport a",
         viewState: {
-            selections: [
-                options.selection ?? { anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } },
-            ],
+            selections: [options.selection ?? { anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }],
         },
     };
     const wrapped: CodeActionSource | undefined =
@@ -168,7 +165,10 @@ describe("editor.action.organizeImports / fixAll", () => {
                     ]),
                 apply: () => Promise.resolve(true),
             },
-            { pickLabel: "Extract method", selection: { anchor: { line: 1, character: 3 }, active: { line: 1, character: 3 } } },
+            {
+                pickLabel: "Extract method",
+                selection: { anchor: { line: 1, character: 3 }, active: { line: 1, character: 3 } },
+            },
         );
         await quickFixAction.run(setup.accessor);
 

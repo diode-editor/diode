@@ -42,7 +42,11 @@ function setup(): {
         executed,
         publish: (state) => commands.execute(PUBLISH_REPO_STATE_COMMAND, state),
         texts: () => statusBar.entries().map((e) => e.text),
-        click: (id) => statusBar.entries().find((e) => e.id === id)?.onClick?.(),
+        click: (id) =>
+            statusBar
+                .entries()
+                .find((e) => e.id === id)
+                ?.onClick?.(),
     };
 }
 

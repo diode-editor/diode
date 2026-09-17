@@ -1,4 +1,5 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import type { Token } from "../../platform/instantiation/common/diContainer.ts";
 
 /**
@@ -14,7 +15,7 @@ import type { Token } from "../../platform/instantiation/common/diContainer.ts";
  * класть в `static dependencies` — иначе они сконструируются в момент прогона
  * фазы. Тяжёлое резолвить лениво через {@link ServiceAccessor} внутри колбэков.
  */
-export interface IWorkbenchContribution extends IDisposable {}
+export type IWorkbenchContribution = IDisposable;
 
 /**
  * Фаза жизненного цикла, на которой инстанцируется contribution:

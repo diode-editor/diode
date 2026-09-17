@@ -1,15 +1,17 @@
-import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Disposable } from "@tuidom/core/common/disposable";
+import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
-import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+
+import { listRowId } from "../../../../base/common/listRowId.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type {
     IKeybindingEntrySnapshot,
     KeybindingChord,
@@ -19,7 +21,6 @@ import { serializeChord } from "../../../../platform/keybinding/common/keybindin
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { FilteredListControl } from "../../../browser/parts/views/filteredListControl.ts";
 import type { IKeybindingsEditorService } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
-
 import type { IFilteredKeybindingItem, IKeybindingItem } from "../common/keybindingsEditorModel.ts";
 import { buildKeybindingItems, filterKeybindingItems } from "../common/keybindingsEditorModel.ts";
 
@@ -141,8 +142,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
             if (item !== undefined) void this.changeKeybinding(item);
         };
         this.control.list.onContextMenu = (element, screenX, screenY) => {
-            // Строки без id список не принимает — id здесь гарантирован.
-            const item = this.rowItems.get(element.id!);
+            const item = this.rowItems.get(listRowId(element));
             if (item === undefined) return;
             this.contextMenu.showContextMenu({
                 getOwner: () => this.view,
@@ -168,7 +168,11 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
 
     public onDidChangeState(): IDisposable {
         // Метка и маркер правки вкладки неизменны — событию не с чего стрелять.
-        return { dispose: () => {} };
+        return {
+            dispose: () => {
+                /* no-op */
+            },
+        };
     }
 
     public focusEditor(): void {
@@ -288,15 +292,16 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
             row.setColors("editorWarning.foreground", INHERITED_BG);
             this.control.list.appendRow(row);
         }
+        const width = this.width;
         filtered.forEach((entry, index) => {
-            this.appendItemRow(entry, index);
+            this.appendItemRow(entry, index, width);
         });
         if (filtered.length === 0) this.control.showPlaceholderRow(EMPTY_ROW_ID, "No keybindings found");
     }
 
-    private appendItemRow(entry: IFilteredKeybindingItem, index: number): void {
-        // width проверен в rebuildRows — единственном вызывающем.
-        const layout = describeKeybindingRow(entry, this.width!);
+    /** `width` приходит из rebuildRows — единственного вызывающего, где он уже проверен. */
+    private appendItemRow(entry: IFilteredKeybindingItem, index: number, width: number): void {
+        const layout = describeKeybindingRow(entry, width);
         const rowId = `kb-${String(index)}`;
         // Stryker disable next-line ObjectLiteral: label — подсказка для typeahead списка, а он у вкладки выключен; на поведение не влияет.
         this.control.list.appendRow(buildKeybindingRow(rowId, layout, ROW_STYLES), { label: entry.item.title });

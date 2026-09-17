@@ -1,5 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { PanelContainerElement } from "@tuidom/elements/panel/panelContainerElement";
+
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../component.ts";
 

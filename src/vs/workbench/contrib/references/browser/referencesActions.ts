@@ -4,11 +4,7 @@ import { parseChord, parseKeybinding } from "../../../../platform/keybinding/com
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
-import {
-    REFERENCES_VIEW_ID,
-    REFERENCES_VIEWLET_ID,
-    ReferencesComponentDIToken,
-} from "./referencesComponent.ts";
+import { REFERENCES_VIEW_ID, REFERENCES_VIEWLET_ID, ReferencesComponentDIToken } from "./referencesComponent.ts";
 import { ReferencesServiceDIToken } from "./referencesService.ts";
 
 /** nf-cod-collapse_all — inline-кнопка заголовка References. */

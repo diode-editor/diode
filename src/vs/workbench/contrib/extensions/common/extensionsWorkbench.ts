@@ -1,10 +1,14 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
-import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { IRegistryExtensionMeta, RegistryExtensionKind } from "../../../../platform/extensionManagement/common/registryFormat.ts";
+
+import type {
+    IRegistryExtensionMeta,
+    RegistryExtensionKind,
+} from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import {
     matchesExtensionQuery,
     normalizeExtensionQuery,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
+import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 /**
  * Контракт магазина для UI (Extensions view): карточка списка, её состояние и
@@ -104,10 +108,7 @@ export const ExtensionsWorkbenchServiceDIToken = token<IExtensionsWorkbenchServi
  * Фильтр списка по строке поиска — той же семантикой, что `searchRegistryIndex`
  * (общий предикат в `registryFormat.ts`): пустой запрос отдаёт всё.
  */
-export function filterExtensionEntries(
-    entries: readonly IExtensionListEntry[],
-    query: string,
-): IExtensionListEntry[] {
+export function filterExtensionEntries(entries: readonly IExtensionListEntry[], query: string): IExtensionListEntry[] {
     const needle = normalizeExtensionQuery(query);
     return entries.filter((entry) => matchesExtensionQuery(entry, needle));
 }

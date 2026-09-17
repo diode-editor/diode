@@ -4,12 +4,11 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
+import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
-import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
-
 import { ChangesComponentDIToken } from "./changesComponent.ts";
-import { ScmChangesServiceDIToken, type IScmChange, type ScmGroupId } from "./changesService.ts";
+import { type IScmChange, ScmChangesServiceDIToken, type ScmGroupId } from "./changesService.ts";
 import {
     buildDiscardConfirm,
     CLEAN_TRANSPORT_COMMAND,
@@ -46,7 +45,7 @@ interface IHarness {
     confirms: unknown[];
     setChanges(changes: IScmChange[]): void;
     setSelection(changes: IScmChange[]): void;
-    setTransport(result: unknown | (() => unknown)): void;
+    setTransport(result: unknown): void;
     hasCommand: { value: boolean };
     confirmAnswer: { value: boolean };
 }
@@ -54,7 +53,7 @@ interface IHarness {
 function makeHarness(): IHarness {
     let changes: IScmChange[] = [];
     let selection: IScmChange[] = [];
-    let transportResult: unknown | (() => unknown) = { ok: true };
+    let transportResult: unknown = { ok: true };
     const executed: [string, unknown[]][] = [];
     const notices: string[] = [];
     const confirms: unknown[] = [];
@@ -73,7 +72,14 @@ function makeHarness(): IHarness {
                 },
             },
         ],
-        [ScmChangesServiceDIToken, { get changes() { return changes; } }],
+        [
+            ScmChangesServiceDIToken,
+            {
+                get changes() {
+                    return changes;
+                },
+            },
+        ],
         [ChangesComponentDIToken, { getSelectedChanges: () => selection }],
         [
             CommandRegistryDIToken,
@@ -81,7 +87,9 @@ function makeHarness(): IHarness {
                 has: () => hasCommand.value,
                 execute: (id: string, ...args: unknown[]) => {
                     executed.push([id, args]);
-                    return typeof transportResult === "function" ? transportResult() : transportResult;
+                    return typeof transportResult === "function"
+                        ? (transportResult as () => unknown)()
+                        : transportResult;
                 },
             },
         ],
@@ -287,11 +295,7 @@ describe("buildDiscardConfirm", () => {
 describe("git.clean / git.cleanAll", () => {
     it("confirm → транспорт с tracked+untracked целями", async () => {
         const h = makeHarness();
-        h.setChanges([
-            change("a.ts", "worktree"),
-            change("new.ts", "untracked"),
-            change("s.ts", "index"),
-        ]);
+        h.setChanges([change("a.ts", "worktree"), change("new.ts", "untracked"), change("s.ts", "index")]);
         await gitCleanAction.run(h.accessor, [uriOf("a.ts"), uriOf("new.ts"), uriOf("s.ts")]);
 
         expect(h.confirms).toHaveLength(1);
@@ -319,11 +323,7 @@ describe("git.clean / git.cleanAll", () => {
 
     it("git.cleanAll берёт весь снимок worktree+untracked", async () => {
         const h = makeHarness();
-        h.setChanges([
-            change("a.ts", "worktree"),
-            change("new.ts", "untracked"),
-            change("s.ts", "index"),
-        ]);
+        h.setChanges([change("a.ts", "worktree"), change("new.ts", "untracked"), change("s.ts", "index")]);
         await gitCleanAllAction.run(h.accessor);
         expect(h.executed).toEqual([[CLEAN_TRANSPORT_COMMAND, [[uriOf("a.ts"), uriOf("new.ts")]]]]);
     });

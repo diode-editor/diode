@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
     CLIENT_CRASH_PATTERNS,
+    type IInstalledBasedpyright,
     installBasedpyright,
     PY_LANGUAGE_SERVICE,
     until,
-    type IInstalledBasedpyright,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
@@ -83,7 +83,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
                 return found?.detail !== undefined || found?.documentation !== undefined ? found : null;
             });
             // Текст, которого нет в буфере: сигнатура/докстринг str.upper из стабов.
-            expect(`${resolved?.detail ?? ""}\n${resolved?.documentation ?? ""}`).toContain("upper");
+            expect(`${resolved.detail ?? ""}\n${resolved.documentation ?? ""}`).toContain("upper");
 
             const crashes = outputLines.filter((line) => CLIENT_CRASH_PATTERNS.test(line.value));
             expect(crashes).toEqual([]);

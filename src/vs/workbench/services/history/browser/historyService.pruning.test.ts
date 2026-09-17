@@ -219,7 +219,9 @@ describe("HistoryService — чистка стека и группы", () => {
         source.open(UNTITLED);
         source.close(UNTITLED);
 
-        expect(() => source.openUri(Uri.parse(UNTITLED))).toThrow(/не восстановим/);
+        expect(() => {
+            source.openUri(Uri.parse(UNTITLED));
+        }).toThrow(/не восстановим/);
     });
 
     it("запись из другой группы восстанавливается вместе с фокусом группы", () => {
