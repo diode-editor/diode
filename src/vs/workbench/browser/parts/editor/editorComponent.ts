@@ -7,6 +7,8 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
+import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
@@ -74,6 +76,7 @@ export class EditorComponent extends Component {
     private readonly model: TextFileModel;
     private readonly tokenizationRegistry: TokenizationRegistry;
     private readonly tokenStyleResolver: ITokenStyleResolver;
+    private readonly languageConfiguration: ILanguageConfigurationService;
     private editorViewState: EditorViewState;
     private editor: EditorElement;
     private tokenStore: DocumentTokenStore;
@@ -194,18 +197,21 @@ export class EditorComponent extends Component {
         tokenizationRegistry: TokenizationRegistry,
         tokenStyleResolver: ITokenStyleResolver,
         model: TextFileModel,
+        languageConfiguration: ILanguageConfigurationService = NULL_LANGUAGE_CONFIGURATION_SERVICE,
     ) {
         super();
 
         this.model = model;
         this.tokenizationRegistry = tokenizationRegistry;
         this.tokenStyleResolver = tokenStyleResolver;
+        this.languageConfiguration = languageConfiguration;
 
         this.editorViewState = new EditorViewState(model.document);
         this.tokenStore = new DocumentTokenStore(model.document, this.ensureTokenizerForLanguage(model.languageId));
         this.editorViewState.tokenStore = this.tokenStore;
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = tokenStyleResolver;
+        this.attachLanguageConfiguration();
         this.editor.focusable = true;
         this.applyEditorStyle();
         // История одна на документ: элемент получает общий движок модели вместо
@@ -238,6 +244,9 @@ export class EditorComponent extends Component {
         this.register(
             model.onDidChangeLanguage(() => {
                 this.applyTokenizer();
+                // Конфигурация нового языка (пары скобок) — тем же ленивым
+                // прогревом, что и грамматика.
+                void this.languageConfiguration.ensureLoaded(this.model.languageId);
             }),
         );
         this.register(
@@ -310,6 +319,7 @@ export class EditorComponent extends Component {
         }
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = this.tokenStyleResolver;
+        this.attachLanguageConfiguration();
         this.editor.focusable = true;
         this.applyEditorStyle();
         this.editor.undoManager = this.model.undoManager;
@@ -593,6 +603,17 @@ export class EditorComponent extends Component {
      * подписка на `tokenizationRegistry.onDidChange` пересадит нас, когда
      * support доедет.
      */
+    /**
+     * Подключает редактору источник language configuration (авто-закрытие
+     * скобок) и запускает её ленивый прогрев — наш аналог `onLanguage` для
+     * пар, парный `ensureTokenizerForLanguage`. Источник — замыкание на
+     * АКТУАЛЬНЫЙ язык модели: смена языка не требует перевешивания.
+     */
+    private attachLanguageConfiguration(): void {
+        this.editor.languageConfigurationSource = () => this.languageConfiguration.get(this.model.languageId);
+        void this.languageConfiguration.ensureLoaded(this.model.languageId);
+    }
+
     private ensureTokenizerForLanguage(languageId: string): ITokenizationSupport {
         void this.tokenizationRegistry.load(languageId); // fire-and-forget: load() не реджектится
         return this.tokenizationRegistry.get(languageId) ?? new PlainTextTokenizer();

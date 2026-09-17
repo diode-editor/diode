@@ -943,6 +943,106 @@ export class EditorViewState {
     }
 
     /**
+     * Types `text` at every cursor и тут же дописывает `close`, оставляя
+     * каретку между ними — вставка авто-закрывающейся пары (`{` → `{|}`).
+     * Решение «закрывать ли» принимает вызывающий (см. `planAutoClose`);
+     * здесь только механика. `close` не содержит переводов строки — токены
+     * пары в language configuration однострочные.
+     */
+    public typeWithAutoClose(text: string, close: string): IUndoElement | undefined {
+        if (this.readOnly) return undefined;
+        const beforeSelections = this.cloneSelections();
+        const versionBefore = this.document.versionId;
+        const edits = this.buildEditsFromSelections(text + close);
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
+        // Stryker disable next-line CallExpression: токены пары однострочные, число строк не
+        // меняется — двигать границы фолдов нечего; вызов держит общий порядок мутаторов
+        this.adjustFoldingRegionsForEdits(edits);
+        this.selections = this.computeSelectionsAfterEdits(edits).map((sel) =>
+            createCursorSelection(sel.active.line, sel.active.character - close.length),
+        );
+        this.ensureCursorVisible();
+        return {
+            label: "type",
+            versionBefore,
+            versionAfter: appliedVersion,
+            forwardEdits: edits,
+            backwardEdits: inverseEdits,
+            beforeSelections,
+            afterSelections: this.cloneSelections(),
+        };
+    }
+
+    /**
+     * Перешагивает закрывающий символ, уже стоящий под кареткой (typeover
+     * авто-закрытой пары): документ не меняется, поэтому и undo-шага нет.
+     * Прекондицию «под каждой кареткой именно этот символ» держит вызывающий.
+     */
+    public typeOverClosingChar(): void {
+        this.selections = this.selections.map((sel) =>
+            createCursorSelection(sel.active.line, sel.active.character + 1),
+        );
+        this.ensureCursorVisible();
+    }
+
+    /**
+     * Обрамляет каждое НЕсхлопнутое выделение парой (auto-surround: жмёшь
+     * кавычку при выделении — текст обёрнут, а не затёрт). Выделения после
+     * правки остаются на своём тексте; направление (anchor/active) сохраняется.
+     */
+    public surroundSelections(open: string, close: string): IUndoElement | undefined {
+        if (this.readOnly) return undefined;
+        const beforeSelections = this.cloneSelections();
+        const versionBefore = this.document.versionId;
+        const sorted = this.sortedSelections();
+
+        const edits: ITextEdit[] = [];
+        for (const sel of sorted) {
+            const range = selectionToRange(sel);
+            edits.push(createTextEdit(createRange(range.start.line, range.start.character, range.start.line, range.start.character), open));
+            edits.push(createTextEdit(createRange(range.end.line, range.end.character, range.end.line, range.end.character), close));
+        }
+        const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
+        // Stryker disable next-line CallExpression: как и в typeWithAutoClose — обрамление
+        // однострочными токенами не меняет число строк, границам фолдов двигаться некуда
+        this.adjustFoldingRegionsForEdits(edits);
+
+        // Вставки токенов однострочные, поэтому дрейф выделений — только по
+        // колонкам: накапливаем сдвиг по строкам в документном порядке.
+        const lineDelta = new Map<number, number>();
+        const remapped: ISelection[] = [];
+        for (const sel of sorted) {
+            const range = selectionToRange(sel);
+            const startChar = range.start.character + (lineDelta.get(range.start.line) ?? 0) + open.length;
+            const endChar =
+                range.end.character +
+                (lineDelta.get(range.end.line) ?? 0) +
+                (range.end.line === range.start.line ? open.length : 0);
+            // Stryker disable next-line EqualityOperator: у схлопнутого выделения (равенство)
+            // обе ветки строят одну и ту же пустую пару позиций — направление неразличимо
+            const ltr = comparePositions(sel.anchor, sel.active) <= 0;
+            remapped.push(
+                ltr
+                    ? createSelection(range.start.line, startChar, range.end.line, endChar)
+                    : createSelection(range.end.line, endChar, range.start.line, startChar),
+            );
+            lineDelta.set(range.start.line, (lineDelta.get(range.start.line) ?? 0) + open.length);
+            lineDelta.set(range.end.line, (lineDelta.get(range.end.line) ?? 0) + close.length);
+        }
+        this.selections = remapped;
+        this.ensureCursorVisible();
+        return {
+            label: "surround",
+            versionBefore,
+            versionAfter: appliedVersion,
+            forwardEdits: edits,
+            backwardEdits: inverseEdits,
+            beforeSelections,
+            afterSelections: this.cloneSelections(),
+        };
+    }
+
+    /**
      * Applies an arbitrary batch of edits as a single undoable operation.
      *
      * Unlike {@link type}, the edits are supplied by the caller instead of
