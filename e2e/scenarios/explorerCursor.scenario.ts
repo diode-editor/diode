@@ -17,10 +17,12 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting"));
 
-        // Focus the explorer via the View menu (Alt+V → "Explorer") — opening the
+        // Focus the explorer via the View menu (Alt+V → "Explorer", three steps down
+        // past the pre-selected Command Palette) — opening the
         // file above auto-revealed it, so the cursor sits on a nested tree row.
         await editor.sendKey("Alt+V");
         await editor.waitForText((t) => t.includes("Explorer"));
+        await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");

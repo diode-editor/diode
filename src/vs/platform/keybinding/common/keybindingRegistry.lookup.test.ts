@@ -55,8 +55,9 @@ describe("KeybindingRegistry — getKeybindingForCommand", () => {
     });
 
     it("shows the tier-specific chord fallback when the tier matches (Show All Commands on legacy)", () => {
-        // Mirrors showCommandsAction: an unconditional Ctrl+Shift+P plus a
-        // chord fallback that only applies on legacy terminals.
+        // Форма quick-open-экшенов: безусловный бинд плюс фоллбэк, действующий
+        // только на legacy-терминалах (у самой палитры фоллбэк — F1; здесь взят
+        // аккорд, чтобы заодно проверить форматирование аккордного фоллбэка).
         const registry = new KeybindingRegistry();
         const ctx = new ContextKeyService();
         registry.register(parseKeybinding("ctrl+shift+p"), "workbench.action.showCommands");

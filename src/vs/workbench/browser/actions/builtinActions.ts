@@ -66,6 +66,7 @@ import {
 import {
     gotoLineAction,
     quickOpenAction,
+    showAllEditorsAction,
     showCommandsAction,
 } from "../../contrib/quickaccess/browser/quickOpenActions.ts";
 import {
@@ -273,6 +274,7 @@ export const builtinActions: readonly CommandAction[] = [
     // Quick Open / пикеры (этап 8: run-обработчики живут в самих экшенах)
     quickOpenAction,
     showCommandsAction,
+    showAllEditorsAction,
     gotoLineAction,
     selectThemeAction,
     changeEncodingAction,

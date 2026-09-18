@@ -4,6 +4,7 @@ import { parseChord, parseKeybinding } from "../../../../platform/keybinding/com
 
 import { CommandsQuickAccessProvider } from "./commandsQuickAccessProvider.ts";
 import { GotoLineQuickAccessProvider } from "./gotoLineQuickAccessProvider.ts";
+import { OpenEditorsQuickAccessProvider } from "./openEditorsQuickAccessProvider.ts";
 import { QuickOpenServiceDIToken } from "./quickOpenService.ts";
 
 /**
@@ -42,9 +43,25 @@ export const showCommandsAction: CommandAction = {
     title: "Show All Commands",
     menus: [{ menuId: MenuId.MenubarViewMenu, title: "Command Palette...", group: "1_palette", order: 10 }],
     keybinding: parseKeybinding("ctrl+shift+p"),
-    // Ctrl+Shift+letter is unreliable on legacy terminals — add the VS Code chord fallback.
-    keybindings: [{ keys: parseChord("ctrl+k ctrl+p"), when: "tier == 'legacy'" }],
+    // Ctrl+Shift+<буква> на legacy-терминалах ненадёжен, поэтому у палитры есть
+    // второй бинд. Раньше им был аккорд Ctrl+K Ctrl+P, но в VS Code этот аккорд
+    // открывает пикер открытых редакторов (showAllEditors ниже) — аккорд отдан
+    // ему, а палитре достался F1: тоже дословный бинд VS Code, и он проходит
+    // терминалом любого tier'а.
+    keybindings: [{ keys: parseKeybinding("f1"), when: "tier == 'legacy'" }],
     run(accessor, ...args) {
         accessor.get(QuickOpenServiceDIToken).show(CommandsQuickAccessProvider.PREFIX + prefillOf(args));
+    },
+};
+
+export const showAllEditorsAction: CommandAction = {
+    id: "workbench.action.showAllEditors",
+    title: "Show All Editors",
+    menus: [{ menuId: MenuId.MenubarViewMenu, title: "Open Editors...", group: "1_palette", order: 20 }],
+    // Аккорд из двух ctrl+буква проходит терминалом любого tier'а — отдельный
+    // legacy-фоллбэк этому бинду не нужен.
+    keybinding: parseChord("ctrl+k ctrl+p"),
+    run(accessor, ...args) {
+        accessor.get(QuickOpenServiceDIToken).show(OpenEditorsQuickAccessProvider.PREFIX + prefillOf(args));
     },
 };

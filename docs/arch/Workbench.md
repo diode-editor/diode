@@ -379,7 +379,16 @@ hide-toggle (`isHiddenByDefault`). См.
     `CommandRegistry.listCommands` + шорткаты из
     `KeybindingRegistry`/`ContextKeyService`), `GotoLineQuickAccessProvider`
     (`:`; активный редактор — шов `IGotoLineEditorSource` → `EditorService`
-    структурно, биндинг в `Modules/WorkbenchModule.ts`).
+    структурно, биндинг в `Modules/WorkbenchModule.ts`),
+    `OpenEditorsQuickAccessProvider` (`edt ` — открытые вкладки,
+    `workbench.action.showAllEditors`, Ctrl+K Ctrl+P: список всех групп в
+    MRU-порядке через `EditorService.getOpenEditorsMru()`, переход —
+    `revealPane` через границу группы; fuzzy — тот же, что у файлов
+    (`fuzzyMatchBest` + `BASENAME_BONUS`, раскладка совпадений по колонкам —
+    общий `pathMatchRanges.ts`); швы `IOpenEditorsSource` → `EditorService` и
+    `IWorkspaceRootSource` → `ExplorerService`, оба структурно). Соседний
+    hold-оверлей Ctrl+Tab (`TabSwitcherComponent`) показывает тот же MRU, но
+    без ввода — это разные поверхности над одной моделью.
   - `Services/QuickOpenService.ts` — контроллер показа Quick Open (аналог
     `QuickAccessController`): `show(prefix)` занимает общий виджет, дальше
     ведёт запрос через реестр (смена префикса на лету переключает провайдера),
@@ -393,8 +402,11 @@ hide-toggle (`isHiddenByDefault`). См.
   `FileTreeClipboardActions.ts` (copy/cut/paste, copyPath/copyRelativePath),
   `FileTreeCreateActions.ts` (`explorer.newFile`/`explorer.newFolder`);
   с этапа 8 — тонкие экшены-пикеры с реальными `run(accessor)`:
-  `QuickOpenActions.ts` (Ctrl+P / Show Commands / goto-line →
-  `QuickOpenService.show(prefix)` с префиксами из статик `PREFIX` провайдеров), `ThemeActions.ts` (`selectColorTheme` поверх
+  `QuickOpenActions.ts` (Ctrl+P / Show Commands / goto-line / Show All Editors →
+  `QuickOpenService.show(prefix)` с префиксами из статик `PREFIX` провайдеров;
+  строковый `args` бинда дописывается префиллом. Палитра команд на
+  legacy-терминале доступна по F1: аккорд Ctrl+K Ctrl+P, как в VS Code, занят
+  пикером открытых редакторов), `ThemeActions.ts` (`selectColorTheme` поверх
   `QuickInputService.quickPick` + `ThemeRegistry`/`ThemeService`, live-preview
   через `onDidChangeActive`, персист в `workbench.colorTheme`; здесь же
   `themeTypeLabel`), `FileActions.ts` (Open File / Open Folder: InputBox-промпт

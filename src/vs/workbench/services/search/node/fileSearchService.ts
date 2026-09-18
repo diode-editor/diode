@@ -10,8 +10,12 @@ export const FileSearchServiceDIToken = token<FileSearchService>("FileSearchServ
 
 export const EXCLUDED_FS_NAMES = new Set(["node_modules", ".git", ".DS_Store"]);
 
-/** Basename bonus so that a match in the filename beats a match only in the path. */
-const BASENAME_BONUS = 200;
+/**
+ * Basename bonus so that a match in the filename beats a match only in the path.
+ * Exported so the open-editors picker ranks its own (tiny, index-free) list the
+ * same way the file picker ranks the index — one ranking, one constant.
+ */
+export const BASENAME_BONUS = 200;
 
 /** Debounce for onIndexChanged so a background walk does not spam subscribers. */
 const NOTIFY_DEBOUNCE_MS = 50;

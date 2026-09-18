@@ -269,6 +269,7 @@ describe("Workbench — menu bar wiring", () => {
         const popup = openMenu(testApp, "v");
         expect(itemLabels(popup)).toEqual([
             "Command Palette...",
+            "Open Editors...",
             "Color Theme",
             "Explorer",
             "Search",

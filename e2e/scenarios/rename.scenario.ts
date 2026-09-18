@@ -30,10 +30,11 @@ export default defineScenario({
     rows: 28,
     async run(editor) {
         // Focus the explorer via the View menu (Alt+V → "Explorer": Command Palette,
-        // Color Theme, Explorer — two steps down past the pre-selected first item).
-        // Its cursor lands on the sole file.
+        // Open Editors, Color Theme, Explorer — three steps down past the
+        // pre-selected first item). Its cursor lands on the sole file.
         await editor.sendKey("Alt+V");
         await editor.waitForText((t) => t.includes("Explorer"));
+        await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");

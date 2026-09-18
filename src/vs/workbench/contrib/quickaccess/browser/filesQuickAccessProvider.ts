@@ -11,6 +11,7 @@ import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAcce
 
 import type { IGotoLineEditorSource } from "./gotoLineQuickAccessProvider.ts";
 import { GotoLineEditorSourceDIToken, navigateActiveEditor } from "./gotoLineQuickAccessProvider.ts";
+import { splitPathMatchRanges } from "./pathMatchRanges.ts";
 import type { ParsedGoto } from "./quickOpenParsing.ts";
 import { splitFileQuery } from "./quickOpenParsing.ts";
 
@@ -71,33 +72,17 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             const dir = nodePath.dirname(r.entry.relativePath);
 
             // Split matchedIndices into basename vs. directory ranges for highlighting
-            const basenameOffset = r.entry.relativePath.length - basename.length;
-            const labelRanges: [number, number][] = [];
-            const descRanges: [number, number][] = [];
-
-            for (const idx of r.matchedIndices) {
-                if (idx >= basenameOffset) {
-                    const localIdx = idx - basenameOffset;
-                    if (labelRanges.length > 0 && labelRanges[labelRanges.length - 1][1] === localIdx) {
-                        labelRanges[labelRanges.length - 1][1]++;
-                    } else {
-                        labelRanges.push([localIdx, localIdx + 1]);
-                    }
-                } else {
-                    if (descRanges.length > 0 && descRanges[descRanges.length - 1][1] === idx) {
-                        descRanges[descRanges.length - 1][1]++;
-                    } else {
-                        descRanges.push([idx, idx + 1]);
-                    }
-                }
-            }
+            const { labelRanges, descriptionRanges } = splitPathMatchRanges(
+                r.matchedIndices,
+                r.entry.relativePath.length - basename.length,
+            );
 
             const absolutePath = r.entry.absolutePath;
             return {
                 label: basename,
                 description: dir === "." ? "" : dir,
                 labelMatchRanges: labelRanges,
-                descriptionMatchRanges: descRanges,
+                descriptionMatchRanges: descriptionRanges,
                 accept: () => {
                     // Открытие и прыжок — один переход для истории навигации
                     // (иначе Back привёл бы в начало только что открытого файла).

@@ -255,6 +255,22 @@ export class EditorGroup extends Disposable {
         return [...this.mruOrder];
     }
 
+    /**
+     * Открытые вкладки группы в MRU-порядке: недавние первыми, а следом — те,
+     * которых MRU-стек ещё не видел, в позиционном порядке полосы. Такие
+     * вкладки бывают: `insertPane` в стек не пишет, и вкладка, приехавшая
+     * merge'ом чужой группы и ни разу не активированная, в `mruOrder`
+     * отсутствует. Отдельно от {@link getMruOrder} (сырой снимок стека) —
+     * пикер открытых редакторов обязан показать ВСЕ вкладки группы, а не
+     * только побывавшие активными.
+     */
+    public getMruPanes(): IEditorPane[] {
+        // Фильтровать сам стек не нужно: закрытую вкладку (и уехавшую в другую
+        // группу) вычищает из `mruOrder` общий `removePaneAt`, так что лишних
+        // панелей в нём не бывает — не хватать в нём может только новых.
+        return [...this.mruOrder, ...this.panes.filter((pane) => !this.mruOrder.includes(pane))];
+    }
+
     public closeTab(index: number): void {
         if (index < 0 || index >= this.panes.length) return;
 

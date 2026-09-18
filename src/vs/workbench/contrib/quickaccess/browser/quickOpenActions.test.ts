@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
-import { gotoLineAction, quickOpenAction, showCommandsAction } from "./quickOpenActions.ts";
+import { gotoLineAction, quickOpenAction, showAllEditorsAction, showCommandsAction } from "./quickOpenActions.ts";
 import type { QuickOpenService } from "./quickOpenService.ts";
 import { QuickOpenServiceDIToken } from "./quickOpenService.ts";
 
@@ -61,5 +62,24 @@ describe("quick open actions — аргумент-префилл", () => {
         showCommandsAction.run(accessor);
         showCommandsAction.run(accessor, "git");
         expect(shown).toEqual([">", ">git"]);
+    });
+
+    it("showAllEditors: аргумент дописывается после префикса «edt »", () => {
+        const { accessor, shown } = makeAccessor();
+        showAllEditorsAction.run(accessor);
+        showAllEditorsAction.run(accessor, "index");
+        expect(shown).toEqual(["edt ", "edt index"]);
+    });
+});
+
+describe("quick open actions — кейбинды палитры и пикера редакторов", () => {
+    it("Ctrl+K Ctrl+P открывает пикер открытых редакторов (как в VS Code), без tier-условия", () => {
+        expect(showAllEditorsAction.keybinding).toEqual(parseChord("ctrl+k ctrl+p"));
+        expect(showAllEditorsAction.keybindings).toBeUndefined();
+    });
+
+    it("палитре на legacy-терминале достался F1 — аккорд Ctrl+K Ctrl+P теперь занят пикером", () => {
+        expect(showCommandsAction.keybinding).toEqual(parseKeybinding("ctrl+shift+p"));
+        expect(showCommandsAction.keybindings).toEqual([{ keys: parseKeybinding("f1"), when: "tier == 'legacy'" }]);
     });
 });
