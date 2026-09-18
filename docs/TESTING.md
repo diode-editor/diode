@@ -373,7 +373,9 @@ npm run test:coverage      # = vitest run --coverage
 Исключения (`coverage.exclude`) добавляем **только** если файл попадает в одну из категорий:
 
 1. **Чистые типы** — интерфейсы `I*.ts`, `*.d.ts`, barrel-`index.ts`. Исполнять нечего; чистый интерфейс добавляем в **явный список** exclude (глоб `I*.ts` НЕ используем — см. ниже).
-2. **Непокрываемое юнит-тестами** — subprocess-точка входа (`extensionHostSubprocess`), SEA-детект (`isSea`, `createDefaultAssetAccess`), RPC-стаб в subprocess (`vscodeNamespace`), DI-проводка (`vs/diode/modules/**`), null-object заглушки. Это проверяется e2e (`vitest.e2e.config.ts`), а не юнит-тестами.
+2. **Непокрываемое юнит-тестами** — subprocess-точки входа (`extensionHostSubprocess`, `treeWatcherMain`), SEA-детект (`isSea`, `createDefaultAssetAccess`), RPC-стаб в subprocess (`vscodeNamespace`), DI-проводка (`vs/diode/modules/**`), null-object заглушки. Это проверяется e2e (`vitest.e2e.config.ts`), а не юнит-тестами.
+
+   Точка входа субпроцесса — это `process.send`/`process.on`/`process.exit`, и подменять их в общем прогоне дороже, чем поднять настоящий процесс. Где такой прогон дёшев, он и есть гейт: рядом с исключённым entry живёт `*.integration.test.ts`, который спавнит его тестовым входом (`*.testEntry.ts`, тоже исключён — исполняется только в форке) и проверяет сквозняк через настоящий IPC. Так закрыты `runAsNode` (eval-режим) и watcher-процесс (правка файла на диске → колбэк в процессе редактора). v8-покрытие форка не видит — поэтому entry в exclude, а не в храповике.
 
 **Важно:** реальную логику в файлах с префиксом `I*` (например хелперы `createRange` в `IRange.ts`, `NULL_STATE` в `IState.ts`, `isScrollable` в `IScrollable.ts`) **не прячем** — её покрываем. Поэтому интерфейсы исключаем поимённо, а не глобом `src/**/I*.ts`.
 
