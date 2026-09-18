@@ -41,6 +41,8 @@ import { scanExtensions } from "../platform/extensions/common/extensionScanner.t
 import type { ICommandContribution } from "../platform/extensions/common/iExtensionManifest.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
+import { SubprocessTreeWatcherDIToken } from "../platform/files/node/subprocessTreeWatcher.ts";
+import { runTreeWatcherSubprocess } from "../platform/files/node/treeWatcherMain.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import { loadUserKeybindings } from "../platform/keybinding/node/keybindingsService.ts";
 import type { ILogger } from "../platform/log/common/iLogger.ts";
@@ -70,16 +72,21 @@ import { createProductionContainer } from "./modules/productionProfile.ts";
 import { runAsNode } from "./runAsNode.ts";
 
 // ── Subprocess branch ─────────────────────────────────────
-// Если форкнул себя ExtensionHost'ом — уходим в subprocess entry до любых
-// TUI/CLI инициализаций. Сигнал — env DIODE_EXTENSION_HOST=1, выставленный
-// `ExtensionHost.ensureSubprocess()`.
+// Если мы — форк самого себя в служебной роли, уходим в её entry до любых
+// TUI/CLI инициализаций. Ролей две, у каждой свой env-флаг, который выставляет
+// спавнящая сторона: DIODE_EXTENSION_HOST=1 (`ExtensionHost.ensureSubprocess()`)
+// и DIODE_FILE_WATCHER=1 (`SubprocessTreeWatcher`, обход дерева).
 //
-// Node-режим проверяется РАНЬШЕ ext-host'а: language-сервер, запущенный нашим
-// бинарём, не имеет IPC-канала (runExtensionHostSubprocess умер бы с exit 2),
-// а env DIODE_EXTENSION_HOST может протечь от ext-host'а через spawn среды.
+// Node-режим проверяется РАНЬШЕ обеих: language-сервер, запущенный нашим
+// бинарём, не имеет IPC-канала (subprocess-entry умер бы с exit 2), а флаг роли
+// может протечь к нему через spawn среды. Поэтому каждая роль, войдя в свою
+// ветку, снимает свой флаг и ставит DIODE_RUN_AS_NODE — см. их entry.
 
 if (process.env.DIODE_RUN_AS_NODE === "1") {
     runAsNode();
+} else if (process.env.DIODE_FILE_WATCHER === "1") {
+    runTreeWatcherSubprocess();
+    // Как и ext-host: возвращается сразу, а процесс живёт на IPC-канале.
 } else if (process.env.DIODE_EXTENSION_HOST === "1") {
     runExtensionHostSubprocess();
     // runExtensionHostSubprocess() возвращается, но процесс остаётся живым
@@ -291,9 +298,11 @@ async function runEditor(): Promise<void> {
      *
      * Порядок отпускания важен: сперва терминал (иначе новое окно рисует поверх
      * чужих режимов), затем сокет инспектора (новое окно займёт тот же порт),
-     * затем extension host — синхронно (`disposeNow`), потому что дальше event
-     * loop не крутится и вежливое прощание не доехало бы, а его субпроцесс
-     * остался бы сиротой у заблокированного супервизора, — и только потом
+     * затем оба служебных субпроцесса — синхронно (`disposeNow` у extension
+     * host'а, `dispose` у watcher'а), потому что дальше event loop не крутится
+     * и вежливое прощание не доехало бы, а сами они остались бы сиротами у
+     * заблокированного супервизора (watcher — ещё и со всеми своими
+     * inotify-подписками рядом с подписками нового окна), — и только потом
      * состояние сессии на диск: новое окно читает его на старте, то есть
      * заведомо раньше, чем сработал бы `process.on("exit")`.
      */
@@ -302,6 +311,7 @@ async function runEditor(): Promise<void> {
         backend.teardown();
         inspectorHandle?.dispose();
         extensionHost.disposeNow();
+        treeWatcher.dispose();
         stateService.flushSync();
         restartProcess(currentProcessSnapshot(), realRestartHooks);
     }
@@ -332,6 +342,9 @@ async function runEditor(): Promise<void> {
     // user) — ниже, ПОСЛЕ setWorkspaceFolder + openFile (чтобы workspaceFolders и
     // activeTextEditor были доступны на момент `activate()`).
     const extensionHost = container.get(ExtensionHostDIToken);
+    // Watcher-процесс поднимется сам по первому запросу на слежение; держим
+    // ссылку только ради синхронного убийства в reloadWindow (см. там).
+    const treeWatcher = container.get(SubprocessTreeWatcherDIToken);
 
     // `contributes.keybindings` расширений — регистрируем ПОСЛЕ builtin-биндингов
     // (они заведены при построении WorkbenchComponent), чтобы расширение могло
