@@ -52,6 +52,12 @@
   - общий разбор ошибки и текст подсказки — `describeFileWatchError` (`src/vs/platform/files/common/fileWatchErrors.ts`).
   Редактор при этом работает, теряется только live-reload (settings.json/keybindings.json,
   внешние изменения открытых файлов, авто-обновление ветки дерева).
+  Заодно ужаты дефолты `files.watcherExclude`
+  (`src/vs/workbench/common/configuration/filesConfiguration.ts`): рекурсивный watcher больше
+  не заходит в `node_modules`, `.git`, каталоги сборки и кеши, и на типовом дереве в лимит
+  не упирается вовсе (замер на репозитории diode: 94 176 watch'ей → 2 447). Это снижает
+  вероятность ENOSPC, но не убирает его — на большом дереве или низком лимите он остаётся,
+  и пункт ниже по-прежнему открыт.
 
 - **Что осталось (главное).** Пользователь ничего не видит — только строчка в логе. VS Code
   в этой ситуации показывает **уведомление** вида «Unable to watch for file changes… ENOSPC»
