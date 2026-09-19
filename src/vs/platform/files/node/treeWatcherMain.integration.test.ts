@@ -46,6 +46,9 @@ function spawnTestEntry(): IWatcherProcess {
         onExit: (listener) => {
             child.once("exit", listener);
         },
+        onError: (listener) => {
+            child.on("error", listener);
+        },
         kill: () => {
             child.kill("SIGKILL");
         },

@@ -15,6 +15,7 @@ class FakeProcess implements IWatcherProcess {
     public kills = 0;
     private messageListener: ((message: unknown) => void) | null = null;
     private exitListener: (() => void) | null = null;
+    private errorListener: ((error: unknown) => void) | null = null;
 
     public send(message: ITreeWatcherRequest): void {
         this.sent.push(message);
@@ -26,6 +27,10 @@ class FakeProcess implements IWatcherProcess {
 
     public onExit(listener: () => void): void {
         this.exitListener = listener;
+    }
+
+    public onError(listener: (error: unknown) => void): void {
+        this.errorListener = listener;
     }
 
     public kill(): void {
@@ -41,6 +46,11 @@ class FakeProcess implements IWatcherProcess {
     /** Умереть — сам (падение) или от `kill()`. */
     public die(): void {
         this.exitListener?.();
+    }
+
+    /** Не подняться или сломать канал: `error` вместо (или до) `exit`. */
+    public fail(error: unknown): void {
+        this.errorListener?.(error);
     }
 }
 
@@ -337,6 +347,113 @@ describe("SubprocessTreeWatcher", () => {
             const entry = entries.find((e) => e.level === LogLevel.Warn && e.message.includes("restarting"));
             expect(entry).toBeDefined();
             expect(entry?.args).toEqual([{ restart: 1, requests: 1 }]);
+        });
+
+        it("не поднявшийся процесс (error без exit) всё равно ведёт к перезапуску", () => {
+            const { spawnProcess, spawned } = processFactory();
+            const watcher = new SubprocessTreeWatcher({ spawnProcess });
+            watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+            // У неудачного спавна `exit` может не прийти вовсе — если ждать
+            // только его, прокси навсегда остался бы с мёртвой ссылкой.
+            spawned[0]?.fail(Object.assign(new Error("spawn EMFILE"), { code: "EMFILE" }));
+
+            expect(spawned).toHaveLength(2);
+            expect(spawned[1]?.sent).toEqual([{ t: "watch", id: 1, rootPath: "/repo", options: OPTIONS }]);
+        });
+
+        it("отказ процесса виден в логе с кодом ошибки", () => {
+            const { logService, entries } = createLogService();
+            const { spawnProcess, spawned } = processFactory();
+            const watcher = new SubprocessTreeWatcher({
+                spawnProcess,
+                logger: logService.createLogger("files.watcher"),
+            });
+            watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+            spawned[0]?.fail(Object.assign(new Error("spawn EMFILE"), { code: "EMFILE" }));
+
+            const entry = entries.find((e) => e.message.includes("file watcher process error"));
+            expect(entry?.channel).toBe("files.watcher");
+            expect(entry?.args).toEqual([{ code: "EMFILE", error: "Error: spawn EMFILE" }]);
+        });
+
+        it("exit следом за обработанным error не поднимает второй процесс", () => {
+            const { spawnProcess, spawned } = processFactory();
+            const watcher = new SubprocessTreeWatcher({ spawnProcess });
+            watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+            spawned[0]?.fail(new Error("spawn ENOENT"));
+            // Node не обещает `exit` после `error`, но и не запрещает его.
+            spawned[0]?.die();
+
+            expect(spawned).toHaveLength(2);
+        });
+
+        it("ошибка канала уже снятого процесса не трогает новый и не сорит в лог", () => {
+            const { logService, entries } = createLogService();
+            const { spawnProcess, spawned } = processFactory();
+            const watcher = new SubprocessTreeWatcher({
+                spawnProcess,
+                logger: logService.createLogger("files.watcher"),
+            });
+            watcher.watchTree("/repo", OPTIONS, () => undefined);
+            spawned[0]?.die();
+
+            // Типовой случай: ERR_IPC_CHANNEL_CLOSED от `send` в мёртвый канал
+            // прилетает уже после того, как на замену поднят новый процесс. Про
+            // отказ этого процесса уже всё сказано — второй раз не жалуемся.
+            spawned[0]?.fail(new Error("ERR_IPC_CHANNEL_CLOSED"));
+
+            expect(spawned).toHaveLength(2);
+            expect(entries.filter((e) => e.message.includes("file watcher process error"))).toEqual([]);
+        });
+
+        it("ошибка без errno-кода логируется без падения", () => {
+            const { logService, entries } = createLogService();
+            const { spawnProcess, spawned } = processFactory();
+            const watcher = new SubprocessTreeWatcher({
+                spawnProcess,
+                logger: logService.createLogger("files.watcher"),
+            });
+            watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+            // Контракт шва — `unknown`: разбор ошибки не имеет права упасть сам,
+            // иначе мы вернём ровно то падение редактора, от которого уходим.
+            expect(() => {
+                spawned[0]?.fail(undefined);
+            }).not.toThrow();
+
+            const entry = entries.find((e) => e.message.includes("file watcher process error"));
+            expect(entry?.args).toEqual([{ code: undefined, error: "undefined" }]);
+        });
+
+        it("серия смертей считается ПОДРЯД: прожитый рабочий срок обнуляет счёт", () => {
+            const { spawnProcess, spawned } = processFactory();
+            let clock = 0;
+            const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 1, now: () => clock });
+            watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+            spawned[0]?.die(); // первая смерть — перезапуск (бюджет исчерпан)
+            clock += 60_000; // второй процесс прожил рабочий срок
+            spawned[1]?.die(); // значит это снова «первая» смерть, а не вторая
+            clock += 60_000;
+            spawned[2]?.die();
+
+            expect(spawned).toHaveLength(4);
+        });
+
+        it("смерти в пределах рабочего срока счёт не обнуляют", () => {
+            const { spawnProcess, spawned } = processFactory();
+            let clock = 0;
+            const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 1, now: () => clock });
+            watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+            spawned[0]?.die();
+            clock += 59_999;
+            spawned[1]?.die();
+
+            expect(spawned).toHaveLength(2);
         });
 
         it("опоздавший exit старого процесса не трогает новый", () => {

@@ -143,6 +143,57 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(child.signals).toEqual(["SIGKILL"]);
     });
 
+    // EventEmitter без слушателя `error` бросает прямо из `emit` — поэтому оба
+    // теста ниже падают ровно тогда, когда подписки нет. Это и есть гейт: без
+    // неё `error` всплывает как uncaught exception и убивает РЕДАКТОР, а не
+    // watcher (проверено на node v25: `send` в закрытый канал возвращает `false`
+    // синхронно и эмитит ERR_IPC_CHANNEL_CLOSED позже; неудачный spawn эмитит
+    // ENOENT/EMFILE и `exit` при этом может не прийти вовсе).
+    it("ошибка процесса не всплывает наружу, а ведёт в ту же ветку, что и смерть", () => {
+        const first = new FakeChild();
+        const second = new FakeChild();
+        spawnMock.mockReturnValueOnce(first as never).mockReturnValueOnce(second as never);
+        const watcher = new SubprocessTreeWatcher();
+        watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+        expect(() => first.emit("error", Object.assign(new Error("spawn EMFILE"), { code: "EMFILE" }))).not.toThrow();
+
+        expect(spawnMock).toHaveBeenCalledTimes(2);
+        expect(second.sent).toEqual([{ t: "watch", id: 1, rootPath: "/repo", options: OPTIONS }]);
+    });
+
+    it("вторая ошибка того же канала тоже не всплывает (подписка не one-shot)", () => {
+        const child = new FakeChild();
+        spawnMock.mockReturnValue(child as never);
+        const watcher = new SubprocessTreeWatcher();
+        watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+        child.emit("error", new Error("ERR_IPC_CHANNEL_CLOSED"));
+
+        // Закрытый канал эмитит ошибку на КАЖДЫЙ `send`, а не однажды.
+        expect(() => child.emit("error", new Error("ERR_IPC_CHANNEL_CLOSED"))).not.toThrow();
+    });
+
+    it("сломавшийся stderr-поток не всплывает наружу", () => {
+        const { logService, entries } = createLogService();
+        const child = new FakeChild();
+        spawnMock.mockReturnValue(child as never);
+        const watcher = new SubprocessTreeWatcher({ logger: logService.createLogger("files.watcher") });
+        watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+        expect(() => child.stderr?.emit("error", new Error("EPIPE"))).not.toThrow();
+        expect(entries.at(-1)?.message).toContain("stderr stream error");
+    });
+
+    it("сломавшийся stderr-поток без логгера тоже не всплывает", () => {
+        const child = new FakeChild();
+        spawnMock.mockReturnValue(child as never);
+        const watcher = new SubprocessTreeWatcher();
+        watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+        expect(() => child.stderr?.emit("error", new Error("EPIPE"))).not.toThrow();
+    });
+
     it("отправка в закрытый канал не выпускает исключение наружу", () => {
         const child = new FakeChild(true);
         spawnMock.mockReturnValue(child as never);
