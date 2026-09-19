@@ -9,8 +9,6 @@
 		"ghcr.io/devcontainers/features/node:1": {
 			"version": "25"
 		},
-		// claude нужен не для удобства: agents.sh запускает агентов как окна tmux
-		// с интерактивным claude внутри, без него подсистема агентов не работает.
 		"ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
 	},
 	"customizations": {

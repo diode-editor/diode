@@ -16,8 +16,7 @@ export NVM_DIR=/usr/local/share/nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 sudo apt-get update
-# tmux — не удобство, а зависимость agents.sh: там агент это буквально окно tmux,
-#   потому что ни cron, ни systemd в devcontainer недоступны.
+# tmux — рабочая оболочка для TUI: держит длинные сессии редактора и панели рядом с ним.
 # ncurses-term — полная terminfo-запись; без неё TUI внутри tmux разъезжаются.
 # build-essential и python3 — node-gyp. Под node 25 готовых сборок нативных
 #   модулей (node-pty) ещё нет, они компилируются из исходников.

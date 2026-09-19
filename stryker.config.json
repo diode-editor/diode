@@ -21,7 +21,6 @@
     ".stryker-tmp",
     "screenshots",
     "extensions/*/out",
-    ".agents-runs",
     ".git"
   ]
 }
