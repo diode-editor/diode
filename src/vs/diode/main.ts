@@ -72,10 +72,12 @@ import { createProductionContainer } from "./modules/productionProfile.ts";
 import { runAsNode } from "./runAsNode.ts";
 
 // ── Subprocess branch ─────────────────────────────────────
-// Если мы — форк самого себя в служебной роли, уходим в её entry до любых
-// TUI/CLI инициализаций. Ролей две, у каждой свой env-флаг, который выставляет
-// спавнящая сторона: DIODE_EXTENSION_HOST=1 (`ExtensionHost.ensureSubprocess()`)
-// и DIODE_FILE_WATCHER=1 (`SubprocessTreeWatcher`, обход дерева).
+// Если нас запустили не редактором, а в служебной роли, уходим в её entry до
+// любых TUI/CLI инициализаций. Роль выбирает env-флаг спавнящей стороны; форком
+// самого себя редактор поднимает две: DIODE_EXTENSION_HOST=1
+// (`ExtensionHost.ensureSubprocess()`) и DIODE_FILE_WATCHER=1
+// (`SubprocessTreeWatcher`, обход дерева). Полная таблица ролей — в
+// docs/ARCHITECTURE.md, раздел «Роли процессов».
 //
 // Node-режим проверяется РАНЬШЕ обеих: language-сервер, запущенный нашим
 // бинарём, не имеет IPC-канала (subprocess-entry умер бы с exit 2), а флаг роли
