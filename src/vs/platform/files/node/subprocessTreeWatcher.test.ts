@@ -80,8 +80,9 @@ describe("SubprocessTreeWatcher", () => {
     });
 
     it("первый watchTree поднимает процесс и отправляет туда запрос", () => {
+        const { logService, entries } = createLogService();
         const { spawnProcess, spawned } = processFactory();
-        const watcher = new SubprocessTreeWatcher({ spawnProcess });
+        const watcher = new SubprocessTreeWatcher({ spawnProcess, logger: logService.createLogger("files.watcher") });
 
         watcher.watchTree("/repo", { recursive: true, excludes: ["**/node_modules"] }, () => undefined);
 
@@ -89,6 +90,8 @@ describe("SubprocessTreeWatcher", () => {
         expect(spawned[0]?.sent).toEqual([
             { t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: ["**/node_modules"] } },
         ]);
+        // Подъём процесса виден в логе: иначе «почему их два» разбирать нечем.
+        expect(entries.map((e) => e.message)).toContain("spawning file watcher process");
     });
 
     it("второй запрос едет в тот же процесс со своим id", () => {
@@ -292,6 +295,7 @@ describe("SubprocessTreeWatcher", () => {
             const entry = entries.at(-1);
             expect(entry?.level).toBe(LogLevel.Error);
             expect(entry?.message).toContain("file watching is disabled");
+            expect(entry?.args).toEqual([{ restarts: 2, requests: 1 }]);
         });
 
         it("после отказа новые запросы процесс уже не поднимают", () => {
@@ -305,6 +309,20 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned).toHaveLength(1);
         });
 
+        it("отписка без живого процесса не падает", () => {
+            const { spawnProcess, spawned } = processFactory();
+            const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 0 });
+            watcher.watchTree("/repo", OPTIONS, () => undefined);
+            spawned[0]?.die();
+            // Процесса больше нет, а запрос жив — его владелец всё равно однажды
+            // отпустит подписку (расширение деактивировалось, редактор закрылся).
+            const orphan = watcher.watchTree("/other", OPTIONS, () => undefined);
+
+            expect(() => {
+                orphan.dispose();
+            }).not.toThrow();
+        });
+
         it("перезапуск пишет предупреждение — потерянные за это время события видны в логе", () => {
             const { logService, entries } = createLogService();
             const { spawnProcess, spawned } = processFactory();
@@ -316,7 +334,9 @@ describe("SubprocessTreeWatcher", () => {
 
             spawned[0]?.die();
 
-            expect(entries.some((e) => e.level === LogLevel.Warn && e.message.includes("restarting"))).toBe(true);
+            const entry = entries.find((e) => e.level === LogLevel.Warn && e.message.includes("restarting"));
+            expect(entry).toBeDefined();
+            expect(entry?.args).toEqual([{ restart: 1, requests: 1 }]);
         });
 
         it("опоздавший exit старого процесса не трогает новый", () => {
@@ -350,6 +370,20 @@ describe("SubprocessTreeWatcher", () => {
             watcher.dispose();
 
             expect(spawned).toHaveLength(1);
+        });
+
+        it("пачка, пришедшая после dispose, до подписчика не доезжает", () => {
+            const { spawnProcess, spawned } = processFactory();
+            const watcher = new SubprocessTreeWatcher({ spawnProcess });
+            const seen: ITreeFileChange[][] = [];
+            watcher.watchTree("/repo", OPTIONS, (changes) => seen.push([...changes]));
+
+            watcher.dispose();
+            // Убитый ребёнок мог успеть положить пачку в канал — владелец окна
+            // уже попрощался, доставлять её некуда.
+            spawned[0]?.emit({ t: "changes", id: 1, changes: CHANGES });
+
+            expect(seen).toEqual([]);
         });
 
         it("без поднятого процесса dispose — no-op", () => {

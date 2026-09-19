@@ -50,6 +50,11 @@ describe("parseTreeWatcherRequest", () => {
         ["без id", { t: "watch", rootPath: "/repo", options: { recursive: true, excludes: [] } }],
         ["id не число", { t: "watch", id: "7", rootPath: "/repo", options: { recursive: true, excludes: [] } }],
         ["неизвестный тип", { t: "sniff", id: 1 }],
+        // Дискриминант читается по-настоящему: во всём остальном это валидный watch.
+        [
+            "чужой тип при валидных полях watch",
+            { t: "sniff", id: 1, rootPath: "/repo", options: { recursive: true, excludes: [] } },
+        ],
         ["без rootPath", { t: "watch", id: 1, options: { recursive: true, excludes: [] } }],
         ["без options", { t: "watch", id: 1, rootPath: "/repo" }],
         ["options не объект", { t: "watch", id: 1, rootPath: "/repo", options: 42 }],
@@ -85,10 +90,21 @@ describe("parseTreeWatcherResponse", () => {
         ).toEqual({ t: "log", level: "warn", message: "tree watcher error", args: [{ code: "ENOSPC" }] });
     });
 
+    it.each(["trace", "debug", "info", "warn", "error"])("разбирает уровень %s", (level) => {
+        expect(parseTreeWatcherResponse({ t: "log", level, message: "hi", args: [] })).toEqual({
+            t: "log",
+            level,
+            message: "hi",
+            args: [],
+        });
+    });
+
     it.each([
         ["не объект", 12],
         ["null", null],
         ["неизвестный тип", { t: "hello" }],
+        // Во всём остальном это валидный log — отсеивает именно дискриминант.
+        ["чужой тип при валидных полях log", { t: "hello", level: "warn", message: "hi", args: [] }],
         ["changes без id", { t: "changes", changes: [] }],
         ["changes не массив", { t: "changes", id: 1, changes: "a.ts" }],
         ["log без уровня", { t: "log", message: "hi", args: [] }],

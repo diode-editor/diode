@@ -20,11 +20,23 @@ const spawnMock = vi.mocked(spawn);
 class FakeChild extends EventEmitter {
     public readonly sent: unknown[] = [];
     public readonly signals: string[] = [];
-    public readonly stderr = new EventEmitter() as EventEmitter & { setEncoding: (enc: string) => void };
+    public encoding: string | null = null;
+    public readonly stderr: (EventEmitter & { setEncoding: (enc: string) => void }) | null;
 
-    public constructor(public readonly sendThrows = false) {
+    public constructor(
+        public readonly sendThrows = false,
+        withStderr = true,
+    ) {
         super();
-        this.stderr.setEncoding = () => undefined;
+        if (!withStderr) {
+            this.stderr = null;
+            return;
+        }
+        const stderr = new EventEmitter() as EventEmitter & { setEncoding: (enc: string) => void };
+        stderr.setEncoding = (enc: string): void => {
+            this.encoding = enc;
+        };
+        this.stderr = stderr;
     }
 
     public send(message: unknown): boolean {
@@ -146,11 +158,42 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         const watcher = new SubprocessTreeWatcher({ logger: logService.createLogger("files.watcher") });
         watcher.watchTree("/repo", OPTIONS, () => undefined);
 
-        child.stderr.emit("data", "TypeError: boom\n");
+        child.stderr?.emit("data", "TypeError: boom\n");
 
         const entry = entries.at(-1);
         expect(entry?.channel).toBe("files.watcher");
         expect(entry?.level).toBe(LogLevel.Warn);
-        expect(entry?.message).toContain("TypeError: boom");
+        // Дословно: перевод строки в конце — дело лог-канала, а не записи.
+        expect(entry?.message).toBe("[file-watcher] TypeError: boom");
+    });
+
+    it("stderr читается текстом, а не буфером", () => {
+        const child = new FakeChild();
+        spawnMock.mockReturnValue(child as never);
+        const watcher = new SubprocessTreeWatcher();
+
+        watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+        expect(child.encoding).toBe("utf8");
+    });
+
+    it("stderr без логгера никуда не пишется и не падает", () => {
+        const child = new FakeChild();
+        spawnMock.mockReturnValue(child as never);
+        const watcher = new SubprocessTreeWatcher();
+        watcher.watchTree("/repo", OPTIONS, () => undefined);
+
+        expect(() => child.stderr?.emit("data", "TypeError: boom\n")).not.toThrow();
+    });
+
+    it("ребёнок без stderr-потока не ломает подъём процесса", () => {
+        // `stderr` у ChildProcess по типу может быть `null` (stdio `"ignore"`);
+        // спавн не должен зависеть от того, попросили мы пайп или нет.
+        const child = new FakeChild(false, false);
+        spawnMock.mockReturnValue(child as never);
+        const watcher = new SubprocessTreeWatcher();
+
+        expect(() => watcher.watchTree("/repo", OPTIONS, () => undefined)).not.toThrow();
+        expect(child.sent).toHaveLength(1);
     });
 });

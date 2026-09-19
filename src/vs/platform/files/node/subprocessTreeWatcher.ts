@@ -120,8 +120,10 @@ export class SubprocessTreeWatcher implements ITreeFileWatcher {
      * подписками нового.
      */
     public dispose(): void {
-        if (this.disposed) return;
         this.disposed = true;
+        // Запросы снимаем, а не оставляем: убитый ребёнок мог успеть положить в
+        // канал пачку, и без этого она доехала бы до подписчика уже после того,
+        // как владелец окна попрощался.
         this.requests.clear();
         this.child?.kill();
         this.child = null;
@@ -131,6 +133,11 @@ export class SubprocessTreeWatcher implements ITreeFileWatcher {
     private ensureProcess(): IWatcherProcess | null {
         if (this.child !== null) return this.child;
         if (this.disposed || this.gaveUp) return null;
+        return this.startProcess();
+    }
+
+    /** Безусловно поднимает новый процесс и подписывается на него. */
+    private startProcess(): IWatcherProcess {
         this.logger?.debug("spawning file watcher process");
         const child = this.spawnProcess();
         child.onMessage((message) => {
@@ -178,14 +185,18 @@ export class SubprocessTreeWatcher implements ITreeFileWatcher {
             restart: this.restarts,
             requests: this.requests.size,
         });
-        const restarted = this.ensureProcess();
+        // Именно startProcess: «поднять, если надо» здесь не подходит — живого
+        // процесса заведомо нет, а отказ от подъёма разобран выше.
+        const restarted = this.startProcess();
         for (const [id, request] of this.requests) {
-            restarted?.send({ t: "watch", id, rootPath: request.rootPath, options: request.options });
+            restarted.send({ t: "watch", id, rootPath: request.rootPath, options: request.options });
         }
     }
 }
 
 /** Токен концентрирует владение процессом: `main.ts` гасит его при reload окна. */
+// Stryker disable next-line StringLiteral: id токена — только имя в диагностике контейнера
+// («No binding for …», цикл зависимостей); на разрешение биндинга влияет идентичность объекта.
 export const SubprocessTreeWatcherDIToken = token<SubprocessTreeWatcher>("SubprocessTreeWatcher");
 
 /**
@@ -202,10 +213,18 @@ function spawnWatcherProcess(logger: ILogger | undefined): IWatcherProcess {
         stdio: ["ignore", "ignore", "pipe", "ipc"],
         env: { ...process.env, DIODE_FILE_WATCHER: "1" },
     });
-    child.stderr?.setEncoding("utf8");
-    child.stderr?.on("data", (chunk: string) => {
-        logger?.warn(`[file-watcher] ${chunk.trimEnd()}`);
-    });
+    // `stderr` — поток только при нашем `"pipe"`; тип допускает и `null`
+    // (`"ignore"` у других вызывающих), поэтому проверка, а не `?.` на каждой строке.
+    const { stderr } = child;
+    if (stderr !== null) {
+        // Без явной кодировки в обработчик приезжает Buffer, и строковые операции
+        // над ним молча дают не то.
+        stderr.setEncoding("utf8");
+        stderr.on("data", (chunk: string) => {
+            // Ребёнок пишет строками с `\n`; лог-канал сам разделяет записи.
+            logger?.warn(`[file-watcher] ${chunk.trimEnd()}`);
+        });
+    }
     return {
         send: (message) => {
             // Канал мог закрыться между проверкой и отправкой — молча: смерть

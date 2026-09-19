@@ -43,7 +43,9 @@ export type ITreeWatcherResponse =
           readonly args: readonly unknown[];
       };
 
-const LOG_LEVELS = new Set<string>(["trace", "debug", "info", "warn", "error"]);
+// `Set<unknown>`, а не `Set<string>`: тогда не-строка отсеивается самим `has`,
+// и отдельная проверка типа не нужна.
+const LOG_LEVELS = new Set<unknown>(["trace", "debug", "info", "warn", "error"]);
 
 /** Разбирает сообщение редактора; `null` — не наше сообщение. */
 export function parseTreeWatcherRequest(raw: unknown): ITreeWatcherRequest | null {
@@ -70,7 +72,7 @@ export function parseTreeWatcherResponse(raw: unknown): ITreeWatcherResponse | n
         return { t: "changes", id: message.id, changes: message.changes as readonly ITreeFileChange[] };
     }
     if (message.t !== "log") return null;
-    if (typeof message.level !== "string" || !LOG_LEVELS.has(message.level)) return null;
+    if (!LOG_LEVELS.has(message.level)) return null;
     if (typeof message.message !== "string" || !Array.isArray(message.args)) return null;
     return {
         t: "log",
@@ -80,6 +82,11 @@ export function parseTreeWatcherResponse(raw: unknown): ITreeWatcherResponse | n
     };
 }
 
+/**
+ * `raw` как объект с полями, либо `null`. Отдельной проверки на `null` нет
+ * намеренно: `typeof null === "object"`, но полей у него нет — и вернуть его
+ * как «нет объекта» это ровно то же самое `null`.
+ */
 function asRecord(raw: unknown): Record<string, unknown> | null {
-    return typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : null;
+    return typeof raw === "object" ? (raw as Record<string, unknown> | null) : null;
 }

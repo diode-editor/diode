@@ -73,6 +73,13 @@ const EXCLUDED = [
     // смоук build-sea, e2e lspBundled/eslintLsp) — покрытие в __stryker__ не
     // возвращают; из покрытия vitest файл исключён по той же причине.
     /^src\/vs\/diode\/runAsNode(\.testEntry)?\.ts$/,
+    // Тот же процессный барьер: точка входа watcher-процесса исполняется ТОЛЬКО
+    // в форке (DIODE_FILE_WATCHER), `globalThis.__stryker__` туда не проходит —
+    // все мутанты выходят «не покрыты». Гейт у неё — child-process
+    // (treeWatcherMain.integration.test.ts: правка файла на диске доезжает до
+    // колбэка в процессе редактора) и e2e; из покрытия vitest файл исключён по
+    // той же причине.
+    /^src\/vs\/platform\/files\/node\/treeWatcherMain(\.testEntry)?\.ts$/,
     // Точка входа приложения: разбор CLI, бутстрап DI и подъём TUI. Юнит-тестов
     // у неё нет по устройству — она же исключена из покрытия в vitest.config.ts,
     // — поэтому все её мутанты выходят «не покрыты ни одним тестом» и убить их
