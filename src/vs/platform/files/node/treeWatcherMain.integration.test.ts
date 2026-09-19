@@ -151,6 +151,23 @@ describe("watcher-процесс — сквозной прогон", () => {
     );
 
     it(
+        "роль не протекает дальше: внутри процесса DIODE_FILE_WATCHER снят, режим — node",
+        async () => {
+            // Калька с `extensionHost.fork.test.ts`: флаг роли наследуется через
+            // spawn, и не снятый здесь увёл бы любой запущенный рядом процесс
+            // (под SEA это наш же бинарь) в watcher-ветку вместо его работы.
+            const { watcher, root, entries } = setup();
+            watcher.watchTree(root, { recursive: true, excludes: [] }, () => undefined);
+
+            await until(() => entries.some((entry) => entry.message.includes("test-entry env")));
+
+            const report = entries.find((entry) => entry.message.includes("test-entry env"))?.args.at(0);
+            expect(report).toEqual({ fileWatcher: null, runAsNode: "1" });
+        },
+        TIMEOUT_MS,
+    );
+
+    it(
         "закрытый IPC-канал уводит watcher-процесс в exit — сироты с подписками не остаётся",
         async () => {
             // Здесь нужен сам ChildProcess, а не шов хоста: закрытие канала без
