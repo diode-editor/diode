@@ -1,11 +1,11 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { createRequire } from "node:module";
 import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
@@ -1817,31 +1817,12 @@ function parseCommandId(raw: unknown): string | null {
     return typeof obj.id === "string" && obj.id !== "" ? obj.id : null;
 }
 
-function defaultSpawnArgs(): { command: string; args: string[] } {
-    if (detectIsSea()) {
-        // В SEA-режиме сам бинарь = `process.execPath`; main script отсутствует.
-        return { command: process.execPath, args: [] };
-    }
-    const mainScript = process.argv[1];
-    if (typeof mainScript !== "string" || mainScript === "") {
-        throw new Error("ExtensionHost: cannot determine main script for dev subprocess");
-    }
-    return { command: process.execPath, args: [...process.execArgv, mainScript] };
-}
-
 /**
- * `node:sea` доступен только через `require()` внутри SEA-сборки — статический
- * ESM-импорт падает с `ERR_UNKNOWN_BUILTIN_MODULE` даже в работающем SEA exe.
- * См. `Common/Assets/createDefaultAssetAccess.ts` за тот же паттерн.
+ * Как запустить себя же ext-host'ом. Развилка dev/SEA общая с watcher-процессом
+ * и с перезагрузкой окна — живёт в `base/node/selfSpawnArgs.ts`.
  */
-function detectIsSea(): boolean {
-    try {
-        const req = createRequire("file:///");
-        const sea = req("node:sea") as { isSea(): boolean };
-        return sea.isSea();
-    } catch {
-        return false;
-    }
+function defaultSpawnArgs(): { command: string; args: string[] } {
+    return selfSpawnArgs();
 }
 
 function waitForReady(rpc: RpcEndpoint, child: ChildProcess, timeoutMs: number): Promise<void> {

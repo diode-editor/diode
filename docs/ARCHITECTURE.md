@@ -47,7 +47,7 @@ upstream, где они в `test/`-деревьях; оси на тесты не
 |---|---|---|---|
 | `@tuidom/*` (npm: core, elements, terminal-backend, headless-backend, inspector, testing) | TUIDom (+Widgets) + Rendering + Input + Backend + Inspector | «браузер»: DOM-ядро (`dom/`: дерево элементов, события, фокус, стили), **виджеты `ui/<widget>/`** (кнопка = «HTMLElement»; vscode-имена: scrollbar, list, tree, inputbox, menu, contextview, selectbox, editorpart (полоса групп редакторов: веса + саши)…; критерий: виджет живёт там ⇔ его публичный API не упоминает понятий Diode, иначе — компонент в `vs/workbench/browser/parts/*`), `rendering/`, `input/`, `backend/`, `inspector/` (devtools), `common/` (геометрия, `Disposable`, `DisplayLine`/Unicode, packed-цвета, `iTerminalSurface`), `testing/` (тест-харнесс). **Вынесен в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom)**, ставится из npm | [доки tuidom](https://github.com/tuidom/tuidom/tree/main/docs): LAYOUT.md, STYLES.md, arch/ |
 | `vs/base/common/` | Common | примитивы diode: `Uri` (адаптер `vscode-uri`), fuzzy, `fileIcons`, ассеты (`assets/`); плюс узкие **шимы** upstream-утилит под перенесённый diff-движок (`arrays`, `arraysFind`, `assert`, `errors`, `map`, `strings`, `equals`, `charCode`) | [arch/Common.md](arch/Common.md) |
-| `vs/base/node/` | Common (node-часть) | SEA/`isSea`, fs-доступ к ассетам | [arch/Common.md](arch/Common.md) |
+| `vs/base/node/` | Common (node-часть) | SEA/`isSea`, fs-доступ к ассетам, перезапуск процесса (`restartProcess`) и аргументы форка самого себя (`selfSpawnArgs`) | [arch/Common.md](arch/Common.md) |
 | `vs/platform/` | размазан (Common/Configuration/Theme/Editor/Workbench) | сервисы ниже editor: `instantiation` (наш DI), `log`, `configuration` (+`ConfigurationRegistry`), `state`, `markers`, `undoRedo`, `commands`, `contextkey`, `keybinding`, `actions` (`MenuRegistry`/`MenuId`), `progress` (`ProgressService` — модель прогресса и общий такт спиннеров), `contextview` (`ContextMenuService` — делегаты контекстных меню поверх tuidom-механики), `theme` (определения цветов + мост `defaultStyles`), `clipboard`, `files`, `environment`, `extensions`, `extensionManagement` | [arch/Theme.md](arch/Theme.md), [arch/Configuration.md](arch/Configuration.md), [arch/State.md](arch/State.md) |
 | `vs/editor/` | Editor | `common/{core,model,viewModel,languages,tokens}` — текстовая модель, view-state, токенизация; `common/diff` — **дословно перенесённый** из upstream алгоритм построчного диффа (см. ниже); `browser/` — `editorElement` (виджет-мост; view zones + внешние декорации рисуют и дифф v2); `common/diff/diffV2Layout` — раскладка живого диффа (зоны/фолды/декорации сторон); `contrib/{find,folding}` — модельные части фич | [arch/Editor.md](arch/Editor.md), [TODO/Diff.md](TODO/Diff.md) |
 | `vs/workbench/` | Workbench (+куски Editor/Extensions/Theme) | `browser/` (Component/ThemedComponent, `workbenchComponent`, `parts/*`: editor/statusbar/panel/sidebar/views/dialogs/quickinput, `actions/`), `services/*` (themes, textMate, textfile, language, search, extensions, editor, history, layout, lifecycle, keybinding, dialogs, statusbar, output, terminalEnvironment), `contrib/<фича>/` (files, markers, output, quickaccess, find, search, suggest, gotoDefinition, terminal, themes, preferences, bulkEdit), `api/` (extension host: extHost-неймспейсы, адаптеры, RPC), `common/` (contributions-реестр, `CoreTokens`, configuration-узлы) | [arch/Workbench.md](arch/Workbench.md), [arch/Extensions.md](arch/Extensions.md) |
@@ -59,18 +59,60 @@ upstream, где они в `test/`-деревьях; оси на тесты не
 ## Правила зависимостей
 
 Формальную проверку обеих осей делает `npm run valid-layers-check`; признанные
-отступления перечислены в `EXCEPTIONS` внутри `scripts/check-layers.mjs` (наша
-single-process природа: «browser»-сторона зовёт node-сервисы напрямую, без
-RPC-мостов vscode). Смысловые правила поверх осей:
+отступления перечислены в `EXCEPTIONS` внутри `scripts/check-layers.mjs` (у нас
+один процесс рисует и держит модель: «browser»-сторона зовёт node-сервисы
+напрямую, без RPC-мостов vscode — субпроцессы есть, но в них уезжает работа, а
+не UI, см. «Роли процессов»). Смысловые правила поверх осей:
 
 - **`base/common` не импортирует ничего из проекта** (внешние leaf-зависимости — по политике из [GOAL.md](../GOAL.md); так здесь живёт `uri` на `vscode-uri`).
 - **Адресация ресурсов** — любой ресурс, который пользователь открывает как буфер или дифф, адресуется `vs/base/common/uri.ts`; путь — производное (`uri.fsPath` при `scheme === "file"`). Подъём строки в `Uri` — в одной точке на слой, с `path.resolve` вплотную перед `Uri.file`. Детали → [arch/Common.md](arch/Common.md#uri).
 - **Недисковые ресурсы** — читаются через `IFileSystemProviderRegistry` (`platform/files/common`): схема → read-only поставщик. Поставщиков даёт extension host (расширение регистрирует `workspace.registerFileSystemProvider`; встроенный git — схему `git:` с версией файла из ревизии), связывает их с реестром `api/browser/fileSystemProviderAdapter.ts`. Схему `file` реестр не обслуживает — файлы на диске читает `TextFileModel` напрямую.
-- **Слежение за файлами** — два примитива в `platform/files/common`: `IFileWatcher` (один файл — открытые буферы, `settings.json`) и `ITreeFileWatcher` (дерево каталогов — `workspace.createFileSystemWatcher` расширений и встроенный git). Обход и бюджет inotify — забота ядра: excludes берутся из `files.watcherExclude`, а расширению через границу процесса уезжают только события, подошедшие его glob-шаблону (матчит host, см. `extensionHost.ts`). Реализации на chokidar — в `platform/files/node`; там же `SharedTreeWatcher` — декоратор над `ITreeFileWatcher`, который подписывает запрос на уже живой рекурсивный обход вместо нового (запросы git'а и LSP-клиентов на пересекающиеся поддеревья иначе множат обход и бюджет inotify на своё число).
+- **Слежение за файлами** — два примитива в `platform/files/common`: `IFileWatcher` (один файл — открытые буферы, `settings.json`) и `ITreeFileWatcher` (дерево каталогов — `workspace.createFileSystemWatcher` расширений и встроенный git). Обход и бюджет inotify — забота ядра: excludes берутся из `files.watcherExclude`, а расширению через границу процесса уезжают только события, подошедшие его glob-шаблону (матчит host, см. `extensionHost.ts`). **`ITreeFileWatcher` — граница процесса** (третья роль процесса рядом с extension host'ом и node-режимом, см. «Роли процессов» ниже): в процессе редактора живёт прокси `SubprocessTreeWatcher` (`platform/files/node`), обход и подписка — в форке самого себя (`treeWatcherMain.ts`, роль `DIODE_FILE_WATCHER=1`). За границей — `SharedTreeWatcher` поверх `ChokidarTreeWatcher`: декоратор, подписывающий запрос на уже живой рекурсивный обход вместо нового (запросы git'а и LSP-клиентов на пересекающиеся поддеревья иначе множат обход и бюджет inotify на своё число). Коалесинг тоже за границей — через IPC едут пачки, а не отдельные события. `IFileWatcher` (пофайловый) остаётся в процессе редактора: это один inotify-watch на открытый буфер, обхода за ним нет.
 - **Editor не зависит от темизации и расширений** — связь через интерфейсы `ITokenStyleResolver`/`ILanguageService` (`vs/editor/common/languages/`); их реализуют `workbench/services/themes` и `workbench/services/extensions`.
 - **Extension host** (`vs/workbench/api/`) — единственное место, где расширения поднимаются к workbench-сервисам: адаптеры (`*Adapter` ≈ `mainThread*`) типизированы минимальными портами и связываются в DI.
 - **Editor-фичи** могут жить в `editor/contrib` с собственными токенами и `static dependencies` на platform-сервисы (пилот — `editor/contrib/contextmenu`). В `workbench/contrib` остаётся то, что реально зависит от workbench-сервисов: find/suggest/hover/parameterHints сидят на `EditorService` (группы/вкладки, швы языковых источников) — их переезд требует развязки, см. [TODO/VscodeStructureFollowUps.md](TODO/VscodeStructureFollowUps.md).
 - **Inspector** (`@tuidom/inspector/*`) зависит только от tuidom; транспорт — рукописный WebSocket на `node:http`; write/capture-порт `InspectorDriver` — интерфейс, адаптер даёт `diode`-слой.
+
+### Роли процессов: форк самого себя
+
+Редактор однопоточный и рисует из главного event loop'а, поэтому всё, что
+способно занять этот loop надолго, живёт в **своём процессе**. Процессов у нас
+не несколько разных программ, а один бинарь в разных ролях: роль выбирается
+env-флагом, который выставляет спавнящая сторона, а развилку по флагам держит
+`vs/diode/main.ts` — до любых TUI/CLI инициализаций.
+
+| Роль | Флаг | Entry | Что там |
+|---|---|---|---|
+| редактор | — | `runEditor()` | TUI, модель, сервисы |
+| node | `DIODE_RUN_AS_NODE=1` | `runAsNode.ts` | нас запустили как `node` (language-серверы, резолверы расширений) |
+| extension host | `DIODE_EXTENSION_HOST=1` | `extensionHostSubprocess.ts` | код расширений |
+| watcher | `DIODE_FILE_WATCHER=1` | `platform/files/node/treeWatcherMain.ts` | обход дерева и подписка на файловые события |
+
+Правила, общие для всех ролей (нарушение каждого — уже пойманный баг):
+
+- **Node-режим проверяется первым.** Флаг роли наследуется через `spawn`, а
+  запущенный нашим бинарём language-сервер IPC-канала не имеет и в чужой ветке
+  умер бы с `exit 2`.
+- **Роль не протекает дальше.** Войдя в свою ветку, процесс снимает свой флаг и
+  ставит `DIODE_RUN_AS_NODE=1`: любой его потомок работает как node.
+- **Аргументы запуска — одни на всех.** Развилка dev (`node <execArgv> <главный
+  скрипт>`) против SEA (сам `execPath`) живёт в `base/node/selfSpawnArgs.ts`;
+  та же арифметика с пользовательскими аргументами на хвосте — `restartArgs`
+  в `restartProcess.ts`.
+- **Никаких сирот.** Ребёнок уходит по закрытию IPC-канала (смерть редактора —
+  в том числе аварийная), а перезагрузка окна снимает его синхронно:
+  `restartProcess` превращает текущий процесс в супервизор, блокирующийся в
+  `spawnSync`, — канал остался бы открытым, и ребёнок пережил бы своё окно.
+- **stdout ребёнку закрыт.** Терминал общий с редактором; диагностика едет
+  своим протоколом (или stderr → лог-канал), а не печатью в кадр.
+- **`error` на `ChildProcess` слушать обязательно.** У EventEmitter'а
+  необработанное `error` — это не запись в лог, а исключение, то есть смерть
+  **редактора** из-за отказа субпроцесса. Путей два, и `try/catch` не закрывает
+  ни один: `send()` в закрытый канал возвращает `false` синхронно, а
+  `ERR_IPC_CHANNEL_CLOSED` эмитит событием позже; неудачный спавн
+  (`EMFILE`/`EAGAIN` под нагрузкой, `ENOENT` у битой установки) эмитит `error`,
+  причём `exit` после него может не прийти вовсе — значит и состояние ребёнка
+  нельзя вести по одному `exit`. То же и для его stdio-потоков.
 
 ### Дословный перенос upstream: `editor/common/diff`
 
