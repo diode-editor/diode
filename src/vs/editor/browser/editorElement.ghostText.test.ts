@@ -109,6 +109,15 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getFgAt(new Point(gutterW + 2, 0))).toBe(GHOST_FG);
     });
 
+    it("строки подсказки в документе нет — кадр рисуется без неё и без падения", () => {
+        // Строка исчезла под показанной подсказкой (или её поставили мимо):
+        // адресовать фантом не к чему — кадр просто рисует документ.
+        for (const line of [-1, 5]) {
+            const { app, editor } = createEditor("ab", { line, character: 0, lines: ["ZZ"] });
+            expect(app.backend.getTextAt(new Point(editor.gutterWidth, 0), 4)).toBe("ab  ");
+        }
+    });
+
     it("каретка в середине строки — хвост строки уезжает вправо (см. ghostTextMidLine)", () => {
         const { app, editor } = createEditor("ab", { line: 0, character: 1, lines: ["ZZ"] });
 
