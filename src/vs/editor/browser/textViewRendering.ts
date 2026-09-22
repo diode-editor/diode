@@ -40,6 +40,87 @@ export interface ITextViewportGeometry {
     viewLineCount: number;
     contentCols: number;
     gutterW: number;
+    /** Фантомные колонки кадра ({@link ILinePhantom}); `null` — фантома нет. */
+    phantom: ILinePhantom | null;
+}
+
+/**
+ * Фантомные колонки, вклеенные в layout ОДНОЙ строки, — аналог injected-text
+ * декораций upstream: текст, которого нет в документе, занимает колонки внутри
+ * строки, и её хвост уезжает вправо. Носитель — ghost text инлайн-подсказки,
+ * стоящей в середине строки.
+ *
+ * Один объект на кадр: и отрисовка строки, и overlay-проходы (фоны диапазонов,
+ * волны диагностик, каретки, hit-test) считают колонки по ОДНОЙ композитной
+ * строке ({@link composedLineContent}), поэтому подсветка хвоста не разъезжается
+ * с самим хвостом.
+ */
+export interface ILinePhantom {
+    /** Документная строка, в чью отрисовку вставлены колонки. */
+    readonly line: number;
+    /** Документный offset, ПЕРЕД которым стоят фантомные колонки. */
+    readonly offset: number;
+    /** Текст фантомных колонок (первая строка подсказки). */
+    readonly text: string;
+}
+
+/**
+ * Текст строки с вклеенным фантомом — по нему строится `DisplayLine`, поэтому
+ * табы и широкие символы фантома занимают колонки от НАЧАЛА строки, как
+ * настоящий текст. Строки без фантома отдаются как есть.
+ */
+export function composedLineContent(phantom: ILinePhantom | null, line: number, lineContent: string): string {
+    if (phantom?.line !== line) return lineContent;
+    return lineContent.slice(0, phantom.offset) + phantom.text + lineContent.slice(phantom.offset);
+}
+
+/**
+ * Документный offset СИМВОЛА → offset в композитной строке: символ, стоявший на
+ * точке вставки, уехал вправо на длину фантома вместе со всем хвостом. Этой
+ * математикой считают колонки отрисовка строки, подсветки диапазонов и hit-test —
+ * то есть всё, что должно совпасть с картинкой.
+ */
+export function composedOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
+    if (phantom?.line !== line || offset < phantom.offset) return offset;
+    return offset + phantom.text.length;
+}
+
+/**
+ * Документный offset ТОЧКИ ВСТАВКИ (каретка) → offset в композитной строке:
+ * отличается от {@link composedOffset} ровно на самой точке вставки — каретка
+ * обязана остаться СЛЕВА от подсказки (affinity injected-text у upstream), иначе
+ * она уехала бы в конец фантома.
+ */
+export function composedCaretOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
+    if (phantom?.line !== line || offset <= phantom.offset) return offset;
+    return offset + phantom.text.length;
+}
+
+/**
+ * Обратное отображение для hit-test: offset в композитной строке → документный.
+ * Клик по самим фантомным колонкам отдаёт точку вставки — щёлкнуть «внутрь»
+ * текста, которого нет в буфере, нельзя.
+ */
+export function documentOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
+    if (phantom?.line !== line || offset <= phantom.offset) return offset;
+    return Math.max(phantom.offset, offset - phantom.text.length);
+}
+
+/**
+ * Дисплейная колонка начала фрагмента ряда — то же, что
+ * {@link EditorViewState.viewLineStartColumn}, но посчитанная по УЖЕ построенной
+ * композитной строке: фантомные колонки учтены, и строка не сегментируется
+ * второй раз.
+ */
+function fragmentStartColumn(
+    viewState: EditorViewState,
+    displayLine: DisplayLine,
+    phantom: ILinePhantom | null,
+    line: number,
+    viewLine: number,
+): number {
+    const start = viewState.viewLineRange(viewLine).start;
+    return displayLine.offsetToColumn(composedOffset(phantom, line, start));
 }
 
 /**
@@ -62,7 +143,10 @@ export function forEachRangeCell(
         if (logLine < range.start.line || logLine > range.end.line) continue;
 
         const lineContent = viewState.getViewLine(viewLine);
-        const dl = viewState.displayLineFor(lineContent);
+        // Фантомные колонки строки (ghost text) сдвигают её хвост — колонки
+        // считаем по композитной строке, иначе подсветка уехала бы относительно
+        // текста, который подсвечивает.
+        const dl = viewState.displayLineFor(composedLineContent(geo.phantom, logLine, lineContent));
         // Диапазон пересекается с фрагментом ряда: у целой строки фрагмент —
         // `[0, length)`, и математика вырождается в прежнюю. Виртуальную ячейку
         // перевода строки (+1 за концом) несёт только последний фрагмент.
@@ -73,9 +157,12 @@ export function forEachRangeCell(
         const startChar = Math.max(rangeStartChar, frag.start);
         const endChar = Math.min(rangeEndChar, isLastFragment ? lineContent.length + 1 : frag.end);
 
-        const fragStartCol = viewState.viewLineStartColumn(viewLine);
-        const startCol = dl.offsetToColumn(startChar) - fragStartCol;
-        const endCol = (endChar > lineContent.length ? dl.displayWidth + 1 : dl.offsetToColumn(endChar)) - fragStartCol;
+        const fragStartCol = fragmentStartColumn(viewState, dl, geo.phantom, logLine, viewLine);
+        const startCol = dl.offsetToColumn(composedOffset(geo.phantom, logLine, startChar)) - fragStartCol;
+        const endCol =
+            (endChar > lineContent.length
+                ? dl.displayWidth + 1
+                : dl.offsetToColumn(composedOffset(geo.phantom, logLine, endChar))) - fragStartCol;
 
         const screenXStart = Math.max(0, startCol - geo.scrollLeft);
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
@@ -133,6 +220,25 @@ export interface IPaintTextLineParams {
      * added/deleted должен побеждать фон токена, иначе полоса изменения рвётся.
      */
     allowTokenBg: boolean;
+    /**
+     * Фантомные колонки внутри `displayLine` ({@link ILinePhantom}) — их слоты
+     * не принадлежат документу: красятся своим стилем и токен не ищут, а
+     * offset'ы правее фантома пересчитываются в документные, иначе подсветка
+     * уехала бы относительно хвоста. `null` — строка без фантома.
+     */
+    phantom: IPaintTextLinePhantom | null;
+}
+
+/** Фантомный участок композитной строки для {@link paintTextLine}. */
+export interface IPaintTextLinePhantom {
+    /** Offset в композитной строке, с которого идут фантомные символы. */
+    readonly startOffset: number;
+    /** Длина фантома в символах. */
+    readonly length: number;
+    /** Цвет фантома (`editorGhostText.foreground`). */
+    readonly fg: number;
+    /** Пакованные {@link StyleFlags} фантома (ghost text — курсив). */
+    readonly style: number;
 }
 
 /**
@@ -142,6 +248,9 @@ export interface IPaintTextLineParams {
  */
 export function paintTextLine(context: RenderContext, params: IPaintTextLineParams): void {
     const { displayLine, tokenIndex, resolveStyle, screenY, gutterW, contentCols, scrollLeft, startColumn } = params;
+    // Граница фантома считается раз на строку: в цикле по колонкам она
+    // сравнивается с каждым слотом.
+    const phantomEnd = params.phantom === null ? 0 : params.phantom.startOffset + params.phantom.length;
 
     let screenX = 0;
     while (screenX < contentCols) {
@@ -180,8 +289,18 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         let fg = params.fg;
         let bg = params.bg;
         let style: number = StyleFlags.None;
-        if (tokenIndex) {
-            const token = tokenIndex.tokenAt(slot.offset);
+        const phantom = params.phantom;
+        if (phantom !== null && slot.offset >= phantom.startOffset && slot.offset < phantomEnd) {
+            // Фантомная колонка: своего токена у неё быть не может — весь
+            // фантом красится одним стилем (серый курсив ghost text).
+            fg = phantom.fg;
+            style = phantom.style;
+        } else if (tokenIndex) {
+            // Правее фантома композитный offset забегает вперёд документного —
+            // возвращаем его назад, иначе подсветка хвоста уедет.
+            const token = tokenIndex.tokenAt(
+                phantom !== null && slot.offset >= phantomEnd ? slot.offset - phantom.length : slot.offset,
+            );
             if (token) {
                 const resolved = resolveStyle(token.scopes);
                 if (resolved.fg !== undefined) fg = resolved.fg;
@@ -306,14 +425,19 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
  * `null`, если каретка вне видимой области. Одна математика на два потребителя:
  * аппаратный курсор в `render()` и якорь completion-попапа.
  */
-export function caretLocalCell(viewState: EditorViewState, gutterW: number, size: Size): Point | null {
+export function caretLocalCell(
+    viewState: EditorViewState,
+    gutterW: number,
+    size: Size,
+    phantom: ILinePhantom | null = null,
+): Point | null {
     const primary = viewState.selections[0];
     const cursorVisualLine = viewState.viewLineForPosition(primary.active.line, primary.active.character);
     const cursorLineContent = viewState.getViewLine(cursorVisualLine);
-    const cursorDl = viewState.displayLineFor(cursorLineContent);
+    const cursorDl = viewState.displayLineFor(composedLineContent(phantom, primary.active.line, cursorLineContent));
     const localX =
-        cursorDl.offsetToColumn(primary.active.character) -
-        viewState.viewLineStartColumn(cursorVisualLine) -
+        cursorDl.offsetToColumn(composedCaretOffset(phantom, primary.active.line, primary.active.character)) -
+        fragmentStartColumn(viewState, cursorDl, phantom, primary.active.line, cursorVisualLine) -
         viewState.scrollLeft +
         gutterW;
     const localY = cursorVisualLine - viewState.scrollTop;
@@ -371,13 +495,21 @@ export function paintCarets(
         // Stryker disable next-line CallExpression: см. выше
         let dl = displayLineByDocLine.get(selection.active.line);
         if (dl === undefined) {
-            dl = viewState.displayLineFor(viewState.document.getLineContent(selection.active.line));
+            dl = viewState.displayLineFor(
+                composedLineContent(
+                    geo.phantom,
+                    selection.active.line,
+                    viewState.document.getLineContent(selection.active.line),
+                ),
+            );
             // Stryker disable next-line CallExpression: заполнение кэша, результат не меняет
             displayLineByDocLine.set(selection.active.line, dl);
         }
 
         const localX =
-            dl.offsetToColumn(selection.active.character) - viewState.viewLineStartColumn(row) - geo.scrollLeft;
+            dl.offsetToColumn(composedCaretOffset(geo.phantom, selection.active.line, selection.active.character)) -
+            fragmentStartColumn(viewState, dl, geo.phantom, selection.active.line, row) -
+            geo.scrollLeft;
         if (localX < 0 || localX >= geo.contentCols) continue;
         // Stryker restore EqualityOperator,ConditionalExpression,LogicalOperator
 
@@ -398,6 +530,7 @@ export function docPositionAt(
     gutterW: number,
     localX: number,
     localY: number,
+    phantom: ILinePhantom | null = null,
 ): { line: number; character: number } {
     const viewLineCount = viewState.getViewLineCount();
     /* v8 ignore start -- unreachable: a TextDocument always has at least one line and a fold header is never hidden, so getViewLineCount() is never 0 */
@@ -408,18 +541,23 @@ export function docPositionAt(
     // Клик по строке-зоне (виртуальной) маппится в ближайшую документную — как
     // клик по view zone в VS Code отдаёт соседнюю позицию, а не падает.
     const logLine = viewState.docLineForViewLine(viewLine);
-    // Клик по гуттеру — колонка 0 РЯДА: у продолжения wrap это начало фрагмента.
-    const fragStartCol = viewState.viewLineStartColumn(viewLine);
-    const displayCol = fragStartCol + (localX < gutterW ? 0 : localX - gutterW + viewState.scrollLeft);
     const lineContent = viewState.document.getLineContent(logLine);
-    const dl = viewState.displayLineFor(lineContent);
-    let charOffset = dl.columnToOffset(displayCol);
+    const dl = viewState.displayLineFor(composedLineContent(phantom, logLine, lineContent));
+    // Клик по гуттеру — колонка 0 РЯДА: у продолжения wrap это начало фрагмента.
+    const fragStartCol = fragmentStartColumn(viewState, dl, phantom, logLine, viewLine);
+    const displayCol = fragStartCol + (localX < gutterW ? 0 : localX - gutterW + viewState.scrollLeft);
+    // Клик по фантомным колонкам отдаёт точку вставки — в документе их нет.
+    let charOffset = documentOffset(phantom, logLine, dl.columnToOffset(displayCol));
     // Кламп к фрагменту ряда: клик правее конца не-последнего фрагмента не
     // должен утащить каретку на следующий ряд (offset границы принадлежит ему).
     // У рядов-зон и пустых строк frag.end = 0 — кламп не про них.
     const frag = viewState.viewLineRange(viewLine);
     if (frag.end > 0 && frag.end < lineContent.length && charOffset >= frag.end) {
-        charOffset = dl.columnToOffset(dl.offsetToColumn(frag.end) - 1);
+        charOffset = documentOffset(
+            phantom,
+            logLine,
+            dl.columnToOffset(dl.offsetToColumn(composedOffset(phantom, logLine, frag.end)) - 1),
+        );
     }
     return { line: logLine, character: charOffset };
 }

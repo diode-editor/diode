@@ -38,9 +38,11 @@ import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.t
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
-import type { ITextViewportGeometry } from "./textViewRendering.ts";
+import type { ILinePhantom, ITextViewportGeometry } from "./textViewRendering.ts";
 import {
     caretLocalCell,
+    composedLineContent,
+    composedOffset,
     docPositionAt,
     forEachRangeCell,
     paintCarets,
@@ -163,9 +165,10 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * Ставит/снимает призрачную подсказку (ghost text инлайн-подсказок). Хвост
-     * первой строки рисует {@link render} на строке каретки; под остальные
-     * строки элемент сам заводит view zones. Зоны редактора и внешние зоны
+     * Ставит/снимает призрачную подсказку (ghost text инлайн-подсказок). Первую
+     * строку {@link render} вклеивает фантомными колонками в layout строки
+     * каретки (хвост строки уезжает вправо — см. {@link ILinePhantom}); под
+     * остальные строки элемент сам заводит view zones. Зоны редактора и внешние зоны
      * владельца вью ({@link decorations}) взаимоисключающи: ghost ставится
      * только на редакторе файла, где `setViewZones` больше никто не зовёт —
      * у диффа зонами владеет `diffEditorPane2`, и ghost там выключен.
@@ -279,9 +282,31 @@ export class EditorElement extends TUIElement implements IScrollable {
      * completion-попапа (та же математика, что в {@link render}).
      */
     public getCaretScreenCell(): Point | null {
-        const local = caretLocalCell(this.viewState, this.gutterWidth, this.layoutSize);
+        const local = caretLocalCell(this.viewState, this.gutterWidth, this.layoutSize, this.linePhantom);
         if (local === null) return null;
         return new Point(this.globalPosition.x + local.x, this.globalPosition.y + local.y);
+    }
+
+    /**
+     * Фантомные колонки кадра: первая строка призрачной подсказки вклеивается в
+     * layout строки каретки, и хвост строки уезжает вправо на её ширину (как
+     * injected-text декорации upstream). Одно значение на все проходы кадра —
+     * отрисовку строки, фоны диапазонов, каретки и hit-test.
+     */
+    private get linePhantom(): ILinePhantom | null {
+        const ghost = this.ghostTextValue;
+        if (ghost === null) return null;
+        const document = this.viewState.document;
+        // Устаревшая подсказка: строка под ней могла исчезнуть или укоротиться
+        // (правка пришла извне раньше, чем сервис погасил сессию). Инвариант
+        // «фантом стоит внутри своей строки» держит всю композитную математику
+        // кадра, поэтому кламп — здесь, а не в каждом проходе.
+        if (ghost.line < 0 || ghost.line >= document.lineCount) return null;
+        return {
+            line: ghost.line,
+            offset: Math.min(ghost.character, document.getLineLength(ghost.line)),
+            text: ghost.lines[0],
+        };
     }
 
     /**
@@ -408,6 +433,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         // как ghost text VS Code (font-style: italic у .ghost-text-decoration).
         const ghost = this.ghostTextValue;
         const ghostFg = ghost !== null ? this.styleVar("editorGhostText.foreground") : 0;
+        // Первая строка подсказки — фантомные колонки внутри layout строки
+        // каретки: её хвост уезжает вправо, а не прячется под фантом.
+        const phantom = this.linePhantom;
 
         // Fold-region headers by their (logical) start line, so the gutter can draw
         // a chevron and the header line a collapsed marker without scanning per cell.
@@ -625,7 +653,10 @@ export class EditorElement extends TUIElement implements IScrollable {
             let dl = dlByDocLine.get(rowLogLine);
             // Stryker disable next-line ConditionalExpression: см. выше
             if (dl === undefined) {
-                dl = this.viewState.displayLineFor(lineContent);
+                // Композитная строка = текст + фантомные колонки: табы и широкие
+                // символы подсказки занимают колонки от НАЧАЛА строки, как
+                // настоящий текст, а хвост считается уже за фантомом.
+                dl = this.viewState.displayLineFor(composedLineContent(phantom, rowLogLine, lineContent));
                 // Stryker disable next-line CallExpression: заполнение кэша, результат не меняет
                 dlByDocLine.set(rowLogLine, dl);
             }
@@ -634,7 +665,9 @@ export class EditorElement extends TUIElement implements IScrollable {
             // Колоночное окно фрагмента в целой строке; у последнего фрагмента
             // правой границы нет — за концом строки и так рисуются пробелы.
             const isLastFragment = frag.end === lineContent.length;
-            const fragStartCol = isContinuation ? dl.offsetToColumn(frag.start) : 0;
+            const fragStartCol = isContinuation
+                ? dl.offsetToColumn(composedOffset(phantom, rowLogLine, frag.start))
+                : 0;
 
             // Фон декорированной строки должен побеждать фон токена, иначе
             // полоса added/removed рвётся на подсвеченных словах (та же
@@ -649,10 +682,21 @@ export class EditorElement extends TUIElement implements IScrollable {
                 contentCols,
                 scrollLeft,
                 startColumn: fragStartCol,
-                endColumnExclusive: dl.offsetToColumn(frag.end),
+                endColumnExclusive: dl.offsetToColumn(composedOffset(phantom, rowLogLine, frag.end)),
                 fg: editorFg,
                 bg: decoratedBg ?? editorBg,
                 allowTokenBg: decoratedBg === undefined,
+                // Хвост подсказки (`lines[0]`) рисуется этим же проходом — серым
+                // курсивом, как ghost text VS Code (`.ghost-text-decoration`).
+                phantom:
+                    phantom !== null && phantom.line === rowLogLine
+                        ? {
+                              startOffset: phantom.offset,
+                              length: phantom.text.length,
+                              fg: ghostFg,
+                              style: StyleFlags.Italic,
+                          }
+                        : null,
             });
 
             // Extremely long line: rendering stopped at STOP_RENDERING_LINE_AFTER.
@@ -693,26 +737,6 @@ export class EditorElement extends TUIElement implements IScrollable {
                     });
                 }
             }
-
-            // Хвост призрачной подсказки на строке каретки: `lines[0]` серым
-            // курсивом сразу после колонки `character` (сервис ставит ghost
-            // только на конце строки — рисуем в области за текстом, которую
-            // paintTextLine уже залил фоном). При wrap хвост — на последнем
-            // фрагменте, там же, где конец текста строки.
-            if (ghost !== null && ghost.line === rowLogLine && isLastFragment) {
-                const ghostStartCol =
-                    dl.offsetToColumn(Math.min(ghost.character, lineContent.length)) - scrollLeft - fragStartCol;
-                paintPhantomText(context, {
-                    displayLine: this.viewState.displayLineFor(ghost.lines[0]),
-                    screenY,
-                    gutterW,
-                    contentCols,
-                    startColumn: ghostStartCol,
-                    fg: ghostFg,
-                    bg: editorBg,
-                    style: StyleFlags.Italic,
-                });
-            }
         }
 
         // Shared geometry for the range-background highlight passes below.
@@ -723,6 +747,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             viewLineCount,
             contentCols,
             gutterW,
+            phantom,
         };
 
         // Indentation guides for folding regions, drawn over the leading
@@ -801,7 +826,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
 
         // Position hardware cursor at the primary selection's active position
-        const caret = caretLocalCell(this.viewState, gutterW, this.layoutSize);
+        const caret = caretLocalCell(this.viewState, gutterW, this.layoutSize, phantom);
         if (this.isFocused && caret !== null) {
             context.setCursorPosition(caret.x, caret.y);
         }
@@ -1029,7 +1054,7 @@ export class EditorElement extends TUIElement implements IScrollable {
      * меню ставит каретку на позицию клика). Клик по гуттеру маппится в колонку 0.
      */
     public docPositionAt(localX: number, localY: number): { line: number; character: number } {
-        return docPositionAt(this.viewState, this.gutterWidth, localX, localY);
+        return docPositionAt(this.viewState, this.gutterWidth, localX, localY, this.linePhantom);
     }
 
     private handleMouseDown(event: TUIMouseEvent): void {

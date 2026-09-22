@@ -98,12 +98,22 @@ describe("EditorElement — ghost text", () => {
         expect(viewState.viewZones).toEqual([{ afterLine: 1, size: 1 }]);
     });
 
-    it("каретка не в конце строки — хвост рисуется с её колонки поверх текста (защитный кламп)", () => {
+    it("колонка подсказки за концом строки — защитный кламп в конец (устаревший ghost)", () => {
+        // Строка успела укоротиться под показанной подсказкой: колонки 5 в ней
+        // уже нет. Фантом встаёт в конец строки, а не в воздух.
+        const { app, editor } = createEditor("ab", { line: 0, character: 5, lines: ["ZZ"] });
+
+        const gutterW = editor.gutterWidth;
+        expect(app.backend.getTextAt(new Point(gutterW, 0), 6)).toBe("abZZ  ");
+        // Именно фантомные колонки, а не текст цветом редактора.
+        expect(app.backend.getFgAt(new Point(gutterW + 2, 0))).toBe(GHOST_FG);
+    });
+
+    it("каретка в середине строки — хвост строки уезжает вправо (см. ghostTextMidLine)", () => {
         const { app, editor } = createEditor("ab", { line: 0, character: 1, lines: ["ZZ"] });
 
         const gutterW = editor.gutterWidth;
-        // min(character, len): рисуем с колонки 1 — «b» перекрыт фантомом.
-        expect(app.backend.getTextAt(new Point(gutterW, 0), 4)).toBe("aZZ ");
+        expect(app.backend.getTextAt(new Point(gutterW, 0), 4)).toBe("aZZb");
     });
 
     it("word wrap: хвост подсказки рисуется на последнем фрагменте с учётом его начала", () => {
@@ -196,10 +206,10 @@ describe("EditorElement — ghost text", () => {
 
         const gutterW = editor.gutterWidth;
         // «你» — 2 колонки, таб добит пробелами до своей ширины, дальше "ok".
-        // Ширина таба считается по колонкам САМОЙ подсказки (DisplayLine строится
-        // от её текста), а не по экранной колонке — осознанный люфт v1.
+        // Ширина таба считается по ЭКРАННОЙ колонке: фантом вклеен в строку, и
+        // DisplayLine строится от композитного текста «x你\tok».
         expect(app.backend.getTextAt(new Point(gutterW + 1, 0), 1)).toBe("你");
-        const tabWidth = 4 - (2 % 4); // таб на колонке 2 подсказки → до границы 4
+        const tabWidth = 4 - (3 % 4); // таб на колонке 3 строки → до границы 4
         // Ячейки таба — пробелы (не литеральный "\t").
         expect(app.backend.getTextAt(new Point(gutterW + 1 + 2, 0), tabWidth)).toBe(" ".repeat(tabWidth));
         expect(app.backend.getTextAt(new Point(gutterW + 1 + 2 + tabWidth, 0), 2)).toBe("ok");

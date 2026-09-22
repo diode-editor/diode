@@ -350,7 +350,7 @@ describe("InlineCompletionsService — показ", () => {
 });
 
 describe("InlineCompletionsService — гейты", () => {
-    it("не запрашивает: выделение, мультикурсор, каретка не в конце строки, read-only, настройка, попап", async () => {
+    it("не запрашивает: выделение, мультикурсор, read-only, настройка, попап", async () => {
         const source = vi.fn(items({ insertText: "x" }));
 
         const withSelection = makeEditor("abc", 3);
@@ -360,9 +360,6 @@ describe("InlineCompletionsService — гейты", () => {
         const multiCursor = makeEditor("abc", 3);
         multiCursor.setCursorCount(2);
         await makeService(makeGroup(multiCursor.editor, source).group).trigger();
-
-        const midLine = makeEditor("abc", 1);
-        await makeService(makeGroup(midLine.editor, source).group).trigger();
 
         const readOnly = makeEditor("abc", 3);
         readOnly.setReadOnly(true);
@@ -589,7 +586,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("каретка ушла с конца строки — подсказка гаснет", async () => {
+    it("каретка ушла назад ВНУТРЬ подсказки без правки — подсказка гаснет", async () => {
         const fake = makeEditor("abc", 3);
         const source = items({
             insertText: "cde",
@@ -599,7 +596,8 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         await service.trigger();
         expect(service.isOpen()).toBe(true);
 
-        // Каретка внутри заменяемого диапазона, но не в конце строки.
+        // Каретка внутри заменяемого диапазона: набранное («») всё ещё префикс
+        // подсказки, но правки не было — движение гасит (Backspace бы растил).
         fake.move(0, 2);
 
         expect(service.isOpen()).toBe(false);
