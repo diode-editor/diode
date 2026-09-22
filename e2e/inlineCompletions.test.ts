@@ -10,6 +10,8 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 const userData = resolve(here, "fixtures", "user-data-with-inline-ghost");
 
 const FIB_BODY = "onacci(n) {\n    if (n <= 1) return n;\n    return fibonacci(n - 1) + fibonacci(n - 2);\n}";
+/** Продолжение фикстурного провайдера для триггера «const greeting». */
+const GREETING_BODY = ' = "Hello from ghost text!";';
 
 interface IGhostState {
     line: number;
@@ -130,6 +132,72 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
             { timeoutMs: 5000 },
         );
         expect((withGhost.state?.ghostText as IGhostState).lines[0]).toBe("onacci(n) {");
+    }, 120_000);
+
+    // Заявка n-4: каретка в середине строки (типичный случай — внутри скобок,
+    // в середине объекта). Пользователь ждёт призрака между кареткой и хвостом
+    // строки; сегодня подсказка не показывается вовсе.
+    it("каретка в середине строки: призрак рисуется перед хвостом, Tab вставляет, Esc возвращает строку", async () => {
+        const { session } = await useHeadlessApp({
+            seedUserData: userData,
+            // Во второй строке заранее лежит хвост «)» — наберём триггер перед ним.
+            files: { "sample.ts": "// demo\n)\n" },
+            open: ["sample.ts"],
+        });
+        await session.waitForNode("EditorElement");
+        await session.key("ArrowDown");
+        await session.key("Home");
+        await session.text("const greeting");
+
+        // Призрак пришёл на каретку (колонка 14), хвост строки — за ним.
+        const withGhost = await waitForGhostRetyping(session, "g");
+        const ghost = withGhost.state?.ghostText as IGhostState;
+        expect(ghost).toEqual({ line: 1, character: 14, lines: [GREETING_BODY] });
+        // Кадр: пользователь видит и подсказку, и свой хвост «)».
+        await session.waitForText((t) => t.includes(`const greeting${GREETING_BODY})`), { timeoutMs: 5000 });
+        // Документ фантом не трогает: строк по-прежнему 3.
+        expect(withGhost.state?.lineCount).toBe(3);
+
+        // Tab вставляет подсказку в середину строки: каретка — за вставкой,
+        // перед хвостом; хвост «)» на месте.
+        await session.key("Tab");
+        const accepted = await session.waitForState("EditorElement", (s) => s?.ghostText === null, {
+            timeoutMs: 5000,
+        });
+        expect(accepted.state?.selections).toEqual([
+            {
+                anchor: { line: 1, character: 14 + GREETING_BODY.length },
+                active: { line: 1, character: 14 + GREETING_BODY.length },
+                collapsed: true,
+            },
+        ]);
+        await session.waitForText((t) => t.includes(`const greeting${GREETING_BODY})`), { timeoutMs: 5000 });
+
+        // Undo — и строка снова «const greeting)», без хвоста подсказки.
+        await session.key("Ctrl+Z");
+        await session.waitForText((t) => !t.includes("Hello from ghost text"), { timeoutMs: 5000 });
+    }, 120_000);
+
+    it("каретка в середине строки: Esc гасит призрака и возвращает строку в исходный вид", async () => {
+        const { session } = await useHeadlessApp({
+            seedUserData: userData,
+            files: { "sample.ts": "// demo\n)\n" },
+            open: ["sample.ts"],
+        });
+        await session.waitForNode("EditorElement");
+        await session.key("ArrowDown");
+        await session.key("Home");
+        await session.text("const greeting");
+
+        await waitForGhostRetyping(session, "g");
+
+        await session.key("Escape");
+        const hidden = await session.waitForState("EditorElement", (s) => s?.ghostText === null, {
+            timeoutMs: 5000,
+        });
+        expect(hidden.state?.lineCount).toBe(3);
+        await session.waitForText((t) => !t.includes("Hello from ghost text"), { timeoutMs: 5000 });
+        await session.waitForText((t) => t.includes("const greeting)"), { timeoutMs: 5000 });
     }, 120_000);
 
     it("Escape гасит подсказку, не трогая документ", async () => {
