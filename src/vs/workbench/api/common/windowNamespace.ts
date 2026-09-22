@@ -12,6 +12,7 @@ import {
     TabInputTextDiff,
     Uri,
 } from "./vscodeTypes.ts";
+import { createWebviewNoopMembers } from "./webviewNoop.ts";
 import {
     type IWireEditorEdit,
     type IWireEditorLayout,
@@ -561,6 +562,10 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     }
 
     const windowNs = {
+        // Webview — не будет by design, но члены обязаны существовать: без них
+        // расширение с чат-панелью умирало на активации ЦЕЛИКОМ (см. webviewNoop.ts).
+        ...createWebviewNoopMembers(rpc),
+
         get activeTextEditor(): vscode.TextEditor | undefined {
             if (activeEditorUri === null) return undefined;
             return getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)), effectiveActiveGroupId());
