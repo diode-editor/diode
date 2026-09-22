@@ -20,6 +20,7 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
+import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
@@ -77,6 +78,7 @@ function makeHarness() {
             isFirstResultFocused: () => false,
         } as unknown as SearchComponent,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
+        { isOpen: () => false } as unknown as TabSwitcherComponent,
     );
 
     return {
