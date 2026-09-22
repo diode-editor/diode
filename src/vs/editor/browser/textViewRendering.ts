@@ -333,11 +333,6 @@ export interface IPaintPhantomTextParams {
     screenY: number;
     gutterW: number;
     contentCols: number;
-    /**
-     * Контентная колонка, где лежит колонка 0 фантома. Может быть отрицательной
-     * (строка каретки прокручена влево) — невидимые колонки пропускаются.
-     */
-    startColumn: number;
     fg: number;
     bg: number;
     /** Пакованные {@link StyleFlags} фантома (ghost text — курсив). */
@@ -345,14 +340,16 @@ export interface IPaintPhantomTextParams {
 }
 
 /**
- * Рисует фантомный текст, которого нет в документе (ghost text инлайн-подсказок):
- * хвост строки каретки после `startColumn` либо целую zone-строку. Тот же
- * поцельный обход по дисплейным колонкам, что у {@link paintTextLine} — табы и
- * широкие символы ведут себя как в настоящем тексте, — но без токенов: весь
- * фантом красится одним стилем.
+ * Рисует целую строку-зону фантомного текста, которого нет в документе
+ * (`lines[1..]` ghost text инлайн-подсказок) — с колонки 0 контентной области.
+ * Тот же поцельный обход по дисплейным колонкам, что у {@link paintTextLine} —
+ * табы и широкие символы ведут себя как в настоящем тексте, — но без токенов:
+ * весь фантом красится одним стилем. Первая строка подсказки сюда не приходит:
+ * она вклеивается в layout своей строки фантомными колонками (см.
+ * {@link ILinePhantom}) и рисуется общим проходом текста.
  */
 export function paintPhantomText(context: RenderContext, params: IPaintPhantomTextParams): void {
-    const { displayLine, screenY, gutterW, contentCols, startColumn, fg, bg, style } = params;
+    const { displayLine, screenY, gutterW, contentCols, fg, bg, style } = params;
 
     let col = 0;
     // Отсев за концом строки — про скорость, а не про картинку: RenderContext
@@ -361,9 +358,8 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
     // неубиваемы — гасим, как в paintCarets.
     // Stryker disable next-line EqualityOperator: см. выше
     while (col < displayLine.displayWidth) {
-        const screenX = startColumn + col;
         // Stryker disable next-line ConditionalExpression,EqualityOperator: клип по вьюпорту — про скорость, setCell за прямоугольником и так молча выходит
-        if (screenX >= contentCols) break;
+        if (col >= contentCols) break;
         const char = displayLine.charAtColumn(col);
         /* v8 ignore start -- defensive: col шагает по ширинам слотов от 0 и на колонку-продолжение широкого символа не попадает (в отличие от paintTextLine, где displayCol стартует с произвольного scrollLeft) */
         // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator: недостижимый защитный гард, см. v8 ignore
@@ -384,14 +380,6 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
         // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,UpdateOperator
         /* v8 ignore stop */
         const width = slot.displayWidth;
-        // Пропуск отрицательных колонок — тоже про скорость: setCell левее
-        // прямоугольника клиппится сам, а col в любой ветке шагает на width.
-        // Stryker disable next-line ConditionalExpression,BlockStatement: см. выше
-        if (screenX < 0) {
-            // Колонка левее вьюпорта (горизонтальный скролл) — пропуск.
-            col += width;
-            continue;
-        }
 
         if (slot.grapheme === "\t") {
             // Таб — по пробелу на колонку (Grid поддерживает только width 1 и 2).
@@ -401,20 +389,20 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
             // col (его проверяют позиции следующих символов). Мутанты заливки
             // неубиваемы — гасим оптом.
             // Stryker disable ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression: см. выше
-            for (let i = 0; i < width && screenX + i < contentCols; i++) {
-                context.setCell(gutterW + screenX + i, screenY, { char: " ", fg, bg, style, width: 1 });
+            for (let i = 0; i < width && col + i < contentCols; i++) {
+                context.setCell(gutterW + col + i, screenY, { char: " ", fg, bg, style, width: 1 });
             }
             // Stryker restore ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression
             col += width;
-        } else if (width === 2 && screenX + 1 >= contentCols) {
+        } else if (width === 2 && col + 1 >= contentCols) {
             // Широкий символ не влезает у правого края — вместо него пробел.
             // Пробел у края неотличим от фонового пробела (см. таб выше);
             // наблюдаемое у ветки — что широкий символ НЕ нарисован (тест края).
             // Stryker disable next-line ArithmeticOperator,ObjectLiteral,StringLiteral,CallExpression: см. выше
-            context.setCell(gutterW + screenX, screenY, { char: " ", fg, bg, style, width: 1 });
+            context.setCell(gutterW + col, screenY, { char: " ", fg, bg, style, width: 1 });
             col++;
         } else {
-            context.setCell(gutterW + screenX, screenY, { char, fg, bg, style, width });
+            context.setCell(gutterW + col, screenY, { char, fg, bg, style, width });
             col += width;
         }
     }

@@ -332,13 +332,13 @@ export class InlineCompletionsService extends Disposable {
 
         const session = this.session;
         if (session !== null) {
+            const caret = this.validCaretForSession(session, editor);
             // Пере-показ живой сессии — только на ПРАВКЕ: движение каретки само
             // по себе подсказку гасит (стрелки снимают призрака, как upstream).
             // Пока показ был заперт концом строки, это выходило само собой —
             // уйти с конца строки движением иначе нельзя; mid-line каретка ходит
             // и внутри подсказки, поэтому правило стало явным.
-            const caret = wasEdit ? this.validCaretForSession(session, editor) : null;
-            if (caret !== null) {
+            if (caret !== null && wasEdit) {
                 // Набранное совпадает с подсказкой — сжать/растить без перезапроса.
                 this.show(session);
                 return;

@@ -533,7 +533,6 @@ export class EditorElement extends TUIElement implements IScrollable {
                         screenY,
                         gutterW,
                         contentCols,
-                        startColumn: 0,
                         fg: ghostFg,
                         bg: editorBg,
                         style: StyleFlags.Italic,

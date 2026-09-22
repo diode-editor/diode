@@ -85,6 +85,30 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getTextAt(new Point(gutterW, 3), 9)).toBe("bravo    ");
     });
 
+    it("строки-зоны: таб, широкие символы и обрезка по правому краю", () => {
+        const contentCols = 24 - 6; // gutterWidth однозначной нумерации = 6
+        const { app, editor } = createEditor("alpha", {
+            line: 0,
+            character: 5,
+            lines: [
+                "-",
+                "x\tok", // таб добивает до границы tabSize
+                "a".repeat(contentCols - 1) + "你", // широкий символ не влезает у края
+                "b".repeat(contentCols + 5), // длиннее контентной области — обрезка
+            ],
+        });
+
+        const gutterW = editor.gutterWidth;
+        expect(gutterW).toBe(6);
+        // Таб: «x» на колонке 0, дальше пробелы до колонки 4, затем «ok».
+        expect(app.backend.getTextAt(new Point(gutterW, 1), 6)).toBe("x   ok");
+        // Широкий символ у правого края целиком не влезает → пробел вместо него.
+        const wideRow = app.backend.getTextAt(new Point(gutterW, 2), contentCols);
+        expect(wideRow).toBe("a".repeat(contentCols - 1) + " ");
+        // Обрезка: ровно contentCols колонок, ничего не вылезло за край.
+        expect(app.backend.getTextAt(new Point(gutterW, 3), contentCols)).toBe("b".repeat(contentCols));
+    });
+
     it("чужие зоны переживают однострочную подсказку (свои зоны не трогаются)", () => {
         const viewState = new EditorViewState(new TextDocument("alpha\nbravo"));
         viewState.setViewZones([{ afterLine: 1, size: 1 }]); // зона владельца вью
