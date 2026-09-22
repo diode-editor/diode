@@ -44,6 +44,8 @@ import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.t
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
+import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
+import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
@@ -78,6 +80,7 @@ export class WorkbenchContextKeys extends Disposable {
         SidebarServiceDIToken,
         SearchComponentDIToken,
         HistoryServiceDIToken,
+        TabSwitcherComponentDIToken,
     ] as const;
 
     private view: BodyElement | null = null;
@@ -98,6 +101,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly sidebarService: SidebarService,
         private readonly searchComponent: SearchComponent,
         private readonly historyService: HistoryService,
+        private readonly tabSwitcher: TabSwitcherComponent,
     ) {
         super();
         // Make custom-mode names (mode_<name>) valid `when` identifiers, then keep context
@@ -177,6 +181,10 @@ export class WorkbenchContextKeys extends Disposable {
             active?.getAncestorPath().some((element) => element.id === "explorerView") === true,
         );
         this.contextKeys.set("panelVisible", this.layoutService.isPanelVisible());
+        // Спрашиваем ВИДИМОСТЬ оверлея, а не состояние серии в модели: список
+        // гаснет и помимо конца серии (уход из группы), а стрелки обязаны
+        // вернуться редактору ровно тогда, когда список исчез с экрана.
+        this.contextKeys.set("tabSwitcherVisible", this.tabSwitcher.isOpen());
         this.contextKeys.set(
             "searchViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SEARCH_VIEWLET_ID,
