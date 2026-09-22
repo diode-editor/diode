@@ -15,4 +15,10 @@ coverage/coverage-final.json
 # Compiled builtin code-extensions (built by scripts/build-extensions.mjs)
 extensions/*/out/
 
+# Состояние офиса агентов: журнал фактов и каталоги назначений (office/README.md)
+.office/
+
+# Эталонный клон microsoft/vscode для сверки (scripts/vscode-ref.mjs)
+.reference/
+
 # Staging npm-пакета tuidom (scripts/pack-tuidom.mjs)
