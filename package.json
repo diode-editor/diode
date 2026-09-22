@@ -25,6 +25,8 @@
     "lint": "eslint src/ extensions/",
     "lint:fix": "eslint src/ extensions/ --fix",
     "valid-layers-check": "node scripts/check-layers.mjs",
+    "office": "agent-office .",
+    "office:dry": "node scripts/office-dry-run.mjs",
     "import:vscode-diff": "node scripts/import-vscode-diff.mjs"
   },
   "devDependencies": {
@@ -32,6 +34,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
+    "@tihonove/agent-office": "^0.0.2",
     "@types/node": "^25.5.2",
     "@types/semver": "^7.8.0",
     "@types/ws": "^8.18.1",
