@@ -26,7 +26,10 @@ const fakeRoot = path.join(repoRoot, "office", "fake");
 
 /**
  * `answers` — что человек отвечает на каждое обращение офиса (по id объявления из `requests`).
+ * `request` / `requests` — что человек вбрасывает в дверь: одна заявка или несколько разом.
+ * `fakes` — каталог заглушек, если он называется не как сценарий.
  * `done(мир, след)` — чего мы ждём: снимка мира и следа узла n-1 по состояниям.
+ * `verify(журнал, манифест)` — необязательная проверка по журналу фактов; вернула строку — сценарий красный.
  */
 const SCENARIOS = {
     фича: {
@@ -53,6 +56,17 @@ const SCENARIOS = {
         answers: {},
         done: (world) => stateOf(world, "n-1") === "разбита" && world.nodes.filter((node) => node.parent === "n-1").length >= 2,
     },
+    ресурс: {
+        title: "ресурс: две заявки разом — кто гоняет тесты, работает строго по одному",
+        requests: [
+            { описание: "Ctrl+Z после quick fix перемешивает текст — регрессия" },
+            { описание: "Волна диагностики рисуется поверх оверлея переключателя вкладок" },
+        ],
+        answers: { "приёмка-заявки": "принять" },
+        fakes: "баг",           // курс неважен, важно, что обе заявки идут по тяжёлым ролям разом
+        done: (world) => world.nodes.length >= 2 && world.nodes.every((node) => node.state === "готово"),
+        verify: (facts, manifest) => heavyUndeclared(manifest) ?? resourceOverrun(facts, manifest),
+    },
     итерация: {
         title: "итерация: сборка PR → приёмка человеком → релиз → ретроспектива",
         request: { описание: "Закрыть итерацию 01 и собрать PR" },
@@ -62,6 +76,57 @@ const SCENARIOS = {
 };
 
 const stateOf = (world, id) => world.nodes.find((node) => node.id === id)?.state;
+
+/**
+ * Роли, которые гоняют гейты проекта: реализация и тестирование — напрямую, интегратор — через
+ * `iteration.mjs verify` (npm ci + lint + typecheck + test на ветке итерации). Все они обязаны забирать
+ * `машина` целиком: сборка, e2e и мутационный гейт съедают машину, а двое разом голодают по CPU и дают
+ * флаки. Завёл роль, которая запускает тесты, — впиши её сюда и дай ей `takes`.
+ */
+const ГОНЯЮТ_ТЕСТЫ = ["реализатор", "тестировщик", "тестировщик-баг", "ретроспектива", "интегратор"];
+
+/** Проверка по манифесту: объявлено ли ограничение. Детерминированная — в отличие от проверки по журналу. */
+function heavyUndeclared(manifest) {
+    const capacity = manifest.resources?.["машина"];
+    if (!capacity) {
+        return "в манифесте нет ресурса `машина` — тяжёлые роли ничем не ограничены";
+    }
+    for (const role of ГОНЯЮТ_ТЕСТЫ) {
+        const takes = { ...manifest.executors?.[manifest.roles?.[role]?.executor]?.takes, ...manifest.roles?.[role]?.takes };
+        if ((takes["машина"] ?? 0) < capacity) {
+            return `роль ${role} гоняет тесты, но берёт машины ${takes["машина"] ?? 0} из ${capacity} — значит, работать будет не одна`;
+        }
+    }
+    return null;
+}
+
+/**
+ * Ёмкости из `resources` — не украшение: `машина: 1` держит тяжёлых по одному, иначе сборка, e2e и
+ * мутационный гейт дерутся за CPU и дают флаки. Проверяется по журналу: проигрываем жизни агентов и
+ * смотрим, чтобы в каждый момент сумма долей не вылезала за ёмкость. Проверка общая — добавили `takes`
+ * новой роли, и она попадает под гейт сама. Ослабь ёмкость до двух — сценарий краснеет (проверено
+ * вживлением), так что гейт не холостой.
+ */
+function resourceOverrun(facts, manifest) {
+    const takesOf = (role) => ({ ...manifest.executors?.[manifest.roles?.[role]?.executor]?.takes, ...manifest.roles?.[role]?.takes });
+    const live = new Map();
+    for (const fact of facts) {
+        const key = fact.payload?.key;
+        if (fact.type === "agent.spawned") {
+            live.set(key, takesOf(fact.payload.role));
+            for (const [resource, capacity] of Object.entries(manifest.resources ?? {})) {
+                const busy = [...live].filter(([, takes]) => takes[resource]);
+                const total = busy.reduce((sum, [, takes]) => sum + takes[resource], 0);
+                if (total > capacity) {
+                    return `${resource}: ${busy.map(([who]) => who).join(" + ")} = ${total} при ёмкости ${capacity}`;
+                }
+            }
+        } else if (fact.type === "agent.finished" || fact.type === "agent.lost" || fact.type === "agent.waiting") {
+            live.delete(key);
+        }
+    }
+    return null;
+}
 
 // ── Один прогон ─────────────────────────────────────────────────────────────
 
@@ -79,7 +144,7 @@ function prepareProject(name) {
     cpSync(path.join(repoRoot, "office.yaml"), path.join(project, "office.yaml"));
     cpSync(path.join(repoRoot, "office", "roles"), path.join(project, "office", "roles"), { recursive: true });
     cpSync(path.join(fakeRoot, "общее"), path.join(project, "fake"), { recursive: true });
-    const overrides = path.join(fakeRoot, name);
+    const overrides = path.join(fakeRoot, SCENARIOS[name].fakes ?? name);
     if (existsSync(overrides)) {
         cpSync(overrides, path.join(project, "fake"), { recursive: true });
     }
@@ -127,7 +192,9 @@ async function runScenario(name, port) {
                 await sleep(100);
             }
         }
-        await api(port, "POST", "/api/nodes", { fields: scenario.request });
+        for (const fields of scenario.requests ?? [scenario.request]) {
+            await api(port, "POST", "/api/nodes", { fields });
+        }
 
         const deadline = Date.now() + (scenario.within ?? 60) * 1000;
         for (;;) {
@@ -144,7 +211,8 @@ async function runScenario(name, port) {
             }
 
             if (scenario.done(world, walked)) {
-                return { ok: true, trail: walked, nodes: world.nodes.length };
+                const broken = scenario.verify?.(await api(port, "GET", "/api/facts"), world.manifest);
+                return broken ? { ok: false, trail: walked, why: broken, log: "" } : { ok: true, trail: walked, nodes: world.nodes.length };
             }
             if (Date.now() > deadline) {
                 const stuck = world.nodes.map((node) => `${node.id} · ${node.state}`).join(", ");
