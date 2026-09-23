@@ -350,7 +350,7 @@ describe("InlineCompletionsService — показ", () => {
 });
 
 describe("InlineCompletionsService — гейты", () => {
-    it("не запрашивает: выделение, мультикурсор, каретка не в конце строки, read-only, настройка, попап", async () => {
+    it("не запрашивает: выделение, мультикурсор, read-only, настройка, попап", async () => {
         const source = vi.fn(items({ insertText: "x" }));
 
         const withSelection = makeEditor("abc", 3);
@@ -360,9 +360,6 @@ describe("InlineCompletionsService — гейты", () => {
         const multiCursor = makeEditor("abc", 3);
         multiCursor.setCursorCount(2);
         await makeService(makeGroup(multiCursor.editor, source).group).trigger();
-
-        const midLine = makeEditor("abc", 1);
-        await makeService(makeGroup(midLine.editor, source).group).trigger();
 
         const readOnly = makeEditor("abc", 3);
         readOnly.setReadOnly(true);
@@ -589,7 +586,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("каретка ушла с конца строки — подсказка гаснет", async () => {
+    it("каретка ушла назад ВНУТРЬ подсказки без правки — подсказка гаснет", async () => {
         const fake = makeEditor("abc", 3);
         const source = items({
             insertText: "cde",
@@ -599,7 +596,8 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         await service.trigger();
         expect(service.isOpen()).toBe(true);
 
-        // Каретка внутри заменяемого диапазона, но не в конце строки.
+        // Каретка внутри заменяемого диапазона: набранное («») всё ещё префикс
+        // подсказки, но правки не было — движение гасит (Backspace бы растил).
         fake.move(0, 2);
 
         expect(service.isOpen()).toBe(false);
@@ -926,6 +924,68 @@ describe("InlineCompletionsService — принятие", () => {
         const service = makeService(makeGroup(fake.editor, items({ insertText: "x" })).group);
         service.acceptCurrent();
         expect(fake.applyExternalEdits).not.toHaveBeenCalled();
+    });
+});
+
+/**
+ * Заявка n-4: подсказка нужна и когда каретка НЕ в конце строки (внутри
+ * скобок, в середине объекта) — сегодня сервис её просто не показывает
+ * (гейт `caret.character !== lineContent.length`), и значительная часть
+ * подсказок провайдера до пользователя не доходит.
+ */
+describe("InlineCompletionsService — каретка в середине строки", () => {
+    it("набор в середине строки запрашивает источник и показывает призрака перед хвостом", async () => {
+        const fake = makeEditor(";", 0);
+        const requests: IInlineCompletionRequest[] = [];
+        const source = (req: IInlineCompletionRequest): Promise<readonly ICoreInlineCompletionItem[]> => {
+            requests.push(req);
+            return Promise.resolve([{ insertText: ' = "Hello"' }]);
+        };
+        const service = makeService(makeGroup(fake.editor, source).group);
+
+        // Набрали «const greeting» перед уже стоявшим «;» — каретка на 14, хвост «;».
+        fake.type("const greeting;", 14);
+        await tick();
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]).toMatchObject({ line: 0, character: 14 });
+        expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 14, lines: [' = "Hello"'] });
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("Tab вставляет подсказку в середину строки, не трогая хвост", async () => {
+        const fake = makeEditor("const greeting;", 14);
+        const service = makeService(makeGroup(fake.editor, items({ insertText: ' = "Hello"' })).group);
+
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        service.acceptCurrent();
+
+        // Правка — вставка в позицию каретки: хвост «;» остаётся за ней.
+        expect(fake.applyExternalEdits).toHaveBeenCalledExactlyOnceWith(
+            [
+                {
+                    range: { start: { line: 0, character: 14 }, end: { line: 0, character: 14 } },
+                    text: ' = "Hello"',
+                },
+            ],
+            "Accept Inline Suggestion",
+        );
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("набор совпадающего символа в середине строки сжимает призрака, а не гасит", async () => {
+        const fake = makeEditor("const greeting;", 14);
+        const service = makeService(makeGroup(fake.editor, items({ insertText: ' = "Hello"' })).group);
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        // Набрали пробел — первый символ подсказки: хвост подсказки сжимается.
+        fake.type("const greeting ;", 15);
+
+        expect(service.isOpen()).toBe(true);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 15, lines: ['= "Hello"'] });
     });
 });
 

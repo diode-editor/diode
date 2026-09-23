@@ -130,9 +130,10 @@ export class InlineCompletionsService extends Disposable {
 
     /**
      * Запрашивает подсказку для текущей позиции каретки и показывает её.
-     * No-op без активного редактора/источника; подсказка показывается только
-     * при единственной схлопнутой каретке В КОНЦЕ строки (v1: рендер не умеет
-     * сдвигать хвост строки под фантом) и закрытом suggest-попапе.
+     * No-op без активного редактора/источника; подсказка показывается при
+     * единственной схлопнутой каретке (в том числе в СЕРЕДИНЕ строки — рендер
+     * вклеивает фантомные колонки в layout строки, и её хвост уезжает вправо) и
+     * закрытом suggest-попапе.
      */
     public async trigger(triggerKind: InlineCompletionTriggerKind = InlineCompletionTriggerKind.Invoke): Promise<void> {
         this.cancelAutoTrigger();
@@ -147,7 +148,6 @@ export class InlineCompletionsService extends Disposable {
         if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) return;
         const caret = selections[0].active;
         const lineContent = editor.viewState.document.getLineContent(caret.line);
-        if (caret.character !== lineContent.length) return;
 
         const versionId = editor.viewState.document.versionId;
         // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
@@ -249,8 +249,9 @@ export class InlineCompletionsService extends Disposable {
 
     /**
      * Каретка, при которой сессия ещё действительна: та же строка, единственная
-     * схлопнутая, в конце строки, набранное — префикс `insertText`, и хвост
-     * непуст. `null` — сессия испорчена.
+     * схлопнутая, набранное (`startCharacter`..каретка) — префикс `insertText`, и
+     * хвост непуст. `null` — сессия испорчена. Хвост строки ПРАВЕЕ каретки к
+     * действительности отношения не имеет: он уезжает вправо под фантомом.
      */
     private validCaretForSession(session: IInlineSession, editor: TextEditorPane | null): IPosition | null {
         if (editor !== session.editor) return null;
@@ -259,7 +260,6 @@ export class InlineCompletionsService extends Disposable {
         const caret = selections[0].active;
         if (caret.line !== session.line || caret.character < session.startCharacter) return null;
         const lineContent = editor.viewState.document.getLineContent(caret.line);
-        if (caret.character !== lineContent.length) return null;
         const typed = lineContent.slice(session.startCharacter, caret.character);
         if (!session.insertText.startsWith(typed)) return null;
         if (session.insertText.length === typed.length) return null;
@@ -333,7 +333,12 @@ export class InlineCompletionsService extends Disposable {
         const session = this.session;
         if (session !== null) {
             const caret = this.validCaretForSession(session, editor);
-            if (caret !== null) {
+            // Пере-показ живой сессии — только на ПРАВКЕ: движение каретки само
+            // по себе подсказку гасит (стрелки снимают призрака, как upstream).
+            // Пока показ был заперт концом строки, это выходило само собой —
+            // уйти с конца строки движением иначе нельзя; mid-line каретка ходит
+            // и внутри подсказки, поэтому правило стало явным.
+            if (caret !== null && wasEdit) {
                 // Набранное совпадает с подсказкой — сжать/растить без перезапроса.
                 this.show(session);
                 return;
