@@ -48,12 +48,6 @@ export interface ContextKeyTypes {
     // -- Workbench UI contexts --
     /** True while the bottom Panel (Problems/Output/…) is visible. */
     panelVisible: boolean;
-    /**
-     * Виден список серии Ctrl+Tab (Diode; в VS Code его место занимает quick pick,
-     * поэтому своего ключа там нет). Пока он виден, стрелки Вверх/Вниз шагают по
-     * списку, а не по редактору — на этом ключе висят их бинды.
-     */
-    tabSwitcherVisible: boolean;
 
     // -- Terminal environment contexts (see TerminalEnvironmentService) --
     /** "legacy" | "csi-u" | "kitty" — use as `tier == 'kitty'`. */
@@ -257,7 +251,6 @@ export const allContextKeys: ContextKey[] = [
 
     // -- Workbench UI contexts --
     "panelVisible",
-    "tabSwitcherVisible",
 
     // -- Terminal environment contexts --
     "tier",

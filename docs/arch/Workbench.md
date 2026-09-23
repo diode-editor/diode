@@ -653,14 +653,7 @@ hide-toggle (`isHiddenByDefault`). См.
     `onDidActiveGroupChange`), команды про него не знают; overlay-сессия —
     passthrough без фокуса и без гашения глобальных биндов, хост — late-init
     шов `attachHost(BodyElement)`. Элемент — композиция `QuickPickFrameElement`
-    + HFlex-строк, презентационный (ввода не принимает). Шагать по видимому
-    списку можно и стрелками: `tabActions.ts` вешает на `nextEditorInGroup`/
-    `previousEditorInGroup` дополнительные бинды Ctrl+Вниз/Ctrl+Вверх (+
-    Shift-варианты для серии с Ctrl+Shift+Tab) под `when: tabSwitcherVisible` —
-    контекст-ключ, который `WorkbenchContextKeys` берёт из **видимости
-    оверлея** (`TabSwitcherComponent.isOpen()`). Он же разводит их с
-    `scrollLineUp`/`scrollLineDown`, сидящими на тех же аккордах: список погас —
-    прокрутка редактора вернулась.
+    + HFlex-строк, презентационный (ввода не принимает).
   - `Parts/Editor/DiffEditorPane2.ts` — живая дифф-вкладка (DiffEditable):
     **композиция двух настоящих редакторов** — стороны это `TextFileModel` +
     `EditorComponent` в `TextEditorPane` (file-сторона — общая модель из
