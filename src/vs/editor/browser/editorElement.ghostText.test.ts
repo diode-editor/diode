@@ -85,6 +85,22 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getTextAt(new Point(gutterW, 3), 9)).toBe("bravo    ");
     });
 
+    it("соседние строки документа фантом не красит", () => {
+        // Фантом адресован строке каретки: на других строках их собственный
+        // текст в тех же колонках обязан остаться текстом редактора.
+        const { app, editor } = createEditor("alpha\nbravo-charlie", {
+            line: 0,
+            character: 5,
+            lines: ["-ghost"],
+        });
+
+        const gutterW = editor.gutterWidth;
+        expect(app.backend.getTextAt(new Point(gutterW, 0), 11)).toBe("alpha-ghost");
+        expect(app.backend.getTextAt(new Point(gutterW, 1), 13)).toBe("bravo-charlie");
+        expect(app.backend.getFgAt(new Point(gutterW + 5, 1))).toBe(EDITOR_FG);
+        expect(app.backend.getFgAt(new Point(gutterW + 8, 1))).toBe(EDITOR_FG);
+    });
+
     it("строки-зоны: таб, широкие символы и обрезка по правому краю", () => {
         const contentCols = 24 - 6; // gutterWidth однозначной нумерации = 6
         const { app, editor } = createEditor("alpha", {
@@ -92,7 +108,7 @@ describe("EditorElement — ghost text", () => {
             character: 5,
             lines: [
                 "-",
-                "x\tok", // таб добивает до границы tabSize
+                "x\t你ok", // таб добивает до границы tabSize, широкий символ — свои 2 колонки
                 "a".repeat(contentCols - 1) + "你", // широкий символ не влезает у края
                 "b".repeat(contentCols + 5), // длиннее контентной области — обрезка
             ],
@@ -100,8 +116,8 @@ describe("EditorElement — ghost text", () => {
 
         const gutterW = editor.gutterWidth;
         expect(gutterW).toBe(6);
-        // Таб: «x» на колонке 0, дальше пробелы до колонки 4, затем «ok».
-        expect(app.backend.getTextAt(new Point(gutterW, 1), 6)).toBe("x   ok");
+        // Таб: «x» на колонке 0, дальше пробелы до колонки 4, затем «你ok».
+        expect(app.backend.getTextAt(new Point(gutterW, 1), 8)).toBe("x   你ok");
         // Широкий символ у правого края целиком не влезает → пробел вместо него.
         const wideRow = app.backend.getTextAt(new Point(gutterW, 2), contentCols);
         expect(wideRow).toBe("a".repeat(contentCols - 1) + " ");
@@ -135,8 +151,9 @@ describe("EditorElement — ghost text", () => {
 
     it("строки подсказки в документе нет — кадр рисуется без неё и без падения", () => {
         // Строка исчезла под показанной подсказкой (или её поставили мимо):
-        // адресовать фантом не к чему — кадр просто рисует документ.
-        for (const line of [-1, 5]) {
+        // адресовать фантом не к чему — кадр просто рисует документ. Строка
+        // ровно за последней (номер == lineCount) — тоже мимо: нумерация с нуля.
+        for (const line of [-1, 1, 5]) {
             const { app, editor } = createEditor("ab", { line, character: 0, lines: ["ZZ"] });
             expect(app.backend.getTextAt(new Point(editor.gutterWidth, 0), 4)).toBe("ab  ");
         }

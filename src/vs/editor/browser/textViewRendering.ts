@@ -102,6 +102,10 @@ export function composedCaretOffset(phantom: ILinePhantom | null, line: number, 
  * текста, которого нет в буфере, нельзя.
  */
 export function documentOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
+    // Ровно на точке вставки обе ветки дают один ответ: `Math.max` вернёт
+    // `phantom.offset`, то есть тот же `offset`. Мутант `<=` → `<` поэтому
+    // эквивалентен — гасим с причиной, а не ассертом ради балла.
+    // Stryker disable next-line EqualityOperator: см. выше
     if (phantom?.line !== line || offset <= phantom.offset) return offset;
     return Math.max(phantom.offset, offset - phantom.text.length);
 }

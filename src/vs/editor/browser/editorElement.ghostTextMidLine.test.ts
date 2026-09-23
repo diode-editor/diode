@@ -148,18 +148,23 @@ describe("EditorElement — ghost text в середине строки", () => 
 });
 
 describe("EditorElement — подсветка токенов вокруг фантома", () => {
-    it("токены хвоста красятся своими цветами, фантом — призрачным", () => {
-        const doc = new TextDocument("if 1");
+    function createTokenizedEditor(text: string, ghost: IGhostText): { app: TestApp; editor: EditorElement } {
+        const doc = new TextDocument(text);
         const viewState = new EditorViewState(doc);
         viewState.tokenStore = new DocumentTokenStore(doc, new WordTokenizer());
         const editor = new EditorElement(viewState);
         editor.setStyleVars(STYLE_VARS);
         editor.style = { fg: "editor.foreground", bg: "editor.background" };
         editor.tokenStyleResolver = new StubResolver();
-        // Фантом «zz » перед числом: композитная строка — «if zz 1».
-        editor.setGhostText({ line: 0, character: 3, lines: ["zz "] });
+        editor.setGhostText(ghost);
         const app = TestApp.createWithContent(editor, new Size(30, 3));
         app.render();
+        return { app, editor };
+    }
+
+    it("токены хвоста красятся своими цветами, фантом — призрачным", () => {
+        // Фантом «zz » перед числом: композитная строка — «if zz 1».
+        const { app, editor } = createTokenizedEditor("if 1", { line: 0, character: 3, lines: ["zz "] });
 
         const gutterW = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gutterW, 0), 7)).toBe("if zz 1");
@@ -169,5 +174,17 @@ describe("EditorElement — подсветка токенов вокруг фа�
         expect(app.backend.getFgAt(new Point(gutterW + 3, 0))).toBe(GHOST_FG);
         // Число уехало на колонку 6 и УТАЩИЛО свой токен с собой.
         expect(app.backend.getFgAt(new Point(gutterW + 6, 0))).toBe(NUMBER_FG);
+    });
+
+    it("токены ЛЕВЕЕ фантома ищутся по своим offset'ам, а не по сдвинутым", () => {
+        // Подсказка в конце строки: весь настоящий текст левее фантома. Если
+        // сдвиг применить и к нему, число на колонке 3 возьмёт токен «if».
+        const { app, editor } = createTokenizedEditor("if 1", { line: 0, character: 4, lines: ["zz"] });
+
+        const gutterW = editor.gutterWidth;
+        expect(app.backend.getTextAt(new Point(gutterW, 0), 6)).toBe("if 1zz");
+        expect(app.backend.getFgAt(new Point(gutterW, 0))).toBe(KEYWORD_FG);
+        expect(app.backend.getFgAt(new Point(gutterW + 3, 0))).toBe(NUMBER_FG);
+        expect(app.backend.getFgAt(new Point(gutterW + 4, 0))).toBe(GHOST_FG);
     });
 });
