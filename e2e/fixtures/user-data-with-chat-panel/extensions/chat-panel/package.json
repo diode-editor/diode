@@ -1,0 +1,19 @@
+{
+    "name": "chat-panel",
+    "displayName": "Chat Panel",
+    "description": "E2E demo extension: a chat-style extension whose activate() opens its webview view first and registers everything else after it.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "commands": [
+            {
+                "command": "chatPanel.ping",
+                "title": "Chat Panel: Ping"
+            }
+        ]
+    }
+}

@@ -114,7 +114,7 @@
 | notebook-редакторы (7 членов) | 🕐 | |
 | тема (`activeColorTheme`, `onDidChangeActiveColorTheme`) | 🕐 | |
 | `registerUriHandler`, `withScmProgress` | 🕐 | |
-| `createWebviewPanel`, `registerWebviewPanelSerializer`, `registerWebviewViewProvider` | ⛔ | webview — требует браузера |
+| `createWebviewPanel`, `registerWebviewPanelSerializer`, `registerWebviewViewProvider` | ⛔ | webview — требует браузера; декларации не подняты, но в рантайме члены есть как инертный no-op (панели нет, в Output одна строка про неподдерживаемый webview) — иначе расширение с чат-панелью умирало на активации целиком |
 | `registerCustomEditorProvider` | ⛔ | кастомные редакторы построены на webview |
 
 ## vscode.commands
@@ -169,6 +169,14 @@
   `window.registerWebviewViewProvider` — webview;
 - `window.registerCustomEditorProvider` — кастомные редакторы построены на webview;
 - рендеры notebook-ячеек (сам Notebook API при этом — 🕐).
+
+«Не будет» — про панель, а не про расширение: три webview-члена `window`
+существуют в рантайме как инертный no-op (`webviewNoop.ts`), потому что
+расширение с чат-панелью поднимает её ПЕРВОЙ строкой `activate()` — отсутствие
+члена убивало заодно его команды и провайдеры. Вызов возвращает мёртвую панель
+(или честный `Disposable`) и пишет в Output одну строку «webview в TUI не
+поддерживается»; декларации в `vscode.d.ts` при этом остаются закомментированными
+— статус ⛔ рантайм-заглушка не меняет.
 
 ## Типы с неполной поверхностью
 
