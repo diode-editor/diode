@@ -48,6 +48,15 @@ export interface ContextKeyTypes {
     // -- Workbench UI contexts --
     /** True while the bottom Panel (Problems/Output/…) is visible. */
     panelVisible: boolean;
+    /**
+     * Виден список серии Ctrl+Tab. Пока он виден, стрелки Вверх/Вниз шагают по
+     * списку, а не по редактору — на этом ключе висят их бинды.
+     *
+     * В VS Code ту же роль играет `inEditorsPicker` поверх quick pick. Имя взято своё:
+     * «editors picker» у нас уже занят пикером открытых редакторов (Ctrl+K Ctrl+P),
+     * а наш переключатель — passthrough-оверлей без фокуса, не quick pick.
+     */
+    tabSwitcherVisible: boolean;
 
     // -- Terminal environment contexts (see TerminalEnvironmentService) --
     /** "legacy" | "csi-u" | "kitty" — use as `tier == 'kitty'`. */
@@ -251,6 +260,7 @@ export const allContextKeys: ContextKey[] = [
 
     // -- Workbench UI contexts --
     "panelVisible",
+    "tabSwitcherVisible",
 
     // -- Terminal environment contexts --
     "tier",
