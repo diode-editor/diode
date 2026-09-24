@@ -58,6 +58,7 @@ import {
     SignatureInformation,
     SnippetString,
     SnippetTextEdit,
+    StatusBarAlignment,
     SymbolInformation,
     SymbolKind,
     SymbolTag,
@@ -242,6 +243,10 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         // SnippetTextEdit конструирует конвертер клиента на сниппет-правку
         // внутри WorkspaceEdit — без класса падала бы конвертация всего edit'а.
         SnippetTextEdit,
+        // Расширение выбирает сторону полосы этим enum'ом на каждом
+        // createStatusBarItem — без runtime-поля выравнивание всегда падало бы
+        // в Left, а `item.alignment === vscode.StatusBarAlignment.Right` — в false.
+        StatusBarAlignment,
         ThemeColor,
         FileDecoration,
         OverviewRulerLane,

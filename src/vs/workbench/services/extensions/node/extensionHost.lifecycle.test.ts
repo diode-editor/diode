@@ -617,15 +617,18 @@ describe("ExtensionHost — subprocess events", () => {
         expect(logger.error).toHaveBeenCalledWith("extension host subprocess error", expect.any(Error));
     });
 
-    it("skips signalling when the subprocess has already exited before dispose", async () => {
+    it("не тревожит субпроцесс, умерший до выключения: ни host.shutdown, ни сигналов", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
         child.simulateExit(0); // subprocess gone before we tear down
+        // Смерть уже разобрана хостом (handleSubprocessDeath): ссылок на канал
+        // нет, и выключению нечего и некому слать.
         host.dispose();
+        await new Promise((r) => setTimeout(r, 20));
 
-        await waitUntil(() => child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown"));
+        expect(child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown")).toBe(false);
         expect(child.signals).toEqual([]); // no SIGTERM/SIGKILL — it was already dead
     });
 });

@@ -15,6 +15,7 @@ import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/edi
 import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
+import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
 import { FileWatcherAdapter, parseWatcherExclude } from "../../workbench/api/browser/fileWatcherAdapter.ts";
@@ -141,6 +142,14 @@ export const extensionHostModule: ContainerModule = (container) => {
             diagnosticsSink,
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
+            // createStatusBarItem расширений → собственные записи в полосе;
+            // клик исполняет команду расширения тем же адаптером команд, что и
+            // остальные вызовы субпроцесса.
+            statusBarItemSink: new ExtensionStatusBarAdapter(
+                container.get(StatusBarServiceDIToken),
+                commandAdapter,
+                logger,
+            ),
             // createOutputChannel расширений → канал в панели Output;
             // show() открывает панель (как toggleOutputAction) и переключает канал.
             outputSink: new ExtensionOutputAdapter(

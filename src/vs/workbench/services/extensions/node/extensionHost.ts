@@ -53,6 +53,7 @@ import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../ap
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
     type IWireDocumentSyncSnapshot,
+    type IWireStatusBarItem,
     type IWireWatcherCreate,
     type IWireWatcherEvent,
     parseDecorationRanges,
@@ -70,6 +71,8 @@ import {
     parseWireReadFileResult,
     parseWireSelections,
     parseWireShowTextDocumentParams,
+    parseWireStatusBarItem,
+    parseWireStatusBarItemDispose,
     parseWireWatcherCreate,
     parseWireWatcherDispose,
     requestApplyCodeAction,
@@ -120,6 +123,19 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 export interface IOutputSink {
     append(channel: string, label: string, level: WireOutputLevel, value: string): void;
     show(channel: string, label: string): void;
+}
+
+/**
+ * Сток пунктов статус-бара расширений (`window.createStatusBarItem` →
+ * `window.statusBarItem.*`): потребитель (module/харнесс) держит запись полосы
+ * на каждый живой пункт. `update` — upsert полного состояния, `remove` —
+ * `hide()`/`dispose()` со стороны расширения, `clear` — субпроцесс умер и его
+ * `remove` уже не придёт.
+ */
+export interface IStatusBarItemSink {
+    update(item: IWireStatusBarItem): void;
+    remove(handle: number): void;
+    clear(): void;
 }
 
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
@@ -294,6 +310,13 @@ export interface IExtensionHostOptions {
      */
     readonly outputSink?: IOutputSink;
     /**
+     * Сток пунктов статус-бара расширений (`window.createStatusBarItem` → notify
+     * `window.statusBarItem.*`). Если не передан — пункты отбрасываются. При
+     * смерти subprocess'а host сам зовёт `clear()`: `dispose` от умершего
+     * расширения уже не придёт, а его пункты в полосе висеть не должны.
+     */
+    readonly statusBarItemSink?: IStatusBarItemSink;
+    /**
      * Снимки ВСЕХ открытых документов для наполнения `workspace.textDocuments`
      * на `host.ready` (по одному на документ; см. `openDocumentSnapshots`).
      * Хост пушит их как `editor.didOpen` при готовности subprocess'а — чтобы
@@ -376,6 +399,15 @@ export class ExtensionHost extends Disposable {
     /** Держимые файловые декорации: absPath → { badge?, colorId? }. Пере-резолвятся при смене темы. */
     private readonly fileDecorationState = new Map<string, { badge?: string; colorId?: string }>();
     private readonly extensions = new Set<string>();
+    /** Регистрации уже активированных расширений (нужны для оживления после смерти субпроцесса). */
+    private readonly activatedRegistrations = new Map<string, IExtensionRegistration>();
+    /**
+     * Расширения, пережившие смерть субпроцесса. Поднимаются на ЛЮБОМ
+     * следующем событии активации, а не только на «своём»: их событие
+     * (`onStartupFinished`, `onLanguage:<уже открытый язык>`) давно отгорело и
+     * второй раз не наступит, а расширение было активно и должно вернуться.
+     */
+    private readonly toRevive = new Map<string, IExtensionRegistration>();
     /**
      * Зарегистрированные, но ещё не активированные расширения (id → reg).
      * Заполняется `registerExtension`, опустошается `activateByEvent` по мере
@@ -429,6 +461,7 @@ export class ExtensionHost extends Disposable {
     private readonly diagnosticsSink: DiagnosticsSink | undefined;
     private readonly progressSink: IProgressSink | undefined;
     private readonly outputSink: IOutputSink | undefined;
+    private readonly statusBarItemSink: IStatusBarItemSink | undefined;
     /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
     private readonly activeProgressHandles = new Set<number>();
     private readonly fileWatcher: IExtensionFileWatcher;
@@ -481,6 +514,7 @@ export class ExtensionHost extends Disposable {
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
         this.outputSink = options.outputSink;
+        this.statusBarItemSink = options.statusBarItemSink;
         // Смена темы → пере-резолв держимых декораций в обе поверхности.
         this.register(
             this.themeColorResolver.onDidChange(() => {
@@ -497,7 +531,7 @@ export class ExtensionHost extends Disposable {
      */
     public registerExtension(reg: IExtensionRegistration): IDisposable {
         if (this.hostDisposed) throw new Error("ExtensionHost disposed");
-        if (this.extensions.has(reg.id) || this.pending.has(reg.id)) {
+        if (this.extensions.has(reg.id) || this.pending.has(reg.id) || this.toRevive.has(reg.id)) {
             throw new Error(`Extension "${reg.id}" already registered`);
         }
         // Инвариант загрузки: ровно один способ (source XOR mainPath). Проверяем
@@ -518,6 +552,7 @@ export class ExtensionHost extends Disposable {
         this.pending.set(reg.id, reg);
         return {
             dispose: (): void => {
+                if (this.toRevive.delete(reg.id)) return; // ждало оживления — уже не ждёт
                 if (this.pending.delete(reg.id)) return; // ещё не активировано
                 if (!this.extensions.has(reg.id)) return;
                 void this.unregisterExtension(reg.id);
@@ -535,7 +570,7 @@ export class ExtensionHost extends Disposable {
     public async activateByEvent(event: string): Promise<void> {
         // Disposed-случай покрыт неявно: dispose() чистит `pending`, поэтому
         // `toActivate` окажется пустым и метод выйдет до ensureSubprocess.
-        const toActivate: IExtensionRegistration[] = [];
+        const toActivate: IExtensionRegistration[] = [...this.toRevive.values()];
         for (const reg of this.pending.values()) {
             if (normalizeActivationEvents(reg.activationEvents).includes(event)) toActivate.push(reg);
         }
@@ -545,7 +580,7 @@ export class ExtensionHost extends Disposable {
         const rpc = await this.ensureSubprocess();
         for (const reg of toActivate) {
             // Второй guard на случай, если параллельный activateByEvent уже занялся им.
-            if (!this.pending.delete(reg.id)) continue;
+            if (!this.pending.delete(reg.id) && !this.toRevive.delete(reg.id)) continue;
             // Per-extension изоляция: упавший `activate()` одного расширения не
             // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
             try {
@@ -558,6 +593,7 @@ export class ExtensionHost extends Disposable {
                     configDefaults: reg.configDefaults,
                 });
                 this.extensions.add(reg.id);
+                this.activatedRegistrations.set(reg.id, reg);
                 this.logger?.info(`activated extension "${reg.id}"`);
             } catch (err) {
                 this.logger?.error(`failed to activate extension "${reg.id}"`, err);
@@ -568,6 +604,7 @@ export class ExtensionHost extends Disposable {
     public async unregisterExtension(id: string): Promise<void> {
         if (!this.extensions.has(id)) return;
         this.extensions.delete(id);
+        this.activatedRegistrations.delete(id);
         const rpc = this.rpc;
         /* v8 ignore start -- defensive: an extension can only be in `extensions` after ensureSubprocess set `rpc`; dispose() clears `extensions` before nulling `rpc`, so rpc is never null while the id is still registered */
         if (rpc === null) return;
@@ -1177,7 +1214,9 @@ export class ExtensionHost extends Disposable {
         if (this.hostDisposed) return;
         this.hostDisposed = true;
         this.pending.clear();
+        this.toRevive.clear();
         this.extensions.clear();
+        this.activatedRegistrations.clear();
         this.disposeFileWatchers();
         void this.shutdownSubprocess();
         super.dispose();
@@ -1241,6 +1280,7 @@ export class ExtensionHost extends Disposable {
         }
         child.once("exit", (code, signal) => {
             this.logger?.info("extension host subprocess exited", { code, signal });
+            this.handleSubprocessDeath(child);
         });
         child.once("error", (err) => {
             this.logger?.error("extension host subprocess error", err);
@@ -1516,6 +1556,19 @@ export class ExtensionHost extends Disposable {
             this.activeProgressHandles.delete(end.handle);
             this.progressSink?.end(end.handle);
         });
+        // Пункт статус-бара расширения (`window.createStatusBarItem`) показан или
+        // изменён / снят — отдаём стоку (module ведёт в StatusBarService).
+        // `update` — полное состояние, а не дельта: у хоста нет своей копии пункта.
+        rpc.handleNotification("window.statusBarItem.update", (params) => {
+            const item = parseWireStatusBarItem(params);
+            if (item === null) return;
+            this.statusBarItemSink?.update(item);
+        });
+        rpc.handleNotification("window.statusBarItem.dispose", (params) => {
+            const removed = parseWireStatusBarItemDispose(params);
+            if (removed === null) return;
+            this.statusBarItemSink?.remove(removed.handle);
+        });
         // Строка output-канала расширения / просьба показать канал — отдаём
         // стоку (module ведёт в реестр Output + логгер + команду show).
         rpc.handleNotification("output.append", (params) => {
@@ -1669,10 +1722,14 @@ export class ExtensionHost extends Disposable {
         this.proxyCommands.clear();
     }
 
-    private async shutdownSubprocess(): Promise<void> {
-        const rpc = this.rpc;
-        const channel = this.channel;
-        const child = this.subprocess;
+    /**
+     * Сбрасывает всё, что принадлежало ушедшему субпроцессу: ссылки на канал,
+     * флаги подписок и поверхности, которые он держал (спиннеры, пункты полосы,
+     * декорации, прокси-команды). Общий для вежливого выключения
+     * ({@link shutdownSubprocess}) и для внезапной смерти
+     * ({@link handleSubprocessDeath}).
+     */
+    private resetSubprocessState(): void {
         this.rpc = null;
         this.channel = null;
         this.subprocess = null;
@@ -1699,6 +1756,9 @@ export class ExtensionHost extends Disposable {
         // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.
         for (const handle of this.activeProgressHandles) this.progressSink?.end(handle);
         this.activeProgressHandles.clear();
+        // Та же причина у пунктов статус-бара: `dispose` от умершего расширения
+        // не придёт никогда, а его пункты в полосе висеть не должны.
+        this.statusBarItemSink?.clear();
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).
         this.decorationTypes.clear();
@@ -1707,6 +1767,32 @@ export class ExtensionHost extends Disposable {
         // Прокси-команды указывали на умирающий сабпроцесс — снимаем их из
         // общего DI-синглтона CommandRegistry, чтобы не оставить висячие записи.
         this.clearProxyCommands();
+    }
+
+    /**
+     * Субпроцесс умер сам (расширение уронило свой процесс, OOM, краш нативного
+     * модуля). Хост остаётся жив: снимаем всё, что принадлежало умершему, и
+     * возвращаем активированные расширения в `pending` — следующий
+     * `activateByEvent` поднимет субпроцесс заново и активирует их. Без этого
+     * пункты статус-бара и прокси-команды мертвеца висели бы до перезапуска
+     * редактора, а `rpc` указывал бы на закрытый канал.
+     */
+    private handleSubprocessDeath(child: ChildProcess): void {
+        // Вежливое выключение уже обнулило `subprocess` — там всё сделано.
+        if (this.subprocess !== child) return;
+        this.logger?.warn("extension host subprocess died — resetting host state");
+        this.resetSubprocessState();
+        if (this.hostDisposed) return;
+        for (const [id, reg] of this.activatedRegistrations) this.toRevive.set(id, reg);
+        this.activatedRegistrations.clear();
+        this.extensions.clear();
+    }
+
+    private async shutdownSubprocess(): Promise<void> {
+        const rpc = this.rpc;
+        const channel = this.channel;
+        const child = this.subprocess;
+        this.resetSubprocessState();
         if (child === null) {
             rpc?.dispose();
             channel?.dispose();
@@ -1852,10 +1938,12 @@ function waitForReady(rpc: RpcEndpoint, child: ChildProcess, timeoutMs: number):
 
 function waitForExit(child: ChildProcess): Promise<void> {
     return new Promise((resolve) => {
+        /* v8 ignore start -- defensive: смерть субпроцесса разбирает handleSubprocessDeath, и он обнуляет `subprocess`; поэтому до waitForExit доезжает только живой ребёнок (у мёртвого shutdownSubprocess видит null и выходит раньше) */
         if (child.exitCode !== null || child.killed) {
             resolve();
             return;
         }
+        /* v8 ignore stop */
         child.once("exit", () => {
             resolve();
         });

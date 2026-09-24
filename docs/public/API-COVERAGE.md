@@ -29,7 +29,7 @@
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 11/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 18/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 16/57 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 17/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
@@ -91,8 +91,8 @@
 
 ## vscode.window
 
-🟡 **16/57.** Редакторы, сообщения, прогресс, output-каналы и декорации — рабочие; quick input,
-статус-бар, терминал и деревья пока не отданы расширениям; webview — потолок.
+🟡 **17/57.** Редакторы, сообщения, прогресс, output-каналы, декорации и пункты статус-бара —
+рабочие; quick input, терминал и деревья пока не отданы расширениям; webview — потолок.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
@@ -107,7 +107,8 @@
 | `createTextEditorDecorationType` | ✅ | gutter change-bar'ы, overview ruler |
 | `registerFileDecorationProvider` | ✅ | файловые декорации в explorer |
 | quick input (`showQuickPick`, `showInputBox`, `showWorkspaceFolderPick`, `showOpenDialog`, `showSaveDialog`, `createQuickPick`, `createInputBox`) | 🕐 | ядро QuickInput в приложении есть, расширениям пока не отдано |
-| статус-бар (`createStatusBarItem`, `setStatusBarMessage`) | 🕐 | |
+| `createStatusBarItem` | 🟡 | пункт в полосе: `text` со значками `$(name)`, `name`, `alignment`, `priority`, команда по клику, `show`/`hide`/`dispose`. Стабы: `tooltip` принимается, но не показывается (виджета подсказки в TUI нет); `color`/`backgroundColor`/`accessibilityInformation` ни на что не влияют. Текст длиннее 24 символов усекается — ширина полосы в терминале дефицитна |
+| `setStatusBarMessage` | 🕐 | |
 | терминал (12 членов: `createTerminal`, `terminals`, события, shell integration, link/profile-провайдеры) | 🕐 | |
 | деревья (`registerTreeDataProvider`, `createTreeView`) | 🕐 | |
 | события редактора (`onDidChangeTextEditorSelection`, `onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
@@ -172,7 +173,7 @@
 
 ## Типы с неполной поверхностью
 
-Активно 99 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 102 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов).
 
 | тип | активно | не активно |
