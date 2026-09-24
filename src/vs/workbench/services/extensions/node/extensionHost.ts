@@ -568,8 +568,9 @@ export class ExtensionHost extends Disposable {
      * `host.activateExtension`.
      */
     public async activateByEvent(event: string): Promise<void> {
-        // Disposed-случай покрыт неявно: dispose() чистит `pending`, поэтому
-        // `toActivate` окажется пустым и метод выйдет до ensureSubprocess.
+        // Disposed-случай покрыт неявно: dispose() чистит и `pending`, и
+        // `toRevive`, поэтому `toActivate` окажется пустым и метод выйдет до
+        // ensureSubprocess.
         const toActivate: IExtensionRegistration[] = [...this.toRevive.values()];
         for (const reg of this.pending.values()) {
             if (normalizeActivationEvents(reg.activationEvents).includes(event)) toActivate.push(reg);
