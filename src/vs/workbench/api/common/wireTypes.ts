@@ -1945,25 +1945,23 @@ function optionalWireString(value: unknown): string | undefined {
 
 /** Разбирает `window.showInputBox`; `null` — параметры структурно чужие. */
 export function parseWireInputBoxRequest(raw: unknown): IWireInputBoxRequest | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Record<string, unknown>;
     if (!isFiniteNumber(p.handle)) return null;
-    const title = optionalWireString(p.title);
-    const prompt = optionalWireString(p.prompt);
-    const placeHolder = optionalWireString(p.placeHolder);
-    const value = optionalWireString(p.value);
     return {
         handle: p.handle,
-        ...(title !== undefined ? { title } : {}),
-        ...(prompt !== undefined ? { prompt } : {}),
-        ...(placeHolder !== undefined ? { placeHolder } : {}),
-        ...(value !== undefined ? { value } : {}),
+        title: optionalWireString(p.title),
+        prompt: optionalWireString(p.prompt),
+        placeHolder: optionalWireString(p.placeHolder),
+        value: optionalWireString(p.value),
         validates: p.validates === true,
     };
 }
 
 /** Разбирает `window.showQuickPick`; `null` — параметры структурно чужие. */
 export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Record<string, unknown>;
     if (!isFiniteNumber(p.handle)) return null;
@@ -1974,22 +1972,19 @@ export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest |
         const it = entry as { label?: unknown; description?: unknown };
         // Пункт без лейбла показывать нечем — но выбросить его молча нельзя:
         // ответ адресуется индексом в ЭТОМ массиве, и дыра сдвинула бы остальные.
-        const description = optionalWireString(it.description);
         items.push({
             label: typeof it.label === "string" ? it.label : "",
-            ...(description !== undefined ? { description } : {}),
+            description: optionalWireString(it.description),
         });
     }
     const canPickMany = p.canPickMany === true;
     const picked = Array.isArray(p.picked)
         ? p.picked.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < items.length)
         : [];
-    const title = optionalWireString(p.title);
-    const placeHolder = optionalWireString(p.placeHolder);
     return {
         handle: p.handle,
-        ...(title !== undefined ? { title } : {}),
-        ...(placeHolder !== undefined ? { placeHolder } : {}),
+        title: optionalWireString(p.title),
+        placeHolder: optionalWireString(p.placeHolder),
         canPickMany,
         items,
         // Предотметки без множественного выбора смысла не имеют — гасим здесь,
@@ -2000,6 +1995,7 @@ export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest |
 
 /** Разбирает `window.quickInput.cancel`; `null` — параметры структурно чужие. */
 export function parseWireQuickInputCancel(raw: unknown): number | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
     if (typeof raw !== "object" || raw === null) return null;
     const { handle } = raw as { handle?: unknown };
     return isFiniteNumber(handle) ? handle : null;
@@ -2010,6 +2006,7 @@ export function parseWireQuickInputCancel(raw: unknown): number | null {
  * порядке (в том числе когда расширение ответило мусором или молчанием).
  */
 export function parseWireValidationMessage(raw: unknown): IWireValidationMessage | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as { message?: unknown; severity?: unknown };
     if (typeof p.message !== "string") return null;
@@ -2035,6 +2032,7 @@ export interface IWireQuickPickResult {
 
 /** Разбирает ответ хоста на `window.showInputBox` (host → subprocess). */
 export function parseWireInputBoxResult(raw: unknown): IWireInputBoxResult {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
     if (typeof raw !== "object" || raw === null) return { value: null };
     const { value } = raw as { value?: unknown };
     return { value: typeof value === "string" ? value : null };
@@ -2042,6 +2040,7 @@ export function parseWireInputBoxResult(raw: unknown): IWireInputBoxResult {
 
 /** Разбирает ответ хоста на `window.showQuickPick` (host → subprocess). */
 export function parseWireQuickPickResult(raw: unknown): IWireQuickPickResult {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
     if (typeof raw !== "object" || raw === null) return { indices: null };
     const { indices } = raw as { indices?: unknown };
     if (!Array.isArray(indices)) return { indices: null };

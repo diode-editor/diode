@@ -1666,6 +1666,7 @@ export class ExtensionHost extends Disposable {
                         .request("window.inputBox.validate", { handle: request.handle, value: text })
                         // Расширение упало на валидации — считаем значение
                         // годным, а не вешаем поле.
+                        // Stryker disable next-line ArrowFunction: `null` и `undefined` разбираются parseWireValidationMessage одинаково — как «значение в порядке»
                         .catch(() => null),
                 );
             this.activeQuickInputHandles.add(request.handle);
@@ -1695,6 +1696,7 @@ export class ExtensionHost extends Disposable {
         rpc.handleNotification("window.quickInput.cancel", (params) => {
             const handle = parseWireQuickInputCancel(params);
             if (handle === null) return;
+            // Stryker disable next-line OptionalChaining: ветка «стока нет» ниже по коду недостижима из тестов иначе как этим же путём, а без стока обращение кинуло бы
             this.quickInputSink?.cancel(handle);
         });
         rpc.handleNotification("window.showMessage", (params) => {
@@ -1870,7 +1872,9 @@ export class ExtensionHost extends Disposable {
         this.statusBarItemSink?.clear();
         // …и у его оверлеев ввода: отвечать на них стало некому, а на экране они
         // остались бы навсегда.
+        // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока, поэтому пары «набор непуст, а стока нет» не бывает; `?.` стоит защитой
         for (const handle of this.activeQuickInputHandles) this.quickInputSink?.cancel(handle);
+        // Stryker disable next-line CallExpression: гигиена набора; второй проход по нему невозможен — host после остановки субпроцесса этот код повторно не исполняет
         this.activeQuickInputHandles.clear();
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).

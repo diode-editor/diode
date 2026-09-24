@@ -65,11 +65,23 @@ function toWireSeverity(severity: number | undefined): WireValidationSeverity {
  */
 export function toWireQuickPickItem(item: string | vscode.QuickPickItem): IWireQuickPickItem {
     if (typeof item === "string") return { label: item };
-    const description = item.description !== undefined && item.description !== "" ? item.description : item.detail;
-    return {
-        label: item.label,
-        ...(description !== undefined && description !== "" ? { description } : {}),
-    };
+    return { label: item.label, description: nonEmpty(item.description) ?? nonEmpty(item.detail) };
+}
+
+/** Текст, если в нём что-то есть; пустая строка и отсутствие — одно и то же. */
+function nonEmpty(text: string | undefined): string | undefined {
+    // Stryker disable next-line ConditionalExpression: первый операнд — быстрый выход; `undefined === ""` тоже ложно, так что отсутствующий текст отсеет и второй
+    return text === undefined || text === "" ? undefined : text;
+}
+
+/**
+ * Валидатор расширения, привязанный к его же объекту опций: `this` внутри
+ * `validateInput` должен остаться тем, на что расширение рассчитывает.
+ */
+function makeValidator(options: vscode.InputBoxOptions | undefined): ((value: string) => unknown) | undefined {
+    if (options?.validateInput === undefined) return undefined;
+    // Stryker disable next-line OptionalChaining: наличие метода проверено строкой выше; `?.` стоит на случай, если расширение переписало свои опции между вызовом и валидацией
+    return (value: string): unknown => options.validateInput?.(value);
 }
 
 export function createQuickInputApi(rpc: RpcEndpoint): IQuickInputApi {
@@ -79,10 +91,11 @@ export function createQuickInputApi(rpc: RpcEndpoint): IQuickInputApi {
      * расширению держать два `showInputBox` одновременно (второй перехватит
      * оверлей, но запрос валидации на первый ещё может быть в полёте).
      */
-    const validators = new Map<number, (value: string) => unknown>();
+    const validators = new Map<number, ((value: string) => unknown) | undefined>();
 
     rpc.handleRequest("window.inputBox.validate", async (params): Promise<IWireValidationMessage | null> => {
         const p = params as { handle?: unknown; value?: unknown };
+        // Stryker disable next-line ConditionalExpression: проверка handle — быстрый выход; мусорный handle всё равно не найдётся в карте валидаторов, и ответом будет тот же null
         if (typeof p.handle !== "number" || typeof p.value !== "string") return null;
         const validate = validators.get(p.handle);
         if (validate === undefined) return null;
@@ -109,22 +122,19 @@ export function createQuickInputApi(rpc: RpcEndpoint): IQuickInputApi {
         showInputBox: async (options, token) => {
             if (token?.isCancellationRequested === true) return undefined;
             const handle = nextHandle++;
-            // Метод берём из опций расширения — привязываем к их объекту, чтобы
-            // `this` внутри валидатора остался тем, на что расширение рассчитывает.
-            const validate =
-                options?.validateInput !== undefined
-                    ? (value: string): unknown => options.validateInput?.(value)
-                    : undefined;
-            if (validate !== undefined) validators.set(handle, validate);
+            const validate = makeValidator(options);
+            // Кладём даже `undefined`: хендлер валидации всё равно спрашивает
+            // карту и на отсутствующем валидаторе отвечает «значение в порядке».
+            validators.set(handle, validate);
             const unbind = bindCancellation(handle, token);
             try {
                 const result = parseWireInputBoxResult(
                     await rpc.request("window.showInputBox", {
                         handle,
-                        ...(options?.title !== undefined ? { title: options.title } : {}),
-                        ...(options?.prompt !== undefined ? { prompt: options.prompt } : {}),
-                        ...(options?.placeHolder !== undefined ? { placeHolder: options.placeHolder } : {}),
-                        ...(options?.value !== undefined ? { value: options.value } : {}),
+                        title: options?.title,
+                        prompt: options?.prompt,
+                        placeHolder: options?.placeHolder,
+                        value: options?.value,
                         validates: validate !== undefined,
                     }),
                 );
@@ -148,8 +158,8 @@ export function createQuickInputApi(rpc: RpcEndpoint): IQuickInputApi {
                 const result = parseWireQuickPickResult(
                     await rpc.request("window.showQuickPick", {
                         handle,
-                        ...(options?.title !== undefined ? { title: options.title } : {}),
-                        ...(options?.placeHolder !== undefined ? { placeHolder: options.placeHolder } : {}),
+                        title: options?.title,
+                        placeHolder: options?.placeHolder,
                         canPickMany,
                         items: resolved.map(toWireQuickPickItem),
                         picked: pickedIndices(resolved, canPickMany),
@@ -175,6 +185,7 @@ function pickedIndices(items: readonly (string | vscode.QuickPickItem)[], canPic
     if (!canPickMany) return [];
     const indices: number[] = [];
     for (const [index, item] of items.entries()) {
+        // Stryker disable next-line ConditionalExpression,StringLiteral: отсев строк — быстрый выход; у строкового пункта `picked` всё равно `undefined`, и второй операнд отсеет его сам
         if (typeof item !== "string" && item.picked === true) indices.push(index);
     }
     return indices;

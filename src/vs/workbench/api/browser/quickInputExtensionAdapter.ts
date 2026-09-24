@@ -32,12 +32,14 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
                 : async (value: string): Promise<InputValidation | null> => toValidation(await ask(value));
         this.currentHandle = request.handle;
         try {
+            // Поля кладём как есть: у опций пикера отсутствие и `undefined` —
+            // одно и то же, поэтому условные спреды тут были бы лишним швом.
             return await this.quickInput.input({
-                ...(request.title !== undefined ? { title: request.title } : {}),
-                ...(request.prompt !== undefined ? { prompt: request.prompt } : {}),
-                ...(request.placeHolder !== undefined ? { placeholder: request.placeHolder } : {}),
-                ...(request.value !== undefined ? { value: request.value } : {}),
-                ...(validateInput !== undefined ? { validateInput } : {}),
+                title: request.title,
+                prompt: request.prompt,
+                placeholder: request.placeHolder,
+                value: request.value,
+                validateInput,
             });
         } finally {
             this.release(request.handle);
@@ -49,22 +51,22 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
         // должно получить обратно свои объекты, а не пересобранные по проводу.
         const items: QuickPickItem[] = request.items.map((item) => ({
             label: item.label,
-            ...(item.description !== undefined ? { description: item.description } : {}),
+            description: item.description,
         }));
         this.currentHandle = request.handle;
         try {
             if (!request.canPickMany) {
                 const picked = await this.quickInput.quickPick({
-                    ...(request.title !== undefined ? { title: request.title } : {}),
-                    ...(request.placeHolder !== undefined ? { placeholder: request.placeHolder } : {}),
+                    title: request.title,
+                    placeholder: request.placeHolder,
                     items,
                 });
                 if (picked === undefined) return undefined;
                 return [items.indexOf(picked)];
             }
             const picked = await this.quickInput.quickPickMany({
-                ...(request.title !== undefined ? { title: request.title } : {}),
-                ...(request.placeHolder !== undefined ? { placeholder: request.placeHolder } : {}),
+                title: request.title,
+                placeholder: request.placeHolder,
                 items,
                 picked: request.picked.map((index) => items[index]),
             });

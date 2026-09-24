@@ -229,6 +229,31 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         await expect(ours).resolves.toBe("");
     });
 
+    it("cancel по закрытому СПИСКУ чужую сессию не гасит", async () => {
+        const { adapter, service, component, testApp } = createAdapter();
+        const pending = adapter.showQuickPick(pickRequest({ handle: 5 }));
+        testApp.sendKey("Escape");
+        await pending;
+
+        const ours = service.input({ title: "Save As" });
+        adapter.cancel(5);
+        expect(component.isOpen()).toBe(true);
+        testApp.sendKey("Enter");
+        await expect(ours).resolves.toBe("");
+    });
+
+    it("хвост перехваченного показа не сбрасывает слот перехватчика", async () => {
+        const { adapter, component, testApp } = createAdapter();
+        const first = adapter.showInputBox({ handle: 1, validates: false });
+        const second = adapter.showQuickPick(pickRequest({ handle: 2 }));
+        // Первый показ уже перехвачен вторым — его завершение слот НЕ трогает.
+        await expect(first).resolves.toBeUndefined();
+
+        adapter.cancel(2);
+        expect(component.isOpen()).toBe(false);
+        await expect(second).resolves.toBeUndefined();
+    });
+
     it("перехват следующим показом расширения не оставляет прошлое обещание висеть", async () => {
         const { adapter, testApp } = createAdapter();
         const first = adapter.showInputBox({ handle: 1, validates: false });

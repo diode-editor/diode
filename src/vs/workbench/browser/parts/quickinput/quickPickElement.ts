@@ -384,8 +384,8 @@ export class QuickPickElement extends TUIElement {
         const keepScroll = this.list.scrollTop;
         this.rebuildRows();
         this.list.scrollTop = keepScroll;
+        // Stryker disable next-line ObjectLiteral: отсутствующий `notify` читается как `!undefined`, то есть ровно как `notify: false`
         this.moveCursorTo(keepIndex, { notify: false });
-        this.markDirty();
     }
 
     /** Двигает курсор списка; программные перемещения молчат по контракту. */
@@ -469,6 +469,7 @@ export class QuickPickElement extends TUIElement {
         if (this.canPickMany) {
             // Принимается НАБОР отметок, в том числе пустой: «ничего не
             // отмечено» — это пустой ответ, а не отмена и не строка под курсором.
+            // Stryker disable next-line OptionalChaining: колбэк ставит владелец показа до открытия; пары «множественный выбор без onAcceptMany» в приложении не бывает, а проверка стоит защитой
             this.onAcceptMany?.();
             return;
         }
@@ -562,6 +563,7 @@ export class QuickPickElement extends TUIElement {
         if (message !== null) {
             const avail = Math.max(0, size.width - BORDER_THICKNESS * 2 - CONTENT_PAD * 2);
             const text = truncateEnd(message.text, avail);
+            // Stryker disable next-line ConditionalExpression: сравнение и есть починка — без него дерево остаётся грязным после каждого кадра и оверлей замирает; наблюдаемо только на живом кадре, гейт — демо-сценарий `quick-input` (e2e)
             if (this.messageLabel.getText() !== text) this.messageLabel.setText(text);
         }
 

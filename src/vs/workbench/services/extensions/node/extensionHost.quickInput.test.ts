@@ -269,6 +269,53 @@ describe("ExtensionHost — window.quickInput.cancel", () => {
     });
 });
 
+describe("ExtensionHost — учёт живых показов", () => {
+    it("закончившийся показ снимается с учёта: следующая смерть его не гасит", async () => {
+        const sink = makeSink();
+        const { host, peer } = makeHost(sink);
+        const first = peer.request("window.showQuickPick", { handle: 21, items: [], picked: [] });
+        await flushMicrotasks();
+        sink.settlePick([]);
+        await first;
+
+        host.dispose();
+        expect(sink.cancelled).toEqual([]);
+    });
+
+    it("несколько живых показов гасятся все", async () => {
+        const sink = makeSink();
+        const { host, peer } = makeHost(sink);
+        void peer.request("window.showInputBox", { handle: 31, validates: false });
+        void peer.request("window.showQuickPick", { handle: 32, items: [], picked: [] });
+        await flushMicrotasks();
+
+        host.dispose();
+        expect([...sink.cancelled].sort((a, b) => a - b)).toEqual([31, 32]);
+    });
+
+    it("после смерти набор живых показов пуст — повторный dispose молчит", async () => {
+        const sink = makeSink();
+        const { host, peer } = makeHost(sink);
+        void peer.request("window.showInputBox", { handle: 41, validates: false });
+        await flushMicrotasks();
+        host.dispose();
+        expect(sink.cancelled).toEqual([41]);
+
+        host.dispose();
+        expect(sink.cancelled).toEqual([41]);
+    });
+
+    it("без стока отмена по токену никого не роняет", async () => {
+        const { peer } = makeHost();
+        peer.notify("window.quickInput.cancel", { handle: 1 });
+        await flushMicrotasks();
+        // Дошли сюда — обработчик не кинул на отсутствующем стоке.
+        await expect(peer.request("window.showInputBox", { handle: 1, validates: false })).resolves.toEqual({
+            value: null,
+        });
+    });
+});
+
 describe("ExtensionHost — смерть субпроцесса с открытым оверлеем", () => {
     it("живые показы гасятся: оверлей не остаётся на экране без хозяина", async () => {
         const sink = makeSink();

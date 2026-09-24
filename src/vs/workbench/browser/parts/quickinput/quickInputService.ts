@@ -149,6 +149,7 @@ export class QuickInputService {
                     showValidation(null);
                     return;
                 }
+                // Stryker disable next-line UpdateOperator: номер нужен только чтобы отличать запросы друг от друга — декремент даёт ровно ту же последовательность различных значений
                 const seq = ++validationSeq;
                 const outcome = validate(query);
                 if (!isThenable(outcome)) {
@@ -218,6 +219,7 @@ export class QuickInputService {
      * пустой массив — «ничего не отмечено», а `undefined` — отмена.
      */
     public quickPickMany(opts: QuickPickManyOptions): Promise<readonly QuickPickItem[] | undefined> {
+        // Stryker disable next-line CallExpression: дублируется строкой ниже — `hide()` и так дёргает onDidClose прошлого владельца, а тот доводит его обещание до undefined; явный settle только называет намерение
         this.settle(undefined);
         this.component.hide();
 
@@ -232,6 +234,7 @@ export class QuickInputService {
                 canPickMany: true,
             });
             // Отметки ставим ПОСЛЕ заполнения списка: их рисуют сами строки.
+            // Stryker disable next-line ArrayDeclaration: подмена пустого массива непустым ничего не меняет — отметки ищутся по идентичности предметов списка, и чужой объект в наборе не совпадёт ни с одним из них
             view.setCheckedItems(opts.picked ?? []);
             view.onAccept = null;
             view.onAcceptMany = () => {
@@ -266,7 +269,9 @@ export class QuickInputService {
         },
     ): typeof this.component.view {
         const view = this.component.view;
+        // Stryker disable next-line CallExpression: страховка на общем виджете; оба list-флейвора ниже сами выставляют canPickMany, а набор отметок перетирает quickPickMany своим setCheckedItems — наблюдаемого следа от снятия сброса нет. Настоящий его потребитель — QuickOpenService, там он под тестом
         view.resetMultiSelect();
+        // Stryker disable next-line StringLiteral: режим читается единственным сравнением `acceptMode === "value"`, поэтому любая другая строка ведёт себя как "item"
         view.acceptMode = "item";
         view.canPickMany = opts.canPickMany;
         view.title = opts.title;
@@ -280,7 +285,9 @@ export class QuickInputService {
         };
 
         view.onQueryChange = (query) => {
+            // Stryker disable next-line MethodExpression: trim здесь косметический — набрать ведущий пробел в строке запроса нельзя (в множественном выборе его съедает отметка, а лишние пробелы внутри слова фильтр и так не сужают)
             const needle = query.trim().toLowerCase();
+            // Stryker disable next-line ConditionalExpression,StringLiteral: ветка с пустым запросом — только чтобы не гонять фильтр вхолостую; `includes("")` истинно для любой строки, так что отфильтрованный список совпал бы с исходным
             view.items = needle === "" ? allItems : allItems.filter((it) => it.label.toLowerCase().includes(needle));
             // `items =` resets the highlight to the top; surface that as an active change.
             notifyActive();

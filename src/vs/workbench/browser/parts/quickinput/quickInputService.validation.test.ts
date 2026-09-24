@@ -73,6 +73,18 @@ describe("QuickInputService.input — форма сообщения валида
         expect(component.view.validationMessage).toBe("Так нельзя");
     });
 
+    it("показ без валидации гасит сообщение, оставшееся от прошлого", async () => {
+        const { service, component, testApp } = createService();
+        const first = service.input({ validateInput: () => "Так нельзя" });
+        testApp.sendKey("a");
+        expect(component.view.validationMessage).toBe("Так нельзя");
+        testApp.sendKey("Escape");
+        await first;
+
+        void service.input({ prompt: "чистый показ" });
+        expect(component.view.validationMessage).toBeNull();
+    });
+
     it("без validateInput сообщения нет и Enter проходит", async () => {
         const { service, component, testApp } = createService();
         const result = service.input({});

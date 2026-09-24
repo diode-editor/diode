@@ -83,6 +83,43 @@ describe("QuickPickElement — чекбоксы множественного в�
         );
     });
 
+    it("setCheckedItems заменяет набор целиком, а не дополняет его", () => {
+        const picker = makePicker();
+        picker.canPickMany = true;
+        picker.items = ITEMS;
+        picker.setCheckedItems([ITEMS[0]]);
+        picker.setCheckedItems([ITEMS[2]]);
+        expect([...picker.checkedItems]).toEqual([ITEMS[2]]);
+        expectScreen(
+            render(picker),
+            screen`
+                ╭──────────────────────╮
+                │                      │
+                ├──────────────────────┤
+                │ [ ] alpha            │
+                │ [ ] beta             │
+                │ [✓] gamma            │
+                ╰──────────────────────╯
+            `,
+        );
+    });
+
+    it("колонка иконок и колонка чекбоксов вместе ужимают лейбл, а не накладываются", () => {
+        const picker = makePicker();
+        picker.canPickMany = true;
+        picker.items = [{ icon: "T", label: "очень-длинное-имя-строки" }];
+        expectScreen(
+            render(picker),
+            screen`
+                ╭──────────────────────╮
+                │                      │
+                ├──────────────────────┤
+                │ [ ] T очень-длинное… │
+                ╰──────────────────────╯
+            `,
+        );
+    });
+
     it("Space переключает отметку строки под курсором прямо на кадре", () => {
         const picker = makePicker();
         picker.canPickMany = true;
@@ -253,6 +290,39 @@ describe("QuickPickElement.resetMultiSelect", () => {
         };
         key(picker, "Enter");
         expect(accepted).toBe(ITEMS[0]);
+    });
+});
+
+describe("QuickPickElement — перестройка строк держит экран на месте", () => {
+    function longList(): QuickPickItem[] {
+        return Array.from({ length: 40 }, (_, i) => ({ label: `item-${String(i + 1).padStart(2, "0")}` }));
+    }
+
+    it("отметка в прокрученном списке не отматывает его наверх", () => {
+        const picker = makePicker(30);
+        picker.canPickMany = true;
+        picker.items = longList();
+        render(picker, 30);
+        for (let i = 0; i < 20; i++) key(picker, "ArrowDown");
+        const scrolledIndex = picker.selectedIndex;
+        expect(scrolledIndex).toBe(20);
+
+        key(picker, " ");
+
+        // Курсор там же, отмечена именно та строка, и список не прыгнул.
+        expect(picker.selectedIndex).toBe(scrolledIndex);
+        expect([...picker.checkedItems].map((i) => i.label)).toEqual(["item-21"]);
+        expect(picker.inspectState().checked).toEqual(["item-21"]);
+    });
+
+    it("отметка не будит живое превью — это не навигация", () => {
+        const picker = makePicker();
+        picker.canPickMany = true;
+        picker.items = ITEMS;
+        const onActive = vi.fn();
+        picker.onActiveItemChanged = onActive;
+        key(picker, " ");
+        expect(onActive).not.toHaveBeenCalled();
     });
 });
 

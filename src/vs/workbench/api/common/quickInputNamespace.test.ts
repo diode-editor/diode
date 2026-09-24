@@ -204,17 +204,74 @@ describe("window.showInputBox (шим)", () => {
         await expect(stub.callRequest("window.inputBox.validate", { handle: 1 })).resolves.toBeNull();
     });
 
-    it("токен отмены шлёт хосту снятие показа", async () => {
+    it("токен отмены шлёт хосту снятие показа с его handle", async () => {
         const { stub, api } = makeApi();
         const show = pendingAnswer();
-        stub.responder = () => show.promise;
+        let liveHandle = 0;
+        stub.responder = (_m, params) => {
+            liveHandle = (params as { handle: number }).handle;
+            return show.promise;
+        };
         const source = new CancellationTokenSource();
         const pending = api.showInputBox({}, source.token as unknown as vscode.CancellationToken);
         await Promise.resolve();
         source.cancel();
-        expect(stub.notifies.some((n) => n.method === "window.quickInput.cancel")).toBe(true);
+        expect(stub.notifies).toContainEqual({
+            method: "window.quickInput.cancel",
+            params: { handle: liveHandle },
+        });
         show.answer({ value: null });
         await expect(pending).resolves.toBeUndefined();
+    });
+
+    it("без опций вовсе показ поднимается на дефолтах", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ value: "x" });
+        await expect(api.showInputBox()).resolves.toBe("x");
+        expect(lastRequest(stub, "window.showInputBox")).toMatchObject({ validates: false });
+    });
+
+    it("handle показа монотонно растёт — два показа не путаются", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ value: "x" });
+        await api.showInputBox({});
+        const first = lastRequest(stub, "window.showInputBox").handle as number;
+        await api.showInputBox({});
+        const second = lastRequest(stub, "window.showInputBox").handle as number;
+        expect(second).toBeGreaterThan(first);
+    });
+
+    it("нестроковое значение в запросе валидации до валидатора не доходит", async () => {
+        const { stub, api } = makeApi();
+        const show = pendingAnswer();
+        let liveHandle = 0;
+        let asked = 0;
+        stub.responder = (_m, params) => {
+            liveHandle = (params as { handle: number }).handle;
+            return show.promise;
+        };
+        const live = api.showInputBox({
+            validateInput: () => {
+                asked++;
+                return "нельзя";
+            },
+        });
+        await Promise.resolve();
+        await expect(
+            stub.callRequest("window.inputBox.validate", { handle: liveHandle, value: 7 }),
+        ).resolves.toBeNull();
+        expect(asked).toBe(0);
+        show.answer({ value: "x" });
+        await live;
+    });
+
+    it("токен, отменённый ПОСЛЕ закрытия показа, хосту уже не пишет", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ value: "x" });
+        const source = new CancellationTokenSource();
+        await api.showInputBox({}, source.token as unknown as vscode.CancellationToken);
+        source.cancel();
+        expect(stub.notifies.filter((n) => n.method === "window.quickInput.cancel")).toHaveLength(0);
     });
 
     it("уже отменённый токен не поднимает показ вовсе", async () => {
@@ -285,6 +342,45 @@ describe("window.showQuickPick (шим)", () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [0, 99] });
         await expect(api.showQuickPick(["a", "b"], { canPickMany: true })).resolves.toEqual(["a"]);
+    });
+
+    it("индекс, равный длине списка, — тоже за пределами", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: [2] });
+        await expect(api.showQuickPick(["a", "b"], { canPickMany: true })).resolves.toEqual([]);
+    });
+
+    it("у строкового списка предотмеченных пунктов не бывает", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: [] });
+        await api.showQuickPick(["a", "b"], { canPickMany: true });
+        expect(lastRequest(stub, "window.showQuickPick").picked).toEqual([]);
+    });
+
+    it("без опций вовсе список поднимается на дефолтах", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: [0] });
+        await expect(api.showQuickPick(["a"])).resolves.toBe("a");
+        expect(lastRequest(stub, "window.showQuickPick")).toMatchObject({ canPickMany: false, picked: [] });
+    });
+
+    it("handle списка монотонно растёт", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: null });
+        await api.showQuickPick(["a"]);
+        const first = lastRequest(stub, "window.showQuickPick").handle as number;
+        await api.showQuickPick(["a"]);
+        const second = lastRequest(stub, "window.showQuickPick").handle as number;
+        expect(second).toBeGreaterThan(first);
+    });
+
+    it("токен, отменённый ПОСЛЕ закрытия списка, хосту уже не пишет", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: null });
+        const source = new CancellationTokenSource();
+        await api.showQuickPick(["a"], {}, source.token as unknown as vscode.CancellationToken);
+        source.cancel();
+        expect(stub.notifies.filter((n) => n.method === "window.quickInput.cancel")).toHaveLength(0);
     });
 
     it("заголовок и плейсхолдер уезжают хосту", async () => {

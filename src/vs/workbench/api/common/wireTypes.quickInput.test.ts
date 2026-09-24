@@ -95,6 +95,16 @@ describe("parseWireQuickPickRequest", () => {
         expect(parsed?.picked).toEqual([0]);
     });
 
+    it("индекс, равный длине списка, — уже за его пределами", () => {
+        const parsed = parseWireQuickPickRequest({
+            handle: 1,
+            canPickMany: true,
+            items: [{ label: "a" }, { label: "b" }],
+            picked: [1, 2],
+        });
+        expect(parsed?.picked).toEqual([1]);
+    });
+
     it("без canPickMany предотметки гасятся", () => {
         const parsed = parseWireQuickPickRequest({ handle: 1, items: [{ label: "a" }], picked: [0] });
         expect(parsed?.picked).toEqual([]);

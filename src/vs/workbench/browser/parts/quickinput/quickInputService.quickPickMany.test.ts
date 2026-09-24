@@ -150,6 +150,22 @@ describe("QuickInputService.quickPickMany", () => {
         await expect(first).resolves.toBeUndefined();
     });
 
+    it("множественный выбор отменяет висящий ввод предыдущего хозяина", async () => {
+        const { service } = createService();
+        const pending = service.input({ title: "Save As" });
+        void service.quickPickMany({ items: FRUITS });
+        await expect(pending).resolves.toBeUndefined();
+    });
+
+    it("множественный выбор закрывает чужую открытую сессию виджета", () => {
+        const { service, component } = createService();
+        let closed = 0;
+        component.show();
+        component.onDidClose = () => closed++;
+        void service.quickPickMany({ items: FRUITS });
+        expect(closed).toBe(1);
+    });
+
     it("cancel() доводит висящий показ до undefined", async () => {
         const { service } = createService();
         const pending = service.quickPickMany({ items: FRUITS });
