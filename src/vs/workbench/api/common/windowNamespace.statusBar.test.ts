@@ -187,6 +187,18 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(statusBarTraffic(stub)).toHaveLength(1);
     });
 
+    it("dispose() показанного пункта снимает его с полосы", () => {
+        const { stub, window } = makeWindow();
+        const item = window.createStatusBarItem();
+        item.show();
+        item.dispose();
+
+        expect(statusBarTraffic(stub).map((n) => n.method)).toEqual([
+            "window.statusBarItem.update",
+            "window.statusBarItem.dispose",
+        ]);
+    });
+
     it("dispose() снимает пункт, а ручка становится инертной", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();

@@ -10,7 +10,10 @@ import { defineScenario, repoRoot } from "./framework.ts";
 // левая пара по приоритетам → длинный текст усечён, встроенные сегменты целы →
 // `dispose()` убрал пункт.
 
-const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
+// Markdown, а не .ts, и без папки-воркспейса: иначе полосу делят с нами
+// сегменты SCM и спиннер запуска tsserver, и её раскладка плывёт по ходу
+// сценария.
+const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-status-bar-demo");
 
 /** Исполняет команду расширения через палитру (F1 → заголовок → Enter). */
@@ -25,20 +28,22 @@ export default defineScenario({
     name: "status-bar-extension",
     title: "Status bar item contributed by an extension",
     seedUserData: userData,
-    open: [repoRoot, sampleFile],
-    cols: 110,
+    open: [sampleFile],
+    cols: 120,
     rows: 24,
     // Extension-host сценарий: CI-safety-net гоняем только на Linux (как
     // inline-completion — субпроцесс расширений на Windows флейкает).
     skipOn: ["win32"],
     async run(editor) {
         // Пункт появляется, как только расширение активировалось.
-        const item = await editor.waitForNode("#statusBarItem-extensions-status-bar-demo", { timeoutMs: 20_000 });
+        await editor.waitForNode("#statusBarItem-extensions-status-bar-demo", { timeoutMs: 20_000 });
         await editor.capture("item");
 
         // Клик по пункту исполняет команду РАСШИРЕНИЯ, и она же правит текст —
         // значит, клик доехал до его кода и вернулся обратно в полосу.
-        await editor.click(item.box.x + 2, item.box.y);
+        // clickNode, а не координаты из `item`: сегменты полосы переезжают,
+        // когда соседи меняют ширину.
+        await editor.clickNode("#statusBarItem-extensions-status-bar-demo");
         await editor.waitForText((t) => t.includes("Demo · clicked 1"), { timeoutMs: 5000 });
         await editor.capture("clicked");
 
