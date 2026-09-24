@@ -604,6 +604,59 @@ declare module "vscode" {
 		export function showErrorMessage<T extends string>(message: string, ...items: T[]): Thenable<T | undefined>;
 
 		/**
+		 * Shows a selection list allowing multiple selections.
+		 *
+		 * @param items An array of strings, or a promise that resolves to an array of strings.
+		 * @param options Configures the behavior of the selection list.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to the selected items or `undefined`.
+		 */
+		export function showQuickPick(items: readonly string[] | Thenable<readonly string[]>, options: QuickPickOptions & { /** literal-type defines return type */canPickMany: true }, token?: CancellationToken): Thenable<string[] | undefined>;
+
+		/**
+		 * Shows a selection list.
+		 *
+		 * @param items An array of strings, or a promise that resolves to an array of strings.
+		 * @param options Configures the behavior of the selection list.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to the selected string or `undefined`.
+		 */
+		export function showQuickPick(items: readonly string[] | Thenable<readonly string[]>, options?: QuickPickOptions, token?: CancellationToken): Thenable<string | undefined>;
+
+		/**
+		 * Shows a selection list allowing multiple selections.
+		 *
+		 * @param items An array of items, or a promise that resolves to an array of items.
+		 * @param options Configures the behavior of the selection list.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to the selected items or `undefined`.
+		 */
+		export function showQuickPick<T extends QuickPickItem>(items: readonly T[] | Thenable<readonly T[]>, options: QuickPickOptions & { /** literal-type defines return type */ canPickMany: true }, token?: CancellationToken): Thenable<T[] | undefined>;
+
+		/**
+		 * Shows a selection list.
+		 *
+		 * @param items An array of items, or a promise that resolves to an array of items.
+		 * @param options Configures the behavior of the selection list.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to the selected item or `undefined`.
+		 */
+		export function showQuickPick<T extends QuickPickItem>(items: readonly T[] | Thenable<readonly T[]>, options?: QuickPickOptions, token?: CancellationToken): Thenable<T | undefined>;
+
+		/**
+		 * Opens an input box to ask the user for input.
+		 *
+		 * The returned value will be `undefined` if the input box was canceled (e.g., pressing ESC). Otherwise the
+		 * returned value will be the string typed by the user or an empty string if the user did not type
+		 * anything but dismissed the input box with OK.
+		 *
+		 * @param options Configures the behavior of the input box.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to a string the user provided or to `undefined` in case of dismissal.
+		 */
+		export function showInputBox(options?: InputBoxOptions, token?: CancellationToken): Thenable<string | undefined>;
+
+		/**
 		 * Creates a new {@link OutputChannel output channel} with the given name and language id
 		 * If language id is not provided, then **Log** is used as default language id.
 		 *
@@ -3639,6 +3692,154 @@ declare module "vscode" {
 		 * there was no bundle found or when we are running with the default language.
 		 */
 		export const uri: Uri | undefined;
+	}
+
+	/**
+	 * Represents an item that can be selected from a list of items.
+	 */
+	export interface QuickPickItem {
+
+		/**
+		 * A human-readable string which is rendered prominently.
+		 *
+		 * Supports rendering of {@link ThemeIcon theme icons} via the `$(<name>)`-syntax.
+		 *
+		 * **Note:** When {@link QuickPickItem.kind kind} is set to {@link QuickPickItemKind.Default} (so a regular
+		 * item instead of a separator), it supports rendering of {@link ThemeIcon theme icons} via the
+		 * `$(<name>)`-syntax.
+		 */
+		label: string;
+
+		/**
+		 * A human-readable string which is rendered less prominently in the same line.
+		 *
+		 * Supports rendering of {@link ThemeIcon theme icons} via the `$(<name>)`-syntax.
+		 *
+		 * **Note:** This property is ignored when {@link QuickPickItem.kind kind} is set to
+		 * {@link QuickPickItemKind.Separator}.
+		 */
+		description?: string;
+
+		/**
+		 * A human-readable string which is rendered less prominently in a separate line.
+		 *
+		 * Supports rendering of {@link ThemeIcon theme icons} via the `$(<name>)`-syntax.
+		 *
+		 * **Note:** This property is ignored when {@link QuickPickItem.kind kind} is set to
+		 * {@link QuickPickItemKind.Separator}.
+		 */
+		detail?: string;
+
+		/**
+		 * Optional flag indicating if this item is initially selected.
+		 *
+		 * This is only honored when using the {@link window.showQuickPick showQuickPick} API. To do the same
+		 * thing with the {@link window.createQuickPick createQuickPick} API, simply set the
+		 * {@link QuickPick.selectedItems selectedItems} to the items you want selected initially.
+		 *
+		 * **Note:** This is only honored when the picker allows multiple selections.
+		 *
+		 * @see {@link QuickPickOptions.canPickMany}
+		 *
+		 * **Note:** This property is ignored when {@link QuickPickItem.kind kind} is set to
+		 * {@link QuickPickItemKind.Separator}.
+		 */
+		picked?: boolean;
+	}
+
+	/**
+	 * Options to configure the behavior of the quick pick UI.
+	 */
+	export interface QuickPickOptions {
+
+		/**
+		 * An optional title for the quick pick.
+		 */
+		title?: string;
+
+		/**
+		 * An optional string to show as placeholder in the input box to guide the user.
+		 */
+		placeHolder?: string;
+
+		/**
+		 * Determines if the picker allows multiple selections. When `true`, the result is an array of picks.
+		 */
+		canPickMany?: boolean;
+	}
+
+	/**
+	 * Severity levels for input box validation messages.
+	 */
+	export enum InputBoxValidationSeverity {
+		/**
+		 * Indicates an informational message that does not prevent input acceptance.
+		 */
+		Info = 1,
+		/**
+		 * Indicates a warning message that does not prevent input acceptance.
+		 */
+		Warning = 2,
+		/**
+		 * Indicates an error message that prevents the user from accepting the input.
+		 */
+		Error = 3
+	}
+
+	/**
+	 * Represents a validation message for an {@link InputBox}.
+	 */
+	export interface InputBoxValidationMessage {
+		/**
+		 * The validation message to display to the user.
+		 */
+		readonly message: string;
+
+		/**
+		 * The severity level of the validation message.
+		 *
+		 * **Note:** When using {@link InputBoxValidationSeverity.Error}, the user will not be able to accept
+		 * the input (e.g., by pressing Enter). {@link InputBoxValidationSeverity.Info Info} and
+		 * {@link InputBoxValidationSeverity.Warning Warning} severities will still allow the input to be accepted.
+		 */
+		readonly severity: InputBoxValidationSeverity;
+	}
+
+	/**
+	 * Options to configure the behavior of the input box UI.
+	 */
+	export interface InputBoxOptions {
+
+		/**
+		 * An optional string that represents the title of the input box.
+		 */
+		title?: string;
+
+		/**
+		 * The value to pre-fill in the input box.
+		 */
+		value?: string;
+
+		/**
+		 * The text to display underneath the input box.
+		 */
+		prompt?: string;
+
+		/**
+		 * An optional string to show as placeholder in the input box to guide the user what to type.
+		 */
+		placeHolder?: string;
+
+		/**
+		 * An optional function that will be called to validate input and to give a hint
+		 * to the user.
+		 *
+		 * @param value The current value of the input box.
+		 * @returns Either a human-readable string which is presented as an error message or an {@link InputBoxValidationMessage}
+		 *  which can provide a specific message severity. Return `undefined`, `null`, or the empty string when 'value' is valid.
+		 */
+		validateInput?(value: string): string | InputBoxValidationMessage | undefined | null |
+			Thenable<string | InputBoxValidationMessage | undefined | null>;
 	}
 
 	/**

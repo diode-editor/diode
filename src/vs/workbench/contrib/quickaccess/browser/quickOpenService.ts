@@ -65,6 +65,7 @@ export class QuickOpenService extends Disposable {
 
         const view = this.view;
         // Полный ре-инит общего виджета под Quick Open.
+        view.resetMultiSelect();
         view.maxVisibleItems = 10;
         view.acceptMode = "item";
         view.title = undefined;

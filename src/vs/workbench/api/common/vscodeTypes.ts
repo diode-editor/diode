@@ -1247,3 +1247,13 @@ export class TabInputNotebookDiff {
  */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- см. комментарий выше
 export class TabInputTerminal {}
+
+/**
+ * Строгость сообщения валидации InputBox (`vscode.InputBoxValidationSeverity`).
+ * `Error` блокирует Enter; `Warning` и `Info` только показываются.
+ */
+export enum InputBoxValidationSeverity {
+    Info = 1,
+    Warning = 2,
+    Error = 3,
+}

@@ -19,6 +19,12 @@ export interface IStubRpc {
     callRequest(method: string, params: unknown, token?: ICancellationToken): Promise<unknown>;
     readonly requests: { method: string; params: unknown }[];
     readonly notifies: { method: string; params: unknown }[];
+    /**
+     * Чем хост отвечает на исходящий request. По умолчанию — `undefined` (как
+     * было): неймспейсу, который ответ не читает, разницы нет. Ставится тестам,
+     * которым ответ хоста важен (`window.showQuickPick` резолвится выбранным).
+     */
+    responder: ((method: string, params: unknown) => unknown) | null;
 }
 
 export function makeStubRpc(): IStubRpc {
@@ -37,7 +43,7 @@ export function makeStubRpc(): IStubRpc {
         },
         request: (method: string, params: unknown) => {
             requests.push({ method, params });
-            return Promise.resolve(undefined);
+            return Promise.resolve(stub.responder?.(method, params));
         },
         notify: (method: string, params: unknown) => {
             notifies.push({ method, params });
@@ -45,8 +51,9 @@ export function makeStubRpc(): IStubRpc {
         dispose: () => undefined,
     } as unknown as RpcEndpoint;
 
-    return {
+    const stub: IStubRpc = {
         rpc,
+        responder: null,
         fire: (method, params) => {
             const handler = handlers.get(method);
             if (handler === undefined) throw new Error(`no handler for "${method}"`);
@@ -60,4 +67,5 @@ export function makeStubRpc(): IStubRpc {
         requests,
         notifies,
     };
+    return stub;
 }
