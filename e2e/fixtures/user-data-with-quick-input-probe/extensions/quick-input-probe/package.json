@@ -1,0 +1,30 @@
+{
+    "name": "quick-input-probe",
+    "displayName": "Quick Input Probe",
+    "description": "E2E demo extension: asks the user for a string (window.showInputBox) and for a choice (window.showQuickPick) and prints what it got.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "diodeProbe.askName", "title": "Diode Probe: Ask Name" },
+            { "command": "diodeProbe.askNamePrefilled", "title": "Diode Probe: Ask Name (prefilled)" },
+            { "command": "diodeProbe.askNameDelayed", "title": "Diode Probe: Ask Name (delayed 3s)" },
+            { "command": "diodeProbe.askPort", "title": "Diode Probe: Ask Port" },
+            { "command": "diodeProbe.askSlowValidate", "title": "Diode Probe: Ask Slow Validate" },
+            { "command": "diodeProbe.askWithTimeout", "title": "Diode Probe: Ask With Timeout (3s)" },
+            { "command": "diodeProbe.pickFruit", "title": "Diode Probe: Pick Fruit" },
+            { "command": "diodeProbe.pickFileKind", "title": "Diode Probe: Pick File Kind" },
+            { "command": "diodeProbe.pickMany", "title": "Diode Probe: Pick Many" },
+            { "command": "diodeProbe.pickManyPreselected", "title": "Diode Probe: Pick Many (preselected)" },
+            { "command": "diodeProbe.pickMany100", "title": "Diode Probe: Pick Many (100)" },
+            { "command": "diodeProbe.pickAsync", "title": "Diode Probe: Pick Async" },
+            { "command": "diodeProbe.pickEmpty", "title": "Diode Probe: Pick Empty" },
+            { "command": "diodeProbe.askThenPick", "title": "Diode Probe: Ask Then Pick" }
+        ]
+    }
+}
