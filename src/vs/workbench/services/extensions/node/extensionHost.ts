@@ -1660,15 +1660,19 @@ export class ExtensionHost extends Disposable {
             // Именованной константой, а не стрелкой внутри спреда: Stryker
             // разбирает исходник своим babel'ом и на типизированной стрелке в
             // спред-тернарнике падает (`Did not expect a type annotation here`).
-            const askExtension = async (text: string): Promise<IWireValidationMessage | null> =>
-                parseWireValidationMessage(
-                    await rpc
-                        .request("window.inputBox.validate", { handle: request.handle, value: text })
-                        // Расширение упало на валидации — считаем значение
-                        // годным, а не вешаем поле.
-                        // Stryker disable next-line ArrowFunction: `null` и `undefined` разбираются parseWireValidationMessage одинаково — как «значение в порядке»
-                        .catch(() => null),
-                );
+            const askExtension = async (text: string): Promise<IWireValidationMessage | null> => {
+                try {
+                    const answer = await rpc.request("window.inputBox.validate", {
+                        handle: request.handle,
+                        value: text,
+                    });
+                    return parseWireValidationMessage(answer);
+                } catch {
+                    // Расширение упало на валидации — считаем значение годным,
+                    // а не вешаем поле навсегда.
+                    return null;
+                }
+            };
             this.activeQuickInputHandles.add(request.handle);
             try {
                 const value = await sink.showInputBox({

@@ -23,13 +23,12 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
 
     public async showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined> {
         const ask = request.validate;
-        // Именованной константой, а не стрелкой внутри спреда: Stryker парсит
-        // исходник своим babel'ом и на типизированной стрелке в спред-тернарнике
-        // падает разбором (`Did not expect a type annotation here`).
-        const validateInput =
-            ask === undefined
-                ? undefined
-                : async (value: string): Promise<InputValidation | null> => toValidation(await ask(value));
+        // Валидатор отдаём ВСЕГДА, даже когда расширение его не прислало: без
+        // канала он отвечает «значение в порядке» на любой текст, и для виджета
+        // это ровно то же, что отсутствие валидации. Ветка здесь была бы
+        // неотличимой от этой — лишний шов.
+        const validateInput = async (value: string): Promise<InputValidation | null> =>
+            toValidation(await ask?.(value));
         this.currentHandle = request.handle;
         try {
             // Поля кладём как есть: у опций пикера отсутствие и `undefined` —
@@ -93,8 +92,11 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
     }
 }
 
-/** Ответ расширения на валидацию → исход для QuickInputService. */
-function toValidation(message: IWireValidationMessage | null): InputValidation | null {
-    if (message === null) return null;
+/**
+ * Ответ расширения на валидацию → исход для QuickInputService. Молчание
+ * (`undefined` — валидатора нет вовсе) и `null` значат одно: значение годное.
+ */
+function toValidation(message: IWireValidationMessage | null | undefined): InputValidation | null {
+    if (message == null) return null;
     return { message: message.message, severity: message.severity };
 }
