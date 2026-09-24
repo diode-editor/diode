@@ -751,8 +751,14 @@ export class ExtensionHost extends Disposable {
      * Запрашивает у субпроцесса инлайн-подсказки для позиции каретки
      * (`languages.provideInlineCompletions`). Возвращает `[]`, если субпроцесса
      * нет, никто не зарегистрировал провайдеры, документ слишком большой или
-     * расширение не ответило за `inlineCompletionTimeoutMs`. Подключается в
+     * расширение не ответило за отпущенный срок. Подключается в
      * `EditorService.inlineCompletionSource` (wiring в module/харнессе).
+     *
+     * Срок берётся из САМОГО запроса (`req.timeoutMs` —
+     * `editor.inlineSuggest.requestTimeout`), и только в его отсутствие — из
+     * `inlineCompletionTimeoutMs` хоста. Асимметрия с остальным семейством
+     * таймаутов осознанная: остальные фиксируются при создании хоста, а этот
+     * человек правит в settings.json и ждёт эффекта без перезапуска.
      */
     public async provideInlineCompletions(
         req: IInlineCompletionRequest,
@@ -781,7 +787,7 @@ export class ExtensionHost extends Disposable {
                 character: req.character,
                 triggerKind: req.triggerKind,
             },
-            this.options.inlineCompletionTimeoutMs,
+            req.timeoutMs ?? this.options.inlineCompletionTimeoutMs,
         );
     }
 

@@ -200,6 +200,99 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.waitForText((t) => t.includes("const greeting)"), { timeoutMs: 5000 });
     }, 120_000);
 
+    // Ручной режим: `enabled: false` гейтит ТОЛЬКО автозапрос (как в vscode),
+    // команда `editor.action.inlineSuggest.trigger` работает независимо.
+    // Клавиша — Alt+\ (терминал шлёт её как ESC + `\`).
+    it("enabled:false — набор призрака не зовёт, Alt+\\ зовёт", async () => {
+        const { session } = await useHeadlessApp({
+            seedUserData: userData,
+            settings: { "editor.inlineSuggest.enabled": false },
+            files: { "sample.ts": "// Fibonacci demo\n" },
+            open: ["sample.ts"],
+        });
+        await session.waitForNode("EditorElement");
+        await session.key("End");
+        await session.key("Enter");
+        await session.text("function fib");
+
+        // Расширение активируется асинхронно; ждём его готовности по контрольному
+        // Alt+\ — и он же первый ассерт: ручной триггер работает при выключенной
+        // настройке. Ретраи нужны только против гонки активации.
+        let ghost: IGhostState | null = null;
+        for (let attempt = 0; attempt < 15 && ghost === null; attempt++) {
+            await session.key("Alt+\\");
+            try {
+                const shown = await session.waitForState(
+                    "EditorElement",
+                    (s) => (s?.ghostText ?? null) !== null,
+                    { timeoutMs: 2000 },
+                );
+                ghost = shown.state?.ghostText as IGhostState;
+            } catch {
+                // провайдер ещё не зарегистрирован — пробуем ещё раз
+            }
+        }
+        if (ghost === null) throw new Error("Alt+\\ не показал призрака за 15 попыток");
+        expect(ghost.lines[0]).toBe("onacci(n) {");
+
+        // А теперь — главное: при выключённой настройке НАБОР призрака не зовёт.
+        // Esc гасит показанного, печатаем новый триггер и ждём заведомо дольше
+        // дефолтного дебаунса (50 мс) и задержки ответа фикстуры (250 мс).
+        await session.key("Escape");
+        await session.waitForState("EditorElement", (s) => s?.ghostText === null, { timeoutMs: 5000 });
+        await session.key("Enter");
+        await session.text("const greeting");
+        await new Promise((r) => setTimeout(r, 3000));
+        const quiet = await session.node("EditorElement");
+        expect(quiet?.state?.ghostText ?? null).toBeNull();
+
+        // …и та же позиция по Alt+\ призрака отдаёт: молчал гейт, а не провайдер.
+        await session.key("Alt+\\");
+        const manual = await session.waitForState("EditorElement", (s) => (s?.ghostText ?? null) !== null, {
+            timeoutMs: 5000,
+        });
+        expect((manual.state?.ghostText as IGhostState).lines[0]).toBe(GREETING_BODY);
+    }, 120_000);
+
+    // `requestTimeout` читается на КАЖДЫЙ запрос: провайдер, отвечающий дольше
+    // дефолтных 5000 мс, при поднятой настройке дожидается.
+    it("requestTimeout даёт дождаться провайдера, который не успевает за дефолт", async () => {
+        const { session } = await useHeadlessApp({
+            seedUserData: userData,
+            settings: {
+                // Фикстура отвечает через 7 с — дефолтные 5000 мс это не переживают.
+                "inlineGhost.responseDelay": 7000,
+                "editor.inlineSuggest.requestTimeout": 20000,
+            },
+            files: { "sample.ts": "// Fibonacci demo\n" },
+            open: ["sample.ts"],
+        });
+        await session.waitForNode("EditorElement");
+        await session.key("End");
+        await session.key("Enter");
+        await session.text("function fib");
+
+        // Ждём дольше 7 с — при дефолтном таймауте призрака бы не было вовсе.
+        // Ретраи против гонки активации: каждый заход — новая правка (новый запрос).
+        let ghost: IGhostState | null = null;
+        for (let attempt = 0; attempt < 3 && ghost === null; attempt++) {
+            try {
+                const shown = await session.waitForState(
+                    "EditorElement",
+                    (s) => (s?.ghostText ?? null) !== null,
+                    { timeoutMs: 12_000 },
+                );
+                ghost = shown.state?.ghostText as IGhostState;
+            } catch {
+                await session.key("Backspace");
+                await session.key("b");
+                await session.key("Escape");
+            }
+        }
+        if (ghost === null) throw new Error("медленный провайдер так и не дождался показа");
+        expect(ghost.lines[0]).toBe("onacci(n) {");
+    }, 180_000);
+
     it("Escape гасит подсказку, не трогая документ", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,

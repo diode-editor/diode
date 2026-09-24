@@ -21,6 +21,13 @@ export interface IInlineCompletionRequest {
      * Automatic достаточно одного.
      */
     readonly triggerKind: InlineCompletionTriggerKind;
+    /**
+     * Сколько ждать ответ источника, мс (`editor.inlineSuggest.requestTimeout`).
+     * Едет с КАЖДЫМ запросом, а не фиксируется при создании источника: иначе
+     * правка настройки применялась бы только после перезапуска редактора.
+     * Не задан — источник берёт свой дефолт.
+     */
+    readonly timeoutMs?: number;
 }
 
 /** Чем спровоцирован запрос (значения `vscode.InlineCompletionTriggerKind`). */
