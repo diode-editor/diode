@@ -55,7 +55,9 @@ describe("window.createStatusBarItem — состояние пункта в су
         item.command = "demo.click";
         item.show();
 
-        expect(lastUpdate(stub)).toEqual({
+        // toStrictEqual, а не toEqual: сообщение не должно нести ключей со
+        // значением undefined — у полосы их нечем отличить от «не задано».
+        expect(lastUpdate(stub)).toStrictEqual({
             handle: 1,
             id: "status-bar-demo",
             alignment: "right",
@@ -63,6 +65,18 @@ describe("window.createStatusBarItem — состояние пункта в су
             text: "$(check) Demo",
             name: "Status Bar Demo",
             command: "demo.click",
+        });
+    });
+
+    it("у пункта без имени, команды и приоритета этих ключей в сообщении нет", () => {
+        const { stub, window } = makeWindow();
+        window.createStatusBarItem().show();
+
+        expect(lastUpdate(stub)).toStrictEqual({
+            handle: 1,
+            id: "item-1",
+            alignment: "left",
+            text: "",
         });
     });
 
@@ -96,6 +110,8 @@ describe("window.createStatusBarItem — состояние пункта в су
         item.show();
 
         expect(item.id).toBe("my.item");
+        expect(item.priority).toBe(7);
+        expect(item.alignment).toBe(StatusBarAlignment.Right);
         expect(lastUpdate(stub)).toMatchObject({ id: "my.item", alignment: "right", priority: 7 });
     });
 

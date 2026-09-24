@@ -1216,6 +1216,7 @@ export class ExtensionHost extends Disposable {
         this.pending.clear();
         this.toRevive.clear();
         this.extensions.clear();
+        // Stryker disable next-line CallExpression: гигиена — после dispose карту уже никто не читает (оживление отсекает пустой toRevive), наблюдаемой разницы нет
         this.activatedRegistrations.clear();
         this.disposeFileWatchers();
         void this.shutdownSubprocess();
@@ -1772,7 +1773,7 @@ export class ExtensionHost extends Disposable {
     /**
      * Субпроцесс умер сам (расширение уронило свой процесс, OOM, краш нативного
      * модуля). Хост остаётся жив: снимаем всё, что принадлежало умершему, и
-     * возвращаем активированные расширения в `pending` — следующий
+     * ставим активные расширения в очередь на оживление — следующий
      * `activateByEvent` поднимет субпроцесс заново и активирует их. Без этого
      * пункты статус-бара и прокси-команды мертвеца висели бы до перезапуска
      * редактора, а `rpc` указывал бы на закрытый канал.
@@ -1782,7 +1783,6 @@ export class ExtensionHost extends Disposable {
         if (this.subprocess !== child) return;
         this.logger?.warn("extension host subprocess died — resetting host state");
         this.resetSubprocessState();
-        if (this.hostDisposed) return;
         for (const [id, reg] of this.activatedRegistrations) this.toRevive.set(id, reg);
         this.activatedRegistrations.clear();
         this.extensions.clear();

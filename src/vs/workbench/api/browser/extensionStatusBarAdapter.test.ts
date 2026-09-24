@@ -92,6 +92,34 @@ describe("ExtensionStatusBarAdapter", () => {
         expect(entry(bar, "extensions.demo").text).toBe("Demo 42");
     });
 
+    it("правка на месте не пересоздаёт запись: порядок равноприоритетных не едет", () => {
+        const { bar, adapter } = makeAdapter();
+        adapter.update(wireItem({ handle: 1, id: "a", alignment: "left", text: "A", priority: 10 }));
+        adapter.update(wireItem({ handle: 2, id: "b", alignment: "left", text: "B", priority: 10 }));
+        adapter.update(wireItem({ handle: 1, id: "a", alignment: "left", text: "A2", priority: 10 }));
+
+        // Пересозданная запись уехала бы в хвост своей стороны.
+        expect(bar.entries().map((e) => e.text)).toEqual(["A2", "B"]);
+    });
+
+    it("приоритет доезжает до записи как есть", () => {
+        const { bar, adapter } = makeAdapter();
+        adapter.update(wireItem({ priority: 100 }));
+        adapter.update(wireItem({ priority: 42 }));
+
+        expect(entry(bar, "extensions.demo").priority).toBe(42);
+    });
+
+    it("правка без имени имя не стирает, а новое имя — применяет", () => {
+        const { bar, adapter } = makeAdapter();
+        adapter.update(wireItem({ name: "Status Bar Demo" }));
+        adapter.update(wireItem({ text: "Demo 42" }));
+        expect(entry(bar, "extensions.demo").name).toBe("Status Bar Demo");
+
+        adapter.update(wireItem({ id: "demo", name: "Другое имя" }));
+        expect(entry(bar, "extensions.demo").name).toBe("Другое имя");
+    });
+
     it("сменившийся id пересоздаёт запись, старая не остаётся", () => {
         const { bar, adapter } = makeAdapter();
         adapter.update(wireItem({ id: "item-1" }));
@@ -162,6 +190,23 @@ describe("ExtensionStatusBarAdapter", () => {
         expect(calls).toEqual([{ id: "demo.second", args: ["x"] }]);
     });
 
+    it("команда без аргументов зовётся с пустым списком", () => {
+        const { bar, adapter, calls } = makeAdapter();
+        adapter.update(wireItem({ command: "demo.click" }));
+        entry(bar, "extensions.demo").onClick?.();
+
+        expect(calls).toEqual([{ id: "demo.click", args: [] }]);
+    });
+
+    it("правка, снявшая аргументы, снимает их и у клика", () => {
+        const { bar, adapter, calls } = makeAdapter();
+        adapter.update(wireItem({ command: "demo.click", arguments: [1] }));
+        adapter.update(wireItem({ command: "demo.click" }));
+        entry(bar, "extensions.demo").onClick?.();
+
+        expect(calls).toEqual([{ id: "demo.click", args: [] }]);
+    });
+
     it("пункт без команды инертен, но кликабелен", () => {
         const { bar, adapter, calls } = makeAdapter();
         adapter.update(wireItem());
@@ -200,6 +245,17 @@ describe("ExtensionStatusBarAdapter", () => {
         await Promise.resolve();
 
         expect(errors).toEqual([]);
+    });
+
+    it("без логгера упавшая команда всё равно не роняет редактор", () => {
+        const bar = new StatusBarService(NULL_STATE_SERVICE);
+        const { service } = makeCommands(() => {
+            throw new Error("boom");
+        });
+        const adapter = new ExtensionStatusBarAdapter(bar, service);
+        adapter.update(wireItem({ command: "demo.broken" }));
+
+        expect(() => entry(bar, "extensions.demo").onClick?.()).not.toThrow();
     });
 
     it("скрытый пользователем пункт не показывается, сколько бы update ни пришло", () => {

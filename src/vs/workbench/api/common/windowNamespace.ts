@@ -787,7 +787,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     handle,
                     id: currentId(),
                     alignment: side,
-                    ...(typeof priority === "number" && Number.isFinite(priority) ? { priority } : {}),
+                    ...(Number.isFinite(priority) ? { priority } : {}),
                     text,
                     ...(name !== undefined ? { name } : {}),
                     ...commandWire(),
@@ -843,14 +843,13 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     visible = true;
                     push();
                 },
+                // Отдельного гейта по `disposed` ни hide, ни dispose не нужны:
+                // `unpush` сам молчит на непоказанном пункте, а инертность
+                // ручки после dispose держат `show`/`push` (сценарий 6).
                 hide: (): void => {
-                    if (disposed) return;
                     unpush();
                 },
-                // После dispose ручка инертна: правки текста мертвеца ничего не
-                // возвращают в полосу (сценарий 6 постановки).
                 dispose: (): void => {
-                    if (disposed) return;
                     unpush();
                     disposed = true;
                 },

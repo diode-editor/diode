@@ -37,6 +37,10 @@ describe("parseWireStatusBarItem", () => {
 
     it.each([
         ["не объект", "nope"],
+        // Функция — единственное не-объектное значение, которое умеет носить
+        // поля: без явной проверки `typeof raw === "object"` она прошла бы
+        // разбор насквозь.
+        ["функция с нужными полями", Object.assign(() => undefined, valid)],
         ["null", null],
         ["без handle", { ...valid, handle: undefined }],
         ["нечисловой handle", { ...valid, handle: "1" }],
@@ -83,6 +87,7 @@ describe("parseWireStatusBarItemDispose", () => {
 
     it.each([
         ["не объект", 3],
+        ["функция с нужными полями", Object.assign(() => undefined, { handle: 3 })],
         ["null", null],
         ["нечисловой handle", { handle: "3" }],
     ])("отбрасывает конверт: %s", (_name, raw) => {

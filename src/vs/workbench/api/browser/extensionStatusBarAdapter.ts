@@ -68,6 +68,21 @@ export function renderStatusBarItemText(raw: string, maxWidth: number = MAX_ITEM
     return raw === "" ? "" : FALLBACK_GLYPH;
 }
 
+/** Поля записи полосы, которые целиком задаёт пункт расширения. */
+function entryFields(item: IWireStatusBarItem): {
+    text: string;
+    alignment: "left" | "right";
+    priority: number;
+    name?: string;
+} {
+    return {
+        text: renderStatusBarItemText(item.text),
+        alignment: item.alignment,
+        priority: item.priority ?? NO_PRIORITY,
+        ...(item.name !== undefined ? { name: item.name } : {}),
+    };
+}
+
 /**
  * Мост `window.createStatusBarItem` расширений в статус-бар (реализация
  * {@link IStatusBarItemSink}): на каждый показанный пункт заводится запись
@@ -92,34 +107,22 @@ export class ExtensionStatusBarAdapter implements IStatusBarItemSink {
     public update(item: IWireStatusBarItem): void {
         const entryId = EXTENSION_ENTRY_PREFIX + item.id;
         const existing = this.items.get(item.handle);
-        // Id записи сменился (расширение задало пункту имя уже после показа) —
-        // старую запись снимаем: id записи полосы поменять нельзя.
-        if (existing !== undefined && existing.entryId !== entryId) this.remove(item.handle);
-        const current = this.items.get(item.handle);
-        if (current !== undefined) {
-            current.command = item.command;
-            current.args = item.arguments ?? [];
-            current.bar.update({
-                text: renderStatusBarItemText(item.text),
-                alignment: item.alignment,
-                priority: item.priority ?? NO_PRIORITY,
-                ...(item.name !== undefined ? { name: item.name } : {}),
-                onClick: () => {
-                    this.runCommand(current);
-                },
-            });
+        if (existing?.entryId === entryId) {
+            existing.command = item.command;
+            existing.args = item.arguments ?? [];
+            existing.bar.update(entryFields(item));
             return;
         }
+        // Пункта ещё нет — либо у него сменился id (расширение задало имя уже
+        // после показа). Id записи полосы поменять нельзя, поэтому пересоздаём.
+        this.remove(item.handle);
         const record: IItemRecord = {
             entryId,
             command: item.command,
             args: item.arguments ?? [],
             bar: this.statusBar.addEntry({
                 id: entryId,
-                text: renderStatusBarItemText(item.text),
-                alignment: item.alignment,
-                priority: item.priority ?? NO_PRIORITY,
-                ...(item.name !== undefined ? { name: item.name } : {}),
+                ...entryFields(item),
                 onClick: () => {
                     this.runCommand(record);
                 },
@@ -149,13 +152,13 @@ export class ExtensionStatusBarAdapter implements IStatusBarItemSink {
     private runCommand(record: IItemRecord): void {
         const command = record.command;
         if (command === undefined) return;
-        try {
-            const result = this.commands.execute(command, record.args);
-            void Promise.resolve(result).catch((err: unknown) => {
-                this.logger?.error(`status bar command "${command}" failed`, err);
-            });
-        } catch (err) {
+        const fail = (err: unknown): void => {
             this.logger?.error(`status bar command "${command}" failed`, err);
+        };
+        try {
+            void Promise.resolve(this.commands.execute(command, record.args)).catch(fail);
+        } catch (err) {
+            fail(err);
         }
     }
 }
