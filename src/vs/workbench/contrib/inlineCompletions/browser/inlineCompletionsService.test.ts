@@ -1110,6 +1110,21 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(fake.setGhostText).not.toHaveBeenCalledWith(expect.objectContaining({ lines: ["= 42;"] }));
     });
 
+    it("hide снимает и отложенный авто-запрос — призрак не всплывёт следом за Escape", async () => {
+        const fake = makeEditor("const x", 7);
+        const source = vi.fn(items({ insertText: " = 42;" }));
+        const service = makeService(makeGroup(fake.editor, source).group);
+
+        // Правка планирует авто-запрос; Escape приходит ДО того, как дебаунс
+        // успел выстрелить, — запроса не должно случиться вовсе.
+        fake.type("const x ", 8);
+        service.hide();
+        await tick();
+
+        expect(source).not.toHaveBeenCalled();
+        expect(service.isOpen()).toBe(false);
+    });
+
     it("уход каретки отменяет запрос", async () => {
         const fake = makeEditor("const x", 7);
         const pending = pendingSource();

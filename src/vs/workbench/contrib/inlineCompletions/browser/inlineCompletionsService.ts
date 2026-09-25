@@ -120,7 +120,7 @@ export class InlineCompletionsService extends Disposable {
                 activeEditorSub.dispose();
                 popupCloseSub.dispose();
                 this.unbindEditor();
-                this.cancelAutoTrigger();
+                // hide() снимает подсказку, запрос в полёте и отложенный запрос.
                 this.hide();
             },
         });
@@ -226,7 +226,10 @@ export class InlineCompletionsService extends Disposable {
                 return;
             }
         }
-        this.hide();
+        // Показать нечего — снимаем прежний ghost, но отложенный авто-запрос
+        // (его мог завести закрывшийся попап) не трогаем: полный hide() тут
+        // съел бы чужой запланированный запрос.
+        this.clearSession();
     }
 
     // ─── Настройки (читаются на каждом обращении — правка применяется на лету) ─
@@ -284,12 +287,22 @@ export class InlineCompletionsService extends Disposable {
     }
 
     /**
-     * Гасит подсказку (Escape, инвалидация, уход каретки) И отменяет запрос,
-     * который ещё в полёте: Escape по незавершённому запросу — «не надо», а не
-     * «спрячь показанное», поэтому отмена идёт до гарда на сессию.
+     * Гасит подсказку (Escape, инвалидация, уход каретки) — и останавливает всю
+     * работу под неё: отменяет запрос в полёте и снимает отложенный авто-запрос.
+     * Escape — это «не надо», а не «спрячь показанное»: и незавершённый запрос,
+     * и запланированный по последней правке обязаны умолкнуть, иначе призрак
+     * всплыл бы через секунду после того, как его погасили.
      */
     public hide(): void {
         this.cancelPendingRequest();
+        this.cancelAutoTrigger();
+        this.clearSession();
+    }
+
+    // ─── Private ─────────────────────────────────────────────────────────────
+
+    /** Снимает показанный ghost, не трогая запросы (см. {@link hide}). */
+    private clearSession(): void {
         if (this.session === null) return;
         this.session.editor.setGhostText(null);
         this.session = null;
@@ -366,8 +379,8 @@ export class InlineCompletionsService extends Disposable {
      */
     private bindEditor(editor: TextEditorPane | null): void {
         this.unbindEditor();
+        // hide() снимает и подсказку, и запрос, и отложенный авто-запрос.
         this.hide();
-        this.cancelAutoTrigger();
         // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
         this.requestSeq++;
         if (editor === null) return;
@@ -406,11 +419,8 @@ export class InlineCompletionsService extends Disposable {
 
         const editor = this.group.getActiveEditor();
         if (editor === null) {
+            // hide() снимает и подсказку, и отложенный авто-запрос.
             this.hide();
-            // Отмена дублирует гейт: trigger() без активного редактора — no-op
-            // до RPC, так что снятие таймера здесь мутационно ненаблюдаемо.
-            // Stryker disable next-line CallExpression: см. выше
-            this.cancelAutoTrigger();
             return;
         }
 
