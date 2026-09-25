@@ -683,6 +683,11 @@ export class EventEmitter<T> {
 // закрытия стабов (docs/TODO/LSP.md, таблица стабов).
 // ─────────────────────────────────────────────────────────────────────────────
 
+export enum StatusBarAlignment {
+    Left = 1,
+    Right = 2,
+}
+
 export enum ProgressLocation {
     SourceControl = 1,
     Window = 10,

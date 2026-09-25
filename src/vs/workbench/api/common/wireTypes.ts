@@ -1353,6 +1353,71 @@ export function parseWireProgressEnd(raw: unknown): IWireProgressEnd | null {
     return { handle: p.handle };
 }
 
+// ─── Пункты статус-бара (window.createStatusBarItem → полоса) ────────────────
+
+/**
+ * Полное состояние пункта статус-бара расширения (subprocess → host, notify
+ * `window.statusBarItem.update`). Сообщение — upsert: субпроцесс шлёт его на
+ * `show()` и на каждую правку ПОКАЗАННОГО пункта, а не дельту. Пункт, который
+ * создан, но не показан, в проводе не появляется вовсе.
+ */
+export interface IWireStatusBarItem {
+    /** Идентификатор пункта в рамках subprocess'а (счётчик). */
+    readonly handle: number;
+    /**
+     * Идентификатор пункта для полосы — явный (`createStatusBarItem(id, …)`)
+     * либо синтезированный субпроцессом. Хост добавляет к нему свой префикс,
+     * чтобы пункт расширения не столкнулся со встроенным сегментом.
+     */
+    readonly id: string;
+    readonly alignment: "left" | "right";
+    /**
+     * Порядок внутри стороны (выше — левее). `undefined` — пункт без приоритета:
+     * встаёт правее всех приоритетных, как в VS Code.
+     */
+    readonly priority?: number;
+    /** Текст пункта как его задало расширение — с разметкой значков `$(name)`. */
+    readonly text: string;
+    /** Имя для меню видимости полосы; без него пункт в меню не показывается. */
+    readonly name?: string;
+    /** Команда по клику (`StatusBarItem.command`) и её аргументы. */
+    readonly command?: string;
+    readonly arguments?: readonly unknown[];
+}
+
+/** Параметры `window.statusBarItem.dispose` (он же `hide()`). */
+export interface IWireStatusBarItemDispose {
+    readonly handle: number;
+}
+
+/** Валидирует `window.statusBarItem.update`; `null`, если конверт не распознан. */
+export function parseWireStatusBarItem(raw: unknown): IWireStatusBarItem | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    if (typeof p.id !== "string" || p.id === "") return null;
+    if (p.alignment !== "left" && p.alignment !== "right") return null;
+    if (typeof p.text !== "string") return null;
+    return {
+        handle: p.handle,
+        id: p.id,
+        alignment: p.alignment,
+        text: p.text,
+        ...(isFiniteNumber(p.priority) ? { priority: p.priority } : {}),
+        ...(typeof p.name === "string" && p.name !== "" ? { name: p.name } : {}),
+        ...(typeof p.command === "string" && p.command !== "" ? { command: p.command } : {}),
+        ...(Array.isArray(p.arguments) ? { arguments: p.arguments as readonly unknown[] } : {}),
+    };
+}
+
+/** Валидирует `window.statusBarItem.dispose`; `null`, если конверт не распознан. */
+export function parseWireStatusBarItemDispose(raw: unknown): IWireStatusBarItemDispose | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    return { handle: p.handle };
+}
+
 // ─── Output-каналы (window.createOutputChannel → панель Output) ──────────────
 
 /** Уровень строки output-канала (маппится на методы ILogger хоста). */

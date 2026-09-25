@@ -1,0 +1,28 @@
+{
+    "name": "status-bar-demo",
+    "displayName": "Status Bar Demo",
+    "description": "Демо-расширение статус-бара: пункт с командой по клику, show/hide/dispose, значки, приоритеты.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "statusBarDemo.setText", "title": "Status Bar Demo: Set Text" },
+            { "command": "statusBarDemo.setTooltip", "title": "Status Bar Demo: Set Tooltip" },
+            { "command": "statusBarDemo.hide", "title": "Status Bar Demo: Hide" },
+            { "command": "statusBarDemo.createHidden", "title": "Status Bar Demo: Create Hidden" },
+            { "command": "statusBarDemo.showHidden", "title": "Status Bar Demo: Show Hidden" },
+            { "command": "statusBarDemo.dispose", "title": "Status Bar Demo: Dispose" },
+            { "command": "statusBarDemo.createLeftPair", "title": "Status Bar Demo: Create Left Pair" },
+            { "command": "statusBarDemo.createNoPriority", "title": "Status Bar Demo: Create No Priority" },
+            { "command": "statusBarDemo.iconText", "title": "Status Bar Demo: Icon Text" },
+            { "command": "statusBarDemo.iconOnly", "title": "Status Bar Demo: Icon Only" },
+            { "command": "statusBarDemo.longText", "title": "Status Bar Demo: Long Text" },
+            { "command": "statusBarDemo.killHost", "title": "Status Bar Demo: Kill Host" }
+        ]
+    }
+}

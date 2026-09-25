@@ -27,7 +27,8 @@
     "valid-layers-check": "node scripts/check-layers.mjs",
     "office": "agent-office .",
     "office:dry": "node scripts/office-dry-run.mjs",
-    "import:vscode-diff": "node scripts/import-vscode-diff.mjs"
+    "import:vscode-diff": "node scripts/import-vscode-diff.mjs",
+    "import:codicons": "node scripts/import-codicons.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
