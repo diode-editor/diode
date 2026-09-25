@@ -65,7 +65,11 @@ function makeHarness() {
             hasMultipleSignatures: () => false,
             onFocusChanged: onParameterHintsFocusChanged,
         } as unknown as ParameterHintsService,
-        { isOpen: () => false, hasIndentationLessThanTabSize: () => true } as unknown as InlineCompletionsService,
+        {
+            isOpen: () => false,
+            hasIndentationLessThanTabSize: () => true,
+            isRequestPending: () => true,
+        } as unknown as InlineCompletionsService,
         { hasOpenTerminals: false } as unknown as TerminalService,
         terminalEnv as unknown as TerminalEnvironmentService,
         { setActive } as unknown as InputWidgetService,
@@ -117,6 +121,8 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("suggestWidgetVisible")).toBe(false);
         expect(h.contextKeys.get("inlineSuggestionVisible")).toBe(false);
         expect(h.contextKeys.get("inlineSuggestionHasIndentationLessThanTabSize")).toBe(true);
+        // Запрос призрака в полёте — ключ взведён (фейк сервиса отдаёт true).
+        expect(h.contextKeys.get("inlineSuggestionRequestPending")).toBe(true);
         expect(h.contextKeys.get("terminalIsOpen")).toBe(false);
         expect(h.contextKeys.get("tier")).toBe("legacy");
         expect(h.contextKeys.get("os")).toBe("linux");

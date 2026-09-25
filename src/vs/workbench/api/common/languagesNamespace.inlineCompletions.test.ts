@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
+import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
+
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
@@ -215,5 +217,109 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         );
 
         expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toStrictEqual([]);
+    });
+});
+
+describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
+    it("провайдер получает настоящий токен: отмена запроса стреляет у него", async () => {
+        const { stub, ctx } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const fired: string[] = [];
+        let release: () => void = () => undefined;
+        let seen: vscode.CancellationToken | undefined;
+        languages.registerInlineCompletionItemProvider(
+            { language: "typescript" },
+            {
+                provideInlineCompletionItems: (_doc, _pos, _context, token) => {
+                    seen = token;
+                    token.onCancellationRequested(() => fired.push("cancelled"));
+                    return new Promise((resolve) => {
+                        release = () => {
+                            resolve([new InlineCompletionItem("late") as never]);
+                        };
+                    });
+                },
+            },
+        );
+
+        const caller = new CancellationTokenSource();
+        const pending = stub.callRequest("languages.provideInlineCompletions", requestParams(), caller.token);
+        await Promise.resolve();
+
+        expect(seen?.isCancellationRequested).toBe(false);
+        expect(fired).toEqual([]);
+
+        caller.cancel();
+        expect(seen?.isCancellationRequested).toBe(true);
+        expect(fired).toEqual(["cancelled"]);
+
+        // Упрямый провайдер всё-таки отвечает — extension-слой его не глушит
+        // (отсекает ядро: старый seq-гард против устаревших ответов).
+        release();
+        expect(await pending).toStrictEqual([{ insertText: "late" }]);
+    });
+
+    it("после отмены остальные провайдеры не опрашиваются", async () => {
+        const { stub, ctx } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const polled: string[] = [];
+        let release: () => void = () => undefined;
+        const caller = new CancellationTokenSource();
+        languages.registerInlineCompletionItemProvider(
+            { language: "typescript" },
+            {
+                provideInlineCompletionItems: () => {
+                    polled.push("A");
+                    return new Promise((resolve) => {
+                        release = () => {
+                            resolve([]);
+                        };
+                    });
+                },
+            },
+        );
+        languages.registerInlineCompletionItemProvider(
+            { language: "typescript" },
+            {
+                provideInlineCompletionItems: () => {
+                    polled.push("B");
+                    return [];
+                },
+            },
+        );
+
+        const pending = stub.callRequest("languages.provideInlineCompletions", requestParams(), caller.token);
+        await Promise.resolve();
+        expect(polled).toEqual(["A"]);
+
+        caller.cancel();
+        release();
+
+        expect(await pending).toStrictEqual([]);
+        // Цепочка остановилась на отмене: до B работа не доехала.
+        expect(polled).toEqual(["A"]);
+    });
+
+    it("отмена, обогнавшая запрос: провайдера не зовут вовсе", async () => {
+        const { stub, ctx } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const polled: string[] = [];
+        languages.registerInlineCompletionItemProvider(
+            { language: "typescript" },
+            {
+                provideInlineCompletionItems: () => {
+                    polled.push("A");
+                    return [new InlineCompletionItem("x") as never];
+                },
+            },
+        );
+
+        const caller = new CancellationTokenSource();
+        caller.cancel();
+
+        expect(
+            await stub.callRequest("languages.provideInlineCompletions", requestParams(), caller.token),
+        ).toStrictEqual([]);
+        expect(polled).toEqual([]);
     });
 });

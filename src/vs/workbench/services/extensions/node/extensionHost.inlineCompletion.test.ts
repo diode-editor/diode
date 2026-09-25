@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
@@ -24,7 +25,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
             await settle();
 
             // Через group.inlineCompletionSource (wiring харнесса) — как это делает ядро.
-            const items = await harness.group.inlineCompletionSource!(REQ);
+            const items = await harness.group.inlineCompletionSource!(REQ, CancellationTokenNone);
             expect(items).toEqual([
                 { insertText: "(n) {\n    return n;\n}" },
                 {

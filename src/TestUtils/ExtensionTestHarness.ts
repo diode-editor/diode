@@ -234,7 +234,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         group.completionTriggerCharacters = characters;
     });
     // Inline completions (ghost text): источник призрачных подсказок — как в extensionHostModule.
-    group.inlineCompletionSource = (req) => host.provideInlineCompletions(req);
+    group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
     // Definition (LSP): источник целей Go to Definition — как в extensionHostModule.
     group.definitionSource = (req) => host.provideDefinition(req);
     // Hover (LSP): источник hover'ов — как в extensionHostModule.

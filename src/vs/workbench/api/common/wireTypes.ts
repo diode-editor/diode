@@ -1,3 +1,4 @@
+import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
@@ -685,16 +686,33 @@ export function wireToCoreInlineCompletionItems(
  * {@link InProcessChannelPair} без форка subprocess'а (как {@link requestCompletionItems}).
  */
 export async function requestInlineCompletions(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: (method: string, params: unknown, token?: ICancellationToken) => Promise<unknown>,
     params: IWireInlineCompletionParams,
     timeoutMs: number,
+    token?: ICancellationToken,
 ): Promise<readonly ICoreInlineCompletionItem[]> {
-    const outcome = await raceWithTimeout(request("languages.provideInlineCompletions", params), timeoutMs);
-    // Ранний return — экономия работы: TIMED_OUT-символ не массив, и парсер
-    // ниже дал бы тот же `[]` — мутант гарда эквивалентен.
-    // Stryker disable next-line ConditionalExpression: см. выше
-    if (outcome === TIMED_OUT) return [];
-    return wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(outcome));
+    // Свой источник поверх токена ядра: истёкший таймаут — такой же устаревший
+    // запрос, как отмена «сверху», и провайдер обязан узнать об обоих (иначе
+    // зависший LLM-вызов считает в пустоту до конца жизни субпроцесса).
+    const source = new CancellationTokenSource();
+    const subscription = token?.onCancellationRequested(() => {
+        source.cancel();
+    });
+    try {
+        const outcome = await raceWithTimeout(
+            request("languages.provideInlineCompletions", params, source.token),
+            timeoutMs,
+        );
+        if (outcome === TIMED_OUT) {
+            source.cancel();
+            return [];
+        }
+        return wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(outcome));
+    } finally {
+        subscription?.dispose();
+        // Stryker disable next-line CallExpression: уборка — источник этого запроса больше никому не виден
+        source.dispose();
+    }
 }
 
 // ─── Folding (#87) ───────────────────────────────────────────────────────────
