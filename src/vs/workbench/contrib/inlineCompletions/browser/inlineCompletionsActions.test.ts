@@ -56,10 +56,25 @@ describe("inlineCompletionsActions — объявления", () => {
         expect(triggerInlineSuggestAction.when).toBe("textInputFocus && !editorReadonly");
     });
 
-    it("биндинги: Tab у commit, Escape у hide, trigger без бинда", () => {
+    it("биндинги: Tab у commit, Escape у hide, Alt+\\ у trigger", () => {
         expect(keybindingOf(commitInlineSuggestAction)).toBe("Tab");
         expect(keybindingOf(hideInlineSuggestAction)).toBe("Escape");
-        expect(keybindingOf(triggerInlineSuggestAction)).toBeUndefined();
+        // Комбинация Copilot'а (в ядре vscode клавиши у команды нет). В редакторе
+        // горячих клавиш она обязана показаться ровно так — колонка Keybinding.
+        expect(keybindingOf(triggerInlineSuggestAction)).toBe("Alt+\\");
+    });
+
+    it("Alt+\\ разбирается в тот же keydown, что шлёт терминал (ESC + \\)", () => {
+        // Терминал отдаёт Alt+пунктуация как ESC-префикс, tuidom разбирает это
+        // в `{key: "\\", altKey: true}` — бинд обязан совпасть побайтно, иначе
+        // команда не резолвится (грабля непереносимых комбинаций).
+        expect(triggerInlineSuggestAction.keybinding).toEqual({
+            key: "\\",
+            ctrlKey: false,
+            shiftKey: false,
+            altKey: true,
+            metaKey: false,
+        });
     });
 });
 

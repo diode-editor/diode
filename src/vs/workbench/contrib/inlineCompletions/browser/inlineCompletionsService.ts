@@ -32,12 +32,31 @@ interface IInlineSession {
 }
 
 /**
+ * Дефолт `editor.inlineSuggest.delay` — как upstream-дебаунс
+ * `InlineCompletionsDebounce` (50 мс). Обязан совпадать с `default` ключа в
+ * {@link ../../../common/configuration/editorConfiguration.ts}: настройки может
+ * не быть в модели вовсе (тестовая заглушка, битый settings.json).
+ */
+export const DEFAULT_INLINE_SUGGEST_DELAY_MS = 50;
+
+/**
+ * Дефолт `editor.inlineSuggest.requestTimeout` — щедрее completion (1500 мс):
+ * за провайдером может стоять холодный LLM-бэкенд. Тот же лок-степ с `default`
+ * ключа, что и у {@link DEFAULT_INLINE_SUGGEST_DELAY_MS}.
+ */
+export const DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS = 5000;
+
+/**
  * Призрачные подсказки (VS Code inline suggest, ghost text). При паузе в
  * наборе запрашивает `EditorService.inlineCompletionSource` (провайдеры
  * расширений через host), показывает первый подошедший пункт серым текстом
  * за кареткой ({@link TextEditorPane.setGhostText}); Tab принимает
  * (`editor.action.inlineSuggest.commit`), Escape гасит. Дисциплина
  * debounce/seq/ревалидации — по образцу CompletionService/LightbulbService.
+ *
+ * Настройки читаются НА КАЖДОМ обращении, а не кэшируются в полях: правка
+ * `settings.json` подхватывается живым конфигом (watcher → reload) и должна
+ * применяться без перезапуска редактора.
  */
 export class InlineCompletionsService extends Disposable {
     public static dependencies = [
@@ -45,13 +64,6 @@ export class InlineCompletionsService extends Disposable {
         CompletionServiceDIToken,
         IConfigurationServiceDIToken,
     ] as const;
-
-    /**
-     * Задержка перед авто-запросом после набора (мс) — как upstream-дебаунс
-     * `InlineCompletionsDebounce` (50 мс). Явный триггер идёт без неё.
-     * Инъектируется в тестах (`0` — сразу на следующем тике).
-     */
-    public autoTriggerDelayMs = 50;
 
     private readonly group: EditorService;
     private readonly completionService: CompletionService;
@@ -134,6 +146,10 @@ export class InlineCompletionsService extends Disposable {
      * единственной схлопнутой каретке (в том числе в СЕРЕДИНЕ строки — рендер
      * вклеивает фантомные колонки в layout строки, и её хвост уезжает вправо) и
      * закрытом suggest-попапе.
+     *
+     * `editor.inlineSuggest.enabled: false` гасит только АВТО-запрос (как в
+     * VS Code): явный `Invoke` из команды `editor.action.inlineSuggest.trigger`
+     * проходит и при выключенной настройке — это и есть ручной режим.
      */
     public async trigger(triggerKind: InlineCompletionTriggerKind = InlineCompletionTriggerKind.Invoke): Promise<void> {
         this.cancelAutoTrigger();
@@ -141,7 +157,7 @@ export class InlineCompletionsService extends Disposable {
         const source = this.group.inlineCompletionSource;
         if (editor === null || source === undefined) return;
         if (editor.readOnly) return;
-        if (this.configuration.get<boolean>("editor.inlineSuggest.enabled") === false) return;
+        if (triggerKind === InlineCompletionTriggerKind.Automatic && !this.autoTriggerEnabled) return;
         if (this.completionService.isOpen()) return;
 
         const selections = editor.viewState.selections;
@@ -159,6 +175,7 @@ export class InlineCompletionsService extends Disposable {
             line: caret.line,
             character: caret.character,
             triggerKind,
+            timeoutMs: this.requestTimeoutMs,
         }).catch(() => []);
         // Пока ходили за ответом: новый запрос обгоняет старый; правка или уход
         // каретки делают снапшот недействительным; открывшийся попап — гейт показа.
@@ -178,6 +195,31 @@ export class InlineCompletionsService extends Disposable {
             }
         }
         this.hide();
+    }
+
+    // ─── Настройки (читаются на каждом обращении — правка применяется на лету) ─
+
+    /** `editor.inlineSuggest.enabled`: разрешён ли авто-запрос при наборе. */
+    private get autoTriggerEnabled(): boolean {
+        return this.configuration.get<boolean>("editor.inlineSuggest.enabled") !== false;
+    }
+
+    /** `editor.inlineSuggest.delay`: пауза перед авто-запросом, мс. */
+    private get autoTriggerDelayMs(): number {
+        return readMillisecondsSetting(
+            this.configuration.get("editor.inlineSuggest.delay"),
+            DEFAULT_INLINE_SUGGEST_DELAY_MS,
+            0,
+        );
+    }
+
+    /** `editor.inlineSuggest.requestTimeout`: сколько ждать ответ источника, мс. */
+    private get requestTimeoutMs(): number {
+        return readMillisecondsSetting(
+            this.configuration.get("editor.inlineSuggest.requestTimeout"),
+            DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS,
+            1,
+        );
     }
 
     /** Принимает показанную подсказку: одна undoable-правка, каретка в конец. */
@@ -376,6 +418,23 @@ export class InlineCompletionsService extends Disposable {
             this.autoTriggerTimer = null;
         }
     }
+}
+
+/**
+ * Читает настройку-длительность (мс) из конфига: `settings.json` правит человек,
+ * и там бывает что угодно — строка, отрицательное число, `NaN`. Всё, что не
+ * конечное число не меньше `min`, откатывается на `fallback`, а редактор
+ * стартует и работает как с дефолтами (`ConfigurationService.get` типы не
+ * проверяет — отдаёт значение как есть).
+ */
+export function readMillisecondsSetting(raw: unknown, fallback: number, min: number): number {
+    // Гард `typeof` нужен ТИПАМ, а не рантайму: `Number.isFinite` не приводит
+    // аргумент и на любом не-числе уже возвращает false, но сигнатуры-предиката
+    // у него нет — без typeof не сузить `unknown` до `number` для `raw < min` и
+    // `return raw`. Мутант «убрать проверку» поэтому эквивалентен.
+    // Stryker disable next-line ConditionalExpression: см. выше
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < min) return fallback;
+    return raw;
 }
 
 /**

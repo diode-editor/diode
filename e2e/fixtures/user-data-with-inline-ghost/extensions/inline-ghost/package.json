@@ -7,5 +7,17 @@
     "main": "./extension.js",
     "engines": {
         "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "configuration": {
+            "title": "Inline Ghost",
+            "properties": {
+                "inlineGhost.responseDelay": {
+                    "type": "number",
+                    "default": 250,
+                    "description": "Milliseconds the demo provider waits before answering. Raise it above editor.inlineSuggest.requestTimeout to watch the editor give up on a slow provider."
+                }
+            }
+        }
     }
 }

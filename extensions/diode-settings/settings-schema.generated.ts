@@ -73,10 +73,24 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Format a file on save. A formatter must be available (an extension providing it).",
     },
     {
+        key: "editor.inlineSuggest.delay",
+        type: "number",
+        default: 50,
+        description:
+            "Milliseconds to wait after a change before automatically requesting an inline suggestion. 0 requests on every change; higher values spare a slow or metered provider.",
+    },
+    {
         key: "editor.inlineSuggest.enabled",
         type: "boolean",
         default: true,
         description: "Controls whether to automatically show inline suggestions in the editor.",
+    },
+    {
+        key: "editor.inlineSuggest.requestTimeout",
+        type: "number",
+        default: 5000,
+        description:
+            "Milliseconds to wait for an inline suggestion provider to answer. After that the request is given up on and no suggestion is shown.",
     },
     { key: "editor.insertSpaces", type: "boolean", default: true, description: "Insert spaces when pressing Tab." },
     { key: "editor.tabSize", type: "number", default: 4, description: "The number of spaces a tab is equal to." },

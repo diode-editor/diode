@@ -10,10 +10,17 @@ import { InlineCompletionTriggerKind } from "../../../../editor/common/languages
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { editorConfiguration } from "../../../common/configuration/editorConfiguration.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import type { CompletionService } from "../../suggest/browser/completionService.ts";
 
-import { computeIndentationLessThanTabSize, InlineCompletionsService } from "./inlineCompletionsService.ts";
+import {
+    computeIndentationLessThanTabSize,
+    DEFAULT_INLINE_SUGGEST_DELAY_MS,
+    DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS,
+    InlineCompletionsService,
+    readMillisecondsSetting,
+} from "./inlineCompletionsService.ts";
 
 /** Пауза больше нулевого дебаунса — авто-запрос успевает уйти и вернуться. */
 async function tick(ms = 5): Promise<void> {
@@ -144,9 +151,19 @@ function makeGroup(editor: TextEditorPane | null, source: EditorService["inlineC
     };
 }
 
+interface ServiceOptions {
+    popupOpen?: () => boolean;
+    /** `editor.inlineSuggest.enabled`; `undefined` — ключа в модели нет. */
+    enabled?: boolean;
+    /** `editor.inlineSuggest.delay`; по умолчанию 0 — детерминированный авто-запрос. */
+    delay?: unknown;
+    /** `editor.inlineSuggest.requestTimeout`; `undefined` — ключа в модели нет. */
+    requestTimeout?: unknown;
+}
+
 function makeService(
     group: EditorService,
-    options: { popupOpen?: () => boolean; enabled?: boolean } = {},
+    options: ServiceOptions = {},
 ): InlineCompletionsService & { firePopupClose: () => void } {
     const closeListeners: (() => void)[] = [];
     const completion = {
@@ -156,13 +173,19 @@ function makeService(
             return { dispose: () => closeListeners.splice(closeListeners.indexOf(l), 1) };
         },
     } as unknown as CompletionService;
+    // Живой конфиг: читается на каждом обращении, значения берутся из `options`
+    // в момент чтения — тест может подменить их по ходу (live-reload).
     const configuration = {
-        get: (key: string) => (key === "editor.inlineSuggest.enabled" ? (options.enabled ?? true) : undefined),
+        get: (key: string): unknown => {
+            if (key === "editor.inlineSuggest.enabled") return options.enabled ?? true;
+            if (key === "editor.inlineSuggest.delay") return options.delay ?? 0;
+            if (key === "editor.inlineSuggest.requestTimeout") return options.requestTimeout;
+            return undefined;
+        },
     } as unknown as IConfigurationService;
     const service = new InlineCompletionsService(group, completion, configuration) as InlineCompletionsService & {
         firePopupClose: () => void;
     };
-    service.autoTriggerDelayMs = 0; // детерминированный авто-запрос в тестах
     service.firePopupClose = () => {
         for (const l of [...closeListeners]) l();
     };
@@ -171,6 +194,20 @@ function makeService(
 
 function items(...list: ICoreInlineCompletionItem[]): () => Promise<readonly ICoreInlineCompletionItem[]> {
     return () => Promise.resolve(list);
+}
+
+/**
+ * Источник, который складывает пришедшие запросы в `into` — тестам настроек
+ * важны не только пункты, но и поля самого запроса (`triggerKind`, `timeoutMs`).
+ */
+function recordingItems(
+    into: IInlineCompletionRequest[],
+    ...list: ICoreInlineCompletionItem[]
+): (req: IInlineCompletionRequest) => Promise<readonly ICoreInlineCompletionItem[]> {
+    return (req) => {
+        into.push(req);
+        return Promise.resolve(list);
+    };
 }
 
 describe("InlineCompletionsService — показ", () => {
@@ -350,7 +387,7 @@ describe("InlineCompletionsService — показ", () => {
 });
 
 describe("InlineCompletionsService — гейты", () => {
-    it("не запрашивает: выделение, мультикурсор, read-only, настройка, попап", async () => {
+    it("не запрашивает: выделение, мультикурсор, read-only, попап", async () => {
         const source = vi.fn(items({ insertText: "x" }));
 
         const withSelection = makeEditor("abc", 3);
@@ -364,9 +401,6 @@ describe("InlineCompletionsService — гейты", () => {
         const readOnly = makeEditor("abc", 3);
         readOnly.setReadOnly(true);
         await makeService(makeGroup(readOnly.editor, source).group).trigger();
-
-        const disabled = makeEditor("abc", 3);
-        await makeService(makeGroup(disabled.editor, source).group, { enabled: false }).trigger();
 
         const popup = makeEditor("abc", 3);
         await makeService(makeGroup(popup.editor, source).group, { popupOpen: () => true }).trigger();
@@ -696,8 +730,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
     it("правка поверх отложенного запроса перезапускает дебаунс, а не копит таймеры", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items());
-        const service = makeService(makeGroup(fake.editor, source).group);
-        service.autoTriggerDelayMs = 5;
+        makeService(makeGroup(fake.editor, source).group, { delay: 5 });
 
         fake.type("ab ", 3); // планирует t1
         fake.type("ab x", 4); // планирует t2, t1 обязан быть снят
@@ -1007,6 +1040,155 @@ describe("InlineCompletionsService — гейт Tab против отступа"
         await service.trigger();
 
         expect(service.hasIndentationLessThanTabSize()).toBe(true);
+    });
+});
+
+describe("InlineCompletionsService — настройки", () => {
+    it("enabled:false гасит авто-запрос, но не явный триггер (ручной режим)", async () => {
+        const fake = makeEditor("ab", 2);
+        const requests: IInlineCompletionRequest[] = [];
+        const service = makeService(makeGroup(fake.editor, recordingItems(requests, { insertText: "abc" })).group, {
+            enabled: false,
+        });
+
+        // Набор при выключенной настройке провайдера не опрашивает вовсе.
+        fake.type("ab ", 3);
+        await tick();
+        expect(requests).toHaveLength(0);
+        expect(service.isOpen()).toBe(false);
+
+        // Alt+\ (явный Invoke) — подсказка приходит несмотря на настройку.
+        fake.type("ab", 2);
+        await tick();
+        expect(requests).toHaveLength(0);
+        await service.trigger(InlineCompletionTriggerKind.Invoke);
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]).toMatchObject({ triggerKind: InlineCompletionTriggerKind.Invoke });
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("после явного триггера при enabled:false расхождение гасит призрака навсегда", async () => {
+        const fake = makeEditor("ab", 2);
+        const source = vi.fn(items({ insertText: "abc" }));
+        const service = makeService(makeGroup(fake.editor, source).group, { enabled: false });
+        await service.trigger(InlineCompletionTriggerKind.Invoke);
+        expect(service.isOpen()).toBe(true);
+
+        // Символ мимо подсказки: сессия гаснет и сама НЕ возвращается —
+        // авто-запрос выключен, второго обращения к источнику нет.
+        fake.type("abX", 3);
+        await tick();
+
+        expect(service.isOpen()).toBe(false);
+        expect(source).toHaveBeenCalledTimes(1);
+    });
+
+    it("enabled читается на каждом запросе — правка настройки применяется без пересоздания сервиса", async () => {
+        const fake = makeEditor("ab", 2);
+        const source = vi.fn(items({ insertText: "abc" }));
+        const options: ServiceOptions = { enabled: true };
+        const service = makeService(makeGroup(fake.editor, source).group, options);
+
+        fake.type("ab ", 3);
+        await tick();
+        expect(source).toHaveBeenCalledTimes(1);
+
+        options.enabled = false; // как сохранение settings.json на живом редакторе
+        fake.type("ab x", 4);
+        await tick();
+        expect(source).toHaveBeenCalledTimes(1);
+
+        options.enabled = true;
+        fake.type("ab xy", 5);
+        await tick();
+        expect(source).toHaveBeenCalledTimes(2);
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("delay задаёт паузу перед авто-запросом и читается на каждой правке", async () => {
+        const fake = makeEditor("ab", 2);
+        const source = vi.fn(items());
+        const options: ServiceOptions = { delay: 40 };
+        makeService(makeGroup(fake.editor, source).group, options);
+
+        fake.type("ab ", 3);
+        await tick(10);
+        expect(source).not.toHaveBeenCalled(); // 40 мс ещё не прошли
+        await tick(60);
+        expect(source).toHaveBeenCalledTimes(1);
+
+        options.delay = 0; // новая настройка — новая пауза, без пересоздания сервиса
+        fake.type("ab x", 4);
+        await tick(10);
+        expect(source).toHaveBeenCalledTimes(2);
+    });
+
+    it("requestTimeout едет в источник с каждым запросом", async () => {
+        const fake = makeEditor("ab", 2);
+        const requests: IInlineCompletionRequest[] = [];
+        const options: ServiceOptions = { requestTimeout: 20000 };
+        const service = makeService(
+            makeGroup(fake.editor, recordingItems(requests, { insertText: "abc" })).group,
+            options,
+        );
+
+        await service.trigger();
+        expect(requests[0]).toMatchObject({ timeoutMs: 20000 });
+
+        options.requestTimeout = 1234;
+        await service.trigger();
+        expect(requests[1]).toMatchObject({ timeoutMs: 1234 });
+    });
+
+    it("негодные значения настроек откатываются на дефолты, а не ломают редактор", async () => {
+        // `delay: -5` и `requestTimeout: "много"` — ровно то, что человек может
+        // написать руками: редактор обязан вести себя как с дефолтами.
+        const fake = makeEditor("ab", 2);
+        const requests: IInlineCompletionRequest[] = [];
+        const service = makeService(makeGroup(fake.editor, recordingItems(requests, { insertText: "abc" })).group, {
+            delay: -5,
+            requestTimeout: "много",
+        });
+
+        await service.trigger();
+        expect(requests[0]).toMatchObject({ timeoutMs: DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS });
+        expect(service.isOpen()).toBe(true);
+
+        // Дефолтные 50 мс дебаунса: через 10 мс запроса ещё нет, через 70 — есть.
+        fake.type("abc ", 4);
+        await tick(10);
+        expect(requests).toHaveLength(1);
+        await tick(70);
+        expect(requests).toHaveLength(2);
+    });
+});
+
+describe("InlineCompletionsService — дефолты в лок-степе со схемой", () => {
+    it("fallback-константы совпадают с `default` ключей editor.inlineSuggest.*", () => {
+        // Разойдутся — и редактор с пустым settings.json поведёт себя иначе,
+        // чем обещает автодополнение ключа.
+        expect(DEFAULT_INLINE_SUGGEST_DELAY_MS).toBe(
+            editorConfiguration.properties["editor.inlineSuggest.delay"].default,
+        );
+        expect(DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS).toBe(
+            editorConfiguration.properties["editor.inlineSuggest.requestTimeout"].default,
+        );
+    });
+});
+
+describe("readMillisecondsSetting", () => {
+    it("пропускает конечные числа не меньше min, остальное — fallback", () => {
+        expect(readMillisecondsSetting(2000, 50, 0)).toBe(2000);
+        expect(readMillisecondsSetting(0, 50, 0)).toBe(0); // ноль допустим для delay
+        expect(readMillisecondsSetting(0, 5000, 1)).toBe(5000); // но не для timeout
+        expect(readMillisecondsSetting(-5, 50, 0)).toBe(50);
+        expect(readMillisecondsSetting("много", 5000, 1)).toBe(5000);
+        expect(readMillisecondsSetting(Number.NaN, 50, 0)).toBe(50);
+        expect(readMillisecondsSetting(Number.POSITIVE_INFINITY, 50, 0)).toBe(50);
+        expect(readMillisecondsSetting(undefined, 50, 0)).toBe(50); // ключа нет в модели
+        expect(readMillisecondsSetting(true, 50, 0)).toBe(50);
+        expect(readMillisecondsSetting(null, 50, 0)).toBe(50);
     });
 });
 

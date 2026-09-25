@@ -61,4 +61,31 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
             await harness.dispose();
         }
     });
+
+    // `editor.inlineSuggest.requestTimeout` едет в ЗАПРОСЕ, а не фиксируется при
+    // создании хоста: правка настройки обязана применяться без перезапуска
+    // редактора. Провайдер фикстуры отвечает ~300 мс — этого хватает, чтобы
+    // тесный срок его не дождался, а дефолтный хостовой (5000 мс) дождался.
+    it("req.timeoutMs перебивает хостовой таймаут: тесный срок сдаётся, отсутствие срока — ждёт", async () => {
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: "main.ts", content: "function fib" },
+            extensions: [extensionFixture("test.slowInlineCompletion", "providesSlowInlineCompletion.cjs")],
+        });
+        try {
+            await settle();
+
+            // 50 мс — провайдер не успевает, подсказки просто нет (редактор жив).
+            expect(await harness.host.provideInlineCompletions({ ...REQ, timeoutMs: 50 })).toEqual([]);
+
+            // Срока в запросе нет → работает хостовой дефолт, ответ дожидается.
+            expect(await harness.host.provideInlineCompletions(REQ)).toEqual([{ insertText: "onacci(n) {}" }]);
+
+            // Щедрый срок из настройки — тот же дождавшийся ответ.
+            expect(await harness.host.provideInlineCompletions({ ...REQ, timeoutMs: 20000 })).toEqual([
+                { insertText: "onacci(n) {}" },
+            ]);
+        } finally {
+            await harness.dispose();
+        }
+    });
 });

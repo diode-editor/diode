@@ -56,10 +56,30 @@ export const editorConfiguration: IConfigurationNode = {
             default: false,
             description: "Format a file on save. A formatter must be available (an extension providing it).",
         },
+        // Как в VS Code, ключ гейтит ТОЛЬКО автозапрос: команда
+        // `editor.action.inlineSuggest.trigger` (Alt+\) работает и при `false` —
+        // это и есть «ручной режим».
         "editor.inlineSuggest.enabled": {
             type: "boolean",
             default: true,
             description: "Controls whether to automatically show inline suggestions in the editor.",
+        },
+        // Наши ключи в vscode-неймспейсе (в upstream дебаунс адаптивный и зашит
+        // константой, а таймаута ответа нет вовсе — там CancellationToken).
+        // Имя `delay` — по образцу `editor.quickSuggestionsDelay`.
+        "editor.inlineSuggest.delay": {
+            type: "number",
+            default: 50,
+            description:
+                "Milliseconds to wait after a change before automatically requesting an inline suggestion. " +
+                "0 requests on every change; higher values spare a slow or metered provider.",
+        },
+        "editor.inlineSuggest.requestTimeout": {
+            type: "number",
+            default: 5000,
+            description:
+                "Milliseconds to wait for an inline suggestion provider to answer. " +
+                "After that the request is given up on and no suggestion is shown.",
         },
         // Форма VS Code: объект «kind → включён ли» (`{"source.fixAll": true}`).
         // Значения true | "explicit" | "always" включают вид, false | "never" —

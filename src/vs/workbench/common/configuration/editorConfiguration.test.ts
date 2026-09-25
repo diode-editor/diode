@@ -15,6 +15,32 @@ describe("editorConfiguration — emptySelectionClipboard", () => {
     });
 });
 
+describe("editorConfiguration — призрачные подсказки", () => {
+    it("editor.inlineSuggest.enabled: boolean, включён по умолчанию (гейт только автозапроса)", () => {
+        const schema = editorConfiguration.properties["editor.inlineSuggest.enabled"];
+        expect(schema.type).toBe("boolean");
+        expect(schema.default).toBe(true);
+        expect(schema.description).toContain("automatically show inline suggestions");
+    });
+
+    it("editor.inlineSuggest.delay: number, 50 мс по умолчанию", () => {
+        const schema = editorConfiguration.properties["editor.inlineSuggest.delay"];
+        expect(schema.type).toBe("number");
+        expect(schema.default).toBe(50);
+        // Обе половины склейки описания — их видит автодополнение settings.json.
+        expect(schema.description).toContain("before automatically requesting an inline suggestion");
+        expect(schema.description).toContain("slow or metered provider");
+    });
+
+    it("editor.inlineSuggest.requestTimeout: number, 5000 мс по умолчанию", () => {
+        const schema = editorConfiguration.properties["editor.inlineSuggest.requestTimeout"];
+        expect(schema.type).toBe("number");
+        expect(schema.default).toBe(5000);
+        expect(schema.description).toContain("wait for an inline suggestion provider to answer");
+        expect(schema.description).toContain("no suggestion is shown");
+    });
+});
+
 describe("editorConfiguration — onSave-настройки", () => {
     it("editor.formatOnSave: boolean, выключен по умолчанию", () => {
         const schema = editorConfiguration.properties["editor.formatOnSave"];
