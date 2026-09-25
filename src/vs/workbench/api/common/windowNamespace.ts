@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { createQuickInputApi } from "./quickInputNamespace.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -110,6 +111,10 @@ export function slugifyChannelName(name: string): string {
 
 export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.window {
     const { rpc, registry } = ctx;
+
+    // Ввод/выбор у человека: собственный модуль — у него своя проводка
+    // (handle'ы показов, обратный запрос валидации, токен отмены).
+    const quickInput = createQuickInputApi(rpc);
 
     let activeEditorUri: string | null = null;
     /** Группа активного редактора (из меты); null — до первой меты с группой. */
@@ -912,12 +917,19 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             },
         } as unknown as vscode.TabGroups,
 
-        // Наивный quickPick: UI-выбора у субпроцесса нет, резолв undefined —
-        // валидная семантика «пользователь отменил» (типовой потребитель —
-        // pickFolder мульти-рут-команд vscode-eslint; однопапочный Diode до
-        // выбора и не доходит). Настоящий пикер — вместе с проводкой
-        // QuickInputService до субпроцесса.
-        showQuickPick: (): Thenable<undefined> => Promise.resolve(undefined),
+        // Ввод и выбор по просьбе расширения: оба поднимают у хоста общий
+        // QuickInput-оверлей приложения (тот же, что палитра и Quick Open) и
+        // отдают введённое/выбранное, а по Esc — undefined. Детали провода —
+        // quickInputNamespace.ts.
+        showInputBox: (
+            options?: vscode.InputBoxOptions,
+            token?: vscode.CancellationToken,
+        ): Thenable<string | undefined> => quickInput.showInputBox(options, token),
+        showQuickPick: (
+            items: unknown,
+            options?: vscode.QuickPickOptions,
+            token?: vscode.CancellationToken,
+        ): Thenable<unknown> => quickInput.showQuickPick(items, options, token),
 
         // `window.showTextDocument` (3 перегрузки): нормализуем в один запрос
         // хосту; к моменту резолва `editor.layoutChanged` уже применён (хост

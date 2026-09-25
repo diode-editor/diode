@@ -42,6 +42,7 @@ import {
     InlineCompletionItem,
     InlineCompletionList,
     InlineCompletionTriggerKind,
+    InputBoxValidationSeverity,
     LanguageStatusSeverity,
     Location,
     LogLevel,
@@ -208,6 +209,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         DiagnosticRelatedInformation,
         DiagnosticSeverity,
         DiagnosticTag,
+        // Расширения строят сообщение валидации InputBox через этот enum —
+        // он обязан быть настоящим значением, а не типом.
+        InputBoxValidationSeverity,
         CodeLens,
         CodeAction,
         CodeActionKind,

@@ -1,3 +1,4 @@
+import { DisplayLine } from "@tuidom/core/common/displayLine";
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { truncateEnd } from "@tuidom/core/common/textTruncation";
 import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
@@ -14,6 +15,15 @@ import type { QuickPickAcceptMode, QuickPickItem, ValidationSeverity } from "../
 
 import { CONTENT_PAD, QuickPickFrameElement } from "./quickPickFrameElement.ts";
 import { buildItemRow, rowId } from "./quickPickRows.ts";
+
+/**
+ * Чем закрывается символ в поле пароля ({@link QuickPickElement.password}).
+ *
+ * ASCII-звёздочка, а не `•`/`●`: у точек в терминале неоднозначная ширина
+ * (East Asian Ambiguous) — при «широкой» трактовке поле разъехалось бы, как
+ * это было бы и с `☐`/`☑` у чекбоксов.
+ */
+export const MASK_CHAR = "*";
 
 /**
  * Quick-open / палитра команд / InputBox — один переиспользуемый пикер.
@@ -59,12 +69,32 @@ export class QuickPickElement extends TUIElement {
      *   "value" — всегда onAcceptValue(getQuery()) — флейвор InputBox.
      */
     public acceptMode: QuickPickAcceptMode = "item";
+    /**
+     * Множественный выбор: у КАЖДОЙ строки появляется чекбокс, `Space`
+     * переключает отметку под курсором, а `Enter` принимает набор отмеченных
+     * (см. {@link checkedItems}) — подсветка сама по себе выбором не считается.
+     */
+    public canPickMany = false;
+    /**
+     * Поле пароля: на экран вместо каждого введённого символа идёт
+     * {@link MASK_CHAR}, а {@link inspectState} отдаёт то же, что видно, —
+     * секрет не утекает ни в инспектор, ни в e2e-снимок. Редактирование,
+     * {@link getQuery} и валидация работают с НАСТОЯЩИМ текстом: маска — это
+     * только представление.
+     */
+    public password = false;
     public onAcceptValue: ((value: string) => void) | null = null;
     /** Желаемая ширина пикера в колонках (клампится constraints'ами). */
     public preferredWidth = 60;
 
     public onQueryChange: ((query: string) => void) | null = null;
     public onAccept: ((item: QuickPickItem, index: number) => void) | null = null;
+    /**
+     * Enter в множественном выборе ({@link canPickMany}): набор берётся из
+     * {@link checkedItems}, поэтому аргументов у колбэка нет. Файрится и на
+     * пустом наборе, и на пустом списке.
+     */
+    public onAcceptMany: (() => void) | null = null;
     public onCancel: (() => void) | null = null;
     /**
      * Выделенная строка сменилась ПО ВОЛЕ ПОЛЬЗОВАТЕЛЯ (стрелки, PageUp/Down) —
@@ -86,6 +116,12 @@ export class QuickPickElement extends TUIElement {
     private readonly list: ListViewElement;
 
     private itemsValue: readonly QuickPickItem[] = [];
+    /**
+     * Отмеченные предметы множественного выбора — по идентичности объекта, а не
+     * по индексу: фильтрация набором меняет состав и индексы `items`, а отметки
+     * обязаны пережить её (набрал фильтр, отметил, стёр фильтр — отметка на месте).
+     */
+    private readonly checkedValue = new Set<QuickPickItem>();
     private selectedIndexValue = 0;
     /** Ширина, на которую построены текущие ряды; -1 — рядов нет. */
     private rowsWidth = -1;
@@ -192,6 +228,43 @@ export class QuickPickElement extends TUIElement {
     }
 
     /**
+     * Отмеченные предметы множественного выбора. Порядок множества —
+     * порядок отметки; упорядочить по списку — дело того, кто список отдал
+     * ({@link import("./quickInputService.ts").QuickInputService}).
+     */
+    public get checkedItems(): ReadonlySet<QuickPickItem> {
+        return this.checkedValue;
+    }
+
+    /**
+     * Вернуть флейворное состояние в исходное — ОБЯЗАТЕЛЬНЫЙ первый шаг любого
+     * показа на этом виджете.
+     *
+     * Виджет общий (палитра, Quick Open, наши команды, расширения), и остальные
+     * флейворные поля каждый хозяин и так выставляет за себя. Эти — нет: без
+     * сброса чекбоксы прошлого множественного выбора вылезали в палитре, а её
+     * `Enter` уходил в {@link onAcceptMany} вместо {@link onAccept} и команда не
+     * исполнялась; маска прошлого поля пароля точно так же осталась бы висеть на
+     * следующем показе, и человек набирал бы запрос вслепую.
+     */
+    public resetFlavorState(): void {
+        this.canPickMany = false;
+        this.checkedValue.clear();
+        this.onAcceptMany = null;
+        this.password = false;
+    }
+
+    /**
+     * Программно выставить набор отметок (предотмеченные пункты при открытии).
+     * Прежние отметки заменяются целиком.
+     */
+    public setCheckedItems(items: Iterable<QuickPickItem>): void {
+        this.checkedValue.clear();
+        for (const item of items) this.checkedValue.add(item);
+        this.rebuildKeepingView();
+    }
+
+    /**
      * Программно подсветить строку (например, текущую тему при открытии).
      * Клампится в границы, держит строку на экране, {@link onActiveItemChanged}
      * НЕ файрит — это не пользовательская навигация.
@@ -217,17 +290,38 @@ export class QuickPickElement extends TUIElement {
         this.inputElement.focus();
     }
 
-    /** Наблюдаемое состояние: запрос, лейблы строк и активный индекс. */
+    /**
+     * Наблюдаемое состояние: запрос, лейблы строк и активный индекс. В
+     * множественном выборе добавляются лейблы отмеченных строк — иначе отметку
+     * не видно ниоткуда, кроме кадра.
+     *
+     * Запрос отдаётся ТАК, КАК ОН ВИДЕН: под маской ({@link password}) наружу
+     * уходит она, а не сам секрет — ни инспектор, ни e2e-снимок пароля не видят.
+     */
     public override inspectState(): Record<string, unknown> {
         return {
-            query: this.getQuery(),
+            query: this.visibleQuery,
             activeIndex: this.selectedIndexValue,
             title: this.title,
             items: this.itemsValue.map((item) => item.label),
+            ...(this.canPickMany
+                ? { checked: this.itemsValue.filter((item) => this.checkedValue.has(item)).map((item) => item.label) }
+                : {}),
         };
     }
 
     // ─── Structure ──────────────────────────────────────────────────────────
+
+    /**
+     * Запрос так, как он выглядит на экране: под маской — по одной
+     * {@link MASK_CHAR} на графемный кластер (ровно так считает и сам
+     * `InputElement`), иначе — сам текст.
+     */
+    private get visibleQuery(): string {
+        const query = this.getQuery();
+        if (!this.password) return query;
+        return MASK_CHAR.repeat(new DisplayLine(query).slots.length);
+    }
 
     /** Текст и цвет строки сообщения; null — строки нет. */
     private get message(): { text: string; fg: string } | null {
@@ -268,9 +362,10 @@ export class QuickPickElement extends TUIElement {
      * есть ли список) и сообщает рамке, где рисовать сепаратор.
      */
     private syncStructure(): void {
-        // Плейсхолдер живёт полем на пикере (его правят сервисы), а рисует его
-        // строка запроса — переносим на каждом синке, а не сеттером.
+        // Плейсхолдер и маска живут полями на пикере (их правят сервисы), а
+        // рисует их строка запроса — переносим на каждом синке, а не сеттером.
         this.inputElement.placeholder = this.placeholder;
+        this.inputElement.maskChar = this.password ? MASK_CHAR : undefined;
         const message = this.message;
         const hasItems = this.visibleItemCount > 0;
 
@@ -305,10 +400,27 @@ export class QuickPickElement extends TUIElement {
         this.rowElements = [];
         const hasIcons = this.itemsValue.some((item) => item.icon !== undefined);
         for (const [index, item] of this.itemsValue.entries()) {
-            const row = buildItemRow(item, index, innerWidth, hasIcons);
+            const row = buildItemRow(item, index, innerWidth, {
+                hasIcons,
+                ...(this.canPickMany ? { checked: this.checkedValue.has(item) } : {}),
+            });
             this.rowElements.push(row);
             this.list.appendRow(row);
         }
+    }
+
+    /**
+     * Пересобирает строки, оставив экран на месте: чекбокс меняется на одной
+     * строке, а ряды у нас неизменяемые — перестраивается весь список, и без
+     * возврата прокрутки с курсором длинный список прыгал бы на каждый `Space`.
+     */
+    private rebuildKeepingView(): void {
+        const keepIndex = this.selectedIndexValue;
+        const keepScroll = this.list.scrollTop;
+        this.rebuildRows();
+        this.list.scrollTop = keepScroll;
+        // Stryker disable next-line ObjectLiteral: отсутствующий `notify` читается как `!undefined`, то есть ровно как `notify: false`
+        this.moveCursorTo(keepIndex, { notify: false });
     }
 
     /** Двигает курсор списка; программные перемещения молчат по контракту. */
@@ -347,6 +459,15 @@ export class QuickPickElement extends TUIElement {
                 event.preventDefault();
                 this.moveSelection(-Math.max(1, this.visibleItemCount));
                 break;
+            case " ":
+                // Пробел переключает отметку ТОЛЬКО в множественном выборе; в
+                // остальных случаях это обычный символ запроса, и default-action
+                // строки ввода обязан его получить — поэтому без preventDefault.
+                if (this.canPickMany) {
+                    event.preventDefault();
+                    this.toggleChecked();
+                }
+                break;
             case "Enter":
                 event.preventDefault();
                 this.accept();
@@ -365,11 +486,26 @@ export class QuickPickElement extends TUIElement {
         this.moveCursorTo(next, { notify: true });
     }
 
+    /** Переключает отметку строки под курсором (множественный выбор). */
+    private toggleChecked(): void {
+        const item = this.itemsValue.at(this.selectedIndexValue);
+        if (item === undefined) return;
+        if (!this.checkedValue.delete(item)) this.checkedValue.add(item);
+        this.rebuildKeepingView();
+    }
+
     private accept(): void {
         // Жёсткая ошибка валидации блокирует Enter в любом режиме.
         if (this.validationMessage !== null && this.validationSeverity === "error") return;
         if (this.acceptMode === "value") {
             this.onAcceptValue?.(this.getQuery());
+            return;
+        }
+        if (this.canPickMany) {
+            // Принимается НАБОР отметок, в том числе пустой: «ничего не
+            // отмечено» — это пустой ответ, а не отмена и не строка под курсором.
+            // Stryker disable next-line OptionalChaining: колбэк ставит владелец показа до открытия; пары «множественный выбор без onAcceptMany» в приложении не бывает, а проверка стоит защитой
+            this.onAcceptMany?.();
             return;
         }
         if (this.itemsValue.length > 0) {
@@ -385,13 +521,21 @@ export class QuickPickElement extends TUIElement {
         this.moveCursorTo(index, { notify: false });
     }
 
-    /** Клик по строке выделяет её и принимает — как Enter. */
+    /**
+     * Клик по строке выделяет её и принимает — как Enter. В множественном
+     * выборе принимать нечего: клик переключает отметку строки, как `Space`
+     * (иначе первый же клик закрыл бы пикер с полупустым набором).
+     */
     private handleClick(event: TUIMouseEvent): void {
         if (event.button !== "left") return;
         const index = this.itemIndexFromEvent(event);
         if (index === null) return;
         event.preventDefault();
         this.moveCursorTo(index, { notify: false });
+        if (this.canPickMany) {
+            this.toggleChecked();
+            return;
+        }
         this.accept();
     }
 
@@ -444,10 +588,18 @@ export class QuickPickElement extends TUIElement {
 
         // Сообщение обрезаем по месту, а не полагаемся на клип: у усечения свой
         // хвостовой символ, и он должен быть виден.
+        //
+        // ТОЛЬКО при изменении текста: `setText` метит дерево грязным безусловно,
+        // а мы здесь внутри layout'а. Безусловный вызов оставлял пикер layout-dirty
+        // после КАЖДОГО кадра, а damage-обход такое поддерево считает не
+        // разложенным и не рисует — оверлей с строкой сообщения (флейвор InputBox
+        // с `prompt`) замирал на первом кадре: набранное в поле не появлялось.
         const message = this.message;
         if (message !== null) {
             const avail = Math.max(0, size.width - BORDER_THICKNESS * 2 - CONTENT_PAD * 2);
-            this.messageLabel.setText(truncateEnd(message.text, avail));
+            const text = truncateEnd(message.text, avail);
+            // Stryker disable next-line ConditionalExpression: сравнение и есть починка — без него дерево остаётся грязным после каждого кадра и оверлей замирает; наблюдаемо только на живом кадре, гейт — демо-сценарий `quick-input` (e2e)
+            if (this.messageLabel.getText() !== text) this.messageLabel.setText(text);
         }
 
         this.layoutChild(this.frame, 0, 0, BoxConstraints.tight(size));

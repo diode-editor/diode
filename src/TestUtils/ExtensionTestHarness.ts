@@ -31,6 +31,7 @@ import {
     type IExtensionHostConfigProvider,
     type IOutputSink,
     type IProgressSink,
+    type IQuickInputSink,
     type IStatusBarItemSink,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
@@ -130,6 +131,11 @@ export interface IExtensionHarnessOptions {
     readonly outputSink?: IOutputSink;
     /** Сток пунктов статус-бара расширений (`window.statusBarItem.*`). По умолчанию не подключён. */
     readonly statusBarItemSink?: IStatusBarItemSink;
+    /**
+     * Сток ввода расширений (`window.showInputBox`/`showQuickPick`). По умолчанию
+     * не подключён — расширение мгновенно получает «отменено».
+     */
+    readonly quickInputSink?: IQuickInputSink;
     /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
     /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
@@ -216,6 +222,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.progressSink !== undefined ? { progressSink: options.progressSink } : {}),
         ...(options.outputSink !== undefined ? { outputSink: options.outputSink } : {}),
         ...(options.statusBarItemSink !== undefined ? { statusBarItemSink: options.statusBarItemSink } : {}),
+        ...(options.quickInputSink !== undefined ? { quickInputSink: options.quickInputSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         ...(options.themeColorResolver !== undefined ? { themeColorResolver: options.themeColorResolver } : {}),

@@ -20,9 +20,11 @@ import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileD
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
 import { FileWatcherAdapter, parseWatcherExclude } from "../../workbench/api/browser/fileWatcherAdapter.ts";
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
+import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInputExtensionAdapter.ts";
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
+import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
 import { FileSystemProviderRegistryDIToken, MarkerServiceDIToken } from "../../workbench/common/coreTokens.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
@@ -150,6 +152,9 @@ export const extensionHostModule: ContainerModule = (container) => {
                 commandAdapter,
                 logger,
             ),
+            // showInputBox/showQuickPick расширений → общий QuickInput-оверлей
+            // приложения (тот же, что у палитры и Quick Open).
+            quickInputSink: new QuickInputExtensionAdapter(container.get(QuickInputServiceDIToken)),
             // createOutputChannel расширений → канал в панели Output;
             // show() открывает панель (как toggleOutputAction) и переключает канал.
             outputSink: new ExtensionOutputAdapter(

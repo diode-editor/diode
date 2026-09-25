@@ -54,7 +54,12 @@ import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../ap
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
     type IWireDocumentSyncSnapshot,
+    type IWireInputBoxRequest,
+    type IWireInputBoxResult,
+    type IWireQuickPickRequest,
+    type IWireQuickPickResult,
     type IWireStatusBarItem,
+    type IWireValidationMessage,
     type IWireWatcherCreate,
     type IWireWatcherEvent,
     parseDecorationRanges,
@@ -64,16 +69,20 @@ import {
     parseWireDiagnosticsPublish,
     parseWireEditorEdits,
     parseWireFileDecorations,
+    parseWireInputBoxRequest,
     parseWireOutputAppend,
     parseWireOutputShow,
     parseWireProgressEnd,
     parseWireProgressReport,
     parseWireProgressStart,
+    parseWireQuickInputCancel,
+    parseWireQuickPickRequest,
     parseWireReadFileResult,
     parseWireSelections,
     parseWireShowTextDocumentParams,
     parseWireStatusBarItem,
     parseWireStatusBarItemDispose,
+    parseWireValidationMessage,
     parseWireWatcherCreate,
     parseWireWatcherDispose,
     requestApplyCodeAction,
@@ -137,6 +146,31 @@ export interface IStatusBarItemSink {
     update(item: IWireStatusBarItem): void;
     remove(handle: number): void;
     clear(): void;
+}
+
+/**
+ * Сток ввода от расширений (`window.showInputBox` / `window.showQuickPick`):
+ * потребитель (module/харнесс) поднимает QuickInput-оверлей приложения и
+ * резолвится тем, что человек ввёл/выбрал, либо `undefined` на отмене.
+ *
+ * `cancel(handle)` закрывает показ извне — токеном отмены расширения или
+ * смертью его процесса. Закрытие ОБЯЗАНО довести обещание расширения до
+ * `undefined`: иначе команда расширения зависает навсегда и этого ниоткуда
+ * не видно.
+ */
+export interface IQuickInputSink {
+    showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined>;
+    showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined>;
+    cancel(handle: number): void;
+}
+
+/**
+ * Просьба показать поле ввода плюс канал валидации: сама валидация живёт в
+ * расширении, поэтому сток зовёт её через границу процессов на каждое изменение
+ * значения. `undefined` вместо колбэка — у расширения `validateInput` нет.
+ */
+export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
+    readonly validate?: (value: string) => Promise<IWireValidationMessage | null>;
 }
 
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
@@ -318,6 +352,13 @@ export interface IExtensionHostOptions {
      */
     readonly statusBarItemSink?: IStatusBarItemSink;
     /**
+     * Сток ввода от расширений (`window.showInputBox` / `window.showQuickPick`).
+     * Если не передан — расширение мгновенно получает «отменено» (`undefined`),
+     * а не зависает. При смерти subprocess'а host сам гасит живые показы, чтобы
+     * оверлей не остался на экране без хозяина.
+     */
+    readonly quickInputSink?: IQuickInputSink;
+    /**
      * Снимки ВСЕХ открытых документов для наполнения `workspace.textDocuments`
      * на `host.ready` (по одному на документ; см. `openDocumentSnapshots`).
      * Хост пушит их как `editor.didOpen` при готовности subprocess'а — чтобы
@@ -463,8 +504,15 @@ export class ExtensionHost extends Disposable {
     private readonly progressSink: IProgressSink | undefined;
     private readonly outputSink: IOutputSink | undefined;
     private readonly statusBarItemSink: IStatusBarItemSink | undefined;
+    private readonly quickInputSink: IQuickInputSink | undefined;
     /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
     private readonly activeProgressHandles = new Set<number>();
+    /**
+     * Живые показы quick input'а. На смерти субпроцесса всем шлётся `cancel`:
+     * иначе оверлей расширения остался бы на экране без хозяина, а ответить на
+     * него было бы уже некому.
+     */
+    private readonly activeQuickInputHandles = new Set<number>();
     private readonly fileWatcher: IExtensionFileWatcher;
     /** Живые watcher'ы субпроцесса (`workspace.createFileSystemWatcher`) по id. */
     private readonly fileWatchers = new Map<number, IDisposable>();
@@ -516,6 +564,7 @@ export class ExtensionHost extends Disposable {
         this.progressSink = options.progressSink;
         this.outputSink = options.outputSink;
         this.statusBarItemSink = options.statusBarItemSink;
+        this.quickInputSink = options.quickInputSink;
         // Смена темы → пере-резолв держимых декораций в обе поверхности.
         this.register(
             this.themeColorResolver.onDidChange(() => {
@@ -1599,6 +1648,61 @@ export class ExtensionHost extends Disposable {
             if (publish === null) return;
             this.diagnosticsSink?.(publish.owner, publish.resource, publish.markers);
         });
+        // ─── Quick input (ввод и выбор по просьбе расширения) ────────────────
+        // Показ адресуется handle'ом расширения. Валидацию хост спрашивает
+        // обратным запросом в тот же субпроцесс — она живёт в расширении.
+        rpc.handleRequest("window.showInputBox", async (params): Promise<IWireInputBoxResult> => {
+            const request = parseWireInputBoxRequest(params);
+            // Мусорные параметры или отсутствующий сток — «человек отменил»:
+            // расширение получает undefined сразу, а не зависает навсегда.
+            if (request === null || this.quickInputSink === undefined) return { value: null };
+            const sink = this.quickInputSink;
+            // Именованной константой, а не стрелкой внутри спреда: Stryker
+            // разбирает исходник своим babel'ом и на типизированной стрелке в
+            // спред-тернарнике падает (`Did not expect a type annotation here`).
+            const askExtension = async (text: string): Promise<IWireValidationMessage | null> => {
+                try {
+                    const answer = await rpc.request("window.inputBox.validate", {
+                        handle: request.handle,
+                        value: text,
+                    });
+                    return parseWireValidationMessage(answer);
+                } catch {
+                    // Расширение упало на валидации — считаем значение годным,
+                    // а не вешаем поле навсегда.
+                    return null;
+                }
+            };
+            this.activeQuickInputHandles.add(request.handle);
+            try {
+                const value = await sink.showInputBox({
+                    ...request,
+                    ...(request.validates ? { validate: askExtension } : {}),
+                });
+                return { value: value ?? null };
+            } finally {
+                this.activeQuickInputHandles.delete(request.handle);
+            }
+        });
+        rpc.handleRequest("window.showQuickPick", async (params): Promise<IWireQuickPickResult> => {
+            const request = parseWireQuickPickRequest(params);
+            if (request === null || this.quickInputSink === undefined) return { indices: null };
+            this.activeQuickInputHandles.add(request.handle);
+            try {
+                const indices = await this.quickInputSink.showQuickPick(request);
+                return { indices: indices ?? null };
+            } finally {
+                this.activeQuickInputHandles.delete(request.handle);
+            }
+        });
+        // Токен отмены расширения стрельнул — снимаем показ, обещание расширения
+        // доводится до undefined закрытием оверлея.
+        rpc.handleNotification("window.quickInput.cancel", (params) => {
+            const handle = parseWireQuickInputCancel(params);
+            if (handle === null) return;
+            // Stryker disable next-line OptionalChaining: ветка «стока нет» ниже по коду недостижима из тестов иначе как этим же путём, а без стока обращение кинуло бы
+            this.quickInputSink?.cancel(handle);
+        });
         rpc.handleNotification("window.showMessage", (params) => {
             const { severity, message } = params as { severity?: unknown; message?: unknown };
             const text = typeof message === "string" ? message : String(message);
@@ -1770,6 +1874,12 @@ export class ExtensionHost extends Disposable {
         // Та же причина у пунктов статус-бара: `dispose` от умершего расширения
         // не придёт никогда, а его пункты в полосе висеть не должны.
         this.statusBarItemSink?.clear();
+        // …и у его оверлеев ввода: отвечать на них стало некому, а на экране они
+        // остались бы навсегда.
+        // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока, поэтому пары «набор непуст, а стока нет» не бывает; `?.` стоит защитой
+        for (const handle of this.activeQuickInputHandles) this.quickInputSink?.cancel(handle);
+        // Stryker disable next-line CallExpression: гигиена набора; второй проход по нему невозможен — host после остановки субпроцесса этот код повторно не исполняет
+        this.activeQuickInputHandles.clear();
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).
         this.decorationTypes.clear();

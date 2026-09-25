@@ -120,20 +120,23 @@ describe("WindowNamespace", () => {
         ]);
     });
 
-    it("showQuickPick — наивный: резолвится undefined («пользователь отменил»), rpc не трогает", async () => {
+    // Сам провод quick input'а закрыт в quickInputNamespace.test.ts; здесь
+    // проверяется только то, что window его действительно отдаёт наружу.
+    it("showQuickPick уходит хосту запросом и резолвится выбранным", async () => {
         const { stub, window } = makeCtx();
-        // Утиный каст: наивный член дормантной части dts активную поверхность
-        // не расширяет (конвенция env/tasks-стабов).
-        const pending = (
-            window as unknown as {
-                showQuickPick(items: readonly string[]): Thenable<string | undefined>;
-            }
-        ).showQuickPick(["a", "b"]);
-        // Именно thenable, не голый undefined: вызывающие делают .then().
-        expect(typeof pending.then).toBe("function");
-        expect(await pending).toBeUndefined();
-        expect(stub.requests).toHaveLength(0);
-        expect(stub.notifies).toHaveLength(0);
+        stub.responder = () => ({ indices: [1] });
+        await expect(window.showQuickPick(["a", "b"])).resolves.toBe("b");
+        expect(stub.requests.map((r) => r.method)).toEqual(["window.showQuickPick"]);
+    });
+
+    it("showInputBox уходит хосту запросом и резолвится введённым", async () => {
+        const { stub, window } = makeCtx();
+        stub.responder = () => ({ value: "Ада" });
+        await expect(window.showInputBox({ title: "Your name" })).resolves.toBe("Ада");
+        expect(stub.requests[0]).toMatchObject({
+            method: "window.showInputBox",
+            params: { title: "Your name" },
+        });
     });
 
     it("window.state сфокусировано; onDidChangeWindowState регистрируется и не стреляет", () => {

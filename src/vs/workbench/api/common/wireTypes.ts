@@ -1891,3 +1891,161 @@ export function parseWireWatcherEvents(raw: unknown): IWireWatcherEvents | null 
     }
     return { id: p.id, events };
 }
+
+// ─── Quick input (window.showInputBox / window.showQuickPick) ────────────────
+// Расширение просит у человека строку или выбор; UI поднимает хост на общем
+// QuickInput-оверлее. Сессия адресуется `handle` (уникален в рамках subprocess'а,
+// как у window.progress.*): по нему расширение отменяет показ своим токеном, а
+// хост спрашивает валидацию.
+
+/** Строгость сообщения валидации на проводе (= `vscode.InputBoxValidationSeverity`). */
+export type WireValidationSeverity = "error" | "warning" | "info";
+
+/** Просьба показать поле ввода (`window.showInputBox`, subprocess → host). */
+export interface IWireInputBoxRequest {
+    readonly handle: number;
+    readonly title?: string;
+    readonly prompt?: string;
+    readonly placeHolder?: string;
+    readonly value?: string;
+    /** Поле пароля: набранное закрывается маской (`InputBoxOptions.password`). */
+    readonly password: boolean;
+    /**
+     * У расширения есть `validateInput` — хост обязан спрашивать его на каждое
+     * изменение значения (`window.inputBox.validate`). Без флага раунд-трипа не
+     * будет вовсе: спрашивать некого.
+     */
+    readonly validates: boolean;
+}
+
+/** Строка списка на проводе: только то, что наш однострочный ряд умеет показать. */
+export interface IWireQuickPickItem {
+    readonly label: string;
+    readonly description?: string;
+}
+
+/** Просьба показать список (`window.showQuickPick`, subprocess → host). */
+export interface IWireQuickPickRequest {
+    readonly handle: number;
+    readonly title?: string;
+    readonly placeHolder?: string;
+    readonly canPickMany: boolean;
+    readonly items: readonly IWireQuickPickItem[];
+    /** Индексы предотмеченных пунктов (`QuickPickItem.picked`); пусто без `canPickMany`. */
+    readonly picked: readonly number[];
+}
+
+/** Сообщение валидации в ответ на `window.inputBox.validate` (subprocess → host). */
+export interface IWireValidationMessage {
+    readonly message: string;
+    readonly severity: WireValidationSeverity;
+}
+
+function optionalWireString(value: unknown): string | undefined {
+    return typeof value === "string" ? value : undefined;
+}
+
+/** Разбирает `window.showInputBox`; `null` — параметры структурно чужие. */
+export function parseWireInputBoxRequest(raw: unknown): IWireInputBoxRequest | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    return {
+        handle: p.handle,
+        title: optionalWireString(p.title),
+        prompt: optionalWireString(p.prompt),
+        placeHolder: optionalWireString(p.placeHolder),
+        value: optionalWireString(p.value),
+        password: p.password === true,
+        validates: p.validates === true,
+    };
+}
+
+/** Разбирает `window.showQuickPick`; `null` — параметры структурно чужие. */
+export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    if (!Array.isArray(p.items)) return null;
+    const items: IWireQuickPickItem[] = [];
+    for (const entry of p.items) {
+        if (typeof entry !== "object" || entry === null) continue;
+        const it = entry as { label?: unknown; description?: unknown };
+        // Пункт без лейбла показывать нечем — но выбросить его молча нельзя:
+        // ответ адресуется индексом в ЭТОМ массиве, и дыра сдвинула бы остальные.
+        items.push({
+            label: typeof it.label === "string" ? it.label : "",
+            description: optionalWireString(it.description),
+        });
+    }
+    const canPickMany = p.canPickMany === true;
+    const picked = Array.isArray(p.picked)
+        ? p.picked.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < items.length)
+        : [];
+    return {
+        handle: p.handle,
+        title: optionalWireString(p.title),
+        placeHolder: optionalWireString(p.placeHolder),
+        canPickMany,
+        items,
+        // Предотметки без множественного выбора смысла не имеют — гасим здесь,
+        // чтобы ниже по течению не приходилось помнить про эту пару.
+        picked: canPickMany ? picked : [],
+    };
+}
+
+/** Разбирает `window.quickInput.cancel`; `null` — параметры структурно чужие. */
+export function parseWireQuickInputCancel(raw: unknown): number | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return null;
+    const { handle } = raw as { handle?: unknown };
+    return isFiniteNumber(handle) ? handle : null;
+}
+
+/**
+ * Разбирает ответ расширения на `window.inputBox.validate`. `null` — значение в
+ * порядке (в том числе когда расширение ответило мусором или молчанием).
+ */
+export function parseWireValidationMessage(raw: unknown): IWireValidationMessage | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as { message?: unknown; severity?: unknown };
+    if (typeof p.message !== "string") return null;
+    const severity: WireValidationSeverity = p.severity === "warning" || p.severity === "info" ? p.severity : "error";
+    return { message: p.message, severity };
+}
+
+/** Ответ хоста на `window.showInputBox`: `value: null` — человек отменил. */
+export interface IWireInputBoxResult {
+    readonly value: string | null;
+}
+
+/**
+ * Ответ хоста на `window.showQuickPick`: индексы выбранных пунктов в том же
+ * массиве `items`, что прислало расширение (`null` — человек отменил).
+ * Индексами, а не предметами: расширение обязано получить обратно СВОИ объекты
+ * (`showQuickPick<T>` возвращает `T`), а пересобранный по проводу предмет ими
+ * не был бы.
+ */
+export interface IWireQuickPickResult {
+    readonly indices: readonly number[] | null;
+}
+
+/** Разбирает ответ хоста на `window.showInputBox` (host → subprocess). */
+export function parseWireInputBoxResult(raw: unknown): IWireInputBoxResult {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return { value: null };
+    const { value } = raw as { value?: unknown };
+    return { value: typeof value === "string" ? value : null };
+}
+
+/** Разбирает ответ хоста на `window.showQuickPick` (host → subprocess). */
+export function parseWireQuickPickResult(raw: unknown): IWireQuickPickResult {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return { indices: null };
+    const { indices } = raw as { indices?: unknown };
+    if (!Array.isArray(indices)) return { indices: null };
+    return { indices: indices.filter((i): i is number => Number.isInteger(i) && i >= 0) };
+}
