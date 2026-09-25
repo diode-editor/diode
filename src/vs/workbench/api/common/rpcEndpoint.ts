@@ -1,5 +1,6 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import { type ICancellationToken, CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
@@ -30,8 +31,35 @@ export interface INotificationMessage {
 
 export type IProtocolMessage = IRequestMessage | IResponseMessage | INotificationMessage;
 
-export type IRequestHandler = (params: unknown) => unknown;
+/**
+ * Обработчик запроса. Второй аргумент — токен отмены этого конкретного запроса:
+ * он стреляет, когда вызывающая сторона прислала {@link CANCEL_REQUEST_METHOD}
+ * («ответ уже не нужен»). Долгая работа обязана на него смотреть, короткая
+ * вправе игнорировать — ответ отменённого запроса вызывающий отбросит сам.
+ */
+export type IRequestHandler = (params: unknown, token: ICancellationToken) => unknown;
 export type INotificationHandler = (params: unknown) => void;
+
+/**
+ * Зарезервированный метод отмены (аналог LSP `$/cancelRequest`): нотификация
+ * `{ id }` — «запрос #id больше не нужен». Отменой владеет сторона, которая
+ * запрос послала; принимающая гасит токен обработчика. Транспорт общий для
+ * всех методов — подключение конкретного провайдера к отмене сводится к
+ * проводке токена, а не к новому протоколу.
+ */
+export const CANCEL_REQUEST_METHOD = "$/cancelRequest";
+
+/** Параметры {@link CANCEL_REQUEST_METHOD}. */
+export interface ICancelRequestParams {
+    readonly id: number;
+}
+
+/**
+ * Сколько отмен-сирот (отмена обогнала собственный запрос — переупорядочивание
+ * транспорта) endpoint помнит, чтобы выдать обработчику уже отменённый токен.
+ * Граница нужна, чтобы множество не росло без предела на чужом мусоре.
+ */
+const EARLY_CANCEL_MEMORY = 64;
 
 /**
  * Тонкая обёртка поверх {@link IMessageChannel}, реализующая request/response
@@ -44,8 +72,17 @@ export class RpcEndpoint implements IDisposable {
     private readonly channelSubscription: IDisposable;
     private readonly pendingRequests = new Map<
         number,
-        { resolve: (value: unknown) => void; reject: (reason: Error) => void }
+        {
+            resolve: (value: unknown) => void;
+            reject: (reason: Error) => void;
+            /** Подписка на токен вызывающего; снимается вместе с ответом. */
+            cancelSubscription: IDisposable | null;
+        }
     >();
+    /** Токены входящих запросов, которые сейчас исполняет эта сторона. */
+    private readonly incomingCancellations = new Map<number, CancellationTokenSource>();
+    /** Id отмен, пришедших раньше собственного запроса (см. {@link EARLY_CANCEL_MEMORY}). */
+    private readonly earlyCancellations = new Set<number>();
     private readonly requestHandlers = new Map<string, IRequestHandler>();
     private readonly notificationHandlers = new Map<string, INotificationHandler>();
     private nextRequestId = 1;
@@ -60,16 +97,30 @@ export class RpcEndpoint implements IDisposable {
         });
     }
 
-    public request(method: string, params?: unknown): Promise<unknown> {
+    /**
+     * Шлёт запрос и ждёт ответа. `token` — необязательный токен отмены
+     * вызывающего: когда он стреляет, второй стороне уходит нотификация
+     * {@link CANCEL_REQUEST_METHOD}, и обработчик там видит отменённый токен.
+     * Ответ при этом всё равно ожидается: отмена — просьба, а не разрыв.
+     */
+    public request(method: string, params?: unknown, token?: ICancellationToken): Promise<unknown> {
         if (this.disposed) {
             return Promise.reject(new Error(`RpcEndpoint disposed; cannot request "${method}"`));
         }
         const id = this.nextRequestId++;
         return new Promise<unknown>((resolve, reject) => {
-            this.pendingRequests.set(id, { resolve, reject });
+            const pending = { resolve, reject, cancelSubscription: null as IDisposable | null };
+            this.pendingRequests.set(id, pending);
             const msg: IRequestMessage = { kind: "req", id, method, params };
             this.logger?.trace(`-> req#${String(id)} ${method}`, params);
             this.channel.postMessage(msg);
+            // Подписка ПОСЛЕ отправки: у уже отменённого токена слушатель
+            // зовётся синхронно, и отмена обязана уйти следом за запросом,
+            // а не впереди него.
+            pending.cancelSubscription =
+                token?.onCancellationRequested(() => {
+                    this.cancelOutgoing(id, method);
+                }) ?? null;
         });
     }
 
@@ -107,11 +158,50 @@ export class RpcEndpoint implements IDisposable {
         this.disposed = true;
         this.channelSubscription.dispose();
         for (const pending of this.pendingRequests.values()) {
+            pending.cancelSubscription?.dispose();
             pending.reject(new Error("RpcEndpoint disposed"));
         }
         this.pendingRequests.clear();
+        // Канала больше нет — ответ некуда слать; обработчикам, которые ещё
+        // считают, сообщаем отменой (их работа уже никому не нужна).
+        for (const source of this.incomingCancellations.values()) {
+            source.cancel();
+            source.dispose();
+        }
+        this.incomingCancellations.clear();
+        this.earlyCancellations.clear();
         this.requestHandlers.clear();
         this.notificationHandlers.clear();
+    }
+
+    /**
+     * Токен вызывающего стрельнул — просим вторую сторону бросить запрос.
+     * Отмена уже отвеченного запроса сюда не доходит: подписка на токен
+     * снимается вместе с ответом (и в {@link handleResponseMessage}, и в
+     * {@link dispose}) — на этом инварианте и держится «после ответа молчим».
+     */
+    private cancelOutgoing(id: number, method: string): void {
+        this.logger?.trace(`-> cancel req#${String(id)} ${method}`);
+        this.notify(CANCEL_REQUEST_METHOD, { id } satisfies ICancelRequestParams);
+    }
+
+    /** Отмена входящего запроса: гасит токен его обработчика. */
+    private handleCancelMessage(params: unknown): void {
+        const id = (params as ICancelRequestParams | null | undefined)?.id;
+        if (typeof id !== "number") return;
+        const source = this.incomingCancellations.get(id);
+        if (source !== undefined) {
+            source.cancel();
+            return;
+        }
+        // Пары нет: либо запрос уже отвечен (отмена опоздала — просто молчим),
+        // либо отмена обогнала свой запрос на переупорядоченном транспорте —
+        // запоминаем, чтобы выдать обработчику уже отменённый токен.
+        this.earlyCancellations.add(id);
+        for (const stale of this.earlyCancellations) {
+            if (this.earlyCancellations.size <= EARLY_CANCEL_MEMORY) break;
+            this.earlyCancellations.delete(stale);
+        }
     }
 
     private handleIncoming(raw: unknown): void {
@@ -125,6 +215,10 @@ export class RpcEndpoint implements IDisposable {
                 this.handleResponseMessage(message as IResponseMessage);
                 return;
             case "notif":
+                if ((message as INotificationMessage).method === CANCEL_REQUEST_METHOD) {
+                    this.handleCancelMessage((message as INotificationMessage).params);
+                    return;
+                }
                 this.handleNotificationMessage(message as INotificationMessage);
                 return;
             default:
@@ -144,16 +238,24 @@ export class RpcEndpoint implements IDisposable {
             this.channel.postMessage(response);
             return;
         }
+        // Токен этого запроса: стреляет по `$/cancelRequest` с его id. Отмена,
+        // обогнавшая сам запрос, лежит в earlyCancellations — тогда обработчик
+        // получает токен, отменённый с самого начала.
+        const source = new CancellationTokenSource();
+        this.incomingCancellations.set(message.id, source);
+        if (this.earlyCancellations.delete(message.id)) source.cancel();
         Promise.resolve()
-            .then(() => handler(message.params))
+            .then(() => handler(message.params, source.token))
             .then(
                 (result) => {
+                    this.finishIncoming(message.id, source);
                     if (this.disposed) return;
                     const response: IResponseMessage = { kind: "res", id: message.id, result };
                     this.logger?.trace(`-> res#${String(message.id)} ${message.method}`, result);
                     this.channel.postMessage(response);
                 },
                 (reason: unknown) => {
+                    this.finishIncoming(message.id, source);
                     if (this.disposed) return;
                     const errMessage = reason instanceof Error ? reason.message : String(reason);
                     const response: IResponseMessage = {
@@ -167,10 +269,17 @@ export class RpcEndpoint implements IDisposable {
             );
     }
 
+    /** Входящий запрос отработал: токен больше не нужен, отменять нечего. */
+    private finishIncoming(id: number, source: CancellationTokenSource): void {
+        this.incomingCancellations.delete(id);
+        source.dispose();
+    }
+
     private handleResponseMessage(message: IResponseMessage): void {
         const pending = this.pendingRequests.get(message.id);
         if (pending === undefined) return;
         this.pendingRequests.delete(message.id);
+        pending.cancelSubscription?.dispose();
         if (message.error !== undefined) {
             pending.reject(new Error(message.error.message));
         } else {
