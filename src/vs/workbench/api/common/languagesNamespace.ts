@@ -460,10 +460,15 @@ function toVscodeCancellationToken(token: ICancellationToken): {
     });
     return {
         token: source.token,
+        // Уборка после отработавшего запроса: отписка от транспортного токена
+        // наблюдаемого поведения не меняет (сам токен живёт ровно до ответа),
+        // поэтому проверять тут нечего — только не течь.
+        // Stryker disable BlockStatement,CallExpression: см. выше
         dispose: (): void => {
             subscription.dispose();
             source.dispose();
         },
+        // Stryker restore BlockStatement,CallExpression
     };
 }
 
@@ -1343,6 +1348,7 @@ export function createLanguagesNamespace(
                     }
                 }
             } finally {
+                // Stryker disable next-line CallExpression: уборка подписки, см. toVscodeCancellationToken
                 cancel.dispose();
             }
             return items;

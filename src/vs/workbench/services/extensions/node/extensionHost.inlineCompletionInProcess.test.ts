@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
-import { type ICancellationToken, CancellationTokenSource } from "../../../../base/common/cancellation.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";

@@ -234,7 +234,9 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
                     seen = token;
                     token.onCancellationRequested(() => fired.push("cancelled"));
                     return new Promise((resolve) => {
-                        release = () => resolve([new InlineCompletionItem("late") as never]);
+                        release = () => {
+                            resolve([new InlineCompletionItem("late") as never]);
+                        };
                     });
                 },
             },
@@ -269,7 +271,9 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
                 provideInlineCompletionItems: () => {
                     polled.push("A");
                     return new Promise((resolve) => {
-                        release = () => resolve([]);
+                        release = () => {
+                            resolve([]);
+                        };
                     });
                 },
             },

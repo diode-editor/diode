@@ -1073,6 +1073,22 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(service.isOpen()).toBe(false);
     });
 
+    it("повторный trigger без правки тоже отменяет предыдущий запрос", async () => {
+        const fake = makeEditor("const x", 7);
+        const pending = pendingSource();
+        const service = makeService(makeGroup(fake.editor, pending.source).group);
+
+        // Два явных триггера подряд: правки нет, значит onCaretChanged не
+        // сработает — отменить старый запрос обязан сам trigger.
+        void service.trigger();
+        void service.trigger();
+        await tick();
+
+        expect(pending.tokens).toHaveLength(2);
+        expect(pending.tokens[0].isCancellationRequested).toBe(true);
+        expect(pending.tokens[1].isCancellationRequested).toBe(false);
+    });
+
     it("hide (Escape) отменяет запрос, у которого призрака ещё нет, и поздний ответ не всплывает", async () => {
         const fake = makeEditor("const x", 7);
         const pending = pendingSource();

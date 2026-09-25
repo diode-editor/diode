@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { type ICancellationToken, CancellationTokenSource } from "../../../base/common/cancellation.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 
+import type { IMessageChannel } from "./iMessageChannel.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
 import { CANCEL_REQUEST_METHOD, RpcEndpoint } from "./rpcEndpoint.ts";
 
@@ -16,13 +17,20 @@ const microtasks = async (turns = 4): Promise<void> => {
     for (let i = 0; i < turns; i++) await Promise.resolve();
 };
 
-function createEndpointPair(): { a: RpcEndpoint; b: RpcEndpoint; dispose: () => void } {
+function createEndpointPair(): {
+    a: RpcEndpoint;
+    b: RpcEndpoint;
+    /** Канал принимающей стороны — на нём видно сами сообщения отмены. */
+    chB: IMessageChannel;
+    dispose: () => void;
+} {
     const [chA, chB] = createInProcessChannelPair();
     const a = new RpcEndpoint(chA);
     const b = new RpcEndpoint(chB);
     return {
         a,
         b,
+        chB,
         dispose: (): void => {
             a.dispose();
             b.dispose();
@@ -30,6 +38,15 @@ function createEndpointPair(): { a: RpcEndpoint; b: RpcEndpoint; dispose: () => 
             chB.dispose();
         },
     };
+}
+
+/** Нотификации отмены, пришедшие в канал (endpoint разбирает их сам, минуя хендлеры). */
+function cancelsOn(channel: IMessageChannel): unknown[] {
+    const seen: unknown[] = [];
+    channel.onMessage((message) => {
+        if ((message as { method?: unknown }).method === CANCEL_REQUEST_METHOD) seen.push(message);
+    });
+    return seen;
 }
 
 /** Обработчик, который держит ответ, пока тест не разрешит его отдать. */
@@ -60,7 +77,8 @@ function deferredHandler(): {
 
 describe("RpcEndpoint — отмена запроса", () => {
     it("отменённый токен вызывающего гасит токен обработчика на той стороне", async () => {
-        const { a, b, dispose } = createEndpointPair();
+        const { a, b, chB, dispose } = createEndpointPair();
+        const cancels = cancelsOn(chB);
         const deferred = deferredHandler();
         b.handleRequest("slow", deferred.handler);
 
@@ -77,6 +95,8 @@ describe("RpcEndpoint — отмена запроса", () => {
 
         expect(deferred.tokenOf().isCancellationRequested).toBe(true);
         expect(observed).toHaveBeenCalledOnce();
+        // На проводе — ровно одна нотификация отмены с номером этого запроса.
+        expect(cancels).toEqual([{ kind: "notif", method: CANCEL_REQUEST_METHOD, params: { id: 1 } }]);
 
         // Отмена — просьба, а не разрыв: ответ всё равно доезжает.
         deferred.finish("late");
@@ -101,16 +121,18 @@ describe("RpcEndpoint — отмена запроса", () => {
         const [chA, chB] = createInProcessChannelPair();
         const a = new RpcEndpoint(chA);
         const b = new RpcEndpoint(chB);
-        const seen: string[] = [];
+        // Слушаем сам канал: `$/cancelRequest` разбирает принимающий endpoint,
+        // до notification-хендлеров он не доходит — наблюдать нотификацию можно
+        // только на проводе.
+        const cancels = cancelsOn(chB);
         b.handleRequest("fast", () => "done");
-        b.handleNotification(CANCEL_REQUEST_METHOD, () => seen.push("cancel"));
 
         const source = new CancellationTokenSource();
         expect(await a.request("fast", {}, source.token)).toBe("done");
         source.cancel();
         await microtasks();
 
-        expect(seen).toEqual([]);
+        expect(cancels).toEqual([]);
         a.dispose();
         b.dispose();
         chA.dispose();

@@ -3,7 +3,7 @@ import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
-import { type ICancellationToken, CancellationTokenNone } from "../../../../base/common/cancellation.ts";
+import { CancellationTokenNone, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";

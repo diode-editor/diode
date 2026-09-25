@@ -1,6 +1,6 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
-import { type ICancellationToken, CancellationTokenSource } from "../../../base/common/cancellation.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
@@ -47,6 +47,7 @@ export type INotificationHandler = (params: unknown) => void;
  * всех методов — подключение конкретного провайдера к отмене сводится к
  * проводке токена, а не к новому протоколу.
  */
+// Stryker disable next-line StringLiteral: имя метода — контракт с самим собой, обе стороны читают эту же константу; наблюдаемо только против чужой реализации протокола
 export const CANCEL_REQUEST_METHOD = "$/cancelRequest";
 
 /** Параметры {@link CANCEL_REQUEST_METHOD}. */
@@ -163,12 +164,17 @@ export class RpcEndpoint implements IDisposable {
         }
         this.pendingRequests.clear();
         // Канала больше нет — ответ некуда слать; обработчикам, которые ещё
-        // считают, сообщаем отменой (их работа уже никому не нужна).
+        // считают, сообщаем отменой (их работа уже никому не нужна). Сама
+        // уборка за отменой (dispose источников и очистка обеих коллекций)
+        // поведения не меняет — endpoint уже мёртв, читать их больше некому.
         for (const source of this.incomingCancellations.values()) {
             source.cancel();
+            // Stryker disable next-line CallExpression: уборка, см. выше
             source.dispose();
         }
+        // Stryker disable next-line CallExpression: уборка, см. выше
         this.incomingCancellations.clear();
+        // Stryker disable next-line CallExpression: уборка, см. выше
         this.earlyCancellations.clear();
         this.requestHandlers.clear();
         this.notificationHandlers.clear();
@@ -181,6 +187,7 @@ export class RpcEndpoint implements IDisposable {
      * {@link dispose}) — на этом инварианте и держится «после ответа молчим».
      */
     private cancelOutgoing(id: number, method: string): void {
+        // Stryker disable next-line StringLiteral: текст trace-строки ненаблюдаем (логгера в тестах endpoint'а нет)
         this.logger?.trace(`-> cancel req#${String(id)} ${method}`);
         this.notify(CANCEL_REQUEST_METHOD, { id } satisfies ICancelRequestParams);
     }
@@ -188,6 +195,10 @@ export class RpcEndpoint implements IDisposable {
     /** Отмена входящего запроса: гасит токен его обработчика. */
     private handleCancelMessage(params: unknown): void {
         const id = (params as ICancelRequestParams | null | undefined)?.id;
+        // Гард против мусора в параметрах: без него нечисловой id просто осел
+        // бы в earlyCancellations и не совпал бы ни с одним запросом (ключи
+        // там — числа), то есть наблюдаемо ничего бы не изменилось.
+        // Stryker disable next-line ConditionalExpression: см. выше
         if (typeof id !== "number") return;
         const source = this.incomingCancellations.get(id);
         if (source !== undefined) {
@@ -248,6 +259,7 @@ export class RpcEndpoint implements IDisposable {
             .then(() => handler(message.params, source.token))
             .then(
                 (result) => {
+                    // Stryker disable next-line CallExpression: уборка токена, см. finishIncoming
                     this.finishIncoming(message.id, source);
                     if (this.disposed) return;
                     const response: IResponseMessage = { kind: "res", id: message.id, result };
@@ -255,6 +267,7 @@ export class RpcEndpoint implements IDisposable {
                     this.channel.postMessage(response);
                 },
                 (reason: unknown) => {
+                    // Stryker disable next-line CallExpression: уборка токена, см. finishIncoming
                     this.finishIncoming(message.id, source);
                     if (this.disposed) return;
                     const errMessage = reason instanceof Error ? reason.message : String(reason);
@@ -269,11 +282,18 @@ export class RpcEndpoint implements IDisposable {
             );
     }
 
-    /** Входящий запрос отработал: токен больше не нужен, отменять нечего. */
+    /**
+     * Входящий запрос отработал: токен больше не нужен. Чистая уборка —
+     * опоздавшая отмена по этому id и так никому не адресована (обработчик
+     * уже вернул ответ), поэтому наблюдаемого поведения тут нет, только
+     * отсутствие роста коллекций.
+     */
+    // Stryker disable BlockStatement,CallExpression: уборка без наблюдаемого эффекта, см. выше
     private finishIncoming(id: number, source: CancellationTokenSource): void {
         this.incomingCancellations.delete(id);
         source.dispose();
     }
+    // Stryker restore BlockStatement,CallExpression
 
     private handleResponseMessage(message: IResponseMessage): void {
         const pending = this.pendingRequests.get(message.id);

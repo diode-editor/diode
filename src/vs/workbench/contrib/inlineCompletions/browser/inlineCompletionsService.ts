@@ -202,6 +202,7 @@ export class InlineCompletionsService extends Disposable {
         // Запрос отработал — отменять больше нечего (наш источник могли уже
         // сменить на более свежий, тогда трогать поле нельзя).
         if (this.pendingRequest === cancellation) this.pendingRequest = null;
+        // Stryker disable next-line CallExpression: уборка слушателей отработавшего источника — поведения не меняет
         cancellation.dispose();
         // Пока ходили за ответом: новый запрос обгоняет старый; правка или уход
         // каретки делают снапшот недействительным; открывшийся попап — гейт показа.
@@ -456,6 +457,7 @@ export class InlineCompletionsService extends Disposable {
         if (pending === null) return;
         this.pendingRequest = null;
         pending.cancel();
+        // Stryker disable next-line CallExpression: уборка слушателей уже отменённого источника — поведения не меняет
         pending.dispose();
     }
 

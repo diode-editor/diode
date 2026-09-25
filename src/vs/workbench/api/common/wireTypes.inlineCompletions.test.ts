@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type ICancellationToken, CancellationTokenSource } from "../../../base/common/cancellation.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 
 import {
     parseWireInlineCompletionItems,

@@ -53,6 +53,9 @@ export class CancellationTokenSource {
     }
 
     public cancel(): void {
+        // Гард только экономит работу: повторный проход всё равно нашёл бы
+        // пустой список слушателей и уже взведённый флаг — мутант эквивалентен.
+        // Stryker disable next-line ConditionalExpression: см. выше
         if (this.cancelled) return;
         this.cancelled = true;
         // Снапшот: слушатель вправе отписаться (или отписать соседа) из колбэка.

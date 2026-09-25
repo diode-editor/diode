@@ -1,4 +1,4 @@
-import { type ICancellationToken, CancellationTokenNone } from "../../../base/common/cancellation.ts";
+import { CancellationTokenNone, type ICancellationToken } from "../../../base/common/cancellation.ts";
 
 import type { IRequestHandler, RpcEndpoint } from "./rpcEndpoint.ts";
 

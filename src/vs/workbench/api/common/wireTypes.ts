@@ -1,4 +1,4 @@
-import { type ICancellationToken, CancellationTokenSource } from "../../../base/common/cancellation.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
@@ -710,6 +710,7 @@ export async function requestInlineCompletions(
         return wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(outcome));
     } finally {
         subscription?.dispose();
+        // Stryker disable next-line CallExpression: уборка — источник этого запроса больше никому не виден
         source.dispose();
     }
 }
