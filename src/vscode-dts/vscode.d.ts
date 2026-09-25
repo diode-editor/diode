@@ -3831,6 +3831,11 @@ declare module "vscode" {
 		placeHolder?: string;
 
 		/**
+		 * Controls if a password input is shown. Password input hides the typed text.
+		 */
+		password?: boolean;
+
+		/**
 		 * An optional function that will be called to validate input and to give a hint
 		 * to the user.
 		 *

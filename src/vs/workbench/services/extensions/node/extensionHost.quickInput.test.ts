@@ -108,6 +108,14 @@ describe("ExtensionHost — window.showInputBox", () => {
         await expect(pending).resolves.toEqual({ value: "Ада Лавлейс" });
     });
 
+    it("password доезжает до стока — маску рисует хост, а не расширение", async () => {
+        const sink = makeSink();
+        const { peer } = makeHost(sink);
+        void peer.request("window.showInputBox", { handle: 3, password: true, validates: false });
+        await flushMicrotasks();
+        expect(sink.inputRequests[0]).toMatchObject({ handle: 3, password: true });
+    });
+
     it("отмена показа отвечает расширению null", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);

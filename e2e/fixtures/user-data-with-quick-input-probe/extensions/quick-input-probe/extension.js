@@ -84,6 +84,19 @@ exports.activate = function activate(context) {
         show("Ask Name: " + describe(value));
     });
 
+    // Поле пароля: на экране маска, а расширению доезжает настоящий текст —
+    // поэтому печатаем ДЛИНУ полученного, а не его самого (секрет незачем
+    // выводить в канал, да и по длине видно, что доехали все символы).
+    register("diodeProbe.askSecret", async function () {
+        const value = await vscode.window.showInputBox({
+            title: "Secret",
+            prompt: "Набранное закрыто маской",
+            placeHolder: "пароль",
+            password: true,
+        });
+        show("Secret length: " + (value === undefined ? "отменено" : String(value.length)));
+    });
+
     // Ошибка блокирует Enter, предупреждение — нет.
     register("diodeProbe.askPort", async function () {
         const value = await vscode.window.showInputBox({

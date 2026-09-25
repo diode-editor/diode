@@ -243,7 +243,7 @@ describe("QuickPickElement — Enter в множественном выборе"
     });
 });
 
-describe("QuickPickElement.resetMultiSelect", () => {
+describe("QuickPickElement.resetFlavorState", () => {
     it("гасит режим, отметки и колбэк — чекбоксы не протекают в следующий показ", () => {
         const picker = makePicker();
         picker.canPickMany = true;
@@ -251,7 +251,7 @@ describe("QuickPickElement.resetMultiSelect", () => {
         picker.setCheckedItems([ITEMS[0]]);
         picker.onAcceptMany = () => undefined;
 
-        picker.resetMultiSelect();
+        picker.resetFlavorState();
 
         expect(picker.canPickMany).toBe(false);
         expect([...picker.checkedItems]).toEqual([]);
@@ -263,7 +263,7 @@ describe("QuickPickElement.resetMultiSelect", () => {
         picker.canPickMany = true;
         picker.items = ITEMS;
         picker.setCheckedItems([ITEMS[0]]);
-        picker.resetMultiSelect();
+        picker.resetFlavorState();
         picker.items = ITEMS;
         expectScreen(
             render(picker),
@@ -283,7 +283,7 @@ describe("QuickPickElement.resetMultiSelect", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
-        picker.resetMultiSelect();
+        picker.resetFlavorState();
         let accepted: QuickPickItem | null = null;
         picker.onAccept = (item) => {
             accepted = item;

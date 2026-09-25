@@ -135,6 +135,7 @@ export function createQuickInputApi(rpc: RpcEndpoint): IQuickInputApi {
                         prompt: options?.prompt,
                         placeHolder: options?.placeHolder,
                         value: options?.value,
+                        password: options?.password === true,
                         validates: validate !== undefined,
                     }),
                 );

@@ -131,6 +131,17 @@ describe("window.showInputBox (шим)", () => {
         await expect(api.showInputBox({})).resolves.toBe("");
     });
 
+    it("password уезжает хосту булевым — маску рисует он", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ value: "hunter2" });
+
+        await api.showInputBox({ password: true });
+        expect(lastRequest(stub, "window.showInputBox").password).toBe(true);
+
+        await api.showInputBox({});
+        expect(lastRequest(stub, "window.showInputBox").password).toBe(false);
+    });
+
     it("наличие validateInput объявляется хосту флагом", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "x" });

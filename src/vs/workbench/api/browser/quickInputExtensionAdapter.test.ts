@@ -37,6 +37,7 @@ describe("QuickInputExtensionAdapter.showInputBox", () => {
             prompt: "Как к вам обращаться",
             placeHolder: "имя",
             value: "Ада",
+            password: false,
             validates: false,
         });
         expect(component.view.title).toBe("Your name");
@@ -46,9 +47,28 @@ describe("QuickInputExtensionAdapter.showInputBox", () => {
         await expect(pending).resolves.toBe("Ада");
     });
 
+    it("password из просьбы расширения включает маску, а отдаётся настоящий текст", async () => {
+        const { adapter, component, testApp } = createAdapter();
+        const pending = adapter.showInputBox({ handle: 1, password: true, validates: false });
+        testApp.sendKey("h");
+        testApp.sendKey("i");
+
+        expect(component.view.password).toBe(true);
+        expect(component.view.inspectState().query).toBe("**");
+
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toBe("hi");
+    });
+
+    it("без password маски нет", () => {
+        const { adapter, component } = createAdapter();
+        void adapter.showInputBox({ handle: 1, password: false, validates: false });
+        expect(component.view.password).toBe(false);
+    });
+
     it("Escape — undefined", async () => {
         const { adapter, testApp } = createAdapter();
-        const pending = adapter.showInputBox({ handle: 1, validates: false });
+        const pending = adapter.showInputBox({ handle: 1, password: false, validates: false });
         testApp.sendKey("Escape");
         await expect(pending).resolves.toBeUndefined();
     });
@@ -57,6 +77,7 @@ describe("QuickInputExtensionAdapter.showInputBox", () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({
             handle: 1,
+            password: false,
             validates: true,
             validate: (value) =>
                 Promise.resolve(value === "ab" ? { message: "Только цифры", severity: "error" as const } : null),
@@ -81,6 +102,7 @@ describe("QuickInputExtensionAdapter.showInputBox", () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({
             handle: 1,
+            password: false,
             validates: true,
             validate: () => Promise.resolve({ message: "Осторожно", severity: "warning" as const }),
         });
@@ -193,7 +215,7 @@ describe("QuickInputExtensionAdapter.showQuickPick", () => {
 describe("QuickInputExtensionAdapter.cancel", () => {
     it("снимает свой живой показ и доводит обещание до undefined", async () => {
         const { adapter, component } = createAdapter();
-        const pending = adapter.showInputBox({ handle: 7, validates: false });
+        const pending = adapter.showInputBox({ handle: 7, password: false, validates: false });
         adapter.cancel(7);
         await expect(pending).resolves.toBeUndefined();
         expect(component.isOpen()).toBe(false);
@@ -208,7 +230,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
 
     it("чужой handle не трогает текущий показ", async () => {
         const { adapter, component, testApp } = createAdapter();
-        const pending = adapter.showInputBox({ handle: 7, validates: false });
+        const pending = adapter.showInputBox({ handle: 7, password: false, validates: false });
         adapter.cancel(8);
         expect(component.isOpen()).toBe(true);
         testApp.sendKey("Enter");
@@ -217,7 +239,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
 
     it("cancel по уже закрытому показу — no-op и чужую сессию не гасит", async () => {
         const { adapter, service, component, testApp } = createAdapter();
-        const pending = adapter.showInputBox({ handle: 7, validates: false });
+        const pending = adapter.showInputBox({ handle: 7, password: false, validates: false });
         testApp.sendKey("Escape");
         await pending;
 
@@ -244,7 +266,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
 
     it("хвост перехваченного показа не сбрасывает слот перехватчика", async () => {
         const { adapter, component, testApp } = createAdapter();
-        const first = adapter.showInputBox({ handle: 1, validates: false });
+        const first = adapter.showInputBox({ handle: 1, password: false, validates: false });
         const second = adapter.showQuickPick(pickRequest({ handle: 2 }));
         // Первый показ уже перехвачен вторым — его завершение слот НЕ трогает.
         await expect(first).resolves.toBeUndefined();
@@ -256,7 +278,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
 
     it("перехват следующим показом расширения не оставляет прошлое обещание висеть", async () => {
         const { adapter, testApp } = createAdapter();
-        const first = adapter.showInputBox({ handle: 1, validates: false });
+        const first = adapter.showInputBox({ handle: 1, password: false, validates: false });
         const second = adapter.showQuickPick(pickRequest({ handle: 2 }));
         await expect(first).resolves.toBeUndefined();
         testApp.sendKey("Enter");

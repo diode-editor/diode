@@ -25,6 +25,12 @@ export interface InputBoxOptions {
     /** Initial value; the cursor is seeded at the end. */
     value?: string;
     /**
+     * Поле пароля: набранное закрывается маской и не показывается ни на экране,
+     * ни в инспекторе. Само значение (и то, что уезжает в `validateInput`, и то,
+     * чем резолвится показ) — настоящее.
+     */
+    password?: boolean;
+    /**
      * Валидация значения. Вернуть {@link InputValidation} — показать сообщение
      * (ошибка ещё и блокирует Enter), вернуть `null` — значение в порядке.
      *
@@ -112,12 +118,13 @@ export class QuickInputService {
             this.takeOwnership();
 
             const view = this.component.view;
-            view.resetMultiSelect();
+            view.resetFlavorState();
             view.acceptMode = "value";
             view.items = [];
             view.title = opts.title;
             view.prompt = opts.prompt;
             view.placeholder = opts.placeholder ?? "";
+            view.password = opts.password === true;
             view.validationSeverity = "error";
             // Clear any list-pick leftovers so a prior quickPick() can't fire here.
             view.onAccept = null;
@@ -270,7 +277,7 @@ export class QuickInputService {
     ): typeof this.component.view {
         const view = this.component.view;
         // Stryker disable next-line CallExpression: страховка на общем виджете; оба list-флейвора ниже сами выставляют canPickMany, а набор отметок перетирает quickPickMany своим setCheckedItems — наблюдаемого следа от снятия сброса нет. Настоящий его потребитель — QuickOpenService, там он под тестом
-        view.resetMultiSelect();
+        view.resetFlavorState();
         // Stryker disable next-line StringLiteral: режим читается единственным сравнением `acceptMode === "value"`, поэтому любая другая строка ведёт себя как "item"
         view.acceptMode = "item";
         view.canPickMany = opts.canPickMany;

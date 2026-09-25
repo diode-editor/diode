@@ -18,6 +18,7 @@ describe("parseWireInputBoxRequest", () => {
                 prompt: "Как к вам",
                 placeHolder: "имя",
                 value: "Ада",
+                password: true,
                 validates: true,
             }),
         ).toEqual({
@@ -26,17 +27,19 @@ describe("parseWireInputBoxRequest", () => {
             prompt: "Как к вам",
             placeHolder: "имя",
             value: "Ада",
+            password: true,
             validates: true,
         });
     });
 
     it("необязательные поля отсутствуют, а не приезжают undefined'ами", () => {
-        expect(parseWireInputBoxRequest({ handle: 1 })).toEqual({ handle: 1, validates: false });
+        expect(parseWireInputBoxRequest({ handle: 1 })).toEqual({ handle: 1, password: false, validates: false });
     });
 
     it("не-строковые опции отбрасываются", () => {
         expect(parseWireInputBoxRequest({ handle: 1, title: 7, prompt: null, value: {} })).toEqual({
             handle: 1,
+            password: false,
             validates: false,
         });
     });
@@ -51,6 +54,14 @@ describe("parseWireInputBoxRequest", () => {
     it("validates честно булев: любое не-true значит «валидатора нет»", () => {
         expect(parseWireInputBoxRequest({ handle: 1, validates: "да" })?.validates).toBe(false);
         expect(parseWireInputBoxRequest({ handle: 1, validates: true })?.validates).toBe(true);
+    });
+
+    it("password честно булев: маску включает только настоящее true", () => {
+        expect(parseWireInputBoxRequest({ handle: 1, password: true })?.password).toBe(true);
+        // Строка «да» истинна по-джаваскриптовому — но поле пароля по ней не
+        // включается: иначе мусор на проводе делал бы обычное поле слепым.
+        expect(parseWireInputBoxRequest({ handle: 1, password: "да" })?.password).toBe(false);
+        expect(parseWireInputBoxRequest({ handle: 1, password: 0 })?.password).toBe(false);
     });
 });
 

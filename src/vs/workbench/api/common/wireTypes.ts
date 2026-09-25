@@ -1908,6 +1908,8 @@ export interface IWireInputBoxRequest {
     readonly prompt?: string;
     readonly placeHolder?: string;
     readonly value?: string;
+    /** Поле пароля: набранное закрывается маской (`InputBoxOptions.password`). */
+    readonly password: boolean;
     /**
      * У расширения есть `validateInput` — хост обязан спрашивать его на каждое
      * изменение значения (`window.inputBox.validate`). Без флага раунд-трипа не
@@ -1955,6 +1957,7 @@ export function parseWireInputBoxRequest(raw: unknown): IWireInputBoxRequest | n
         prompt: optionalWireString(p.prompt),
         placeHolder: optionalWireString(p.placeHolder),
         value: optionalWireString(p.value),
+        password: p.password === true,
         validates: p.validates === true,
     };
 }

@@ -6,9 +6,9 @@ import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 // фикстурное расширение `quick-input-probe` из палитры просит строку и выбор, а
 // поднимается при этом ТОТ ЖЕ оверлей, которым пользуются палитра и Quick Open.
 //
-// Сценарий проходит три состояния, ради которых заявка и делалась: поле ввода с
-// подсказкой и валидацией (ошибка блокирует Enter, предупреждение — нет), список
-// с фильтрацией и множественный выбор с чекбоксами. Ответ расширения печатается
+// Сценарий проходит четыре состояния, ради которых заявка и делалась: поле ввода
+// с подсказкой и валидацией (ошибка блокирует Enter, предупреждение — нет), поле
+// пароля под маской, список с фильтрацией и множественный выбор с чекбоксами. Ответ расширения печатается
 // строкой в канал Output «Diode Probe» — по ней видно, что введённое реально
 // доехало до расширения, а не осталось в UI.
 
@@ -59,6 +59,18 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Port: 80"), { timeoutMs: 20000 });
         await editor.capture("input-accepted");
+
+        // ─── Поле пароля ────────────────────────────────────────────────────
+        // Набранное закрыто маской: на кадре только звёздочки, самого секрета
+        // не видно, а расширение получает НАСТОЯЩИЙ текст — по его длине это и
+        // проверяется.
+        await runProbeCommand(editor, "Ask Secret");
+        await editor.waitForText((t) => t.includes("Набранное закрыто маской"), { timeoutMs: 20000 });
+        await editor.sendText("hunter2");
+        await editor.waitForText((t) => t.includes("*******") && !t.includes("hunter2"));
+        await editor.capture("password-masked");
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("Secret length: 7"), { timeoutMs: 20000 });
 
         // ─── Список с фильтрацией ───────────────────────────────────────────
         await runProbeCommand(editor, "Pick Fruit");

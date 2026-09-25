@@ -14,6 +14,7 @@
             { "command": "diodeProbe.askName", "title": "Diode Probe: Ask Name" },
             { "command": "diodeProbe.askNamePrefilled", "title": "Diode Probe: Ask Name (prefilled)" },
             { "command": "diodeProbe.askNameDelayed", "title": "Diode Probe: Ask Name (delayed 3s)" },
+            { "command": "diodeProbe.askSecret", "title": "Diode Probe: Ask Secret" },
             { "command": "diodeProbe.askPort", "title": "Diode Probe: Ask Port" },
             { "command": "diodeProbe.askSlowValidate", "title": "Diode Probe: Ask Slow Validate" },
             { "command": "diodeProbe.askWithTimeout", "title": "Diode Probe: Ask With Timeout (3s)" },

@@ -221,6 +221,19 @@ describe("QuickOpenService — общий виджет", () => {
         expect(view.onAcceptMany).toBeNull();
     });
 
+    // Тот же риск у маски: после поля пароля расширения Quick Open рисовал бы
+    // звёздочки вместо запроса — человек искал бы файл вслепую.
+    it("снимает маску, оставшуюся от чужого поля пароля", () => {
+        const { service, view } = createService();
+        view.password = true;
+
+        service.show();
+        view.setQuery("readme");
+
+        expect(view.password).toBe(false);
+        expect(view.inspectState().query).toBe("readme");
+    });
+
     it("после чужого множественного выбора Enter в палитре снова исполняет команду", async () => {
         const { service, view, commands } = createService();
         let executed = 0;

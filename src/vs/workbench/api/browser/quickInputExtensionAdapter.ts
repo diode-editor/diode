@@ -38,6 +38,7 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
                 prompt: request.prompt,
                 placeholder: request.placeHolder,
                 value: request.value,
+                password: request.password,
                 validateInput,
             });
         } finally {

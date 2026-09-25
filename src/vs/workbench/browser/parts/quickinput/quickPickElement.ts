@@ -1,3 +1,4 @@
+import { DisplayLine } from "@tuidom/core/common/displayLine";
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { truncateEnd } from "@tuidom/core/common/textTruncation";
 import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
@@ -14,6 +15,15 @@ import type { QuickPickAcceptMode, QuickPickItem, ValidationSeverity } from "../
 
 import { CONTENT_PAD, QuickPickFrameElement } from "./quickPickFrameElement.ts";
 import { buildItemRow, rowId } from "./quickPickRows.ts";
+
+/**
+ * Чем закрывается символ в поле пароля ({@link QuickPickElement.password}).
+ *
+ * ASCII-звёздочка, а не `•`/`●`: у точек в терминале неоднозначная ширина
+ * (East Asian Ambiguous) — при «широкой» трактовке поле разъехалось бы, как
+ * это было бы и с `☐`/`☑` у чекбоксов.
+ */
+export const MASK_CHAR = "*";
 
 /**
  * Quick-open / палитра команд / InputBox — один переиспользуемый пикер.
@@ -65,6 +75,14 @@ export class QuickPickElement extends TUIElement {
      * (см. {@link checkedItems}) — подсветка сама по себе выбором не считается.
      */
     public canPickMany = false;
+    /**
+     * Поле пароля: на экран вместо каждого введённого символа идёт
+     * {@link MASK_CHAR}, а {@link inspectState} отдаёт то же, что видно, —
+     * секрет не утекает ни в инспектор, ни в e2e-снимок. Редактирование,
+     * {@link getQuery} и валидация работают с НАСТОЯЩИМ текстом: маска — это
+     * только представление.
+     */
+    public password = false;
     public onAcceptValue: ((value: string) => void) | null = null;
     /** Желаемая ширина пикера в колонках (клампится constraints'ами). */
     public preferredWidth = 60;
@@ -219,19 +237,21 @@ export class QuickPickElement extends TUIElement {
     }
 
     /**
-     * Вернуть состояние множественного выбора в исходное — ОБЯЗАТЕЛЬНЫЙ первый
-     * шаг любого показа на этом виджете.
+     * Вернуть флейворное состояние в исходное — ОБЯЗАТЕЛЬНЫЙ первый шаг любого
+     * показа на этом виджете.
      *
      * Виджет общий (палитра, Quick Open, наши команды, расширения), и остальные
-     * флейворные поля каждый хозяин и так выставляет за себя. Эти три — нет:
-     * без сброса чекбоксы прошлого множественного выбора вылезали в палитре, а
-     * её `Enter` уходил в {@link onAcceptMany} вместо {@link onAccept} и команда
-     * не исполнялась.
+     * флейворные поля каждый хозяин и так выставляет за себя. Эти — нет: без
+     * сброса чекбоксы прошлого множественного выбора вылезали в палитре, а её
+     * `Enter` уходил в {@link onAcceptMany} вместо {@link onAccept} и команда не
+     * исполнялась; маска прошлого поля пароля точно так же осталась бы висеть на
+     * следующем показе, и человек набирал бы запрос вслепую.
      */
-    public resetMultiSelect(): void {
+    public resetFlavorState(): void {
         this.canPickMany = false;
         this.checkedValue.clear();
         this.onAcceptMany = null;
+        this.password = false;
     }
 
     /**
@@ -274,10 +294,13 @@ export class QuickPickElement extends TUIElement {
      * Наблюдаемое состояние: запрос, лейблы строк и активный индекс. В
      * множественном выборе добавляются лейблы отмеченных строк — иначе отметку
      * не видно ниоткуда, кроме кадра.
+     *
+     * Запрос отдаётся ТАК, КАК ОН ВИДЕН: под маской ({@link password}) наружу
+     * уходит она, а не сам секрет — ни инспектор, ни e2e-снимок пароля не видят.
      */
     public override inspectState(): Record<string, unknown> {
         return {
-            query: this.getQuery(),
+            query: this.visibleQuery,
             activeIndex: this.selectedIndexValue,
             title: this.title,
             items: this.itemsValue.map((item) => item.label),
@@ -288,6 +311,17 @@ export class QuickPickElement extends TUIElement {
     }
 
     // ─── Structure ──────────────────────────────────────────────────────────
+
+    /**
+     * Запрос так, как он выглядит на экране: под маской — по одной
+     * {@link MASK_CHAR} на графемный кластер (ровно так считает и сам
+     * `InputElement`), иначе — сам текст.
+     */
+    private get visibleQuery(): string {
+        const query = this.getQuery();
+        if (!this.password) return query;
+        return MASK_CHAR.repeat(new DisplayLine(query).slots.length);
+    }
 
     /** Текст и цвет строки сообщения; null — строки нет. */
     private get message(): { text: string; fg: string } | null {
@@ -328,9 +362,10 @@ export class QuickPickElement extends TUIElement {
      * есть ли список) и сообщает рамке, где рисовать сепаратор.
      */
     private syncStructure(): void {
-        // Плейсхолдер живёт полем на пикере (его правят сервисы), а рисует его
-        // строка запроса — переносим на каждом синке, а не сеттером.
+        // Плейсхолдер и маска живут полями на пикере (их правят сервисы), а
+        // рисует их строка запроса — переносим на каждом синке, а не сеттером.
         this.inputElement.placeholder = this.placeholder;
+        this.inputElement.maskChar = this.password ? MASK_CHAR : undefined;
         const message = this.message;
         const hasItems = this.visibleItemCount > 0;
 
