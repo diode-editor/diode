@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
@@ -207,6 +208,30 @@ function recordingItems(
     return (req) => {
         into.push(req);
         return Promise.resolve(list);
+    };
+}
+
+/**
+ * Источник, который держит ответ до `respond` и отдаёт наружу токены запросов —
+ * на них и смотрят тесты отмены (провайдер за источником узнаёт об отмене
+ * ровно через такой токен).
+ */
+function pendingSource(): {
+    source: EditorService["inlineCompletionSource"];
+    tokens: ICancellationToken[];
+    respond: (index: number, list?: ICoreInlineCompletionItem[]) => void;
+} {
+    const tokens: ICancellationToken[] = [];
+    const resolvers: ((list: readonly ICoreInlineCompletionItem[]) => void)[] = [];
+    return {
+        source: (_request, token) => {
+            tokens.push(token);
+            return new Promise<readonly ICoreInlineCompletionItem[]>((resolve) => resolvers.push(resolve));
+        },
+        tokens,
+        respond: (index, list = []) => {
+            resolvers[index](list);
+        },
     };
 }
 
@@ -1019,6 +1044,113 @@ describe("InlineCompletionsService — каретка в середине стр
 
         expect(service.isOpen()).toBe(true);
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 15, lines: ['= "Hello"'] });
+    });
+});
+
+describe("InlineCompletionsService — отмена запроса", () => {
+    it("новый запрос отменяет предыдущий: доживает только последний", async () => {
+        const fake = makeEditor("const x", 7);
+        const pending = pendingSource();
+        const service = makeService(makeGroup(fake.editor, pending.source).group);
+
+        fake.type("const x ", 8);
+        await tick();
+        expect(pending.tokens).toHaveLength(1);
+        expect(service.isRequestPending()).toBe(true);
+
+        fake.type("const x =", 9);
+        await tick();
+
+        expect(pending.tokens).toHaveLength(2);
+        expect(pending.tokens[0].isCancellationRequested).toBe(true);
+        expect(pending.tokens[1].isCancellationRequested).toBe(false);
+
+        // Опоздавший ответ отменённого запроса не трогает чужое ожидание:
+        // в полёте всё ещё последний запрос.
+        pending.respond(0, [{ insertText: "= 42;" }]);
+        await tick();
+        expect(service.isRequestPending()).toBe(true);
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("hide (Escape) отменяет запрос, у которого призрака ещё нет, и поздний ответ не всплывает", async () => {
+        const fake = makeEditor("const x", 7);
+        const pending = pendingSource();
+        const service = makeService(makeGroup(fake.editor, pending.source).group);
+
+        fake.type("const x ", 8);
+        await tick();
+        expect(service.isRequestPending()).toBe(true);
+        expect(service.isOpen()).toBe(false); // призрака ещё нет
+
+        service.hide();
+        expect(pending.tokens[0].isCancellationRequested).toBe(true);
+        expect(service.isRequestPending()).toBe(false);
+
+        // Упрямый провайдер ответил вопреки отмене — на экран это не попадает.
+        pending.respond(0, [{ insertText: "= 42;" }]);
+        await tick();
+        expect(service.isOpen()).toBe(false);
+        expect(fake.setGhostText).not.toHaveBeenCalledWith(expect.objectContaining({ lines: ["= 42;"] }));
+    });
+
+    it("уход каретки отменяет запрос", async () => {
+        const fake = makeEditor("const x", 7);
+        const pending = pendingSource();
+        const service = makeService(makeGroup(fake.editor, pending.source).group);
+
+        fake.type("const x ", 8);
+        await tick();
+
+        fake.move(0, 3);
+
+        expect(pending.tokens[0].isCancellationRequested).toBe(true);
+        expect(service.isRequestPending()).toBe(false);
+    });
+
+    it("смена активного редактора (переключение вкладки) отменяет запрос", async () => {
+        const fake = makeEditor("const x", 7);
+        const other = makeEditor("other", 5);
+        const pending = pendingSource();
+        const fakeGroup = makeGroup(fake.editor, pending.source);
+        const service = makeService(fakeGroup.group);
+
+        fake.type("const x ", 8);
+        await tick();
+        expect(service.isRequestPending()).toBe(true);
+
+        fakeGroup.setActiveEditor(other.editor);
+
+        expect(pending.tokens[0].isCancellationRequested).toBe(true);
+        expect(service.isRequestPending()).toBe(false);
+    });
+
+    it("дождавшийся ответа запрос не отменяется — нормальный путь цел", async () => {
+        const fake = makeEditor("const x", 7);
+        const pending = pendingSource();
+        const service = makeService(makeGroup(fake.editor, pending.source).group);
+
+        const triggered = service.trigger();
+        expect(service.isRequestPending()).toBe(true);
+        pending.respond(0, [{ insertText: " = 42;" }]);
+        await triggered;
+
+        expect(pending.tokens[0].isCancellationRequested).toBe(false);
+        expect(service.isRequestPending()).toBe(false);
+        expect(service.isOpen()).toBe(true);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 7, lines: [" = 42;"] });
+    });
+
+    it("dispose сервиса отменяет запрос в полёте", async () => {
+        const fake = makeEditor("const x", 7);
+        const pending = pendingSource();
+        const service = makeService(makeGroup(fake.editor, pending.source).group);
+
+        fake.type("const x ", 8);
+        await tick();
+        service.dispose();
+
+        expect(pending.tokens[0].isCancellationRequested).toBe(true);
     });
 });
 

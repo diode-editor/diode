@@ -211,6 +211,7 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("parameterHintsVisible", this.parameterHints.isOpen());
         this.contextKeys.set("parameterHintsMultipleSignatures", this.parameterHints.hasMultipleSignatures());
         this.contextKeys.set("inlineSuggestionVisible", this.inlineCompletions.isOpen());
+        this.contextKeys.set("inlineSuggestionRequestPending", this.inlineCompletions.isRequestPending());
         this.contextKeys.set(
             "inlineSuggestionHasIndentationLessThanTabSize",
             this.inlineCompletions.hasIndentationLessThanTabSize(),

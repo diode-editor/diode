@@ -1,5 +1,6 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
@@ -84,6 +85,10 @@ export class InlineCompletionsService extends Disposable {
     private autoTriggerTimer: ReturnType<typeof setTimeout> | null = null;
     // Номер последнего запроса к источнику: ответ с чужим номером устарел.
     private requestSeq = 0;
+    // Источник отмены запроса, который сейчас в полёте. Seq-гард отбрасывает
+    // устаревший ОТВЕТ, а этот источник останавливает саму РАБОТУ провайдера:
+    // за подсказкой может стоять платный LLM-вызов.
+    private pendingRequest: CancellationTokenSource | null = null;
     // Гасит одно авто-открытие после принятия (правка accept не должна сама
     // перезапросить подсказку).
     private suppressAutoTriggerOnce = false;
@@ -124,6 +129,16 @@ export class InlineCompletionsService extends Disposable {
     /** Показана ли подсказка (context key `inlineSuggestionVisible`). */
     public isOpen(): boolean {
         return this.session !== null;
+    }
+
+    /**
+     * Ждём ли сейчас ответа провайдера (context key
+     * `inlineSuggestionRequestPending`). Ключ нужен Escape: пока призрака на
+     * экране нет, `inlineSuggestionVisible` ложный, и без этого ключа команда
+     * `.hide` до сервиса не доедет — а отменить незавершённый запрос она обязана.
+     */
+    public isRequestPending(): boolean {
+        return this.pendingRequest !== null;
     }
 
     /**
@@ -168,15 +183,26 @@ export class InlineCompletionsService extends Disposable {
         const versionId = editor.viewState.document.versionId;
         // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
         const seq = ++this.requestSeq;
-        const items = await source({
-            uri: editor.uri.toString(),
-            languageId: editor.languageId,
-            text: editor.getText(),
-            line: caret.line,
-            character: caret.character,
-            triggerKind,
-            timeoutMs: this.requestTimeoutMs,
-        }).catch(() => []);
+        // Предыдущий запрос (если он ещё в полёте) устарел ровно сейчас.
+        this.cancelPendingRequest();
+        const cancellation = new CancellationTokenSource();
+        this.pendingRequest = cancellation;
+        const items = await source(
+            {
+                uri: editor.uri.toString(),
+                languageId: editor.languageId,
+                text: editor.getText(),
+                line: caret.line,
+                character: caret.character,
+                triggerKind,
+                timeoutMs: this.requestTimeoutMs,
+            },
+            cancellation.token,
+        ).catch(() => []);
+        // Запрос отработал — отменять больше нечего (наш источник могли уже
+        // сменить на более свежий, тогда трогать поле нельзя).
+        if (this.pendingRequest === cancellation) this.pendingRequest = null;
+        cancellation.dispose();
         // Пока ходили за ответом: новый запрос обгоняет старый; правка или уход
         // каретки делают снапшот недействительным; открывшийся попап — гейт показа.
         if (seq !== this.requestSeq) return;
@@ -186,6 +212,11 @@ export class InlineCompletionsService extends Disposable {
         if (current.length !== 1 || !isSelectionCollapsed(current[0])) return;
         if (current[0].active.line !== caret.line || current[0].active.character !== caret.character) return;
         if (this.completionService.isOpen()) return;
+        // Отдельный гейт от всех, что выше: Escape (и смена активного редактора
+        // без события) гасит запрос, НЕ меняя ни текста, ни каретки, ни номера
+        // запроса. Провайдер, проигнорировавший отмену, тут и отсекается —
+        // призрак не должен появиться задним числом.
+        if (cancellation.token.isCancellationRequested) return;
 
         for (const item of items) {
             const session = this.sessionFromItem(editor, item, caret, lineContent);
@@ -251,8 +282,13 @@ export class InlineCompletionsService extends Disposable {
         );
     }
 
-    /** Гасит подсказку (Escape, инвалидация, уход каретки). */
+    /**
+     * Гасит подсказку (Escape, инвалидация, уход каретки) И отменяет запрос,
+     * который ещё в полёте: Escape по незавершённому запросу — «не надо», а не
+     * «спрячь показанное», поэтому отмена идёт до гарда на сессию.
+     */
     public hide(): void {
+        this.cancelPendingRequest();
         if (this.session === null) return;
         this.session.editor.setGhostText(null);
         this.session = null;
@@ -361,6 +397,11 @@ export class InlineCompletionsService extends Disposable {
         this.contentDidChange = false;
         const suppressed = this.suppressAutoTriggerOnce;
         this.suppressAutoTriggerOnce = false;
+        // Снапшот, по которому ушёл запрос, только что протух — и на правке
+        // (текст другой), и на уходе каретки (позиция другая). Его ответ всё
+        // равно отсеют гарды ниже по трассе, поэтому провайдер вправе бросить
+        // работу прямо сейчас.
+        this.cancelPendingRequest();
 
         const editor = this.group.getActiveEditor();
         if (editor === null) {
@@ -407,6 +448,15 @@ export class InlineCompletionsService extends Disposable {
             this.autoTriggerTimer = null;
             void this.trigger(InlineCompletionTriggerKind.Automatic);
         }, this.autoTriggerDelayMs);
+    }
+
+    /** Отменяет запрос в полёте: провайдер узнаёт об этом через свой токен. */
+    private cancelPendingRequest(): void {
+        const pending = this.pendingRequest;
+        if (pending === null) return;
+        this.pendingRequest = null;
+        pending.cancel();
+        pending.dispose();
     }
 
     private cancelAutoTrigger(): void {

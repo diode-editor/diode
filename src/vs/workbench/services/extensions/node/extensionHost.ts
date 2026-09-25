@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import { type ICancellationToken, CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
@@ -762,6 +763,7 @@ export class ExtensionHost extends Disposable {
      */
     public async provideInlineCompletions(
         req: IInlineCompletionRequest,
+        token: ICancellationToken = CancellationTokenNone,
     ): Promise<readonly ICoreInlineCompletionItem[]> {
         const rpc = this.rpc;
         // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
@@ -778,7 +780,7 @@ export class ExtensionHost extends Disposable {
         // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration
         /* v8 ignore stop */
         return requestInlineCompletions(
-            (method, params) => rpc.request(method, params),
+            (method, params, cancellation) => rpc.request(method, params, cancellation),
             {
                 uri: req.uri,
                 languageId: req.languageId,
@@ -788,6 +790,7 @@ export class ExtensionHost extends Disposable {
                 triggerKind: req.triggerKind,
             },
             req.timeoutMs ?? this.options.inlineCompletionTimeoutMs,
+            token,
         );
     }
 

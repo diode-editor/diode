@@ -118,6 +118,13 @@ export interface ContextKeyTypes {
      * Tab keeps indenting instead of accepting (VS Code semantics; default true).
      */
     inlineSuggestionHasIndentationLessThanTabSize: boolean;
+    /**
+     * True while an inline-suggestion request is in flight (asked, not answered
+     * yet). Not a VS Code key: upstream drives cancellation from its observable
+     * graph, we need the state in a `when` clause so Escape can cancel a request
+     * whose ghost text has not appeared yet.
+     */
+    inlineSuggestionRequestPending: boolean;
 
     // -- Debugger contexts --
     // debuggersAvailable: boolean;
@@ -309,6 +316,7 @@ export const allContextKeys: ContextKey[] = [
     "parameterHintsMultipleSignatures",
     "inlineSuggestionVisible",
     "inlineSuggestionHasIndentationLessThanTabSize",
+    "inlineSuggestionRequestPending",
 
     // -- Debugger contexts --
     // "debuggersAvailable",

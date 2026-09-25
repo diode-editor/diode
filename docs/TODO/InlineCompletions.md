@@ -8,7 +8,15 @@ end-to-end: рендер серым курсивом за кареткой и В
 `editor.inlineSuggest.enabled`. Имена команд/ключей/цветов — дословно vscode
 (сверено с тегом 1.127.0). Демо — фикстурное расширение
 `e2e/fixtures/user-data-with-inline-ghost` (канированный «LLM» с задержкой) +
-сценарий `inlineCompletion` + функциональный `e2e/inlineCompletions.test.ts`.
+сценарии `inlineCompletion` / `inlineCompletionCancel` + функциональный
+`e2e/inlineCompletions.test.ts`.
+
+Устаревший запрос отменяется: провайдер получает настоящий
+`CancellationToken`, который стреляет на новом запросе, правке, уходе каретки,
+Escape, смене редактора и по таймауту. Транспорт — общий для всех методов RPC
+(`$/cancelRequest` в `RpcEndpoint`), подключены к нему пока только призрачные
+подсказки; остальные провайдеры продолжают получать токен-заглушку
+(`neverCancelledToken`). Шов — docs/arch/Extensions.md.
 
 ## Настройки триггера и таймаута
 
@@ -70,9 +78,6 @@ docs/arch/Extensions.md («Inline-completion seam»).
     аппаратного курсора на кадр (фантом рисуется в конце предыдущего ряда, а
     каретка адресуется следующим — то же отсутствие cursor affinity, что в
     docs/TODO/WordWrap.md).
-- **Нет отмены RPC.** У upstream настоящий `CancellationToken` через границу;
-  у нас — дебаунс (`delay`, дефолт 50 мс) + seq-гард + таймаут (`requestTimeout`,
-  дефолт 5000 мс).
 - **`selectedCompletionInfo` не поддержан.** При открытом suggest-попапе ghost
   не запрашивается (показанный ДО попапа — остаётся); закрытие попапа
   (`CompletionService.onDidClose`) перезапрашивает подсказку, так что Esc по

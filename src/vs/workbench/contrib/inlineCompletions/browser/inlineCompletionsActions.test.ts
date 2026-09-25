@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
@@ -52,8 +53,32 @@ describe("inlineCompletionsActions — объявления", () => {
         expect(commitInlineSuggestAction.when).toBe(
             "inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize",
         );
-        expect(hideInlineSuggestAction.when).toBe("inlineSuggestionVisible");
+        // Escape у hide: кроме показанного призрака — ещё и окно ожидания
+        // ответа провайдера (там гасить нечего, но отменять есть что).
+        expect(hideInlineSuggestAction.when).toBe(
+            "inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)",
+        );
         expect(triggerInlineSuggestAction.when).toBe("textInputFocus && !editorReadonly");
+    });
+
+    it("when у hide проходит и на показанном призраке, и на запросе в полёте — но не вне редактора", () => {
+        const keys = new ContextKeyService();
+        const passes = (): boolean => keys.evaluate(hideInlineSuggestAction.when!);
+
+        expect(passes()).toBe(false);
+
+        keys.set("inlineSuggestionVisible", true);
+        expect(passes()).toBe(true);
+
+        // Запрос в полёте: призрака ещё нет, но Escape обязан доехать до отмены.
+        keys.set("inlineSuggestionVisible", false);
+        keys.set("inlineSuggestionRequestPending", true);
+        keys.set("textInputFocus", true);
+        expect(passes()).toBe(true);
+
+        // Фокус ушёл из текста (find-виджет, квик-пик) — Escape там не наш.
+        keys.set("textInputFocus", false);
+        expect(passes()).toBe(false);
     });
 
     it("биндинги: Tab у commit, Escape у hide, Alt+\\ у trigger", () => {

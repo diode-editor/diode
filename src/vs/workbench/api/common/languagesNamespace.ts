@@ -1,5 +1,6 @@
 import type * as vscode from "vscode";
 
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type {
     ICoreParameterInfo,
     ICoreSignature,
@@ -10,6 +11,7 @@ import { matchDocumentSelector } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
+    CancellationTokenSource,
     CodeAction,
     CodeActionKind,
     CodeActionTriggerKind,
@@ -437,6 +439,32 @@ function neverCancelledToken(): vscode.CancellationToken {
         isCancellationRequested: false,
         onCancellationRequested: new EventEmitter<unknown>().event,
     } as unknown as vscode.CancellationToken;
+}
+
+/**
+ * Переводит транспортный токен RPC в `vscode.CancellationToken`. Отдать свой
+ * напрямую нельзя: расширения ждут vscode-семантику `Event` (`thisArgs`,
+ * `disposables`), которую даёт только {@link CancellationTokenSource} из
+ * vscodeTypes. Возвращённый `dispose` снимает подписку на транспортный токен —
+ * запрос отработал, держать слушателя больше незачем.
+ */
+function toVscodeCancellationToken(token: ICancellationToken): {
+    token: vscode.CancellationToken;
+    dispose: () => void;
+} {
+    const source = new CancellationTokenSource();
+    // Уже отменённый токен зовёт слушателя синхронно — провайдер получит
+    // отменённый токен, не успев начать (отмена обогнала запрос).
+    const subscription = token.onCancellationRequested(() => {
+        source.cancel();
+    });
+    return {
+        token: source.token,
+        dispose: (): void => {
+            subscription.dispose();
+            source.dispose();
+        },
+    };
 }
 
 /** Читает `label` элемента (строка или `CompletionItemLabel { label }`). */
@@ -1258,53 +1286,68 @@ export function createLanguagesNamespace(
         };
     }
 
-    rpc.handleRequest("languages.provideInlineCompletions", async (params): Promise<WireInlineCompletionItem[]> => {
-        const p = params as IWireInlineCompletionParams;
-        const doc: ExtHostTextDocument = documentSync.sync({
-            uri: p.uri,
-            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
-        const position = new Position(p.line ?? 0, p.character ?? 0);
-        const token = neverCancelledToken();
-        // selectedCompletionInfo не поддержан: пока открыт suggest-попап, ядро
-        // ghost text не запрашивает вовсе (люфт v1 — docs/TODO/InlineCompletions.md).
-        const context = {
-            triggerKind: p.triggerKind ?? InlineCompletionTriggerKind.Automatic,
-            selectedCompletionInfo: undefined,
-        } as unknown as vscode.InlineCompletionContext;
+    rpc.handleRequest(
+        "languages.provideInlineCompletions",
+        async (params, cancellation): Promise<WireInlineCompletionItem[]> => {
+            const p = params as IWireInlineCompletionParams;
+            const doc: ExtHostTextDocument = documentSync.sync({
+                uri: p.uri,
+                // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
+                ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
+                text: p.text ?? "",
+            });
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            // Настоящий токен отмены (в отличие от остальных провайдеров): ядро
+            // гасит устаревший запрос, и провайдер — в первую очередь платный
+            // LLM — узнаёт об этом. Расширение на vscode-languageclient
+            // превратит сработавший токен в `$/cancelRequest` языковому серверу.
+            const cancel = toVscodeCancellationToken(cancellation);
+            // selectedCompletionInfo не поддержан: пока открыт suggest-попап, ядро
+            // ghost text не запрашивает вовсе (люфт v1 — docs/TODO/InlineCompletions.md).
+            const context = {
+                triggerKind: p.triggerKind ?? InlineCompletionTriggerKind.Automatic,
+                selectedCompletionInfo: undefined,
+            } as unknown as vscode.InlineCompletionContext;
 
-        const items: WireInlineCompletionItem[] = [];
-        for (const reg of inlineCompletionRegistrations) {
-            if (!matchDocumentSelector(reg.selector, doc)) continue;
-            let result: unknown;
+            const items: WireInlineCompletionItem[] = [];
             try {
-                result = await Promise.resolve(
-                    reg.provider.provideInlineCompletionItems(
-                        doc as unknown as vscode.TextDocument,
-                        position as unknown as vscode.Position,
-                        context,
-                        token,
-                    ),
-                );
-            } catch {
-                // Сбойный провайдер не роняет остальные: `result` остаётся
-                // неприсвоенным, и его отсеивает общая проверка ниже — своего
-                // `continue` тут нет намеренно, иначе ветка неотличима от неё
-                // (тот же приём, что у hover).
+                for (const reg of inlineCompletionRegistrations) {
+                    // Отмена останавливает и обход цепочки: спрашивать
+                    // следующего провайдера про снапшот, который уже никому не
+                    // нужен, — та же лишняя работа, от которой мы уходим.
+                    if (cancel.token.isCancellationRequested) break;
+                    if (!matchDocumentSelector(reg.selector, doc)) continue;
+                    let result: unknown;
+                    try {
+                        result = await Promise.resolve(
+                            reg.provider.provideInlineCompletionItems(
+                                doc as unknown as vscode.TextDocument,
+                                position as unknown as vscode.Position,
+                                context,
+                                cancel.token,
+                            ),
+                        );
+                    } catch {
+                        // Сбойный провайдер не роняет остальные: `result` остаётся
+                        // неприсвоенным, и его отсеивает общая проверка ниже — своего
+                        // `continue` тут нет намеренно, иначе ветка неотличима от неё
+                        // (тот же приём, что у hover).
+                    }
+                    if (result == null) continue;
+                    // `InlineCompletionItem[] | InlineCompletionList` — нормализуем к массиву.
+                    const rawItems = Array.isArray(result) ? result : (result as { items?: unknown }).items;
+                    if (!Array.isArray(rawItems)) continue;
+                    for (const item of rawItems) {
+                        const wire = serializeInlineCompletionItem(item);
+                        if (wire !== null) items.push(wire);
+                    }
+                }
+            } finally {
+                cancel.dispose();
             }
-            if (result == null) continue;
-            // `InlineCompletionItem[] | InlineCompletionList` — нормализуем к массиву.
-            const rawItems = Array.isArray(result) ? result : (result as { items?: unknown }).items;
-            if (!Array.isArray(rawItems)) continue;
-            for (const item of rawItems) {
-                const wire = serializeInlineCompletionItem(item);
-                if (wire !== null) items.push(wire);
-            }
-        }
-        return items;
-    });
+            return items;
+        },
+    );
 
     rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[]> => {
         const p = params as IWireFoldingParams;
