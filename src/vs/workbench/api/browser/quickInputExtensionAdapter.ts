@@ -28,6 +28,7 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
         // это ровно то же, что отсутствие валидации. Ветка здесь была бы
         // неотличимой от этой — лишний шов.
         const validateInput = async (value: string): Promise<InputValidation | null> =>
+            // Stryker disable next-line OptionalChaining: без `?.` validateInput отклоняется, когда расширение валидатора не прислало, — а зовут его из fire-and-forget ветки runValidation, мимо стека теста. Тесты «без валидации» при этом ПРОХОДЯТ: unhandled rejection роняет раннер (RuntimeError) вместо падения теста. Дыра в локализации ошибок слушателей (docs/TESTING.md → #275), а не пробел в тестах этой строки.
             toValidation(await ask?.(value));
         this.currentHandle = request.handle;
         try {

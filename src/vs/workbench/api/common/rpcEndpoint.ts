@@ -194,6 +194,7 @@ export class RpcEndpoint implements IDisposable {
 
     /** Отмена входящего запроса: гасит токен его обработчика. */
     private handleCancelMessage(params: unknown): void {
+        // Stryker disable next-line OptionalChaining: без `?.` мусорные параметры заставляют handleCancelMessage кинуть прямо из доставки канала, то есть мимо стека теста. Тест на этот случай есть («отмена с чужой формой параметров и отмена без пары — тихие»), но он ПРОХОДИТ: unhandled-ошибка роняет раннер (RuntimeError) вместо падения теста. Это дыра в локализации ошибок слушателей (docs/TESTING.md → #275), а не пробел в тестах этой строки.
         const id = (params as ICancelRequestParams | null | undefined)?.id;
         // Гард против мусора в параметрах: без него нечисловой id просто осел
         // бы в earlyCancellations и не совпал бы ни с одним запросом (ключи
