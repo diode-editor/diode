@@ -77,6 +77,11 @@ kinds:
       - отложена              # человек промолчал или отложил сам; вернуть — вызвать роль руками
     closed: [готово, отклонена, отложена]
 
+resources:
+  # Ёмкости, которые агенты делят. `кодящий` собирает бинарник, гоняет e2e и мутационный гейт — двое таких
+  # на одной машине голодают по CPU и дают флаки (см. AGENTS.md про параллельные прогоны). Поэтому машина одна.
+  машина: 1
+
 executors:
   # args идут в claude насквозь; офис их не толкует. Каталог назначения (проекция и out/) офис подключает
   # сам через --add-dir; наш повторный --add-dir к нему добавляется, а не заменяет его — проверено.
@@ -86,19 +91,20 @@ executors:
     model: haiku
     args: [--permission-mode, acceptEdits, --allowedTools, Read, Glob, Grep, Write, Edit, 'Bash(git log *)', 'Bash(git show *)', 'Bash(rg *)']
 
-  читающий:                   # анализ, разбор цели, ретроспектива: читают много, кода не пишут
+  читающий:                   # анализ и разбор цели: читают много, кода не пишут и тестов не гоняют
     type: claude
     model: opus
-    args: [--permission-mode, acceptEdits, --allowedTools, Read, Glob, Grep, Write, Edit, WebFetch, Task, TodoWrite, 'Bash(git log *)', 'Bash(git show *)', 'Bash(git diff *)', 'Bash(git branch *)', 'Bash(rg *)', 'Bash(ls *)', 'Bash(cat *)', 'Bash(node scripts/iteration.mjs *)']
+    args: [--permission-mode, acceptEdits, --allowedTools, Read, Glob, Grep, Write, Edit, WebFetch, Task, TodoWrite, 'Bash(git log *)', 'Bash(git show *)', 'Bash(git diff *)', 'Bash(git branch *)', 'Bash(rg *)', 'Bash(ls *)', 'Bash(cat *)']
 
   сверяющий:                  # сверка с эталоном: ходит в клон vscode (путь печатает scripts/vscode-ref.mjs)
     type: claude
     model: opus
-    args: [--permission-mode, acceptEdits, --add-dir, /workspaces/vscode, --allowedTools, Read, Glob, Grep, Write, Edit, Task, TodoWrite, 'Bash(git log *)', 'Bash(git show *)', 'Bash(git diff *)', 'Bash(rg *)', 'Bash(ls *)', 'Bash(cat *)', 'Bash(node scripts/vscode-ref.mjs*)']
+    args: [--permission-mode, acceptEdits, --add-dir, /workspaces/vscode, --allowedTools, Read, Glob, Grep, Write, Edit, Task, TodoWrite, 'Bash(git log *)', 'Bash(git show *)', 'Bash(git diff *)', 'Bash(rg *)', 'Bash(ls *)', 'Bash(cat *)', 'Bash(node scripts/vscode-ref.mjs*)', 'Bash(npm run valid-layers-check)']
 
   кодящий:                    # реализация и тестирование: может всё, что может агент у клавиатуры
     type: claude
     model: opus
+    takes: { машина: 1 }      # тяжёлый: собирает и гоняет тесты — работает строго один на весь офис
     args: [--permission-mode, acceptEdits, --add-dir, /workspaces/tuidom/tuidom, --allowedTools, Bash, Read, Glob, Grep, Write, Edit, NotebookEdit, WebFetch, WebSearch, Task, TodoWrite]
 
   штурман:                    # ветки, сборка, релиз: git и gh, кода не пишет
@@ -216,6 +222,8 @@ roles:
 
   интегратор:
     executor: штурман
+    takes: { машина: 1 }      # `iteration.mjs verify` — это npm ci + lint + typecheck + test на ветке итерации:
+                              # роль лёгкая, а работа тяжёлая. Доля роли перекрывает долю исполнителя.
     prompt: office/roles/интегратор.md
     when: { kind: заявка, state: к вливанию }
     sees: [{ kind: отчёт }, { kind: испытание }, { kind: постановка, from: [self, ancestors] }]

@@ -1,0 +1,23 @@
+{
+  "workbench.editors.groups": {
+    "orientation": "columns",
+    "groups": [
+      {
+        "files": [
+          "/workspaces/diode/src/vs/diode/main.ts"
+        ],
+        "activeIndex": 0
+      }
+    ],
+    "weights": [
+      1
+    ],
+    "activeGroup": 0
+  },
+  "workbench.editors.openEditors": {
+    "files": [
+      "/workspaces/diode/src/vs/diode/main.ts"
+    ],
+    "activeIndex": 0
+  }
+}
