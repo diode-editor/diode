@@ -21,6 +21,7 @@ import { backendModule } from "./backendModule.ts";
 import { commandsModule } from "./commandsModule.ts";
 import { configurationModule } from "./configurationModule.ts";
 import { coreModule } from "./coreModule.ts";
+import type { IExtensionHostModuleContext } from "./extensionHostModule.ts";
 import { extensionHostModule } from "./extensionHostModule.ts";
 import type { ExtensionsModuleContext } from "./extensionsModule.ts";
 import { extensionsModule } from "./extensionsModule.ts";
@@ -59,6 +60,11 @@ export interface ProductionProfileContext {
     keybindingsResource: string;
     /** Магазин расширений: источник реестра (`--registry`), каталог установки и версии сборки. */
     extensions: ExtensionsModuleContext;
+    /**
+     * Корни приватных каталогов расширений (`ExtensionContext.globalStorageUri` /
+     * `storageUri` / `logUri`) из активного профиля user-data.
+     */
+    extensionStorage: IExtensionHostModuleContext;
     /** Перезагрузка окна (`workbench.action.reloadWindow`) — владелец процесса заменяет себя новым. */
     reloadWindow: () => void;
 }
@@ -94,5 +100,5 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(lifecycleModule, { reloadWindow: ctx.reloadWindow })
         .use(extensionsModule, ctx.extensions)
         .use(preferencesModule)
-        .use(extensionHostModule);
+        .use(extensionHostModule, ctx.extensionStorage);
 }

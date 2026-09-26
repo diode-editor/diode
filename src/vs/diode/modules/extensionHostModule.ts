@@ -33,6 +33,10 @@ import {
     ExtensionHostDIToken,
     type IExtensionHostConfigProvider,
 } from "../../workbench/services/extensions/node/extensionHost.ts";
+import {
+    extensionStorageHomes,
+    type IExtensionStorageHomes,
+} from "../../workbench/services/extensions/node/extensionStoragePaths.ts";
 import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
@@ -53,6 +57,16 @@ function toMarkerSeverity(severity: number): MarkerSeverity {
     }
 }
 
+/** Контекст модуля: корни хранения расширений из user-data (см. `main.ts`). */
+export interface IExtensionHostModuleContext {
+    /** `<profileDir>/globalStorage` — родитель `globalStorageUri` расширений. */
+    readonly globalStorageDir: string;
+    /** `<profileDir>/workspaceStorage` — из него резолвится `storageUri` по открытой папке. */
+    readonly workspaceStorageDir: string;
+    /** `<userDataDir>/logs` — родитель `logUri` расширений. */
+    readonly logsDir: string;
+}
+
 /**
  * DI-модуль extension host'а. Связывает `EditorService` →
  * `IEditorOptionsService` → `ExtensionHost`. В production хост создаётся
@@ -63,7 +77,7 @@ function toMarkerSeverity(severity: number): MarkerSeverity {
  * берутся из `ILogService` — в тестах профиль использует `NULL_LOG_SERVICE`,
  * `isEnabled` всегда `false`, поэтому stdio остаётся в режиме `"inherit"`.
  */
-export const extensionHostModule: ContainerModule = (container) => {
+export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> = (container, ctx) => {
     container.bind(ExtensionHostDIToken, () => {
         const group = container.get(EditorServiceDIToken);
         const adapter = new EditorOptionsServiceAdapter(group);
@@ -129,6 +143,14 @@ export const extensionHostModule: ContainerModule = (container) => {
             parseWatcherExclude(configService.get("files.watcherExclude")),
         );
 
+        // Приватные каталоги расширений (`globalStorageUri`/`storageUri`/`logUri`).
+        // Провайдер ЛЕНИВЫЙ по той же причине, что `getWorkspaceFolders` выше:
+        // папку воркспейса выставляет `WorkbenchComponent.setWorkspaceFolder`
+        // позже создания хоста, а `storageUri` зависит именно от неё. Сам резолв —
+        // в `extensionStorageHomes` (чистый, с тестами), здесь только чтение папки.
+        // Stryker disable next-line ArrowFunction: production-проводка модуля; решение о корнях живёт в `extensionStorageHomes` и закрыто юнитами, сквозняк — e2e-сценарий extension-storage
+        const storageHomes = (): IExtensionStorageHomes => extensionStorageHomes(ctx, explorer.getRootPath());
+
         const host = new ExtensionHost(adapter, commandAdapter, {
             logger,
             rpcLogger,
@@ -141,6 +163,7 @@ export const extensionHostModule: ContainerModule = (container) => {
             openDocumentsProvider: () => openDocumentSnapshots(group),
             editorLayout,
             fileWatcher,
+            storageHomes,
             diagnosticsSink,
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),

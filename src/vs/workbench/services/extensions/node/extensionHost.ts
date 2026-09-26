@@ -103,6 +103,13 @@ import {
     type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
 
+import {
+    ensureExtensionStorageParents,
+    fallbackExtensionStorageHomes,
+    type IExtensionStorageHomes,
+    resolveExtensionStoragePaths,
+} from "./extensionStoragePaths.ts";
+
 /**
  * Сток диагностик расширений (`diagnostics.publish`): владелец (коллекция),
  * ресурс как `uri.toString()` и его полный набор маркеров (замена, не мерж).
@@ -378,6 +385,14 @@ export interface IExtensionHostOptions {
      * {@link NULL_EDITOR_LAYOUT_SERVICE}: `tabGroups` в субпроцессе пуст.
      */
     readonly editorLayout?: IEditorLayoutService;
+    /**
+     * Корни приватных каталогов расширений (`ExtensionContext.globalStorageUri` /
+     * `storageUri` / `logUri`). Читается ЛЕНИВО на каждой активации: папка
+     * воркспейса становится известна позже создания хоста, а `storageUri`
+     * зависит именно от неё. Если не передан — {@link fallbackExtensionStorageHomes}
+     * (каталог во временных файлах ОС, без воркспейсного корня).
+     */
+    readonly storageHomes?: () => IExtensionStorageHomes;
 }
 
 /**
@@ -514,6 +529,8 @@ export class ExtensionHost extends Disposable {
      */
     private readonly activeQuickInputHandles = new Set<number>();
     private readonly fileWatcher: IExtensionFileWatcher;
+    /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
+    private readonly storageHomes: () => IExtensionStorageHomes;
     /** Живые watcher'ы субпроцесса (`workspace.createFileSystemWatcher`) по id. */
     private readonly fileWatchers = new Map<number, IDisposable>();
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
@@ -560,6 +577,7 @@ export class ExtensionHost extends Disposable {
         this.openDocumentsProvider = options.openDocumentsProvider;
         this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
         this.fileWatcher = options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER;
+        this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
         this.outputSink = options.outputSink;
@@ -634,6 +652,7 @@ export class ExtensionHost extends Disposable {
             if (!this.pending.delete(reg.id) && !this.toRevive.delete(reg.id)) continue;
             // Per-extension изоляция: упавший `activate()` одного расширения не
             // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
+            const storage = this.resolveStoragePaths(reg.id);
             try {
                 await rpc.request("host.activateExtension", {
                     id: reg.id,
@@ -642,6 +661,9 @@ export class ExtensionHost extends Disposable {
                     filename: reg.filename,
                     extensionPath: reg.extensionPath,
                     configDefaults: reg.configDefaults,
+                    globalStoragePath: storage.globalStoragePath,
+                    storagePath: storage.storagePath,
+                    logPath: storage.logPath,
                 });
                 this.extensions.add(reg.id);
                 this.activatedRegistrations.set(reg.id, reg);
@@ -650,6 +672,24 @@ export class ExtensionHost extends Disposable {
                 this.logger?.error(`failed to activate extension "${reg.id}"`, err);
             }
         }
+    }
+
+    /**
+     * Каталоги хранения одного расширения + создание их родителей (контракт
+     * vscode.d.ts: «the parent directory is guaranteed to be existent»). Зовётся
+     * на каждой активации, чтобы `storageUri` брал АКТУАЛЬНУЮ папку воркспейса:
+     * расширение может активироваться и до, и после её открытия.
+     */
+    private resolveStoragePaths(id: string): {
+        globalStoragePath: string;
+        storagePath: string | null;
+        logPath: string;
+    } {
+        const homes = this.storageHomes();
+        ensureExtensionStorageParents(homes, (dir, err) => {
+            this.logger?.warn(`failed to create extension storage dir "${dir}"`, err);
+        });
+        return resolveExtensionStoragePaths(homes, id);
     }
 
     public async unregisterExtension(id: string): Promise<void> {

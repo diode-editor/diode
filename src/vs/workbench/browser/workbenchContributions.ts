@@ -15,6 +15,7 @@ import { PanelFocusContributionDIToken } from "./parts/panel/panelFocusContribut
 import { ProgressStatusBarContributionDIToken } from "./parts/statusbar/progressStatusBarContribution.ts";
 import { ViewProgressContributionDIToken } from "./parts/views/viewProgressContribution.ts";
 import { ViewTitleActionsContributionDIToken } from "./parts/views/viewTitleActionsContribution.ts";
+import { SetContextCommandContributionDIToken } from "./setContextCommandContribution.ts";
 
 /**
  * Явный список workbench-contributions (зеркало `builtinActions`, без
@@ -28,6 +29,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: AutoRevealContributionDIToken, phase: "restored" },
     { token: ThemeConfigContributionDIToken, phase: "restored" },
     { token: OpenFileCommandContributionDIToken, phase: "restored" },
+    // Встроенная `setContext`: расширение может дёрнуть её в activate(), то есть
+    // раньше любого пользовательского действия.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё команды нет, и это ловит e2e-сценарий extension-storage (клавиша расширения не оживает после Arm)
+    { token: SetContextCommandContributionDIToken, phase: "restored" },
     { token: PanelFocusContributionDIToken, phase: "restored" },
     // Спиннеры занятости в заголовках секций: подписка должна стоять до первой
     // операции, иначе её начало пройдёт мимо.

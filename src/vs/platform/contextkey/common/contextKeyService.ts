@@ -9,8 +9,16 @@ export const ContextKeyServiceDIToken = token<ContextKeyService>("ContextKeyServ
 
 type ContextValue = boolean | string | number;
 
-/** Compiled `when`-expression: takes the values of all known keys, in name order. */
-type CompiledWhen = (...values: ContextValue[]) => boolean;
+/** Значение в скоупе вычислителя: сам ключ либо узел точечного пути. */
+type ScopeValue = ContextValue | ScopeObject;
+interface ScopeObject {
+    // `| undefined` честно: чтение по произвольному сегменту может не найти
+    // ничего, и `buildScope` на этом ветвится.
+    [segment: string]: ScopeValue | undefined;
+}
+
+/** Compiled `when`-expression: reads key values off the scope object. */
+type CompiledWhen = (scope: ScopeObject) => boolean;
 
 /** Listener of context changes; receives the names whose values actually changed. */
 export type ContextKeyChangeListener = (changed: ReadonlySet<string>) => void;
@@ -73,15 +81,22 @@ export class ContextKeyService implements IDisposable {
      *
      * Example: evaluate("textInputFocus && !listFocus")
      * Example: evaluate("editorLangId == 'typescript'")
+     * Example: evaluate("supermaven.isProUser") — точечный ключ расширения
      */
     public evaluate(when: string): boolean {
-        const names = getAllContextKeyNames();
-        const args = names.map((k) => this.values.get(k) ?? false);
         try {
+            // `with` над скоуп-объектом, а не список параметров: имя ключа
+            // приходит от расширения (`setContext`) и параметром быть не обязано
+            // (`foo-bar`, `2fa`, `class`) — такое имя развалило бы КОМПИЛЯЦИЮ, то
+            // есть все when-выражения сразу, а не только своё. `with` в теле
+            // `new Function` законен: функция всегда компилируется в sloppy-режиме,
+            // независимо от строгости модуля, который её создал.
             // eslint-disable-next-line @typescript-eslint/no-implied-eval
-            const fn = new Function(...names, `return !!(${when})`) as CompiledWhen;
-            return fn(...args);
+            const fn = new Function("__scope", `with (__scope) { return !!(${when}); }`) as CompiledWhen;
+            return fn(this.buildScope());
         } catch {
+            // Неизвестное имя даёт ReferenceError — непрописанный ключ ложен,
+            // как и раньше. Сюда же падает синтаксически битое выражение.
             return false;
         }
     }
@@ -90,6 +105,54 @@ export class ContextKeyService implements IDisposable {
         this.values.clear();
         this.listeners.clear();
         this.pending = null;
+    }
+
+    /**
+     * Собирает объект-скоуп выражения.
+     *
+     * Плоское имя (`textInputFocus`) — свойство верхнего уровня. Точечное
+     * (`supermaven.isProUser`, их приносит команда `setContext` расширений) —
+     * вложенный объект под корневым сегментом: в выражении `supermaven.isProUser`
+     * это ровно обычное чтение свойства, то есть текст when-клаузы не меняется.
+     *
+     * Прототипа у скоупа нет (`Object.create(null)`): имя ключа приходит от
+     * расширения, а на обычном объекте запись по имени `__proto__` молча уходит
+     * в сеттер прототипа — значение бы не сохранилось, а чтение вернуло бы
+     * прототип, то есть истину вместо записанной лжи.
+     *
+     * Плоское имя — это вырожденный случай пути (сегмент один), поэтому проход
+     * один на всех. Столкновение плоского ключа с корнем точечного разрешается
+     * в пользу плоского при любом порядке: пришёл раньше — точечный упрётся в
+     * примитив и будет отброшен, пришёл позже — перезапишет собой объект.
+     * Отброшенная ветка именно отбрасывается, а не оседает у корня скоупа.
+     */
+    private buildScope(): ScopeObject {
+        const scope = Object.create(null) as ScopeObject;
+        for (const name of getAllContextKeyNames()) {
+            const segments = name.split(".");
+            let cursor = scope;
+            let blocked = false;
+            for (const segment of segments.slice(0, -1)) {
+                const next = cursor[segment];
+                if (next === undefined) {
+                    // Тоже без прототипа — по той же причине, что и корень.
+                    const created = Object.create(null) as ScopeObject;
+                    cursor[segment] = created;
+                    cursor = created;
+                    continue;
+                }
+                // На пути стоит примитив (плоский ключ или ключ-предок) — вложить
+                // в него нечего, ветку бросаем целиком.
+                if (typeof next !== "object") {
+                    blocked = true;
+                    break;
+                }
+                cursor = next;
+            }
+            if (blocked) continue;
+            cursor[segments[segments.length - 1]] = this.values.get(name) ?? false;
+        }
+        return scope;
     }
 
     private write(key: string, value: ContextValue): void {

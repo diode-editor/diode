@@ -7,6 +7,7 @@ import {
     DEFAULT_USER_DATA_ROOT_NAME,
     resolveUserDataPaths,
     resolveWorkspaceStatePath,
+    resolveWorkspaceStorageDir,
 } from "./userDataPaths.ts";
 
 describe("resolveUserDataPaths", () => {
@@ -76,6 +77,42 @@ describe("resolveUserDataPaths", () => {
         const paths = resolveUserDataPaths({ homedir: home, profile: "compact" });
         expect(paths.globalStateFile).toBe("/home/alice/.diode/user-data/User/profiles/compact/globalState.json");
         expect(paths.workspaceStorageDir).toBe("/home/alice/.diode/user-data/User/profiles/compact/workspaceStorage");
+    });
+
+    // globalStorage переезжает вместе с профилем (как globalState), а logs — нет:
+    // в vscode они лежат рядом с `User/`, а не внутри профиля.
+    it("places extension storage under the profile dir and logs outside it", () => {
+        const paths = resolveUserDataPaths({ homedir: home });
+        expect(paths.globalStorageDir).toBe("/home/alice/.diode/user-data/User/globalStorage");
+        expect(paths.logsDir).toBe("/home/alice/.diode/user-data/logs");
+    });
+
+    it("isolates extension globalStorage per named profile, logs stay shared", () => {
+        const paths = resolveUserDataPaths({ homedir: home, profile: "compact" });
+        expect(paths.globalStorageDir).toBe("/home/alice/.diode/user-data/User/profiles/compact/globalStorage");
+        expect(paths.logsDir).toBe("/home/alice/.diode/user-data/logs");
+    });
+});
+
+describe("resolveWorkspaceStorageDir", () => {
+    const storage = "/home/alice/.diode/user-data/User/workspaceStorage";
+
+    it("keys the folder dir by sha256 of the resolved path", () => {
+        const hash = crypto.createHash("sha256").update("/projects/app").digest("hex");
+        expect(resolveWorkspaceStorageDir(storage, "/projects/app")).toBe(`${storage}/${hash}`);
+    });
+
+    // Каталог расширения (`<hash>/<extId>` = storageUri) лежит рядом с нашим
+    // state.json — ровно как в vscode рядом с его state.vscdb.
+    it("is the parent of state.json — extension dirs are its siblings", () => {
+        const dir = resolveWorkspaceStorageDir(storage, "/projects/app");
+        expect(resolveWorkspaceStatePath(storage, "/projects/app")).toBe(`${dir}/state.json`);
+    });
+
+    it("normalizes the folder path before hashing", () => {
+        const canonical = resolveWorkspaceStorageDir(storage, "/projects/app");
+        expect(resolveWorkspaceStorageDir(storage, "/projects/app/")).toBe(canonical);
+        expect(resolveWorkspaceStorageDir(storage, "/projects/sub/../app")).toBe(canonical);
     });
 });
 

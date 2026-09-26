@@ -15,10 +15,12 @@ import { createExtensionMemento, type IExtensionMemento } from "./extensionMemen
 /**
  * Сообщения protocol host -> subprocess. RPC-методы:
  *
- * - `host.activateExtension({ id, mainPath, extensionPath?, configDefaults? })` -> `null`.
+ * - `host.activateExtension({ id, mainPath, extensionPath?, configDefaults?,
+ *   globalStoragePath?, storagePath?, logPath? })` -> `null`.
  *   Кладёт `configDefaults` (дефолты `contributes.configuration`) в config store,
  *   загружает CJS-модуль через `createRequire`, вызывает `module.activate(context)`.
- *   Бросает на ошибках загрузки/активации.
+ *   Бросает на ошибках загрузки/активации. Каталоги хранения приходят ОТ ХОСТА
+ *   (он владеет раскладкой user-data) — субпроцесс их не выдумывает и не создаёт.
  * - `host.deactivateExtension({ id })` -> `null`. Вызывает `deactivate()` +
  *   disposes `context.subscriptions`. Idempotent.
  * - `host.shutdown()` -> `null`. Снимает все расширения и инициирует exit.
@@ -46,6 +48,13 @@ interface ExtensionContext {
     readonly globalState: IExtensionMemento;
     readonly workspaceState: IExtensionMemento;
     asAbsolutePath(relativePath: string): string;
+    readonly globalStorageUri: Uri;
+    readonly globalStoragePath: string;
+    /** `undefined` — папка/воркспейс не открыт (семантика vscode). */
+    readonly storageUri: Uri | undefined;
+    readonly storagePath: string | undefined;
+    readonly logUri: Uri;
+    readonly logPath: string;
 }
 
 /**
@@ -80,7 +89,7 @@ export function runExtensionHostSubprocess(): void {
     // субпроцесс, унося с собой ВСЕ расширения (в т.ч. только что отработавший
     // folding-провайдер). Логируем в stderr — host зеркалит его в свой лог-канал.
     process.on("unhandledRejection", (reason: unknown) => {
-        console.error(`[ext-host] unhandled rejection in extension code: ${String(reason)}`);
+        console.error(`[ext-host] unhandled rejection in extension code: ${describeRejection(reason)}`);
     });
 
     const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint);
@@ -91,7 +100,7 @@ export function runExtensionHostSubprocess(): void {
     const extensions = new Map<string, ActivatedExtension>();
 
     rpc.handleRequest("host.activateExtension", async (params): Promise<unknown> => {
-        const { id, mainPath, source, filename, extensionPath, configDefaults } = parseActivateParams(params);
+        const { id, mainPath, source, filename, extensionPath, configDefaults, storage } = parseActivateParams(params);
         if (extensions.has(id)) {
             throw new Error(`Extension "${id}" already activated`);
         }
@@ -118,6 +127,16 @@ export function runExtensionHostSubprocess(): void {
             globalState: createExtensionMemento(true),
             workspaceState: createExtensionMemento(false),
             asAbsolutePath: (relativePath: string): string => path.join(rootPath, relativePath),
+            // Приватные каталоги расширения. `storageUri` отсутствует, когда папка
+            // не открыта — так же, как в vscode (`workspaceValue` там возвращает
+            // undefined без воркспейса). Сами каталоги НЕ создаём: по контракту
+            // vscode.d.ts это делает расширение, хост гарантирует только родителя.
+            globalStorageUri: Uri.file(storage.globalStoragePath),
+            globalStoragePath: storage.globalStoragePath,
+            storageUri: storage.storagePath === null ? undefined : Uri.file(storage.storagePath),
+            storagePath: storage.storagePath ?? undefined,
+            logUri: Uri.file(storage.logPath),
+            logPath: storage.logPath,
         };
         const active: ActivatedExtension = { id, mod: loaded, context };
         extensions.set(id, active);
@@ -167,6 +186,17 @@ export function runExtensionHostSubprocess(): void {
 
     // Сигнал готовности parent'у: можно слать activateExtension.
     rpc.notify("host.ready", null);
+}
+
+/**
+ * Человекочитаемое описание причины unhandled rejection. `String(err)` на Error
+ * даёт только «Error: message» — по такой строке не найти ни виноватое
+ * расширение, ни строку кода. Стек называет и то, и другое; у не-Error причин
+ * (строка, объект) стека нет — их печатаем как есть.
+ */
+function describeRejection(reason: unknown): string {
+    if (reason instanceof Error) return reason.stack ?? `${reason.name}: ${reason.message}`;
+    return String(reason);
 }
 
 async function deactivate(active: ActivatedExtension): Promise<void> {
@@ -226,6 +256,7 @@ function parseActivateParams(raw: unknown): {
     filename: string | undefined;
     extensionPath: string | undefined;
     configDefaults: Record<string, unknown> | undefined;
+    storage: { globalStoragePath: string; storagePath: string | null; logPath: string };
 } {
     if (typeof raw !== "object" || raw === null) {
         throw new Error("activateExtension: params must be an object");
@@ -237,6 +268,9 @@ function parseActivateParams(raw: unknown): {
         filename?: unknown;
         extensionPath?: unknown;
         configDefaults?: unknown;
+        globalStoragePath?: unknown;
+        storagePath?: unknown;
+        logPath?: unknown;
     };
     if (typeof obj.id !== "string" || obj.id === "") {
         throw new Error("activateExtension: id must be a non-empty string");
@@ -253,6 +287,11 @@ function parseActivateParams(raw: unknown): {
         typeof obj.configDefaults === "object" && obj.configDefaults !== null
             ? (obj.configDefaults as Record<string, unknown>)
             : undefined;
+    // `globalStorageUri`/`logUri` в API необязательными не бывают — без них
+    // расширение падает на `.fsPath` в первой же строке activate(). Поэтому это
+    // не опциональные поля протокола, а требование: не приехали — виноват хост.
+    const globalStoragePath = requireNonEmptyString(obj.globalStoragePath, "globalStoragePath");
+    const logPath = requireNonEmptyString(obj.logPath, "logPath");
     return {
         id: obj.id,
         mainPath: hasMain ? (obj.mainPath as string) : undefined,
@@ -261,7 +300,20 @@ function parseActivateParams(raw: unknown): {
         extensionPath:
             typeof obj.extensionPath === "string" && obj.extensionPath !== "" ? obj.extensionPath : undefined,
         configDefaults,
+        storage: {
+            globalStoragePath,
+            // Отсутствие и `null` — одно и то же: папка не открыта.
+            storagePath: typeof obj.storagePath === "string" && obj.storagePath !== "" ? obj.storagePath : null,
+            logPath,
+        },
     };
+}
+
+function requireNonEmptyString(value: unknown, field: string): string {
+    if (typeof value !== "string" || value === "") {
+        throw new Error(`activateExtension: ${field} must be a non-empty string`);
+    }
+    return value;
 }
 
 function parseExtensionId(raw: unknown): string {

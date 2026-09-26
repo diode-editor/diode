@@ -289,6 +289,13 @@ async function runEditor(): Promise<void> {
                 extensionsLogger.warn(problem);
             },
         },
+        // Приватные каталоги расширений: раскладку знает только владелец
+        // user-data, поэтому корни едут отсюда, а не собираются в host'е.
+        extensionStorage: {
+            globalStorageDir: userDataPaths.globalStorageDir,
+            workspaceStorageDir: userDataPaths.workspaceStorageDir,
+            logsDir: userDataPaths.logsDir,
+        },
         reloadWindow,
     });
 

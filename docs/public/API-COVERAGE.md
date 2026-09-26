@@ -42,7 +42,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 99/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 105/424 |
 
 ## vscode.languages
 
@@ -128,7 +128,7 @@
 | член | статус | комментарий |
 | --- | :-: | --- |
 | `registerCommand` | ✅ | |
-| `executeCommand` | ✅ | |
+| `executeCommand` | ✅ | из встроенных команд VS Code зарегистрирована `setContext` — расширение публикует ею свои when-ключи |
 | `registerTextEditorCommand` | 🟡 | без активного редактора — warn + no-op (семантика VS Code); edit-builder инертен, батч-правки — через `workspace.applyEdit` |
 | `getCommands` | 🕐 | |
 
@@ -191,7 +191,7 @@
 | --- | :-: | --- |
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
-| `ExtensionContext` | 7/17 | `secrets`, `storageUri`/`storagePath`, `globalStorageUri`/`globalStoragePath`, `logUri`/`logPath`, `environmentVariableCollection`, `extension`, `languageModelAccessInformation` |
+| `ExtensionContext` | 13/17 | `secrets`, `environmentVariableCollection`, `extension`, `languageModelAccessInformation` |
 | `Extension` | 7/8 | `extensionKind` |
 | `WorkspaceEdit` | 8/11 | файловые операции: `createFile`, `deleteFile`, `renameFile` |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |
