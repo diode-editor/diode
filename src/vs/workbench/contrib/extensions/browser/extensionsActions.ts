@@ -26,7 +26,7 @@ export const showExtensionsAction: CommandAction = {
     shortTitle: "Extensions",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 16 }],
     keybinding: parseChord("ctrl+k x"),
-    keybindings: [{ keys: parseKeybinding("ctrl+shift+x"), when: "tier != 'legacy'" }],
+    keybindings: [{ keys: parseKeybinding("mod+shift+x"), when: "tier != 'legacy'" }],
     run(accessor) {
         accessor.get(SidebarServiceDIToken).showViewlet(EXTENSIONS_VIEWLET_ID);
     },

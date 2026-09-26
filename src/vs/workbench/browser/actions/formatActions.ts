@@ -109,7 +109,7 @@ export const formatDocumentAction: CommandAction = {
 export const formatSelectionAction: CommandAction = {
     id: "editor.action.formatSelection",
     title: "Format Selection",
-    keybinding: parseChord("ctrl+k ctrl+f"),
+    keybinding: parseChord("mod+k mod+f"),
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         return runFormat(accessor, true, "Format Selection");

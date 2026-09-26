@@ -32,7 +32,7 @@ export const showSearchAction: CommandAction = {
     // аккорд безусловен, а канонический бинд объявлен там, где терминал вообще
     // способен его передать, — иначе подсказка в меню обещала бы нерабочее.
     keybinding: parseChord("ctrl+k f"),
-    keybindings: [{ keys: parseKeybinding("ctrl+shift+f"), when: "tier != 'legacy'" }],
+    keybindings: [{ keys: parseKeybinding("mod+shift+f"), when: "tier != 'legacy'" }],
     run(accessor) {
         accessor.get(SidebarServiceDIToken).showViewlet(SEARCH_VIEWLET_ID);
     },
@@ -121,7 +121,7 @@ export const focusNextInputBoxAction: CommandAction = {
     title: "Search: Focus Next Input Box",
     when: "searchViewletVisible && searchInputBoxFocus",
     keybinding: parseKeybinding("down"),
-    keybindings: [parseKeybinding("ctrl+down")],
+    keybindings: [parseKeybinding("mod+down")],
     run(accessor) {
         accessor.get(SearchComponentDIToken).focusNextInputBox();
     },
@@ -132,7 +132,7 @@ export const focusPreviousInputBoxAction: CommandAction = {
     title: "Search: Focus Previous Input Box",
     when: "searchViewletVisible && searchInputBoxFocus",
     keybinding: parseKeybinding("up"),
-    keybindings: [parseKeybinding("ctrl+up")],
+    keybindings: [parseKeybinding("mod+up")],
     run(accessor) {
         accessor.get(SearchComponentDIToken).focusPreviousInputBox();
     },
@@ -144,7 +144,7 @@ export const focusSearchFromResultsAction: CommandAction = {
     title: "Search: Focus Search From Results",
     when: "searchViewletVisible && firstMatchFocus",
     keybinding: parseKeybinding("up"),
-    keybindings: [parseKeybinding("ctrl+up")],
+    keybindings: [parseKeybinding("mod+up")],
     run(accessor) {
         accessor.get(SearchComponentDIToken).focusSearchFromResults();
     },
@@ -159,7 +159,7 @@ export const toggleSearchDetailsAction: CommandAction = {
     id: "workbench.action.search.toggleQueryDetails",
     title: "Search: Toggle Search Details",
     when: "searchViewletFocus",
-    keybinding: parseKeybinding("ctrl+shift+j"),
+    keybinding: parseKeybinding("mod+shift+j"),
     run(accessor) {
         accessor.get(SearchComponentDIToken).toggleQueryDetails();
     },

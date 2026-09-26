@@ -25,7 +25,7 @@ export const unfoldAction: CommandAction = {
 export const toggleFoldAction: CommandAction = {
     id: "editor.toggleFold",
     title: "Toggle Fold",
-    keybinding: parseChord("ctrl+k ctrl+l"),
+    keybinding: parseChord("mod+k mod+l"),
     when: "textInputFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.toggleFoldAtCursor();
@@ -35,7 +35,7 @@ export const toggleFoldAction: CommandAction = {
 export const foldAllAction: CommandAction = {
     id: "editor.foldAll",
     title: "Fold All",
-    keybinding: parseChord("ctrl+k ctrl+0"),
+    keybinding: parseChord("mod+k mod+0"),
     when: "textInputFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.foldAll();
@@ -45,7 +45,7 @@ export const foldAllAction: CommandAction = {
 export const unfoldAllAction: CommandAction = {
     id: "editor.unfoldAll",
     title: "Unfold All",
-    keybinding: parseChord("ctrl+k ctrl+j"),
+    keybinding: parseChord("mod+k mod+j"),
     when: "textInputFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.unfoldAll();
@@ -55,7 +55,7 @@ export const unfoldAllAction: CommandAction = {
 export const foldRecursivelyAction: CommandAction = {
     id: "editor.foldRecursively",
     title: "Fold Recursively",
-    keybinding: parseChord("ctrl+k ctrl+["),
+    keybinding: parseChord("mod+k mod+["),
     when: "textInputFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.foldRecursivelyAtCursor();
@@ -65,7 +65,7 @@ export const foldRecursivelyAction: CommandAction = {
 export const unfoldRecursivelyAction: CommandAction = {
     id: "editor.unfoldRecursively",
     title: "Unfold Recursively",
-    keybinding: parseChord("ctrl+k ctrl+]"),
+    keybinding: parseChord("mod+k mod+]"),
     when: "textInputFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.unfoldRecursivelyAtCursor();
@@ -77,7 +77,7 @@ function makeFoldLevelAction(level: number): CommandAction {
     return {
         id: `editor.foldLevel${String(level)}`,
         title: `Fold Level ${String(level)}`,
-        keybinding: parseChord(`ctrl+k ctrl+${String(level)}`),
+        keybinding: parseChord(`mod+k mod+${String(level)}`),
         when: "textInputFocus",
         run(accessor) {
             accessor.get(EditorServiceDIToken).getActiveEditor()?.foldLevel(level);

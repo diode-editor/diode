@@ -22,7 +22,7 @@ export const revealDefinitionAction: CommandAction = {
 export const revealDefinitionAsideAction: CommandAction = {
     id: "editor.action.revealDefinitionAside",
     title: "Go to Definition to the Side",
-    keybinding: parseChord("ctrl+k f12"),
+    keybinding: parseChord("mod+k f12"),
     when: "textInputFocus",
     run(accessor) {
         void accessor.get(DefinitionServiceDIToken).revealDefinition({ toSide: true });

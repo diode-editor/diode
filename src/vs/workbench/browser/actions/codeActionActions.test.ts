@@ -293,7 +293,7 @@ describe("editor.action.organizeImports / fixAll", () => {
 
         expect(quickFixAction.id).toBe("editor.action.quickFix");
         expect(quickFixAction.title).toBe("Quick Fix");
-        expect(quickFixAction.keybinding).toEqual(parseKeybinding("ctrl+."));
+        expect(quickFixAction.keybinding).toEqual(parseKeybinding("mod+."));
         // Второй бинд — единственный досягаемый на legacy-tier'е.
         expect(quickFixAction.keybindings).toEqual([parseChord("ctrl+k ctrl+q")]);
         expect(quickFixAction.when).toBe("textInputFocus && !editorReadonly");

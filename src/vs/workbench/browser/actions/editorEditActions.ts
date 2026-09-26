@@ -133,7 +133,7 @@ export const outdentLinesAction: CommandAction = {
 export const selectAllAction: CommandAction = {
     id: "editor.action.selectAll",
     title: "Select All",
-    keybinding: parseKeybinding("ctrl+a"),
+    keybinding: parseKeybinding("mod+a"),
     // Единственная команда в этом файле без гейта `!editorReadonly`: выделение
     // ничего не меняет. Отсюда и `textViewFocus` — Ctrl+A + Ctrl+C на диффе
     // копирует его целиком.

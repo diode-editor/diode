@@ -1,0 +1,1904 @@
+{
+  "source": "Default Keybindings of Visual Studio Code 1.138.0 (Linux, macOS), команды, которые есть в diode",
+  "note": "Срез эталона для теста мак-паритета (macKeybindings.test.ts); обновлять при сверке с новой версией VS Code.",
+  "commands": {
+    "acceptSelectedSuggestion": {
+      "vscodeCommand": "acceptSelectedSuggestion",
+      "linux": [
+        "enter",
+        "tab"
+      ],
+      "mac": [
+        "enter",
+        "tab"
+      ]
+    },
+    "actions.find": {
+      "vscodeCommand": "actions.find",
+      "linux": [
+        "ctrl+f"
+      ],
+      "mac": [
+        "meta+f"
+      ]
+    },
+    "closeFindWidget": {
+      "vscodeCommand": "closeFindWidget",
+      "linux": [
+        "escape",
+        "shift+escape"
+      ],
+      "mac": [
+        "escape",
+        "shift+escape"
+      ]
+    },
+    "closeParameterHints": {
+      "vscodeCommand": "closeParameterHints",
+      "linux": [
+        "escape",
+        "shift+escape"
+      ],
+      "mac": [
+        "escape",
+        "shift+escape"
+      ]
+    },
+    "cursorBottom": {
+      "vscodeCommand": "cursorBottom",
+      "linux": [
+        "ctrl+end"
+      ],
+      "mac": [
+        "meta+down"
+      ]
+    },
+    "cursorBottomSelect": {
+      "vscodeCommand": "cursorBottomSelect",
+      "linux": [
+        "ctrl+shift+end"
+      ],
+      "mac": [
+        "shift+meta+down"
+      ]
+    },
+    "cursorDown": {
+      "vscodeCommand": "cursorDown",
+      "linux": [
+        "down"
+      ],
+      "mac": [
+        "ctrl+n",
+        "down"
+      ]
+    },
+    "cursorDownSelect": {
+      "vscodeCommand": "cursorDownSelect",
+      "linux": [
+        "shift+down"
+      ],
+      "mac": [
+        "shift+down"
+      ]
+    },
+    "cursorEnd": {
+      "vscodeCommand": "cursorEnd",
+      "linux": [
+        "end"
+      ],
+      "mac": [
+        "end",
+        "meta+right"
+      ]
+    },
+    "cursorEndSelect": {
+      "vscodeCommand": "cursorEndSelect",
+      "linux": [
+        "shift+end"
+      ],
+      "mac": [
+        "shift+end",
+        "shift+meta+right"
+      ]
+    },
+    "cursorHome": {
+      "vscodeCommand": "cursorHome",
+      "linux": [
+        "home"
+      ],
+      "mac": [
+        "home",
+        "meta+left"
+      ]
+    },
+    "cursorHomeSelect": {
+      "vscodeCommand": "cursorHomeSelect",
+      "linux": [
+        "shift+home"
+      ],
+      "mac": [
+        "shift+home",
+        "shift+meta+left"
+      ]
+    },
+    "cursorLeft": {
+      "vscodeCommand": "cursorLeft",
+      "linux": [
+        "left"
+      ],
+      "mac": [
+        "ctrl+b",
+        "left"
+      ]
+    },
+    "cursorLeftSelect": {
+      "vscodeCommand": "cursorLeftSelect",
+      "linux": [
+        "shift+left"
+      ],
+      "mac": [
+        "shift+left"
+      ]
+    },
+    "cursorLineEnd": {
+      "vscodeCommand": "cursorLineEnd",
+      "linux": [],
+      "mac": [
+        "ctrl+e"
+      ]
+    },
+    "cursorLineStart": {
+      "vscodeCommand": "cursorLineStart",
+      "linux": [],
+      "mac": [
+        "ctrl+a"
+      ]
+    },
+    "cursorPageDown": {
+      "vscodeCommand": "cursorPageDown",
+      "linux": [
+        "pagedown"
+      ],
+      "mac": [
+        "pagedown"
+      ]
+    },
+    "cursorPageDownSelect": {
+      "vscodeCommand": "cursorPageDownSelect",
+      "linux": [
+        "shift+pagedown"
+      ],
+      "mac": [
+        "shift+pagedown"
+      ]
+    },
+    "cursorPageUp": {
+      "vscodeCommand": "cursorPageUp",
+      "linux": [
+        "pageup"
+      ],
+      "mac": [
+        "pageup"
+      ]
+    },
+    "cursorPageUpSelect": {
+      "vscodeCommand": "cursorPageUpSelect",
+      "linux": [
+        "shift+pageup"
+      ],
+      "mac": [
+        "shift+pageup"
+      ]
+    },
+    "cursorRight": {
+      "vscodeCommand": "cursorRight",
+      "linux": [
+        "right"
+      ],
+      "mac": [
+        "ctrl+f",
+        "right"
+      ]
+    },
+    "cursorRightSelect": {
+      "vscodeCommand": "cursorRightSelect",
+      "linux": [
+        "shift+right"
+      ],
+      "mac": [
+        "shift+right"
+      ]
+    },
+    "cursorTop": {
+      "vscodeCommand": "cursorTop",
+      "linux": [
+        "ctrl+home"
+      ],
+      "mac": [
+        "meta+up"
+      ]
+    },
+    "cursorTopSelect": {
+      "vscodeCommand": "cursorTopSelect",
+      "linux": [
+        "ctrl+shift+home"
+      ],
+      "mac": [
+        "shift+meta+up"
+      ]
+    },
+    "cursorUp": {
+      "vscodeCommand": "cursorUp",
+      "linux": [
+        "up"
+      ],
+      "mac": [
+        "ctrl+p",
+        "up"
+      ]
+    },
+    "cursorUpSelect": {
+      "vscodeCommand": "cursorUpSelect",
+      "linux": [
+        "shift+up"
+      ],
+      "mac": [
+        "shift+up"
+      ]
+    },
+    "cursorWordLeft": {
+      "vscodeCommand": "cursorWordLeft",
+      "linux": [
+        "ctrl+left"
+      ],
+      "mac": [
+        "alt+left"
+      ]
+    },
+    "cursorWordLeftSelect": {
+      "vscodeCommand": "cursorWordLeftSelect",
+      "linux": [
+        "ctrl+shift+left"
+      ],
+      "mac": [
+        "shift+alt+left"
+      ]
+    },
+    "cursorWordRight": {
+      "vscodeCommand": "cursorWordEndRight",
+      "linux": [
+        "ctrl+right"
+      ],
+      "mac": [
+        "alt+right"
+      ]
+    },
+    "cursorWordRightSelect": {
+      "vscodeCommand": "cursorWordEndRightSelect",
+      "linux": [
+        "ctrl+shift+right"
+      ],
+      "mac": [
+        "shift+alt+right"
+      ]
+    },
+    "deleteAllLeft": {
+      "vscodeCommand": "deleteAllLeft",
+      "linux": [],
+      "mac": [
+        "meta+backspace"
+      ]
+    },
+    "deleteLeft": {
+      "vscodeCommand": "deleteLeft",
+      "linux": [
+        "backspace",
+        "shift+backspace"
+      ],
+      "mac": [
+        "backspace",
+        "ctrl+backspace",
+        "ctrl+h",
+        "shift+backspace"
+      ]
+    },
+    "deleteRight": {
+      "vscodeCommand": "deleteRight",
+      "linux": [
+        "delete"
+      ],
+      "mac": [
+        "ctrl+d",
+        "ctrl+delete",
+        "delete"
+      ]
+    },
+    "deleteWordLeft": {
+      "vscodeCommand": "deleteWordLeft",
+      "linux": [
+        "ctrl+backspace"
+      ],
+      "mac": [
+        "alt+backspace"
+      ]
+    },
+    "deleteWordRight": {
+      "vscodeCommand": "deleteWordRight",
+      "linux": [
+        "ctrl+delete"
+      ],
+      "mac": [
+        "alt+delete"
+      ]
+    },
+    "editor.action.addCommentLine": {
+      "vscodeCommand": "editor.action.addCommentLine",
+      "linux": [
+        "ctrl+k ctrl+c"
+      ],
+      "mac": [
+        "meta+k meta+c"
+      ]
+    },
+    "editor.action.addSelectionToNextFindMatch": {
+      "vscodeCommand": "editor.action.addSelectionToNextFindMatch",
+      "linux": [
+        "ctrl+d"
+      ],
+      "mac": [
+        "meta+d"
+      ]
+    },
+    "editor.action.blockComment": {
+      "vscodeCommand": "editor.action.blockComment",
+      "linux": [
+        "ctrl+shift+a"
+      ],
+      "mac": [
+        "shift+alt+a"
+      ]
+    },
+    "editor.action.clipboardCopyAction": {
+      "vscodeCommand": "editor.action.clipboardCopyAction",
+      "linux": [
+        "ctrl+c"
+      ],
+      "mac": [
+        "meta+c"
+      ]
+    },
+    "editor.action.clipboardCutAction": {
+      "vscodeCommand": "editor.action.clipboardCutAction",
+      "linux": [
+        "ctrl+x"
+      ],
+      "mac": [
+        "meta+x"
+      ]
+    },
+    "editor.action.clipboardPasteAction": {
+      "vscodeCommand": "editor.action.clipboardPasteAction",
+      "linux": [
+        "ctrl+v",
+        "shift+insert"
+      ],
+      "mac": [
+        "meta+v"
+      ]
+    },
+    "editor.action.commentLine": {
+      "vscodeCommand": "editor.action.commentLine",
+      "linux": [
+        "ctrl+/"
+      ],
+      "mac": [
+        "meta+/"
+      ]
+    },
+    "editor.action.copyLinesDownAction": {
+      "vscodeCommand": "editor.action.copyLinesDownAction",
+      "linux": [
+        "ctrl+shift+alt+down"
+      ],
+      "mac": [
+        "shift+alt+down"
+      ]
+    },
+    "editor.action.copyLinesUpAction": {
+      "vscodeCommand": "editor.action.copyLinesUpAction",
+      "linux": [
+        "ctrl+shift+alt+up"
+      ],
+      "mac": [
+        "shift+alt+up"
+      ]
+    },
+    "editor.action.deleteLines": {
+      "vscodeCommand": "editor.action.deleteLines",
+      "linux": [
+        "ctrl+shift+k"
+      ],
+      "mac": [
+        "shift+meta+k"
+      ]
+    },
+    "editor.action.formatDocument": {
+      "vscodeCommand": "editor.action.formatDocument",
+      "linux": [
+        "ctrl+shift+i"
+      ],
+      "mac": [
+        "shift+alt+f"
+      ]
+    },
+    "editor.action.formatSelection": {
+      "vscodeCommand": "editor.action.formatSelection",
+      "linux": [
+        "ctrl+k ctrl+f"
+      ],
+      "mac": [
+        "meta+k meta+f"
+      ]
+    },
+    "editor.action.indentLines": {
+      "vscodeCommand": "editor.action.indentLines",
+      "linux": [
+        "ctrl+]"
+      ],
+      "mac": [
+        "meta+]"
+      ]
+    },
+    "editor.action.inlineSuggest.commit": {
+      "vscodeCommand": "editor.action.inlineSuggest.commit",
+      "linux": [
+        "tab"
+      ],
+      "mac": [
+        "tab"
+      ]
+    },
+    "editor.action.inlineSuggest.hide": {
+      "vscodeCommand": "editor.action.inlineSuggest.hide",
+      "linux": [
+        "escape",
+        "shift+escape"
+      ],
+      "mac": [
+        "escape",
+        "shift+escape"
+      ]
+    },
+    "editor.action.insertCursorAbove": {
+      "vscodeCommand": "editor.action.insertCursorAbove",
+      "linux": [
+        "ctrl+shift+up",
+        "shift+alt+up"
+      ],
+      "mac": [
+        "alt+meta+up"
+      ]
+    },
+    "editor.action.insertCursorAtEndOfEachLineSelected": {
+      "vscodeCommand": "editor.action.insertCursorAtEndOfEachLineSelected",
+      "linux": [
+        "shift+alt+i"
+      ],
+      "mac": [
+        "shift+alt+i"
+      ]
+    },
+    "editor.action.insertCursorBelow": {
+      "vscodeCommand": "editor.action.insertCursorBelow",
+      "linux": [
+        "ctrl+shift+down",
+        "shift+alt+down"
+      ],
+      "mac": [
+        "alt+meta+down"
+      ]
+    },
+    "editor.action.moveLinesDownAction": {
+      "vscodeCommand": "editor.action.moveLinesDownAction",
+      "linux": [
+        "alt+down"
+      ],
+      "mac": [
+        "alt+down"
+      ]
+    },
+    "editor.action.moveLinesUpAction": {
+      "vscodeCommand": "editor.action.moveLinesUpAction",
+      "linux": [
+        "alt+up"
+      ],
+      "mac": [
+        "alt+up"
+      ]
+    },
+    "editor.action.moveSelectionToNextFindMatch": {
+      "vscodeCommand": "editor.action.moveSelectionToNextFindMatch",
+      "linux": [
+        "ctrl+k ctrl+d"
+      ],
+      "mac": [
+        "meta+k meta+d"
+      ]
+    },
+    "editor.action.nextMatchFindAction": {
+      "vscodeCommand": "editor.action.nextMatchFindAction",
+      "linux": [
+        "enter",
+        "f3"
+      ],
+      "mac": [
+        "enter",
+        "f3",
+        "meta+g"
+      ]
+    },
+    "editor.action.organizeImports": {
+      "vscodeCommand": "editor.action.organizeImports",
+      "linux": [
+        "shift+alt+o"
+      ],
+      "mac": [
+        "shift+alt+o"
+      ]
+    },
+    "editor.action.outdentLines": {
+      "vscodeCommand": "editor.action.outdentLines",
+      "linux": [
+        "ctrl+["
+      ],
+      "mac": [
+        "meta+["
+      ]
+    },
+    "editor.action.previousMatchFindAction": {
+      "vscodeCommand": "editor.action.previousMatchFindAction",
+      "linux": [
+        "shift+enter",
+        "shift+f3"
+      ],
+      "mac": [
+        "shift+enter",
+        "shift+f3",
+        "shift+meta+g"
+      ]
+    },
+    "editor.action.quickFix": {
+      "vscodeCommand": "editor.action.quickFix",
+      "linux": [
+        "ctrl+."
+      ],
+      "mac": [
+        "meta+."
+      ]
+    },
+    "editor.action.removeCommentLine": {
+      "vscodeCommand": "editor.action.removeCommentLine",
+      "linux": [
+        "ctrl+k ctrl+u"
+      ],
+      "mac": [
+        "meta+k meta+u"
+      ]
+    },
+    "editor.action.revealDefinition": {
+      "vscodeCommand": "editor.action.revealDefinition",
+      "linux": [
+        "ctrl+f12",
+        "f12"
+      ],
+      "mac": [
+        "f12",
+        "meta+f12"
+      ]
+    },
+    "editor.action.revealDefinitionAside": {
+      "vscodeCommand": "editor.action.revealDefinitionAside",
+      "linux": [
+        "ctrl+k ctrl+f12",
+        "ctrl+k f12"
+      ],
+      "mac": [
+        "meta+k f12",
+        "meta+k meta+f12"
+      ]
+    },
+    "editor.action.selectAll": {
+      "vscodeCommand": "editor.action.selectAll",
+      "linux": [
+        "ctrl+a"
+      ],
+      "mac": [
+        "meta+a"
+      ]
+    },
+    "editor.action.selectHighlights": {
+      "vscodeCommand": "editor.action.selectHighlights",
+      "linux": [
+        "ctrl+shift+l"
+      ],
+      "mac": [
+        "shift+meta+l"
+      ]
+    },
+    "editor.action.showContextMenu": {
+      "vscodeCommand": "editor.action.showContextMenu",
+      "linux": [
+        "shift+f10"
+      ],
+      "mac": [
+        "shift+f10"
+      ]
+    },
+    "editor.action.showHover": {
+      "vscodeCommand": "editor.action.showHover",
+      "linux": [
+        "ctrl+k ctrl+i"
+      ],
+      "mac": [
+        "meta+k meta+i"
+      ]
+    },
+    "editor.action.toggleWordWrap": {
+      "vscodeCommand": "editor.action.toggleWordWrap",
+      "linux": [
+        "alt+z"
+      ],
+      "mac": [
+        "alt+z"
+      ]
+    },
+    "editor.action.triggerParameterHints": {
+      "vscodeCommand": "editor.action.triggerParameterHints",
+      "linux": [
+        "ctrl+shift+space"
+      ],
+      "mac": [
+        "shift+meta+space"
+      ]
+    },
+    "editor.action.triggerSuggest": {
+      "vscodeCommand": "editor.action.triggerSuggest",
+      "linux": [
+        "ctrl+i",
+        "ctrl+space"
+      ],
+      "mac": [
+        "alt+escape",
+        "ctrl+space",
+        "meta+i"
+      ]
+    },
+    "editor.action.trimTrailingWhitespace": {
+      "vscodeCommand": "editor.action.trimTrailingWhitespace",
+      "linux": [
+        "ctrl+k ctrl+x"
+      ],
+      "mac": [
+        "meta+k meta+x"
+      ]
+    },
+    "editor.fold": {
+      "vscodeCommand": "editor.fold",
+      "linux": [
+        "ctrl+shift+["
+      ],
+      "mac": [
+        "alt+meta+["
+      ]
+    },
+    "editor.foldAll": {
+      "vscodeCommand": "editor.foldAll",
+      "linux": [
+        "ctrl+k ctrl+0"
+      ],
+      "mac": [
+        "meta+k meta+0"
+      ]
+    },
+    "editor.foldLevel1": {
+      "vscodeCommand": "editor.foldLevel1",
+      "linux": [
+        "ctrl+k ctrl+1"
+      ],
+      "mac": [
+        "meta+k meta+1"
+      ]
+    },
+    "editor.foldLevel2": {
+      "vscodeCommand": "editor.foldLevel2",
+      "linux": [
+        "ctrl+k ctrl+2"
+      ],
+      "mac": [
+        "meta+k meta+2"
+      ]
+    },
+    "editor.foldLevel3": {
+      "vscodeCommand": "editor.foldLevel3",
+      "linux": [
+        "ctrl+k ctrl+3"
+      ],
+      "mac": [
+        "meta+k meta+3"
+      ]
+    },
+    "editor.foldLevel4": {
+      "vscodeCommand": "editor.foldLevel4",
+      "linux": [
+        "ctrl+k ctrl+4"
+      ],
+      "mac": [
+        "meta+k meta+4"
+      ]
+    },
+    "editor.foldLevel5": {
+      "vscodeCommand": "editor.foldLevel5",
+      "linux": [
+        "ctrl+k ctrl+5"
+      ],
+      "mac": [
+        "meta+k meta+5"
+      ]
+    },
+    "editor.foldLevel6": {
+      "vscodeCommand": "editor.foldLevel6",
+      "linux": [
+        "ctrl+k ctrl+6"
+      ],
+      "mac": [
+        "meta+k meta+6"
+      ]
+    },
+    "editor.foldLevel7": {
+      "vscodeCommand": "editor.foldLevel7",
+      "linux": [
+        "ctrl+k ctrl+7"
+      ],
+      "mac": [
+        "meta+k meta+7"
+      ]
+    },
+    "editor.foldRecursively": {
+      "vscodeCommand": "editor.foldRecursively",
+      "linux": [
+        "ctrl+k ctrl+["
+      ],
+      "mac": [
+        "meta+k meta+["
+      ]
+    },
+    "editor.toggleFold": {
+      "vscodeCommand": "editor.toggleFold",
+      "linux": [
+        "ctrl+k ctrl+l"
+      ],
+      "mac": [
+        "meta+k meta+l"
+      ]
+    },
+    "editor.unfold": {
+      "vscodeCommand": "editor.unfold",
+      "linux": [
+        "ctrl+shift+]"
+      ],
+      "mac": [
+        "alt+meta+]"
+      ]
+    },
+    "editor.unfoldAll": {
+      "vscodeCommand": "editor.unfoldAll",
+      "linux": [
+        "ctrl+k ctrl+j"
+      ],
+      "mac": [
+        "meta+k meta+j"
+      ]
+    },
+    "editor.unfoldRecursively": {
+      "vscodeCommand": "editor.unfoldRecursively",
+      "linux": [
+        "ctrl+k ctrl+]"
+      ],
+      "mac": [
+        "meta+k meta+]"
+      ]
+    },
+    "explorer.openToSide": {
+      "vscodeCommand": "explorer.openToSide",
+      "linux": [
+        "ctrl+enter"
+      ],
+      "mac": [
+        "ctrl+enter"
+      ]
+    },
+    "fileOperations.copy": {
+      "vscodeCommand": "filesExplorer.copy",
+      "linux": [
+        "ctrl+c"
+      ],
+      "mac": [
+        "meta+c"
+      ]
+    },
+    "fileOperations.copyPath": {
+      "vscodeCommand": "copyFilePath",
+      "linux": [
+        "ctrl+alt+c",
+        "ctrl+k ctrl+alt+c"
+      ],
+      "mac": [
+        "alt+meta+c",
+        "meta+k alt+meta+c"
+      ]
+    },
+    "fileOperations.copyRelativePath": {
+      "vscodeCommand": "copyRelativeFilePath",
+      "linux": [
+        "ctrl+k ctrl+shift+alt+c",
+        "ctrl+shift+alt+c"
+      ],
+      "mac": [
+        "meta+k shift+alt+meta+c",
+        "shift+alt+meta+c"
+      ]
+    },
+    "fileOperations.cut": {
+      "vscodeCommand": "filesExplorer.cut",
+      "linux": [
+        "ctrl+x"
+      ],
+      "mac": [
+        "meta+x"
+      ]
+    },
+    "fileOperations.deleteFile": {
+      "vscodeCommand": "moveFileToTrash",
+      "linux": [
+        "delete"
+      ],
+      "mac": [
+        "delete",
+        "meta+backspace"
+      ]
+    },
+    "fileOperations.paste": {
+      "vscodeCommand": "filesExplorer.paste",
+      "linux": [
+        "ctrl+v"
+      ],
+      "mac": [
+        "meta+v"
+      ]
+    },
+    "fileOperations.redo": {
+      "vscodeCommand": "redo",
+      "linux": [
+        "ctrl+shift+z",
+        "ctrl+y"
+      ],
+      "mac": [
+        "shift+meta+z"
+      ]
+    },
+    "fileOperations.rename": {
+      "vscodeCommand": "renameFile",
+      "linux": [
+        "f2"
+      ],
+      "mac": [
+        "enter"
+      ]
+    },
+    "fileOperations.undo": {
+      "vscodeCommand": "undo",
+      "linux": [
+        "ctrl+z"
+      ],
+      "mac": [
+        "meta+z"
+      ]
+    },
+    "hideSuggestWidget": {
+      "vscodeCommand": "hideSuggestWidget",
+      "linux": [
+        "escape",
+        "shift+escape"
+      ],
+      "mac": [
+        "escape",
+        "shift+escape"
+      ]
+    },
+    "input.copy": {
+      "vscodeCommand": "editor.action.clipboardCopyAction",
+      "linux": [
+        "ctrl+c"
+      ],
+      "mac": [
+        "meta+c"
+      ]
+    },
+    "input.cursorEnd": {
+      "vscodeCommand": "cursorEnd",
+      "linux": [
+        "end"
+      ],
+      "mac": [
+        "end",
+        "meta+right"
+      ]
+    },
+    "input.cursorHome": {
+      "vscodeCommand": "cursorHome",
+      "linux": [
+        "home"
+      ],
+      "mac": [
+        "home",
+        "meta+left"
+      ]
+    },
+    "input.cursorLeft": {
+      "vscodeCommand": "cursorLeft",
+      "linux": [
+        "left"
+      ],
+      "mac": [
+        "ctrl+b",
+        "left"
+      ]
+    },
+    "input.cursorRight": {
+      "vscodeCommand": "cursorRight",
+      "linux": [
+        "right"
+      ],
+      "mac": [
+        "ctrl+f",
+        "right"
+      ]
+    },
+    "input.cursorWordLeft": {
+      "vscodeCommand": "cursorWordLeft",
+      "linux": [
+        "ctrl+left"
+      ],
+      "mac": [
+        "alt+left"
+      ]
+    },
+    "input.cursorWordRight": {
+      "vscodeCommand": "cursorWordEndRight",
+      "linux": [
+        "ctrl+right"
+      ],
+      "mac": [
+        "alt+right"
+      ]
+    },
+    "input.cut": {
+      "vscodeCommand": "editor.action.clipboardCutAction",
+      "linux": [
+        "ctrl+x"
+      ],
+      "mac": [
+        "meta+x"
+      ]
+    },
+    "input.deleteLeft": {
+      "vscodeCommand": "deleteLeft",
+      "linux": [
+        "backspace",
+        "shift+backspace"
+      ],
+      "mac": [
+        "backspace",
+        "ctrl+backspace",
+        "ctrl+h",
+        "shift+backspace"
+      ]
+    },
+    "input.deleteRight": {
+      "vscodeCommand": "deleteRight",
+      "linux": [
+        "delete"
+      ],
+      "mac": [
+        "ctrl+d",
+        "ctrl+delete",
+        "delete"
+      ]
+    },
+    "input.deleteWordLeft": {
+      "vscodeCommand": "deleteWordLeft",
+      "linux": [
+        "ctrl+backspace"
+      ],
+      "mac": [
+        "alt+backspace"
+      ]
+    },
+    "input.deleteWordRight": {
+      "vscodeCommand": "deleteWordRight",
+      "linux": [
+        "ctrl+delete"
+      ],
+      "mac": [
+        "alt+delete"
+      ]
+    },
+    "input.paste": {
+      "vscodeCommand": "editor.action.clipboardPasteAction",
+      "linux": [
+        "ctrl+v",
+        "shift+insert"
+      ],
+      "mac": [
+        "meta+v"
+      ]
+    },
+    "input.redo": {
+      "vscodeCommand": "redo",
+      "linux": [
+        "ctrl+shift+z",
+        "ctrl+y"
+      ],
+      "mac": [
+        "shift+meta+z"
+      ]
+    },
+    "input.selectAll": {
+      "vscodeCommand": "editor.action.selectAll",
+      "linux": [
+        "ctrl+a"
+      ],
+      "mac": [
+        "meta+a"
+      ]
+    },
+    "input.selectLeft": {
+      "vscodeCommand": "cursorLeftSelect",
+      "linux": [
+        "shift+left"
+      ],
+      "mac": [
+        "shift+left"
+      ]
+    },
+    "input.selectRight": {
+      "vscodeCommand": "cursorRightSelect",
+      "linux": [
+        "shift+right"
+      ],
+      "mac": [
+        "shift+right"
+      ]
+    },
+    "input.selectToEnd": {
+      "vscodeCommand": "cursorEndSelect",
+      "linux": [
+        "shift+end"
+      ],
+      "mac": [
+        "shift+end",
+        "shift+meta+right"
+      ]
+    },
+    "input.selectToHome": {
+      "vscodeCommand": "cursorHomeSelect",
+      "linux": [
+        "shift+home"
+      ],
+      "mac": [
+        "shift+home",
+        "shift+meta+left"
+      ]
+    },
+    "input.selectWordLeft": {
+      "vscodeCommand": "cursorWordLeftSelect",
+      "linux": [
+        "ctrl+shift+left"
+      ],
+      "mac": [
+        "shift+alt+left"
+      ]
+    },
+    "input.selectWordRight": {
+      "vscodeCommand": "cursorWordEndRightSelect",
+      "linux": [
+        "ctrl+shift+right"
+      ],
+      "mac": [
+        "shift+alt+right"
+      ]
+    },
+    "input.undo": {
+      "vscodeCommand": "undo",
+      "linux": [
+        "ctrl+z"
+      ],
+      "mac": [
+        "meta+z"
+      ]
+    },
+    "list.focusFirst": {
+      "vscodeCommand": "list.focusFirst",
+      "linux": [
+        "home"
+      ],
+      "mac": [
+        "home"
+      ]
+    },
+    "list.focusLast": {
+      "vscodeCommand": "list.focusLast",
+      "linux": [
+        "end"
+      ],
+      "mac": [
+        "end"
+      ]
+    },
+    "list.focusPageDown": {
+      "vscodeCommand": "list.focusPageDown",
+      "linux": [
+        "pagedown"
+      ],
+      "mac": [
+        "pagedown"
+      ]
+    },
+    "list.focusPageUp": {
+      "vscodeCommand": "list.focusPageUp",
+      "linux": [
+        "pageup"
+      ],
+      "mac": [
+        "pageup"
+      ]
+    },
+    "redo": {
+      "vscodeCommand": "redo",
+      "linux": [
+        "ctrl+shift+z",
+        "ctrl+y"
+      ],
+      "mac": [
+        "shift+meta+z"
+      ]
+    },
+    "references-view.findReferences": {
+      "vscodeCommand": "references-view.findReferences",
+      "linux": [
+        "shift+alt+f12"
+      ],
+      "mac": [
+        "shift+alt+f12"
+      ]
+    },
+    "references-view.next": {
+      "vscodeCommand": "references-view.next",
+      "linux": [
+        "f4"
+      ],
+      "mac": [
+        "f4"
+      ]
+    },
+    "references-view.prev": {
+      "vscodeCommand": "references-view.prev",
+      "linux": [
+        "shift+f4"
+      ],
+      "mac": [
+        "shift+f4"
+      ]
+    },
+    "removeSecondaryCursors": {
+      "vscodeCommand": "removeSecondaryCursors",
+      "linux": [
+        "escape",
+        "shift+escape"
+      ],
+      "mac": [
+        "escape",
+        "shift+escape"
+      ]
+    },
+    "scrollLineDown": {
+      "vscodeCommand": "scrollLineDown",
+      "linux": [
+        "ctrl+down"
+      ],
+      "mac": [
+        "ctrl+pagedown"
+      ]
+    },
+    "scrollLineUp": {
+      "vscodeCommand": "scrollLineUp",
+      "linux": [
+        "ctrl+up"
+      ],
+      "mac": [
+        "ctrl+pageup"
+      ]
+    },
+    "search.action.focusSearchFromResults": {
+      "vscodeCommand": "search.action.focusSearchFromResults",
+      "linux": [
+        "ctrl+up"
+      ],
+      "mac": [
+        "meta+up"
+      ]
+    },
+    "search.focus.nextInputBox": {
+      "vscodeCommand": "search.focus.nextInputBox",
+      "linux": [
+        "ctrl+down"
+      ],
+      "mac": [
+        "meta+down"
+      ]
+    },
+    "search.focus.previousInputBox": {
+      "vscodeCommand": "search.focus.previousInputBox",
+      "linux": [
+        "ctrl+up"
+      ],
+      "mac": [
+        "meta+up"
+      ]
+    },
+    "selectNextPageSuggestion": {
+      "vscodeCommand": "selectNextPageSuggestion",
+      "linux": [
+        "ctrl+pagedown",
+        "pagedown"
+      ],
+      "mac": [
+        "meta+pagedown",
+        "pagedown"
+      ]
+    },
+    "selectNextSuggestion": {
+      "vscodeCommand": "selectNextSuggestion",
+      "linux": [
+        "ctrl+down",
+        "down"
+      ],
+      "mac": [
+        "ctrl+n",
+        "down",
+        "meta+down"
+      ]
+    },
+    "selectPrevPageSuggestion": {
+      "vscodeCommand": "selectPrevPageSuggestion",
+      "linux": [
+        "ctrl+pageup",
+        "pageup"
+      ],
+      "mac": [
+        "meta+pageup",
+        "pageup"
+      ]
+    },
+    "selectPrevSuggestion": {
+      "vscodeCommand": "selectPrevSuggestion",
+      "linux": [
+        "ctrl+up",
+        "up"
+      ],
+      "mac": [
+        "ctrl+p",
+        "meta+up",
+        "up"
+      ]
+    },
+    "showNextParameterHint": {
+      "vscodeCommand": "showNextParameterHint",
+      "linux": [
+        "alt+down",
+        "down"
+      ],
+      "mac": [
+        "alt+down",
+        "ctrl+n",
+        "down"
+      ]
+    },
+    "showPrevParameterHint": {
+      "vscodeCommand": "showPrevParameterHint",
+      "linux": [
+        "alt+up",
+        "up"
+      ],
+      "mac": [
+        "alt+up",
+        "ctrl+p",
+        "up"
+      ]
+    },
+    "toggleSuggestionDetails": {
+      "vscodeCommand": "toggleSuggestionDetails",
+      "linux": [
+        "ctrl+i",
+        "ctrl+space"
+      ],
+      "mac": [
+        "ctrl+space",
+        "meta+i"
+      ]
+    },
+    "undo": {
+      "vscodeCommand": "undo",
+      "linux": [
+        "ctrl+z"
+      ],
+      "mac": [
+        "meta+z"
+      ]
+    },
+    "workbench.action.closeActiveEditor": {
+      "vscodeCommand": "workbench.action.closeActiveEditor",
+      "linux": [
+        "ctrl+w"
+      ],
+      "mac": [
+        "meta+w"
+      ]
+    },
+    "workbench.action.closeAllEditors": {
+      "vscodeCommand": "workbench.action.closeAllEditors",
+      "linux": [
+        "ctrl+k ctrl+w"
+      ],
+      "mac": [
+        "meta+k meta+w"
+      ]
+    },
+    "workbench.action.closeEditorsInGroup": {
+      "vscodeCommand": "workbench.action.closeEditorsInGroup",
+      "linux": [
+        "ctrl+k w"
+      ],
+      "mac": [
+        "meta+k w"
+      ]
+    },
+    "workbench.action.closeOtherEditors": {
+      "vscodeCommand": "workbench.action.closeOtherEditors",
+      "linux": [],
+      "mac": [
+        "alt+meta+t"
+      ]
+    },
+    "workbench.action.closeUnmodifiedEditors": {
+      "vscodeCommand": "workbench.action.closeUnmodifiedEditors",
+      "linux": [
+        "ctrl+k u"
+      ],
+      "mac": [
+        "meta+k u"
+      ]
+    },
+    "workbench.action.files.newUntitledFile": {
+      "vscodeCommand": "workbench.action.files.newUntitledFile",
+      "linux": [
+        "ctrl+n"
+      ],
+      "mac": [
+        "meta+n"
+      ]
+    },
+    "workbench.action.files.openFile": {
+      "vscodeCommand": "workbench.action.files.openFile",
+      "linux": [
+        "ctrl+o"
+      ],
+      "mac": [
+        "meta+o"
+      ]
+    },
+    "workbench.action.files.openFolder": {
+      "vscodeCommand": "workbench.action.files.openFolder",
+      "linux": [
+        "ctrl+k ctrl+o"
+      ],
+      "mac": []
+    },
+    "workbench.action.files.save": {
+      "vscodeCommand": "workbench.action.files.save",
+      "linux": [
+        "ctrl+s"
+      ],
+      "mac": [
+        "meta+s"
+      ]
+    },
+    "workbench.action.files.saveAs": {
+      "vscodeCommand": "workbench.action.files.saveAs",
+      "linux": [
+        "ctrl+shift+s"
+      ],
+      "mac": [
+        "shift+meta+s"
+      ]
+    },
+    "workbench.action.focusAboveGroup": {
+      "vscodeCommand": "workbench.action.focusAboveGroup",
+      "linux": [
+        "ctrl+k ctrl+up"
+      ],
+      "mac": [
+        "meta+k meta+up"
+      ]
+    },
+    "workbench.action.focusBelowGroup": {
+      "vscodeCommand": "workbench.action.focusBelowGroup",
+      "linux": [
+        "ctrl+k ctrl+down"
+      ],
+      "mac": [
+        "meta+k meta+down"
+      ]
+    },
+    "workbench.action.focusEighthEditorGroup": {
+      "vscodeCommand": "workbench.action.focusEighthEditorGroup",
+      "linux": [
+        "ctrl+8"
+      ],
+      "mac": [
+        "meta+8"
+      ]
+    },
+    "workbench.action.focusFifthEditorGroup": {
+      "vscodeCommand": "workbench.action.focusFifthEditorGroup",
+      "linux": [
+        "ctrl+5"
+      ],
+      "mac": [
+        "meta+5"
+      ]
+    },
+    "workbench.action.focusFirstEditorGroup": {
+      "vscodeCommand": "workbench.action.focusFirstEditorGroup",
+      "linux": [
+        "ctrl+1"
+      ],
+      "mac": [
+        "meta+1"
+      ]
+    },
+    "workbench.action.focusFourthEditorGroup": {
+      "vscodeCommand": "workbench.action.focusFourthEditorGroup",
+      "linux": [
+        "ctrl+4"
+      ],
+      "mac": [
+        "meta+4"
+      ]
+    },
+    "workbench.action.focusLeftGroup": {
+      "vscodeCommand": "workbench.action.focusLeftGroup",
+      "linux": [
+        "ctrl+k ctrl+left"
+      ],
+      "mac": [
+        "meta+k meta+left"
+      ]
+    },
+    "workbench.action.focusRightGroup": {
+      "vscodeCommand": "workbench.action.focusRightGroup",
+      "linux": [
+        "ctrl+k ctrl+right"
+      ],
+      "mac": [
+        "meta+k meta+right"
+      ]
+    },
+    "workbench.action.focusSecondEditorGroup": {
+      "vscodeCommand": "workbench.action.focusSecondEditorGroup",
+      "linux": [
+        "ctrl+2"
+      ],
+      "mac": [
+        "meta+2"
+      ]
+    },
+    "workbench.action.focusSeventhEditorGroup": {
+      "vscodeCommand": "workbench.action.focusSeventhEditorGroup",
+      "linux": [
+        "ctrl+7"
+      ],
+      "mac": [
+        "meta+7"
+      ]
+    },
+    "workbench.action.focusSixthEditorGroup": {
+      "vscodeCommand": "workbench.action.focusSixthEditorGroup",
+      "linux": [
+        "ctrl+6"
+      ],
+      "mac": [
+        "meta+6"
+      ]
+    },
+    "workbench.action.focusThirdEditorGroup": {
+      "vscodeCommand": "workbench.action.focusThirdEditorGroup",
+      "linux": [
+        "ctrl+3"
+      ],
+      "mac": [
+        "meta+3"
+      ]
+    },
+    "workbench.action.gotoLine": {
+      "vscodeCommand": "workbench.action.gotoLine",
+      "linux": [
+        "ctrl+g"
+      ],
+      "mac": [
+        "ctrl+g"
+      ]
+    },
+    "workbench.action.moveActiveEditorGroupLeft": {
+      "vscodeCommand": "workbench.action.moveActiveEditorGroupLeft",
+      "linux": [
+        "ctrl+k left"
+      ],
+      "mac": [
+        "meta+k left"
+      ]
+    },
+    "workbench.action.moveActiveEditorGroupRight": {
+      "vscodeCommand": "workbench.action.moveActiveEditorGroupRight",
+      "linux": [
+        "ctrl+k right"
+      ],
+      "mac": [
+        "meta+k right"
+      ]
+    },
+    "workbench.action.moveEditorToNextGroup": {
+      "vscodeCommand": "workbench.action.moveEditorToNextGroup",
+      "linux": [
+        "ctrl+alt+right"
+      ],
+      "mac": [
+        "ctrl+meta+right"
+      ]
+    },
+    "workbench.action.moveEditorToPreviousGroup": {
+      "vscodeCommand": "workbench.action.moveEditorToPreviousGroup",
+      "linux": [
+        "ctrl+alt+left"
+      ],
+      "mac": [
+        "ctrl+meta+left"
+      ]
+    },
+    "workbench.action.navigateBack": {
+      "vscodeCommand": "workbench.action.navigateBack",
+      "linux": [
+        "browserback",
+        "ctrl+alt+-"
+      ],
+      "mac": [
+        "browserback",
+        "ctrl+-"
+      ]
+    },
+    "workbench.action.navigateForward": {
+      "vscodeCommand": "workbench.action.navigateForward",
+      "linux": [
+        "browserforward",
+        "ctrl+shift+-"
+      ],
+      "mac": [
+        "browserforward",
+        "ctrl+shift+-"
+      ]
+    },
+    "workbench.action.nextEditor": {
+      "vscodeCommand": "workbench.action.nextEditor",
+      "linux": [
+        "ctrl+pagedown"
+      ],
+      "mac": [
+        "alt+meta+right",
+        "shift+meta+]"
+      ]
+    },
+    "workbench.action.nextEditorInGroup": {
+      "vscodeCommand": "workbench.action.nextEditorInGroup",
+      "linux": [
+        "ctrl+k ctrl+pagedown"
+      ],
+      "mac": [
+        "meta+k alt+meta+right"
+      ]
+    },
+    "workbench.action.openGlobalKeybindings": {
+      "vscodeCommand": "workbench.action.openGlobalKeybindings",
+      "linux": [
+        "ctrl+k ctrl+s"
+      ],
+      "mac": [
+        "meta+k meta+s"
+      ]
+    },
+    "workbench.action.openSettings": {
+      "vscodeCommand": "workbench.action.openSettings",
+      "linux": [
+        "ctrl+,"
+      ],
+      "mac": [
+        "meta+,"
+      ]
+    },
+    "workbench.action.output.toggleOutput": {
+      "vscodeCommand": "workbench.action.output.toggleOutput",
+      "linux": [
+        "ctrl+k ctrl+h"
+      ],
+      "mac": [
+        "shift+meta+u"
+      ]
+    },
+    "workbench.action.previousEditor": {
+      "vscodeCommand": "workbench.action.previousEditor",
+      "linux": [
+        "ctrl+pageup"
+      ],
+      "mac": [
+        "alt+meta+left",
+        "shift+meta+["
+      ]
+    },
+    "workbench.action.previousEditorInGroup": {
+      "vscodeCommand": "workbench.action.previousEditorInGroup",
+      "linux": [
+        "ctrl+k ctrl+pageup"
+      ],
+      "mac": [
+        "meta+k alt+meta+left"
+      ]
+    },
+    "workbench.action.quickOpen": {
+      "vscodeCommand": "workbench.action.quickOpen",
+      "linux": [
+        "ctrl+e",
+        "ctrl+p"
+      ],
+      "mac": [
+        "meta+p"
+      ]
+    },
+    "workbench.action.quit": {
+      "vscodeCommand": "workbench.action.quit",
+      "linux": [
+        "ctrl+q"
+      ],
+      "mac": [
+        "meta+q"
+      ]
+    },
+    "workbench.action.reloadWindow": {
+      "vscodeCommand": "workbench.action.reloadWindow",
+      "linux": [
+        "ctrl+r"
+      ],
+      "mac": [
+        "meta+r"
+      ]
+    },
+    "workbench.action.search.toggleQueryDetails": {
+      "vscodeCommand": "workbench.action.search.toggleQueryDetails",
+      "linux": [
+        "ctrl+shift+j"
+      ],
+      "mac": [
+        "shift+meta+j"
+      ]
+    },
+    "workbench.action.selectTheme": {
+      "vscodeCommand": "workbench.action.selectTheme",
+      "linux": [
+        "ctrl+k ctrl+t"
+      ],
+      "mac": [
+        "meta+k meta+t"
+      ]
+    },
+    "workbench.action.showAllEditors": {
+      "vscodeCommand": "workbench.action.showAllEditors",
+      "linux": [
+        "ctrl+k ctrl+p"
+      ],
+      "mac": [
+        "alt+meta+tab"
+      ]
+    },
+    "workbench.action.showCommands": {
+      "vscodeCommand": "workbench.action.showCommands",
+      "linux": [
+        "ctrl+shift+p",
+        "f1"
+      ],
+      "mac": [
+        "f1",
+        "shift+meta+p"
+      ]
+    },
+    "workbench.action.splitEditor": {
+      "vscodeCommand": "workbench.action.splitEditor",
+      "linux": [
+        "ctrl+\\"
+      ],
+      "mac": [
+        "meta+\\"
+      ]
+    },
+    "workbench.action.splitEditorDown": {
+      "vscodeCommand": "workbench.action.splitEditorDown",
+      "linux": [
+        "ctrl+k ctrl+\\"
+      ],
+      "mac": [
+        "meta+k meta+\\"
+      ]
+    },
+    "workbench.action.splitEditorLeft": {
+      "vscodeCommand": "workbench.action.splitEditorLeft",
+      "linux": [
+        "ctrl+k ctrl+\\"
+      ],
+      "mac": [
+        "meta+k meta+\\"
+      ]
+    },
+    "workbench.action.splitEditorRight": {
+      "vscodeCommand": "workbench.action.splitEditorRight",
+      "linux": [
+        "ctrl+k ctrl+\\"
+      ],
+      "mac": [
+        "meta+k meta+\\"
+      ]
+    },
+    "workbench.action.splitEditorUp": {
+      "vscodeCommand": "workbench.action.splitEditorUp",
+      "linux": [
+        "ctrl+k ctrl+\\"
+      ],
+      "mac": [
+        "meta+k meta+\\"
+      ]
+    },
+    "workbench.action.terminal.new": {
+      "vscodeCommand": "workbench.action.terminal.new",
+      "linux": [
+        "ctrl+shift+`"
+      ],
+      "mac": [
+        "ctrl+shift+`"
+      ]
+    },
+    "workbench.action.terminal.toggleTerminal": {
+      "vscodeCommand": "workbench.action.terminal.toggleTerminal",
+      "linux": [
+        "ctrl+`"
+      ],
+      "mac": [
+        "ctrl+`"
+      ]
+    },
+    "workbench.action.toggleEditorGroupLayout": {
+      "vscodeCommand": "workbench.action.toggleEditorGroupLayout",
+      "linux": [
+        "shift+alt+0"
+      ],
+      "mac": [
+        "alt+meta+0"
+      ]
+    },
+    "workbench.action.toggleMaximizeEditorGroup": {
+      "vscodeCommand": "workbench.action.toggleMaximizeEditorGroup",
+      "linux": [
+        "ctrl+k ctrl+m"
+      ],
+      "mac": [
+        "meta+k meta+m"
+      ]
+    },
+    "workbench.action.togglePanel": {
+      "vscodeCommand": "workbench.action.togglePanel",
+      "linux": [
+        "ctrl+j"
+      ],
+      "mac": [
+        "meta+j"
+      ]
+    },
+    "workbench.action.toggleSidebarVisibility": {
+      "vscodeCommand": "workbench.action.toggleSidebarVisibility",
+      "linux": [
+        "ctrl+b"
+      ],
+      "mac": [
+        "meta+b"
+      ]
+    },
+    "workbench.actions.view.problems": {
+      "vscodeCommand": "workbench.actions.view.problems",
+      "linux": [
+        "ctrl+shift+m"
+      ],
+      "mac": [
+        "shift+meta+m"
+      ]
+    },
+    "workbench.files.action.compareWithClipboard": {
+      "vscodeCommand": "workbench.files.action.compareWithClipboard",
+      "linux": [
+        "ctrl+k c"
+      ],
+      "mac": [
+        "meta+k c"
+      ]
+    },
+    "workbench.files.action.compareWithSaved": {
+      "vscodeCommand": "workbench.files.action.compareWithSaved",
+      "linux": [
+        "ctrl+k d"
+      ],
+      "mac": [
+        "meta+k d"
+      ]
+    },
+    "workbench.view.explorer": {
+      "vscodeCommand": "workbench.view.explorer",
+      "linux": [
+        "ctrl+shift+e"
+      ],
+      "mac": [
+        "shift+meta+e"
+      ]
+    },
+    "workbench.view.extensions": {
+      "vscodeCommand": "workbench.view.extensions",
+      "linux": [
+        "ctrl+shift+x"
+      ],
+      "mac": [
+        "shift+meta+x"
+      ]
+    },
+    "workbench.view.scm": {
+      "vscodeCommand": "workbench.view.scm",
+      "linux": [
+        "ctrl+shift+g"
+      ],
+      "mac": [
+        "ctrl+shift+g"
+      ]
+    },
+    "workbench.view.search": {
+      "vscodeCommand": "workbench.view.search",
+      "linux": [
+        "ctrl+shift+f"
+      ],
+      "mac": [
+        "shift+meta+f"
+      ]
+    }
+  }
+}

@@ -50,7 +50,7 @@ export const openSettingsAction: CommandAction = {
     title: "Preferences: Open User Settings",
     shortTitle: "Settings",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 10 }],
-    keybinding: parseKeybinding("ctrl+,"),
+    keybinding: parseKeybinding("mod+,"),
     run(accessor) {
         openUserConfigFile(accessor, accessor.get(SettingsResourceDIToken), "settings");
     },
@@ -66,7 +66,7 @@ export const openKeybindingsAction: CommandAction = {
     title: "Preferences: Open Keyboard Shortcuts",
     shortTitle: "Keyboard Shortcuts",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 20 }],
-    keybinding: parseChord("ctrl+k ctrl+s"),
+    keybinding: parseChord("mod+k mod+s"),
     run(accessor) {
         const pane = new KeybindingsEditorPane(
             accessor.get(KeybindingRegistryDIToken),

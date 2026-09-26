@@ -100,9 +100,9 @@ describe("commentActions — id и бинды, как в VS Code", () => {
         expect(commentLineAction.id).toBe("editor.action.commentLine");
         expect(commentLineAction.keybinding).toEqual(parseKeybinding("mod+/"));
         expect(addCommentLineAction.id).toBe("editor.action.addCommentLine");
-        expect(addCommentLineAction.keybinding).toEqual(parseChord("ctrl+k ctrl+c"));
+        expect(addCommentLineAction.keybinding).toEqual(parseChord("mod+k mod+c"));
         expect(removeCommentLineAction.id).toBe("editor.action.removeCommentLine");
-        expect(removeCommentLineAction.keybinding).toEqual(parseChord("ctrl+k ctrl+u"));
+        expect(removeCommentLineAction.keybinding).toEqual(parseChord("mod+k mod+u"));
         expect(blockCommentAction.id).toBe("editor.action.blockComment");
         expect(blockCommentAction.keybinding).toEqual(parseKeybinding("shift+alt+a"));
         for (const action of [commentLineAction, addCommentLineAction, removeCommentLineAction, blockCommentAction]) {

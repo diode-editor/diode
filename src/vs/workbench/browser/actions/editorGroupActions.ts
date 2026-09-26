@@ -177,7 +177,7 @@ function focusGroupByIndexAction(ordinal: string, index: number, withKeys: boole
         shortTitle: `Focus ${ordinal} Editor Group`,
         ...(withKeys
             ? {
-                  keybinding: { keys: parseKeybinding(`ctrl+${digit}`), when: EXTENDED_TIERS },
+                  keybinding: { keys: parseKeybinding(`mod+${digit}`), when: EXTENDED_TIERS },
                   keybindings: [parseChord(`ctrl+k ${digit}`)],
               }
             : {}),
@@ -199,7 +199,7 @@ export const focusEighthEditorGroupAction = focusGroupByIndexAction("Eighth", 7,
 export const focusLeftGroupAction: CommandAction = {
     id: "workbench.action.focusLeftGroup",
     title: "View: Focus Editor Group to the Left",
-    keybinding: parseChord("ctrl+k ctrl+left"),
+    keybinding: parseChord("mod+k mod+left"),
     run(accessor) {
         directionalFocus(accessor, "columns", "previous");
     },
@@ -208,7 +208,7 @@ export const focusLeftGroupAction: CommandAction = {
 export const focusRightGroupAction: CommandAction = {
     id: "workbench.action.focusRightGroup",
     title: "View: Focus Editor Group to the Right",
-    keybinding: parseChord("ctrl+k ctrl+right"),
+    keybinding: parseChord("mod+k mod+right"),
     run(accessor) {
         directionalFocus(accessor, "columns", "next");
     },
@@ -217,7 +217,7 @@ export const focusRightGroupAction: CommandAction = {
 export const focusAboveGroupAction: CommandAction = {
     id: "workbench.action.focusAboveGroup",
     title: "View: Focus Editor Group Above",
-    keybinding: parseChord("ctrl+k ctrl+up"),
+    keybinding: parseChord("mod+k mod+up"),
     run(accessor) {
         directionalFocus(accessor, "rows", "previous");
     },
@@ -226,7 +226,7 @@ export const focusAboveGroupAction: CommandAction = {
 export const focusBelowGroupAction: CommandAction = {
     id: "workbench.action.focusBelowGroup",
     title: "View: Focus Editor Group Below",
-    keybinding: parseChord("ctrl+k ctrl+down"),
+    keybinding: parseChord("mod+k mod+down"),
     run(accessor) {
         directionalFocus(accessor, "rows", "next");
     },
@@ -409,7 +409,7 @@ export const toggleMaximizeEditorGroupAction: CommandAction = {
 export const closeEditorsInGroupAction: CommandAction = {
     id: "workbench.action.closeEditorsInGroup",
     title: "View: Close All Editors in Group",
-    keybinding: parseChord("ctrl+k w"),
+    keybinding: parseChord("mod+k w"),
     when: "editorGroupHasEditors",
     run(accessor) {
         const service = accessor.get(EditorServiceDIToken);
@@ -432,7 +432,7 @@ export const closeAllEditorsAction: CommandAction = {
     title: "View: Close All Editors",
     shortTitle: "Close All",
     menus: [{ menuId: MenuId.EditorTitleContext, group: "1_close", order: 50 }],
-    keybinding: parseChord("ctrl+k ctrl+w"),
+    keybinding: parseChord("mod+k mod+w"),
     when: "editorGroupHasEditors",
     run(accessor) {
         const service = accessor.get(EditorServiceDIToken);

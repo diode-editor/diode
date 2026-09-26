@@ -195,7 +195,7 @@ describe("метаданные формат-команд", () => {
         expect(formatSelectionAction.id).toBe("editor.action.formatSelection");
         expect(formatSelectionAction.title).toBe("Format Selection");
         expect(formatSelectionAction.when).toBe("textInputFocus && !editorReadonly");
-        expect(formatSelectionAction.keybinding).toEqual(parseChord("ctrl+k ctrl+f"));
+        expect(formatSelectionAction.keybinding).toEqual(parseChord("mod+k mod+f"));
     });
 });
 

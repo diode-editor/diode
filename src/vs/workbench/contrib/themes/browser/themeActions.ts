@@ -79,7 +79,7 @@ export const selectThemeAction: CommandAction = {
     title: "Preferences: Color Theme",
     shortTitle: "Color Theme",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "2_theme", order: 10 }],
-    keybinding: parseChord("ctrl+k ctrl+t"),
+    keybinding: parseChord("mod+k mod+t"),
     run(accessor) {
         void selectColorTheme(accessor);
     },

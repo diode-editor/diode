@@ -54,7 +54,7 @@ export const commentLineAction: CommandAction = {
 export const addCommentLineAction: CommandAction = {
     id: "editor.action.addCommentLine",
     title: "Add Line Comment",
-    keybinding: parseChord("ctrl+k ctrl+c"),
+    keybinding: parseChord("mod+k mod+c"),
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         return withCommentRule(accessor, addLineComment);
@@ -64,7 +64,7 @@ export const addCommentLineAction: CommandAction = {
 export const removeCommentLineAction: CommandAction = {
     id: "editor.action.removeCommentLine",
     title: "Remove Line Comment",
-    keybinding: parseChord("ctrl+k ctrl+u"),
+    keybinding: parseChord("mod+k mod+u"),
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         return withCommentRule(accessor, removeLineComment);
