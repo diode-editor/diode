@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
@@ -15,7 +16,8 @@ interface StubRpc {
     rpc: RpcEndpoint;
     /** Принимает путь на диске и поднимает его в ресурс — как это делает хост. */
     fireActiveEditorChanged: (filePath: string | null) => void;
-    request: ReturnType<typeof vi.fn>;
+    /** Мок исходящих запросов; тип сигнатуры — чтобы читать методы из `mock.calls`. */
+    request: Mock<(method: string, params?: unknown) => Promise<unknown>>;
 }
 
 function makeStubRpc(): StubRpc {
@@ -242,20 +244,24 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(vscode.ExtensionMode.Test).toBe(3);
     });
 
-    it("env — наивные поля, которые читает vscode-languageclient", async () => {
-        const { rpc } = makeStubRpc();
-        const vscode = buildVscodeNamespace(rpc).namespace as unknown as {
-            env: {
-                appName: string;
-                language: string;
-                clipboard: { readText(): Thenable<string>; writeText(t: string): Thenable<void> };
-                openExternal(): Thenable<boolean>;
-            };
-        };
+    // Провод env закрыт в envNamespace.test.ts; здесь — что ассемблер его
+    // действительно отдаёт наружу под именем `env` (а не забыл поле).
+    it("env — константы читает vscode-languageclient, буфер и ссылки едут хосту", async () => {
+        const { rpc, request } = makeStubRpc();
+        request.mockImplementation((method: string) =>
+            Promise.resolve(method === "env.clipboard.readText" ? { text: "буфер" } : { opened: true }),
+        );
+        const vscode = buildVscodeNamespace(rpc).namespace;
         expect(vscode.env.appName).toBe("Diode");
         expect(vscode.env.language).toBe("en");
-        expect(await vscode.env.clipboard.readText()).toBe("");
+        expect(vscode.env.uriScheme).toBe("diode");
+        expect(await vscode.env.clipboard.readText()).toBe("буфер");
         await vscode.env.clipboard.writeText("x");
-        expect(await vscode.env.openExternal()).toBe(false);
+        expect(await vscode.env.openExternal(Uri.parse("https://example.com"))).toBe(true);
+        expect(request.mock.calls.map(([method]) => method)).toEqual([
+            "env.clipboard.readText",
+            "env.clipboard.writeText",
+            "env.openExternal",
+        ]);
     });
 });

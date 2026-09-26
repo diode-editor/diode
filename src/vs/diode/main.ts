@@ -49,6 +49,7 @@ import type { ILogger } from "../platform/log/common/iLogger.ts";
 import { LogService } from "../platform/log/common/logService.ts";
 import { RingBufferSink } from "../platform/log/common/ringBufferSink.ts";
 import { FileSink } from "../platform/log/node/fileSink.ts";
+import { SystemExternalOpener } from "../platform/opener/node/systemExternalOpener.ts";
 import { loadState } from "../platform/state/node/stateService.ts";
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
@@ -68,6 +69,7 @@ import { DEFAULT_COLOR_THEME } from "../workbench/services/themes/common/themes/
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
 import { TokenThemeResolver } from "../workbench/services/themes/common/tokenThemeResolver.ts";
 
+import { NULL_EXTERNAL_OPENER } from "./modules/backendModule.ts";
 import { createProductionContainer } from "./modules/productionProfile.ts";
 import { runAsNode } from "./runAsNode.ts";
 
@@ -200,6 +202,13 @@ async function runEditor(): Promise<void> {
     const clipboard = new OscClipboard((seq) => {
         backend.writeOscSequence(seq);
     });
+    // Системный открыватель ссылок (`env.openExternal`). В headless-режиме его
+    // нет: за экраном никого, а браузер на машине, которая гоняет автоматику,
+    // не нужен никому — ссылка уедет тостом, и её увидит тот, кто смотрит кадр.
+    const externalOpener =
+        headlessBackend === null
+            ? new SystemExternalOpener({ platform: process.platform, env: process.env })
+            : NULL_EXTERNAL_OPENER;
     // Инспектор поднимается ниже и только по `--inspect-tui`; ссылку держим
     // здесь, потому что перезагрузка окна обязана освободить его порт.
     let inspectorHandle: AttachedInspector | null = null;
@@ -266,6 +275,7 @@ async function runEditor(): Promise<void> {
         theme: initialTheme,
         themeRegistry,
         clipboard,
+        externalOpener,
         tokenizationRegistry,
         tokenStyleResolver,
         languageService: languageRegistry,

@@ -11,6 +11,7 @@ import type { IConfigurationService } from "../../platform/configuration/common/
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
 import type { ILogService } from "../../platform/log/common/iLogService.ts";
+import type { IExternalOpener } from "../../platform/opener/common/iExternalOpener.ts";
 import type { IStateService } from "../../platform/state/common/iStateService.ts";
 import type { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import type { ILogHistory } from "../../workbench/services/output/common/output.ts";
@@ -43,6 +44,8 @@ export interface ProductionProfileContext {
     theme: WorkbenchTheme;
     themeRegistry: ThemeRegistry;
     clipboard: IClipboard;
+    /** Системный открыватель ссылок (`env.openExternal`); в headless его нет. */
+    externalOpener: IExternalOpener;
     tokenizationRegistry: TokenizationRegistry;
     tokenStyleResolver: ITokenStyleResolver;
     languageService: ILanguageService;
@@ -79,7 +82,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(loggingModule, { logService: ctx.logService, logHistory: ctx.logHistory })
         .use(commandsModule)
         .use(themeModule, { theme: ctx.theme, themeRegistry: ctx.themeRegistry })
-        .use(backendModule, { clipboard: ctx.clipboard })
+        .use(backendModule, { clipboard: ctx.clipboard, externalOpener: ctx.externalOpener })
         .use(tokenizationModule, {
             tokenizationRegistry: ctx.tokenizationRegistry,
             tokenStyleResolver: ctx.tokenStyleResolver,

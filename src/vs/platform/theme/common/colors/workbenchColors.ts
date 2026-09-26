@@ -96,6 +96,34 @@ export const workbenchColors = {
         defaults: { dark: "#FFFFFF", light: "#3B3B3B" },
         description: "Status Bar item foreground color when hovering.",
     },
+    // Тосты сообщений. VS Code выводит эти дефолты из editorWidget.* и
+    // editor{Error,Warning,Info}.foreground; производных цветов реестр не
+    // поддерживает, поэтому значения продублированы hex-ом — держи их в
+    // лок-степе с источниками в editorColors.ts (политика `editorHoverWidget.*`).
+    "notifications.background": {
+        defaults: { dark: "#252526", light: "#F3F3F3" },
+        description: "Notifications background color.",
+    },
+    "notifications.foreground": {
+        defaults: { dark: "#CCCCCC", light: "#616161" },
+        description: "Notifications foreground color.",
+    },
+    "notifications.border": {
+        defaults: { dark: "#454545", light: "#C8C8C8" },
+        description: "Notifications border color separating from other notifications.",
+    },
+    "notificationsErrorIcon.foreground": {
+        defaults: { dark: "#F14C4C", light: "#E51400" },
+        description: "The color used for the notification error icon.",
+    },
+    "notificationsWarningIcon.foreground": {
+        defaults: { dark: "#CCA700", light: "#BF8803" },
+        description: "The color used for the notification warning icon.",
+    },
+    "notificationsInfoIcon.foreground": {
+        defaults: { dark: "#3794FF", light: "#1A85FF" },
+        description: "The color used for the notification info icon.",
+    },
     "titleBar.activeBackground": {
         defaults: null,
         description: "Title Bar background when the window is active.",

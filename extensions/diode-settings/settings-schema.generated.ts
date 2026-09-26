@@ -205,6 +205,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "mac", "linux", "windows"],
     },
     {
+        key: "notifications.autoHideTimeout",
+        type: "number",
+        default: 15000,
+        description:
+            "How long an informational notification without buttons stays on screen, in milliseconds. 0 keeps it until dismissed. Warnings, errors and notifications with buttons never hide by themselves.",
+    },
+    {
         key: "scm.graph.pageSize",
         type: "number",
         default: 50,

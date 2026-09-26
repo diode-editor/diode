@@ -2224,4 +2224,105 @@ export function parseWireExtensionActivated(raw: unknown): string | null {
     if (typeof raw !== "object" || raw === null) return null;
     const { id } = raw as { id?: unknown };
     return typeof id === "string" && id !== "" ? id : null;
+
+// ─── Сообщения с кнопками (window.show{Information,Warning,Error}Message) ────
+// Сообщение — это ВОПРОС, когда у него есть пункты: обещание расширения
+// резолвится тем, что человек нажал. Поэтому `window.showMessage` — запрос, а не
+// notify, и отвечает ИНДЕКСОМ в присланном массиве подписей: у перегрузки с
+// `MessageItem` расширение обязано получить обратно свой собственный объект, а
+// пересобранный по проводу предмет им бы не был (та же причина, что у
+// `window.showQuickPick`).
+
+/** Строгость сообщения на проводе. `warn`, а не `warning` — так с самого начала. */
+export type WireMessageSeverity = "error" | "warn" | "info";
+
+/** Просьба показать сообщение (`window.showMessage`, subprocess → host). */
+export interface IWireShowMessageRequest {
+    readonly severity: WireMessageSeverity;
+    readonly message: string;
+    /** Подписи кнопок в порядке расширения; пусто — сообщение без вопроса. */
+    readonly items: readonly string[];
+}
+
+/**
+ * Ответ хоста на `window.showMessage`: индекс нажатой кнопки в присланном
+ * массиве `items`. `null` — человек закрыл сообщение, ничего не выбрав (в том
+ * числе всегда, когда кнопок не было).
+ */
+export interface IWireShowMessageResult {
+    readonly index: number | null;
+}
+
+/**
+ * Разбирает `window.showMessage`. `null` — показывать нечего (нет текста либо он
+ * не выражается строкой).
+ */
+export function parseWireShowMessageRequest(raw: unknown): IWireShowMessageRequest | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; у не-объекта нужного поля всё равно нет, и его отсеет проверка ниже
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as { severity?: unknown; message?: unknown; items?: unknown };
+    const message = wireMessageText(p.message);
+    if (message === null) return null;
+    const severity: WireMessageSeverity = p.severity === "error" || p.severity === "warn" ? p.severity : "info";
+    return {
+        severity,
+        message,
+        // Нестроковую подпись заменяем пустой, а не выбрасываем: ответ адресуется
+        // индексом в ЭТОМ массиве, и дыра сдвинула бы остальные кнопки (та же
+        // причина, что у пунктов quick pick).
+        items: Array.isArray(p.items) ? p.items.map((item) => (typeof item === "string" ? item : "")) : [],
+    };
+}
+
+/**
+ * Текст сообщения. Примитив (расширение на JS передало число) записываем как
+ * есть — глотать сообщение из-за типа нельзя, это единственный канал разговора
+ * расширения с человеком. Объект текстом не считается: `[object Object]` в тосте
+ * пользователю не скажет ничего.
+ */
+function wireMessageText(value: unknown): string | null {
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+    return null;
+}
+
+// ─── env: буфер обмена и внешние ссылки ──────────────────────────────────────
+// `env.clipboard` и `env.openExternal` живут у хоста: буфер — один на
+// приложение (тот же, что у Copy/Paste редактора), а открыть ссылку может только
+// процесс, у которого есть окружение терминала.
+
+/** Ответ хоста на `env.clipboard.readText`. */
+export interface IWireClipboardText {
+    readonly text: string;
+}
+
+/** Ответ хоста на `env.openExternal`: удалось ли отдать ссылку человеку. */
+export interface IWireOpenExternalResult {
+    readonly opened: boolean;
+}
+
+/** Разбирает ответ хоста на `env.clipboard.readText`; чужой ответ — пустой буфер. */
+export function parseWireClipboardText(raw: unknown): IWireClipboardText {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; у не-объекта нужного поля всё равно нет, и текст выйдет тем же пустым
+    if (typeof raw !== "object" || raw === null) return { text: "" };
+    const { text } = raw as { text?: unknown };
+    return { text: typeof text === "string" ? text : "" };
+}
+
+/** Разбирает ответ хоста на `env.openExternal`; чужой ответ — «не открыли». */
+export function parseWireOpenExternalResult(raw: unknown): IWireOpenExternalResult {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; у не-объекта поля нет, и ответом будет тот же false
+    if (typeof raw !== "object" || raw === null) return { opened: false };
+    const { opened } = raw as { opened?: unknown };
+    return { opened: opened === true };
+}
+
+/** Разбирает ответ хоста на `window.showMessage` (host → subprocess). */
+export function parseWireShowMessageResult(raw: unknown): IWireShowMessageResult {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; у не-объекта нужного поля всё равно нет, и ответом будет тот же null
+    if (typeof raw !== "object" || raw === null) return { index: null };
+    const { index } = raw as { index?: unknown };
+    if (!Number.isInteger(index)) return { index: null };
+    const value = index as number;
+    return { index: value >= 0 ? value : null };
 }

@@ -238,10 +238,14 @@ describe("ExtensionHost decoration handlers (in-process, deterministic)", () => 
 
     it("window.showMessage маршрутизирует severity в логгер; конфиг-изменение шлёт в subprocess", async () => {
         const h = makeHost({});
-        h.peer.notify("window.showMessage", { severity: "error", message: "boom" });
-        h.peer.notify("window.showMessage", { severity: "warn", message: "careful" });
-        h.peer.notify("window.showMessage", { severity: "info", message: 7 });
-        await flushMicrotasks(10);
+        // Без стока сообщений ответ приходит сразу («человек закрыл»), но в
+        // журнал текст ложится всё равно — по нему потом разбирают расширение.
+        const answers = await Promise.all([
+            h.peer.request("window.showMessage", { severity: "error", message: "boom" }),
+            h.peer.request("window.showMessage", { severity: "warn", message: "careful" }),
+            h.peer.request("window.showMessage", { severity: "info", message: 7 }),
+        ]);
+        expect(answers).toEqual([{ index: null }, { index: null }, { index: null }]);
         expect(h.logLines).toEqual(["error:[extension] boom", "warn:[extension] careful", "info:[extension] 7"]);
 
         h.fireConfig(["git.enabled"]);

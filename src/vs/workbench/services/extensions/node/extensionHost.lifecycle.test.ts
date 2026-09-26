@@ -978,24 +978,33 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("routes window.showMessage notifications to the logger by severity", async () => {
+    it("routes window.showMessage requests to the logger by severity", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
-        const send = (severity: string, message: unknown): void => {
-            child.receiveFromHostPeer({ kind: "notif", method: "window.showMessage", params: { severity, message } });
+        let nextId = 500;
+        const send = (severity: string, message: unknown): number => {
+            const id = nextId++;
+            child.receiveFromHostPeer({ kind: "req", id, method: "window.showMessage", params: { severity, message } });
+            return id;
         };
         send("error", "boom");
         send("warn", "careful");
         send("info", "fyi");
-        send("info", 42); // не-строка → String(message)
+        const numeric = send("info", 42); // не-строка → запись примитива
 
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === numeric));
         expect(logger.error).toHaveBeenCalledWith("[extension] boom");
         expect(logger.warn).toHaveBeenCalledWith("[extension] careful");
         expect(logger.info).toHaveBeenCalledWith("[extension] fyi");
         expect(logger.info).toHaveBeenCalledWith("[extension] 42");
+        // Стока сообщений у хоста нет — отвечаем «человек закрыл», а не молчим:
+        // иначе команда расширения висела бы в ожидании навсегда.
+        expect(child.sent.find((m) => m.kind === "res" && m.id === numeric)).toMatchObject({
+            result: { index: null },
+        });
 
         host.dispose();
     });

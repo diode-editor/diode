@@ -33,7 +33,7 @@
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
-| [`vscode.env`](#пока-не-поднятые-namespace) | 🟡 | 0/21 |
+| [`vscode.env`](#vscodeenv) | 🟡 | 5/21 |
 | [`vscode.tasks`](#пока-не-поднятые-namespace) | 🕐 | 0/8 |
 | [`vscode.debug`](#пока-не-поднятые-namespace) | 🕐 | 0/18 |
 | [`vscode.scm`](#пока-не-поднятые-namespace) | 🕐 | 0/2 |
@@ -101,7 +101,7 @@ output-каналы, декорации, пункты статус-бара и �
 | `onDidChangeActiveTextEditor`, `onDidChangeVisibleTextEditors`, `onDidChangeTextEditorViewColumn` | ✅ | |
 | `state`, `onDidChangeWindowState` | ✅ | |
 | `showTextDocument` | 🟡 | открывает ресурс, но возвращает активный редактор |
-| `showInformation/Warning/ErrorMessage` | ✅ | активна строковая перегрузка action-пунктов |
+| `showInformation/Warning/ErrorMessage` | 🟡 | тост в правом нижнем углу: текст с переносом, кнопки-пункты (строковая перегрузка и `MessageItem` — обещание резолвится ТЕМ ЖЕ объектом расширения), уровни info/warning/error. Фокус к кнопкам — `notifications.focusToasts` (Ctrl+K Ctrl+N, аккорд написан в самом тосте), Escape по стеку закрывает всё. Одновременно видно не больше трёх сообщений (четвёртое вытесняет самое старое как «закрытое»), `info` без кнопок гаснет само через `notifications.autoHideTimeout`. Стабы: `MessageOptions` принимается, но `modal` и `detail` игнорируются (модального сообщения нет), `MessageItem.isCloseAffordance` ни на что не влияет |
 | `createOutputChannel` | 🟡 | канал в панели Output с уровнями логов; `clear`/`replace` — no-op (журнал ретенционный) |
 | `withProgress` | 🟡 | спиннер в статус-баре, message/increment живые; отмена не поддержана — токен не стреляет |
 | `tabGroups` | 🟡 | снимки `Tab` на момент вызова (идентичность не гарантируется); `onDidChangeTabs` живой, `close` работает |
@@ -153,11 +153,25 @@ output-каналы, декорации, пункты статус-бара и �
 | `t` | 🟡 | подставляет плейсхолдеры (`{0}`/`{name}`/options-форма), переводов нет |
 | `bundle`, `uri` | 🟡 | `undefined` |
 
+## vscode.env
+
+🟡 **5/21.** Поднято то, на чём стоят живые сценарии расширений: константы, которые
+читает `vscode-languageclient`, буфер обмена и внешние ссылки. Остальное (телеметрия,
+`machineId`/`sessionId`, `remoteName`, `shell`, `uiKind`, `asExternalUri`, `logLevel`)
+пока закомментировано.
+
+| член | статус | комментарий |
+| --- | :-: | --- |
+| `appName`, `appHost`, `uriScheme` | ✅ | `Diode` / `desktop` / `diode` |
+| `language` | 🟡 | всегда `en` — переводов нет (см. `vscode.l10n`) |
+| `clipboard` | ✅ | тот же буфер, что у Copy/Paste редактора: системный через OSC 52 плюс внутренний регистр. Чтение отдаёт регистр — OSC 52 read многие терминалы запрещают, и запрос просто повис бы (`oscClipboard.ts`) |
+| `openExternal` | 🟡 | системный открыватель (`xdg-open` / `open` / `cmd start`) там, где есть кому открывать. По ssh и без графической сессии браузер открылся бы не у того человека — тогда ссылка показывается тостом с кнопкой «Copy Link», и нажатие кладёт её в буфер обмена. Обе ветки отвечают `true`: «ссылка у человека» — это и есть то, чего добивалось расширение |
+| `appRoot`, `machineId`, `sessionId`, `isNewAppInstall`, `isTelemetryEnabled`, `onDidChangeTelemetryEnabled`, `createTelemetryLogger`, `onDidChangeShell`, `remoteName`, `shell`, `uiKind`, `asExternalUri`, `logLevel`, `onDidChangeLogLevel`, `isAppPortable` | 🕐 | |
+
 ## Пока не поднятые namespace
 
 | namespace | статус | комментарий |
 | --- | :-: | --- |
-| `vscode.env` | 🟡 | декларация не поднята, но в рантайме есть наивный минимум: `appName`/`language` честные, `clipboard` пуст, `openExternal` отказывает |
 | `vscode.tasks` | 🕐 | таск-раннер |
 | `vscode.debug` | 🕐 | DAP — в заявленном стеке проекта, поверхность появится вместе с дебаггером |
 | `vscode.scm` | 🕐 | source control |

@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
+import { createEnvNamespace } from "./envNamespace.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
@@ -141,19 +142,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
     });
 
-    // Наивный `env` — vscode-languageclient читает language/appName; клипборд и
-    // openExternal честно отказывают (TUI не открывает внешние URL).
-    const env = {
-        appName: "Diode",
-        appHost: "desktop",
-        language: "en",
-        uriScheme: "diode",
-        clipboard: {
-            readText: (): Thenable<string> => Promise.resolve(""),
-            writeText: (): Thenable<void> => Promise.resolve(),
-        },
-        openExternal: (): Thenable<boolean> => Promise.resolve(false),
-    } as unknown;
+    // `env` — константы, которые читает vscode-languageclient (language/appName),
+    // плюс настоящие буфер обмена и `openExternal` поверх хоста (envNamespace.ts).
+    const env = createEnvNamespace(rpc) as unknown;
 
     // Каталог установленных расширений приезжает от хоста (`extensions.catalog`
     // семенем ДО первой активации, `extensions.activated` — на каждое оживление).

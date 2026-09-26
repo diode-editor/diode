@@ -587,6 +587,40 @@ declare module "vscode" {
 		export function showInformationMessage<T extends string>(message: string, ...items: T[]): Thenable<T | undefined>;
 
 		/**
+		 * Show an information message to users. Optionally provide an array of items which will be presented as
+		 * clickable buttons.
+		 *
+		 * @param message The message to show.
+		 * @param options Configures the behaviour of the message.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showInformationMessage<T extends string>(message: string, options: MessageOptions, ...items: T[]): Thenable<T | undefined>;
+
+		/**
+		 * Show an information message.
+		 *
+		 * @see {@link window.showInformationMessage showInformationMessage}
+		 *
+		 * @param message The message to show.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showInformationMessage<T extends MessageItem>(message: string, ...items: T[]): Thenable<T | undefined>;
+
+		/**
+		 * Show an information message.
+		 *
+		 * @see {@link window.showInformationMessage showInformationMessage}
+		 *
+		 * @param message The message to show.
+		 * @param options Configures the behaviour of the message.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showInformationMessage<T extends MessageItem>(message: string, options: MessageOptions, ...items: T[]): Thenable<T | undefined>;
+
+		/**
 		 * Show a warning message.
 		 *
 		 * @see {@link window.showInformationMessage showInformationMessage}
@@ -598,6 +632,41 @@ declare module "vscode" {
 		export function showWarningMessage<T extends string>(message: string, ...items: T[]): Thenable<T | undefined>;
 
 		/**
+		 * Show a warning message.
+		 *
+		 * @see {@link window.showInformationMessage showInformationMessage}
+		 *
+		 * @param message The message to show.
+		 * @param options Configures the behaviour of the message.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showWarningMessage<T extends string>(message: string, options: MessageOptions, ...items: T[]): Thenable<T | undefined>;
+
+		/**
+		 * Show a warning message.
+		 *
+		 * @see {@link window.showInformationMessage showInformationMessage}
+		 *
+		 * @param message The message to show.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showWarningMessage<T extends MessageItem>(message: string, ...items: T[]): Thenable<T | undefined>;
+
+		/**
+		 * Show a warning message.
+		 *
+		 * @see {@link window.showInformationMessage showInformationMessage}
+		 *
+		 * @param message The message to show.
+		 * @param options Configures the behaviour of the message.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showWarningMessage<T extends MessageItem>(message: string, options: MessageOptions, ...items: T[]): Thenable<T | undefined>;
+
+		/**
 		 * Show an error message.
 		 *
 		 * @see {@link window.showInformationMessage showInformationMessage}
@@ -607,6 +676,41 @@ declare module "vscode" {
 		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
 		 */
 		export function showErrorMessage<T extends string>(message: string, ...items: T[]): Thenable<T | undefined>;
+
+		/**
+		 * Show an error message.
+		 *
+		 * @see {@link window.showInformationMessage showInformationMessage}
+		 *
+		 * @param message The message to show.
+		 * @param options Configures the behaviour of the message.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showErrorMessage<T extends string>(message: string, options: MessageOptions, ...items: T[]): Thenable<T | undefined>;
+
+		/**
+		 * Show an error message.
+		 *
+		 * @see {@link window.showInformationMessage showInformationMessage}
+		 *
+		 * @param message The message to show.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showErrorMessage<T extends MessageItem>(message: string, ...items: T[]): Thenable<T | undefined>;
+
+		/**
+		 * Show an error message.
+		 *
+		 * @see {@link window.showInformationMessage showInformationMessage}
+		 *
+		 * @param message The message to show.
+		 * @param options Configures the behaviour of the message.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 * @returns A thenable that resolves to the selected item or `undefined` when being dismissed.
+		 */
+		export function showErrorMessage<T extends MessageItem>(message: string, options: MessageOptions, ...items: T[]): Thenable<T | undefined>;
 
 		/**
 		 * Shows a selection list allowing multiple selections.
@@ -4004,6 +4108,52 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Represents an action that is shown with an information, warning, or
+	 * error message.
+	 *
+	 * @see {@link window.showInformationMessage showInformationMessage}
+	 * @see {@link window.showWarningMessage showWarningMessage}
+	 * @see {@link window.showErrorMessage showErrorMessage}
+	 */
+	export interface MessageItem {
+
+		/**
+		 * A short title like 'Retry', 'Open Log' etc.
+		 */
+		title: string;
+
+		/**
+		 * A hint for modal dialogs that the item should be triggered
+		 * when the user cancels the dialog (e.g. by pressing the ESC
+		 * key).
+		 *
+		 * Note: this option is ignored for non-modal messages.
+		 */
+		isCloseAffordance?: boolean;
+	}
+
+	/**
+	 * Options to configure the behavior of the message.
+	 *
+	 * @see {@link window.showInformationMessage showInformationMessage}
+	 * @see {@link window.showWarningMessage showWarningMessage}
+	 * @see {@link window.showErrorMessage showErrorMessage}
+	 */
+	export interface MessageOptions {
+
+		/**
+		 * Indicates that this message should be modal.
+		 */
+		modal?: boolean;
+
+		/**
+		 * Human-readable detail message that is rendered less prominent. _Note_ that detail
+		 * is only shown for {@link MessageOptions.modal modal} messages.
+		 */
+		detail?: string;
+	}
+
+	/**
 	 * Severity levels for input box validation messages.
 	 */
 	export enum InputBoxValidationSeverity {
@@ -6796,6 +6946,73 @@ declare module "vscode" {
 		 * @returns A promise that resolves to `true` when all tab groups have been closed.
 		 */
 		close(tabGroup: TabGroup | readonly TabGroup[], preserveFocus?: boolean): Thenable<boolean>;
+	}
+
+	/**
+	 * The clipboard provides read and write access to the system's clipboard.
+	 */
+	export interface Clipboard {
+
+		/**
+		 * Read the current clipboard contents as text.
+		 * @returns A thenable that resolves to a string.
+		 */
+		readText(): Thenable<string>;
+
+		/**
+		 * Writes text into the clipboard.
+		 * @returns A thenable that resolves when writing happened.
+		 */
+		writeText(value: string): Thenable<void>;
+	}
+
+	/**
+	 * Namespace describing the environment the editor runs in.
+	 */
+	export namespace env {
+
+		/**
+		 * The application name of the editor, like 'VS Code'.
+		 */
+		export const appName: string;
+
+		/**
+		 * The hosted location of the application
+		 * On desktop this is 'desktop'
+		 * In the web this is the specified embedder i.e. 'github.dev', 'codespaces', or 'web' if the embedder
+		 * does not provide that information
+		 */
+		export const appHost: string;
+
+		/**
+		 * The custom uri scheme the editor registers to in the operating system.
+		 */
+		export const uriScheme: string;
+
+		/**
+		 * Represents the preferred user-language, like `de-CH`, `fr`, or `en-US`.
+		 */
+		export const language: string;
+
+		/**
+		 * The system clipboard.
+		 */
+		export const clipboard: Clipboard;
+
+		/**
+		 * Opens a link externally using the default application. Depending on the
+		 * used scheme this can be:
+		 * * a browser (`http:`, `https:`)
+		 * * a mail client (`mailto:`)
+		 * * VSCode itself (`vscode:` from `vscode.env.uriScheme`)
+		 *
+		 * *Note* that {@linkcode window.showTextDocument showTextDocument} is the right
+		 * way to open a text document inside the editor, not this function.
+		 *
+		 * @param target The uri that should be opened.
+		 * @returns A promise indicating if open was successful.
+		 */
+		export function openExternal(target: Uri): Thenable<boolean>;
 	}
 }
 

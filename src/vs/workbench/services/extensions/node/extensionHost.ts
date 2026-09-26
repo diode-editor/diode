@@ -34,9 +34,11 @@ import type {
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
+import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { ITreeFileChange } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import type { IExternalOpener } from "../../../../platform/opener/common/iExternalOpener.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import {
     type IEditorDecorationsService,
@@ -54,15 +56,19 @@ import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
+    type IWireClipboardText,
     type IWireColorTheme,
     type IWireDocumentSyncSnapshot,
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
     type IWireInputBoxRequest,
     type IWireInputBoxResult,
+    type IWireOpenExternalResult,
     type IWireQuickPickRequest,
     type IWireQuickPickResult,
     type IWireSecretRef,
+    type IWireShowMessageRequest,
+    type IWireShowMessageResult,
     type IWireStatusBarItem,
     type IWireValidationMessage,
     type IWireWatcherCreate,
@@ -87,6 +93,7 @@ import {
     parseWireSecretRef,
     parseWireSecretWrite,
     parseWireSelections,
+    parseWireShowMessageRequest,
     parseWireShowTextDocumentParams,
     parseWireStatusBarItem,
     parseWireStatusBarItemDispose,
@@ -178,6 +185,21 @@ export interface IQuickInputSink {
     showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined>;
     showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined>;
     cancel(handle: number): void;
+}
+
+/**
+ * Сток сообщений от расширений (`window.show{Information,Warning,Error}Message`
+ * → `window.showMessage`): потребитель (module/харнесс) показывает тост и
+ * резолвится ИНДЕКСОМ нажатой кнопки в присланных `items` либо `undefined` —
+ * человек закрыл сообщение, ничего не выбрав.
+ *
+ * `clear()` — субпроцесс умер: отвечать на его сообщения стало некому, а тост с
+ * кнопками остался бы на экране без хозяина (та же дисциплина, что у
+ * {@link IStatusBarItemSink.clear} и отмены живых показов quick input'а).
+ */
+export interface INotificationSink {
+    show(request: IWireShowMessageRequest): Promise<number | undefined>;
+    clear(): void;
 }
 
 /**
@@ -375,6 +397,24 @@ export interface IExtensionHostOptions {
      */
     readonly quickInputSink?: IQuickInputSink;
     /**
+     * Сток сообщений расширений (`window.show*Message`). Если не передан —
+     * сообщение уходит только в логгер, а расширение получает `undefined`
+     * («человек закрыл»), а не зависает в ожидании ответа.
+     */
+    readonly notificationSink?: INotificationSink;
+    /**
+     * Буфер обмена приложения для `env.clipboard` — тот же, что у Copy/Paste
+     * редактора (в проде OSC 52 + внутренний регистр). Не передан — расширение
+     * читает пустую строку, а запись молча проглатывается.
+     */
+    readonly clipboard?: IClipboard;
+    /**
+     * Открыватель внешних ссылок для `env.openExternal`. Отвечает `true`, если
+     * ссылка ушла системному открывателю ИЛИ была показана человеку. Не передан —
+     * `openExternal` честно отвечает `false`.
+     */
+    readonly externalOpener?: IExternalOpener;
+    /**
      * Снимки ВСЕХ открытых документов для наполнения `workspace.textDocuments`
      * на `host.ready` (по одному на документ; см. `openDocumentSnapshots`).
      * Хост пушит их как `editor.didOpen` при готовности subprocess'а — чтобы
@@ -536,6 +576,9 @@ export class ExtensionHost extends Disposable {
     private readonly outputSink: IOutputSink | undefined;
     private readonly statusBarItemSink: IStatusBarItemSink | undefined;
     private readonly quickInputSink: IQuickInputSink | undefined;
+    private readonly notificationSink: INotificationSink | undefined;
+    private readonly clipboard: IClipboard | undefined;
+    private readonly externalOpener: IExternalOpener | undefined;
     /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
     private readonly activeProgressHandles = new Set<number>();
     /**
@@ -609,6 +652,9 @@ export class ExtensionHost extends Disposable {
         this.outputSink = options.outputSink;
         this.statusBarItemSink = options.statusBarItemSink;
         this.quickInputSink = options.quickInputSink;
+        this.notificationSink = options.notificationSink;
+        this.clipboard = options.clipboard;
+        this.externalOpener = options.externalOpener;
         // Смена темы → пере-резолв держимых декораций в обе поверхности + новая
         // тема расширениям (`window.onDidChangeActiveColorTheme`).
         this.register(
@@ -1832,12 +1878,40 @@ export class ExtensionHost extends Disposable {
             // Stryker disable next-line OptionalChaining: ветка «стока нет» ниже по коду недостижима из тестов иначе как этим же путём, а без стока обращение кинуло бы
             this.quickInputSink?.cancel(handle);
         });
-        rpc.handleNotification("window.showMessage", (params) => {
-            const { severity, message } = params as { severity?: unknown; message?: unknown };
-            const text = typeof message === "string" ? message : String(message);
-            if (severity === "error") this.logger?.error(`[extension] ${text}`);
-            else if (severity === "warn") this.logger?.warn(`[extension] ${text}`);
-            else this.logger?.info(`[extension] ${text}`);
+        // Сообщение расширения (`window.show*Message`) — ЗАПРОС: у сообщения
+        // бывают кнопки, и обещание расширения обязано резолвиться нажатой.
+        // Журнал пишем всегда, даже когда сток есть: тост живёт секунды, а
+        // разбирать поведение расширения приходится потом по логу.
+        rpc.handleRequest("window.showMessage", async (params): Promise<IWireShowMessageResult> => {
+            const request = parseWireShowMessageRequest(params);
+            if (request === null) return { index: null };
+            this.logShowMessage(request);
+            // Стока нет (headless-тест, ранний старт) — «человек закрыл»:
+            // расширение получает undefined сразу, а не зависает навсегда.
+            if (this.notificationSink === undefined) return { index: null };
+            const index = await this.notificationSink.show(request);
+            return { index: index ?? null };
+        });
+        // ─── env: буфер обмена и внешние ссылки ──────────────────────────────
+        // Буфер — тот же, что у Copy/Paste редактора: у расширения и у человека
+        // один карман, иначе «скопировал в расширении — вставил в файл» не работает.
+        rpc.handleRequest(
+            "env.clipboard.readText",
+            async (): Promise<IWireClipboardText> => ({
+                text: (await this.clipboard?.readText()) ?? "",
+            }),
+        );
+        rpc.handleRequest("env.clipboard.writeText", async (params): Promise<Record<string, never>> => {
+            const { text } = params as { text?: unknown };
+            // Нестроковое значение не пишем: затирать карман человека мусором из
+            // расширения хуже, чем не выполнить запись.
+            if (typeof text === "string") await this.clipboard?.writeText(text);
+            return {};
+        });
+        rpc.handleRequest("env.openExternal", async (params): Promise<IWireOpenExternalResult> => {
+            const { target } = params as { target?: unknown };
+            if (typeof target !== "string" || this.externalOpener === undefined) return { opened: false };
+            return { opened: await this.externalOpener.openExternal(target) };
         });
         // ─── Decorations bridge (Chunk 4) ────────────────────────────────────
         // Субпроцесс завёл тип декорации. Регистрируем его форму: наличие
@@ -2006,6 +2080,18 @@ export class ExtensionHost extends Disposable {
         this.pushFileDecorations();
     }
 
+    /**
+     * Сообщение расширения в журнал — уровнем по строгости. Пишется всегда,
+     * независимо от того, дошло ли оно до экрана: тост живёт секунды, а разбирать
+     * поведение расширения приходится потом по логу.
+     */
+    private logShowMessage(request: IWireShowMessageRequest): void {
+        const text = `[extension] ${request.message}`;
+        if (request.severity === "error") this.logger?.error(text);
+        else if (request.severity === "warn") this.logger?.warn(text);
+        else this.logger?.info(text);
+    }
+
     /** Снимает все прокси-регистрации команд (при смерти сабпроцесса). */
     private clearProxyCommands(): void {
         for (const disposable of this.proxyCommands.values()) {
@@ -2057,6 +2143,9 @@ export class ExtensionHost extends Disposable {
         for (const handle of this.activeQuickInputHandles) this.quickInputSink?.cancel(handle);
         // Stryker disable next-line CallExpression: гигиена набора; второй проход по нему невозможен — host после остановки субпроцесса этот код повторно не исполняет
         this.activeQuickInputHandles.clear();
+        // …и у его сообщений: тост с кнопками остался бы висеть, а нажатие
+        // уехало бы в закрытый канал.
+        this.notificationSink?.clear();
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).
         this.decorationTypes.clear();

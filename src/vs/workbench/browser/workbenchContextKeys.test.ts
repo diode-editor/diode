@@ -21,6 +21,7 @@ import type { LayoutService } from "../services/layout/browser/layoutService.ts"
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
 import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
+import type { NotificationsToastsComponent } from "./parts/notifications/notificationsToastsComponent.ts";
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
@@ -85,6 +86,7 @@ function makeHarness() {
         } as unknown as SearchComponent,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
         { isOpen: () => false } as unknown as TabSwitcherComponent,
+        { isOpen: () => false } as unknown as NotificationsToastsComponent,
     );
 
     return {

@@ -28,6 +28,10 @@ import {
     TabSwitcherComponent,
     TabSwitcherComponentDIToken,
 } from "../../workbench/browser/parts/editor/tabSwitcherComponent.ts";
+import {
+    NotificationsToastsComponent,
+    NotificationsToastsComponentDIToken,
+} from "../../workbench/browser/parts/notifications/notificationsToastsComponent.ts";
 import { PanelComponent, PanelComponentDIToken } from "../../workbench/browser/parts/panel/panelComponent.ts";
 import {
     PanelFocusContribution,
@@ -238,6 +242,11 @@ import {
     LifecycleService,
     LifecycleServiceDIToken,
 } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
+import {
+    NotificationService,
+    NotificationServiceDIToken,
+} from "../../workbench/services/notification/browser/notificationService.ts";
+import { OpenerService, OpenerServiceDIToken } from "../../workbench/services/opener/browser/openerService.ts";
 import { OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputChannelRegistry } from "../../workbench/services/output/common/outputChannelRegistry.ts";
 import { OutputService, OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
@@ -340,6 +349,14 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(EditorPartComponentDIToken, EditorPartComponent);
     // Оверлей серии Ctrl+Tab: видимый MRU-список вкладок текущей группы.
     container.bind(TabSwitcherComponentDIToken, TabSwitcherComponent);
+    // Сообщения пользователю: сервис держит живые записи и обещания ответов,
+    // компонент — стек тостов в углу (host прикрепляет WorkbenchComponent).
+    container.bind(NotificationServiceDIToken, NotificationService);
+    container.bind(NotificationsToastsComponentDIToken, NotificationsToastsComponent);
+    // Открыватель ссылок: системный механизм, а без него (ssh, нет DISPLAY) —
+    // ссылка тостом с кнопкой «Copy Link». Сам системный открыватель — node-слой,
+    // его привязывает профиль приложения.
+    container.bind(OpenerServiceDIToken, OpenerService);
     // Find/Suggest-кластер (этап 10): компоненты владеют виджетами и
     // overlay-сессиями (suggest — глобальный body-слой у каретки, find —
     // локальный слой группы; host'ы прикрепляет WorkbenchComponent через attachHost),

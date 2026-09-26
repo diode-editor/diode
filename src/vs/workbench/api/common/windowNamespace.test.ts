@@ -108,15 +108,18 @@ describe("WindowNamespace", () => {
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("show*Message шлёт window.showMessage с правильным severity", async () => {
+    // Сам провод сообщений закрыт в messageNamespace.test.ts; здесь проверяется
+    // только то, что window действительно отдаёт его наружу — запросом, а не
+    // notify (иначе перегрузка с кнопками не имела бы чем резолвиться).
+    it("show*Message уходит хосту запросом с правильным severity", async () => {
         const { stub, window } = makeCtx();
         await window.showErrorMessage("boom");
         await window.showWarningMessage("careful");
         await window.showInformationMessage("fyi");
-        expect(stub.notifies).toEqual([
-            { method: "window.showMessage", params: { severity: "error", message: "boom" } },
-            { method: "window.showMessage", params: { severity: "warn", message: "careful" } },
-            { method: "window.showMessage", params: { severity: "info", message: "fyi" } },
+        expect(stub.requests).toEqual([
+            { method: "window.showMessage", params: { severity: "error", message: "boom", items: [] } },
+            { method: "window.showMessage", params: { severity: "warn", message: "careful", items: [] } },
+            { method: "window.showMessage", params: { severity: "info", message: "fyi", items: [] } },
         ]);
     });
 

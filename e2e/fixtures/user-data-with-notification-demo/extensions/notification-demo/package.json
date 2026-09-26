@@ -1,0 +1,21 @@
+{
+    "name": "notification-demo",
+    "displayName": "Notification Demo",
+    "description": "Демо-расширение сообщений: тост с кнопками, ответ человека, env.openExternal и буфер обмена.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "notificationDemo.ask", "title": "Notification Demo: Ask" },
+            { "command": "notificationDemo.warn", "title": "Notification Demo: Warn" },
+            { "command": "notificationDemo.error", "title": "Notification Demo: Error" },
+            { "command": "notificationDemo.openLink", "title": "Notification Demo: Open Link" },
+            { "command": "notificationDemo.readClipboard", "title": "Notification Demo: Read Clipboard" }
+        ]
+    }
+}

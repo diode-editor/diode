@@ -404,6 +404,43 @@ hide-toggle (`isHiddenByDefault`). См.
     конкретных префиксах не знает. UI — тот же `QuickInputComponent`;
     сервис-клиент, занявший виджет позже, закрывает предыдущий показ (его
     промис отменяется через `onDidClose`).
+- **Сообщения пользователю (тосты)** — `window.show{Information,Warning,Error}Message`
+  расширений и наши собственные сообщения (открыватель ссылок):
+  - `Services/notification/` — `NotificationService` (реестр живых сообщений:
+    severity + текст + подписи кнопок) плюс модель в `common/notification.ts`.
+    Сообщение с кнопками — это ВОПРОС: `notify()` резолвится ИНДЕКСОМ нажатой
+    кнопки либо `undefined` («человек закрыл»). Обещание обязано дорешаться на
+    каждом пути закрытия (кнопка, Escape, вытеснение из стека, `clearAll`, снос
+    сервиса) — иначе команда расширения, ждущая ответа, висит навсегда, и этого
+    ниоткуда не видно (та же дисциплина, что у quick input). Одновременно живут
+    не больше трёх сообщений; четвёртое вытесняет самое старое как «закрытое».
+    Сами собой гаснут только `info` без кнопок — по
+    `notifications.autoHideTimeout` (0 — не гасить).
+  - `parts/notifications/` — `NotificationsToastsComponent` (стек тостов в правом
+    нижнем углу; ОДНА overlay-сессия на весь стек, `pointerPolicy: "passthrough"`,
+    `focusOnOpen: false`, `capturesKeyboard: false` — сообщение не вырывает
+    каретку у печатающего человека) поверх `NotificationsToastsElement` (стек +
+    клавиатура) и `NotificationToastElement` (одно сообщение: рамка с заголовком
+    строгости, перенесённый текст, ряд кнопок, строка-подсказка про аккорд).
+    Кнопки всех тостов — один плоский список: Left/Up назад, Right/Down/Tab
+    вперёд, Escape закрывает стек; обработанные клавиши гасятся
+    `stopPropagation`, иначе bubble-листенер `KeybindingDispatcher` увёл бы их в
+    глобальные бинды поверх сфокусированного тоста.
+  - Фокус в стек уводит команда `notifications.focusToasts` (`Ctrl+K Ctrl+N`,
+    гейт `notificationToastsVisible`) — компонент печатает её аккорд в самом
+    тосте, иначе кнопки были бы недостижимы для того, кто про команду не знает.
+    Закрыть всё — `notifications.clearAll` (без аккорда, как в VS Code).
+  - Мост к расширениям — `api/browser/notificationExtensionAdapter.ts` (сток
+    `ExtensionHost.notificationSink`); `clear()` приходит на смерти субпроцесса:
+    отвечать на его тосты стало некому.
+- **Внешние ссылки** — `Services/opener/openerService.ts`: `env.openExternal`
+  расширений и наши ссылки. Сначала системный открыватель
+  (`platform/opener/node/systemExternalOpener.ts` — `xdg-open`/`open`/`cmd start`;
+  по ssh и без `DISPLAY`/`WAYLAND_DISPLAY` он не пробует вовсе: браузер вылез бы
+  не у того человека), а где его нет — ссылка приезжает человеку тостом с кнопкой
+  «Copy Link», и нажатие кладёт её в буфер обмена приложения (в проде OSC 52
+  доносит её до системного буфера). Обе ветки — успех: для расширения «ссылка у
+  человека» значит то же, что «браузер открылся».
 - **`Actions/`** — экшены Workbench (`CommandAction`/`registerAction` — описание
   команды + кейбинды; переехали из Controllers): `FileTreeActions.ts`
   (delete/rename/refresh/undo/redo + Shift+F10-меню Explorer'а),

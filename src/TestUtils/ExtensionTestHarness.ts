@@ -9,11 +9,13 @@ import type { ILanguageService } from "../vs/editor/common/languages/iLanguageSe
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
+import type { IClipboard } from "../vs/platform/clipboard/common/iClipboard.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
+import type { IExternalOpener } from "../vs/platform/opener/common/iExternalOpener.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
 import { bindDocumentSync, openDocumentSnapshots } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
@@ -30,6 +32,7 @@ import {
     type DiagnosticsSink,
     ExtensionHost,
     type IExtensionHostConfigProvider,
+    type INotificationSink,
     type IOutputSink,
     type IProgressSink,
     type IQuickInputSink,
@@ -139,6 +142,16 @@ export interface IExtensionHarnessOptions {
      * не подключён — расширение мгновенно получает «отменено».
      */
     readonly quickInputSink?: IQuickInputSink;
+    /**
+     * Сток сообщений расширений (`window.show*Message`). По умолчанию не
+     * подключён — сообщение уходит только в логгер, а расширение получает
+     * «человек закрыл» (`undefined`).
+     */
+    readonly notificationSink?: INotificationSink;
+    /** Буфер обмена для `env.clipboard`. По умолчанию не подключён (пустой карман). */
+    readonly clipboard?: IClipboard;
+    /** Открыватель ссылок для `env.openExternal`. По умолчанию не подключён (`false`). */
+    readonly externalOpener?: IExternalOpener;
     /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
     /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
@@ -248,6 +261,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.outputSink !== undefined ? { outputSink: options.outputSink } : {}),
         ...(options.statusBarItemSink !== undefined ? { statusBarItemSink: options.statusBarItemSink } : {}),
         ...(options.quickInputSink !== undefined ? { quickInputSink: options.quickInputSink } : {}),
+        ...(options.notificationSink !== undefined ? { notificationSink: options.notificationSink } : {}),
+        ...(options.clipboard !== undefined ? { clipboard: options.clipboard } : {}),
+        ...(options.externalOpener !== undefined ? { externalOpener: options.externalOpener } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         // Дефолт — настоящий адаптер поверх `themeService` харнесса (зеркально

@@ -146,7 +146,10 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
 | `commands.registerTextEditorCommand` | naive | обёртка над `registerCommand`: без активного редактора — warn + no-op (семантика VS Code), edit-builder инертный (батч-правки — за `workspace.applyEdit`-путём) |
 | `window.showTextDocument` | naive | возвращает активный редактор; закрытие: RPC открытия ресурса |
 | `window.createOutputChannel` | real | канал в панели Output (`extensions.<slug(name)>`, label = name; `ExtensionOutputAdapter`): append/appendLine/LogOutputChannel-методы с уровнями, `show()` открывает панель на канале; люфты — `clear`/`replace` no-op (журнал ретенционный), trace/debug фильтруются уровнем логгера |
-| `env` (appName/language/clipboard/openExternal) | naive | честные значения; клипборд пуст, openExternal отказывает |
+| `env` (appName/language/uriScheme) | naive | честные значения; `language` всегда `en` — переводов нет |
+| `env.clipboard` | real | тот же буфер, что у Copy/Paste редактора (в проде OSC 52 + внутренний регистр); чтение отдаёт регистр — OSC 52 read многие терминалы запрещают |
+| `env.openExternal` | real | системный открыватель там, где есть кому открывать; по ssh и без графической сессии — ссылка человеку тостом с кнопкой «Copy Link» |
+| `window.show*Message` | real | тост с кнопками; обещание резолвится нажатым пунктом (строкой или тем же объектом `MessageItem`). Стабы — `modal`/`detail`/`isCloseAffordance` |
 
 ## Save-участники (#196, хвост — сделано)
 
@@ -230,10 +233,12 @@ diode ручные, так что `"explicit"` ≡ `true`) и `editor.formatOnSa
   `eslintFixture.ts`: кэшируемый `npm install eslint` + симлинк в воркспейс),
   e2e `eslintLsp.test.ts` (fix on save сквозь SEA), сценарий `eslint-lint`
   (первый с `prepare`-хуком фреймворка), смоук магазина. Осознанные люфты:
-  `eslint.createConfig` падает (нет `createTerminal`), кнопки-действия
-  `show*Message` не выбираются (диалоги «no config found» деградируют до
-  текста), ссылки на доку правил не открываются (`env.openExternal` отказывает),
-  `eslint.format.enable` не гоняли (формат закрыт ruff-стеком).
+  `eslint.createConfig` падает (нет `createTerminal`),
+  `eslint.format.enable` не гоняли (формат закрыт ruff-стеком). Два прежних
+  люфта закрыты вместе с сообщениями: кнопки-действия `show*Message` теперь
+  выбираются (диалог «no config found» — настоящий), а ссылки на доку правил
+  открываются через `env.openExternal` (или приезжают тостом там, где браузера
+  нет).
 - Инкрементальный sync + debounce; позиция курсора в didChange (для серверов,
   которым нужна — сейчас не передаётся).
 - **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,

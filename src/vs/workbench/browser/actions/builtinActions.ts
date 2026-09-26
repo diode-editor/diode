@@ -232,6 +232,7 @@ import {
 } from "./listActions.ts";
 import { MULTI_CURSOR_ACTIONS } from "./multiCursorActions.ts";
 import { navigateBackAction, navigateForwardAction } from "./navigationActions.ts";
+import { NOTIFICATION_ACTIONS } from "./notificationActions.ts";
 import {
     collapseSearchResultsAction,
     expandSearchResultsAction,
@@ -422,6 +423,9 @@ export const builtinActions: readonly CommandAction[] = [
 
     // Editor groups (сплиты)
     ...EDITOR_GROUP_ACTIONS,
+
+    // Сообщения (тосты): фокус в стек и «закрыть все».
+    ...NOTIFICATION_ACTIONS,
 
     // Input widget
     inputCursorLeftAction,

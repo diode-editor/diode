@@ -19,13 +19,18 @@ import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extension
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
 import { FileWatcherAdapter, parseWatcherExclude } from "../../workbench/api/browser/fileWatcherAdapter.ts";
+import { NotificationExtensionAdapter } from "../../workbench/api/browser/notificationExtensionAdapter.ts";
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
 import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInputExtensionAdapter.ts";
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
 import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
-import { FileSystemProviderRegistryDIToken, MarkerServiceDIToken } from "../../workbench/common/coreTokens.ts";
+import {
+    ClipboardDIToken,
+    FileSystemProviderRegistryDIToken,
+    MarkerServiceDIToken,
+} from "../../workbench/common/coreTokens.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 import {
@@ -39,6 +44,8 @@ import {
     type IExtensionStorageHomes,
 } from "../../workbench/services/extensions/node/extensionStoragePaths.ts";
 import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
+import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
+import { OpenerServiceDIToken } from "../../workbench/services/opener/browser/openerService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
 import { StatusBarServiceDIToken } from "../../workbench/services/statusbar/common/statusBarService.ts";
@@ -191,6 +198,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // showInputBox/showQuickPick расширений → общий QuickInput-оверлей
             // приложения (тот же, что у палитры и Quick Open).
             quickInputSink: new QuickInputExtensionAdapter(container.get(QuickInputServiceDIToken)),
+            // show*Message расширений → тосты в углу экрана; кнопка, которую
+            // нажал человек, уезжает обратно в расширение индексом.
+            notificationSink: new NotificationExtensionAdapter(container.get(NotificationServiceDIToken)),
+            // env.clipboard → тот же буфер, что у Copy/Paste редактора;
+            // env.openExternal → системный открыватель, а без него — ссылка тостом.
+            clipboard: container.get(ClipboardDIToken),
+            externalOpener: container.get(OpenerServiceDIToken),
             // createOutputChannel расширений → канал в панели Output;
             // show() открывает панель (как toggleOutputAction) и переключает канал.
             outputSink: new ExtensionOutputAdapter(

@@ -47,6 +47,8 @@ import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironme
 
 import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
 import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
+import type { NotificationsToastsComponent } from "./parts/notifications/notificationsToastsComponent.ts";
+import { NotificationsToastsComponentDIToken } from "./parts/notifications/notificationsToastsComponent.ts";
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
@@ -82,6 +84,7 @@ export class WorkbenchContextKeys extends Disposable {
         SearchComponentDIToken,
         HistoryServiceDIToken,
         TabSwitcherComponentDIToken,
+        NotificationsToastsComponentDIToken,
     ] as const;
 
     private view: BodyElement | null = null;
@@ -103,6 +106,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly searchComponent: SearchComponent,
         private readonly historyService: HistoryService,
         private readonly tabSwitcher: TabSwitcherComponent,
+        private readonly notificationToasts: NotificationsToastsComponent,
     ) {
         super();
         // Make custom-mode names (mode_<name>) valid `when` identifiers, then keep context
@@ -186,6 +190,9 @@ export class WorkbenchContextKeys extends Disposable {
         // гаснет и помимо конца серии (уход из группы), а стрелки обязаны
         // вернуться редактору ровно тогда, когда список исчез с экрана.
         this.contextKeys.set("tabSwitcherVisible", this.tabSwitcher.isOpen());
+        // Тоже ВИДИМОСТЬ оверлея, а не «есть ли сообщения»: аккорд фокусировки
+        // имеет смысл ровно пока стек на экране.
+        this.contextKeys.set("notificationToastsVisible", this.notificationToasts.isOpen());
         this.contextKeys.set(
             "searchViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SEARCH_VIEWLET_ID,

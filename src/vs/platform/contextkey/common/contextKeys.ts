@@ -57,6 +57,12 @@ export interface ContextKeyTypes {
      * а наш переключатель — passthrough-оверлей без фокуса, не quick pick.
      */
     tabSwitcherVisible: boolean;
+    /**
+     * Виден стек тостов сообщений. На ключе висит `notifications.focusToasts`:
+     * тосты фокус сами не забирают, и аккорд должен работать только когда есть
+     * что фокусировать (иначе он съедал бы клавиши впустую). Имя — как в VS Code.
+     */
+    notificationToastsVisible: boolean;
 
     // -- Terminal environment contexts (see TerminalEnvironmentService) --
     /** "legacy" | "csi-u" | "kitty" — use as `tier == 'kitty'`. */
@@ -275,6 +281,7 @@ export const allContextKeys: ContextKey[] = [
     // -- Workbench UI contexts --
     "panelVisible",
     "tabSwitcherVisible",
+    "notificationToastsVisible",
 
     // -- Terminal environment contexts --
     "tier",

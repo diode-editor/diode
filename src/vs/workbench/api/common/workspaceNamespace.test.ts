@@ -82,8 +82,9 @@ describe("WorkspaceNamespace — configuration", () => {
     it("update не поддержан — резолвится и шлёт warn", async () => {
         const { stub, workspace } = makeCtx();
         await workspace.getConfiguration("editor").update("tabSize", 2);
-        expect(stub.notifies[0]?.method).toBe("window.showMessage");
-        expect((stub.notifies[0]?.params as { severity: string }).severity).toBe("warn");
+        // Запросом (сообщения ходят одним путём), но исход шима не интересует.
+        expect(stub.requests[0]?.method).toBe("window.showMessage");
+        expect((stub.requests[0]?.params as { severity: string }).severity).toBe("warn");
     });
 
     it("значение секции с именем как у метода (get/has) не затирает метод", () => {
@@ -239,7 +240,7 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         )) as unknown as { getText(): string; encoding: string };
         expect(doc.getText()).toBe("Привет, мир!\n");
         expect(doc.encoding).toBe("windows1251");
-        expect(stub.notifies.some((n) => n.method === "window.showMessage")).toBe(false);
+        expect(stub.requests.some((r) => r.method === "window.showMessage")).toBe(false);
     });
 
     it("неизвестный encoding молча откатывается к дефолту (контракт vscode.d.ts)", async () => {
@@ -254,7 +255,7 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         )) as unknown as { getText(): string; encoding: string };
         expect(doc.getText()).toBe("x\n");
         expect(doc.encoding).toBe("utf8");
-        expect(stub.notifies.some((n) => n.method === "window.showMessage")).toBe(false);
+        expect(stub.requests.some((r) => r.method === "window.showMessage")).toBe(false);
     });
 
     it("эфемерный документ детектит encoding по BOM и EOL по содержимому", async () => {

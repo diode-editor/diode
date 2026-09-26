@@ -9,6 +9,7 @@ import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
+import { notifyMessage } from "./messageNamespace.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     DisposableImpl,
@@ -346,10 +347,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
                 };
             },
             update: (key: string): Thenable<void> => {
-                rpc.notify("window.showMessage", {
-                    severity: "warn",
-                    message: `workspace.getConfiguration().update("${prefix + key}") is not supported`,
-                });
+                notifyMessage(rpc, "warn", `workspace.getConfiguration().update("${prefix + key}") is not supported`);
                 return Promise.resolve();
             },
         };
