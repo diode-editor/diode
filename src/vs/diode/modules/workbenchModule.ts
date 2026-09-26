@@ -60,6 +60,10 @@ import {
     ViewTitleActionsContribution,
     ViewTitleActionsContributionDIToken,
 } from "../../workbench/browser/parts/views/viewTitleActionsContribution.ts";
+import {
+    SetContextCommandContribution,
+    SetContextCommandContributionDIToken,
+} from "../../workbench/browser/setContextCommandContribution.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
 import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/browser/workbenchContributions.ts";
@@ -392,6 +396,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(AutoRevealContributionDIToken, AutoRevealContribution);
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
     container.bind(OpenFileCommandContributionDIToken, OpenFileCommandContribution);
+    container.bind(SetContextCommandContributionDIToken, SetContextCommandContribution);
     // Panel-кластер (этап 6): реестр вкладок нижней панели + компонент-контрол,
     // Problems-дерево и встроенный терминал (сервис инстансов + view-владелец).
     container.bind(PanelServiceDIToken, PanelService);

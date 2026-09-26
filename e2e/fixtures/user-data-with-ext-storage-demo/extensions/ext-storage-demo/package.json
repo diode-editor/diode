@@ -1,0 +1,26 @@
+{
+    "name": "ext-storage-demo",
+    "displayName": "Ext Storage Demo",
+    "description": "Демо каталогов хранения расширения (globalStorageUri/storageUri/logUri) и команды setContext: ключ гейтит собственный кейбинд расширения.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "extStorageDemo.arm", "title": "Ext Storage Demo: Arm" },
+            { "command": "extStorageDemo.disarm", "title": "Ext Storage Demo: Disarm" },
+            { "command": "extStorageDemo.showPaths", "title": "Ext Storage Demo: Show Paths" }
+        ],
+        "keybindings": [
+            {
+                "command": "extStorageDemo.fire",
+                "key": "alt+q",
+                "when": "extStorageDemo.armed"
+            }
+        ]
+    }
+}

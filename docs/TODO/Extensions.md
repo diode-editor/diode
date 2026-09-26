@@ -59,6 +59,18 @@
 - [ ] Маршрутизация ошибок RPC обратно в `editor.options =`, чтобы fire-and-forget не глотал.
 - [ ] ESM-расширения (`import * as vscode from "vscode"` через ESM loader hooks).
 - [ ] Restart subprocess'а при крэше (сейчас при exit'е extension host'а все RPC падают).
+- [x] **Каталоги хранения расширения** (`ExtensionContext.globalStorageUri`/`storageUri`/`logUri`
+      + депрекейтнутые строковые близнецы) — корни даёт хост из user-data, см.
+      [arch/Extensions.md](../arch/Extensions.md). Это был блокер №1 для класса
+      «свой движок + ghost text»: туда такие расширения кладут скачанный бинарь,
+      и без поля `activate()` падал на `.fsPath` раньше всего остального.
+- [x] **Команда `setContext`** — расширение публикует свои when-ключи; вычислитель
+      научился точечным именам (`publisher.thing`).
+- [ ] **Остаток блокеров того же класса** (замерено на живом Supermaven 1.1.5 после
+      двух пунктов выше): `window.onDidChangeActiveColorTheme`/`activeColorTheme`
+      (без них `activate()` падает), `window.onDidChangeTextEditorSelection`,
+      нотификации с КНОПКАМИ (`showInformationMessage(msg, ...items)` — единственная
+      дверь к экрану регистрации). Разведка — ветка `spike/ai-autocomplete` (не вливать).
 
 ## Phase 8b — UI-вклады: `contributes.viewsContainers` / `contributes.views`
 

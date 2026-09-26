@@ -8,11 +8,22 @@
 ```
 <root>/                          # default ~/.diode ; CLI --user-data-dir <path>
   extensions/                    # внешние расширения
-  user-data/User/
-    settings.json                # default-профиль
-    keybindings.json
-    profiles/<name>/{settings,keybindings}.json
+  user-data/
+    logs/<extId>/                # ExtensionContext.logUri
+    User/
+      settings.json              # default-профиль
+      keybindings.json
+      globalStorage/<extId>/     # ExtensionContext.globalStorageUri
+      workspaceStorage/<hash>/<extId>/   # ExtensionContext.storageUri
+      profiles/<name>/{settings,keybindings}.json
 ```
+
+Приватные каталоги расширений живут в этой же раскладке и повторяют VS Code:
+`globalStorage` и `workspaceStorage` — внутри профиля (переезжают вместе с ним,
+как `globalState.json`), `logs` — рядом с `User/`, вне профиля. Отличие от
+эталона одно: у нас нет подкаталога сессии (`logs/<timestamp>/`) — ротации логов
+по запускам нет. Раздаёт их хост (`ExtensionHost`, см.
+[Extensions.md](Extensions.md)), резолвит — `resolveExtensionStoragePaths`.
 
 - **`resolveUserDataPaths(...)`** (`Common/UserDataPaths.ts`) — чистая функция, возвращает все пути; имя профиля валидируется `/^[A-Za-z0-9._-]+$/`.
 - **`parseCliArgs(argv)`** (`Common/CliArgs.ts`) — флаги `--user-data-dir`, `--profile`, `--inspect-tui`, `--headless[=CxR]` (требует `--inspect-tui`), `-h`/`-v`, разделитель `--`, неизвестные → `CliArgsError`.

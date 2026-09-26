@@ -32,8 +32,15 @@
 ~/.diode/user-data/User/            # profileDir (именованный профиль → profiles/<name>/)
   settings.json                    # человекочитаемые настройки (отдельно)
   globalState.json                 # global-scope
+  globalStorage/<extId>/           # приватное хранилище расширения (не наше состояние)
   workspaceStorage/<hash>/state.json
+  workspaceStorage/<hash>/<extId>/ # приватное хранилище расширения по проекту
 ```
+
+Каталог `<hash>` общий: рядом с нашим `state.json` лежат приватные каталоги
+расширений (`ExtensionContext.storageUri`) — ровно как в VS Code, где соседом
+`state.vscdb` стоят те же `<extId>`. Общий кусок пути резолвит
+`resolveWorkspaceStorageDir`, `resolveWorkspaceStatePath` — надстройка над ним.
 
 По решению проекта состояние UI/сессии — `workspace` scope. Если проект не
 открыт, `workspace`-дескрипторы прозрачно обслуживает `global`-стор (fallback).

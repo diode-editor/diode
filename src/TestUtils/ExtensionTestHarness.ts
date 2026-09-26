@@ -34,6 +34,7 @@ import {
     type IQuickInputSink,
     type IStatusBarItemSink,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
+import type { IExtensionStorageHomes } from "../vs/workbench/services/extensions/node/extensionStoragePaths.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 import { createTestContextMenuService } from "./testContextMenuService.ts";
@@ -147,6 +148,12 @@ export interface IExtensionHarnessOptions {
      * умолчанию не подключён — watcher'ы расширений создаются, но не стреляют.
      */
     readonly fileWatcher?: IExtensionFileWatcher;
+    /**
+     * Корни приватных каталогов расширений (`globalStorageUri`/`storageUri`/`logUri`).
+     * По умолчанию — внутри `tmpDir` харнесса (изолировано на прогон, как и
+     * файлы-фикстуры); `storageUri` при этом есть, как при открытой папке.
+     */
+    readonly storageHomes?: () => IExtensionStorageHomes;
 }
 
 export interface IExtensionHarness {
@@ -213,9 +220,19 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     };
     // Полоса групп — зеркально extensionHostModule (правило двух сим-точек).
     const editorLayout = new EditorLayoutServiceAdapter(group);
+    // Каталоги хранения расширений — зеркально extensionHostModule, но корни
+    // внутри tmpDir харнесса: тест не должен писать в user-data машины.
+    const storageHomes =
+        options.storageHomes ??
+        ((): IExtensionStorageHomes => ({
+            globalStorageHome: path.join(tmpDir, "globalStorage"),
+            workspaceStorageHome: path.join(tmpDir, "workspaceStorage"),
+            logsHome: path.join(tmpDir, "logs"),
+        }));
     const host = new ExtensionHost(adapter, commandAdapter, {
         spawnArgs: subprocessSpawnArgsForTests(),
         configuration,
+        storageHomes,
         openDocumentsProvider: () => openDocumentSnapshots(group),
         editorLayout,
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),

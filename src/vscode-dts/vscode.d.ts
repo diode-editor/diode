@@ -983,6 +983,74 @@ declare module "vscode" {
 		asAbsolutePath(relativePath: string): string;
 
 		/**
+		 * The uri of a workspace specific directory in which the extension
+		 * can store private state. The directory might not exist and creation is
+		 * up to the extension. However, the parent directory is guaranteed to be existent.
+		 * The value is `undefined` when no workspace nor folder has been opened.
+		 *
+		 * Use {@linkcode ExtensionContext.workspaceState workspaceState} or
+		 * {@linkcode ExtensionContext.globalState globalState} to store key value data.
+		 *
+		 * @see {@linkcode FileSystem workspace.fs} for how to read and write files and folders from
+		 *  a uri.
+		 */
+		readonly storageUri: Uri | undefined;
+
+		/**
+		 * An absolute file path of a workspace specific directory in which the extension
+		 * can store private state. The directory might not exist on disk and creation is
+		 * up to the extension. However, the parent directory is guaranteed to be existent.
+		 *
+		 * Use {@linkcode ExtensionContext.workspaceState workspaceState} or
+		 * {@linkcode ExtensionContext.globalState globalState} to store key value data.
+		 *
+		 * @deprecated Use {@link ExtensionContext.storageUri storageUri} instead.
+		 */
+		readonly storagePath: string | undefined;
+
+		/**
+		 * The uri of a directory in which the extension can store global state.
+		 * The directory might not exist on disk and creation is
+		 * up to the extension. However, the parent directory is guaranteed to be existent.
+		 *
+		 * Use {@linkcode ExtensionContext.globalState globalState} to store key value data.
+		 *
+		 * @see {@linkcode FileSystem workspace.fs} for how to read and write files and folders from
+		 *  an uri.
+		 */
+		readonly globalStorageUri: Uri;
+
+		/**
+		 * An absolute file path in which the extension can store global state.
+		 * The directory might not exist on disk and creation is
+		 * up to the extension. However, the parent directory is guaranteed to be existent.
+		 *
+		 * Use {@linkcode ExtensionContext.globalState globalState} to store key value data.
+		 *
+		 * @deprecated Use {@link ExtensionContext.globalStorageUri globalStorageUri} instead.
+		 */
+		readonly globalStoragePath: string;
+
+		/**
+		 * The uri of a directory in which the extension can create log files.
+		 * The directory might not exist on disk and creation is up to the extension. However,
+		 * the parent directory is guaranteed to be existent.
+		 *
+		 * @see {@linkcode FileSystem workspace.fs} for how to read and write files and folders from
+		 *  an uri.
+		 */
+		readonly logUri: Uri;
+
+		/**
+		 * An absolute file path of a directory in which the extension can create log files.
+		 * The directory might not exist on disk and creation is up to the extension. However,
+		 * the parent directory is guaranteed to be existent.
+		 *
+		 * @deprecated Use {@link ExtensionContext.logUri logUri} instead.
+		 */
+		readonly logPath: string;
+
+		/**
 		 * The mode the extension is running in. See {@link ExtensionMode}
 		 * for possible values and scenarios.
 		 */

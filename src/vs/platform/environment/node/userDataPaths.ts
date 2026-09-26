@@ -9,17 +9,23 @@ import * as path from "node:path";
  *     <root>/
  *       extensions/                      ← внешние расширения, плоско
  *       user-data/
+ *         logs/                          ← логи; `<extId>` внутри = ExtensionContext.logUri
  *         User/                          ← default-профиль
  *           settings.json
  *           keybindings.json
  *           globalState.json             ← машинное состояние (global scope)
+ *           globalStorage/               ← приватные каталоги расширений (global)
+ *             <extId>/                   ← ExtensionContext.globalStorageUri
  *           workspaceStorage/            ← машинное состояние по проектам
  *             <sha256(folder)>/state.json
+ *             <sha256(folder)>/<extId>/  ← ExtensionContext.storageUri
  *           profiles/
  *             <profileName>/             ← именованные профили
  *               settings.json
  *               keybindings.json
  *               globalState.json
+ *               globalStorage/
+ *               workspaceStorage/
  *
  * Активный профиль `default` использует файлы прямо в `User/`. Любое другое
  * имя кладёт файлы в `User/profiles/<name>/`.
@@ -56,6 +62,20 @@ export interface IUserDataPaths {
      * `globalStateFile`.
      */
     readonly workspaceStorageDir: string;
+    /**
+     * `<profileDir>/globalStorage` — родитель приватных каталогов расширений в
+     * области `global` (`ExtensionContext.globalStorageUri` = `<этот>/<extId>`).
+     * Под `profileDir` — как `globalStateFile`, и как `User/globalStorage` в
+     * VS Code (там он тоже переезжает вместе с профилем).
+     */
+    readonly globalStorageDir: string;
+    /**
+     * `<userDataDir>/logs` — родитель каталогов логов расширений
+     * (`ExtensionContext.logUri` = `<этот>/<extId>`). Вне профиля — как `logs/`
+     * рядом с `User/` в VS Code. Отличие от эталона: у нас без подкаталога
+     * сессии (`logs/<timestamp>/`) — ротации логов по запускам у нас нет.
+     */
+    readonly logsDir: string;
 }
 
 export const DEFAULT_PROFILE_NAME = "default";
@@ -101,21 +121,38 @@ export function resolveUserDataPaths(options: IResolveUserDataPathsOptions): IUs
         keybindingsFile: path.join(profileDir, "keybindings.json"),
         globalStateFile: path.join(profileDir, "globalState.json"),
         workspaceStorageDir: path.join(profileDir, "workspaceStorage"),
+        globalStorageDir: path.join(profileDir, "globalStorage"),
+        logsDir: path.join(userDataDir, "logs"),
     };
 }
 
 /**
- * Резолвит путь к state.json конкретного проекта внутри `workspaceStorageDir`.
- * Ключ каталога — sha256 от абсолютного (нормализованного) пути папки, как в
+ * Резолвит каталог конкретного проекта внутри `workspaceStorageDir`. Ключ
+ * каталога — sha256 от абсолютного (нормализованного) пути папки, как в
  * VS Code (`workspaceStorage/<hash>/`). Pure, без I/O.
+ *
+ * В нём лежит и наше `state.json` ({@link resolveWorkspaceStatePath}), и
+ * приватные каталоги расширений (`<hash>/<extId>` = `ExtensionContext.storageUri`) —
+ * ровно как в VS Code, где рядом с `state.vscdb` живут те же `<extId>`.
+ *
+ * @param workspaceStorageDir корень хранилища (`IUserDataPaths.workspaceStorageDir`)
+ * @param folderPath путь к папке-воркспейсу (резолвится в абсолютный)
+ */
+export function resolveWorkspaceStorageDir(workspaceStorageDir: string, folderPath: string): string {
+    const resolved = path.resolve(folderPath);
+    const hash = crypto.createHash("sha256").update(resolved).digest("hex");
+    return path.join(workspaceStorageDir, hash);
+}
+
+/**
+ * Резолвит путь к state.json конкретного проекта внутри `workspaceStorageDir`.
+ * Pure, без I/O.
  *
  * @param workspaceStorageDir корень хранилища (`IUserDataPaths.workspaceStorageDir`)
  * @param folderPath путь к папке-воркспейсу (резолвится в абсолютный)
  */
 export function resolveWorkspaceStatePath(workspaceStorageDir: string, folderPath: string): string {
-    const resolved = path.resolve(folderPath);
-    const hash = crypto.createHash("sha256").update(resolved).digest("hex");
-    return path.join(workspaceStorageDir, hash, "state.json");
+    return path.join(resolveWorkspaceStorageDir(workspaceStorageDir, folderPath), "state.json");
 }
 
 function normalizeProfileName(raw: string | undefined): string {
