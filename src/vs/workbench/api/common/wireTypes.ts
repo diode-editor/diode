@@ -1598,6 +1598,9 @@ export function selectionChangeKindOf(source: CursorChangeSource | undefined): W
             return 2;
         case "command":
             return 3;
+        // Stryker disable next-line ConditionalExpression: мутант сносит `default`,
+        // но функция и без него возвращает undefined, вывалившись из switch —
+        // эквивалентный мутант, отличить его тестом нельзя.
         default:
             return undefined;
     }

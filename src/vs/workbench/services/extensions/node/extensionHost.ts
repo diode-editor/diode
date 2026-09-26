@@ -1875,7 +1875,6 @@ export class ExtensionHost extends Disposable {
         this.fileDecorations.setFileDecorations(entries);
     }
 
-    /** Пере-push всех держимых декораций в обе поверхности (на смену темы). */
     /**
      * Шлёт субпроцессу вид активной темы. Молча ничего не делает, пока
      * субпроцесса нет: тема приедет семенем на его подъёме (`ensureSubprocess`),
@@ -1886,6 +1885,7 @@ export class ExtensionHost extends Disposable {
         this.rpc?.notify("window.themeChanged", theme);
     }
 
+    /** Пере-push всех держимых декораций в обе поверхности (на смену темы). */
     private repushAllDecorations(): void {
         for (const uri of this.editorDecorationsByFile.keys()) this.pushEditorDecorations(uri);
         this.pushFileDecorations();
