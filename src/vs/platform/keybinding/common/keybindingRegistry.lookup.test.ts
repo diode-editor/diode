@@ -105,3 +105,18 @@ describe("KeybindingRegistry — getKeybindingForCommand", () => {
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+S");
     });
 });
+
+describe("KeybindingRegistry — getKeybindingForCommand с overlay", () => {
+    it("бинд под фокус-ключом находится «как если бы в фокусе», не трогая контекст", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseKeybinding("mod+enter"), "commit", "scmInputFocus");
+        const contextKeys = new ContextKeyService();
+        contextKeys.set("macKeys", 3);
+        // Без overlay фокуса нет: ни один when не проходит — берётся первый зарегистрированный (Ctrl-вариант).
+        expect(formatKeybinding(registry.getKeybindingForCommand("commit", contextKeys)!)).toBe("Ctrl+Enter");
+        expect(
+            formatKeybinding(registry.getKeybindingForCommand("commit", contextKeys, { scmInputFocus: true })!),
+        ).toBe("Meta+Enter");
+        expect(contextKeys.evaluate("scmInputFocus")).toBe(false);
+    });
+});

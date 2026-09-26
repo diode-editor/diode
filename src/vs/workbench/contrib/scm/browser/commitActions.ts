@@ -81,10 +81,13 @@ function commitAction(
     };
 }
 
-/** Smart commit: индекс, а при пустом индексе — предложение закоммитить всё. Ctrl+Enter в input box. */
+/**
+ * Smart commit: индекс, а при пустом индексе — предложение закоммитить всё.
+ * Ctrl+Enter в input box (Cmd+Enter на маке с Cmd) — как `CtrlCmd+Enter` в эталоне.
+ */
 export const gitCommitAction: CommandAction = {
     ...commitAction("git.commit", "Git: Commit", "Commit", { smart: true }, { group: "1_commit", order: 10 }),
-    keybinding: { keys: parseKeybinding("ctrl+enter"), when: "scmInputFocus" },
+    keybinding: { keys: parseKeybinding("mod+enter"), when: "scmInputFocus" },
 };
 
 export const gitCommitStagedAction = commitAction(

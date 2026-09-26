@@ -9,7 +9,15 @@ import { VFlexElement, vflexFit, vflexFixed } from "@tuidom/elements/layout/vFle
 
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    formatKeybinding,
+    keybindingLabelStyle,
+    KeybindingRegistryDIToken,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import { ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
@@ -188,6 +196,8 @@ export class ScmInputComponent extends Component {
         ScmRepoStateServiceDIToken,
         CommandRegistryDIToken,
         ProgressServiceDIToken,
+        KeybindingRegistryDIToken,
+        ContextKeyServiceDIToken,
     ] as const;
 
     /** Безрамочное поле ввода (высота 1, фон `input.background`). */
@@ -204,10 +214,12 @@ export class ScmInputComponent extends Component {
         private readonly repoState: ScmRepoStateService,
         private readonly commands: CommandRegistry,
         private readonly progress: ProgressService,
+        private readonly keybindings: KeybindingRegistry,
+        private readonly contextKeys: ContextKeyService,
     ) {
         super();
         this.input.id = "scmCommitInput";
-        this.input.placeholder = "Message (Ctrl+Enter to commit)";
+        this.updatePlaceholder();
         this.input.onChange = (value) => {
             this.stateService.store(SCM_INPUT_MESSAGE_STATE, value);
         };
@@ -242,7 +254,30 @@ export class ScmInputComponent extends Component {
                 this.updateActionButton();
             }),
         );
+        // Подпись бинда зависит от клавиатуры: ОС уточняется после старта, Cmd — по
+        // первому нажатию (рунг), и commit переезжает с Ctrl+Enter на ⌘Enter.
+        this.register(
+            this.contextKeys.onDidChange((changed) => {
+                // Stryker disable next-line ConditionalExpression: лишний пересчёт на постороннем ключе даёт тот же текст — ненаблюдаем.
+                if (changed.has("isMac") || changed.has("macKeys")) this.updatePlaceholder();
+            }),
+        );
         this.updateActionButton();
+    }
+
+    /**
+     * Плейсхолдер с подписью действующего бинда commit — как «Message ({0} to
+     * commit…)» в VS Code. Бинд живёт под `scmInputFocus`, а поле в момент
+     * подписи может быть не в фокусе, поэтому ищем его «как если бы в фокусе».
+     */
+    private updatePlaceholder(): void {
+        const chord = this.keybindings.getKeybindingForCommand("git.commit", this.contextKeys, {
+            scmInputFocus: true,
+        });
+        this.input.placeholder =
+            chord === undefined
+                ? "Message"
+                : `Message (${formatKeybinding(chord, keybindingLabelStyle(this.contextKeys))} to commit)`;
     }
 
     /** Текущее сообщение коммита — источник для commit-команд. */

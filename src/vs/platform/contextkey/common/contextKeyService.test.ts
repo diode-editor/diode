@@ -182,3 +182,23 @@ describe("ContextKeyService", () => {
         });
     });
 });
+
+describe("ContextKeyService — overlay («что если»)", () => {
+    it("перекрывает значения на время вычисления и не меняет сами ключи", () => {
+        const contextKeys = new ContextKeyService();
+        contextKeys.set("listFocus", false);
+        contextKeys.set("tier", "legacy");
+        expect(contextKeys.evaluate("listFocus && tier == 'legacy'", { listFocus: true })).toBe(true);
+        expect(contextKeys.evaluate("listFocus")).toBe(false);
+        expect(contextKeys.get("listFocus")).toBe(false);
+        expect(contextKeys.evaluate("tier == 'kitty'", { tier: "kitty" })).toBe(true);
+        expect(contextKeys.evaluate("tier == 'legacy'", {})).toBe(true); // пустой overlay — как без него
+    });
+
+    it("работает и для точечных ключей расширений", () => {
+        registerContextKeys(["overlayExt.flag"]);
+        const contextKeys = new ContextKeyService();
+        expect(contextKeys.evaluate("overlayExt.flag")).toBe(false);
+        expect(contextKeys.evaluate("overlayExt.flag", { "overlayExt.flag": true })).toBe(true);
+    });
+});

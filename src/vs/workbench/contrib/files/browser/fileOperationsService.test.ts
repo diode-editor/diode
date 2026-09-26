@@ -4,6 +4,8 @@ import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { KeybindingRegistry, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
 import type { WorkspaceEditService } from "../../bulkEdit/node/workspaceEditService.ts";
@@ -35,6 +37,8 @@ function makeService(explorer: Partial<ExplorerService>): { service: FileOperati
         new InMemoryFileClipboard(),
         new CommandRegistry(),
         cancelledPrompt,
+        new KeybindingRegistry(),
+        new ContextKeyService(),
     );
     return { service, edits };
 }
@@ -54,5 +58,48 @@ describe("FileOperationsService — отменённый промпт", () => {
 
         await expect(service.runRename("/ws/old.txt")).resolves.toBeUndefined();
         expect(edits).toEqual([]);
+    });
+});
+
+describe("FileOperationsService — подсказка отмены в диалоге удаления в корзину", () => {
+    function trashHint(bind: string | null, isMac: boolean): unknown {
+        const shown: { message?: unknown }[] = [];
+        const keybindings = new KeybindingRegistry();
+        if (bind !== null) keybindings.register(parseKeybinding(bind), "fileOperations.undo", "listFocus");
+        const contextKeys = new ContextKeyService();
+        contextKeys.set("isMac", isMac);
+        contextKeys.set("macKeys", isMac ? 3 : 0);
+        const service = new FileOperationsService(
+            {} as ExplorerService,
+            { willMoveToTrash: () => true } as unknown as WorkspaceEditService,
+            {} as UndoRedoService,
+            { showConfirmDialog: (options: { message?: unknown }) => shown.push(options) } as unknown as DialogService,
+            NULL_CONFIGURATION_SERVICE,
+            new InMemoryFileClipboard(),
+            new CommandRegistry(),
+            { input: () => Promise.resolve(undefined) },
+            keybindings,
+            contextKeys,
+        );
+        service.requestDeleteFile("/ws/a.txt");
+        return shown[0].message;
+    }
+
+    it("подпись действующего бинда отмены дерева — по ОС клавиатуры (дерево «в фокусе»)", () => {
+        expect(trashHint("mod+z", false)).toEqual([
+            "«a.txt» будет перемещён в корзину.",
+            "Можно восстановить (Ctrl+Z или из корзины).",
+        ]);
+        expect(trashHint("mod+z", true)).toEqual([
+            "«a.txt» будет перемещён в корзину.",
+            "Можно восстановить (⌘Z или из корзины).",
+        ]);
+    });
+
+    it("без бинда отмены — только путь через корзину", () => {
+        expect(trashHint(null, false)).toEqual([
+            "«a.txt» будет перемещён в корзину.",
+            "Можно восстановить из корзины.",
+        ]);
     });
 });
