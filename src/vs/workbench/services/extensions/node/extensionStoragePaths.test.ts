@@ -4,8 +4,11 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { resolveWorkspaceStorageDir } from "../../../../platform/environment/node/userDataPaths.ts";
+
 import {
     ensureExtensionStorageParents,
+    extensionStorageHomes,
     fallbackExtensionStorageHomes,
     type IExtensionStorageHomes,
     resolveExtensionStoragePaths,
@@ -133,5 +136,34 @@ describe("fallbackExtensionStorageHomes", () => {
         expect(homes.globalStorageHome).toBe(path.join(root, "globalStorage"));
         expect(homes.logsHome).toBe(path.join(root, "logs"));
         expect(homes.workspaceStorageHome).toBeNull();
+    });
+});
+
+describe("extensionStorageHomes", () => {
+    const paths = {
+        globalStorageDir: path.join(path.sep, "ud", "user-data", "User", "globalStorage"),
+        workspaceStorageDir: path.join(path.sep, "ud", "user-data", "User", "workspaceStorage"),
+        logsDir: path.join(path.sep, "ud", "user-data", "logs"),
+    };
+
+    it("с открытой папкой воркспейсный корень — её каталог в workspaceStorage", () => {
+        const homes = extensionStorageHomes(paths, "/projects/app");
+        expect(homes.workspaceStorageHome).toBe(resolveWorkspaceStorageDir(paths.workspaceStorageDir, "/projects/app"));
+        expect(homes.globalStorageHome).toBe(paths.globalStorageDir);
+        expect(homes.logsHome).toBe(paths.logsDir);
+    });
+
+    // «The value is `undefined` when no workspace nor folder has been opened».
+    it("без открытой папки воркспейсного корня нет, остальные два на месте", () => {
+        const homes = extensionStorageHomes(paths, null);
+        expect(homes.workspaceStorageHome).toBeNull();
+        expect(homes.globalStorageHome).toBe(paths.globalStorageDir);
+        expect(homes.logsHome).toBe(paths.logsDir);
+    });
+
+    it("разные папки дают разные воркспейсные корни", () => {
+        expect(extensionStorageHomes(paths, "/a").workspaceStorageHome).not.toBe(
+            extensionStorageHomes(paths, "/b").workspaceStorageHome,
+        );
     });
 });

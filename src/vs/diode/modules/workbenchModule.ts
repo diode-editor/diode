@@ -396,6 +396,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(AutoRevealContributionDIToken, AutoRevealContribution);
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
     container.bind(OpenFileCommandContributionDIToken, OpenFileCommandContribution);
+    // Stryker disable next-line ArrowFunction: биндинг DI без юнита; сквозняк — e2e-сценарий extension-storage
     container.bind(SetContextCommandContributionDIToken, SetContextCommandContribution);
     // Panel-кластер (этап 6): реестр вкладок нижней панели + компонент-контрол,
     // Problems-дерево и встроенный терминал (сервис инстансов + view-владелец).

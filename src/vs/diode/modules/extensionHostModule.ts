@@ -4,7 +4,6 @@ import { Uri } from "../../base/common/uri.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { resolveWorkspaceStorageDir } from "../../platform/environment/node/userDataPaths.ts";
 import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
@@ -34,7 +33,10 @@ import {
     ExtensionHostDIToken,
     type IExtensionHostConfigProvider,
 } from "../../workbench/services/extensions/node/extensionHost.ts";
-import type { IExtensionStorageHomes } from "../../workbench/services/extensions/node/extensionStoragePaths.ts";
+import {
+    extensionStorageHomes,
+    type IExtensionStorageHomes,
+} from "../../workbench/services/extensions/node/extensionStoragePaths.ts";
 import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
@@ -144,16 +146,10 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Приватные каталоги расширений (`globalStorageUri`/`storageUri`/`logUri`).
         // Провайдер ЛЕНИВЫЙ по той же причине, что `getWorkspaceFolders` выше:
         // папку воркспейса выставляет `WorkbenchComponent.setWorkspaceFolder`
-        // позже создания хоста, а `storageUri` зависит именно от неё. Папки нет —
-        // воркспейсного корня нет, и `storageUri` у расширения `undefined`.
-        const storageHomes = (): IExtensionStorageHomes => {
-            const root = explorer.getRootPath();
-            return {
-                globalStorageHome: ctx.globalStorageDir,
-                workspaceStorageHome: root === null ? null : resolveWorkspaceStorageDir(ctx.workspaceStorageDir, root),
-                logsHome: ctx.logsDir,
-            };
-        };
+        // позже создания хоста, а `storageUri` зависит именно от неё. Сам резолв —
+        // в `extensionStorageHomes` (чистый, с тестами), здесь только чтение папки.
+        // Stryker disable next-line ArrowFunction: production-проводка модуля; решение о корнях живёт в `extensionStorageHomes` и закрыто юнитами, сквозняк — e2e-сценарий extension-storage
+        const storageHomes = (): IExtensionStorageHomes => extensionStorageHomes(ctx, explorer.getRootPath());
 
         const host = new ExtensionHost(adapter, commandAdapter, {
             logger,

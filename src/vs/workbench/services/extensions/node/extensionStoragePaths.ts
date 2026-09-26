@@ -2,6 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import { resolveWorkspaceStorageDir } from "../../../../platform/environment/node/userDataPaths.ts";
+
 /**
  * Корни приватных каталогов расширений. Их даёт ХОСТ (владелец user-data), а не
  * субпроцесс: раскладка `<user-data-dir>/user-data/...` — знание уровня
@@ -78,6 +80,32 @@ export function ensureExtensionStorageParents(
             onError?.(dir, err);
         }
     }
+}
+
+/** Пути user-data, из которых собираются корни (подмножество `IUserDataPaths`). */
+export interface IExtensionStorageUserDataPaths {
+    readonly globalStorageDir: string;
+    readonly workspaceStorageDir: string;
+    readonly logsDir: string;
+}
+
+/**
+ * Собирает корни из путей user-data и ТЕКУЩЕЙ папки воркспейса. Pure, без I/O.
+ *
+ * Папки нет (`null`) ⇒ воркспейсного корня нет ⇒ `storageUri` у расширения
+ * `undefined` — семантика vscode: «The value is `undefined` when no workspace
+ * nor folder has been opened». Два других корня от папки не зависят.
+ */
+export function extensionStorageHomes(
+    paths: IExtensionStorageUserDataPaths,
+    workspaceFolder: string | null,
+): IExtensionStorageHomes {
+    return {
+        globalStorageHome: paths.globalStorageDir,
+        workspaceStorageHome:
+            workspaceFolder === null ? null : resolveWorkspaceStorageDir(paths.workspaceStorageDir, workspaceFolder),
+        logsHome: paths.logsDir,
+    };
 }
 
 /**
