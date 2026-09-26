@@ -358,12 +358,7 @@ async function runEditor(): Promise<void> {
     // `contributes.keybindings` расширений — регистрируем ПОСЛЕ builtin-биндингов
     // (они заведены при построении WorkbenchComponent), чтобы расширение могло
     // переопределить встроенный аккорд. Декларативно, без extension host'а.
-    registerExtensionKeybindings(
-        allExtensions,
-        container.get(KeybindingRegistryDIToken),
-        process.platform,
-        extensionsLogger,
-    );
+    registerExtensionKeybindings(allExtensions, container.get(KeybindingRegistryDIToken), extensionsLogger);
 
     // If the first argument is a directory, use it as the workspace folder
     const firstResolved = resolvedPaths[0];

@@ -216,7 +216,7 @@ export const inputPasteAction: CommandAction = {
 export const inputUndoAction: CommandAction = {
     id: "input.undo",
     title: "Input: Undo",
-    keybinding: parseKeybinding("ctrl+z"),
+    keybinding: parseKeybinding("mod+z"),
     when: "inputWidgetFocus",
     run(accessor) {
         accessor.get(InputWidgetServiceDIToken).undo();
@@ -226,7 +226,7 @@ export const inputUndoAction: CommandAction = {
 export const inputRedoAction: CommandAction = {
     id: "input.redo",
     title: "Input: Redo",
-    keybindings: [parseKeybinding("ctrl+y"), parseKeybinding("ctrl+shift+z")],
+    keybindings: [parseKeybinding("ctrl+y"), parseKeybinding("mod+shift+z")],
     when: "inputWidgetFocus",
     run(accessor) {
         accessor.get(InputWidgetServiceDIToken).redo();

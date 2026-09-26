@@ -204,7 +204,7 @@ export function createStatusBarHarness(languageService: ILanguageService = NULL_
     );
     const terminalEnv = new TerminalEnvironmentService(new MockTerminalBackend(), NULL_CONFIGURATION_SERVICE);
     const source = new FakeActiveEditorSource();
-    const terminalContribution = new TerminalEnvStatusContribution(statusBarService, terminalEnv);
+    const terminalContribution = new TerminalEnvStatusContribution(statusBarService, terminalEnv, commands);
     const editorContribution = new EditorStatusContribution(statusBarService, source, languageService, commands);
     const component = new StatusBarComponent(statusBarService, contextMenuService);
     return {

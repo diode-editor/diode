@@ -24,6 +24,9 @@ const TERMINAL_IDENTITY_VARS = [
     "SSH_TTY",
     "SSH_CONNECTION",
     "SSH_CLIENT",
+    // ОС клавиатуры (мак-раскладка) — сценарий задаёт её явно через keyboard.platform.
+    "LC_DIODE_PLATFORM",
+    "LC_TERMINAL",
 ] as const;
 
 /**

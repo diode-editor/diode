@@ -3,6 +3,8 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
+import { macKeysAtLeast, macKeysBelow } from "./macKeys.ts";
+
 export const KeybindingRegistryDIToken = token<KeybindingRegistry>("KeybindingRegistry");
 
 export interface KeyboardEventLike {
@@ -20,6 +22,13 @@ export interface Keybinding {
     shiftKey: boolean;
     altKey: boolean;
     metaKey: boolean;
+    /**
+     * Токен `mod` (аналог `KeyMod.CtrlCmd` VS Code): Ctrl на pc и на мак-рунгах
+     * ниже cmd, Cmd — на `mac-cmd`. Реестр разворачивает такую часть в две
+     * конкретные записи с условием по рунгу (см. {@link expandModKey}); в
+     * самих записях реестра `modKey` не встречается.
+     */
+    modKey?: boolean;
 }
 
 /**
@@ -93,14 +102,13 @@ const specialKeyMap: Record<string, string> = {
     f12: "F12",
 };
 
-const modifierNames = new Set(["ctrl", "shift", "alt", "meta"]);
-
 export function parseKeybinding(spec: string): Keybinding {
     const parts = spec.toLowerCase().split("+");
     let ctrlKey = false;
     let shiftKey = false;
     let altKey = false;
     let metaKey = false;
+    let modKey = false;
     let rawKey = "";
 
     for (const part of parts) {
@@ -108,12 +116,41 @@ export function parseKeybinding(spec: string): Keybinding {
         else if (part === "shift") shiftKey = true;
         else if (part === "alt") altKey = true;
         else if (part === "meta") metaKey = true;
+        else if (part === "mod") modKey = true;
         else rawKey = part;
     }
 
     const key = specialKeyMap[rawKey] ?? rawKey;
 
-    return { key, ctrlKey, shiftKey, altKey, metaKey };
+    return modKey ? { key, ctrlKey, shiftKey, altKey, metaKey, modKey } : { key, ctrlKey, shiftKey, altKey, metaKey };
+}
+
+/** AND двух необязательных when-выражений. */
+function andWhen(a: string | undefined, b: string): string {
+    return a === undefined ? b : `(${a}) && (${b})`;
+}
+
+function resolveModPart(part: Keybinding, modifier: "ctrlKey" | "metaKey"): Keybinding {
+    if (part.modKey !== true) return part;
+    const { modKey: _mod, ...concrete } = part;
+    return { ...concrete, [modifier]: true };
+}
+
+/**
+ * Разворачивает `mod` в конкретный модификатор по мак-рунгу: Ctrl везде, где
+ * Cmd не доезжает (pc, mac-legacy, mac-extended), и Cmd на `mac-cmd`. Условия
+ * взаимоисключающие — ни в одном окружении обе записи не активны разом.
+ * Чорд без `mod` возвращается как есть.
+ */
+export function expandModKey(
+    chord: KeybindingChord,
+    when: string | undefined,
+): { chord: KeybindingChord; when: string | undefined }[] {
+    if (!chord.some((part) => part.modKey === true)) return [{ chord, when }];
+    return [
+        { chord: chord.map((part) => resolveModPart(part, "ctrlKey")), when: andWhen(when, macKeysBelow("cmd")) },
+        { chord: chord.map((part) => resolveModPart(part, "metaKey")), when: andWhen(when, macKeysAtLeast("cmd")) },
+    ];
 }
 
 /**
@@ -168,6 +205,7 @@ function serializePart(part: Keybinding): string {
     if (part.shiftKey) segments.push("shift");
     if (part.altKey) segments.push("alt");
     if (part.metaKey) segments.push("meta");
+    if (part.modKey === true) segments.push("mod");
     segments.push(serializeKey(part.key));
     return segments.join("+");
 }
@@ -231,18 +269,20 @@ export class KeybindingRegistry implements IDisposable {
         source: KeybindingSource = "default",
         args?: unknown,
     ): IDisposable {
-        const entry: KeybindingEntry = {
-            chord: Array.isArray(chord) ? chord : [chord],
+        const added: KeybindingEntry[] = expandModKey(Array.isArray(chord) ? chord : [chord], when).map((variant) => ({
+            chord: variant.chord,
             commandId,
-            when,
+            when: variant.when,
             source,
             args,
-        };
-        this.entries.push(entry);
+        }));
+        this.entries.push(...added);
         return {
             dispose: () => {
-                const index = this.entries.indexOf(entry);
-                if (index !== -1) this.entries.splice(index, 1);
+                for (const entry of added) {
+                    const index = this.entries.indexOf(entry);
+                    if (index !== -1) this.entries.splice(index, 1);
+                }
             },
         };
     }

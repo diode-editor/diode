@@ -149,3 +149,35 @@
   Возврат DCS passthrough для input-режимов — прошлый баг (утечка кодировки во все панели,
   ломался Ctrl+S-префикс; коммит `3d20e6f`). И главное — на tmux 3.4 проблема в самом tmux,
   кодом diode не решается в принципе.
+
+### [ ] Мак: Cmd, Option и tmux — что подсказывать маководу
+
+Мак-раскладка и Keyboard Doctor — [MacKeybindings](MacKeybindings.md). Доктор уже
+отдаёт рецепты под опознанный эмулятор (`emulatorRecipes`), но пока только в
+отчёте. Здесь — то, что надо довести до «детектим и подсказываем».
+
+- **iTerm2 и `CSI >4;2m`.** Бэкенд шлёт modifyOtherKeys после kitty-push, а iTerm2
+  трактует любой `CSI >4;n m` как сброс kitty-стека. Итог: откат в legacy, и Cmd
+  уходит в меню-бар. Фикс в движке — tuidom PR
+  [#13](https://github.com/tuidom/tuidom/pull/13). Живьём на iTerm2 не проверено.
+- **tmux и Cmd.** У tmux три модификатора: Cmd и Option пишутся в один бит, и Cmd+S
+  приезжает байт в байт как Option+S. Cmd под tmux не доезжает никогда, поэтому
+  мак-рунг под tmux не выше `extended`. Подсказка пользователю: Cmd-раскладка
+  только без tmux; внутри tmux — Ctrl-подслой. Для Ctrl+Shift/Ctrl+Tab нужен
+  `extended-keys always` + `extended-keys-format csi-u` (tmux ≥ 3.5), см. пункт выше.
+- **tmux и `LC_DIODE_PLATFORM`.** Свой env под tmux застывает на момент создания
+  сессии, поэтому diode спрашивает `tmux show-environment`. Туда переменная попадает
+  только с `set -ag update-environment LC_DIODE_PLATFORM`. Подсказать, если под tmux
+  ОС осталась «default», а клиент — маковский терминал.
+- **Рецепты эмуляторов** (не проверено, из документации):
+  - iTerm2 — Left/Right Command = Super, «Apps can change how keys are reported»,
+    Left Option = Esc+;
+  - kitty — `macos_option_as_alt left`, снять Cmd-шорткаты, нужные редактору;
+  - ghostty — `macos-option-as-alt = left`, `alt+arrow_left/right=unbind`
+    (иначе шлёт legacy `ESC b`);
+  - WezTerm — `enable_kitty_keyboard`,
+    `send_composed_key_when_left_alt_is_pressed = false`;
+  - Terminal.app — Cmd невозможен, Option — галка «Use Option as Meta key».
+- **Дальше:** показывать рецепт не только в отчёте доктора, а подсказкой, когда
+  окружение опознано как мак, а рунг ниже возможного для эмулятора. Например,
+  iTerm2 без tmux, а super так и не пришёл.

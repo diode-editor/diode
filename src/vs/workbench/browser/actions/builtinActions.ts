@@ -51,6 +51,7 @@ import {
     hideInlineSuggestAction,
     triggerInlineSuggestAction,
 } from "../../contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
+import { keyboardDoctorAction } from "../../contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import {
     closeParameterHintsAction,
@@ -133,6 +134,8 @@ import {
     cursorHomeSelectAction,
     cursorLeftAction,
     cursorLeftSelectAction,
+    cursorLineEndAction,
+    cursorLineStartAction,
     cursorPageDownAction,
     cursorPageDownSelectAction,
     cursorPageUpAction,
@@ -152,6 +155,7 @@ import {
     toggleWordWrapAction,
 } from "./editorActions.ts";
 import {
+    deleteAllLeftAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
@@ -267,6 +271,7 @@ export const builtinActions: readonly CommandAction[] = [
     openSettingsAction,
     openKeybindingsAction,
     openKeybindingsFileAction,
+    keyboardDoctorAction,
     showAboutDialogAction,
     reloadWindowAction,
     quitAction,
@@ -293,6 +298,8 @@ export const builtinActions: readonly CommandAction[] = [
     cursorHomeSelectAction,
     cursorEndAction,
     cursorEndSelectAction,
+    cursorLineStartAction,
+    cursorLineEndAction,
     cursorTopAction,
     cursorTopSelectAction,
     cursorBottomAction,
@@ -319,6 +326,7 @@ export const builtinActions: readonly CommandAction[] = [
     deleteRightAction,
     deleteWordLeftAction,
     deleteWordRightAction,
+    deleteAllLeftAction,
     undoAction,
     redoAction,
     selectAllAction,

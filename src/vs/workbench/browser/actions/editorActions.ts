@@ -127,6 +127,28 @@ export const cursorEndSelectAction: CommandAction = {
     },
 };
 
+// Колонка 0 / конец строки без smart-home — VS Code `cursorLineStart`/`cursorLineEnd`.
+// Своих pc-биндов у них нет, как в эталоне: на маке это Ctrl+A / Ctrl+E (Home/End
+// в мак-терминалах скроллят буфер), бинды — в таблице мак-дельт.
+
+export const cursorLineStartAction: CommandAction = {
+    id: "cursorLineStart",
+    title: "Cursor Line Start",
+    when: "textViewFocus",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).getActiveViewState()?.cursorLineStart();
+    },
+};
+
+export const cursorLineEndAction: CommandAction = {
+    id: "cursorLineEnd",
+    title: "Cursor Line End",
+    when: "textViewFocus",
+    run(accessor) {
+        accessor.get(EditorServiceDIToken).getActiveViewState()?.cursorEnd();
+    },
+};
+
 // ─── Document Start / End ───────────────────────────────────
 
 export const cursorTopAction: CommandAction = {

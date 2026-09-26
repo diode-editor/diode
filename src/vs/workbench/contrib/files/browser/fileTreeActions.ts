@@ -71,7 +71,7 @@ export const refreshExplorerAction: CommandAction = {
 export const fileUndoAction: CommandAction = {
     id: "fileOperations.undo",
     title: "File: Undo",
-    keybinding: parseKeybinding("ctrl+z"),
+    keybinding: parseKeybinding("mod+z"),
     when: "listFocus",
     run(accessor) {
         accessor.get(FileOperationsServiceDIToken).undoWorkspace();
@@ -82,7 +82,7 @@ export const fileUndoAction: CommandAction = {
 export const fileRedoAction: CommandAction = {
     id: "fileOperations.redo",
     title: "File: Redo",
-    keybindings: [parseKeybinding("ctrl+shift+z"), parseKeybinding("ctrl+y")],
+    keybindings: [parseKeybinding("mod+shift+z"), parseKeybinding("ctrl+y")],
     when: "listFocus",
     run(accessor) {
         accessor.get(FileOperationsServiceDIToken).redoWorkspace();

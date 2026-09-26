@@ -43,7 +43,7 @@ async function withCommentRule(
 export const commentLineAction: CommandAction = {
     id: "editor.action.commentLine",
     title: "Toggle Line Comment",
-    keybinding: parseKeybinding("ctrl+/"),
+    keybinding: parseKeybinding("mod+/"),
     when: "textInputFocus && !editorReadonly",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "4_comment", order: 10 }],
     run(accessor) {

@@ -200,7 +200,7 @@ describe("line operation actions", () => {
 
         expect(deleteLinesAction.id).toBe("editor.action.deleteLines");
         expect(deleteLinesAction.title).toBe("Delete Line");
-        expect(deleteLinesAction.keybinding).toEqual(parseKeybinding("ctrl+shift+k"));
+        expect(deleteLinesAction.keybinding).toEqual(parseKeybinding("mod+shift+k"));
         // Аккорд — единственный досягаемый на legacy-tier'е.
         expect(deleteLinesAction.keybindings).toEqual([
             { keys: parseChord("ctrl+k ctrl+k"), when: "tier == 'legacy'" },

@@ -1,5 +1,7 @@
 import { isInsideTmux, isSsh } from "@tuidom/terminal-backend/terminalEnv";
 
+import type { MacKeysRung } from "../../../../platform/keybinding/common/macKeys.ts";
+
 /**
  * Pure model for terminal-environment detection. No I/O, no DI — fully
  * unit-testable. The service layer (TerminalEnvironmentService) wires these
@@ -13,7 +15,11 @@ import { isInsideTmux, isSsh } from "@tuidom/terminal-backend/terminalEnv";
 
 // ─── Capabilities ───
 
-export type Capability = "extended-keys" | "osc52" | "truecolor" | "kitty-graphics" | "mouse-sgr";
+/**
+ * `super` — «Cmd доезжает»: из tier не выводится (kitty под tmux — это
+ * `tier == kitty`, а super мёртв), поэтому отдельный примитив.
+ */
+export type Capability = "extended-keys" | "osc52" | "truecolor" | "kitty-graphics" | "mouse-sgr" | "super";
 
 export const ALL_CAPABILITIES: readonly Capability[] = [
     "extended-keys",
@@ -21,6 +27,7 @@ export const ALL_CAPABILITIES: readonly Capability[] = [
     "truecolor",
     "kitty-graphics",
     "mouse-sgr",
+    "super",
 ];
 
 export type CapabilitySet = Record<Capability, boolean>;
@@ -32,6 +39,7 @@ export function emptyCapabilities(): CapabilitySet {
         truecolor: false,
         "kitty-graphics": false,
         "mouse-sgr": false,
+        super: false,
     };
 }
 
@@ -60,12 +68,111 @@ export function tierAtLeast(a: Tier, b: Tier): boolean {
 
 // ─── OS ───
 
+/**
+ * ОС **клавиатуры**, а не процесса: по ssh с мака на Linux-хост раскладка
+ * должна быть маковской, хотя `process.platform === "linux"`. Так же поступает
+ * эталон — раскладку решает UI-сторона.
+ */
 export type OsName = "mac" | "linux" | "windows";
 
-export function resolveOs(platform: NodeJS.Platform): OsName {
-    if (platform === "darwin") return "mac";
-    if (platform === "win32") return "windows";
-    return "linux";
+const OS_NAMES: readonly OsName[] = ["mac", "linux", "windows"];
+
+/**
+ * Откуда взялся ответ — провенанс идёт в статус-бар и в Keyboard Doctor
+ * (и туда же потом встанет квиз как ещё один источник):
+ *  - setting:  `keyboard.platform` — человек всегда прав;
+ *  - env:      `LC_DIODE_PLATFORM` из конфига эмулятора (LC_* доезжает по ssh);
+ *  - terminal: сам терминал назвался маковским (`LC_TERMINAL`, XTVERSION);
+ *  - platform: `process.platform` локальной сессии;
+ *  - default:  сигналов нет — «не знаю», считаем не-мак.
+ */
+export type OsSource = "setting" | "env" | "terminal" | "platform" | "default";
+
+export interface ResolvedOs {
+    readonly os: OsName;
+    readonly source: OsSource;
+}
+
+/** Сырые сигналы для {@link resolveOs}; каждый может отсутствовать. */
+export interface OsSignals {
+    /** `keyboard.platform`: `auto` | `mac` | `linux` | `windows`. */
+    readonly setting?: string;
+    /** Значение `LC_DIODE_PLATFORM`. */
+    readonly envPlatform?: string;
+    /** Значение `LC_TERMINAL` (iTerm2 ставит сам). */
+    readonly lcTerminal?: string;
+    /** Имя терминала из XTVERSION или `#{client_termtype}` tmux, напр. `iTerm2 3.5.0`, `kitty(0.45.0)`. */
+    readonly terminalName?: string;
+    readonly platform: NodeJS.Platform;
+    readonly ssh: boolean;
+}
+
+/** Имена терминалов, которые бывают только на маке (префикс ответа XTVERSION / LC_TERMINAL). */
+const MAC_ONLY_TERMINALS = ["iterm2", "apple_terminal"];
+
+function asOsName(value: string | undefined): OsName | undefined {
+    const normalized = value?.trim().toLowerCase();
+    return OS_NAMES.find((name) => name === normalized);
+}
+
+/** Назвался ли терминал маковским (только позитив: незнакомое имя — «не знаю»). */
+export function isMacOnlyTerminal(name: string | undefined): boolean {
+    // Stryker disable next-line StringLiteral: любой непустой заменитель тоже не совпадёт ни с одним префиксом — эквивалентный мутант.
+    const normalized = name?.trim().toLowerCase() ?? "";
+    return MAC_ONLY_TERMINALS.some((prefix) => normalized.startsWith(prefix));
+}
+
+/**
+ * Лестница сигналов «какая ОС у клавиатуры», сверху вниз:
+ *  1. настройка `keyboard.platform` (кроме `auto`);
+ *  2. `LC_DIODE_PLATFORM`;
+ *  3. `LC_TERMINAL` маковского терминала;
+ *  4. имя терминала (XTVERSION / tmux `client_termtype`) — маковское;
+ *  5. `process.platform === "darwin"` — но не по ssh: в мак могли зайти с PC-клавиатуры;
+ *  6. иначе — не мак.
+ *
+ * Пп. 1–2 — явные и могут сказать «не мак». Пп. 3–5 только позитивные: не
+ * сработали ⇒ «не знаю», и решение отдаётся ступени ниже.
+ */
+export function resolveOs(signals: OsSignals): ResolvedOs {
+    const fromSetting = asOsName(signals.setting);
+    if (fromSetting) return { os: fromSetting, source: "setting" };
+    const fromEnv = asOsName(signals.envPlatform);
+    if (fromEnv) return { os: fromEnv, source: "env" };
+    if (isMacOnlyTerminal(signals.lcTerminal) || isMacOnlyTerminal(signals.terminalName)) {
+        return { os: "mac", source: "terminal" };
+    }
+    if (signals.platform === "darwin" && !signals.ssh) return { os: "mac", source: "platform" };
+    if (signals.platform === "win32" && !signals.ssh) return { os: "windows", source: "platform" };
+    return { os: "linux", source: "default" };
+}
+
+/**
+ * Можно ли поздним (асинхронным) сигналом перевернуть уже принятый ответ.
+ * Только в сторону мака и никогда обратно; явный ответ человека (настройка,
+ * переменная) поздний сигнал не перебивает.
+ */
+export function canUpgradeToMac(current: ResolvedOs, next: ResolvedOs): boolean {
+    if (current.os === "mac" || next.os !== "mac") return false;
+    return current.source !== "setting" && current.source !== "env";
+}
+
+// ─── Мак-лестница ───
+
+/**
+ * Рунг мак-лестницы из (os, caps, modes); `undefined` — клавиатура не маковская.
+ * Под tmux Cmd не бывает никогда, даже при форсированном `super`: tmux пишет
+ * Alt и super в один бит, и Cmd-бинд выстрелил бы по команде на Alt.
+ */
+export function resolveMacKeysRung(
+    os: OsName,
+    caps: CapabilitySet,
+    modes: ReadonlySet<string>,
+): MacKeysRung | undefined {
+    if (os !== "mac") return undefined;
+    if (caps.super && !modes.has("tmux")) return "cmd";
+    if (caps["extended-keys"]) return "extended";
+    return "legacy";
 }
 
 // ─── Modes ───
