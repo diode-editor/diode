@@ -7,6 +7,7 @@ import { CancellationTokenNone, type ICancellationToken } from "../../../../base
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
+import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
@@ -53,6 +54,7 @@ import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
+    type IWireColorTheme,
     type IWireDocumentSyncSnapshot,
     type IWireInputBoxRequest,
     type IWireInputBoxResult,
@@ -583,10 +585,12 @@ export class ExtensionHost extends Disposable {
         this.outputSink = options.outputSink;
         this.statusBarItemSink = options.statusBarItemSink;
         this.quickInputSink = options.quickInputSink;
-        // Смена темы → пере-резолв держимых декораций в обе поверхности.
+        // Смена темы → пере-резолв держимых декораций в обе поверхности + новая
+        // тема расширениям (`window.onDidChangeActiveColorTheme`).
         this.register(
             this.themeColorResolver.onDidChange(() => {
                 this.repushAllDecorations();
+                this.pushActiveColorTheme();
             }),
         );
     }
@@ -1410,6 +1414,10 @@ export class ExtensionHost extends Disposable {
             // Send initial active editor state so that window.activeTextEditor
             // is correct before the first host.activateExtension call.
             rpc.notify("editor.activeEditorChanged", this.editorOptions.getActiveEditorMeta());
+            // Активная тема — тоже ДО первой активации: расширение читает
+            // `window.activeColorTheme` уже в `activate()` (так делают все,
+            // кто подбирает иконки/цвета под светлую и тёмную).
+            this.pushActiveColorTheme();
             // Наполняем `workspace.textDocuments` открытыми документами ДО первой
             // активации: стоковый vscode-languageclient читает его на start().
             // Мимо гейта подписки — подписчиков в этот момент ещё нет.
@@ -1457,7 +1465,11 @@ export class ExtensionHost extends Disposable {
         // handler ядра может вернуть значение или thenable.
         rpc.handleRequest("commands.executeCommand", (params): unknown => {
             const { id, args } = parseCommandInvocation(params);
-            return Promise.resolve(this.commandService.execute(id, args));
+            // Источник `command` для смены каретки: команда, сдвинувшая курсор,
+            // приедет расширению как `TextEditorSelectionChangeKind.Command`.
+            // Область синхронная — команда, двигающая каретку уже после await,
+            // отдаст `kind === undefined` (см. cursorChangeSource.ts).
+            return Promise.resolve(withCursorChangeSource("command", () => this.commandService.execute(id, args)));
         });
         // Сабпроцесс зарегистрировал команду — заводим прокси в host-реестре,
         // который уводит исполнение обратно в сабпроцесс обратным RPC.
@@ -1864,6 +1876,16 @@ export class ExtensionHost extends Disposable {
     }
 
     /** Пере-push всех держимых декораций в обе поверхности (на смену темы). */
+    /**
+     * Шлёт субпроцессу вид активной темы. Молча ничего не делает, пока
+     * субпроцесса нет: тема приедет семенем на его подъёме (`ensureSubprocess`),
+     * и досылать её мёртвому некому.
+     */
+    private pushActiveColorTheme(): void {
+        const theme: IWireColorTheme = { kind: this.themeColorResolver.kind() };
+        this.rpc?.notify("window.themeChanged", theme);
+    }
+
     private repushAllDecorations(): void {
         for (const uri of this.editorDecorationsByFile.keys()) this.pushEditorDecorations(uri);
         this.pushFileDecorations();

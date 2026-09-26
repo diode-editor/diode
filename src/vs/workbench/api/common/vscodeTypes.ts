@@ -688,6 +688,31 @@ export enum StatusBarAlignment {
     Right = 2,
 }
 
+/**
+ * Вид активной темы (`vscode.ColorThemeKind`) — то, что расширение читает у
+ * `window.activeColorTheme.kind`. Значения дословно из upstream; наш
+ * {@link WorkbenchTheme}`.type` маппится в них на стороне host'а
+ * (`themeColorResolverAdapter.ts`).
+ */
+export enum ColorThemeKind {
+    Light = 1,
+    Dark = 2,
+    HighContrast = 3,
+    HighContrastLight = 4,
+}
+
+/**
+ * Источник смены выделения (`vscode.TextEditorSelectionChangeKind`) в событии
+ * `window.onDidChangeTextEditorSelection`. Хост распознаёт не любую смену —
+ * см. `cursorChangeSource.ts`; нераспознанная приезжает с `kind === undefined`
+ * (upstream это допускает явно).
+ */
+export enum TextEditorSelectionChangeKind {
+    Keyboard = 1,
+    Mouse = 2,
+    Command = 3,
+}
+
 export enum ProgressLocation {
     SourceControl = 1,
     Window = 10,

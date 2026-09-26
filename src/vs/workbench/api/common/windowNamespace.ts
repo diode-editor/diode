@@ -5,6 +5,7 @@ import { createQuickInputApi } from "./quickInputNamespace.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
+    ColorThemeKind,
     DisposableImpl,
     EventEmitter,
     Position,
@@ -22,7 +23,9 @@ import {
     type IWireSelection,
     type IWireTabGroupSnapshot,
     type IWireTabSnapshot,
+    parseWireColorTheme,
     parseWireEditorLayout,
+    parseWireSelectionChangeKind,
     parseWireSelections,
     serializeDecorationRenderOptions,
 } from "./wireTypes.ts";
@@ -150,6 +153,15 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     const viewColumnListeners: ((e: vscode.TextEditorViewColumnChangeEvent) => void)[] = [];
     const tabsListeners: ((e: vscode.TabChangeEvent) => void)[] = [];
     const tabGroupsListeners: ((e: vscode.TabGroupChangeEvent) => void)[] = [];
+    const selectionListeners: ((e: vscode.TextEditorSelectionChangeEvent) => void)[] = [];
+    const colorThemeListeners: ((e: vscode.ColorTheme) => void)[] = [];
+    /**
+     * Активная тема окна. Семя — `vscode.ColorThemeKind.Dark` (дефолт VS Code
+     * без настройки): хост присылает настоящую `window.themeChanged` ещё до
+     * первой активации, но пока сообщение не пришло, врать `undefined`
+     * расширению нельзя — `activeColorTheme.kind` читают без проверок.
+     */
+    let activeColorTheme: vscode.ColorTheme = { kind: ColorThemeKind.Dark } as vscode.ColorTheme;
 
     // Монотонный ключ типа декорации + маппинг type-объект → числовой ключ.
     // Ключ живёт локально в субпроцессе; хост знает тип только по числу.
@@ -204,12 +216,34 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     // Слушателей активного редактора не трогаем: активный редактор не сменился
     // (иначе пришёл бы `editor.activeEditorChanged`).
     rpc.handleNotification("editor.selectionChanged", (params) => {
-        const p = params as { uri?: unknown; selections?: unknown; groupId?: unknown };
+        const p = params as { uri?: unknown; selections?: unknown; groupId?: unknown; kind?: unknown };
         if (typeof p.uri !== "string") return;
         const selections = parseWireSelections(p.selections);
         const groupId = typeof p.groupId === "number" ? p.groupId : effectiveActiveGroupId();
         selectionsByEditor.set(selectionKey(groupId, p.uri), selections);
         if (p.uri === activeEditorUri) activeSelections = selections;
+        // Кэш обновлён ДО рассылки: слушатель читает `editor.selections` и
+        // обязан увидеть новое, а не то, что было до события.
+        const editor = getEditorFor(registry.getOrCreate(Uri.parse(p.uri)), groupId);
+        const event = {
+            textEditor: editor,
+            selections: selections.map(toSelection),
+            // Числа провода — это и есть значения `TextEditorSelectionChangeKind`
+            // (см. WireSelectionChangeKind); нераспознанный источник — `undefined`.
+            kind: parseWireSelectionChangeKind(p.kind),
+        } as unknown as vscode.TextEditorSelectionChangeEvent;
+        for (const listener of [...selectionListeners]) listener(event);
+    });
+
+    // Вид активной темы окна: семя на handshake + каждая настоящая смена.
+    // Стреляем на КАЖДОЕ сообщение, даже если вид не поменялся (Dark+ → Abyss):
+    // upstream объявляет событие как «тема сменилась ИЛИ изменилась», а семя
+    // приходит раньше любой активации, когда слушателей ещё нет.
+    rpc.handleNotification("window.themeChanged", (params) => {
+        const parsed = parseWireColorTheme(params);
+        if (parsed === null) return;
+        activeColorTheme = { kind: parsed.kind } as vscode.ColorTheme;
+        for (const listener of [...colorThemeListeners]) listener(activeColorTheme);
     });
 
     // Снимок полосы: диффим с прошлым и производим события API сами — в проводе
@@ -623,6 +657,18 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             if (disposables !== undefined) disposables.push(disposable as unknown as vscode.Disposable);
             return disposable as unknown as vscode.Disposable;
         },
+
+        // Смена каретки/выделения в редакторе. Продюсер — хост
+        // (`editor.selectionChanged`); выделение, которое расширение поставило
+        // САМО (`TextEditor.selection =`), назад эхом не приходит и события не
+        // даёт — эхо-гард стоит на стороне хоста.
+        onDidChangeTextEditorSelection: makeListenerEvent(selectionListeners),
+
+        /** Активная тема окна: приезжает от хоста семенем ещё до `activate()`. */
+        get activeColorTheme(): vscode.ColorTheme {
+            return activeColorTheme;
+        },
+        onDidChangeActiveColorTheme: makeListenerEvent(colorThemeListeners),
 
         onDidChangeWindowState: (
             _listener: (e: vscode.WindowState) => unknown,

@@ -19,6 +19,7 @@ import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServic
 import { bindDocumentSync, openDocumentSnapshots } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "../vs/workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
+import { ThemeColorResolverAdapter } from "../vs/workbench/api/browser/themeColorResolverAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensionFileWatcher.ts";
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
@@ -242,7 +243,10 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.quickInputSink !== undefined ? { quickInputSink: options.quickInputSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
-        ...(options.themeColorResolver !== undefined ? { themeColorResolver: options.themeColorResolver } : {}),
+        // Дефолт — настоящий адаптер поверх `themeService` харнесса (зеркально
+        // extensionHostModule): `harness.themeService.setTheme(...)` доезжает до
+        // расширения как `window.onDidChangeActiveColorTheme`.
+        themeColorResolver: options.themeColorResolver ?? new ThemeColorResolverAdapter(themeService),
         ...(options.fileWatcher !== undefined ? { fileWatcher: options.fileWatcher } : {}),
     });
 

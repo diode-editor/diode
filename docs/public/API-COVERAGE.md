@@ -29,7 +29,7 @@
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 11/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 18/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 19/57 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 22/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
@@ -42,7 +42,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 105/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 109/424 |
 
 ## vscode.languages
 
@@ -91,9 +91,9 @@
 
 ## vscode.window
 
-🟡 **19/57.** Редакторы, сообщения, прогресс, output-каналы, декорации, пункты статус-бара и ввод
-(строка + выбор из списка) — рабочие; диалоги файлов, терминал и деревья пока не отданы
-расширениям; webview — потолок.
+🟡 **22/57.** Редакторы (включая событие выделения), активная тема, сообщения, прогресс,
+output-каналы, декорации, пункты статус-бара и ввод (строка + выбор из списка) — рабочие;
+диалоги файлов, терминал и деревья пока не отданы расширениям; webview — потолок.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
@@ -114,9 +114,10 @@
 | `setStatusBarMessage` | 🕐 | |
 | терминал (12 членов: `createTerminal`, `terminals`, события, shell integration, link/profile-провайдеры) | 🕐 | |
 | деревья (`registerTreeDataProvider`, `createTreeView`) | 🕐 | |
-| события редактора (`onDidChangeTextEditorSelection`, `onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
+| `onDidChangeTextEditorSelection` | ✅ | каждое движение каретки/смена выделения в редакторе; `kind` едет от жеста — набор и кейбинд дают `Keyboard`, мышь `Mouse`, команда расширения `Command`, остальное (undo/redo, find, фолдинг, программная правка) — `undefined`, как и разрешает upstream. Выделение, которое расширение поставило само, эхом не возвращается |
+| события редактора (`onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
 | notebook-редакторы (7 членов) | 🕐 | |
-| тема (`activeColorTheme`, `onDidChangeActiveColorTheme`) | 🕐 | |
+| `activeColorTheme`, `onDidChangeActiveColorTheme` | ✅ | вид активной темы (`ColorThemeKind`) верен уже в `activate()`; событие стреляет на каждой смене темы, в том числе между двумя тёмными (как upstream: «changed **or has changes**»). Имя темы расширению не отдаётся — в `vscode.ColorTheme` его и нет |
 | `registerUriHandler`, `withScmProgress` | 🕐 | |
 | `createWebviewPanel`, `registerWebviewPanelSerializer`, `registerWebviewViewProvider` | ⛔ | webview — требует браузера; декларации не подняты, но в рантайме члены есть как инертный no-op (панели нет, в Output одна строка про неподдерживаемый webview) — иначе расширение с чат-панелью умирало на активации целиком |
 | `registerCustomEditorProvider` | ⛔ | кастомные редакторы построены на webview |
@@ -184,7 +185,7 @@
 
 ## Типы с неполной поверхностью
 
-Активно 102 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 106 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов).
 
 | тип | активно | не активно |

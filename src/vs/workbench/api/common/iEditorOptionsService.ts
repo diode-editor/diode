@@ -26,6 +26,12 @@ export interface IActiveEditorSelections {
     readonly selections: readonly IWireSelection[];
     /** Группа редактора (стабильный id) — субпроцесс адресует per-editor кэш. */
     readonly groupId?: number;
+    /**
+     * Источник смены (`vscode.TextEditorSelectionChangeKind`): 1 Keyboard,
+     * 2 Mouse, 3 Command. Отсутствует, если жест не размечен — например
+     * undo/redo или переход по find (см. `cursorChangeSource.ts`).
+     */
+    readonly kind?: WireSelectionChangeKind;
 }
 
 /**
@@ -52,7 +58,7 @@ export interface IActiveEditorMeta {
 
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
-import type { IWireEditorEdit, IWireResourceTextEdits, IWireSelection } from "./wireTypes.ts";
+import type { IWireEditorEdit, IWireResourceTextEdits, IWireSelection, WireSelectionChangeKind } from "./wireTypes.ts";
 
 /**
  * Тонкий «port» поверх {@link EditorService}, нужный

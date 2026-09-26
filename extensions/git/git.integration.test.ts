@@ -17,6 +17,7 @@ import type { IGutterChangeDecoration } from "../../src/vs/editor/common/model/i
 import type { IEditorDecorationsService } from "../../src/vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../src/vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../src/vs/workbench/api/common/iThemeColorResolver.ts";
+import { ColorThemeKind } from "../../src/vs/workbench/api/common/vscodeTypes.ts";
 import { PUBLISH_CHANGES_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/changesService.ts";
 import { GRAPH_ENABLED_COMMAND, PUBLISH_LOG_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/graphService.ts";
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
@@ -41,7 +42,11 @@ const COLORS: Record<string, number> = {
 };
 
 function makeThemeResolver(): IThemeColorResolver {
-    return { resolve: (id) => COLORS[id], onDidChange: () => ({ dispose: () => undefined }) };
+    return {
+        resolve: (id) => COLORS[id],
+        kind: () => ColorThemeKind.Dark,
+        onDidChange: () => ({ dispose: () => undefined }),
+    };
 }
 
 function makeEditorSpy(): {

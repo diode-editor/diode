@@ -503,6 +503,11 @@ declare module "vscode" {
 		export const onDidChangeVisibleTextEditors: Event<readonly TextEditor[]>;
 
 		/**
+		 * An {@link Event} which fires when the selection in an editor has changed.
+		 */
+		export const onDidChangeTextEditorSelection: Event<TextEditorSelectionChangeEvent>;
+
+		/**
 		 * An {@link Event} which fires when the view column of an editor has changed.
 		 */
 		export const onDidChangeTextEditorViewColumn: Event<TextEditorViewColumnChangeEvent>;
@@ -735,6 +740,17 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters the provider.
 		 */
 		export function registerFileDecorationProvider(provider: FileDecorationProvider): Disposable;
+
+		/**
+		 * The currently active color theme as configured in the settings. The active
+		 * theme can be changed via the `workbench.colorTheme` setting.
+		 */
+		export let activeColorTheme: ColorTheme;
+
+		/**
+		 * An {@link Event} which fires when the active color theme is changed or has changes.
+		 */
+		export const onDidChangeActiveColorTheme: Event<ColorTheme>;
 	}
 
 	/**
@@ -1098,6 +1114,39 @@ declare module "vscode" {
 		 * @param value A value. MUST not contain cyclic references.
 		 */
 		update(key: string, value: any): Thenable<void>;
+	}
+
+	/**
+	 * Represents a color theme kind.
+	 */
+	export enum ColorThemeKind {
+		/**
+		 * A light color theme.
+		 */
+		Light = 1,
+		/**
+		 * A dark color theme.
+		 */
+		Dark = 2,
+		/**
+		 * A dark high contrast color theme.
+		 */
+		HighContrast = 3,
+		/**
+		 * A light high contrast color theme.
+		 */
+		HighContrastLight = 4
+	}
+
+	/**
+	 * Represents a color theme.
+	 */
+	export interface ColorTheme {
+
+		/**
+		 * The kind of this color theme: light, dark, high contrast dark and high contrast light.
+		 */
+		readonly kind: ColorThemeKind;
 	}
 
 	/**
@@ -1476,6 +1525,43 @@ declare module "vscode" {
 		 * A selection is reversed if its {@link Selection.anchor anchor} is the {@link Selection.end end} position.
 		 */
 		readonly isReversed: boolean;
+	}
+
+	/**
+	 * Represents sources that can cause {@link window.onDidChangeTextEditorSelection selection change events}.
+	 */
+	export enum TextEditorSelectionChangeKind {
+		/**
+		 * Selection changed due to typing in the editor.
+		 */
+		Keyboard = 1,
+		/**
+		 * Selection change due to clicking in the editor.
+		 */
+		Mouse = 2,
+		/**
+		 * Selection changed because a command ran.
+		 */
+		Command = 3
+	}
+
+	/**
+	 * Represents an event describing the change in a {@link TextEditor.selections text editor's selections}.
+	 */
+	export interface TextEditorSelectionChangeEvent {
+		/**
+		 * The {@link TextEditor text editor} for which the selections have changed.
+		 */
+		readonly textEditor: TextEditor;
+		/**
+		 * The new value for the {@link TextEditor.selections text editor's selections}.
+		 */
+		readonly selections: readonly Selection[];
+		/**
+		 * The {@link TextEditorSelectionChangeKind change kind} which has triggered this
+		 * event. Can be `undefined`.
+		 */
+		readonly kind: TextEditorSelectionChangeKind | undefined;
 	}
 
 	/**

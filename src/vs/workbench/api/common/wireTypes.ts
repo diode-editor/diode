@@ -1,5 +1,6 @@
 import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
+import type { CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
@@ -1580,6 +1581,33 @@ export function parseWireSelection(raw: unknown): IWireSelection | null {
     };
 }
 
+/**
+ * Вид смены выделения в проводе (`editor.selectionChanged`) — значения
+ * `vscode.TextEditorSelectionChangeKind`: 1 Keyboard, 2 Mouse, 3 Command.
+ * Отсутствие поля — источник не распознан (upstream объявляет `kind`
+ * опциональным), см. `editor/common/core/cursorChangeSource.ts`.
+ */
+export type WireSelectionChangeKind = 1 | 2 | 3;
+
+/** Переводит источник жеста ядра в вид смены выделения для расширения. */
+export function selectionChangeKindOf(source: CursorChangeSource | undefined): WireSelectionChangeKind | undefined {
+    switch (source) {
+        case "keyboard":
+            return 1;
+        case "mouse":
+            return 2;
+        case "command":
+            return 3;
+        default:
+            return undefined;
+    }
+}
+
+/** Валидирует `kind` из провода; всё непонятное — «источник не распознан». */
+export function parseWireSelectionChangeKind(raw: unknown): WireSelectionChangeKind | undefined {
+    return raw === 1 || raw === 2 || raw === 3 ? raw : undefined;
+}
+
 export function parseWireSelections(raw: unknown): IWireSelection[] {
     if (!Array.isArray(raw)) return [];
     const result: IWireSelection[] = [];
@@ -1890,6 +1918,28 @@ export function parseWireWatcherEvents(raw: unknown): IWireWatcherEvents | null 
         events.push({ type: e.type, uri: e.uri });
     }
     return { id: p.id, events };
+}
+
+// ─── Активная тема (window.activeColorTheme) ─────────────────────────────────
+
+/**
+ * Активная тема окна (`window.themeChanged`, host → subprocess). В проводе
+ * едет только `kind`: `vscode.ColorTheme` из ничего другого и не состоит, а имя
+ * темы расширению не обещано. Сообщение приходит и на handshake (семя ДО первой
+ * активации — `activeColorTheme` обязан быть верным уже в `activate()`), и на
+ * каждую настоящую смену темы.
+ */
+export interface IWireColorTheme {
+    /** `vscode.ColorThemeKind`: 1 Light, 2 Dark, 3 HighContrast, 4 HighContrastLight. */
+    readonly kind: 1 | 2 | 3 | 4;
+}
+
+/** Валидирует `window.themeChanged`; `null` — форма не распознана (тему не трогаем). */
+export function parseWireColorTheme(raw: unknown): IWireColorTheme | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const kind = (raw as Record<string, unknown>).kind;
+    if (kind !== 1 && kind !== 2 && kind !== 3 && kind !== 4) return null;
+    return { kind };
 }
 
 // ─── Quick input (window.showInputBox / window.showQuickPick) ────────────────
