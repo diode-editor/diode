@@ -16,12 +16,13 @@ export const keyboardDoctorAction: CommandAction = {
         const report = await accessor.get(KeyboardDoctorComponentDIToken).run();
         const editors = accessor.get(EditorServiceDIToken);
         editors.newUntitled();
-        editors
-            .getActiveEditor()
-            ?.applyExternalEdits(
-                [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: report }],
-                "Keyboard Doctor",
-            );
+        const editor = editors.getActiveEditor();
+        editor?.applyExternalEdits(
+            [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: report }],
+            "Keyboard Doctor",
+        );
+        // Отчёт читают сверху: окружение — в первых строках.
+        editor?.goToPosition(0);
         await accessor.get(ClipboardDIToken).writeText(report);
     },
 };

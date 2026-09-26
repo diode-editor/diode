@@ -31,6 +31,9 @@ function accessorWith(editor: { applied: string[] } | null) {
                               applyExternalEdits: (edits: readonly { text: string }[], label: string) => {
                                   editor.applied.push(`${label}: ${edits.map((e) => e.text).join("")}`);
                               },
+                              goToPosition: (line: number) => {
+                                  editor.applied.push(`goTo ${String(line)}`);
+                              },
                           },
             }) as unknown as EditorService,
     );
@@ -46,7 +49,7 @@ describe("keyboardDoctorAction", () => {
         await keyboardDoctorAction.run(container);
 
         expect(untitled()).toBe(1);
-        expect(editor.applied).toEqual(["Keyboard Doctor: REPORT\n"]);
+        expect(editor.applied).toEqual(["Keyboard Doctor: REPORT\n", "goTo 0"]);
         await expect(clipboard.readText()).resolves.toBe("REPORT\n");
     });
 
