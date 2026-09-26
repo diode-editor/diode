@@ -2224,6 +2224,7 @@ export function parseWireExtensionActivated(raw: unknown): string | null {
     if (typeof raw !== "object" || raw === null) return null;
     const { id } = raw as { id?: unknown };
     return typeof id === "string" && id !== "" ? id : null;
+}
 
 // ─── Сообщения с кнопками (window.show{Information,Warning,Error}Message) ────
 // Сообщение — это ВОПРОС, когда у него есть пункты: обещание расширения

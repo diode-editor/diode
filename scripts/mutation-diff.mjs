@@ -283,16 +283,41 @@ function mutantKey(file, mutant) {
     return `${file}:${String(mutant.location?.start?.line)}:${String(mutant.location?.start?.column)}:${String(mutant.mutatorName)}`;
 }
 
-/** Непроверенный мутант — почему его пришлось гонять отдельно, видно прямо в отчёте. */
-function recheckReason(status) {
-    return status === "RuntimeError"
-        ? "перепроверен точечным прогоном: в общем прогоне на нём упал раннер"
-        : "перепроверен точечным прогоном: в общем прогоне не выполнилось ни одного теста";
+/** Почему мутанта пришлось гонять отдельно — видно прямо в отчёте. */
+function recheckReason(mutant) {
+    if (mutant.status === "RuntimeError") {
+        return "перепроверен точечным прогоном: в общем прогоне на нём упал раннер";
+    }
+    if (!mutant.testsCompleted) {
+        return "перепроверен точечным прогоном: в общем прогоне не выполнилось ни одного теста";
+    }
+    return (
+        "перепроверен точечным прогоном: в общем прогоне набор покрывающих тестов был усечён " +
+        `(выполнено ${String(mutant.testsCompleted)})`
+    );
 }
 
-/** Мутант, которого первый прогон не проверил: перепроверять — обязательно. */
+/**
+ * Мутант, которого первый прогон ЯВНО не проверил: пустой набор выполненных
+ * тестов либо падение раннера. Используется только для сообщений — перепроверять
+ * мы обязаны всех выживших, см. {@link isRecheckable}.
+ */
 function isUnchecked(mutant) {
     return mutant.status === "RuntimeError" || (mutant.status === "Survived" && !mutant.testsCompleted);
+}
+
+/**
+ * Кого перепроверяем: ЛЮБОГО выжившего, а не только с пустым набором тестов.
+ *
+ * Причина — тот же bail-баг, что теряет прогоны целиком (см. {@link isUnchecked}):
+ * он же усекает набор покрывающих тестов, и мутант приезжает «выжившим» с
+ * непустым, но неполным `testsCompleted`. Отличить такого от настоящей находки по
+ * отчёту нельзя — только перегнав его отдельно. Цена невелика: выживших единицы,
+ * скоуп — одна строка на мутанта, а цена ошибки — красный PR за проблему
+ * инструмента (docs/TODO/MutationGateFlake.md).
+ */
+function isRecheckable(mutant) {
+    return mutant.status === "RuntimeError" || mutant.status === "Survived";
 }
 
 /**
@@ -322,9 +347,9 @@ function mergeRecheckIntoReport(firstReport, recheckReport) {
     }
     for (const [file, data] of Object.entries(firstReport.files ?? {})) {
         for (const mutant of data.mutants ?? []) {
-            if (!isUnchecked(mutant)) continue;
+            if (!isRecheckable(mutant)) continue;
             if (!killedOnRecheck.has(mutantKey(file, mutant))) continue;
-            mutant.statusReason = recheckReason(mutant.status);
+            mutant.statusReason = recheckReason(mutant);
             mutant.status = "Killed";
         }
     }
@@ -345,8 +370,9 @@ function classifyMutants() {
             // функции) `--mutate file:N-N` не покрыл бы его целиком, и скоуп
             // вышел бы пустым — перепроверка молча ничего бы не проверила.
             const end = mutant.location?.end?.line ?? start;
+            if (!isRecheckable(mutant)) continue;
             if (isUnchecked(mutant)) unchecked.push({ file, start, end, status: mutant.status });
-            else if (mutant.status === "Survived") verified.push({ file, start, end });
+            else verified.push({ file, start, end });
         }
     }
     return { verified, unchecked };
@@ -357,25 +383,28 @@ const classified = classifyMutants();
 
 // Ноль от Stryker'а — ещё не «всё проверено»: упавшие на раннере мутанты в балл
 // не входят, так что прогон с ними выходит нулём. Смотрим не на код возврата, а
-// на отчёт.
-if (classified === null || classified.unchecked.length === 0) {
-    process.exit(first.status ?? 1);
-}
-if (classified.verified.length > 0) {
-    console.log(
-        `Есть выжившие, проверенные тестами (${String(classified.verified.length)}) — перепроверять нечего.`,
-    );
+// на отчёт. Нет отчёта — сказать о мутантах нечего, отдаём код Stryker'а как есть.
+if (classified === null) {
     process.exit(first.status ?? 1);
 }
 
-// Перепроверяем точечно: скоуп в одну строку на мутанта прогоняется надёжно.
-const recheck = [...new Set(classified.unchecked.map(({ file, start, end }) => `${file}:${start}-${end}`))];
+// Перепроверяем ВСЕХ выживших, а не только тех, у кого набор тестов пуст:
+// усечённый набор от пустого по отчёту не отличить (см. isRecheckable).
+const survivors = [...classified.unchecked, ...classified.verified];
+if (survivors.length === 0) {
+    process.exit(first.status ?? 1);
+}
+
+// Скоуп в одну строку на мутанта прогоняется надёжно.
+const recheck = [...new Set(survivors.map(({ file, start, end }) => `${file}:${start}-${end}`))];
 const lost = classified.unchecked.filter(({ status }) => status === "Survived").length;
 const crashed = classified.unchecked.length - lost;
 console.log(
-    `\nНепроверенных мутантов: ${String(classified.unchecked.length)} ` +
-        `(потерянных прогонов — ${String(lost)}, падений раннера — ${String(crashed)}). ` +
-        `Ни то, ни другое не находка (см. docs/TESTING.md). Перепроверяю точечно:`,
+    `\nВыживших: ${String(survivors.length)} ` +
+        `(потерянных прогонов — ${String(lost)}, падений раннера — ${String(crashed)}, ` +
+        `с непустым набором тестов — ${String(classified.verified.length)}). ` +
+        `Первые два вида — не находка (см. docs/TESTING.md), третий может оказаться усечённым ` +
+        `набором, поэтому перепроверяю точечно всех:`,
 );
 for (const entry of recheck) console.log(`  ${entry}`);
 
