@@ -64,7 +64,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Logging](Logging.md) — ILogService + Output UI готовы; далее — inner tracing extension host, CLI flags, фильтры/Clear в Output
 - [~] [LongLinePerformance](LongLinePerformance.md) — фриз длинных строк снят порогом рендера, межредакторная связь — damage-tracking'ом; открыто: пер-строчный кеш `DisplayLine`, reveal-по-клику, конфиг порога
 - [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (главные блокеры сняты; остались точечные фиксы)
-- [~] [MacKeybindings](MacKeybindings.md) — мак-раскладка: ОС клавиатуры по лестнице сигналов (с XTVERSION), мак-рунги `legacy < extended < cmd` с `cap_super`, токен `mod` и таблица мак-дельт для топ-команд, Keyboard Doctor для фидбека сделаны; дальше — фидбек с живого мака, полный паритет с vscode, мост Cmd для tmux
+- [~] [MacKeybindings](MacKeybindings.md) — мак-раскладка: ОС клавиатуры по лестнице сигналов (с XTVERSION), мак-рунги `legacy < extended < cmd` с `cap_super`, токен `mod`, полный паритет с мак-раскладкой VS Code 1.138 (сверка тестом со срезом эталона), Keyboard Doctor для фидбека сделаны; дальше — фидбек с живого мака, мост Cmd для tmux, найденные сверкой дыры pc-паритета
 - [ ] [EnvironmentTuning](EnvironmentTuning.md) — подсказки пользователю по тюнингу окружения (терминал/tmux/ssh); пункты — tmux extended-keys для Ctrl+Tab, лимит inotify (ENOSPC) с уведомлением как в VS Code
 - [~] [Folding](Folding.md) — indentation-фолдинг и API-провайдеры готовы; далее — region-маркеры/language-configuration, hover-контролы, персист свёрток
 - [~] [Uri](Uri.md) — ядро на `Uri` готово; далее — `untitled:`-провайдер, язык безымянных буферов

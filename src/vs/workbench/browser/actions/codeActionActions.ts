@@ -88,7 +88,7 @@ export const organizeImportsAction: CommandAction = {
 export const quickFixAction: CommandAction = {
     id: "editor.action.quickFix",
     title: "Quick Fix",
-    keybinding: parseKeybinding("ctrl+."),
+    keybinding: parseKeybinding("mod+."),
     keybindings: [parseChord("ctrl+k ctrl+q")],
     when: "textInputFocus && !editorReadonly",
     async run(accessor) {

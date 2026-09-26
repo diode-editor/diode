@@ -19,7 +19,7 @@ export const toggleSidebarAction: CommandAction = {
     title: "View: Toggle Primary Side Bar Visibility",
     shortTitle: "Toggle Primary Side Bar",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 40 }],
-    keybinding: parseKeybinding("ctrl+b"),
+    keybinding: parseKeybinding("mod+b"),
     run(accessor) {
         accessor.get(LayoutServiceDIToken).toggleSidebar();
     },
@@ -30,7 +30,7 @@ export const showExplorerAction: CommandAction = {
     title: "View: Show Explorer",
     shortTitle: "Explorer",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 10 }],
-    keybinding: parseKeybinding("ctrl+shift+e"),
+    keybinding: parseKeybinding("mod+shift+e"),
     run(accessor) {
         accessor.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID);
     },
@@ -98,7 +98,7 @@ export const togglePanelAction: CommandAction = {
     title: "View: Toggle Panel Visibility",
     shortTitle: "Toggle Panel",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 50 }],
-    keybinding: parseKeybinding("ctrl+j"),
+    keybinding: parseKeybinding("mod+j"),
     run(accessor) {
         const layout = accessor.get(LayoutServiceDIToken);
         layout.setPanelVisible(!layout.isPanelVisible());
@@ -110,7 +110,7 @@ export const toggleProblemsAction: CommandAction = {
     title: "View: Toggle Problems (Errors, Warnings, Infos)",
     shortTitle: "Problems",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 20 }],
-    keybinding: parseKeybinding("ctrl+shift+m"),
+    keybinding: parseKeybinding("mod+shift+m"),
     run(accessor) {
         // Toggle like VS Code: show + focus Problems, or hide the panel if
         // Problems is already the visible view.

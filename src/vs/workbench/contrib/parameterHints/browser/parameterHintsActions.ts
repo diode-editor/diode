@@ -35,7 +35,7 @@ export const triggerParameterHintsAction: CommandAction = {
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Trigger Parameter Hints",
     keybinding: parseChord("ctrl+k ctrl+space"),
-    keybindings: [parseKeybinding("ctrl+shift+space")],
+    keybindings: [parseKeybinding("mod+shift+space")],
     when: "textInputFocus",
     run(accessor) {
         void accessor.get(ParameterHintsServiceDIToken).trigger();

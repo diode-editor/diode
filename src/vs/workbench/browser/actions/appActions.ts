@@ -23,7 +23,7 @@ export const quitAction: CommandAction = {
     title: "Quit",
     // Label только в меню — vscode-паттерн per-menu title override.
     menus: [{ menuId: MenuId.MenubarFileMenu, title: "Exit", group: "5_quit", order: 10 }],
-    keybinding: parseKeybinding("ctrl+q"),
+    keybinding: parseKeybinding("mod+q"),
     run(accessor) {
         accessor.get(QuitHandlerDIToken).requestQuit(accessor);
     },

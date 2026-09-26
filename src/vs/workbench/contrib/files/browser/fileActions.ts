@@ -207,7 +207,7 @@ export const newUntitledFileAction: CommandAction = {
     title: "File: New Untitled File",
     shortTitle: "New Untitled File",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "1_new", order: 10 }],
-    keybinding: parseKeybinding("ctrl+n"),
+    keybinding: parseKeybinding("mod+n"),
     run(accessor) {
         accessor.get(EditorServiceDIToken).newUntitled();
         accessor.get(WorkbenchContextKeysDIToken).update();
@@ -219,7 +219,7 @@ export const fileSaveAsAction: CommandAction = {
     title: "File: Save As...",
     shortTitle: "Save As...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "3_save", order: 20 }],
-    keybinding: parseKeybinding("ctrl+shift+s"),
+    keybinding: parseKeybinding("mod+shift+s"),
     run(accessor) {
         void runSaveAs(accessor);
     },
@@ -230,7 +230,7 @@ export const fileOpenAction: CommandAction = {
     title: "File: Open File...",
     shortTitle: "Open File...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "2_open", order: 10 }],
-    keybinding: parseKeybinding("ctrl+o"),
+    keybinding: parseKeybinding("mod+o"),
     run(accessor) {
         void runOpenFile(accessor);
     },

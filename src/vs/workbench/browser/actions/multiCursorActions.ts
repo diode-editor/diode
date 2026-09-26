@@ -78,7 +78,7 @@ export const addSelectionToNextFindMatchAction: CommandAction = {
     id: "editor.action.addSelectionToNextFindMatch",
     title: "Add Selection To Next Find Match",
     // `ctrl+<буква>` доезжает на любом tier — фолбэк не нужен.
-    keybinding: parseKeybinding("ctrl+d"),
+    keybinding: parseKeybinding("mod+d"),
     when: "textViewFocus",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "4_find", order: 10 }],
     run(accessor) {
@@ -102,7 +102,7 @@ export const addSelectionToPreviousFindMatchAction: CommandAction = {
 export const moveSelectionToNextFindMatchAction: CommandAction = {
     id: "editor.action.moveSelectionToNextFindMatch",
     title: "Move Last Selection To Next Find Match",
-    keybinding: parseChord("ctrl+k ctrl+d"),
+    keybinding: parseChord("mod+k mod+d"),
     when: "textViewFocus",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "4_find", order: 30 }],
     run(accessor) {
@@ -127,7 +127,7 @@ export const selectHighlightsAction: CommandAction = {
     title: "Select All Occurrences",
     // `ctrl+shift+<буква>` на legacy неотличим от `ctrl+<буква>` — та же норма, что у
     // `ctrl+shift+f` / `ctrl+shift+g`.
-    keybinding: parseKeybinding("ctrl+shift+l"),
+    keybinding: parseKeybinding("mod+shift+l"),
     keybindings: [{ keys: parseChord("ctrl+k ctrl+a"), when: "tier == 'legacy'" }],
     when: "textViewFocus",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "4_find", order: 50 }],

@@ -373,7 +373,7 @@ async function vscodeDiff(accessor: ServiceAccessor, ...args: unknown[]): Promis
 export const compareWithSavedAction: CommandAction = {
     id: "workbench.files.action.compareWithSaved",
     title: "File: Compare Active File with Saved",
-    keybinding: parseChord("ctrl+k d"),
+    keybinding: parseChord("mod+k d"),
     run(accessor) {
         void compareWithSaved(accessor);
     },
@@ -382,7 +382,7 @@ export const compareWithSavedAction: CommandAction = {
 export const compareWithClipboardAction: CommandAction = {
     id: "workbench.files.action.compareWithClipboard",
     title: "File: Compare Active File with Clipboard",
-    keybinding: parseChord("ctrl+k c"),
+    keybinding: parseChord("mod+k c"),
     run(accessor) {
         void compareWithClipboard(accessor);
     },

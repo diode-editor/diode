@@ -172,7 +172,7 @@ export const inputSelectWordRightAction: CommandAction = {
 export const inputSelectAllAction: CommandAction = {
     id: "input.selectAll",
     title: "Input: Select All",
-    keybinding: parseKeybinding("ctrl+a"),
+    keybinding: parseKeybinding("mod+a"),
     when: "inputWidgetFocus",
     run(accessor) {
         accessor.get(InputWidgetServiceDIToken).selectAll();

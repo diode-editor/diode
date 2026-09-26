@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
@@ -18,6 +20,15 @@ import { macKeysLevel, type MacKeysRung } from "../../../platform/keybinding/com
 
 import { builtinActions } from "./builtinActions.ts";
 import { MAC_KEYBINDING_DELTAS, type MacKeybindingDelta, withMacKeybindings } from "./macKeybindings.ts";
+
+interface IVscodeReference {
+    readonly commands: Readonly<Record<string, { readonly linux: readonly string[]; readonly mac: readonly string[] }>>;
+}
+
+/** Срез дефолтных биндов VS Code 1.138 для команд diode (см. поле source в файле). */
+const VSCODE_REFERENCE = JSON.parse(
+    readFileSync(new URL("./macKeybindings.vscodeReference.json", import.meta.url), "utf8"),
+) as IVscodeReference;
 
 const noopRun = (): void => undefined;
 
@@ -87,14 +98,26 @@ const LETTER = /^[a-z]$/i;
 function isMacTrap(part: Keybinding): boolean {
     // Option+буква на интернациональной раскладке — это символ (@ [ ] { }).
     if (part.altKey && !part.ctrlKey && !part.metaKey && LETTER.test(part.key)) return true;
-    // Ctrl+←/→ забирает Mission Control.
-    if (part.ctrlKey && (part.key === "ArrowLeft" || part.key === "ArrowRight")) return true;
+    // Ctrl+←/→ (именно без других модификаторов) забирает Mission Control.
+    const onlyCtrl = part.ctrlKey && !part.shiftKey && !part.altKey && !part.metaKey;
+    if (onlyCtrl && (part.key === "ArrowLeft" || part.key === "ArrowRight")) return true;
     // Home/End в мак-терминалах скроллят буфер.
     return part.key === "Home" || part.key === "End";
 }
 
 function deliverableOnMacLegacy(chord: readonly Keybinding[]): boolean {
-    return !requiresExtendedKeys([...chord]) && !chord.some(isMacTrap);
+    // Option+Escape в legacy — это ESC ESC: неотличим от двух Escape подряд.
+    const altEscape = chord.some((part) => part.altKey && part.key === "Escape");
+    return !requiresExtendedKeys([...chord]) && !chord.some(isMacTrap) && !altEscape;
+}
+
+/** Ctrl-формы `mod`-биндов: на рунгах ниже cmd эти аккорды заняты фоллбэком. */
+function modFallbackChords(): ReadonlySet<string> {
+    const chords = new Set<string>();
+    for (const entry of registerBuiltins().listBindings()) {
+        if (entry.when?.includes("macKeys < 3") === true) chords.add(serializeChord(entry.chord));
+    }
+    return chords;
 }
 
 describe("withMacKeybindings", () => {
@@ -163,30 +186,72 @@ describe("таблица мак-дельт", () => {
                 .join(" | "),
         );
         expect(flat).toEqual([
+            "cursorBottom | -ctrl+end | meta+down@cmd",
+            "cursorBottomSelect | -ctrl+shift+end | shift+meta+down@cmd",
+            "cursorDown | ctrl+n@cmd",
+            "cursorEnd | meta+right@cmd",
+            "cursorEndSelect | shift+meta+right@cmd",
+            "cursorHome | meta+left@cmd",
+            "cursorHomeSelect | shift+meta+left@cmd",
+            "cursorLeft | ctrl+b@cmd",
+            "cursorLineEnd | ctrl+e@legacy",
+            "cursorLineStart | ctrl+a@legacy",
+            "cursorRight | ctrl+f@cmd",
+            "cursorTop | -ctrl+home | meta+up@cmd",
+            "cursorTopSelect | -ctrl+shift+home | shift+meta+up@cmd",
+            "cursorUp | ctrl+p@cmd",
             "cursorWordLeft | -ctrl+left | alt+left@legacy",
+            "cursorWordLeftSelect | -ctrl+shift+left | shift+alt+left@legacy",
             "cursorWordRight | -ctrl+right | alt+right@legacy",
-            "cursorWordLeftSelect | -ctrl+shift+left | alt+shift+left@legacy",
-            "cursorWordRightSelect | -ctrl+shift+right | alt+shift+right@legacy",
-            "input.cursorWordLeft | -ctrl+left | alt+left@legacy",
-            "input.cursorWordRight | -ctrl+right | alt+right@legacy",
+            "cursorWordRightSelect | -ctrl+shift+right | shift+alt+right@legacy",
+            "deleteAllLeft | meta+backspace@cmd",
+            "deleteLeft | ctrl+backspace@extended ctrl+h@legacy",
+            "deleteRight | ctrl+delete@legacy ctrl+d@cmd",
             "deleteWordLeft | -ctrl+backspace | alt+backspace@legacy",
             "deleteWordRight | -ctrl+delete | alt+delete@legacy",
+            "editor.action.copyLinesDownAction | -ctrl+shift+alt+down | shift+alt+down@legacy",
+            "editor.action.copyLinesUpAction | -ctrl+shift+alt+up | shift+alt+up@legacy",
+            "editor.action.insertCursorAbove | -shift+alt+up | alt+meta+up@cmd",
+            "editor.action.insertCursorBelow | -shift+alt+down | alt+meta+down@cmd",
+            "editor.action.nextMatchFindAction | meta+g@cmd",
+            "editor.action.previousMatchFindAction | shift+meta+g@cmd",
+            "editor.action.selectAll | -mod+a | meta+a@cmd",
+            "editor.action.triggerSuggest | alt+escape@extended",
+            "editor.fold | -ctrl+shift+[ | alt+meta+[@cmd",
+            "editor.unfold | -ctrl+shift+] | alt+meta+]@cmd",
+            "fileOperations.deleteFile | meta+backspace@cmd",
+            "input.cursorEnd | meta+right@cmd",
+            "input.cursorHome | meta+left@cmd",
+            "input.cursorLeft | ctrl+b@cmd",
+            "input.cursorRight | ctrl+f@cmd",
+            "input.cursorWordLeft | -ctrl+left | alt+left@legacy",
+            "input.cursorWordRight | -ctrl+right | alt+right@legacy",
+            "input.deleteLeft | ctrl+backspace@extended ctrl+h@legacy",
+            "input.deleteRight | ctrl+delete@legacy ctrl+d@cmd",
             "input.deleteWordLeft | -ctrl+backspace | alt+backspace@legacy",
             "input.deleteWordRight | -ctrl+delete | alt+delete@legacy",
-            "cursorLineStart | ctrl+a@legacy",
-            "cursorLineEnd | ctrl+e@legacy",
-            "editor.action.selectAll | -ctrl+a | meta+a@cmd",
-            "cursorHome | meta+left@cmd",
-            "cursorEnd | meta+right@cmd",
-            "cursorHomeSelect | meta+shift+left@cmd",
-            "cursorEndSelect | meta+shift+right@cmd",
-            "deleteAllLeft | meta+backspace@cmd",
-            "cursorTop | meta+up@cmd",
-            "cursorBottom | meta+down@cmd",
-            "cursorTopSelect | meta+shift+up@cmd",
-            "cursorBottomSelect | meta+shift+down@cmd",
-            "workbench.action.nextEditor | meta+alt+right@cmd meta+shift+]@cmd",
-            "workbench.action.previousEditor | meta+alt+left@cmd meta+shift+[@cmd",
+            "input.selectToEnd | shift+meta+right@cmd",
+            "input.selectToHome | shift+meta+left@cmd",
+            "input.selectWordLeft | -ctrl+shift+left | shift+alt+left@legacy",
+            "input.selectWordRight | -ctrl+shift+right | shift+alt+right@legacy",
+            "scrollLineDown | -ctrl+down | ctrl+pagedown@legacy",
+            "scrollLineUp | -ctrl+up | ctrl+pageup@legacy",
+            "selectNextSuggestion | ctrl+n@cmd",
+            "selectPrevSuggestion | ctrl+p@cmd",
+            "showNextParameterHint | ctrl+n@cmd",
+            "showPrevParameterHint | ctrl+p@cmd",
+            "workbench.action.closeOtherEditors | alt+meta+t@cmd",
+            "workbench.action.files.openFolder | -ctrl+k ctrl+o",
+            "workbench.action.moveEditorToNextGroup | -ctrl+alt+right | ctrl+meta+right@cmd",
+            "workbench.action.moveEditorToPreviousGroup | -ctrl+alt+left | ctrl+meta+left@cmd",
+            "workbench.action.navigateBack | -ctrl+alt+- | ctrl+-@legacy",
+            "workbench.action.nextEditor | -ctrl+pagedown | shift+meta+]@cmd alt+meta+right@cmd",
+            "workbench.action.nextEditorInGroup | meta+k alt+meta+right@cmd",
+            "workbench.action.output.toggleOutput | -ctrl+k ctrl+h | shift+meta+u@cmd",
+            "workbench.action.previousEditor | -ctrl+pageup | shift+meta+[@cmd alt+meta+left@cmd",
+            "workbench.action.previousEditorInGroup | meta+k alt+meta+left@cmd",
+            "workbench.action.showAllEditors | -ctrl+k ctrl+p | alt+meta+tab@cmd",
+            "workbench.action.toggleEditorGroupLayout | -shift+alt+0 | alt+meta+0@cmd",
         ]);
     });
 
@@ -213,14 +278,38 @@ describe("таблица мак-дельт", () => {
     });
 
     it("мак-бинд объявлен на самом низком рунге, где доезжает: legacy-комбинации не заперты выше", () => {
+        // Исключение одно: Ctrl-аккорд, который ниже cmd занят фоллбэком mod другой
+        // команды (⌃N — New File), живёт с cmd, где mod — уже Cmd.
+        const taken = modFallbackChords();
         const tooHigh = MAC_KEYBINDING_DELTAS.flatMap((delta) =>
             (delta.mac ?? [])
-                .filter(({ keys, from }) => from !== "legacy" && deliverableOnMacLegacy(parseChord(keys)))
+                .filter(({ keys, from }) => {
+                    const chord = parseChord(keys);
+                    return from !== "legacy" && deliverableOnMacLegacy(chord) && !taken.has(serializeChord(chord));
+                })
                 .map(({ keys }) => `${delta.command}: ${keys}`),
         );
         expect(tooHigh).toEqual([]);
     });
+
+    it("Ctrl-аккорд с рунга cmd — только если ниже он занят фоллбэком mod (не запирать зря)", () => {
+        const taken = modFallbackChords();
+        const lockedWithoutReason = MAC_KEYBINDING_DELTAS.flatMap((delta) =>
+            (delta.mac ?? [])
+                .filter(({ keys, from }) => from === "cmd" && !parseChord(keys).some((part) => part.metaKey))
+                .filter(({ keys }) => !taken.has(serializeChord(parseChord(keys))))
+                .map(({ keys }) => `${delta.command}: ${keys}`),
+        );
+        expect(lockedWithoutReason).toEqual([]);
+    });
 });
+
+// Конфликты pc-раскладки, существовавшие до мак-паритета (оба бинда — pc-шные, мак
+// их лишь унаследовал ниже cmd). Трекер: docs/TODO/MacKeybindings.md.
+const PRE_EXISTING_PC_CONFLICTS = new Set([
+    "ctrl+k ctrl+u: editor.action.removeCommentLine / editor.action.showHover",
+    "ctrl+k ctrl+f: editor.action.formatSelection / workbench.action.navigateForward",
+]);
 
 describe("инвариант: внутри семейства условия взаимоисключающие", () => {
     // Резолвер идёт с конца: если pc-бинд и мак-бинд сматчились разом, молча
@@ -238,8 +327,10 @@ describe("инвариант: внутри семейства условия в�
             for (const [chord, entries] of byChord) {
                 const involvesMacFamily = entries.some((entry) => entry.when?.includes("macKeys") === true);
                 const commands = new Set(entries.map((entry) => entry.commandId));
-                if (involvesMacFamily && commands.size > 1)
-                    conflicts.add(`${chord}: ${[...commands].sort().join(" / ")}`);
+                const conflict = `${chord}: ${[...commands].sort().join(" / ")}`;
+                if (involvesMacFamily && commands.size > 1 && !PRE_EXISTING_PC_CONFLICTS.has(conflict)) {
+                    conflicts.add(conflict);
+                }
             }
         }
         expect([...conflicts]).toEqual([]);
@@ -264,6 +355,122 @@ describe("mod разворачивается по рунгу", () => {
         ],
     ])("%s: save на %j", (_name, env, expected) => {
         expect(saveChords(env)).toEqual(expected);
+    });
+});
+
+describe("паритет с мак-раскладкой VS Code (эталон 1.138)", () => {
+    // Независимая сверка со срезом дефолтных биндов VS Code — пропуск в таблице
+    // дельт или в mod-переводе ловится здесь, а не глазами. Сравнение
+    // симметричное, в одном и том же фокусе: мак-бинд эталона обязан действовать
+    // на mac-cmd, если его pc-пара из эталона действует в diode на pc. Чего нет и на
+    // pc, — дыра pc-паритета, не мака. Мак-бинды без pc-пары (Option-слова,
+    // WinCtrl-подслой, ⌘↑/↓) обязаны действовать всегда.
+    const registry = registerBuiltins();
+    const pc: Environment = { name: "pc", tier: "kitty" };
+    const macCmd: Environment = { name: "mac-cmd", tier: "kitty", rung: "cmd" };
+    const FOCUS: readonly Readonly<Record<string, boolean>>[] = [
+        {},
+        { textViewFocus: true, textInputFocus: true, editorGroupHasEditors: true, editorTabsMultiple: true },
+        { textViewFocus: true, textInputFocus: true, suggestWidgetVisible: true },
+        {
+            textViewFocus: true,
+            textInputFocus: true,
+            parameterHintsVisible: true,
+            parameterHintsMultipleSignatures: true,
+        },
+        { textViewFocus: true, textInputFocus: true, findWidgetVisible: true },
+        { inputWidgetFocus: true },
+        { listFocus: true },
+    ];
+    // Осознанные отклонения (docs/TODO/MacKeybindings.md) и решение про копипаст.
+    const DEVIATIONS = new Set([
+        "fileOperations.rename: enter", // Enter=rename требует ⌘↓=open — такой команды нет
+        "editor.action.clipboardCopyAction: meta+c", // Cmd+C/V/X — эмулятору
+        "editor.action.clipboardCutAction: meta+x",
+        "editor.action.clipboardPasteAction: meta+v",
+        "input.copy: meta+c",
+        "input.cut: meta+x",
+        "input.paste: meta+v",
+        "fileOperations.copy: meta+c",
+        "fileOperations.cut: meta+x",
+        "fileOperations.paste: meta+v",
+    ]);
+
+    const activeIn = (env: Environment, focus: Readonly<Record<string, boolean>>, commandId: string, keys: string) => {
+        const spec = serializeChord(parseChord(keys));
+        return activeEntries(registry, contextFor(env, focus)).some(
+            (entry) => entry.commandId === commandId && serializeChord(entry.chord) === spec,
+        );
+    };
+    /** pc-пара мак-бинда в эталоне: Cmd → Ctrl (механика) либо тот же аккорд. */
+    const pcCounterpart = (mac: string, linux: readonly string[]): string | undefined => {
+        const chord = parseChord(mac);
+        const mechanical = serializeChord(
+            chord.map((part) => (part.metaKey ? { ...part, metaKey: false, ctrlKey: true } : part)),
+        );
+        if (chord.some((part) => part.metaKey) && linux.includes(mechanical)) return mechanical;
+        return linux.includes(mac) ? mac : undefined;
+    };
+
+    const cases = Object.entries(VSCODE_REFERENCE.commands).flatMap(([commandId, ref]) =>
+        ref.mac
+            .filter((keys) => !DEVIATIONS.has(`${commandId}: ${keys}`))
+            .map((keys) => [`${commandId}: ${keys}`, commandId, keys, pcCounterpart(keys, ref.linux)] as const),
+    );
+
+    it.each(cases)("%s", (_name, commandId, keys, counterpart) => {
+        const missing = FOCUS.filter((focus) =>
+            counterpart === undefined
+                ? false
+                : activeIn(pc, focus, commandId, counterpart) && !activeIn(macCmd, focus, commandId, keys),
+        );
+        expect(missing).toEqual([]);
+        if (counterpart === undefined) {
+            expect(FOCUS.some((focus) => activeIn(macCmd, focus, commandId, keys))).toBe(true);
+        }
+    });
+});
+
+describe("каждый мак-бинд таблицы действует на своём рунге и выше", () => {
+    // Условие мак-бинда — только рунг, а фокус задаёт when самой команды. Ищем
+    // фокус-контекст, где бинд действует; на всех рунгах от from до cmd он обязан
+    // найтись — иначе бинд потерян (как Option+← на mac-cmd, если его перекрыть
+    // tier-условием legacy-фоллбэка).
+    const registry = registerBuiltins();
+    const RUNG_ENV: Record<MacKeysRung, Environment> = {
+        legacy: { name: "mac-legacy", tier: "legacy", rung: "legacy" },
+        extended: { name: "mac-extended", tier: "csi-u", rung: "extended" },
+        cmd: { name: "mac-cmd", tier: "kitty", rung: "cmd" },
+    };
+    const RUNGS: readonly MacKeysRung[] = ["legacy", "extended", "cmd"];
+    const EXTRA_FOCUS: readonly Readonly<Record<string, boolean>>[] = [
+        ...FOCUS_CONTEXTS,
+        { textViewFocus: true, textInputFocus: true, suggestWidgetVisible: true },
+        {
+            textViewFocus: true,
+            textInputFocus: true,
+            parameterHintsVisible: true,
+            parameterHintsMultipleSignatures: true,
+        },
+        { textViewFocus: true, textInputFocus: true, findWidgetVisible: true },
+        { listFocus: true, filesExplorerFocus: true },
+    ];
+    const cases = MAC_KEYBINDING_DELTAS.flatMap((delta) =>
+        (delta.mac ?? []).flatMap(({ keys, from }) =>
+            RUNGS.slice(RUNGS.indexOf(from)).map(
+                (rung) => [`${delta.command}: ${keys} @ ${rung}`, delta.command, keys, rung] as const,
+            ),
+        ),
+    );
+
+    it.each(cases)("%s", (_name, commandId, keys, rung) => {
+        const spec = serializeChord(parseChord(keys));
+        const active = EXTRA_FOCUS.some((focus) =>
+            activeEntries(registry, contextFor(RUNG_ENV[rung], focus)).some(
+                (entry) => entry.commandId === commandId && serializeChord(entry.chord) === spec,
+            ),
+        );
+        expect(active).toBe(true);
     });
 });
 
