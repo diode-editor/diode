@@ -363,6 +363,32 @@ describe("TerminalEnvironmentService", () => {
         });
     });
 
+    describe("terminalName", () => {
+        it("имя от tmux/XTVERSION важнее LC_TERMINAL, а тот — $TERM_PROGRAM", () => {
+            process.env.TERM_PROGRAM = "WezTerm";
+            const plain = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            expect(plain.terminalName).toBe("WezTerm");
+            process.env.LC_TERMINAL = "iTerm2";
+            const iterm = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            expect(iterm.terminalName).toBe("iTerm2");
+            iterm.noteTerminalName("iTerm2 3.5.0");
+            expect(iterm.terminalName).toBe("iTerm2 3.5.0");
+        });
+
+        it("под tmux $TERM_PROGRAM (это сам tmux) не берётся; пустое значение — «не знаем»", () => {
+            process.env.TMUX = "/tmp/x,1,0";
+            process.env.TERM_PROGRAM = "tmux";
+            expect(
+                new TerminalEnvironmentService(new MockTerminalBackend(), configFrom()).terminalName,
+            ).toBeUndefined();
+            delete process.env.TMUX;
+            process.env.TERM_PROGRAM = "";
+            expect(
+                new TerminalEnvironmentService(new MockTerminalBackend(), configFrom()).terminalName,
+            ).toBeUndefined();
+        });
+    });
+
     describe("super (Cmd) по увиденному super-биту (noteSuperObserved)", () => {
         it("на маке поднимает рунг до cmd и tier с legacy; повтор — no-op", () => {
             process.env.LC_DIODE_PLATFORM = "mac";

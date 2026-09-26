@@ -1,6 +1,7 @@
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { StatusBarService } from "../../statusbar/common/statusBarService.ts";
@@ -13,9 +14,12 @@ describe("TerminalEnvStatusContribution", () => {
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        for (const name of ["TMUX", "SSH_CONNECTION", "SSH_TTY", "LC_TERMINAL", "KITTY_WINDOW_ID", "TERM_PROGRAM"]) {
-            delete process.env[name];
-        }
+        delete process.env.TMUX;
+        delete process.env.SSH_CONNECTION;
+        delete process.env.SSH_TTY;
+        delete process.env.LC_TERMINAL;
+        delete process.env.KITTY_WINDOW_ID;
+        delete process.env.TERM_PROGRAM;
         process.env.TERM = "xterm-256color";
     });
 
@@ -23,20 +27,25 @@ describe("TerminalEnvStatusContribution", () => {
         process.env = savedEnv;
     });
 
-    function segment(): { text: () => string; env: TerminalEnvironmentService } {
+    function segment() {
         const statusBar = new StatusBarService(NULL_STATE_SERVICE);
         const env = new TerminalEnvironmentService(new MockTerminalBackend(), NULL_CONFIGURATION_SERVICE);
-        new TerminalEnvStatusContribution(statusBar, env);
-        return {
-            env,
-            text: () => statusBar.entries().find((entry) => entry.id === "status.terminalEnvironment")?.text ?? "",
-        };
+        const commands = new CommandRegistry();
+        const executed: string[] = [];
+        commands.register("diode.keyboardDoctor", () => {
+            executed.push("diode.keyboardDoctor");
+        });
+        new TerminalEnvStatusContribution(statusBar, env, commands);
+        const entry = () => statusBar.entries().find((e) => e.id === "status.terminalEnvironment");
+        return { env, executed, click: () => entry()?.onClick?.(), text: () => entry()?.text ?? "" };
     }
 
-    it("pc: только tier и моды", () => {
+    it("pc: только tier и моды; клик открывает Keyboard Doctor", () => {
         delete process.env.LC_DIODE_PLATFORM;
-        const { text } = segment();
+        const { text, click, executed } = segment();
         expect(text()).toBe("legacy");
+        click();
+        expect(executed).toEqual(["diode.keyboardDoctor"]);
     });
 
     it("мак: рунг мак-лестницы рядом с tier и обновляется по onDidChange", () => {

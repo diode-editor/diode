@@ -35,6 +35,7 @@ import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
 import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
+import { KeyboardDoctorComponentDIToken } from "../contrib/keyboardDoctor/browser/keyboardDoctorComponent.ts";
 import { DiagnosticsServiceDIToken } from "../contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
 import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
@@ -302,6 +303,8 @@ export class WorkbenchComponent extends Component {
         // Рекордер комбинаций вкладки Keyboard Shortcuts — модальный оверлей
         // того же слоя.
         this.register(accessor.get(KeybindingRecorderComponentDIToken)).attachHost(this.view);
+        // Keyboard Doctor — модальный оверлей того же слоя.
+        this.register(accessor.get(KeyboardDoctorComponentDIToken)).attachHost(this.view);
         // Подсказка параметров — тот же слой, но якорится НАД кареткой, чтобы не
         // делить место с попапом автодополнения.
         parameterHintsComponent.attachHost(this.view);

@@ -51,6 +51,7 @@ import {
     hideInlineSuggestAction,
     triggerInlineSuggestAction,
 } from "../../contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
+import { keyboardDoctorAction } from "../../contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
 import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
 import {
     closeParameterHintsAction,
@@ -270,6 +271,7 @@ export const builtinActions: readonly CommandAction[] = [
     openSettingsAction,
     openKeybindingsAction,
     openKeybindingsFileAction,
+    keyboardDoctorAction,
     showAboutDialogAction,
     reloadWindowAction,
     quitAction,

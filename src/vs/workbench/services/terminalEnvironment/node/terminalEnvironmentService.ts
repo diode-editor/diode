@@ -111,6 +111,17 @@ export class TerminalEnvironmentService extends Disposable {
         return this.resolvedOs.source;
     }
 
+    /**
+     * Как назвался внешний терминал — для Keyboard Doctor и рецептов эмуляторов:
+     * tmux `client_termtype` / XTVERSION, иначе `LC_TERMINAL`, иначе (не под tmux —
+     * там это «tmux») `$TERM_PROGRAM`. `undefined` — не знаем.
+     */
+    public get terminalName(): string | undefined {
+        const env = process.env;
+        const own = this.baseModes.has("tmux") ? undefined : env.TERM_PROGRAM;
+        return this.osSignals.terminalName ?? this.osSignals.lcTerminal ?? (own === "" ? undefined : own);
+    }
+
     /** Рунг мак-лестницы; `undefined` — клавиатура не маковская. */
     public get macKeysRung(): MacKeysRung | undefined {
         return resolveMacKeysRung(this.os, this.capabilities, this.getActiveModes());
