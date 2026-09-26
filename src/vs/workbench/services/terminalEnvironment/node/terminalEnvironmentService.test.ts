@@ -1,5 +1,5 @@
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConfigurationModel } from "../../../../platform/configuration/common/configurationModel.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
@@ -8,6 +8,7 @@ import { ConfigurationService } from "../../../../platform/configuration/node/co
 import { terminalConfiguration } from "../../../common/configuration/terminalConfiguration.ts";
 
 import { TerminalEnvironmentService } from "./terminalEnvironmentService.ts";
+import type { TmuxClientInfo } from "./tmuxClientProbe.ts";
 
 function configFrom(userRaw: Record<string, unknown> = {}): IConfigurationService {
     return new ConfigurationService({
@@ -34,6 +35,8 @@ describe("TerminalEnvironmentService", () => {
         delete process.env.WEZTERM_PANE;
         delete process.env.ALACRITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
+        delete process.env.LC_DIODE_PLATFORM;
+        delete process.env.LC_TERMINAL;
         process.env.TERM = "xterm-256color";
     });
 
@@ -250,6 +253,228 @@ describe("TerminalEnvironmentService", () => {
             expect(active.has("local")).toBe(true); // base mode untouched
             expect(active.has("presentation")).toBe(true); // forced-on (line 106 branch)
             expect(active.has("tmux")).toBe(false); // forced-off base mode removed (line 107 branch)
+        });
+    });
+
+    describe("ОС клавиатуры (лестница сигналов)", () => {
+        const noTmux = (): Promise<TmuxClientInfo> => Promise.reject(new Error("tmux не должен опрашиваться"));
+
+        it("LC_DIODE_PLATFORM=mac по ssh ⇒ мак, источник env; рунг legacy на простом терминале", () => {
+            process.env.SSH_CONNECTION = "1 2 3 4";
+            process.env.LC_DIODE_PLATFORM = "mac";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), noTmux);
+            expect(service.os).toBe("mac");
+            expect(service.osSource).toBe("env");
+            expect(service.macKeysRung).toBe("legacy");
+        });
+
+        it("LC_TERMINAL=iTerm2 ⇒ мак, источник terminal", () => {
+            process.env.LC_TERMINAL = "iTerm2";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), noTmux);
+            expect(service.os).toBe("mac");
+            expect(service.osSource).toBe("terminal");
+        });
+
+        it("настройка keyboard.platform перебивает переменную", () => {
+            process.env.LC_DIODE_PLATFORM = "mac";
+            const service = new TerminalEnvironmentService(
+                new MockTerminalBackend(),
+                configFrom({ keyboard: { platform: "linux" } }),
+                noTmux,
+            );
+            expect(service.os).toBe("linux");
+            expect(service.osSource).toBe("setting");
+            expect(service.macKeysRung).toBeUndefined();
+        });
+
+        it("без tmux detect() tmux не опрашивает", () => {
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), noTmux);
+            service.detect();
+            expect(service.os).toBe("linux");
+        });
+
+        it("под tmux застывший process.env не читается — живое значение приходит из tmux", async () => {
+            process.env.TMUX = "/tmp/x,1,0";
+            process.env.LC_DIODE_PLATFORM = "linux"; // застыло на момент создания сессии
+            const tmux = vi.fn(() =>
+                Promise.resolve<TmuxClientInfo>({ envPlatform: "mac", termType: "kitty(0.45.0)" }),
+            );
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), tmux);
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            expect(service.os).toBe("linux");
+            expect(service.osSource).toBe("default");
+
+            service.detect();
+            service.detect(); // повторный вызов — no-op
+            await vi.waitFor(() => {
+                expect(service.os).toBe("mac");
+            });
+            expect(service.osSource).toBe("env");
+            expect(tmux).toHaveBeenCalledOnce();
+            expect(changed).toBe(1);
+        });
+
+        it("под tmux маковский client_termtype переворачивает к маку", async () => {
+            process.env.TMUX = "/tmp/x,1,0";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), () =>
+                Promise.resolve({ termType: "iTerm2 3.5.0" }),
+            );
+            service.detect();
+            await vi.waitFor(() => {
+                expect(service.osSource).toBe("terminal");
+            });
+            expect(service.os).toBe("mac");
+        });
+
+        it("поздний сигнал не перебивает явную настройку и не шумит onDidChange", async () => {
+            process.env.TMUX = "/tmp/x,1,0";
+            const tmux = vi.fn(() => Promise.resolve<TmuxClientInfo>({ termType: "iTerm2" }));
+            const service = new TerminalEnvironmentService(
+                new MockTerminalBackend(),
+                configFrom({ keyboard: { platform: "windows" } }),
+                tmux,
+            );
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            service.detect();
+            await vi.waitFor(() => {
+                expect(tmux).toHaveBeenCalled();
+            });
+            await Promise.resolve();
+            expect(service.os).toBe("windows");
+            expect(changed).toBe(0);
+        });
+
+        it("noteTerminalName: flip только в сторону мака, обратно никогда", () => {
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), noTmux);
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            service.noteTerminalName("kitty(0.45.0)");
+            expect(service.os).toBe("linux");
+            service.noteTerminalName(undefined);
+            expect(changed).toBe(0);
+            service.noteTerminalName("Apple_Terminal");
+            expect(service.os).toBe("mac");
+            expect(changed).toBe(1);
+            service.noteTerminalName("WezTerm");
+            expect(service.os).toBe("mac"); // незнакомое имя ничего не отменяет
+            expect(changed).toBe(1);
+        });
+    });
+
+    describe("terminalName", () => {
+        it("имя от tmux/XTVERSION важнее LC_TERMINAL, а тот — $TERM_PROGRAM", () => {
+            process.env.TERM_PROGRAM = "WezTerm";
+            const plain = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            expect(plain.terminalName).toBe("WezTerm");
+            process.env.LC_TERMINAL = "iTerm2";
+            const iterm = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            expect(iterm.terminalName).toBe("iTerm2");
+            iterm.noteTerminalName("iTerm2 3.5.0");
+            expect(iterm.terminalName).toBe("iTerm2 3.5.0");
+        });
+
+        it("поздний сигнал без LC_TERMINAL известный LC_TERMINAL не стирает", () => {
+            process.env.LC_TERMINAL = "iTerm2";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            service.noteTerminalName(undefined);
+            expect(service.terminalName).toBe("iTerm2");
+        });
+
+        it("под tmux $TERM_PROGRAM (это сам tmux) не берётся; пустое значение — «не знаем»", () => {
+            process.env.TMUX = "/tmp/x,1,0";
+            process.env.TERM_PROGRAM = "tmux";
+            expect(
+                new TerminalEnvironmentService(new MockTerminalBackend(), configFrom()).terminalName,
+            ).toBeUndefined();
+            delete process.env.TMUX;
+            process.env.TERM_PROGRAM = "";
+            expect(
+                new TerminalEnvironmentService(new MockTerminalBackend(), configFrom()).terminalName,
+            ).toBeUndefined();
+        });
+    });
+
+    describe("super (Cmd) по увиденному super-биту (noteSuperObserved)", () => {
+        it("на маке поднимает рунг до cmd и tier с legacy; повтор — no-op", () => {
+            process.env.LC_DIODE_PLATFORM = "mac";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            expect(service.macKeysRung).toBe("legacy");
+
+            service.noteSuperObserved();
+            service.noteSuperObserved();
+
+            expect(service.hasCapability("super")).toBe(true);
+            expect(service.hasCapability("extended-keys")).toBe(true);
+            expect(service.tier).toBe("csi-u");
+            expect(service.macKeysRung).toBe("cmd");
+            expect(changed).toBe(1);
+        });
+
+        it("не мак на legacy: меняется только tier — событие есть", () => {
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            service.noteSuperObserved();
+            expect(service.tier).toBe("csi-u");
+            expect(service.macKeysRung).toBeUndefined();
+            expect(changed).toBe(1);
+        });
+
+        it("мак на kitty: tier тот же, меняется только рунг — событие есть", () => {
+            process.env.TERM = "xterm-kitty";
+            process.env.LC_DIODE_PLATFORM = "mac";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            expect(service.macKeysRung).toBe("extended");
+            service.noteSuperObserved();
+            expect(service.tier).toBe("kitty");
+            expect(service.macKeysRung).toBe("cmd");
+            expect(changed).toBe(1);
+        });
+
+        it("под tmux рунг остаётся ниже cmd", () => {
+            process.env.LC_DIODE_PLATFORM = "mac";
+            const service = new TerminalEnvironmentService(
+                new MockTerminalBackend(),
+                configFrom({ terminal: { modes: { tmux: true } } }),
+            );
+            service.noteSuperObserved();
+            expect(service.macKeysRung).toBe("extended");
+        });
+
+        it("не мак и tier уже известен — ничего видимого не меняется, событие молчит", () => {
+            process.env.TERM = "xterm-kitty";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            service.noteSuperObserved();
+            expect(service.hasCapability("super")).toBe(true);
+            expect(changed).toBe(0);
+        });
+
+        it("форсированный terminal.capabilities.super=false побеждает наблюдение", () => {
+            process.env.LC_DIODE_PLATFORM = "mac";
+            const service = new TerminalEnvironmentService(
+                new MockTerminalBackend(),
+                configFrom({ terminal: { capabilities: { super: false } } }),
+            );
+            service.noteSuperObserved();
+            expect(service.hasCapability("super")).toBe(false);
+            expect(service.macKeysRung).toBe("extended");
+        });
+
+        it("форсированный terminal.capabilities.super=true сразу даёт cmd", () => {
+            process.env.LC_DIODE_PLATFORM = "mac";
+            const service = new TerminalEnvironmentService(
+                new MockTerminalBackend(),
+                configFrom({ terminal: { capabilities: { super: true } } }),
+            );
+            expect(service.macKeysRung).toBe("cmd");
         });
     });
 

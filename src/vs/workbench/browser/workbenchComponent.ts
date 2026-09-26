@@ -35,6 +35,7 @@ import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
 import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
+import { KeyboardDoctorComponentDIToken } from "../contrib/keyboardDoctor/browser/keyboardDoctorComponent.ts";
 import { DiagnosticsServiceDIToken } from "../contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
 import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
@@ -78,6 +79,7 @@ import type { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import { builtinActions } from "./actions/builtinActions.ts";
+import { withMacKeybindings } from "./actions/macKeybindings.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
 import { DiffEditorPane2 } from "./parts/editor/diffEditorPane2.ts";
@@ -301,6 +303,8 @@ export class WorkbenchComponent extends Component {
         // Рекордер комбинаций вкладки Keyboard Shortcuts — модальный оверлей
         // того же слоя.
         this.register(accessor.get(KeybindingRecorderComponentDIToken)).attachHost(this.view);
+        // Keyboard Doctor — модальный оверлей того же слоя.
+        this.register(accessor.get(KeyboardDoctorComponentDIToken)).attachHost(this.view);
         // Подсказка параметров — тот же слой, но якорится НАД кареткой, чтобы не
         // делить место с попапом автодополнения.
         parameterHintsComponent.attachHost(this.view);
@@ -308,7 +312,8 @@ export class WorkbenchComponent extends Component {
         // компонент создаёт их лениво по первому Ctrl+F в группе.
         findComponent.hostProvider = (groupId) => this.editorPartComponent.groupOverlayHost(groupId);
         for (const action of builtinActions) {
-            this.register(registerAction(commands, keybindings, accessor, action));
+            // Мак-дельты (таблица macKeybindings.ts) — поверх объявленных биндов.
+            this.register(registerAction(commands, keybindings, accessor, withMacKeybindings(action)));
         }
         // `vscode.diff` — программный вход с контрактом VS Code: без title,
         // мимо палитры; ext-host исполняет её по id через мост команд.

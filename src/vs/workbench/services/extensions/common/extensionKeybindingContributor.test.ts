@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { IKeybindingContribution } from "../../../../platform/extensions/common/iExtensionManifest.ts";
-import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    formatKeybinding,
+    KeybindingRegistry,
+    parseChord,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 import { registerExtensionKeybindings } from "./extensionKeybindingContributor.ts";
 
@@ -27,7 +32,6 @@ describe("registerExtensionKeybindings", () => {
         registerExtensionKeybindings(
             [ext([{ command: "regionfolder.wrapWithRegion", key: "ctrl+m ctrl+r", when: "editorTextFocus" }])],
             registry,
-            "linux",
         );
         const chord = registry.getKeybindingForCommand("regionfolder.wrapWithRegion");
         expect(chord).toBeDefined();
@@ -37,23 +41,59 @@ describe("registerExtensionKeybindings", () => {
         expect(entry?.source).toBe("extension");
     });
 
-    it("платформенный оверрайд mac/win/linux побеждает key", () => {
-        const contrib: IKeybindingContribution = {
-            command: "cmd",
-            key: "ctrl+a",
-            mac: "meta+a",
-        };
-        const mac = new KeybindingRegistry();
-        registerExtensionKeybindings([ext([contrib])], mac, "darwin");
-        expect(formatKeybinding(mac.getKeybindingForCommand("cmd")!)).toBe("Meta+A");
+    function contextFor(os: "mac" | "linux" | "windows"): ContextKeyService {
+        const contextKeys = new ContextKeyService();
+        contextKeys.set("os", os);
+        return contextKeys;
+    }
 
-        const linux = new KeybindingRegistry();
-        registerExtensionKeybindings([ext([contrib])], linux, "linux");
-        expect(formatKeybinding(linux.getKeybindingForCommand("cmd")!)).toBe("Ctrl+A");
+    it("платформенный оверрайд mac/win/linux побеждает key — по контекст-ключу os, а не process.platform", () => {
+        const registry = new KeybindingRegistry();
+        registerExtensionKeybindings([ext([{ command: "cmd", key: "ctrl+a", mac: "meta+a", win: "alt+a" }])], registry);
+        expect(formatKeybinding(registry.getKeybindingForCommand("cmd", contextFor("mac"))!)).toBe("Meta+A");
+        expect(formatKeybinding(registry.getKeybindingForCommand("cmd", contextFor("linux"))!)).toBe("Ctrl+A");
+        expect(formatKeybinding(registry.getKeybindingForCommand("cmd", contextFor("windows"))!)).toBe("Alt+A");
+    });
 
-        const win = new KeybindingRegistry();
-        registerExtensionKeybindings([ext([{ command: "cmd", key: "ctrl+a", win: "alt+a" }])], win, "win32");
-        expect(formatKeybinding(win.getKeybindingForCommand("cmd")!)).toBe("Alt+A");
+    it("варианты различаются условием os: ОС, уточнённая после старта, переключает активный", () => {
+        const registry = new KeybindingRegistry();
+        registerExtensionKeybindings(
+            [ext([{ command: "cmd", key: "ctrl+a", mac: "meta+a", when: "textInputFocus" }])],
+            registry,
+        );
+        const whens = registry.listBindings().map((b) => [formatKeybinding(b.chord), b.when]);
+        expect(whens).toEqual([
+            ["Meta+A", "(os == 'mac') && (textInputFocus)"],
+            ["Ctrl+A", "(os == 'linux' || os == 'windows') && (textInputFocus)"],
+        ]);
+        const contextKeys = contextFor("linux");
+        contextKeys.set("textInputFocus", true);
+        const meta = { key: "a", ctrlKey: false, shiftKey: false, altKey: false, metaKey: true };
+        expect(registry.resolveKey(meta, contextKeys).kind).toBe("none");
+        contextKeys.set("os", "mac");
+        expect(registry.resolveKey(meta, contextKeys)).toMatchObject({ kind: "command", commandId: "cmd" });
+    });
+
+    it("одинаковый ключ на всех ОС регистрируется один раз без условия по os", () => {
+        const registry = new KeybindingRegistry();
+        registerExtensionKeybindings([ext([{ command: "cmd", key: "ctrl+a", linux: "ctrl+a" }])], registry);
+        expect(registry.listBindings().map((b) => b.when)).toEqual([undefined]);
+    });
+
+    it("оверрайд только для одной ОС без общего key — остальные ОС без привязки", () => {
+        const registry = new KeybindingRegistry();
+        const warn = vi.fn();
+        registerExtensionKeybindings([ext([{ command: "cmd", key: "", mac: "meta+a" }])], registry, { warn } as never);
+        expect(registry.listBindings().map((b) => b.when)).toEqual(["os == 'mac'"]);
+        expect(warn).not.toHaveBeenCalled(); // ОС без привязки пропущены, а не упали на парсинге
+    });
+
+    it("снятие привязки (-command) снимает каждый вариант", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+a"), "cmd");
+        registry.register(parseChord("meta+a"), "cmd");
+        registerExtensionKeybindings([ext([{ command: "-cmd", key: "ctrl+a", mac: "meta+a" }])], registry);
+        expect(registry.listBindings()).toEqual([]);
     });
 
     it("ведущий - в command снимает существующую привязку", () => {
@@ -67,17 +107,13 @@ describe("registerExtensionKeybindings", () => {
         );
         expect(registry.getKeybindingForCommand("editor.action.foo")).toBeDefined();
 
-        registerExtensionKeybindings(
-            [ext([{ command: "-editor.action.foo", key: "ctrl+k ctrl+s" }])],
-            registry,
-            "linux",
-        );
+        registerExtensionKeybindings([ext([{ command: "-editor.action.foo", key: "ctrl+k ctrl+s" }])], registry);
         expect(registry.getKeybindingForCommand("editor.action.foo")).toBeUndefined();
     });
 
     it("пустой/отсутствующий key пропускается без падения", () => {
         const registry = new KeybindingRegistry();
-        registerExtensionKeybindings([ext([{ command: "cmd", key: "" }])], registry, "linux");
+        registerExtensionKeybindings([ext([{ command: "cmd", key: "" }])], registry);
         expect(registry.getKeybindingForCommand("cmd")).toBeUndefined();
     });
 
@@ -103,7 +139,6 @@ describe("registerExtensionKeybindings", () => {
                 ]),
             ],
             throwingRegistry,
-            "linux",
             { warn } as never,
         );
         expect(warn).toHaveBeenCalledOnce();
@@ -119,7 +154,7 @@ describe("registerExtensionKeybindings", () => {
             isBuiltin: false,
         };
         expect(() => {
-            registerExtensionKeybindings([noKb], registry, "linux");
+            registerExtensionKeybindings([noKb], registry);
         }).not.toThrow();
     });
 });

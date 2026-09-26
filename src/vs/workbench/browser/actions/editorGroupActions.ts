@@ -81,7 +81,7 @@ export const splitEditorAction: CommandAction = {
     title: "View: Split Editor",
     shortTitle: "Split Editor",
     // 0x1C (FS) — единственный «сплитовый» бинд, доходящий на любом tier.
-    keybinding: parseKeybinding("ctrl+\\"),
+    keybinding: parseKeybinding("mod+\\"),
     when: "editorGroupHasEditors",
     run(accessor) {
         accessor.get(EditorServiceDIToken).splitActiveGroup();

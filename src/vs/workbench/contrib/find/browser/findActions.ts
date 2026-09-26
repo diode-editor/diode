@@ -14,7 +14,7 @@ export const findAction: CommandAction = {
     id: "actions.find",
     title: "Find",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "3_find", order: 10 }],
-    keybinding: parseKeybinding("ctrl+f"),
+    keybinding: parseKeybinding("mod+f"),
     // Reachable from the editor, and while the widget is open (to refocus the input).
     when: "textInputFocus || findWidgetVisible",
     run(accessor) {

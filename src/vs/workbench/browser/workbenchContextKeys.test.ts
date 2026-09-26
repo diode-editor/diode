@@ -47,7 +47,9 @@ function makeHarness() {
         os: "linux",
         getKnownModeNames: () => ["local", "custom"],
         isModeActive: (name: string) => name === "local",
-        hasCapability: () => false,
+        // Только super: ключ cap_super обязан спросить именно его.
+        hasCapability: (cap: string) => cap === "super",
+        macKeysRung: "cmd",
         onDidChange: (listener: () => void) => {
             envListener = listener;
             return { dispose: () => (envListener = null) };
@@ -128,6 +130,9 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("os")).toBe("linux");
         expect(h.contextKeys.get("isLinux")).toBe(true);
         expect(h.contextKeys.get("isMac")).toBe(false);
+        expect(h.contextKeys.get("cap_super")).toBe(true);
+        expect(h.contextKeys.get("cap_extendedKeys")).toBe(false);
+        expect(h.contextKeys.get("macKeys")).toBe(3);
         // Динамические mode_-ключи из терминального окружения.
         expect(h.contextKeys.evaluate("mode_local")).toBe(true);
         expect(h.contextKeys.evaluate("mode_custom")).toBe(false);

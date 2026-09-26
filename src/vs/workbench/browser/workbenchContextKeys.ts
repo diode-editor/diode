@@ -13,6 +13,7 @@ import { registerContextKeys } from "../../platform/contextkey/common/contextKey
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
+import { macKeysLevel } from "../../platform/keybinding/common/macKeys.ts";
 import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
@@ -232,6 +233,8 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("cap_truecolor", env.hasCapability("truecolor"));
         this.contextKeys.set("cap_kittyGraphics", env.hasCapability("kitty-graphics"));
         this.contextKeys.set("cap_mouseSgr", env.hasCapability("mouse-sgr"));
+        this.contextKeys.set("cap_super", env.hasCapability("super"));
+        this.contextKeys.set("macKeys", macKeysLevel(env.macKeysRung));
         for (const name of env.getKnownModeNames()) {
             this.contextKeys.setRaw(`mode_${name}`, env.isModeActive(name));
         }

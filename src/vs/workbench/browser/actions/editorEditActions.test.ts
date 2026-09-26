@@ -12,7 +12,7 @@ import { CommandRegistry } from "../../../platform/commands/common/commandRegist
 import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingRegistry, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
@@ -21,6 +21,7 @@ import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import {
+    deleteAllLeftAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
@@ -106,6 +107,24 @@ describe("EditorEditActions — deletion mutates the real document", () => {
         expect(editor.getText()).toBe("world");
     });
 
+    it("redo: Cmd/Ctrl+Shift+Z и Ctrl+Y — основной redo эталона на pc", () => {
+        expect(redoAction.keybinding).toEqual(parseKeybinding("mod+shift+z"));
+        expect(redoAction.keybindings).toEqual([parseKeybinding("ctrl+y")]);
+    });
+
+    it("deleteAllLeft: id/title как у VS Code, без pc-бинда", () => {
+        expect([deleteAllLeftAction.id, deleteAllLeftAction.title]).toEqual(["deleteAllLeft", "Delete All Left"]);
+        expect(deleteAllLeftAction.keybinding).toBeUndefined();
+        expect(deleteAllLeftAction.when).toBe("textInputFocus && !editorReadonly");
+    });
+
+    it("deleteAllLeft removes everything before the cursor, indent included", () => {
+        const { editor, exec } = openEditor("    hello world");
+        editor.viewState.selections = [createCursorSelection(0, 9)];
+        exec(deleteAllLeftAction);
+        expect(editor.getText()).toBe(" world");
+    });
+
     it("delete actions are safe no-ops without an active editor", () => {
         const ctrl = createGroup();
         const commands = new CommandRegistry();
@@ -117,6 +136,7 @@ describe("EditorEditActions — deletion mutates the real document", () => {
             deleteRightAction,
             deleteWordLeftAction,
             deleteWordRightAction,
+            deleteAllLeftAction,
             indentLinesAction,
             outdentLinesAction,
         ]) {

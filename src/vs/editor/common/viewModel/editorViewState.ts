@@ -1390,6 +1390,19 @@ export class EditorViewState {
     }
 
     /**
+     * Moves each cursor to column 0 of its (wrapped) row — VS Code `cursorLineStart`, the Mac
+     * Ctrl+A. Unlike {@link cursorHome} it never stops at the indent.
+     */
+    public cursorLineStart(inSelectionMode = false): void {
+        this.selections = this.selections.map((sel) => {
+            const row = this.viewLineForPosition(sel.active.line, sel.active.character);
+            const rowStart = this.viewLineRange(row).start;
+            return this.buildSelection(sel, sel.active.line, rowStart, this.viewLineStartColumn(row), inSelectionMode);
+        });
+        this.ensureCursorVisible();
+    }
+
+    /**
      * Moves each cursor to the end of its line.
      * Sets idealColumn to MAX_SAFE_INTEGER so subsequent Up/Down "stick" to the right edge.
      */
@@ -1692,6 +1705,26 @@ export class EditorViewState {
      * Deletes one word to the left of each cursor, or deletes the selection.
      */
     public deleteWordLeft(): IUndoElement | undefined {
+        return this.deleteLeftTo("deleteWordLeft", (line, character) => findWordBoundaryLeft(line, character));
+    }
+
+    /**
+     * Deletes everything left of each cursor up to the line start (VS Code `deleteAllLeft`,
+     * Cmd+Backspace on a Mac), or deletes the selection. At column 0 joins with the previous line.
+     */
+    public deleteAllLeft(): IUndoElement | undefined {
+        return this.deleteLeftTo("deleteAllLeft", () => 0);
+    }
+
+    /**
+     * Shared body of the left-deleting commands: an empty selection deletes from `boundary`
+     * (a column left of the cursor) to the cursor, or joins with the previous line at column 0;
+     * a non-empty selection is deleted as is.
+     */
+    private deleteLeftTo(
+        label: string,
+        boundary: (line: string, character: number) => number,
+    ): IUndoElement | undefined {
         if (this.readOnly) return undefined;
         const edits: ITextEdit[] = [];
 
@@ -1701,8 +1734,8 @@ export class EditorViewState {
                 const pos = sel.active;
                 if (pos.character > 0) {
                     const line = this.document.getLineContent(pos.line);
-                    const wordStart = findWordBoundaryLeft(line, pos.character);
-                    edits.push(createTextEdit(createRange(pos.line, wordStart, pos.line, pos.character), ""));
+                    const start = boundary(line, pos.character);
+                    edits.push(createTextEdit(createRange(pos.line, start, pos.line, pos.character), ""));
                 } else if (pos.line > 0) {
                     const prevLineLen = this.document.getLineLength(pos.line - 1);
                     edits.push(createTextEdit(createRange(pos.line - 1, prevLineLen, pos.line, 0), ""));
@@ -1720,7 +1753,7 @@ export class EditorViewState {
             this.selections = this.computeSelectionsAfterEdits(edits);
             this.ensureCursorVisible();
             return {
-                label: "deleteWordLeft",
+                label,
                 versionBefore,
                 versionAfter: appliedVersion,
                 forwardEdits: edits,

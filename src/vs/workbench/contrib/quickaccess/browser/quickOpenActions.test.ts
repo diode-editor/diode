@@ -79,7 +79,7 @@ describe("quick open actions — кейбинды палитры и пикера
     });
 
     it("палитре на legacy-терминале достался F1 — аккорд Ctrl+K Ctrl+P теперь занят пикером", () => {
-        expect(showCommandsAction.keybinding).toEqual(parseKeybinding("ctrl+shift+p"));
+        expect(showCommandsAction.keybinding).toEqual(parseKeybinding("mod+shift+p"));
         expect(showCommandsAction.keybindings).toEqual([{ keys: parseKeybinding("f1"), when: "tier == 'legacy'" }]);
     });
 });

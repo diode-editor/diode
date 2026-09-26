@@ -10,6 +10,14 @@ export const terminalConfiguration: IConfigurationNode = {
             enum: ["auto", "legacy", "csi-u", "kitty"],
             description: 'Tier override: "auto" detects the terminal capabilities tier.',
         },
+        // ОС клавиатуры (не процесса): по ssh с мака раскладка должна быть маковской.
+        "keyboard.platform": {
+            type: "string",
+            default: "auto",
+            enum: ["auto", "mac", "linux", "windows"],
+            description:
+                'Keyboard platform: "auto" detects it (LC_DIODE_PLATFORM, the terminal, the local OS); set it when detection guesses wrong, e.g. over ssh from a Mac.',
+        },
         // Capability force-overrides, e.g. { "osc52": false }. Empty = use detection.
         "terminal.capabilities": {
             type: "object",
