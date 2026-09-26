@@ -37,14 +37,20 @@ import {
     resolveTier,
 } from "../vs/workbench/services/terminalEnvironment/node/terminalEnvironmentModel.ts";
 
-import { addCleanup, isCtrlC, stdin, stdout, writeDirect } from "./demoSetup.ts";
+import { addCleanup, isCtrlC, KITTY_DISABLE, KITTY_ENABLE, stdin, stdout, writeDirect } from "./demoSetup.ts";
 
 // ── Replicate the rest of diode's input modes (demoSetup already did Kitty + raw mode) ──
 const MODIFY_OTHER_KEYS_ENABLE = "\x1b[>4;2m";
 const MODIFY_OTHER_KEYS_DISABLE = "\x1b[>4;0m";
 const BRACKETED_PASTE_ENABLE = "\x1b[?2004h";
 const BRACKETED_PASTE_DISABLE = "\x1b[?2004l";
+// Порядок — как у бэкенда (tuidom #13): modifyOtherKeys ДО kitty-push. iTerm2
+// трактует любой `CSI > 4 ; n m` как сброс kitty-стека, и kitty, включённый
+// раньше (demoSetup), откатился бы в legacy — Cmd ушёл бы в меню-бар. Поэтому
+// снимаем push demoSetup и повторяем его последним.
+writeDirect(KITTY_DISABLE);
 writeDirect(MODIFY_OTHER_KEYS_ENABLE);
+writeDirect(KITTY_ENABLE);
 writeDirect(BRACKETED_PASTE_ENABLE);
 addCleanup(() => {
     writeDirect(MODIFY_OTHER_KEYS_DISABLE);

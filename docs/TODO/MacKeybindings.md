@@ -6,7 +6,9 @@ Linux-хост) и получает раскладку, которой поль�
 
 Первая итерация сделана: признак `isMac` по лестнице сигналов, мак-лестница
 рунгов с `cap_super`, токен `mod`, таблица мак-дельт для топ-команд, Keyboard
-Doctor. Ниже — как это устроено, протокол фидбека и что осталось.
+Doctor. С `@tuidom/*` 0.3.0 добавились XTVERSION-проба имени терминала,
+порядок режимов под iTerm2 и настоящий Cmd+буква в e2e-сценарии. Ниже — как
+это устроено, протокол фидбека и что осталось.
 
 ## Как устроено
 
@@ -15,9 +17,11 @@ Doctor. Ниже — как это устроено, протокол фидбе
   `LC_DIODE_PLATFORM` → `LC_TERMINAL`/имя терминала (iTerm2, Apple_Terminal) →
   локальный `darwin` → «не мак». Явные ступени могут сказать «не мак», остальные
   только позитивные. Ответ хранится с провенансом (`osSource`: setting / env /
-  terminal / platform / default). Под tmux свой `process.env` не читается:
-  `LC_DIODE_PLATFORM`, `LC_TERMINAL` и `#{client_termtype}` спрашиваются у tmux
-  (`tmuxClientProbe.ts`). Поздний сигнал переворачивает ОС только к маку.
+  terminal / platform / default). Имя терминала без tmux приходит XTVERSION-пробой
+  бэкенда (`probeTerminalVersion`). Под tmux свой `process.env` не читается, и
+  XTVERSION не шлётся (ответил бы сам tmux): `LC_DIODE_PLATFORM`, `LC_TERMINAL` и
+  `#{client_termtype}` спрашиваются у tmux (`tmuxClientProbe.ts`). Поздний сигнал
+  переворачивает ОС только к маку.
 - **Мак-лестница рядом с tier** (`platform/keybinding/common/macKeys.ts`):
 
   | Рунг | `macKeys` | Что доступно | Когда |
@@ -92,18 +96,6 @@ issue, а не из замеров. Расхождение с живым мак�
 
 ## Осталось
 
-- [ ] **XTVERSION-проба.** Нужен `ITerminalBackend.probeTerminalVersion`
-  (tuidom PR [#15](https://github.com/tuidom/tuidom/pull/15)). После выхода версии
-  `detect()` зовёт её и отдаёт ответ в `noteTerminalName`. Под tmux на неё отвечает
-  сам tmux, поэтому там остаётся канал `client_termtype`.
-- [ ] **Тесты и сценарий на Cmd+буква.** `serializeKey("Meta+s")` в
-  `@tuidom/core` сейчас бросает (tuidom PR [#12](https://github.com/tuidom/tuidom/pull/12)).
-  До выхода версии сценарий `macKeybindings.scenario.ts` ходит только по
-  именованным клавишам (`Meta+ArrowUp` и т.п.). После выхода добавить Cmd+S / Cmd+P.
-- [ ] **iTerm2 и порядок режимов.** Бэкенд шлёт `CSI >4;2m` после kitty-push, и
-  iTerm2 сбрасывает kitty-стек (tuidom PR [#13](https://github.com/tuidom/tuidom/pull/13)).
-  Тот же порядок повторяет `src/demos/keyDiagnosticsDemo.ts` — поправить вместе с
-  обновлением пакета.
 - [ ] **Полный паритет с мак-раскладкой vscode.** Первая итерация закрывает топ-команды,
   остальные ~150 биндов на маке остаются Ctrl-шными. Следующие шаги: перевести
   `KeyMod.CtrlCmd`-бинды на `mod` и сверить остальные `mac:`-оверрайды эталона.

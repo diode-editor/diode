@@ -6,7 +6,7 @@ import { defineScenario, repoRoot } from "./framework.ts";
 // задана keyboard.platform, Cmd — форсированной capability super. Кадры
 // показывают, что мак-дельты реально доезжают до команд: Cmd+↓/↑ — конец/начало
 // документа, Cmd+→ — конец строки, Option+← — слово, Ctrl+A/E — начало/конец
-// строки (подслой WinCtrl), индикатор Ln/Col — свидетель. Сегмент окружения
+// строки (подслой WinCtrl), Cmd+P — Quick Open, индикатор Ln/Col — свидетель. Сегмент окружения
 // в статус-баре показывает рунг, F6 открывает Keyboard Doctor.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
@@ -46,6 +46,13 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Ln 1, Col 1"));
         await editor.sendKey("Ctrl+E");
         await editor.waitForText((t) => t.includes("Ln 1, Col 33"));
+
+        // Cmd+P — Quick Open через Cmd (mod+p на mac-cmd), настоящий super-бит в байтах.
+        await editor.sendKey("Meta+p");
+        await editor.waitForText((t) => t.includes("Go to File"));
+        await editor.capture("cmd-quick-open");
+        await editor.sendKey("Escape");
+        await editor.waitForText((t) => !t.includes("Go to File"));
 
         // Keyboard Doctor: окружение, рунг и первый шаг проверки.
         await editor.sendKey("F6");

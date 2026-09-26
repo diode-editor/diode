@@ -158,6 +158,10 @@ export class TerminalEnvironmentService extends Disposable {
      * terminal confirms support, `extended-keys` is upgraded and `onDidChange` fires. The
      * probe never downgrades (a non-reply over a slow link must not lose an env-detected
      * capability), and a config-forced capability/tier always wins.
+     *
+     * Имя внешнего терминала узнаётся здесь же: под tmux — у самого tmux
+     * (`client_termtype` и переменные клиента), без tmux — XTVERSION-пробой.
+     * Под tmux XTVERSION не шлём: на неё ответил бы сам tmux («tmux 3.4»).
      */
     public detect(): void {
         if (this.probeStarted) return;
@@ -166,6 +170,10 @@ export class TerminalEnvironmentService extends Disposable {
             void this.queryTmux().then((info) => {
                 this.noteOsSignals({ envPlatform: info.envPlatform, lcTerminal: info.lcTerminal });
                 this.noteTerminalName(info.termType);
+            });
+        } else {
+            this.backend.probeTerminalVersion((name) => {
+                this.noteTerminalName(name);
             });
         }
         this.backend.probeKeyboardProtocol((supported) => {
