@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { KeybindingRegistry, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { SCM_INPUT_MESSAGE_STATE } from "../../../common/stateKeys.ts";
@@ -49,6 +50,7 @@ const REPO_STATE = {
 interface IHarness {
     component: ScmInputComponent;
     commands: CommandRegistry;
+    contextKeys: ContextKeyService;
     executed: string[];
     stored: Map<string, unknown>;
     progress: ProgressService;
@@ -62,7 +64,11 @@ function make(): IHarness {
     const changes = new ScmChangesService(commands);
     const repoState = new ScmRepoStateService(commands, new ContextKeyService());
     const progress = new ProgressService();
-    const component = new ScmInputComponent(service, changes, repoState, commands, progress);
+    // Бинд commit — как объявлен экшеном (mod+enter под scmInputFocus): плейсхолдер подписывает его.
+    const keybindings = new KeybindingRegistry();
+    keybindings.register(parseKeybinding("mod+enter"), "git.commit", "scmInputFocus");
+    const contextKeys = new ContextKeyService();
+    const component = new ScmInputComponent(service, changes, repoState, commands, progress, keybindings, contextKeys);
 
     const executed: string[] = [];
     for (const id of ["git.commit", "git.publish", "git.sync"]) {
@@ -71,6 +77,7 @@ function make(): IHarness {
     return {
         component,
         commands,
+        contextKeys,
         executed,
         stored,
         progress,
@@ -129,9 +136,37 @@ describe("ScmInputComponent — поле", () => {
         expect(h.component.input).toBeInstanceOf(ScmCommitInputElement);
         expect(h.component.input.id).toBe("scmCommitInput");
         expect(h.component.input.showBorder).toBe(false);
-        expect(h.component.input.placeholder).toContain("Ctrl+Enter to commit");
+        expect(h.component.input.placeholder).toBe("Message (Ctrl+Enter to commit)");
         expect(h.component.view.id).toBe("scmInputBox");
         expect(h.component.view.style.bg).toBe("sideBar.background");
+    });
+
+    it("плейсхолдер подписывает действующий бинд commit и следует за клавиатурой", async () => {
+        const h = make();
+        h.contextKeys.set("macKeys", 1);
+        await Promise.resolve();
+        expect(h.component.input.placeholder).toBe("Message (Ctrl+Enter to commit)");
+        h.contextKeys.set("isMac", true); // ОС уточнилась после старта — одной сменой isMac
+        await Promise.resolve();
+        expect(h.component.input.placeholder).toBe("Message (⌃Enter to commit)"); // mac-legacy: commit на Control
+        h.contextKeys.set("macKeys", 3); // увидели Cmd — одной сменой рунга
+        await Promise.resolve();
+        expect(h.component.input.placeholder).toBe("Message (⌘Enter to commit)");
+    });
+
+    it("без бинда commit плейсхолдер — просто «Message»", () => {
+        const commands = new CommandRegistry();
+        const { service } = fakeState();
+        const component = new ScmInputComponent(
+            service,
+            new ScmChangesService(commands),
+            new ScmRepoStateService(commands, new ContextKeyService()),
+            commands,
+            new ProgressService(),
+            new KeybindingRegistry(),
+            new ContextKeyService(),
+        );
+        expect(component.input.placeholder).toBe("Message");
     });
 
     it("между полем и кнопкой — пустая строка, весь блок укладывается в SCM_INPUT_HEIGHT", () => {
@@ -194,6 +229,8 @@ describe("ScmInputComponent — поле", () => {
             new ScmRepoStateService(commands, new ContextKeyService()),
             commands,
             new ProgressService(),
+            new KeybindingRegistry(),
+            new ContextKeyService(),
         );
         expect(component.message).toBe("");
 

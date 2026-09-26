@@ -7,7 +7,15 @@ import type { CommandRegistry } from "../../../../platform/commands/common/comma
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    formatKeybinding,
+    keybindingLabelStyle,
+    KeybindingRegistryDIToken,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
     UndoRedoService,
     UndoRedoServiceDIToken,
@@ -67,6 +75,8 @@ export class FileOperationsService {
         FileClipboardDIToken,
         CommandRegistryDIToken,
         QuickInputServiceDIToken,
+        KeybindingRegistryDIToken,
+        ContextKeyServiceDIToken,
     ] as const;
 
     public constructor(
@@ -78,7 +88,22 @@ export class FileOperationsService {
         private readonly fileClipboard: IFileClipboard,
         private readonly commands: CommandRegistry,
         private readonly inputPrompt: IExplorerInputPrompt,
+        private readonly keybindings: KeybindingRegistry,
+        private readonly contextKeys: ContextKeyService,
     ) {}
+
+    /**
+     * Как отменить удаление: подпись действующего бинда workspace-undo дерева
+     * (под `listFocus` — дерево в фокусе, пока открыт диалог, его нет) либо, без
+     * бинда, общий путь через корзину.
+     */
+    private undoHint(): string {
+        const chord = this.keybindings.getKeybindingForCommand("fileOperations.undo", this.contextKeys, {
+            listFocus: true,
+        });
+        if (chord === undefined) return "Можно восстановить из корзины.";
+        return `Можно восстановить (${formatKeybinding(chord, keybindingLabelStyle(this.contextKeys))} или из корзины).`;
+    }
 
     /** Кладёт выбранные в дереве пути в файловый буфер (режим copy). */
     public copySelected(): void {
@@ -126,7 +151,7 @@ export class FileOperationsService {
             willTrash
                 ? {
                       title: "Delete",
-                      message: [`«${name}» будет перемещён в корзину.`, "Можно восстановить (Ctrl+Z или из корзины)."],
+                      message: [`«${name}» будет перемещён в корзину.`, this.undoHint()],
                       confirmLabel: "Move to Trash",
                       defaultButton: "confirm",
                   }

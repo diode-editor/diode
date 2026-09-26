@@ -82,8 +82,12 @@ export class ContextKeyService implements IDisposable {
      * Example: evaluate("textInputFocus && !listFocus")
      * Example: evaluate("editorLangId == 'typescript'")
      * Example: evaluate("supermaven.isProUser") — точечный ключ расширения
+     *
+     * `overlay` — «что если» поверх текущих значений, не меняя их (аналог
+     * `createOverlay` VS Code): например, какой бинд действовал бы при фокусе
+     * в поле, которое сейчас не в фокусе, — для подписи в его плейсхолдере.
      */
-    public evaluate(when: string): boolean {
+    public evaluate(when: string, overlay?: Readonly<Record<string, ContextValue>>): boolean {
         try {
             // `with` над скоуп-объектом, а не список параметров: имя ключа
             // приходит от расширения (`setContext`) и параметром быть не обязано
@@ -93,7 +97,7 @@ export class ContextKeyService implements IDisposable {
             // независимо от строгости модуля, который её создал.
             // eslint-disable-next-line @typescript-eslint/no-implied-eval
             const fn = new Function("__scope", `with (__scope) { return !!(${when}); }`) as CompiledWhen;
-            return fn(this.buildScope());
+            return fn(this.buildScope(overlay));
         } catch {
             // Неизвестное имя даёт ReferenceError — непрописанный ключ ложен,
             // как и раньше. Сюда же падает синтаксически битое выражение.
@@ -126,7 +130,7 @@ export class ContextKeyService implements IDisposable {
      * примитив и будет отброшен, пришёл позже — перезапишет собой объект.
      * Отброшенная ветка именно отбрасывается, а не оседает у корня скоупа.
      */
-    private buildScope(): ScopeObject {
+    private buildScope(overlay?: Readonly<Record<string, ContextValue>>): ScopeObject {
         const scope = Object.create(null) as ScopeObject;
         for (const name of getAllContextKeyNames()) {
             const segments = name.split(".");
@@ -150,7 +154,7 @@ export class ContextKeyService implements IDisposable {
                 cursor = next;
             }
             if (blocked) continue;
-            cursor[segments[segments.length - 1]] = this.values.get(name) ?? false;
+            cursor[segments[segments.length - 1]] = overlay?.[name] ?? this.values.get(name) ?? false;
         }
         return scope;
     }

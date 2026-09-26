@@ -10,6 +10,7 @@ import type { IMenu, MenuService } from "../../../../platform/actions/common/men
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
@@ -89,6 +90,8 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
         new ScmRepoStateService(commands, new ContextKeyService()),
         commands,
         new ProgressService(),
+        new KeybindingRegistry(),
+        new ContextKeyService(),
     );
     const component = new ChangesComponent(
         scm,

@@ -457,15 +457,22 @@ export class KeybindingRegistry implements IDisposable {
      *     is the one actually usable, so it wins over an unconditional default;
      *  2. else the first registered unconditional binding;
      *  3. else the first registered binding regardless of `when`.
+     *
+     * `overlay` — контекст «что если» (см. `ContextKeyService.evaluate`): подпись
+     * бинда поля, которое сейчас не в фокусе, считается с его фокус-ключом.
      */
-    public getKeybindingForCommand(commandId: string, contextKeys?: ContextKeyService): KeybindingChord | undefined {
+    public getKeybindingForCommand(
+        commandId: string,
+        contextKeys?: ContextKeyService,
+        overlay?: Readonly<Record<string, boolean | string | number>>,
+    ): KeybindingChord | undefined {
         let unconditional: KeybindingChord | undefined;
         let firstAny: KeybindingChord | undefined;
         for (const entry of this.entries) {
             if (entry.commandId !== commandId) continue;
             firstAny ??= entry.chord;
             if (entry.when) {
-                if (contextKeys?.evaluate(entry.when)) return entry.chord;
+                if (contextKeys?.evaluate(entry.when, overlay)) return entry.chord;
             } else {
                 unconditional ??= entry.chord;
             }
