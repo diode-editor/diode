@@ -5,11 +5,11 @@ import { ContextKeyService } from "./contextKeyService.ts";
 
 /**
  * Точечные ключи расширений (`supermaven.isProUser` — их приносит команда
- * `setContext`). Вычислитель компилирует выражение через `new Function`, где
- * имена ключей становятся ПАРАМЕТРАМИ, поэтому точка в имени — не косметика:
- * негодное имя разваливает список параметров, то есть все when-выражения
- * сразу. Проверяем и то, что точечные работают, и то, что негодные не заражают
- * соседей.
+ * `setContext`). Вычислитель компилирует выражение в `with (__scope) { … }`, так
+ * что имя ключа — не параметр функции, а свойство объекта: любое имя ложится в
+ * скоуп, не роняя компиляцию (а уронив её, оно убило бы ВСЕ when-выражения
+ * сразу, не только своё). Проверяем и раскрытие точечных имён, и что
+ * экзотические имена соседей не заражают.
  */
 describe("ContextKeyService — точечные ключи расширений", () => {
     it("точечный ключ виден выражению как чтение свойства", () => {
@@ -48,10 +48,12 @@ describe("ContextKeyService — точечные ключи расширений
         expect(ctx.evaluate("textInputFocus")).toBe(true);
     });
 
-    it("имя, негодное в параметр, отбрасывается — остальные выражения живут", () => {
+    // Имена, которые в выражении не написать словом (дефис — это минус, ведущая
+    // цифра и ключевое слово — синтаксическая ошибка). Такое выражение честно
+    // ложно, а главное — соседние выражения продолжают считаться: до перехода на
+    // `with` любое из этих имён роняло компиляцию скоупа целиком.
+    it("экзотическое имя ключа не заражает остальные выражения", () => {
         const ctx = new ContextKeyService();
-        // Дефис, ведущая цифра и ключевое слово: каждое такое имя параметром быть
-        // не может. Значение всё равно хранится — просто не видно вычислителю.
         registerContextKeys(["foo-bar", "2fa", "class", "kept.key"]);
         ctx.setRaw("foo-bar", true);
         ctx.setRaw("2fa", true);
@@ -59,18 +61,31 @@ describe("ContextKeyService — точечные ключи расширений
         ctx.setRaw("kept.key", true);
 
         expect(ctx.get("foo-bar" as ContextKey)).toBe(true);
+        expect(ctx.evaluate("foo-bar")).toBe(false);
+        expect(ctx.evaluate("class")).toBe(false);
         expect(ctx.evaluate("kept.key")).toBe(true);
         ctx.set("listFocus", true);
         expect(ctx.evaluate("listFocus")).toBe(true);
     });
 
-    it("негодный сегмент после корня тоже отбрасывается, годные соседи — нет", () => {
+    it("сегмент после корня — обычное свойство, скобочная запись до него достаёт", () => {
         const ctx = new ContextKeyService();
         registerContextKeys(["ns.bad-segment", "ns.good"]);
         ctx.setRaw("ns.bad-segment", true);
         ctx.setRaw("ns.good", true);
         expect(ctx.evaluate("ns.good")).toBe(true);
-        expect(ctx.evaluate("ns['bad-segment']")).toBe(false);
+        expect(ctx.evaluate("ns['bad-segment']")).toBe(true);
+    });
+
+    // У скоупа нет прототипа (`Object.create(null)`). Ключ с именем `__proto__`
+    // приходит от расширения как любой другой, и на обычном объекте запись по
+    // нему молча уходит в сеттер прототипа: значение не сохранилось бы, а чтение
+    // вернуло бы прототип — то есть истину вместо записанной лжи.
+    it("ключ с именем __proto__ хранится значением, а не уезжает в прототип", () => {
+        const ctx = new ContextKeyService();
+        registerContextKeys(["__proto__"]);
+        ctx.setRaw("__proto__", false);
+        expect(ctx.evaluate("__proto__")).toBe(false);
     });
 
     // Плоское значение примитивно — вложить в него нельзя. Побеждает плоский

@@ -9,76 +9,16 @@ export const ContextKeyServiceDIToken = token<ContextKeyService>("ContextKeyServ
 
 type ContextValue = boolean | string | number;
 
-/** Значение, попадающее в скоуп вычислителя: сам ключ либо узел точечного пути. */
+/** Значение в скоупе вычислителя: сам ключ либо узел точечного пути. */
 type ScopeValue = ContextValue | ScopeObject;
 interface ScopeObject {
-    [segment: string]: ScopeValue;
+    // `| undefined` честно: чтение по произвольному сегменту может не найти
+    // ничего, и `buildScope` на этом ветвится.
+    [segment: string]: ScopeValue | undefined;
 }
 
-/** Compiled `when`-expression: takes the values of all known keys, in name order. */
-type CompiledWhen = (...values: ScopeValue[]) => boolean;
-
-/**
- * Идентификатор, годный в параметр функции. Скоуп вычислителя — это список
- * параметров `new Function(...)`, поэтому негодное имя ломает КОМПИЛЯЦИЮ, то
- * есть все when-выражения сразу, а не только своё.
- */
-const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-
-/**
- * Слова, которые нельзя взять именем параметра. Имена ключей приходят от
- * расширений (`setContext`), так что «никто так не назовёт» — не гарантия.
- */
-const RESERVED = new Set([
-    "arguments",
-    "await",
-    "break",
-    "case",
-    "catch",
-    "class",
-    "const",
-    "continue",
-    "debugger",
-    "default",
-    "delete",
-    "do",
-    "else",
-    "enum",
-    "eval",
-    "export",
-    "extends",
-    "false",
-    "finally",
-    "for",
-    "function",
-    "if",
-    "implements",
-    "import",
-    "in",
-    "instanceof",
-    "interface",
-    "let",
-    "new",
-    "null",
-    "package",
-    "private",
-    "protected",
-    "public",
-    "return",
-    "static",
-    "super",
-    "switch",
-    "this",
-    "throw",
-    "true",
-    "try",
-    "typeof",
-    "var",
-    "void",
-    "while",
-    "with",
-    "yield",
-]);
+/** Compiled `when`-expression: reads key values off the scope object. */
+type CompiledWhen = (scope: ScopeObject) => boolean;
 
 /** Listener of context changes; receives the names whose values actually changed. */
 export type ContextKeyChangeListener = (changed: ReadonlySet<string>) => void;
@@ -144,12 +84,19 @@ export class ContextKeyService implements IDisposable {
      * Example: evaluate("supermaven.isProUser") — точечный ключ расширения
      */
     public evaluate(when: string): boolean {
-        const scope = this.buildScope();
         try {
+            // `with` над скоуп-объектом, а не список параметров: имя ключа
+            // приходит от расширения (`setContext`) и параметром быть не обязано
+            // (`foo-bar`, `2fa`, `class`) — такое имя развалило бы КОМПИЛЯЦИЮ, то
+            // есть все when-выражения сразу, а не только своё. `with` в теле
+            // `new Function` законен: функция всегда компилируется в sloppy-режиме,
+            // независимо от строгости модуля, который её создал.
             // eslint-disable-next-line @typescript-eslint/no-implied-eval
-            const fn = new Function(...scope.names, `return !!(${when})`) as CompiledWhen;
-            return fn(...scope.values);
+            const fn = new Function("__scope", `with (__scope) { return !!(${when}); }`) as CompiledWhen;
+            return fn(this.buildScope());
         } catch {
+            // Неизвестное имя даёт ReferenceError — непрописанный ключ ложен,
+            // как и раньше. Сюда же падает синтаксически битое выражение.
             return false;
         }
     }
@@ -161,65 +108,57 @@ export class ContextKeyService implements IDisposable {
     }
 
     /**
-     * Собирает скоуп для `new Function`: список имён-параметров и значений.
+     * Собирает объект-скоуп выражения.
      *
-     * Плоские имена (`textInputFocus`) — параметр напрямую. Точечные
-     * (`supermaven.isProUser`, их приносит команда `setContext` расширений)
-     * выражаются НЕ параметром — такое имя развалило бы список параметров, — а
-     * вложенным объектом под корневым сегментом: в выражении `supermaven.isProUser`
-     * это ровно обычное чтение свойства, то есть код when-клаузы не меняется.
+     * Плоское имя (`textInputFocus`) — свойство верхнего уровня. Точечное
+     * (`supermaven.isProUser`, их приносит команда `setContext` расширений) —
+     * вложенный объект под корневым сегментом: в выражении `supermaven.isProUser`
+     * это ровно обычное чтение свойства, то есть текст when-клаузы не меняется.
      *
-     * Что отбрасывается (значение по-прежнему хранится, просто не видно
-     * вычислителю): имя, чей корень не годится в параметр (`foo-bar`, `2fa`,
-     * `class`), и точечное имя, чей корень уже занят плоским ключом — плоское
-     * значение примитивно, вложить в него нельзя. Отбросить тише, чем уронить
-     * компиляцию: иначе один негодный ключ убил бы ВСЕ when-выражения.
+     * Прототипа у скоупа нет (`Object.create(null)`): имя ключа приходит от
+     * расширения, а на обычном объекте запись по имени `__proto__` молча уходит
+     * в сеттер прототипа — значение бы не сохранилось, а чтение вернуло бы
+     * прототип, то есть истину вместо записанной лжи.
+     *
+     * Плоские идут ПЕРВЫМИ и побеждают: значение примитивно, вложить в него
+     * нельзя, а плоский ключ объявлен явно — точечный же производен от чужого
+     * `setContext`. Порядок регистрации на исход не влияет.
      */
-    private buildScope(): { names: string[]; values: ScopeValue[] } {
-        const flat = new Map<string, ScopeValue>();
-        const nested = new Map<string, ScopeObject>();
+    private buildScope(): ScopeObject {
+        const scope = Object.create(null) as ScopeObject;
+        const dotted: string[] = [];
         for (const name of getAllContextKeyNames()) {
-            const segments = name.split(".");
-            const root = segments[0];
-            if (!IDENTIFIER.test(root) || RESERVED.has(root)) continue;
-            const value = this.values.get(name) ?? false;
-            if (segments.length === 1) {
-                flat.set(root, value);
+            if (name.includes(".")) {
+                dotted.push(name);
                 continue;
             }
-            // Сегменты после корня — имена свойств: там reserved words законны
-            // (`a.class` — валидное выражение), достаточно проверки идентификатора.
-            if (!segments.slice(1).every((segment) => IDENTIFIER.test(segment))) continue;
-            let node = nested.get(root);
-            if (node === undefined) {
-                node = {};
-                nested.set(root, node);
-            }
-            let cursor: ScopeObject = node;
-            for (const segment of segments.slice(1, -1)) {
+            scope[name] = this.values.get(name) ?? false;
+        }
+        for (const name of dotted) {
+            const segments = name.split(".");
+            let cursor = scope;
+            let blocked = false;
+            for (const segment of segments.slice(0, -1)) {
                 const next = cursor[segment];
-                if (typeof next !== "object") {
-                    const created: ScopeObject = {};
+                if (next === undefined) {
+                    // Тоже без прототипа — по той же причине, что и корень.
+                    const created = Object.create(null) as ScopeObject;
                     cursor[segment] = created;
                     cursor = created;
                     continue;
                 }
+                // На пути стоит примитив (плоский ключ или ключ-предок) — вложить
+                // в него нечего, ветку бросаем.
+                if (typeof next !== "object") {
+                    blocked = true;
+                    break;
+                }
                 cursor = next;
             }
-            cursor[segments[segments.length - 1]] = value;
+            if (blocked) continue;
+            cursor[segments[segments.length - 1]] = this.values.get(name) ?? false;
         }
-        const names: string[] = [];
-        const values: ScopeValue[] = [];
-        for (const [name, value] of flat) {
-            names.push(name);
-            values.push(value);
-        }
-        for (const [root, object] of nested) {
-            if (flat.has(root)) continue;
-            names.push(root);
-            values.push(object);
-        }
-        return { names, values };
+        return scope;
     }
 
     private write(key: string, value: ContextValue): void {

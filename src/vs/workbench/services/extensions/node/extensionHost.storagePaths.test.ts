@@ -4,9 +4,33 @@ import * as path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    subprocessSpawnArgsForTests,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import type { ICommandService } from "../../../api/common/iCommandService.ts";
+import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 
+import { ExtensionHost } from "./extensionHost.ts";
 import type { IExtensionStorageHomes } from "./extensionStoragePaths.ts";
+
+const NOOP_EDITOR_OPTIONS = {
+    getActiveEditorOptions: () => null,
+    setActiveEditorOptions: () => undefined,
+    getActiveEditorFilePath: () => null,
+    getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
+    onActiveEditorChanged: () => ({ dispose: () => undefined }),
+    onActiveEditorSelectionChanged: () => ({ dispose: () => undefined }),
+    setActiveEditorSelections: () => undefined,
+    applyActiveEditorEdits: () => true,
+} as unknown as IEditorOptionsService;
+
+const NOOP_COMMANDS = {
+    execute: () => undefined,
+    registerProxy: () => ({ dispose: () => undefined }),
+} as unknown as ICommandService;
 
 interface IStorageReport {
     globalStorageFsPath: string;
@@ -114,6 +138,45 @@ describe("ExtensionHost — каталоги хранения расширени
             expect(report.logFsPath).toBe(path.join(harness.tmpDir, "logs", "Publisher.MixedCase"));
         } finally {
             await harness.dispose();
+        }
+    });
+
+    // Недоступный на запись user-data не должен рубить активацию: расширение
+    // получит путь и разберётся само (или упадёт), а хост обязан сказать, что
+    // родителя создать не смог, — иначе искать причину будет негде.
+    it("не сумев создать корень, хост пишет предупреждение и активирует расширение", async () => {
+        const root = makeRoot();
+        // Файл на месте каталога: mkdir по пути внутрь него обречён.
+        const blocker = path.join(root, "not-a-dir");
+        fs.writeFileSync(blocker, "не каталог");
+        const warnings: { message: string; detail: unknown }[] = [];
+        const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
+            spawnArgs: subprocessSpawnArgsForTests(),
+            storageHomes: (): IExtensionStorageHomes => ({
+                globalStorageHome: path.join(blocker, "globalStorage"),
+                workspaceStorageHome: null,
+                logsHome: path.join(root, "logs"),
+            }),
+            logger: {
+                trace: () => undefined,
+                debug: () => undefined,
+                info: () => undefined,
+                warn: (message: string, detail?: unknown) => warnings.push({ message, detail }),
+                error: () => undefined,
+                isEnabled: () => true,
+            } as unknown as ILogger,
+        });
+        try {
+            host.registerExtension(storageFixture("test.unwritable"));
+            await host.activateByEvent("*");
+
+            expect(warnings).toHaveLength(1);
+            expect(warnings[0].message).toContain(path.join(blocker, "globalStorage"));
+            expect(warnings[0].detail).toBeInstanceOf(Error);
+            // Соседний корень всё равно создан — одна неудача не отменяет остальные.
+            expect(fs.existsSync(path.join(root, "logs"))).toBe(true);
+        } finally {
+            host.dispose();
         }
     });
 
