@@ -6,6 +6,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
     formatKeybinding,
+    keybindingLabelStyle,
     KeybindingRegistryDIToken,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
@@ -49,7 +50,7 @@ export class CommandsQuickAccessProvider implements IQuickAccessProvider {
             const chord = this.keybindings.getKeybindingForCommand(cmd.id, this.contextKeys);
             return {
                 label: cmd.title,
-                shortcut: chord ? formatKeybinding(chord) : undefined,
+                shortcut: chord ? formatKeybinding(chord, keybindingLabelStyle(this.contextKeys)) : undefined,
                 accept: () => {
                     this.commands.execute(cmd.id);
                 },

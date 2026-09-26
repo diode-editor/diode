@@ -7,7 +7,10 @@ import type {
     KeybindingChord,
     KeybindingSource,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { formatKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    formatKeybinding,
+    type KeybindingLabelStyle,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 /**
  * Модель вкладки Keyboard Shortcuts: чистые функции без DI — состав строк из
@@ -107,7 +110,23 @@ function parseQuery(query: string): IParsedQuery {
  * комбинации). Подсветка возвращается только для совпадения по title:
  * подсвечивать колонку клавиш по fuzzy-огрызку — шум.
  */
-export function filterKeybindingItems(items: readonly IKeybindingItem[], query: string): IFilteredKeybindingItem[] {
+/**
+ * Поиск по комбинации — по той подписи, что видна в таблице, а на маке ещё и по
+ * словам («cmd+s», «option»): глиф «⌘» с клавиатуры не набрать.
+ */
+function matchesKeyLabel(text: string, chord: KeybindingChord, style: KeybindingLabelStyle): boolean {
+    const labels =
+        style === "mac"
+            ? [formatKeybinding(chord, "mac"), formatKeybinding(chord, "macWords")]
+            : [formatKeybinding(chord, style)];
+    return labels.some((label) => fuzzyMatchBest(text, label) !== null);
+}
+
+export function filterKeybindingItems(
+    items: readonly IKeybindingItem[],
+    query: string,
+    style: KeybindingLabelStyle = "pc",
+): IFilteredKeybindingItem[] {
     const parsed = parseQuery(query);
     const result: IFilteredKeybindingItem[] = [];
     for (const item of items) {
@@ -123,8 +142,9 @@ export function filterKeybindingItems(items: readonly IKeybindingItem[], query: 
             continue;
         }
         const idMatch = fuzzyMatchBest(parsed.text, item.commandId);
-        const keyMatch = item.chord !== null ? fuzzyMatchBest(parsed.text, formatKeybinding(item.chord)) : null;
-        if (idMatch !== null || keyMatch !== null) result.push({ item, titleMatch: null });
+        if (idMatch !== null || (item.chord !== null && matchesKeyLabel(parsed.text, item.chord, style))) {
+            result.push({ item, titleMatch: null });
+        }
     }
     return result;
 }

@@ -15,6 +15,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type {
     IKeybindingEntrySnapshot,
     KeybindingChord,
+    KeybindingLabelStyle,
     KeybindingRegistry,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { serializeChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -130,6 +131,8 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         private readonly recorder: IKeybindingRecorder,
         private readonly contextMenu: ContextMenuService,
         private readonly clipboard: IClipboard,
+        /** Стиль подписи комбинаций: на маке — глифы «⇧⌘K» (ОС клавиатуры, см. `keybindingLabelStyle`). */
+        private readonly labelStyle: () => KeybindingLabelStyle,
     ) {
         super();
         this.items = this.readItems();
@@ -280,7 +283,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         // До первой раскладки ширины нет — и строк тоже: колонки без ширины
         // посчитать не из чего.
         if (this.width === null) return;
-        const filtered = filterKeybindingItems(this.items, this.control.getQuery());
+        const filtered = filterKeybindingItems(this.items, this.control.getQuery(), this.labelStyle());
 
         this.control.list.clear();
         // Stryker disable next-line CallExpression: список очищается строкой выше, а id строк — последовательные (kb-0…), поэтому lookup всегда попадает в актуальную запись; повторная чистка карты защитная и ненаблюдаема.
@@ -301,7 +304,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
 
     /** `width` приходит из rebuildRows — единственного вызывающего, где он уже проверен. */
     private appendItemRow(entry: IFilteredKeybindingItem, index: number, width: number): void {
-        const layout = describeKeybindingRow(entry, width);
+        const layout = describeKeybindingRow(entry, width, this.labelStyle());
         const rowId = `kb-${String(index)}`;
         // Stryker disable next-line ObjectLiteral: label — подсказка для typeahead списка, а он у вкладки выключен; на поведение не влияет.
         this.control.list.appendRow(buildKeybindingRow(rowId, layout, ROW_STYLES), { label: entry.item.title });

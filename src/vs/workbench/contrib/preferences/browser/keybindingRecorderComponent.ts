@@ -19,12 +19,14 @@ import { DIALOG_STYLES } from "../../../browser/parts/dialogs/dialogComponent.ts
 export const KeybindingRecorderComponentDIToken = token<KeybindingRecorderComponent>("KeybindingRecorderComponent");
 
 /**
- * Узкий срез TerminalEnvironmentService: рекордеру нужен только текущий tier.
+ * Узкий срез TerminalEnvironmentService: рекордеру нужен текущий tier и ОС
+ * клавиатуры (на маке чорд подписывается глифами: «⇧⌘K»).
  * Сам сервис живёт в node-окружении — биндинг делает DI-модуль (diode-слой),
  * browser-компонент node не импортирует.
  */
 export interface IRecorderTerminalEnv {
     readonly tier: string;
+    readonly os: string;
 }
 
 // Модификаторы приходят отдельными keydown (Kitty protocol) — частями чорда не являются.
@@ -204,7 +206,8 @@ export class KeybindingRecorderComponent extends Disposable {
     }
 
     private updateLabels(): void {
-        this.chordLabel.setText(this.parts.length > 0 ? formatKeybinding(this.parts) : PLACEHOLDER);
+        const style = this.terminalEnv.os === "mac" ? "mac" : "pc";
+        this.chordLabel.setText(this.parts.length > 0 ? formatKeybinding(this.parts, style) : PLACEHOLDER);
         // Stryker disable next-line ConditionalExpression,EqualityOperator: тернар выбирает лишь ЦВЕТ текста чорда — покадрово не проверяется.
         const chordFg = this.parts.length > 0 ? DIALOG_STYLES.fg : DIALOG_STYLES.descriptionFg;
         // Stryker disable next-line CallExpression: применение цвета текста чорда — косметика, покадрово не проверяется.

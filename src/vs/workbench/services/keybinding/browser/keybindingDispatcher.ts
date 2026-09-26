@@ -10,6 +10,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { Keybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
     formatKeybinding,
+    keybindingLabelStyle,
     KeybindingRegistryDIToken,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type {
@@ -244,6 +245,7 @@ export class KeybindingDispatcher extends Disposable {
             pendingBefore,
             result: res.kind,
             commandId: res.kind === "command" ? res.commandId : undefined,
+            // Лог — для разработчика: стабильная pc-форма, без глифов мака.
             chord: res.kind === "chord" ? formatKeybinding(res.chord) : undefined,
         });
 
@@ -263,7 +265,9 @@ export class KeybindingDispatcher extends Disposable {
             }
             // Prefix key of a chord — swallow its keypress and wait for the next.
             this.swallowNextKeyPress = true;
-            this.setChordHint(`(${formatKeybinding(res.chord)}) was pressed. Waiting for next key…`);
+            this.setChordHint(
+                `(${formatKeybinding(res.chord, keybindingLabelStyle(this.contextKeys))}) was pressed. Waiting for next key…`,
+            );
             this.startChordTimeout();
             return true;
         }
@@ -314,7 +318,10 @@ export class KeybindingDispatcher extends Disposable {
 
         if (wasInChord) {
             // Broken chord: report the unmatched combination, like VS Code.
-            const combo = formatKeybinding([...prefix, eventToKeybinding(event)]);
+            const combo = formatKeybinding(
+                [...prefix, eventToKeybinding(event)],
+                keybindingLabelStyle(this.contextKeys),
+            );
             this.showChordNotFound(combo);
             return true; // consumed (no command, no leak)
         }

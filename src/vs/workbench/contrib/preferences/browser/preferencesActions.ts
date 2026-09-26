@@ -4,9 +4,11 @@ import * as path from "node:path";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
+    keybindingLabelStyle,
     KeybindingRegistryDIToken,
     parseChord,
     parseKeybinding,
@@ -73,6 +75,7 @@ export const openKeybindingsAction: CommandAction = {
             accessor.get(KeybindingRecorderComponentDIToken),
             accessor.get(ContextMenuServiceDIToken),
             accessor.get(ClipboardDIToken),
+            () => keybindingLabelStyle(accessor.get(ContextKeyServiceDIToken)),
         );
         accessor.get(KeybindingsEditorTargetDIToken).openPane(pane);
     },

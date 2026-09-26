@@ -165,28 +165,73 @@ export function parseChord(spec: string): KeybindingChord {
         .map(parseKeybinding);
 }
 
-function formatKey(key: string): string {
+/**
+ * Как подписывать комбинации (аналог `UILabelProvider` / `AriaLabelProvider` VS Code):
+ *  - `pc`       — «Ctrl+Shift+K»;
+ *  - `mac`      — глифами, как в меню macOS и в VS Code на маке: «⇧⌘K», «⌘←»;
+ *  - `macWords` — словами для мака, «Shift+Cmd+K»: поиск по «cmd» и доступные подписи.
+ */
+export type KeybindingLabelStyle = "pc" | "mac" | "macWords";
+
+interface ModifierLabels {
+    readonly ctrlKey: string;
+    readonly shiftKey: string;
+    readonly altKey: string;
+    readonly metaKey: string;
+    readonly separator: string;
+}
+
+// Порядок модификаторов — как у VS Code (`_simpleAsString`): Ctrl, Shift, Alt, Meta.
+const MODIFIER_LABELS: Record<KeybindingLabelStyle, ModifierLabels> = {
+    pc: { ctrlKey: "Ctrl", shiftKey: "Shift", altKey: "Alt", metaKey: "Meta", separator: "+" },
+    mac: { ctrlKey: "\u2303", shiftKey: "\u21e7", altKey: "\u2325", metaKey: "\u2318", separator: "" },
+    macWords: { ctrlKey: "Ctrl", shiftKey: "Shift", altKey: "Option", metaKey: "Cmd", separator: "+" },
+};
+
+// Стрелки на маке VS Code подписывает стрелками: «⌘←», а не «⌘Left».
+const MAC_ARROWS: Partial<Record<string, string>> = {
+    ArrowLeft: "\u2190",
+    ArrowUp: "\u2191",
+    ArrowRight: "\u2192",
+    ArrowDown: "\u2193",
+};
+
+function formatKey(key: string, style: KeybindingLabelStyle): string {
     if (key === " ") return "Space";
+    if (style === "mac") {
+        const arrow = MAC_ARROWS[key];
+        if (arrow !== undefined) return arrow;
+    }
     if (key.startsWith("Arrow")) return key.slice("Arrow".length); // ArrowLeft → Left
     if (key.length === 1) return key.toUpperCase();
     // Event key values (Enter, PageDown, Home, F1, …) are already display-ready.
     return key;
 }
 
-/** Formats a single chord part, e.g. "Ctrl+Shift+K". */
-function formatPart(part: Keybinding): string {
+/** Formats a single chord part, e.g. "Ctrl+Shift+K" / "⇧⌘K". */
+function formatPart(part: Keybinding, style: KeybindingLabelStyle): string {
+    const labels = MODIFIER_LABELS[style];
     const segments: string[] = [];
-    if (part.ctrlKey) segments.push("Ctrl");
-    if (part.shiftKey) segments.push("Shift");
-    if (part.altKey) segments.push("Alt");
-    if (part.metaKey) segments.push("Meta");
-    segments.push(formatKey(part.key));
-    return segments.join("+");
+    if (part.ctrlKey) segments.push(labels.ctrlKey);
+    if (part.shiftKey) segments.push(labels.shiftKey);
+    if (part.altKey) segments.push(labels.altKey);
+    if (part.metaKey) segments.push(labels.metaKey);
+    segments.push(formatKey(part.key, style));
+    return segments.join(labels.separator);
 }
 
-/** Formats a full chord into a human-readable string, e.g. "Ctrl+K Ctrl+S". */
-export function formatKeybinding(chord: KeybindingChord): string {
-    return chord.map(formatPart).join(" ");
+/** Formats a full chord into a human-readable string, e.g. "Ctrl+K Ctrl+S" / "⌘K ⌘S". */
+export function formatKeybinding(chord: KeybindingChord, style: KeybindingLabelStyle = "pc"): string {
+    return chord.map((part) => formatPart(part, style)).join(" ");
+}
+
+/**
+ * Стиль подписи под текущую клавиатуру: глифы на маке (`isMac` — ОС клавиатуры,
+ * а не процесса, см. `TerminalEnvironmentService`), иначе pc. Ключ перечитывается
+ * на каждом нажатии, так что подпись следует за уточнённой после старта ОС.
+ */
+export function keybindingLabelStyle(contextKeys: ContextKeyService | undefined): KeybindingLabelStyle {
+    return contextKeys?.get("isMac") === true ? "mac" : "pc";
 }
 
 // Reverse of specialKeyMap: event key value → spec name ("ArrowUp" → "up", " " → "space").

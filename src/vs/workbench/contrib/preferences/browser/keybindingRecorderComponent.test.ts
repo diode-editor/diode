@@ -11,10 +11,10 @@ import {
 
 import { KeybindingRecorderComponent } from "./keybindingRecorderComponent.ts";
 
-function makeHost(tier = "kitty") {
+function makeHost(tier = "kitty", os = "linux") {
     const body = new BodyElement();
     const testApp = TestApp.create(body, new Size(80, 24));
-    const recorder = new KeybindingRecorderComponent({ tier });
+    const recorder = new KeybindingRecorderComponent({ tier, os });
     recorder.attachHost(body);
     testApp.render();
     return { body, testApp, recorder };
@@ -40,6 +40,14 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(chord).not.toBeNull();
         expect(serializeChord(chord!)).toBe("ctrl+k ctrl+u");
         expect(recorder.isOpen()).toBe(false);
+    });
+
+    it("на маке чорд подписан глифами", () => {
+        const { testApp, recorder } = makeHost("kitty", "mac");
+        void recorder.record("Save File");
+        testApp.backend.sendRaw("\x1b[107;9u"); // Cmd+K
+        testApp.render();
+        expect(testApp.backend.screenToString()).toContain("⌘K");
     });
 
     it("Escape отменяет запись", async () => {
@@ -108,14 +116,14 @@ describe("KeybindingRecorderComponent — запись", () => {
     });
 
     it("record без attachHost — честная ошибка", () => {
-        const recorder = new KeybindingRecorderComponent({ tier: "kitty" });
+        const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" });
 
         expect(recorder.isOpen()).toBe(false);
         expect(() => recorder.record("x")).toThrow(/host is not attached/);
     });
 
     it("dispose до первой записи не падает (session ещё null)", () => {
-        const recorder = new KeybindingRecorderComponent({ tier: "kitty" });
+        const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" });
 
         // session === null — ?. в dispose обязателен, иначе TypeError.
         expect(() => {
