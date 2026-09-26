@@ -104,6 +104,7 @@ export class NotificationsToastsElement extends TUIElement {
         const step = keyStep(event);
         if (step === 0) return;
         const buttons = this.allButtons();
+        // Stryker disable next-line ConditionalExpression: без кнопок шаг всё равно никуда не ведёт — `findIndex` даёт −1, и проверка границ ниже выходит сама; ранний выход тут лишь экономит работу
         if (buttons.length === 0) return;
         const current = buttons.findIndex((button) => button.isFocused);
         // Фокус не на кнопке (стек взял его сам — у сообщения кнопок нет): шаг

@@ -57,11 +57,17 @@ describe("NotificationsToastsComponent — без прикреплённого �
         component.dispose();
     });
 
-    it("focusToasts на закрытом стеке — no-op", () => {
+    it("focusToasts на закрытом стеке фокус НЕ двигает", () => {
         const { component } = makeComponent();
-        expect(() => {
-            component.focusToasts();
-        }).not.toThrow();
+        const body = new BodyElement();
+        const testApp = TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+        testApp.render();
+        const before = testApp.focusedElement;
+        component.focusToasts();
+        // Пустой стек фокус бы взял: без гарда команда увела бы каретку в
+        // оверлей, которого на экране нет.
+        expect(testApp.focusedElement).toBe(before);
         component.dispose();
     });
 });

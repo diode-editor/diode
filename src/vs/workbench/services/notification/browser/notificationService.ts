@@ -120,7 +120,9 @@ export class NotificationService extends Disposable {
         const timer = this.timers.get(id);
         // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement,CallExpression: снятие таймера ненаблюдаемо снаружи — `clearTimeout(undefined)` легален, а сработавший таймер зовёт `dismiss` на уже снятом id и упирается в ранний выход ниже. Строки держим ради гигиены: иначе таймер живёт до срабатывания и держит ссылку на сервис
         if (timer !== undefined) {
+            // Stryker disable next-line CallExpression: снятие таймера наружу не видно — сработавший зовёт `dismiss` на уже снятом id и упирается в ранний выход. Строка нужна, чтобы таймер не жил до срабатывания, держа ссылку на сервис
             clearTimeout(timer);
+            // Stryker disable next-line CallExpression: та же причина — карта таймеров чистится ради гигиены, поведения она не меняет
             this.timers.delete(id);
         }
         const resolve = this.resolvers.get(id);
@@ -143,12 +145,15 @@ export class NotificationService extends Disposable {
             typeof configured === "number" && Number.isFinite(configured) ? configured : DEFAULT_AUTO_HIDE_MS;
         if (timeout <= 0) return;
         const timer = setTimeout(() => {
+            // Stryker disable next-line CallExpression: сработавший таймер и так больше не нужен — запись чистится ради гигиены карты
             this.timers.delete(entry.id);
             this.dismiss(entry.id);
         }, timeout);
         // Таймер не должен держать event loop живым: тост — не причина не давать
         // процессу завершиться.
+        // Stryker disable next-line CallExpression: unref не меняет исход — он лишь не даёт таймеру держать event loop живым, а это наблюдаемо только в момент выхода процесса
         timer.unref();
+        // Stryker disable next-line CallExpression: запись в карту нужна, чтобы ответ до таймаута снял таймер; сам ответ проверен тестом, а «висит лишний таймер» наружу не видно
         this.timers.set(entry.id, timer);
     }
 

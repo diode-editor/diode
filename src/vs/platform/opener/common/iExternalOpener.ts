@@ -17,4 +17,5 @@ export interface IExternalOpener {
     openExternal(target: string): Promise<boolean>;
 }
 
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const ExternalOpenerDIToken = token<IExternalOpener>("ExternalOpener");

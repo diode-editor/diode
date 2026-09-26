@@ -154,19 +154,27 @@ describe("SystemExternalOpener — запуск", () => {
 });
 
 describe("spawnOpenerProcess", () => {
-    it("запускает процесс отсоединённым и с закрытым stdio", async () => {
-        // Свой же исполняемый файл с пустым скриптом: портируемо и безобидно —
-        // настоящий `xdg-open` открыл бы что-нибудь у того, кто гоняет тесты.
-        const child = spawnOpenerProcess(process.execPath, ["-e", ""]);
+    /** Код выхода реально запущенного процесса; `null` — спавн не состоялся. */
+    function exitCodeOf(command: string, args: readonly string[]): Promise<number | null> {
+        const child = spawnOpenerProcess(command, args);
         expect(child.stdout).toBeNull();
-        const code = await new Promise<number | null>((resolve) => {
+        return new Promise((resolve) => {
             child.once("error", () => {
                 resolve(null);
             });
-            child.once("exit", (exitCode) => {
-                resolve(exitCode);
+            child.once("exit", (code) => {
+                resolve(code);
             });
         });
-        expect(code).toBe(0);
+    }
+
+    // Свой же исполняемый файл: портируемо и безобидно — настоящий `xdg-open`
+    // открыл бы что-нибудь у того, кто гоняет тесты.
+    it("запускает процесс с закрытым stdio", async () => {
+        await expect(exitCodeOf(process.execPath, ["-e", ""])).resolves.toBe(0);
+    });
+
+    it("аргументы доезжают до процесса — без них адрес не открылся бы", async () => {
+        await expect(exitCodeOf(process.execPath, ["-e", "process.exit(7)"])).resolves.toBe(7);
     });
 });

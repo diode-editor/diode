@@ -112,9 +112,40 @@ describe("NotificationToastElement", () => {
         expect(rows.filter((row) => row.trim() !== "")).toHaveLength(4);
     });
 
-    it("между кнопками ровно один пробел", () => {
+    it("ряд кнопок: отступ от рамки один, между кнопками один пробел", () => {
         const toast = makeToast({ message: "hi", items: ["A", "B"] }, null, 30);
-        expect(frameOf(toast)).toContain("[ A ] [ B ]");
+        // Вместе с рамкой: `│ [ A ] [ B ]`. Без левого края ассерт не заметил бы
+        // лишнего отступа ПЕРЕД первой кнопкой (мутант `index >= 0`).
+        expect(frameOf(toast)).toContain("│ [ A ] [ B ]");
+    });
+
+    it("над ряд­ом кнопок — пустая строка-распорка, а не текст вплотную", () => {
+        const toast = makeToast({ message: "hi", items: ["A"] }, null, 30);
+        const rows = frameOf(toast).split("\n");
+        const buttonRow = rows.findIndex((row) => row.includes("[ A ]"));
+        const textRow = rows.findIndex((row) => row.includes("hi"));
+        expect(buttonRow - textRow).toBe(2);
+        expect(rows[textRow + 1].replaceAll("│", "").trim()).toBe("");
+    });
+
+    // Цвета тела и подсказки — из ячеек кадра: сеттер, который «вызван, но не
+    // доехал», ассерт на вызов не заметил бы.
+    it("тело тоста покрашено своими токенами, подсказка — приглушённым", () => {
+        const toast = makeToast({ message: "hi", items: ["OK"] }, "hint here", 30);
+        const app = TestApp.createWithContent(toast, new Size(30, toast.totalHeight));
+        app.render();
+        const rows = app.backend.screenToString().split("\n");
+        const at = (needle: string): { fg: number; bg: number } => {
+            const row = rows.findIndex((line) => line.includes(needle));
+            const column = rows[row].indexOf(needle);
+            return { fg: app.backend.getFgAt(new Point(column, row)), bg: app.backend.getBgAt(new Point(column, row)) };
+        };
+        const body = at("hi");
+        const hint = at("hint here");
+        // Подсказка приглушена — её цвет ОТЛИЧАЕТСЯ от основного текста…
+        expect(hint.fg).not.toBe(body.fg);
+        // …но фон у них общий: это одно окно, а не два.
+        expect(hint.bg).toBe(body.bg);
     });
 
     it("inspectState отдаёт подписи кнопок — их читает инспектор", () => {

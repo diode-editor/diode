@@ -1,5 +1,6 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { describe, expect, it, vi } from "vitest";
 
@@ -72,6 +73,21 @@ describe("NotificationsToastsElement", () => {
         const { stack, testApp } = mount([notification(1)]);
         stack.focusToasts();
         expect(testApp.focusedElement).toBe(stack);
+    });
+
+    // Мышь — второй заявленный путь к тосту (первый — аккорд фокусировки). Клик
+    // по сообщению БЕЗ кнопок должен дать фокус самому стеку, иначе Escape по
+    // нему не дойдёт и закрыть сообщение мышью будет нечем.
+    it("клик по сообщению без кнопок делает стек сфокусированным", () => {
+        const { stack, testApp } = mount([notification(1)]);
+        const hideAll = vi.fn();
+        stack.onHideAll = hideAll;
+        stack.dispatchEvent(
+            new TUIMouseEvent("mousedown", { button: "left", screenX: 1, screenY: 1, localX: 1, localY: 1 }),
+        );
+        expect(testApp.focusedElement).toBe(stack);
+        sendToFocused(testApp, "Escape");
+        expect(hideAll).toHaveBeenCalledTimes(1);
     });
 
     it("Right/Down шагают вперёд по плоскому списку кнопок всех тостов", () => {

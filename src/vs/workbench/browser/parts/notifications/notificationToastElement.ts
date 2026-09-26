@@ -85,9 +85,19 @@ export class NotificationToastElement extends TUIElement {
         };
     }
 
+    /**
+     * Есть ли у сообщения кнопки. Один источник на высоту и на сборку строк:
+     * посчитай это дважды — и расхождение между ними будет невидимым (ряд
+     * кнопок уедет за пределы посчитанной высоты и просто обрежется).
+     */
+    private get hasButtons(): boolean {
+        return this.buttonList.length > 0;
+    }
+
     /** Полная высота тоста: рамка + заголовок + текст + кнопки + подсказка. */
     public get totalHeight(): number {
-        const buttonRows = this.buttonList.length > 0 ? 2 : 0;
+        // Ряд кнопок идёт с распоркой над ним — отсюда две строки, а не одна.
+        const buttonRows = this.hasButtons ? 2 : 0;
         const hintRows = this.hintText === null ? 0 : 1;
         return this.lines.length + buttonRows + hintRows + HEADER_ROWS + BORDER_THICKNESS * 2;
     }
@@ -106,7 +116,7 @@ export class NotificationToastElement extends TUIElement {
         });
 
         const rows: TUIElement[] = this.lines.map((line) => this.padded(new TextLabelElement(line)));
-        if (this.buttonList.length > 0) {
+        if (this.hasButtons) {
             rows.push(new FillerElement());
             rows.push(this.buttonRow());
         }

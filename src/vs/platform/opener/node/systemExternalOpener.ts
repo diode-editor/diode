@@ -22,8 +22,8 @@ export type SpawnOpener = (command: string, args: readonly string[]) => ChildPro
  * `detached` + `stdio: "ignore"`: терминал общий с редактором, и печать
  * открывателя в кадр недопустима (правило «stdout ребёнку закрыт»).
  */
-// Stryker disable next-line BooleanLiteral: `detached` наблюдаемого следа в тесте не оставляет (группа процессов), а смысл его в том, чтобы открыватель не держал редактор
 export const spawnOpenerProcess: SpawnOpener = (command, args) =>
+    // Stryker disable next-line BooleanLiteral: `detached` наблюдаемого следа в тесте не оставляет (это группа процессов), а смысл его в том, чтобы открыватель не держал редактор
     spawn(command, [...args], { detached: true, stdio: "ignore" });
 
 export interface ISystemExternalOpenerEnvironment {
@@ -86,9 +86,13 @@ export class SystemExternalOpener implements IExternalOpener {
             const child = this.spawnOpener(command, args);
             let settled = false;
             const settle = (opened: boolean): void => {
-                // Stryker disable next-line ConditionalExpression,BooleanLiteral,CallExpression: защёлка ненаблюдаема через промис — второй `resolve` он игнорирует сам, а повторный `clearTimeout` безвреден. Держим её, чтобы не гонять лишнюю работу на каждом событии ребёнка
+                // Защёлка ненаблюдаема через промис: второй `resolve` он игнорирует
+                // сам, а повторный `clearTimeout` безвреден. Держим её, чтобы не
+                // гонять лишнюю работу на каждом событии ребёнка.
                 if (settled) return;
+                // Stryker disable next-line BooleanLiteral: см. выше — снятие защёлки наружу не видно
                 settled = true;
+                // Stryker disable next-line CallExpression: таймер к этому моменту либо уже сработал, либо будет снят выходом из промиса — повторный clearTimeout ничего не меняет
                 clearTimeout(timer);
                 resolve(opened);
             };
