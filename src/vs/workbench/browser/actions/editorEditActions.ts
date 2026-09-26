@@ -44,6 +44,19 @@ export const deleteWordLeftAction: CommandAction = {
     },
 };
 
+/** VS Code `deleteAllLeft`: на маке Cmd+Backspace (бинд — в таблице мак-дельт). */
+export const deleteAllLeftAction: CommandAction = {
+    id: "deleteAllLeft",
+    title: "Delete All Left",
+    when: "textInputFocus && !editorReadonly",
+    run(accessor) {
+        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+        if (editor) {
+            editor.pushUndo(editor.viewState.deleteAllLeft());
+        }
+    },
+};
+
 export const deleteWordRightAction: CommandAction = {
     id: "deleteWordRight",
     title: "Delete Word Right",
@@ -62,7 +75,7 @@ export const deleteWordRightAction: CommandAction = {
 export const undoAction: CommandAction = {
     id: "undo",
     title: "Undo",
-    keybinding: parseKeybinding("ctrl+z"),
+    keybinding: parseKeybinding("mod+z"),
     when: "textInputFocus && !editorReadonly",
     menus: [
         { menuId: MenuId.EditorContext, group: "2_undo", order: 10 },
@@ -76,7 +89,10 @@ export const undoAction: CommandAction = {
 export const redoAction: CommandAction = {
     id: "redo",
     title: "Redo",
-    keybinding: parseKeybinding("ctrl+shift+z"),
+    keybinding: parseKeybinding("mod+shift+z"),
+    // Ctrl+Y — основной redo эталона на pc; на маке ниже cmd это единственная
+    // доставляемая комбинация (Ctrl+Shift+буква legacy-терминал не различает).
+    keybindings: [parseKeybinding("ctrl+y")],
     when: "textInputFocus && !editorReadonly",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "1_undo", order: 20 }],
     run(accessor) {

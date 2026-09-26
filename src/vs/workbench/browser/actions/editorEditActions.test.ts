@@ -21,6 +21,7 @@ import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import {
+    deleteAllLeftAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
@@ -106,6 +107,13 @@ describe("EditorEditActions — deletion mutates the real document", () => {
         expect(editor.getText()).toBe("world");
     });
 
+    it("deleteAllLeft removes everything before the cursor, indent included", () => {
+        const { editor, exec } = openEditor("    hello world");
+        editor.viewState.selections = [createCursorSelection(0, 9)];
+        exec(deleteAllLeftAction);
+        expect(editor.getText()).toBe(" world");
+    });
+
     it("delete actions are safe no-ops without an active editor", () => {
         const ctrl = createGroup();
         const commands = new CommandRegistry();
@@ -117,6 +125,7 @@ describe("EditorEditActions — deletion mutates the real document", () => {
             deleteRightAction,
             deleteWordLeftAction,
             deleteWordRightAction,
+            deleteAllLeftAction,
             indentLinesAction,
             outdentLinesAction,
         ]) {

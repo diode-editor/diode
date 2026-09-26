@@ -20,7 +20,7 @@ export const quickOpenAction: CommandAction = {
     id: "workbench.action.quickOpen",
     title: "Go to File...",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "1_goto", order: 10 }],
-    keybinding: parseKeybinding("ctrl+p"),
+    keybinding: parseKeybinding("mod+p"),
     run(accessor, ...args) {
         // Аргумент — запрос целиком (VS Code parity): ">тест" откроет команды,
         // ":12" — переход к строке, просто текст — поиск файла.
@@ -42,7 +42,7 @@ export const showCommandsAction: CommandAction = {
     id: "workbench.action.showCommands",
     title: "Show All Commands",
     menus: [{ menuId: MenuId.MenubarViewMenu, title: "Command Palette...", group: "1_palette", order: 10 }],
-    keybinding: parseKeybinding("ctrl+shift+p"),
+    keybinding: parseKeybinding("mod+shift+p"),
     // Ctrl+Shift+<буква> на legacy-терминалах ненадёжен, поэтому у палитры есть
     // второй бинд. Раньше им был аккорд Ctrl+K Ctrl+P, но в VS Code этот аккорд
     // открывает пикер открытых редакторов (showAllEditors ниже) — аккорд отдан

@@ -111,7 +111,7 @@ export const closeActiveEditorAction: CommandAction = {
         { menuId: MenuId.MenubarFileMenu, group: "5_close", order: 10, title: "Close Editor" },
         { menuId: MenuId.EditorTitleContext, group: "1_close", order: 10, args: editorTabTargetArg },
     ],
-    keybinding: parseKeybinding("ctrl+w"),
+    keybinding: parseKeybinding("mod+w"),
     when: "textViewFocus && editorGroupHasEditors",
     run(accessor, ...args) {
         const service = accessor.get(EditorServiceDIToken);

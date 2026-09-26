@@ -26,6 +26,7 @@ describe("EditorViewState read-only: мутаторы", () => {
         ["deleteRight", (s) => s.deleteRight()],
         ["deleteWordLeft", (s) => s.deleteWordLeft()],
         ["deleteWordRight", (s) => s.deleteWordRight()],
+        ["deleteAllLeft", (s) => s.deleteAllLeft()],
         ["outdentLines", (s) => s.outdentLines()],
     ];
 

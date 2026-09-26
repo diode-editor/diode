@@ -194,9 +194,9 @@ export const fileSaveAction: CommandAction = {
     title: "File: Save",
     shortTitle: "Save",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "3_save", order: 10 }],
-    keybinding: parseKeybinding("ctrl+s"),
-    // Additional chord binding for save: Ctrl+K then S.
-    keybindings: [parseChord("ctrl+k s")],
+    keybinding: parseKeybinding("mod+s"),
+    // Additional chord binding for save: Ctrl+K then S (Cmd+K S on a Mac with Cmd).
+    keybindings: [parseChord("mod+k s")],
     run(accessor) {
         void runSave(accessor);
     },

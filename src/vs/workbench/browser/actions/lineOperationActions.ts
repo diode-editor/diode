@@ -83,7 +83,7 @@ export const duplicateSelectionAction: CommandAction = {
 export const deleteLinesAction: CommandAction = {
     id: "editor.action.deleteLines",
     title: "Delete Line",
-    keybinding: parseKeybinding("ctrl+shift+k"),
+    keybinding: parseKeybinding("mod+shift+k"),
     // На legacy-tier'е `ctrl+shift+k` неотличим от `ctrl+k` (лидера аккордов) —
     // та же норма, что у selectHighlights: досягаемый везде аккорд-фолбэк.
     keybindings: [{ keys: parseChord("ctrl+k ctrl+k"), when: "tier == 'legacy'" }],

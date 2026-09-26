@@ -40,7 +40,7 @@ describe("queryTmuxClient", () => {
     });
 
     it("пустой termtype и сбои tmux — «не знаю», без исключений", async () => {
-        const run: TmuxRunner = (args) => Promise.resolve(args[0] === "display-message" ? "  \n" : undefined);
+        const run: TmuxRunner = (args) => Promise.resolve(args[1] === "LC_TERMINAL" ? "  \n" : undefined);
         await expect(queryTmuxClient(run)).resolves.toEqual({
             termType: undefined,
             envPlatform: undefined,

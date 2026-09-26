@@ -133,6 +133,8 @@ import {
     cursorHomeSelectAction,
     cursorLeftAction,
     cursorLeftSelectAction,
+    cursorLineEndAction,
+    cursorLineStartAction,
     cursorPageDownAction,
     cursorPageDownSelectAction,
     cursorPageUpAction,
@@ -152,6 +154,7 @@ import {
     toggleWordWrapAction,
 } from "./editorActions.ts";
 import {
+    deleteAllLeftAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
@@ -293,6 +296,8 @@ export const builtinActions: readonly CommandAction[] = [
     cursorHomeSelectAction,
     cursorEndAction,
     cursorEndSelectAction,
+    cursorLineStartAction,
+    cursorLineEndAction,
     cursorTopAction,
     cursorTopSelectAction,
     cursorBottomAction,
@@ -319,6 +324,7 @@ export const builtinActions: readonly CommandAction[] = [
     deleteRightAction,
     deleteWordLeftAction,
     deleteWordRightAction,
+    deleteAllLeftAction,
     undoAction,
     redoAction,
     selectAllAction,

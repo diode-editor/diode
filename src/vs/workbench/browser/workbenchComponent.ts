@@ -78,6 +78,7 @@ import type { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import { builtinActions } from "./actions/builtinActions.ts";
+import { withMacKeybindings } from "./actions/macKeybindings.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
 import { DiffEditorPane2 } from "./parts/editor/diffEditorPane2.ts";
@@ -308,7 +309,8 @@ export class WorkbenchComponent extends Component {
         // компонент создаёт их лениво по первому Ctrl+F в группе.
         findComponent.hostProvider = (groupId) => this.editorPartComponent.groupOverlayHost(groupId);
         for (const action of builtinActions) {
-            this.register(registerAction(commands, keybindings, accessor, action));
+            // Мак-дельты (таблица macKeybindings.ts) — поверх объявленных биндов.
+            this.register(registerAction(commands, keybindings, accessor, withMacKeybindings(action)));
         }
         // `vscode.diff` — программный вход с контрактом VS Code: без title,
         // мимо палитры; ext-host исполняет её по id через мост команд.

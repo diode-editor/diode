@@ -31,6 +31,8 @@ import {
     cursorHomeSelectAction,
     cursorLeftAction,
     cursorLeftSelectAction,
+    cursorLineEndAction,
+    cursorLineStartAction,
     cursorPageDownAction,
     cursorPageDownSelectAction,
     cursorPageUpAction,
@@ -171,6 +173,17 @@ describe("EditorActions — smart home", () => {
         const sel = editor.viewState.selections[0];
         expect(sel.anchor).toEqual({ line: 0, character: 8 });
         expect(sel.active).toEqual({ line: 0, character: 4 });
+    });
+});
+
+describe("EditorActions — line start / end (мак Ctrl+A / Ctrl+E)", () => {
+    it("cursorLineStart идёт в колонку 0 мимо отступа, cursorLineEnd — в конец строки", () => {
+        const { editor, exec, setCursor } = openEditor("    indented");
+        setCursor(0, 8);
+        exec(cursorLineStartAction);
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 0 });
+        exec(cursorLineEndAction);
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 12 });
     });
 });
 

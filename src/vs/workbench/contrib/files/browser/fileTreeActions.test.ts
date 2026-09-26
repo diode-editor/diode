@@ -120,7 +120,7 @@ describe("refreshExplorerAction / undo / redo / context menu", () => {
     });
 
     it("fileUndoAction delegates to undoWorkspace (Ctrl+Z under listFocus)", () => {
-        expect(fileUndoAction.keybinding).toEqual(parseKeybinding("ctrl+z"));
+        expect(fileUndoAction.keybinding).toEqual(parseKeybinding("mod+z"));
         expect(fileUndoAction.when).toBe("listFocus");
         const { accessor, calls } = makeAccessor();
         fileUndoAction.run(accessor);
@@ -128,7 +128,7 @@ describe("refreshExplorerAction / undo / redo / context menu", () => {
     });
 
     it("fileRedoAction delegates to redoWorkspace (Ctrl+Shift+Z / Ctrl+Y under listFocus)", () => {
-        expect(fileRedoAction.keybindings).toEqual([parseKeybinding("ctrl+shift+z"), parseKeybinding("ctrl+y")]);
+        expect(fileRedoAction.keybindings).toEqual([parseKeybinding("mod+shift+z"), parseKeybinding("ctrl+y")]);
         expect(fileRedoAction.when).toBe("listFocus");
         const { accessor, calls } = makeAccessor();
         fileRedoAction.run(accessor);

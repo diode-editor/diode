@@ -98,7 +98,7 @@ afterEach(() => {
 describe("commentActions — id и бинды, как в VS Code", () => {
     it("ID команд и клавиши совпадают со стоковыми", () => {
         expect(commentLineAction.id).toBe("editor.action.commentLine");
-        expect(commentLineAction.keybinding).toEqual(parseKeybinding("ctrl+/"));
+        expect(commentLineAction.keybinding).toEqual(parseKeybinding("mod+/"));
         expect(addCommentLineAction.id).toBe("editor.action.addCommentLine");
         expect(addCommentLineAction.keybinding).toEqual(parseChord("ctrl+k ctrl+c"));
         expect(removeCommentLineAction.id).toBe("editor.action.removeCommentLine");
