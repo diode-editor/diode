@@ -8,10 +8,9 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../common/iWorkbenchContribution.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
-export const SetContextCommandContributionDIToken = token<SetContextCommandContribution>(
-    "SetContextCommandContribution",
-);
+export const SetContextCommandContributionDIToken =
+    // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+    token<SetContextCommandContribution>("SetContextCommandContribution");
 
 /** Id встроенной команды VS Code, которой расширения публикуют свои when-ключи. */
 export const SET_CONTEXT_COMMAND_ID = "setContext";
