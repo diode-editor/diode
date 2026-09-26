@@ -375,6 +375,13 @@ describe("TerminalEnvironmentService", () => {
             expect(iterm.terminalName).toBe("iTerm2 3.5.0");
         });
 
+        it("поздний сигнал без LC_TERMINAL известный LC_TERMINAL не стирает", () => {
+            process.env.LC_TERMINAL = "iTerm2";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            service.noteTerminalName(undefined);
+            expect(service.terminalName).toBe("iTerm2");
+        });
+
         it("под tmux $TERM_PROGRAM (это сам tmux) не берётся; пустое значение — «не знаем»", () => {
             process.env.TMUX = "/tmp/x,1,0";
             process.env.TERM_PROGRAM = "tmux";

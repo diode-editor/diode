@@ -34,6 +34,7 @@ export const MAC_KEYS_NONE = 0;
  * мак-бинд не оживёт в контексте, где окружение ещё не выставлено.
  */
 export function macKeysLevel(rung: MacKeysRung | undefined): number {
+    // Stryker disable next-line ConditionalExpression: indexOf(undefined) + 1 тоже даёт 0 — эквивалентный мутант; явная ветка — для читателя и типов.
     return rung === undefined ? MAC_KEYS_NONE : MAC_KEYS_RUNGS.indexOf(rung) + 1;
 }
 

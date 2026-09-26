@@ -83,7 +83,8 @@ describe("токен mod (Ctrl на pc, Cmd на mac-cmd)", () => {
         const handle = registry.register(parseKeybinding("mod+s"), "save");
         expect(registry.listBindings()).toHaveLength(3);
         handle.dispose();
-        handle.dispose(); // повторно — no-op
+        expect(registry.listBindings().map((b) => b.commandId)).toEqual(["open"]);
+        handle.dispose(); // повторно — no-op, чужую запись не трогает
         expect(registry.listBindings().map((b) => b.commandId)).toEqual(["open"]);
         other.dispose();
     });
