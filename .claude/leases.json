@@ -1,0 +1,32 @@
+{
+    "$комментарий": [
+        "Что в этом проекте нельзя гонять в два сеанса разом. Здесь только ПОЛИТИКА проекта:",
+        "имя ресурса, причина и команды. СКОЛЬКО этого ресурса есть — свойство конкретной машины,",
+        "и живёт оно на машине (~/.claude/lease/capacity), а не в репозитории.",
+        "Ресурс «машина» — тот же, что в office/README.md: тяжёлый прогон идёт по одному.",
+        "Совпадение — по подстроке в командной строке, после сжатия пробелов."
+    ],
+    "leases": [
+        {
+            "resource": "машина",
+            "why": "мутационный гейт, e2e, сборка бинарника и бенчи съедают CPU и память целиком; два прогона разом дают флаки, 30-секундные таймауты и OOM",
+            "match": [
+                "npm run test:mutation",
+                "npm run test:e2e",
+                "npm run test:coverage",
+                "npm run bench",
+                "npm run build:sea",
+                "npm run build:selfextract",
+                "node scripts/mutation-diff.mjs",
+                "npx stryker",
+                "npx vitest run --config vitest.e2e.config.ts",
+                "vitest run e2e/"
+            ],
+            "except": [
+                "--scope-only",
+                "--help",
+                "--dry-run"
+            ]
+        }
+    ]
+}

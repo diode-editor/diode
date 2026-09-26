@@ -384,9 +384,14 @@ npm run test:coverage      # = vitest run --coverage
 ## Мутационное тестирование (Stryker)
 
 ```bash
-npm run test:mutation                  # дифф против main
-npm run test:mutation -- --scope-only  # только показать, что будет мутировано
+claude-lease run -- npm run test:mutation   # дифф против main, под лизой на ресурс «машина»
+npm run test:mutation -- --scope-only       # только показать, что будет мутировано (лиза не нужна)
 ```
+
+**Прогон — под лизой.** Машина одна, а сеансов на ней несколько: два Stryker'а разом дают флаки и
+OOM вместо результата. Что берётся под лизу — [`.claude/leases.json`](../.claude/leases.json),
+как этим пользоваться — скилл [`heavy-run`](../.claude/skills/heavy-run/SKILL.md). Нет команды
+`claude-lease` — машина без ограничений, запускай напрямую.
 
 **Обязательный шаг перед сдачей фичи.** Не «когда есть время» — покрытие и мутационный балл закрывают разные дыры, и без второго первое даёт ложное зелёное.
 
