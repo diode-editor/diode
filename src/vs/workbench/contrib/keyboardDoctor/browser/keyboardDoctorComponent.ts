@@ -81,17 +81,22 @@ export class KeyboardDoctorComponent extends Disposable {
     private readonly root: FitContentElement;
     // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
     private readonly envLabels = [new TextLabelElement(""), new TextLabelElement(""), new TextLabelElement("")];
+    // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
     private readonly stepLabel = new TextLabelElement("");
+    // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
     private readonly catchesLabel = new TextLabelElement("");
     // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
     private readonly lastLabel = new TextLabelElement("");
     private readonly hintLabel = new TextLabelElement(HINT);
 
+    // Stryker disable next-line ArrayDeclaration: run() задаёт шаги до любого keydown.
     private steps: DoctorStep[] = [];
+    // Stryker disable next-line ArrayDeclaration: run() обнуляет результаты до любого keydown.
     private results: StepResult[] = [];
     /** Нажатие шага с keyup записано; ждём отпускания модификатора (или голый Enter). */
     private awaitingKeyUp: { received: ObservedKey; bindings: readonly MatchedBinding[] } | null = null;
     /** Шаг записан; переходим дальше на парном keypress. */
+    // Stryker disable next-line BooleanLiteral: run() сбрасывает флаг до любого keypress.
     private advanceOnKeyPress = false;
     private resolveRun: ((report: string) => void) | null = null;
     private envSubscription: IDisposable | null = null;
