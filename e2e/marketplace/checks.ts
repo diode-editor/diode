@@ -167,6 +167,48 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx" — стоковая цветовая тема (Catppuccin, четыре темы
+        // через `contributes.themes`, tokenColors inline, 141 цвет с альфой).
+        // Чек доказывает путь темы из магазина наблюдаемым кадром: настройка
+        // `workbench.colorTheme` → первый же кадр в теме, фон редактора равен
+        // `editor.background` из themes/mocha.json (#1e1e2e) — и тема есть в
+        // пикере Color Theme. Runtime-часть расширения (dist/main.cjs
+        // перегенерирует темы из настроек) не используется — читаются файлы
+        // тем из vsix как есть.
+        id: "Catppuccin.catppuccin-vsc",
+        expectFiles: ["package.json", "themes/mocha.json", "themes/latte.json"],
+        run: async (ctx) => {
+            const file = join(ctx.root, "themed.ts");
+            writeFileSync(file, "const answer = 42;\n// mocha\n");
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [file],
+                settings: { "workbench.colorTheme": "Catppuccin Mocha" },
+                // Настоящий Ctrl+K Ctrl+T headless-DSL не кодирует — вешаем пикер на F8.
+                keybindings: [{ key: "f8", command: "workbench.action.selectTheme" }],
+            });
+            try {
+                const frame = await app.session.waitForText((t) => t.includes("const answer"), { timeoutMs: 40_000 });
+                const editor = findNode((await app.session.getDocument()).root, (n) => n.type === "EditorElement");
+                if (editor === null) throw new Error("EditorElement не найден в дереве");
+                // Вторая строка, у правого края: первая — под кареткой и occurrence-подсветкой.
+                const cell = frame.cells[(editor.box.y + 1) * frame.cols + editor.box.x + editor.box.width - 2];
+                if (cell.bg !== 0x1e1e2e) {
+                    throw new Error(`фон редактора #${cell.bg.toString(16)} — не editor.background Catppuccin Mocha (#1e1e2e)`);
+                }
+                await app.session.sendKey("F8");
+                await app.session.waitForText((t) => t.includes("Select Color Theme"), { timeoutMs: 20_000 });
+                await app.session.sendText("Catppuccin");
+                await app.session.waitForText((t) => t.includes("Catppuccin Mocha") && t.includes("Catppuccin Latte"), {
+                    timeoutMs: 20_000,
+                });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx" — стоковый ESLint. Библиотеку eslint расширение
         // НЕ бандлит (сервер резолвит её из node_modules проекта) — чек доносит
         // её в воркспейс симлинком из npm-кэша фикстуры и ждёт диагностику

@@ -1,5 +1,6 @@
 import type { IGrammarContribution } from "./iGrammarContribution.ts";
 import type { ILanguageContribution } from "./iLanguageContribution.ts";
+import type { IThemeContribution } from "./iThemeContribution.ts";
 
 /**
  * Полный VS Code-совместимый extension manifest (`package.json` расширения).
@@ -108,9 +109,15 @@ export interface IExtensionContributions {
      */
     readonly keybindings?: readonly IKeybindingContribution[];
 
+    /**
+     * Цветовые темы расширения. Файлы тем читаются на старте — все, до первого
+     * кадра — и регистрируются в `ThemeRegistry` по `label`
+     * (`ExtensionThemeContributor`, см. docs/TODO/Theming.md).
+     */
+    readonly themes?: readonly IThemeContribution[];
+
     // ── TODO(extensions phase 2+): раскомментировать по мере реализации ──
     //
-    // readonly themes?: readonly IThemeContribution[];
     // readonly iconThemes?: readonly IIconThemeContribution[];
     // readonly productIconThemes?: readonly IProductIconThemeContribution[];
     //

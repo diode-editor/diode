@@ -10,8 +10,9 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { LONG_LINE_TRUNCATION_BADGE, STOP_RENDERING_LINE_AFTER } from "../common/viewModel/longLineRendering.ts";
 
 import { EditorElement } from "./editorElement.ts";
-import { SELECTION_BG } from "./textViewRendering.ts";
 
+/** `editor.selectionBackground` Dark+ — палитра TestApp кладёт его в var-scope. */
+const SELECTION_BG = packRgb(38, 79, 120);
 const BADGE_LABEL = LONG_LINE_TRUNCATION_BADGE.trim();
 
 function createEditor(

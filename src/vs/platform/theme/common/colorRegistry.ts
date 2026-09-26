@@ -12,9 +12,10 @@ import type { IThemeFile } from "./iThemeFile.ts";
  *
  * Отличие от vscode: слота два (dark/light), не четыре — hc-темы мапятся на
  * ближайший вид через {@link themeKindOf}; derived-цвета (`transparent(ref, 0.5)`)
- * не поддержаны — терминальный рендер без альфы, композитные значения запекаются
- * в hex на месте определения. Единственная уступка альфе — {@link IColorDefinition.blendOver}:
- * тема-то приходит из upstream как есть и вполне может привезти `#RRGGBBAA`.
+ * не поддержаны — выражений над цветами у нас нет, дефолт задаётся hex-строкой.
+ * Альфа при этом штатная: `#RRGGBBAA` и в дефолте, и в теме уходит в палитру как
+ * есть, а композитинг выполняет движок в порядке отрисовки (STYLES.md tuidom,
+ * «Модель цвета»).
  */
 
 export interface IColorDefaults {
@@ -29,15 +30,6 @@ export interface IColorDefinition {
      * `undefined` (`theme.getColor`, не `getRequiredColor`).
      */
     readonly defaults: IColorDefaults | null;
-    /**
-     * Ключ цвета-подложки для композитинга. Задаётся у цветов, которые темы
-     * VS Code объявляют полупрозрачными (hover-фоны): значение с альфой
-     * накладывается на уже разрезолвленную подложку, непрозрачное проходит
-     * как есть. Без этого альфа просто отбрасывается и, например,
-     * `statusBarItem.hoverBackground: "#F1F1F133"` из Dark Modern вырождается
-     * в почти белый.
-     */
-    readonly blendOver?: string;
     /** Описание из каталога VS Code (см. theme-color reference). */
     readonly description: string;
 }

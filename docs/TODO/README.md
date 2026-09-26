@@ -33,14 +33,13 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Крупные задачи
 
-- [~] [FirstRelease](FirstRelease.md) — первый выпуск: скоуп зафиксирован 2026-09-26 — все перф-оптимизации трекера, кроме damage-tracking'а кадра, в порядке старт → токенизация → большой файл → дерево → watcher → дистрибуция; открыт вопрос PieceTree
 - [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points; основное сделано, остались хвосты MenuRegistry (серые пункты попапа, `when`-фильтр палитры, `alt`/hide-toggle/вложенные подменю)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, panel, terminal, menuBar): по критерию «публичный API не упоминает понятий Diode» им место у нас
 - [~] [ListControls](ListControls.md) — два списочных контрола (`TreeViewElement` data-driven / `ListViewElement` DOM-строки): решение зафиксировано, остался техдолг (дублирование механик, union-instanceof)
 - [~] [WhenContext](WhenContext.md) — остался полноценный парсер when-выражений вместо `new Function`
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate готов; далее scope-селекторы, async/background токенизация)
-- [~] [Theming](Theming.md) — цветовые темы (встроенные + пикер готовы; далее темы от расширений, live-reload)
+- [~] [Theming](Theming.md) — цветовые темы (встроенные, пикер, live-reload, темы от расширений / установка из магазина готовы; открыто — подсветка текущей строки, группировка пикера, `IWorkbenchColors`)
 - [~] [DiffViewer](DiffViewer.md) — смотрелка изменений: остались фаза 2 (интерактив: раскрытие свёртки жестом, Switch Side, F7) и фаза 6 (краевые случаи: большой файл, бинарник, whitespace). История движка и этапов — [Diff](Diff.md), дифф v2 на двух настоящих редакторах — [DiffEditable](DiffEditable.md) (сделан, в конце — follow-up'ы)
 - [~] [SourceControl](SourceControl.md) — полный Source Control сделан (фазы 0–14); открыты follow-up'ы: `diode.scm.publishBusy`, UI-e2e для sync/branch/stash
 - [~] [Search](Search.md) — поиск по файлам: базовый срез готов; дальше — кросс-платформенный rg, replace, `search.exclude`, история запросов
@@ -55,11 +54,11 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [x] [References](References.md) — Find All References сделан (вьюлет REFERENCES, F4/Shift+F4); дальше — implementations/type definition на тех же рельсах, история запросов, peek
 - [x] [ParameterHints](ParameterHints.md) — подсказка параметров сделана (попап по триггер-символам и Ctrl+K Ctrl+Space, перегрузки Up/Down); дальше — markdown в описаниях, скролл длинного текста
 - [~] [Suggest](Suggest.md) — автодополнение работает; дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
-- [~] [InlineCompletions](InlineCompletions.md) — призрачные подсказки (ghost text) v1 сделаны end-to-end (`registerInlineCompletionItemProvider`, Tab/Esc, view zones, каретка в середине строки), устаревший запрос отменяется настоящим `CancellationToken` через RPC; открыты люфты (partial accept, lifecycle-хуки, `selectedCompletionInfo`) и часть 2 — реальный LLM-провайдер
+- [~] [InlineCompletions](InlineCompletions.md) — призрачные подсказки (ghost text) v1 сделаны end-to-end (`registerInlineCompletionItemProvider`, Tab/Esc, view zones); открыты люфты (mid-line, partial accept, lifecycle-хуки, `selectedCompletionInfo`) и часть 2 — реальный LLM-провайдер
 - [~] [E2E](E2E.md) — инфраструктура готова; открыто — кросс-платформенность Phase 1.x и найденный дефект фокуса (find + вторая вкладка)
 - [ ] [MutationDebtAfterLintSweep](MutationDebtAfterLintSweep.md) — линт-прогон #333 переформатировал 598 файлов, скоуп мутаций считается по строкам, и гейт впервые отмутировал большой пласт кода: 71 выживший, балл 87.16. 18 закрыто тестами в самом PR, гейт на нём пропущен разово (порог оставлен 100); в документе — разбор остатка по двум группам: долг самого PR и давний непокрытый код, всплывший из-за переформатирования
 - [ ] [MutationGateFlake](MutationGateFlake.md) — PR-гейт мутаций на неизменном коммите даёт разные наборы выживших (балл гуляет 97–100%), а локально те же файлы дают 100%: Stryker подбирает тесты через `vitest --related` и часть покрытия теряет. Улики и что попробовать — в документе; смежно — база диффа разъезжается, и в скоуп попадают чужие файлы
-- [~] [TestRunTime](TestRunTime.md) — полный проход гейтов перед сдачей стоит ~час на 4-ядерной машине (115 CPU-мин мутаций, из них 70 — статика; e2e в параллели ломает сам себя пересборкой dist). Замеры и ходы в документе; сделано: `--ignoreStatic` и `--incremental` локально и в CI, перепроверка всех выживших
+- [ ] [TestRunTime](TestRunTime.md) — полный проход гейтов перед сдачей стоит ~час на 4-ядерной машине (115 CPU-мин мутаций, из них 70 — статика; e2e в параллели ломает сам себя пересборкой dist). Замеры и проверенные ходы: `--ignoreStatic` локально, `--incremental` (повтор 45 с вместо 5 мин), гонка `tsup clean` в e2e, `isolate:false` для Stryker
 - [ ] [Inspector](Inspector.md) — рефакторинг TUIElement-иерархии + основа приложения → inspector-протокол (`--inspect-tui`) для e2e
 - [~] [ReadonlyEditor](ReadonlyEditor.md) — read-only редактор готов; далее — конфиг-слой `files.readonly*`, сообщение при попытке правки
 - [~] [Logging](Logging.md) — ILogService + Output UI готовы; далее — inner tracing extension host, CLI flags, фильтры/Clear в Output
@@ -79,9 +78,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Позиционирование и сайт
 
-### [~] Публичный роадмап + статус «альфа»
-Разделы «Ближайшее» / «Дальше» в [ROADMAP.md](../public/ROADMAP.md) заполнены из
-[FirstRelease.md](FirstRelease.md); осталось — статус «alpha» на главной и ссылка с неё.
+### [ ] Публичный роадмап + статус «альфа»
 Страница роадмапа (в доке или на сайте) и явный статус «alpha» на главной (рядом с версией).
 Смысл — управление ожиданиями: альфу не прячем, а показываем, куда идём и как быстро.
 Ключевой заявляемый пункт — конечная цель: **полная поддержка API расширений VS Code там, где

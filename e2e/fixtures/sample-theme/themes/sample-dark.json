@@ -1,0 +1,38 @@
+{
+    // JSONC, как публикуют многие темы: комментарии и висячие запятые.
+    "name": "Sample Dark (inner name is ignored — the label comes from package.json)",
+    "type": "dark",
+    "colors": {
+        "editor.background": "#101820",
+        "editor.foreground": "#E6EDF3",
+        "editorLineNumber.foreground": "#6E7681",
+        "editor.selectionBackground": "#9399B240",
+        "sideBar.background": "#0D141B",
+        "sideBar.foreground": "#C9D1D9",
+        "activityBar.background": "#0D141B",
+        "statusBar.background": "#0A0F14",
+        "statusBar.foreground": "#E6EDF3",
+        "tab.activeBackground": "#101820",
+        "tab.inactiveBackground": "#0D141B",
+        "editorGroupHeader.tabsBackground": "#0D141B",
+        "titleBar.activeBackground": "#0D141B",
+        "menu.background": "#0D141B",
+        "list.hoverBackground": "#31324480",
+    },
+    "tokenColors": [
+        {
+            "name": "Keywords",
+            "scope": ["keyword", "storage"],
+            "settings": { "foreground": "#FF7B72", "fontStyle": "bold" },
+        },
+        {
+            "name": "Comments",
+            "scope": "comment",
+            "settings": { "foreground": "#8B949E", "fontStyle": "italic" },
+        },
+        {
+            "scope": "constant.numeric",
+            "settings": { "foreground": "#79C0FF" },
+        },
+    ],
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Sample Light",
+    "type": "light",
+    "colors": {
+        "editor.background": "#FAFAF5",
+        "editor.foreground": "#24292F",
+        "editorLineNumber.foreground": "#8C959F",
+        "sideBar.background": "#F0F0EB",
+        "sideBar.foreground": "#24292F",
+        "activityBar.background": "#F0F0EB",
+        "statusBar.background": "#DDE3E9",
+        "statusBar.foreground": "#24292F",
+        "tab.activeBackground": "#FAFAF5",
+        "tab.inactiveBackground": "#F0F0EB",
+        "editorGroupHeader.tabsBackground": "#F0F0EB",
+        "titleBar.activeBackground": "#F0F0EB",
+        "menu.background": "#F0F0EB"
+    },
+    "tokenColors": [
+        {
+            "scope": ["keyword", "storage"],
+            "settings": { "foreground": "#CF222E", "fontStyle": "bold" }
+        },
+        {
+            "scope": "comment",
+            "settings": { "foreground": "#6E7781", "fontStyle": "italic" }
+        }
+    ]
+}

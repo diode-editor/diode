@@ -33,7 +33,7 @@ export const editorColors = {
             "Background color of the editor cursor. Allows customizing the color of a character overlapped by a block cursor.",
     },
     "editor.selectionBackground": {
-        defaults: null,
+        defaults: { dark: "#264F78", light: "#ADD6FF" },
         description: "Color of the editor selection.",
     },
     "editor.lineHighlightBackground": {

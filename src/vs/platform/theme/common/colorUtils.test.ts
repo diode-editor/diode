@@ -1,7 +1,7 @@
-import { packRgb } from "@tuidom/core/common/colorUtils";
+import { packRgb, packRgba, TRANSPARENT_COLOR } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it } from "vitest";
 
-import { parseHexAlpha, parseHexColor } from "./colorUtils.ts";
+import { isHexColor, parseHexColor } from "./colorUtils.ts";
 
 describe("parseHexColor", () => {
     it("parses #RRGGBB", () => {
@@ -18,15 +18,19 @@ describe("parseHexColor", () => {
         expect(parseHexColor("#0AF")).toBe(packRgb(0, 0xaa, 0xff));
     });
 
-    it("parses #RRGGBBAA (strips alpha)", () => {
+    it("keeps the alpha of #RRGGBBAA — the engine composites it at paint time", () => {
+        expect(parseHexColor("#007ACC80")).toBe(packRgba(0x00, 0x7a, 0xcc, 0x80));
+        expect(parseHexColor("#F1F1F133")).toBe(packRgba(0xf1, 0xf1, 0xf1, 0x33));
+        // Альфа 255 нормализуется в непрозрачное 24-битное число.
         expect(parseHexColor("#1E1E1EFF")).toBe(packRgb(0x1e, 0x1e, 0x1e));
-        expect(parseHexColor("#007ACC80")).toBe(packRgb(0x00, 0x7a, 0xcc));
-        expect(parseHexColor("#FFFFFF00")).toBe(packRgb(255, 255, 255));
+        // Альфа 0 — прозрачный сентинел: RGB такого цвета ничего не значит.
+        expect(parseHexColor("#FFFFFF00")).toBe(TRANSPARENT_COLOR);
     });
 
-    it("parses #RGBA (short notation, strips alpha)", () => {
-        expect(parseHexColor("#FFF0")).toBe(packRgb(255, 255, 255));
-        expect(parseHexColor("#F00F")).toBe(packRgb(255, 0, 0));
+    it("keeps the alpha nibble of #RGBA", () => {
+        expect(parseHexColor("#F008")).toBe(packRgba(255, 0, 0, 0x88));
+        expect(parseHexColor("#FFFF")).toBe(packRgb(255, 255, 255));
+        expect(parseHexColor("#FFF0")).toBe(TRANSPARENT_COLOR);
     });
 
     it("is case-insensitive", () => {
@@ -37,25 +41,20 @@ describe("parseHexColor", () => {
     it("throws on invalid input", () => {
         expect(() => parseHexColor("")).toThrow("must start with #");
         expect(() => parseHexColor("FFFFFF")).toThrow("must start with #");
-        expect(() => parseHexColor("#FF")).toThrow("unexpected length");
-        expect(() => parseHexColor("#FFFFFFFFF")).toThrow("unexpected length");
+        expect(() => parseHexColor("#FF")).toThrow("#FF");
+        expect(() => parseHexColor("#FFFFFFFFF")).toThrow("#FFFFFFFFF");
+        expect(() => parseHexColor("#GGGGGG")).toThrow("#GGGGGG");
     });
 });
 
-describe("parseHexAlpha", () => {
-    it("reads the alpha byte of #RRGGBBAA", () => {
-        expect(parseHexAlpha("#F1F1F133")).toBe(0x33);
-        expect(parseHexAlpha("#00000000")).toBe(0);
-        expect(parseHexAlpha("#FFFFFFFF")).toBe(0xff);
+describe("isHexColor", () => {
+    it("accepts the four VS Code notations", () => {
+        for (const hex of ["#FFF", "#FFF8", "#1E1E1E", "#1e1e1e80"]) expect(isHexColor(hex), hex).toBe(true);
     });
 
-    it("expands the alpha nibble of #RGBA", () => {
-        expect(parseHexAlpha("#FFF8")).toBe(0x88);
-        expect(parseHexAlpha("#FFF0")).toBe(0);
-    });
-
-    it("reports opaque for notations without alpha", () => {
-        expect(parseHexAlpha("#1E1E1E")).toBe(0xff);
-        expect(parseHexAlpha("#FFF")).toBe(0xff);
+    it("rejects everything else without throwing", () => {
+        for (const value of ["", "1E1E1E", "#FF", "#FFFFFFFFF", "#GGGGGG", "red", 0x1e1e1e, null, undefined]) {
+            expect(isHexColor(value), String(value)).toBe(false);
+        }
     });
 });

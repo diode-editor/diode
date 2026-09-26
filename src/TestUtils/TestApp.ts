@@ -17,8 +17,9 @@ function liveThemeVars(): Record<string, number> {
 
 export type TestApp = TuidomTestApp;
 export const TestApp = {
-    create(root: BodyElement, size?: Size): TestApp {
-        return TuidomTestApp.create(root, size, liveThemeVars());
+    /** `styleVars` — своя палитра вместо Dark+ (харнесс приложения кладёт палитру активной темы). */
+    create(root: BodyElement, size?: Size, styleVars?: Readonly<Record<string, number>>): TestApp {
+        return TuidomTestApp.create(root, size, styleVars ?? liveThemeVars());
     },
     createWithContent(content: TUIElement, size?: Size): TestApp {
         return TuidomTestApp.createWithContent(content, size, liveThemeVars());
