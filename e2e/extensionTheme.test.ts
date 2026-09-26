@@ -118,8 +118,11 @@ describe("Extension themes (e2e)", () => {
     });
 
     it("US-7: правка workbench.colorTheme в settings.json перекрашивает окно в тему расширения без рестарта", async () => {
+        // settings.json существует с самого старта (за ним следит watcher
+        // live-reload); тема в нём — дефолтная, правка ниже её меняет.
         const app = await useHeadlessApp({
             installVsix: [sampleVsix],
+            settings: { "workbench.colorTheme": "Dark Modern" },
             files: { [SAMPLE_FILE]: SAMPLE_CONTENT },
             open: [".", SAMPLE_FILE],
         });

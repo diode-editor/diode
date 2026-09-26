@@ -5,8 +5,9 @@ import type { IThemeContribution } from "./iThemeContribution.ts";
 /**
  * Полный VS Code-совместимый extension manifest (`package.json` расширения).
  *
- * В Phase 1 загрузчик читает только {@link IExtensionContributions.languages}
- * и {@link IExtensionContributions.grammars}. Остальные contributes-блоки
+ * Декларативно читаются {@link IExtensionContributions.languages},
+ * {@link IExtensionContributions.grammars} и {@link IExtensionContributions.themes}
+ * (плюс configuration/commands/keybindings). Остальные contributes-блоки
  * объявлены ниже как **закомментированные** TS-типы — они задокументированы,
  * но не активны, чтобы расширения, копируемые из VS Code, не падали по
  * типам, и чтобы было ясно, какие поля будут добавлены в будущем.
@@ -80,8 +81,9 @@ export interface IExtensionManifest {
 }
 
 /**
- * Все contributes из VS Code. **Активны только `languages` и `grammars`.**
- * Остальные блоки оставлены закомментированными типами для будущих фаз.
+ * Все contributes из VS Code. **Активны `languages`, `grammars`, `themes`,
+ * `configuration`, `commands` и `keybindings`.** Остальные блоки оставлены
+ * закомментированными типами для будущих фаз.
  */
 export interface IExtensionContributions {
     readonly languages?: readonly ILanguageContribution[];
