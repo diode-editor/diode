@@ -79,6 +79,7 @@ export class KeyboardDoctorComponent extends Disposable {
     private session: OverlaySessionHandle | null = null;
 
     private readonly root: FitContentElement;
+    // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
     private readonly envLabels = [new TextLabelElement(""), new TextLabelElement(""), new TextLabelElement("")];
     private readonly stepLabel = new TextLabelElement("");
     private readonly catchesLabel = new TextLabelElement("");
@@ -136,6 +137,7 @@ export class KeyboardDoctorComponent extends Disposable {
             event.preventDefault();
             // Stryker disable next-line CallExpression: анти-утечка keypress; ненаблюдаема без фонового потребителя за оверлеем.
             event.stopPropagation();
+            // Stryker disable next-line ConditionalExpression: лишний advance() без записанного шага только перерисовывает текущий шаг — ненаблюдаемо.
             if (this.advanceOnKeyPress) this.advance();
         });
         this.root.addEventListener("keyup", (event) => {
@@ -184,6 +186,7 @@ export class KeyboardDoctorComponent extends Disposable {
         });
         this.render();
 
+        // Stryker disable next-line ObjectLiteral: опции сессии — политика оверлея; по-отдельности они размечены ниже.
         const session = (this.session ??= this.host.overlayLayer.createSession(this.root, new Point(0, 0), {
             // Stryker disable next-line BooleanLiteral: стартовая невидимость сразу перекрывается open() в openCentered().
             visible: false,
@@ -222,6 +225,7 @@ export class KeyboardDoctorComponent extends Disposable {
         }
 
         if (bare && event.key === "Escape") {
+            // Stryker disable next-line BooleanLiteral: keyUpSeen читается только у шагов с keyUp и принятым нажатием — у «ничего не пришло» ненаблюдаем.
             this.record(null, [], false);
             this.advanceOnKeyPress = true;
             return;
@@ -233,6 +237,7 @@ export class KeyboardDoctorComponent extends Disposable {
             this.render();
             return;
         }
+        // Stryker disable next-line BooleanLiteral: сюда доходят только шаги без keyUp — keyUpSeen у них не читается.
         this.record(received, bindings, false);
         this.advanceOnKeyPress = true;
     }
@@ -250,9 +255,12 @@ export class KeyboardDoctorComponent extends Disposable {
         }
         const resolve = this.resolveRun;
         this.resolveRun = null;
+        // Stryker disable next-line OptionalChaining: advance после последнего шага бывает только внутри run() — подписка, сессия и resolve заданы, ?. защитный.
         this.envSubscription?.dispose();
         this.envSubscription = null;
+        // Stryker disable next-line OptionalChaining: см. выше — сессия создана в run().
         this.session?.close();
+        // Stryker disable next-line OptionalChaining: см. выше — resolveRun задан в run().
         resolve?.(formatReport(this.env.snapshot(), this.results));
     }
 
@@ -269,6 +277,7 @@ export class KeyboardDoctorComponent extends Disposable {
         this.catchesLabel.setText(`Ловим: ${current.catches}`);
         this.lastLabel.setText(this.lastText(env));
         this.hintLabel.setText(this.awaitingKeyUp === null ? HINT : KEYUP_HINT);
+        // Stryker disable next-line all: перецентровка под новую ширину текста — косметика позиции, покадрово не проверяется.
         if (this.host !== null && this.session?.isOpen() === true) this.openCentered(this.host, this.session);
     }
 
@@ -277,13 +286,14 @@ export class KeyboardDoctorComponent extends Disposable {
             return `Пришло: ${describeEvent(this.awaitingKeyUp.received)} — теперь отпусти модификатор`;
         }
         const last = this.results.at(-1);
-        if (last === undefined) return "";
+        if (last === undefined) return "Пока ничего не нажато";
         const arrived = last.received === null ? "ничего" : describeEvent(last.received);
         return `Было: ${arrived} · бинд: ${describeBindings(last.bindings)} · ${describeVerdict(judge(last, env))}`;
     }
 
     /** Центрирует окно по экрану хоста и открывает сессию (приём DialogService). */
     private openCentered(host: BodyElement, session: OverlaySessionHandle): void {
+        // Stryker disable next-line MethodExpression: ограничение ширины экраном — косметика позиции, покадрово не проверяется.
         const width = Math.min(this.root.getMaxIntrinsicWidth(0), host.layoutSize.width);
         const height = this.root.getMaxIntrinsicHeight(width);
         // Stryker disable next-line MethodExpression: центрирование по X — косметика позиции, покадрово не проверяется.

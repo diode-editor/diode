@@ -82,8 +82,10 @@ describe("registerExtensionKeybindings", () => {
 
     it("оверрайд только для одной ОС без общего key — остальные ОС без привязки", () => {
         const registry = new KeybindingRegistry();
-        registerExtensionKeybindings([ext([{ command: "cmd", key: "", mac: "meta+a" }])], registry);
+        const warn = vi.fn();
+        registerExtensionKeybindings([ext([{ command: "cmd", key: "", mac: "meta+a" }])], registry, { warn } as never);
         expect(registry.listBindings().map((b) => b.when)).toEqual(["os == 'mac'"]);
+        expect(warn).not.toHaveBeenCalled(); // ОС без привязки пропущены, а не упали на парсинге
     });
 
     it("снятие привязки (-command) снимает каждый вариант", () => {

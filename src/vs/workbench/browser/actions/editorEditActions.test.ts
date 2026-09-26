@@ -107,6 +107,12 @@ describe("EditorEditActions — deletion mutates the real document", () => {
         expect(editor.getText()).toBe("world");
     });
 
+    it("deleteAllLeft: id/title как у VS Code, без pc-бинда", () => {
+        expect([deleteAllLeftAction.id, deleteAllLeftAction.title]).toEqual(["deleteAllLeft", "Delete All Left"]);
+        expect(deleteAllLeftAction.keybinding).toBeUndefined();
+        expect(deleteAllLeftAction.when).toBe("textInputFocus && !editorReadonly");
+    });
+
     it("deleteAllLeft removes everything before the cursor, indent included", () => {
         const { editor, exec } = openEditor("    hello world");
         editor.viewState.selections = [createCursorSelection(0, 9)];

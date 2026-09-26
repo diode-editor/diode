@@ -25,12 +25,12 @@ describe("queryTmuxClient", () => {
             calls.push(args.join(" "));
             if (args[0] === "display-message") return Promise.resolve("kitty(0.45.0)\n");
             if (args[1] === "LC_DIODE_PLATFORM") return Promise.resolve("LC_DIODE_PLATFORM=mac\n");
-            return Promise.resolve("-LC_TERMINAL\n");
+            return Promise.resolve("LC_TERMINAL=iTerm2\n");
         };
         await expect(queryTmuxClient(run)).resolves.toEqual({
             termType: "kitty(0.45.0)",
             envPlatform: "mac",
-            lcTerminal: undefined,
+            lcTerminal: "iTerm2",
         });
         expect(calls).toEqual([
             "display-message -p #{client_termtype}",

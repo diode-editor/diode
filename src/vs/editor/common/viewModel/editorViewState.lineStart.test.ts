@@ -12,9 +12,19 @@ describe("EditorViewState.cursorLineStart", () => {
     it("идёт в колонку 0 сразу, минуя отступ", () => {
         const state = new EditorViewState(new TextDocument("    hello"), [createCursorSelection(0, 7)]);
         state.cursorLineStart();
+        expect(state.selections[0].anchor).toEqual({ line: 0, character: 0 }); // без выделения
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
         state.cursorLineStart(); // повторно — остаётся на месте (не smart-home toggle)
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
+    });
+
+    it("скроллит к курсору: горизонтальный скролл длинной строки сбрасывается", () => {
+        const state = new EditorViewState(new TextDocument("x".repeat(100)), [createCursorSelection(0, 100)]);
+        state.viewportWidth = 20;
+        state.cursorEnd();
+        expect(state.scrollLeft).toBeGreaterThan(0);
+        state.cursorLineStart();
+        expect(state.scrollLeft).toBe(0);
     });
 
     it("в режиме выделения тянет выделение от якоря", () => {

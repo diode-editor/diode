@@ -175,7 +175,8 @@ const PRINTABLE_CHAR = /^\P{C}$/u;
 
 function keysMatch(expected: Keybinding, received: ObservedKey): boolean {
     if (received.key.toLowerCase() === expected.key.toLowerCase()) return true;
-    return expected.key.length === 1 && received.code === `Key${expected.key.toUpperCase()}`;
+    // Раскладка-независимо, по физической клавише: `KeyS` бывает только у букв.
+    return received.code === `Key${expected.key.toUpperCase()}`;
 }
 
 function modifierName(modifier: (typeof MODIFIERS)[number], mac: boolean): string {
@@ -292,6 +293,7 @@ const FAMILY_PREFIXES: readonly [string, TerminalFamily][] = [
 ];
 
 export function terminalFamily(name: string | undefined): TerminalFamily | undefined {
+    // Stryker disable next-line StringLiteral: любой непустой заменитель тоже не совпадёт ни с одним префиксом — эквивалентный мутант.
     const normalized = name?.trim().toLowerCase() ?? "";
     return FAMILY_PREFIXES.find(([prefix]) => normalized.startsWith(prefix))?.[1];
 }

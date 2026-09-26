@@ -24,6 +24,11 @@ describe("editorContextFor", () => {
         expect(cmd.evaluate("macKeys >= 3 && cap_super && cap_extendedKeys && cap_kittyGraphics")).toBe(true);
         expect(cmd.evaluate("mode_local && !mode_tmux && textViewFocus && textInputFocus")).toBe(true);
         expect(cmd.evaluate("isLinux || isWindows")).toBe(false);
+        expect(cmd.evaluate("os == 'mac'")).toBe(true);
+        const linux = editorContextFor({ ...MAC_CMD, os: "linux" });
+        expect(linux.evaluate("isLinux && !isMac && !isWindows && os == 'linux'")).toBe(true);
+        const windows = editorContextFor({ ...MAC_CMD, os: "windows" });
+        expect(windows.evaluate("isWindows && !isMac && !isLinux")).toBe(true);
     });
 });
 

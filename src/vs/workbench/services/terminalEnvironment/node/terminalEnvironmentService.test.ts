@@ -407,6 +407,29 @@ describe("TerminalEnvironmentService", () => {
             expect(changed).toBe(1);
         });
 
+        it("не мак на legacy: меняется только tier — событие есть", () => {
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            service.noteSuperObserved();
+            expect(service.tier).toBe("csi-u");
+            expect(service.macKeysRung).toBeUndefined();
+            expect(changed).toBe(1);
+        });
+
+        it("мак на kitty: tier тот же, меняется только рунг — событие есть", () => {
+            process.env.TERM = "xterm-kitty";
+            process.env.LC_DIODE_PLATFORM = "mac";
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            expect(service.macKeysRung).toBe("extended");
+            service.noteSuperObserved();
+            expect(service.tier).toBe("kitty");
+            expect(service.macKeysRung).toBe("cmd");
+            expect(changed).toBe(1);
+        });
+
         it("под tmux рунг остаётся ниже cmd", () => {
             process.env.LC_DIODE_PLATFORM = "mac";
             const service = new TerminalEnvironmentService(

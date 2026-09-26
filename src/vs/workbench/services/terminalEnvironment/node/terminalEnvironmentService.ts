@@ -203,7 +203,6 @@ export class TerminalEnvironmentService extends Disposable {
      * protocol encodes it). Fires `onDidChange` if anything visible changed.
      */
     public noteSuperObserved(): void {
-        if (this.capabilities.super) return;
         const rungBefore = this.macKeysRung;
         const tierBefore = this.tierValue;
         this.capabilities.super = true;

@@ -1,5 +1,6 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { FitContentElement } from "@tuidom/elements/layout/fitContentElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -52,7 +53,7 @@ function makeDoctor(initial: KeyboardDoctorEnv = PC, lookup?: BindingLookup) {
         testApp.render();
         return testApp.backend.screenToString();
     };
-    return { testApp, doctor, setEnv, screen, lookups, listeners };
+    return { testApp, doctor, setEnv, screen, lookups, listeners, body };
 }
 
 describe("KeyboardDoctorComponent", () => {
@@ -62,9 +63,13 @@ describe("KeyboardDoctorComponent", () => {
         expect(screen()).toContain("Keyboard Doctor");
         expect(screen()).toContain("Шаг 1/8: нажми Ctrl+S");
         expect(screen()).toContain("os: linux (источник: default)");
+        expect(screen()).toContain("Ловим: работает ли базовый набор");
+        expect(screen()).toContain("Пока ничего не нажато");
+        expect(screen()).toContain("Escape — ничего не произошло");
 
         testApp.sendKey("Ctrl+S");
         expect(screen()).toContain("Шаг 2/8");
+        expect(screen()).toContain('Было: key="s"');
         expect(screen()).toContain("бинд: save · OK");
 
         // Ctrl+Shift+P на этом шаге «не дошла» — Escape.
@@ -102,6 +107,35 @@ describe("KeyboardDoctorComponent", () => {
         const report = await run;
         expect(report).toContain("    keyup Control: нет");
         expect(report).toContain("keyup модификатора не пришёл");
+    });
+
+    it("голая клавиша и Escape с модификатором — это нажатия, а не «ничего не пришло»", async () => {
+        const { testApp, doctor } = makeDoctor();
+        const run = doctor.run();
+        testApp.sendKey("Home");
+        testApp.backend.sendRaw("\x1b[27;2u"); // Shift+Escape (CSI-u) — DSL харнесса такой формы не знает
+        for (let i = 2; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
+        testApp.sendKey("Ctrl+Tab");
+        testApp.sendKey("Enter");
+        const report = await run;
+        expect(report).toContain('    событие: key="Home" code=Home mods=—');
+        expect(report).toContain('    событие: key="Escape" code=Escape mods=Shift');
+    });
+
+    it("по завершении фокус возвращается туда, где был", async () => {
+        const { testApp, doctor, body } = makeDoctor();
+        const target = new FitContentElement();
+        target.id = "target";
+        target.focusable = true;
+        body.setContent(target);
+        target.focus();
+        const run = doctor.run();
+        expect(testApp.focusedElement?.id).toBe("keyboardDoctor");
+        for (let i = 0; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
+        testApp.sendKey("Ctrl+Tab");
+        testApp.sendKey("Enter");
+        await run;
+        expect(testApp.focusedElement?.id).toBe("target");
     });
 
     it("keyup вне шага с keyup ничего не делает; одиночный модификатор — не нажатие шага", () => {

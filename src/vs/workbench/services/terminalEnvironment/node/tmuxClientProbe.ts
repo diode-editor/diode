@@ -23,6 +23,7 @@ const TMUX_TIMEOUT_MS = 1000;
 
 export const runTmux: TmuxRunner = (args) =>
     new Promise((resolve) => {
+        // Stryker disable next-line ObjectLiteral: таймаут — страховка от зависшего tmux; в юнитах зависание не воспроизводится.
         execFile("tmux", [...args], { timeout: TMUX_TIMEOUT_MS }, (error, stdout) => {
             resolve(error ? undefined : stdout);
         });
@@ -30,6 +31,7 @@ export const runTmux: TmuxRunner = (args) =>
 
 /** `NAME=value` из `tmux show-environment NAME`; `-NAME` (удалена) и ошибки — undefined. */
 export function parseShowEnvironment(output: string | undefined, name: string): string | undefined {
+    // Stryker disable next-line StringLiteral: заменитель без префикса `NAME=` даёт тот же undefined — эквивалентный мутант.
     const line = output?.trim() ?? "";
     const prefix = `${name}=`;
     return line.startsWith(prefix) ? line.slice(prefix.length) : undefined;

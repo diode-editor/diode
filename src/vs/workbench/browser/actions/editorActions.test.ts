@@ -177,6 +177,16 @@ describe("EditorActions — smart home", () => {
 });
 
 describe("EditorActions — line start / end (мак Ctrl+A / Ctrl+E)", () => {
+    it("id и заголовки — как у VS Code, своих pc-биндов нет (мак-бинды — в таблице дельт)", () => {
+        expect([cursorLineStartAction.id, cursorLineStartAction.title]).toEqual([
+            "cursorLineStart",
+            "Cursor Line Start",
+        ]);
+        expect([cursorLineEndAction.id, cursorLineEndAction.title]).toEqual(["cursorLineEnd", "Cursor Line End"]);
+        expect(cursorLineStartAction.keybinding).toBeUndefined();
+        expect(cursorLineEndAction.keybinding).toBeUndefined();
+    });
+
     it("cursorLineStart идёт в колонку 0 мимо отступа, cursorLineEnd — в конец строки", () => {
         const { editor, exec, setCursor } = openEditor("    indented");
         setCursor(0, 8);
@@ -265,7 +275,9 @@ describe("EditorActions — no active editor is a safe no-op", () => {
         const keybindings = new KeybindingRegistry();
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ctrl);
-        registerAction(commands, keybindings, accessor, cursorRightAction);
-        expect(() => commands.execute(cursorRightAction.id)).not.toThrow();
+        for (const action of [cursorRightAction, cursorLineStartAction, cursorLineEndAction]) {
+            registerAction(commands, keybindings, accessor, action);
+            expect(() => commands.execute(action.id)).not.toThrow();
+        }
     });
 });

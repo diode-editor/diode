@@ -152,6 +152,44 @@ describe("withMacKeybindings", () => {
 });
 
 describe("таблица мак-дельт", () => {
+    it("содержимое таблицы — пользовательский контракт (эталон vscode)", () => {
+        const flat = MAC_KEYBINDING_DELTAS.map((delta) =>
+            [
+                delta.command,
+                (delta.pcOnly ?? []).map((spec) => `-${spec}`).join(" "),
+                (delta.mac ?? []).map(({ keys, from }) => `${keys}@${from}`).join(" "),
+            ]
+                .filter((part) => part !== "")
+                .join(" | "),
+        );
+        expect(flat).toEqual([
+            "cursorWordLeft | -ctrl+left | alt+left@legacy",
+            "cursorWordRight | -ctrl+right | alt+right@legacy",
+            "cursorWordLeftSelect | -ctrl+shift+left | alt+shift+left@legacy",
+            "cursorWordRightSelect | -ctrl+shift+right | alt+shift+right@legacy",
+            "input.cursorWordLeft | -ctrl+left | alt+left@legacy",
+            "input.cursorWordRight | -ctrl+right | alt+right@legacy",
+            "deleteWordLeft | -ctrl+backspace | alt+backspace@legacy",
+            "deleteWordRight | -ctrl+delete | alt+delete@legacy",
+            "input.deleteWordLeft | -ctrl+backspace | alt+backspace@legacy",
+            "input.deleteWordRight | -ctrl+delete | alt+delete@legacy",
+            "cursorLineStart | ctrl+a@legacy",
+            "cursorLineEnd | ctrl+e@legacy",
+            "editor.action.selectAll | -ctrl+a | meta+a@cmd",
+            "cursorHome | meta+left@cmd",
+            "cursorEnd | meta+right@cmd",
+            "cursorHomeSelect | meta+shift+left@cmd",
+            "cursorEndSelect | meta+shift+right@cmd",
+            "deleteAllLeft | meta+backspace@cmd",
+            "cursorTop | meta+up@cmd",
+            "cursorBottom | meta+down@cmd",
+            "cursorTopSelect | meta+shift+up@cmd",
+            "cursorBottomSelect | meta+shift+down@cmd",
+            "workbench.action.nextEditor | meta+alt+right@cmd meta+shift+]@cmd",
+            "workbench.action.previousEditor | meta+alt+left@cmd meta+shift+[@cmd",
+        ]);
+    });
+
     it("каждая дельта ссылается на встроенную команду, и каждая накладывается без ошибок", () => {
         const ids = new Set(builtinActions.map((builtin) => builtin.id));
         expect(MAC_KEYBINDING_DELTAS.map((delta) => delta.command).filter((id) => !ids.has(id))).toEqual([]);

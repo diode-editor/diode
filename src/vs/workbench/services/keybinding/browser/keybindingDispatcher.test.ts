@@ -30,7 +30,12 @@ function createHarness() {
     let extendedKeys = false;
     let superKey = false;
     const terminalEnv: IExtendedKeysObserver = {
-        hasCapability: (cap) => (cap === "super" ? superKey : extendedKeys),
+        // Строго: опечатка в имени capability у диспатчера — падение теста, а не тихий false.
+        hasCapability: (cap: string) => {
+            if (cap === "super") return superKey;
+            if (cap === "extended-keys") return extendedKeys;
+            throw new Error(`неизвестная capability ${cap}`);
+        },
         noteExtendedKeysObserved: () => {
             extendedKeysCalls.push("observed");
             extendedKeys = true;

@@ -20,7 +20,7 @@ import {
     TerminalEnvironmentServiceDIToken,
 } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
-function keyboardDoctorSnapshot(env: TerminalEnvironmentService): KeyboardDoctorEnv {
+export function keyboardDoctorSnapshot(env: TerminalEnvironmentService): KeyboardDoctorEnv {
     return {
         os: env.os,
         osSource: env.osSource,

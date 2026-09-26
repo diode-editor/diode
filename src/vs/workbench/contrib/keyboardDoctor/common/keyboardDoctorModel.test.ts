@@ -58,6 +58,31 @@ function result(env: KeyboardDoctorEnv, id: string, received: ObservedKey | null
 }
 
 describe("doctorSteps — проверки под окружение", () => {
+    it("формулировки шагов — протокол фидбека (что нажать и что ловим)", () => {
+        const describe = (env: KeyboardDoctorEnv) =>
+            doctorSteps(env).map((s) => `${s.id}: ${s.prompt} — ${s.catches}${s.expectsBinding ? "" : " [без бинда]"}`);
+        expect([...describe(MAC_CMD), ...describe(MAC_TMUX).filter((line) => line.startsWith("cmd.tmux"))]).toEqual([
+            "base.save: Cmd+S — работает ли базовый набор",
+            "base.palette: Shift+Cmd+P — работает ли базовый набор",
+            "base.quickOpen: Cmd+P — работает ли базовый набор",
+            "base.find: Cmd+F — работает ли базовый набор",
+            "option.word: Option+Left — вставился символ вместо перехода — Option не настроен как Alt",
+            "option.compose: Option+A — пришло å вместо Alt+A — тот же диагноз [без бинда]",
+            "option.intl: Option+буква, которая на твоей раскладке даёт @ [ ] { } (нет такой — Escape) — не съели ли мы ввод символа на интернациональной раскладке [без бинда]",
+            "home: Home — уехал ли курсор или проскроллился буфер терминала",
+            "missionControl: Ctrl+Left — переключился Space вместо перехода по слову",
+            "ctrlShift.e: Ctrl+Shift+E — доезжает ли Ctrl+Shift; не вылез ли caron (ˇ)",
+            "ctrlShift.m: Ctrl+Shift+M — доезжает ли Ctrl+Shift; не вылез ли caron (ˇ)",
+            "hold: Ctrl+Tab — подержи Ctrl и отпусти — есть ли keyup (kitty event types) — от него закрывается оверлей вкладок [без бинда]",
+            "cmd.save: Cmd+S — доезжает ли super и что показывают байты",
+            "cmd.quickOpen: Cmd+P — доезжает ли super и что показывают байты",
+            "cmd.top: Cmd+Up — доезжает ли super и что показывают байты",
+            "cmd.deleteAllLeft: Cmd+Backspace — доезжает ли super и что показывают байты",
+            "cmd.tmux: Cmd+S (внутри tmux) — Cmd под tmux приезжает как Alt — Cmd-бинды должны быть выключены [без бинда]",
+        ]);
+        expect(stepOf(MAC_CMD, "hold").keyUp).toBe("Control");
+    });
+
     it("pc: базовый набор, Home, Ctrl+Shift, hold — без мак-проверок", () => {
         expect(doctorSteps(PC).map((s) => s.id)).toEqual([
             "base.save",
@@ -124,6 +149,7 @@ describe("judge — где потерялась клавиша", () => {
         ["Cmd съеден целиком", result(MAC_CMD, "cmd.save", key("s")), { kind: "missing-modifier", missing: ["Cmd"] }],
         ["пришло å вместо Option+A", result(MAC_CMD, "option.compose", key("å")), { kind: "different" }],
         ["модификатор подменён (Cmd пришёл как Alt)", result(MAC_CMD, "cmd.save", key("alt+s")), { kind: "different" }],
+        ["лишний модификатор", result(MAC_CMD, "missionControl", key("ctrl+shift+left")), { kind: "different" }],
         ["Option+A без бинда — ОК, бинд не ждём", result(MAC_CMD, "option.compose", key("alt+a")), { kind: "ok" }],
         ["символ раскладки доехал", result(MAC_CMD, "option.intl", key("@")), { kind: "ok" }],
         ["вместо символа — аккорд", result(MAC_CMD, "option.intl", key("alt+l")), { kind: "different" }],
@@ -175,12 +201,14 @@ describe("описания цепочки байты → токены → соб
     it("hexBytes — utf-8 байты", () => {
         expect(hexBytes("\x1b[115;9u")).toBe("1b 5b 31 31 35 3b 39 75");
         expect(hexBytes("å")).toBe("c3 a5");
+        expect(hexBytes("\t")).toBe("09");
     });
 
     it("describeTokens: csi-u с super, legacy ESC-префикс, печатный символ", () => {
         expect(describeTokens("\x1b[115;9u")).toEqual(["csi-u key=s codepoint=115 eventType=0 mods=Meta"]);
         expect(describeTokens("\x1bs")).toEqual(["esc-char char=s"]);
         expect(describeTokens("a")).toEqual(["char codepoint=97 char=a"]);
+        expect(describeTokens("\x1b[97;6u")).toEqual(["csi-u key=a codepoint=97 eventType=0 mods=Ctrl+Shift"]);
     });
 
     it("describeEvent / describeBindings", () => {
@@ -201,6 +229,7 @@ describe("описания цепочки байты → токены → соб
             "caps: extended-keys, super · modes: ssh",
             "терминал: kitty(0.45.0) · TERM=xterm-kitty",
         ]);
+        expect(describeEnv(MAC_TMUX)[1]).toBe("caps: extended-keys, super · modes: local, tmux");
         expect(describeEnv({ ...PC, capabilities: [], term: undefined })).toEqual([
             "os: linux (источник: default) · tier: kitty · рунг: —",
             "caps: — · modes: local",
@@ -220,6 +249,31 @@ describe("рецепты эмуляторов", () => {
         [undefined, undefined],
     ])("%s → %s", (name, family) => {
         expect(terminalFamily(name)).toBe(family);
+    });
+
+    it("рецепты — дословно (правятся по фидбеку с живого мака)", () => {
+        const recipes = (terminalName: string) => emulatorRecipes({ ...MAC_TMUX, terminalName });
+        expect(recipes("Apple_Terminal")).toEqual([
+            "Terminal.app: Cmd до приложений не доходит никогда (нет Kitty-протокола) — рунг не выше mac-legacy.",
+            "Terminal.app: Settings → Profiles → Keyboard → «Use Option as Meta key».",
+            "tmux (≥ 3.5): set -s extended-keys always; set -s extended-keys-format csi-u; set -as terminal-features ',*:extkeys'.",
+            "tmux: Cmd под tmux не доезжает никогда — у tmux три модификатора, Cmd сливается с Option.",
+            "tmux: чтобы Diode видел LC_DIODE_PLATFORM после переподключения — set -ag update-environment LC_DIODE_PLATFORM.",
+        ]);
+        expect(emulatorRecipes({ ...MAC_CMD, terminalName: "iTerm2" })).toEqual([
+            "iTerm2: Settings → Profiles → Keys → Left/Right Command = Super (иначе Cmd уходит в меню).",
+            "iTerm2: включи «Apps can change how keys are reported» (Kitty keyboard protocol).",
+            "iTerm2: Left Option key = Esc+ (Option как Alt; правый оставь для символов).",
+        ]);
+        expect(emulatorRecipes({ ...MAC_CMD, terminalName: "ghostty" })).toEqual([
+            "ghostty: macos-option-as-alt = left.",
+            "ghostty: keybind = alt+arrow_left=unbind и alt+arrow_right=unbind — иначе шлёт legacy ESC b/f.",
+            "ghostty: сними super+… шорткаты, нужные редактору (keybind = super+p=unbind …).",
+        ]);
+        expect(emulatorRecipes({ ...MAC_CMD, terminalName: "WezTerm" })).toEqual([
+            "wezterm.lua: config.enable_kitty_keyboard = true.",
+            "wezterm.lua: config.send_composed_key_when_left_alt_is_pressed = false (левый Option как Alt).",
+        ]);
     });
 
     it("рецепт эмулятора + tmux + подсказка про ssh, когда мак не опознан", () => {
@@ -288,6 +342,11 @@ describe("formatReport — отчёт одним куском", () => {
                 "",
             ].join("\n"),
         );
+    });
+
+    it("несколько токенов в одном нажатии — через « | »", () => {
+        const report = formatReport(PC, [result(PC, "home", key("home", "\x1bOH\x1bOH"))]);
+        expect(report).toContain("    токены: ss3 key=Home finalByte=H | ss3 key=Home finalByte=H");
     });
 
     it("без рецептов секции рецептов нет", () => {

@@ -117,6 +117,7 @@ function asOsName(value: string | undefined): OsName | undefined {
 
 /** Назвался ли терминал маковским (только позитив: незнакомое имя — «не знаю»). */
 export function isMacOnlyTerminal(name: string | undefined): boolean {
+    // Stryker disable next-line StringLiteral: любой непустой заменитель тоже не совпадёт ни с одним префиксом — эквивалентный мутант.
     const normalized = name?.trim().toLowerCase() ?? "";
     return MAC_ONLY_TERMINALS.some((prefix) => normalized.startsWith(prefix));
 }
