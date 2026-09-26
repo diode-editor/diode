@@ -70,12 +70,15 @@ describe("resolveUserDataPaths", () => {
     it("places machine-state paths under the default profile dir", () => {
         const paths = resolveUserDataPaths({ homedir: home });
         expect(paths.globalStateFile).toBe("/home/alice/.diode/user-data/User/globalState.json");
+        expect(paths.secretsFile).toBe("/home/alice/.diode/user-data/User/secrets.json");
         expect(paths.workspaceStorageDir).toBe("/home/alice/.diode/user-data/User/workspaceStorage");
     });
 
     it("isolates machine-state paths per named profile", () => {
         const paths = resolveUserDataPaths({ homedir: home, profile: "compact" });
         expect(paths.globalStateFile).toBe("/home/alice/.diode/user-data/User/profiles/compact/globalState.json");
+        // Секреты — тоже per-profile: токены рабочего профиля не видны из личного.
+        expect(paths.secretsFile).toBe("/home/alice/.diode/user-data/User/profiles/compact/secrets.json");
         expect(paths.workspaceStorageDir).toBe("/home/alice/.diode/user-data/User/profiles/compact/workspaceStorage");
     });
 

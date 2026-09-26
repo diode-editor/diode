@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import type { IExtensionSecretsFactory } from "../../../api/common/extensionSecrets.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
@@ -11,6 +12,7 @@ import { ExtensionMode, Uri } from "../../../api/common/vscodeTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
 
 import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
+import { extensionRootPath } from "./iExtensionEntry.ts";
 
 /**
  * Сообщения protocol host -> subprocess. RPC-методы:
@@ -24,9 +26,13 @@ import { createExtensionMemento, type IExtensionMemento } from "./extensionMemen
  * - `host.deactivateExtension({ id })` -> `null`. Вызывает `deactivate()` +
  *   disposes `context.subscriptions`. Idempotent.
  * - `host.shutdown()` -> `null`. Снимает все расширения и инициирует exit.
+ * - `extensions.catalog` / `extensions.activated` (уведомления) — состав
+ *   установленных расширений и их активность для `vscode.extensions`.
+ * - `secrets.changed` (уведомление) — `SecretStorage.onDidChange`.
  *
  * Subprocess -> host RPC:
- *   `editor.setOptions`, `editor.getOptions` (см. `buildVscodeNamespace`).
+ *   `editor.setOptions`, `editor.getOptions`, `secrets.*` (см.
+ *   `buildVscodeNamespace`).
  */
 
 interface ActivatedExtension {
@@ -47,6 +53,8 @@ interface ExtensionContext {
     readonly extensionMode: ExtensionMode;
     readonly globalState: IExtensionMemento;
     readonly workspaceState: IExtensionMemento;
+    /** `ExtensionContext.secrets` — хранилище на хосте (`extensionSecrets.ts`). */
+    readonly secrets: ReturnType<IExtensionSecretsFactory["create"]>;
     asAbsolutePath(relativePath: string): string;
     readonly globalStorageUri: Uri;
     readonly globalStoragePath: string;
@@ -95,7 +103,7 @@ export function runExtensionHostSubprocess(): void {
     const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint);
     const rpc = new RpcEndpoint(channel);
 
-    const { configStore } = installVscodeStub(rpc);
+    const { configStore, extensionExports, secrets } = installVscodeStub(rpc);
 
     const extensions = new Map<string, ActivatedExtension>();
 
@@ -111,12 +119,9 @@ export function runExtensionHostSubprocess(): void {
         if (typeof loaded.activate !== "function") {
             throw new Error(`Extension "${id}" has no activate() in ${filename ?? mainPath}`);
         }
-        // Корень расширения: для user-vsix приходит от host'а (каталог установки);
-        // builtin'ы из in-memory source его не имеют — берём каталог filename
-        // (синтетический путь): asAbsolutePath у них указывает «в бандл», честнее
-        // фиктивного, а сравнение extensionMode работает всегда.
-        /* v8 ignore next -- одно из двух есть всегда: без mainPath и без filename расширение не загрузилось бы выше */
-        const rootPath = extensionPath ?? path.dirname(mainPath ?? filename ?? "");
+        // Корень расширения — общее правило обеих сторон RPC (тот же путь хост
+        // кладёт в `Extension.extensionPath` каталога `vscode.extensions`).
+        const rootPath = extensionRootPath({ extensionPath, mainPath, filename });
         const context: ExtensionContext = {
             subscriptions: [],
             extensionPath: rootPath,
@@ -126,6 +131,9 @@ export function runExtensionHostSubprocess(): void {
             // vscode API); без него activate() ruff падал на globalState.get.
             globalState: createExtensionMemento(true),
             workspaceState: createExtensionMemento(false),
+            // Секреты — в отличие от memento — переживают перезапуск: хранилище
+            // на хосте, в user-data. Лоток адресуется id расширения.
+            secrets: secrets.create(id),
             asAbsolutePath: (relativePath: string): string => path.join(rootPath, relativePath),
             // Приватные каталоги расширения. `storageUri` отсутствует, когда папка
             // не открыта — так же, как в vscode (`workspaceValue` там возвращает
@@ -141,9 +149,12 @@ export function runExtensionHostSubprocess(): void {
         const active: ActivatedExtension = { id, mod: loaded, context };
         extensions.set(id, active);
         try {
-            await loaded.activate(context);
+            // Возвращённое значение — публичный API расширения
+            // (`extensions.getExtension(id).exports`); больше его взять негде.
+            extensionExports.set(id, await loaded.activate(context));
         } catch (err) {
             extensions.delete(id);
+            extensionExports.delete(id);
             throw err;
         }
         return null;
@@ -154,6 +165,8 @@ export function runExtensionHostSubprocess(): void {
         const active = extensions.get(id);
         if (active === undefined) return null;
         extensions.delete(id);
+        // Снятое расширение больше не активно — его `exports` невалидны.
+        extensionExports.delete(id);
         await deactivate(active);
         return null;
     });
@@ -173,6 +186,7 @@ export function runExtensionHostSubprocess(): void {
     async function shutdown(): Promise<void> {
         const all = [...extensions.values()];
         extensions.clear();
+        extensionExports.clear();
         for (const active of all) {
             try {
                 await deactivate(active);
@@ -334,8 +348,12 @@ function parseExtensionId(raw: unknown): string {
  * Используем приватные API `Module._cache` и `Module._resolveFilename` —
  * стандартный приём расширений Node и оригинальный приём VS Code.
  */
-function installVscodeStub(rpc: RpcEndpoint): IDisposable & { configStore: WorkspaceConfigStore } {
-    const { namespace, configStore } = buildVscodeNamespace(rpc);
+function installVscodeStub(rpc: RpcEndpoint): IDisposable & {
+    configStore: WorkspaceConfigStore;
+    extensionExports: Map<string, unknown>;
+    secrets: IExtensionSecretsFactory;
+} {
+    const { namespace, configStore, extensionExports, secrets } = buildVscodeNamespace(rpc);
     const moduleAny = Module as unknown as {
         _cache: Record<string, { exports: unknown; loaded: boolean; id: string; filename: string }>;
         _resolveFilename: (request: string, parent: unknown, ...rest: unknown[]) => string;
@@ -357,6 +375,8 @@ function installVscodeStub(rpc: RpcEndpoint): IDisposable & { configStore: Works
 
     return {
         configStore,
+        extensionExports,
+        secrets,
         dispose: (): void => {
             moduleAny._resolveFilename = origResolve;
             Reflect.deleteProperty(moduleAny._cache, cacheKey);

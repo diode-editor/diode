@@ -1,6 +1,8 @@
 import type * as vscode from "vscode";
 
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
+import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
+import { createExtensionsNamespace } from "./extensionsNamespace.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
@@ -31,6 +33,7 @@ import {
     DocumentLink,
     EndOfLine,
     EventEmitter,
+    ExtensionKind,
     ExtensionMode,
     FileChangeType,
     FileDecoration,
@@ -92,6 +95,14 @@ import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 export interface IVscodeHost {
     readonly namespace: typeof vscode;
     readonly configStore: WorkspaceConfigStore;
+    /**
+     * Публичные API активированных расширений (id → возвращённое `activate()`),
+     * которые отдаёт `extensions.getExtension(id).exports`. Наполняет точка
+     * входа субпроцесса — только она видит результат `activate()`.
+     */
+    readonly extensionExports: Map<string, unknown>;
+    /** Фабрика `ExtensionContext.secrets` — по одному хранилищу на расширение. */
+    readonly secrets: IExtensionSecretsFactory;
 }
 
 /**
@@ -144,16 +155,14 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         openExternal: (): Thenable<boolean> => Promise.resolve(false),
     } as unknown;
 
-    // Наивный `extensions` — каталог установленных расширений субпроцессу не
-    // раздаётся, поэтому getExtension честно отвечает undefined (для типового
-    // потребителя это правильный ответ: pyright-семейство так детектит Pylance /
-    // ms-python, которых в Diode действительно нет). Состав каталога в жизни
-    // субпроцесса не меняется — onDidChange никогда не стреляет.
-    const extensions = {
-        all: [] as const,
-        getExtension: (): undefined => undefined,
-        onDidChange: new EventEmitter<void>().event,
-    } as unknown;
+    // Каталог установленных расширений приезжает от хоста (`extensions.catalog`
+    // семенем ДО первой активации, `extensions.activated` — на каждое оживление).
+    // Именно этим соседей детектят AI-автодополнения: раньше им всегда отвечали
+    // «ничего не установлено».
+    const { extensions, exportsById } = createExtensionsNamespace(rpc);
+    // Секреты расширения (`ExtensionContext.secrets`) — тоже за хостом: он
+    // владеет user-data, в которой они переживают перезапуск.
+    const secrets = createExtensionSecretsFactory(rpc);
 
     // Наивный `tasks` — провайдер регистрируется в никуда: слоя тасков в ядре
     // нет, и provideTasks никто никогда не позовёт (типовой потребитель —
@@ -234,6 +243,9 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         // context.extensionMode сравнивают с enum'ом (basedpyright выбирает между
         // bundled-сервером и dev-обвязкой) — без runtime-поля сравнение всегда false.
         ExtensionMode,
+        // `ext.extensionKind === vscode.ExtensionKind.Workspace` — тем же
+        // сравнением расширение решает, «свой» ли ему сосед из extensions.all.
+        ExtensionKind,
         LogLevel,
         ProgressLocation,
         MarkdownString,
@@ -289,5 +301,5 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         tasks,
     } as unknown as typeof vscode;
 
-    return { namespace, configStore: ctx.configStore };
+    return { namespace, configStore: ctx.configStore, extensionExports: exportsById, secrets };
 }

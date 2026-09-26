@@ -2102,3 +2102,126 @@ export function parseWireQuickPickResult(raw: unknown): IWireQuickPickResult {
     if (!Array.isArray(indices)) return { indices: null };
     return { indices: indices.filter((i): i is number => Number.isInteger(i) && i >= 0) };
 }
+
+// ─── Секреты расширения (ExtensionContext.secrets) ───────────────────────────
+// Хранилище живёт на хосте (он владеет раскладкой user-data), субпроцесс ходит
+// в него запросами. Адрес секрета — пара «id расширения + ключ»: у каждого
+// расширения свой лоток, как в эталоне.
+
+/** Адрес секрета: чей и какой. Общая форма запросов `secrets.get`/`secrets.delete`. */
+export interface IWireSecretRef {
+    readonly extensionId: string;
+    readonly key: string;
+}
+
+/** Запрос `secrets.store` — тот же адрес плюс значение. */
+export interface IWireSecretWrite extends IWireSecretRef {
+    readonly value: string;
+}
+
+/** Разбирает адрес секрета (`secrets.get`/`secrets.delete`/`secrets.changed`); `null` — форма чужая. */
+export function parseWireSecretRef(raw: unknown): IWireSecretRef | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеют проверки полей ниже
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as { extensionId?: unknown; key?: unknown };
+    if (typeof p.extensionId !== "string" || p.extensionId === "") return null;
+    if (typeof p.key !== "string" || p.key === "") return null;
+    return { extensionId: p.extensionId, key: p.key };
+}
+
+/**
+ * Разбирает `secrets.store`. Пустая строка — законный секрет (расширение вправе
+ * хранить и такое), поэтому у значения проверяется только тип.
+ */
+export function parseWireSecretWrite(raw: unknown): IWireSecretWrite | null {
+    const ref = parseWireSecretRef(raw);
+    if (ref === null) return null;
+    const { value } = raw as { value?: unknown };
+    if (typeof value !== "string") return null;
+    return { ...ref, value };
+}
+
+/** Разбирает `secrets.keys` (только id расширения); `null` — форма чужая. */
+export function parseWireSecretKeysRequest(raw: unknown): string | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    if (typeof raw !== "object" || raw === null) return null;
+    const { extensionId } = raw as { extensionId?: unknown };
+    return typeof extensionId === "string" && extensionId !== "" ? extensionId : null;
+}
+
+/**
+ * Разбирает ответ хоста на `secrets.get` (host → subprocess). `undefined` —
+ * секрета нет; `null` в проводе означает ровно это (JSON не возит `undefined`).
+ */
+export function parseWireSecretValue(raw: unknown): string | undefined {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    if (typeof raw !== "object" || raw === null) return undefined;
+    const { value } = raw as { value?: unknown };
+    return typeof value === "string" ? value : undefined;
+}
+
+/** Разбирает ответ хоста на `secrets.keys` (host → subprocess). */
+export function parseWireSecretKeys(raw: unknown): string[] {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    if (typeof raw !== "object" || raw === null) return [];
+    const { keys } = raw as { keys?: unknown };
+    if (!Array.isArray(keys)) return [];
+    return keys.filter((k): k is string => typeof k === "string");
+}
+
+// ─── Каталог расширений (vscode.extensions) ──────────────────────────────────
+
+/**
+ * Одно расширение в каталоге, который хост раздаёт субпроцессу
+ * (`extensions.catalog`). Поля — ровно то, из чего субпроцесс собирает
+ * `vscode.Extension`: `exports` берутся у себя (это возвращённое значение
+ * `activate()`, оно по проводу не ездит), а `extensionKind` не едет потому, что
+ * без удалённого extension host'а он по контракту `vscode.d.ts` всегда
+ * `ExtensionKind.UI` — константа стороны субпроцесса, а не знание хоста.
+ */
+export interface IWireExtensionDescription {
+    readonly id: string;
+    /** Корень установки: `Extension.extensionPath` и база `extensionUri`. */
+    readonly extensionPath: string;
+    /** Разобранный `package.json` расширения (`Extension.packageJSON`). */
+    readonly packageJSON: Readonly<Record<string, unknown>>;
+    readonly isActive: boolean;
+}
+
+/** Полный состав каталога (`extensions.catalog`, host → subprocess). */
+export interface IWireExtensionCatalog {
+    readonly extensions: readonly IWireExtensionDescription[];
+}
+
+/**
+ * Разбирает `extensions.catalog`; `null` — форма чужая (каталог не трогаем).
+ * Отдельные негодные записи выбрасываются, а не роняют весь каталог: состав —
+ * не транзакция, и потерять одного соседа лучше, чем всех.
+ */
+export function parseWireExtensionCatalog(raw: unknown): IWireExtensionCatalog | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    if (typeof raw !== "object" || raw === null) return null;
+    const { extensions } = raw as { extensions?: unknown };
+    if (!Array.isArray(extensions)) return null;
+    const parsed: IWireExtensionDescription[] = [];
+    for (const entry of extensions) {
+        if (typeof entry !== "object" || entry === null) continue;
+        const e = entry as { id?: unknown; extensionPath?: unknown; packageJSON?: unknown; isActive?: unknown };
+        if (typeof e.id !== "string" || e.id === "") continue;
+        if (typeof e.extensionPath !== "string" || e.extensionPath === "") continue;
+        const packageJSON =
+            typeof e.packageJSON === "object" && e.packageJSON !== null
+                ? (e.packageJSON as Record<string, unknown>)
+                : {};
+        parsed.push({ id: e.id, extensionPath: e.extensionPath, packageJSON, isActive: e.isActive === true });
+    }
+    return { extensions: parsed };
+}
+
+/** Разбирает `extensions.activated` (id расширения, которое только что ожило). */
+export function parseWireExtensionActivated(raw: unknown): string | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    if (typeof raw !== "object" || raw === null) return null;
+    const { id } = raw as { id?: unknown };
+    return typeof id === "string" && id !== "" ? id : null;
+}

@@ -92,16 +92,20 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
         }
     });
 
-    it("наивный vscode.extensions: getExtension → undefined, all — пустой", async () => {
+    it("vscode.extensions: незнакомый id → undefined, all — то, что реально зарегистрировано", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.context", "reportsContext.cjs")],
         });
         try {
             const report = (await harness.commandRegistry.execute("test.context.report")) as IContextReport;
             // pyright-семейство детектит Pylance через getExtension — честный
-            // undefined (сериализованный в null через RPC) вместо TypeError.
+            // undefined (сериализованный в null через RPC) вместо TypeError:
+            // Pylance в Diode действительно не установлен.
             expect(report.pylance).toBeNull();
-            expect(report.allExtensions).toEqual([]);
+            // А вот само это расширение в каталоге есть — раньше `all` был пуст
+            // всегда, и соседей детектить было нечем (подробности каталога — в
+            // extensionHost.extensionsCatalog.test.ts).
+            expect((report.allExtensions as { id: string }[]).map((e) => e.id)).toEqual(["test.context"]);
         } finally {
             await harness.dispose();
         }

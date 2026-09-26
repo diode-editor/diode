@@ -857,6 +857,23 @@ declare module "vscode" {
 	}
 
 	/**
+	 * In a remote window the extension kind describes if an extension
+	 * runs where the UI (window) runs or if an extension runs remotely.
+	 */
+	export enum ExtensionKind {
+
+		/**
+		 * Extension runs where the UI runs.
+		 */
+		UI = 1,
+
+		/**
+		 * Extension runs where the remote extension host runs.
+		 */
+		Workspace = 2
+	}
+
+	/**
 	 * Represents an extension.
 	 *
 	 * To get an instance of an `Extension` use {@link extensions.getExtension getExtension}.
@@ -888,6 +905,15 @@ declare module "vscode" {
 		 * The parsed contents of the extension's package.json.
 		 */
 		readonly packageJSON: any;
+
+		/**
+		 * The extension kind describes if an extension runs where the UI runs
+		 * or if an extension runs where the remote extension host runs. The extension kind
+		 * is defined in the `package.json`-file of extensions but can also be refined
+		 * via the `remote.extensionKind`-setting. When no remote extension host exists,
+		 * the value is {@linkcode ExtensionKind.UI}.
+		 */
+		extensionKind: ExtensionKind;
 
 		/**
 		 * The public API exported by this extension (return value of `activate`).
@@ -975,6 +1001,12 @@ declare module "vscode" {
 			 */
 			setKeysForSync(keys: readonly string[]): void;
 		};
+
+		/**
+		 * A secret storage object that stores state independent
+		 * of the current opened {@link workspace.workspaceFolders workspace}.
+		 */
+		readonly secrets: SecretStorage;
 
 		/**
 		 * The uri of the directory containing the extension.
@@ -1114,6 +1146,55 @@ declare module "vscode" {
 		 * @param value A value. MUST not contain cyclic references.
 		 */
 		update(key: string, value: any): Thenable<void>;
+	}
+
+	/**
+	 * The event data that is fired when a secret is added or removed.
+	 */
+	export interface SecretStorageChangeEvent {
+		/**
+		 * The key of the secret that has changed.
+		 */
+		readonly key: string;
+	}
+
+	/**
+	 * Represents a storage utility for secrets (or any information that is sensitive)
+	 * that will be stored encrypted. The implementation of the secret storage will
+	 * be different on each platform and the secrets will not be synced across
+	 * machines.
+	 */
+	export interface SecretStorage {
+		/**
+		 * Retrieve the keys of all the secrets stored by this extension.
+		 */
+		keys(): Thenable<string[]>;
+
+		/**
+		 * Retrieve a secret that was stored with key. Returns undefined if there
+		 * is no password matching that key.
+		 * @param key The key the secret was stored under.
+		 * @returns The stored value or `undefined`.
+		 */
+		get(key: string): Thenable<string | undefined>;
+
+		/**
+		 * Store a secret under a given key.
+		 * @param key The key to store the secret under.
+		 * @param value The secret.
+		 */
+		store(key: string, value: string): Thenable<void>;
+
+		/**
+		 * Remove a secret from storage.
+		 * @param key The key the secret was stored under.
+		 */
+		delete(key: string): Thenable<void>;
+
+		/**
+		 * Fires when a secret is stored or deleted.
+		 */
+		readonly onDidChange: Event<SecretStorageChangeEvent>;
 	}
 
 	/**

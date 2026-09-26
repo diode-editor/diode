@@ -35,6 +35,7 @@ import {
     type IQuickInputSink,
     type IStatusBarItemSink,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
+import type { IExtensionSecretStore } from "../vs/workbench/services/extensions/node/extensionSecretsStore.ts";
 import type { IExtensionStorageHomes } from "../vs/workbench/services/extensions/node/extensionStoragePaths.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
@@ -155,6 +156,12 @@ export interface IExtensionHarnessOptions {
      * файлы-фикстуры); `storageUri` при этом есть, как при открытой папке.
      */
     readonly storageHomes?: () => IExtensionStorageHomes;
+    /**
+     * Хранилище `ExtensionContext.secrets`. По умолчанию — in-memory (живёт
+     * ровно прогон). Тесты персистентности передают файловое, чтобы увидеть
+     * записанное на диске.
+     */
+    readonly secrets?: IExtensionSecretStore;
 }
 
 export interface IExtensionHarness {
@@ -248,6 +255,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         // расширения как `window.onDidChangeActiveColorTheme`.
         themeColorResolver: options.themeColorResolver ?? new ThemeColorResolverAdapter(themeService),
         ...(options.fileWatcher !== undefined ? { fileWatcher: options.fileWatcher } : {}),
+        ...(options.secrets !== undefined ? { secrets: options.secrets } : {}),
     });
 
     // Save-pipeline (WP6): проброс will-save/did-save между группой и хостом.

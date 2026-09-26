@@ -295,6 +295,7 @@ async function runEditor(): Promise<void> {
             globalStorageDir: userDataPaths.globalStorageDir,
             workspaceStorageDir: userDataPaths.workspaceStorageDir,
             logsDir: userDataPaths.logsDir,
+            secretsFile: userDataPaths.secretsFile,
         },
         reloadWindow,
     });
@@ -464,11 +465,11 @@ async function runEditor(): Promise<void> {
         try {
             const reg: IExtensionRegistration = {
                 id: ext.id,
-                manifest: {
-                    name: ext.manifest.name,
-                    publisher: ext.manifest.publisher,
-                    version: ext.manifest.version,
-                },
+                // Манифест целиком, а не тройка имя/издатель/версия: он же едет
+                // расширениям как `Extension.packageJSON` в `vscode.extensions`,
+                // и соседа по нему детектят не только по id (у AI-автодополнений
+                // в ходу `contributes`, `categories`, `engines`).
+                manifest: ext.manifest,
                 mainPath,
                 extensionPath,
                 configDefaults: {
@@ -496,11 +497,9 @@ async function runEditor(): Promise<void> {
             const source = await assets.readText(virtualPath);
             const reg: IExtensionRegistration = {
                 id: ext.id,
-                manifest: {
-                    name: ext.manifest.name,
-                    publisher: ext.manifest.publisher,
-                    version: ext.manifest.version,
-                },
+                // Целиком — как у user-расширений выше: это `packageJSON`
+                // встроенного расширения в каталоге `vscode.extensions`.
+                manifest: ext.manifest,
                 source,
                 // Синтетический абсолютный путь-идентичность (реального файла под SEA нет).
                 filename: `/${virtualPath}`,
