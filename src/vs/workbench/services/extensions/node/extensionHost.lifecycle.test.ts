@@ -605,6 +605,132 @@ describe("ExtensionHost — stdout/stderr piping", () => {
     });
 });
 
+/**
+ * Готовит следующий спавн: возвращённый ребёнок объявляет готовность сразу
+ * после того, как хост подпишется на его сообщения.
+ */
+function armNextChild(): FakeChild {
+    const child = new FakeChild();
+    spawnMock.mockImplementation((() => {
+        queueMicrotask(() => {
+            child.emitReady();
+        });
+        return child;
+    }) as never);
+    return child;
+}
+
+/** Активирован ли `id` в этом субпроцессе (по отправленному host.activateExtension). */
+function activated(child: FakeChild, id: string): boolean {
+    return child.sent.some(
+        (m) => m.kind === "req" && m.method === "host.activateExtension" && (m.params as { id: string }).id === id,
+    );
+}
+
+const DEATH_WARNING = "extension host subprocess died — resetting host state";
+
+describe("ExtensionHost — смерть субпроцесса", () => {
+    it("умерший субпроцесс гасит расширения, а следующее ЛЮБОЕ событие поднимает их заново", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+        expect(host.hasExtension("ext.a")).toBe(true);
+
+        child.simulateExit(1);
+
+        expect(logger.warn).toHaveBeenCalledWith(DEATH_WARNING);
+        expect(host.hasExtension("ext.a")).toBe(false);
+
+        // Событие НЕ из activationEvents расширения (там `*`): своё событие
+        // давно отгорело, и без оживления расширение не вернулось бы никогда.
+        const next = armNextChild();
+        await host.activateByEvent("onLanguage:python");
+
+        expect(activated(next, "ext.a")).toBe(true);
+        expect(host.hasExtension("ext.a")).toBe(true);
+    });
+
+    it("вежливое выключение смертью не считается", async () => {
+        const child = new FakeChild();
+        child.exitOnSignal = "SIGTERM";
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        host.dispose();
+        await waitUntil(() => child.signals.length > 0);
+
+        expect(logger.warn).not.toHaveBeenCalledWith(DEATH_WARNING);
+    });
+
+    it("снятая до оживления регистрация обратно не поднимается", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        const registration = await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.simulateExit(1);
+        registration.dispose();
+
+        const next = armNextChild();
+        await host.activateByEvent("*");
+
+        expect(activated(next, "ext.a")).toBe(false);
+    });
+
+    it("снятое расширение после смерти не воскресает", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        await host.unregisterExtension("ext.a");
+        child.simulateExit(1);
+
+        const next = armNextChild();
+        await host.activateByEvent("*");
+
+        expect(activated(next, "ext.a")).toBe(false);
+    });
+
+    it("не воскресает и то, что сняли между двумя смертями", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        const a = await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+        // Второе расширение держит хост живым: без него оживлять было бы нечего
+        // и второй смерти неоткуда взяться.
+        host.registerExtension(makeReg("ext.b", "/b.js"));
+        await host.activateByEvent("*");
+
+        child.simulateExit(1);
+        a.dispose();
+
+        const second = armNextChild();
+        await host.activateByEvent("*");
+        expect(activated(second, "ext.b")).toBe(true);
+
+        second.simulateExit(1);
+        const third = armNextChild();
+        await host.activateByEvent("*");
+
+        expect(activated(third, "ext.b")).toBe(true);
+        expect(activated(third, "ext.a")).toBe(false);
+    });
+
+    it("выключенный хост расширения не оживляет", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.simulateExit(1);
+        host.dispose();
+
+        spawnMock.mockClear();
+        await host.activateByEvent("*");
+
+        expect(spawnMock).not.toHaveBeenCalled();
+    });
+});
+
 describe("ExtensionHost — subprocess events", () => {
     it("logs subprocess error events", async () => {
         const child = new FakeChild();
@@ -617,15 +743,18 @@ describe("ExtensionHost — subprocess events", () => {
         expect(logger.error).toHaveBeenCalledWith("extension host subprocess error", expect.any(Error));
     });
 
-    it("skips signalling when the subprocess has already exited before dispose", async () => {
+    it("не тревожит субпроцесс, умерший до выключения: ни host.shutdown, ни сигналов", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
         child.simulateExit(0); // subprocess gone before we tear down
+        // Смерть уже разобрана хостом (handleSubprocessDeath): ссылок на канал
+        // нет, и выключению нечего и некому слать.
         host.dispose();
+        await new Promise((r) => setTimeout(r, 20));
 
-        await waitUntil(() => child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown"));
+        expect(child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown")).toBe(false);
         expect(child.signals).toEqual([]); // no SIGTERM/SIGKILL — it was already dead
     });
 });

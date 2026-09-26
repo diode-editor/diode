@@ -27,7 +27,8 @@
     "valid-layers-check": "node scripts/check-layers.mjs",
     "office": "agent-office .",
     "office:dry": "node scripts/office-dry-run.mjs",
-    "import:vscode-diff": "node scripts/import-vscode-diff.mjs"
+    "import:vscode-diff": "node scripts/import-vscode-diff.mjs",
+    "import:codicons": "node scripts/import-codicons.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -59,12 +60,12 @@
     "yazl": "^3.3.1"
   },
   "dependencies": {
-    "@tuidom/core": "^0.2.1",
-    "@tuidom/elements": "^0.2.1",
-    "@tuidom/headless-backend": "^0.2.1",
-    "@tuidom/inspector": "^0.2.1",
-    "@tuidom/terminal-backend": "^0.2.1",
-    "@tuidom/testing": "^0.2.1",
+    "@tuidom/core": "^0.2.3",
+    "@tuidom/elements": "^0.2.3",
+    "@tuidom/headless-backend": "^0.2.3",
+    "@tuidom/inspector": "^0.2.3",
+    "@tuidom/terminal-backend": "^0.2.3",
+    "@tuidom/testing": "^0.2.3",
     "@vscode/ripgrep": "^1.18.0",
     "@xterm/headless": "^6.0.0",
     "chokidar": "^5.0.0",

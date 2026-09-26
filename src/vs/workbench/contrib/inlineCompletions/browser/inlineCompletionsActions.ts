@@ -11,10 +11,20 @@ import { InlineCompletionsServiceDIToken } from "./inlineCompletionsService.ts";
 // зарегистрированный с проходящим `when`, поэтому при открытом попапе Tab
 // достаётся acceptSelectedSuggestion (у commit к тому же `!suggestWidgetVisible`).
 
-/** Явный запрос подсказки у каретки (без дебаунса, `InlineCompletionTriggerKind.Invoke`). */
+/**
+ * Явный запрос подсказки у каретки (без дебаунса,
+ * `InlineCompletionTriggerKind.Invoke`) — работает и при выключенном
+ * `editor.inlineSuggest.enabled`, это и есть ручной режим.
+ *
+ * Alt+\ — не из ядра vscode (там у команды дефолтной клавиши нет вовсе);
+ * комбинация приходит от расширения GitHub Copilot, пользователь её знает, а
+ * конфликта у нас нет. Терминал шлёт её как ESC + `\`, что разбирается в
+ * `{key: "\\", altKey: true}` (tuidom `tokenize` → `esc-char`).
+ */
 export const triggerInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.trigger",
     title: "Trigger Inline Suggestion",
+    keybinding: parseKeybinding("alt+\\"),
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         void accessor.get(InlineCompletionsServiceDIToken).trigger(InlineCompletionTriggerKind.Invoke);
@@ -37,12 +47,18 @@ export const commitInlineSuggestAction: CommandAction = {
     },
 };
 
-/** Спрятать показанную подсказку (Escape). */
+/**
+ * Спрятать показанную подсказку (Escape) — и отменить запрос, который ещё в
+ * полёте: `inlineSuggestionRequestPending` продлевает биндинг на окно ожидания
+ * ответа, когда показывать ещё нечего. Гейт по `textInputFocus` обязателен:
+ * ожидание невидимо, и без него Escape в find-виджете или квик-пике уходил бы
+ * призрачным подсказкам.
+ */
 export const hideInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.hide",
     title: "Hide Inline Suggestion",
     keybinding: parseKeybinding("escape"),
-    when: "inlineSuggestionVisible",
+    when: "inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)",
     run(accessor) {
         accessor.get(InlineCompletionsServiceDIToken).hide();
     },

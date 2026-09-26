@@ -20,7 +20,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -297,9 +297,8 @@ function isUnchecked(mutant) {
  * Отдельно возвращает тех, на ком раннер упал и в точечном прогоне: их не
  * проверил ни один из двух прогонов, и молчать об этом нельзя.
  */
-function mergeRecheckIntoReport(firstReport) {
-    const recheckReport = readReport();
-    if (firstReport === null || recheckReport === null) return { rechecked: 0, stillCrashed: [] };
+function mergeRecheckIntoReport(firstReport, recheckReport) {
+    if (firstReport === null) return { rechecked: 0, stillCrashed: [] };
     let rechecked = 0;
     const stillCrashed = [];
     const killedOnRecheck = new Set();
@@ -375,14 +374,48 @@ console.log(
 for (const entry of recheck) console.log(`  ${entry}`);
 
 const firstReport = readReport();
+// Отчёт первого прогона убираем с дороги. Stryker пишет отчёт в самом конце, и
+// если точечный прогон умрёт раньше — штатный случай, его initial test run
+// гоняет ВЕСЬ сьют, включая сетевые тесты стоковых расширений, — на диске
+// останется отчёт ПЕРВОГО прогона. Читая его как результат перепроверки, гейт
+// объявлял бы «эти мутанты упали и в точечном прогоне» там, где точечного
+// прогона не было вовсе (ровно так и вышло в #339). Картину первого прогона
+// держим в памяти и возвращаем на диск ниже — из неё собирается комментарий в PR.
+rmSync(REPORT_PATH, { force: true });
+
 // `--disableBail` именно здесь: потерянный прогон — это прогон, стартовавший
 // следом за оборванным по bail, поэтому перепроверка с включённым bail сама
 // теряет часть мутантов и выдаёт новых «выживших» вместо вердикта. На полном
 // прогоне флаг неподъёмен (docs/TESTING.md), но скоуп перепроверки — единицы
 // мутантов по одной строке, и цена «все покрывающие тесты на мутанта» тут
 // секунды. Без него вердикт второго прогона нестабилен от запуска к запуску.
-const recheckStatus = runStryker(recheck, ["--disableBail"]).status ?? 1;
-const { rechecked, stillCrashed } = mergeRecheckIntoReport(firstReport);
+let recheckStatus = runStryker(recheck, ["--disableBail"]).status ?? 1;
+
+// Нет отчёта — прогон не доехал до конца, и о мутантах он не сказал ничего.
+// Почти всегда это флак его initial test run, а не находка, поэтому один повтор
+// дешевле красного PR: скоуп перепроверки — единицы мутантов по одной строке.
+if (readReport() === null) {
+    console.log(
+        "\nТочечный прогон не оставил отчёта — повторяю один раз " +
+            "(обычно Stryker падает на initial test run, а не на самих мутантах).",
+    );
+    recheckStatus = runStryker(recheck, ["--disableBail"]).status ?? 1;
+}
+
+const recheckReport = readReport();
+if (recheckReport === null) {
+    // Возвращаем картину первого прогона: без неё шаг «Report mutants» решит,
+    // что мутировать было нечего, и PR останется вообще без отчёта.
+    writeFileSync(REPORT_PATH, JSON.stringify(firstReport));
+    console.error(
+        "\nТочечный прогон дважды не дошёл до отчёта — вердикта по непроверенным мутантам нет. " +
+            "Смотри его вывод выше: в initial test run гоняется весь сьют, включая сетевые тесты " +
+            "стоковых расширений, и падение там роняет прогон целиком.",
+    );
+    process.exit(1);
+}
+
+const { rechecked, stillCrashed } = mergeRecheckIntoReport(firstReport, recheckReport);
 
 // Пустая перепроверка — тихо-зелёный гейт: Stryker на скоупе без мутантов
 // выходит нулём. Падаем громко, иначе «ничего не проверили» станет «всё хорошо».

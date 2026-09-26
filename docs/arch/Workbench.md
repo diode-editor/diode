@@ -356,12 +356,20 @@ hide-toggle (`isHiddenByDefault`). См.
     `unthemedQuickPickStyles` — пикер пока на исторической unthemed-палитре,
     маппинг на ключи темы — отдельная задача.
   - `Services/QuickInputService.ts` — VS Code-style QuickInput: `input(opts)`
-    (InputBox: title/prompt/placeholder/value/`validateInput`; Enter блокируется
-    hard-ошибкой) и `quickPick(opts)` (фильтруемый список, `activeIndex`,
-    `onDidChangeActive` — шов live-preview). Промисы резолвятся значением/
-    выбранным айтемом или `undefined` при отмене; новый вызов отменяет
-    предыдущий. На каждый показ полностью ре-инициализирует состояние и колбэки
-    общего виджета.
+    (InputBox: title/prompt/placeholder/value/`password`/`validateInput` —
+    сообщение валидации несёт строгость, Enter блокирует только ошибка;
+    валидация может быть асинхронной, устаревшие ответы отбрасываются),
+    `quickPick(opts)` (фильтруемый список, `activeIndex`, `onDidChangeActive` —
+    шов live-preview) и `quickPickMany(opts)` (чекбоксы, `Space` переключает,
+    ответ — в порядке исходного списка; пустой набор ≠ отмена). Промисы
+    резолвятся значением/выбранным айтемом или `undefined` при отмене; новый
+    вызов отменяет предыдущий. На каждый показ полностью ре-инициализирует
+    состояние и колбэки общего виджета.
+    **Флейворное состояние общего виджета сбрасывает `resetFlavorState()`** —
+    обязательный первый шаг ЛЮБОГО показа (и у Quick Open тоже): чекбоксы
+    множественного выбора и маска поля пароля иначе протекают в следующего
+    хозяина — палитра рисовала бы `[ ]` перед каждой командой, а Quick Open —
+    звёздочки вместо запроса.
   - `Services/QuickAccess/` — contribution point провайдеров Quick Open
     (аналог `IQuickAccessRegistry` vscode,
     `vs/platform/quickinput/common/quickAccess.ts`): `QuickAccessRegistry`
@@ -653,7 +661,14 @@ hide-toggle (`isHiddenByDefault`). См.
     `onDidActiveGroupChange`), команды про него не знают; overlay-сессия —
     passthrough без фокуса и без гашения глобальных биндов, хост — late-init
     шов `attachHost(BodyElement)`. Элемент — композиция `QuickPickFrameElement`
-    + HFlex-строк, презентационный (ввода не принимает).
+    + HFlex-строк, презентационный (ввода не принимает). Шагать по видимому
+    списку можно и стрелками: `tabActions.ts` вешает на `nextEditorInGroup`/
+    `previousEditorInGroup` дополнительные бинды Ctrl+Вниз/Ctrl+Вверх (+
+    Shift-варианты для серии с Ctrl+Shift+Tab) под `when: tabSwitcherVisible` —
+    контекст-ключ, который `WorkbenchContextKeys` берёт из **видимости
+    оверлея** (`TabSwitcherComponent.isOpen()`). Он же разводит их с
+    `scrollLineUp`/`scrollLineDown`, сидящими на тех же аккордах: список погас —
+    прокрутка редактора вернулась.
   - `Parts/Editor/DiffEditorPane2.ts` — живая дифф-вкладка (DiffEditable):
     **композиция двух настоящих редакторов** — стороны это `TextFileModel` +
     `EditorComponent` в `TextEditorPane` (file-сторона — общая модель из

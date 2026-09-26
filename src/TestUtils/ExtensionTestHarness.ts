@@ -31,6 +31,8 @@ import {
     type IExtensionHostConfigProvider,
     type IOutputSink,
     type IProgressSink,
+    type IQuickInputSink,
+    type IStatusBarItemSink,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
@@ -127,6 +129,13 @@ export interface IExtensionHarnessOptions {
     readonly progressSink?: IProgressSink;
     /** Сток output-каналов расширений (`output.append`/`show`). По умолчанию не подключён. */
     readonly outputSink?: IOutputSink;
+    /** Сток пунктов статус-бара расширений (`window.statusBarItem.*`). По умолчанию не подключён. */
+    readonly statusBarItemSink?: IStatusBarItemSink;
+    /**
+     * Сток ввода расширений (`window.showInputBox`/`showQuickPick`). По умолчанию
+     * не подключён — расширение мгновенно получает «отменено».
+     */
+    readonly quickInputSink?: IQuickInputSink;
     /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
     /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
@@ -212,6 +221,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
         ...(options.progressSink !== undefined ? { progressSink: options.progressSink } : {}),
         ...(options.outputSink !== undefined ? { outputSink: options.outputSink } : {}),
+        ...(options.statusBarItemSink !== undefined ? { statusBarItemSink: options.statusBarItemSink } : {}),
+        ...(options.quickInputSink !== undefined ? { quickInputSink: options.quickInputSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         ...(options.themeColorResolver !== undefined ? { themeColorResolver: options.themeColorResolver } : {}),
@@ -234,7 +245,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         group.completionTriggerCharacters = characters;
     });
     // Inline completions (ghost text): источник призрачных подсказок — как в extensionHostModule.
-    group.inlineCompletionSource = (req) => host.provideInlineCompletions(req);
+    group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
     // Definition (LSP): источник целей Go to Definition — как в extensionHostModule.
     group.definitionSource = (req) => host.provideDefinition(req);
     // Hover (LSP): источник hover'ов — как в extensionHostModule.

@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import { CancellationTokenNone, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
@@ -53,6 +54,12 @@ import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../ap
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
     type IWireDocumentSyncSnapshot,
+    type IWireInputBoxRequest,
+    type IWireInputBoxResult,
+    type IWireQuickPickRequest,
+    type IWireQuickPickResult,
+    type IWireStatusBarItem,
+    type IWireValidationMessage,
     type IWireWatcherCreate,
     type IWireWatcherEvent,
     parseDecorationRanges,
@@ -62,14 +69,20 @@ import {
     parseWireDiagnosticsPublish,
     parseWireEditorEdits,
     parseWireFileDecorations,
+    parseWireInputBoxRequest,
     parseWireOutputAppend,
     parseWireOutputShow,
     parseWireProgressEnd,
     parseWireProgressReport,
     parseWireProgressStart,
+    parseWireQuickInputCancel,
+    parseWireQuickPickRequest,
     parseWireReadFileResult,
     parseWireSelections,
     parseWireShowTextDocumentParams,
+    parseWireStatusBarItem,
+    parseWireStatusBarItemDispose,
+    parseWireValidationMessage,
     parseWireWatcherCreate,
     parseWireWatcherDispose,
     requestApplyCodeAction,
@@ -120,6 +133,44 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 export interface IOutputSink {
     append(channel: string, label: string, level: WireOutputLevel, value: string): void;
     show(channel: string, label: string): void;
+}
+
+/**
+ * Сток пунктов статус-бара расширений (`window.createStatusBarItem` →
+ * `window.statusBarItem.*`): потребитель (module/харнесс) держит запись полосы
+ * на каждый живой пункт. `update` — upsert полного состояния, `remove` —
+ * `hide()`/`dispose()` со стороны расширения, `clear` — субпроцесс умер и его
+ * `remove` уже не придёт.
+ */
+export interface IStatusBarItemSink {
+    update(item: IWireStatusBarItem): void;
+    remove(handle: number): void;
+    clear(): void;
+}
+
+/**
+ * Сток ввода от расширений (`window.showInputBox` / `window.showQuickPick`):
+ * потребитель (module/харнесс) поднимает QuickInput-оверлей приложения и
+ * резолвится тем, что человек ввёл/выбрал, либо `undefined` на отмене.
+ *
+ * `cancel(handle)` закрывает показ извне — токеном отмены расширения или
+ * смертью его процесса. Закрытие ОБЯЗАНО довести обещание расширения до
+ * `undefined`: иначе команда расширения зависает навсегда и этого ниоткуда
+ * не видно.
+ */
+export interface IQuickInputSink {
+    showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined>;
+    showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined>;
+    cancel(handle: number): void;
+}
+
+/**
+ * Просьба показать поле ввода плюс канал валидации: сама валидация живёт в
+ * расширении, поэтому сток зовёт её через границу процессов на каждое изменение
+ * значения. `undefined` вместо колбэка — у расширения `validateInput` нет.
+ */
+export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
+    readonly validate?: (value: string) => Promise<IWireValidationMessage | null>;
 }
 
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
@@ -294,6 +345,20 @@ export interface IExtensionHostOptions {
      */
     readonly outputSink?: IOutputSink;
     /**
+     * Сток пунктов статус-бара расширений (`window.createStatusBarItem` → notify
+     * `window.statusBarItem.*`). Если не передан — пункты отбрасываются. При
+     * смерти subprocess'а host сам зовёт `clear()`: `dispose` от умершего
+     * расширения уже не придёт, а его пункты в полосе висеть не должны.
+     */
+    readonly statusBarItemSink?: IStatusBarItemSink;
+    /**
+     * Сток ввода от расширений (`window.showInputBox` / `window.showQuickPick`).
+     * Если не передан — расширение мгновенно получает «отменено» (`undefined`),
+     * а не зависает. При смерти subprocess'а host сам гасит живые показы, чтобы
+     * оверлей не остался на экране без хозяина.
+     */
+    readonly quickInputSink?: IQuickInputSink;
+    /**
      * Снимки ВСЕХ открытых документов для наполнения `workspace.textDocuments`
      * на `host.ready` (по одному на документ; см. `openDocumentSnapshots`).
      * Хост пушит их как `editor.didOpen` при готовности subprocess'а — чтобы
@@ -376,6 +441,15 @@ export class ExtensionHost extends Disposable {
     /** Держимые файловые декорации: absPath → { badge?, colorId? }. Пере-резолвятся при смене темы. */
     private readonly fileDecorationState = new Map<string, { badge?: string; colorId?: string }>();
     private readonly extensions = new Set<string>();
+    /** Регистрации уже активированных расширений (нужны для оживления после смерти субпроцесса). */
+    private readonly activatedRegistrations = new Map<string, IExtensionRegistration>();
+    /**
+     * Расширения, пережившие смерть субпроцесса. Поднимаются на ЛЮБОМ
+     * следующем событии активации, а не только на «своём»: их событие
+     * (`onStartupFinished`, `onLanguage:<уже открытый язык>`) давно отгорело и
+     * второй раз не наступит, а расширение было активно и должно вернуться.
+     */
+    private readonly toRevive = new Map<string, IExtensionRegistration>();
     /**
      * Зарегистрированные, но ещё не активированные расширения (id → reg).
      * Заполняется `registerExtension`, опустошается `activateByEvent` по мере
@@ -429,8 +503,16 @@ export class ExtensionHost extends Disposable {
     private readonly diagnosticsSink: DiagnosticsSink | undefined;
     private readonly progressSink: IProgressSink | undefined;
     private readonly outputSink: IOutputSink | undefined;
+    private readonly statusBarItemSink: IStatusBarItemSink | undefined;
+    private readonly quickInputSink: IQuickInputSink | undefined;
     /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
     private readonly activeProgressHandles = new Set<number>();
+    /**
+     * Живые показы quick input'а. На смерти субпроцесса всем шлётся `cancel`:
+     * иначе оверлей расширения остался бы на экране без хозяина, а ответить на
+     * него было бы уже некому.
+     */
+    private readonly activeQuickInputHandles = new Set<number>();
     private readonly fileWatcher: IExtensionFileWatcher;
     /** Живые watcher'ы субпроцесса (`workspace.createFileSystemWatcher`) по id. */
     private readonly fileWatchers = new Map<number, IDisposable>();
@@ -481,6 +563,8 @@ export class ExtensionHost extends Disposable {
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
         this.outputSink = options.outputSink;
+        this.statusBarItemSink = options.statusBarItemSink;
+        this.quickInputSink = options.quickInputSink;
         // Смена темы → пере-резолв держимых декораций в обе поверхности.
         this.register(
             this.themeColorResolver.onDidChange(() => {
@@ -497,7 +581,7 @@ export class ExtensionHost extends Disposable {
      */
     public registerExtension(reg: IExtensionRegistration): IDisposable {
         if (this.hostDisposed) throw new Error("ExtensionHost disposed");
-        if (this.extensions.has(reg.id) || this.pending.has(reg.id)) {
+        if (this.extensions.has(reg.id) || this.pending.has(reg.id) || this.toRevive.has(reg.id)) {
             throw new Error(`Extension "${reg.id}" already registered`);
         }
         // Инвариант загрузки: ровно один способ (source XOR mainPath). Проверяем
@@ -518,6 +602,7 @@ export class ExtensionHost extends Disposable {
         this.pending.set(reg.id, reg);
         return {
             dispose: (): void => {
+                if (this.toRevive.delete(reg.id)) return; // ждало оживления — уже не ждёт
                 if (this.pending.delete(reg.id)) return; // ещё не активировано
                 if (!this.extensions.has(reg.id)) return;
                 void this.unregisterExtension(reg.id);
@@ -533,9 +618,10 @@ export class ExtensionHost extends Disposable {
      * `host.activateExtension`.
      */
     public async activateByEvent(event: string): Promise<void> {
-        // Disposed-случай покрыт неявно: dispose() чистит `pending`, поэтому
-        // `toActivate` окажется пустым и метод выйдет до ensureSubprocess.
-        const toActivate: IExtensionRegistration[] = [];
+        // Disposed-случай покрыт неявно: dispose() чистит и `pending`, и
+        // `toRevive`, поэтому `toActivate` окажется пустым и метод выйдет до
+        // ensureSubprocess.
+        const toActivate: IExtensionRegistration[] = [...this.toRevive.values()];
         for (const reg of this.pending.values()) {
             if (normalizeActivationEvents(reg.activationEvents).includes(event)) toActivate.push(reg);
         }
@@ -545,7 +631,7 @@ export class ExtensionHost extends Disposable {
         const rpc = await this.ensureSubprocess();
         for (const reg of toActivate) {
             // Второй guard на случай, если параллельный activateByEvent уже занялся им.
-            if (!this.pending.delete(reg.id)) continue;
+            if (!this.pending.delete(reg.id) && !this.toRevive.delete(reg.id)) continue;
             // Per-extension изоляция: упавший `activate()` одного расширения не
             // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
             try {
@@ -558,6 +644,7 @@ export class ExtensionHost extends Disposable {
                     configDefaults: reg.configDefaults,
                 });
                 this.extensions.add(reg.id);
+                this.activatedRegistrations.set(reg.id, reg);
                 this.logger?.info(`activated extension "${reg.id}"`);
             } catch (err) {
                 this.logger?.error(`failed to activate extension "${reg.id}"`, err);
@@ -568,6 +655,7 @@ export class ExtensionHost extends Disposable {
     public async unregisterExtension(id: string): Promise<void> {
         if (!this.extensions.has(id)) return;
         this.extensions.delete(id);
+        this.activatedRegistrations.delete(id);
         const rpc = this.rpc;
         /* v8 ignore start -- defensive: an extension can only be in `extensions` after ensureSubprocess set `rpc`; dispose() clears `extensions` before nulling `rpc`, so rpc is never null while the id is still registered */
         if (rpc === null) return;
@@ -751,11 +839,18 @@ export class ExtensionHost extends Disposable {
      * Запрашивает у субпроцесса инлайн-подсказки для позиции каретки
      * (`languages.provideInlineCompletions`). Возвращает `[]`, если субпроцесса
      * нет, никто не зарегистрировал провайдеры, документ слишком большой или
-     * расширение не ответило за `inlineCompletionTimeoutMs`. Подключается в
+     * расширение не ответило за отпущенный срок. Подключается в
      * `EditorService.inlineCompletionSource` (wiring в module/харнессе).
+     *
+     * Срок берётся из САМОГО запроса (`req.timeoutMs` —
+     * `editor.inlineSuggest.requestTimeout`), и только в его отсутствие — из
+     * `inlineCompletionTimeoutMs` хоста. Асимметрия с остальным семейством
+     * таймаутов осознанная: остальные фиксируются при создании хоста, а этот
+     * человек правит в settings.json и ждёт эффекта без перезапуска.
      */
     public async provideInlineCompletions(
         req: IInlineCompletionRequest,
+        token: ICancellationToken = CancellationTokenNone,
     ): Promise<readonly ICoreInlineCompletionItem[]> {
         const rpc = this.rpc;
         // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
@@ -772,7 +867,7 @@ export class ExtensionHost extends Disposable {
         // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration
         /* v8 ignore stop */
         return requestInlineCompletions(
-            (method, params) => rpc.request(method, params),
+            (method, params, cancellation) => rpc.request(method, params, cancellation),
             {
                 uri: req.uri,
                 languageId: req.languageId,
@@ -781,7 +876,8 @@ export class ExtensionHost extends Disposable {
                 character: req.character,
                 triggerKind: req.triggerKind,
             },
-            this.options.inlineCompletionTimeoutMs,
+            req.timeoutMs ?? this.options.inlineCompletionTimeoutMs,
+            token,
         );
     }
 
@@ -1177,7 +1273,10 @@ export class ExtensionHost extends Disposable {
         if (this.hostDisposed) return;
         this.hostDisposed = true;
         this.pending.clear();
+        this.toRevive.clear();
         this.extensions.clear();
+        // Stryker disable next-line CallExpression: гигиена — после dispose карту уже никто не читает (оживление отсекает пустой toRevive), наблюдаемой разницы нет
+        this.activatedRegistrations.clear();
         this.disposeFileWatchers();
         void this.shutdownSubprocess();
         super.dispose();
@@ -1241,6 +1340,7 @@ export class ExtensionHost extends Disposable {
         }
         child.once("exit", (code, signal) => {
             this.logger?.info("extension host subprocess exited", { code, signal });
+            this.handleSubprocessDeath(child);
         });
         child.once("error", (err) => {
             this.logger?.error("extension host subprocess error", err);
@@ -1516,6 +1616,19 @@ export class ExtensionHost extends Disposable {
             this.activeProgressHandles.delete(end.handle);
             this.progressSink?.end(end.handle);
         });
+        // Пункт статус-бара расширения (`window.createStatusBarItem`) показан или
+        // изменён / снят — отдаём стоку (module ведёт в StatusBarService).
+        // `update` — полное состояние, а не дельта: у хоста нет своей копии пункта.
+        rpc.handleNotification("window.statusBarItem.update", (params) => {
+            const item = parseWireStatusBarItem(params);
+            if (item === null) return;
+            this.statusBarItemSink?.update(item);
+        });
+        rpc.handleNotification("window.statusBarItem.dispose", (params) => {
+            const removed = parseWireStatusBarItemDispose(params);
+            if (removed === null) return;
+            this.statusBarItemSink?.remove(removed.handle);
+        });
         // Строка output-канала расширения / просьба показать канал — отдаём
         // стоку (module ведёт в реестр Output + логгер + команду show).
         rpc.handleNotification("output.append", (params) => {
@@ -1534,6 +1647,61 @@ export class ExtensionHost extends Disposable {
             const publish = parseWireDiagnosticsPublish(params);
             if (publish === null) return;
             this.diagnosticsSink?.(publish.owner, publish.resource, publish.markers);
+        });
+        // ─── Quick input (ввод и выбор по просьбе расширения) ────────────────
+        // Показ адресуется handle'ом расширения. Валидацию хост спрашивает
+        // обратным запросом в тот же субпроцесс — она живёт в расширении.
+        rpc.handleRequest("window.showInputBox", async (params): Promise<IWireInputBoxResult> => {
+            const request = parseWireInputBoxRequest(params);
+            // Мусорные параметры или отсутствующий сток — «человек отменил»:
+            // расширение получает undefined сразу, а не зависает навсегда.
+            if (request === null || this.quickInputSink === undefined) return { value: null };
+            const sink = this.quickInputSink;
+            // Именованной константой, а не стрелкой внутри спреда: Stryker
+            // разбирает исходник своим babel'ом и на типизированной стрелке в
+            // спред-тернарнике падает (`Did not expect a type annotation here`).
+            const askExtension = async (text: string): Promise<IWireValidationMessage | null> => {
+                try {
+                    const answer = await rpc.request("window.inputBox.validate", {
+                        handle: request.handle,
+                        value: text,
+                    });
+                    return parseWireValidationMessage(answer);
+                } catch {
+                    // Расширение упало на валидации — считаем значение годным,
+                    // а не вешаем поле навсегда.
+                    return null;
+                }
+            };
+            this.activeQuickInputHandles.add(request.handle);
+            try {
+                const value = await sink.showInputBox({
+                    ...request,
+                    ...(request.validates ? { validate: askExtension } : {}),
+                });
+                return { value: value ?? null };
+            } finally {
+                this.activeQuickInputHandles.delete(request.handle);
+            }
+        });
+        rpc.handleRequest("window.showQuickPick", async (params): Promise<IWireQuickPickResult> => {
+            const request = parseWireQuickPickRequest(params);
+            if (request === null || this.quickInputSink === undefined) return { indices: null };
+            this.activeQuickInputHandles.add(request.handle);
+            try {
+                const indices = await this.quickInputSink.showQuickPick(request);
+                return { indices: indices ?? null };
+            } finally {
+                this.activeQuickInputHandles.delete(request.handle);
+            }
+        });
+        // Токен отмены расширения стрельнул — снимаем показ, обещание расширения
+        // доводится до undefined закрытием оверлея.
+        rpc.handleNotification("window.quickInput.cancel", (params) => {
+            const handle = parseWireQuickInputCancel(params);
+            if (handle === null) return;
+            // Stryker disable next-line OptionalChaining: ветка «стока нет» ниже по коду недостижима из тестов иначе как этим же путём, а без стока обращение кинуло бы
+            this.quickInputSink?.cancel(handle);
         });
         rpc.handleNotification("window.showMessage", (params) => {
             const { severity, message } = params as { severity?: unknown; message?: unknown };
@@ -1669,10 +1837,14 @@ export class ExtensionHost extends Disposable {
         this.proxyCommands.clear();
     }
 
-    private async shutdownSubprocess(): Promise<void> {
-        const rpc = this.rpc;
-        const channel = this.channel;
-        const child = this.subprocess;
+    /**
+     * Сбрасывает всё, что принадлежало ушедшему субпроцессу: ссылки на канал,
+     * флаги подписок и поверхности, которые он держал (спиннеры, пункты полосы,
+     * декорации, прокси-команды). Общий для вежливого выключения
+     * ({@link shutdownSubprocess}) и для внезапной смерти
+     * ({@link handleSubprocessDeath}).
+     */
+    private resetSubprocessState(): void {
         this.rpc = null;
         this.channel = null;
         this.subprocess = null;
@@ -1699,6 +1871,15 @@ export class ExtensionHost extends Disposable {
         // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.
         for (const handle of this.activeProgressHandles) this.progressSink?.end(handle);
         this.activeProgressHandles.clear();
+        // Та же причина у пунктов статус-бара: `dispose` от умершего расширения
+        // не придёт никогда, а его пункты в полосе висеть не должны.
+        this.statusBarItemSink?.clear();
+        // …и у его оверлеев ввода: отвечать на них стало некому, а на экране они
+        // остались бы навсегда.
+        // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока, поэтому пары «набор непуст, а стока нет» не бывает; `?.` стоит защитой
+        for (const handle of this.activeQuickInputHandles) this.quickInputSink?.cancel(handle);
+        // Stryker disable next-line CallExpression: гигиена набора; второй проход по нему невозможен — host после остановки субпроцесса этот код повторно не исполняет
+        this.activeQuickInputHandles.clear();
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).
         this.decorationTypes.clear();
@@ -1707,6 +1888,31 @@ export class ExtensionHost extends Disposable {
         // Прокси-команды указывали на умирающий сабпроцесс — снимаем их из
         // общего DI-синглтона CommandRegistry, чтобы не оставить висячие записи.
         this.clearProxyCommands();
+    }
+
+    /**
+     * Субпроцесс умер сам (расширение уронило свой процесс, OOM, краш нативного
+     * модуля). Хост остаётся жив: снимаем всё, что принадлежало умершему, и
+     * ставим активные расширения в очередь на оживление — следующий
+     * `activateByEvent` поднимет субпроцесс заново и активирует их. Без этого
+     * пункты статус-бара и прокси-команды мертвеца висели бы до перезапуска
+     * редактора, а `rpc` указывал бы на закрытый канал.
+     */
+    private handleSubprocessDeath(child: ChildProcess): void {
+        // Вежливое выключение уже обнулило `subprocess` — там всё сделано.
+        if (this.subprocess !== child) return;
+        this.logger?.warn("extension host subprocess died — resetting host state");
+        this.resetSubprocessState();
+        for (const [id, reg] of this.activatedRegistrations) this.toRevive.set(id, reg);
+        this.activatedRegistrations.clear();
+        this.extensions.clear();
+    }
+
+    private async shutdownSubprocess(): Promise<void> {
+        const rpc = this.rpc;
+        const channel = this.channel;
+        const child = this.subprocess;
+        this.resetSubprocessState();
         if (child === null) {
             rpc?.dispose();
             channel?.dispose();
@@ -1852,10 +2058,12 @@ function waitForReady(rpc: RpcEndpoint, child: ChildProcess, timeoutMs: number):
 
 function waitForExit(child: ChildProcess): Promise<void> {
     return new Promise((resolve) => {
+        /* v8 ignore start -- defensive: смерть субпроцесса разбирает handleSubprocessDeath, и он обнуляет `subprocess`; поэтому до waitForExit доезжает только живой ребёнок (у мёртвого shutdownSubprocess видит null и выходит раньше) */
         if (child.exitCode !== null || child.killed) {
             resolve();
             return;
         }
+        /* v8 ignore stop */
         child.once("exit", () => {
             resolve();
         });

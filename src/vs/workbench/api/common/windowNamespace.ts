@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { createQuickInputApi } from "./quickInputNamespace.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -8,10 +9,12 @@ import {
     EventEmitter,
     Position,
     Selection,
+    StatusBarAlignment,
     TabInputText,
     TabInputTextDiff,
     Uri,
 } from "./vscodeTypes.ts";
+import { createWebviewNoopMembers } from "./webviewNoop.ts";
 import {
     type IWireEditorEdit,
     type IWireEditorLayout,
@@ -86,26 +89,40 @@ function normalizeChangedUris(changed: undefined | vscode.Uri | vscode.Uri[]): v
  * оконное состояние / сообщения.
  */
 /**
- * Имя output-канала → slug для id (`extensions.<slug>`): lower-case,
- * не-алфанумерика схлопывается в дефис. Полный id без extension id — у
- * subprocess-неймспейса нет per-call контекста расширения (docs/TODO/Logging.md).
+ * Человекочитаемое имя → slug для id: lower-case, не-алфанумерика схлопывается
+ * в дефис, из имени без единой латинской буквы или цифры получается `fallback`.
  */
-export function slugifyChannelName(name: string): string {
+function slugify(name: string, fallback: string): string {
     const slug = name
         .toLowerCase()
         .replace(/[^a-z0-9]+/gu, "-")
         .replace(/^-+|-+$/gu, "");
-    return slug === "" ? "channel" : slug;
+    return slug === "" ? fallback : slug;
+}
+
+/**
+ * Имя output-канала → slug для id (`extensions.<slug>`). Полный id без
+ * extension id — у subprocess-неймспейса нет per-call контекста расширения
+ * (docs/TODO/Logging.md).
+ */
+export function slugifyChannelName(name: string): string {
+    return slugify(name, "channel");
 }
 
 export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.window {
     const { rpc, registry } = ctx;
+
+    // Ввод/выбор у человека: собственный модуль — у него своя проводка
+    // (handle'ы показов, обратный запрос валидации, токен отмены).
+    const quickInput = createQuickInputApi(rpc);
 
     let activeEditorUri: string | null = null;
     /** Группа активного редактора (из меты); null — до первой меты с группой. */
     let activeEditorGroupId: number | null = null;
     // Идентификаторы withProgress-жизненных-циклов (window.progress.*).
     let nextProgressHandle = 1;
+    // Идентификаторы пунктов статус-бара (window.statusBarItem.*).
+    let nextStatusBarItemHandle = 1;
     // Выделения активного редактора: последние из meta / `editor.selectionChanged`
     // либо выставленные самим расширением. Первое выделение — первичное
     // (`TextEditor.selection`).
@@ -561,6 +578,10 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     }
 
     const windowNs = {
+        // Webview — не будет by design, но члены обязаны существовать: без них
+        // расширение с чат-панелью умирало на активации ЦЕЛИКОМ (см. webviewNoop.ts).
+        ...createWebviewNoopMembers(rpc),
+
         get activeTextEditor(): vscode.TextEditor | undefined {
             if (activeEditorUri === null) return undefined;
             return getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)), effectiveActiveGroupId());
@@ -715,6 +736,137 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             } as unknown as vscode.OutputChannel;
         },
 
+        // Настоящий пункт статус-бара: состояние живёт здесь, а в полосу уезжает
+        // нотификациями `window.statusBarItem.{update,dispose}` (мост —
+        // ExtensionStatusBarAdapter). Провод молчит, пока пункт не показан: в
+        // VS Code `createStatusBarItem` НЕ показывает пункт, это делает `show()`.
+        //
+        // Отклонения (см. постановку заявки): `tooltip` принимается, но не
+        // показывается (виджета подсказки в TUI нет), `color`/`backgroundColor`/
+        // `accessibilityInformation` ни на что не влияют.
+        createStatusBarItem: (
+            idOrAlignment?: string | vscode.StatusBarAlignment,
+            alignmentOrPriority?: vscode.StatusBarAlignment | number,
+            priorityArg?: number,
+        ): vscode.StatusBarItem => {
+            // Две перегрузки: с явным id первым аргументом и без него.
+            const withId = typeof idOrAlignment === "string";
+            const explicitId = withId ? idOrAlignment : undefined;
+            const alignment = (withId ? alignmentOrPriority : idOrAlignment) as vscode.StatusBarAlignment | undefined;
+            const priority = withId ? priorityArg : alignmentOrPriority;
+            const handle = nextStatusBarItemHandle++;
+            // `vscode.StatusBarAlignment` из типов расширения и наш рантайм-enum —
+            // разные номинальные типы с одними и теми же значениями; сравниваем
+            // их как числа, иначе TS видит несовместимые enum'ы.
+            const side: "left" | "right" =
+                (alignment as number | undefined) === (StatusBarAlignment.Right as number) ? "right" : "left";
+
+            let text = "";
+            let name: string | undefined;
+            let command: string | vscode.Command | undefined;
+            let visible = false;
+            let disposed = false;
+
+            /**
+             * Id пункта для полосы. Явный — как его задало расширение; иначе
+             * синтезируем из имени, чтобы «скрыл через меню видимости» пережило
+             * перезапуск редактора (id хранится в состоянии). Пункт без имени
+             * скрыть нельзя в принципе — ему хватает id по счётчику.
+             *
+             * Отклонение от VS Code: там пункт без id получает id расширения.
+             * У нас копия `vscode` в субпроцессе одна на все расширения, и
+             * контекста «кто именно зовёт» у неё нет (тот же изъян, что у имён
+             * output-каналов).
+             */
+            const fallbackId = `item-${String(handle)}`;
+            const currentId = (): string => explicitId ?? (name !== undefined ? slugify(name, fallbackId) : fallbackId);
+
+            /** Команда клика в wire-форме: строка либо `Command` (command + arguments). */
+            const commandWire = (): { command?: string; arguments?: readonly unknown[] } => {
+                if (typeof command === "string") return { command };
+                if (command === undefined) return {};
+                return {
+                    command: command.command,
+                    ...(Array.isArray(command.arguments) ? { arguments: command.arguments } : {}),
+                };
+            };
+
+            const push = (): void => {
+                if (disposed || !visible) return;
+                rpc.notify("window.statusBarItem.update", {
+                    handle,
+                    id: currentId(),
+                    alignment: side,
+                    ...(Number.isFinite(priority) ? { priority } : {}),
+                    text,
+                    ...(name !== undefined ? { name } : {}),
+                    ...commandWire(),
+                });
+            };
+
+            const unpush = (): void => {
+                if (!visible) return;
+                visible = false;
+                rpc.notify("window.statusBarItem.dispose", { handle });
+            };
+
+            const item = {
+                get id(): string {
+                    return currentId();
+                },
+                get alignment(): vscode.StatusBarAlignment {
+                    return alignment ?? (StatusBarAlignment.Left as unknown as vscode.StatusBarAlignment);
+                },
+                get priority(): number | undefined {
+                    return priority;
+                },
+                get name(): string | undefined {
+                    return name;
+                },
+                set name(value: string | undefined) {
+                    name = value;
+                    push();
+                },
+                get text(): string {
+                    return text;
+                },
+                set text(value: string) {
+                    text = value;
+                    push();
+                },
+                get command(): string | vscode.Command | undefined {
+                    return command;
+                },
+                set command(value: string | vscode.Command | undefined) {
+                    command = value;
+                    push();
+                },
+                // Принимаются и читаются обратно, но на полосу не влияют — см.
+                // «Границы» постановки: подсказка требует виджета движка, цвета —
+                // новых токенов темы и посегментных стилей.
+                tooltip: undefined as string | vscode.MarkdownString | undefined,
+                color: undefined as string | vscode.ThemeColor | undefined,
+                backgroundColor: undefined as vscode.ThemeColor | undefined,
+                accessibilityInformation: undefined as vscode.AccessibilityInformation | undefined,
+                show: (): void => {
+                    if (disposed || visible) return;
+                    visible = true;
+                    push();
+                },
+                // Отдельного гейта по `disposed` ни hide, ни dispose не нужны:
+                // `unpush` сам молчит на непоказанном пункте, а инертность
+                // ручки после dispose держат `show`/`push` (сценарий 6).
+                hide: (): void => {
+                    unpush();
+                },
+                dispose: (): void => {
+                    unpush();
+                    disposed = true;
+                },
+            };
+            return item as unknown as vscode.StatusBarItem;
+        },
+
         onDidChangeVisibleTextEditors: makeListenerEvent(visibleEditorsListeners),
         onDidChangeTextEditorViewColumn: makeListenerEvent(viewColumnListeners),
 
@@ -765,12 +917,19 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             },
         } as unknown as vscode.TabGroups,
 
-        // Наивный quickPick: UI-выбора у субпроцесса нет, резолв undefined —
-        // валидная семантика «пользователь отменил» (типовой потребитель —
-        // pickFolder мульти-рут-команд vscode-eslint; однопапочный Diode до
-        // выбора и не доходит). Настоящий пикер — вместе с проводкой
-        // QuickInputService до субпроцесса.
-        showQuickPick: (): Thenable<undefined> => Promise.resolve(undefined),
+        // Ввод и выбор по просьбе расширения: оба поднимают у хоста общий
+        // QuickInput-оверлей приложения (тот же, что палитра и Quick Open) и
+        // отдают введённое/выбранное, а по Esc — undefined. Детали провода —
+        // quickInputNamespace.ts.
+        showInputBox: (
+            options?: vscode.InputBoxOptions,
+            token?: vscode.CancellationToken,
+        ): Thenable<string | undefined> => quickInput.showInputBox(options, token),
+        showQuickPick: (
+            items: unknown,
+            options?: vscode.QuickPickOptions,
+            token?: vscode.CancellationToken,
+        ): Thenable<unknown> => quickInput.showQuickPick(items, options, token),
 
         // `window.showTextDocument` (3 перегрузки): нормализуем в один запрос
         // хосту; к моменту резолва `editor.layoutChanged` уже применён (хост

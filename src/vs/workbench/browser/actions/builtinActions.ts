@@ -401,7 +401,9 @@ export const builtinActions: readonly CommandAction[] = [
     navigateBackAction,
     navigateForwardAction,
 
-    // Tabs
+    // Tabs. Стоит ПОСЛЕ `scrollLineUp/Down` намеренно: у `nextEditorInGroupAction` и
+    // `previousEditorInGroupAction` есть бинды Ctrl+Вверх/Вниз под `tabSwitcherVisible`,
+    // и они обязаны перебивать прокрутку, пока список переключателя виден.
     nextEditorAction,
     nextEditorInGroupAction,
     previousEditorAction,

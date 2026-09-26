@@ -57,12 +57,30 @@ export const previousEditorAction: CommandAction = {
     },
 };
 
+/**
+ * Стрелки внутри видимого списка серии: пока оверлей на экране, Вниз шагает тем
+ * же шагом, что Tab, а Вверх — тем же, что Shift+Tab (направление привязано к
+ * списку, а не к тому, с какой стороны серию начали). Shift-варианты — для серии,
+ * начатой с Ctrl+Shift+Tab: модификатор там часто остаётся зажатым, и без них
+ * первая же стрелка ушла бы мимо списка.
+ *
+ * Гейт `tabSwitcherVisible` разводит их с `scrollLineUp`/`scrollLineDown`, которые
+ * сидят на тех же Ctrl+Вверх/Вниз: список погас — прокрутка вернулась. Регистрация
+ * tab-экшенов идёт ПОСЛЕ editor-экшенов (см. `builtinActions.ts`), а резолвер
+ * берёт последний подходящий биндинг — поэтому при видимом списке побеждают эти.
+ */
+const TAB_SWITCHER_ARROWS = "tabSwitcherVisible";
+
 export const nextEditorInGroupAction: CommandAction = {
     id: "workbench.action.nextEditorInGroup",
     title: "Next Editor In Group",
     shortTitle: "Next Used Editor",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 10 }],
     keybinding: parseKeybinding("ctrl+tab"),
+    keybindings: [
+        { keys: parseKeybinding("ctrl+down"), when: TAB_SWITCHER_ARROWS },
+        { keys: parseKeybinding("ctrl+shift+down"), when: TAB_SWITCHER_ARROWS },
+    ],
     when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, 1);
@@ -75,6 +93,10 @@ export const previousEditorInGroupAction: CommandAction = {
     shortTitle: "Previous Used Editor",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 20 }],
     keybinding: parseKeybinding("ctrl+shift+tab"),
+    keybindings: [
+        { keys: parseKeybinding("ctrl+up"), when: TAB_SWITCHER_ARROWS },
+        { keys: parseKeybinding("ctrl+shift+up"), when: TAB_SWITCHER_ARROWS },
+    ],
     when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, -1);

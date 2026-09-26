@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
@@ -21,6 +22,13 @@ export interface IInlineCompletionRequest {
      * Automatic достаточно одного.
      */
     readonly triggerKind: InlineCompletionTriggerKind;
+    /**
+     * Сколько ждать ответ источника, мс (`editor.inlineSuggest.requestTimeout`).
+     * Едет с КАЖДЫМ запросом, а не фиксируется при создании источника: иначе
+     * правка настройки применялась бы только после перезапуска редактора.
+     * Не задан — источник берёт свой дефолт.
+     */
+    readonly timeoutMs?: number;
 }
 
 /** Чем спровоцирован запрос (значения `vscode.InlineCompletionTriggerKind`). */
@@ -57,7 +65,13 @@ export interface ICoreInlineCompletionItem {
  * расширений (`languages.provideInlineCompletions`). Инъектируется в ядро
  * извне (host/харнесс) — ядро не знает про extension-слой (зеркало
  * {@link ./iCompletionSource.ts:CompletionSource}). Пустой массив = подсказок нет.
+ *
+ * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
+ * правка, уход каретки, Esc, смена редактора). Отмена доезжает до самого
+ * провайдера расширения — за ghost text может стоять платный LLM-вызов, и
+ * молча дожидаться его ответа, чтобы выбросить, мы не вправе.
  */
 export type InlineCompletionSource = (
     request: IInlineCompletionRequest,
+    token: ICancellationToken,
 ) => Promise<readonly ICoreInlineCompletionItem[]>;

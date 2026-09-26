@@ -1,5 +1,6 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
@@ -32,12 +33,31 @@ interface IInlineSession {
 }
 
 /**
+ * Дефолт `editor.inlineSuggest.delay` — как upstream-дебаунс
+ * `InlineCompletionsDebounce` (50 мс). Обязан совпадать с `default` ключа в
+ * {@link ../../../common/configuration/editorConfiguration.ts}: настройки может
+ * не быть в модели вовсе (тестовая заглушка, битый settings.json).
+ */
+export const DEFAULT_INLINE_SUGGEST_DELAY_MS = 50;
+
+/**
+ * Дефолт `editor.inlineSuggest.requestTimeout` — щедрее completion (1500 мс):
+ * за провайдером может стоять холодный LLM-бэкенд. Тот же лок-степ с `default`
+ * ключа, что и у {@link DEFAULT_INLINE_SUGGEST_DELAY_MS}.
+ */
+export const DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS = 5000;
+
+/**
  * Призрачные подсказки (VS Code inline suggest, ghost text). При паузе в
  * наборе запрашивает `EditorService.inlineCompletionSource` (провайдеры
  * расширений через host), показывает первый подошедший пункт серым текстом
  * за кареткой ({@link TextEditorPane.setGhostText}); Tab принимает
  * (`editor.action.inlineSuggest.commit`), Escape гасит. Дисциплина
  * debounce/seq/ревалидации — по образцу CompletionService/LightbulbService.
+ *
+ * Настройки читаются НА КАЖДОМ обращении, а не кэшируются в полях: правка
+ * `settings.json` подхватывается живым конфигом (watcher → reload) и должна
+ * применяться без перезапуска редактора.
  */
 export class InlineCompletionsService extends Disposable {
     public static dependencies = [
@@ -45,13 +65,6 @@ export class InlineCompletionsService extends Disposable {
         CompletionServiceDIToken,
         IConfigurationServiceDIToken,
     ] as const;
-
-    /**
-     * Задержка перед авто-запросом после набора (мс) — как upstream-дебаунс
-     * `InlineCompletionsDebounce` (50 мс). Явный триггер идёт без неё.
-     * Инъектируется в тестах (`0` — сразу на следующем тике).
-     */
-    public autoTriggerDelayMs = 50;
 
     private readonly group: EditorService;
     private readonly completionService: CompletionService;
@@ -72,6 +85,10 @@ export class InlineCompletionsService extends Disposable {
     private autoTriggerTimer: ReturnType<typeof setTimeout> | null = null;
     // Номер последнего запроса к источнику: ответ с чужим номером устарел.
     private requestSeq = 0;
+    // Источник отмены запроса, который сейчас в полёте. Seq-гард отбрасывает
+    // устаревший ОТВЕТ, а этот источник останавливает саму РАБОТУ провайдера:
+    // за подсказкой может стоять платный LLM-вызов.
+    private pendingRequest: CancellationTokenSource | null = null;
     // Гасит одно авто-открытие после принятия (правка accept не должна сама
     // перезапросить подсказку).
     private suppressAutoTriggerOnce = false;
@@ -103,7 +120,7 @@ export class InlineCompletionsService extends Disposable {
                 activeEditorSub.dispose();
                 popupCloseSub.dispose();
                 this.unbindEditor();
-                this.cancelAutoTrigger();
+                // hide() снимает подсказку, запрос в полёте и отложенный запрос.
                 this.hide();
             },
         });
@@ -112,6 +129,16 @@ export class InlineCompletionsService extends Disposable {
     /** Показана ли подсказка (context key `inlineSuggestionVisible`). */
     public isOpen(): boolean {
         return this.session !== null;
+    }
+
+    /**
+     * Ждём ли сейчас ответа провайдера (context key
+     * `inlineSuggestionRequestPending`). Ключ нужен Escape: пока призрака на
+     * экране нет, `inlineSuggestionVisible` ложный, и без этого ключа команда
+     * `.hide` до сервиса не доедет — а отменить незавершённый запрос она обязана.
+     */
+    public isRequestPending(): boolean {
+        return this.pendingRequest !== null;
     }
 
     /**
@@ -130,9 +157,14 @@ export class InlineCompletionsService extends Disposable {
 
     /**
      * Запрашивает подсказку для текущей позиции каретки и показывает её.
-     * No-op без активного редактора/источника; подсказка показывается только
-     * при единственной схлопнутой каретке В КОНЦЕ строки (v1: рендер не умеет
-     * сдвигать хвост строки под фантом) и закрытом suggest-попапе.
+     * No-op без активного редактора/источника; подсказка показывается при
+     * единственной схлопнутой каретке (в том числе в СЕРЕДИНЕ строки — рендер
+     * вклеивает фантомные колонки в layout строки, и её хвост уезжает вправо) и
+     * закрытом suggest-попапе.
+     *
+     * `editor.inlineSuggest.enabled: false` гасит только АВТО-запрос (как в
+     * VS Code): явный `Invoke` из команды `editor.action.inlineSuggest.trigger`
+     * проходит и при выключенной настройке — это и есть ручной режим.
      */
     public async trigger(triggerKind: InlineCompletionTriggerKind = InlineCompletionTriggerKind.Invoke): Promise<void> {
         this.cancelAutoTrigger();
@@ -140,26 +172,38 @@ export class InlineCompletionsService extends Disposable {
         const source = this.group.inlineCompletionSource;
         if (editor === null || source === undefined) return;
         if (editor.readOnly) return;
-        if (this.configuration.get<boolean>("editor.inlineSuggest.enabled") === false) return;
+        if (triggerKind === InlineCompletionTriggerKind.Automatic && !this.autoTriggerEnabled) return;
         if (this.completionService.isOpen()) return;
 
         const selections = editor.viewState.selections;
         if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) return;
         const caret = selections[0].active;
         const lineContent = editor.viewState.document.getLineContent(caret.line);
-        if (caret.character !== lineContent.length) return;
 
         const versionId = editor.viewState.document.versionId;
         // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
         const seq = ++this.requestSeq;
-        const items = await source({
-            uri: editor.uri.toString(),
-            languageId: editor.languageId,
-            text: editor.getText(),
-            line: caret.line,
-            character: caret.character,
-            triggerKind,
-        }).catch(() => []);
+        // Предыдущий запрос (если он ещё в полёте) устарел ровно сейчас.
+        this.cancelPendingRequest();
+        const cancellation = new CancellationTokenSource();
+        this.pendingRequest = cancellation;
+        const items = await source(
+            {
+                uri: editor.uri.toString(),
+                languageId: editor.languageId,
+                text: editor.getText(),
+                line: caret.line,
+                character: caret.character,
+                triggerKind,
+                timeoutMs: this.requestTimeoutMs,
+            },
+            cancellation.token,
+        ).catch(() => []);
+        // Запрос отработал — отменять больше нечего (наш источник могли уже
+        // сменить на более свежий, тогда трогать поле нельзя).
+        if (this.pendingRequest === cancellation) this.pendingRequest = null;
+        // Stryker disable next-line CallExpression: уборка слушателей отработавшего источника — поведения не меняет
+        cancellation.dispose();
         // Пока ходили за ответом: новый запрос обгоняет старый; правка или уход
         // каретки делают снапшот недействительным; открывшийся попап — гейт показа.
         if (seq !== this.requestSeq) return;
@@ -169,6 +213,11 @@ export class InlineCompletionsService extends Disposable {
         if (current.length !== 1 || !isSelectionCollapsed(current[0])) return;
         if (current[0].active.line !== caret.line || current[0].active.character !== caret.character) return;
         if (this.completionService.isOpen()) return;
+        // Отдельный гейт от всех, что выше: Escape (и смена активного редактора
+        // без события) гасит запрос, НЕ меняя ни текста, ни каретки, ни номера
+        // запроса. Провайдер, проигнорировавший отмену, тут и отсекается —
+        // призрак не должен появиться задним числом.
+        if (cancellation.token.isCancellationRequested) return;
 
         for (const item of items) {
             const session = this.sessionFromItem(editor, item, caret, lineContent);
@@ -177,7 +226,35 @@ export class InlineCompletionsService extends Disposable {
                 return;
             }
         }
-        this.hide();
+        // Показать нечего — снимаем прежний ghost, но отложенный авто-запрос
+        // (его мог завести закрывшийся попап) не трогаем: полный hide() тут
+        // съел бы чужой запланированный запрос.
+        this.clearSession();
+    }
+
+    // ─── Настройки (читаются на каждом обращении — правка применяется на лету) ─
+
+    /** `editor.inlineSuggest.enabled`: разрешён ли авто-запрос при наборе. */
+    private get autoTriggerEnabled(): boolean {
+        return this.configuration.get<boolean>("editor.inlineSuggest.enabled") !== false;
+    }
+
+    /** `editor.inlineSuggest.delay`: пауза перед авто-запросом, мс. */
+    private get autoTriggerDelayMs(): number {
+        return readMillisecondsSetting(
+            this.configuration.get("editor.inlineSuggest.delay"),
+            DEFAULT_INLINE_SUGGEST_DELAY_MS,
+            0,
+        );
+    }
+
+    /** `editor.inlineSuggest.requestTimeout`: сколько ждать ответ источника, мс. */
+    private get requestTimeoutMs(): number {
+        return readMillisecondsSetting(
+            this.configuration.get("editor.inlineSuggest.requestTimeout"),
+            DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS,
+            1,
+        );
     }
 
     /** Принимает показанную подсказку: одна undoable-правка, каретка в конец. */
@@ -209,8 +286,23 @@ export class InlineCompletionsService extends Disposable {
         );
     }
 
-    /** Гасит подсказку (Escape, инвалидация, уход каретки). */
+    /**
+     * Гасит подсказку (Escape, инвалидация, уход каретки) — и останавливает всю
+     * работу под неё: отменяет запрос в полёте и снимает отложенный авто-запрос.
+     * Escape — это «не надо», а не «спрячь показанное»: и незавершённый запрос,
+     * и запланированный по последней правке обязаны умолкнуть, иначе призрак
+     * всплыл бы через секунду после того, как его погасили.
+     */
     public hide(): void {
+        this.cancelPendingRequest();
+        this.cancelAutoTrigger();
+        this.clearSession();
+    }
+
+    // ─── Private ─────────────────────────────────────────────────────────────
+
+    /** Снимает показанный ghost, не трогая запросы (см. {@link hide}). */
+    private clearSession(): void {
         if (this.session === null) return;
         this.session.editor.setGhostText(null);
         this.session = null;
@@ -249,8 +341,9 @@ export class InlineCompletionsService extends Disposable {
 
     /**
      * Каретка, при которой сессия ещё действительна: та же строка, единственная
-     * схлопнутая, в конце строки, набранное — префикс `insertText`, и хвост
-     * непуст. `null` — сессия испорчена.
+     * схлопнутая, набранное (`startCharacter`..каретка) — префикс `insertText`, и
+     * хвост непуст. `null` — сессия испорчена. Хвост строки ПРАВЕЕ каретки к
+     * действительности отношения не имеет: он уезжает вправо под фантомом.
      */
     private validCaretForSession(session: IInlineSession, editor: TextEditorPane | null): IPosition | null {
         if (editor !== session.editor) return null;
@@ -259,7 +352,6 @@ export class InlineCompletionsService extends Disposable {
         const caret = selections[0].active;
         if (caret.line !== session.line || caret.character < session.startCharacter) return null;
         const lineContent = editor.viewState.document.getLineContent(caret.line);
-        if (caret.character !== lineContent.length) return null;
         const typed = lineContent.slice(session.startCharacter, caret.character);
         if (!session.insertText.startsWith(typed)) return null;
         if (session.insertText.length === typed.length) return null;
@@ -287,8 +379,8 @@ export class InlineCompletionsService extends Disposable {
      */
     private bindEditor(editor: TextEditorPane | null): void {
         this.unbindEditor();
+        // hide() снимает и подсказку, и запрос, и отложенный авто-запрос.
         this.hide();
-        this.cancelAutoTrigger();
         // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
         this.requestSeq++;
         if (editor === null) return;
@@ -319,21 +411,28 @@ export class InlineCompletionsService extends Disposable {
         this.contentDidChange = false;
         const suppressed = this.suppressAutoTriggerOnce;
         this.suppressAutoTriggerOnce = false;
+        // Снапшот, по которому ушёл запрос, только что протух — и на правке
+        // (текст другой), и на уходе каретки (позиция другая). Его ответ всё
+        // равно отсеют гарды ниже по трассе, поэтому провайдер вправе бросить
+        // работу прямо сейчас.
+        this.cancelPendingRequest();
 
         const editor = this.group.getActiveEditor();
         if (editor === null) {
+            // hide() снимает и подсказку, и отложенный авто-запрос.
             this.hide();
-            // Отмена дублирует гейт: trigger() без активного редактора — no-op
-            // до RPC, так что снятие таймера здесь мутационно ненаблюдаемо.
-            // Stryker disable next-line CallExpression: см. выше
-            this.cancelAutoTrigger();
             return;
         }
 
         const session = this.session;
         if (session !== null) {
             const caret = this.validCaretForSession(session, editor);
-            if (caret !== null) {
+            // Пере-показ живой сессии — только на ПРАВКЕ: движение каретки само
+            // по себе подсказку гасит (стрелки снимают призрака, как upstream).
+            // Пока показ был заперт концом строки, это выходило само собой —
+            // уйти с конца строки движением иначе нельзя; mid-line каретка ходит
+            // и внутри подсказки, поэтому правило стало явным.
+            if (caret !== null && wasEdit) {
                 // Набранное совпадает с подсказкой — сжать/растить без перезапроса.
                 this.show(session);
                 return;
@@ -362,6 +461,16 @@ export class InlineCompletionsService extends Disposable {
         }, this.autoTriggerDelayMs);
     }
 
+    /** Отменяет запрос в полёте: провайдер узнаёт об этом через свой токен. */
+    private cancelPendingRequest(): void {
+        const pending = this.pendingRequest;
+        if (pending === null) return;
+        this.pendingRequest = null;
+        pending.cancel();
+        // Stryker disable next-line CallExpression: уборка слушателей уже отменённого источника — поведения не меняет
+        pending.dispose();
+    }
+
     private cancelAutoTrigger(): void {
         // true-ветка мутанта — clearTimeout(null): безвредный no-op, гард тут
         // только экономит вызов. «Не отменять вовсе» ловят тесты отмены.
@@ -371,6 +480,23 @@ export class InlineCompletionsService extends Disposable {
             this.autoTriggerTimer = null;
         }
     }
+}
+
+/**
+ * Читает настройку-длительность (мс) из конфига: `settings.json` правит человек,
+ * и там бывает что угодно — строка, отрицательное число, `NaN`. Всё, что не
+ * конечное число не меньше `min`, откатывается на `fallback`, а редактор
+ * стартует и работает как с дефолтами (`ConfigurationService.get` типы не
+ * проверяет — отдаёт значение как есть).
+ */
+export function readMillisecondsSetting(raw: unknown, fallback: number, min: number): number {
+    // Гард `typeof` нужен ТИПАМ, а не рантайму: `Number.isFinite` не приводит
+    // аргумент и на любом не-числе уже возвращает false, но сигнатуры-предиката
+    // у него нет — без typeof не сузить `unknown` до `number` для `raw < min` и
+    // `return raw`. Мутант «убрать проверку» поэтому эквивалентен.
+    // Stryker disable next-line ConditionalExpression: см. выше
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < min) return fallback;
+    return raw;
 }
 
 /**

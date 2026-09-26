@@ -84,6 +84,52 @@ describe("QuickInputService.input", () => {
         await expect(result).resolves.toBe("x");
     });
 
+    it("password включает маску на виджете, а резолвится настоящим значением", async () => {
+        const { service, component, testApp } = createService();
+        const result = service.input({ password: true });
+        testApp.sendKey("a");
+        testApp.sendKey("b");
+
+        expect(component.view.password).toBe(true);
+        // На экран уходит маска, наружу — сам текст.
+        expect(component.view.inspectState().query).toBe("**");
+
+        testApp.sendKey("Enter");
+        await expect(result).resolves.toBe("ab");
+    });
+
+    it("валидация под маской получает настоящий текст", () => {
+        const { service, testApp } = createService();
+        const seen: string[] = [];
+        void service.input({
+            password: true,
+            validateInput: (value) => {
+                seen.push(value);
+                return null;
+            },
+        });
+        testApp.sendKey("h");
+        testApp.sendKey("i");
+
+        expect(seen).toEqual(["", "h", "hi"]);
+    });
+
+    it("показ без password маску снимает — следующее поле не слепое", () => {
+        const { service, component } = createService();
+        void service.input({ password: true });
+        void service.input({});
+
+        expect(component.view.password).toBe(false);
+    });
+
+    it("список после поля пароля маску не наследует", () => {
+        const { service, component } = createService();
+        void service.input({ password: true });
+        void service.quickPick({ items: [{ label: "alpha" }] });
+
+        expect(component.view.password).toBe(false);
+    });
+
     it("supersedes a previous open prompt (resolves it undefined)", async () => {
         const { service, testApp } = createService();
         const first = service.input({ value: "one" });

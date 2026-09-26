@@ -29,7 +29,7 @@
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 11/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 18/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 16/57 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 19/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
@@ -91,8 +91,9 @@
 
 ## vscode.window
 
-🟡 **16/57.** Редакторы, сообщения, прогресс, output-каналы и декорации — рабочие; quick input,
-статус-бар, терминал и деревья пока не отданы расширениям; webview — потолок.
+🟡 **19/57.** Редакторы, сообщения, прогресс, output-каналы, декорации, пункты статус-бара и ввод
+(строка + выбор из списка) — рабочие; диалоги файлов, терминал и деревья пока не отданы
+расширениям; webview — потолок.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
@@ -106,15 +107,18 @@
 | `tabGroups` | 🟡 | снимки `Tab` на момент вызова (идентичность не гарантируется); `onDidChangeTabs` живой, `close` работает |
 | `createTextEditorDecorationType` | ✅ | gutter change-bar'ы, overview ruler |
 | `registerFileDecorationProvider` | ✅ | файловые декорации в explorer |
-| quick input (`showQuickPick`, `showInputBox`, `showWorkspaceFolderPick`, `showOpenDialog`, `showSaveDialog`, `createQuickPick`, `createInputBox`) | 🕐 | ядро QuickInput в приложении есть, расширениям пока не отдано |
-| статус-бар (`createStatusBarItem`, `setStatusBarMessage`) | 🕐 | |
+| `showQuickPick` | 🟡 | список строк и `QuickPickItem` на общем QuickInput-оверлее: фильтрация по `label`, `canPickMany` с чекбоксами и `picked`, `placeHolder`, `title`, токен отмены; список-промис ждётся и показывается заполненным. Не поддержаны `QuickPickItemKind.Separator`, `iconPath`, `buttons`, `alwaysShow`, `matchOnDescription`/`matchOnDetail`, `ignoreFocusOut`, устаревший `onDidSelectItem`; `detail` рисуется на месте `description`, только когда `description` пуст (строка списка однострочная) |
+| `showInputBox` | 🟡 | `title`, `prompt`, `placeHolder`, `value`, `password` (набранное закрыто маской `*` и не видно ни на экране, ни в инспекторе), `validateInput` (строкой и объектной формой со строгостью — ошибка блокирует Enter; асинхронная валидация поддержана, устаревшие ответы отбрасываются), токен отмены. Не поддержаны `valueSelection`, `ignoreFocusOut` |
+| quick input прочее (`showWorkspaceFolderPick`, `showOpenDialog`, `showSaveDialog`, `createQuickPick`, `createInputBox`) | 🕐 | объектные формы (пошаговые мастера) и диалоги файлов |
+| `createStatusBarItem` | 🟡 | пункт в полосе: `text` со значками `$(name)`, `name`, `alignment`, `priority`, команда по клику, `show`/`hide`/`dispose`. Стабы: `tooltip` принимается, но не показывается (виджета подсказки в TUI нет); `color`/`backgroundColor`/`accessibilityInformation` ни на что не влияют. Текст длиннее 24 символов усекается — ширина полосы в терминале дефицитна |
+| `setStatusBarMessage` | 🕐 | |
 | терминал (12 членов: `createTerminal`, `terminals`, события, shell integration, link/profile-провайдеры) | 🕐 | |
 | деревья (`registerTreeDataProvider`, `createTreeView`) | 🕐 | |
 | события редактора (`onDidChangeTextEditorSelection`, `onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
 | notebook-редакторы (7 членов) | 🕐 | |
 | тема (`activeColorTheme`, `onDidChangeActiveColorTheme`) | 🕐 | |
 | `registerUriHandler`, `withScmProgress` | 🕐 | |
-| `createWebviewPanel`, `registerWebviewPanelSerializer`, `registerWebviewViewProvider` | ⛔ | webview — требует браузера |
+| `createWebviewPanel`, `registerWebviewPanelSerializer`, `registerWebviewViewProvider` | ⛔ | webview — требует браузера; декларации не подняты, но в рантайме члены есть как инертный no-op (панели нет, в Output одна строка про неподдерживаемый webview) — иначе расширение с чат-панелью умирало на активации целиком |
 | `registerCustomEditorProvider` | ⛔ | кастомные редакторы построены на webview |
 
 ## vscode.commands
@@ -170,9 +174,17 @@
 - `window.registerCustomEditorProvider` — кастомные редакторы построены на webview;
 - рендеры notebook-ячеек (сам Notebook API при этом — 🕐).
 
+«Не будет» — про панель, а не про расширение: три webview-члена `window`
+существуют в рантайме как инертный no-op (`webviewNoop.ts`), потому что
+расширение с чат-панелью поднимает её ПЕРВОЙ строкой `activate()` — отсутствие
+члена убивало заодно его команды и провайдеры. Вызов возвращает мёртвую панель
+(или честный `Disposable`) и пишет в Output одну строку «webview в TUI не
+поддерживается»; декларации в `vscode.d.ts` при этом остаются закомментированными
+— статус ⛔ рантайм-заглушка не меняет.
+
 ## Типы с неполной поверхностью
 
-Активно 99 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 102 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов).
 
 | тип | активно | не активно |

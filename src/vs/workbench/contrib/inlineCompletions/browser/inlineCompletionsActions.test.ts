@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
@@ -52,14 +53,53 @@ describe("inlineCompletionsActions — объявления", () => {
         expect(commitInlineSuggestAction.when).toBe(
             "inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize",
         );
-        expect(hideInlineSuggestAction.when).toBe("inlineSuggestionVisible");
+        // Escape у hide: кроме показанного призрака — ещё и окно ожидания
+        // ответа провайдера (там гасить нечего, но отменять есть что).
+        expect(hideInlineSuggestAction.when).toBe(
+            "inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)",
+        );
         expect(triggerInlineSuggestAction.when).toBe("textInputFocus && !editorReadonly");
     });
 
-    it("биндинги: Tab у commit, Escape у hide, trigger без бинда", () => {
+    it("when у hide проходит и на показанном призраке, и на запросе в полёте — но не вне редактора", () => {
+        const keys = new ContextKeyService();
+        const passes = (): boolean => keys.evaluate(hideInlineSuggestAction.when!);
+
+        expect(passes()).toBe(false);
+
+        keys.set("inlineSuggestionVisible", true);
+        expect(passes()).toBe(true);
+
+        // Запрос в полёте: призрака ещё нет, но Escape обязан доехать до отмены.
+        keys.set("inlineSuggestionVisible", false);
+        keys.set("inlineSuggestionRequestPending", true);
+        keys.set("textInputFocus", true);
+        expect(passes()).toBe(true);
+
+        // Фокус ушёл из текста (find-виджет, квик-пик) — Escape там не наш.
+        keys.set("textInputFocus", false);
+        expect(passes()).toBe(false);
+    });
+
+    it("биндинги: Tab у commit, Escape у hide, Alt+\\ у trigger", () => {
         expect(keybindingOf(commitInlineSuggestAction)).toBe("Tab");
         expect(keybindingOf(hideInlineSuggestAction)).toBe("Escape");
-        expect(keybindingOf(triggerInlineSuggestAction)).toBeUndefined();
+        // Комбинация Copilot'а (в ядре vscode клавиши у команды нет). В редакторе
+        // горячих клавиш она обязана показаться ровно так — колонка Keybinding.
+        expect(keybindingOf(triggerInlineSuggestAction)).toBe("Alt+\\");
+    });
+
+    it("Alt+\\ разбирается в тот же keydown, что шлёт терминал (ESC + \\)", () => {
+        // Терминал отдаёт Alt+пунктуация как ESC-префикс, tuidom разбирает это
+        // в `{key: "\\", altKey: true}` — бинд обязан совпасть побайтно, иначе
+        // команда не резолвится (грабля непереносимых комбинаций).
+        expect(triggerInlineSuggestAction.keybinding).toEqual({
+            key: "\\",
+            ctrlKey: false,
+            shiftKey: false,
+            altKey: true,
+            metaKey: false,
+        });
     });
 });
 

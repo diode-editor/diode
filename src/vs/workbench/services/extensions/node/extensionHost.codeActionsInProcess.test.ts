@@ -80,7 +80,12 @@ describe("ExtensionHost — гейт code actions (in-process)", () => {
 
         expect(await host.provideCodeActions(requestOf("x"))).toEqual([WIRE_ACTION]);
         expect(await host.applyCodeAction("1.0")).toBe(true);
-        expect(apply).toHaveBeenCalledExactlyOnceWith({ id: "1.0" });
+        // Второй аргумент любого хендлера — токен отмены запроса (RpcEndpoint
+        // выдаёт его всем методам; code actions его пока не используют).
+        expect(apply).toHaveBeenCalledExactlyOnceWith(
+            { id: "1.0" },
+            expect.objectContaining({ isCancellationRequested: false }),
+        );
     });
 
     it("параметры provide едут как есть; only не выдумывается без запроса", async () => {

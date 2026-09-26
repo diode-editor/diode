@@ -28,6 +28,15 @@ import { CONTENT_PAD } from "./quickPickFrameElement.ts";
 const GAP = "  ";
 /** Колонка иконки: сам глиф плюс пробел за ним. */
 const ICON_WIDTH = 2;
+/** Колонка чекбокса множественного выбора: сам чекбокс плюс пробел за ним. */
+const CHECKBOX_WIDTH = 4;
+/**
+ * Чекбоксы рисуем скобками и галочкой `✓` (той же, что у отмеченных
+ * пунктов меню), а не символами `☐`/`☑`: у тех ширина в терминале
+ * неоднозначная (East Asian Ambiguous) и колонка разъезжалась бы.
+ */
+const CHECKED_BOX = "[✓] ";
+const UNCHECKED_BOX = "[ ] ";
 
 /**
  * Цвет, который на выделенной строке уступает место цвету выделения. Отдельным
@@ -46,12 +55,31 @@ export function rowId(index: number): string {
 }
 
 /**
+ * Колонки ряда, общие для всего списка: их наличие решается по списку целиком,
+ * иначе лейблы разъезжались бы между строками.
+ */
+export interface IRowColumns {
+    /** Колонка иконки включена (у кого-то в списке иконка есть). */
+    readonly hasIcons: boolean;
+    /**
+     * Состояние чекбокса множественного выбора. `undefined` — колонки чекбоксов
+     * в этом списке нет вовсе (одиночный выбор).
+     */
+    readonly checked?: boolean;
+}
+
+/**
  * Собирает ряд для предмета. `innerWidth` — ширина внутри рамки (фон выделения
  * тянется на неё целиком, поэтому отступы держат крайние филлеры ряда, а не
- * контейнер вокруг списка). `hasIcons` включает колонку иконки для ВСЕХ рядов
- * списка — иначе лейблы разъезжались бы между строками с иконкой и без.
+ * контейнер вокруг списка). Колонки — {@link IRowColumns}.
  */
-export function buildItemRow(item: QuickPickItem, index: number, innerWidth: number, hasIcons: boolean): HFlexElement {
+export function buildItemRow(
+    item: QuickPickItem,
+    index: number,
+    innerWidth: number,
+    columns: IRowColumns,
+): HFlexElement {
+    const { hasIcons, checked } = columns;
     const row = new HFlexElement();
     row.id = rowId(index);
     // База без собственного фона — фон даёт рамка; выделение красит строку целиком.
@@ -68,13 +96,20 @@ export function buildItemRow(item: QuickPickItem, index: number, innerWidth: num
     const contentWidth = Math.max(0, innerWidth - CONTENT_PAD * 2);
     row.addChild(new FillerElement(), { width: hflexFixed(CONTENT_PAD), height: 1 });
 
+    // Чекбокс — самая левая колонка: взгляд ищет отметки одним столбцом.
+    const checkboxWidth = checked !== undefined ? CHECKBOX_WIDTH : 0;
+    if (checked !== undefined) {
+        const box = new TextLabelElement(checked ? CHECKED_BOX : UNCHECKED_BOX);
+        row.addChild(box, { width: hflexFixed(CHECKBOX_WIDTH), height: 1 });
+    }
+
     const iconWidth = hasIcons ? ICON_WIDTH : 0;
     if (hasIcons) {
         const icon = new TextLabelElement(item.icon ?? " ");
         row.addChild(icon, { width: hflexFixed(ICON_WIDTH), height: 1 });
     }
 
-    const avail = Math.max(0, contentWidth - iconWidth);
+    const avail = Math.max(0, contentWidth - iconWidth - checkboxWidth);
 
     const before: TextLabelElement[] = [];
     const after: TextLabelElement[] = [];

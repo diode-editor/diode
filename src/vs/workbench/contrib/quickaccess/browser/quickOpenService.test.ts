@@ -1,10 +1,12 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { charMask } from "../../../../base/common/fuzzySearch.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -199,6 +201,62 @@ function createService(
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
+
+describe("QuickOpenService — общий виджет", () => {
+    // Риск общего оверлея: множественный выбор расширения оставляет на виджете
+    // чекбоксы и свой режим Enter. Quick Open обязан сбросить их за собой,
+    // иначе в палитре появляются `[ ] ` перед каждой командой, а Enter уходит
+    // в колбэк множественного выбора и команда не исполняется.
+    it("сбрасывает режим множественного выбора, оставшийся от чужого показа", () => {
+        const { service, view } = createService();
+        view.canPickMany = true;
+        view.items = [{ label: "alpha" }];
+        view.setCheckedItems(view.items);
+        view.onAcceptMany = () => undefined;
+
+        service.show();
+
+        expect(view.canPickMany).toBe(false);
+        expect([...view.checkedItems]).toEqual([]);
+        expect(view.onAcceptMany).toBeNull();
+    });
+
+    // Тот же риск у маски: после поля пароля расширения Quick Open рисовал бы
+    // звёздочки вместо запроса — человек искал бы файл вслепую.
+    it("снимает маску, оставшуюся от чужого поля пароля", () => {
+        const { service, view } = createService();
+        view.password = true;
+
+        service.show();
+        view.setQuery("readme");
+
+        expect(view.password).toBe(false);
+        expect(view.inspectState().query).toBe("readme");
+    });
+
+    it("после чужого множественного выбора Enter в палитре снова исполняет команду", async () => {
+        const { service, view, commands } = createService();
+        let executed = 0;
+        commands.register(
+            "test.quickOpenReset",
+            () => {
+                executed++;
+            },
+            "Test: Quick Open Reset",
+        );
+        // Виджет достался палитре в состоянии множественного выбора.
+        view.canPickMany = true;
+        view.onAcceptMany = () => undefined;
+
+        service.show(CommandsQuickAccessProvider.PREFIX);
+        view.setQuery(">Quick Open Reset");
+        view.onQueryChange?.(view.getQuery());
+        view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+        await flushMicrotasks();
+
+        expect(executed).toBe(1);
+    });
+});
 
 describe("QuickOpenService — open/close", () => {
     it("picker is hidden by default", () => {

@@ -289,6 +289,138 @@ declare module "vscode" {
 	 * asking for user input.
 	 */
 	/**
+	 * Accessibility information which controls screen reader behavior.
+	 */
+	export interface AccessibilityInformation {
+		/**
+		 * Label to be read out by a screen reader once the item has focus.
+		 */
+		readonly label: string;
+
+		/**
+		 * Role of the widget which defines how a screen reader interacts with it.
+		 * The role should be set in special cases when for example a tree-like element behaves like a checkbox.
+		 * If role is not specified the editor will pick the appropriate role automatically.
+		 * More about aria roles can be found here https://w3c.github.io/aria/#widget_roles
+		 */
+		readonly role?: string;
+	}
+
+	/**
+	 * Represents the alignment of status bar items.
+	 */
+	export enum StatusBarAlignment {
+
+		/**
+		 * Aligned to the left side.
+		 */
+		Left = 1,
+
+		/**
+		 * Aligned to the right side.
+		 */
+		Right = 2
+	}
+
+	/**
+	 * A status bar item is a status bar contribution that can
+	 * show text and icons and run a command on click.
+	 */
+	export interface StatusBarItem {
+
+		/**
+		 * The identifier of this item.
+		 *
+		 * *Note*: if no identifier was provided by the {@linkcode window.createStatusBarItem}
+		 * method, the identifier will match the {@link Extension.id extension identifier}.
+		 */
+		readonly id: string;
+
+		/**
+		 * The alignment of this item.
+		 */
+		readonly alignment: StatusBarAlignment;
+
+		/**
+		 * The priority of this item. Higher value means the item should
+		 * be shown more to the left.
+		 */
+		readonly priority: number | undefined;
+
+		/**
+		 * The name of the entry, like 'Python Language Indicator', 'Git Status' etc.
+		 * Try to keep the length of the name short, yet descriptive enough that
+		 * users can understand what the status bar item is about.
+		 */
+		name: string | undefined;
+
+		/**
+		 * The text to show for the entry. You can embed icons in the text by leveraging the syntax:
+		 *
+		 * `My text $(icon-name) contains icons like $(icon-name) this one.`
+		 *
+		 * Where the icon-name is taken from the ThemeIcon [icon set](https://code.visualstudio.com/api/references/icons-in-labels#icon-listing), e.g.
+		 * `light-bulb`, `thumbsup`, `zap` etc.
+		 */
+		text: string;
+
+		/**
+		 * The tooltip text when you hover over this entry.
+		 */
+		tooltip: string | MarkdownString | undefined;
+
+		/**
+		 * The foreground color for this entry.
+		 */
+		color: string | ThemeColor | undefined;
+
+		/**
+		 * The background color for this entry.
+		 *
+		 * *Note*: only the following colors are supported:
+		 * * `new ThemeColor('statusBarItem.errorBackground')`
+		 * * `new ThemeColor('statusBarItem.warningBackground')`
+		 *
+		 * More background colors may be supported in the future.
+		 *
+		 * *Note*: when a background color is set, the statusbar may override
+		 * the `color` choice to ensure the entry is readable in all themes.
+		 */
+		backgroundColor: ThemeColor | undefined;
+
+		/**
+		 * {@linkcode Command} or identifier of a command to run on click.
+		 *
+		 * The command must be {@link commands.getCommands known}.
+		 *
+		 * Note that if this is a {@linkcode Command} object, only the {@linkcode Command.command command} and {@linkcode Command.arguments arguments}
+		 * are used by the editor.
+		 */
+		command: string | Command | undefined;
+
+		/**
+		 * Accessibility information used when a screen reader interacts with this StatusBar item
+		 */
+		accessibilityInformation: AccessibilityInformation | undefined;
+
+		/**
+		 * Shows the entry in the status bar.
+		 */
+		show(): void;
+
+		/**
+		 * Hide the entry in the status bar.
+		 */
+		hide(): void;
+
+		/**
+		 * Dispose and free associated resources. Call
+		 * {@link StatusBarItem.hide hide}.
+		 */
+		dispose(): void;
+	}
+
+	/**
 	 * Defines a generalized way of reporting progress updates.
 	 */
 	export interface Progress<T> {
@@ -472,6 +604,59 @@ declare module "vscode" {
 		export function showErrorMessage<T extends string>(message: string, ...items: T[]): Thenable<T | undefined>;
 
 		/**
+		 * Shows a selection list allowing multiple selections.
+		 *
+		 * @param items An array of strings, or a promise that resolves to an array of strings.
+		 * @param options Configures the behavior of the selection list.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to the selected items or `undefined`.
+		 */
+		export function showQuickPick(items: readonly string[] | Thenable<readonly string[]>, options: QuickPickOptions & { /** literal-type defines return type */canPickMany: true }, token?: CancellationToken): Thenable<string[] | undefined>;
+
+		/**
+		 * Shows a selection list.
+		 *
+		 * @param items An array of strings, or a promise that resolves to an array of strings.
+		 * @param options Configures the behavior of the selection list.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to the selected string or `undefined`.
+		 */
+		export function showQuickPick(items: readonly string[] | Thenable<readonly string[]>, options?: QuickPickOptions, token?: CancellationToken): Thenable<string | undefined>;
+
+		/**
+		 * Shows a selection list allowing multiple selections.
+		 *
+		 * @param items An array of items, or a promise that resolves to an array of items.
+		 * @param options Configures the behavior of the selection list.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to the selected items or `undefined`.
+		 */
+		export function showQuickPick<T extends QuickPickItem>(items: readonly T[] | Thenable<readonly T[]>, options: QuickPickOptions & { /** literal-type defines return type */ canPickMany: true }, token?: CancellationToken): Thenable<T[] | undefined>;
+
+		/**
+		 * Shows a selection list.
+		 *
+		 * @param items An array of items, or a promise that resolves to an array of items.
+		 * @param options Configures the behavior of the selection list.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to the selected item or `undefined`.
+		 */
+		export function showQuickPick<T extends QuickPickItem>(items: readonly T[] | Thenable<readonly T[]>, options?: QuickPickOptions, token?: CancellationToken): Thenable<T | undefined>;
+
+		/**
+		 * Opens an input box to ask the user for input.
+		 *
+		 * The returned value will be `undefined` if the input box was canceled (e.g., pressing ESC). Otherwise the
+		 * returned value will be the string typed by the user or an empty string if the user did not type
+		 * anything but dismissed the input box with OK.
+		 *
+		 * @param options Configures the behavior of the input box.
+		 * @param token A token that can be used to signal cancellation.
+		 * @returns A thenable that resolves to a string the user provided or to `undefined` in case of dismissal.
+		 */
+		export function showInputBox(options?: InputBoxOptions, token?: CancellationToken): Thenable<string | undefined>;
+
+		/**
 		 * Creates a new {@link OutputChannel output channel} with the given name and language id
 		 * If language id is not provided, then **Log** is used as default language id.
 		 *
@@ -514,6 +699,26 @@ declare module "vscode" {
 			 */
 			increment?: number;
 		}>, token: CancellationToken) => Thenable<R>): Thenable<R>;
+
+		/**
+		 * Creates a status bar {@link StatusBarItem item}.
+		 *
+		 * @param id The identifier of the item. Must be unique within the extension.
+		 * @param alignment The alignment of the item.
+		 * @param priority The priority of the item. Higher values mean the item should be shown more to the left.
+		 * @returns A new status bar item.
+		 */
+		export function createStatusBarItem(id: string, alignment?: StatusBarAlignment, priority?: number): StatusBarItem;
+
+		/**
+		 * Creates a status bar {@link StatusBarItem item}.
+		 *
+		 * @see {@link createStatusBarItem} for creating a status bar item with an identifier.
+		 * @param alignment The alignment of the item.
+		 * @param priority The priority of the item. Higher values mean the item should be shown more to the left.
+		 * @returns A new status bar item.
+		 */
+		export function createStatusBarItem(alignment?: StatusBarAlignment, priority?: number): StatusBarItem;
 
 		/**
 		 * Create a TextEditorDecorationType that can be used to add decorations to text editors.
@@ -3487,6 +3692,159 @@ declare module "vscode" {
 		 * there was no bundle found or when we are running with the default language.
 		 */
 		export const uri: Uri | undefined;
+	}
+
+	/**
+	 * Represents an item that can be selected from a list of items.
+	 */
+	export interface QuickPickItem {
+
+		/**
+		 * A human-readable string which is rendered prominently.
+		 *
+		 * Supports rendering of {@link ThemeIcon theme icons} via the `$(<name>)`-syntax.
+		 *
+		 * **Note:** When {@link QuickPickItem.kind kind} is set to {@link QuickPickItemKind.Default} (so a regular
+		 * item instead of a separator), it supports rendering of {@link ThemeIcon theme icons} via the
+		 * `$(<name>)`-syntax.
+		 */
+		label: string;
+
+		/**
+		 * A human-readable string which is rendered less prominently in the same line.
+		 *
+		 * Supports rendering of {@link ThemeIcon theme icons} via the `$(<name>)`-syntax.
+		 *
+		 * **Note:** This property is ignored when {@link QuickPickItem.kind kind} is set to
+		 * {@link QuickPickItemKind.Separator}.
+		 */
+		description?: string;
+
+		/**
+		 * A human-readable string which is rendered less prominently in a separate line.
+		 *
+		 * Supports rendering of {@link ThemeIcon theme icons} via the `$(<name>)`-syntax.
+		 *
+		 * **Note:** This property is ignored when {@link QuickPickItem.kind kind} is set to
+		 * {@link QuickPickItemKind.Separator}.
+		 */
+		detail?: string;
+
+		/**
+		 * Optional flag indicating if this item is initially selected.
+		 *
+		 * This is only honored when using the {@link window.showQuickPick showQuickPick} API. To do the same
+		 * thing with the {@link window.createQuickPick createQuickPick} API, simply set the
+		 * {@link QuickPick.selectedItems selectedItems} to the items you want selected initially.
+		 *
+		 * **Note:** This is only honored when the picker allows multiple selections.
+		 *
+		 * @see {@link QuickPickOptions.canPickMany}
+		 *
+		 * **Note:** This property is ignored when {@link QuickPickItem.kind kind} is set to
+		 * {@link QuickPickItemKind.Separator}.
+		 */
+		picked?: boolean;
+	}
+
+	/**
+	 * Options to configure the behavior of the quick pick UI.
+	 */
+	export interface QuickPickOptions {
+
+		/**
+		 * An optional title for the quick pick.
+		 */
+		title?: string;
+
+		/**
+		 * An optional string to show as placeholder in the input box to guide the user.
+		 */
+		placeHolder?: string;
+
+		/**
+		 * Determines if the picker allows multiple selections. When `true`, the result is an array of picks.
+		 */
+		canPickMany?: boolean;
+	}
+
+	/**
+	 * Severity levels for input box validation messages.
+	 */
+	export enum InputBoxValidationSeverity {
+		/**
+		 * Indicates an informational message that does not prevent input acceptance.
+		 */
+		Info = 1,
+		/**
+		 * Indicates a warning message that does not prevent input acceptance.
+		 */
+		Warning = 2,
+		/**
+		 * Indicates an error message that prevents the user from accepting the input.
+		 */
+		Error = 3
+	}
+
+	/**
+	 * Represents a validation message for an {@link InputBox}.
+	 */
+	export interface InputBoxValidationMessage {
+		/**
+		 * The validation message to display to the user.
+		 */
+		readonly message: string;
+
+		/**
+		 * The severity level of the validation message.
+		 *
+		 * **Note:** When using {@link InputBoxValidationSeverity.Error}, the user will not be able to accept
+		 * the input (e.g., by pressing Enter). {@link InputBoxValidationSeverity.Info Info} and
+		 * {@link InputBoxValidationSeverity.Warning Warning} severities will still allow the input to be accepted.
+		 */
+		readonly severity: InputBoxValidationSeverity;
+	}
+
+	/**
+	 * Options to configure the behavior of the input box UI.
+	 */
+	export interface InputBoxOptions {
+
+		/**
+		 * An optional string that represents the title of the input box.
+		 */
+		title?: string;
+
+		/**
+		 * The value to pre-fill in the input box.
+		 */
+		value?: string;
+
+		/**
+		 * The text to display underneath the input box.
+		 */
+		prompt?: string;
+
+		/**
+		 * An optional string to show as placeholder in the input box to guide the user what to type.
+		 */
+		placeHolder?: string;
+
+		/**
+		 * Controls if a password input is shown. Password input hides the typed text.
+		 */
+		password?: boolean;
+
+		/**
+		 * An optional function that will be called to validate input and to give a hint
+		 * to the user.
+		 *
+		 * @param value The current value of the input box.
+		 * @returns Either a human-readable string which is presented as an error message or an {@link InputBoxValidationMessage}
+		 *  which can provide a specific message severity. Return `undefined`, `null`, or the empty string when 'value' is valid.
+		 */
+		validateInput?(value: string): string | InputBoxValidationMessage | undefined | null |
+			Thenable<string | InputBoxValidationMessage | undefined | null>;
 	}
 
 	/**

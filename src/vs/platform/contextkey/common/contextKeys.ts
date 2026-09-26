@@ -48,6 +48,15 @@ export interface ContextKeyTypes {
     // -- Workbench UI contexts --
     /** True while the bottom Panel (Problems/Output/…) is visible. */
     panelVisible: boolean;
+    /**
+     * Виден список серии Ctrl+Tab. Пока он виден, стрелки Вверх/Вниз шагают по
+     * списку, а не по редактору — на этом ключе висят их бинды.
+     *
+     * В VS Code ту же роль играет `inEditorsPicker` поверх quick pick. Имя взято своё:
+     * «editors picker» у нас уже занят пикером открытых редакторов (Ctrl+K Ctrl+P),
+     * а наш переключатель — passthrough-оверлей без фокуса, не quick pick.
+     */
+    tabSwitcherVisible: boolean;
 
     // -- Terminal environment contexts (see TerminalEnvironmentService) --
     /** "legacy" | "csi-u" | "kitty" — use as `tier == 'kitty'`. */
@@ -109,6 +118,13 @@ export interface ContextKeyTypes {
      * Tab keeps indenting instead of accepting (VS Code semantics; default true).
      */
     inlineSuggestionHasIndentationLessThanTabSize: boolean;
+    /**
+     * True while an inline-suggestion request is in flight (asked, not answered
+     * yet). Not a VS Code key: upstream drives cancellation from its observable
+     * graph, we need the state in a `when` clause so Escape can cancel a request
+     * whose ghost text has not appeared yet.
+     */
+    inlineSuggestionRequestPending: boolean;
 
     // -- Debugger contexts --
     // debuggersAvailable: boolean;
@@ -251,6 +267,7 @@ export const allContextKeys: ContextKey[] = [
 
     // -- Workbench UI contexts --
     "panelVisible",
+    "tabSwitcherVisible",
 
     // -- Terminal environment contexts --
     "tier",
@@ -299,6 +316,7 @@ export const allContextKeys: ContextKey[] = [
     "parameterHintsMultipleSignatures",
     "inlineSuggestionVisible",
     "inlineSuggestionHasIndentationLessThanTabSize",
+    "inlineSuggestionRequestPending",
 
     // -- Debugger contexts --
     // "debuggersAvailable",

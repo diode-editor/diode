@@ -20,6 +20,7 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
+import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
@@ -64,7 +65,11 @@ function makeHarness() {
             hasMultipleSignatures: () => false,
             onFocusChanged: onParameterHintsFocusChanged,
         } as unknown as ParameterHintsService,
-        { isOpen: () => false, hasIndentationLessThanTabSize: () => true } as unknown as InlineCompletionsService,
+        {
+            isOpen: () => false,
+            hasIndentationLessThanTabSize: () => true,
+            isRequestPending: () => true,
+        } as unknown as InlineCompletionsService,
         { hasOpenTerminals: false } as unknown as TerminalService,
         terminalEnv as unknown as TerminalEnvironmentService,
         { setActive } as unknown as InputWidgetService,
@@ -77,6 +82,7 @@ function makeHarness() {
             isFirstResultFocused: () => false,
         } as unknown as SearchComponent,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
+        { isOpen: () => false } as unknown as TabSwitcherComponent,
     );
 
     return {
@@ -115,6 +121,8 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("suggestWidgetVisible")).toBe(false);
         expect(h.contextKeys.get("inlineSuggestionVisible")).toBe(false);
         expect(h.contextKeys.get("inlineSuggestionHasIndentationLessThanTabSize")).toBe(true);
+        // Запрос призрака в полёте — ключ взведён (фейк сервиса отдаёт true).
+        expect(h.contextKeys.get("inlineSuggestionRequestPending")).toBe(true);
         expect(h.contextKeys.get("terminalIsOpen")).toBe(false);
         expect(h.contextKeys.get("tier")).toBe("legacy");
         expect(h.contextKeys.get("os")).toBe("linux");

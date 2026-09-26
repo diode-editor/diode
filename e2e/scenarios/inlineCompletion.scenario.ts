@@ -7,7 +7,9 @@ import { defineScenario, repoRoot } from "./framework.ts";
 // ответа ~250 мс. Печатаем `function fib` — серым курсивом дорисовывается
 // многострочное тело функции (первая строка — хвост строки каретки, остальные —
 // view zones без номеров строк); Tab принимает подсказку одной правкой, и
-// строки становятся настоящими (у них появляются номера в гуттере).
+// строки становятся настоящими (у них появляются номера в гуттере). Вторая
+// половина — каретка в СЕРЕДИНЕ строки: призрак встаёт между кареткой и хвостом
+// строки (фантомные колонки внутри layout строки), Tab вставляет перед хвостом.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "ghost-sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-inline-ghost");
@@ -64,5 +66,40 @@ export default defineScenario({
         await editor.sendKey("Tab");
         await editor.waitForText((t) => t.includes("Ln 5"), { timeoutMs: 4000 });
         await editor.capture("accepted");
+
+        // Заявка n-4: каретка в СЕРЕДИНЕ строки. Готовим строку с хвостом —
+        // комментарий справа от каретки, — и печатаем триггер перед ним: призрак
+        // встаёт МЕЖДУ кареткой и хвостом (фантомные колонки внутри layout
+        // строки), а не поверх хвоста.
+        await editor.sendKey("End");
+        await editor.sendKey("Enter");
+        await editor.sendText("// greeting for the demo");
+        await editor.sendKey("Home");
+        await editor.sendText("const greeting");
+        // Esc закрывает word-based попап (см. выше) — при открытом попапе
+        // inline-подсказка не запрашивается.
+        await editor.sendKey("Escape");
+        let midLineShown = false;
+        for (let attempt = 0; attempt < 10 && !midLineShown; attempt++) {
+            try {
+                await editor.waitForText((t) => t.includes('greeting = "Hello from ghost text!";// greeting'), {
+                    timeoutMs: 2000,
+                });
+                midLineShown = true;
+            } catch {
+                await editor.sendKey("Backspace");
+                await editor.sendKey("g");
+                await editor.sendKey("Escape");
+            }
+        }
+        if (!midLineShown) throw new Error("inline-completion: призрак в середине строки не появился за 10 попыток");
+        await editor.capture("ghost-mid-line");
+
+        // Tab вставляет подсказку перед хвостом: текст на экране тот же, но он
+        // уже настоящий — каретка встала за вставкой (Col 43 = 14 набранных + 28
+        // вставленных + 1), а комментарий остался за ней.
+        await editor.sendKey("Tab");
+        await editor.waitForText((t) => t.includes("Col 43"), { timeoutMs: 4000 });
+        await editor.capture("mid-line-accepted");
     },
 });

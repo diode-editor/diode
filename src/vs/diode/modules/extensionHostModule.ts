@@ -15,13 +15,16 @@ import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/edi
 import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
+import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
 import { FileWatcherAdapter, parseWatcherExclude } from "../../workbench/api/browser/fileWatcherAdapter.ts";
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
+import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInputExtensionAdapter.ts";
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
+import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
 import { FileSystemProviderRegistryDIToken, MarkerServiceDIToken } from "../../workbench/common/coreTokens.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
@@ -141,6 +144,17 @@ export const extensionHostModule: ContainerModule = (container) => {
             diagnosticsSink,
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
+            // createStatusBarItem расширений → собственные записи в полосе;
+            // клик исполняет команду расширения тем же адаптером команд, что и
+            // остальные вызовы субпроцесса.
+            statusBarItemSink: new ExtensionStatusBarAdapter(
+                container.get(StatusBarServiceDIToken),
+                commandAdapter,
+                logger,
+            ),
+            // showInputBox/showQuickPick расширений → общий QuickInput-оверлей
+            // приложения (тот же, что у палитры и Quick Open).
+            quickInputSink: new QuickInputExtensionAdapter(container.get(QuickInputServiceDIToken)),
             // createOutputChannel расширений → канал в панели Output;
             // show() открывает панель (как toggleOutputAction) и переключает канал.
             outputSink: new ExtensionOutputAdapter(
@@ -186,7 +200,7 @@ export const extensionHostModule: ContainerModule = (container) => {
         // Inline completions (ghost text): источник призрачных подсказок —
         // провайдеры расширений через host (читает InlineCompletionsService).
         // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.inlineCompletionSource = (req) => host.provideInlineCompletions(req);
+        group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
 
         // Definition: провайдеры расширений (languages.provideDefinition)
         // подключаются как источник целей Go to Definition (читает DefinitionService).
