@@ -33,6 +33,7 @@ import {
     ExtensionHostDIToken,
     type IExtensionHostConfigProvider,
 } from "../../workbench/services/extensions/node/extensionHost.ts";
+import { createFileExtensionSecretStore } from "../../workbench/services/extensions/node/extensionSecretsStore.ts";
 import {
     extensionStorageHomes,
     type IExtensionStorageHomes,
@@ -65,6 +66,8 @@ export interface IExtensionHostModuleContext {
     readonly workspaceStorageDir: string;
     /** `<userDataDir>/logs` — родитель `logUri` расширений. */
     readonly logsDir: string;
+    /** `<profileDir>/secrets.json` — хранилище `ExtensionContext.secrets`. */
+    readonly secretsFile: string;
 }
 
 /**
@@ -151,6 +154,15 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Stryker disable next-line ArrowFunction: production-проводка модуля; решение о корнях живёт в `extensionStorageHomes` и закрыто юнитами, сквозняк — e2e-сценарий extension-storage
         const storageHomes = (): IExtensionStorageHomes => extensionStorageHomes(ctx, explorer.getRootPath());
 
+        // Секреты расширений — файл в user-data (в отличие от memento, они
+        // обязаны пережить перезапуск). Беды хранилища уходят в лог хоста; сами
+        // значения не логируются нигде и никогда.
+        // Stryker disable BlockStatement,CallExpression: production-проводка модуля (как у `storageHomes` выше) — решение о хранилище живёт в `extensionSecretsStore` и закрыто юнитами, сквозняк — e2e-сценарий extension-secrets
+        const secrets = createFileExtensionSecretStore(ctx.secretsFile, (message, err) => {
+            logger.error(message, err);
+        });
+        // Stryker restore BlockStatement,CallExpression
+
         const host = new ExtensionHost(adapter, commandAdapter, {
             logger,
             rpcLogger,
@@ -164,6 +176,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             editorLayout,
             fileWatcher,
             storageHomes,
+            secrets,
             diagnosticsSink,
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),

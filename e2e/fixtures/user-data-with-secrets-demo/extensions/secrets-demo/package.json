@@ -1,0 +1,19 @@
+{
+    "name": "secrets-demo",
+    "displayName": "Secrets Demo",
+    "description": "Демо ExtensionContext.secrets (get/store/delete/onDidChange с персистом в user-data) и каталога vscode.extensions (all/getExtension/isActive).",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "secretsDemo.store", "title": "Secrets Demo: Store Token" },
+            { "command": "secretsDemo.delete", "title": "Secrets Demo: Delete Token" },
+            { "command": "secretsDemo.showCatalog", "title": "Secrets Demo: Show Catalog" }
+        ]
+    }
+}

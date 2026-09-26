@@ -218,6 +218,110 @@ afterEach(() => {
     spawnMock.mockReset();
 });
 
+/**
+ * Продюсер каталога `vscode.extensions`: что именно хост кладёт в провод.
+ * Потребителя (`extensionsNamespace`) проверяют свои юниты, сквозняк —
+ * `extensionHost.extensionsCatalog.test.ts` на живом субпроцессе; здесь — форма
+ * сообщения, которую ни тот, ни другой не видят (разбор на той стороне
+ * отбрасывает мусор и прячет лишнее в каталоге).
+ */
+describe("ExtensionHost — каталог расширений на проводе", () => {
+    const catalogs = (child: FakeChild): { extensions: unknown[] }[] =>
+        child.sent
+            .filter((m) => m.kind === "notif" && m.method === "extensions.catalog")
+            .map((m) => (m as { params: { extensions: unknown[] } }).params);
+
+    it("семя на handshake несёт ровно зарегистрированные расширения с их манифестами", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        host.registerExtension({
+            id: "ext.a",
+            manifest: { name: "a", publisher: "ext", version: "1.2.3", displayName: "Первое" },
+            mainPath: "/ext-a/out/main.js",
+        });
+        host.registerExtension(makeReg("ext.b", "/ext-b/main.js"));
+        await host.activateByEvent("*");
+
+        const [seed] = catalogs(child);
+        expect(seed.extensions).toEqual([
+            {
+                id: "ext.a",
+                extensionPath: "/ext-a/out",
+                packageJSON: { name: "a", publisher: "ext", version: "1.2.3", displayName: "Первое" },
+                isActive: false,
+            },
+            {
+                id: "ext.b",
+                extensionPath: "/ext-b",
+                packageJSON: { name: "ext.b", publisher: "test", version: "0.0.1" },
+                isActive: false,
+            },
+        ]);
+        host.dispose();
+    });
+
+    it("активация едет точечным `extensions.activated`, а не новым каталогом", async () => {
+        // Манифесты тяжёлые — гонять весь список ради одного флага нельзя.
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        host.registerExtension(makeReg("ext.a", "/a.js"));
+        const before = catalogs(child).length;
+        await host.activateByEvent("*");
+
+        expect(catalogs(child).length).toBe(before + 1); // только семя на подъёме
+        expect(child.sent.filter((m) => m.kind === "notif" && m.method === "extensions.activated")).toEqual([
+            { kind: "notif", method: "extensions.activated", params: { id: "ext.a" } },
+        ]);
+        host.dispose();
+    });
+
+    it("снятие расширения пере-push'ит каталог уже без него", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        host.registerExtension(makeReg("ext.a", "/a.js"));
+        host.registerExtension(makeReg("ext.b", "/b.js"));
+        await host.activateByEvent("*");
+
+        await host.unregisterExtension("ext.a");
+        const last = catalogs(child).at(-1);
+        expect((last?.extensions as { id: string }[] | undefined)?.map((e) => e.id)).toEqual(["ext.b"]);
+        host.dispose();
+    });
+
+    it("после смерти субпроцесса состав переезжает целиком, а активность честно обнуляется", async () => {
+        // В новом субпроцессе в момент handshake не активен НИКТО — оживление
+        // ещё впереди, и рапортовать `isActive: true` значило бы соврать
+        // соседу, который читает каталог прямо в своём `activate()`. Флаг
+        // возвращает уже `extensions.activated`, по одному на оживлённого.
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        host.registerExtension(makeReg("ext.a", "/a.js"));
+        await host.activateByEvent("*");
+
+        const revived = new FakeChild();
+        spawnMock.mockReturnValue(revived as never);
+        queueMicrotask(() => {
+            revived.emitReady();
+        });
+        child.simulateExit(1);
+        await host.activateByEvent("onLanguage:python");
+
+        const [seed] = catalogs(revived);
+        expect(seed.extensions).toEqual([
+            {
+                id: "ext.a",
+                extensionPath: "/",
+                packageJSON: { name: "ext.a", publisher: "test", version: "0.0.1" },
+                isActive: false,
+            },
+        ]);
+        expect(revived.sent.filter((m) => m.kind === "notif" && m.method === "extensions.activated")).toEqual([
+            { kind: "notif", method: "extensions.activated", params: { id: "ext.a" } },
+        ]);
+        host.dispose();
+    });
+});
+
 describe("ExtensionHost — registration lifecycle", () => {
     it("lazily spawns the subprocess and activates an extension", async () => {
         const child = new FakeChild();

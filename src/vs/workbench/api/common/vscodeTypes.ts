@@ -1043,6 +1043,19 @@ export enum ExtensionMode {
     Test = 3,
 }
 
+/**
+ * Где работает расширение (`Extension.extensionKind`). У нас всегда `UI`, и это
+ * не упрощение, а буква контракта `vscode.d.ts`: «When no remote extension host
+ * exists, the value is `ExtensionKind.UI`» — удалённого extension host'а в Diode
+ * нет. Значение обязано быть рантайм-enum'ом: расширение сравнивает с ним
+ * (`ext.extensionKind === vscode.ExtensionKind.Workspace`), и без настоящего
+ * поля сравнение всегда давало бы `false` вместо честного ответа.
+ */
+export enum ExtensionKind {
+    UI = 1,
+    Workspace = 2,
+}
+
 /** Наивный WorkspaceEdit — хранит правки, применение — за `workspace.applyEdit`. */
 /**
  * Как был вызван signature-help-провайдер. Значения — из vscode API; их читает

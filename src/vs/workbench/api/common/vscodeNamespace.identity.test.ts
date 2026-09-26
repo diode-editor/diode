@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Uri } from "../../../base/common/uri.ts";
 
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import { makeStubRpc as makeSharedStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
 /**
@@ -191,15 +192,22 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(delivered).toBe(vscode.window.activeTextEditor);
     });
 
-    it("extensions — наивный namespace: getExtension честно undefined, all пуст, onDidChange подписываем", () => {
-        const { rpc } = makeStubRpc();
-        const vscode = buildVscodeNamespace(rpc).namespace;
-        // pyright-семейство детектит Pylance/ms-python через getExtension —
-        // undefined здесь семантически верный ответ, а не заглушка-обман.
+    it("extensions — каталог от хоста, до его приезда состав честно пуст", () => {
+        // Общий стаб — здешний ловит только editor.activeEditorChanged.
+        const stub = makeSharedStubRpc();
+        const vscode = buildVscodeNamespace(stub.rpc).namespace;
+        // Хост ещё не прислал каталог (в жизни он приезжает семенем ДО первой
+        // активации) — пустой состав тут верный ответ, а не заглушка.
         expect(vscode.extensions.getExtension("ms-python.vscode-pylance")).toBeUndefined();
         expect(vscode.extensions.all).toEqual([]);
         const sub = vscode.extensions.onDidChange(() => undefined);
         sub.dispose();
+
+        stub.fire("extensions.catalog", {
+            extensions: [{ id: "pub.one", extensionPath: "/ext/one", packageJSON: { name: "one" }, isActive: true }],
+        });
+        expect(vscode.extensions.getExtension("pub.one")?.isActive).toBe(true);
+        expect(vscode.extensions.all.map((e) => e.id)).toEqual(["pub.one"]);
     });
 
     it("tasks — наивный namespace: registerTaskProvider отдаёт disposable, события подписываем", () => {

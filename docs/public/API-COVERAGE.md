@@ -42,7 +42,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 109/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 112/424 |
 
 ## vscode.languages
 
@@ -135,14 +135,14 @@ output-каналы, декорации, пункты статус-бара и �
 
 ## vscode.extensions
 
-🟡 **3/3** — задекларирован целиком, но реализация наивна: каталог расширений субпроцессу не
-раздаётся.
+🟡 **3/3** — задекларирован целиком и раздаёт настоящий состав; расхождение с эталоном одно и
+названо ниже (декларативные расширения).
 
 | член | статус | комментарий |
 | --- | :-: | --- |
-| `getExtension` | 🟡 | честно `undefined` |
-| `all` | 🟡 | пуст |
-| `onDidChange` | 🟡 | не стреляет |
+| `getExtension` | ✅ | настоящая запись каталога (id, `extensionUri`/`extensionPath`, `packageJSON` целиком, живой `isActive`, `exports` активного соседа); id сравнивается без учёта регистра, как `ExtensionIdentifier` в эталоне. Верен уже в `activate()` — каталог приезжает семенем до первой активации |
+| `all` | 🟡 | весь состав, известный extension host'у, **кроме декларативных расширений** — языковые паки без `main` в extension host не регистрируются и в `all` не попадают (в эталоне попадают) |
+| `onDidChange` | ✅ | стреляет на смену состава (регистрация/снятие расширения); на активацию — нет, как в эталоне |
 
 ## vscode.l10n
 
@@ -185,15 +185,14 @@ output-каналы, декорации, пункты статус-бара и �
 
 ## Типы с неполной поверхностью
 
-Активно 106 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 109 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов).
 
 | тип | активно | не активно |
 | --- | :-: | --- |
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
-| `ExtensionContext` | 13/17 | `secrets`, `environmentVariableCollection`, `extension`, `languageModelAccessInformation` |
-| `Extension` | 7/8 | `extensionKind` |
+| `ExtensionContext` | 14/17 | `environmentVariableCollection`, `extension`, `languageModelAccessInformation` |
 | `WorkspaceEdit` | 8/11 | файловые операции: `createFile`, `deleteFile`, `renameFile` |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |
 | `FileStat` | 4/5 | `permissions` |
@@ -213,6 +212,9 @@ output-каналы, декорации, пункты статус-бара и �
 | `vscode.version` | возвращает версию **diode**, а не VS Code |
 | `Event<T>` | подписки оборачиваются собственным эмиттером хоста |
 | `TextEditorOptions.indentSize` | алиасится к `tabSize` — diode пока их не различает |
+| `SecretStorage` | **без шифрования**: связки ключей ОС у нас нет, секреты лежат открытым текстом в `<profileDir>/secrets.json` под правами `0600`. Всё остальное по контракту — `get`/`store`/`delete`/`keys` работают, `onDidChange` стреляет и на запись, и на удаление, значения переживают перезапуск и у каждого расширения свой лоток |
+| `Extension.extensionKind` | всегда `ExtensionKind.UI` — ровно как предписывает upstream, когда удалённого extension host'а нет (а в Diode его нет и не будет) |
+| `Extension.activate()` | у **уже активного** расширения отдаёт его `exports`, у неактивного — отклоняется с объяснением. Активацией распоряжается хост (события активации, per-extension изоляция, оживление после смерти субпроцесса); «субпроцесс просит хост поднять соседа» — отдельная задача со своим RPC |
 | namespaces / value-типы | рантайм может опережать декларацию (см. `languages.match`, `workspace.getWorkspaceFolder`) |
 
 ## Как читать «частично»

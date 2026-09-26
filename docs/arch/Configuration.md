@@ -13,6 +13,7 @@
     User/
       settings.json              # default-профиль
       keybindings.json
+      secrets.json               # ExtensionContext.secrets (0600, без шифрования)
       globalStorage/<extId>/     # ExtensionContext.globalStorageUri
       workspaceStorage/<hash>/<extId>/   # ExtensionContext.storageUri
       profiles/<name>/{settings,keybindings}.json
@@ -24,6 +25,12 @@
 эталона одно: у нас нет подкаталога сессии (`logs/<timestamp>/`) — ротации логов
 по запускам нет. Раздаёт их хост (`ExtensionHost`, см.
 [Extensions.md](Extensions.md)), резолвит — `resolveExtensionStoragePaths`.
+
+Там же, внутри профиля, лежит `secrets.json` — `ExtensionContext.secrets`
+(`createFileExtensionSecretStore`). В VS Code секреты уходят в связку ключей ОС;
+у нас её нет, поэтому они хранятся **открытым текстом под правами `0600`** —
+защита ровно уровня прав ФС. Per-profile, как `globalState.json`: токены
+рабочего профиля не должны быть видны из личного.
 
 - **`resolveUserDataPaths(...)`** (`Common/UserDataPaths.ts`) — чистая функция, возвращает все пути; имя профиля валидируется `/^[A-Za-z0-9._-]+$/`.
 - **`parseCliArgs(argv)`** (`Common/CliArgs.ts`) — флаги `--user-data-dir`, `--profile`, `--inspect-tui`, `--headless[=CxR]` (требует `--inspect-tui`), `-h`/`-v`, разделитель `--`, неизвестные → `CliArgsError`.

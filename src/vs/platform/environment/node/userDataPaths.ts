@@ -14,6 +14,7 @@ import * as path from "node:path";
  *           settings.json
  *           keybindings.json
  *           globalState.json             ← машинное состояние (global scope)
+ *           secrets.json                 ← ExtensionContext.secrets (0600, без шифрования)
  *           globalStorage/               ← приватные каталоги расширений (global)
  *             <extId>/                   ← ExtensionContext.globalStorageUri
  *           workspaceStorage/            ← машинное состояние по проектам
@@ -24,6 +25,7 @@ import * as path from "node:path";
  *               settings.json
  *               keybindings.json
  *               globalState.json
+ *               secrets.json
  *               globalStorage/
  *               workspaceStorage/
  *
@@ -55,6 +57,14 @@ export interface IUserDataPaths {
      * отдельный global-state. Отдельно от человекочитаемого `settings.json`.
      */
     readonly globalStateFile: string;
+    /**
+     * `<profileDir>/secrets.json` — секреты расширений
+     * (`ExtensionContext.secrets`), по одному лотку на расширение. Per-profile,
+     * как `globalStateFile`: токены рабочего профиля не должны быть видны из
+     * личного. **Открытым текстом под правами `0600`** — связки ключей ОС у нас
+     * нет, и замалчивать это нельзя (см. `extensionSecretsStore.ts`).
+     */
+    readonly secretsFile: string;
     /**
      * `<profileDir>/workspaceStorage` — корень per-project состояния. Конкретный
      * файл проекта резолвится {@link resolveWorkspaceStatePath}. Под `profileDir`
@@ -120,6 +130,7 @@ export function resolveUserDataPaths(options: IResolveUserDataPathsOptions): IUs
         settingsFile: path.join(profileDir, "settings.json"),
         keybindingsFile: path.join(profileDir, "keybindings.json"),
         globalStateFile: path.join(profileDir, "globalState.json"),
+        secretsFile: path.join(profileDir, "secrets.json"),
         workspaceStorageDir: path.join(profileDir, "workspaceStorage"),
         globalStorageDir: path.join(profileDir, "globalStorage"),
         logsDir: path.join(userDataDir, "logs"),

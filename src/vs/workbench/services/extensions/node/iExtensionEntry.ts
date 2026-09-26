@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 /**
  * Контракт CJS-модуля расширения, как его ждёт `runExtensionHostSubprocess`.
  *
@@ -68,4 +70,24 @@ export interface IExtensionRegistration {
      * сохраняет поведение расширений, не описавших события.
      */
     readonly activationEvents?: readonly string[];
+}
+
+/**
+ * Корень расширения на ФС — `ExtensionContext.extensionPath`/`extensionUri` и
+ * `Extension.extensionPath` из `vscode.extensions`. Правило одно на обе стороны
+ * RPC (хост считает его для каталога, субпроцесс — для контекста активации),
+ * поэтому живёт здесь, а не двумя копиями.
+ *
+ * У user-vsix это каталог установки (`extensionPath`). У builtin'а, который
+ * грузится из in-memory `source`, каталога нет — берём каталог синтетического
+ * `filename`: указывает «в бандл», что честнее выдуманного пути.
+ */
+export function extensionRootPath(spec: {
+    readonly extensionPath?: string;
+    readonly mainPath?: string;
+    readonly filename?: string;
+}): string {
+    /* v8 ignore next -- одно из двух есть всегда: без mainPath и без filename расширение не загрузилось бы */
+    // Stryker disable next-line StringLiteral: хвостовой `?? ""` недостижим по тому же инварианту, что и v8 ignore выше — тронуть его мутантом нечем
+    return spec.extensionPath ?? path.dirname(spec.mainPath ?? spec.filename ?? "");
 }

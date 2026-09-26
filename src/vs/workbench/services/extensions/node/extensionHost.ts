@@ -56,10 +56,13 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import {
     type IWireColorTheme,
     type IWireDocumentSyncSnapshot,
+    type IWireExtensionCatalog,
+    type IWireExtensionDescription,
     type IWireInputBoxRequest,
     type IWireInputBoxResult,
     type IWireQuickPickRequest,
     type IWireQuickPickResult,
+    type IWireSecretRef,
     type IWireStatusBarItem,
     type IWireValidationMessage,
     type IWireWatcherCreate,
@@ -80,6 +83,9 @@ import {
     parseWireQuickInputCancel,
     parseWireQuickPickRequest,
     parseWireReadFileResult,
+    parseWireSecretKeysRequest,
+    parseWireSecretRef,
+    parseWireSecretWrite,
     parseWireSelections,
     parseWireShowTextDocumentParams,
     parseWireStatusBarItem,
@@ -105,6 +111,7 @@ import {
     type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
 
+import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 import {
     ensureExtensionStorageParents,
     fallbackExtensionStorageHomes,
@@ -132,7 +139,7 @@ export interface IProgressSink {
 
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 
-import type { IExtensionRegistration } from "./iExtensionEntry.ts";
+import { extensionRootPath, type IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
  * Сток output-каналов расширений (`window.createOutputChannel` →
@@ -395,6 +402,13 @@ export interface IExtensionHostOptions {
      * (каталог во временных файлах ОС, без воркспейсного корня).
      */
     readonly storageHomes?: () => IExtensionStorageHomes;
+    /**
+     * Хранилище `ExtensionContext.secrets`. Если не передано —
+     * {@link createInMemoryExtensionSecretStore}: секреты честно работают, но
+     * живут ровно столько, сколько хост (юнит-тесты, харнессы, встроенные
+     * прогоны). Персистентный вариант подключает `extensionHostModule`.
+     */
+    readonly secrets?: IExtensionSecretStore;
 }
 
 /**
@@ -533,6 +547,15 @@ export class ExtensionHost extends Disposable {
     private readonly fileWatcher: IExtensionFileWatcher;
     /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
     private readonly storageHomes: () => IExtensionStorageHomes;
+    /** Хранилище секретов расширений (`ExtensionContext.secrets`). */
+    private readonly secrets: IExtensionSecretStore;
+    /**
+     * ВСЕ известные хосту регистрации в порядке появления — источник каталога
+     * `vscode.extensions`. Отдельно от `pending`/`activatedRegistrations`/
+     * `toRevive`: те три описывают фазу жизненного цикла и по ходу дела
+     * перекладывают записи между собой, а состав каталога от фазы не зависит.
+     */
+    private readonly registrations = new Map<string, IExtensionRegistration>();
     /** Живые watcher'ы субпроцесса (`workspace.createFileSystemWatcher`) по id. */
     private readonly fileWatchers = new Map<number, IDisposable>();
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
@@ -580,6 +603,7 @@ export class ExtensionHost extends Disposable {
         this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
         this.fileWatcher = options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER;
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
+        this.secrets = options.secrets ?? createInMemoryExtensionSecretStore();
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
         this.outputSink = options.outputSink;
@@ -622,14 +646,51 @@ export class ExtensionHost extends Disposable {
             for (const [id, title] of Object.entries(reg.commandTitles)) this.commandTitles.set(id, title);
         }
         this.pending.set(reg.id, reg);
+        this.registrations.set(reg.id, reg);
+        // Состав каталога изменился — субпроцессу это `extensions.onDidChange`.
+        this.pushExtensionCatalog();
         return {
             dispose: (): void => {
+                // Уже снято (например, через unregisterExtension) — полный
+                // no-op: ни каталога, ни повторного deactivate.
+                if (!this.registrations.delete(reg.id)) return;
+                this.pushExtensionCatalog();
                 if (this.toRevive.delete(reg.id)) return; // ждало оживления — уже не ждёт
                 if (this.pending.delete(reg.id)) return; // ещё не активировано
-                if (!this.extensions.has(reg.id)) return;
+                // Осталась одна фаза — активное расширение; собственный гард
+                // на это держит сам unregisterExtension, второго не надо.
                 void this.unregisterExtension(reg.id);
             },
         };
+    }
+
+    /**
+     * Каталог `vscode.extensions` — всё, что хост знает установленным, плюс
+     * отметка «активно». Расширения без `main` (декларативные языковые паки) в
+     * него не попадают: у них нет кода, они не регистрируются в extension
+     * host'е — и отсюда же берётся расхождение с эталоном, где `extensions.all`
+     * перечисляет и их (см. docs/public/API-COVERAGE.md).
+     */
+    private extensionCatalog(): IWireExtensionCatalog {
+        const extensions: IWireExtensionDescription[] = [];
+        for (const reg of this.registrations.values()) {
+            extensions.push({
+                id: reg.id,
+                extensionPath: extensionRootPath(reg),
+                packageJSON: reg.manifest,
+                isActive: this.extensions.has(reg.id),
+            });
+        }
+        return { extensions };
+    }
+
+    /**
+     * Шлёт субпроцессу состав каталога. Молча ничего не делает, пока субпроцесса
+     * нет: каталог приедет семенем на его подъёме (`ensureSubprocess`), а
+     * мёртвому досылать некому — та же логика, что у `pushActiveColorTheme`.
+     */
+    private pushExtensionCatalog(): void {
+        this.rpc?.notify("extensions.catalog", this.extensionCatalog());
     }
 
     /**
@@ -671,6 +732,10 @@ export class ExtensionHost extends Disposable {
                 });
                 this.extensions.add(reg.id);
                 this.activatedRegistrations.set(reg.id, reg);
+                // Точечно, а не целым каталогом: манифесты тяжёлые (у языковых
+                // серверов package.json со схемой настроек — сотни килобайт), а
+                // меняется здесь ровно один флаг.
+                rpc.notify("extensions.activated", { id: reg.id });
                 this.logger?.info(`activated extension "${reg.id}"`);
             } catch (err) {
                 this.logger?.error(`failed to activate extension "${reg.id}"`, err);
@@ -700,6 +765,10 @@ export class ExtensionHost extends Disposable {
         if (!this.extensions.has(id)) return;
         this.extensions.delete(id);
         this.activatedRegistrations.delete(id);
+        // Каталог трогаем только если запись и правда ушла: снятие может
+        // прийти вторым заходом (сначала disposable регистрации), и лишнего
+        // `extensions.catalog` субпроцессу слать не за что.
+        if (this.registrations.delete(id)) this.pushExtensionCatalog();
         const rpc = this.rpc;
         /* v8 ignore start -- defensive: an extension can only be in `extensions` after ensureSubprocess set `rpc`; dispose() clears `extensions` before nulling `rpc`, so rpc is never null while the id is still registered */
         if (rpc === null) return;
@@ -1321,6 +1390,8 @@ export class ExtensionHost extends Disposable {
         this.extensions.clear();
         // Stryker disable next-line CallExpression: гигиена — после dispose карту уже никто не читает (оживление отсекает пустой toRevive), наблюдаемой разницы нет
         this.activatedRegistrations.clear();
+        // Stryker disable next-line CallExpression: гигиена — каталог после dispose никто не запрашивает (субпроцесса уже нет), наблюдаемой разницы нет
+        this.registrations.clear();
         this.disposeFileWatchers();
         void this.shutdownSubprocess();
         super.dispose();
@@ -1418,6 +1489,11 @@ export class ExtensionHost extends Disposable {
             // `window.activeColorTheme` уже в `activate()` (так делают все,
             // кто подбирает иконки/цвета под светлую и тёмную).
             this.pushActiveColorTheme();
+            // Каталог расширений — тоже ДО первой активации: `getExtension`
+            // зовут прямо в `activate()`, детектя соседей (так делают все
+            // AI-автодополнения). На оживлении после смерти субпроцесса это же
+            // семя возвращает новому субпроцессу и состав, и флаги активности.
+            rpc.notify("extensions.catalog", this.extensionCatalog());
             // Наполняем `workspace.textDocuments` открытыми документами ДО первой
             // активации: стоковый vscode-languageclient читает его на start().
             // Мимо гейта подписки — подписчиков в этот момент ещё нет.
@@ -1429,6 +1505,7 @@ export class ExtensionHost extends Disposable {
     }
 
     private installHostHandlers(rpc: RpcEndpoint): void {
+        this.installSecretHandlers(rpc);
         rpc.handleRequest("editor.setOptions", (params): unknown => {
             const patch = sanitizeOptionsPatch(params);
             this.editorOptions.setActiveEditorOptions(patch);
@@ -1876,6 +1953,44 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
+     * `ExtensionContext.secrets`: субпроцесс не хранит ничего сам, а ходит сюда
+     * запросами — хранилище знает только хост (он владеет user-data).
+     *
+     * Ни одна из этих веток НЕ логируется: в параметрах едет значение секрета, и
+     * даже пара «расширение + ключ» рядом с ним в логе — уже утечка. Ошибки
+     * формы отдаём исключением (RPC превратит его в reject у расширения),
+     * ошибки самого хранилища — его собственным `onError` (туда уходят путь и
+     * причина, но никогда значение).
+     */
+    private installSecretHandlers(rpc: RpcEndpoint): void {
+        rpc.handleRequest("secrets.keys", (params): unknown => {
+            const extensionId = parseWireSecretKeysRequest(params);
+            if (extensionId === null) throw new Error("secrets.keys: extensionId must be a non-empty string");
+            return { keys: [...this.secrets.keys(extensionId)] };
+        });
+        rpc.handleRequest("secrets.get", (params): unknown => {
+            const ref = requireSecretRef(params, "secrets.get");
+            // `null`, а не отсутствие поля: `undefined` через JSON не ездит.
+            return { value: this.secrets.get(ref.extensionId, ref.key) ?? null };
+        });
+        rpc.handleRequest("secrets.store", (params): unknown => {
+            const write = parseWireSecretWrite(params);
+            if (write === null) throw new Error("secrets.store: expected { extensionId, key, value } of strings");
+            this.secrets.store(write.extensionId, write.key, write.value);
+            rpc.notify("secrets.changed", { extensionId: write.extensionId, key: write.key });
+            return null;
+        });
+        rpc.handleRequest("secrets.delete", (params): unknown => {
+            const ref = requireSecretRef(params, "secrets.delete");
+            this.secrets.delete(ref.extensionId, ref.key);
+            // Событие — и на удаление: в эталоне `onDidChange` описывает факт
+            // изменения секрета, а не только его появление.
+            rpc.notify("secrets.changed", { extensionId: ref.extensionId, key: ref.key });
+            return null;
+        });
+    }
+
+    /**
      * Шлёт субпроцессу вид активной темы. Молча ничего не делает, пока
      * субпроцесса нет: тема приедет семенем на его подъёме (`ensureSubprocess`),
      * и досылать её мёртвому некому.
@@ -2028,6 +2143,16 @@ function readStringArray(raw: unknown): readonly string[] {
 
 function normalizeActivationEvents(events: readonly string[] | undefined): readonly string[] {
     return events !== undefined && events.length > 0 ? events : ["*"];
+}
+
+/**
+ * Адрес секрета из параметров запроса или исключение. Сообщение НЕ содержит
+ * самих параметров: в соседнем поле того же объекта ездит значение секрета.
+ */
+function requireSecretRef(raw: unknown, method: string): IWireSecretRef {
+    const ref = parseWireSecretRef(raw);
+    if (ref === null) throw new Error(`${method}: expected { extensionId, key } of non-empty strings`);
+    return ref;
 }
 
 function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
