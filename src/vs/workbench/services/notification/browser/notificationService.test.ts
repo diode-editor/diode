@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 
-import { MAX_VISIBLE_NOTIFICATIONS, NotificationService } from "./notificationService.ts";
+import { MAX_VISIBLE_NOTIFICATIONS, NotificationService, resolveAutoHideTimeout } from "./notificationService.ts";
 
 /** Конфиг с единственным интересным ключом — таймаутом автоскрытия. */
 function configWith(autoHideTimeout?: unknown): IConfigurationService {
@@ -22,6 +22,26 @@ function configWith(autoHideTimeout?: unknown): IConfigurationService {
 function makeService(autoHideTimeout: unknown): NotificationService {
     return new NotificationService(configWith(autoHideTimeout));
 }
+
+// Разбор настройки — таблицей, без таймеров: значение правит человек, и любой
+// мусор в settings.json обязан уводить на дефолт, а не ронять показ.
+describe("resolveAutoHideTimeout", () => {
+    it("число — как есть", () => {
+        expect(resolveAutoHideTimeout(1000)).toBe(1000);
+        expect(resolveAutoHideTimeout(15000)).toBe(15000);
+    });
+
+    it("ноль и отрицательное — «не гасить само»", () => {
+        expect(resolveAutoHideTimeout(0)).toBe(0);
+        expect(resolveAutoHideTimeout(-5)).toBe(0);
+    });
+
+    it("не-число уводит на дефолт 15 секунд (как в VS Code)", () => {
+        for (const junk of [undefined, null, "soon", Number.NaN, Number.POSITIVE_INFINITY, {}, []]) {
+            expect(resolveAutoHideTimeout(junk)).toBe(15000);
+        }
+    });
+});
 
 describe("NotificationService", () => {
     it("показанное сообщение попадает в стек и файрит подписчиков", () => {

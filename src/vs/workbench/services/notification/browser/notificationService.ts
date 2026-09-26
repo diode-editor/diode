@@ -20,6 +20,21 @@ export const MAX_VISIBLE_NOTIFICATIONS = 3;
 const DEFAULT_AUTO_HIDE_MS = 15_000;
 
 /**
+ * Значение `notifications.autoHideTimeout` → задержка автоскрытия в мс.
+ * Настройку правит человек, поэтому не-число (строка, `null`, `NaN`) читается
+ * как «настройки нет» и уводит на дефолт, а не роняет показ. Ноль и любое
+ * неположительное — «не гасить само»: так пользователь в узком терминале и
+ * сценарии-демо получают детерминированный экран.
+ *
+ * Чистой функцией, а не выражением внутри `scheduleAutoHide`: разбор настройки
+ * проверяется таблицей значений, без таймеров и без живого сервиса.
+ */
+export function resolveAutoHideTimeout(configured: unknown): number {
+    if (typeof configured !== "number" || !Number.isFinite(configured)) return DEFAULT_AUTO_HIDE_MS;
+    return configured <= 0 ? 0 : configured;
+}
+
+/**
  * Реестр живых сообщений (аналог `INotificationService` VS Code): поставщики
  * (`window.show*Message` расширений, наши сервисы) зовут {@link notify},
  * компонент подписывается на {@link onDidChangeNotifications} и рисует стек
@@ -140,10 +155,8 @@ export class NotificationService extends Disposable {
      */
     private scheduleAutoHide(entry: INotification): void {
         if (entry.items.length > 0 || entry.severity !== "info") return;
-        const configured = this.configurationService.get<number>("notifications.autoHideTimeout");
-        const timeout =
-            typeof configured === "number" && Number.isFinite(configured) ? configured : DEFAULT_AUTO_HIDE_MS;
-        if (timeout <= 0) return;
+        const timeout = resolveAutoHideTimeout(this.configurationService.get("notifications.autoHideTimeout"));
+        if (timeout === 0) return;
         const timer = setTimeout(() => {
             // Stryker disable next-line CallExpression: сработавший таймер и так больше не нужен — запись чистится ради гигиены карты
             this.timers.delete(entry.id);
