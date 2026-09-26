@@ -102,6 +102,20 @@ jobs:
 
       - run: npm install
 
+      # Инкрементальный режим: результаты прошлого пуша этой же ветки лежат в
+      # reports/stryker-incremental.json, и мутант, у которого не менялись ни код,
+      # ни убивший его тест, заново не гоняется. Ключ кэша уникален на прогон
+      # (кэш в Actions неизменяем), восстановление — по префиксу ветки: берётся
+      # самый свежий. Первый пуш ветки идёт с нуля, как раньше.
+      - name: Restore incremental mutation results
+        id: incremental
+        uses: actions/cache/restore@v4
+        with:
+          path: reports/stryker-incremental.json
+          key: stryker-incremental-${{ github.head_ref }}-${{ github.run_id }}
+          restore-keys: |
+            stryker-incremental-${{ github.head_ref }}-
+
       # continue-on-error, чтобы отчёт долетел до PR и когда балл ниже порога;
       # красным job делает последний шаг.
       - name: Mutation testing
@@ -109,7 +123,16 @@ jobs:
         continue-on-error: true
         run: |
           node scripts/mutation-diff.mjs "${{ github.event.pull_request.base.sha }}" \
-            --ignoreStatic --reporters json,html,clear-text
+            --ignoreStatic --incremental --reporters json,html,clear-text
+
+      # always(): результаты нужны следующему пушу и когда балл ниже порога —
+      # выжившие перепроверяются точечно каждый прогон (scripts/mutation-diff.mjs).
+      - name: Save incremental mutation results
+        if: always() && hashFiles('reports/stryker-incremental.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: reports/stryker-incremental.json
+          key: ${{ steps.incremental.outputs.cache-primary-key }}
 
       - name: Report mutants
         if: always()

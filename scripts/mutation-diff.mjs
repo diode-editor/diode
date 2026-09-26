@@ -17,6 +17,16 @@
  *
  * Использование: npm run test:mutation [-- <база>] [-- <доп. флаги стрykerа>]
  * По умолчанию база — merge-base с `main`.
+ *
+ * Флаги, которые скрипт понимает сам (остальные уезжают Stryker'у как есть):
+ *   --scope-only    напечатать скоуп и выйти;
+ *   --incremental   инкрементальный режим Stryker'а: результаты прошлого прогона
+ *                   лежат в reports/stryker-incremental.json, и мутант, у которого не
+ *                   менялись ни код, ни убивший его тест, заново не гоняется. Повтор на
+ *                   неизменном коде — секунды вместо минут (замер — TODO/TestRunTime.md).
+ *                   Перепроверка выживших в этом режиме идёт с `--force`: иначе Stryker
+ *                   переиспользовал бы и того «выжившего», которого надо перепроверить.
+ *                   Полный пересчёт без переиспользования — `-- --incremental --force`.
  */
 
 import { spawnSync } from "node:child_process";
@@ -174,6 +184,7 @@ const rest = argv.filter((arg) => arg !== "--scope-only");
 // уходит стрykerу, иначе `-- --concurrency 4` было бы понято как имя ревизии.
 const base = rest[0] !== undefined && !rest[0].startsWith("-") ? rest.shift() : "main";
 const strykerArgs = rest;
+const incremental = strykerArgs.includes("--incremental");
 
 const mergeBase = git(["merge-base", base, "HEAD"]).trim();
 
@@ -277,11 +288,14 @@ function mutantKey(file, mutant) {
     return `${file}:${String(mutant.location?.start?.line)}:${String(mutant.location?.start?.column)}:${String(mutant.mutatorName)}`;
 }
 
-/** Непроверенный мутант — почему его пришлось гонять отдельно, видно прямо в отчёте. */
-function recheckReason(status) {
-    return status === "RuntimeError"
-        ? "перепроверен точечным прогоном: в общем прогоне на нём упал раннер"
-        : "перепроверен точечным прогоном: в общем прогоне не выполнилось ни одного теста";
+/** Почему мутанта пришлось гонять отдельно — видно прямо в отчёте. */
+function recheckReason(mutant) {
+    if (mutant.status === "RuntimeError") return "перепроверен точечным прогоном: в общем прогоне на нём упал раннер";
+    if (!mutant.testsCompleted) return "перепроверен точечным прогоном: в общем прогоне не выполнилось ни одного теста";
+    return (
+        "перепроверен точечным прогоном: в общем прогоне выжил, точечно убит " +
+        "(подбор тестов через vitest.related неполон, см. docs/TODO/MutationGateFlake.md)"
+    );
 }
 
 /** Мутант, которого первый прогон не проверил: перепроверять — обязательно. */
@@ -297,13 +311,16 @@ function isUnchecked(mutant) {
  * Отдельно возвращает тех, на ком раннер упал и в точечном прогоне: их не
  * проверил ни один из двух прогонов, и молчать об этом нельзя.
  */
-function mergeRecheckIntoReport(firstReport, recheckReport) {
+function mergeRecheckIntoReport(firstReport, recheckReport, recheckScope) {
     if (firstReport === null) return { rechecked: 0, stillCrashed: [] };
     let rechecked = 0;
     const stillCrashed = [];
     const killedOnRecheck = new Set();
     for (const [file, data] of Object.entries(recheckReport.files ?? {})) {
         for (const mutant of data.mutants ?? []) {
+            // В инкрементальном режиме Stryker дописывает в отчёт перепроверки и все
+            // прошлые результаты из incremental-файла — считаем и разбираем только своих.
+            if (!inRecheckScope(recheckScope, file, mutant)) continue;
             rechecked++;
             if (mutant.status === "Killed" || mutant.status === "Timeout") killedOnRecheck.add(mutantKey(file, mutant));
             if (mutant.status === "RuntimeError") {
@@ -316,14 +333,22 @@ function mergeRecheckIntoReport(firstReport, recheckReport) {
     }
     for (const [file, data] of Object.entries(firstReport.files ?? {})) {
         for (const mutant of data.mutants ?? []) {
-            if (!isUnchecked(mutant)) continue;
+            if (!isUnchecked(mutant) && mutant.status !== "Survived") continue;
             if (!killedOnRecheck.has(mutantKey(file, mutant))) continue;
-            mutant.statusReason = recheckReason(mutant.status);
+            mutant.statusReason = recheckReason(mutant);
             mutant.status = "Killed";
         }
     }
     writeFileSync(REPORT_PATH, JSON.stringify(firstReport));
     return { rechecked, stillCrashed };
+}
+
+/** Мутант лежит в скоупе перепроверки: тот же файл, строки внутри одного из диапазонов. */
+function inRecheckScope(recheckScope, file, mutant) {
+    const start = mutant.location?.start?.line;
+    if (start === undefined) return false;
+    const end = mutant.location?.end?.line ?? start;
+    return recheckScope.some((entry) => entry.file === file && start >= entry.start && end <= entry.end);
 }
 
 function classifyMutants() {
@@ -352,24 +377,29 @@ const classified = classifyMutants();
 // Ноль от Stryker'а — ещё не «всё проверено»: упавшие на раннере мутанты в балл
 // не входят, так что прогон с ними выходит нулём. Смотрим не на код возврата, а
 // на отчёт.
-if (classified === null || classified.unchecked.length === 0) {
-    process.exit(first.status ?? 1);
-}
-if (classified.verified.length > 0) {
-    console.log(
-        `Есть выжившие, проверенные тестами (${String(classified.verified.length)}) — перепроверять нечего.`,
-    );
+if (classified === null || (classified.unchecked.length === 0 && classified.verified.length === 0)) {
     process.exit(first.status ?? 1);
 }
 
-// Перепроверяем точечно: скоуп в одну строку на мутанта прогоняется надёжно.
-const recheck = [...new Set(classified.unchecked.map(({ file, start, end }) => `${file}:${start}-${end}`))];
+// Перепроверяем точечно всех выживших, а не только непроверенных: скоуп в одну
+// строку на мутанта прогоняется надёжно. Выживший с выполненными тестами — тоже
+// не приговор: подбор тестов через `vitest.related` неполон, и гейт записывает
+// в Survived мутантов, которых тесты их файла убивают (docs/TODO/MutationGateFlake.md).
+// В инкрементальном режиме это ещё и обязательно: иначе такой «выживший»
+// переиспользовался бы из прошлого прогона без единого теста — до первой правки
+// рядом. Скоуп — единицы мутантов, цена — секунды.
+const recheckScope = [...classified.unchecked, ...classified.verified].map(({ file, start, end }) => ({
+    file,
+    start,
+    end,
+}));
+const recheck = [...new Set(recheckScope.map(({ file, start, end }) => `${file}:${start}-${end}`))];
 const lost = classified.unchecked.filter(({ status }) => status === "Survived").length;
 const crashed = classified.unchecked.length - lost;
 console.log(
-    `\nНепроверенных мутантов: ${String(classified.unchecked.length)} ` +
+    `\nВыживших: ${String(classified.verified.length)}, непроверенных: ${String(classified.unchecked.length)} ` +
         `(потерянных прогонов — ${String(lost)}, падений раннера — ${String(crashed)}). ` +
-        `Ни то, ни другое не находка (см. docs/TESTING.md). Перепроверяю точечно:`,
+        `Непроверенный — не находка, выживший — не обязательно (см. docs/TESTING.md). Перепроверяю точечно:`,
 );
 for (const entry of recheck) console.log(`  ${entry}`);
 
@@ -389,7 +419,14 @@ rmSync(REPORT_PATH, { force: true });
 // прогоне флаг неподъёмен (docs/TESTING.md), но скоуп перепроверки — единицы
 // мутантов по одной строке, и цена «все покрывающие тесты на мутанта» тут
 // секунды. Без него вердикт второго прогона нестабилен от запуска к запуску.
-let recheckStatus = runStryker(recheck, ["--disableBail"]).status ?? 1;
+//
+// `--force` в инкрементальном режиме: без него Stryker переиспользовал бы для
+// перепроверяемых мутантов прошлый результат — тот самый «выжил», который мы и
+// перепроверяем, — и не запустил бы ни одного теста. С `--force` он гоняет всё,
+// что в скоупе, а результаты остальных мутантов из incremental-файла переносит
+// как есть, так что следующий прогон видит перепроверенных уже убитыми.
+const recheckArgs = ["--disableBail", ...(incremental ? ["--force"] : [])];
+let recheckStatus = runStryker(recheck, recheckArgs).status ?? 1;
 
 // Нет отчёта — прогон не доехал до конца, и о мутантах он не сказал ничего.
 // Почти всегда это флак его initial test run, а не находка, поэтому один повтор
@@ -399,7 +436,7 @@ if (readReport() === null) {
         "\nТочечный прогон не оставил отчёта — повторяю один раз " +
             "(обычно Stryker падает на initial test run, а не на самих мутантах).",
     );
-    recheckStatus = runStryker(recheck, ["--disableBail"]).status ?? 1;
+    recheckStatus = runStryker(recheck, recheckArgs).status ?? 1;
 }
 
 const recheckReport = readReport();
@@ -415,7 +452,7 @@ if (recheckReport === null) {
     process.exit(1);
 }
 
-const { rechecked, stillCrashed } = mergeRecheckIntoReport(firstReport, recheckReport);
+const { rechecked, stillCrashed } = mergeRecheckIntoReport(firstReport, recheckReport, recheckScope);
 
 // Пустая перепроверка — тихо-зелёный гейт: Stryker на скоупе без мутантов
 // выходит нулём. Падаем громко, иначе «ничего не проверили» станет «всё хорошо».
