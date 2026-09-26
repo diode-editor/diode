@@ -156,10 +156,12 @@
 отдаёт рецепты под опознанный эмулятор (`emulatorRecipes`), но пока только в
 отчёте. Здесь — то, что надо довести до «детектим и подсказываем».
 
-- **iTerm2 и `CSI >4;2m`.** Бэкенд шлёт modifyOtherKeys после kitty-push, а iTerm2
-  трактует любой `CSI >4;n m` как сброс kitty-стека. Итог: откат в legacy, и Cmd
-  уходит в меню-бар. Фикс в движке — tuidom PR
-  [#13](https://github.com/tuidom/tuidom/pull/13). Живьём на iTerm2 не проверено.
+- **iTerm2 и `CSI >4;2m`.** iTerm2 трактует любой `CSI >4;n m` как сброс
+  kitty-стека. Бэкенд слал modifyOtherKeys после kitty-push — откат в legacy, Cmd
+  уходил в меню-бар. Починено в движке (tuidom
+  [#13](https://github.com/tuidom/tuidom/pull/13), `@tuidom/*` 0.3.0): kitty-push
+  теперь последним; тот же порядок повторяет `keyDiagnosticsDemo.ts`. Живьём на
+  iTerm2 не проверено — ждём отчёт Keyboard Doctor.
 - **tmux и Cmd.** У tmux три модификатора: Cmd и Option пишутся в один бит, и Cmd+S
   приезжает байт в байт как Option+S. Cmd под tmux не доезжает никогда, поэтому
   мак-рунг под tmux не выше `extended`. Подсказка пользователю: Cmd-раскладка

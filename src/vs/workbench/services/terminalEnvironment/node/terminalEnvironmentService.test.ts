@@ -346,6 +346,39 @@ describe("TerminalEnvironmentService", () => {
             expect(changed).toBe(0);
         });
 
+        it("без tmux имя терминала приходит XTVERSION-пробой и переворачивает к маку", () => {
+            const backend = new MockTerminalBackend();
+            backend.terminalVersion = "iTerm2 3.5.0";
+            const service = new TerminalEnvironmentService(backend, configFrom(), noTmux);
+            let changed = 0;
+            service.onDidChange(() => changed++);
+            service.detect();
+            expect(service.terminalName).toBe("iTerm2 3.5.0");
+            expect(service.os).toBe("mac");
+            expect(service.osSource).toBe("terminal");
+            expect(changed).toBe(1);
+        });
+
+        it("XTVERSION без ответа — «не знаю», ничего не меняется", () => {
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), noTmux);
+            service.detect();
+            expect(service.terminalName).toBeUndefined();
+            expect(service.os).toBe("linux");
+        });
+
+        it("под tmux XTVERSION не шлём: ответил бы сам tmux, а не внешний терминал", async () => {
+            process.env.TMUX = "/tmp/x,1,0";
+            const backend = new MockTerminalBackend();
+            backend.terminalVersion = "tmux 3.4";
+            const service = new TerminalEnvironmentService(backend, configFrom(), () =>
+                Promise.resolve<TmuxClientInfo>({ termType: "kitty(0.45.0)" }),
+            );
+            service.detect();
+            await vi.waitFor(() => {
+                expect(service.terminalName).toBe("kitty(0.45.0)");
+            });
+        });
+
         it("noteTerminalName: flip только в сторону мака, обратно никогда", () => {
             const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), noTmux);
             let changed = 0;
