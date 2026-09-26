@@ -108,6 +108,7 @@ export class KeyboardDoctorComponent extends Disposable {
         super();
         this.root = new FitContentElement();
         this.root.id = "keyboardDoctor";
+        // Stryker disable next-line BooleanLiteral: программный focus() фокус ставит и без флага, а Tab-навигации в модальном оверлее с одним focusable нет — значение ненаблюдаемо (как у рекордера).
         this.root.focusable = true;
 
         const stack = new VStackElement();
