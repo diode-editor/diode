@@ -27,11 +27,13 @@ export const KeybindingDispatcherDIToken = token<KeybindingDispatcher>("Keybindi
 
 /**
  * Минимальный срез TerminalEnvironmentService, нужный диспатчеру: runtime-детект
- * extended-keys по фактически пришедшему CSI-u ключу (см. observeExtendedKeys).
+ * extended-keys по фактически пришедшему CSI-u ключу и super (Cmd) по увиденному
+ * super-биту (см. observeExtendedKeys).
  */
 export interface IExtendedKeysObserver {
-    hasCapability(cap: "extended-keys"): boolean;
+    hasCapability(cap: "extended-keys" | "super"): boolean;
     noteExtendedKeysObserved(): void;
+    noteSuperObserved(): void;
 }
 
 // How long to wait for the next chord part before cancelling (matches VS Code).
@@ -195,6 +197,10 @@ export class KeybindingDispatcher extends Disposable {
      * reliable extended-keys signal behind tmux, which drops the startup capability probe.
      */
     private observeExtendedKeys(event: TUIKeyboardEvent): void {
+        // Super-бит (Cmd) кодирует только Kitty-протокол, так что увиденный meta
+        // доказывает и его, и extended-keys. Помечаем ДО резолва: контекст-ключи
+        // перечитываются на этом же нажатии, и первый же Cmd+S уже найдёт Cmd-бинд.
+        if (event.metaKey && !this.terminalEnv.hasCapability("super")) this.terminalEnv.noteSuperObserved();
         if (this.terminalEnv.hasCapability("extended-keys")) return;
         if (CSI_U_KEY_RAW.test(event.raw)) this.terminalEnv.noteExtendedKeysObserved();
     }

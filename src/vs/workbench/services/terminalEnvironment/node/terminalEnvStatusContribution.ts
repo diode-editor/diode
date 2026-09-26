@@ -15,7 +15,8 @@ export const TerminalEnvStatusContributionDIToken = token<TerminalEnvStatusContr
 /**
  * Публикует в {@link StatusBarService} компактный индикатор терминального
  * окружения (первый слева): tier + активные моды кроме неявного `local`
- * (например "kitty", "csi-u · ssh,tmux"). Подсказывает пользователю, что
+ * и рунг мак-лестницы, если клавиатура маковская (например "kitty",
+ * "csi-u · ssh,tmux", "kitty · mac-cmd"). Подсказывает пользователю, что
  * терминал можно проапгрейдить. Обновляется по `onDidChange` сервиса
  * (finalize пробы / переключение мода).
  */
@@ -48,6 +49,8 @@ export class TerminalEnvStatusContribution extends Disposable {
     private segmentText(): string {
         const modes = [...this.terminalEnv.getActiveModes()].filter((m) => m !== "local").sort();
         const suffix = modes.length > 0 ? ` · ${modes.join(",")}` : "";
-        return `${this.terminalEnv.tier}${suffix}`;
+        const rung = this.terminalEnv.macKeysRung;
+        const mac = rung === undefined ? "" : ` · mac-${rung}`;
+        return `${this.terminalEnv.tier}${mac}${suffix}`;
     }
 }

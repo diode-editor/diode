@@ -59,6 +59,13 @@ export interface ContextKeyTypes {
     cap_truecolor: boolean;
     cap_kittyGraphics: boolean;
     cap_mouseSgr: boolean;
+    /** «Cmd доезжает» — super-бит реально приходит (см. `macKeys.ts`). */
+    cap_super: boolean;
+    /**
+     * Рунг мак-лестницы числом: 0 — не мак, 1 legacy, 2 extended, 3 cmd.
+     * Руками не сравнивать — хелперы `macKeysAtLeast` / `macKeysIs` из `macKeys.ts`.
+     */
+    macKeys: number;
     /** Built-in modes. Custom modes are registered dynamically as `mode_<name>`. */
     mode_local: boolean;
     mode_ssh: boolean;
@@ -260,6 +267,8 @@ export const allContextKeys: ContextKey[] = [
     "cap_truecolor",
     "cap_kittyGraphics",
     "cap_mouseSgr",
+    "cap_super",
+    "macKeys",
     "mode_local",
     "mode_ssh",
     "mode_tmux",

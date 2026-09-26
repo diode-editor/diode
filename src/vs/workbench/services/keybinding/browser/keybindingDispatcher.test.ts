@@ -28,10 +28,16 @@ function createHarness() {
     const armory = new ModifierReleaseArmory();
     const extendedKeysCalls: string[] = [];
     let extendedKeys = false;
+    let superKey = false;
     const terminalEnv: IExtendedKeysObserver = {
-        hasCapability: () => extendedKeys,
+        hasCapability: (cap) => (cap === "super" ? superKey : extendedKeys),
         noteExtendedKeysObserved: () => {
             extendedKeysCalls.push("observed");
+            extendedKeys = true;
+        },
+        noteSuperObserved: () => {
+            extendedKeysCalls.push("super");
+            superKey = true;
             extendedKeys = true;
         },
     };
@@ -391,6 +397,21 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
         h.dispatcher.handleKeyDownCapture(keyDown({ key: "a", raw: "a" }));
 
         expect(h.extendedKeysCalls).toEqual([]);
+    });
+
+    it("super-бит (Cmd) сообщается один раз и ДО резолва — первый же Cmd+S находит Cmd-бинд", () => {
+        const h = createHarness();
+        let superAtResolve: boolean | undefined;
+        h.dispatcher.updateContextKeys = () => {
+            superAtResolve = h.extendedKeysCalls.includes("super");
+        };
+
+        h.dispatcher.handleKeyDownCapture(keyDown({ key: "s", metaKey: true, raw: "\x1b[115;9u" }));
+        h.dispatcher.handleKeyDown(keyDown({ key: "s", metaKey: true, raw: "\x1b[115;9u" }));
+        h.dispatcher.handleKeyDownCapture(keyDown({ key: "p", metaKey: true, raw: "\x1b[112;9u" }));
+
+        expect(h.extendedKeysCalls).toEqual(["super"]);
+        expect(superAtResolve).toBe(true);
     });
 });
 

@@ -183,6 +183,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Debounce, in milliseconds, before recomputing git status and diff after a change.",
     },
     {
+        key: "keyboard.platform",
+        type: "string",
+        default: "auto",
+        description:
+            'Keyboard platform: "auto" detects it (LC_DIODE_PLATFORM, the terminal, the local OS); set it when detection guesses wrong, e.g. over ssh from a Mac.',
+        enum: ["auto", "mac", "linux", "windows"],
+    },
+    {
         key: "scm.graph.pageSize",
         type: "number",
         default: 50,
