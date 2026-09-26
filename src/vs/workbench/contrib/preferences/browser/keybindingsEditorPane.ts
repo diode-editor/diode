@@ -132,7 +132,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         private readonly contextMenu: ContextMenuService,
         private readonly clipboard: IClipboard,
         /** Стиль подписи комбинаций: на маке — глифы «⇧⌘K» (ОС клавиатуры, см. `keybindingLabelStyle`). */
-        private readonly labelStyle: () => KeybindingLabelStyle = () => "pc",
+        private readonly labelStyle: () => KeybindingLabelStyle,
     ) {
         super();
         this.items = this.readItems();

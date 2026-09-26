@@ -245,8 +245,8 @@ export class KeybindingDispatcher extends Disposable {
             pendingBefore,
             result: res.kind,
             commandId: res.kind === "command" ? res.commandId : undefined,
-            chord:
-                res.kind === "chord" ? formatKeybinding(res.chord, keybindingLabelStyle(this.contextKeys)) : undefined,
+            // Лог — для разработчика: стабильная pc-форма, без глифов мака.
+            chord: res.kind === "chord" ? formatKeybinding(res.chord) : undefined,
         });
 
         // Keyboard modality, symmetric to the pointer path (OverlayLayer.elementFromPoint stops a

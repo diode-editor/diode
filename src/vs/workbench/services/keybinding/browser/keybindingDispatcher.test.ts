@@ -10,6 +10,9 @@ import {
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ModifierReleaseArmory } from "../../../../platform/keybinding/common/modifierReleaseArmory.ts";
+import type { ILogService, LogEntry } from "../../../../platform/log/common/iLogService.ts";
+import { LogLevel } from "../../../../platform/log/common/logLevel.ts";
+import { LogService } from "../../../../platform/log/common/logService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { StatusBarService } from "../../statusbar/common/statusBarService.ts";
@@ -21,7 +24,7 @@ function keyDown(init: ConstructorParameters<typeof TUIKeyboardEvent>[1]): TUIKe
     return new TUIKeyboardEvent("keydown", init);
 }
 
-function createHarness() {
+function createHarness(logService: ILogService = NULL_LOG_SERVICE) {
     const keybindings = new KeybindingRegistry();
     const contextKeys = new ContextKeyService();
     const commands = new CommandRegistry();
@@ -54,7 +57,7 @@ function createHarness() {
         statusBar,
         armory,
         terminalEnv,
-        NULL_LOG_SERVICE,
+        logService,
     );
     const executed: string[] = [];
     const bind = (spec: string, commandId: string, when?: string): void => {
@@ -178,6 +181,25 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(continuation.defaultPrevented).toBe(true);
         expect(continuation.immediatePropagationStopped).toBe(true);
         expect(h.executed).toEqual(["test.chordSave"]);
+    });
+
+    it("лог keydown пишет префикс чорда в pc-форме — и на маке (лог для разработчика)", () => {
+        const logService = new LogService();
+        logService.setLevel("*", LogLevel.Trace);
+        const entries: LogEntry[] = [];
+        logService.addSink({ append: (entry) => entries.push(entry), dispose: () => undefined });
+        const h = createHarness(logService);
+        h.contextKeys.set("isMac", true);
+        h.bind("meta+k s", "test.chordSave");
+
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "k", metaKey: true }));
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "s" }));
+
+        const keydowns = entries.filter((entry) => entry.message === "keydown").map((entry) => entry.args[0]);
+        expect(keydowns).toMatchObject([
+            { result: "chord", chord: "Meta+K", commandId: undefined },
+            { result: "command", chord: undefined, commandId: "test.chordSave" },
+        ]);
     });
 
     it("на маке (isMac) хинты чорда подписаны глифами", () => {

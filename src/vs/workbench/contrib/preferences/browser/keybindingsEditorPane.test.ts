@@ -121,7 +121,15 @@ function makeHarness(labelStyle?: () => KeybindingLabelStyle): IHarness {
         },
     };
 
-    const pane = new KeybindingsEditorPane(registry, commands, service, recorder, contextMenu, clipboard, labelStyle);
+    const pane = new KeybindingsEditorPane(
+        registry,
+        commands,
+        service,
+        recorder,
+        contextMenu,
+        clipboard,
+        labelStyle ?? (() => "pc"),
+    );
 
     const rowOf = (title: string) => {
         const rows = pane.view.querySelectorAll("TextLabelElement");
