@@ -77,6 +77,7 @@ export class NotificationsToastsComponent extends Component {
     public attachHost(host: BodyElement): void {
         this.host = host;
         this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
+            // Stryker disable next-line BooleanLiteral: между attachHost и первым сообщением стек пуст — рисовать нечего, и видимость сессии наблюдаемого следа не оставляет; флаг фиксирует намерение «пока не показываем»
             visible: false,
             // Фокус не забираем и не возвращаем: сообщение появляется, пока
             // человек печатает, и увести у него каретку недопустимо.

@@ -89,6 +89,7 @@ export class SystemExternalOpener implements IExternalOpener {
                 // Защёлка ненаблюдаема через промис: второй `resolve` он игнорирует
                 // сам, а повторный `clearTimeout` безвреден. Держим её, чтобы не
                 // гонять лишнюю работу на каждом событии ребёнка.
+                // Stryker disable next-line ConditionalExpression: см. выше — снятая защёлка ведёт лишь к повторному resolve, который промис игнорирует
                 if (settled) return;
                 // Stryker disable next-line BooleanLiteral: см. выше — снятие защёлки наружу не видно
                 settled = true;

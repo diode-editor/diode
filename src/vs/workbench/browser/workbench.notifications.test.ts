@@ -75,6 +75,33 @@ describe("Workbench — тосты сообщений", () => {
         expect(contextKeys.get("notificationToastsVisible")).toBe(false);
     });
 
+    // Аккорд, а не `commands.execute`: настоящее нажатие проходит ещё и через
+    // регистрацию `notificationToastsVisible` как when-идентификатора и через
+    // `capturesKeyboard` оверлея — сними любое, и до команды клавиши не дойдут.
+    it("Ctrl+K Ctrl+N доводит фокус до кнопки живым нажатием", async () => {
+        const answer = notifications.notify({ severity: "info", message: "fyi", items: ["Activate", "Free"] });
+        h.testApp.render();
+        h.container.get(WorkbenchContextKeysDIToken).update();
+
+        h.testApp.sendKey("Ctrl+K");
+        h.testApp.sendKey("Ctrl+N");
+        h.testApp.sendKey("Enter");
+
+        await expect(answer).resolves.toBe(0);
+    });
+
+    it("после ответа фокус возвращается редактору — оверлей его не удерживает", async () => {
+        const answer = notifications.notify({ severity: "info", message: "fyi", items: ["OK"] });
+        h.testApp.render();
+        await h.commands.execute("notifications.focusToasts");
+        h.testApp.sendKey("Enter");
+        await expect(answer).resolves.toBe(0);
+        h.testApp.render();
+        // Набранное после закрытия тоста снова попадает в редактор.
+        h.testApp.sendKey("z");
+        expect(h.activeEditor().getText()).toContain("z");
+    });
+
     it("команда фокуса доводит фокус до кнопки, Enter отвечает расширению", async () => {
         const answer = notifications.notify({ severity: "info", message: "fyi", items: ["Activate", "Free"] });
         h.testApp.render();

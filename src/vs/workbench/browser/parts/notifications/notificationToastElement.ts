@@ -75,13 +75,19 @@ export class NotificationToastElement extends TUIElement {
         return this.buttonList;
     }
 
-    /** Наблюдаемое состояние: строки текста, подписи кнопок, подсказка. */
+    /**
+     * Наблюдаемое состояние: строки текста, подписи кнопок, подсказка и число
+     * собранных рядов. Последнее — не для красоты: ряд, не влезший в посчитанную
+     * высоту, просто обрежется, и расхождение «сколько строк собрали» против
+     * «сколько посчитали» на кадре не увидеть.
+     */
     public override inspectState(): Record<string, unknown> {
         return {
             severity: this.notification?.severity ?? null,
             lines: [...this.lines],
             buttons: this.buttonList.map((button) => button.getLabel()),
             hint: this.hintText,
+            rows: this.body.getChildren().length,
         };
     }
 

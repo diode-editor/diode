@@ -2,7 +2,10 @@ import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { INotification } from "../../../services/notification/common/notification.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
 import { NotificationToastElement } from "./notificationToastElement.ts";
 
@@ -110,6 +113,14 @@ describe("NotificationToastElement", () => {
         const rows = frameOf(toast).split("\n");
         // Рамка + заголовок + одна строка текста + рамка — ровно четыре ряда.
         expect(rows.filter((row) => row.trim() !== "")).toHaveLength(4);
+        // И собрано ровно столько рядов, сколько посчитано: лишний ряд кнопок
+        // не влез бы в высоту и молча обрезался, а не показался на кадре.
+        expect(toast.inspectState()).toMatchObject({ rows: 1 });
+    });
+
+    it("с кнопками собираются текст, распорка и ряд кнопок", () => {
+        const toast = makeToast({ message: "hi", items: ["OK"] }, null, 24);
+        expect(toast.inspectState()).toMatchObject({ rows: 3 });
     });
 
     it("ряд кнопок: отступ от рамки один, между кнопками один пробел", () => {
@@ -130,6 +141,21 @@ describe("NotificationToastElement", () => {
 
     // Цвета тела и подсказки — из ячеек кадра: сеттер, который «вызван, но не
     // доехал», ассерт на вызов не заметил бы.
+    // Сверяем с РАЗРЕЗОЛВЛЕННЫМ значением токена, а не с соседней областью:
+    // в тестовой палитре фон окружения совпадает с фоном тоста, и «покрашен
+    // своим» от «унаследовал» сравнением с соседом не отличить.
+    it("тело тоста покрашено именно токенами notifications.*", () => {
+        const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
+        const toast = makeToast({ message: "hi" }, null, 20);
+        const app = TestApp.createWithContent(toast, new Size(20, toast.totalHeight));
+        app.render();
+        const rows = app.backend.screenToString().split("\n");
+        const row = rows.findIndex((line) => line.includes("hi"));
+        const column = rows[row].indexOf("hi");
+        expect(app.backend.getFgAt(new Point(column, row))).toBe(vars["notifications.foreground"]);
+        expect(app.backend.getBgAt(new Point(column, row))).toBe(vars["notifications.background"]);
+    });
+
     it("тело тоста покрашено своими токенами, подсказка — приглушённым", () => {
         const toast = makeToast({ message: "hi", items: ["OK"] }, "hint here", 30);
         const app = TestApp.createWithContent(toast, new Size(30, toast.totalHeight));
