@@ -120,21 +120,15 @@ export class ContextKeyService implements IDisposable {
      * в сеттер прототипа — значение бы не сохранилось, а чтение вернуло бы
      * прототип, то есть истину вместо записанной лжи.
      *
-     * Плоские идут ПЕРВЫМИ и побеждают: значение примитивно, вложить в него
-     * нельзя, а плоский ключ объявлен явно — точечный же производен от чужого
-     * `setContext`. Порядок регистрации на исход не влияет.
+     * Плоское имя — это вырожденный случай пути (сегмент один), поэтому проход
+     * один на всех. Столкновение плоского ключа с корнем точечного разрешается
+     * в пользу плоского при любом порядке: пришёл раньше — точечный упрётся в
+     * примитив и будет отброшен, пришёл позже — перезапишет собой объект.
+     * Отброшенная ветка именно отбрасывается, а не оседает у корня скоупа.
      */
     private buildScope(): ScopeObject {
         const scope = Object.create(null) as ScopeObject;
-        const dotted: string[] = [];
         for (const name of getAllContextKeyNames()) {
-            if (name.includes(".")) {
-                dotted.push(name);
-                continue;
-            }
-            scope[name] = this.values.get(name) ?? false;
-        }
-        for (const name of dotted) {
             const segments = name.split(".");
             let cursor = scope;
             let blocked = false;
@@ -148,7 +142,7 @@ export class ContextKeyService implements IDisposable {
                     continue;
                 }
                 // На пути стоит примитив (плоский ключ или ключ-предок) — вложить
-                // в него нечего, ветку бросаем.
+                // в него нечего, ветку бросаем целиком.
                 if (typeof next !== "object") {
                     blocked = true;
                     break;

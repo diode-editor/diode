@@ -180,6 +180,29 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
+    // Логгер у хоста опционален (так его поднимают юниты и встроенные прогоны).
+    // Неудача mkdir не должна превращаться в падение самой активации — а именно
+    // это выйдет, если сообщать о ней без проверки на наличие логгера.
+    it("хост без логгера переживает недоступный корень", async () => {
+        const root = makeRoot();
+        const blocker = path.join(root, "not-a-dir");
+        fs.writeFileSync(blocker, "не каталог");
+        const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
+            spawnArgs: subprocessSpawnArgsForTests(),
+            storageHomes: (): IExtensionStorageHomes => ({
+                globalStorageHome: path.join(blocker, "globalStorage"),
+                workspaceStorageHome: null,
+                logsHome: path.join(root, "logs"),
+            }),
+        });
+        try {
+            host.registerExtension(storageFixture("test.nologger"));
+            await expect(host.activateByEvent("*")).resolves.toBeUndefined();
+        } finally {
+            host.dispose();
+        }
+    });
+
     // Корни читаются на КАЖДОЙ активации: расширение может активироваться и до,
     // и после открытия папки, а `storageUri` зависит именно от неё.
     it("папка, открытая после первой активации, доезжает до следующего расширения", async () => {

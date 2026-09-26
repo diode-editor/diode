@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
+import type { ContextKey } from "../../platform/contextkey/common/contextKeys.ts";
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 
 import { normalizeContextValue, SetContextCommandContribution } from "./setContextCommandContribution.ts";
@@ -48,6 +49,11 @@ describe("SetContextCommandContribution", () => {
         expect(commands.execute("setContext", "", true)).toBeUndefined();
         expect(commands.execute("setContext", 42, true)).toBeUndefined();
         expect(commands.execute("setContext")).toBeUndefined();
+
+        // Не просто «вернул undefined», а вообще ничего не записал: ключ с
+        // пустым именем в наборе имён вычислителя нам не нужен.
+        expect(contextKeys.get("" as ContextKey)).toBeUndefined();
+        expect(contextKeys.get("42" as ContextKey)).toBeUndefined();
 
         // Ни один мусорный ключ не должен был протечь в набор имён вычислителя:
         // негодное имя ломает компиляцию, то есть ВСЕ when-выражения сразу.

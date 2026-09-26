@@ -8,6 +8,7 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../common/iWorkbenchContribution.ts";
 
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const SetContextCommandContributionDIToken = token<SetContextCommandContribution>(
     "SetContextCommandContribution",
 );
@@ -26,9 +27,11 @@ export const SET_CONTEXT_COMMAND_ID = "setContext";
  * простое `when: "ext.something"` вело себя ожидаемо.
  */
 export function normalizeContextValue(value: unknown): boolean | string | number {
-    if (typeof value === "boolean" || typeof value === "string") return value;
+    if (typeof value === "string") return value;
     // NaN/Infinity как значение ключа бессмысленны — их истинность честнее.
+    // Stryker disable next-line ConditionalExpression: эквивалентный мутант — `Number.isFinite` истинен только для number, так что проверка `typeof` рядом с ним ничего не решает; оставлена ради читаемости
     if (typeof value === "number" && Number.isFinite(value)) return value;
+    // Сюда же попадает boolean: `Boolean(v)` возвращает его как есть.
     return Boolean(value);
 }
 

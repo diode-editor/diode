@@ -98,5 +98,17 @@ describe("ContextKeyService — точечные ключи расширений
         expect(ctx.evaluate("dup")).toBe(true);
         // `dup.child` читается с boolean → undefined, то есть ложь. Не падение.
         expect(ctx.evaluate("dup.child")).toBe(false);
+        // И отброшенная ветка именно отброшена, а не осела последним сегментом
+        // у корня скоупа: иначе `child` стал бы глобальным ключом из ниоткуда.
+        expect(ctx.evaluate("child")).toBe(false);
+    });
+
+    it("отброшенная ветка глубокого пути тоже не оседает у корня", () => {
+        const ctx = new ContextKeyService();
+        registerContextKeys(["deep", "deep.a.b"]);
+        ctx.setRaw("deep", true);
+        ctx.setRaw("deep.a.b", true);
+        expect(ctx.evaluate("deep")).toBe(true);
+        expect(ctx.evaluate("b")).toBe(false);
     });
 });
