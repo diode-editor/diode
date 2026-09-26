@@ -33,6 +33,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Крупные задачи
 
+- [~] [FirstRelease](FirstRelease.md) — первый выпуск: скоуп зафиксирован 2026-09-26 — все перф-оптимизации трекера, кроме damage-tracking'а кадра, в порядке старт → токенизация → большой файл → дерево → watcher → дистрибуция; открыт вопрос PieceTree
 - [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points; основное сделано, остались хвосты MenuRegistry (серые пункты попапа, `when`-фильтр палитры, `alt`/hide-toggle/вложенные подменю)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, panel, terminal, menuBar): по критерию «публичный API не упоминает понятий Diode» им место у нас
@@ -78,7 +79,9 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Позиционирование и сайт
 
-### [ ] Публичный роадмап + статус «альфа»
+### [~] Публичный роадмап + статус «альфа»
+Разделы «Ближайшее» / «Дальше» в [ROADMAP.md](../public/ROADMAP.md) заполнены из
+[FirstRelease.md](FirstRelease.md); осталось — статус «alpha» на главной и ссылка с неё.
 Страница роадмапа (в доке или на сайте) и явный статус «alpha» на главной (рядом с версией).
 Смысл — управление ожиданиями: альфу не прячем, а показываем, куда идём и как быстро.
 Ключевой заявляемый пункт — конечная цель: **полная поддержка API расширений VS Code там, где
