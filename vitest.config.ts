@@ -3,6 +3,14 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts", "extensions/**/*.test.ts"],
+    // Дефолтные 5 с — не тот масштаб для этого набора: часть тестов поднимает
+    // НАСТОЯЩИЙ субпроцесс (extension host, git, language server) и штатно
+    // стоит 1–3.4 с. Запаса в 1.5–2.5× не хватает песочнице Stryker'а (холодный
+    // tsx-транзформ entry + второй тест-раннер рядом): мутационный гейт четыре
+    // прогона подряд умирал на initial test run, каждый раз на другом тесте
+    // (docs/TODO/MutationGateFlake.md). Цена явного порога — `npm test` больше
+    // не ловит подвисание по 5 секундам; подвисший тест теперь виден через 30.
+    testTimeout: 30000,
     coverage: {
       skipFull: true,
       reportOnFailure: true,
