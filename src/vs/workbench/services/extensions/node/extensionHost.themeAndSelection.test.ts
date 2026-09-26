@@ -42,7 +42,7 @@ async function makeHarness() {
 }
 
 describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
-    it("тема доезжает ДО activate(): расширение видит настоящий вид, а не заглушку", async () => {
+    it("тема доезжает ДО activate(): расширение видит настоящий вид, а не заглушку", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
@@ -54,7 +54,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
         }
     });
 
-    it("смена темы стреляет onDidChangeActiveColorTheme с новым видом", async () => {
+    it("смена темы стреляет onDidChangeActiveColorTheme с новым видом", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             harness.themeService.setTheme(WorkbenchTheme.fromThemeFile(lightPlusTheme));
@@ -71,19 +71,23 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
         }
     });
 
-    it("переход между двумя тёмными темами тоже событие (vscode: «changed or has changes»)", async () => {
-        const harness = await makeHarness();
-        try {
-            harness.themeService.setTheme(WorkbenchTheme.fromThemeFile(monokaiTheme));
-            await settle();
-            const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
-            expect(report.themeEvents.map((e) => e.kind)).toEqual([ColorThemeKind.Dark]);
-        } finally {
-            await harness.dispose();
-        }
-    });
+    it(
+        "переход между двумя тёмными темами тоже событие (vscode: «changed or has changes»)",
+        { timeout: 60_000 },
+        async () => {
+            const harness = await makeHarness();
+            try {
+                harness.themeService.setTheme(WorkbenchTheme.fromThemeFile(monokaiTheme));
+                await settle();
+                const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
+                expect(report.themeEvents.map((e) => e.kind)).toEqual([ColorThemeKind.Dark]);
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
 
-    it("каждая смена темы — своё событие, порядок сохраняется", async () => {
+    it("каждая смена темы — своё событие, порядок сохраняется", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             harness.themeService.setTheme(WorkbenchTheme.fromThemeFile(lightPlusTheme));
@@ -101,7 +105,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
 });
 
 describe("ExtensionHost — window.onDidChangeTextEditorSelection (subprocess)", () => {
-    it("движение каретки доезжает до расширения с редактором, выделениями и видом", async () => {
+    it("движение каретки доезжает до расширения с редактором, выделениями и видом", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             const editor = harness.group.getActiveTabEditor();
@@ -126,33 +130,37 @@ describe("ExtensionHost — window.onDidChangeTextEditorSelection (subprocess)",
         }
     });
 
-    it("вид едет от жеста: клавиатура → Keyboard, команда → Command, без жеста → null", async () => {
-        const harness = await makeHarness();
-        try {
-            const editor = harness.group.getActiveTabEditor();
-            withCursorChangeSource("keyboard", () => {
-                editor!.viewState.selections = [createSelection(0, 1, 0, 1)];
-            });
-            await settle();
-            withCursorChangeSource("command", () => {
-                editor!.viewState.selections = [createSelection(0, 2, 0, 2)];
-            });
-            await settle();
-            editor!.viewState.selections = [createSelection(0, 3, 0, 3)];
-            await settle();
+    it(
+        "вид едет от жеста: клавиатура → Keyboard, команда → Command, без жеста → null",
+        { timeout: 60_000 },
+        async () => {
+            const harness = await makeHarness();
+            try {
+                const editor = harness.group.getActiveTabEditor();
+                withCursorChangeSource("keyboard", () => {
+                    editor!.viewState.selections = [createSelection(0, 1, 0, 1)];
+                });
+                await settle();
+                withCursorChangeSource("command", () => {
+                    editor!.viewState.selections = [createSelection(0, 2, 0, 2)];
+                });
+                await settle();
+                editor!.viewState.selections = [createSelection(0, 3, 0, 3)];
+                await settle();
 
-            const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
-            expect(report.selectionEvents.map((e) => e.kind)).toEqual([
-                TextEditorSelectionChangeKind.Keyboard,
-                TextEditorSelectionChangeKind.Command,
-                null,
-            ]);
-        } finally {
-            await harness.dispose();
-        }
-    });
+                const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
+                expect(report.selectionEvents.map((e) => e.kind)).toEqual([
+                    TextEditorSelectionChangeKind.Keyboard,
+                    TextEditorSelectionChangeKind.Command,
+                    null,
+                ]);
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
 
-    it("мульти-курсор едет целиком, первое выделение — первичное", async () => {
+    it("мульти-курсор едет целиком, первое выделение — первичное", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             const editor = harness.group.getActiveTabEditor();

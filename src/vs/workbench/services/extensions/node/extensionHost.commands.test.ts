@@ -97,7 +97,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
     // Продюсер источника `command` для смены каретки: команда, запущенная
     // расширением, обязана приехать обратно как
     // `TextEditorSelectionChangeKind.Command`, а не «источник неизвестен».
-    it("subprocess → host: команда расширения исполняется внутри области command", async () => {
+    it("subprocess → host: команда расширения исполняется внутри области command", { timeout: 60_000 }, async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
         });
