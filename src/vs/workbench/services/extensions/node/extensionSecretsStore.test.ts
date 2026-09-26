@@ -147,6 +147,9 @@ describe("createFileExtensionSecretStore", () => {
                 "pub.one": { token: "s3cr3t", broken: 42, alsoBroken: null },
                 "pub.array": ["не лоток"],
                 "pub.null": null,
+                // Строка вместо лотка: без проверки её символы разъехались бы
+                // по «ключам» "0", "1", … — секретами, которых никто не клал.
+                "pub.scalar": "строка",
                 "pub.empty": { onlyBroken: 1 },
             }),
             "utf-8",
@@ -156,6 +159,7 @@ describe("createFileExtensionSecretStore", () => {
         expect(store.get("pub.one", "token")).toBe("s3cr3t");
         expect(store.keys("pub.array")).toEqual([]);
         expect(store.keys("pub.null")).toEqual([]);
+        expect(store.keys("pub.scalar")).toEqual([]);
         expect(store.keys("pub.empty")).toEqual([]);
     });
 

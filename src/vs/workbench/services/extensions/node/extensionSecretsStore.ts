@@ -138,6 +138,7 @@ function readSecretsFile(filePath: string, onError?: (message: string, err: unkn
         onError?.(`failed to parse extension secrets at "${filePath}"`, err);
         return {};
     }
+    // Stryker disable next-line ConditionalExpression: снятие левого операнда эквивалентно — JSON.parse отдаёт только object/array/string/number/boolean/null, а любой скаляр и без `typeof` даёт тот же пустой результат (`Object.entries(42)` пуст, символы строки отсеет проверка лотка ниже). Оставлен как формулировка намерения «сверху — обычный объект»; `=== null` и `Array.isArray` рядом мутантов не прощают — их закрывают тесты на `null` и непустой массив
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
     const result: SecretsFile = {};
     for (const [extensionId, own] of Object.entries(parsed as Record<string, unknown>)) {

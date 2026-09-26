@@ -39,9 +39,15 @@ describe("parseWireExtensionCatalog", () => {
         expect(parsed?.extensions.map((e) => e.isActive)).toEqual([false, false]);
     });
 
-    it("манифест не-объектом становится пустым, но запись остаётся", () => {
+    it.each([
+        ["строкой", "не объект"],
+        // `typeof null === "object"` — без отдельной проверки на null он проехал
+        // бы в `packageJSON`, а расширения читают его без оглядки (`ext.packageJSON.name`).
+        ["null", null],
+        ["отсутствующим", undefined],
+    ])("манифест %s становится пустым объектом, но запись остаётся", (_name, packageJSON) => {
         const parsed = parseWireExtensionCatalog({
-            extensions: [{ id: "pub.one", extensionPath: "/a", packageJSON: "не объект", isActive: true }],
+            extensions: [{ id: "pub.one", extensionPath: "/a", packageJSON, isActive: true }],
         });
         expect(parsed?.extensions).toEqual([{ id: "pub.one", extensionPath: "/a", packageJSON: {}, isActive: true }]);
     });
@@ -50,6 +56,9 @@ describe("parseWireExtensionCatalog", () => {
         const parsed = parseWireExtensionCatalog({
             extensions: [
                 null,
+                // Дырка в массиве: на ней разыменование `entry.id` бросило бы
+                // TypeError и унесло весь каталог, а не одну запись.
+                undefined,
                 "строка",
                 { extensionPath: "/a", packageJSON: {} },
                 { id: "", extensionPath: "/a", packageJSON: {} },
