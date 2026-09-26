@@ -1,6 +1,7 @@
 import { Disposable } from "@tuidom/core/common/disposable";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 
+import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -288,7 +289,13 @@ export class KeybindingDispatcher extends Disposable {
             // команды, как в VS Code. Без args команда зовётся без аргументов, чтобы
             // не подсовывать undefined командам с дефолтами параметров.
             const commandArgs = res.args === undefined ? [] : [res.args];
-            this.armory.withTrigger(trigger, () => this.commands.execute(res.commandId, ...commandArgs));
+            // Кейбинд — источник `keyboard` для смены каретки: стрелки и
+            // выделение с Shift у нас исполняются командами, а расширение
+            // обязано увидеть их как Keyboard, а не Command (см.
+            // cursorChangeSource.ts).
+            withCursorChangeSource("keyboard", () => {
+                this.armory.withTrigger(trigger, () => this.commands.execute(res.commandId, ...commandArgs));
+            });
             // Every keydown emits a paired keypress (preventDefault on keydown does not
             // suppress it — only swallowNextKeyPress does). Once a command consumed the
             // keydown, that keypress must not ALSO trigger the focused widget's default

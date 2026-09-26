@@ -1,6 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
 import { Uri } from "../../../base/common/uri.ts";
+import { currentCursorChangeSource, type CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
@@ -14,7 +15,12 @@ import type {
     IEditorOptionsService,
     IEditorOptionsState,
 } from "../common/iEditorOptionsService.ts";
-import type { IWireEditorEdit, IWireResourceTextEdits, IWireSelection } from "../common/wireTypes.ts";
+import {
+    type IWireEditorEdit,
+    type IWireResourceTextEdits,
+    type IWireSelection,
+    selectionChangeKindOf,
+} from "../common/wireTypes.ts";
 
 /**
  * Реализация {@link IEditorOptionsService} поверх {@link EditorService}.
@@ -35,6 +41,12 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private applyingRemoteSelection = false;
     /** Коалесинг: за тик отправляем одну нотификацию, а не по одной на шаг операции. */
     private selectionFlushScheduled = false;
+    /**
+     * Источник последней смены каретки в текущем тике. Снимается СИНХРОННО в
+     * обработчике (в отложенном флаше область жеста уже закрыта), и побеждает
+     * последний: отправляем мы итоговые выделения тика, а не первые.
+     */
+    private pendingSelectionSource: CursorChangeSource | undefined;
 
     public constructor(group: EditorService) {
         this.group = group;
@@ -83,10 +95,13 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     public onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable {
         return this.group.onDidChangeActiveEditorSelection((editor) => {
             if (this.applyingRemoteSelection) return;
+            this.pendingSelectionSource = currentCursorChangeSource();
             if (this.selectionFlushScheduled) return;
             this.selectionFlushScheduled = true;
             queueMicrotask(() => {
                 this.selectionFlushScheduled = false;
+                const kind = selectionChangeKindOf(this.pendingSelectionSource);
+                this.pendingSelectionSource = undefined;
                 // Активный редактор мог смениться, пока мы ждали тик: шлём выделения
                 // того, кто активен сейчас (его uri и едет в payload).
                 const current = this.group.getActiveTabEditor() ?? editor;
@@ -94,6 +109,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
                     uri: current.uri.toString(),
                     selections: wireSelectionsOf(current),
                     groupId: this.groupIdOf(current),
+                    ...(kind === undefined ? {} : { kind }),
                 });
             });
         });

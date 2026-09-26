@@ -1,6 +1,7 @@
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { currentCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import {
@@ -397,3 +398,38 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
 // Применение пользовательских правил keybindings.json уехало из диспатчера в
 // KeybindingsEditorService — его тесты лежат рядом с сервисом
 // (keybindingsEditorService.test.ts).
+
+// Продюсер источника `keyboard` для смены каретки: стрелки и выделение с Shift
+// у нас исполняются КОМАНДАМИ, и без разметки диспатчера расширение видело бы
+// их как «источник неизвестен» вместо `TextEditorSelectionChangeKind.Keyboard`.
+describe("KeybindingDispatcher — источник смены каретки", () => {
+    it("команда с кейбинда исполняется внутри области keyboard", () => {
+        const h = createHarness();
+        const seen: (string | undefined)[] = [];
+        h.commands.register("test.cursorDown", () => {
+            seen.push(currentCursorChangeSource());
+        });
+        h.bind("ctrl+alt+d", "test.cursorDown");
+
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "d", ctrlKey: true, altKey: true }));
+
+        expect(seen).toEqual(["keyboard"]);
+    });
+
+    it("после диспатча область закрыта — источник не протекает наружу", () => {
+        const h = createHarness();
+        h.bind("ctrl+s", "test.save");
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "s", ctrlKey: true }));
+        expect(currentCursorChangeSource()).toBeUndefined();
+    });
+
+    it("команда, запущенная не с клавиши, области не получает", () => {
+        const h = createHarness();
+        const seen: (string | undefined)[] = [];
+        h.commands.register("test.fromPalette", () => {
+            seen.push(currentCursorChangeSource());
+        });
+        h.commands.execute("test.fromPalette");
+        expect(seen).toEqual([undefined]);
+    });
+});

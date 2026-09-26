@@ -6,6 +6,7 @@ import {
     registerAndActivate,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { currentCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 
 describe("ExtensionHost — commands bridge (subprocess)", () => {
     it("host → subprocess: ядро исполняет прокси-команду расширения через реальный RPC", async () => {
@@ -88,6 +89,31 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
 
             expect(captured).toBe(7);
             expect(harness.group.getActiveEditor()?.viewState.tabSize).toBe(7);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    // Продюсер источника `command` для смены каретки: команда, запущенная
+    // расширением, обязана приехать обратно как
+    // `TextEditorSelectionChangeKind.Command`, а не «источник неизвестен».
+    it("subprocess → host: команда расширения исполняется внутри области command", { timeout: 60_000 }, async () => {
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: "main.ts", content: "x\n" },
+        });
+        try {
+            const seen: (string | undefined)[] = [];
+            harness.commandRegistry.register("test.hostApply", () => {
+                seen.push(currentCursorChangeSource());
+                return null;
+            });
+
+            await registerAndActivate(harness.host, extensionFixture("test.callsHost", "callsHostCommand.cjs"));
+            await settle();
+
+            expect(seen).toEqual(["command"]);
+            // Область закрылась вместе с обработчиком.
+            expect(currentCursorChangeSource()).toBeUndefined();
         } finally {
             await harness.dispose();
         }

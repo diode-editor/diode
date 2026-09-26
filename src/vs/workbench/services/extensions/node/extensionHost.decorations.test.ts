@@ -6,6 +6,7 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
 import type { IEditorDecorationsService } from "../../../api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../../api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../../api/common/iThemeColorResolver.ts";
+import { ColorThemeKind } from "../../../api/common/vscodeTypes.ts";
 
 // Резолвнутые цвета (packed-RGB), которые спай-адаптеры должны получить.
 const MODIFIED_GUTTER = 0x1b81a8;
@@ -22,6 +23,7 @@ function makeControllableResolver(initial: Record<string, number>): {
     const listeners: (() => void)[] = [];
     const resolver: IThemeColorResolver = {
         resolve: (id) => colors[id],
+        kind: () => ColorThemeKind.Dark,
         onDidChange: (cb) => {
             listeners.push(cb);
             return {

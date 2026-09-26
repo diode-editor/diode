@@ -12,6 +12,7 @@ import type { IScrollable } from "@tuidom/elements/scrollbar/iScrollable";
 
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
+import { withCursorChangeSource } from "../common/core/cursorChangeSource.ts";
 import type { IRange } from "../common/core/iRange.ts";
 import {
     createCursorSelection,
@@ -373,20 +374,33 @@ export class EditorElement extends TUIElement implements IScrollable {
             this.markDirty();
         });
 
+        // Обработчики ввода объявляют источник смены каретки: мост расширений
+        // читает его синхронно и отдаёт расширению как
+        // `TextEditorSelectionChangeKind` (см. cursorChangeSource.ts).
         this.addEventListener("keypress", (event) => {
-            this.handleKeyPress(event);
+            withCursorChangeSource("keyboard", () => {
+                this.handleKeyPress(event);
+            });
         });
         this.addEventListener("paste", (event) => {
-            this.handlePaste(event);
+            withCursorChangeSource("keyboard", () => {
+                this.handlePaste(event);
+            });
         });
         this.addEventListener("mousedown", (event) => {
-            this.handleMouseDown(event);
+            withCursorChangeSource("mouse", () => {
+                this.handleMouseDown(event);
+            });
         });
         this.addEventListener("dblclick", (event) => {
-            this.handleDoubleClick(event);
+            withCursorChangeSource("mouse", () => {
+                this.handleDoubleClick(event);
+            });
         });
         this.addEventListener("mousemove", (event) => {
-            this.handleMouseMove(event);
+            withCursorChangeSource("mouse", () => {
+                this.handleMouseMove(event);
+            });
         });
         this.addEventListener("mouseup", () => {
             this.dragAnchor = null;

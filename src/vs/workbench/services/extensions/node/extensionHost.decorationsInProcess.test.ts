@@ -11,6 +11,7 @@ import type { IFileDecorationsService } from "../../../api/common/iFileDecoratio
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import type { IThemeColorResolver } from "../../../api/common/iThemeColorResolver.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
+import { ColorThemeKind } from "../../../api/common/vscodeTypes.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
@@ -66,6 +67,7 @@ function makeHost(colors: Record<string, number>) {
     const themeListeners: (() => void)[] = [];
     const themeColorResolver: IThemeColorResolver = {
         resolve: (id) => colors[id],
+        kind: () => ColorThemeKind.Dark,
         onDidChange: (cb) => {
             themeListeners.push(cb);
             return { dispose: () => undefined };

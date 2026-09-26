@@ -53,7 +53,7 @@
 Ядро (RPC поверх IPC, self-spawn, vscode-стаб, completion WP8, стоковый editorconfig) — сделано, см. [docs/arch/Extensions.md](../arch/Extensions.md). Остаётся:
 
 - [~] `activationEvents` triggers — вызов `activate(context)` в нужный момент. Сделаны `*`/`onStartupFinished`/`onLanguage:*` (см. Phase 7); остаётся `onCommand:*`.
-- [~] Расширение всего vscode-API: `commands`, `workspace`, `languages`, `window` за пределами `activeTextEditor.options`. Сделано: active-editor API (`window.activeTextEditor` / `onDidChangeActiveTextEditor` / `visibleTextEditors`); `languages.registerFoldingRangeProvider` (#194); **editor-write API** (`TextEditor.edit`/`selection(s)`, value-тип `Selection`, #194). Осталось: `revealRange`, snippets, ESM.
+- [~] Расширение всего vscode-API: `commands`, `workspace`, `languages`, `window` за пределами `activeTextEditor.options`. Сделано: active-editor API (`window.activeTextEditor` / `onDidChangeActiveTextEditor` / `visibleTextEditors`); `languages.registerFoldingRangeProvider` (#194); **editor-write API** (`TextEditor.edit`/`selection(s)`, value-тип `Selection`, #194); **событие выделения** (`window.onDidChangeTextEditorSelection` с `kind` от жеста) и **активная тема** (`window.activeColorTheme` + `onDidChangeActiveColorTheme`). Осталось: `revealRange`, snippets, ESM.
 - [~] Изоляция исключений: упавшее расширение не валит host (RPC + try/catch; с #194 ещё и `unhandledRejection`-гард в субпроцессе — fire-and-forget вызов несуществующей команды больше не убивает host). Остаётся diagnostics.
 - [ ] **Свежесть текста документа в субпроцессе.** `editor.activeEditorChanged` / `editor.selectionChanged` несут только метаданные; полный текст (`upsertFull`) заезжает попутно — на запросах `languages.provideFoldingRanges` / `provideCompletionItems` и в снапшоте will-save. Без зарегистрированных провайдеров `document.getText()` в расширении отстаёт от буфера. Нужен настоящий `workspace.onDidChangeTextDocument` с инкрементальной синхронизацией.
 - [ ] Маршрутизация ошибок RPC обратно в `editor.options =`, чтобы fire-and-forget не глотал.
@@ -66,9 +66,11 @@
       и без поля `activate()` падал на `.fsPath` раньше всего остального.
 - [x] **Команда `setContext`** — расширение публикует свои when-ключи; вычислитель
       научился точечным именам (`publisher.thing`).
+- [x] **Активная тема и событие выделения** — `window.activeColorTheme` /
+      `onDidChangeActiveColorTheme` (без них `activate()` падал целиком) и
+      `window.onDidChangeTextEditorSelection` с `kind` от жеста.
 - [ ] **Остаток блокеров того же класса** (замерено на живом Supermaven 1.1.5 после
-      двух пунктов выше): `window.onDidChangeActiveColorTheme`/`activeColorTheme`
-      (без них `activate()` падает), `window.onDidChangeTextEditorSelection`,
+      пунктов выше — расширение активируется целиком и качает свой движок):
       нотификации с КНОПКАМИ (`showInformationMessage(msg, ...items)` — единственная
       дверь к экрану регистрации). Разведка — ветка `spike/ai-autocomplete` (не вливать).
 

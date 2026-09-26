@@ -15,6 +15,7 @@ import {
     CodeActionKind,
     CodeActionTriggerKind,
     CodeLens,
+    ColorThemeKind,
     CompletionItem,
     CompletionItemKind,
     CompletionItemTag,
@@ -72,6 +73,7 @@ import {
     TabInputWebview,
     TextDocumentSaveReason,
     TextEdit,
+    TextEditorSelectionChangeKind,
     ThemeColor,
     TypeHierarchyItem,
     Uri,
@@ -251,6 +253,13 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         // createStatusBarItem — без runtime-поля выравнивание всегда падало бы
         // в Left, а `item.alignment === vscode.StatusBarAlignment.Right` — в false.
         StatusBarAlignment,
+        // Расширение сравнивает `window.activeColorTheme.kind` с этим enum'ом,
+        // чтобы выбрать иконки/цвета под светлую и тёмную — без runtime-поля
+        // любое сравнение давало бы false, и тема всегда «не та».
+        ColorThemeKind,
+        // `event.kind === vscode.TextEditorSelectionChangeKind.Mouse` —
+        // типовой фильтр слушателя выделения; тоже обязан быть значением.
+        TextEditorSelectionChangeKind,
         ThemeColor,
         FileDecoration,
         OverviewRulerLane,
