@@ -5,6 +5,7 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import type { IThemeColorResolver } from "../../../api/common/iThemeColorResolver.ts";
 import { ColorThemeKind, TextEditorSelectionChangeKind } from "../../../api/common/vscodeTypes.ts";
 import { lightPlusTheme } from "../../themes/common/themes/lightPlus.ts";
 import { monokaiTheme } from "../../themes/common/themes/monokai.ts";
@@ -41,6 +42,15 @@ async function makeHarness() {
     });
 }
 
+/** Резолвер темы с заданным видом — чтобы отличить присланное от дефолта субпроцесса. */
+function resolverWithKind(kind: ColorThemeKind): IThemeColorResolver {
+    return {
+        resolve: () => undefined,
+        kind: () => kind,
+        onDidChange: () => ({ dispose: () => undefined }),
+    };
+}
+
 describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
     it("тема доезжает ДО activate(): расширение видит настоящий вид, а не заглушку", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
@@ -49,6 +59,26 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
             // Харнесс стартует на Dark+.
             expect(report.themeAtActivate).toBe(ColorThemeKind.Dark);
             expect(report.isDarkAtActivate).toBe(true);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    // Вид, которого НЕТ среди дефолтов: у субпроцесса своё семя `Dark`, поэтому
+    // на тёмной теме «семя доехало» и «семя потерялось» выглядят одинаково.
+    // HighContrast отличает одно от другого — без handshake-пуша тест краснеет.
+    it("семя на handshake: расширение видит тему хоста, а не собственный дефолт", { timeout: 60_000 }, async () => {
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: "main.ts", content: "const a = 1;\n" },
+            extensions: [FIXTURE],
+            themeColorResolver: resolverWithKind(ColorThemeKind.HighContrast),
+        });
+        try {
+            const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
+            expect(report.themeAtActivate).toBe(ColorThemeKind.HighContrast);
+            expect(report.isDarkAtActivate).toBe(false);
+            // Событий смены при этом не было — приехало именно семя.
+            expect(report.themeEvents).toEqual([]);
         } finally {
             await harness.dispose();
         }

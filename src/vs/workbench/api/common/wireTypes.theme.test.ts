@@ -19,6 +19,12 @@ describe("parseWireColorTheme", () => {
         expect(parseWireColorTheme(2)).toBeNull();
     });
 
+    it("нотификация вообще без параметров — null, а не TypeError", () => {
+        // `rpc.notify("window.themeChanged")` без params отдаёт обработчику
+        // `undefined`, и разбор обязан пережить это, не разыменовав его.
+        expect(parseWireColorTheme(undefined)).toBeNull();
+    });
+
     it("лишние поля не проносятся дальше — в проводе только kind", () => {
         expect(parseWireColorTheme({ kind: 1, name: "Light+" })).toEqual({ kind: 1 });
     });
