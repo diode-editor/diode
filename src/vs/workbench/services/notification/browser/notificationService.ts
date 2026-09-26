@@ -31,7 +31,10 @@ const DEFAULT_AUTO_HIDE_MS = 15_000;
  */
 export function resolveAutoHideTimeout(configured: unknown): number {
     if (typeof configured !== "number" || !Number.isFinite(configured)) return DEFAULT_AUTO_HIDE_MS;
-    return configured <= 0 ? 0 : configured;
+    // `Math.max`, а не тернарник на `<= 0`: в тернарнике сравнение лишнее —
+    // и `<`, и `<=` возвращают ноль на всём неположительном, то есть один из
+    // вариантов заведомо неотличим от другого.
+    return Math.max(0, configured);
 }
 
 /**
