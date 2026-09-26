@@ -83,6 +83,7 @@ export class KeyboardDoctorComponent extends Disposable {
     private readonly envLabels = [new TextLabelElement(""), new TextLabelElement(""), new TextLabelElement("")];
     private readonly stepLabel = new TextLabelElement("");
     private readonly catchesLabel = new TextLabelElement("");
+    // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
     private readonly lastLabel = new TextLabelElement("");
     private readonly hintLabel = new TextLabelElement(HINT);
 

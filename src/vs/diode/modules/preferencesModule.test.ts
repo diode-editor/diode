@@ -29,13 +29,14 @@ describe("keyboardDoctorSnapshot", () => {
     it("снимок окружения для доктора: ОС с источником, рунг, включённые caps и отсортированные моды", () => {
         const env = new TerminalEnvironmentService(new MockTerminalBackend(), NULL_CONFIGURATION_SERVICE);
         env.noteTerminalName("kitty(0.45.0)");
+        env.setMode("presentation", true); // вставляется последним — снимок сортирует
         expect(keyboardDoctorSnapshot(env)).toEqual({
             os: "linux", // под tmux свой LC_DIODE_PLATFORM не читается — только из tmux
             osSource: "default",
             tier: "kitty",
             macKeysRung: undefined,
             capabilities: ["extended-keys", "kitty-graphics", "mouse-sgr"],
-            modes: ["local", "tmux"],
+            modes: ["local", "presentation", "tmux"],
             terminalName: "kitty(0.45.0)",
             term: "xterm-kitty",
         });

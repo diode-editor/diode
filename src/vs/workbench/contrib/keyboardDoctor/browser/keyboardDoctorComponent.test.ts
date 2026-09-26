@@ -138,12 +138,33 @@ describe("KeyboardDoctorComponent", () => {
         expect(testApp.focusedElement?.id).toBe("target");
     });
 
-    it("keyup вне шага с keyup ничего не делает; одиночный модификатор — не нажатие шага", () => {
+    it("keyup вне шага с keyup ничего не делает; одиночные модификаторы — не нажатие шага", async () => {
         const { testApp, doctor, screen } = makeDoctor();
-        void doctor.run();
+        const run = doctor.run();
         testApp.backend.sendRaw("\x1b[57442;5:3u");
-        testApp.backend.sendRaw("\x1b[57442u");
+        // Control, Shift, CapsLock отдельными keydown (Kitty) — у них нет парного keypress.
+        for (const raw of ["\x1b[57442u", "\x1b[57441u", "\x1b[57358u"]) testApp.backend.sendRaw(raw);
         expect(screen()).toContain("Шаг 1/8");
+        testApp.sendKey("Ctrl+S");
+        for (let i = 1; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
+        testApp.sendKey("Ctrl+Tab");
+        testApp.sendKey("Enter");
+        const report = await run;
+        expect(report).toContain('[1] Ctrl+S — ловим: работает ли базовый набор\n    ожидали: Ctrl+S\n    байты: 13');
+        expect(report).not.toMatch(/key="(Control|Shift|CapsLock)"/);
+    });
+
+    it("на шаге hold: keyup до нажатия и голая клавиша во время ожидания keyup шаг не закрывают", async () => {
+        const { testApp, doctor, screen } = makeDoctor();
+        const run = doctor.run();
+        for (let i = 0; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
+        testApp.backend.sendRaw("\x1b[57442;5:3u"); // отпускание Ctrl раньше самого Ctrl+Tab
+        expect(screen()).toContain("Шаг 8/8");
+        testApp.sendKey("Ctrl+Tab");
+        testApp.sendKey("a"); // не Enter — продолжаем ждать keyup
+        expect(doctor.isOpen()).toBe(true);
+        testApp.backend.sendRaw("\x1b[57442;5:3u");
+        expect(await run).toContain("    keyup Control: да");
     });
 
     it("Cmd (super-бит) доходит до доктора как Meta, бинд ищется по пришедшему", async () => {

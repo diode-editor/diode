@@ -145,9 +145,9 @@ describe("withMacKeybindings", () => {
     });
 
     it("pcOnly, которого нет среди биндов, — ошибка таблицы", () => {
-        expect(() => withMacKeybindings(action({ id: "a" }), deltas({ command: "a", pcOnly: ["ctrl+q"] }))).toThrow(
-            /a: pcOnly ctrl\+q/,
-        );
+        expect(() =>
+            withMacKeybindings(action({ id: "a" }), deltas({ command: "a", pcOnly: ["ctrl+q", "ctrl+w"] })),
+        ).toThrow("a: pcOnly ctrl+q, ctrl+w не найден среди биндов команды");
     });
 });
 

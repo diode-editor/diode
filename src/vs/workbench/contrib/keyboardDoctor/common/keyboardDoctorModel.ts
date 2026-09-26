@@ -202,7 +202,8 @@ export function judge(result: StepResult, env: KeyboardDoctorEnv): Verdict {
     if (missing.length > 0 && extra.length === 0) {
         return { kind: "missing-modifier", missing: missing.map((m) => modifierName(m, isMac(env))) };
     }
-    if (missing.length > 0 || extra.length > 0) return { kind: "different" };
+    // Сюда с непустым `missing` доходим только вместе с непустым `extra`.
+    if (extra.length > 0) return { kind: "different" };
     if (s.expectsBinding && !result.bindings.some((b) => b.active)) return { kind: "not-matched" };
     if (s.keyUp !== undefined && !result.keyUpSeen) return { kind: "no-keyup" };
     return { kind: "ok" };

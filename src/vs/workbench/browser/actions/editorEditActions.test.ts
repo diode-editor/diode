@@ -12,7 +12,7 @@ import { CommandRegistry } from "../../../platform/commands/common/commandRegist
 import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingRegistry, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
@@ -105,6 +105,11 @@ describe("EditorEditActions — deletion mutates the real document", () => {
         editor.viewState.selections = [createCursorSelection(0, 0)];
         exec(deleteWordRightAction);
         expect(editor.getText()).toBe("world");
+    });
+
+    it("redo: Cmd/Ctrl+Shift+Z и Ctrl+Y — основной redo эталона на pc", () => {
+        expect(redoAction.keybinding).toEqual(parseKeybinding("mod+shift+z"));
+        expect(redoAction.keybindings).toEqual([parseKeybinding("ctrl+y")]);
     });
 
     it("deleteAllLeft: id/title как у VS Code, без pc-бинда", () => {
