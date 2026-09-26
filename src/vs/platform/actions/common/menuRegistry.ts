@@ -12,7 +12,11 @@ import type { ContextKeyService } from "../../contextkey/common/contextKeyServic
 import { ContextKeyServiceDIToken } from "../../contextkey/common/contextKeyService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { KeybindingRegistry } from "../../keybinding/common/keybindingRegistry.ts";
-import { formatKeybinding, KeybindingRegistryDIToken } from "../../keybinding/common/keybindingRegistry.ts";
+import {
+    formatKeybinding,
+    keybindingLabelStyle,
+    KeybindingRegistryDIToken,
+} from "../../keybinding/common/keybindingRegistry.ts";
 
 import type { IMenuContribution, ISubmenuContribution, MenuContribution } from "./iMenuContribution.ts";
 import { isSubmenuContribution, MenuContributionsDIToken } from "./iMenuContribution.ts";
@@ -278,6 +282,6 @@ export class MenuRegistry {
         if (item.shortcut === false) return undefined;
         if (typeof item.shortcut === "string") return item.shortcut;
         const chord = this.keybindings.getKeybindingForCommand(item.command, this.contextKeys);
-        return chord ? formatKeybinding(chord) : undefined;
+        return chord ? formatKeybinding(chord, keybindingLabelStyle(this.contextKeys)) : undefined;
     }
 }

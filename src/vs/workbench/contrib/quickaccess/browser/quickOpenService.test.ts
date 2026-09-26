@@ -667,6 +667,16 @@ describe("QuickOpenService — commands mode", () => {
         expect(item?.shortcut).toBe("Ctrl+S");
     });
 
+    it("на маке (isMac) шорткат подписан глифами: ⌘K ⌘S", () => {
+        const { service, commands, keybindings, contextKeys, view } = createService();
+        commands.register("cmd.save", () => {}, "File: Save");
+        keybindings.register(parseChord("mod+k mod+s"), "cmd.save");
+        contextKeys.set("isMac", true);
+        contextKeys.set("macKeys", 3);
+        service.show(CommandsQuickAccessProvider.PREFIX);
+        expect(view.items.find((i) => i.label === "File: Save")?.shortcut).toBe("⌘K ⌘S");
+    });
+
     it("renders chord bindings as a space-separated sequence", () => {
         const { service, commands, keybindings, view } = createService();
         commands.register("cmd.save", () => {}, "File: Save");

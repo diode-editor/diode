@@ -54,6 +54,14 @@ export default defineScenario({
         await editor.sendKey("Escape");
         await editor.waitForText((t) => !t.includes("Go to File"));
 
+        // Палитра по Cmd+Shift+P: шорткаты подписаны по-маковски — глифами ⌘⇧⌥⌃.
+        await editor.sendKey("Meta+Shift+p");
+        await editor.sendText("File: Save");
+        await editor.waitForText((t) => t.includes("File: Save") && t.includes("⌘S"));
+        await editor.capture("cmd-palette-labels");
+        await editor.sendKey("Escape");
+        await editor.waitForText((t) => !t.includes("File: Save"));
+
         // Keyboard Doctor: окружение, рунг и первый шаг проверки.
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("Keyboard Doctor") && t.includes("рунг: mac-cmd"));

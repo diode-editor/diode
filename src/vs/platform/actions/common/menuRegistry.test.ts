@@ -185,6 +185,16 @@ describe("MenuRegistry", () => {
         expect(entries.map((e) => e.shortcut)).toEqual(["Ctrl+C", undefined, "F2", undefined]);
     });
 
+    it("shortcut на маке (isMac) — глифами, по действующему рунгу", () => {
+        const h = setup([{ menuId: MenuId.EditorContext, command: "bound" }]);
+        h.keybindings.register(parseKeybinding("mod+shift+p"), "bound");
+        h.contextKeys.set("isMac", true);
+        h.contextKeys.set("macKeys", 3);
+        expect(items(h.registry.getMenuItems(MenuId.EditorContext)).map((e) => e.shortcut)).toEqual(["⇧⌘P"]);
+        h.contextKeys.set("macKeys", 1); // mac-legacy: Cmd не доезжает — показываем Ctrl-вариант
+        expect(items(h.registry.getMenuItems(MenuId.EditorContext)).map((e) => e.shortcut)).toEqual(["⌃⇧P"]);
+    });
+
     it("args резолвятся сразу (даже без выбора пункта) и подставляются в execute", () => {
         let called = 0;
         const h = setup([

@@ -55,6 +55,12 @@ describe("describeKeybindingRow", () => {
         expect(a.sourceSpan.start).toBe(b.sourceSpan.start);
     });
 
+    it("на маке колонка Keybinding — глифами", () => {
+        const layout = describeKeybindingRow(filtered({ chord: parseChord("shift+meta+p") }), WIDTH, "mac");
+        const keyText = layout.text.slice(layout.keySpan.start, layout.keySpan.start + layout.keySpan.length);
+        expect(keyText.trimEnd()).toBe("⇧⌘P");
+    });
+
     it("содержимое колонок читается по спанам", () => {
         const layout = describeKeybindingRow(
             filtered({ title: "Save File", when: "textViewFocus", source: "extension" }),

@@ -180,6 +180,17 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(h.executed).toEqual(["test.chordSave"]);
     });
 
+    it("на маке (isMac) хинты чорда подписаны глифами", () => {
+        const h = createHarness();
+        h.contextKeys.set("isMac", true);
+        h.bind("meta+k s", "test.chordSave");
+
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "k", metaKey: true }));
+        expect(h.statusTexts().some((t) => t.includes("(⌘K) was pressed. Waiting for next key…"))).toBe(true);
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "x" }));
+        expect(h.statusTexts().some((t) => t.includes("(⌘K X) is not a command"))).toBe(true);
+    });
+
     it("сломанный чорд показывает «is not a command» и сам гаснет по таймеру", () => {
         vi.useFakeTimers();
         const h = createHarness();

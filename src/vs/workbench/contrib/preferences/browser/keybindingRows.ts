@@ -4,7 +4,10 @@ import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-import { formatKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    formatKeybinding,
+    type KeybindingLabelStyle,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IFilteredKeybindingItem } from "../common/keybindingsEditorModel.ts";
 
 /**
@@ -74,13 +77,17 @@ function cell(text: string, width: number): string {
     return truncated + " ".repeat(Math.max(0, width - measureTextWidth(truncated)));
 }
 
-export function describeKeybindingRow(filtered: IFilteredKeybindingItem, width: number): IKeybindingRowLayout {
+export function describeKeybindingRow(
+    filtered: IFilteredKeybindingItem,
+    width: number,
+    style: KeybindingLabelStyle = "pc",
+): IKeybindingRowLayout {
     const { item, titleMatch } = filtered;
     const widths = columnWidths(width);
     const gap = " ".repeat(GAP);
 
     const commandCell = cell(item.title, widths.command);
-    const keyText = item.chord !== null ? formatKeybinding(item.chord) : "—";
+    const keyText = item.chord !== null ? formatKeybinding(item.chord, style) : "—";
     const keyCell = cell(keyText, widths.key);
     const whenCell = cell(item.when ?? "", widths.when);
     const sourceCell = cell(item.source !== null ? SOURCE_LABELS[item.source] : "", widths.source);

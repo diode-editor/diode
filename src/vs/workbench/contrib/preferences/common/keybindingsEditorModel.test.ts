@@ -140,6 +140,23 @@ describe("filterKeybindingItems", () => {
         expect(filtered[0].titleMatch).toBeNull();
     });
 
+    it("на маке комбинацию находят и по глифу, и словами (cmd / option): ⌘ с клавиатуры не набрать", () => {
+        const mac = buildKeybindingItems(
+            [
+                binding({ commandId: "save", chord: parseChord("meta+s"), source: "default" }),
+                binding({ commandId: "word", chord: parseChord("alt+left"), source: "default" }),
+            ],
+            [command("save", "Save File"), command("word", "Cursor Word Left")],
+        );
+        const ids = (query: string, style: "pc" | "mac") =>
+            filterKeybindingItems(mac, query, style).map((entry) => entry.item.commandId);
+        expect(ids("cmd+s", "mac")).toEqual(["save"]);
+        expect(ids("⌘s", "mac")).toEqual(["save"]);
+        expect(ids("option", "mac")).toEqual(["word"]);
+        expect(ids("cmd+s", "pc")).toEqual([]); // на pc «Meta+S» — слова «cmd» в подписи нет
+        expect(ids("meta+s", "pc")).toEqual(["save"]);
+    });
+
     it("многословный запрос фильтрует по title (текст склеивается через пробел)", () => {
         // «save file» должен найти «Save File»; при join('') получилось бы
         // «savefile» — тоже матч, но проверяем именно пробельную склейку через

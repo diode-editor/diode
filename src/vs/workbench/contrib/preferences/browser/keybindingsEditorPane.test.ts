@@ -10,6 +10,7 @@ import type { IContextMenuDelegate } from "../../../../platform/contextview/comm
 import type {
     IKeybindingEntrySnapshot,
     KeybindingChord,
+    KeybindingLabelStyle,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
     chordsEqual,
@@ -94,7 +95,7 @@ interface IHarness {
     menuOf(title: string): MenuEntry[];
 }
 
-function makeHarness(): IHarness {
+function makeHarness(labelStyle?: () => KeybindingLabelStyle): IHarness {
     const registry = new KeybindingRegistry();
     const commands = new CommandRegistry();
     commands.register("save", () => {}, "Save File");
@@ -120,7 +121,7 @@ function makeHarness(): IHarness {
         },
     };
 
-    const pane = new KeybindingsEditorPane(registry, commands, service, recorder, contextMenu, clipboard);
+    const pane = new KeybindingsEditorPane(registry, commands, service, recorder, contextMenu, clipboard, labelStyle);
 
     const rowOf = (title: string) => {
         const rows = pane.view.querySelectorAll("TextLabelElement");
@@ -210,6 +211,15 @@ describe("KeybindingsEditorPane — контракт вкладки", () => {
 });
 
 describe("KeybindingsEditorPane — кадр", () => {
+    it("на маке комбинации — глифами (стиль берётся у панели при каждой перестройке строк)", () => {
+        const h = makeHarness(() => "mac");
+        const screen = h.render();
+
+        expect(screen).toContain("⌃S"); // ctrl+s на маке — это Control
+        expect(screen).toContain("⌃K ⌃U");
+        expect(screen).not.toContain("Ctrl+S");
+    });
+
     it("первый кадр полон: шапка колонок и строки биндингов", () => {
         const h = makeHarness();
 
