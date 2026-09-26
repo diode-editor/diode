@@ -63,6 +63,17 @@ describe("SystemExternalOpener — адрес", () => {
         await expect(opener.openExternal(target)).resolves.toBe(false);
         expect(calls).toEqual([]);
     });
+
+    // Схема обязана стоять В НАЧАЛЕ: без анкера «--flag https://зло» прошло бы
+    // проверку и уехало открывателю первым аргументом, то есть флагом.
+    it.each(["--flag https://example.com", " https://example.com", "-x mailto:a@b"])(
+        "схема в середине адреса не считается схемой: %s",
+        async (target) => {
+            const { opener, calls } = makeOpener();
+            await expect(opener.openExternal(target)).resolves.toBe(false);
+            expect(calls).toEqual([]);
+        },
+    );
 });
 
 describe("SystemExternalOpener — запуск", () => {

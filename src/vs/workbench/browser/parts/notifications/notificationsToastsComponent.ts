@@ -84,7 +84,9 @@ export class NotificationsToastsComponent extends Component {
             focusOnOpen: false,
             // Escape ведёт сам стек (он же и решает, что закрывать): дай его
             // слою — и сессия закрылась бы, не дорешав обещания сообщений.
+            // Stryker disable next-line BooleanLiteral: оба значения дают один наблюдаемый результат — стек гасит Escape своим stopPropagation, и до слоя клавиша не доходит
             closeOnEscape: false,
+            // Stryker disable next-line StringLiteral: клавиатуру гасит явный capturesKeyboard ниже, а по мыши "" ведёт себя как passthrough (не modal и не close-on-outside) — наблюдаемой разницы нет
             pointerPolicy: "passthrough",
             capturesKeyboard: false,
         });
@@ -101,6 +103,7 @@ export class NotificationsToastsComponent extends Component {
     private sync(): void {
         const notifications = this.notificationService.notifications();
         if (notifications.length === 0) {
+            // Stryker disable next-line ConditionalExpression,OptionalChaining: закрыть уже закрытую (или ещё не созданную) сессию — no-op слоя, так что проверка наблюдаемого следа не оставляет; она здесь ради ясности намерения
             if (this.session?.isOpen() === true) this.session.close();
             return;
         }
@@ -113,7 +116,9 @@ export class NotificationsToastsComponent extends Component {
         const height = this.view.totalHeight;
         const px = Math.max(0, screenW - width - SCREEN_MARGIN);
         const py = Math.max(0, screenH - height - SCREEN_MARGIN);
+        // Stryker disable next-line OptionalChaining: session и host ставятся вместе в attachHost, а сюда путь идёт только через гард `host === null` выше — ветка undefined недостижима
         this.session?.setPosition(new Point(px, py));
+        // Stryker disable next-line OptionalChaining: та же причина
         this.session?.open();
     }
 

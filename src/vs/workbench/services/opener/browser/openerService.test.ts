@@ -49,8 +49,13 @@ describe("OpenerService", () => {
         const opened = service.openExternal("https://example.com/auth");
         await tick();
         const shown = notificationService.notifications().at(0);
-        expect(shown?.message).toContain("https://example.com/auth");
-        expect(shown?.items).toEqual([COPY_LINK_ITEM]);
+        // Подпись — литералом, а не константой: сравнение константы с самой
+        // собой пережило бы любую её подмену, а человек читает именно текст.
+        expect(shown?.items).toEqual(["Copy Link"]);
+        expect(COPY_LINK_ITEM).toBe("Copy Link");
+        // Уровень — info: это не ошибка, а «вот ссылка, забирай».
+        expect(shown?.severity).toBe("info");
+        expect(shown?.message).toBe("Open this link in your browser: https://example.com/auth");
         // Ответ всё равно «успех»: ссылка у человека — это и есть то, чего
         // добивалось расширение.
         notificationService.dismiss(shown!.id);

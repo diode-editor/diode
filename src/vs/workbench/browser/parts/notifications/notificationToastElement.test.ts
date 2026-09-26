@@ -1,4 +1,4 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -83,6 +83,43 @@ describe("NotificationToastElement", () => {
         expect(toast.notificationId).toBe(2);
         expect(toast.buttons()).toEqual([]);
         expect(frameOf(toast)).not.toContain("Old");
+    });
+
+    // Цвет заголовка — единственное, чем строгость видна на кадре; снимаем его с
+    // ячейки, а не с вызова сеттера (иначе тест не заметил бы, что цвет не доехал).
+    it("заголовок покрашен токеном своей строгости", () => {
+        const fgOfTitle = (severity: INotification["severity"], word: string): number => {
+            const toast = makeToast({ severity }, null, 30);
+            const app = TestApp.createWithContent(toast, new Size(30, toast.totalHeight));
+            app.render();
+            const row = app.backend
+                .screenToString()
+                .split("\n")
+                .findIndex((line) => line.includes(word));
+            const column = app.backend.screenToString().split("\n")[row].indexOf(word);
+            return app.backend.getFgAt(new Point(column, row));
+        };
+        const info = fgOfTitle("info", "Information");
+        const warning = fgOfTitle("warning", "Warning");
+        const error = fgOfTitle("error", "Error");
+        expect(new Set([info, warning, error]).size).toBe(3);
+    });
+
+    it("сообщение без кнопок не заводит ни распорку, ни пустой ряд кнопок", () => {
+        const toast = makeToast({ message: "hi" }, null, 24);
+        const rows = frameOf(toast).split("\n");
+        // Рамка + заголовок + одна строка текста + рамка — ровно четыре ряда.
+        expect(rows.filter((row) => row.trim() !== "")).toHaveLength(4);
+    });
+
+    it("между кнопками ровно один пробел", () => {
+        const toast = makeToast({ message: "hi", items: ["A", "B"] }, null, 30);
+        expect(frameOf(toast)).toContain("[ A ] [ B ]");
+    });
+
+    it("inspectState отдаёт подписи кнопок — их читает инспектор", () => {
+        const toast = makeToast({ items: ["Activate", "Free"] }, null, 30);
+        expect(toast.inspectState()).toMatchObject({ buttons: ["Activate", "Free"], severity: "info" });
     });
 
     it("узкие constraints не выпускают тост за пределы отведённого места", () => {

@@ -32,6 +32,12 @@ function focusedLabel(testApp: TestApp): string | null {
 }
 
 describe("NotificationsToastsElement", () => {
+    it("свежий стек пуст ещё до первого setNotifications", () => {
+        const stack = new NotificationsToastsElement();
+        expect(stack.inspectState()).toEqual({ ids: [] });
+        expect(stack.totalHeight).toBe(0);
+    });
+
     it("пустой стек — нулевая высота и никаких тостов", () => {
         const { stack } = mount([]);
         expect(stack.totalHeight).toBe(0);
@@ -77,6 +83,44 @@ describe("NotificationsToastsElement", () => {
         // Дальше идти некуда — фокус остаётся на месте.
         sendToFocused(testApp, "ArrowDown");
         expect(focusedLabel(testApp)).toBe("C");
+    });
+
+    // ArrowDown проверяется там, где он ОБЯЗАН двигать фокус: в предыдущем тесте
+    // он приходит в конец списка, и «клавиша не распознана» выглядит так же.
+    it("ArrowDown — полноценный шаг вперёд, не только Right", () => {
+        const { stack, testApp } = mount([notification(1, ["A", "B"])]);
+        stack.focusToasts();
+        expect(focusedLabel(testApp)).toBe("A");
+        sendToFocused(testApp, "ArrowDown");
+        expect(focusedLabel(testApp)).toBe("B");
+    });
+
+    it("обработанная клавиша гасится: иначе она утечёт в глобальные бинды", () => {
+        const { stack, testApp } = mount([notification(1, ["A", "B"])]);
+        stack.focusToasts();
+        const arrow = new TUIKeyboardEvent("keydown", { key: "ArrowRight" });
+        testApp.focusedElement?.dispatchEvent(arrow);
+        expect(arrow.defaultPrevented).toBe(true);
+        expect(arrow.propagationStopped).toBe(true);
+
+        const escape = new TUIKeyboardEvent("keydown", { key: "Escape" });
+        testApp.focusedElement?.dispatchEvent(escape);
+        expect(escape.defaultPrevented).toBe(true);
+        expect(escape.propagationStopped).toBe(true);
+    });
+
+    it("посторонняя клавиша НЕ гасится — она чужая", () => {
+        const { stack, testApp } = mount([notification(1, ["A"])]);
+        stack.focusToasts();
+        const other = new TUIKeyboardEvent("keydown", { key: "a" });
+        testApp.focusedElement?.dispatchEvent(other);
+        expect(other.defaultPrevented).toBe(false);
+    });
+
+    it("свежее сообщение без кнопок не перехватывает фокус у старого с кнопками", () => {
+        const { stack, testApp } = mount([notification(1, ["Old"]), notification(2)]);
+        stack.focusToasts();
+        expect(focusedLabel(testApp)).toBe("Old");
     });
 
     it("Left/Up/Tab шагают и между тостами", () => {

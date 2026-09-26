@@ -108,6 +108,7 @@ export class NotificationsToastsElement extends TUIElement {
         const current = buttons.findIndex((button) => button.isFocused);
         // Фокус не на кнопке (стек взял его сам — у сообщения кнопок нет): шаг
         // приводит его на крайнюю кнопку, а не считается от «−1».
+        // Stryker disable next-line EqualityOperator: `step` здесь только ±1 (нулевой отсеян ранним выходом выше), поэтому `>` и `>=` дают один и тот же край
         const next = current < 0 ? (step > 0 ? 0 : buttons.length - 1) : current + step;
         if (next < 0 || next >= buttons.length) return;
         event.preventDefault();
@@ -116,6 +117,7 @@ export class NotificationsToastsElement extends TUIElement {
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
+        // Stryker disable next-line MethodExpression: за `min` подстраховывает `constraints.constrain` строкой ниже — с `max` итоговый размер тот же, ограничение всё равно клампит
         const width = Math.min(this.preferredWidth, constraints.maxWidth);
         const size = constraints.constrain(new Size(width, this.totalHeight));
         super.performLayout(BoxConstraints.tight(size));

@@ -58,6 +58,46 @@ describe("NotificationService", () => {
         await expect(answer).resolves.toBeUndefined();
     });
 
+    // Все проверки ниже — на ДВУХ сообщениях: с одним «найти по id» неотличимо
+    // от «взять первое», и подмена предиката в find/findIndex проходит незаметно.
+    it("id монотонно растут — адресация показов не должна путать соседей", () => {
+        const service = makeService(0);
+        void service.notify({ severity: "info", message: "a" });
+        void service.notify({ severity: "info", message: "b" });
+        expect(service.notifications().map((n) => n.id)).toEqual([1, 2]);
+    });
+
+    it("accept адресуется id, а не позицией: отвечает ВТОРОЕ, первое остаётся", async () => {
+        const service = makeService(0);
+        const first = service.notify({ severity: "info", message: "a", items: ["x"] });
+        const second = service.notify({ severity: "info", message: "b", items: ["y"] });
+        service.accept(2, 0);
+        await expect(second).resolves.toBe(0);
+        expect(service.notifications().map((n) => n.message)).toEqual(["a"]);
+        service.clearAll();
+        await expect(first).resolves.toBeUndefined();
+    });
+
+    it("dismiss тоже адресуется id: закрытие второго не трогает первое", async () => {
+        const service = makeService(0);
+        const first = service.notify({ severity: "error", message: "a", items: ["x"] });
+        const second = service.notify({ severity: "error", message: "b", items: ["y"] });
+        service.dismiss(2);
+        await expect(second).resolves.toBeUndefined();
+        expect(service.notifications().map((n) => n.id)).toEqual([1]);
+        service.clearAll();
+        await expect(first).resolves.toBeUndefined();
+    });
+
+    it("accept с чужим индексом у ВТОРОГО сообщения не закрывает первое", () => {
+        const service = makeService(0);
+        void service.notify({ severity: "info", message: "a", items: ["x", "y"] });
+        void service.notify({ severity: "info", message: "b", items: ["z"] });
+        // У второго кнопка одна — индекс 1 за его пределами, хотя у первого он есть.
+        service.accept(2, 1);
+        expect(service.notifications().map((n) => n.id)).toEqual([1, 2]);
+    });
+
     it("accept по неизвестному id — no-op", () => {
         const service = makeService(0);
         void service.notify({ severity: "info", message: "fyi", items: ["OK"] });

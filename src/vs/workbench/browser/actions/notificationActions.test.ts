@@ -11,7 +11,11 @@ import {
 import type { NotificationsToastsComponent } from "../parts/notifications/notificationsToastsComponent.ts";
 import { NotificationsToastsComponentDIToken } from "../parts/notifications/notificationsToastsComponent.ts";
 
-import { clearNotificationsAction, focusNotificationToastsAction } from "./notificationActions.ts";
+import {
+    clearNotificationsAction,
+    focusNotificationToastsAction,
+    NOTIFICATION_ACTIONS,
+} from "./notificationActions.ts";
 
 const NO_AUTO_HIDE = {
     get: () => 0,
@@ -33,6 +37,23 @@ function makeAccessor() {
 }
 
 describe("notificationActions", () => {
+    // Id — это ИМЯ КОМАНДЫ: по нему её зовут палитра, кейбинд и компонент
+    // (он же печатает аккорд в тосте). Сверяем с литералом, а не с константой:
+    // сравнение константы с самой собой не поймало бы подмену имени.
+    it("id команд — как в VS Code", () => {
+        expect(focusNotificationToastsAction.id).toBe("notifications.focusToasts");
+        expect(clearNotificationsAction.id).toBe("notifications.clearAll");
+    });
+
+    it("обе команды попадают в реестр встроенных экшенов", () => {
+        expect(NOTIFICATION_ACTIONS).toEqual([focusNotificationToastsAction, clearNotificationsAction]);
+    });
+
+    it("заголовки палитры — с префиксом Notifications", () => {
+        expect(focusNotificationToastsAction.title).toBe("Notifications: Focus Notification Toast");
+        expect(clearNotificationsAction.title).toBe("Notifications: Clear All Notifications");
+    });
+
     it("focusToasts гейтится видимостью стека и висит на аккорде Ctrl+K Ctrl+N", () => {
         expect(focusNotificationToastsAction.when).toBe("notificationToastsVisible");
         expect(formatKeybinding(focusNotificationToastsAction.keybinding as KeybindingChord)).toBe("Ctrl+K Ctrl+N");

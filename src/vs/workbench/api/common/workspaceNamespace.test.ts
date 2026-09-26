@@ -84,7 +84,13 @@ describe("WorkspaceNamespace — configuration", () => {
         await workspace.getConfiguration("editor").update("tabSize", 2);
         // Запросом (сообщения ходят одним путём), но исход шима не интересует.
         expect(stub.requests[0]?.method).toBe("window.showMessage");
-        expect((stub.requests[0]?.params as { severity: string }).severity).toBe("warn");
+        // Текст обязан назвать КОНКРЕТНЫЙ ключ: «что-то не поддержано» человеку
+        // не говорит ничего, а в тосте он увидит ровно эту строку.
+        expect(stub.requests[0]?.params).toEqual({
+            severity: "warn",
+            message: 'workspace.getConfiguration().update("editor.tabSize") is not supported',
+            items: [],
+        });
     });
 
     it("значение секции с именем как у метода (get/has) не затирает метод", () => {

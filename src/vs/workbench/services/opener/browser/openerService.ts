@@ -6,6 +6,7 @@ import { ClipboardDIToken } from "../../../common/coreTokens.ts";
 import type { NotificationService } from "../../notification/browser/notificationService.ts";
 import { NotificationServiceDIToken } from "../../notification/browser/notificationService.ts";
 
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const OpenerServiceDIToken = token<OpenerService>("OpenerService");
 
 /** Подпись единственной кнопки сообщения запасного пути. */

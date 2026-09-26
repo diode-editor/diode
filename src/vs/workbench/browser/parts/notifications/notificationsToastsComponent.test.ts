@@ -95,11 +95,27 @@ describe("NotificationsToastsComponent — overlay-сессия", () => {
         component.dispose();
     });
 
-    it("в узком терминале ширина тоста сжимается до доступной", () => {
+    // Ширина считается от экрана минус отступ С КАЖДОЙ стороны. Экран берём такой,
+    // где это видно: на 80 колонках любой промах арифметики упирается в потолок 52
+    // и становится неотличим.
+    it("ширина тоста — экран минус отступ по обе стороны", () => {
         const { component, notificationService } = (() => {
             const made = makeComponent();
             const body = new BodyElement();
-            TestApp.create(body, new Size(20, 10));
+            TestApp.create(body, new Size(30, 10));
+            made.component.attachHost(body);
+            return made;
+        })();
+        void notificationService.notify({ severity: "info", message: "fyi" });
+        expect(component.view.preferredWidth).toBe(28);
+        component.dispose();
+    });
+
+    it("в совсем узком терминале ширина не падает ниже минимума", () => {
+        const { component, notificationService } = (() => {
+            const made = makeComponent();
+            const body = new BodyElement();
+            TestApp.create(body, new Size(12, 10));
             made.component.attachHost(body);
             return made;
         })();

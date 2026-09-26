@@ -6,6 +6,7 @@ import { IConfigurationServiceDIToken } from "../../../../platform/configuration
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { INotification, INotificationRequest } from "../common/notification.ts";
 
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const NotificationServiceDIToken = token<NotificationService>("NotificationService");
 
 /**
@@ -117,12 +118,15 @@ export class NotificationService extends Disposable {
         if (position < 0) return;
         this.live.splice(position, 1);
         const timer = this.timers.get(id);
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement,CallExpression: снятие таймера ненаблюдаемо снаружи — `clearTimeout(undefined)` легален, а сработавший таймер зовёт `dismiss` на уже снятом id и упирается в ранний выход ниже. Строки держим ради гигиены: иначе таймер живёт до срабатывания и держит ссылку на сервис
         if (timer !== undefined) {
             clearTimeout(timer);
             this.timers.delete(id);
         }
         const resolve = this.resolvers.get(id);
+        // Stryker disable next-line CallExpression: та же причина — повторный close по этому id выходит раньше (его нет в live), так что оставшаяся запись недостижима; delete здесь чистит карту, а не меняет поведение
         this.resolvers.delete(id);
+        // Stryker disable next-line OptionalChaining: resolver кладётся в карту вместе с записью и удаляется вместе с ней, поэтому пары «запись есть, resolver'а нет» не бывает; `?.` стоит защитой
         resolve?.(index);
         this.fire();
     }
