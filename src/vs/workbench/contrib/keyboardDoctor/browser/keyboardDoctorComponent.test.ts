@@ -150,7 +150,7 @@ describe("KeyboardDoctorComponent", () => {
         testApp.sendKey("Ctrl+Tab");
         testApp.sendKey("Enter");
         const report = await run;
-        expect(report).toContain('[1] Ctrl+S — ловим: работает ли базовый набор\n    ожидали: Ctrl+S\n    байты: 13');
+        expect(report).toContain("[1] Ctrl+S — ловим: работает ли базовый набор\n    ожидали: Ctrl+S\n    байты: 13");
         expect(report).not.toMatch(/key="(Control|Shift|CapsLock)"/);
     });
 
