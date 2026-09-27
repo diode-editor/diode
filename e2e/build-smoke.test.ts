@@ -62,9 +62,10 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
         expect(smokeTestBinary(binary)).toBe("0.1.0-nightly");
     });
 
-    it("зовёт бинарь именно с --version (пустые аргументы дают exit 1 «Usage»)", () => {
-        // Точная причина, по которой прошлый самотест не мог отличить краш от нормы.
-        const binary = fakeBinary("cli", '[ "$1" = "--version" ] || { echo "Usage: diode <file>" >&2; exit 1; }\necho "1.2.3"');
+    it("зовёт бинарь именно с --version, а не как-нибудь ещё", () => {
+        // Самотест обязан идти веткой, которая сама завершается кодом 0: без
+        // аргументов настоящий бинарь поднимает пустое окно и ждёт TTY.
+        const binary = fakeBinary("cli", '[ "$1" = "--version" ] || { echo "no --version" >&2; exit 1; }\necho "1.2.3"');
         expect(smokeTestBinary(binary)).toBe("1.2.3");
     });
 

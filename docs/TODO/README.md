@@ -61,7 +61,8 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [ ] [TestRunTime](TestRunTime.md) — полный проход гейтов перед сдачей стоит ~час на 4-ядерной машине (115 CPU-мин мутаций, из них 70 — статика; e2e в параллели ломает сам себя пересборкой dist). Замеры и проверенные ходы: `--ignoreStatic` локально, `--incremental` (повтор 45 с вместо 5 мин), гонка `tsup clean` в e2e, `isolate:false` для Stryker
 - [ ] [Inspector](Inspector.md) — рефакторинг TUIElement-иерархии + основа приложения → inspector-протокол (`--inspect-tui`) для e2e
 - [~] [ReadonlyEditor](ReadonlyEditor.md) — read-only редактор готов; далее — конфиг-слой `files.readonly*`, сообщение при попытке правки
-- [~] [Logging](Logging.md) — ILogService + Output UI готовы; далее — inner tracing extension host, CLI flags, фильтры/Clear в Output
+- [~] [Logging](Logging.md) — ILogService + Output UI и CLI-флаги уровней (`--log`, `--verbose`) готовы; далее — inner tracing extension host, `--log-file`, фильтры/Clear в Output
+- [~] [Startup](Startup.md) — параметры запуска: `diode` без аргументов поднимает пустое окно (cwd не трогаем), добавлены `-g/--goto`, `-d/--diff`, `--disable-extensions`, `--extensions-dir`, `--log`/`--verbose`; далее — welcome page и список недавних папок
 - [~] [OpenPerformance](OpenPerformance.md) — красивые бенчи открытия: бенч от пола node + лестница вех и правки-нагрузка, кухня старта (≈300 мс над полом на любом файле), жадные O(N)-проходы при открытии (13 МБ — 3 с), piece tree, стриминг гигантских файлов (500 МБ — 88 с); план по этапам с целевыми цифрами
 - [~] [LongLinePerformance](LongLinePerformance.md) — фриз длинных строк снят порогом рендера, межредакторная связь — damage-tracking'ом; открыто: пер-строчный кеш `DisplayLine`, reveal-по-клику, конфиг порога
 - [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (главные блокеры сняты; остались точечные фиксы)

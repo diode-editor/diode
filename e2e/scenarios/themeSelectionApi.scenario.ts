@@ -38,8 +38,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Sel 2:2 Keyboard"), { timeoutMs: 5000 });
         await editor.capture("keyboard");
 
-        // Клик мышью в тексте — тот же слушатель, другой вид жеста.
-        await editor.click(20, 5);
+        // Клик мышью в тексте — тот же слушатель, другой вид жеста. Координата
+        // считается от левого края ЭКРАНА: окно без папки тоже держит сайдбар
+        // (Explorer с подсказкой), поэтому текст начинается около 36-й колонки,
+        // а клик правее конца строки 4 клампится в её конец — `Sel 4:12`.
+        await editor.click(50, 5);
         await editor.waitForText((t) => t.includes("Sel 4:12 Mouse"), { timeoutMs: 5000 });
         await editor.capture("mouse");
 

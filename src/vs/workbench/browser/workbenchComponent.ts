@@ -163,6 +163,12 @@ export class WorkbenchComponent extends Component {
     private terminalEnv: TerminalEnvironmentService;
     private dispatcher: KeybindingDispatcher;
     private contributionsRegistry: WorkbenchContributionsRegistry;
+    /**
+     * Взведён в {@link mount}. Отличает бутстрап (там единственную загрузку
+     * дерева await'ит `activate()`) от смены корня на живом приложении, где
+     * наполнить дерево обязан сам {@link setWorkspaceFolder}.
+     */
+    private mounted = false;
 
     public constructor(
         editorService: EditorService,
@@ -349,6 +355,11 @@ export class WorkbenchComponent extends Component {
     }
 
     public mount(): void {
+        this.mounted = true;
+        // Сайдбар собирается до restoreLayout() в хвосте этого же метода —
+        // порядок тот же, что был, когда контейнеры жили в setWorkspaceFolder
+        // (бутстрап зовёт его ДО mount).
+        this.registerViewContainers();
         // Фаза Restored: view построена, лёгкие сервисы готовы — инстанцируем
         // contribution'ы этой фазы (статус-бар и пр.). Между конструктором и mount
         // ни один редактор не открывается → эквивалентно прежней проводке в ctor.
@@ -463,14 +474,18 @@ export class WorkbenchComponent extends Component {
         this.workbenchContextKeys.update();
     }
 
-    public setWorkspaceFolder(dirPath: string): void {
-        this.explorerService.setRootPath(dirPath);
-        // Новые терминалы спавнятся в папке воркспейса.
-        this.terminalService.setWorkingDirectory(dirPath);
-        // Собираем контейнеры сайдбара и показываем Explorer по умолчанию, не
-        // трогая видимость сайдбара — её восстанавливает персист layout'а.
-        // Все три идут одним путём: view записались в реестр из конструкторов
-        // компонентов, ViewsService строит контейнер и отдаёт его сайдбару.
+    /**
+     * Собирает контейнеры сайдбара и показывает Explorer по умолчанию, не трогая
+     * видимость самого сайдбара — её восстанавливает персист layout'а. Все идут
+     * одним путём: view записались в реестр из конструкторов компонентов,
+     * ViewsService строит контейнер и отдаёт его сайдбару.
+     *
+     * Зовётся из {@link mount} — то есть ВСЕГДА, а не только при открытой папке:
+     * окно без воркспейса обязано иметь сайдбар (Explorer рисует свой
+     * плейсхолдер «No folder opened.», магазин расширений работает как обычно),
+     * иначе из пустого окна нечем даже открыть папку.
+     */
+    private registerViewContainers(): void {
         this.viewsService.registerContainer({
             id: EXPLORER_VIEWLET_ID,
             title: "EXPLORER",
@@ -516,6 +531,18 @@ export class WorkbenchComponent extends Component {
         });
         this.viewsService.attachContainer(REFERENCES_VIEWLET_ID);
         this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);
+    }
+
+    /**
+     * Открывает папку как воркспейс. Здесь остаётся ТОЛЬКО то, что зависит от
+     * папки: контейнеры сайдбара живут своей жизнью ({@link registerViewContainers}).
+     * Зовётся из бутстрапа (до `mount()`) и из команды Open Folder (после), так
+     * что ничего «одноразового» тут быть не должно.
+     */
+    public setWorkspaceFolder(dirPath: string): void {
+        this.explorerService.setRootPath(dirPath);
+        // Новые терминалы спавнятся в папке воркспейса.
+        this.terminalService.setWorkingDirectory(dirPath);
         // Открыть per-project стор состояния для этой папки (переключение флашит
         // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.
         this.workbenchState.openWorkspace(dirPath);
@@ -532,6 +559,12 @@ export class WorkbenchComponent extends Component {
         // first render are not blocked. `fileIndexReady` exposes completion for
         // callers (and tests) that need the index populated.
         void this.fileSearchService.activate(dirPath);
+        // Смена корня на живом приложении обязана наполнить дерево: `setRootPath`
+        // только пересоздаёт провайдер, а `TreeViewElement`, который строит по
+        // этому событию ExplorerComponent, грузит узлы ИСКЛЮЧИТЕЛЬНО через
+        // refresh() — без него Open Folder оставлял пустую панель. На бутстрапе
+        // (до mount) не зовём: там единственную загрузку await'ит `activate()`.
+        if (this.mounted) void this.explorerService.refresh();
     }
 
     /** Resolves when the background file index has finished its initial build. */

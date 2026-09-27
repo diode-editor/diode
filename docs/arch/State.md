@@ -96,14 +96,21 @@ main.ts: build container ─► process.on("exit", stateService.flushSync)
    │
    ├─ первый CLI-arg — папка? ─► WorkbenchComponent.setWorkspaceFolder(dir)
    │                              └─► WorkbenchStateService.openWorkspace(dir)  (load per-project стор)
+   │                              (папки нет — пустое окно: per-project стор не открывается,
+   │                               workspace-дескрипторы обслуживает global-стор)
    ├─ mount()  ─► LayoutService.restoreLayout()   (перед первым кадром; + sync истины в PanelService)
    ├─ run()
    ├─ await activate()
-   ├─ есть явные файлы в CLI?
+   ├─ есть явные файлы (или --diff) в CLI?
    │      ├─ да ─► открыть ТОЛЬКО их            (CLI перебивает сессию)
-   │      └─ нет ─► restoreOpenEditors()        (реплей сохранённых путей + активная вкладка)
+   │      └─ нет ─► папка открыта? ─► restoreOpenEditors()  (реплей путей + активная вкладка)
+   │                └─ нет ─► ничего             (пустое окно сессии не имеет)
    └─ focusEditor()
 ```
+
+- **Пустое окно** (`diode` без аргументов) сессию НЕ восстанавливает: снимок
+  открытых вкладок принадлежит воркспейсу, а его нет. Решение и мотивы —
+  [docs/TODO/Startup.md](../TODO/Startup.md).
 
 - Проводку «состояние ↔ UI» изолируют два Workbench-сервиса (этап 11, headless):
   **`WorkbenchStateService`** (открытые файлы через `EditorService`) и

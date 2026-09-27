@@ -63,7 +63,11 @@ export interface ScenarioSpec {
     name: string;
     /** Human-readable title for the screenshots index. */
     title?: string;
-    /** Files/dirs the editor opens (a dir becomes the workspace folder). */
+    /**
+     * Files/dirs the editor opens (a dir becomes the workspace folder). Опущено —
+     * открывается каталог воркспейса сценария; **пустой массив** — явный запуск
+     * без позиционных аргументов (пустое окно).
+     */
     open?: string[];
     cols?: number;
     rows?: number;

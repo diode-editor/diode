@@ -5,15 +5,24 @@
  *
  * Поддерживаемые формы:
  *   --user-data-dir <path>          | --user-data-dir=<path>
+ *   --extensions-dir <path>         | --extensions-dir=<path>
  *   --profile <name>                | --profile=<name>
  *   --inspect-tui                   | --inspect-tui=<host:port>
+ *   --log <level>                   | --log <channel>:<level>  (повторяемый)
+ *   --verbose                       | ≡ --log trace
+ *   --goto, -g                      | позиционные читаются как file:line:col
+ *   --diff, -d                      | ровно два позиционных — стороны диффа
+ *   --disable-extensions            | не грузить пользовательские расширения
  *   --help, -h
  *   --version, -v
  *   --                              | всё после трактуется как позиционные
- *   <позиционные>                   | файлы/папки для открытия
+ *   <позиционные>                   | файлы/папки для открытия; **необязательны** —
+ *                                   | без них поднимается пустое окно
  */
 
 import { DEFAULT_REGISTRY_URL } from "../../extensionManagement/node/createRegistrySource.ts";
+import { LogLevel, parseLogLevel } from "../../log/common/logLevel.ts";
+
 export interface ICliArgs {
     /** Файлы и/или директории для открытия. */
     readonly positional: readonly string[];
@@ -53,6 +62,41 @@ export interface ICliArgs {
     readonly uninstallExtension: string | undefined;
     /** Был ли передан `--list-extensions`. */
     readonly listExtensions: boolean;
+    /**
+     * Каталог внешних расширений из `--extensions-dir`. Не задан — дефолт
+     * `<user-data-dir>/extensions`. Отвязывает расширения от `--user-data-dir`,
+     * как одноимённый флаг VS Code.
+     */
+    readonly extensionsDir: string | undefined;
+    /**
+     * Был ли передан `-g` / `--goto`. Это **режим**, а не значение (как в
+     * VS Code): позиционные начинают читаться как `file[:line[:column]]`.
+     */
+    readonly goto: boolean;
+    /**
+     * Был ли передан `-d` / `--diff`. Тоже режим: два позиционных — стороны
+     * дифф-вкладки (original, modified).
+     */
+    readonly diff: boolean;
+    /**
+     * Был ли передан `--disable-extensions`. Гасит **только** пользовательские
+     * расширения; встроенные продолжают работать — дословная семантика эталона
+     * (`_isDisabledInEnv`: `!extension.isBuiltin`), иначе вместе с расширениями
+     * уехали бы грамматики и language-configuration.
+     */
+    readonly disableExtensions: boolean;
+    /**
+     * Правила уровней логирования из `--log` (повторяемый) и `--verbose`,
+     * в порядке появления. Применяются через `LogService.setLevel`.
+     */
+    readonly logLevels: readonly ILogLevelRule[];
+}
+
+/** Одно правило `--log`: уровень для канала (`channel: "*"` — для всех). */
+export interface ILogLevelRule {
+    /** Канал или вайлдкард `"*"` — то, что понимает `LogService.setLevel`. */
+    readonly channel: string;
+    readonly level: LogLevel;
 }
 
 /** Адрес инспектора по умолчанию для голого `--inspect-tui`. */
@@ -61,11 +105,26 @@ export const DEFAULT_INSPECT_TUI = "127.0.0.1:9223";
 /** Размер виртуального терминала по умолчанию для голого `--headless`. */
 export const DEFAULT_HEADLESS_SIZE = { cols: 120, rows: 32 } as const;
 
-export const USAGE = `Usage: diode [options] <file-or-dir> [<file-or-dir> ...]
+export const USAGE = `Usage: diode [options] [<file-or-dir> ...]
+
+Без аргументов поднимается пустое окно: папка не открывается, текущий каталог
+не сканируется, вкладки прошлой сессии не восстанавливаются. Папку можно
+открыть из редактора командой Open Folder.
 
 Options:
+  -g, --goto               Читать позиционные как file:line[:column] и ставить
+                           каретку в указанную позицию
+  -d, --diff <a> <b>       Открыть дифф-вкладку для двух файлов
   --user-data-dir <path>   Альтернативный каталог user data (default: ~/.diode)
+  --extensions-dir <path>  Каталог внешних расширений
+                           (default: <user-data-dir>/extensions)
   --profile <name>         Имя профиля (default: "default")
+  --disable-extensions     Не грузить пользовательские расширения (встроенные
+                           остаются — с ними грамматики и настройки языков)
+  --log <level>            Уровень логирования: off|trace|debug|info|warn|error.
+  --log <channel>:<level>  Тот же флаг для одного канала (например
+                           extensions.host:debug). Повторяемый
+  --verbose                То же, что --log trace
   --inspect-tui[=host:port] Поднять TUIDom-инспектор (default: ${DEFAULT_INSPECT_TUI})
   --headless[=<cols>x<rows>] Запуск без терминала: рендер в память, управление
                            через инспектор (требует --inspect-tui; default: ${DEFAULT_HEADLESS_SIZE.cols}x${DEFAULT_HEADLESS_SIZE.rows})
@@ -93,7 +152,7 @@ export class CliArgsError extends Error {
 
 interface IFlagSpec {
     /** Канонический ключ в `ICliArgs`. */
-    readonly key: "userDataDir" | "profile" | "installExtension" | "uninstallExtension" | "registry";
+    readonly key: "userDataDir" | "extensionsDir" | "profile" | "installExtension" | "uninstallExtension" | "registry";
 }
 
 /**
@@ -103,6 +162,7 @@ interface IFlagSpec {
  */
 const FLAG_SPECS: Readonly<Record<string, IFlagSpec | undefined>> = {
     "--user-data-dir": { key: "userDataDir" },
+    "--extensions-dir": { key: "extensionsDir" },
     "--profile": { key: "profile" },
     "--install-extension": { key: "installExtension" },
     "--uninstall-extension": { key: "uninstallExtension" },
@@ -147,6 +207,29 @@ function parseHeadlessSize(raw: string): { cols: number; rows: number } {
     return { cols, rows };
 }
 
+/**
+ * Разбирает одну запись `--log`: либо голый уровень (`debug` — для всех
+ * каналов), либо `<channel>:<level>` (`extensions.host:debug`). Канал режем по
+ * ПОСЛЕДНЕМУ двоеточию: имена каналов у нас точечные (`extensions.host.rpc`),
+ * но двоеточие в них не запрещено. Бросает {@link CliArgsError} на неизвестном
+ * уровне — молча проглоченный `--log dbug` оставил бы человека без логов.
+ */
+function parseLogRule(raw: string): ILogLevelRule {
+    const idx = raw.lastIndexOf(":");
+    const channel = idx === -1 ? "*" : raw.slice(0, idx);
+    const levelPart = idx === -1 ? raw : raw.slice(idx + 1);
+    const level = parseLogLevel(levelPart);
+    if (level === undefined) {
+        throw new CliArgsError(
+            `--log expects [<channel>:]<level> with level off|trace|debug|info|warn|error, got: ${raw}`,
+        );
+    }
+    if (channel.length === 0) {
+        throw new CliArgsError(`--log requires a non-empty channel: ${raw}`);
+    }
+    return { channel, level };
+}
+
 export function parseCliArgs(argv: readonly string[]): ICliArgs {
     const positional: string[] = [];
     // Значения флагов из FLAG_SPECS — по их каноническому ключу; ветвление по
@@ -157,6 +240,10 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
     let help = false;
     let version = false;
     let listExtensions = false;
+    let gotoMode = false;
+    let diffMode = false;
+    let disableExtensions = false;
+    const logLevels: ILogLevelRule[] = [];
 
     let i = 0;
     while (i < argv.length) {
@@ -182,6 +269,51 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
         if (arg === "--list-extensions") {
             listExtensions = true;
             i += 1;
+            continue;
+        }
+
+        if (arg === "-g" || arg === "--goto") {
+            gotoMode = true;
+            i += 1;
+            continue;
+        }
+
+        if (arg === "-d" || arg === "--diff") {
+            diffMode = true;
+            i += 1;
+            continue;
+        }
+
+        if (arg === "--disable-extensions") {
+            disableExtensions = true;
+            i += 1;
+            continue;
+        }
+
+        // `--verbose` — не отдельный канал настройки, а алиас самого низкого
+        // уровня: кладём в тот же список, чтобы порядок с `--log` сохранялся.
+        if (arg === "--verbose") {
+            logLevels.push({ channel: "*", level: LogLevel.Trace });
+            i += 1;
+            continue;
+        }
+
+        // Повторяемый флаг со значением: в FLAG_SPECS (там одно значение на ключ)
+        // он не помещается, поэтому разбирается здесь.
+        if (arg === "--log" || arg.startsWith("--log=")) {
+            const eqIndex = arg.indexOf("=");
+            let raw: string;
+            if (eqIndex === -1) {
+                if (i + 1 >= argv.length) {
+                    throw new CliArgsError("Option --log requires a value");
+                }
+                raw = argv[i + 1];
+                i += 2;
+            } else {
+                raw = arg.slice(eqIndex + 1);
+                i += 1;
+            }
+            logLevels.push(parseLogRule(raw));
             continue;
         }
 
@@ -244,6 +376,15 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
         throw new CliArgsError("--headless requires --inspect-tui to drive the session");
     }
 
+    // Режимы позиционных исключают друг друга: у `--diff` они значат «стороны»,
+    // у `--goto` — «файл с позицией», и совместить это не во что.
+    if (diffMode && gotoMode) {
+        throw new CliArgsError("--diff cannot be combined with --goto");
+    }
+    if (diffMode && positional.length !== 2) {
+        throw new CliArgsError(`--diff expects exactly two files, got ${String(positional.length)}`);
+    }
+
     return {
         positional,
         userDataDir: flagValues.userDataDir,
@@ -256,5 +397,10 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
         uninstallExtension: flagValues.uninstallExtension,
         registry: flagValues.registry,
         listExtensions,
+        extensionsDir: flagValues.extensionsDir,
+        goto: gotoMode,
+        diff: diffMode,
+        disableExtensions,
+        logLevels,
     };
 }

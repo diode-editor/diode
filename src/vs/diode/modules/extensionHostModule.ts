@@ -105,15 +105,20 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // (пока нет multi-root). Папку читаем ЛЕНИВО из ExplorerService (источник
         // правды, выставляется `WorkbenchComponent.setWorkspaceFolder`): getWorkspaceFolders
         // зовётся при инициализации subprocess'а — уже ПОСЛЕ setWorkspaceFolder, так
-        // что расширения (напр. git) видят реально открытую папку, а не process.cwd().
-        // Fallback на cwd, когда папка не открыта. Слой Configuration не тянется в
+        // что расширения (напр. git) видят реально открытую папку.
+        // Папка не открыта — отдаём ПУСТОЙ список, а не process.cwd(): в пустом
+        // окне воркспейса нет, и подсунутый cwd отправил бы git и прочих шерстить
+        // случайный каталог, из которого человек запустил редактор. Пустой массив
+        // `workspaceNamespace` отдаёт расширениям как `undefined` —
+        // ровно контракт VS Code для empty window. Слой Configuration не тянется в
         // рантайм host'а — доступ идёт через этот тонкий адаптер.
         const configService = container.get(IConfigurationServiceDIToken);
         const explorer = container.get(ExplorerServiceDIToken);
         const configuration: IExtensionHostConfigProvider = {
             getSnapshot: () => configService.getValue(),
             getWorkspaceFolders: () => {
-                const root = explorer.getRootPath() ?? process.cwd();
+                const root = explorer.getRootPath();
+                if (root === null) return [];
                 return [{ uri: Uri.file(root).toString(), name: path.basename(root), index: 0 }];
             },
             onDidChange: (cb) =>

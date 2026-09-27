@@ -48,7 +48,8 @@ export interface AppEnvOptions {
     /**
      * Что открыть. Относительные пути резолвятся от изолированного воркспейса,
      * абсолютные — как есть (можно открыть repo-фикстуру, сохранив изоляцию
-     * user-data/home). По умолчанию — каталог воркспейса (workspaceFolder).
+     * user-data/home). Поле опущено — каталог воркспейса (workspaceFolder).
+     * Пустой массив — ЯВНО «без позиционных аргументов»: голый `diode`, пустое окно.
      */
     open?: readonly string[];
     /** Дополнительные CLI-флаги (кроме headless/inspect-tui — их ставит транспорт). */
@@ -172,10 +173,12 @@ export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv
         await installExtension(userDataDir, vsix);
     }
 
-    // Что открыть: относительное — от воркспейса, абсолютное — как есть; иначе сам
-    // каталог воркспейса (становится workspaceFolder).
+    // Что открыть: относительное — от воркспейса, абсолютное — как есть; поле
+    // опущено — сам каталог воркспейса (становится workspaceFolder). ПУСТОЙ
+    // массив — это не «по умолчанию», а явное «без позиционных аргументов»:
+    // запуск голого `diode`, поднимающего пустое окно.
     const opens =
-        options.open !== undefined && options.open.length > 0
+        options.open !== undefined
             ? options.open.map((p) => (isAbsoluteLike(p) ? p : join(workspaceDir, p)))
             : [workspaceDir];
 

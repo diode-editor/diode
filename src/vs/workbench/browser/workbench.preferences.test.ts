@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
@@ -26,7 +27,14 @@ describe("Workbench — Preferences commands", () => {
             // Nested, not-yet-existing paths — the handler must create the parent dir + file.
             settingsFile = ws.path("user-data/User/settings.json");
             keybindingsFile = ws.path("user-data/User/keybindings.json");
-            h = createAppTestHarness({ settingsResource: settingsFile, keybindingsResource: keybindingsFile });
+            // 120 колонок: у окна без папки теперь тоже есть сайдбар, и в
+            // дефолтные 80 шапка колонок вкладки шорткатов уже не влезает
+            // («Keybinding» обрезается до «Keybindi…»).
+            h = createAppTestHarness({
+                settingsResource: settingsFile,
+                keybindingsResource: keybindingsFile,
+                size: new Size(120, 24),
+            });
         });
 
         it("openSettings seeds a missing settings.json and opens it", () => {
