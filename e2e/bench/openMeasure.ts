@@ -119,6 +119,13 @@ export interface OpenRunResult {
     /** Лестница вех из трассы приложения (null — трасса не доехала). */
     readonly ladder: Ladder | null;
     readonly workload: readonly WorkloadStepResult[];
+    /**
+     * Исход нагрузки отдельно от открытия: файл мог открыться, а на первой же
+     * правке процесс умер (500 МБ на CI — OOM в куче V8). `crash` — процесс
+     * завершился, `failed` — шаг не дождался экрана, `skipped` — не гоняли.
+     */
+    readonly workloadOutcome: "ok" | "crash" | "failed" | "skipped";
+    readonly workloadError: string | null;
     readonly warmup: boolean;
 }
 
@@ -204,18 +211,35 @@ function linePrefix(fixture: OpenFixture, index: number): string {
     return fixture.lineAt(index).slice(0, 70);
 }
 
+/**
+ * Подготовительный шаг нагрузки (не меряется): ждём, пока предикат выполнится
+ * и вывод устоится. В отличие от `session.waitFor` замечает смерть процесса
+ * сразу, а не по таймауту (на `log500m` это 300 с ожидания после OOM).
+ */
+async function settle(ctx: StepContext, predicate: (screen: AnsiScreen) => boolean, stableMs = 150): Promise<void> {
+    const deadline = performance.now() + ctx.timeoutMs;
+    while (performance.now() < deadline) {
+        if (ctx.session.isExited) throw new Error("процесс редактора завершился во время нагрузки");
+        if (predicate(ctx.session.parseScreen())) {
+            const before = ctx.chunks.length;
+            await sleep(stableMs);
+            if (ctx.chunks.length === before) return;
+            continue;
+        }
+        await sleep(25);
+    }
+    throw new Error(`нагрузка: экран не дождался состояния за ${String(ctx.timeoutMs)} мс`);
+}
+
 async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<WorkloadStepResult[]> {
     const results: WorkloadStepResult[] = [];
     const middle = Math.floor(fixture.lines / 2);
 
     // Подготовка (не меряется): в середину файла через Go to Line.
     ctx.session.write(KEY_CTRL_G);
-    await ctx.session.waitFor(() => true, { timeoutMs: ctx.timeoutMs, stableMs: 150 });
+    await settle(ctx, () => true);
     ctx.session.write(`${String(middle + 1)}${KEY_ENTER}`);
-    await ctx.session.waitFor((s) => s.findText(linePrefix(fixture, middle)) !== null, {
-        timeoutMs: ctx.timeoutMs,
-        stableMs: 150,
-    });
+    await settle(ctx, (s) => s.findText(linePrefix(fixture, middle)) !== null);
 
     const middleLine = linePrefix(fixture, middle);
     const insertVisible = (s: AnsiScreen) => s.findText(INSERT_CHAR) !== null;
@@ -250,7 +274,7 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
     // слово приходит одним paste-событием, а не посимвольно (иначе метрика —
     // N инкрементальных поисков, по одному на букву).
     ctx.session.write(KEY_CTRL_F);
-    await ctx.session.waitFor(() => true, { timeoutMs: ctx.timeoutMs, stableMs: 150 });
+    await settle(ctx, () => true);
     results.push(
         await measureStep(ctx, "search", bracketedPaste(fixture.marker), (s) => s.findText("1 of 1") !== null),
     );
@@ -291,6 +315,8 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
     let measuredChunks = 0;
     let ladder: Ladder | null = null;
     let workload: WorkloadStepResult[] = [];
+    let workloadOutcome: OpenRunResult["workloadOutcome"] = "skipped";
+    let workloadError: string | null = null;
     let peakRssBytes: number | null = null;
     try {
         const deadline = t0 + timeoutMs;
@@ -317,7 +343,17 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
             const trace = traceText === null ? null : parseTrace(traceText);
             ladder = trace === null ? null : ladderFromTrace(trace, spawnEpoch);
             if (options.workload !== false) {
-                workload = await runWorkload({ session, chunks, t0, timeoutMs }, fixture);
+                // Смерть процесса на правке — результат нагрузки, а не бенча:
+                // открытие уже измерено, остальные размеры должны прогнаться.
+                try {
+                    workload = await runWorkload({ session, chunks, t0, timeoutMs }, fixture);
+                    workloadOutcome = workload.every((w) => w.outcome === "ok") ? "ok" : "failed";
+                } catch (error: unknown) {
+                    workloadOutcome = session.isExited ? "crash" : "failed";
+                    workloadError = error instanceof Error ? error.message.split("\n")[0] : String(error);
+                    exitCode = session.code;
+                    signal = session.exitSignal;
+                }
             }
         }
     } finally {
@@ -336,6 +372,8 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
             peakRssBytes,
             ladder: null,
             workload: [],
+            workloadOutcome: "skipped",
+            workloadError: null,
             warmup,
         };
     }
@@ -344,11 +382,13 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
         outcome: "ok",
         contentMs: firstSatisfiedAt(chunks, (s) => contentVisible(s, fixture.marker), range),
         highlightMs: fixture.kind === "ts" ? firstSatisfiedAt(chunks, highlightVisible, range) : null,
-        exitCode: null,
-        signal: null,
+        exitCode,
+        signal,
         peakRssBytes,
         ladder,
         workload,
+        workloadOutcome,
+        workloadError,
         warmup,
     };
 }
