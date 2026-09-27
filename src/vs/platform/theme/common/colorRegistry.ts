@@ -11,16 +11,26 @@ import type { IThemeFile } from "./iThemeFile.ts";
  * и типизация ключей (`WorkbenchColorKey`).
  *
  * Отличие от vscode: слота два (dark/light), не четыре — hc-темы мапятся на
- * ближайший вид через {@link themeKindOf}; derived-цвета (`transparent(ref, 0.5)`)
- * не поддержаны — выражений над цветами у нас нет, дефолт задаётся hex-строкой.
+ * ближайший вид через {@link themeKindOf}. Дефолт — hex-строка либо **ссылка на
+ * другой ключ** (`"quickInput.background": { dark: "editorWidget.background", … }`
+ * — как `registerColor(id, editorWidgetBackground)` у vscode): разрешается уже
+ * поверх цветов темы, так что тема, задавшая базовый ключ, получает и все
+ * производные — иначе пикер Catppuccin оставался бы серым. Выражений над
+ * цветами (`transparent(ref, 0.5)`) нет — такие дефолты запекаются hex-ом.
  * Альфа при этом штатная: `#RRGGBBAA` и в дефолте, и в теме уходит в палитру как
  * есть, а композитинг выполняет движок в порядке отрисовки (STYLES.md tuidom,
  * «Модель цвета»).
  */
 
+/** Дефолт вида темы: hex-строка (`#RRGGBB[AA]`) либо ключ другого цвета реестра. */
 export interface IColorDefaults {
     readonly dark: string;
     readonly light: string;
+}
+
+/** Ссылка ли это на другой ключ (а не hex-цвет). */
+export function isColorReference(value: string): boolean {
+    return !value.startsWith("#");
 }
 
 export interface IColorDefinition {

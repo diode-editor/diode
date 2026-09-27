@@ -1,3 +1,4 @@
+import { packRgba } from "@tuidom/core/common/colorUtils";
 import { STYLE_TOKEN_DEFAULTS } from "@tuidom/core/dom/styles/styleTokens";
 import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
@@ -6,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 import { WorkbenchTheme } from "../common/workbenchTheme.ts";
 
-import { applyThemeVars } from "./themeStyleVars.ts";
+import { applyThemeVars, computeThemeVars } from "./themeStyleVars.ts";
 
 function themeWithoutTerminalColors(): WorkbenchTheme {
     const base = WorkbenchTheme.fromThemeFile({ name: "no-terminal-colors", type: "dark", colors: {} });
@@ -63,6 +64,64 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
 
         expect(root.styleVar("menuBar.background")).toBe(0xdddddd);
         expect(root.styleVar("menuBar.foreground")).toBe(0x333333);
+    });
+
+    it("рамка меню цвета его фона (Catppuccin: menu.border = фон с альфой) берёт цвет разделителя", () => {
+        const root = new BodyElement();
+        root.setAsRoot();
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "mocha-like",
+            type: "dark",
+            colors: {
+                "menu.background": "#1E1E2E",
+                "menu.border": "#1E1E2E80",
+                "menu.separatorBackground": "#585B70",
+            },
+        });
+        applyThemeVars(root, theme);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+
+        expect(root.styleVar("menu.border")).toBe(0x585b70);
+    });
+
+    it("прозрачная и почти неотличимая рамка меню — тот же откат; заметная остаётся своей", () => {
+        const border = (menuBorder: string): number => {
+            const root = new BodyElement();
+            root.setAsRoot();
+            const theme = WorkbenchTheme.fromThemeFile({
+                name: "t",
+                type: "dark",
+                colors: {
+                    "menu.background": "#202020",
+                    "menu.border": menuBorder,
+                    "menu.separatorBackground": "#808080",
+                },
+            });
+            applyThemeVars(root, theme);
+            root.performStyleResolution(ROOT_STYLE_CONTEXT);
+            return root.styleVar("menu.border");
+        };
+
+        expect(border("#00000000")).toBe(0x808080); // прозрачная
+        expect(border("#272727")).toBe(0x808080); // разница каналов 7 < порога 8
+        expect(border("#282828")).toBe(0x282828); // разница 8 — различима
+        expect(border("#202030")).toBe(0x202030); // различима по одному каналу — считается максимум, не минимум
+        // Полупрозрачный белый над #202020 даёт +28 по каналам — различим, остаётся как есть (с альфой).
+        expect(border("#FFFFFF20")).toBe(packRgba(255, 255, 255, 0x20));
+    });
+
+    it("палитра без menu.* (собрана руками) — мост рамки меню молчит", () => {
+        const base = WorkbenchTheme.fromThemeFile({
+            name: "no-menu",
+            type: "dark",
+            colors: { "menu.border": "#20202080" },
+        });
+        for (const missing of ["menu.border", "menu.background", "menu.separatorBackground"] as const) {
+            const colors = { ...base.colors };
+            colors[missing] = undefined;
+            const vars = computeThemeVars(new WorkbenchTheme("no-menu", "dark", colors, base.tokenTheme));
+            expect(vars["menu.border"], missing).toBe(colors["menu.border"]);
+        }
     });
 
     it("палитра без titleBar.* вовсе (собрана руками) — мост молчит, строка меню на дефолте tuidom", () => {

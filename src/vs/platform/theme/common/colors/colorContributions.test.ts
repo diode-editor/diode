@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { builtinThemes } from "../../../../workbench/services/themes/common/themes/builtinThemes.ts";
-import type { ColorContribution } from "../colorRegistry.ts";
+import { type ColorContribution, isColorReference } from "../colorRegistry.ts";
 import { WorkbenchTheme } from "../workbenchTheme.ts";
 
 import { baseColors } from "./baseColors.ts";
@@ -68,6 +68,33 @@ describe("default color registry coverage", () => {
             }
         });
     }
+
+    /**
+     * Дефолт-ссылка обязана вести на зарегистрированный ключ с дефолтами и не
+     * замыкаться в цикл — иначе `fromThemeFile` бросит на любой теме. Проверяем
+     * на реестре, а не на темах: тема может случайно «закрыть» битую ссылку.
+     */
+    it("reference defaults point at registered keys with defaults and form no cycles", () => {
+        const contributions: ColorContribution = COLOR_CONTRIBUTIONS;
+        for (const [key, definition] of Object.entries(contributions)) {
+            if (definition.defaults === null) continue;
+            for (const kind of ["dark", "light"] as const) {
+                const trail = [key];
+                let value = definition.defaults[kind];
+                while (isColorReference(value)) {
+                    expect(trail, `цикл ссылок ${[...trail, value].join(" → ")}`).not.toContain(value);
+                    const target = contributions[value];
+                    expect(target, `"${key}" (${kind}) ссылается на незарегистрированный "${value}"`).toBeDefined();
+                    expect(target.defaults, `"${value}" без дефолтов, а на него ссылается "${key}"`).not.toBeNull();
+                    trail.push(value);
+                    value = target.defaults![kind];
+                }
+                expect(value, `"${trail.at(-1) ?? key}" (${kind}): не hex`).toMatch(
+                    /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/,
+                );
+            }
+        }
+    });
 
     it("group files declare disjoint key sets (a spread would silently override a duplicate)", () => {
         const groups = [

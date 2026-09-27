@@ -98,7 +98,7 @@ export const editorColors = {
         description: "Color of the folding control in the editor gutter.",
     },
     "editorWidget.foreground": {
-        defaults: { dark: "#CCCCCC", light: "#616161" },
+        defaults: { dark: "foreground", light: "foreground" },
         description: "Foreground color of editor widgets, such as find/replace.",
     },
     "editorWidget.background": {
@@ -109,20 +109,41 @@ export const editorColors = {
         defaults: { dark: "#454545", light: "#C8C8C8" },
         description: "Border color of the editor widget.",
     },
-    // VS Code выводит дефолты hover-виджета из editorWidget.* — производных
-    // цветов у нас нет, значения запечены на месте определения (политика
-    // `editorCursor.background`).
+    // Производные от editorWidget.*, как в реестре VS Code.
     "editorHoverWidget.foreground": {
-        defaults: { dark: "#CCCCCC", light: "#616161" },
+        defaults: { dark: "editorWidget.foreground", light: "editorWidget.foreground" },
         description: "Foreground color of the editor hover.",
     },
     "editorHoverWidget.background": {
-        defaults: { dark: "#252526", light: "#F3F3F3" },
+        defaults: { dark: "editorWidget.background", light: "editorWidget.background" },
         description: "Background color of the editor hover.",
     },
     "editorHoverWidget.border": {
-        defaults: { dark: "#454545", light: "#C8C8C8" },
+        defaults: { dark: "editorWidget.border", light: "editorWidget.border" },
         description: "Border color of the editor hover.",
+    },
+    // Автодополнение (виджет tuidom `completionlist` читает эти токены):
+    // производные, как в реестре VS Code — фон/рамка от editorWidget.*, текст от
+    // редактора, выделение от списка.
+    "editorSuggestWidget.background": {
+        defaults: { dark: "editorWidget.background", light: "editorWidget.background" },
+        description: "Background color of the suggest widget.",
+    },
+    "editorSuggestWidget.border": {
+        defaults: { dark: "editorWidget.border", light: "editorWidget.border" },
+        description: "Border color of the suggest widget.",
+    },
+    "editorSuggestWidget.foreground": {
+        defaults: { dark: "editor.foreground", light: "editor.foreground" },
+        description: "Foreground color of the suggest widget.",
+    },
+    "editorSuggestWidget.selectedBackground": {
+        defaults: { dark: "list.activeSelectionBackground", light: "list.activeSelectionBackground" },
+        description: "Background color of the selected entry in the suggest widget.",
+    },
+    "editorSuggestWidget.selectedForeground": {
+        defaults: { dark: "list.activeSelectionForeground", light: "list.activeSelectionForeground" },
+        description: "Foreground color of the selected entry in the suggest widget.",
     },
     // Активный параметр в подсказке (VS Code выводит этот цвет из
     // list.highlightForeground — у нас значения запечены, как у соседей выше).

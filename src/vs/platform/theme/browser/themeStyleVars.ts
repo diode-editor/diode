@@ -1,3 +1,4 @@
+import { compositeOver, unpackB, unpackG, unpackR } from "@tuidom/core/common/colorUtils";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 import type { WorkbenchTheme } from "../common/workbenchTheme.ts";
@@ -41,6 +42,33 @@ export function computeThemeVars(theme: WorkbenchTheme): Record<string, number> 
     if ("titleBar.activeForeground" in vars) {
         vars["menuBar.foreground"] = vars["titleBar.activeForeground"];
     }
+    // Рамка меню, сливающаяся с его фоном: темы вроде Catppuccin задают
+    // `menu.border` цветом фона (`#1e1e2e80` поверх `#1e1e2e`) и отделяют меню
+    // от окна тенью `box-shadow`. Тени в TUI нет, а меню того же цвета, что
+    // редактор, без рамки растворяется в нём — поэтому рамка берёт цвет
+    // разделителя пунктов: он в той же теме заведомо виден на фоне меню.
+    if ("menu.border" in vars && "menu.background" in vars && "menu.separatorBackground" in vars) {
+        if (isInvisibleOn(vars["menu.border"], vars["menu.background"])) {
+            vars["menu.border"] = vars["menu.separatorBackground"];
+        }
+    }
 
     return vars;
+}
+
+/** Порог различимости рамки на поверхности — макс. разница канала (0–255). */
+const BORDER_VISIBILITY_THRESHOLD = 8;
+
+/**
+ * Рамка цвета `border` неразличима на поверхности `surface`: после наложения
+ * (альфа рамки — на непрозрачную поверхность) каналы отличаются меньше порога.
+ */
+function isInvisibleOn(border: number, surface: number): boolean {
+    const painted = compositeOver(border, surface);
+    const delta = Math.max(
+        Math.abs(unpackR(painted) - unpackR(surface)),
+        Math.abs(unpackG(painted) - unpackG(surface)),
+        Math.abs(unpackB(painted) - unpackB(surface)),
+    );
+    return delta < BORDER_VISIBILITY_THRESHOLD;
 }

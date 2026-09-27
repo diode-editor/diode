@@ -1,4 +1,4 @@
-import { themeKindOf } from "./colorRegistry.ts";
+import { isColorReference, themeKindOf } from "./colorRegistry.ts";
 import { defaultWorkbenchColors, type IWorkbenchColors } from "./colors/colorContributions.ts";
 import { parseHexColor } from "./colorUtils.ts";
 import type { IEditorTokenTheme } from "./iEditorTokenTheme.ts";
@@ -33,17 +33,20 @@ export class WorkbenchTheme {
      * The default color registry for the theme's kind (dark/light) is layered
      * UNDER the theme's own colors, so any workbench color the app reads
      * resolves on every theme — mirroring how VS Code fills unset colors from
-     * its built-in defaults. See {@link defaultWorkbenchColors}.
+     * its built-in defaults. See {@link defaultWorkbenchColors}. A default that
+     * references another key (`quickInput.background` → `editorWidget.background`)
+     * resolves against the merged table, so it follows the theme's value of the
+     * base key — as VS Code's derived registry colors do.
      *
      * All hex color strings are converted to packed tuidom colors. Alpha is kept
      * as is (`#RRGGBBAA` → translucent value): compositing happens in the engine
      * at paint time, in draw order — see STYLES.md, «Модель цвета».
      */
     public static fromThemeFile(json: IThemeFile): WorkbenchTheme {
-        const merged = { ...defaultWorkbenchColors(themeKindOf(json.type)), ...json.colors };
+        const merged: Record<string, string> = { ...defaultWorkbenchColors(themeKindOf(json.type)), ...json.colors };
         const colors: IWorkbenchColors = {};
-        for (const [key, value] of Object.entries(merged)) {
-            (colors as Record<string, number>)[key] = parseHexColor(value);
+        for (const key of Object.keys(merged)) {
+            (colors as Record<string, number>)[key] = parseHexColor(resolveReference(merged, key));
         }
 
         const tokenTheme: IEditorTokenTheme = {
@@ -83,4 +86,27 @@ export class WorkbenchTheme {
         }
         return color;
     }
+}
+
+/**
+ * Hex-значение ключа с разрешением ссылок: дефолт вида `"editorWidget.background"`
+ * берёт значение ЭТОГО ключа из той же таблицы (уже с цветами темы поверх
+ * дефолтов), по цепочке. Цикл или ссылка на незарегистрированный ключ —
+ * ошибка определения цвета, а не темы (сторожит colorContributions.test.ts).
+ */
+function resolveReference(table: Readonly<Record<string, string>>, key: string): string {
+    const trail = [key];
+    let value = table[key];
+    while (isColorReference(value)) {
+        if (trail.includes(value)) {
+            throw new Error(`Color reference cycle: ${[...trail, value].join(" → ")}`);
+        }
+        const next = (table as Readonly<Partial<Record<string, string>>>)[value];
+        if (next === undefined) {
+            throw new Error(`Color "${trail[trail.length - 1]}" refers to unknown color "${value}"`);
+        }
+        trail.push(value);
+        value = next;
+    }
+    return value;
 }
