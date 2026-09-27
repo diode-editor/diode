@@ -1,38 +1,65 @@
 #!/usr/bin/env bash
 # Одноразово: ключ подписи apt-репозитория.
 #
-#   packaging/apt/gen-key.sh <out-dir>
+#   packaging/apt/gen-key.sh [out-dir]          (по умолчанию ~/diode-apt-key)
 #
-# Генерирует ed25519-ключ без пароля в отдельном временном keyring, кладёт в <out-dir>:
-#   apt-signing-key.private.asc — в секрет репозитория APT_GPG_PRIVATE_KEY (и в парольницу)
-#   apt-signing-key.public.asc  — публичная половина, для справки
+# 1. Генерирует ed25519-ключ «только подпись, без срока действия» в ТЕКУЩЕМ keyring
+#    ($GNUPGHOME или ~/.gnupg) — он остаётся там как резерв. Пароль спрашивает pinentry.
+# 2. Экспортирует в <out-dir>:
+#      apt-signing-key.private.asc — приватная половина (armored), chmod 600
+#      apt-signing-key.public.asc  — публичная, для справки (в релиз она уедет из CI сама)
+# 3. Печатает base64 приватной половины одной строкой — это значение секрета
+#    APT_GPG_PRIVATE_KEY (release.yml декодирует его обратно). Пароль ключа —
+#    отдельный секрет APT_GPG_PASSPHRASE.
 #
-# Ключ не имеет срока действия. Ротация = новый ключ в секрете + новый keyring в релизе;
-# пользователи переустанавливают /etc/apt/keyrings/diode.gpg.
+# Срок действия не ставим намеренно: apt отказывает в `update` по истёкшему ключу,
+# а обновить keyring у всех пользователей нельзя. Потеря ключа = новый keyring у всех,
+# поэтому base64 и пароль — в парольницу.
+#
+# Неинтерактивный режим (тесты): DIODE_KEY_PASSPHRASE=<пароль> — без pinentry.
 
 set -euo pipefail
 
-out="${1:?output dir}"
+out="${1:-$HOME/diode-apt-key}"
+uid="Diode apt repository <noreply@diode-editor.github.io>"
+
+if gpg --batch --list-secret-keys "$uid" >/dev/null 2>&1; then
+    echo "gen-key.sh: ключ «$uid» уже есть в keyring — экспортирую его, новый не создаю" >&2
+else
+    if [[ -n "${DIODE_KEY_PASSPHRASE:-}" ]]; then
+        gpg --batch --quiet --pinentry-mode loopback --passphrase "$DIODE_KEY_PASSPHRASE" \
+            --quick-gen-key "$uid" ed25519 sign 0
+    else
+        gpg --quiet --quick-gen-key "$uid" ed25519 sign 0
+    fi
+fi
+
 mkdir -p "$out"
-
-home="$(mktemp -d)"
-trap 'rm -rf "$home"' EXIT
-chmod 700 "$home"
-
-gpg --homedir "$home" --batch --quiet --gen-key <<PARAMS
-%no-protection
-Key-Type: eddsa
-Key-Curve: ed25519
-Key-Usage: sign
-Name-Real: Diode apt repository
-Name-Email: noreply@diode-editor.github.io
-Expire-Date: 0
-%commit
-PARAMS
-
-gpg --homedir "$home" --batch --armor --export-secret-keys > "$out/apt-signing-key.private.asc"
-gpg --homedir "$home" --batch --armor --export > "$out/apt-signing-key.public.asc"
+chmod 700 "$out"
+if [[ -n "${DIODE_KEY_PASSPHRASE:-}" ]]; then
+    gpg --batch --pinentry-mode loopback --passphrase "$DIODE_KEY_PASSPHRASE" \
+        --armor --export-secret-keys "$uid" > "$out/apt-signing-key.private.asc"
+else
+    gpg --armor --export-secret-keys "$uid" > "$out/apt-signing-key.private.asc"
+fi
 chmod 600 "$out/apt-signing-key.private.asc"
+gpg --batch --armor --export "$uid" > "$out/apt-signing-key.public.asc"
 
-echo "Private key: $out/apt-signing-key.private.asc  → gh secret set APT_GPG_PRIVATE_KEY < этот файл"
-echo "Public key:  $out/apt-signing-key.public.asc"
+fpr="$(gpg --batch --list-keys --with-colons "$uid" | awk -F: '$1=="fpr"{print $10; exit}')"
+
+{
+    echo "Ключ:        $fpr"
+    echo "Приватный:   $out/apt-signing-key.private.asc"
+    echo "Публичный:   $out/apt-signing-key.public.asc"
+    echo
+    echo "Секреты репозитория:"
+    echo "  gh secret set APT_GPG_PRIVATE_KEY --repo diode-editor/diode < $out/apt-signing-key.private.b64"
+    echo "  gh secret set APT_GPG_PASSPHRASE  --repo diode-editor/diode   # спросит пароль"
+    echo
+    echo "APT_GPG_PRIVATE_KEY (base64, одной строкой; также записан в $out/apt-signing-key.private.b64):"
+} >&2
+
+base64 < "$out/apt-signing-key.private.asc" | tr -d '\n' > "$out/apt-signing-key.private.b64"
+chmod 600 "$out/apt-signing-key.private.b64"
+cat "$out/apt-signing-key.private.b64"
+echo

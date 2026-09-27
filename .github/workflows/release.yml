@@ -83,15 +83,19 @@ jobs:
           packaging/deb/build-deb.sh artifacts/diode-linux-arm64 arm64 "$version" repo
           ls -la repo
 
+      # Секрет хранит armored-ключ в base64 одной строкой (так его печатает
+      # packaging/apt/gen-key.sh); пароль ключа — отдельный секрет.
       - name: Import apt signing key
         if: env.HAS_APT_KEY == 'true'
-        run: printf '%s' "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+        run: printf '%s' "$APT_GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
         env:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
 
       - name: Build apt repository metadata
         if: env.HAS_APT_KEY == 'true'
         run: packaging/apt/build-repo.sh repo
+        env:
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
 
       - name: Upload to release
         run: gh release upload "$GITHUB_REF_NAME" repo/* --clobber

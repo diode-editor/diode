@@ -36,13 +36,27 @@ apt-ftparchive \
     -o APT::FTPArchive::Release::Description="Diode terminal editor, flat repository on GitHub Releases" \
     release . > Release
 
+# Ключ подписи: первый, у которого секретная часть реально есть (поле 15 ≠ "#") и
+# среди возможностей есть подпись (поле 12 содержит "s"). Так работает и отдельный
+# ключ (gen-key.sh), и экспортированный сам по себе подписывающий субключ личного
+# ключа (`gpg --export-secret-subkeys <subkey>!`): у последнего primary в keyring
+# помечен как отсутствующий, и `--local-user <primary>` упал бы.
 if [[ -z "$key" ]]; then
-    key="$(gpg --batch --list-secret-keys --with-colons | awk -F: '$1=="sec"{print $5; exit}')"
+    key="$(gpg --batch --list-secret-keys --with-colons \
+        | awk -F: '($1=="sec" || $1=="ssb") && $15!="#" && $12 ~ /s/ {print $5; exit}')"
 fi
-[[ -n "$key" ]] || { echo "no secret gpg key available" >&2; exit 1; }
+[[ -n "$key" ]] || { echo "no secret gpg key with signing capability available" >&2; exit 1; }
 
-gpg --batch --yes --local-user "$key" --clearsign --digest-algo SHA256 -o InRelease Release
-gpg --batch --yes --local-user "$key" --detach-sign --armor --digest-algo SHA256 -o Release.gpg Release
+# Пароль ключа (если есть) — из APT_GPG_PASSPHRASE; иначе ключ должен быть без пароля.
+sign=(gpg --batch --yes --local-user "${key}!" --digest-algo SHA256)
+if [[ -n "${APT_GPG_PASSPHRASE:-}" ]]; then
+    sign+=(--pinentry-mode loopback --passphrase-fd 3)
+    exec 3< <(printf '%s' "$APT_GPG_PASSPHRASE")
+fi
+
+"${sign[@]}" --clearsign -o InRelease Release
+if [[ -n "${APT_GPG_PASSPHRASE:-}" ]]; then exec 3< <(printf '%s' "$APT_GPG_PASSPHRASE"); fi
+"${sign[@]}" --detach-sign --armor -o Release.gpg Release
 gpg --batch --yes --export "$key" > diode-archive-keyring.gpg
 
 echo "apt repo metadata written to $dir (key $key)"

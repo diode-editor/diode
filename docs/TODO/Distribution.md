@@ -24,7 +24,9 @@
 
 ## Чтобы заработало (руками, один раз)
 
-- [ ] `packaging/apt/gen-key.sh` → секрет `APT_GPG_PRIVATE_KEY`.
+- [ ] `packaging/apt/gen-key.sh` → секреты `APT_GPG_PRIVATE_KEY` (base64 armored-ключа, печатает
+      скрипт) и `APT_GPG_PASSPHRASE`; ключ и пароль — в парольницу. Путь ключа проверен локально:
+      генерация с паролем → base64 → импорт «в CI» → подпись → проверка опубликованным keyring.
 - [ ] Организация `diode-editor` на npm, токен публикации (granular, publish) → секрет `NPM_TOKEN`.
 - [ ] Репозиторий `diode-editor/homebrew-tap` (пустой, публичный); `REPOSITORY_PAT` должен иметь
       в него push.
