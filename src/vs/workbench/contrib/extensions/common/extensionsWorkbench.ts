@@ -2,6 +2,7 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 
 import type {
     IRegistryExtensionMeta,
+    IRegistrySupport,
     RegistryExtensionKind,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import {
@@ -40,6 +41,11 @@ export interface IExtensionListEntry {
     readonly description: string;
     /** `undefined` — карточки нет в реестре (расширение поставлено мимо магазина). */
     readonly kind: RegistryExtensionKind | undefined;
+    /**
+     * Курационная пометка о поддержке из реестра; `undefined` — пометки нет
+     * (записи в реестре нет либо реестр её не проставил).
+     */
+    readonly support: IRegistrySupport | undefined;
     /** Последняя версия в реестре; `null` — записи в реестре нет. */
     readonly latestVersion: string | null;
     /** Установленная версия; `null` — не установлено. */

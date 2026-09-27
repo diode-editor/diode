@@ -1,0 +1,24 @@
+{
+    "schemaVersion": 1,
+    "id": "acme.copilot-ish",
+    "publisher": "acme",
+    "name": "copilot-ish",
+    "displayName": "Acme Copilot-ish",
+    "description": "Inline AI completions with a chat panel",
+    "kind": "proxy-openvsx",
+    "support": {
+        "level": "partial",
+        "works": ["Inline completions (ghost text): Tab accepts, Esc dismisses", "Status bar entry"],
+        "limits": ["Chat panel does not open: it is a webview", "Sign-in opens a browser"]
+    },
+    "license": "MIT",
+    "readme": "# Acme Copilot-ish\n\nStands in for the real AI completion extensions: the language half works, the chat half needs a webview.\n",
+    "versions": [
+        {
+            "version": "2.1.0",
+            "engines": { "vscode": "^1.0.0" },
+            "artifact": { "type": "url", "url": "https://example.test/acme.copilot-ish-2.1.0.vsix" },
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+    ]
+}

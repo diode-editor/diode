@@ -18,6 +18,7 @@ const ENTRY: IExtensionListEntry = {
     displayName: "Acme Tools",
     description: "Tools for acme",
     kind: undefined,
+    support: undefined,
     latestVersion: "1.0.0",
     installedVersion: null,
     availability: "available",

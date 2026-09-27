@@ -10,6 +10,7 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
         displayName: name,
         description: "",
         kind: "native",
+        support: undefined,
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",

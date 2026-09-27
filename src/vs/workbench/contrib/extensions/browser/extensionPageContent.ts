@@ -99,6 +99,43 @@ export function statusLine(entry: IExtensionListEntry): string {
     return `Installed ${entry.installedVersion}`;
 }
 
+/**
+ * Строка шапки про урезанную поддержку. Отдельной константой, потому что её же
+ * ищет демо-сценарий: текст — часть контракта страницы, а не оформление.
+ */
+export const PARTIAL_SUPPORT_HEADLINE = "Partial support: some features do not work in Diode";
+
+/** Заголовки списков в блоке поддержки. */
+const WORKS_TITLE = "Works in Diode:";
+const LIMITS_TITLE = "Does not work:";
+
+/**
+ * Блок про поддержку: что работает и чего человек лишится. Строится из карточки,
+ * а не из меты, — тогда он виден даже когда мету не удалось прочитать (сеть),
+ * потому что пометка приезжает уже в индексе.
+ */
+export function buildSupportLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
+    const support = content.entry.support;
+    const { lines, push, wrapped } = lineWriter(width);
+    if (support?.level !== "partial") return lines;
+
+    // Заголовок не повторяем: он уже стоит в закреплённой шапке, а тело под ней
+    // прокручивается — дубль читался бы как вторая, другая новость.
+    for (const [title, items, tone] of [
+        [WORKS_TITLE, support.works, "dim"],
+        [LIMITS_TITLE, support.limits, "warning"],
+    ] as const) {
+        if (items === undefined || items.length === 0) continue;
+        push(title, "dim");
+        // Маркер без ведущих пробелов: `wrapText` режет по пробелам и отступ
+        // первой строки всё равно бы потерялся, а у перенесённого хвоста его
+        // не было бы никогда — ровный левый край честнее рваного.
+        for (const item of items) wrapped(`- ${item}`, tone);
+    }
+    push("");
+    return lines;
+}
+
 /** `engines` последней версии одной строкой; пусто — требований нет. */
 function requirementsOf(meta: IRegistryExtensionMeta | undefined, version: string | null): string {
     const engines = meta?.versions.find((v) => v.version === version)?.engines;
@@ -144,6 +181,7 @@ export function buildExtensionHeaderLines(content: IExtensionPageContent, width:
     const requirements = requirementsOf(meta, version);
     if (requirements.length > 0) push(`Requires: ${requirements}`, "dim");
     if (entry.kind !== undefined) push(`Kind: ${entry.kind}`, "dim");
+    if (entry.support?.level === "partial") push(PARTIAL_SUPPORT_HEADLINE, "warning");
     if (meta?.license !== undefined) push(`License: ${meta.license}`, "dim");
     if (meta?.repository !== undefined) wrapped(`Repository: ${meta.repository}`, "dim");
     if (meta?.homepage !== undefined) wrapped(`Homepage: ${meta.homepage}`, "dim");
@@ -160,6 +198,9 @@ export function buildExtensionHeaderLines(content: IExtensionPageContent, width:
 export function buildExtensionBodyLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
     const { meta, metaError } = content;
     const { lines, wrapped } = lineWriter(width);
+    // Что именно урезано — раньше readme: это решение «ставить или нет», а не
+    // справка. И раньше веток «меты нет»: пометка приходит уже с индексом.
+    lines.push(...buildSupportLines(content, width));
 
     if (metaError !== null) {
         wrapped(`Cannot read this extension from the registry: ${metaError}`, "warning");

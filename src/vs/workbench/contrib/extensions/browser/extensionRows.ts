@@ -16,10 +16,20 @@ const GAP = "  ";
 /** Бейдж состояния — правая часть строки; `available` бейджа не несёт. */
 export type ExtensionRowBadge = "installed" | "update" | "incompatible" | "reload";
 
+/** Текст пометки о частичной поддержке в строке списка. */
+export const PARTIAL_SUPPORT_BADGE = "Partial";
+
 export interface IExtensionRowLayout {
     readonly text: string;
     /** Спан версии (приглушённый); пустой — версии нет. */
     readonly version: { readonly start: number; readonly length: number };
+    /**
+     * Спан пометки о частичной поддержке; `null` — расширение поддержано
+     * целиком либо пометки в реестре нет. Отдельно от {@link badge}: бейдж
+     * состояния говорит про установку, эта пометка — про саму функциональность,
+     * и обе видны одновременно.
+     */
+    readonly partialSupport: { readonly start: number; readonly length: number } | null;
     /** Спан бейджа и его вид; `null` — бейджа нет. */
     readonly badge: { readonly start: number; readonly length: number; readonly kind: ExtensionRowBadge } | null;
 }
@@ -46,14 +56,18 @@ export function describeExtensionRow(entry: IExtensionListEntry): IExtensionRowL
     // остаётся именем, а не «undefined».
     const version = entry.installedVersion ?? entry.latestVersion;
     const badgeText = badgeTextOf(entry);
+    const partial = entry.support?.level === "partial";
     let text = entry.displayName;
     const versionStart = text.length + GAP.length;
     if (version !== null) text += `${GAP}${version}`;
+    const partialStart = text.length + GAP.length;
+    if (partial) text += `${GAP}${PARTIAL_SUPPORT_BADGE}`;
     const badgeStart = text.length + GAP.length;
     if (badgeText !== null) text += `${GAP}${badgeText.text}`;
     return {
         text,
         version: { start: versionStart, length: version?.length ?? 0 },
+        partialSupport: partial ? { start: partialStart, length: PARTIAL_SUPPORT_BADGE.length } : null,
         badge: badgeText === null ? null : { start: badgeStart, length: badgeText.text.length, kind: badgeText.kind },
     };
 }
@@ -98,6 +112,9 @@ const BADGE_COLOR: Record<ExtensionRowBadge, keyof IExtensionRowStyles> = {
 /** Красит версию и бейдж; остальной текст остаётся цветом строки. */
 function paintRow(row: TextLabelElement, layout: IExtensionRowLayout, styles: IExtensionRowStyles): void {
     paintSpan(row, layout.version.start, layout.version.length, styles.dimFg);
+    if (layout.partialSupport !== null) {
+        paintSpan(row, layout.partialSupport.start, layout.partialSupport.length, styles.warningFg);
+    }
     if (layout.badge !== null) {
         paintSpan(row, layout.badge.start, layout.badge.length, styles[BADGE_COLOR[layout.badge.kind]]);
     }

@@ -43,6 +43,7 @@ const ENTRY: IExtensionListEntry = {
     displayName: "Acme Tools",
     description: "Formatting helpers",
     kind: "native",
+    support: undefined,
     latestVersion: "1.2.0",
     installedVersion: null,
     availability: "available",
@@ -57,6 +58,7 @@ const META: IRegistryExtensionMeta = {
     displayName: ENTRY.displayName,
     description: ENTRY.description,
     kind: "native",
+    support: undefined,
     readme: "Readme from the registry",
     versions: [],
 };

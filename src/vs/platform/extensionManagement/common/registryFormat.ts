@@ -39,6 +39,28 @@ export const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$/i;
  */
 export type RegistryExtensionKind = "proxy-openvsx" | "proxy-hosted" | "native";
 
+/**
+ * Насколько расширение работает в Diode: `full` — целиком, `partial` — часть
+ * возможностей недоступна (обычно потому, что упирается в webview или в другой
+ * наш осознанный потолок). Поле курационное: его пишет реестр, а не манифест
+ * расширения, и оно ничего не меняет в установке — только предупреждает
+ * человека ДО неё.
+ */
+export type RegistrySupportLevel = "full" | "partial";
+
+/**
+ * Курационная пометка о поддержке. `partial` без единого пункта в `limits`
+ * бессмысленна (пометка «работает не всё» обязана сказать, что именно), поэтому
+ * такая запись поля отбрасывается парсером.
+ */
+export interface IRegistrySupport {
+    readonly level: RegistrySupportLevel;
+    /** Что работает — короткими пунктами, для страницы расширения. */
+    readonly works?: readonly string[];
+    /** Что НЕ работает и почему — короткими пунктами. */
+    readonly limits?: readonly string[];
+}
+
 /** Откуда берётся `.vsix` версии. `origin` — provenance для UI/аудита, поведение клиента от него не зависит. */
 export type RegistryArtifact =
     | { readonly type: "url"; readonly url: string; readonly origin?: "openvsx" | "github-release" }
@@ -84,6 +106,12 @@ export interface IRegistryIndexEntry {
     readonly kind: RegistryExtensionKind;
     /** Категории из словаря VS Code (опционально). */
     readonly categories?: readonly string[];
+    /**
+     * Пометка о поддержке. Живёт и в индексе, а не только в мете: бейдж списка
+     * обязан быть виден до открытия страницы — иначе человек узнаёт об урезанной
+     * поддержке уже после установки.
+     */
+    readonly support?: IRegistrySupport;
     /** Последняя версия — чтобы view показывал версию и совместимость сразу. */
     readonly latest: { readonly version: string; readonly engines: IRegistryEngines };
 }
@@ -104,6 +132,8 @@ export interface IRegistryExtensionMeta {
     readonly displayName: string;
     readonly description: string;
     readonly kind: RegistryExtensionKind;
+    /** Пометка о поддержке; дублируется в индексе ради бейджа списка. */
+    readonly support?: IRegistrySupport;
     readonly repository?: string;
     readonly license?: string;
     readonly homepage?: string;
@@ -138,6 +168,33 @@ function parseEngines(value: unknown): IRegistryEngines | undefined {
     if (vscode !== undefined && !isNonEmptyString(vscode)) return undefined;
     if (diode === undefined && vscode === undefined) return undefined;
     return { diode, vscode };
+}
+
+/** Массив непустых строк или `undefined`; всё прочее (в т.ч. не-массив) — `null` как признак битого поля. */
+function parseBulletList(value: unknown): readonly string[] | undefined | null {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value) || !value.every(isNonEmptyString)) return null;
+    return value;
+}
+
+/**
+ * Разбирает пометку о поддержке. Поле косметическое, поэтому его невалидность
+ * НЕ убивает запись расширения (в отличие от идентичности или версии): битая
+ * пометка просто отбрасывается, и карточка показывается без неё. Молча — иначе
+ * `problems` наполнялся бы диагностикой о том, что на установку не влияет.
+ */
+function parseSupport(value: unknown): IRegistrySupport | undefined {
+    const record = asRecord(value);
+    if (record === undefined) return undefined;
+    const level = record.level;
+    if (level !== "full" && level !== "partial") return undefined;
+    const works = parseBulletList(record.works);
+    const limits = parseBulletList(record.limits);
+    if (works === null || limits === null) return undefined;
+    // «Работает не всё» без списка ограничений — пустое предупреждение: человек
+    // видит бейдж и не понимает, чего лишается.
+    if (level === "partial" && (limits === undefined || limits.length === 0)) return undefined;
+    return { level, works, limits };
 }
 
 /** Относительный POSIX-путь строго внутри корня: без `\`, ведущего `/` и `..`-сегментов. */
@@ -256,6 +313,7 @@ function parseIndexEntry(value: unknown): IRegistryIndexEntry | undefined {
     return {
         ...identity,
         categories: categories as readonly string[] | undefined,
+        support: parseSupport(record.support),
         latest: { version: latestVersion, engines: latestEngines },
     };
 }
@@ -336,6 +394,7 @@ export function parseRegistryMeta(
         meta: {
             schemaVersion: record.schemaVersion as number,
             ...identity,
+            support: parseSupport(record.support),
             repository: optional("repository"),
             license: optional("license"),
             homepage: optional("homepage"),

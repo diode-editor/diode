@@ -1,0 +1,18 @@
+{
+    "schemaVersion": 1,
+    "id": "acme.plain",
+    "publisher": "acme",
+    "name": "plain",
+    "displayName": "Acme Plain",
+    "description": "An extension the registry did not mark",
+    "kind": "native",
+    "readme": "# Acme Plain\n\nNothing special: the registry has no support note for it.\n",
+    "versions": [
+        {
+            "version": "1.0.0",
+            "engines": { "vscode": "^1.0.0" },
+            "artifact": { "type": "url", "url": "https://example.test/acme.plain-1.0.0.vsix" },
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+    ]
+}

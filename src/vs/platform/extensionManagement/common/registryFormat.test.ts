@@ -343,3 +343,44 @@ describe("searchRegistryIndex", () => {
         expect(searchRegistryIndex(searchableIndex(), query).map((e) => e.id)).toEqual(expected);
     });
 });
+
+describe("пометка о поддержке", () => {
+    const partial = { level: "partial", works: ["Inline completions"], limits: ["Chat panel needs a webview"] };
+
+    it("едет в записи индекса", () => {
+        const { index, problems } = parseRegistryIndex(indexText([indexEntry({ support: partial })]));
+        expect(problems).toEqual([]);
+        expect(index.extensions[0]?.support).toEqual(partial);
+    });
+
+    it("едет в мете", () => {
+        const { meta } = parseRegistryMeta(metaText([versionRecord()], { support: partial }));
+        expect(meta.support).toEqual(partial);
+    });
+
+    it("уровень full не требует списков", () => {
+        const { meta } = parseRegistryMeta(metaText([versionRecord()], { support: { level: "full" } }));
+        expect(meta.support).toEqual({ level: "full", works: undefined, limits: undefined });
+    });
+
+    it.each([
+        ["неизвестный уровень", { level: "sort-of", limits: ["x"] }],
+        ["уровня нет вовсе", { limits: ["x"] }],
+        ["partial без ограничений", { level: "partial", works: ["y"] }],
+        ["partial с пустым списком ограничений", { level: "partial", limits: [] }],
+        ["ограничения не массив", { level: "partial", limits: "webview" }],
+        ["пункт списка пустой", { level: "partial", limits: [""] }],
+        ["пункт списка не строка", { level: "partial", limits: [42] }],
+        // Смешанный список: `every` отбрасывает, `some` пропустил бы — ровно
+        // та подмена, которую делает мутационный прогон.
+        ["часть пунктов битая", { level: "partial", limits: ["Chat panel", 42] }],
+        ["works не массив", { level: "full", works: "everything" }],
+        ["не объект", "partial"],
+    ])("битая пометка (%s) отбрасывается, но запись остаётся", (_label, support) => {
+        const { meta, problems } = parseRegistryMeta(metaText([versionRecord()], { support }));
+        expect(meta.support).toBeUndefined();
+        expect(meta.id).toBe("acme.markdown-tools");
+        // Пометка косметическая: её невалидность не повод шуметь в problems.
+        expect(problems).toEqual([]);
+    });
+});

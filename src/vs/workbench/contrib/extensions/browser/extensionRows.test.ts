@@ -20,6 +20,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         displayName: "Acme Tools",
         description: "",
         kind: "native",
+        support: undefined,
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
@@ -138,5 +139,44 @@ describe("строки списка", () => {
             themeVars: true,
         }).getFgAt(new Point(0, 0));
         expect(groupFg).not.toBe(entryFg);
+    });
+});
+
+describe("пометка о частичной поддержке", () => {
+    it("стоит между версией и бейджем состояния", () => {
+        const row = describeExtensionRow(
+            entry({ support: { level: "partial", limits: ["Chat needs a webview"] }, installedVersion: "1.0.0" }),
+        );
+        expect(row.text).toBe("Acme Tools  1.0.0  Partial  Installed");
+        expect(row.partialSupport).not.toBeNull();
+        expect(row.text.slice(row.partialSupport!.start, row.partialSupport!.start + row.partialSupport!.length)).toBe(
+            "Partial",
+        );
+        expect(row.text.slice(row.badge!.start, row.badge!.start + row.badge!.length)).toBe("Installed");
+    });
+
+    it("видна и у неустановленного расширения", () => {
+        const row = describeExtensionRow(entry({ support: { level: "partial", limits: ["Chat"] } }));
+        expect(row.text).toBe("Acme Tools  1.0.0  Partial");
+        expect(row.badge).toBeNull();
+    });
+
+    it("полной поддержки и отсутствия пометки не видно", () => {
+        expect(describeExtensionRow(entry({ support: { level: "full" } })).partialSupport).toBeNull();
+        expect(describeExtensionRow(entry()).partialSupport).toBeNull();
+        expect(describeExtensionRow(entry({ support: { level: "full" } })).text).toBe("Acme Tools  1.0.0");
+    });
+
+    it("красится не цветом остального текста строки", () => {
+        const withPartial = entry({ support: { level: "partial", limits: ["Chat"] }, installedVersion: "1.0.0" });
+        const row = buildExtensionRow("row-1", withPartial, STYLES);
+        const screen = renderElement(row, 40, 1, { themeVars: true });
+        const layout = describeExtensionRow(withPartial);
+        const partialFg = screen.getFgAt(new Point(layout.partialSupport!.start, 0));
+        const nameFg = screen.getFgAt(new Point(0, 0));
+        const badgeFg = screen.getFgAt(new Point(layout.badge!.start, 0));
+        // Предупреждение отличается и от имени, и от приглушённого «Installed».
+        expect(partialFg).not.toBe(nameFg);
+        expect(partialFg).not.toBe(badgeFg);
     });
 });
