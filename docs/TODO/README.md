@@ -66,6 +66,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (главные блокеры сняты; остались точечные фиксы)
 - [~] [MacKeybindings](MacKeybindings.md) — мак-раскладка: ОС клавиатуры по лестнице сигналов (с XTVERSION), мак-рунги `legacy < extended < cmd` с `cap_super`, токен `mod`, полный паритет с мак-раскладкой VS Code 1.138 (сверка тестом со срезом эталона), Keyboard Doctor для фидбека сделаны; дальше — фидбек с живого мака, мост Cmd для tmux, найденные сверкой дыры pc-паритета
 - [ ] [EnvironmentTuning](EnvironmentTuning.md) — подсказки пользователю по тюнингу окружения (терминал/tmux/ssh); пункты — tmux extended-keys для Ctrl+Tab, лимит inotify (ENOSPC) с уведомлением как в VS Code
+- [~] [Distribution](Distribution.md) — каналы дистрибуции: `install.sh`, apt (плоский репозиторий на Releases), npm `@diode-editor/diode`, Homebrew tap, winget; код и воркфлоу готовы, осталось завести секреты/репозитории и выпустить первый релиз с ними
 - [~] [Folding](Folding.md) — indentation-фолдинг и API-провайдеры готовы; далее — region-маркеры/language-configuration, hover-контролы, персист свёрток
 - [~] [Uri](Uri.md) — ядро на `Uri` готово; далее — `untitled:`-провайдер, язык безымянных буферов
 - [~] [Problems](Problems.md) — маркер-сервис, squiggle и панель готовы; далее — счётчик в статус-баре, доп. поставщики (расширения/matchers)

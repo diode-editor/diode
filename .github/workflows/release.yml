@@ -2,6 +2,14 @@ name: Release
 
 # Стабильный (версионный) релиз: триггерится пушем тега вида v1.2.3.
 # Тег обычно создаётся через bump-version.yml.
+#
+# После публикации GitHub-релиза тот же тег разъезжается по каналам (packaging/README.md):
+#   packages — .deb + метаданные плоского apt-репозитория, ассетами в этот же релиз;
+#   npm      — @diode-editor/diode (тонкая обёртка, качает бинарь из релиза; OIDC, без токена);
+#   brew     — формула в diode-editor/homebrew-tap;
+#   winget   — PR в microsoft/winget-pkgs.
+# Каждый канал — отдельная job: упавший npm не мешает brew. Канал молча пропускается,
+# если его секрет не задан (env HAS_* ниже) — так релиз работает и без всех ключей.
 on:
   push:
     tags:
@@ -9,6 +17,11 @@ on:
 
 permissions:
   contents: write
+
+env:
+  HAS_APT_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY != '' }}
+  HAS_TAP_TOKEN: ${{ secrets.REPOSITORY_PAT != '' }}
+  HAS_WINGET_TOKEN: ${{ secrets.WINGET_TOKEN != '' }}
 
 jobs:
   # Собираем бинарники переиспользуемым воркфлоу.
@@ -48,3 +61,123 @@ jobs:
           name: diode ${{ github.ref_name }}
           body: ${{ steps.cliff.outputs.content }}
           files: artifacts/*
+
+  # .deb для amd64/arm64 и плоский apt-репозиторий: Packages/InRelease лежат ассетами
+  # релиза, а sources.list смотрит на releases/latest/download (packaging/apt/build-repo.sh).
+  packages:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Build .deb
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          packaging/deb/build-deb.sh artifacts/diode-linux-x64   amd64 "$version" repo
+          packaging/deb/build-deb.sh artifacts/diode-linux-arm64 arm64 "$version" repo
+          ls -la repo
+
+      # Секрет хранит armored-ключ в base64 одной строкой (так его печатает
+      # packaging/apt/gen-key.sh); пароль ключа — отдельный секрет.
+      - name: Import apt signing key
+        if: env.HAS_APT_KEY == 'true'
+        run: printf '%s' "$APT_GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+
+      - name: Build apt repository metadata
+        if: env.HAS_APT_KEY == 'true'
+        run: packaging/apt/build-repo.sh repo
+        env:
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+
+      - name: Upload to release
+        run: gh release upload "$GITHUB_REF_NAME" repo/* --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Публикация без токена: npm Trusted Publishing (OIDC). На npmjs.com у пакета
+  # настроен Trusted Publisher «GitHub Actions: diode-editor/diode, release.yml»;
+  # npm ≥ 11.5.1 обменивает id-token на право публикации, provenance ставится сам.
+  # Первая версия пакета публикуется руками (packaging/README.md) — Trusted Publisher
+  # настраивается только у существующего пакета.
+  npm:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish @diode-editor/diode
+        working-directory: packaging/npm
+        run: |
+          npm --version
+          npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
+          npm publish --access public
+
+  brew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_TAP_TOKEN == 'true'
+
+      - uses: actions/download-artifact@v4
+        if: env.HAS_TAP_TOKEN == 'true'
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Render formula
+        if: env.HAS_TAP_TOKEN == 'true'
+        run: node packaging/render.mjs --version "${GITHUB_REF_NAME#v}" --sums artifacts --out packaging/out
+
+      - uses: actions/checkout@v4
+        if: env.HAS_TAP_TOKEN == 'true'
+        with:
+          repository: diode-editor/homebrew-tap
+          token: ${{ secrets.REPOSITORY_PAT }}
+          path: tap
+
+      - name: Push formula to tap
+        if: env.HAS_TAP_TOKEN == 'true'
+        working-directory: tap
+        run: |
+          mkdir -p Formula
+          cp ../packaging/out/brew/Formula/diode.rb Formula/diode.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/diode.rb
+          git diff --cached --quiet && { echo "formula unchanged"; exit 0; }
+          git commit -m "diode ${GITHUB_REF_NAME}"
+          git push
+
+  # Обновление уже существующего пакета DiodeEditor.Diode: wingetcreate сам форкает
+  # microsoft/winget-pkgs и открывает PR. Первая подача — руками из packaging/out/winget
+  # (см. packaging/README.md); до её мержа эта job падать и должна.
+  winget:
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - name: Submit to winget-pkgs
+        if: env.HAS_WINGET_TOKEN == 'true'
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart("v")
+          $url = "https://github.com/diode-editor/diode/releases/download/$env:GITHUB_REF_NAME/diode-windows-x64.exe"
+          Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe update DiodeEditor.Diode --urls $url --version $version --submit --token $env:WINGET_TOKEN
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
