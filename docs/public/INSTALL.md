@@ -12,7 +12,12 @@ curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh 
 
 Puts `diode` into `/usr/local/bin` when writable, otherwise into `~/.local/bin`. Knobs:
 `DIODE_VERSION=v0.3.0` (or `nightly`) picks a release, `DIODE_INSTALL_DIR` picks the directory.
-Checksums are verified against the `.sha256` sidecar published with each release.
+Checksums are verified against the `.sha256` sidecar published with each release. To update,
+run the script again.
+
+The same script can hand the install to a package manager, which then owns updates:
+`--method=apt` (Debian/Ubuntu, see below), `--method=brew`, `--method=npm`. Pass it as
+`sh -s -- --method=apt` after the pipe, or set `DIODE_INSTALL_METHOD`. `--help` lists them.
 
 ## npm / npx
 
@@ -35,8 +40,16 @@ Line Tools are needed.
 
 ## apt (Debian, Ubuntu)
 
+One line: the installer adds the repository (keyring plus a `sources.list.d` entry), refreshes only
+that list and installs the package. It asks for your password through `sudo`. Updates then come
+through `apt` as for any other package.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh | sh -s -- --method=apt
+```
+
 The repository is flat and lives on GitHub Releases, so it always serves the latest stable
-version (nightly is a pre-release and never lands here).
+version (nightly is a pre-release and never lands here). The same by hand:
 
 ```sh
 sudo install -d -m 0755 /etc/apt/keyrings

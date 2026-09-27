@@ -7,7 +7,7 @@
 
 | Канал | Где | Кто дёргает |
 |---|---|---|
-| `curl \| sh` | [`install.sh`](../install.sh) в корне | пользователь, напрямую из `raw.githubusercontent.com` |
+| `curl \| sh` | [`install.sh`](../install.sh) в корне: `--method=binary` (по умолчанию) \| `apt` \| `brew` \| `npm`, как у fresh | пользователь, напрямую из `raw.githubusercontent.com` |
 | apt | [`deb/build-deb.sh`](deb/build-deb.sh), [`apt/build-repo.sh`](apt/build-repo.sh), [`apt/gen-key.sh`](apt/gen-key.sh) | job `packages` в `release.yml` |
 | npm | [`npm/`](npm/) — пакет `@diode-editor/diode` | job `npm` |
 | Homebrew | [`render.mjs`](render.mjs) → `Casks/diode.rb` в `diode-editor/homebrew-tap` (cask, не формула: формула без бутылки требует CLT на macOS) | job `brew` |
@@ -16,8 +16,11 @@
 ## Локальная проверка
 
 ```sh
-# Установщик — против живого релиза, в свой каталог
+# Установщик — против живого релиза, в свой каталог; методы apt/brew/npm ставят по-настоящему
 DIODE_INSTALL_DIR=/tmp/diode-bin ./install.sh
+./install.sh --method=apt      # sudo: keyring + sources.list.d + apt-get install
+./install.sh --method=brew
+npm_config_prefix=/tmp/npm-global ./install.sh --method=npm
 
 # .deb + apt-метаданные (нужны dpkg-deb, dpkg-scanpackages, apt-ftparchive, gpg с секретным ключом)
 packaging/deb/build-deb.sh dist/diode amd64 0.0.0 /tmp/repo

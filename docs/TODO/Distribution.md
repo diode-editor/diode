@@ -12,6 +12,9 @@
 - [x] `.sha256`-сайдкары у каждого ассета (`build.yml`) — их читают установщик, npm и рендер манифестов.
 - [x] `install.sh` — POSIX, curl или wget, sha256, `/usr/local/bin` или `~/.local/bin`, `DIODE_VERSION`,
       `DIODE_INSTALL_DIR`. Проверен на живом v0.3.0.
+- [x] `install.sh --method=apt|brew|npm` (как у fresh, `sh -s -- --method=…` после пайпа): apt ставит
+      keyring и `sources.list.d`, обновляет только свой список и ставит пакет; после binary-установки
+      на Debian-подобных подсказывает `--method=apt`. Все четыре метода прогнаны в контейнере на v0.4.0.
 - [x] apt — `.deb` через `dpkg-deb` (без nfpm), плоский репозиторий ассетами релиза, подпись GPG.
       Цепочка `apt update` → `InRelease` по `signed-by` → `Packages.gz` → `.deb` проверена локально
       через сервер с 302-редиректами как у GitHub; GitHub принимает путь `/./InRelease`, который шлёт apt.
