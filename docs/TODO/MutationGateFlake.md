@@ -215,6 +215,18 @@ ran» состоит из **чужих тестов**. Например, у му
 413 → 972 → 968. Гейт красил PR за чужой код. Смотреть на выбор базы
 (`github.event.pull_request.base.sha` vs `mutation-baseline`) в `ci.yml`.
 
+## Апстрим: что заведено и когда снимать обходные пути
+
+Перенесено из GitHub issue #274 (закрыт 2026-09-27, разбор — в его комментарии).
+
+| Симптом | Причина | Апстрим | Наш обходной путь | Снимать когда |
+|---|---|---|---|---|
+| выживший с `testsCompleted: 0` | прогон, следующий за оборванным по `bail: 1`, стартует в том же воркере и не доезжает; `.filter((t) => t.result)` даёт пустой список → Survived | [stryker-js#6073](https://github.com/stryker-mutator/stryker-js/issues/6073), фикс [#6146](https://github.com/stryker-mutator/stryker-js/pull/6146) (открыт) | точечная перепроверка в `scripts/mutation-diff.mjs`, врезка в `docs/TESTING.md` «Выжил с нулём выполненных тестов — не находка» | #6146 влит и приехал релизом `@stryker-mutator/vitest-runner` |
+| `RuntimeError: Test runner crashed. Tried twice to restart it` | unhandled error вне теста (у нас — исключение слушателя из микротаска, см. [EventEmitter](EventEmitter.md)) сериализуется vitest'ом в плоский клон с `toString: "Function<toString>"`, `errorToString` раннера падает на `String(error)` | [stryker-js#6233](https://github.com/stryker-mutator/stryker-js/issues/6233) (открыт) | гейт перепроверяет мутантов в `RuntimeError` точечно, как и «нулевых»; раньше они выпадали из знаменателя и прогон с ними выходил нулём | #6233 закрыт релизом; перепроверку `RuntimeError` при этом можно оставить — она дешёвая |
+
+`disableBail` первый симптом убирает, но ценой прогона всех покрывающих тестов на
+каждого мутанта: ~1 мутант в минуту вместо ~1 в секунду — не берём.
+
 ## Чего НЕ делать
 
 Гасить `// Stryker disable` мутантов, которые локально убиваются, — это

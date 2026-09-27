@@ -104,13 +104,21 @@ const EXCLUDED = [
 function git(args) {
     // Гасим пользовательские настройки, которые меняют формат вывода: без этого
     // разбор diff'а зависит от ~/.gitconfig того, кто запускает.
+    // maxBuffer: у spawnSync по умолчанию 1 МиБ на stdout, а `git diff -U0` окна
+    // в несколько дней даёт больше (13.09.2026 — 1,27 МБ, две недели спустя — 5 МБ).
+    // Переполнение — это ENOBUFS с пустым stderr и status: null; без запаса
+    // плановый прогон (mutation.yml) четыре раза подряд молча «не нашёл, что
+    // мутировать», и база окна перестала двигаться.
     const result = spawnSync(
         "git",
         ["-c", "core.quotepath=false", "--no-pager", ...args],
-        { cwd: repoRoot, encoding: "utf8" },
+        { cwd: repoRoot, encoding: "utf8", maxBuffer: 1024 * 1024 * 1024 },
     );
+    if (result.error) {
+        throw new Error(`git ${args.join(" ")} не запустился: ${result.error.message}`);
+    }
     if (result.status !== 0) {
-        throw new Error(`git ${args.join(" ")} упал:\n${result.stderr}`);
+        throw new Error(`git ${args.join(" ")} упал (код ${String(result.status)}):\n${result.stderr}`);
     }
     return result.stdout;
 }
