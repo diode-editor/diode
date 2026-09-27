@@ -60,7 +60,8 @@ describe("MessageDialog — что видно на кадре", () => {
         // Широкое сообщение — тогда отступ центрирования не нулевой, и любая
         // ошибка в его арифметике видна прямо в кадре. Проверяем сам инвариант
         // «по центру»: отступы слева и справа от ряда равны с точностью до ряда.
-        const dialog = new MessageDialog(notification({ message: "x".repeat(50), items: ["Ok"] }));
+        // Двух кнопок достаточно, чтобы в расчёт вошёл и зазор между ними.
+        const dialog = new MessageDialog(notification({ message: "x".repeat(50), items: ["Ok", "No"] }));
         const backend = renderElement(dialog.view, 60, 12, {
             constraints: BoxConstraints.loose(new Size(60, 12)),
             themeVars: true,

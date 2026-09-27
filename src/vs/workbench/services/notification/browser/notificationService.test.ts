@@ -445,6 +445,21 @@ describe("NotificationService — clearAll", () => {
         expect(service.passive()).toEqual([]);
     });
 
+    it("гасит таймер живого вопроса, а не только тостов", () => {
+        vi.useFakeTimers();
+        try {
+            const service = new NotificationService();
+            service.show(message({ items: ["One"] }));
+            expect(vi.getTimerCount()).toBe(1);
+
+            service.clearAll();
+
+            expect(vi.getTimerCount()).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("на пустом сервисе событие не файрит (нечего перерисовывать)", () => {
         const service = new NotificationService();
         const seen = vi.fn();

@@ -29,8 +29,13 @@ describe("workbenchModule — env.openExternal", () => {
             await expect(opener.open("https://example.com/activate?token=42")).resolves.toBe(true);
 
             expect(await container.get(ClipboardDIToken).readText()).toBe("https://example.com/activate?token=42");
-            expect(notifications.passive().map((n) => n.message)).toEqual([
-                "Ссылка скопирована в буфер обмена: https://example.com/activate?token=42",
+            // Строгость важна: она выбирает заголовок и цвет тоста, а «ссылка в
+            // буфере» — сообщение информационное, не ошибка.
+            expect(notifications.passive()).toEqual([
+                expect.objectContaining({
+                    severity: "info",
+                    message: "Ссылка скопирована в буфер обмена: https://example.com/activate?token=42",
+                }),
             ]);
         } finally {
             process.env = restore;

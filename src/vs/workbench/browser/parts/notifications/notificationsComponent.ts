@@ -244,6 +244,7 @@ export class NotificationsComponent extends Component {
             closeOnEscape: false,
             // Модальное сообщение держит экран; тост-вопрос — нет: клик мимо него
             // уходит туда, куда человек ткнул.
+            // Stryker disable next-line StringLiteral: ветку тоста подменить нечем — по мыши "" ведёт себя как passthrough; отличие держит ветка "modal", её проверяет тест «клик мимо модального окна»
             pointerPolicy: current.modal ? "modal" : "passthrough",
             capturesKeyboard: current.modal,
         });

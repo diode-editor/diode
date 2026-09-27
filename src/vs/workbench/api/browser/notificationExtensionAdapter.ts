@@ -30,8 +30,8 @@ export class NotificationExtensionAdapter implements INotificationSink {
         this.openMessages.set(request.handle, handle.id);
         try {
             return await handle.answered;
+            // Stryker disable next-line BlockStatement,CallExpression: гигиена карты — забыть отвеченный показ. Ненаблюдаемо: гашение по забытому handle всё равно не нашло бы показа в сервисе
         } finally {
-            // Stryker disable next-line BlockStatement,CallExpression: гигиена карты — забыть отвеченный показ. Ненаблюдаемо: `cancel` по забытому handle гасил бы id, которого в сервисе уже нет, то есть тоже ничего
             this.openMessages.delete(request.handle);
         }
     }

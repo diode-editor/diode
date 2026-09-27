@@ -1921,6 +1921,7 @@ export class ExtensionHost extends Disposable {
                 return { index: null };
                 // Stryker disable next-line BlockStatement,CallExpression: гигиена набора — забыть отвеченный показ. Ненаблюдаемо: гашение по забытому handle всё равно не нашло бы показа в стоке
             } finally {
+                // Stryker disable next-line CallExpression: та же гигиена набора
                 this.activeMessageHandles.delete(handle);
             }
         });

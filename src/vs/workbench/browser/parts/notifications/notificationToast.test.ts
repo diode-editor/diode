@@ -325,6 +325,9 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         const passive = mount();
         expect(() => {
             passive.toast.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
+            // И кнопка закрытия: обработчик ей ставит компонент, а виджет живёт и
+            // без него (пассивный тост создают и в тестах, и до проводки).
+            passive.buttons[0].dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         }).not.toThrow();
     });
 

@@ -101,19 +101,25 @@ function userProfileDir(userDataDir: string): string {
 }
 
 /**
- * Настройки, которые изолированное окружение ставит само, по платформе.
+ * Настройки, которые изолированное окружение ставит само, по платформе — и
+ * только тогда, когда тест не управляет `settings.json` сам.
  *
  * На Windows-раннере встроенный TypeScript-сервер не поднимается вовсе
  * («Server initialization failed … connection got disposed»), и все e2e-сьюты
  * TS-LSP там уже пропускаются (`skipIf(process.platform === "win32" …)`). Пока
  * его ошибка уходила только в лог, это никого не задевало; теперь сообщения
- * расширений ВИДНЫ, и три error-тоста нерабочего клиента накрывают правый нижний
- * угол — то есть роняют десяток сценариев, к языковому серверу отношения не
- * имеющих. Гасим клиент там, где он всё равно нерабочий; сам его запуск на
- * Windows — отдельная задача.
+ * расширений ВИДНЫ, и error-тосты нерабочего клиента занимают правый нижний
+ * угол — то есть роняют сценарии, к языковому серверу отношения не имеющие.
+ * Гасим клиент там, где он всё равно нерабочий; сам его запуск на Windows —
+ * отдельная задача.
+ *
+ * Тесту, который прислал свои настройки, мы в файл не дописываем НИЧЕГО: такие
+ * тесты сверяют его содержимое дословно (`extensionTheme.test.ts` — «настройка не
+ * переписана»). Если такой тест однажды споткнётся о тост нерабочего клиента, он
+ * гасит его у себя сам, этой же настройкой.
  */
-function platformSettingDefaults(): Record<string, unknown> {
-    if (process.platform !== "win32") return {};
+function platformSettingDefaults(explicit: AppEnvOptions["settings"]): Record<string, unknown> {
+    if (explicit !== undefined || process.platform !== "win32") return {};
     return { "diode.lsp.typescript.enabled": false };
 }
 
@@ -144,13 +150,10 @@ export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv
         writeFileSync(file, content);
     }
 
-    // settings.json / keybindings.json активного профиля. Строковые настройки
-    // теста берутся как есть (ему важен сырой текст), объектные — поверх
-    // платформенных дефолтов окружения.
-    const settings =
-        typeof options.settings === "string"
-            ? options.settings
-            : { ...platformSettingDefaults(), ...(options.settings ?? {}) };
+    // settings.json / keybindings.json активного профиля. Настройки теста идут в
+    // файл как есть; платформенные дефолты (см. ниже) добавляются только когда
+    // своих настроек тест не прислал.
+    const settings = options.settings ?? platformSettingDefaults(options.settings);
     const hasSettings = typeof settings === "string" || Object.keys(settings).length > 0;
     if (hasSettings || options.keybindings !== undefined) {
         const profileDir = userProfileDir(userDataDir);

@@ -179,6 +179,7 @@ export class NotificationToast extends DialogComponent {
 
     protected override handleExtraKeydown(event: TUIKeyboardEvent): void {
         if (event.key !== "Tab") return;
+        // Stryker disable next-line CallExpression: ненаблюдаемо — Tab-обход слоя в этой сессии не срабатывает (проверено тестом с соседним фокусируемым), а глобальный бинд Tab до редактора не доходит: фокус не в нём. Вызов оставлен как заявление «ряд разбирает Tab сам»
         event.preventDefault();
         const focused = this.buttons.findIndex((button) => button.isFocused);
         const step = event.shiftKey ? -1 : 1;
@@ -204,6 +205,7 @@ function buildButtonRow(buttons: readonly ButtonElement[]): HFlexElement {
     const row = new HFlexElement();
     row.addChild(new TextLabelElement(""), { width: hflexFill(), height: 1 });
     for (const [index, button] of buttons.entries()) {
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: лишний зазор ПЕРЕД первой кнопкой невидим — ряд прижат вправо растягивающимся спейсером, и тот просто станет на колонку короче
         if (index > 0) row.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
         row.addChild(button, { width: hflexFit(), height: 1 });
     }
