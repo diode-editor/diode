@@ -14,6 +14,7 @@ import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBacken
 import { joinVirtualPath } from "../base/common/assets/assetBundleFormat.ts";
 import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess.ts";
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
+import { mark } from "../base/common/performance.ts";
 import { DIODE_VERSION } from "../base/common/version.ts";
 import { createDefaultAssetAccess } from "../base/node/assets/createDefaultAssetAccess.ts";
 import { FsAssetAccess } from "../base/node/assets/fsAssetAccess.ts";
@@ -71,6 +72,7 @@ import { TokenThemeResolver } from "../workbench/services/themes/common/tokenThe
 
 import { createProductionContainer } from "./modules/productionProfile.ts";
 import { runAsNode } from "./runAsNode.ts";
+import { setupStartupTrace, TracingNodeTerminalBackend, writeStartupTrace } from "./startupTrace.ts";
 
 // ── Subprocess branch ─────────────────────────────────────
 // Если нас запустили не редактором, а в служебной роли, уходим в её entry до
@@ -99,6 +101,12 @@ if (process.env.DIODE_RUN_AS_NODE === "1") {
 }
 
 async function runEditor(): Promise<void> {
+    // ── Трасса старта ──────────────────────────────────────────
+    // Вехи (`mark`) стоят по всему пути до кадра с файлом; без env
+    // DIODE_STARTUP_TRACE они no-op. Бенч читает выгрузку — см. startupTrace.ts.
+    const startupTraceFile = setupStartupTrace();
+    mark("main:start");
+
     // ── CLI ────────────────────────────────────────────────────
 
     let cli;
@@ -182,9 +190,12 @@ async function runEditor(): Promise<void> {
         settingsWatcher,
         configurationRegistry,
     );
+    mark("main:config-loaded");
     const userKeybindings = await loadUserKeybindings(userDataPaths.keybindingsFile, configurationLogger);
+    mark("main:keybindings-loaded");
     // Машинное состояние UI/сессии (открытые файлы, layout) — отдельно от настроек.
     const stateService = loadState(userDataPaths, configurationLogger);
+    mark("main:state-loaded");
 
     // ── Backend / Theme ────────────────────────────────────────
 
@@ -193,7 +204,9 @@ async function runEditor(): Promise<void> {
     const headlessBackend = cli.headless
         ? new HeadlessCaptureBackend(new Size(cli.headless.cols, cli.headless.rows))
         : null;
-    const backend = headlessBackend ?? new NodeTerminalBackend();
+    // Под трассой бэкенд ставит веху на каждый кадр, ушедший в терминал.
+    const backend =
+        headlessBackend ?? (startupTraceFile !== null ? new TracingNodeTerminalBackend() : new NodeTerminalBackend());
     const application = new TuiApplication(backend);
     // Опциональная самопроверка дерева после каждого кадра (дорогая только
     // относительно, но включается явно): ловит полуприкреплённые элементы.
@@ -230,6 +243,7 @@ async function runEditor(): Promise<void> {
         ? await scanExtensions(assets, USER_PREFIX, { isBuiltin: false }, extensionsLogger)
         : [];
     const allExtensions = mergeExtensions(builtinExtensions, userExtensions, extensionsLogger);
+    mark("main:extensions-scanned", { builtin: builtinExtensions.length, user: userExtensions.length });
 
     // ── Темы: встроенные + из расширений, выбор активной ───────
     // Темы расширений (`contributes.themes`) читаются ЗДЕСЬ, до выбора активной
@@ -251,6 +265,7 @@ async function runEditor(): Promise<void> {
     if (initialTheme === undefined) {
         throw new Error(`No built-in theme available (looked up "${colorThemeLabel}" and "${DEFAULT_COLOR_THEME}")`);
     }
+    mark("main:themes-ready");
 
     const languageRegistry = new LanguageRegistry();
     for (const ext of allExtensions) languageRegistry.register(ext);
@@ -311,6 +326,7 @@ async function runEditor(): Promise<void> {
         },
         reloadWindow,
     });
+    mark("main:container-created");
 
     /**
      * Перезагрузка окна: процесс поднимается заново с теми же аргументами
@@ -382,6 +398,7 @@ async function runEditor(): Promise<void> {
     app.root = workbench.view;
     workbench.mount();
     app.run();
+    mark("workbench:mounted");
 
     // TUIDom-инспектор: поднимаем WebSocket-сервер только по `--inspect-tui`.
     // Сервер читает дерево лениво (на момент getDocument), поэтому ок поднять
@@ -442,6 +459,7 @@ async function runEditor(): Promise<void> {
     }
 
     await workbench.activate();
+    mark("workbench:activated");
     const explicitFiles = resolvedPaths.filter((p) => !fs.statSync(p, { throwIfNoEntry: false })?.isDirectory());
     // Явные файлы в CLI перебивают сохранённую сессию (как `code file.ts`).
     const startupFiles = explicitFiles.length > 0 ? explicitFiles : workbench.getOpenEditorsToRestore();
@@ -451,6 +469,7 @@ async function runEditor(): Promise<void> {
     // остальные догоняет фоновый preloadAll ниже. После openFile ждать поздно:
     // await отдаёт event loop, и отложенный рендер успевает нарисовать кадр.
     await preloadGrammarsForFiles(startupFiles, languageRegistry, tokenizationRegistry);
+    mark("main:grammars-preloaded");
     if (explicitFiles.length > 0) {
         for (const p of explicitFiles) workbench.openFile(p);
     } else {
@@ -458,6 +477,8 @@ async function runEditor(): Promise<void> {
         workbench.restoreOpenEditors();
     }
     workbench.focusEditor();
+    // Вкладки с файлами созданы; кадр с текстом — первый `frame` после этой вехи.
+    mark("main:files-opened", { files: startupFiles.length });
 
     // Регистрируем пользовательские расширения с `manifest.main` в extension host.
     // `registerExtension` — только bookkeeping (subprocess не поднимается);
@@ -522,6 +543,7 @@ async function runEditor(): Promise<void> {
             extensionsLogger.error(`${ext.id}: failed to register (builtin)`, err);
         }
     }
+    mark("main:extensions-registered");
 
     // Фаерим стартовые события активации. Порядок: eager `*` → `onLanguage:*` для
     // языка уже открытого активного редактора → `onStartupFinished`. Последующие
@@ -541,6 +563,7 @@ async function runEditor(): Promise<void> {
     } catch (err) {
         extensionsLogger.error("extension host activation failed", err);
     }
+    mark("exthost:activated");
 
     // Остальные грамматики догружаем в фоне, чтобы переключение вкладки на другой
     // язык не ждало парсинга. setImmediate — уже после первого кадра и спавна
@@ -549,6 +572,9 @@ async function runEditor(): Promise<void> {
     setImmediate(() => {
         workbench.runEventuallyPhase();
         void tokenizationContributor.preloadAll();
+        mark("main:startup-complete");
+        // Конец лестницы: выгружаем трассу целиком (бенч ждёт `complete: true`).
+        if (startupTraceFile !== null) writeStartupTrace(startupTraceFile, true);
     });
 }
 

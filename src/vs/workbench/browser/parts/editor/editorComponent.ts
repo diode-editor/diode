@@ -3,6 +3,7 @@ import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
+import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
@@ -617,7 +618,12 @@ export class EditorComponent extends Component {
 
     private ensureTokenizerForLanguage(languageId: string): ITokenizationSupport {
         void this.tokenizationRegistry.load(languageId); // fire-and-forget: load() не реджектится
-        return this.tokenizationRegistry.get(languageId) ?? new PlainTextTokenizer();
+        const support = this.tokenizationRegistry.get(languageId);
+        if (support === undefined) return new PlainTextTokenizer();
+        // Веха лестницы старта: грамматика у редактора на руках — первый кадр
+        // после этой вехи и есть «кадр с подсветкой» (без трассы — no-op).
+        mark("editor:tokenizer-ready", { languageId });
+        return support;
     }
 
     /** Пересаживает токен-кеш текущего документа на актуальный токенизатор. */
