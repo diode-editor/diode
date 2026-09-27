@@ -157,7 +157,9 @@ function makeReg(id: string, mainPath: string): IExtensionRegistration {
 }
 
 function makeLogger() {
-    return { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    // `isEnabled` — часть ILogger: без него логгер не подставить в типизированные
+    // опции хоста (`spawnReadyHost` принимает их нетипизированным `options = {}`).
+    return { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), isEnabled: () => true };
 }
 
 async function waitUntil(pred: () => boolean, timeoutMs = 2000): Promise<void> {
@@ -833,6 +835,213 @@ describe("ExtensionHost — смерть субпроцесса", () => {
 
         expect(spawnMock).not.toHaveBeenCalled();
     });
+
+    it("прокси-команды мертвеца заменяются заглушками-активаторами: команда не исчезает", async () => {
+        const child = new FakeChild();
+        const commands = new FakeCommandService();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {}, commands);
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), commandTitles: { "ext.a.run": "Run" } });
+        await host.activateByEvent("*");
+        // Субпроцесс завёл настоящий прокси — заглушка снята.
+        child.receiveFromHostPeer({ kind: "notif", method: "commands.registerCommand", params: { id: "ext.a.run" } });
+        const beforeDeath = commands.proxies.length;
+
+        child.simulateExit(1);
+
+        // Прокси мертвеца снят, но на его месте снова живая запись: иначе
+        // команда исчезла бы из палитры вместе с единственным способом
+        // оживить расширение руками.
+        expect(commands.proxies.filter((proxy) => !proxy.disposed)).toHaveLength(1);
+        expect(commands.proxies.length).toBeGreaterThan(beforeDeath);
+        expect(commands.proxies.at(-1)?.id).toBe("ext.a.run");
+
+        // И заглушка правда оживляет: её исполнение поднимает новый субпроцесс.
+        const next = armNextChild();
+        await commands.proxies.at(-1)?.invoke([]);
+        expect(activated(next, "ext.a")).toBe(true);
+    });
+
+    it("workspaceContains-проход тоже оживляет — это такое же событие активации", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            configuration: makeConfigProvider().provider,
+            // Кандидатов на workspaceContains нет — обход не начнётся, а
+            // оживление обязано случиться всё равно.
+            workspaceScanner: { exists: () => Promise.resolve(false), readDirectory: () => Promise.resolve([]) },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.simulateExit(1);
+
+        const next = armNextChild();
+        await host.activateByWorkspaceContains();
+
+        expect(activated(next, "ext.a")).toBe(true);
+        expect(host.hasExtension("ext.a")).toBe(true);
+        // Повод у оживлённого — сам проход, а не чей-то паттерн: своё событие
+        // у него давно отгорело.
+        expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (workspaceContains)');
+    });
+
+    it("ничего не подошло и оживлять некого — субпроцесс не поднимается", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            configuration: makeConfigProvider().provider,
+            workspaceScanner: { exists: () => Promise.resolve(false), readDirectory: () => Promise.resolve([]) },
+        });
+        host.registerExtension({
+            ...makeReg("ext.a", "/a.js"),
+            activationEvents: ["workspaceContains:pom.xml"],
+        });
+
+        spawnMock.mockClear();
+        await host.activateByWorkspaceContains();
+
+        expect(spawnMock).not.toHaveBeenCalled();
+        expect(host.hasExtension("ext.a")).toBe(false);
+        host.dispose();
+    });
+});
+
+describe("ExtensionHost — причина активации в логе", () => {
+    it("лог называет событие, поднявшее расширение", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["onLanguage:java"] });
+
+        await host.activateByEvent("onLanguage:java");
+
+        expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (onLanguage:java)');
+        host.dispose();
+    });
+
+    it("у workspaceContains причина — ПОДОШЕДШИЙ паттерн, а не список объявленных", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            configuration: makeConfigProvider().provider,
+            // Папка воркспейса провайдера — `/repo`; сканер отвечает за неё.
+            workspaceScanner: {
+                exists: (absolutePath: string) => Promise.resolve(absolutePath.endsWith("build.gradle")),
+                readDirectory: () => Promise.resolve([]),
+            },
+        });
+        host.registerExtension({
+            ...makeReg("ext.a", "/a.js"),
+            activationEvents: ["workspaceContains:pom.xml", "workspaceContains:build.gradle"],
+        });
+
+        // Субпроцесс поднимется только по итогу обхода — ready-ответ вешаем на
+        // сам spawn, а не на микротаск создания хоста.
+        armNextChild();
+        await host.activateByWorkspaceContains();
+
+        expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (workspaceContains:build.gradle)');
+        host.dispose();
+    });
+
+    it("сканер бросил — обход считается ОБОРВАННЫМ и говорит об этом в лог", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            configuration: makeConfigProvider().provider,
+            workspaceScanner: {
+                exists: () => Promise.reject(new Error("boom")),
+                readDirectory: () => Promise.resolve([]),
+            },
+        });
+        host.registerExtension({
+            ...makeReg("ext.a", "/a.js"),
+            activationEvents: ["workspaceContains:pom.xml"],
+        });
+
+        await host.activateByWorkspaceContains();
+
+        expect(logger.error).toHaveBeenCalledWith('workspaceContains scan for "ext.a" failed', expect.anything());
+        // Молча оборванный обход читался бы как «ничего не подошло» — а это
+        // разные вещи, и отличить их можно только по этой строке.
+        expect(logger.warn).toHaveBeenCalledWith('workspaceContains scan for "ext.a" was cut short', {
+            paths: ["pom.xml"],
+            globs: [],
+        });
+        expect(host.hasExtension("ext.a")).toBe(false);
+        host.dispose();
+    });
+
+    it("обход дошёл до конца — предупреждения об обрыве НЕТ", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            configuration: makeConfigProvider().provider,
+            workspaceScanner: { exists: () => Promise.resolve(false), readDirectory: () => Promise.resolve([]) },
+        });
+        host.registerExtension({
+            ...makeReg("ext.a", "/a.js"),
+            activationEvents: ["workspaceContains:pom.xml"],
+        });
+
+        await host.activateByWorkspaceContains();
+
+        expect(logger.warn).not.toHaveBeenCalled();
+        host.dispose();
+    });
+
+    it("без провайдера конфигурации папок воркспейса нет — обход не начинается", async () => {
+        const child = new FakeChild();
+        const readDirectory = vi.fn(() => Promise.resolve([]));
+        const exists = vi.fn(() => Promise.resolve(true));
+        // Хост без `configuration` — профиль/харнесс, где мост настроек не
+        // подключён: папок воркспейса просто неоткуда взять.
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            workspaceScanner: { exists, readDirectory },
+        });
+        host.registerExtension({
+            ...makeReg("ext.a", "/a.js"),
+            activationEvents: ["workspaceContains:pom.xml", "workspaceContains:*/pom.xml"],
+        });
+
+        await host.activateByWorkspaceContains();
+
+        expect(exists).not.toHaveBeenCalled();
+        expect(readDirectory).not.toHaveBeenCalled();
+        expect(host.hasExtension("ext.a")).toBe(false);
+        host.dispose();
+    });
+
+    it("ПОВИСШИЙ обход обрывается тайм-аутом, а не ждёт ФС вечно", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            configuration: makeConfigProvider().provider,
+            // `readDirectory`, который не ответит НИКОГДА (сетевая ФС, отвалившийся
+            // том): флага отмены тут мало — он смотрится между каталогами.
+            workspaceContainsTimeoutMs: 1,
+            workspaceScanner: {
+                exists: () => Promise.resolve(false),
+                readDirectory: () => new Promise(() => undefined),
+            },
+        });
+        host.registerExtension({
+            ...makeReg("ext.a", "/a.js"),
+            activationEvents: ["workspaceContains:*/pom.xml"],
+        });
+
+        await host.activateByWorkspaceContains();
+
+        expect(logger.warn).toHaveBeenCalledWith('workspaceContains scan for "ext.a" was cut short', {
+            paths: [],
+            globs: ["*/pom.xml"],
+        });
+        expect(host.hasExtension("ext.a")).toBe(false);
+        host.dispose();
+    });
 });
 
 describe("ExtensionHost — subprocess events", () => {
@@ -886,6 +1095,57 @@ describe("ExtensionHost — readiness failures", () => {
 
         host.registerExtension(makeReg("ext.a", "/a.js"));
         await expect(host.activateByEvent("*")).rejects.toThrow(/did not become ready/);
+    });
+
+    it("заглушка-активатор команды не отклоняется, когда субпроцесс не поднялся", async () => {
+        const child = new FakeChild();
+        spawnMock.mockReturnValue(child as never); // ready не придёт никогда
+        const logger = makeLogger();
+        const commands = new FakeCommandService();
+        const host = new ExtensionHost(new FakeEditorOptions(), commands, {
+            spawnArgs,
+            logger,
+            readyTimeoutMs: 20,
+        });
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["onCommand:ext.a.run"] });
+
+        // Команду исполняют fire-and-forget (палитра, бинд) — reject ушёл бы в
+        // unhandledRejection главного процесса, а не кому-то в руки.
+        await expect(commands.proxies.at(-1)?.invoke([])).resolves.toBeUndefined();
+        expect(logger.error).toHaveBeenCalledWith(
+            'failed to activate extension for command "ext.a.run"',
+            expect.anything(),
+        );
+        host.dispose();
+    });
+
+    it("расширение поднялось, но команду не завело — в логе сказано именно это", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const commands = new FakeCommandService();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), { logger }, commands);
+        // Субпроцесс отвечает на activateExtension, но `commands.registerCommand`
+        // не присылает — ровно случай опечатки в манифесте или сбоя в activate().
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["onCommand:ext.a.run"] });
+
+        await expect(commands.proxies.at(-1)?.invoke([])).resolves.toBeUndefined();
+
+        expect(host.hasExtension("ext.a")).toBe(true);
+        expect(logger.warn).toHaveBeenCalledWith('command "ext.a.run" is still unregistered after activation');
+        host.dispose();
+    });
+
+    it("заглушка не отклоняется и БЕЗ логгера: гасить провал — не работа логгера", async () => {
+        const child = new FakeChild();
+        spawnMock.mockReturnValue(child as never); // ready не придёт никогда
+        const commands = new FakeCommandService();
+        // Логгера нет (профиль с NULL_LOG_SERVICE, харнессы): обращение к нему
+        // в обработчике провала не должно превращать «вернул undefined» в reject.
+        const host = new ExtensionHost(new FakeEditorOptions(), commands, { spawnArgs, readyTimeoutMs: 20 });
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["onCommand:ext.a.run"] });
+
+        await expect(commands.proxies.at(-1)?.invoke([])).resolves.toBeUndefined();
+        host.dispose();
     });
 });
 

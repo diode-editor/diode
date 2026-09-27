@@ -546,10 +546,13 @@ async function runEditor(): Promise<void> {
     mark("main:extensions-registered");
 
     // Фаерим стартовые события активации. Порядок: eager `*` → `onLanguage:*` для
-    // языка уже открытого активного редактора → `onStartupFinished`. Последующие
-    // `onLanguage:*` (переключение/открытие вкладок) фаерит ExtensionHostModule
-    // через `EditorService.onActiveEditorChanged`. Расширения без
+    // языка уже открытого активного редактора → `onStartupFinished` →
+    // `workspaceContains:*`. Последующие `onLanguage:*` (переключение/открытие
+    // вкладок) фаерит ExtensionHostModule через `EditorService.onActiveEditorChanged`,
+    // а повторный `workspaceContains:` — по смене корня воркспейса. Расширения без
     // `activationEvents` трактуются как `["*"]` — активируются здесь же.
+    // `workspaceContains:` идёт последним осознанно: это единственное событие,
+    // которому нужен обход дерева, и держать на нём соседей незачем.
     // Per-extension сбои activate() изолирует сам ExtensionHost (log + continue);
     // здесь ловим host-level сбой (subprocess не поднялся) — редактор не должен
     // падать из-за нерабочего extension host'а, просто без расширений.
@@ -560,6 +563,7 @@ async function runEditor(): Promise<void> {
             await extensionHost.activateByEvent(`onLanguage:${activeLanguageId}`);
         }
         await extensionHost.activateByEvent("onStartupFinished");
+        await extensionHost.activateByWorkspaceContains();
     } catch (err) {
         extensionsLogger.error("extension host activation failed", err);
     }

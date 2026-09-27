@@ -318,6 +318,21 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             if (editor !== null) void host.activateByEvent(`onLanguage:${editor.languageId}`);
         });
 
+        // Ленивая активация по `workspaceContains:<паттерн>`: папка воркспейса
+        // может открыться ПОЗЖЕ регистрации расширений, и событие «в проекте
+        // есть pom.xml» иначе прогорело бы в пустоту. Стартовый проход (папка из
+        // аргументов) делает main.ts — как и со стартовым `onLanguage:`; здесь
+        // ловится только смена корня. На самой первой смене (её делает
+        // `setWorkspaceFolder` до регистрации расширений) считать нечего — хост
+        // сам выходит на пустом наборе кандидатов, не трогая ФС.
+        // Stryker disable CallExpression,BlockStatement,StringLiteral: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение о поводе активации живёт в `ExtensionHost.activateByWorkspaceContains` и закрыто его юнитами, сквозняк — e2e-сценарий activation-workspace-contains
+        explorer.onDidChangeRoot(() => {
+            void host.activateByWorkspaceContains().catch((err: unknown) => {
+                logger.error("workspaceContains activation failed", err);
+            });
+        });
+        // Stryker restore CallExpression,BlockStatement,StringLiteral
+
         return host;
     });
 };

@@ -1,0 +1,4 @@
+Заметки проекта. Ни одной строчки Python здесь нет — и в этом весь смысл:
+активный редактор остаётся plaintext, поэтому `onLanguage:python` не наступит.
+Единственный повод поднять ruff в этой папке — `workspaceContains:**/pyproject.toml`,
+и лежит этот pyproject.toml НЕ в корне, а в nested/ (рекурсивный glob).

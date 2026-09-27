@@ -3,7 +3,11 @@ import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
-import { CancellationTokenNone, type ICancellationToken } from "../../../../base/common/cancellation.ts";
+import {
+    CancellationTokenNone,
+    CancellationTokenSource,
+    type ICancellationToken,
+} from "../../../../base/common/cancellation.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
@@ -116,6 +120,13 @@ import {
     type WireMessageSeverity,
     type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
+import {
+    hasWorkspaceContainsPatterns,
+    type IWorkspaceContainsPatterns,
+    readActivationEvents,
+    readCommandActivationIds,
+    readWorkspaceContainsPatterns,
+} from "../common/activationEvents.ts";
 
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 import {
@@ -124,6 +135,12 @@ import {
     type IExtensionStorageHomes,
     resolveExtensionStoragePaths,
 } from "./extensionStoragePaths.ts";
+import {
+    createNodeWorkspaceScanner,
+    type IWorkspaceContainsResult,
+    type IWorkspaceScanner,
+    matchWorkspaceContains,
+} from "./workspaceContainsActivation.ts";
 
 /**
  * Сток диагностик расширений (`diagnostics.publish`): владелец (коллекция),
@@ -459,6 +476,18 @@ export interface IExtensionHostOptions {
      * прогоны). Персистентный вариант подключает `extensionHostModule`.
      */
     readonly secrets?: IExtensionSecretStore;
+    /**
+     * Доступ к дереву воркспейса для событий `workspaceContains:<glob>`
+     * (см. {@link ExtensionHost.activateByWorkspaceContains}). Если не передан —
+     * {@link createNodeWorkspaceScanner} поверх настоящей ФС.
+     */
+    readonly workspaceScanner?: IWorkspaceScanner;
+    /**
+     * Тайм-аут на обход дерева под `workspaceContains:<glob>`, мс. По истечении
+     * обход отменяется, а расширение остаётся неактивным — как в эталоне
+     * (`WORKSPACE_CONTAINS_TIMEOUT`). Default: 7000.
+     */
+    readonly workspaceContainsTimeoutMs?: number;
 }
 
 /**
@@ -475,8 +504,10 @@ export interface IExtensionHostOptions {
  *   заголовки команд для палитры; subprocess НЕ поднимается. Возвращает
  *   disposable для снятия расширения.
  * - `activateByEvent(event)` — активирует ещё не активные `pending`-расширения,
- *   чьи `activationEvents` содержат событие: лениво поднимает subprocess (если
+ *   чьи события активации содержат событие: лениво поднимает subprocess (если
  *   ещё не) и шлёт `host.activateExtension`. Идемпотентно.
+ * - `activateByWorkspaceContains()` — то же, но повод считается по ФС:
+ *   `workspaceContains:<паттерн>` сверяется с открытыми папками воркспейса.
  * - `unregisterExtension(id)` — `host.deactivateExtension`.
  * - `dispose()` — `host.shutdown` (best effort) → ждём exit → SIGTERM →
  *   SIGKILL fallback.
@@ -486,6 +517,13 @@ export class ExtensionHost extends Disposable {
     private readonly commandService: ICommandService;
     /** Прокси-регистрации команд сабпроцесса в host CommandRegistry (по id). */
     private readonly proxyCommands = new Map<string, IDisposable>();
+    /**
+     * Заглушки команд под `onCommand:<id>` (id → регистрация в host-реестре).
+     * Стоят ВМЕСТО прокси, пока расширение не активировано: исполнение такой
+     * команды сперва поднимает расширение, а потом уходит в уже настоящий прокси
+     * (см. {@link armCommandActivation}).
+     */
+    private readonly commandActivationStubs = new Map<string, IDisposable>();
     /** Заголовки команд из contributes.commands (id → title) для видимости в палитре. */
     private readonly commandTitles = new Map<string, string>();
     private readonly options: Required<
@@ -505,6 +543,7 @@ export class ExtensionHost extends Disposable {
             | "formattingTimeoutMs"
             | "codeActionsTimeoutMs"
             | "applyCodeActionTimeoutMs"
+            | "workspaceContainsTimeoutMs"
         >
     >;
     private readonly logger: ILogger | undefined;
@@ -609,6 +648,8 @@ export class ExtensionHost extends Disposable {
     private readonly storageHomes: () => IExtensionStorageHomes;
     /** Хранилище секретов расширений (`ExtensionContext.secrets`). */
     private readonly secrets: IExtensionSecretStore;
+    /** Доступ к дереву воркспейса для `workspaceContains:` (по умолчанию — настоящая ФС). */
+    private readonly workspaceScanner: IWorkspaceScanner;
     /**
      * ВСЕ известные хосту регистрации в порядке появления — источник каталога
      * `vscode.extensions`. Отдельно от `pending`/`activatedRegistrations`/
@@ -650,6 +691,7 @@ export class ExtensionHost extends Disposable {
             formattingTimeoutMs: options.formattingTimeoutMs ?? 5000,
             codeActionsTimeoutMs: options.codeActionsTimeoutMs ?? 5000,
             applyCodeActionTimeoutMs: options.applyCodeActionTimeoutMs ?? 10000,
+            workspaceContainsTimeoutMs: options.workspaceContainsTimeoutMs ?? 7000,
         };
         this.logger = options.logger;
         this.rpcLogger = options.rpcLogger;
@@ -664,6 +706,7 @@ export class ExtensionHost extends Disposable {
         this.fileWatcher = options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER;
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.secrets = options.secrets ?? createInMemoryExtensionSecretStore();
+        this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
         this.outputSink = options.outputSink;
@@ -686,7 +729,9 @@ export class ExtensionHost extends Disposable {
      * Запоминает регистрацию расширения (bookkeeping) — subprocess НЕ поднимается.
      * Реальная активация происходит лениво в {@link activateByEvent}, когда
      * наступает событие из `reg.activationEvents`. Заголовки команд регистрируем
-     * сразу: команда расширения должна быть видна в палитре ещё до активации.
+     * сразу: команда расширения должна быть видна в палитре ещё до активации —
+     * и, вместе с заголовком, заглушку-активатор на каждый `onCommand:<id>`
+     * (см. {@link armCommandActivation}), иначе видимая команда была бы no-op.
      */
     public registerExtension(reg: IExtensionRegistration): IDisposable {
         if (this.hostDisposed) throw new Error("ExtensionHost disposed");
@@ -701,7 +746,7 @@ export class ExtensionHost extends Disposable {
         }
         this.logger?.debug(`registerExtension(${reg.id})`, {
             mainPath: reg.mainPath,
-            activationEvents: normalizeActivationEvents(reg.activationEvents),
+            activationEvents: readActivationEvents(reg),
         });
         // Заголовки команд из contributes.commands — нужны прокси-регистрации,
         // чтобы команда расширения показалась в палитре (см. commands.registerCommand).
@@ -710,6 +755,9 @@ export class ExtensionHost extends Disposable {
         }
         this.pending.set(reg.id, reg);
         this.registrations.set(reg.id, reg);
+        // ПОСЛЕ pending: заглушка исполняется асинхронно и обязана найти
+        // расширение в очереди, когда до неё дойдёт активация.
+        for (const id of readCommandActivationIds(reg)) this.armCommandActivation(id);
         // Состав каталога изменился — субпроцессу это `extensions.onDidChange`.
         this.pushExtensionCatalog();
         return {
@@ -718,6 +766,13 @@ export class ExtensionHost extends Disposable {
                 // no-op: ни каталога, ни повторного deactivate.
                 if (!this.registrations.delete(reg.id)) return;
                 this.pushExtensionCatalog();
+                // Заглушки-активаторы снятого расширения: команды больше некому
+                // поднимать, и в палитре им висеть не за что. Кроме тех, что
+                // объявляет ещё кто-то: id бывает общим, и чужую дверь снятие
+                // соседа захлопывать не должно.
+                for (const id of readCommandActivationIds(reg)) {
+                    if (!this.isCommandActivationClaimed(id)) this.disarmCommandActivation(id);
+                }
                 if (this.toRevive.delete(reg.id)) return; // ждало оживления — уже не ждёт
                 if (this.pending.delete(reg.id)) return; // ещё не активировано
                 // Осталась одна фаза — активное расширение; собственный гард
@@ -757,26 +812,150 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Активирует все ещё не активные `pending`-расширения, чьи `activationEvents`
+     * Активирует все ещё не активные `pending`-расширения, чьи события активации
      * содержат `event`. Идемпотентно: уже активные пропускаются. `event === "*"`
      * матчит расширения с `"*"` в списке событий (пустой список ⇒ трактуется как
-     * `["*"]`). Именно здесь лениво поднимается subprocess и уходит
-     * `host.activateExtension`.
+     * `["*"]`), а `onCommand:<id>` — ещё и расширения, объявившие эту команду в
+     * `contributes.commands` без своего события (неявные события, см.
+     * `readActivationEvents`). Именно здесь лениво поднимается subprocess и
+     * уходит `host.activateExtension`.
      */
     public async activateByEvent(event: string): Promise<void> {
         // Disposed-случай покрыт неявно: dispose() чистит и `pending`, и
-        // `toRevive`, поэтому `toActivate` окажется пустым и метод выйдет до
+        // `toRevive`, поэтому набор окажется пустым и метод выйдет до
         // ensureSubprocess.
-        const toActivate: IExtensionRegistration[] = [...this.toRevive.values()];
+        const toActivate: IExtensionRegistration[] = [];
         for (const reg of this.pending.values()) {
-            if (normalizeActivationEvents(reg.activationEvents).includes(event)) toActivate.push(reg);
+            if (readActivationEvents(reg).includes(event)) toActivate.push(reg);
         }
+        await this.activateRegistrations(toActivate, event);
+    }
+
+    /**
+     * Активирует расширения, чей `workspaceContains:<паттерн>` сошёлся с
+     * содержимым открытых папок воркспейса. Считается ПО РАСШИРЕНИЮ, а не одним
+     * событием на всех: паттерн — это аргумент события, и подошёл он конкретному
+     * манифесту (так же устроен эталон — `checkActivateWorkspaceContainsExtension`).
+     *
+     * Зовётся на старте и повторно, когда папка воркспейса открывается позже:
+     * активация ленивая, а событие «в воркспейсе появился pom.xml» иначе
+     * прогорело бы в пустоту. Идемпотентно — уже активное расширение из
+     * `pending` ушло, и второй обход его не касается.
+     */
+    public async activateByWorkspaceContains(): Promise<void> {
+        const candidates: { reg: IExtensionRegistration; patterns: IWorkspaceContainsPatterns }[] = [];
+        for (const reg of this.pending.values()) {
+            const patterns = readWorkspaceContainsPatterns(reg);
+            // Расширение без паттернов отсеиваем здесь, а не в обходе: обход и так
+            // ответил бы «не совпало», но завёл бы на это таймер, а метод зовётся
+            // на каждое открытие папки.
+            // Stryker disable next-line ConditionalExpression: фильтр — оптимизация; пустой набор паттернов и так не совпадает (см. matchWorkspaceContains), наблюдаемой разницы нет
+            if (hasWorkspaceContainsPatterns(patterns)) candidates.push({ reg, patterns });
+        }
+        const folders = this.workspaceFolderPaths();
+        const matched: { reg: IExtensionRegistration; pattern: string }[] = [];
+        for (const candidate of candidates) {
+            const result = await this.matchWorkspaceContainsWithTimeout(candidate.reg.id, folders, candidate.patterns);
+            if (result.pattern !== null) matched.push({ reg: candidate.reg, pattern: result.pattern });
+        }
+        // Ничего не подошло — но заход всё равно один: оживление после смерти
+        // субпроцесса висит на ЛЮБОМ событии активации (см. `toRevive`), а этот
+        // метод такое же событие, как остальные. Пустой набор без оживляемых
+        // `activateRegistrations` отбивает сам, не поднимая субпроцесс.
+        if (matched.length === 0) {
+            await this.activateRegistrations([], "workspaceContains");
+            return;
+        }
+        // По одному: каждое расширение поднято своим паттерном, и в логе должна
+        // стоять именно его причина. Оживляемых подмешивает первый же заход.
+        for (const hit of matched) {
+            await this.activateRegistrations([hit.reg], `workspaceContains:${hit.pattern}`);
+        }
+    }
+
+    /**
+     * Обход дерева под один манифест с тайм-аутом. Тайм-аут именно здесь, а не на
+     * весь метод: одно расширение с паттерном `**` не должно съесть окно у
+     * соседей. Усечение (бюджет/тайм-аут) уходит в лог — молча оборванный обход
+     * читался бы как «ничего не подошло».
+     *
+     * Тайм-аут — ГОНКА, а не только отмена токена: токен обход смотрит между
+     * каталогами, и повисший `readdir` (сетевая ФС, отвалившийся том) флагом не
+     * сдвинуть. Проигравший забег остаётся висеть — прибить чужой вызов ФС
+     * нечем, — зато хост идёт дальше.
+     */
+    private async matchWorkspaceContainsWithTimeout(
+        id: string,
+        folders: readonly string[],
+        patterns: IWorkspaceContainsPatterns,
+    ): Promise<IWorkspaceContainsResult> {
+        const source = new CancellationTokenSource();
+        const timer = setTimeout(() => {
+            source.cancel();
+        }, this.options.workspaceContainsTimeoutMs);
+        // Сканер обязан не бросать, но собственный контракт хоста прочнее чужой
+        // дисциплины: одно расширение не срывает активацию остальных. Свой
+        // `catch` у забега обязателен и потому, что проигравший в `Promise.race`
+        // иначе уронил бы процесс через unhandledRejection.
+        // Stryker disable next-line ObjectLiteral: токен здесь останавливает ФОНОВЫЙ обход после того, как гонку выиграл тайм-аут; вызывающий получает тот же ответ и без него — наблюдаемой разницы нет
+        const scan = matchWorkspaceContains(this.workspaceScanner, folders, patterns, {
+            token: source.token,
+        }).catch((err: unknown): IWorkspaceContainsResult => {
+            this.logger?.error(`workspaceContains scan for "${id}" failed`, err);
+            return { pattern: null, truncated: true };
+        });
+        const cancelled = new Promise<IWorkspaceContainsResult>((resolve) => {
+            source.token.onCancellationRequested(() => {
+                resolve({ pattern: null, truncated: true });
+            });
+        });
+        // Без `try/finally`: гонка двух обещаний, ни одно из которых не
+        // отклоняется (у забега свой `catch`, а `cancelled` только резолвится),
+        // поэтому единственный выход — ниже. Уборка идёт ДО лога: логгер —
+        // чужой код, и его падение не должно оставить за собой живой таймер.
+        const result = await Promise.race([scan, cancelled]);
+        // Stryker disable next-line CallExpression: отыгравший таймер только будит `source.cancel()`, на который уже никто не подписан — наблюдаемой разницы нет
+        clearTimeout(timer);
+        // Stryker disable next-line CallExpression: снятие слушателей отменённого источника; ответ вызывающему уже сформирован — наблюдаемой разницы нет
+        source.dispose();
+        if (result.truncated) {
+            this.logger?.warn(`workspaceContains scan for "${id}" was cut short`, {
+                paths: patterns.paths,
+                globs: patterns.globs,
+            });
+        }
+        return result;
+    }
+
+    /**
+     * Папки воркспейса как пути на ФС. `IWorkspaceFolderInfo.uri` — настоящий
+     * uri (его же видит субпроцесс в `workspace.workspaceFolders`); не-`file:`
+     * папки отбрасываем: обходить их нашим сканером нечем.
+     */
+    private workspaceFolderPaths(): readonly string[] {
+        const paths: string[] = [];
+        for (const folder of this.configuration?.getWorkspaceFolders() ?? []) {
+            const uri = Uri.parse(folder.uri);
+            if (uri.scheme === "file") paths.push(uri.fsPath);
+        }
+        return paths;
+    }
+
+    /**
+     * Общий хвост активации: поднять subprocess и прогнать `host.activateExtension`
+     * по набору регистраций. `reason` — что именно их подняло; идёт в лог и
+     * больше никуда (расширение о поводе своей активации не узнаёт, как и в
+     * эталоне). Расширения, пережившие смерть субпроцесса (`toRevive`),
+     * добавляются к ЛЮБОМУ набору — их собственное событие давно отгорело.
+     */
+    private async activateRegistrations(regs: readonly IExtensionRegistration[], reason: string): Promise<void> {
+        const toActivate = [...this.toRevive.values(), ...regs];
         if (toActivate.length === 0) return;
         // Спавним subprocess ОДИН раз до цикла: сбой хоста (spawn/ready) — это не
         // проблема конкретного расширения, он пробрасывается наверх.
         const rpc = await this.ensureSubprocess();
         for (const reg of toActivate) {
-            // Второй guard на случай, если параллельный activateByEvent уже занялся им.
+            // Второй guard на случай, если параллельная активация уже занялась им.
             if (!this.pending.delete(reg.id) && !this.toRevive.delete(reg.id)) continue;
             // Per-extension изоляция: упавший `activate()` одного расширения не
             // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
@@ -799,11 +978,69 @@ export class ExtensionHost extends Disposable {
                 // серверов package.json со схемой настроек — сотни килобайт), а
                 // меняется здесь ровно один флаг.
                 rpc.notify("extensions.activated", { id: reg.id });
-                this.logger?.info(`activated extension "${reg.id}"`);
             } catch (err) {
                 this.logger?.error(`failed to activate extension "${reg.id}"`, err);
+                continue;
             }
+            // Запись об успехе — ВНЕ try: этот `catch` про сбой активации, и
+            // беда логгера не должна прикидываться им (а заодно тихо глотаться).
+            this.logger?.info(`activated extension "${reg.id}" (${reason})`);
         }
+    }
+
+    /**
+     * Ставит заглушку-активатор на команду `id`: до активации расширения
+     * команда уже есть в host-реестре (значит видна в палитре и исполнима по
+     * id), а её исполнение СНАЧАЛА поднимает расширение и только потом уходит в
+     * настоящий прокси. Без ожидания активации команда не нашлась бы: реальный
+     * прокси заводит сам субпроцесс в `commands.registerCommand`.
+     *
+     * Настоящий прокси заглушкой не затирается: если команда уже живая (её
+     * зарегистрировало активное расширение), ставить поверх нечего.
+     */
+    private armCommandActivation(id: string): void {
+        if (this.proxyCommands.has(id) || this.commandActivationStubs.has(id)) return;
+        const event = `onCommand:${id}`;
+        this.commandActivationStubs.set(
+            id,
+            this.commandService.registerProxy(
+                id,
+                async (args): Promise<unknown> => {
+                    try {
+                        await this.activateByEvent(event);
+                    } catch (err) {
+                        // Провал хоста (subprocess не поднялся) гасим здесь:
+                        // вызывающие команду (палитра, бинд) результат не ждут,
+                        // и reject ушёл бы в unhandledRejection главного процесса.
+                        this.logger?.error(`failed to activate extension for command "${id}"`, err);
+                        return undefined;
+                    }
+                    // Расширение поднялось, но команду не завело (ошибка в
+                    // `activate()`, опечатка в манифесте) — исполнять нечего, и
+                    // зваться повторно через заглушку тоже: получилась бы петля.
+                    if (!this.proxyCommands.has(id)) {
+                        this.logger?.warn(`command "${id}" is still unregistered after activation`);
+                        return undefined;
+                    }
+                    return this.commandService.execute(id, args);
+                },
+                this.commandTitles.get(id),
+            ),
+        );
+    }
+
+    /** Снимает заглушку-активатор команды (расширение активировалось или снято). */
+    private disarmCommandActivation(id: string): void {
+        this.commandActivationStubs.get(id)?.dispose();
+        this.commandActivationStubs.delete(id);
+    }
+
+    /** Объявляет ли команду `id` хоть одна из оставшихся регистраций. */
+    private isCommandActivationClaimed(id: string): boolean {
+        for (const reg of this.registrations.values()) {
+            if (readCommandActivationIds(reg).includes(id)) return true;
+        }
+        return false;
     }
 
     /**
@@ -1455,6 +1692,10 @@ export class ExtensionHost extends Disposable {
         this.activatedRegistrations.clear();
         // Stryker disable next-line CallExpression: гигиена — каталог после dispose никто не запрашивает (субпроцесса уже нет), наблюдаемой разницы нет
         this.registrations.clear();
+        // Заглушки-активаторы живут в ОБЩЕМ реестре команд ядра (как и
+        // прокси, см. clearProxyCommands) — после dispose там висели бы записи,
+        // которые уже некого поднимать.
+        for (const id of [...this.commandActivationStubs.keys()]) this.disarmCommandActivation(id);
         this.disposeFileWatchers();
         void this.shutdownSubprocess();
         super.dispose();
@@ -1616,6 +1857,9 @@ export class ExtensionHost extends Disposable {
         rpc.handleNotification("commands.registerCommand", (params): void => {
             const id = parseCommandId(params);
             if (id === null) return;
+            // Заглушка-активатор отработала (или её никто не трогал) — теперь
+            // команду держит настоящий прокси, и ждать активации больше нечего.
+            this.disarmCommandActivation(id);
             this.proxyCommands.get(id)?.dispose();
             this.proxyCommands.set(
                 id,
@@ -2197,6 +2441,13 @@ export class ExtensionHost extends Disposable {
         for (const [id, reg] of this.activatedRegistrations) this.toRevive.set(id, reg);
         this.activatedRegistrations.clear();
         this.extensions.clear();
+        // Прокси-команды мертвеца сняты вместе с ним (`clearProxyCommands`) —
+        // возвращаем на их место заглушки-активаторы. Иначе команда исчезла бы и
+        // из палитры, и вместе с ней единственный способ оживить расширение
+        // руками: `toRevive` ждёт события активации, а команда им и была.
+        for (const reg of this.toRevive.values()) {
+            for (const id of readCommandActivationIds(reg)) this.armCommandActivation(id);
+        }
     }
 
     private async shutdownSubprocess(): Promise<void> {
@@ -2241,11 +2492,6 @@ export class ExtensionHost extends Disposable {
 }
 
 /**
- * Нормализует `activationEvents`: пусто/отсутствует ⇒ `["*"]` (eager). Так
- * расширение без описанных событий сохраняет прежнее поведение — активируется
- * на общем стартовом `activateByEvent("*")`.
- */
-/**
  * Массив непустых строк из сырого RPC-поля. Пустая строка отбрасывается вместе
  * с нестроковым мусором: как «символ-триггер» она совпала бы с любым событием
  * каретки, где набора не было.
@@ -2253,10 +2499,6 @@ export class ExtensionHost extends Disposable {
 function readStringArray(raw: unknown): readonly string[] {
     if (!Array.isArray(raw)) return [];
     return raw.filter((item): item is string => typeof item === "string" && item !== "");
-}
-
-function normalizeActivationEvents(events: readonly string[] | undefined): readonly string[] {
-    return events !== undefined && events.length > 0 ? events : ["*"];
 }
 
 /**
