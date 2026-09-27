@@ -1,4 +1,3 @@
-import { packRgb } from "@tuidom/core/common/colorUtils";
 import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
@@ -23,14 +22,6 @@ import { packStyleFlags } from "./tokenIndex.ts";
  * `render()` у диффа всё равно свой, зато `instanceof EditorElement` стал бы
  * истинным там, где смысл именно «редактируемый буфер» (см. `iTextViewElement.ts`).
  */
-
-/**
- * Цвет фона выделения. Литерал, а не токен темы: `editor.selectionBackground`
- * объявлен с `defaults: null` (`platform/theme/common/colors/editorColors.ts`),
- * то есть `styleVar` по нему без фоллбэка упадёт. Один цвет на редактор и дифф —
- * выделение обязано выглядеть одинаково.
- */
-export const SELECTION_BG = packRgb(38, 79, 120);
 
 /** Геометрия вьюпорта, общая для проходов подсветки диапазонов. */
 export interface ITextViewportGeometry {

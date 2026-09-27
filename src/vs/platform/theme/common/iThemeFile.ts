@@ -8,6 +8,15 @@ export interface IThemeFile {
     /** Display name of the theme. */
     name?: string;
 
+    /**
+     * Path of a base theme to layer under this one, relative to this file
+     * (VS Code's `"include": "./dark_plus.json"`). Resolved by whoever loads the
+     * file (`scripts/import-vscode-themes.mjs` at build time for built-in
+     * themes, `ExtensionThemeContributor` at startup for extension themes) via
+     * {@link mergeThemeFiles}; a registered theme is always flat.
+     */
+    include?: string;
+
     /** Base theme type. */
     type?: "dark" | "light" | "hc" | "hcLight";
 

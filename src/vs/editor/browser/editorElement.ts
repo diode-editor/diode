@@ -1,4 +1,4 @@
-import { packRgb } from "@tuidom/core/common/colorUtils";
+import { compositeOver, packRgb } from "@tuidom/core/common/colorUtils";
 import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import type { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { Point } from "@tuidom/core/common/geometryPromitives";
@@ -50,7 +50,6 @@ import {
     paintPhantomText,
     paintRangeBackground,
     paintTextLine,
-    SELECTION_BG,
 } from "./textViewRendering.ts";
 import { TokenIndex } from "./tokenIndex.ts";
 
@@ -469,10 +468,13 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
 
         // Внешние декорации — flatten раз за кадр, цвета резолвятся здесь же
-        // (styleVar), чтобы строки платили за поиск токена не по разу.
+        // (styleVar), чтобы строки платили за поиск токена не по разу. Токен с
+        // альфой композитится с фоном редактора один раз здесь: строку красят
+        // несколькими проходами (гуттер, текст, плашки), и полупрозрачный bg в
+        // каждом лёг бы новым слоем (правило painter'а в STYLES.md).
         const lineBgByLine = new Map<number, number>();
         for (const decoration of this.decorations.lineBackgrounds ?? []) {
-            const bg = this.styleVar(decoration.colorToken);
+            const bg = compositeOver(this.styleVar(decoration.colorToken), editorBg);
             for (let line = decoration.startLine; line <= decoration.endLine; line++) {
                 lineBgByLine.set(line, bg);
             }
@@ -561,7 +563,12 @@ export class EditorElement extends TUIElement implements IScrollable {
                         : zoneDecoration?.colorToken !== undefined
                           ? this.styleVar(zoneDecoration.colorToken)
                           : editorFg;
-                const zoneBg = zoneLine?.bgToken !== undefined ? this.styleVar(zoneLine.bgToken) : editorBg;
+                // Заливка и текст поверх неё — два setCell в одну ячейку, поэтому
+                // bg зоны композитится с фоном редактора один раз, до заливки.
+                const zoneBg =
+                    zoneLine?.bgToken !== undefined
+                        ? compositeOver(this.styleVar(zoneLine.bgToken), editorBg)
+                        : editorBg;
                 const fill = zoneLine !== undefined ? " " : (zoneDecoration?.fillChar ?? " ");
                 for (let x = 0; x < contentCols; x++) {
                     context.setCell(gutterW + x, screenY, { char: fill, fg: zoneFg, bg: zoneBg });
@@ -797,10 +804,13 @@ export class EditorElement extends TUIElement implements IScrollable {
             paintRangeBackground(context, this.viewState, searchMatches[i], FIND_MATCH_BG, geometry);
         }
 
-        // Highlight selections
+        // Highlight selections. Цвет — токен темы как есть, с альфой: патч bg
+        // ложится на уже нарисованный фон строки (смесь смеси при наложении на
+        // другие подсветки — порядок setCell, STYLES.md «Модель цвета»).
+        const selectionBg = this.styleVar("editor.selectionBackground");
         for (const sel of this.viewState.selections) {
             if (isSelectionCollapsed(sel)) continue;
-            paintRangeBackground(context, this.viewState, selectionToRange(sel), SELECTION_BG, geometry);
+            paintRangeBackground(context, this.viewState, selectionToRange(sel), selectionBg, geometry);
         }
 
         // Highlight the current search match on top (wins over other matches and selection).

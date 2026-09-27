@@ -1,6 +1,6 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/core/common/geometryPromitives";
-import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
+import { extendVarScope, ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TerminalScreen } from "@tuidom/core/rendering/terminalScreen";
 import { describe, expect, it, vi } from "vitest";
@@ -93,7 +93,11 @@ describe("EditorElement tokenization — вырожденный вьюпорт",
         const backendScreen = new TerminalScreen(new Size(20, 1));
         editor.localPosition = new Offset(0, 0);
         editor.layout(BoxConstraints.tight(size));
-        editor.performStyleResolution(ROOT_STYLE_CONTEXT);
+        // Хостовый токен выделения без дефолта tuidom — явная таблица styleVars.
+        editor.performStyleResolution({
+            ...ROOT_STYLE_CONTEXT,
+            vars: extendVarScope(ROOT_STYLE_CONTEXT.vars, { "editor.selectionBackground": packRgb(38, 79, 120) }),
+        });
         const spy = vi.spyOn(store, "tokenizeUpTo");
         editor.render(new RenderContext(backendScreen, new Offset(0, 0), new Rect(new Point(0, 0), new Size(20, 1))));
 

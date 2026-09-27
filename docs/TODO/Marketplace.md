@@ -247,6 +247,17 @@ registry/v1/meta/<id>.json
   `eslintLsp.test.ts` (fix on save) и сценарий `eslint-lint` берут расширение
   ИЗ МАГАЗИНА.
 
+- [x] **Кандидат: `Catppuccin.catppuccin-vsc` 3.19.0** — первая цветовая тема в реестре
+  (#84, [Theming.md](Theming.md)): запись `proxy-openvsx`, universal (URL артефакта
+  open-vsx + sha256 `ebf347664837edbe91c9920ff3d14c96d4a28beeec0b95137c76058326329780`).
+  Четыре темы через `contributes.themes` (Mocha / Macchiato / Frappé — `vs-dark`, Latte —
+  `vs`), `tokenColors` inline, 141 цвет с альфой из 564 — носитель для композитинга
+  tuidom 0.4.0. Runtime-часть расширения (`dist/main.cjs`, перегенерация тем из
+  настроек) не используется: читаются файлы тем из vsix как есть. Смоук магазина в
+  `e2e/marketplace/checks.ts` — `"workbench.colorTheme": "Catppuccin Mocha"` → фон
+  редактора в кадре равен `editor.background` из `themes/mocha.json` (`#1e1e2e`) и тема
+  есть в пикере Color Theme.
+
 ## Шаг 4: Extensions view — [ExtensionsView.md](ExtensionsView.md)
 
 Просмотр магазина из редактора: вьюлет сайдбара (поиск + каталог + установленные),

@@ -17,8 +17,9 @@ export interface IThemeDescriptor {
  *
  * Mirrors VS Code's theme service: built-in themes are seeded here, and the
  * active theme is selected by label. Themes contributed by extensions
- * (`contributes.themes`) will register into the same registry — see
- * docs/TODO/Theming.md.
+ * (`contributes.themes`) register into the same registry at startup
+ * (`ExtensionThemeContributor`) — after the built-ins, so an extension theme
+ * with a built-in label shadows it, as in VS Code.
  */
 export class ThemeRegistry {
     private readonly themes = new Map<string, IThemeFile>();
@@ -35,6 +36,15 @@ export class ThemeRegistry {
     public register(theme: IThemeFile): void {
         if (theme.name === undefined) return;
         this.themes.set(theme.name, theme);
+    }
+
+    /**
+     * Remove a theme by label. Returns whether one was registered. Backs
+     * `ExtensionThemeContributor.dispose()` — a shadowed theme is not restored:
+     * the registry keeps one entry per label.
+     */
+    public unregister(label: string): boolean {
+        return this.themes.delete(label);
     }
 
     public has(label: string): boolean {

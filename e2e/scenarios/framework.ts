@@ -49,6 +49,13 @@ export interface ScenarioDriver {
     wheel(x: number, y: number, direction: "up" | "down" | "left" | "right"): Promise<void>;
     /** Capture and save `screenshots/<scenario>-<shot>.png`; returns the path. */
     capture(shot: string): Promise<string>;
+    /**
+     * Дождаться нового окна после `workbench.action.reloadWindow`: процесс
+     * заменяет себя новым с теми же аргументами, инспектор поднимается на том
+     * же порту. Сценарии установки из магазина показывают вклад расширения
+     * после перезагрузки.
+     */
+    reconnect(): Promise<void>;
 }
 
 export interface ScenarioSpec {
@@ -172,6 +179,7 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
         click: (x, y, opts) => session.click(x, y, opts),
         clickNode: (selector, opts) => session.clickNode(selector, opts),
         wheel: (x, y, direction) => session.wheel(x, y, direction),
+        reconnect: () => session.reconnect(),
         capture: async (shot) => {
             const frame = await session.captureFrame();
             const path = saveScreenshot(`${spec.name}-${shot}`, frame);

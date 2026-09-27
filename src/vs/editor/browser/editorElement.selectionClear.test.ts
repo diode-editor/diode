@@ -1,4 +1,4 @@
-import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
+import { DEFAULT_COLOR, packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
@@ -21,6 +21,10 @@ describe("EditorElement in app frame loop", () => {
         editor.occurrenceHighlightEnabled = false; // isolate selection-bg clearing from word highlighting
         const body = new BodyElement();
         body.setContent(editor);
+        // Хостовый токен без дефолта tuidom — явная таблица styleVars; тело
+        // остаётся без собственного фона, чтобы снятое выделение вернулось к
+        // DEFAULT_COLOR (это и проверяем).
+        body.setStyleVars({ "editor.selectionBackground": packRgb(38, 79, 120) });
         app.root = body;
         app.run();
 

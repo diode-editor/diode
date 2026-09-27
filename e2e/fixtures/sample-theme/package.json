@@ -1,0 +1,30 @@
+{
+    "name": "sample-theme",
+    "displayName": "Sample Theme",
+    "description": "Синтетическое расширение-тема для проверки магазина: три цветовые темы, без кода расширения.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "categories": ["Themes"],
+    "contributes": {
+        "themes": [
+            {
+                "label": "Sample Dark",
+                "uiTheme": "vs-dark",
+                "path": "./themes/sample-dark.json"
+            },
+            {
+                "label": "Sample Light",
+                "uiTheme": "vs",
+                "path": "./themes/sample-light.json"
+            },
+            {
+                "label": "Sample Dimmed",
+                "uiTheme": "vs-dark",
+                "path": "./themes/sample-dimmed.json"
+            }
+        ]
+    }
+}

@@ -85,9 +85,8 @@ export const workbenchColors = {
     "statusBarItem.hoverBackground": {
         // Upstream-дефолт — белый с альфой 0.12; здесь он запечён поверх
         // statusBar.background своего вида. Темы везут значение с альфой
-        // (Dark Modern — "#F1F1F133"), поэтому blendOver.
+        // (Dark Modern — "#F1F1F133") — движок кладёт его на фон полосы при отрисовке.
         defaults: { dark: "#1E92D2", light: "#E4E4E4" },
-        blendOver: "statusBar.background",
         description: "Status Bar item background color when hovering.",
     },
     "statusBarItem.hoverForeground": {

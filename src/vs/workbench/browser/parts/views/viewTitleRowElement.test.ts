@@ -1,3 +1,4 @@
+import { compositeOver } from "@tuidom/core/common/colorUtils";
 import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -170,7 +171,9 @@ describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
 
 describe("ViewTitleRowElement — подсветка под курсором", () => {
     const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
-    const HOVER_BG = theme.getColor("toolbar.hoverBackground")!;
+    // Токен Dark+ полупрозрачный (`#5A5D5E50`): в ячейке лежит его наложение на
+    // фон строки, которое движок делает при отрисовке.
+    const HOVER_TOKEN = theme.getColor("toolbar.hoverBackground")!;
 
     /** Фон колонки после рендера строки (движок сам hover лейблам не ставит). */
     function bgAt(row: ViewTitleRowElement, x: number): number {
@@ -185,6 +188,7 @@ describe("ViewTitleRowElement — подсветка под курсором", (
         ]);
         layout(row);
         const restBg = bgAt(row, 20);
+        const HOVER_BG = compositeOver(HOVER_TOKEN, restBg);
         expect(restBg).not.toBe(HOVER_BG);
 
         row.setHoveredZone(row.hitZone(20));
@@ -210,7 +214,7 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
     const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
     const DISABLED_FG = theme.getColor("disabledForeground")!;
     const ENABLED_FG = theme.getColor("descriptionForeground")!;
-    const HOVER_BG = theme.getColor("toolbar.hoverBackground")!;
+    const HOVER_TOKEN = theme.getColor("toolbar.hoverBackground")!;
 
     function render(row: ViewTitleRowElement): ReturnType<typeof renderElement> {
         return renderElement(row, 30, 1, { themeVars: true });
@@ -275,8 +279,10 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
         // свернул секцию.
         expect(zone).toEqual({ kind: "action", actionId: "cmd.refresh" });
 
+        const restBg = render(row).getBgAt(new Point(24, 0));
         row.setHoveredZone(zone);
-        expect(render(row).getBgAt(new Point(24, 0))).not.toBe(HOVER_BG);
+        expect(render(row).getBgAt(new Point(24, 0))).toBe(restBg);
+        expect(render(row).getBgAt(new Point(24, 0))).not.toBe(compositeOver(HOVER_TOKEN, restBg));
     });
 });
 

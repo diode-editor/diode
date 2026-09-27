@@ -7,6 +7,7 @@ import type { IConfigurationService } from "../vs/platform/configuration/common/
 import { IConfigurationServiceDIToken } from "../vs/platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { Container } from "../vs/platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../vs/platform/state/common/iStateService.ts";
+import { computeThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts";
 import type { TextEditorPane } from "../vs/workbench/browser/parts/editor/textEditorPane.ts";
 import type { WorkbenchComponent } from "../vs/workbench/browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../vs/workbench/browser/workbenchComponent.ts";
@@ -16,6 +17,7 @@ import {
     StateServiceDIToken,
 } from "../vs/workbench/common/coreTokens.ts";
 import { EditorServiceDIToken } from "../vs/workbench/services/editor/browser/editorService.ts";
+import { ThemeServiceDIToken } from "../vs/workbench/services/themes/common/themeTokens.ts";
 
 import { TestApp } from "./TestApp.ts";
 
@@ -101,7 +103,14 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         workbench.setWorkspaceFolder(options.workspaceFolder);
     }
     workbench.mount();
-    const testApp = TestApp.create(workbench.view, options.size ?? new Size(80, 24));
+    // Палитра корня — от активной темы контейнера (по умолчанию Dark+ тестового
+    // профиля), а не фиксированный Dark+: тест, подменивший ThemeService, видит
+    // свою тему в первом же кадре — как приложение.
+    const testApp = TestApp.create(
+        workbench.view,
+        options.size ?? new Size(80, 24),
+        computeThemeVars(container.get(ThemeServiceDIToken).theme),
+    );
     bindApp(testApp.app);
 
     if (options.openFile !== undefined) {

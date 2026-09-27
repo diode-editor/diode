@@ -56,6 +56,7 @@ import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/c
 import { TuiApplicationDIToken } from "../workbench/common/coreTokens.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
 import { registerExtensionKeybindings } from "../workbench/services/extensions/common/extensionKeybindingContributor.ts";
+import { ExtensionThemeContributor } from "../workbench/services/extensions/common/extensionThemeContributor.ts";
 import { ExtensionTokenizationContributor } from "../workbench/services/extensions/common/extensionTokenizationContributor.ts";
 import { ExtensionHostDIToken } from "../workbench/services/extensions/node/extensionHost.ts";
 import { runExtensionHostSubprocess } from "../workbench/services/extensions/node/extensionHostSubprocess.ts";
@@ -204,16 +205,6 @@ async function runEditor(): Promise<void> {
     // здесь, потому что перезагрузка окна обязана освободить его порт.
     let inspectorHandle: AttachedInspector | null = null;
 
-    // Реестр встроенных тем + выбор активной по `workbench.colorTheme`. Неизвестное
-    // имя (тема из ещё не установленного расширения, опечатка) — откат на дефолт.
-    const themeRegistry = createBuiltinThemeRegistry();
-    const colorThemeLabel = configurationService.get<string>("workbench.colorTheme") ?? DEFAULT_COLOR_THEME;
-    const initialTheme =
-        themeRegistry.resolve(colorThemeLabel) ?? themeRegistry.resolve(DEFAULT_COLOR_THEME) ?? undefined;
-    if (initialTheme === undefined) {
-        throw new Error(`No built-in theme available (looked up "${colorThemeLabel}" and "${DEFAULT_COLOR_THEME}")`);
-    }
-
     // ── Загрузка расширений ────────────────────────────────────
     // Builtin: либо SEA-bundle, либо `src/Extensions/builtin/` в dev.
     // User: `<userData.root>/extensions/` через `FsAssetAccess`, замапленный
@@ -239,6 +230,27 @@ async function runEditor(): Promise<void> {
         ? await scanExtensions(assets, USER_PREFIX, { isBuiltin: false }, extensionsLogger)
         : [];
     const allExtensions = mergeExtensions(builtinExtensions, userExtensions, extensionsLogger);
+
+    // ── Темы: встроенные + из расширений, выбор активной ───────
+    // Темы расширений (`contributes.themes`) читаются ЗДЕСЬ, до выбора активной
+    // и до первого кадра: если `workbench.colorTheme` называет тему расширения,
+    // первый кадр уже в ней, без промежуточного Dark Modern (Theming.md, решения
+    // 2–3). Файлов немного и они маленькие — это не грамматики.
+    const themeRegistry = createBuiltinThemeRegistry();
+    const themeContributor = new ExtensionThemeContributor(assets, allExtensions, themeRegistry, extensionsLogger);
+    await themeContributor.apply();
+    // Неизвестное имя (тема из ещё не установленного или удалённого расширения,
+    // опечатка) — откат на дефолт; настройку не трогаем: поставит расширение
+    // обратно — получит свою тему без действий (решение 5).
+    const colorThemeLabel = configurationService.get<string>("workbench.colorTheme") ?? DEFAULT_COLOR_THEME;
+    let initialTheme = themeRegistry.resolve(colorThemeLabel);
+    if (initialTheme === undefined) {
+        extensionsLogger.warn(`Color theme "${colorThemeLabel}" not found, falling back to "${DEFAULT_COLOR_THEME}"`);
+        initialTheme = themeRegistry.resolve(DEFAULT_COLOR_THEME);
+    }
+    if (initialTheme === undefined) {
+        throw new Error(`No built-in theme available (looked up "${colorThemeLabel}" and "${DEFAULT_COLOR_THEME}")`);
+    }
 
     const languageRegistry = new LanguageRegistry();
     for (const ext of allExtensions) languageRegistry.register(ext);

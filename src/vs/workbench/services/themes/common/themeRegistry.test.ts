@@ -41,6 +41,14 @@ describe("ThemeRegistry", () => {
         expect(registry.list()).toHaveLength(1);
     });
 
+    it("unregister removes a theme by label and reports whether it was there", () => {
+        const registry = new ThemeRegistry([A, B]);
+        expect(registry.unregister("Theme A")).toBe(true);
+        expect(registry.has("Theme A")).toBe(false);
+        expect(registry.list()).toEqual([{ label: "Theme B", type: "light" }]);
+        expect(registry.unregister("Theme A")).toBe(false);
+    });
+
     it("ignores themes without a name", () => {
         const registry = new ThemeRegistry();
         registry.register({ type: "dark", colors: {}, tokenColors: [] } as IThemeFile);

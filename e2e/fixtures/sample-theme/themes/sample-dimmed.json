@@ -1,0 +1,9 @@
+{
+    // Тема поверх базы: `include` резолвится относительно этого файла, цвета
+    // ниже перекрывают одноимённые ключи базы, остальное (и tokenColors) — из неё.
+    "include": "./sample-dark.json",
+    "colors": {
+        "editor.background": "#0B1015",
+        "statusBar.background": "#05080B"
+    }
+}
