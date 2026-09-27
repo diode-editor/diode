@@ -36,7 +36,10 @@
       все репозитории организации, fine-grained — только перечисленные в «Repository access»
       с Contents: read and write. Проверка: `curl -H "Authorization: Bearer $PAT"
       https://api.github.com/repos/diode-editor/homebrew-tap` → `"permissions": {"push": true}`.
-- [ ] Первая подача в winget руками (packaging/README.md), после мержа — секрет `WINGET_TOKEN`.
+- [~] Первая подача в winget: PR [microsoft/winget-pkgs#442141](https://github.com/microsoft/winget-pkgs/pull/442141)
+      (2026-09-27, ветка `DiodeEditor.Diode-0.3.0` в форке `tihonove/winget-pkgs`, коммит через
+      Git Data API — клон с `tree:0` при push дотягивает всё дерево). После мержа — секрет
+      `WINGET_TOKEN` (PAT с `public_repo`), дальше версии подаёт `release.yml`.
 - [ ] Тег `vX.Y.Z` через `bump-version.yml` — первый релиз, у которого есть сайдкары, `.deb` и apt.
 - [ ] После релиза проверить на живом: `install.sh` (sha256 OK), `apt update` на Debian/Ubuntu,
       `brew install diode-editor/tap/diode` (macOS и Linux), `npx @diode-editor/diode --version`,
