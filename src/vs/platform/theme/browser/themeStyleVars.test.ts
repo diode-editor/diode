@@ -38,6 +38,31 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("terminal.background")).toBe(0x111111);
         expect(root.styleVar("terminal.foreground")).toBe(0x222222);
     });
+
+    it("строка меню красится цветами titleBar темы (menuBar.* — токены tuidom без ключа в темах VS Code)", () => {
+        const root = new BodyElement();
+        root.setAsRoot();
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "mocha-like",
+            type: "dark",
+            colors: { "titleBar.activeBackground": "#11111B", "titleBar.activeForeground": "#CDD6F4" },
+        });
+        applyThemeVars(root, theme);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+
+        expect(root.styleVar("menuBar.background")).toBe(0x11111b);
+        expect(root.styleVar("menuBar.foreground")).toBe(0xcdd6f4);
+    });
+
+    it("тема без titleBar.* — строка меню на дефолтах VS Code для заголовка, а не tuidom", () => {
+        const root = new BodyElement();
+        root.setAsRoot();
+        applyThemeVars(root, WorkbenchTheme.fromThemeFile({ name: "bare", type: "light", colors: {} }));
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+
+        expect(root.styleVar("menuBar.background")).toBe(0xdddddd);
+        expect(root.styleVar("menuBar.foreground")).toBe(0x333333);
+    });
 });
 
 describe("applyThemeVars — не-числовые значения пропускаются", () => {

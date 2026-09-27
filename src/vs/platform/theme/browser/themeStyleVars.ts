@@ -32,6 +32,15 @@ export function computeThemeVars(theme: WorkbenchTheme): Record<string, number> 
     if (!("terminal.foreground" in vars) && "editor.foreground" in vars) {
         vars["terminal.foreground"] = vars["editor.foreground"];
     }
+    // Строка меню: у tuidom это собственные токены `menuBar.*` (в темах VS Code
+    // такого ключа нет — с кастомным заголовком меню рисуется на цветах
+    // titleBar). Без моста строка оставалась бы на дефолте tuidom в любой теме.
+    if ("titleBar.activeBackground" in vars) {
+        vars["menuBar.background"] = vars["titleBar.activeBackground"];
+    }
+    if ("titleBar.activeForeground" in vars) {
+        vars["menuBar.foreground"] = vars["titleBar.activeForeground"];
+    }
 
     return vars;
 }
