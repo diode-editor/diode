@@ -10,7 +10,7 @@
 | `curl \| sh` | [`install.sh`](../install.sh) в корне | пользователь, напрямую из `raw.githubusercontent.com` |
 | apt | [`deb/build-deb.sh`](deb/build-deb.sh), [`apt/build-repo.sh`](apt/build-repo.sh), [`apt/gen-key.sh`](apt/gen-key.sh) | job `packages` в `release.yml` |
 | npm | [`npm/`](npm/) — пакет `@diode-editor/diode` | job `npm` |
-| Homebrew | [`render.mjs`](render.mjs) → `Formula/diode.rb` в `diode-editor/homebrew-tap` | job `brew` |
+| Homebrew | [`render.mjs`](render.mjs) → `Casks/diode.rb` в `diode-editor/homebrew-tap` (cask, не формула: формула без бутылки требует CLT на macOS) | job `brew` |
 | winget | [`render.mjs`](render.mjs) → манифесты `DiodeEditor.Diode` | первая подача руками, дальше job `winget` |
 
 ## Локальная проверка

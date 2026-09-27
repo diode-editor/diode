@@ -30,6 +30,9 @@ version and verifies its sha256. Works on Windows too.
 brew install diode-editor/tap/diode
 ```
 
+It is a cask that links the release binary into `$(brew --prefix)/bin`; no compiler or Command
+Line Tools are needed.
+
 ## apt (Debian, Ubuntu)
 
 The repository is flat and lives on GitHub Releases, so it always serves the latest stable

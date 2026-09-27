@@ -17,7 +17,9 @@
       через сервер с 302-редиректами как у GitHub; GitHub принимает путь `/./InRelease`, который шлёт apt.
 - [x] npm — `@diode-editor/diode`, тонкая обёртка с докачкой бинаря и sha256; `npx` работает.
       Проверено: `npm pack` → `npm install -g --prefix` → `diode --version` = 0.3.0.
-- [x] Homebrew — формула с `on_macos`/`on_linux` × `on_arm`/`on_intel`, рендерится из sha256.
+- [x] Homebrew — **cask** (не формула) со стансами `os`/`arch`, один на macOS и Linux, рендерится из
+      sha256. Формулу без бутылки Homebrew считает сборкой из исходников и на macOS требует свежие
+      Command Line Tools — на этом упала первая живая установка v0.4.0 на macOS 14.
 - [x] winget — три манифеста `DiodeEditor.Diode`, `InstallerType: portable`.
 - [x] `release.yml` — jobs `packages`, `npm`, `brew`, `winget`; каждая молча пропускается без своего секрета.
 - [x] `README.md` — quick install первым, ниже команды остальных каналов; детали на INSTALL.md.
@@ -31,7 +33,7 @@
 - [x] `@diode-editor/diode@0.3.0` опубликован руками 2026-09-27, `npx` с чистого кэша работает.
 - [x] Trusted Publisher (GitHub Actions, `release.yml`) настроен: v0.4.0 опубликован джобой `npm`
       без токена, у версии есть SLSA-provenance (`dist.attestations`).
-- [x] Репозиторий `diode-editor/homebrew-tap` создан, в нём формула v0.3.0 (2026-09-27).
+- [x] Репозиторий `diode-editor/homebrew-tap` создан (2026-09-27); формула заменена cask'ом.
 - [x] `REPOSITORY_PAT` имеет push в `homebrew-tap`: джоба `brew` релиза v0.4.0 обновила формулу
       сама. (Если токен когда-нибудь меняется: classic со scope `repo` покрывает все репозитории
       организации, fine-grained — только перечисленные в «Repository access» с Contents: read and write.)
@@ -44,8 +46,9 @@
       `diode-archive-keyring.gpg`.
 - [x] Проверено на живом релизе: `install.sh` с raw main → `sha256 OK`, `diode 0.4.0`;
       `apt-get update` → `InRelease` по `signed-by` с GitHub, `policy` → 0.4.0, `download` → 49.8 МБ
-      за 3 с; `npx @diode-editor/diode --version` с чистого кэша → 0.4.0; формула в тапе — v0.4.0.
-- [ ] Не проверено руками: `brew install diode-editor/tap/diode` на macOS/Linux с Homebrew и
+      за 3 с; `npx @diode-editor/diode --version` с чистого кэша → 0.4.0; тап обновлён на v0.4.0.
+- [ ] Не проверено руками: `brew install diode-editor/tap/diode` на macOS (первая попытка на
+      macOS 14 упала на формуле; после замены на cask нужен повтор) и
       `winget install DiodeEditor.Diode` (после мержа PR) — нужна машина с brew / Windows.
 - [ ] Сайт: команда quick install на лендинге и копия `install.sh` по короткому адресу
       `diode-editor.github.io/install.sh` (репозиторий сайта).
