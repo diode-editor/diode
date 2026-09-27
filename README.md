@@ -36,15 +36,11 @@ npm install -g @diode-editor/diode
 brew install diode-editor/tap/diode
 ```
 
-**apt** (Debian, Ubuntu)
+**apt** (Debian, Ubuntu): the same script adds the Diode repository and installs the package, so
+updates come through `apt` afterwards
 
 ```sh
-sudo install -d -m 0755 /etc/apt/keyrings
-curl -fsSL https://github.com/diode-editor/diode/releases/latest/download/diode-archive-keyring.gpg \
-  | sudo tee /etc/apt/keyrings/diode.gpg >/dev/null
-echo "deb [signed-by=/etc/apt/keyrings/diode.gpg] https://github.com/diode-editor/diode/releases/latest/download ./" \
-  | sudo tee /etc/apt/sources.list.d/diode.list
-sudo apt update && sudo apt install diode
+curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh | sh -s -- --method=apt
 ```
 
 **winget** (Windows)

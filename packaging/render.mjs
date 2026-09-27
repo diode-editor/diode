@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Рендерит манифесты пакетных каналов для одного релиза:
- *   - Homebrew-формула  → <out>/brew/Formula/diode.rb
+ *   - Homebrew cask     → <out>/brew/Casks/diode.rb
  *   - winget-манифесты  → <out>/winget/DiodeEditor.Diode/<version>/*.yaml
  *
  * Источник sha256 — либо каталог с сайдкарами `<asset>.sha256` (так делает release.yml,
@@ -37,7 +37,7 @@ for (const asset of ASSETS) if (!sums[asset]) fail(`нет sha256 для ${asset
 
 const url = (asset) => `https://github.com/${REPO}/releases/download/v${version}/${asset}`;
 
-writeOut(join(out, "brew", "Formula", "diode.rb"), renderBrew());
+writeOut(join(out, "brew", "Casks", "diode.rb"), renderCask());
 const wingetDir = join(out, "winget", "DiodeEditor.Diode", version);
 writeOut(join(wingetDir, "DiodeEditor.Diode.yaml"), renderWingetVersion());
 writeOut(join(wingetDir, "DiodeEditor.Diode.installer.yaml"), renderWingetInstaller());
@@ -45,45 +45,36 @@ writeOut(join(wingetDir, "DiodeEditor.Diode.locale.en-US.yaml"), renderWingetLoc
 
 // ---------------------------------------------------------------------------
 
-function renderBrew() {
+// Cask, а не формула: формулу без бутылки Homebrew считает сборкой из исходников и на
+// macOS требует свежие Command Line Tools (formula_installer.rb: `unless pour_bottle?` →
+// perform_build_from_source_checks), хотя мы только скачиваем бинарь. Cask — штатный путь
+// для готовых бинарей; со стансами `os`/`arch` один cask покрывает macOS и Linux.
+function renderCask() {
     return `# Сгенерировано packaging/render.mjs из релиза v${version} — руками не править.
-class Diode < Formula
-  desc "Terminal text editor with VS Code keys, VS Code extensions and LSP"
-  homepage "https://diode-editor.github.io"
+cask "diode" do
+  arch arm: "arm64", intel: "x64"
+  os macos: "macos", linux: "linux"
+
   version "${version}"
-  license "GPL-3.0-or-later"
+  sha256 arm:          "${sums["diode-macos-arm64"]}",
+         intel:        "${sums["diode-macos-x64"]}",
+         arm64_linux:  "${sums["diode-linux-arm64"]}",
+         x86_64_linux: "${sums["diode-linux-x64"]}"
 
-  on_macos do
-    on_arm do
-      url "${url("diode-macos-arm64")}"
-      sha256 "${sums["diode-macos-arm64"]}"
-    end
-    on_intel do
-      url "${url("diode-macos-x64")}"
-      sha256 "${sums["diode-macos-x64"]}"
-    end
+  url "https://github.com/${REPO}/releases/download/v#{version}/diode-#{os}-#{arch}"
+  name "Diode"
+  desc "Terminal text editor with VS Code keys, VS Code extensions and LSP"
+  homepage "https://diode-editor.github.io/"
+
+  livecheck do
+    url :url
+    strategy :github_latest
   end
 
-  on_linux do
-    on_arm do
-      url "${url("diode-linux-arm64")}"
-      sha256 "${sums["diode-linux-arm64"]}"
-    end
-    on_intel do
-      url "${url("diode-linux-x64")}"
-      sha256 "${sums["diode-linux-x64"]}"
-    end
-  end
+  # Ассет — голый бинарь без архива; в stage он лежит под именем из URL.
+  container type: :naked
 
-  def install
-    # url — голый файл без архива: Homebrew кладёт его в stage под именем ассета.
-    binary = Dir["diode-*"].first
-    bin.install binary => "diode"
-  end
-
-  test do
-    assert_match version.to_s, shell_output("#{bin}/diode --version")
-  end
+  binary "diode-#{os}-#{arch}", target: "diode"
 end
 `;
 }
