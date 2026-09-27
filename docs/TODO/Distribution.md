@@ -24,14 +24,18 @@
 
 ## Чтобы заработало (руками, один раз)
 
-- [ ] `packaging/apt/gen-key.sh` → секреты `APT_GPG_PRIVATE_KEY` (base64 armored-ключа, печатает
-      скрипт) и `APT_GPG_PASSPHRASE`; ключ и пароль — в парольницу. Путь ключа проверен локально:
-      генерация с паролем → base64 → импорт «в CI» → подпись → проверка опубликованным keyring.
-- [ ] Организация `diode-editor` на npm; первая публикация `@diode-editor/diode` руками, затем
-      Trusted Publisher (GitHub Actions, `release.yml`) в настройках пакета — токена и секрета нет
-      (packaging/README.md).
-- [ ] Репозиторий `diode-editor/homebrew-tap` (пустой, публичный); `REPOSITORY_PAT` должен иметь
-      в него push.
+- [x] `packaging/apt/gen-key.sh` → секреты `APT_GPG_PRIVATE_KEY` (base64 armored-ключа, печатает
+      скрипт) и `APT_GPG_PASSPHRASE` заведены 2026-09-27; ключ и пароль — в парольнице владельца.
+      Путь ключа проверен локально: генерация с паролем → base64 → импорт «в CI» → подпись →
+      проверка опубликованным keyring.
+- [x] `@diode-editor/diode@0.3.0` опубликован руками 2026-09-27, `npx` с чистого кэша работает.
+- [ ] Trusted Publisher (GitHub Actions, `release.yml`) в настройках пакета на npmjs.com —
+      проверится первым OIDC-релизом (packaging/README.md).
+- [x] Репозиторий `diode-editor/homebrew-tap` создан, в нём формула v0.3.0 (2026-09-27).
+- [ ] `REPOSITORY_PAT` должен иметь push в `homebrew-tap`: classic-токен со scope `repo` покрывает
+      все репозитории организации, fine-grained — только перечисленные в «Repository access»
+      с Contents: read and write. Проверка: `curl -H "Authorization: Bearer $PAT"
+      https://api.github.com/repos/diode-editor/homebrew-tap` → `"permissions": {"push": true}`.
 - [ ] Первая подача в winget руками (packaging/README.md), после мержа — секрет `WINGET_TOKEN`.
 - [ ] Тег `vX.Y.Z` через `bump-version.yml` — первый релиз, у которого есть сайдкары, `.deb` и apt.
 - [ ] После релиза проверить на живом: `install.sh` (sha256 OK), `apt update` на Debian/Ubuntu,
