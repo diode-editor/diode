@@ -17,8 +17,47 @@ manager involved. Then:
 diode .
 ```
 
-Other channels (apt, Homebrew, npm, winget) and the nightly build are listed in
-[docs/public/INSTALL.md](docs/public/INSTALL.md).
+## Other ways to install
+
+Every channel delivers the same single-file binary from
+[GitHub Releases](https://github.com/diode-editor/diode/releases). Details, knobs and the manual
+route: [docs/public/INSTALL.md](docs/public/INSTALL.md).
+
+**npm / npx** (Linux, macOS, Windows)
+
+```sh
+npx @diode-editor/diode            # run without installing
+npm install -g @diode-editor/diode
+```
+
+**Homebrew** (macOS, Linux)
+
+```sh
+brew install diode-editor/tap/diode
+```
+
+**apt** (Debian, Ubuntu)
+
+```sh
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://github.com/diode-editor/diode/releases/latest/download/diode-archive-keyring.gpg \
+  | sudo tee /etc/apt/keyrings/diode.gpg >/dev/null
+echo "deb [signed-by=/etc/apt/keyrings/diode.gpg] https://github.com/diode-editor/diode/releases/latest/download ./" \
+  | sudo tee /etc/apt/sources.list.d/diode.list
+sudo apt update && sudo apt install diode
+```
+
+**winget** (Windows)
+
+```powershell
+winget install DiodeEditor.Diode
+```
+
+**Nightly** build from `main`, fixed tag `nightly`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh | DIODE_VERSION=nightly sh
+```
 
 ## Status
 

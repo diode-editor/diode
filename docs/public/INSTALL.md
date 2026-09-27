@@ -68,7 +68,7 @@ mise use -g github:diode-editor/diode
 Built every night from `main` under the fixed tag `nightly`:
 
 ```sh
-DIODE_VERSION=nightly sh -c "$(curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh)"
+curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh | DIODE_VERSION=nightly sh
 ```
 
 or download an asset directly from
