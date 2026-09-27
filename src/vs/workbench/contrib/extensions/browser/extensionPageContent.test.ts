@@ -361,8 +361,11 @@ describe("страница расширения с частичной подде
 
     it("шапка предупреждает одной строкой", () => {
         const lines = buildExtensionHeaderLines(content({ entry: entry({ support }) }), 80);
-        const warning = lines.find((l) => l.text === PARTIAL_SUPPORT_HEADLINE);
+        // Текст литералом, а не через константу: иначе ассерт переезжает вместе
+        // с ней, и подмена строки остаётся незамеченной.
+        const warning = lines.find((l) => l.text === "Partial support: some features do not work in Diode");
         expect(warning?.tone).toBe("warning");
+        expect(PARTIAL_SUPPORT_HEADLINE).toBe("Partial support: some features do not work in Diode");
     });
 
     it("тело не повторяет заголовок из шапки", () => {
@@ -393,6 +396,15 @@ describe("страница расширения с частичной подде
         expect(texts.some((t) => t.includes("network is down"))).toBe(true);
     });
 
+    it("нет списка — нет и его заголовка", () => {
+        const onlyLimits = buildExtensionBodyLines(
+            content({ entry: entry({ support: { level: "partial", limits: ["Chat panel"] } }) }),
+            80,
+        );
+        expect(onlyLimits.map((l) => l.text)).not.toContain("Works in Diode:");
+        expect(onlyLimits.map((l) => l.text)).toContain("Does not work:");
+    });
+
     it("пустой список не даёт заголовка без пунктов", () => {
         // Реестр такого не опубликует, но тип это допускает: заголовок
         // «Works in Diode:», под которым пусто, читался бы как «ничего».
@@ -406,8 +418,15 @@ describe("страница расширения с частичной подде
     });
 
     it("у полной поддержки блока нет", () => {
-        const full = buildExtensionBodyLines(content({ entry: entry({ support: { level: "full" } }) }), 80);
+        const full = buildExtensionBodyLines(
+            content({ entry: entry({ support: { level: "full" } }), meta: undefined, metaError: null }),
+            80,
+        );
+        // Блока нет ЦЕЛИКОМ — ни заголовков, ни пустой строки-зазора: иначе
+        // страница полностью поддержанного расширения начиналась бы с провала.
         expect(full.map((l) => l.text)).not.toContain("Does not work:");
+        expect(full.map((l) => l.text)).not.toContain("Works in Diode:");
+        expect(full.every((l) => l.text !== "")).toBe(true);
         expect(
             buildExtensionHeaderLines(content({ entry: entry({ support: { level: "full" } }) }), 80).map((l) => l.text),
         ).not.toContain(PARTIAL_SUPPORT_HEADLINE);
