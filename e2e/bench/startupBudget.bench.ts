@@ -25,7 +25,7 @@ import { median } from "./stats.ts";
 // (и `test:perf`) с ненулевым кодом — этим и пользуемся на последнем сэмпле.
 
 /** Бюджет «наших мс над полом node» для `small`, медиана по сэмплам. */
-export const STARTUP_BUDGET_OURS_MS = 900;
+export const STARTUP_BUDGET_OURS_MS = 700;
 const SAMPLES = 5;
 
 // NB: фикстуры и пол — на верхнем уровне модуля: в режиме `vitest bench` тяжёлый
