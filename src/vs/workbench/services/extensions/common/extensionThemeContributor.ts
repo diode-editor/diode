@@ -118,6 +118,7 @@ export class ExtensionThemeContributor implements IDisposable {
         const describe = `${extension.id}: theme "${label}"`;
         try {
             const flat = await this.readThemeChain(extension, joinVirtualPath(extension.location, path), [], describe);
+            // Stryker disable next-line ConditionalExpression: индекс undefined в таблице даёт то же undefined
             let type = uiTheme === undefined ? undefined : UI_THEME_TYPES[uiTheme];
             if (type === undefined) {
                 this.logger?.warn(`${describe}: unknown uiTheme ${JSON.stringify(uiTheme)} — treated as dark`);
@@ -148,6 +149,7 @@ export class ExtensionThemeContributor implements IDisposable {
         try {
             text = await this.assets.readText(virtualPath);
         } catch (err) {
+            // Stryker disable next-line ObjectLiteral: cause нужен цепочке ошибок (preserve-caught-error), наружу уходит только текст
             throw new Error(`cannot read ${virtualPath}: ${errorMessage(err)}`, { cause: err });
         }
         let file: IThemeFile;
@@ -156,6 +158,7 @@ export class ExtensionThemeContributor implements IDisposable {
                 this.logger?.warn(`${describe} (${virtualPath}): ${message}`);
             });
         } catch (err) {
+            // Stryker disable next-line ObjectLiteral: см. выше
             throw new Error(`${virtualPath}: ${errorMessage(err)}`, { cause: err });
         }
         if (file.include === undefined) return file;
@@ -166,15 +169,19 @@ export class ExtensionThemeContributor implements IDisposable {
 }
 
 function isThemeContribution(value: unknown): value is IThemeContribution {
-    if (typeof value !== "object" || value === null) return false;
-    const { label, path } = value as { label?: unknown; path?: unknown };
+    // Опциональная цепочка покрывает и null/undefined, и примитивы (у них нет
+    // таких полей) — отдельная проверка на объект была бы избыточной.
+    const record = value as Partial<Record<"label" | "path", unknown>> | null | undefined;
+    const label = record?.label;
+    const path = record?.path;
     return typeof label === "string" && label.length > 0 && typeof path === "string" && path.length > 0;
 }
 
 /**
- * Путь `include` относительно файла темы, нормализованный (`.`/`..`) внутри
- * каталога расширения: `IAssetAccess` сегменты `..` не пропускает, а выход за
- * пределы расширения — ошибка (чужие файлы тема включать не может).
+ * Путь `include` относительно файла темы, нормализованный (`.`/`..`, пустые
+ * сегменты) внутри каталога расширения: `IAssetAccess` сегменты `..` не
+ * пропускает, а выход за пределы расширения (`extension.location` — префикс с
+ * `/` на конце) — ошибка: чужие файлы тема включать не может.
  */
 function resolveIncludePath(extensionLocation: string, themePath: string, include: string): string {
     const dir = themePath.slice(0, themePath.lastIndexOf("/") + 1);
@@ -182,15 +189,13 @@ function resolveIncludePath(extensionLocation: string, themePath: string, includ
     for (const segment of `${dir}${include}`.split("/")) {
         if (segment === "" || segment === ".") continue;
         if (segment === "..") {
-            if (segments.length === 0) throw new Error(`include "${include}" escapes the extension`);
             segments.pop();
             continue;
         }
         segments.push(segment);
     }
     const resolved = segments.join("/");
-    const root = extensionLocation.endsWith("/") ? extensionLocation : `${extensionLocation}/`;
-    if (!resolved.startsWith(root)) throw new Error(`include "${include}" escapes the extension`);
+    if (!resolved.startsWith(extensionLocation)) throw new Error(`include "${include}" escapes the extension`);
     return resolved;
 }
 

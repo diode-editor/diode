@@ -73,14 +73,15 @@ describe("mergeThemeFiles — семантика include как в scripts/impor
     it("name и type — от включающей темы; без своего type тема их не наследует у базы", () => {
         expect(mergeThemeFiles(DARK_VS, DARK_PLUS).name).toBe("Dark+");
         // Dark+ без `type`: реестр сам подставит dark, база тут ни при чём —
-        // в VS Code тип определяет манифест (uiTheme), а не include.
-        expect(mergeThemeFiles(DARK_VS, DARK_PLUS).type).toBeUndefined();
+        // в VS Code тип определяет манифест (uiTheme), а не include. Ключа при
+        // этом нет вовсе (не `type: undefined`).
+        expect(Object.keys(mergeThemeFiles(DARK_VS, DARK_PLUS))).toEqual(["colors", "tokenColors", "name"]);
         expect(mergeThemeFiles(DARK_VS, DARK_MODERN).type).toBe("dark");
     });
 
     it("отсутствующие tokenColors с обеих сторон дают пустой массив", () => {
         const merged = mergeThemeFiles({ colors: { a: "#000" } }, { colors: { b: "#FFF" } });
-        expect(merged).toEqual({ colors: { a: "#000", b: "#FFF" }, tokenColors: [] });
+        expect(merged).toStrictEqual({ colors: { a: "#000", b: "#FFF" }, tokenColors: [] });
     });
 
     it("не мутирует аргументы", () => {

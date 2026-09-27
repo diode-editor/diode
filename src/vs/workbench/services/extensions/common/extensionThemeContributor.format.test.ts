@@ -56,7 +56,8 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
             [{ label: "Nested", uiTheme: "vs-dark", path: "./themes/nested/child.json" }],
             {
                 "themes/nested/child.json": JSON.stringify({ include: "../base.json", colors: {} }),
-                "themes/base.json": JSON.stringify({ include: "./../shared/root.json", colors: { a: "#111111" } }),
+                // Лишний `/` и `./` в середине нормализуются, как у path.posix.
+                "themes/base.json": JSON.stringify({ include: ".//../shared/./root.json", colors: { a: "#111111" } }),
                 "shared/root.json": JSON.stringify({ colors: { "editor.background": "#ABCDEF" } }),
             },
         );
@@ -212,7 +213,9 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
                 { uiTheme: "vs-dark", path: "./t.json" },
                 { label: "", path: "./t.json" },
                 { label: "No Path" },
+                { label: "Empty Path", path: "" },
                 "not-an-object",
+                null,
                 { label: "Fine", uiTheme: "vs-dark", path: "./t.json" },
             ],
             { "t.json": JSON.stringify({ colors: {} }) },
@@ -221,7 +224,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         expect(registry.list()).toEqual([{ label: "Fine", type: "dark" }]);
         expect(assets.reads).toEqual([`${LOCATION}t.json`]);
         expect(logger.warn.mock.calls.map((call: unknown[]) => call[0])).toEqual(
-            [0, 1, 2, 3].map(
+            [0, 1, 2, 3, 4, 5].map(
                 (index) =>
                     `${EXT}: contributes.themes[${String(index)}] skipped — "label" and "path" must be non-empty strings`,
             ),

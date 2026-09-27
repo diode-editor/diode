@@ -53,8 +53,20 @@ describe("isHexColor", () => {
     });
 
     it("rejects everything else without throwing", () => {
-        for (const value of ["", "1E1E1E", "#FF", "#FFFFFFFFF", "#GGGGGG", "red", 0x1e1e1e, null, undefined]) {
-            expect(isHexColor(value), String(value)).toBe(false);
-        }
+        const values: unknown[] = [
+            "",
+            "1E1E1E",
+            "#FF",
+            "#FFFFFFFFF",
+            "#GGGGGG",
+            "red",
+            "x#FFF",
+            "#FFF ",
+            0x1e1e1e,
+            null,
+        ];
+        // Не-строка со строковым видом цвета — тоже нет: проверяется тип, а не toString.
+        values.push({ toString: () => "#FFFFFF" }, undefined);
+        for (const value of values) expect(isHexColor(value), String(value)).toBe(false);
     });
 });

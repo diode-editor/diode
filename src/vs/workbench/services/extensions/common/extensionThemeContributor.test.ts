@@ -1,5 +1,5 @@
 import { packRgb, packRgba } from "@tuidom/core/common/colorUtils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createLoggerSpy, extensionWithThemes, MemoryAssets } from "../../../../../TestUtils/themeExtensionFixture.ts";
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
@@ -161,9 +161,10 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(registry.list().map((d) => d.label)).toEqual(["Slow", "Fast"]);
     });
 
-    it("dispose() снимает регистрации этого контрибьютора, встроенные остаются", async () => {
+    it("dispose() снимает ровно свои регистрации, встроенные остаются", async () => {
         const { ext, assets } = sampleExtension();
         const registry = createBuiltinThemeRegistry();
+        const unregister = vi.spyOn(registry, "unregister");
         const contributor = new ExtensionThemeContributor(assets, [ext], registry);
         await contributor.apply();
         expect(registry.has("Sample Dark")).toBe(true);
@@ -173,8 +174,37 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(registry.has("Sample Dark")).toBe(false);
         expect(registry.has("Sample Light")).toBe(false);
         expect(registry.list()).toHaveLength(builtinThemes.length);
-        // Повторный dispose — no-op.
+        expect(unregister.mock.calls).toEqual([["Sample Dark"], ["Sample Light"]]);
+        // Повторный dispose — no-op: снимать больше нечего.
         contributor.dispose();
+        expect(unregister).toHaveBeenCalledTimes(2);
         expect(registry.list()).toHaveLength(builtinThemes.length);
+    });
+
+    it("без логгера все ветки предупреждений и ошибок молчат, а не падают", async () => {
+        const shadow = extensionWithThemes("a.shadow", [
+            { label: "Monokai", path: "./mono.json" },
+            { label: "Twin", uiTheme: "vs-sepia", path: "./twin.json" },
+            { label: "Broken", uiTheme: "vs-dark", path: "./broken.json" },
+            { label: "Sloppy", uiTheme: "vs-dark", path: "./sloppy.json" },
+            { path: "./no-label.json" },
+        ]);
+        const twin = extensionWithThemes("b.twin", [{ label: "Twin", uiTheme: "vs", path: "./twin.json" }]);
+        const assets = new MemoryAssets({
+            [`${shadow.location}mono.json`]: JSON.stringify({ colors: {} }),
+            [`${shadow.location}twin.json`]: JSON.stringify({ colors: {} }),
+            [`${shadow.location}broken.json`]: "{ not json",
+            [`${shadow.location}sloppy.json`]: JSON.stringify({ colors: { a: "red" } }),
+            [`${twin.location}twin.json`]: JSON.stringify({ colors: {} }),
+        });
+        const registry = createBuiltinThemeRegistry();
+
+        await new ExtensionThemeContributor(assets, [shadow, twin], registry).apply();
+
+        expect(registry.list().slice(builtinThemes.length)).toEqual([
+            { label: "Twin", type: "light" },
+            { label: "Sloppy", type: "dark" },
+        ]);
+        expect(registry.list().filter((d) => d.label === "Monokai")).toHaveLength(1);
     });
 });
