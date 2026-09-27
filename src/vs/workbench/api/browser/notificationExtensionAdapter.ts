@@ -1,0 +1,55 @@
+import type { INotificationRequest, INotificationSink } from "../../services/extensions/node/extensionHost.ts";
+import type { NotificationService } from "../../services/notification/browser/notificationService.ts";
+import type { IWireMessageItem } from "../common/wireTypes.ts";
+
+/**
+ * Мост `window.show{Information,Warning,Error}Message` расширений к поверхности
+ * сообщений приложения (реализация {@link INotificationSink}): просьба
+ * субпроцесса поднимает тот же тост/диалог, которым пользуются наши команды, а
+ * нажатая кнопка уезжает обратно расширению. Проводка — `extensionHostModule`
+ * (сток `ExtensionHost.notificationSink`).
+ *
+ * Адаптер держит показы по `handle`: гасить по смерти субпроцесса можно только
+ * СВОИ — сообщения, поднятые ядром, к расширению отношения не имеют.
+ */
+export class NotificationExtensionAdapter implements INotificationSink {
+    /** id внутри сервиса по handle показа — живут только незакрытые сообщения. */
+    private readonly openMessages = new Map<number, number>();
+
+    public constructor(private readonly notifications: NotificationService) {}
+
+    public async showMessage(request: INotificationRequest): Promise<number | undefined> {
+        const closeAffordance = findCloseAffordance(request.items);
+        const handle = this.notifications.show({
+            severity: request.severity,
+            message: request.message,
+            ...(request.detail !== undefined ? { detail: request.detail } : {}),
+            modal: request.modal,
+            items: request.items.map((item) => item.title),
+            ...(closeAffordance !== null ? { closeAffordance } : {}),
+        });
+        this.openMessages.set(request.handle, handle.id);
+        try {
+            return await handle.answered;
+        } finally {
+            this.openMessages.delete(request.handle);
+        }
+    }
+
+    public cancel(handle: number): void {
+        const id = this.openMessages.get(handle);
+        if (id === undefined) return;
+        this.openMessages.delete(handle);
+        this.notifications.dismiss(id);
+    }
+}
+
+/**
+ * Индекс кнопки, которую вернуть при закрытии модального окна по Escape
+ * (`MessageItem.isCloseAffordance`). Первая помеченная — как в эталоне; `null` —
+ * расширение не помечало ни одной.
+ */
+export function findCloseAffordance(items: readonly IWireMessageItem[]): number | null {
+    const index = items.findIndex((item) => item.isCloseAffordance);
+    return index < 0 ? null : index;
+}

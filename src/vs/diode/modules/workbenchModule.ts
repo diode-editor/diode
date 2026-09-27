@@ -28,6 +28,10 @@ import {
     TabSwitcherComponent,
     TabSwitcherComponentDIToken,
 } from "../../workbench/browser/parts/editor/tabSwitcherComponent.ts";
+import {
+    NotificationsComponent,
+    NotificationsComponentDIToken,
+} from "../../workbench/browser/parts/notifications/notificationsComponent.ts";
 import { PanelComponent, PanelComponentDIToken } from "../../workbench/browser/parts/panel/panelComponent.ts";
 import {
     PanelFocusContribution,
@@ -68,6 +72,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/b
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
 import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/browser/workbenchContributions.ts";
 import { WorkbenchStateService, WorkbenchStateServiceDIToken } from "../../workbench/browser/workbenchStateService.ts";
+import { ClipboardDIToken } from "../../workbench/common/coreTokens.ts";
 import {
     WorkbenchContributionsDIToken,
     WorkbenchContributionsRegistry,
@@ -223,6 +228,11 @@ import {
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { EditorService, EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
+import {
+    ExternalOpenerService,
+    spawnDetached,
+} from "../../workbench/services/externalOpener/node/externalOpenerService.ts";
 import {
     HistoryEditorSourceDIToken,
     HistoryService,
@@ -238,6 +248,10 @@ import {
     LifecycleService,
     LifecycleServiceDIToken,
 } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
+import {
+    NotificationService,
+    NotificationServiceDIToken,
+} from "../../workbench/services/notification/browser/notificationService.ts";
 import { OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputChannelRegistry } from "../../workbench/services/output/common/outputChannelRegistry.ts";
 import { OutputService, OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
@@ -293,6 +307,26 @@ export const workbenchModule: ContainerModule = (container) => {
     // Модальные диалоги: хост (BodyElement с overlay-слоем) прикрепляет владелец
     // корневого дерева — WorkbenchComponent — через attachHost() после построения view.
     container.bind(DialogServiceDIToken, DialogService);
+    // Сообщения человеку: сервис (очередь показов и самогашение) + компонент
+    // (стек тостов над статус-баром и окно модального сообщения; overlay-хост
+    // прикрепляет WorkbenchComponent через attachHost).
+    container.bind(NotificationServiceDIToken, NotificationService);
+    container.bind(NotificationsComponentDIToken, NotificationsComponent);
+    // Открытие внешних ссылок (env.openExternal расширений): системный
+    // обработчик, а без графического сеанса — URL в буфер и сообщением на экран.
+    // Швы отдаём колбэками: сервис в `node`, а поверхность сообщений в `browser`.
+    container.bind(ExternalOpenerDIToken, () => {
+        const notifications = container.get(NotificationServiceDIToken);
+        return new ExternalOpenerService({
+            platform: process.platform,
+            env: process.env,
+            launch: spawnDetached,
+            clipboard: container.get(ClipboardDIToken),
+            showInfo: (message) => {
+                notifications.show({ severity: "info", message, modal: false, items: [] });
+            },
+        });
+    });
     // Shutdown-протокол: участников регистрирует владелец приложения (WorkbenchComponent
     // записывает EditorService), выход передаётся колбэком в requestQuit().
     container.bind(LifecycleServiceDIToken, LifecycleService);

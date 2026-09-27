@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -118,6 +119,10 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     // Ввод/выбор у человека: собственный модуль — у него своя проводка
     // (handle'ы показов, обратный запрос валидации, токен отмены).
     const quickInput = createQuickInputApi(rpc);
+    // Сообщения человеку: тоже собственный модуль — у него свой разбор четырёх
+    // перегрузок (`MessageOptions` первым аргументом, кнопки строками или
+    // `MessageItem`-ами) и возврат расширению ЕГО предмета.
+    const messages = createMessageApi(rpc);
 
     let activeEditorUri: string | null = null;
     /** Группа активного редактора (из меты); null — до первой меты с группой. */
@@ -682,9 +687,16 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             return disposable;
         },
 
-        showErrorMessage: (message: string): Thenable<string | undefined> => showMessage(rpc, "error", message),
-        showWarningMessage: (message: string): Thenable<string | undefined> => showMessage(rpc, "warn", message),
-        showInformationMessage: (message: string): Thenable<string | undefined> => showMessage(rpc, "info", message),
+        // Сообщения человеку (тост над статус-баром, у модального — диалог) со
+        // всеми четырьмя перегрузками: кнопки и MessageOptions разбирает
+        // messageNamespace.ts, ответ возвращается тем же предметом, что прислало
+        // расширение.
+        showErrorMessage: (message: string, ...rest: unknown[]): Thenable<unknown> =>
+            messages.showErrorMessage(message, ...rest),
+        showWarningMessage: (message: string, ...rest: unknown[]): Thenable<unknown> =>
+            messages.showWarningMessage(message, ...rest),
+        showInformationMessage: (message: string, ...rest: unknown[]): Thenable<unknown> =>
+            messages.showInformationMessage(message, ...rest),
 
         // Создаёт тип декорации: числовой ключ монотонен и живёт локально;
         // хосту уходит сериализованный options (ThemeColor → { $themeColor: id }).
@@ -1100,15 +1112,6 @@ function toWireEditRange(location: vscode.Range | vscode.Position): IWireEditorE
     }
     const pos = location as vscode.Position;
     return { startLine: pos.line, startCharacter: pos.character, endLine: pos.line, endCharacter: pos.character };
-}
-
-function showMessage(
-    rpc: RpcEndpoint,
-    severity: "error" | "warn" | "info",
-    message: string,
-): Thenable<string | undefined> {
-    rpc.notify("window.showMessage", { severity, message });
-    return Promise.resolve(undefined);
 }
 
 function normalizeTabSize(value: number | string): number {

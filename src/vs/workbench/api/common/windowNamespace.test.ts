@@ -108,16 +108,36 @@ describe("WindowNamespace", () => {
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("show*Message шлёт window.showMessage с правильным severity", async () => {
+    // Разбор перегрузок и возврат выбранной кнопки закрыт в
+    // messageNamespace.test.ts; здесь — что window действительно отдаёт api
+    // наружу и что показ это ЗАПРОС (ответа ждут), а не уведомление.
+    it("show*Message уходит хосту запросом с правильным severity", async () => {
         const { stub, window } = makeCtx();
+        stub.responder = () => ({ index: null });
         await window.showErrorMessage("boom");
         await window.showWarningMessage("careful");
         await window.showInformationMessage("fyi");
-        expect(stub.notifies).toEqual([
-            { method: "window.showMessage", params: { severity: "error", message: "boom" } },
-            { method: "window.showMessage", params: { severity: "warn", message: "careful" } },
-            { method: "window.showMessage", params: { severity: "info", message: "fyi" } },
+        expect(stub.notifies).toEqual([]);
+        expect(stub.requests).toEqual([
+            {
+                method: "window.showMessage",
+                params: { severity: "error", message: "boom", modal: false, items: [] },
+            },
+            {
+                method: "window.showMessage",
+                params: { severity: "warn", message: "careful", modal: false, items: [] },
+            },
+            {
+                method: "window.showMessage",
+                params: { severity: "info", message: "fyi", modal: false, items: [] },
+            },
         ]);
+    });
+
+    it("нажатая кнопка доезжает до расширения через window", async () => {
+        const { stub, window } = makeCtx();
+        stub.responder = () => ({ index: 0 });
+        await expect(window.showWarningMessage("careful", "Activate")).resolves.toBe("Activate");
     });
 
     // Сам провод quick input'а закрыт в quickInputNamespace.test.ts; здесь

@@ -978,24 +978,259 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("routes window.showMessage notifications to the logger by severity", async () => {
+    it("дублирует window.showMessage в логгер по строгости — история остаётся после того, как тост погас", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
-        const send = (severity: string, message: unknown): void => {
-            child.receiveFromHostPeer({ kind: "notif", method: "window.showMessage", params: { severity, message } });
+        let nextId = 700;
+        const send = (severity: string, message: unknown): number => {
+            const id = nextId++;
+            child.receiveFromHostPeer({
+                kind: "req",
+                id,
+                method: "window.showMessage",
+                params: { severity, message },
+            });
+            return id;
         };
         send("error", "boom");
         send("warn", "careful");
-        send("info", "fyi");
-        send("info", 42); // не-строка → String(message)
+        const last = send("info", "fyi");
 
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === last));
         expect(logger.error).toHaveBeenCalledWith("[extension] boom");
         expect(logger.warn).toHaveBeenCalledWith("[extension] careful");
         expect(logger.info).toHaveBeenCalledWith("[extension] fyi");
-        expect(logger.info).toHaveBeenCalledWith("[extension] 42");
+
+        host.dispose();
+    });
+
+    it("без стока сообщений расширение получает «закрыто без выбора», а не висит", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({
+            kind: "req",
+            id: 710,
+            method: "window.showMessage",
+            params: { severity: "info", message: "hi", items: [{ title: "One" }] },
+        });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 710));
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 710)).toMatchObject({ result: { index: null } });
+
+        host.dispose();
+    });
+
+    it("мусорные параметры показа — тот же ответ «без выбора»", async () => {
+        const child = new FakeChild();
+        const shown: unknown[] = [];
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            notificationSink: {
+                showMessage: (request: unknown) => {
+                    shown.push(request);
+                    return Promise.resolve(undefined);
+                },
+                cancel: () => undefined,
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({ kind: "req", id: 711, method: "window.showMessage", params: 42 });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 711));
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 711)).toMatchObject({ result: { index: null } });
+        expect(shown).toEqual([]);
+
+        host.dispose();
+    });
+
+    it("сток отдаёт индекс нажатой кнопки, адрес показа минтит хост", async () => {
+        const child = new FakeChild();
+        const handles: number[] = [];
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            notificationSink: {
+                showMessage: (request: { handle: number }) => {
+                    handles.push(request.handle);
+                    return Promise.resolve(1);
+                },
+                cancel: () => undefined,
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        for (const id of [720, 721]) {
+            child.receiveFromHostPeer({
+                kind: "req",
+                id,
+                method: "window.showMessage",
+                params: { severity: "info", message: "hi", items: [{ title: "A" }, { title: "B" }] },
+            });
+        }
+
+        await waitUntil(
+            () => child.sent.filter((m) => m.kind === "res" && (m.id === 720 || m.id === 721)).length === 2,
+        );
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 720)).toMatchObject({ result: { index: 1 } });
+        // Адреса разные: по ним хост гасит показы умершего субпроцесса.
+        expect(new Set(handles).size).toBe(2);
+
+        host.dispose();
+    });
+
+    it("поломка поверхности не отклоняет запрос расширения (иначе падает весь субпроцесс)", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            notificationSink: {
+                showMessage: () => Promise.reject(new Error("widget exploded")),
+                cancel: () => undefined,
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({
+            kind: "req",
+            id: 730,
+            method: "window.showMessage",
+            params: { severity: "info", message: "hi" },
+        });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 730));
+        const res = child.sent.find((m) => m.kind === "res" && m.id === 730);
+        expect(res).toMatchObject({ result: { index: null } });
+        expect(res).not.toHaveProperty("error");
+        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("widget exploded"));
+
+        host.dispose();
+    });
+
+    it("смерть субпроцесса гасит его живые сообщения: отвечать на них стало некому", async () => {
+        const child = new FakeChild();
+        const cancelled: number[] = [];
+        let shownHandle = -1;
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger: makeLogger(),
+            notificationSink: {
+                showMessage: (request: { handle: number }) => {
+                    shownHandle = request.handle;
+                    // Показ живой: обещание не резолвится до ответа человека.
+                    return new Promise<number | undefined>(() => undefined);
+                },
+                cancel: (handle: number) => cancelled.push(handle),
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({
+            kind: "req",
+            id: 740,
+            method: "window.showMessage",
+            params: { severity: "info", message: "hi", items: [{ title: "One" }] },
+        });
+        await waitUntil(() => shownHandle > 0);
+
+        child.simulateExit(1);
+
+        expect(cancelled).toEqual([shownHandle]);
+    });
+
+    it("env.clipboard: читает и пишет тот же буфер, что copy/paste ядра", async () => {
+        const child = new FakeChild();
+        const written: string[] = [];
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            clipboard: {
+                readText: () => Promise.resolve("from clipboard"),
+                writeText: (text: string) => {
+                    written.push(text);
+                    return Promise.resolve();
+                },
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({ kind: "req", id: 750, method: "env.clipboard.readText", params: {} });
+        child.receiveFromHostPeer({
+            kind: "req",
+            id: 751,
+            method: "env.clipboard.writeText",
+            params: { text: "written" },
+        });
+        // Не-строка буфер не затирает: расширение прислало не то, что обещает тип.
+        child.receiveFromHostPeer({ kind: "req", id: 752, method: "env.clipboard.writeText", params: { text: 7 } });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 752));
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 750)).toMatchObject({
+            result: { text: "from clipboard" },
+        });
+        expect(written).toEqual(["written"]);
+
+        host.dispose();
+    });
+
+    it("env.clipboard без буфера отдаёт пустую строку, а не падает", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({ kind: "req", id: 760, method: "env.clipboard.readText", params: {} });
+        child.receiveFromHostPeer({ kind: "req", id: 761, method: "env.clipboard.writeText", params: { text: "x" } });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 761));
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 760)).toMatchObject({ result: { text: "" } });
+
+        host.dispose();
+    });
+
+    it("env.openExternal отдаёт ссылку открывателю; пустой и не-строковый uri отсекаются", async () => {
+        const child = new FakeChild();
+        const opened: string[] = [];
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            externalOpener: {
+                open: (url: string) => {
+                    opened.push(url);
+                    return Promise.resolve(true);
+                },
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({
+            kind: "req",
+            id: 770,
+            method: "env.openExternal",
+            params: { uri: "https://example.com/a?b=1" },
+        });
+        child.receiveFromHostPeer({ kind: "req", id: 771, method: "env.openExternal", params: { uri: "" } });
+        child.receiveFromHostPeer({ kind: "req", id: 772, method: "env.openExternal", params: { uri: 7 } });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 772));
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 770)).toMatchObject({ result: { opened: true } });
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 771)).toMatchObject({ result: { opened: false } });
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 772)).toMatchObject({ result: { opened: false } });
+        expect(opened).toEqual(["https://example.com/a?b=1"]);
+
+        host.dispose();
+    });
+
+    it("env.openExternal без открывателя честно отвечает «не удалось»", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({
+            kind: "req",
+            id: 780,
+            method: "env.openExternal",
+            params: { uri: "https://example.com" },
+        });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 780));
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 780)).toMatchObject({ result: { opened: false } });
 
         host.dispose();
     });

@@ -79,11 +79,14 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(inspected?.globalValue).toBe(8);
     });
 
-    it("update не поддержан — резолвится и шлёт warn", async () => {
+    it("update не поддержан — резолвится и показывает человеку warn", async () => {
         const { stub, workspace } = makeCtx();
         await workspace.getConfiguration("editor").update("tabSize", 2);
-        expect(stub.notifies[0]?.method).toBe("window.showMessage");
-        expect((stub.notifies[0]?.params as { severity: string }).severity).toBe("warn");
+        // Предупреждение теперь ВИДНО (тост), поэтому это запрос, а не notify;
+        // ответа `update` не ждёт — кнопок у сообщения нет.
+        expect(stub.requests[0]?.method).toBe("window.showMessage");
+        expect((stub.requests[0]?.params as { severity: string }).severity).toBe("warn");
+        expect((stub.requests[0]?.params as { message: string }).message).toContain("editor.tabSize");
     });
 
     it("значение секции с именем как у метода (get/has) не затирает метод", () => {
@@ -239,7 +242,7 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         )) as unknown as { getText(): string; encoding: string };
         expect(doc.getText()).toBe("Привет, мир!\n");
         expect(doc.encoding).toBe("windows1251");
-        expect(stub.notifies.some((n) => n.method === "window.showMessage")).toBe(false);
+        expect(stub.requests.some((r) => r.method === "window.showMessage")).toBe(false);
     });
 
     it("неизвестный encoding молча откатывается к дефолту (контракт vscode.d.ts)", async () => {
@@ -254,7 +257,7 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         )) as unknown as { getText(): string; encoding: string };
         expect(doc.getText()).toBe("x\n");
         expect(doc.encoding).toBe("utf8");
-        expect(stub.notifies.some((n) => n.method === "window.showMessage")).toBe(false);
+        expect(stub.requests.some((r) => r.method === "window.showMessage")).toBe(false);
     });
 
     it("эфемерный документ детектит encoding по BOM и EOL по содержимому", async () => {

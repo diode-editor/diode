@@ -86,6 +86,10 @@ import { DiffEditorPane2 } from "./parts/editor/diffEditorPane2.ts";
 import { EditorPartComponent, EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
 import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 import { TextEditorPane } from "./parts/editor/textEditorPane.ts";
+import {
+    type NotificationsComponent,
+    NotificationsComponentDIToken,
+} from "./parts/notifications/notificationsComponent.ts";
 import { PanelComponentDIToken } from "./parts/panel/panelComponent.ts";
 import { QuickInputComponentDIToken } from "./parts/quickinput/quickInputComponent.ts";
 import type { QuickInputService } from "./parts/quickinput/quickInputService.ts";
@@ -151,6 +155,7 @@ export class WorkbenchComponent extends Component {
     private fileSearchService: FileSearchService;
     private quickInput: QuickInputService;
     private statusBarComponent: StatusBarComponent;
+    private notificationsComponent: NotificationsComponent;
     private terminalService: TerminalService;
     private layoutService: LayoutService;
     private workbenchContextKeys: WorkbenchContextKeys;
@@ -300,6 +305,10 @@ export class WorkbenchComponent extends Component {
         // Оверлей серии Ctrl+Tab (MRU-список вкладок) — passthrough-сессия
         // того же слоя; показ/скрытие ведут события EditorService.
         this.register(accessor.get(TabSwitcherComponentDIToken)).attachHost(this.view);
+        // Сообщения: стек тостов в правом нижнем углу (passthrough) и окно
+        // модального сообщения по центру — тот же слой.
+        this.notificationsComponent = this.register(accessor.get(NotificationsComponentDIToken));
+        this.notificationsComponent.attachHost(this.view);
         // Рекордер комбинаций вкладки Keyboard Shortcuts — модальный оверлей
         // того же слоя.
         this.register(accessor.get(KeybindingRecorderComponentDIToken)).attachHost(this.view);

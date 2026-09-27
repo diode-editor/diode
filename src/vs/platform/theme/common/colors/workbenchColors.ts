@@ -114,4 +114,35 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "The default foreground color of the Integrated Terminal.",
     },
+    // Тосты сообщений (стек над статус-баром). В vscode эти три токена
+    // деривируются из editorWidget.{background,foreground} и
+    // notificationCenterHeader.background; derived-цветов реестр не
+    // поддерживает, поэтому дефолты продублированы hex-ом — держи их в
+    // лок-степе с источниками.
+    "notifications.background": {
+        defaults: { dark: "#252526", light: "#F3F3F3" },
+        description: "Notification toast background color.",
+    },
+    "notifications.foreground": {
+        defaults: { dark: "#CCCCCC", light: "#616161" },
+        description: "Notification toast foreground color.",
+    },
+    "notifications.border": {
+        defaults: { dark: "#303031", light: "#E7E7E7" },
+        description: "Notification toast border color, separating it from other notifications.",
+    },
+    // Акцент строгости — он же цвет заголовка тоста. Дефолты продублированы с
+    // editorInfo/editorWarning/editorError.foreground по той же причине.
+    "notificationsInfoIcon.foreground": {
+        defaults: { dark: "#3794FF", light: "#1A85FF" },
+        description: "The color used for the notification info icon.",
+    },
+    "notificationsWarningIcon.foreground": {
+        defaults: { dark: "#CCA700", light: "#BF8803" },
+        description: "The color used for the notification warning icon.",
+    },
+    "notificationsErrorIcon.foreground": {
+        defaults: { dark: "#F14C4C", light: "#E51400" },
+        description: "The color used for the notification error icon.",
+    },
 } as const satisfies ColorContribution;
