@@ -1,23 +1,30 @@
 # Бенчмарк открытия файла (e2e/bench/benchOpen.ts) на CI.
 #
 # Цифры со shared-раннера шумные, поэтому джоба ничего не гейтит — она снимает
-# отчёт и открывает PR с обновлением docs/public/BENCH-OPEN.md (+ сырой JSON).
-# Публикация через PR сознательно: цифры смотрим глазами до мержа, шумный
-# прогон просто закрываем.
+# отчёт и кладёт его в ветку данных `bench-data` (scripts/bench-publish.mjs):
+# сырой JSON прогона, latest.json/latest.md и индекс прогонов. Страница
+# https://diode-editor.github.io/benchmarks/ читает эту ветку через
+# raw.githubusercontent.com и рисует последний прогон и историю по неделям.
 #
-# PR, созданный GITHUB_TOKEN, не триггерит CI-workflow'ы — для docs-only
-# изменения это ок; при желании прогнать CI — close/reopen руками.
+# Раньше отчёт открывался PR-ом в docs/public — Actions в этом репозитории не
+# может создавать PR (настройка организации), и оба прогона падали на последнем
+# шаге. Пуш в ветку данных требует только `contents: write` самого воркфлоу.
+# Шумные прогоны не отсеиваются руками: отчёт сам помечает строку «шумно» по
+# IQR, а страница показывает медиану по последним прогонам рядом с последним.
 name: Bench
 
 on:
   workflow_dispatch:
   schedule:
-    # Раз в неделю: чаще цифры без гейта читать некому.
+    # Раз в неделю: чаще цифры читать некому.
     - cron: '0 4 * * 1'
 
 permissions:
   contents: write
-  pull-requests: write
+
+concurrency:
+  group: bench-data
+  cancel-in-progress: false
 
 jobs:
   bench-open:
@@ -42,25 +49,34 @@ jobs:
       - run: npm run build:sea
 
       - name: Run open-file benchmark
-        run: npm run bench:open -- --md=docs/public/BENCH-OPEN.md --json=docs/public/bench/open.json
+        run: npm run bench:open -- --md="$RUNNER_TEMP/BENCH-OPEN.md" --json="$RUNNER_TEMP/open.json"
         env:
           DIODE_E2E_BINARY: ${{ github.workspace }}/dist/diode
 
-      - name: Open PR with the report
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Publish to the bench-data branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          branch="bench/open-report-${{ github.run_id }}"
-          git checkout -b "$branch"
-          git add docs/public/BENCH-OPEN.md docs/public/bench/open.json
-          if git diff --cached --quiet; then
-            echo "Отчёт не изменился — PR не нужен."
-            exit 0
+          # Ветка данных — сирота без общей истории с main; первый прогон создаёт
+          # её от пустого дерева, дальше — дописывает.
+          if git fetch origin bench-data:bench-data 2>/dev/null; then
+            echo "bench-data: продолжаем историю"
+          else
+            empty=$(git hash-object -t tree /dev/null)
+            git branch bench-data "$(git commit-tree "$empty" -m "bench-data: ветка данных бенчмарков")"
+            echo "bench-data: создана"
           fi
-          git commit -m "docs(bench): отчёт бенчмарка открытия файла ($(date -u +%Y-%m-%d))"
-          git push origin "$branch"
-          gh pr create \
-            --title "docs(bench): отчёт бенчмарка открытия файла ($(date -u +%Y-%m-%d))" \
-            --body "$(printf 'Автоматический отчёт джобы bench.yml (run %s, commit %s).\n\nЦифры со shared-раннера — смотрим глазами и мержим, если прогон не шумный.\n\n---\n\n%s' "${{ github.run_id }}" "${{ github.sha }}" "$(cat docs/public/BENCH-OPEN.md)")"
+          git worktree add "$RUNNER_TEMP/bench-data" bench-data
+          node scripts/bench-publish.mjs --report "$RUNNER_TEMP/open.json" --md "$RUNNER_TEMP/BENCH-OPEN.md" --out "$RUNNER_TEMP/bench-data"
+          cd "$RUNNER_TEMP/bench-data"
+          git add -A
+          git commit -m "bench(open): $(date -u +%Y-%m-%d) @ ${GITHUB_SHA::12} (run ${{ github.run_id }})"
+          git push origin bench-data
+
+      - name: Attach the report to the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-open-report
+          path: |
+            ${{ runner.temp }}/open.json
+            ${{ runner.temp }}/BENCH-OPEN.md
