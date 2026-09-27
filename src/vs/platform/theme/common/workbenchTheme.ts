@@ -91,21 +91,22 @@ export class WorkbenchTheme {
 /**
  * Hex-значение ключа с разрешением ссылок: дефолт вида `"editorWidget.background"`
  * берёт значение ЭТОГО ключа из той же таблицы (уже с цветами темы поверх
- * дефолтов), рекурсивно. Цикл или ссылка на незарегистрированный ключ —
+ * дефолтов), по цепочке. Цикл или ссылка на незарегистрированный ключ —
  * ошибка определения цвета, а не темы (сторожит colorContributions.test.ts).
  */
-function resolveReference(
-    table: Readonly<Partial<Record<string, string>>>,
-    key: string,
-    trail: readonly string[] = [],
-): string {
-    const value = table[key];
-    if (value === undefined) {
-        throw new Error(`Color "${trail.at(-1) ?? key}" refers to unknown color "${key}"`);
+function resolveReference(table: Readonly<Record<string, string>>, key: string): string {
+    const trail = [key];
+    let value = table[key];
+    while (isColorReference(value)) {
+        if (trail.includes(value)) {
+            throw new Error(`Color reference cycle: ${[...trail, value].join(" → ")}`);
+        }
+        const next = (table as Readonly<Partial<Record<string, string>>>)[value];
+        if (next === undefined) {
+            throw new Error(`Color "${trail[trail.length - 1]}" refers to unknown color "${value}"`);
+        }
+        trail.push(value);
+        value = next;
     }
-    if (!isColorReference(value)) return value;
-    if (trail.includes(key)) {
-        throw new Error(`Color reference cycle: ${[...trail, key].join(" → ")}`);
-    }
-    return resolveReference(table, value, [...trail, key]);
+    return value;
 }

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 import { WorkbenchTheme } from "../common/workbenchTheme.ts";
 
-import { applyThemeVars } from "./themeStyleVars.ts";
+import { applyThemeVars, computeThemeVars } from "./themeStyleVars.ts";
 
 function themeWithoutTerminalColors(): WorkbenchTheme {
     const base = WorkbenchTheme.fromThemeFile({ name: "no-terminal-colors", type: "dark", colors: {} });
@@ -107,6 +107,20 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(border("#282828")).toBe(0x282828); // разница 8 — различима
         // Полупрозрачный белый над #202020 даёт +28 по каналам — различим, остаётся как есть (с альфой).
         expect(border("#FFFFFF20")).toBe(packRgba(255, 255, 255, 0x20));
+    });
+
+    it("палитра без menu.* (собрана руками) — мост рамки меню молчит", () => {
+        const base = WorkbenchTheme.fromThemeFile({
+            name: "no-menu",
+            type: "dark",
+            colors: { "menu.border": "#20202080" },
+        });
+        for (const missing of ["menu.border", "menu.background", "menu.separatorBackground"] as const) {
+            const colors = { ...base.colors };
+            colors[missing] = undefined;
+            const vars = computeThemeVars(new WorkbenchTheme("no-menu", "dark", colors, base.tokenTheme));
+            expect(vars["menu.border"], missing).toBe(colors["menu.border"]);
+        }
     });
 
     it("палитра без titleBar.* вовсе (собрана руками) — мост молчит, строка меню на дефолте tuidom", () => {
