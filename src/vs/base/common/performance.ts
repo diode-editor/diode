@@ -31,7 +31,8 @@ export function isPerformanceMarksEnabled(): boolean {
  */
 export function mark(name: string, detail?: Readonly<Record<string, unknown>>): void {
     if (!enabled) return;
-    performance.mark(MARK_PREFIX + name, detail === undefined ? undefined : { detail });
+    // Без detail node кладёт в запись null — getMarks его не отдаёт.
+    performance.mark(MARK_PREFIX + name, { detail });
 }
 
 export interface IPerformanceMark {
@@ -48,7 +49,7 @@ export function getMarks(): IPerformanceMark[] {
         if (!entry.name.startsWith(MARK_PREFIX)) continue;
         const detail: unknown = (entry as PerformanceMark).detail;
         result.push(
-            detail === null || detail === undefined
+            detail === null
                 ? { name: entry.name.slice(MARK_PREFIX.length), startTime: entry.startTime }
                 : { name: entry.name.slice(MARK_PREFIX.length), startTime: entry.startTime, detail },
         );

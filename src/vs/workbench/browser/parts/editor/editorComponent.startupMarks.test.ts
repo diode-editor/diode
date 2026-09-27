@@ -71,7 +71,10 @@ describe("EditorComponent + TextFileModel — вехи старта", () => {
 
     it("реестр без поддержки языка — fallback на plaintext без вехи tokenizer-ready", () => {
         enablePerformanceMarks();
-        const ctrl = createEditorPane({ registry: new TokenizationRegistry(), languageService: typescriptLanguageService });
+        const ctrl = createEditorPane({
+            registry: new TokenizationRegistry(),
+            languageService: typescriptLanguageService,
+        });
         ctrl.openFile(Uri.file(ws.writeFile("a.ts", "const x = 1;")));
 
         expect(getMarks().some((m) => m.name === "editor:tokenizer-ready")).toBe(false);

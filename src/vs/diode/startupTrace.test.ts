@@ -131,6 +131,9 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         expect(trace.pid).toBe(process.pid);
         expect(trace.timeOrigin).toBe(performance.timeOrigin);
         expect(trace.nodeTiming.bootstrapComplete).toBeGreaterThan(0);
+        // Только числовые вехи: `name`/`entryType` из nodeTiming.toJSON() отсеяны.
+        expect(Object.values(trace.nodeTiming).every((v) => typeof v === "number")).toBe(true);
+        expect("name" in trace.nodeTiming).toBe(false);
         expect(trace.complete).toBe(false);
         expect(trace.marks.map((m) => m.name)).toEqual(["main:start", "frame"]);
     });
@@ -141,7 +144,10 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         mark("workbench:mounted");
         const path = join(dir, "trace.json");
         writeStartupTrace(path, true);
-        const parsed = JSON.parse(readFileSync(path, "utf8")) as IStartupTrace;
+        const text = readFileSync(path, "utf8");
+        // Одна JSON-строка с переводом строки в конце — как пишут все наши файлы.
+        expect(text.endsWith("}\n")).toBe(true);
+        const parsed = JSON.parse(text) as IStartupTrace;
         expect(parsed.complete).toBe(true);
         expect(parsed.marks.map((m) => m.name)).toEqual(["workbench:mounted"]);
         expect(typeof parsed.marks[0].startTime).toBe("number");
