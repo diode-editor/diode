@@ -393,6 +393,18 @@ describe("страница расширения с частичной подде
         expect(texts.some((t) => t.includes("network is down"))).toBe(true);
     });
 
+    it("пустой список не даёт заголовка без пунктов", () => {
+        // Реестр такого не опубликует, но тип это допускает: заголовок
+        // «Works in Diode:», под которым пусто, читался бы как «ничего».
+        const lines = buildExtensionBodyLines(
+            content({ entry: entry({ support: { level: "partial", works: [], limits: ["Chat panel"] } }) }),
+            80,
+        );
+        const texts = lines.map((l) => l.text);
+        expect(texts).not.toContain("Works in Diode:");
+        expect(texts).toContain("Does not work:");
+    });
+
     it("у полной поддержки блока нет", () => {
         const full = buildExtensionBodyLines(content({ entry: entry({ support: { level: "full" } }) }), 80);
         expect(full.map((l) => l.text)).not.toContain("Does not work:");
