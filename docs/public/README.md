@@ -5,7 +5,7 @@
 пользователя и читаются с лендинга.
 
 - [BENCHMARKS.md](BENCHMARKS.md) — скорость старта: лестница, сравнение с другими редакторами, методика
-- [BENCH-OPEN.md](BENCH-OPEN.md) — открытие файла: до текста и до подсветки, от 100 строк до 500 МБ; обновляется PR-ами джобы `bench.yml`
+- [BENCH-OPEN.md](BENCH-OPEN.md) — открытие файла от 100 строк до 500 МБ: наших мс над полом node и над полом бинаря, лестница вех внутри процесса рядом с чёрным ящиком, латентность клавиш после открытия, peak RSS; обновляется PR-ами джобы `bench.yml`, бюджет кухни старта защищён `npm run test:perf`
 - [API-COVERAGE.md](API-COVERAGE.md) — матрица готовности API расширений VS Code
 - [ROADMAP.md](ROADMAP.md) — статус «альфа», цель и порядок движения
 - [INSTALL.md](INSTALL.md) — все каналы установки: quick install, npm, Homebrew, apt, winget, nightly

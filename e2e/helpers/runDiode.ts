@@ -114,6 +114,11 @@ export class DiodeSession {
         return this.exited;
     }
 
+    /** PID процесса редактора (бенч читает `/proc/<pid>/status` ради peak RSS). */
+    public get pid(): number {
+        return this.term.pid;
+    }
+
     public get code(): number | null {
         return this.exitCode;
     }

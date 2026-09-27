@@ -62,6 +62,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [ ] [Inspector](Inspector.md) — рефакторинг TUIElement-иерархии + основа приложения → inspector-протокол (`--inspect-tui`) для e2e
 - [~] [ReadonlyEditor](ReadonlyEditor.md) — read-only редактор готов; далее — конфиг-слой `files.readonly*`, сообщение при попытке правки
 - [~] [Logging](Logging.md) — ILogService + Output UI готовы; далее — inner tracing extension host, CLI flags, фильтры/Clear в Output
+- [~] [OpenPerformance](OpenPerformance.md) — красивые бенчи открытия: бенч от пола node + лестница вех и правки-нагрузка, кухня старта (≈300 мс над полом на любом файле), жадные O(N)-проходы при открытии (13 МБ — 3 с), piece tree, стриминг гигантских файлов (500 МБ — 88 с); план по этапам с целевыми цифрами
 - [~] [LongLinePerformance](LongLinePerformance.md) — фриз длинных строк снят порогом рендера, межредакторная связь — damage-tracking'ом; открыто: пер-строчный кеш `DisplayLine`, reveal-по-клику, конфиг порога
 - [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (главные блокеры сняты; остались точечные фиксы)
 - [~] [MacKeybindings](MacKeybindings.md) — мак-раскладка: ОС клавиатуры по лестнице сигналов (с XTVERSION), мак-рунги `legacy < extended < cmd` с `cap_super`, токен `mod`, полный паритет с мак-раскладкой VS Code 1.138 (сверка тестом со срезом эталона), Keyboard Doctor для фидбека сделаны; дальше — фидбек с живого мака, мост Cmd для tmux, найденные сверкой дыры pc-паритета

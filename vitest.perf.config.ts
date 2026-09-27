@@ -6,7 +6,9 @@ import { defineConfig } from "vitest/config";
 // числа бенчей не флапают CI и не влияют на coverage.
 export default defineConfig({
     test: {
-        include: ["src/**/*.bench.ts"],
+        // `e2e/bench/*.bench.ts` — перф-гейты на собранном SEA-бинаре (бюджет
+        // кухни старта); бинарь собирается лениво через getBinaryPath.
+        include: ["src/**/*.bench.ts", "e2e/bench/**/*.bench.ts"],
         testTimeout: 120_000,
         hookTimeout: 180_000,
         // Бенчи активно работают с файловой системой и chokidar-watcher'ами —

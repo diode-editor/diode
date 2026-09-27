@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -559,10 +560,14 @@ export class TextFileModel extends Disposable {
      */
     private loadDocumentFromDisk(filePath: string, explicitEncoding?: string): void {
         const buffer = fs.existsSync(filePath) ? fs.readFileSync(filePath) : Buffer.alloc(0);
+        // Вехи лестницы старта (docs/TODO/OpenPerformance.md): без трассы — no-op.
+        mark("textfile:read", { bytes: buffer.length });
         const { text: content, encoding } = decodeBuffer(buffer, explicitEncoding);
+        mark("textfile:decoded", { chars: content.length });
         this.applyEncoding(encoding);
         this.diskStat = this.readDiskStat(filePath);
         this.doc = new TextDocument(content, this.resolveLanguageId(filePath));
+        mark("textfile:document-built", { lines: this.doc.lineCount });
         this.savedVersionId = this.doc.versionId;
         this.savedEol = this.doc.eol;
         this.diskConflictValue = false;
