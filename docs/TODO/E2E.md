@@ -10,6 +10,7 @@ e2e: изолированный запуск, settle-механика `waitForId
 - [ ] CI: документировать build-essential / python3 для нативной сборки `node-pty`. Возможна замена на `@homebridge/node-pty-prebuilt-multiarch` при проблемах.
 - [ ] Расширить кейсы: открытие директории как workspace + проверка, что fixture виден в файловом дереве.
 - [ ] Снять зависимость от точной фразы из комментария (`fixture used`) — заменить на стабильный маркер в фикстуре.
+- [ ] **reload-window-win32-scenario**: сценарий `extension-theme` (Install → Reload Window → пикер) на Windows после перезагрузки окна показывает вкладку `diode.exe` и пустой сайдбар вместо восстановленной сессии — так выглядит перезапуск процесса, стартовавшего из `repoRoot` с абсолютными путями в аргументах; `extensionsInstall.functional.test.ts` (перезагрузка из изолированного воркспейса) на Windows зелёный. Пока сценарий помечен `skipOn: ["win32"]`; разобраться с аргументами рестарта на Windows (`restartProcess`), снять пометку.
 - [ ] **e2e-cross-platform**: `renders fixture text on screen` и `applies syntax highlighting` пропускаются на Windows и macOS. На Windows ConPTY инжектирует `CSI K` / clearing sequences после resize, стирая строки которые рендерер уже вывел; `stdout.on("resize")` внутри ConPTY-процесса ненадёжен → delta-рендерер не знает что нужен полный redraw. Нужно либо добавить в `NodeTerminalBackend` принудительный механизм полного сброса при потере синхронизации (watchdog по неизменному грид-хешу?), либо перейти на Inspector-протокол для e2e вместо PTY-парсинга.
 
 ## Найденные дефекты

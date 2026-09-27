@@ -62,6 +62,13 @@ describe("parseThemeFile — спасаемое с warning", () => {
         expect(() => WorkbenchTheme.fromThemeFile({ ...theme, name: "x", type: "dark" })).not.toThrow();
     });
 
+    it("без warn-колбэка предупреждения молча глотаются, результат тот же", () => {
+        const theme = parseThemeFile(
+            `{ "colors": { "editor.background": "#101010", "bad": "red" }, "tokenColors": "x.tmTheme" }`,
+        );
+        expect(theme).toStrictEqual({ colors: { "editor.background": "#101010" }, tokenColors: [] });
+    });
+
     it("colors не объект (массив, null) — игнорируется с warning", () => {
         for (const colors of [`["#fff"]`, `null`, `"#fff"`]) {
             const warn = vi.fn();

@@ -43,16 +43,16 @@ export class MemoryAssets implements IAssetAccess {
  * сторонний манифест.
  */
 export function extensionWithThemes(id: string, themes: readonly unknown[], isBuiltin = false): IExtension {
-    const parts = id.split(".");
-    const publisher = parts.at(0);
-    const name = parts.at(1);
+    const dot = id.indexOf(".");
+    const publisher = dot === -1 ? id : id.slice(0, dot);
+    const name = dot === -1 ? id : id.slice(dot + 1);
     return {
         id,
         location: `${isBuiltin ? "Extensions/builtin" : "UserExtensions"}/${id}-1.0.0/`,
         isBuiltin,
         manifest: {
-            name: name ?? id,
-            publisher: publisher ?? "test",
+            name,
+            publisher,
             version: "1.0.0",
             engines: { vscode: "*" },
             contributes: { themes: themes as readonly IThemeContribution[] },
