@@ -144,6 +144,13 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -f reports/mutation/mutation.json ]; then
+            # Отчёта нет и скрипт вышел ненулём — упал расчёт скоупа, а не
+            # «нечего мутировать»; такой гейт обязан быть красным, а не молча
+            # зелёным (см. ту же проверку в mutation.yml).
+            if [ "${{ steps.mutation.outcome }}" = "failure" ]; then
+              echo "::error::Мутационный гейт упал, не дойдя до отчёта — см. лог шага «Mutation testing»."
+              exit 1
+            fi
             echo "PR не трогает продуктовый код — мутировать нечего."
             exit 0
           fi
