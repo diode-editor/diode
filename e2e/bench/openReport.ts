@@ -30,6 +30,8 @@ export interface SizeReport {
     /** Расхождение чёрного и белого ящика: до текста (PTY) − кадр с текстом (трасса). */
     readonly boxGap: Stats | null;
     readonly workload: Readonly<Record<WorkloadStepKey, Stats | null>>;
+    /** Прогоны, где нагрузка не дошла до конца: «crash (signal 9)», «failed: …». */
+    readonly workloadFailures: readonly string[];
 }
 
 export interface ReportEnv {
@@ -95,6 +97,13 @@ export function summarizeSize(
             }),
         ),
         workload,
+        workloadFailures: measured
+            .filter((r) => r.workloadOutcome !== "ok" && r.workloadOutcome !== "skipped")
+            .map((r) =>
+                r.workloadOutcome === "crash"
+                    ? `crash${r.signal !== null ? ` (signal ${String(r.signal)})` : ""}`
+                    : `failed${r.workloadError !== null ? `: ${r.workloadError}` : ""}`,
+            ),
     };
 }
 
@@ -204,7 +213,10 @@ export function renderMarkdown(report: FullReport): string {
     lines.push(`| файл | ${WORKLOAD_STEPS.map((s) => s.label).join(" | ")} |`);
     lines.push(`| --- | ${WORKLOAD_STEPS.map(() => "---:").join(" | ")} |`);
     for (const size of report.sizes) {
-        lines.push(`| \`${size.key}\` | ${WORKLOAD_STEPS.map((s) => medianCell(size.workload[s.key])).join(" | ")} |`);
+        const note = size.workloadFailures.length === 0 ? "" : ` ${[...new Set(size.workloadFailures)].join(", ")}`;
+        lines.push(
+            `| \`${size.key}\`${note} | ${WORKLOAD_STEPS.map((s) => medianCell(size.workload[s.key])).join(" | ")} |`,
+        );
     }
     lines.push("");
 

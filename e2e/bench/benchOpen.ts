@@ -131,8 +131,11 @@ async function main(): Promise<void> {
                 results.push(result);
                 const keys =
                     result.workload.length === 0
-                        ? ""
-                        : ` keys=[${result.workload.map((w) => `${w.key}=${formatMs(w.latencyMs)}`).join(" ")}]`;
+                        ? result.workloadOutcome === "skipped"
+                            ? ""
+                            : ` workload=${result.workloadOutcome}${result.workloadError === null ? "" : ` (${result.workloadError})`}`
+                        : ` keys=[${result.workload.map((w) => `${w.key}=${formatMs(w.latencyMs)}`).join(" ")}]` +
+                          (result.workloadOutcome === "ok" ? "" : ` workload=${result.workloadOutcome}`);
                 console.error(
                     `[bench] ${spec.key} #${String(i)}${warmup ? " (warmup)" : ""}: ${result.outcome}` +
                         (result.outcome === "ok"
