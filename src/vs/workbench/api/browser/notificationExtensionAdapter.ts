@@ -28,12 +28,11 @@ export class NotificationExtensionAdapter implements INotificationSink {
             closeAffordance: findCloseAffordance(request.items),
         });
         this.openMessages.set(request.handle, handle.id);
-        try {
-            return await handle.answered;
-            // Stryker disable next-line BlockStatement,CallExpression: гигиена карты — забыть отвеченный показ. Ненаблюдаемо: гашение по забытому handle всё равно не нашло бы показа в сервисе
-        } finally {
-            this.openMessages.delete(request.handle);
-        }
+        // Без try/finally: `answered` только резолвится — сервис его не отклоняет,
+        // так что «забыть показ» достаточно сделать здесь, после ответа.
+        const answer = await handle.answered;
+        this.openMessages.delete(request.handle);
+        return answer;
     }
 
     public cancel(handle: number): void {

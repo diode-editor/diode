@@ -1908,22 +1908,19 @@ export class ExtensionHost extends Disposable {
             // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо
             const handle = this.nextMessageHandle++;
             this.activeMessageHandles.add(handle);
-            try {
-                const index = await this.notificationSink.showMessage({ ...request, handle });
-                return { index: index ?? null };
-            } catch (error) {
-                // Поверхность не смогла показать сообщение — это НАША поломка, и
-                // расширение за неё платить не должно: отказ этого запроса
-                // отклонил бы его `await show*Message(...)`, а необработанный
-                // reject валит весь субпроцесс расширений (поймано живым
-                // прогоном). Отвечаем «закрыто без выбора» и пишем в лог.
-                this.logger?.error(`[extension] showMessage failed: ${String(error)}`);
-                return { index: null };
-                // Stryker disable next-line BlockStatement,CallExpression: гигиена набора — забыть отвеченный показ. Ненаблюдаемо: гашение по забытому handle всё равно не нашло бы показа в стоке
-            } finally {
-                // Stryker disable next-line CallExpression: та же гигиена набора
-                this.activeMessageHandles.delete(handle);
-            }
+            // `.catch` вместо try/catch: поверхность, не сумевшая показать
+            // сообщение, — это НАША поломка, и расширение за неё платить не
+            // должно. Отказ этого запроса отклонил бы его `await show*Message(...)`,
+            // а необработанный reject валит весь субпроцесс расширений (поймано
+            // живым прогоном). Отвечаем «закрыто без выбора» и пишем в лог.
+            const index = await this.notificationSink
+                .showMessage({ ...request, handle })
+                .catch((error: unknown): undefined => {
+                    this.logger?.error(`[extension] showMessage failed: ${String(error)}`);
+                    return undefined;
+                });
+            this.activeMessageHandles.delete(handle);
+            return { index: index ?? null };
         });
         // ─── env: буфер обмена и внешние ссылки ──────────────────────────────
         rpc.handleRequest("env.clipboard.readText", async (): Promise<IWireClipboardText> => {
