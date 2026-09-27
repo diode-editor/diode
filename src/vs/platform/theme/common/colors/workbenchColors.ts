@@ -120,11 +120,11 @@ export const workbenchColors = {
     // поддерживает, поэтому дефолты продублированы hex-ом — держи их в
     // лок-степе с источниками.
     "notifications.background": {
-        defaults: { dark: "#252526", light: "#F3F3F3" },
+        defaults: { dark: "editorWidget.background", light: "editorWidget.background" },
         description: "Notification toast background color.",
     },
     "notifications.foreground": {
-        defaults: { dark: "#CCCCCC", light: "#616161" },
+        defaults: { dark: "editorWidget.foreground", light: "editorWidget.foreground" },
         description: "Notification toast foreground color.",
     },
     "notifications.border": {

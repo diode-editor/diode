@@ -72,7 +72,7 @@ export const controlColors = {
         description: "Dropdown background.",
     },
     "dropdown.foreground": {
-        defaults: { dark: "#F0F0F0", light: "#3B3B3B" },
+        defaults: { dark: "#F0F0F0", light: "foreground" },
         description: "Dropdown foreground.",
     },
     "dropdown.border": {
@@ -83,20 +83,22 @@ export const controlColors = {
         defaults: { dark: "#1F1F1F", light: "#FFFFFF" },
         description: "Dropdown list background.",
     },
+    // Производные, как в реестре VS Code: меню наследует dropdown.*, выделение
+    // пункта — list.activeSelection*.
     "menu.foreground": {
-        defaults: { dark: "#CCCCCC", light: "#616161" },
+        defaults: { dark: "dropdown.foreground", light: "dropdown.foreground" },
         description: "Foreground color of menu items.",
     },
     "menu.background": {
-        defaults: { dark: "#252526", light: "#FFFFFF" },
+        defaults: { dark: "dropdown.background", light: "dropdown.background" },
         description: "Background color of menu items.",
     },
     "menu.selectionForeground": {
-        defaults: { dark: "#FFFFFF", light: "#FFFFFF" },
+        defaults: { dark: "list.activeSelectionForeground", light: "list.activeSelectionForeground" },
         description: "Foreground color of the selected menu item in menus.",
     },
     "menu.selectionBackground": {
-        defaults: { dark: "#04395E", light: "#005FB8" },
+        defaults: { dark: "list.activeSelectionBackground", light: "list.activeSelectionBackground" },
         description: "Background color of the selected menu item in menus.",
     },
     "menu.separatorBackground": {
@@ -140,18 +142,23 @@ export const controlColors = {
         defaults: { dark: "#005AB4", light: "#0060C0" },
         description: "Background color of the selected menu item in the menubar.",
     },
+    // Производные от editorWidget.*, как в реестре VS Code: тема, задавшая фон
+    // виджетов (Catppuccin — #181825), красит им и пикер.
     "quickInput.foreground": {
-        defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
+        defaults: { dark: "editorWidget.foreground", light: "editorWidget.foreground" },
         description: "Quick picker foreground color.",
     },
     "quickInput.background": {
-        defaults: { dark: "#252526", light: "#F3F3F3" },
+        defaults: { dark: "editorWidget.background", light: "editorWidget.background" },
         description: "Quick picker background color.",
     },
     // Собственные цвета пикера: у VS Code эквивалента нет, значения — те, что
     // жили дефолтами tuidom, пока виджет был движковым.
+    // Рамка пикера — та же, что у остальных виджетов редактора (find, hover):
+    // у VS Code у пикера рамки нет (тень), у нас она обязана быть, и цвет
+    // логично брать у виджетов, а не держать свой серый.
     "quickPick.border": {
-        defaults: { dark: "#535353", light: "#C8C8C8" },
+        defaults: { dark: "editorWidget.border", light: "editorWidget.border" },
         description: "Quick picker frame color.",
     },
     "quickPick.titleForeground": {
