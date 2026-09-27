@@ -1,0 +1,32 @@
+{
+  "name": "@diode-editor/diode",
+  "version": "0.0.0",
+  "description": "Diode — terminal text editor with VS Code keys, VS Code extensions and LSP. Thin npm wrapper: downloads the platform binary from GitHub Releases.",
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://diode-editor.github.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/diode-editor/diode.git",
+    "directory": "packaging/npm"
+  },
+  "bugs": "https://github.com/diode-editor/diode/issues",
+  "keywords": ["editor", "terminal", "tui", "vscode", "lsp"],
+  "type": "module",
+  "bin": {
+    "diode": "bin/diode.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "install.js",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": ["linux", "darwin", "win32"],
+  "cpu": ["x64", "arm64"]
+}

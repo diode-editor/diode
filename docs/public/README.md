@@ -8,6 +8,7 @@
 - [BENCH-OPEN.md](BENCH-OPEN.md) — открытие файла: до текста и до подсветки, от 100 строк до 500 МБ; обновляется PR-ами джобы `bench.yml`
 - [API-COVERAGE.md](API-COVERAGE.md) — матрица готовности API расширений VS Code
 - [ROADMAP.md](ROADMAP.md) — статус «альфа», цель и порядок движения
+- [INSTALL.md](INSTALL.md) — все каналы установки: quick install, npm, Homebrew, apt, winget, nightly
 
 Правила каталога:
 

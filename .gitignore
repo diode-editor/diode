@@ -22,3 +22,8 @@ extensions/*/out/
 .reference/
 
 # Staging npm-пакета tuidom (scripts/pack-tuidom.mjs)
+
+# Каналы дистрибуции (packaging/): срендеренные манифесты и скачанный npm-обёрткой бинарь
+packaging/out/
+packaging/npm/vendor/
+packaging/npm/node_modules/
