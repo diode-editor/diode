@@ -1,0 +1,28 @@
+{
+    "schemaVersion": 1,
+    "extensions": [
+        {
+            "id": "acme.copilot-ish",
+            "publisher": "acme",
+            "name": "copilot-ish",
+            "displayName": "Acme Copilot-ish",
+            "description": "Inline AI completions with a chat panel",
+            "kind": "proxy-openvsx",
+            "support": {
+                "level": "partial",
+                "works": ["Inline completions (ghost text): Tab accepts, Esc dismisses", "Status bar entry"],
+                "limits": ["Chat panel does not open: it is a webview", "Sign-in opens a browser"]
+            },
+            "latest": { "version": "2.1.0", "engines": { "vscode": "^1.0.0" } }
+        },
+        {
+            "id": "acme.plain",
+            "publisher": "acme",
+            "name": "plain",
+            "displayName": "Acme Plain",
+            "description": "An extension the registry did not mark",
+            "kind": "native",
+            "latest": { "version": "1.0.0", "engines": { "vscode": "^1.0.0" } }
+        }
+    ]
+}
