@@ -130,7 +130,7 @@ PublisherSupportUrl: https://github.com/${REPO}/issues
 PackageName: Diode
 PackageUrl: https://diode-editor.github.io
 License: GPL-3.0-or-later
-LicenseUrl: https://github.com/${REPO}/blob/main/LICENSE
+LicenseUrl: https://www.gnu.org/licenses/gpl-3.0.html
 ShortDescription: Terminal text editor with VS Code keys, VS Code extensions and LSP
 Description: |-
   Diode is a non-modal terminal text editor that keeps the VS Code keyboard layout and runs
