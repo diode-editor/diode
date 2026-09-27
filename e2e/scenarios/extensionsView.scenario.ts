@@ -7,7 +7,8 @@ import { defineScenario, repoRoot } from "./framework.ts";
 //
 // Реестр — файловая фикстура, а не публичный магазин: демо не должно зависеть
 // ни от сети, ни от того, что сейчас опубликовано. Состояния карточек в ней
-// заданы прямо, поэтому на кадре видны все три бейджа сразу.
+// заданы прямо, поэтому на кадре видны все три бейджа сразу — и пометка
+// «Partial» у записи, которой реестр проставил урезанную поддержку.
 
 const registry = resolve(repoRoot, "e2e", "fixtures", "registry");
 // В user-data уже стоит test.tab-setter@0.0.1, а реестр знает 0.0.2 — на кадре
@@ -35,6 +36,8 @@ export default defineScenario({
         // Сайдбар по умолчанию узкий — бейджи в него не влезают целиком.
         for (let i = 0; i < 4; i++) await editor.sendKey("F7");
         await editor.waitForText((t) => t.includes("Incompatible"));
+        // Пометка о частичной поддержке стоит в строке списка, до установки.
+        await editor.waitForText((t) => t.includes("Partial"));
         await editor.capture("viewlet");
 
         // Страница расширения: фокус в список, первая запись каталога, Enter.
@@ -42,6 +45,9 @@ export default defineScenario({
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("This readme comes from the registry meta"));
+        // На странице пометка разворачивается в списки: что работает и чего нет.
+        await editor.waitForText((t) => t.includes("Does not work:"));
+        await editor.waitForText((t) => t.includes("Chat panel: needs a webview"));
         await editor.capture("page");
     },
 });

@@ -6,7 +6,14 @@ import {
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-import { buildExtensionBodyLines, buildExtensionHeaderLines, statusLine, wrapText } from "./extensionPageContent.ts";
+import type { IExtensionPageContent } from "./extensionPageContent.ts";
+import {
+    buildExtensionBodyLines,
+    buildExtensionHeaderLines,
+    PARTIAL_SUPPORT_HEADLINE,
+    statusLine,
+    wrapText,
+} from "./extensionPageContent.ts";
 
 function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntry {
     return {
@@ -16,6 +23,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         displayName: "Acme Tools",
         description: "Tools for acme",
         kind: "native",
+        support: undefined,
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
@@ -33,6 +41,7 @@ function meta(overrides: Partial<IRegistryExtensionMeta> = {}): IRegistryExtensi
         displayName: "Acme Tools",
         description: "Tools for acme",
         kind: "native",
+        support: undefined,
         versions: [
             {
                 version: "1.0.0",
@@ -219,6 +228,7 @@ describe("buildExtensionHeaderLines", () => {
                     installedVersion: "0.1.0",
                     availability: "installed",
                     kind: undefined,
+                    support: undefined,
                 }),
                 meta: undefined,
                 metaError: null,
@@ -330,5 +340,64 @@ describe("buildExtensionBodyLines", () => {
             100,
         );
         expect(texts(lines)).not.toContain("Readme body");
+    });
+});
+
+describe("страница расширения с частичной поддержкой", () => {
+    /** Содержимое страницы: меты и ошибок нет, если тест не сказал иначе. */
+    const content = (o: Partial<IExtensionPageContent> = {}): IExtensionPageContent => ({
+        entry: entry(),
+        meta: meta(),
+        metaError: null,
+        operationError: null,
+        ...o,
+    });
+
+    const support = {
+        level: "partial",
+        works: ["Inline completions", "Commands"],
+        limits: ["Chat panel needs a webview", "Sign-in opens a browser"],
+    } as const;
+
+    it("шапка предупреждает одной строкой", () => {
+        const lines = buildExtensionHeaderLines(content({ entry: entry({ support }) }), 80);
+        const warning = lines.find((l) => l.text === PARTIAL_SUPPORT_HEADLINE);
+        expect(warning?.tone).toBe("warning");
+    });
+
+    it("тело не повторяет заголовок из шапки", () => {
+        const lines = buildExtensionBodyLines(content({ entry: entry({ support }) }), 80);
+        expect(lines.map((l) => l.text)).not.toContain(PARTIAL_SUPPORT_HEADLINE);
+    });
+
+    it("тело перечисляет что работает и что нет — до readme", () => {
+        const lines = buildExtensionBodyLines(
+            content({ entry: entry({ support }), meta: meta({ readme: "# Readme body" }) }),
+            80,
+        );
+        const texts = lines.map((l) => l.text);
+        expect(texts).toContain("Works in Diode:");
+        expect(texts).toContain("- Inline completions");
+        expect(texts).toContain("Does not work:");
+        expect(texts).toContain("- Chat panel needs a webview");
+        expect(texts.indexOf("- Chat panel needs a webview")).toBeLessThan(texts.indexOf("# Readme body"));
+    });
+
+    it("ограничения видны даже когда мету не прочитать", () => {
+        const lines = buildExtensionBodyLines(
+            content({ entry: entry({ support }), meta: undefined, metaError: "network is down" }),
+            80,
+        );
+        const texts = lines.map((l) => l.text);
+        expect(texts).toContain("- Chat panel needs a webview");
+        expect(texts.some((t) => t.includes("network is down"))).toBe(true);
+    });
+
+    it("у полной поддержки блока нет", () => {
+        const full = buildExtensionBodyLines(content({ entry: entry({ support: { level: "full" } }) }), 80);
+        expect(full.map((l) => l.text)).not.toContain("Does not work:");
+        expect(
+            buildExtensionHeaderLines(content({ entry: entry({ support: { level: "full" } }) }), 80).map((l) => l.text),
+        ).not.toContain(PARTIAL_SUPPORT_HEADLINE);
     });
 });

@@ -19,6 +19,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         displayName: "Acme Tools",
         description: "Tools for acme",
         kind: "native",
+        support: undefined,
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
@@ -64,6 +65,7 @@ const META: IRegistryExtensionMeta = {
     displayName: "Acme Tools",
     description: "Tools for acme",
     kind: "native",
+    support: undefined,
     readme: "Readme body",
     versions: [],
 };

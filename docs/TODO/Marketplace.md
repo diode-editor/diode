@@ -43,8 +43,19 @@ views, Phase 9 — внешние расширения), [docs/arch/Extensions.m
 
 - `index.json`: `{ schemaVersion, generatedAt?, extensions: [...] }`; запись — `id`
   (строго `publisher.name`), `publisher`, `name`, `displayName`, `description`,
-  `kind` (`proxy-openvsx` | `native`), `categories?`, `latest: { version, engines }`
+  `kind` (`proxy-openvsx` | `native`), `categories?`, `support?`,
+  `latest: { version, engines }`
   (чтобы список показывал версию и совместимость без ленивых фетчей).
+- `support?` — курационная пометка о том, насколько расширение работает у нас:
+  `{ level: "full" | "partial", works?: string[], limits?: string[] }`. Лежит и в
+  `index.json`, и в мете: бейдж `Partial` в строке списка обязан быть виден ДО
+  установки, а на странице расширения пометка разворачивается в два списка —
+  «Works in Diode» и «Does not work». `partial` без непустого `limits` реестр не
+  публикует (предупреждение, которое не говорит, чего лишишься, бесполезно);
+  клиент битую пометку молча игнорирует и показывает карточку без неё —
+  косметика не повод потерять запись. Типичный повод для `partial` — webview:
+  языковая часть расширения работает, чат-панель не открывается
+  (`Supermaven.supermaven` — первая такая запись).
 - `meta/<id>.json`: идентичность + `repository?`/`license?`/`homepage?`/`readme?`
   (inline markdown — контент страницы расширения в табе) + `versions[]`; версия —
   `{ version, engines, artifact, sha256, targetPlatform?, size?, publishedAt? }`.

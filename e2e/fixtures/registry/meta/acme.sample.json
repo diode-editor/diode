@@ -6,6 +6,11 @@
     "displayName": "Acme Sample",
     "description": "Sample entry for the Extensions view e2e",
     "kind": "native",
+    "support": {
+        "level": "partial",
+        "works": ["Inline completions", "Commands from the palette"],
+        "limits": ["Chat panel: needs a webview", "Sign-in: opens a browser"]
+    },
     "repository": "https://github.com/diode-editor/diode",
     "readme": "# Acme Sample\n\nThis readme comes from the registry meta and is shown on the extension page as plain text.\n",
     "versions": [
