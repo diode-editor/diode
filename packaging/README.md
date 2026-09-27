@@ -31,6 +31,24 @@ npm install -g --prefix /tmp/npm-global ./diode-editor-diode-0.3.0.tgz && /tmp/n
 node packaging/render.mjs --version 0.3.0 --from-github
 ```
 
+## npm: первая публикация и Trusted Publisher
+
+`release.yml` публикует через npm Trusted Publishing (OIDC): секрета нет, provenance ставится
+автоматически. Но Trusted Publisher настраивается на странице уже существующего пакета, поэтому
+первую версию публикует человек с правами в организации `diode-editor` на npm:
+
+```sh
+cd packaging/npm
+npm login
+npm version X.Y.Z --no-git-tag-version     # версия = уже вышедший тег vX.Y.Z (бинарь качается из него)
+npm publish --access public
+git checkout package.json                  # в репозитории версия остаётся 0.0.0
+```
+
+Затем на npmjs.com → пакет `@diode-editor/diode` → Settings → Trusted Publisher → GitHub Actions:
+organization `diode-editor`, repository `diode`, workflow filename `release.yml`, environment
+пустой. После этого следующие версии публикует джоба `npm` сама.
+
 ## Первая подача в winget
 
 `wingetcreate update` умеет только обновлять существующий пакет, поэтому первый раз манифесты

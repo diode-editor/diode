@@ -27,7 +27,9 @@
 - [ ] `packaging/apt/gen-key.sh` → секреты `APT_GPG_PRIVATE_KEY` (base64 armored-ключа, печатает
       скрипт) и `APT_GPG_PASSPHRASE`; ключ и пароль — в парольницу. Путь ключа проверен локально:
       генерация с паролем → base64 → импорт «в CI» → подпись → проверка опубликованным keyring.
-- [ ] Организация `diode-editor` на npm, токен публикации (granular, publish) → секрет `NPM_TOKEN`.
+- [ ] Организация `diode-editor` на npm; первая публикация `@diode-editor/diode` руками, затем
+      Trusted Publisher (GitHub Actions, `release.yml`) в настройках пакета — токена и секрета нет
+      (packaging/README.md).
 - [ ] Репозиторий `diode-editor/homebrew-tap` (пустой, публичный); `REPOSITORY_PAT` должен иметь
       в него push.
 - [ ] Первая подача в winget руками (packaging/README.md), после мержа — секрет `WINGET_TOKEN`.

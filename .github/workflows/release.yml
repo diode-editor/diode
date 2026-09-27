@@ -5,7 +5,7 @@ name: Release
 #
 # После публикации GitHub-релиза тот же тег разъезжается по каналам (packaging/README.md):
 #   packages — .deb + метаданные плоского apt-репозитория, ассетами в этот же релиз;
-#   npm      — @diode-editor/diode (тонкая обёртка, качает бинарь из релиза);
+#   npm      — @diode-editor/diode (тонкая обёртка, качает бинарь из релиза; OIDC, без токена);
 #   brew     — формула в diode-editor/homebrew-tap;
 #   winget   — PR в microsoft/winget-pkgs.
 # Каждый канал — отдельная job: упавший npm не мешает brew. Канал молча пропускается,
@@ -20,7 +20,6 @@ permissions:
 
 env:
   HAS_APT_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY != '' }}
-  HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
   HAS_TAP_TOKEN: ${{ secrets.REPOSITORY_PAT != '' }}
   HAS_WINGET_TOKEN: ${{ secrets.WINGET_TOKEN != '' }}
 
@@ -102,30 +101,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Публикация без токена: npm Trusted Publishing (OIDC). На npmjs.com у пакета
+  # настроен Trusted Publisher «GitHub Actions: diode-editor/diode, release.yml»;
+  # npm ≥ 11.5.1 обменивает id-token на право публикации, provenance ставится сам.
+  # Первая версия пакета публикуется руками (packaging/README.md) — Trusted Publisher
+  # настраивается только у существующего пакета.
   npm:
     needs: release
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # --provenance
+      id-token: write
     steps:
       - uses: actions/checkout@v4
-        if: env.HAS_NPM_TOKEN == 'true'
 
       - uses: actions/setup-node@v4
-        if: env.HAS_NPM_TOKEN == 'true'
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
 
       - name: Publish @diode-editor/diode
-        if: env.HAS_NPM_TOKEN == 'true'
         working-directory: packaging/npm
         run: |
+          npm --version
           npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
-          npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --access public
 
   brew:
     needs: release
