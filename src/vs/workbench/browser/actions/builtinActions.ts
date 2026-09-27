@@ -232,6 +232,7 @@ import {
 } from "./listActions.ts";
 import { MULTI_CURSOR_ACTIONS } from "./multiCursorActions.ts";
 import { navigateBackAction, navigateForwardAction } from "./navigationActions.ts";
+import { clearNotificationsAction, focusNotificationAction } from "./notificationActions.ts";
 import {
     collapseSearchResultsAction,
     expandSearchResultsAction,
@@ -504,6 +505,10 @@ export const builtinActions: readonly CommandAction[] = [
     toggleOutputAction,
     toggleTerminalAction,
     newTerminalAction,
+
+    // Сообщения (тосты над статус-баром)
+    clearNotificationsAction,
+    focusNotificationAction,
 
     // Сравнение файлов (семейство diff, docs/TODO/DiffViewer.md)
     compareWithSavedAction,

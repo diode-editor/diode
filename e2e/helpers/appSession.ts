@@ -101,6 +101,29 @@ function userProfileDir(userDataDir: string): string {
 }
 
 /**
+ * Настройки, которые изолированное окружение ставит само, по платформе — и
+ * только тогда, когда тест не управляет `settings.json` сам.
+ *
+ * На Windows-раннере встроенный TypeScript-сервер не поднимается вовсе
+ * («Server initialization failed … connection got disposed»), и все e2e-сьюты
+ * TS-LSP там уже пропускаются (`skipIf(process.platform === "win32" …)`). Пока
+ * его ошибка уходила только в лог, это никого не задевало; теперь сообщения
+ * расширений ВИДНЫ, и error-тосты нерабочего клиента занимают правый нижний
+ * угол — то есть роняют сценарии, к языковому серверу отношения не имеющие.
+ * Гасим клиент там, где он всё равно нерабочий; сам его запуск на Windows —
+ * отдельная задача.
+ *
+ * Тесту, который прислал свои настройки, мы в файл не дописываем НИЧЕГО: такие
+ * тесты сверяют его содержимое дословно (`extensionTheme.test.ts` — «настройка не
+ * переписана»). Если такой тест однажды споткнётся о тост нерабочего клиента, он
+ * гасит его у себя сам, этой же настройкой.
+ */
+function platformSettingDefaults(explicit: AppEnvOptions["settings"]): Record<string, unknown> {
+    if (explicit !== undefined || process.platform !== "win32") return {};
+    return { "diode.lsp.typescript.enabled": false };
+}
+
+/**
  * Собирает изолированное окружение: корень, подкаталоги, сид-файлы, settings и
  * keybindings, устанавливает `.vsix`. Ничего не запускает — только готовит FS и
  * возвращает аргументы/env для транспорта.
@@ -127,12 +150,16 @@ export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv
         writeFileSync(file, content);
     }
 
-    // settings.json / keybindings.json активного профиля.
-    if (options.settings !== undefined || options.keybindings !== undefined) {
+    // settings.json / keybindings.json активного профиля. Настройки теста идут в
+    // файл как есть; платформенные дефолты (см. ниже) добавляются только когда
+    // своих настроек тест не прислал.
+    const settings = options.settings ?? platformSettingDefaults(options.settings);
+    const hasSettings = typeof settings === "string" || Object.keys(settings).length > 0;
+    if (hasSettings || options.keybindings !== undefined) {
         const profileDir = userProfileDir(userDataDir);
         mkdirSync(profileDir, { recursive: true });
-        if (options.settings !== undefined) {
-            const body = typeof options.settings === "string" ? options.settings : JSON.stringify(options.settings, null, 2);
+        if (hasSettings) {
+            const body = typeof settings === "string" ? settings : JSON.stringify(settings, null, 2);
             writeFileSync(join(profileDir, "settings.json"), body);
         }
         if (options.keybindings !== undefined) {

@@ -242,20 +242,56 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(vscode.ExtensionMode.Test).toBe(3);
     });
 
-    it("env — наивные поля, которые читает vscode-languageclient", async () => {
+    it("env — константы шима, которые читает vscode-languageclient", () => {
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc).namespace as unknown as {
-            env: {
-                appName: string;
-                language: string;
-                clipboard: { readText(): Thenable<string>; writeText(t: string): Thenable<void> };
-                openExternal(): Thenable<boolean>;
-            };
+            env: { appName: string; appHost: string; language: string; uriScheme: string };
         };
         expect(vscode.env.appName).toBe("Diode");
+        expect(vscode.env.appHost).toBe("desktop");
         expect(vscode.env.language).toBe("en");
-        expect(await vscode.env.clipboard.readText()).toBe("");
-        await vscode.env.clipboard.writeText("x");
-        expect(await vscode.env.openExternal()).toBe(false);
+        expect(vscode.env.uriScheme).toBe("diode");
+    });
+
+    it("env.clipboard ходит к хосту, а не отвечает пустотой", async () => {
+        const stub = makeSharedStubRpc();
+        stub.responder = (method) => (method === "env.clipboard.readText" ? { text: "from host" } : null);
+        const vscode = buildVscodeNamespace(stub.rpc).namespace as unknown as {
+            env: { clipboard: { readText(): Thenable<string>; writeText(t: string): Thenable<void> } };
+        };
+
+        expect(await vscode.env.clipboard.readText()).toBe("from host");
+        await vscode.env.clipboard.writeText("copied");
+
+        expect(stub.requests).toEqual([
+            { method: "env.clipboard.readText", params: undefined },
+            { method: "env.clipboard.writeText", params: { text: "copied" } },
+        ]);
+    });
+
+    it("env.openExternal уезжает хосту в НЕкодированной форме (как в эталоне)", async () => {
+        const stub = makeSharedStubRpc();
+        stub.responder = () => ({ opened: true });
+        const vscode = buildVscodeNamespace(stub.rpc).namespace as unknown as {
+            env: { openExternal(target: unknown): Thenable<boolean> };
+        };
+
+        // `toString()` дал бы `?token%3D42`, и системному обработчику досталась
+        // бы не та ссылка.
+        await expect(vscode.env.openExternal(Uri.parse("https://example.com/a?token=42"))).resolves.toBe(true);
+
+        expect(stub.requests).toEqual([
+            { method: "env.openExternal", params: { uri: "https://example.com/a?token=42" } },
+        ]);
+    });
+
+    it("env.openExternal отдаёт false, когда хост ссылку не открыл", async () => {
+        const stub = makeSharedStubRpc();
+        stub.responder = () => ({ opened: false });
+        const vscode = buildVscodeNamespace(stub.rpc).namespace as unknown as {
+            env: { openExternal(target: unknown): Thenable<boolean> };
+        };
+
+        await expect(vscode.env.openExternal(Uri.parse("file:///etc/passwd"))).resolves.toBe(false);
     });
 });

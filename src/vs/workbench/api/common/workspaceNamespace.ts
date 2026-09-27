@@ -9,6 +9,7 @@ import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
+import { createMessageApi } from "./messageNamespace.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     DisposableImpl,
@@ -136,6 +137,10 @@ interface IWireWorkspaceFolder {
  */
 export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode.workspace {
     const { rpc, registry, documentSync, configStore } = ctx;
+    // Предупреждения человеку (неподдержанный `getConfiguration().update`) идут
+    // тем же путём, что `window.show*Message`: api без состояния, поэтому
+    // собственный экземпляр здесь ничего не дублирует.
+    const messages = createMessageApi(rpc);
 
     let workspaceFolders: IWorkspaceFolder[] = [];
 
@@ -346,10 +351,11 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
                 };
             },
             update: (key: string): Thenable<void> => {
-                rpc.notify("window.showMessage", {
-                    severity: "warn",
-                    message: `workspace.getConfiguration().update("${prefix + key}") is not supported`,
-                });
+                // Предупреждение видно человеку тостом (и в логе расширений);
+                // ответа не ждём — кнопок у сообщения нет, выбирать нечего.
+                void messages.showWarningMessage(
+                    `workspace.getConfiguration().update("${prefix + key}") is not supported`,
+                );
                 return Promise.resolve();
             },
         };

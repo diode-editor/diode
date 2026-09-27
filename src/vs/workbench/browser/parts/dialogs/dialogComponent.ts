@@ -39,14 +39,15 @@ export const DIALOG_STYLES: IDialogStyles = {
 };
 
 /**
- * База модальных диалогов Workbench. Диалог — компонент: он НЕ наследует
- * TUIElement, а владеет корневым контролом ({@link FitContentElement}), в
- * который наследник кладёт дерево примитивов, собранное в конструкторе
- * (`this.view.setChild(root)`); цвета — токены {@link DIALOG_STYLES},
+ * База оконных виджетов Workbench — модальных диалогов и тостов нотификаций.
+ * Виджет — компонент: он НЕ наследует TUIElement, а владеет корневым контролом
+ * ({@link FitContentElement}), в который наследник кладёт дерево примитивов,
+ * собранное в конструкторе (`this.view.setChild(root)`); цвета — токены темы,
  * резолвит каскад.
  *
- * База даёт диалогам общее поведение: навигацию стрелками по ряду кнопок
- * и Escape → {@link onDismiss}.
+ * База даёт общее поведение: рамку с заголовком, навигацию стрелками по ряду
+ * кнопок и Escape → {@link onDismiss}. Палитру наследник подменяет через
+ * {@link styles} — у тоста она своя (`notifications.*`).
  */
 export abstract class DialogComponent extends Component {
     public readonly view: FitContentElement;
@@ -66,17 +67,29 @@ export abstract class DialogComponent extends Component {
     }
 
     /**
+     * Палитра окна. По умолчанию — диалоговая; тост нотификации переопределяет
+     * её на `notifications.*`. Зовётся из {@link buildFrame}, то есть ещё из
+     * конструктора наследника — читать в переопределении поля наследника нельзя,
+     * только константы.
+     */
+    protected styles(): IDialogStyles {
+        return DIALOG_STYLES;
+    }
+
+    /**
      * Собирает каркас окна — рамка с заголовком, отступы, вертикальный стек —
      * и кладёт его в {@link view}. Наследник наполняет возвращённый стек
      * строками; цвета контента раздаёт каскад от контейнера отступов.
      */
-    protected buildFrame(title: string): VStackElement {
-        const { bg, fg, borderFg } = DIALOG_STYLES;
+    protected buildFrame(title: string, titleFg?: StyleColor): VStackElement {
+        const { bg, fg, borderFg } = this.styles();
         const box = new BoxContainerElement();
         box.setBg(bg);
         box.setBorderFg(borderFg);
         box.setTitle(title);
-        box.setTitleFg(fg);
+        // Заголовок красится акцентом, когда наследник его прислал (строгость
+        // сообщения у тоста); иначе — основным цветом окна.
+        box.setTitleFg(titleFg ?? fg);
         box.setHasSeparator(true);
 
         const stack = new VStackElement();
@@ -92,6 +105,14 @@ export abstract class DialogComponent extends Component {
 
     /** Реакция на Escape (обычно — отмена/закрытие). */
     protected abstract onDismiss(): void;
+
+    /**
+     * Клавиши, которых база не знает (Tab у тоста нотификации). Зовётся, когда
+     * нажатие не подошло ни под одну ветку разбора базы.
+     */
+    protected handleExtraKeydown(_event: TUIKeyboardEvent): void {
+        // База лишних клавиш не разбирает — переопределяют наследники.
+    }
 
     private handleDialogKeydown(event: TUIKeyboardEvent): void {
         const buttons = this.rowButtons();
@@ -112,6 +133,9 @@ export abstract class DialogComponent extends Component {
             case "Escape":
                 event.preventDefault();
                 this.onDismiss();
+                break;
+            default:
+                this.handleExtraKeydown(event);
                 break;
         }
     }

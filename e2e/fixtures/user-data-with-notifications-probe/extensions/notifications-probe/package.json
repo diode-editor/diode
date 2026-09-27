@@ -1,0 +1,27 @@
+{
+    "name": "notifications-probe",
+    "displayName": "Notifications Probe",
+    "description": "E2E demo extension: shows messages with and without buttons (window.show*Message) and exercises env.openExternal / env.clipboard, printing what it got back.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "diodeNotify.info", "title": "Diode Notify: Show Info" },
+            { "command": "diodeNotify.warning", "title": "Diode Notify: Show Warning" },
+            { "command": "diodeNotify.error", "title": "Diode Notify: Show Error" },
+            { "command": "diodeNotify.ask", "title": "Diode Notify: Ask Activate" },
+            { "command": "diodeNotify.askItems", "title": "Diode Notify: Ask With Message Items" },
+            { "command": "diodeNotify.askModal", "title": "Diode Notify: Ask Modal" },
+            { "command": "diodeNotify.askTwice", "title": "Diode Notify: Ask Twice" },
+            { "command": "diodeNotify.many", "title": "Diode Notify: Show Many" },
+            { "command": "diodeNotify.awaitError", "title": "Diode Notify: Await Error Message" },
+            { "command": "diodeNotify.openExternal", "title": "Diode Notify: Open External" },
+            { "command": "diodeNotify.clipboard", "title": "Diode Notify: Clipboard Round Trip" }
+        ]
+    }
+}

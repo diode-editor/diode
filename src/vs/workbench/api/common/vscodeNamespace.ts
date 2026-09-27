@@ -84,6 +84,7 @@ import {
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
+import { parseWireClipboardText, parseWireOpenExternalResult } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
@@ -141,18 +142,36 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
     });
 
-    // Наивный `env` — vscode-languageclient читает language/appName; клипборд и
-    // openExternal честно отказывают (TUI не открывает внешние URL).
+    // `env`: буфер обмена и открытие ссылки живут у хоста — он владеет
+    // терминалом (OSC 52) и правом запускать системный обработчик, поэтому
+    // расширение ходит туда запросами. Остальное — константы шима
+    // (vscode-languageclient читает language/appName).
     const env = {
         appName: "Diode",
         appHost: "desktop",
         language: "en",
         uriScheme: "diode",
         clipboard: {
-            readText: (): Thenable<string> => Promise.resolve(""),
-            writeText: (): Thenable<void> => Promise.resolve(),
+            readText: async (): Promise<string> =>
+                parseWireClipboardText(await rpc.request("env.clipboard.readText")).text,
+            writeText: async (value: string): Promise<void> => {
+                await rpc.request("env.clipboard.writeText", { text: value });
+            },
         },
-        openExternal: (): Thenable<boolean> => Promise.resolve(false),
+        /**
+         * `true` — ссылка доехала до человека: либо её открыл системный
+         * обработчик, либо (без графического окружения — ssh, контейнер, голый
+         * сервер) хост показал URL сообщением и положил в буфер обмена. `false`
+         * — не удалось ни то, ни другое.
+         */
+        openExternal: async (target: vscode.Uri): Promise<boolean> =>
+            parseWireOpenExternalResult(
+                // `toString(true)` — skipEncoding, как в эталоне (там ссылка
+                // уезжает системному обработчику ровно в этой форме). Обычный
+                // `toString()` percent-кодирует `=`/`&` в query, и вместо
+                // `?token=42` системе досталось бы `?token%3D42`.
+                await rpc.request("env.openExternal", { uri: target.toString(true) }),
+            ),
     } as unknown;
 
     // Каталог установленных расширений приезжает от хоста (`extensions.catalog`

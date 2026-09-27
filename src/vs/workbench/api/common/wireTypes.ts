@@ -2103,6 +2103,121 @@ export function parseWireQuickPickResult(raw: unknown): IWireQuickPickResult {
     return { indices: indices.filter((i): i is number => Number.isInteger(i) && i >= 0) };
 }
 
+// ─── Сообщения расширения (window.show{Information,Warning,Error}Message) ────
+// Сообщение — ЗАПРОС, а не уведомление: перегрузка с кнопками обязана вернуть
+// расширению выбранное, поэтому ответа ждут все показы с кнопками. Адреса показа
+// на проводе нет (в отличие от quick input'а): отменять показ расширение не
+// умеет — у `show*Message` нет токена, — а «погасить при смерти субпроцесса»
+// решается handle'ом, который минтит сам хост.
+
+/** Строгость сообщения на проводе (`error`/`warn`/`info`). */
+export type WireMessageSeverity = "error" | "warn" | "info";
+
+/** Кнопка сообщения на проводе (`string` | `MessageItem` расширения). */
+export interface IWireMessageItem {
+    readonly title: string;
+    /**
+     * `MessageItem.isCloseAffordance` — эту кнопку возвращают, когда модальное
+     * сообщение закрыли Escape'ом. У немодального игнорируется (так в эталоне).
+     */
+    readonly isCloseAffordance: boolean;
+}
+
+/** Просьба показать сообщение (`window.show*Message`, subprocess → host). */
+export interface IWireShowMessageRequest {
+    readonly severity: WireMessageSeverity;
+    readonly message: string;
+    /** `MessageOptions.detail` — приглушённая строка; только у модального. */
+    readonly detail?: string;
+    /** `MessageOptions.modal` — центральный диалог вместо тоста. */
+    readonly modal: boolean;
+    readonly items: readonly IWireMessageItem[];
+}
+
+/**
+ * Ответ хоста на `window.showMessage`: индекс нажатой кнопки в том же массиве
+ * `items`, что прислало расширение (`null` — закрыли, не выбрав). Индексом, а
+ * не предметом: `showInformationMessage<T extends MessageItem>` обязан вернуть
+ * расширению ЕГО объект, а пересобранный по проводу предмет им не был бы.
+ */
+export interface IWireShowMessageResult {
+    readonly index: number | null;
+}
+
+/** Разбирает `window.showMessage`; `null` — параметры структурно чужие. */
+export function parseWireShowMessageRequest(raw: unknown): IWireShowMessageRequest | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.message !== "string") return null;
+    return {
+        severity: parseWireMessageSeverity(p.severity),
+        message: p.message,
+        detail: optionalWireString(p.detail),
+        modal: p.modal === true,
+        items: parseWireMessageItems(p.items),
+    };
+}
+
+/**
+ * Кнопки с провода. Кнопка без заголовка остаётся в массиве пустой: ответ
+ * адресуется индексом в ЭТОМ массиве, и дыра сдвинула бы остальные.
+ */
+function parseWireMessageItems(raw: unknown): IWireMessageItem[] {
+    if (!Array.isArray(raw)) return [];
+    const items: IWireMessageItem[] = [];
+    for (const entry of raw) {
+        // Мусорная кнопка (null, число, строка) читается теми же полями и даёт
+        // пустой заголовок — отдельной ветки для неё не нужно, нужен только
+        // `?? {}`, чтобы не обратиться к полю у `null`.
+        const it = (entry ?? {}) as { title?: unknown; isCloseAffordance?: unknown };
+        items.push({
+            title: typeof it.title === "string" ? it.title : "",
+            isCloseAffordance: it.isCloseAffordance === true,
+        });
+    }
+    return items;
+}
+
+/** Строгость с провода; всё непонятное — `info` (как у логгера до этого). */
+function parseWireMessageSeverity(raw: unknown): WireMessageSeverity {
+    return raw === "error" || raw === "warn" ? raw : "info";
+}
+
+/** Разбирает ответ хоста на `window.showMessage` (host → subprocess). */
+export function parseWireShowMessageResult(raw: unknown): IWireShowMessageResult {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return { index: null };
+    const { index } = raw as { index?: unknown };
+    if (!Number.isInteger(index)) return { index: null };
+    const value = index as number;
+    return { index: value >= 0 ? value : null };
+}
+
+// ─── Буфер обмена и внешние ссылки (env.clipboard / env.openExternal) ─────────
+// Буфер и открытие ссылки живут на хосте: у него терминал (OSC 52) и право
+// запускать системный обработчик. Субпроцесс ходит туда запросами.
+
+/** Ответ хоста на `env.clipboard.readText`. */
+export interface IWireClipboardText {
+    readonly text: string;
+}
+
+/** Разбирает ответ хоста на `env.clipboard.readText`; мусор — пустой буфер. */
+export function parseWireClipboardText(raw: unknown): IWireClipboardText {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return { text: "" };
+    const { text } = raw as { text?: unknown };
+    return { text: typeof text === "string" ? text : "" };
+}
+
+/** Ответ хоста на `env.openExternal`: удалось ли отдать ссылку пользователю. */
+export function parseWireOpenExternalResult(raw: unknown): boolean {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return false;
+    return (raw as { opened?: unknown }).opened === true;
+}
+
 // ─── Секреты расширения (ExtensionContext.secrets) ───────────────────────────
 // Хранилище живёт на хосте (он владеет раскладкой user-data), субпроцесс ходит
 // в него запросами. Адрес секрета — пара «id расширения + ключ»: у каждого

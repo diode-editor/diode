@@ -69,10 +69,13 @@
 - [x] **Активная тема и событие выделения** — `window.activeColorTheme` /
       `onDidChangeActiveColorTheme` (без них `activate()` падал целиком) и
       `window.onDidChangeTextEditorSelection` с `kind` от жеста.
-- [ ] **Остаток блокеров того же класса** (замерено на живом Supermaven 1.1.5 после
-      пунктов выше — расширение активируется целиком и качает свой движок):
-      нотификации с КНОПКАМИ (`showInformationMessage(msg, ...items)` — единственная
-      дверь к экрану регистрации). Разведка — ветка `spike/ai-autocomplete` (не вливать).
+- [x] **Видимые сообщения с КНОПКАМИ** — последний блокер того же класса (замерено на
+      живом Supermaven 1.1.5: `showInformationMessage(msg, ...items)` — единственная
+      дверь к экрану его регистрации, команды в палитре для этого выбора у него нет).
+      Все четыре перегрузки `show*Message` + `MessageOptions.modal`/`detail`; заодно
+      настоящие `env.clipboard` и `env.openExternal` (путь платной подписки идёт
+      ссылкой в браузер). Поверхность и провод — [arch/Workbench.md](../arch/Workbench.md)
+      и [arch/Extensions.md](../arch/Extensions.md).
 
 ## Phase 8b — UI-вклады: `contributes.viewsContainers` / `contributes.views`
 
