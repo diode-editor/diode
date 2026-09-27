@@ -12,7 +12,7 @@
  * LSP в замер не входит: замер заканчивается на TextMate-подсветке, language
  * server приезжает асинхронно позже.
  *
- * Запуск: `npm run bench:open [-- --sizes=small,log500m --runs=3 --json=out.json --md=out.md --label="от сети, фон пуст"]`
+ * Запуск: `npm run bench:open [-- --sizes=small,xlarge --runs=3 --json=out.json --md=out.md --label="от сети, фон пуст"]`
  * Бинарь собирается лениво (`getBinaryPath` → `npm run build:sea`), либо
  * передаётся готовый через env `DIODE_E2E_BINARY`. Тяжёлый прогон — под лизу
  * (скилл heavy-run).
