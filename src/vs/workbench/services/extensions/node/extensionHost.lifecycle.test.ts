@@ -1201,6 +1201,33 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         expect(cancelled).toEqual([shownHandle]);
     });
 
+    it("смерть субпроцесса НЕ гасит уже отвеченные сообщения", async () => {
+        // Иначе сток получил бы «погаси» на показ, которого давно нет, — и это
+        // не безвредно: адрес мог бы указывать уже на чужой показ.
+        const child = new FakeChild();
+        const cancelled: number[] = [];
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger: makeLogger(),
+            notificationSink: {
+                showMessage: () => Promise.resolve(0),
+                cancel: (handle: number) => cancelled.push(handle),
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({
+            kind: "req",
+            id: 745,
+            method: "window.showMessage",
+            params: { severity: "info", message: "hi", items: [{ title: "One" }] },
+        });
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 745));
+
+        child.simulateExit(1);
+
+        expect(cancelled).toEqual([]);
+    });
+
     it("env.clipboard: читает и пишет тот же буфер, что copy/paste ядра", async () => {
         const child = new FakeChild();
         const written: string[] = [];

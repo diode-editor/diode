@@ -31,6 +31,7 @@ export class NotificationExtensionAdapter implements INotificationSink {
         // Без try/finally: `answered` только резолвится — сервис его не отклоняет,
         // так что «забыть показ» достаточно сделать здесь, после ответа.
         const answer = await handle.answered;
+        // Stryker disable next-line CallExpression: гигиена карты. Ненаблюдаемо: адреса показов монотонны, так что «погаси» по забытому handle не нашло бы в сервисе ни своего показа, ни чужого
         this.openMessages.delete(request.handle);
         return answer;
     }
