@@ -95,12 +95,15 @@ export const workbenchColors = {
         defaults: { dark: "#FFFFFF", light: "#3B3B3B" },
         description: "Status Bar item foreground color when hovering.",
     },
+    // Дефолты VS Code (кастомный заголовок). На этих цветах у нас рисуется
+    // главное меню: мост `menuBar.* ← titleBar.active*` в themeStyleVars.ts —
+    // своего ключа для строки меню в темах VS Code нет.
     "titleBar.activeBackground": {
-        defaults: null,
+        defaults: { dark: "#3C3C3C", light: "#DDDDDD" },
         description: "Title Bar background when the window is active.",
     },
     "titleBar.activeForeground": {
-        defaults: null,
+        defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "Title Bar foreground when the window is active.",
     },
     "terminal.background": {
