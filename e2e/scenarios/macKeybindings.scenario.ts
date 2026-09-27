@@ -18,6 +18,11 @@ export default defineScenario({
     settings: {
         "keyboard.platform": "mac",
         "terminal.capabilities": { "extended-keys": true, super: true },
+        // Сценарий открывает .ts, а на Windows-раннере встроенный TS-сервер не
+        // поднимается — его error-тосты накрывали палитру в этом кадре. Сценарии
+        // без своих настроек гасит окружение e2e само (см. appSession.ts), а у
+        // этого настройки свои, поэтому гасим здесь.
+        "diode.lsp.typescript.enabled": false,
     },
     userKeybindings: [{ key: "f6", command: "diode.keyboardDoctor" }],
     cols: 110,
