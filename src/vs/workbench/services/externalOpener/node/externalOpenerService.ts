@@ -110,13 +110,9 @@ export const HANDLER_SPAWN_OPTIONS = { detached: true, stdio: "ignore" } as cons
  * {@link HANDLER_SPAWN_OPTIONS}.
  */
 export function spawnDetached(command: string, args: readonly string[]): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-        let settled = false;
-        const settle = (ok: boolean): void => {
-            if (settled) return;
-            settled = true;
-            resolve(ok);
-        };
+    return new Promise<boolean>((settle) => {
+        // Своего флага «уже ответили» не держим: `resolve` промиса идемпотентен,
+        // и второй вызов (например `error` после `spawn`) спецификация игнорирует.
         try {
             const child = spawn(command, [...args], HANDLER_SPAWN_OPTIONS);
             // `error` слушать ОБЯЗАТЕЛЬНО: без слушателя ENOENT (обработчика нет

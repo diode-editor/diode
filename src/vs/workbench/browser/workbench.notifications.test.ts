@@ -266,6 +266,20 @@ describe("Workbench — сообщения на кадре", () => {
         expect(h.testApp.focusedElement).toBe(before);
     });
 
+    it("пришедший тост не сбивает место в модальном окне", () => {
+        // Пересчёт позиций случается на КАЖДОЕ изменение набора сообщений; если
+        // он заново ставит фокус по умолчанию, человек теряет выбранную кнопку.
+        notifications.show({ severity: "warn", message: "Delete?", modal: true, items: ["Delete", "Cancel"] });
+        screen();
+        h.testApp.sendKey("ArrowRight");
+        const chosen = h.testApp.focusedElement;
+
+        notifications.show({ severity: "info", message: "мимоходом", modal: false, items: [] });
+        screen();
+
+        expect(h.testApp.focusedElement).toBe(chosen);
+    });
+
     it("модальное окно стоит по центру по вертикали, а не прижато к верху", () => {
         notifications.show({
             severity: "warn",

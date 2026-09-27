@@ -25,6 +25,19 @@ export const NOTIFICATION_AUTO_HIDE_MS: Readonly<Record<NotificationSeverity, nu
  */
 export const MAX_VISIBLE_NOTIFICATIONS = 3;
 
+/**
+ * Сколько немодальный ВОПРОС ждёт ответа, прежде чем закрыться сам. Заметно
+ * дольше пассивного тоста — на выбор человеку нужно время, — но НЕ вечность, и
+ * это принципиально: расширение, сделавшее `await show*Message(...)`, стоит
+ * ровно столько, сколько живёт показ. Стоковый `vscode-languageclient` именно так
+ * и делает в своём обработчике ошибок, и вечный вопрос подвешивал ему перезапуск
+ * языкового сервера (поймано красным Windows-CI).
+ *
+ * Модальное сообщение таймера не имеет: оно держит экран, человек его не
+ * пропустит, а закрывать окно у него из-под рук по будильнику — хуже.
+ */
+export const NOTIFICATION_ASK_TIMEOUT_MS = 60000;
+
 /** Просьба показать сообщение. Кнопки — заголовками, ответ — индексом в них. */
 export interface INotificationMessage {
     readonly severity: NotificationSeverity;
@@ -59,10 +72,23 @@ export interface INotificationHandle {
     readonly answered: Promise<number | undefined>;
 }
 
-/** Запись сервиса: сообщение + кому отдать ответ + таймер самогашения. */
-interface IEntry {
+/**
+ * Пассивный тост: сообщение плюс таймер самогашения. Отвечать на него нечего —
+ * обещание того, кто его поднял, резолвится ещё в {@link NotificationService.show}.
+ */
+interface IPassiveEntry {
+    readonly notification: IActiveNotification;
+    timer: ReturnType<typeof setTimeout> | null;
+}
+
+/**
+ * Вопрос: сообщение плюс кому отдать ответ. Таймера у него нет — он ждёт ответа
+ * столько, сколько нужно (см. описание класса).
+ */
+interface IAskEntry {
     readonly notification: IActiveNotification;
     readonly resolve: (index: number | undefined) => void;
+    /** Таймер «никто не ответил»; у модального сообщения его нет. */
     timer: ReturnType<typeof setTimeout> | null;
 }
 
@@ -81,16 +107,20 @@ interface IEntry {
  *   подвесить расширение, сделавшее `await showErrorMessage(...)`. Осознанное
  *   отступление от эталона — там обещание ждёт закрытия тоста.
  * - **С кнопками или модальное** — вопрос: живёт по одному за раз (остальные
- *   ждут в очереди), САМОГАШЕНИЯ НЕ ИМЕЕТ и резолвится тем, что человек нажал,
- *   либо `undefined`, если он закрыл сообщение не выбрав.
+ *   ждут в очереди) и резолвится тем, что человек нажал, либо `undefined`, если
+ *   он закрыл сообщение не выбрав. Немодальный вопрос ждёт ответа
+ *   {@link NOTIFICATION_ASK_TIMEOUT_MS} и закрывается сам — вечного показа быть
+ *   не должно: расширение, сделавшее `await show*Message(...)`, стоит ровно
+ *   столько, сколько живёт показ, и вечный вопрос подвешивал стоковому
+ *   `vscode-languageclient` перезапуск языкового сервера. Модальное сообщение
+ *   таймера не имеет: оно держит экран и человек его не пропустит.
  *
- * Второе осознанное отступление — как раз про липкость: в эталоне сам по себе
- * липкий только error С КНОПКАМИ (`NotificationViewItem.sticky`), а вопрос
- * уровня info/warning уезжает по таймауту, и вернуть его можно лишь из центра
- * уведомлений. Центра у нас нет, поэтому уехавший вопрос означал бы навсегда
- * потерянный выбор расширения (типовой случай — «Activate / Use free version» у
- * AI-автодополнения, для которого другой двери нет). Пока центра нет, вопрос
- * ждёт ответа столько, сколько нужно.
+ * Отступление от эталона тут в обе стороны: там липкий только error С КНОПКАМИ
+ * (`NotificationViewItem.sticky`), а вопрос уровня info/warning уезжает по
+ * таймауту и достаётся из центра уведомлений. Центра у нас пока нет, поэтому
+ * вопрос живёт заметно дольше пассивного тоста (у человека должно быть время
+ * ответить — типовой случай «Activate / Use free version» у AI-автодополнения,
+ * для которого другой двери нет), но всё же конечно.
  *
  * Видно одновременно не больше {@link MAX_VISIBLE_NOTIFICATIONS} тостов (как в
  * эталоне), но лишние не прячутся насовсем, а ЖДУТ ОЧЕРЕДИ: таймер тоста
@@ -108,9 +138,9 @@ export class NotificationService extends Disposable {
      * Пассивные тосты в порядке появления (старый → новый). Видны первые
      * {@link MAX_VISIBLE_NOTIFICATIONS}, остальные ждут своей очереди.
      */
-    private readonly passiveList: IEntry[] = [];
+    private readonly passiveList: IPassiveEntry[] = [];
     /** Вопросы: `[0]` — тот, что сейчас на экране, остальные ждут очереди. */
-    private readonly askList: IEntry[] = [];
+    private readonly askList: IAskEntry[] = [];
 
     public constructor() {
         super();
@@ -139,7 +169,7 @@ export class NotificationService extends Disposable {
         // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо — `--` даёт такие же различимые id
         const notification: IActiveNotification = { ...message, id: this.nextId++ };
         if (this.isPassive(message)) {
-            this.passiveList.push({ notification, resolve: () => undefined, timer: null });
+            this.passiveList.push({ notification, timer: null });
             this.armVisibleTimers();
             this.fire();
             return { id: notification.id, answered: Promise.resolve(undefined) };
@@ -147,6 +177,7 @@ export class NotificationService extends Disposable {
         const answered = new Promise<number | undefined>((resolve) => {
             this.askList.push({ notification, resolve, timer: null });
         });
+        this.armAskTimer();
         this.fire();
         return { id: notification.id, answered };
     }
@@ -174,8 +205,13 @@ export class NotificationService extends Disposable {
      * рода порядок обычный, FIFO.
      */
     public current(): IActiveNotification | null {
+        return this.currentEntry()?.notification ?? null;
+    }
+
+    /** Запись показанного вопроса — она же получает таймер «никто не ответил». */
+    private currentEntry(): IAskEntry | null {
         const modal = this.askList.find((entry) => entry.notification.modal);
-        return (modal ?? this.askList.at(0))?.notification ?? null;
+        return modal ?? this.askList.at(0) ?? null;
     }
 
     /** Сколько вопросов ждёт своей очереди за текущим. */
@@ -188,10 +224,10 @@ export class NotificationService extends Disposable {
      * Индекс вне набора кнопок трактуем как закрытие: ответ не про этот показ.
      */
     public answer(id: number, index: number): void {
-        const entry = this.askList.find((e) => e.notification.id === id);
-        if (entry === undefined) return;
-        const answer = index >= 0 && index < entry.notification.items.length ? index : undefined;
-        this.settleAsk(entry, answer);
+        const at = this.askList.findIndex((e) => e.notification.id === id);
+        if (at < 0) return;
+        const { items } = this.askList[at].notification;
+        this.settleAsk(at, index >= 0 && index < items.length ? index : undefined);
     }
 
     /**
@@ -199,8 +235,8 @@ export class NotificationService extends Disposable {
      * субпроцесса). Повторный вызов на том же id — no-op.
      */
     public dismiss(id: number): void {
-        const ask = this.askList.find((e) => e.notification.id === id);
-        if (ask !== undefined) {
+        const ask = this.askList.findIndex((e) => e.notification.id === id);
+        if (ask >= 0) {
             this.settleAsk(ask, undefined);
             return;
         }
@@ -220,6 +256,7 @@ export class NotificationService extends Disposable {
         for (const entry of this.passiveList) this.clearTimer(entry);
         this.passiveList.length = 0;
         const asks = [...this.askList];
+        for (const entry of asks) this.clearTimer(entry);
         this.askList.length = 0;
         for (const entry of asks) entry.resolve(undefined);
         this.fire();
@@ -238,12 +275,17 @@ export class NotificationService extends Disposable {
         return !message.modal && message.items.length === 0;
     }
 
-    private settleAsk(entry: IEntry, index: number | undefined): void {
-        const at = this.askList.indexOf(entry);
-        // Stryker disable next-line ConditionalExpression: запись приходит сюда только найденной в askList; гард страхует от повторного ответа на уже снятое сообщение
-        if (at < 0) return;
-        this.askList.splice(at, 1);
+    /**
+     * Снимает вопрос ПО ПОЗИЦИИ в очереди и отдаёт ответ тому, кто его задал.
+     * Позицией, а не записью: оба вызывающих её уже нашли, и лишний поиск
+     * потребовал бы защитной ветки «а если не нашли» — состояния, которого нет.
+     */
+    private settleAsk(at: number, index: number | undefined): void {
+        const [entry] = this.askList.splice(at, 1);
+        this.clearTimer(entry);
         entry.resolve(index);
+        // Место освободилось — время пошло у того, кто встал на экран.
+        this.armAskTimer();
         this.fire();
     }
 
@@ -262,7 +304,21 @@ export class NotificationService extends Disposable {
         }
     }
 
-    private clearTimer(entry: IEntry): void {
+    /**
+     * Заводит таймер ПОКАЗАННОМУ вопросу, если он не модальный и таймера ещё
+     * нет. Время считается с момента показа: вопрос, ждавший очереди, иначе истёк
+     * бы, ни разу не появившись.
+     */
+    private armAskTimer(): void {
+        const entry = this.currentEntry();
+        if (entry?.timer !== null || entry.notification.modal) return;
+        const { id } = entry.notification;
+        entry.timer = setTimeout(() => {
+            this.dismiss(id);
+        }, NOTIFICATION_ASK_TIMEOUT_MS);
+    }
+
+    private clearTimer(entry: IPassiveEntry | IAskEntry): void {
         if (entry.timer === null) return;
         clearTimeout(entry.timer);
         entry.timer = null;

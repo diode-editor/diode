@@ -44,6 +44,12 @@ const RIGHT_MARGIN = 1;
 /** Высота статус-бара: слот BodyElement занимает РОВНО один ряд (контракт движка). */
 const STATUS_BAR_ROWS = 1;
 
+/** Прикреплённый хост: корневая view и сессия пассивного стека в ней. */
+interface IAttachedHost {
+    readonly host: BodyElement;
+    readonly session: OverlaySessionHandle;
+}
+
 /** Открытый вопрос: его виджет, элемент сессии и сама сессия. */
 interface IOpenAsk {
     /** id показа в сервисе — по нему видно, что вопрос сменился. */
@@ -85,8 +91,12 @@ export class NotificationsComponent extends Component {
     /** Корень пассивного стека — фиксированная ширина под loose-constraints слоя. */
     public readonly view: SizedBoxElement;
 
-    private host: BodyElement | null = null;
-    private passiveSession: OverlaySessionHandle | null = null;
+    /**
+     * Хост и сессия пассивного стека — ОДНИМ полем: они появляются вместе в
+     * {@link attachHost} и по отдельности не бывают, так что раздельные
+     * nullable-поля потребовали бы защиты от состояний, которых нет.
+     */
+    private attached: IAttachedHost | null = null;
     private readonly stack = new VFlexElement();
     /** Пассивные тосты текущего кадра — пересобираются целиком (состояния у них нет). */
     private passiveToasts: NotificationToast[] = [];
@@ -117,16 +127,15 @@ export class NotificationsComponent extends Component {
                 this.closeAsk();
                 this.disposePassive();
                 this.stack.replaceChildren([]);
-                this.passiveSession?.dispose();
-                this.passiveSession = null;
+                this.attached?.session.dispose();
+                this.attached = null;
             },
         });
     }
 
     /** Вызывается владельцем корневой view (WorkbenchComponent) до первого показа. */
     public attachHost(host: BodyElement): void {
-        this.host = host;
-        this.passiveSession = host.overlayLayer.createSession(this.view, new Point(0, 0), {
+        const session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,
             // Пассивный индикатор: фокус остаётся там, где был, клики проходят
             // насквозь, глобальные бинды живут.
@@ -141,6 +150,7 @@ export class NotificationsComponent extends Component {
             pointerPolicy: "passthrough",
             capturesKeyboard: false,
         });
+        this.attached = { host, session };
         this.sync();
     }
 
@@ -155,24 +165,26 @@ export class NotificationsComponent extends Component {
         return true;
     }
 
-    /** Открыт ли сейчас вопрос (для тестов/оркестрации). */
+    /**
+     * Открыт ли сейчас вопрос (для тестов/оркестрации). Отдельной проверки
+     * `session.isOpen()` тут нет: сессией владеет компонент, и живой `ask` без
+     * открытой сессии не бывает — показ открывает её тем же проходом sync.
+     */
     public getOpenAsk(): NotificationToast | MessageDialog | null {
-        const ask = this.ask;
-        if (ask === null) return null;
-        return ask.session.isOpen() ? ask.widget : null;
+        return this.ask?.widget ?? null;
     }
 
     /** Приводит оверлеи в соответствие состоянию сервиса. */
     private sync(): void {
-        if (this.host === null) return;
-        this.syncAsk();
-        this.syncPassive();
-        this.updatePositions();
+        const attached = this.attached;
+        if (attached === null) return;
+        this.syncAsk(attached);
+        this.syncPassive(attached.session);
+        this.updatePositions(attached);
     }
 
     /** Пересобирает пассивный стек: видимый хвост плюс счётчик скрытых. */
-    private syncPassive(): void {
-        const session = this.requirePassiveSession();
+    private syncPassive(session: OverlaySessionHandle): void {
         const all = this.notifications.passive();
         this.disposePassive();
         // Детей снимаем ВМЕСТЕ с их dispose: оставить в дереве освобождённые
@@ -196,7 +208,7 @@ export class NotificationsComponent extends Component {
     }
 
     /** Открывает/закрывает вопрос по состоянию сервиса. */
-    private syncAsk(): void {
+    private syncAsk(attached: IAttachedHost): void {
         const current = this.notifications.current();
         if (current !== null && current.id === this.ask?.id) return;
         this.closeAsk();
@@ -209,7 +221,7 @@ export class NotificationsComponent extends Component {
         widget.onClose = () => {
             this.notifications.dismiss(current.id);
         };
-        const session = this.requireHost().overlayLayer.createSession(element, new Point(0, 0), {
+        const session = attached.host.overlayLayer.createSession(element, new Point(0, 0), {
             visible: false,
             // Фокус возвращаем на закрытии — но только если он вообще уходил в
             // тост (по F6 или клику); сам показ его не забирает.
@@ -232,10 +244,9 @@ export class NotificationsComponent extends Component {
     }
 
     /** Ставит оба оверлея на места: вопрос-тост снизу, пассивный стек над ним. */
-    private updatePositions(): void {
-        const host = this.requireHost();
-        const screenW = host.layoutSize.width;
-        const screenH = host.layoutSize.height;
+    private updatePositions(attached: IAttachedHost): void {
+        const screenW = attached.host.layoutSize.width;
+        const screenH = attached.host.layoutSize.height;
         const bottom = screenH - STATUS_BAR_ROWS;
         const right = Math.max(0, screenW - RIGHT_MARGIN - TOAST_WIDTH);
 
@@ -244,7 +255,7 @@ export class NotificationsComponent extends Component {
         if (ask !== null) {
             const wasOpen = ask.session.isOpen();
             if (ask.widget instanceof MessageDialog) {
-                this.openCentered(ask);
+                this.openCentered(ask, attached.host);
                 // Фокус ставим только при ПЕРВОМ открытии окна: пересчёт позиций
                 // случается и когда погас пассивный тост, а двигать фокус по
                 // такому поводу нельзя. Тост-вопрос фокус не берёт вовсе.
@@ -256,7 +267,7 @@ export class NotificationsComponent extends Component {
             }
         }
 
-        const passive = this.requirePassiveSession();
+        const passive = attached.session;
         if (passive.isOpen()) {
             const passiveRows = this.view.getMaxIntrinsicHeight(TOAST_WIDTH);
             passive.setPosition(new Point(right, clampRow(bottom - askRows - passiveRows, screenH)));
@@ -264,8 +275,7 @@ export class NotificationsComponent extends Component {
     }
 
     /** Модальное окно — по центру экрана (как у DialogService). */
-    private openCentered(ask: IOpenAsk): void {
-        const host = this.requireHost();
+    private openCentered(ask: IOpenAsk, host: BodyElement): void {
         const width = ask.element.getMaxIntrinsicWidth(0);
         const height = ask.element.getMaxIntrinsicHeight(width);
         const px = Math.max(0, Math.floor((host.layoutSize.width - width) / 2));
@@ -302,25 +312,6 @@ export class NotificationsComponent extends Component {
             this.notifications.dismiss(notification.id);
         };
         return toast;
-    }
-
-    /**
-     * Сессия пассивного стека. Она создаётся вместе с хостом, а до `attachHost`
-     * сюда не приходят вовсе: единственный вход — {@link sync}, а он первым делом
-     * проверяет хост.
-     */
-    private requirePassiveSession(): OverlaySessionHandle {
-        if (this.passiveSession === null) {
-            throw new Error("NotificationsComponent: passive session is missing (attachHost must be called first)");
-        }
-        return this.passiveSession;
-    }
-
-    private requireHost(): BodyElement {
-        if (this.host === null) {
-            throw new Error("NotificationsComponent: host is not attached (attachHost must be called first)");
-        }
-        return this.host;
     }
 }
 

@@ -1,4 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
 
@@ -85,7 +86,34 @@ describe("NotificationsComponent — без прикреплённого хос�
     });
 });
 
+describe("NotificationsComponent — кнопка закрытия тоста", () => {
+    it("× на пассивном тосте убирает именно его", () => {
+        const { notifications, component } = makeComponent();
+        const { testApp } = mountHost(component);
+        notifications.show({ severity: "error", message: "sticky", modal: false, items: [] });
+        notifications.show({ severity: "error", message: "второй", modal: false, items: [] });
+        expect(screen(testApp)).toContain("sticky");
+
+        // Кнопка первого тоста в стеке: жмём её так, как это делает человек.
+        const buttons = testApp.querySelectorAll("ButtonElement");
+        buttons[0].focus();
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+
+        const text = screen(testApp);
+        expect(text).not.toContain("sticky");
+        expect(text).toContain("второй");
+        expect(notifications.passive().map((n) => n.message)).toEqual(["второй"]);
+    });
+});
+
 describe("NotificationsComponent — dispose", () => {
+    it("до attachHost не падает", () => {
+        const { component } = makeComponent();
+        expect(() => {
+            component.dispose();
+        }).not.toThrow();
+    });
+
     it("снимает вопрос с экрана и перестаёт слушать сервис", () => {
         const { notifications, component } = makeComponent();
         const { testApp } = mountHost(component);

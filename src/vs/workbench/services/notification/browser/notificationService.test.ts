@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     type INotificationMessage,
     MAX_VISIBLE_NOTIFICATIONS,
+    NOTIFICATION_ASK_TIMEOUT_MS,
     NOTIFICATION_AUTO_HIDE_MS,
     NotificationService,
 } from "./notificationService.ts";
@@ -141,15 +142,17 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive()).toHaveLength(1);
     });
 
-    it("clearAll гасит таймеры всех тостов", () => {
+    it("clearAll гасит таймеры всех тостов, включая ждущих места", () => {
         const service = new NotificationService();
-        service.show(message({ message: "one" }));
-        service.show(message({ message: "two" }));
-        expect(vi.getTimerCount()).toBe(2);
+        for (const text of ["one", "two", "three", "four"]) service.show(message({ message: text }));
+        // Таймер есть только у видимых; у ждущего его ещё нет — и снятие обоих
+        // родов должно проходить одинаково спокойно.
+        expect(vi.getTimerCount()).toBe(MAX_VISIBLE_NOTIFICATIONS);
 
         service.clearAll();
 
         expect(vi.getTimerCount()).toBe(0);
+        expect(service.isEmpty()).toBe(true);
     });
 
     it("dispose убирает всё и не оставляет таймеров", () => {
@@ -208,6 +211,75 @@ describe("NotificationService — сообщения без кнопок", () =>
 });
 
 describe("NotificationService — вопросы", () => {
+    it("вопрос закрывается сам, если никто не ответил: расширение не стоит вечно", async () => {
+        vi.useFakeTimers();
+        try {
+            const service = new NotificationService();
+            const handle = service.show(message({ items: ["Activate"] }));
+
+            // Живёт заметно дольше пассивного тоста — человеку нужно время.
+            vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS.error);
+            expect(service.current()).not.toBeNull();
+
+            vi.advanceTimersByTime(NOTIFICATION_ASK_TIMEOUT_MS - NOTIFICATION_AUTO_HIDE_MS.error);
+            await expect(handle.answered).resolves.toBeUndefined();
+            expect(service.current()).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("время вопроса из очереди начинается с ПОКАЗА", async () => {
+        vi.useFakeTimers();
+        try {
+            const service = new NotificationService();
+            const first = service.show(message({ message: "first", items: ["One"] }));
+            const second = service.show(message({ message: "second", items: ["Two"] }));
+            // Таймер только у показанного.
+            expect(vi.getTimerCount()).toBe(1);
+
+            vi.advanceTimersByTime(NOTIFICATION_ASK_TIMEOUT_MS);
+            await expect(first.answered).resolves.toBeUndefined();
+            expect(service.current()?.message).toBe("second");
+
+            vi.advanceTimersByTime(NOTIFICATION_ASK_TIMEOUT_MS - 1);
+            expect(service.current()?.message).toBe("second");
+            vi.advanceTimersByTime(1);
+            await expect(second.answered).resolves.toBeUndefined();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("МОДАЛЬНОЕ сообщение таймера не имеет — окно не закрывается из-под рук", () => {
+        vi.useFakeTimers();
+        try {
+            const service = new NotificationService();
+            service.show(message({ modal: true, items: ["Delete"] }));
+            expect(vi.getTimerCount()).toBe(0);
+
+            vi.advanceTimersByTime(NOTIFICATION_ASK_TIMEOUT_MS * 10);
+            expect(service.current()).not.toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("ответ снимает таймер вопроса", () => {
+        vi.useFakeTimers();
+        try {
+            const service = new NotificationService();
+            const handle = service.show(message({ items: ["One"] }));
+            expect(vi.getTimerCount()).toBe(1);
+
+            service.answer(handle.id, 0);
+
+            expect(vi.getTimerCount()).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("сообщение с кнопками ждёт ответа и отдаёт индекс нажатой", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["Activate", "Free"] }));
