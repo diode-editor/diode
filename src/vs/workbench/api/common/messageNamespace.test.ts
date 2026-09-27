@@ -33,6 +33,20 @@ describe("parseMessageArgs — четыре перегрузки show*Message", 
         expect(parseMessageArgs({ modal: true, detail: "" }, [])).toEqual({ modal: true, items: [] });
     });
 
+    it("не-строковый detail отбрасывается, а не едет как есть", () => {
+        expect(parseMessageArgs({ modal: true, detail: 7 }, [])).toEqual({ modal: true, items: [] });
+    });
+
+    it("мусор вместо опций читается как «опций нет», а не роняет показ", () => {
+        // Расширение на JS вправе прислать что угодно; ронять его показ нельзя.
+        expect(parseMessageArgs(null, ["One"])).toEqual({ modal: false, items: ["One"] });
+        expect(parseMessageArgs(7, ["One"])).toEqual({ modal: false, items: ["One"] });
+    });
+
+    it("modal только по строгому true", () => {
+        expect(parseMessageArgs({ modal: "yes" }, []).modal).toBe(false);
+    });
+
     it("опции без modal дают немодальное сообщение", () => {
         expect(parseMessageArgs({ detail: "текст" }, ["One"])).toEqual({
             modal: false,

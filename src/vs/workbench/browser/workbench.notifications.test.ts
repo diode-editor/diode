@@ -1,18 +1,16 @@
+import { Point } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import {
+    MAX_VISIBLE_NOTIFICATIONS,
     NOTIFICATION_AUTO_HIDE_MS,
     type NotificationService,
     NotificationServiceDIToken,
 } from "../services/notification/browser/notificationService.ts";
 
-import {
-    MAX_VISIBLE_TOASTS,
-    NotificationsComponentDIToken,
-    TOAST_WIDTH,
-} from "./parts/notifications/notificationsComponent.ts";
+import { NotificationsComponentDIToken, TOAST_WIDTH } from "./parts/notifications/notificationsComponent.ts";
 
 /**
  * Поверхность сообщений целиком: сервис → overlay-слой → КАДР. Юнит-тесты
@@ -68,18 +66,31 @@ describe("Workbench — сообщения на кадре", () => {
         expect(bottomRow).toBe(height - 2);
     });
 
-    it("несколько сообщений становятся стеком; лишние — счётчиком", () => {
+    it("несколько сообщений становятся стеком; ждущие места — счётчиком", () => {
         for (const message of ["one", "two", "three", "four", "five"]) {
             notifications.show({ severity: "error", message, modal: false, items: [] });
         }
         const text = screen();
 
-        // Видны САМЫЕ НОВЫЕ: прятать свежее ради старого бессмысленно.
-        expect(text).toContain("five");
-        expect(text).toContain("four");
+        expect(text).toContain("one");
+        expect(text).toContain("two");
         expect(text).toContain("three");
-        expect(text).not.toContain("one");
-        expect(text).toContain(`+${String(5 - MAX_VISIBLE_TOASTS)} more`);
+        // Ждущие места не нарисованы, но и не потеряны — они встанут в стек,
+        // когда впереди стоящий тост уйдёт.
+        expect(text).not.toContain("five");
+        expect(text).toContain(`+${String(5 - MAX_VISIBLE_NOTIFICATIONS)} more`);
+    });
+
+    it("ждущий тост сам встаёт в стек, когда впереди стоящий закрыли", () => {
+        const first = notifications.show({ severity: "error", message: "one", modal: false, items: [] });
+        for (const message of ["two", "three", "four"]) {
+            notifications.show({ severity: "error", message, modal: false, items: [] });
+        }
+        expect(screen()).not.toContain("four");
+
+        notifications.dismiss(first.id);
+
+        expect(screen()).toContain("four");
     });
 
     it("info гаснет сам и уходит с кадра", () => {
@@ -87,7 +98,7 @@ describe("Workbench — сообщения на кадре", () => {
         notifications.show({ severity: "info", message: "transient", modal: false, items: [] });
         expect(screen()).toContain("transient");
 
-        vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS);
+        vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS.info);
         expect(screen()).not.toContain("transient");
     });
 
@@ -204,6 +215,93 @@ describe("Workbench — сообщения на кадре", () => {
 
         expect(withAsk).toBeGreaterThan(0);
         expect(withoutAsk).toBeGreaterThan(withAsk);
+    });
+
+    it("пока висит вопрос-тост, глобальные бинды живут — клавиатура не заперта", async () => {
+        notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["One"] });
+        screen();
+
+        // Ctrl+B — переключатель сайдбара; сквозь тост-вопрос он обязан работать.
+        const sidebarBefore = screen().includes("EXPLORER");
+        h.testApp.sendKey("Ctrl+B");
+        expect(screen().includes("EXPLORER")).toBe(!sidebarBefore);
+        // И сам вопрос при этом никуда не делся.
+        expect(screen()).toContain("Activate?");
+        await Promise.resolve();
+    });
+
+    it("пока висит МОДАЛЬНОЕ сообщение, глобальные бинды погашены", () => {
+        notifications.show({ severity: "warn", message: "Delete?", modal: true, items: ["Delete"] });
+        screen();
+
+        const sidebarBefore = screen().includes("EXPLORER");
+        h.testApp.sendKey("Ctrl+B");
+
+        expect(screen().includes("EXPLORER")).toBe(sidebarBefore);
+        expect(screen()).toContain("Delete?");
+    });
+
+    it("модальное окно забирает фокус, а тост-вопрос — нет", () => {
+        const before = h.testApp.focusedElement;
+        notifications.show({ severity: "info", message: "toast?", modal: false, items: ["One"] });
+        screen();
+        expect(h.testApp.focusedElement).toBe(before);
+
+        notifications.clearAll();
+        notifications.show({ severity: "warn", message: "modal?", modal: true, items: ["Delete"] });
+        screen();
+        expect(h.testApp.focusedElement).not.toBe(before);
+    });
+
+    it("фокус возвращается туда, где был, когда вопрос закрыт", async () => {
+        const before = h.testApp.focusedElement;
+        const answered = notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["One"] });
+        screen();
+        await h.commands.execute("notifications.focusMessage");
+        expect(h.testApp.focusedElement).not.toBe(before);
+
+        h.testApp.sendKey("Escape");
+        await answered.answered;
+
+        expect(h.testApp.focusedElement).toBe(before);
+    });
+
+    it("модальное окно стоит по центру по вертикали, а не прижато к верху", () => {
+        notifications.show({
+            severity: "warn",
+            message: "Delete?",
+            detail: "Нельзя отменить.",
+            modal: true,
+            items: ["Delete"],
+        });
+        const rows = screen().split("\n");
+        const top = rows.findIndex((row) => row.includes("╭"));
+        const bottom = rows.findIndex((row) => row.includes("╰"));
+        const height = h.testApp.root.layoutSize.height;
+
+        expect(top).toBeGreaterThan(1);
+        expect(height - 1 - bottom).toBeGreaterThan(1);
+        // Отступы сверху и снизу отличаются не больше, чем на ряд.
+        expect(Math.abs(top - (height - 1 - bottom))).toBeLessThanOrEqual(1);
+    });
+
+    it("«+N more» появляется только когда кто-то действительно ждёт места", () => {
+        notifications.show({ severity: "error", message: "only one", modal: false, items: [] });
+        expect(screen()).not.toContain("more");
+    });
+
+    it("счётчик ждущих приглушён — он не спорит с текстом сообщений", () => {
+        for (const message of ["one", "two", "three", "four"]) {
+            notifications.show({ severity: "error", message, modal: false, items: [] });
+        }
+        const rows = screen().split("\n");
+        const counterRow = rows.findIndex((row) => row.includes("more"));
+        // «four» ждёт места и не нарисован — сравниваем с видимым сообщением.
+        const messageRow = rows.findIndex((row) => row.includes("one"));
+
+        expect(h.testApp.backend.getFgAt(new Point(rows[counterRow].indexOf("+"), counterRow))).not.toBe(
+            h.testApp.backend.getFgAt(new Point(rows[messageRow].indexOf("one"), messageRow)),
+        );
     });
 
     it("команда фокуса без живого вопроса ничего не делает", async () => {

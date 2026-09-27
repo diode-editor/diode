@@ -29,11 +29,21 @@ const SEVERITY_HEADERS: Readonly<Record<NotificationSeverity, { readonly title: 
     error: { title: "$(error) Error", fg: "notificationsErrorIcon.foreground" },
 };
 
+/**
+ * DOM-идентичность тоста для `querySelector("#notificationToast")` (у компонента,
+ * в отличие от элемента, нет имени класса в дереве). Один на все тосты: их бывает
+ * несколько сразу, и адресовать нужно «любой тост», а не конкретный.
+ */
+export const TOAST_ELEMENT_ID = "notificationToast";
+
 /** Ширина текста внутри рамки: сообщения расширений длинные, но угол экрана узкий. */
 export const TOAST_TEXT_WIDTH = 46;
 
 /** Сколько строк сообщения показываем; остальное — в логе расширений. */
 export const TOAST_MAX_LINES = 6;
+
+/** Подпись кнопки закрытия — как «×» на тосте эталона (`notification.clear`). */
+export const TOAST_CLOSE_LABEL = "×";
 
 /** Подсказка, когда фокус уже в ряду кнопок: чем отвечать и чем закрыть. */
 export const TOAST_HINT_FOCUSED = "←/→ · Enter — выбрать · Esc — закрыть";
@@ -80,7 +90,7 @@ export class NotificationToast extends DialogComponent {
     private readonly unfocusedHint: string;
 
     public constructor(notification: IActiveNotification, answerKeyLabel?: string) {
-        super(`notificationToast-${String(notification.id)}`);
+        super(TOAST_ELEMENT_ID);
         this.notification = notification;
         this.unfocusedHint = toastUnfocusedHint(answerKeyLabel);
 
@@ -91,40 +101,56 @@ export class NotificationToast extends DialogComponent {
             stack.addChild(new TextLabelElement(line), { width: "stretch", height: 1 });
         }
 
-        const buttons: ButtonElement[] = notification.items.map((title, index) => {
+        const answerButtons: ButtonElement[] = notification.items.map((title, index) => {
             const button = new ButtonElement(title);
             button.onActivate = () => this.onSelect?.(index);
             return button;
         });
+        // Кнопка закрытия есть у ЛЮБОГО тоста, и это не украшение: как в эталоне
+        // (`notification.clear`), сообщение обязано быть чем убрать здесь и
+        // сейчас — не дожидаясь таймаута и не открывая палитру.
+        const closeButton = new ButtonElement(TOAST_CLOSE_LABEL);
+        closeButton.onActivate = () => this.onClose?.();
+        const buttons = [...answerButtons, closeButton];
         this.buttons = buttons;
-        if (buttons.length > 0) {
-            stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
-            stack.addChild(buildButtonRow(buttons), { width: "stretch", height: 1 });
-            this.hint = new TextLabelElement(this.unfocusedHint);
-            this.hint.style = { fg: TOAST_STYLES.descriptionFg };
-            stack.addChild(this.hint, { width: "stretch", height: 1 });
+
+        stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
+        stack.addChild(buildButtonRow(buttons), { width: "stretch", height: 1 });
+        // Подсказка — только у вопроса: она про то, чем ОТВЕТИТЬ. Пассивному
+        // тосту подсказывать нечего, его кнопка закрытия говорит сама за себя.
+        if (answerButtons.length > 0) {
+            const hint = new TextLabelElement(this.unfocusedHint);
+            hint.style = { fg: TOAST_STYLES.descriptionFg };
+            this.hint = hint;
+            stack.addChild(hint, { width: "stretch", height: 1 });
             // Подсказка следует за фокусом: до F6 она говорит, как сюда попасть,
             // внутри — как отвечать. На переходе между кнопками blur приходит
             // раньше focus'а, поэтому смотрим на весь ряд, а не на одну кнопку.
             for (const button of buttons) {
                 button.addEventListener("focus", () => {
-                    this.syncHint();
+                    this.syncHint(hint);
                 });
                 button.addEventListener("blur", () => {
-                    this.syncHint();
+                    this.syncHint(hint);
                 });
             }
         }
     }
 
-    /** Есть ли у тоста кнопки — то есть забирает ли он фокус. */
+    /**
+     * Задаёт ли тост вопрос — то есть есть ли у него кнопки ОТВЕТА. Кнопка
+     * закрытия есть у любого тоста и вопросом его не делает.
+     */
     public get isInteractive(): boolean {
-        return this.buttons.length > 0;
+        return this.notification.items.length > 0;
     }
 
-    /** Ставит фокус на первую кнопку. У тоста без кнопок фокусировать нечего. */
+    /**
+     * Ставит фокус на первую кнопку ряда. Ряд не пуст никогда: даже у пассивного
+     * тоста в нём есть кнопка закрытия.
+     */
     public focusDefault(): void {
-        this.buttons.at(0)?.focus();
+        this.buttons[0].focus();
     }
 
     /** Текст подсказки под кнопками — по нему в тестах видно, где фокус. */
@@ -133,9 +159,9 @@ export class NotificationToast extends DialogComponent {
     }
 
     /** Приводит подсказку в соответствие тому, есть ли фокус в ряду кнопок. */
-    private syncHint(): void {
+    private syncHint(hint: TextLabelElement): void {
         const focused = this.buttons.some((button) => button.isFocused);
-        this.hint?.setText(focused ? TOAST_HINT_FOCUSED : this.unfocusedHint);
+        hint.setText(focused ? TOAST_HINT_FOCUSED : this.unfocusedHint);
     }
 
     protected override styles(): IDialogStyles {
@@ -152,7 +178,6 @@ export class NotificationToast extends DialogComponent {
 
     protected override handleExtraKeydown(event: TUIKeyboardEvent): void {
         if (event.key !== "Tab") return;
-        if (this.buttons.length === 0) return;
         event.preventDefault();
         const focused = this.buttons.findIndex((button) => button.isFocused);
         const step = event.shiftKey ? -1 : 1;

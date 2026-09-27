@@ -2167,11 +2167,10 @@ function parseWireMessageItems(raw: unknown): IWireMessageItem[] {
     if (!Array.isArray(raw)) return [];
     const items: IWireMessageItem[] = [];
     for (const entry of raw) {
-        if (typeof entry !== "object" || entry === null) {
-            items.push({ title: "", isCloseAffordance: false });
-            continue;
-        }
-        const it = entry as { title?: unknown; isCloseAffordance?: unknown };
+        // Мусорная кнопка (null, число, строка) читается теми же полями и даёт
+        // пустой заголовок — отдельной ветки для неё не нужно, нужен только
+        // `?? {}`, чтобы не обратиться к полю у `null`.
+        const it = (entry ?? {}) as { title?: unknown; isCloseAffordance?: unknown };
         items.push({
             title: typeof it.title === "string" ? it.title : "",
             isCloseAffordance: it.isCloseAffordance === true,

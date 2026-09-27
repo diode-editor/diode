@@ -99,9 +99,15 @@ function nonEmpty(value: string | undefined): boolean {
 }
 
 /**
- * Запуск системного обработчика отдельным процессом. Отвязываем его от нашего
- * (`detached`, потоки в `ignore`): браузер живёт дольше редактора и не должен ни
- * писать в наш терминал, ни держать его при выходе.
+ * Как запускается системный обработчик. Оба поля — про наш терминал: `stdio:
+ * "ignore"` не даёт браузеру писать в кадр TUI (его вывод затёр бы интерфейс), а
+ * `detached` отвязывает его от нашего процесса — он живёт дольше редактора.
+ */
+export const HANDLER_SPAWN_OPTIONS = { detached: true, stdio: "ignore" } as const;
+
+/**
+ * Запуск системного обработчика отдельным процессом — по правилам
+ * {@link HANDLER_SPAWN_OPTIONS}.
  */
 export function spawnDetached(command: string, args: readonly string[]): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
@@ -112,7 +118,7 @@ export function spawnDetached(command: string, args: readonly string[]): Promise
             resolve(ok);
         };
         try {
-            const child = spawn(command, [...args], { detached: true, stdio: "ignore" });
+            const child = spawn(command, [...args], HANDLER_SPAWN_OPTIONS);
             // `error` слушать ОБЯЗАТЕЛЬНО: без слушателя ENOENT (обработчика нет
             // в PATH) уходит в unhandled и роняет процесс редактора.
             child.on("error", () => {

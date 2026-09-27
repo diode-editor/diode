@@ -38,14 +38,25 @@ export const FOCUS_MESSAGE_COMMAND_ID = "notifications.focusMessage";
 /** Полная ширина тоста: текст плюс рамка (2) и отступы контента (2×2). */
 export const TOAST_WIDTH = TOAST_TEXT_WIDTH + 6;
 
-/** Сколько пассивных тостов видно одновременно; остальные — счётчиком. */
-export const MAX_VISIBLE_TOASTS = 3;
-
 /** Отступ стека от правого края экрана. */
 const RIGHT_MARGIN = 1;
 
 /** Высота статус-бара: слот BodyElement занимает РОВНО один ряд (контракт движка). */
 const STATUS_BAR_ROWS = 1;
+
+/** Открытый вопрос: его виджет, элемент сессии и сама сессия. */
+interface IOpenAsk {
+    /** id показа в сервисе — по нему видно, что вопрос сменился. */
+    readonly id: number;
+    readonly widget: NotificationToast | MessageDialog;
+    /**
+     * Элемент, который держит сессия: у тоста это обёртка фиксированной ширины
+     * (иначе он был бы уже пассивных — те живут внутри такой же обёртки, и правые
+     * края стека разъехались бы), у модального окна — само окно.
+     */
+    readonly element: TUIElement;
+    readonly session: OverlaySessionHandle;
+}
 
 /**
  * Поверхность сообщений: стек тостов в правом нижнем углу над статус-баром плюс
@@ -80,16 +91,12 @@ export class NotificationsComponent extends Component {
     /** Пассивные тосты текущего кадра — пересобираются целиком (состояния у них нет). */
     private passiveToasts: NotificationToast[] = [];
 
-    private askSession: OverlaySessionHandle | null = null;
-    private askWidget: NotificationToast | MessageDialog | null = null;
     /**
-     * Элемент, который держит сессия вопроса: у тоста это обёртка фиксированной
-     * ширины (иначе он был бы уже пассивных — те живут внутри такой же обёртки, и
-     * правые края стека разъехались бы), у модального окна — само окно.
+     * Живой показ вопроса ЦЕЛИКОМ, одним полем: виджет, элемент сессии и её
+     * ручка появляются и исчезают вместе, и хранить их отдельными nullable-полями
+     * значило бы защищаться `?.` от состояний, которых не бывает.
      */
-    private askElement: TUIElement | null = null;
-    /** id показанного вопроса — по нему видно, что вопрос сменился. */
-    private askId: number | null = null;
+    private ask: IOpenAsk | null = null;
 
     public constructor(
         private readonly notifications: NotificationService,
@@ -109,6 +116,7 @@ export class NotificationsComponent extends Component {
             dispose: () => {
                 this.closeAsk();
                 this.disposePassive();
+                this.stack.replaceChildren([]);
                 this.passiveSession?.dispose();
                 this.passiveSession = null;
             },
@@ -141,14 +149,17 @@ export class NotificationsComponent extends Component {
      * фокус ушёл в редактор, а сообщение так и висит неотвеченным.
      */
     public focusAsk(): boolean {
-        if (this.askWidget === null) return false;
-        this.askWidget.focusDefault();
+        const ask = this.ask;
+        if (ask === null) return false;
+        ask.widget.focusDefault();
         return true;
     }
 
     /** Открыт ли сейчас вопрос (для тестов/оркестрации). */
     public getOpenAsk(): NotificationToast | MessageDialog | null {
-        return (this.askSession?.isOpen() ?? false) ? this.askWidget : null;
+        const ask = this.ask;
+        if (ask === null) return null;
+        return ask.session.isOpen() ? ask.widget : null;
     }
 
     /** Приводит оверлеи в соответствие состоянию сервиса. */
@@ -161,44 +172,44 @@ export class NotificationsComponent extends Component {
 
     /** Пересобирает пассивный стек: видимый хвост плюс счётчик скрытых. */
     private syncPassive(): void {
+        const session = this.requirePassiveSession();
         const all = this.notifications.passive();
         this.disposePassive();
+        // Детей снимаем ВМЕСТЕ с их dispose: оставить в дереве освобождённые
+        // виджеты — значит однажды отрисовать их.
+        this.stack.replaceChildren([]);
         if (all.length === 0) {
-            if (this.passiveSession?.isOpen() === true) this.passiveSession.close();
+            if (session.isOpen()) session.close();
             return;
         }
-        // Показываем НОВЫЕ: скрывать свежее сообщение ради старого бессмысленно.
-        const visible = all.slice(Math.max(0, all.length - MAX_VISIBLE_TOASTS));
-        const hidden = all.length - visible.length;
-        const children: (NotificationToast | TextLabelElement)[] = [];
-        if (hidden > 0) children.push(makeOverflowLabel(hidden));
-        for (const notification of visible) children.push(this.makeToast(notification));
-
-        this.passiveToasts = children.filter((child): child is NotificationToast => child instanceof NotificationToast);
-        this.stack.replaceChildren([]);
-        for (const child of children) {
-            const element = child instanceof NotificationToast ? child.view : child;
-            this.stack.addChild(element, { height: vflexFit(), width: "fill" });
+        // Сколько ждёт места — счётчиком над стеком. Это не «спрятано насовсем»:
+        // очередь сама доедет до экрана, когда впереди стоящий тост уйдёт.
+        const queued = this.notifications.queuedPassiveCount();
+        if (queued > 0) {
+            this.stack.addChild(makeQueueLabel(queued), { height: vflexFit(), width: "fill" });
         }
-        this.passiveSession?.open();
+        this.passiveToasts = all.map((notification) => this.makeToast(notification));
+        for (const toast of this.passiveToasts) {
+            this.stack.addChild(toast.view, { height: vflexFit(), width: "fill" });
+        }
+        session.open();
     }
 
     /** Открывает/закрывает вопрос по состоянию сервиса. */
     private syncAsk(): void {
         const current = this.notifications.current();
-        if (current?.id === this.askId) return;
+        if (current !== null && current.id === this.ask?.id) return;
         this.closeAsk();
         if (current === null) return;
-        this.askId = current.id;
-        this.askWidget = current.modal ? new MessageDialog(current) : this.makeToast(current);
-        this.askElement = current.modal ? this.askWidget.view : fixedWidth(this.askWidget.view);
-        this.askWidget.onSelect = (index) => {
+        const widget = current.modal ? new MessageDialog(current) : this.makeToast(current);
+        const element = current.modal ? widget.view : fixedWidth(widget.view);
+        widget.onSelect = (index) => {
             this.notifications.answer(current.id, index);
         };
-        this.askWidget.onClose = () => {
+        widget.onClose = () => {
             this.notifications.dismiss(current.id);
         };
-        this.askSession = this.requireHost().overlayLayer.createSession(this.askElement, new Point(0, 0), {
+        const session = this.requireHost().overlayLayer.createSession(element, new Point(0, 0), {
             visible: false,
             // Фокус возвращаем на закрытии — но только если он вообще уходил в
             // тост (по F6 или клику); сам показ его не забирает.
@@ -217,6 +228,7 @@ export class NotificationsComponent extends Component {
             pointerPolicy: current.modal ? "modal" : "passthrough",
             capturesKeyboard: current.modal,
         });
+        this.ask = { id: current.id, widget, element, session };
     }
 
     /** Ставит оба оверлея на места: вопрос-тост снизу, пассивный стек над ним. */
@@ -228,47 +240,47 @@ export class NotificationsComponent extends Component {
         const right = Math.max(0, screenW - RIGHT_MARGIN - TOAST_WIDTH);
 
         let askRows = 0;
-        const widget = this.askWidget;
-        if (widget !== null) {
-            const wasOpen = this.askSession?.isOpen() ?? false;
-            if (widget instanceof MessageDialog) {
-                this.openCentered(widget);
+        const ask = this.ask;
+        if (ask !== null) {
+            const wasOpen = ask.session.isOpen();
+            if (ask.widget instanceof MessageDialog) {
+                this.openCentered(ask);
                 // Фокус ставим только при ПЕРВОМ открытии окна: пересчёт позиций
                 // случается и когда погас пассивный тост, а двигать фокус по
                 // такому поводу нельзя. Тост-вопрос фокус не берёт вовсе.
-                if (!wasOpen) widget.focusDefault();
+                if (!wasOpen) ask.widget.focusDefault();
             } else {
-                askRows = this.askElement?.getMaxIntrinsicHeight(TOAST_WIDTH) ?? 0;
-                this.askSession?.setPosition(new Point(right, clampRow(bottom - askRows, screenH)));
-                this.askSession?.open();
+                askRows = ask.element.getMaxIntrinsicHeight(TOAST_WIDTH);
+                ask.session.setPosition(new Point(right, clampRow(bottom - askRows, screenH)));
+                ask.session.open();
             }
         }
 
-        if (this.passiveSession?.isOpen() === true) {
+        const passive = this.requirePassiveSession();
+        if (passive.isOpen()) {
             const passiveRows = this.view.getMaxIntrinsicHeight(TOAST_WIDTH);
-            this.passiveSession.setPosition(new Point(right, clampRow(bottom - askRows - passiveRows, screenH)));
+            passive.setPosition(new Point(right, clampRow(bottom - askRows - passiveRows, screenH)));
         }
     }
 
     /** Модальное окно — по центру экрана (как у DialogService). */
-    private openCentered(widget: MessageDialog): void {
+    private openCentered(ask: IOpenAsk): void {
         const host = this.requireHost();
-        const width = widget.view.getMaxIntrinsicWidth(0);
-        const height = widget.view.getMaxIntrinsicHeight(width);
+        const width = ask.element.getMaxIntrinsicWidth(0);
+        const height = ask.element.getMaxIntrinsicHeight(width);
         const px = Math.max(0, Math.floor((host.layoutSize.width - width) / 2));
         const py = Math.max(0, Math.floor((host.layoutSize.height - height) / 2));
-        this.askSession?.setPosition(new Point(px, py));
-        this.askSession?.open();
+        ask.session.setPosition(new Point(px, py));
+        ask.session.open();
     }
 
     private closeAsk(): void {
-        this.askSession?.close();
-        this.askSession?.dispose();
-        this.askSession = null;
-        this.askWidget?.dispose();
-        this.askWidget = null;
-        this.askElement = null;
-        this.askId = null;
+        const ask = this.ask;
+        if (ask === null) return;
+        this.ask = null;
+        ask.session.close();
+        ask.session.dispose();
+        ask.widget.dispose();
     }
 
     private disposePassive(): void {
@@ -283,7 +295,25 @@ export class NotificationsComponent extends Component {
     private makeToast(notification: IActiveNotification): NotificationToast {
         const chord = this.keybindings.getKeybindingForCommand(FOCUS_MESSAGE_COMMAND_ID, this.contextKeys);
         const label = chord === undefined ? undefined : formatKeybinding(chord, keybindingLabelStyle(this.contextKeys));
-        return new NotificationToast(notification, label);
+        const toast = new NotificationToast(notification, label);
+        // Кнопка закрытия работает у любого тоста, включая пассивный: у него нет
+        // другого способа уйти с экрана раньше таймаута.
+        toast.onClose = () => {
+            this.notifications.dismiss(notification.id);
+        };
+        return toast;
+    }
+
+    /**
+     * Сессия пассивного стека. Она создаётся вместе с хостом, а до `attachHost`
+     * сюда не приходят вовсе: единственный вход — {@link sync}, а он первым делом
+     * проверяет хост.
+     */
+    private requirePassiveSession(): OverlaySessionHandle {
+        if (this.passiveSession === null) {
+            throw new Error("NotificationsComponent: passive session is missing (attachHost must be called first)");
+        }
+        return this.passiveSession;
     }
 
     private requireHost(): BodyElement {
@@ -301,14 +331,17 @@ function fixedWidth(element: TUIElement): SizedBoxElement {
     return holder;
 }
 
-/** Строка «ещё N» над стеком, когда сообщений больше, чем мест. */
-function makeOverflowLabel(hidden: number): TextLabelElement {
-    const label = new TextLabelElement(`+${String(hidden)} more`);
+/** Строка «ещё N ждут места» над стеком. */
+function makeQueueLabel(queued: number): TextLabelElement {
+    const label = new TextLabelElement(`+${String(queued)} more`);
     label.style = { fg: "descriptionForeground" };
     return label;
 }
 
-/** Ряд в пределах экрана и ниже строки меню (она занимает ряд 0). */
-function clampRow(row: number, screenH: number): number {
+/**
+ * Ряд в пределах экрана и ниже строки меню (она занимает ряд 0): на низком
+ * экране высокий тост иначе уехал бы за кадр или накрыл меню.
+ */
+export function clampRow(row: number, screenH: number): number {
     return Math.min(Math.max(1, row), Math.max(1, screenH - 1));
 }

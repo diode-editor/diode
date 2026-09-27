@@ -10,6 +10,9 @@ import type {
 } from "../../../services/notification/browser/notificationService.ts";
 import { DIALOG_STYLES, DialogComponent } from "../dialogs/dialogComponent.ts";
 
+/** DOM-идентичность окна для `querySelector("#messageDialog")`. */
+export const MESSAGE_DIALOG_ELEMENT_ID = "messageDialog";
+
 /** Ширина текста внутри окна — окно по центру, места больше, чем у тоста. */
 export const MESSAGE_DIALOG_TEXT_WIDTH = 60;
 
@@ -43,7 +46,7 @@ export class MessageDialog extends DialogComponent {
     private readonly buttons: readonly ButtonElement[];
 
     public constructor(notification: IActiveNotification) {
-        super("messageDialog");
+        super(MESSAGE_DIALOG_ELEMENT_ID);
         this.notification = notification;
 
         const stack = this.buildFrame(renderCodicons(SEVERITY_TITLES[notification.severity]));
@@ -82,9 +85,12 @@ export class MessageDialog extends DialogComponent {
         stack.addChild(buildCenteredRow(buttons, innerWidth), { width: "stretch", height: 1 });
     }
 
-    /** Ставит фокус на первую кнопку — она же ответ по умолчанию. */
+    /**
+     * Ставит фокус на первую кнопку — она же ответ по умолчанию. Кнопка есть
+     * всегда: сообщению без кнопок конструктор даёт единственную «OK».
+     */
     public focusDefault(): void {
-        this.buttons.at(0)?.focus();
+        this.buttons[0].focus();
     }
 
     protected override rowButtons(): readonly ButtonElement[] {

@@ -20,9 +20,18 @@ describe("findCloseAffordance", () => {
         ).toBe(1);
     });
 
-    it("ни одной помеченной — null", () => {
-        expect(findCloseAffordance([{ title: "Ok", isCloseAffordance: false }])).toBeNull();
-        expect(findCloseAffordance([])).toBeNull();
+    it("помеченная ПЕРВОЙ — это индекс 0, а не «не найдено»", () => {
+        expect(
+            findCloseAffordance([
+                { title: "Cancel", isCloseAffordance: true },
+                { title: "Delete", isCloseAffordance: false },
+            ]),
+        ).toBe(0);
+    });
+
+    it("ни одной помеченной — undefined", () => {
+        expect(findCloseAffordance([{ title: "Ok", isCloseAffordance: false }])).toBeUndefined();
+        expect(findCloseAffordance([])).toBeUndefined();
     });
 });
 

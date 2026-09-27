@@ -41,9 +41,13 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Diode Notify"), { timeoutMs: 30000 });
 
         // ─── Сообщение без кнопок ───────────────────────────────────────────
-        // Раньше этого не было видно нигде: текст уходил только в лог.
+        // Раньше этого не было видно нигде: текст уходил только в лог. У тоста
+        // есть кнопка закрытия — сообщение обязано быть чем убрать (как
+        // `notification.clear` в эталоне).
         await runProbeCommand(editor, "Show Error");
-        await editor.waitForText((t) => t.includes("tsserver: crashed 3 times"), { timeoutMs: 20000 });
+        await editor.waitForText((t) => t.includes("tsserver: crashed 3 times") && t.includes("×"), {
+            timeoutMs: 20000,
+        });
         await editor.capture("error-toast");
 
         // ─── Вопрос с кнопками ──────────────────────────────────────────────
@@ -65,13 +69,13 @@ export default defineScenario({
         await editor.capture("answer-delivered");
 
         // ─── Стек сообщений ─────────────────────────────────────────────────
-        // Больше трёх не влезает — остальные считаются строкой «+N more».
+        // Видно три, остальные ЖДУТ МЕСТА (строка «+N more»), а не теряются.
         await runProbeCommand(editor, "Show Many");
-        await editor.waitForText((t) => t.includes("Message five") && t.includes("more"), { timeoutMs: 20000 });
+        await editor.waitForText((t) => t.includes("Message one") && t.includes("more"), { timeoutMs: 20000 });
         await editor.capture("stack");
 
         await runProbeCommand(editor, "Clear All");
-        await editor.waitForText((t) => !t.includes("Message five"), { timeoutMs: 20000 });
+        await editor.waitForText((t) => !t.includes("Message one"), { timeoutMs: 20000 });
 
         // ─── Модальное сообщение ────────────────────────────────────────────
         // `MessageOptions.modal` — окно по центру с приглушённым detail; Escape
@@ -88,6 +92,9 @@ export default defineScenario({
         await runProbeCommand(editor, "Open External");
         await editor.waitForText((t) => t.includes("Ссылка скопирована в буфер обмена"), { timeoutMs: 20000 });
         await editor.capture("open-external-fallback");
+        // Тост стоит над статус-баром и накрывает нижние ряды панели Output —
+        // убираем его, иначе свежей строки расширения на кадре не видно.
+        await runProbeCommand(editor, "Clear All");
         await editor.waitForText((t) => t.includes("openExternal returned: true"), { timeoutMs: 20000 });
 
         // ─── env.clipboard ──────────────────────────────────────────────────

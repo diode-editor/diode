@@ -1007,6 +1007,41 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
+    it("показ без логгера не роняет обработчик: сообщение всё равно доходит до стока", async () => {
+        const child = new FakeChild();
+        const shown: string[] = [];
+        // Логгера НЕТ (в этой сборке хост создан без него) — путь дублирования в
+        // лог обязан это переживать, иначе показ отклонится целиком.
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            notificationSink: {
+                showMessage: (request: { message: string }) => {
+                    shown.push(request.message);
+                    return Promise.resolve(undefined);
+                },
+                cancel: () => undefined,
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        for (const [id, severity] of [
+            [790, "error"],
+            [791, "warn"],
+            [792, "info"],
+        ] as const) {
+            child.receiveFromHostPeer({
+                kind: "req",
+                id,
+                method: "window.showMessage",
+                params: { severity, message: `msg-${severity}` },
+            });
+        }
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 792));
+        expect(shown).toEqual(["msg-error", "msg-warn", "msg-info"]);
+
+        host.dispose();
+    });
+
     it("без стока сообщений расширение получает «закрыто без выбора», а не висит", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());

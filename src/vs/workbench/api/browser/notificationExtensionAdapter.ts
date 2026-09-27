@@ -19,26 +19,28 @@ export class NotificationExtensionAdapter implements INotificationSink {
     public constructor(private readonly notifications: NotificationService) {}
 
     public async showMessage(request: INotificationRequest): Promise<number | undefined> {
-        const closeAffordance = findCloseAffordance(request.items);
         const handle = this.notifications.show({
             severity: request.severity,
             message: request.message,
-            ...(request.detail !== undefined ? { detail: request.detail } : {}),
+            detail: request.detail,
             modal: request.modal,
             items: request.items.map((item) => item.title),
-            ...(closeAffordance !== null ? { closeAffordance } : {}),
+            closeAffordance: findCloseAffordance(request.items),
         });
         this.openMessages.set(request.handle, handle.id);
         try {
             return await handle.answered;
         } finally {
+            // Stryker disable next-line BlockStatement,CallExpression: гигиена карты — забыть отвеченный показ. Ненаблюдаемо: `cancel` по забытому handle гасил бы id, которого в сервисе уже нет, то есть тоже ничего
             this.openMessages.delete(request.handle);
         }
     }
 
     public cancel(handle: number): void {
         const id = this.openMessages.get(handle);
+        // Stryker disable next-line ConditionalExpression: без гарда `dismiss(undefined)` не найдёт показа и тоже ничего не сделает — ветки неотличимы; гард стоит ради типа
         if (id === undefined) return;
+        // Stryker disable next-line CallExpression: та же гигиена карты, что в showMessage
         this.openMessages.delete(handle);
         this.notifications.dismiss(id);
     }
@@ -46,10 +48,10 @@ export class NotificationExtensionAdapter implements INotificationSink {
 
 /**
  * Индекс кнопки, которую вернуть при закрытии модального окна по Escape
- * (`MessageItem.isCloseAffordance`). Первая помеченная — как в эталоне; `null` —
- * расширение не помечало ни одной.
+ * (`MessageItem.isCloseAffordance`). Первая помеченная — как в эталоне;
+ * `undefined` — расширение не помечало ни одной.
  */
-export function findCloseAffordance(items: readonly IWireMessageItem[]): number | null {
+export function findCloseAffordance(items: readonly IWireMessageItem[]): number | undefined {
     const index = items.findIndex((item) => item.isCloseAffordance);
-    return index < 0 ? null : index;
+    return index < 0 ? undefined : index;
 }

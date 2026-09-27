@@ -7,8 +7,23 @@ export const NotificationServiceDIToken = token<NotificationService>("Notificati
 /** Строгость сообщения — она же выбирает иконку и цвет акцента. */
 export type NotificationSeverity = "info" | "warn" | "error";
 
-/** Сколько info/warning-сообщение без кнопок держится на экране само. */
-export const NOTIFICATION_AUTO_HIDE_MS = 8000;
+/**
+ * Сколько тост без кнопок держится на экране сам, по строгости — значения
+ * эталона (`NotificationsToasts.PURGE_TIMEOUT`): чем серьёзнее сообщение, тем
+ * дольше оно висит.
+ */
+export const NOTIFICATION_AUTO_HIDE_MS: Readonly<Record<NotificationSeverity, number>> = {
+    info: 10000,
+    warn: 12000,
+    error: 15000,
+};
+
+/**
+ * Сколько тостов видно одновременно (в эталоне —
+ * `NotificationsToasts.MAX_NOTIFICATIONS`). Остальные ЖДУТ ОЧЕРЕДИ: у нас нет
+ * центра уведомлений, и спрятать сообщение насовсем значило бы его потерять.
+ */
+export const MAX_VISIBLE_NOTIFICATIONS = 3;
 
 /** Просьба показать сообщение. Кнопки — заголовками, ответ — индексом в них. */
 export interface INotificationMessage {
@@ -60,14 +75,27 @@ interface IEntry {
  * Сервис делит сообщения на два рода, и это деление определяет ВСЁ остальное:
  *
  * - **Без кнопок и не модальное** — пассивный тост: показывается в стеке над
- *   статус-баром, фокус не трогает, info/warning гаснет сам через
- *   {@link NOTIFICATION_AUTO_HIDE_MS}, error висит до закрытия. Обещание
+ *   статус-баром, фокуса не трогает и УЕЗЖАЕТ САМ через
+ *   {@link NOTIFICATION_AUTO_HIDE_MS} (значения эталона по строгости). Обещание
  *   резолвится `undefined` СРАЗУ: выбирать нечего, а ждать закрытия значило бы
- *   подвесить расширение, сделавшее `await showErrorMessage(...)`, на время
- *   жизни тоста, который сам не гаснет. Осознанное отступление от эталона.
+ *   подвесить расширение, сделавшее `await showErrorMessage(...)`. Осознанное
+ *   отступление от эталона — там обещание ждёт закрытия тоста.
  * - **С кнопками или модальное** — вопрос: живёт по одному за раз (остальные
- *   ждут в очереди), самогашения не имеет и резолвится тем, что человек нажал,
+ *   ждут в очереди), САМОГАШЕНИЯ НЕ ИМЕЕТ и резолвится тем, что человек нажал,
  *   либо `undefined`, если он закрыл сообщение не выбрав.
+ *
+ * Второе осознанное отступление — как раз про липкость: в эталоне сам по себе
+ * липкий только error С КНОПКАМИ (`NotificationViewItem.sticky`), а вопрос
+ * уровня info/warning уезжает по таймауту, и вернуть его можно лишь из центра
+ * уведомлений. Центра у нас нет, поэтому уехавший вопрос означал бы навсегда
+ * потерянный выбор расширения (типовой случай — «Activate / Use free version» у
+ * AI-автодополнения, для которого другой двери нет). Пока центра нет, вопрос
+ * ждёт ответа столько, сколько нужно.
+ *
+ * Видно одновременно не больше {@link MAX_VISIBLE_NOTIFICATIONS} тостов (как в
+ * эталоне), но лишние не прячутся насовсем, а ЖДУТ ОЧЕРЕДИ: таймер тоста
+ * запускается в момент, когда он стал видимым, — иначе сообщение истекло бы,
+ * ни разу не показавшись.
  *
  * Про контролы и overlay-слой сервис не знает — этим владеет компонент.
  */
@@ -76,21 +104,22 @@ export class NotificationService extends Disposable {
 
     private readonly listeners = new Set<() => void>();
     private nextId = 1;
-    /** Пассивные тосты в порядке появления (старый → новый). */
+    /**
+     * Пассивные тосты в порядке появления (старый → новый). Видны первые
+     * {@link MAX_VISIBLE_NOTIFICATIONS}, остальные ждут своей очереди.
+     */
     private readonly passiveList: IEntry[] = [];
     /** Вопросы: `[0]` — тот, что сейчас на экране, остальные ждут очереди. */
     private readonly askList: IEntry[] = [];
 
     public constructor() {
         super();
+        // Смерть сервиса = «всё убрали с экрана»: таймеры, которые иначе
+        // выстрелят в мёртвый сервис, снимаются, а живые вопросы доводятся до
+        // «закрыто без выбора» — иначе тот, кто их задал, ждал бы вечно.
         this.register({
             dispose: () => {
-                // Таймеры переживают сервис, если их не снять: в тестах это
-                // удерживает раннер, в приложении — стреляет в мёртвый сервис.
-                for (const entry of this.passiveList) this.clearTimer(entry);
-                this.passiveList.length = 0;
-                this.askList.length = 0;
-                this.listeners.clear();
+                this.clearAll();
             },
         });
     }
@@ -107,15 +136,11 @@ export class NotificationService extends Disposable {
      * сразу же, см. описание класса).
      */
     public show(message: INotificationMessage): INotificationHandle {
+        // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо — `--` даёт такие же различимые id
         const notification: IActiveNotification = { ...message, id: this.nextId++ };
         if (this.isPassive(message)) {
-            const entry: IEntry = { notification, resolve: () => undefined, timer: null };
-            this.passiveList.push(entry);
-            if (message.severity !== "error") {
-                entry.timer = setTimeout(() => {
-                    this.dismiss(notification.id);
-                }, NOTIFICATION_AUTO_HIDE_MS);
-            }
+            this.passiveList.push({ notification, resolve: () => undefined, timer: null });
+            this.armVisibleTimers();
             this.fire();
             return { id: notification.id, answered: Promise.resolve(undefined) };
         }
@@ -126,9 +151,18 @@ export class NotificationService extends Disposable {
         return { id: notification.id, answered };
     }
 
-    /** Пассивные тосты (без кнопок), старый → новый. */
+    /**
+     * Видимые тосты (без кнопок), старый → новый: первые
+     * {@link MAX_VISIBLE_NOTIFICATIONS} из живых. Остальные не потеряны — они
+     * встанут на освободившееся место, см. {@link queuedPassiveCount}.
+     */
     public passive(): readonly IActiveNotification[] {
-        return this.passiveList.map((entry) => entry.notification);
+        return this.passiveList.slice(0, MAX_VISIBLE_NOTIFICATIONS).map((entry) => entry.notification);
+    }
+
+    /** Сколько тостов ждёт свободного места в стеке. */
+    public queuedPassiveCount(): number {
+        return Math.max(0, this.passiveList.length - MAX_VISIBLE_NOTIFICATIONS);
     }
 
     /**
@@ -174,6 +208,9 @@ export class NotificationService extends Disposable {
         if (index < 0) return;
         this.clearTimer(this.passiveList[index]);
         this.passiveList.splice(index, 1);
+        // Место освободилось — на него встаёт тот, кто ждал очереди, и только
+        // теперь у него начинает течь время жизни.
+        this.armVisibleTimers();
         this.fire();
     }
 
@@ -208,6 +245,21 @@ export class NotificationService extends Disposable {
         this.askList.splice(at, 1);
         entry.resolve(index);
         this.fire();
+    }
+
+    /**
+     * Заводит таймер самогашения каждому ВИДИМОМУ тосту, у которого его ещё нет.
+     * Время жизни считается с момента показа: тост, ждавший очереди, иначе истёк
+     * бы, ни разу не появившись на экране.
+     */
+    private armVisibleTimers(): void {
+        for (const entry of this.passiveList.slice(0, MAX_VISIBLE_NOTIFICATIONS)) {
+            if (entry.timer !== null) continue;
+            const { id, severity } = entry.notification;
+            entry.timer = setTimeout(() => {
+                this.dismiss(id);
+            }, NOTIFICATION_AUTO_HIDE_MS[severity]);
+        }
     }
 
     private clearTimer(entry: IEntry): void {

@@ -60,12 +60,13 @@ export function parseMessageArgs(first: unknown, rest: readonly unknown[]): IPar
     if (typeof first === "string" || isMessageItem(first)) {
         return { modal: false, items: [first, ...(rest as readonly (string | vscode.MessageItem)[])] };
     }
-    // Не кнопка — значит опции (или ничего, и тогда кнопок нет вовсе).
-    const options = typeof first === "object" && first !== null ? (first as vscode.MessageOptions) : undefined;
-    const detail = nonEmpty(options?.detail);
+    // Не кнопка — значит опции (или ничего, и тогда кнопок нет вовсе). Что это
+    // ИМЕННО объект, не проверяем: поля читаются через `?.`, и на мусоре (числе,
+    // `null`, отсутствии) результат тот же — «опций нет».
+    const options = first as vscode.MessageOptions | undefined;
     return {
         modal: options?.modal === true,
-        ...(detail !== undefined ? { detail } : {}),
+        detail: nonEmpty(options?.detail),
         items: rest as readonly (string | vscode.MessageItem)[],
     };
 }
@@ -79,7 +80,9 @@ export function toWireMessageItem(item: string | vscode.MessageItem): IWireMessa
 export function createMessageApi(rpc: RpcEndpoint): IMessageApi {
     const show = async (
         severity: WireMessageSeverity,
-        message: string,
+        // `unknown`, а не `string`: типы есть только у наших вызовов, а расширение
+        // на JS вправе прислать сюда что угодно.
+        message: unknown,
         first: unknown,
         rest: readonly unknown[],
     ): Promise<unknown> => {
@@ -87,12 +90,12 @@ export function createMessageApi(rpc: RpcEndpoint): IMessageApi {
         const result = parseWireShowMessageResult(
             await rpc.request("window.showMessage", {
                 severity,
-                // Расширение вправе прислать что угодно (типов у него нет, если
-                // он на JS) — показываем строковое представление, как это делал
-                // логгер до появления поверхности.
-                message: typeof message === "string" ? message : String(message),
+                // `String(...)` без проверки типа: расширение вправе прислать
+                // что угодно (типов у него нет, если он на JS), а у строки
+                // строковое представление — она сама.
+                message: String(message),
                 modal: parsed.modal,
-                ...(parsed.detail !== undefined ? { detail: parsed.detail } : {}),
+                detail: parsed.detail,
                 items: parsed.items.map(toWireMessageItem),
             }),
         );

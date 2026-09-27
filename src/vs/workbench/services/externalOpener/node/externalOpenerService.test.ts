@@ -1,15 +1,29 @@
+import { existsSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 
 import {
     ExternalOpenerService,
+    HANDLER_SPAWN_OPTIONS,
     hasGraphicalSession,
     type IExternalOpenerEnvironment,
     isOpenableUrl,
     spawnDetached,
     systemHandler,
 } from "./externalOpenerService.ts";
+
+/** Ждёт появления файла: отвязанный процесс пишет его уже после нашего resolve. */
+async function waitForFile(path: string, timeoutMs = 5000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!existsSync(path)) {
+        if (Date.now() > deadline) throw new Error(`файл ${path} не появился за ${String(timeoutMs)} мс`);
+        await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+}
 
 function fakeClipboard(): IClipboard & { written: string[] } {
     const written: string[] = [];
@@ -148,11 +162,33 @@ describe("ExternalOpenerService", () => {
 });
 
 describe("spawnDetached", () => {
-    it("настоящий процесс запускается", async () => {
-        await expect(spawnDetached("node", ["--version"])).resolves.toBe(true);
+    it("обработчик не пишет в наш терминал и не держит наш процесс", () => {
+        // Инвариант про КАДР: браузер, унаследовавший наши потоки, затёр бы
+        // интерфейс своим выводом, а без detached — задержал бы выход редактора.
+        expect(HANDLER_SPAWN_OPTIONS).toEqual({ detached: true, stdio: "ignore" });
+    });
+
+    it("настоящий процесс запускается и получает свои аргументы", async () => {
+        const marker = join(tmpdir(), `diode-spawn-${String(process.pid)}.txt`);
+        rmSync(marker, { force: true });
+        try {
+            await expect(
+                spawnDetached(process.execPath, ["-e", `require("fs").writeFileSync(${JSON.stringify(marker)}, "ok")`]),
+            ).resolves.toBe(true);
+            // Аргументы доехали — иначе процесс просто открыл бы REPL и файла нет.
+            await waitForFile(marker);
+            expect(readFileSync(marker, "utf8")).toBe("ok");
+        } finally {
+            rmSync(marker, { force: true });
+        }
     });
 
     it("несуществующая команда даёт false, а не необработанный ENOENT", async () => {
         await expect(spawnDetached("diode-no-such-binary-xyz", [])).resolves.toBe(false);
+    });
+
+    it("синхронный отказ spawn тоже становится false, а не исключением наружу", async () => {
+        // NUL в имени команды роняет `spawn` синхронно, минуя событие `error`.
+        await expect(spawnDetached("node ", [])).resolves.toBe(false);
     });
 });
