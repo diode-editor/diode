@@ -396,6 +396,27 @@ describe("страница расширения с частичной подде
         expect(texts.some((t) => t.includes("network is down"))).toBe(true);
     });
 
+    it("блок целиком: тон каждой строки и зазор перед readme", () => {
+        const lines = buildExtensionBodyLines(
+            content({
+                entry: entry({ support: { level: "partial", works: ["Ghost text"], limits: ["Chat panel"] } }),
+                meta: meta({ readme: "# Readme body" }),
+            }),
+            80,
+        );
+        // Сравниваем начало блока целиком вместе с тоном: заголовок списка —
+        // справочная строка, пункт «не работает» — предупреждение, а последняя
+        // строка блока пустая, иначе readme прилипнет к списку.
+        expect(lines.slice(0, 5)).toEqual([
+            { text: "Works in Diode:", tone: "dim" },
+            { text: "- Ghost text", tone: "dim" },
+            { text: "Does not work:", tone: "dim" },
+            { text: "- Chat panel", tone: "warning" },
+            { text: "", tone: "normal" },
+        ]);
+        expect(lines[5]?.text).toBe("# Readme body");
+    });
+
     it("нет списка — нет и его заголовка", () => {
         const onlyLimits = buildExtensionBodyLines(
             content({ entry: entry({ support: { level: "partial", limits: ["Chat panel"] } }) }),
