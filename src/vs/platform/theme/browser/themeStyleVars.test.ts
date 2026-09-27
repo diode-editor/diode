@@ -1,3 +1,4 @@
+import { STYLE_TOKEN_DEFAULTS } from "@tuidom/core/dom/styles/styleTokens";
 import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
@@ -62,6 +63,20 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
 
         expect(root.styleVar("menuBar.background")).toBe(0xdddddd);
         expect(root.styleVar("menuBar.foreground")).toBe(0x333333);
+    });
+
+    it("палитра без titleBar.* вовсе (собрана руками) — мост молчит, строка меню на дефолте tuidom", () => {
+        const base = WorkbenchTheme.fromThemeFile({ name: "no-titlebar", type: "dark", colors: {} });
+        const colors = { ...base.colors };
+        delete colors["titleBar.activeBackground"];
+        delete colors["titleBar.activeForeground"];
+        const root = new BodyElement();
+        root.setAsRoot();
+        applyThemeVars(root, new WorkbenchTheme("no-titlebar", "dark", colors, base.tokenTheme));
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+
+        expect(root.styleVar("menuBar.background")).toBe(STYLE_TOKEN_DEFAULTS["menuBar.background"]);
+        expect(root.styleVar("menuBar.foreground")).toBe(STYLE_TOKEN_DEFAULTS["menuBar.foreground"]);
     });
 });
 
