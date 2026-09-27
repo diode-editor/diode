@@ -17,6 +17,21 @@
 
 IO-абстракции (интерфейс + no-op/in-memory заглушка), которыми пользуются разные слои: `IClipboard`/`InMemoryClipboard`, `IFileClipboard`/`InMemoryFileClipboard`, `IFileWatcher`/`NULL_FILE_WATCHER` (слежение за отдельным файлом; реальная `ChokidarFileWatcher` и DI-токен `IFileWatcherDIToken` — в `Workbench/Services/`, но интерфейс живёт здесь, чтобы им мог пользоваться и слой Configuration для live-reload настроек). Разбор ошибок watcher'ов — `describeFileWatchError` (`src/vs/platform/files/common/fileWatchErrors.ts`): переводит ошибку (`ENOSPC`/`EMFILE` — упёрлись в лимит inotify) в код + подсказку по тюнингу; им пользуются оба реальных watcher'а (`ChokidarFileWatcher`, `ExplorerService`), чтобы текст рекомендации был один.
 
+## Вехи старта: `performance.ts`
+
+`mark(name, detail?)` — тонкая обёртка над стандартным `performance.mark` (аналог
+`vs/base/common/performance.ts` upstream). Метки стоят по всему пути открытия файла
+(`diode/main.ts` → workbench → `textfile`), но **без включения это no-op**: в обычном запуске
+ничего не пишется, стоимость вызова — одна проверка флага. Включает запись
+`src/vs/diode/startupTrace.ts` по env `DIODE_STARTUP_TRACE=<файл>`; он же по завершении старта
+выгружает метки одним JSON (плюс `performance.nodeTiming` и `timeOrigin`), а под трассой
+терминальный бэкенд (`TracingNodeTerminalBackend`) ставит веху `frame` на каждый кадр, ушедший в
+терминал. Потребитель — бенч открытия файла `e2e/bench/benchOpen.ts`: лестница вех печатается
+рядом с чёрным ящиком (таймстемпы чанков PTY). Имена меток — `<область>:<веха>`
+(`main:config-loaded`, `textfile:read`, `editor:tokenizer-ready`); в `editor/common` меток нет —
+чтение диска и построение документа размечает владелец модели в workbench (`TextFileModel`).
+План и что меряется — [TODO/OpenPerformance.md](../TODO/OpenPerformance.md).
+
 ## Common/Assets/
 Унифицированный доступ к статическим ассетам (грамматики, `onig.wasm`, манифесты builtin-расширений) через один интерфейс `IAssetAccess` над виртуальными POSIX-путями — потребители не знают, откуда физически читаются файлы. Две реализации: `BundleAssetAccess` (in-memory mini-archive) и `FsAssetAccess` (dev, mapping `virtualPrefix → fsRoot`). `CompositeAssetAccess` — longest-prefix роутер, склеивающий builtin- и user-ассеты в одно адресное пространство. Сборка bundle — `scripts/pack-assets.mjs`.
 
