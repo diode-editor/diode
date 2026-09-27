@@ -47,9 +47,9 @@
 - [x] Проверено на живом релизе: `install.sh` с raw main → `sha256 OK`, `diode 0.4.0`;
       `apt-get update` → `InRelease` по `signed-by` с GitHub, `policy` → 0.4.0, `download` → 49.8 МБ
       за 3 с; `npx @diode-editor/diode --version` с чистого кэша → 0.4.0; тап обновлён на v0.4.0.
-- [ ] Не проверено руками: `brew install diode-editor/tap/diode` на macOS (первая попытка на
-      macOS 14 упала на формуле; после замены на cask нужен повтор) и
-      `winget install DiodeEditor.Diode` (после мержа PR) — нужна машина с brew / Windows.
+- [x] `brew install diode-editor/tap/diode` на macOS 14 (Intel): первая попытка упала на формуле
+      (CLT), после замены на cask переустановка прошла (2026-09-27, сторонняя машина).
+- [ ] Не проверено руками: `winget install DiodeEditor.Diode` (после мержа PR) — нужна Windows.
 - [ ] Сайт: команда quick install на лендинге и копия `install.sh` по короткому адресу
       `diode-editor.github.io/install.sh` (репозиторий сайта).
 
