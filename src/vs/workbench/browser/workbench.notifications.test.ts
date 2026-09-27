@@ -138,6 +138,19 @@ describe("Workbench — сообщения на кадре", () => {
         expect(screen()).not.toContain("Activate?");
     });
 
+    it("Tab внутри тоста не набирает отступ в редакторе", async () => {
+        // Фокус в тосте, но глобальные бинды живы: не перехвати тост Tab сам —
+        // нажатие ушло бы редактору и вставило отступ в файл.
+        notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["Activate", "Free"] });
+        screen();
+        await h.commands.execute("notifications.focusMessage");
+        const textBefore = h.activeEditor().getText();
+
+        h.testApp.sendKey("Tab");
+
+        expect(h.activeEditor().getText()).toBe(textBefore);
+    });
+
     it("Escape в тосте закрывает вопрос без выбора", async () => {
         const answered = notifications.show({
             severity: "warn",
@@ -215,6 +228,51 @@ describe("Workbench — сообщения на кадре", () => {
 
         expect(withAsk).toBeGreaterThan(0);
         expect(withoutAsk).toBeGreaterThan(withAsk);
+    });
+
+    it("сквозь ПАССИВНЫЙ тост глобальные бинды живут — стек клавиатуру не занимает", () => {
+        notifications.show({ severity: "error", message: "boom", modal: false, items: [] });
+        const sidebarBefore = screen().includes("EXPLORER");
+
+        h.testApp.sendKey("Ctrl+B");
+
+        expect(screen().includes("EXPLORER")).toBe(!sidebarBefore);
+        expect(screen()).toContain("boom");
+    });
+
+    it("клик мимо МОДАЛЬНОГО окна до редактора не доходит, а мимо тоста — доходит", () => {
+        // Разница объявлена в pointerPolicy: modal проглатывает клик, тост его
+        // пропускает насквозь. Наблюдаем по фокусу: клик в дерево файлов уводит
+        // его из редактора, если доходит.
+        const click = (x: number, y: number): void => {
+            for (const action of ["press", "release"] as const) {
+                h.testApp.backend.simulateMouse({
+                    kind: "mouse",
+                    button: "left",
+                    action,
+                    x,
+                    y,
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: false,
+                    raw: "",
+                });
+            }
+            h.testApp.render();
+        };
+
+        notifications.show({ severity: "warn", message: "Delete?", modal: true, items: ["Delete"] });
+        screen();
+        const inModal = h.testApp.focusedElement;
+        click(5, 3);
+        expect(h.testApp.focusedElement).toBe(inModal);
+
+        notifications.clearAll();
+        notifications.show({ severity: "error", message: "boom", modal: false, items: [] });
+        screen();
+        const beforeToast = h.testApp.focusedElement;
+        click(5, 3);
+        expect(h.testApp.focusedElement).not.toBe(beforeToast);
     });
 
     it("пока висит вопрос-тост, глобальные бинды живут — клавиатура не заперта", async () => {

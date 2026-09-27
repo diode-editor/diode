@@ -125,6 +125,7 @@ export class NotificationsComponent extends Component {
         this.register({
             dispose: () => {
                 this.closeAsk();
+                // Stryker disable next-line CallExpression: виджеты снимаются с экрана строкой ниже — их dispose ненаблюдаем
                 this.disposePassive();
                 this.stack.replaceChildren([]);
                 this.attached?.session.dispose();
@@ -136,6 +137,7 @@ export class NotificationsComponent extends Component {
     /** Вызывается владельцем корневой view (WorkbenchComponent) до первого показа. */
     public attachHost(host: BodyElement): void {
         const session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
+            // Stryker disable next-line BooleanLiteral: сессию открывает явный `open()` следующим же проходом sync, а пустой стек она тут же и закрывает — начальная видимость ненаблюдаема
             visible: false,
             // Пассивный индикатор: фокус остаётся там, где был, клики проходят
             // насквозь, глобальные бинды живут.
@@ -147,6 +149,7 @@ export class NotificationsComponent extends Component {
             // команда «Clear All», а Escape нужен тому, кто в фокусе.
             // Stryker disable next-line BooleanLiteral: ветки неотличимы — фокуса в стеке нет, и до closeOnEscape слоя Escape не доходит
             closeOnEscape: false,
+            // Stryker disable next-line StringLiteral: по мыши "" ведёт себя как passthrough (не modal и не close-on-outside) — наблюдаемой разницы нет, а клавиатуру гасит явный capturesKeyboard ниже
             pointerPolicy: "passthrough",
             capturesKeyboard: false,
         });
@@ -186,11 +189,13 @@ export class NotificationsComponent extends Component {
     /** Пересобирает пассивный стек: видимый хвост плюс счётчик скрытых. */
     private syncPassive(session: OverlaySessionHandle): void {
         const all = this.notifications.passive();
+        // Stryker disable next-line CallExpression: виджеты снимаются из дерева строкой ниже — их dispose ненаблюдаем
         this.disposePassive();
         // Детей снимаем ВМЕСТЕ с их dispose: оставить в дереве освобождённые
         // виджеты — значит однажды отрисовать их.
         this.stack.replaceChildren([]);
         if (all.length === 0) {
+            // Stryker disable next-line ConditionalExpression,CallExpression: у пустого стека нет детей, поэтому открытая сессия и закрытая рисуют одно и то же — ничего
             if (session.isOpen()) session.close();
             return;
         }
@@ -222,6 +227,7 @@ export class NotificationsComponent extends Component {
             this.notifications.dismiss(current.id);
         };
         const session = attached.host.overlayLayer.createSession(element, new Point(0, 0), {
+            // Stryker disable next-line BooleanLiteral: та же причина, что у пассивной сессии — её открывает явный `open()` в updatePositions
             visible: false,
             // Фокус возвращаем на закрытии — но только если он вообще уходил в
             // тост (по F6 или клику); сам показ его не забирает.
@@ -234,6 +240,7 @@ export class NotificationsComponent extends Component {
             // Escape разбирает сам виджет (база DialogComponent) — он знает про
             // `isCloseAffordance`. Сессии этот путь отдавать нельзя: она закрыла
             // бы оверлей, не ответив тому, кто сообщение поднял.
+            // Stryker disable next-line BooleanLiteral: ненаблюдаемо — Escape доходит до виджета раньше слоя, и показ снимается его обработчиком в обоих случаях
             closeOnEscape: false,
             // Модальное сообщение держит экран; тост-вопрос — нет: клик мимо него
             // уходит туда, куда человек ткнул.
@@ -253,13 +260,12 @@ export class NotificationsComponent extends Component {
         let askRows = 0;
         const ask = this.ask;
         if (ask !== null) {
-            const wasOpen = ask.session.isOpen();
             if (ask.widget instanceof MessageDialog) {
+                // Фокус модальному окну ставит САМА сессия (`focusOnOpen`), и это
+                // важно: пересчёт позиций случается и когда погас пассивный тост,
+                // а свой `focusDefault()` тут возвращал бы человека на первую
+                // кнопку, отменяя его выбор.
                 this.openCentered(ask, attached.host);
-                // Фокус ставим только при ПЕРВОМ открытии окна: пересчёт позиций
-                // случается и когда погас пассивный тост, а двигать фокус по
-                // такому поводу нельзя. Тост-вопрос фокус не берёт вовсе.
-                if (!wasOpen) ask.widget.focusDefault();
             } else {
                 askRows = ask.element.getMaxIntrinsicHeight(TOAST_WIDTH);
                 ask.session.setPosition(new Point(right, clampRow(bottom - askRows, screenH)));
@@ -268,6 +274,7 @@ export class NotificationsComponent extends Component {
         }
 
         const passive = attached.session;
+        // Stryker disable next-line ConditionalExpression: позиция закрытой сессии ненаблюдаема — её всё равно никто не рисует
         if (passive.isOpen()) {
             const passiveRows = this.view.getMaxIntrinsicHeight(TOAST_WIDTH);
             passive.setPosition(new Point(right, clampRow(bottom - askRows - passiveRows, screenH)));
@@ -289,11 +296,19 @@ export class NotificationsComponent extends Component {
         if (ask === null) return;
         this.ask = null;
         ask.session.close();
+        // Stryker disable next-line CallExpression: гигиена — закрытая сессия и так не рисуется; dispose лишь освобождает её запись в слое
         ask.session.dispose();
+        // Stryker disable next-line CallExpression: то же про виджет: он уже снят с экрана вместе с сессией
         ask.widget.dispose();
     }
 
+    /**
+     * Освобождает виджеты прошлого кадра. Гигиена: к этому моменту они уже сняты
+     * из дерева стека, так что на экране их отсутствие ничего не меняет.
+     */
+    // Stryker disable next-line BlockStatement: см. выше — освобождение уже снятых виджетов ненаблюдаемо
     private disposePassive(): void {
+        // Stryker disable next-line CallExpression: та же причина
         for (const toast of this.passiveToasts) toast.dispose();
         this.passiveToasts = [];
     }

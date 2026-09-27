@@ -121,6 +121,7 @@ export function spawnDetached(command: string, args: readonly string[]): Promise
                 settle(false);
             });
             child.on("spawn", () => {
+                // Stryker disable next-line CallExpression: unref снимает удержание нашего выхода дочерним процессом — внутри процесса тестов это ненаблюдаемо
                 child.unref();
                 settle(true);
             });

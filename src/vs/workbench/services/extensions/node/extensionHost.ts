@@ -1905,6 +1905,7 @@ export class ExtensionHost extends Disposable {
             if (request === null) return { index: null };
             this.logExtensionMessage(request.severity, request.message);
             if (this.notificationSink === undefined) return { index: null };
+            // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо
             const handle = this.nextMessageHandle++;
             this.activeMessageHandles.add(handle);
             try {
@@ -1918,6 +1919,7 @@ export class ExtensionHost extends Disposable {
                 // прогоном). Отвечаем «закрыто без выбора» и пишем в лог.
                 this.logger?.error(`[extension] showMessage failed: ${String(error)}`);
                 return { index: null };
+                // Stryker disable next-line BlockStatement,CallExpression: гигиена набора — забыть отвеченный показ. Ненаблюдаемо: гашение по забытому handle всё равно не нашло бы показа в стоке
             } finally {
                 this.activeMessageHandles.delete(handle);
             }

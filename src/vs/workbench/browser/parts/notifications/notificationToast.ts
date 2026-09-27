@@ -114,6 +114,7 @@ export class NotificationToast extends DialogComponent {
         const buttons = [...answerButtons, closeButton];
         this.buttons = buttons;
 
+        // Stryker disable next-line StringLiteral: спецификация ширины ряда — пустая строка даёт ту же раскладку, кадр не меняется
         stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
         stack.addChild(buildButtonRow(buttons), { width: "stretch", height: 1 });
         // Подсказка — только у вопроса: она про то, чем ОТВЕТИТЬ. Пассивному

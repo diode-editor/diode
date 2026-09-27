@@ -319,6 +319,7 @@ export class NotificationService extends Disposable {
     }
 
     private clearTimer(entry: IPassiveEntry | IAskEntry): void {
+        // Stryker disable next-line ConditionalExpression: без гарда вызов был бы `clearTimeout(null)` — та же пустая операция
         if (entry.timer === null) return;
         clearTimeout(entry.timer);
         entry.timer = null;

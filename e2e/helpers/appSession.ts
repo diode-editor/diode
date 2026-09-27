@@ -101,6 +101,23 @@ function userProfileDir(userDataDir: string): string {
 }
 
 /**
+ * Настройки, которые изолированное окружение ставит само, по платформе.
+ *
+ * На Windows-раннере встроенный TypeScript-сервер не поднимается вовсе
+ * («Server initialization failed … connection got disposed»), и все e2e-сьюты
+ * TS-LSP там уже пропускаются (`skipIf(process.platform === "win32" …)`). Пока
+ * его ошибка уходила только в лог, это никого не задевало; теперь сообщения
+ * расширений ВИДНЫ, и три error-тоста нерабочего клиента накрывают правый нижний
+ * угол — то есть роняют десяток сценариев, к языковому серверу отношения не
+ * имеющих. Гасим клиент там, где он всё равно нерабочий; сам его запуск на
+ * Windows — отдельная задача.
+ */
+function platformSettingDefaults(): Record<string, unknown> {
+    if (process.platform !== "win32") return {};
+    return { "diode.lsp.typescript.enabled": false };
+}
+
+/**
  * Собирает изолированное окружение: корень, подкаталоги, сид-файлы, settings и
  * keybindings, устанавливает `.vsix`. Ничего не запускает — только готовит FS и
  * возвращает аргументы/env для транспорта.
@@ -127,12 +144,19 @@ export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv
         writeFileSync(file, content);
     }
 
-    // settings.json / keybindings.json активного профиля.
-    if (options.settings !== undefined || options.keybindings !== undefined) {
+    // settings.json / keybindings.json активного профиля. Строковые настройки
+    // теста берутся как есть (ему важен сырой текст), объектные — поверх
+    // платформенных дефолтов окружения.
+    const settings =
+        typeof options.settings === "string"
+            ? options.settings
+            : { ...platformSettingDefaults(), ...(options.settings ?? {}) };
+    const hasSettings = typeof settings === "string" || Object.keys(settings).length > 0;
+    if (hasSettings || options.keybindings !== undefined) {
         const profileDir = userProfileDir(userDataDir);
         mkdirSync(profileDir, { recursive: true });
-        if (options.settings !== undefined) {
-            const body = typeof options.settings === "string" ? options.settings : JSON.stringify(options.settings, null, 2);
+        if (hasSettings) {
+            const body = typeof settings === "string" ? settings : JSON.stringify(settings, null, 2);
             writeFileSync(join(profileDir, "settings.json"), body);
         }
         if (options.keybindings !== undefined) {

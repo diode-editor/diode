@@ -56,6 +56,27 @@ describe("MessageDialog — что видно на кадре", () => {
         ]);
     });
 
+    it("кнопки центрированы по ширине окна, а не прижаты к краю", () => {
+        // Широкое сообщение — тогда отступ центрирования не нулевой, и любая
+        // ошибка в его арифметике видна прямо в кадре. Проверяем сам инвариант
+        // «по центру»: отступы слева и справа от ряда равны с точностью до ряда.
+        const dialog = new MessageDialog(notification({ message: "x".repeat(50), items: ["Ok"] }));
+        const backend = renderElement(dialog.view, 60, 12, {
+            constraints: BoxConstraints.loose(new Size(60, 12)),
+            themeVars: true,
+        });
+        const row = backend
+            .screenToString()
+            .split("\n")
+            .find((line) => line.includes("[ Ok ]"));
+        const inner = (row ?? "").slice((row ?? "").indexOf("│") + 1, (row ?? "").lastIndexOf("│"));
+        const left = inner.length - inner.trimStart().length;
+        const right = inner.length - inner.trimEnd().length;
+
+        expect(left).toBeGreaterThan(0);
+        expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+    });
+
     it("окно адресуемо селектором #messageDialog", () => {
         const { testApp } = mount();
         expect(testApp.querySelector(`#${MESSAGE_DIALOG_ELEMENT_ID}`)).not.toBeNull();

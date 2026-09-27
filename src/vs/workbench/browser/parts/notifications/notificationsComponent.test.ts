@@ -69,6 +69,22 @@ describe("NotificationsComponent — без прикреплённого хос�
         expect(component.focusAsk()).toBe(false);
     });
 
+    it("стек адресуем селектором #notificationToasts", () => {
+        const { component } = makeComponent();
+        const { testApp } = mountHost(component);
+        expect(testApp.querySelector("#notificationToasts")).not.toBeNull();
+    });
+
+    it("focusAsk сообщает, нашёлся ли вопрос", () => {
+        const { notifications, component } = makeComponent();
+        mountHost(component);
+        expect(component.focusAsk()).toBe(false);
+
+        notifications.show({ severity: "info", message: "ask?", modal: false, items: ["One"] });
+
+        expect(component.focusAsk()).toBe(true);
+    });
+
     it("attachHost показывает то, что уже накопилось", () => {
         const { notifications, component } = makeComponent();
         notifications.show({ severity: "error", message: "раньше хоста", modal: false, items: [] });

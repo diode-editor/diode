@@ -57,6 +57,7 @@ export class MessageDialog extends DialogComponent {
             stack.addChild(new TextLabelElement(line), { width: "stretch", height: 1 });
         }
         if (detailLines.length > 0) {
+            // Stryker disable next-line StringLiteral: спецификация ширины ряда — пустая строка даёт ту же раскладку, кадр не меняется
             stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
             for (const line of detailLines) {
                 const label = new TextLabelElement(line);
@@ -81,6 +82,7 @@ export class MessageDialog extends DialogComponent {
         // а не по предельной: у короткого сообщения окно узкое, и отступ, посчитанный
         // от предела, увёл бы кнопки к правому краю.
         const innerWidth = Math.max(0, ...messageLines.map((line) => line.length), ...detailLines.map((l) => l.length));
+        // Stryker disable next-line StringLiteral: та же спецификация ширины ряда
         stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
         stack.addChild(buildCenteredRow(buttons, innerWidth), { width: "stretch", height: 1 });
     }

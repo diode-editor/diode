@@ -1144,6 +1144,33 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
+    it("поломка поверхности БЕЗ логгера тоже не отклоняет запрос", async () => {
+        // Логгера нет, а сток кидает: путь дублирования в лог обязан это
+        // переживать, иначе отказ доедет до расширения и уронит субпроцесс.
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            notificationSink: {
+                showMessage: () => Promise.reject(new Error("widget exploded")),
+                cancel: () => undefined,
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({
+            kind: "req",
+            id: 735,
+            method: "window.showMessage",
+            params: { severity: "info", message: "hi" },
+        });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 735));
+        const res = child.sent.find((m) => m.kind === "res" && m.id === 735);
+        expect(res).toMatchObject({ result: { index: null } });
+        expect(res).not.toHaveProperty("error");
+
+        host.dispose();
+    });
+
     it("смерть субпроцесса гасит его живые сообщения: отвечать на них стало некому", async () => {
         const child = new FakeChild();
         const cancelled: number[] = [];
@@ -1217,6 +1244,8 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
 
         await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 761));
         expect(child.sent.find((m) => m.kind === "res" && m.id === 760)).toMatchObject({ result: { text: "" } });
+        // Запись без буфера — тоже не ошибка: отказ доехал бы до расширения.
+        expect(child.sent.find((m) => m.kind === "res" && m.id === 761)).not.toHaveProperty("error");
 
         host.dispose();
     });
