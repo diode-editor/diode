@@ -292,9 +292,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Провайдер объявил `onDidChange` — перечитываем открытую вкладку этого
         // ресурса. Без этого содержимое в редакторе навсегда осталось бы тем,
         // каким оно было в момент открытия.
+        // Stryker disable ArrowFunction,BlockStatement,CallExpression: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, а поведение обеих сторон закрыто юнитами (`ExtensionHost.onDidChangeTextContent`, `EditorService.refreshVirtualDocument`) и сквозняком в тесте хоста «onDidChange провайдера перечитывает открытую вкладку»
         host.onDidChangeTextContent((uri) => {
             group.refreshVirtualDocument(uri);
         });
+        // Stryker restore ArrowFunction,BlockStatement,CallExpression
 
         // Hover: провайдеры расширений (languages.provideHover) подключаются
         // как источник hover'ов группы (читает HoverService по Show Hover).

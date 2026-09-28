@@ -29,34 +29,42 @@ function neverCancelledToken(): vscode.CancellationToken {
  * не мешает той же схеме в реестре ФС — в эталоне это тоже два независимых
  * реестра.
  */
+/** Регистрация одной схемы: сам провайдер и подписка на его `onDidChange`. */
+interface IProviderEntry {
+    readonly provider: vscode.TextDocumentContentProvider;
+    /** `undefined` — провайдер не объявил `onDidChange` (поле опционально). */
+    readonly changed: vscode.Disposable | undefined;
+}
+
 export class SubprocessTextDocumentContentProviders {
-    private readonly providers = new Map<string, vscode.TextDocumentContentProvider>();
+    private readonly entries = new Map<string, IProviderEntry>();
     private readonly schemeListeners = new Set<() => void>();
     private readonly changeListeners = new Set<(uri: vscode.Uri) => void>();
-    private readonly changeSubscriptions = new Map<string, vscode.Disposable>();
 
     /** Регистрирует провайдера схемы. Занятая схема — ошибка, как в VS Code. */
     public register(scheme: string, provider: vscode.TextDocumentContentProvider): { dispose: () => void } {
-        if (this.providers.has(scheme)) {
+        if (this.entries.has(scheme)) {
             throw new Error(`A text document content provider for the scheme '${scheme}' is already registered.`);
         }
-        this.providers.set(scheme, provider);
         // `onDidChange` у провайдера опционален (см. vscode.d.ts): им он говорит
         // «содержимое этого ресурса поменялось» — пересылаем наружу, чтобы
-        // открытая вкладка перечиталась.
-        const changed = provider.onDidChange?.((uri) => {
-            for (const cb of [...this.changeListeners]) cb(uri);
-        });
-        if (changed !== undefined) this.changeSubscriptions.set(scheme, changed);
+        // открытая вкладка перечиталась. Подписка живёт ровно столько же,
+        // сколько регистрация, поэтому лежит в той же записи.
+        const entry: IProviderEntry = {
+            provider,
+            changed: provider.onDidChange?.((uri) => {
+                for (const cb of [...this.changeListeners]) cb(uri);
+            }),
+        };
+        this.entries.set(scheme, entry);
         this.fireSchemesChanged();
         return {
             dispose: () => {
                 // Гейт по идентичности: если схему успели перерегистрировать,
                 // снятие старой регистрации не должно убивать нового провайдера.
-                if (this.providers.get(scheme) !== provider) return;
-                this.providers.delete(scheme);
-                this.changeSubscriptions.get(scheme)?.dispose();
-                this.changeSubscriptions.delete(scheme);
+                if (this.entries.get(scheme) !== entry) return;
+                this.entries.delete(scheme);
+                entry.changed?.dispose();
                 this.fireSchemesChanged();
             },
         };
@@ -64,11 +72,11 @@ export class SubprocessTextDocumentContentProviders {
 
     /** Схемы, которые субпроцесс готов обслуживать (снимок для хоста). */
     public schemes(): string[] {
-        return [...this.providers.keys()];
+        return [...this.entries.keys()];
     }
 
     public has(scheme: string): boolean {
-        return this.providers.has(scheme);
+        return this.entries.has(scheme);
     }
 
     /**
@@ -78,9 +86,9 @@ export class SubprocessTextDocumentContentProviders {
      * молчаливо ничего не открыть.
      */
     public async provide(uri: vscode.Uri): Promise<string | null> {
-        const provider = this.providers.get(uri.scheme);
-        if (provider === undefined) return null;
-        const content = await provider.provideTextDocumentContent(uri, neverCancelledToken());
+        const entry = this.entries.get(uri.scheme);
+        if (entry === undefined) return null;
+        const content = await entry.provider.provideTextDocumentContent(uri, neverCancelledToken());
         return content ?? null;
     }
 

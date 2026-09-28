@@ -66,16 +66,15 @@ export class DefinitionService {
         // нормализованным.
         const uri = Uri.parse(location.uri);
         const key = uri.toString();
-        if (toSide) {
-            // Соседняя группа (Ctrl+K F12): исходная группа не меняется — цель
-            // открывается/активируется в группе справа.
-            await this.group.openUri(uri, { group: "beside" });
-        } else if (this.group.getActiveEditor()?.uri.toString() !== key) {
-            await this.group.openUri(uri);
-        }
+        // Открываем безусловно — даже если цель в том же файле: дедуп по ресурсу
+        // живёт в `openUri` и работает в пределах группы, а второй такой же
+        // проверки здесь ему не нужно. `group: "beside"` (Ctrl+K F12) оставляет
+        // исходную группу на месте и раскрывает цель в соседней справа.
+        await this.group.openUri(uri, toSide ? { group: "beside" } : {});
         const editor = this.group.getActiveEditor();
         // Ресурс мог не открыться: недисковую цель отдаёт провайдер схемы, а его
         // может не быть (человек уже увидел сообщение — см. `onOpenFailed`).
+        // Stryker disable next-line OptionalChaining: без активного редактора сюда не попасть — `revealDefinition` выходит раньше, чем спросит провайдеров; `?.` держим страховкой для будущих вызывающих
         if (editor?.uri.toString() !== key) return;
         editor.goToPosition(location.range.start.line, location.range.start.character);
         editor.revealRange(location.range);

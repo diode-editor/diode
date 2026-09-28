@@ -666,6 +666,7 @@ export class ExtensionHost extends Disposable {
     private readonly fileSystemSchemesListeners: (() => void)[] = [];
     private readonly fileSystemChangeListeners: ((uris: readonly Uri[]) => void)[] = [];
     /** Схемы, для которых субпроцесс держит TextDocumentContentProvider'ы (`jdt:`, `class:`). */
+    // Stryker disable next-line ArrayDeclaration: начальный список наблюдаем только через `hasTextContentProvider(scheme)`, а мутант подкладывает в него строку, которая схемой ресурса не бывает — отличить её от пустого списка нечем
     private textContentSchemesValue: readonly string[] = [];
     private readonly textContentChangeListeners: ((uri: Uri) => void)[] = [];
     /** Слушатели смены наличия folding-провайдеров (для пере-пересчёта фолдов открытых редакторов). */

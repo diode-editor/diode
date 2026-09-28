@@ -3,6 +3,7 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
+import { NULL_LOGGER } from "../../log/common/nullLogService.ts";
 
 export const CommandRegistryDIToken = token<CommandRegistry>("CommandRegistry");
 
@@ -39,7 +40,7 @@ export class CommandRegistry implements IDisposable {
      * (минимальные контейнеры тестов); процесс не падает в любом случае, см.
      * {@link execute}.
      */
-    public constructor(private readonly logger?: ILogger) {}
+    public constructor(private readonly logger: ILogger = NULL_LOGGER) {}
 
     public register(id: string, handler: CommandHandler, title?: string, enablement?: string): IDisposable {
         this.entries.set(id, { handler, title, enablement });
@@ -72,7 +73,7 @@ export class CommandRegistry implements IDisposable {
         const result = entry.handler(...args);
         if (isThenable(result)) {
             result.then(undefined, (error: unknown) => {
-                this.logger?.error(`command "${id}" failed: ${describeRejection(error)}`);
+                this.logger.error(`command "${id}" failed: ${describeRejection(error)}`);
             });
         }
         return result;

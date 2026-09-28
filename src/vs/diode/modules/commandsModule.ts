@@ -15,6 +15,7 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 export const commandsModule: ContainerModule = (container) => {
     container.bind(
         CommandRegistryDIToken,
+        // Stryker disable next-line ArrowFunction,StringLiteral: production-проводка модуля; имя канала — метка для панели Output, подменить её нечем наблюдаемым в юните, а поведение логирования закрыто юнитами CommandRegistry
         () => new CommandRegistry(container.get(ILogServiceDIToken).createLogger("commands")),
     );
     container.bind(KeybindingRegistryDIToken, () => new KeybindingRegistry());

@@ -33,10 +33,12 @@ function makeRevealTarget() {
         goToPosition: vi.fn(),
         revealRange: vi.fn(),
     };
+    const state = { active: editor as IMarkerRevealEditor | null };
     return {
         editor,
+        state,
         openUri: vi.fn<(uri: Uri) => Promise<void>>().mockResolvedValue(undefined),
-        getActiveEditor: (): IMarkerRevealEditor | null => editor,
+        getActiveEditor: (): IMarkerRevealEditor | null => state.active,
     };
 }
 
@@ -140,6 +142,30 @@ describe("ProblemsComponent", () => {
         expect(revealTarget.openUri).toHaveBeenCalledTimes(1);
         expect(revealTarget.editor.goToPosition).not.toHaveBeenCalled();
         expect(revealTarget.editor.revealRange).not.toHaveBeenCalled();
+    });
+
+    it("редакторов нет вовсе — переход по маркеру не падает", async () => {
+        // Недисковый маркер (`jdt:`) без провайдера схемы при пустой полосе
+        // вкладок: `openUri` ничего не открыл, активного редактора нет.
+        revealTarget.state.active = null;
+        const markerNode: ProblemNode = {
+            kind: "marker",
+            resource: RESOURCE,
+            marker: {
+                owner: "settings",
+                resource: RESOURCE,
+                severity: MarkerSeverity.Warning,
+                range: createRange(2, 2, 2, 7),
+                message: "bad",
+            },
+            index: 0,
+        };
+
+        component.tree.onActivate?.(markerNode);
+        await settle(0);
+
+        expect(revealTarget.openUri).toHaveBeenCalledTimes(1);
+        expect(revealTarget.editor.goToPosition).not.toHaveBeenCalled();
     });
 
     it("does nothing when a file node is activated", () => {

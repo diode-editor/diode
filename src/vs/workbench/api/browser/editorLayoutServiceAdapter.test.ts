@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
@@ -139,6 +139,10 @@ describe("EditorLayoutServiceAdapter", () => {
         ws.writeFile("long.ts", Array.from({ length: 20 }, (_, i) => `l${i}`).join("\n"));
         service.openFile(ws.path("a.ts"));
         const before = service.activeGroup;
+        // Сам фокус живёт в дереве контролов, которого у голого сервиса нет,
+        // — здесь проверяем, что флаг доезжает до двери открытия. Что он там
+        // делает, закрыто `editorService.virtualDocument.test.ts`.
+        const openUri = vi.spyOn(service, "openUri");
 
         await adapter.showTextDocument({
             uri: service.getActiveEditor()!.uri.toString().replace("a.ts", "long.ts"),
@@ -146,6 +150,7 @@ describe("EditorLayoutServiceAdapter", () => {
             selection: { anchorLine: 5, anchorCharacter: 1, activeLine: 5, activeCharacter: 1 },
         });
 
+        expect(openUri).toHaveBeenCalledWith(expect.anything(), { focus: false });
         expect(service.activeGroup === before).toBe(true);
         expect(service.getActiveEditor()!.viewState.selections[0].active).toEqual({ line: 5, character: 1 });
     });

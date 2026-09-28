@@ -1023,6 +1023,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         if (existingIndex >= 0) {
             const existing = this.replaceVirtualContent(group, existingIndex, text);
             /* v8 ignore start -- defensive: снимок по этому uri открывает только этот метод, вид панели известен */
+            // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине, что и для покрытия — панель по этому ресурсу заводит только этот метод
             if (existing !== null) {
                 /* v8 ignore stop */
                 this.activateTab(existingIndex, { focus });
@@ -1251,6 +1252,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     ): TextEditorPane {
         // Синтетический ресурс уникален по построению — модель мимо реестра.
         const model = new TextFileModel(this.languageService, this.undoRedoService);
+        // Stryker disable next-line CallExpression: обвязка модели у синтетического ресурса ненаблюдаема (диска нет: watcher не ставится, save отдаёт "no-file", onDidSave не стреляет) — держим её ради единообразия со всеми моделями сервиса
         this.wireModel(model);
         const languageId = overrides.languageId ?? this.languageService.getLanguageIdForResource(uri.path);
         model.openSynthetic(uri, languageId ?? "plaintext");
@@ -1270,6 +1272,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private replaceVirtualContent(group: EditorGroup, index: number, content: string): TextEditorPane | null {
         const pane = group.getPane(index);
         /* v8 ignore start -- defensive: вкладку по этому ресурсу заводит только createVirtualPane */
+        // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине, что и для покрытия
         if (!(pane instanceof TextEditorPane)) return null;
         /* v8 ignore stop */
         pane.model.replaceOwnedContent(content);

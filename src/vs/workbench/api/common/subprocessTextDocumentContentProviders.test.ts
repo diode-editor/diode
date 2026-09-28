@@ -24,6 +24,26 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(registry.schemes()).toEqual(["jdt"]);
     });
 
+    it("провайдеру выдаётся пригодный токен отмены, а не undefined", async () => {
+        const registry = new SubprocessTextDocumentContentProviders();
+        let seen: vscode.CancellationToken | undefined;
+        registry.register("jdt", {
+            provideTextDocumentContent: (_uri: vscode.Uri, token: vscode.CancellationToken) => {
+                seen = token;
+                return "x";
+            },
+        } as unknown as vscode.TextDocumentContentProvider);
+
+        await registry.provide(JDT);
+
+        // Контракт `provideTextDocumentContent(uri, token)`: провайдер вправе
+        // читать `isCancellationRequested` и подписываться — заглушка обязана
+        // быть настоящим токеном, иначе стоковое расширение падает на первой
+        // же строке.
+        expect(seen?.isCancellationRequested).toBe(false);
+        expect(() => seen?.onCancellationRequested(() => undefined)).not.toThrow();
+    });
+
     it("чужая схема — null, а не исключение", async () => {
         const registry = new SubprocessTextDocumentContentProviders();
         registry.register("jdt", provider("x"));

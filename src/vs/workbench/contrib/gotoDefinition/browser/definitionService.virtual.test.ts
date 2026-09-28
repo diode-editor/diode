@@ -1,5 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -130,6 +130,39 @@ describe("DefinitionService — цель на недисковом ресурс�
         history.goForward();
         expect(group().getActiveEditor()?.uri.scheme).toBe("jdt");
         expect(caret()).toMatchObject({ line: 2, character: 13 });
+    });
+
+    it("цель в АКТИВНОМ редакторе не переоткрывается, но каретка доезжает", async () => {
+        const provide = vi.fn<() => Promise<string | null>>().mockResolvedValue(JDT_SOURCE);
+        group().virtualDocumentSource = { canProvide: () => true, provide };
+        group().definitionSource = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
+        await service().revealDefinition();
+        expect(provide).toHaveBeenCalledTimes(1);
+
+        // Второй F12 уже ВНУТРИ исходника из jar, цель — он же: вкладка ищется
+        // по ресурсу и переиспользуется, провайдера ради неё не тревожат.
+        group().getActiveEditor()?.goToPosition(0, 0);
+        await service().revealDefinition();
+
+        expect(provide).toHaveBeenCalledTimes(1);
+        expect(group().editorCount).toBe(2);
+        expect(caret()).toMatchObject({ line: 2, character: 13 });
+    });
+
+    it("активного редактора нет — прыжок не падает и ничего не открывает", async () => {
+        group().virtualDocumentSource = {
+            canProvide: () => true,
+            provide: () => Promise.resolve(JDT_SOURCE),
+        };
+        const source = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
+        group().definitionSource = source;
+
+        // Вкладок нет — спрашивать провайдеров определения не у чего.
+        h.commands.execute("workbench.action.closeActiveEditor");
+        expect(group().getActiveEditor()).toBeNull();
+        await expect(service().revealDefinition()).resolves.toBeUndefined();
+
+        expect(group().editorCount).toBe(0);
     });
 
     it("Ctrl+K F12 в недисковую цель открывает её в соседней группе", async () => {

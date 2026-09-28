@@ -69,6 +69,23 @@ describe("ExtensionHost — провайдеры содержимого неди
         expect(host.hasTextContentProvider("jdt")).toBe(false);
     });
 
+    it("до первой подписки список слушателей пуст — уведомление никого не зовёт", async () => {
+        const { host, peer } = makeHost();
+
+        // Мусор в начальном значении списка слушателей уронил бы рассылку на
+        // первом же уведомлении — а подписчик, пришедший позже, остался бы
+        // без событий.
+        peer.notify("workspace.textDocumentContentChanged", { uri: "jdt:/Foo.java" });
+        await flushMicrotasks();
+
+        const seen = vi.fn();
+        host.onDidChangeTextContent(seen);
+        peer.notify("workspace.textDocumentContentChanged", { uri: "jdt:/Bar.java" });
+        await flushMicrotasks();
+
+        expect(seen).toHaveBeenCalledTimes(1);
+    });
+
     it("сообщение об изменении ресурса доходит до подписчиков", async () => {
         const { host, peer } = makeHost();
         const seen: string[] = [];
@@ -103,17 +120,22 @@ describe("ExtensionHost — провайдеры содержимого неди
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("повторный dispose подписки — no-op", async () => {
+    it("повторный dispose подписки не снимает ЧУЖУЮ", async () => {
         const { host, peer } = makeHost();
-        const seen = vi.fn();
-        const subscription = host.onDidChangeTextContent(seen);
-        subscription.dispose();
-        subscription.dispose();
+        const first = vi.fn();
+        const second = vi.fn();
+        const subscription = host.onDidChangeTextContent(first);
+        host.onDidChangeTextContent(second);
 
+        subscription.dispose();
+        // Второй dispose не находит свой cb (idx = -1) — и не должен трактовать
+        // это как «снять последнего»: соседняя подписка чужая.
+        subscription.dispose();
         peer.notify("workspace.textDocumentContentChanged", { uri: "jdt:/Foo.java" });
         await flushMicrotasks();
 
-        expect(seen).not.toHaveBeenCalled();
+        expect(first).not.toHaveBeenCalled();
+        expect(second).toHaveBeenCalledTimes(1);
     });
 
     it("без субпроцесса запрос содержимого отклоняется, а не молчит", async () => {
