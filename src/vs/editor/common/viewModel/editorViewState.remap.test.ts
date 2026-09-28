@@ -4,6 +4,7 @@ import { createRange } from "../core/iRange.ts";
 import { createCursorSelection, createSelection } from "../core/iSelection.ts";
 import { createTextEdit } from "../core/iTextEdit.ts";
 import { TextDocument } from "../model/textDocument.ts";
+import { UndoManager } from "../model/undoManager.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
@@ -109,6 +110,43 @@ describe("EditorViewState: ремап чужих правок", () => {
         a.type("\nq");
 
         expect(b.scrollTop).toBe(50);
+    });
+
+    /**
+     * Батч правок обязан доехать до чужой вью ЦЕЛИКОМ. События батча считаются
+     * при применении снизу вверх, а летят в документном порядке: без сдвига
+     * границ на уже отправленные события нижняя правка адресовала строки мимо
+     * документа — вью её проскакивала, и каретка оставалась за концом своей
+     * строки (падение рендера на highlight вхождений), либо ремап падал на
+     * `getLineLength` за концом документа.
+     */
+    it("батч из двух правок не оставляет каретку чужой вью за концом строки", () => {
+        const { doc, b } = twoViews("aaa\nbbbbb");
+        b.selections = [createCursorSelection(1, 5)];
+
+        // Верхняя правка добавляет строку, нижняя укорачивает строку под кареткой.
+        doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "X\n"), createTextEdit(createRange(1, 1, 1, 5), "")]);
+
+        expect(doc.getText()).toBe("X\naaa\nb");
+        expect(b.selections[0].active).toEqual({ line: 2, character: 1 });
+    });
+
+    it("undo мультикурсорной многострочной вставки не роняет ремап", () => {
+        const { doc, a } = twoViews("aaa\nbbb");
+        const undoManager = new UndoManager(doc);
+        a.selections = [createCursorSelection(0, 3), createCursorSelection(1, 3)];
+        const element = a.insertText("X\nY");
+        expect(element).toBeDefined();
+        if (element) undoManager.pushUndoElement(element);
+        expect(doc.getText()).toBe("aaaX\nY\nbbbX\nY");
+
+        expect(undoManager.undo(a)).toBe(true);
+
+        expect(doc.getText()).toBe("aaa\nbbb");
+        expect(a.selections.map((sel) => sel.active)).toEqual([
+            { line: 0, character: 3 },
+            { line: 1, character: 3 },
+        ]);
     });
 
     it("dispose останавливает ремап", () => {

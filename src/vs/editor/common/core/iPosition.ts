@@ -23,3 +23,23 @@ export function comparePositions(a: IPosition, b: IPosition): number {
 export function positionsEqual(a: IPosition, b: IPosition): boolean {
     return a.line === b.line && a.character === b.character;
 }
+
+/** Минимум документа, нужный клампу позиции: число строк и длины строк. */
+export interface IPositionClampTarget {
+    readonly lineCount: number;
+    getLineLength(line: number): number;
+}
+
+/**
+ * Позиция, приведённая к границам документа — аналог `validatePosition` в
+ * vscode. Дверь для позиций из внешнего источника (расширение, LSP, снимок
+ * прежнего документа): их автор не обязан знать текущее содержимое, а позиция
+ * за концом строки — это уже не «неточная каретка», а сломанный кадр:
+ * highlight вхождений зовётся из render, и читатель строки по такой позиции
+ * роняет редактор целиком.
+ */
+export function clampPositionToDocument(doc: IPositionClampTarget, position: IPosition): IPosition {
+    const line = Math.min(Math.max(position.line, 0), doc.lineCount - 1);
+    const character = Math.min(Math.max(position.character, 0), doc.getLineLength(line));
+    return { line, character };
+}

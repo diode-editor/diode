@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createInsertEdit } from "../core/iTextEdit.ts";
+import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
 import type { IState } from "../languages/iState.ts";
 import type { ITokenizationResult, ITokenizationSupport } from "../languages/iTokenizationSupport.ts";
 import { TextDocument } from "../model/textDocument.ts";
@@ -83,5 +83,36 @@ describe("DocumentTokenStore — виден только вьюпорт", () => 
         // Строки ниже `>` обязаны нести состояние 1, а не начальное 0 — иначе
         // хвост подсвечивается «с чистого листа».
         expect(store.getLineTokens(9)?.tokens[0].scopes).toEqual(["s1"]);
+    });
+
+    it("правка, перешагнувшая фронтир, опускает его на своё начало", () => {
+        const doc = tenLines();
+        const store = new DocumentTokenStore(doc, new StatefulTokenizer());
+
+        // Вьюпорт — строки 0..5, фронтир встал на 6.
+        store.tokenizeUpTo(5);
+        expect(store.getLineTokens(5)).toBeDefined();
+        expect(store.getLineTokens(6)).toBeUndefined();
+
+        // Удаление строк 4..7 начинается ВЫШЕ фронтира, а кончается НИЖЕ него:
+        // на место посчитанных строк подтягивается нетокенизированный хвост,
+        // поэтому фронтир обязан опуститься на начало правки. Останется на 6 —
+        // store соврёт «до 6 посчитано», и ранний выход по сошедшемуся end-state
+        // оставит строку без токенов навсегда.
+        doc.applyEdits([createDeleteEdit(4, 0, 8, 0)]);
+        expect(doc.getText()).toBe("a\nb\nc\nd\ni\nj");
+
+        // Рендер дотянул до строки 4 — строка 5 ещё ни разу не посчитана.
+        store.tokenizeUpTo(4);
+        expect(store.getLineTokens(5)).toBeUndefined();
+
+        // Правка строки 0, не меняющая end-state: обход сходится на первой же
+        // строке и объявляет валидным всё до фронтира.
+        doc.applyEdits([createInsertEdit(0, 0, "X")]);
+        store.tokenizeUpTo(4);
+
+        // Скролл на строку 5 обязан её посчитать.
+        store.tokenizeUpTo(5);
+        expect(store.getLineTokens(5)).toBeDefined();
     });
 });

@@ -3,9 +3,10 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../base/common/uri.ts";
 import { currentCursorChangeSource, type CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
+import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
-import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type {
@@ -120,8 +121,8 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         if (editor === null || selections.length === 0) return;
         const doc = editor.model.document;
         const mapped: ISelection[] = selections.map((sel) => {
-            const anchor = clampPosition(doc, sel.anchorLine, sel.anchorCharacter);
-            const active = clampPosition(doc, sel.activeLine, sel.activeCharacter);
+            const anchor = clampPositionToDocument(doc, { line: sel.anchorLine, character: sel.anchorCharacter });
+            const active = clampPositionToDocument(doc, { line: sel.activeLine, character: sel.activeCharacter });
             return createSelection(anchor.line, anchor.character, active.line, active.character);
         });
         this.applyingRemoteSelection = true;
@@ -141,7 +142,13 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         // честно отвечаем `false` — у расширения `TextEditor.edit()` резолвится
         // этим значением, и врать ему об успехе нельзя. Так же ведёт себя VS Code.
         if (editor === null || editor.readOnly || edits.length === 0) return false;
-        this.applyEditsTo(editor, edits, "extension edit");
+        const textEdits = this.toTextEdits(editor, edits);
+        // Перекрытые правки документ применил бы по уже съеденному тексту —
+        // порча содержимого и сломанный undo. Отбиваем батч целиком, как
+        // `Overlapping ranges are not allowed` в vscode: `TextEditor.edit()`
+        // резолвится `false`.
+        if (textEdits === null) return false;
+        editor.applyExternalEdits(textEdits, "extension edit");
         return true;
     }
 
@@ -153,27 +160,36 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         // Сначала валидация ВСЕХ ресурсов, потом применение: применённый
         // «наполовину» workspace edit хуже честного отказа (у VS Code чисто
         // текстовый edit — all-or-nothing).
-        const targets: { editor: TextEditorPane; edits: readonly IWireEditorEdit[] }[] = [];
+        const targets: { editor: TextEditorPane; edits: readonly ITextEdit[] }[] = [];
         for (const entry of edits) {
             const editor = this.anyEditorFor(entry.resource);
             if (editor === null || editor.readOnly) return false;
-            targets.push({ editor, edits: entry.edits });
+            const textEdits = this.toTextEdits(editor, entry.edits);
+            if (textEdits === null) return false;
+            targets.push({ editor, edits: textEdits });
         }
         for (const target of targets) {
-            this.applyEditsTo(target.editor, target.edits, "workspace edit");
+            target.editor.applyExternalEdits(target.edits, "workspace edit");
         }
         return true;
     }
 
-    /** Применяет wire-правки к документу редактора одним undoable-батчем. */
-    private applyEditsTo(editor: TextEditorPane, edits: readonly IWireEditorEdit[], label: string): void {
+    /**
+     * Wire-правки в правки документа: позиции клампятся к содержимому (их автор
+     * — расширение, про наш текст оно ничего не знает). `null` — батч с
+     * пересечениями, применять его нельзя (см. {@link hasOverlappingEdits}).
+     */
+    private toTextEdits(editor: TextEditorPane, edits: readonly IWireEditorEdit[]): ITextEdit[] | null {
         const doc = editor.model.document;
         const textEdits: ITextEdit[] = edits.map((edit) => {
-            const start = clampPosition(doc, edit.range.startLine, edit.range.startCharacter);
-            const end = clampPosition(doc, edit.range.endLine, edit.range.endCharacter);
+            const start = clampPositionToDocument(doc, {
+                line: edit.range.startLine,
+                character: edit.range.startCharacter,
+            });
+            const end = clampPositionToDocument(doc, { line: edit.range.endLine, character: edit.range.endCharacter });
             return createTextEdit(createRange(start.line, start.character, end.line, end.character), edit.text);
         });
-        editor.applyExternalEdits(textEdits, label);
+        return hasOverlappingEdits(textEdits) ? null : textEdits;
     }
 
     /**
@@ -199,18 +215,6 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         if (active !== null && active.uri.toString() === uri) return active;
         return this.group.getEditors().find((editor) => editor.uri.toString() === uri) ?? null;
     }
-}
-
-function clampPosition(
-    doc: { lineCount: number; getLineLength(line: number): number },
-    line: number,
-    character: number,
-): { line: number; character: number } {
-    const maxLine = doc.lineCount - 1;
-    const clampedLine = line < 0 ? 0 : line > maxLine ? maxLine : line;
-    const maxChar = doc.getLineLength(clampedLine);
-    const clampedChar = character < 0 ? 0 : character > maxChar ? maxChar : character;
-    return { line: clampedLine, character: clampedChar };
 }
 
 /** Все выделения редактора в wire-форме (первое — первичное). */

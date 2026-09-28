@@ -1,3 +1,4 @@
+import { comparePositions } from "./iPosition.ts";
 import type { IRange } from "./iRange.ts";
 import { createRange } from "./iRange.ts";
 
@@ -31,4 +32,25 @@ export function createDeleteEdit(
         range: createRange(startLine, startCharacter, endLine, endCharacter),
         text: "",
     };
+}
+
+/**
+ * Есть ли в батче правки, чьи диапазоны пересекаются.
+ *
+ * Непересечение — условие контракта `ITextDocument.applyEdits`: он применяет
+ * батч снизу вверх (координаты нижних правок не плывут) и считает обратные
+ * правки по накопленному сдвигу. Перекрытые правки он применит по уже
+ * съеденному тексту — тихая порча содержимого и сломанный undo. Поэтому батч из
+ * ненадёжного источника (правки расширения) проверяется на входе и отбивается
+ * целиком, как `Overlapping ranges are not allowed` в vscode.
+ *
+ * Стык (`конец предыдущей === начало следующей`) и несколько вставок нулевой
+ * ширины в одну точку пересечением НЕ считаются — это законный батч.
+ */
+export function hasOverlappingEdits(edits: readonly ITextEdit[]): boolean {
+    const sorted = [...edits].sort((a, b) => comparePositions(a.range.start, b.range.start));
+    for (let i = 1; i < sorted.length; i++) {
+        if (comparePositions(sorted[i].range.start, sorted[i - 1].range.end) < 0) return true;
+    }
+    return false;
 }

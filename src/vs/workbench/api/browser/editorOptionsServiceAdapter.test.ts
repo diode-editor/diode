@@ -212,6 +212,26 @@ describe("EditorOptionsServiceAdapter", () => {
         );
     });
 
+    it("applyActiveEditorEdits() — false на пересекающихся правках, документ не тронут", () => {
+        const applyExternalEdits = vi.fn();
+        const editor = {
+            uri: Uri.file("/a/b.ts"),
+            model: { document: { lineCount: 3, getLineLength: () => 10 } },
+            applyExternalEdits,
+        };
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
+        const adapter = new EditorOptionsServiceAdapter(group);
+
+        // Перекрытые правки документ применил бы по уже съеденному тексту —
+        // порча содержимого и сломанный undo; vscode такой edit отбивает.
+        const overlapping = [
+            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 }, text: "x" },
+            { range: { startLine: 0, startCharacter: 3, endLine: 0, endCharacter: 8 }, text: "y" },
+        ];
+        expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), overlapping)).toBe(false);
+        expect(applyExternalEdits).not.toHaveBeenCalled();
+    });
+
     it("applyActiveEditorEdits() — false, если нет активного редактора или пустой список", () => {
         const editor = {
             uri: Uri.file("/a/b.ts"),
