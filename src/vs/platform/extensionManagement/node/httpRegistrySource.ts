@@ -1,4 +1,4 @@
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import { DIODE_VERSION } from "../../../base/common/version.ts";
@@ -32,15 +32,20 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 /** Индекс всего реестра и мета одного расширения — это текст; мегабайты тут аномалия. */
 // Stryker disable next-line ArithmeticOperator: арифметика тут только ради читаемости «8 МиБ»; сам дефолт в тестах не наблюдаем — лимит там задаётся явно, иначе кейс на превышение гонял бы мегабайты
 const DEFAULT_MAX_JSON_BYTES = 8 * 1024 * 1024;
-// Stryker disable next-line ArithmeticOperator: то же — «64 МиБ» читаемо, а проверять дефолт значило бы качать их в юните
-const DEFAULT_MAX_ARTIFACT_BYTES = 64 * 1024 * 1024;
+/**
+ * Артефакт льётся в файл потоком, поэтому лимит тут больше не защита памяти — он
+ * защищает от «реестр попросил скачать неадекватное». Потолок берём с запасом к
+ * реальным артефактам: платформенные сборки со вшитым рантаймом (redhat.java с
+ * JRE 21) уже весят ~133 МиБ и растут от версии к версии.
+ */
+export const DEFAULT_MAX_ARTIFACT_BYTES = 256 * 1024 * 1024;
 
 export interface IHttpRegistrySourceOptions {
     /** Таймаут одного запроса, мс (default 30000). */
     readonly timeoutMs?: number;
     /** Лимит на `index.json`/`meta/<id>.json` (default 8 МиБ). */
     readonly maxJsonBytes?: number;
-    /** Лимит на `.vsix` (default 64 МиБ). */
+    /** Лимит на `.vsix` (default 256 МиБ). */
     readonly maxArtifactBytes?: number;
 }
 
@@ -78,20 +83,24 @@ function describeFetchError(error: unknown): string {
 }
 
 /**
- * Читает тело ответа целиком, обрывая чтение за `limit` байт. `Content-Length` не
- * используем как разрешение читать: заголовок необязателен и может врать —
- * считаем фактические байты.
+ * Разбирает тело ответа по кускам, отдавая каждый в `onChunk` и обрывая чтение за
+ * `limit` байт. `Content-Length` не используем как разрешение читать: заголовок
+ * необязателен и может врать — считаем фактические байты.
  *
- * Артефакт тоже буферизуется в памяти, а не льётся в файл потоком: лимит и так
- * ограничивает пик, зато нет полуфайла, который надо убирать на любой ошибке.
+ * Лимит именно рвёт скачивание, а не проверяется по уже полученному: смысл
+ * ограничения в том, чтобы реестр не мог заставить клиента вытянуть гигабайт.
  */
-async function readCapped(response: Response, limit: number, url: URL): Promise<Buffer> {
+async function consumeCapped(
+    response: Response,
+    limit: number,
+    url: URL,
+    onChunk: (chunk: Uint8Array) => Promise<void> | void,
+): Promise<void> {
     // Ответы без тела (204 и прочие null body status) — ноль байт, читать нечего.
     if (response.body === null) {
-        return Buffer.alloc(0);
+        return;
     }
     const reader = response.body.getReader();
-    const chunks: Buffer[] = [];
     let total = 0;
     for (;;) {
         let chunk: ReadableStreamReadResult<Uint8Array>;
@@ -107,9 +116,42 @@ async function readCapped(response: Response, limit: number, url: URL): Promise<
             await reader.cancel();
             throw new Error(`${url.href}: response exceeds the ${String(limit)}-byte limit`);
         }
-        chunks.push(Buffer.from(chunk.value));
+        await onChunk(chunk.value);
     }
+}
+
+/** Читает тело целиком в память — для текстовых документов реестра (индекс, мета). */
+async function readCapped(response: Response, limit: number, url: URL): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    await consumeCapped(response, limit, url, (chunk) => {
+        chunks.push(Buffer.from(chunk));
+    });
     return Buffer.concat(chunks);
+}
+
+/**
+ * Льёт тело ответа прямо в `target`. Артефакт не буферизуется в памяти: платформенные
+ * `.vsix` со вшитым рантаймом весят сотни мегабайт, и держать их целиком в резиденте
+ * (да ещё с пиком на склейке кусков) незачем — байты всё равно нужны на диске.
+ *
+ * Цена потока — полуфайл: на превышении лимита, обрыве сети и ошибке записи
+ * недокачанное убирается, чтобы не осталось под видом валидного артефакта.
+ */
+async function downloadCapped(response: Response, limit: number, url: URL, target: string): Promise<void> {
+    const file = await fs.open(target, "w");
+    let complete = false;
+    try {
+        await consumeCapped(response, limit, url, async (chunk) => {
+            await file.write(chunk);
+        });
+        complete = true;
+    } finally {
+        await file.close();
+        if (!complete) {
+            // Stryker disable next-line BooleanLiteral,ObjectLiteral: файл заведён `open` выше по этой же функции, так что отсутствующей цели тут не бывает и подмена `force` ненаблюдаема; флаг оставлен, чтобы сбой уборки не затирал исходную ошибку — она и есть ответ вызывающему
+            await fs.rm(target, { force: true });
+        }
+    }
 }
 
 export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
@@ -211,14 +253,13 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
 
         const response = await this.request(url);
         this.ensureOk(response, url);
-        const bytes = await readCapped(response, this.maxArtifactBytes, url);
 
         // Имя фиксировано, а не выведено из URL: `tempDir` заводится вызывающим на
         // одну установку (и им же убирается), а имя из чужих данных — только лишний
         // путь для трюков. Настоящие id и версию `installVsix` всё равно читает из
         // манифеста.
         const target = path.join(tempDir, "artifact.vsix");
-        fs.writeFileSync(target, bytes);
+        await downloadCapped(response, this.maxArtifactBytes, url, target);
         return target;
     }
 }

@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { type IRegistryVersion, REGISTRY_SCHEMA_VERSION } from "../common/registryFormat.ts";
 
-import { HttpExtensionRegistrySource } from "./httpRegistrySource.ts";
+import { DEFAULT_MAX_ARTIFACT_BYTES, HttpExtensionRegistrySource } from "./httpRegistrySource.ts";
 
 /**
  * Тесты гоняются против настоящего `node:http`-сервера на 127.0.0.1: HTTP-источник
@@ -359,5 +359,68 @@ describe("HttpExtensionRegistrySource", () => {
             /truncated\.vsix: download failed/,
         );
         expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
+    });
+
+    it("многокусковое тело доезжает в файл целиком и в исходном порядке", async () => {
+        // Артефакт пишется потоком, кусок за куском: тело в один `res.end` этого не
+        // проверяет — файл совпал бы и у записи, которая каждый кусок кладёт с нуля.
+        const parts = [Buffer.alloc(64 * 1024, 1), Buffer.alloc(96 * 1024, 2), Buffer.alloc(48 * 1024, 3)];
+        routes.set("/chunked.vsix", (_req, res) => {
+            res.writeHead(200);
+            for (const part of parts) {
+                res.write(part);
+            }
+            res.end();
+        });
+        ws = createTempWorkspace();
+        const file = await new HttpExtensionRegistrySource(base).fetchArtifact(
+            urlVersion(`${origin}/chunked.vsix`),
+            ws.dir,
+        );
+        expect(fs.readFileSync(file)).toEqual(Buffer.concat(parts));
+    });
+
+    it("превышение лимита обрывает скачивание, а не проверяется по уже скачанному", async () => {
+        // Смысл лимита — не дать реестру вытянуть из клиента гигабайт, поэтому сервер
+        // обязан замолчать задолго до конца обещанного тела. Проверка постфактум по
+        // готовому файлу прошла бы предыдущие кейсы, но этот — нет.
+        const TOTAL = 64 * 1024 * 1024;
+        const chunk = Buffer.alloc(64 * 1024, 7);
+        let sent = 0;
+        let finished!: () => void;
+        const closed = new Promise<void>((resolve) => {
+            finished = resolve;
+        });
+        routes.set("/endless.vsix", (_req, res) => {
+            res.writeHead(200, { "content-length": String(TOTAL) });
+            res.on("error", () => undefined);
+            res.on("close", finished);
+            const pump = (): void => {
+                while (sent < TOTAL && !res.destroyed) {
+                    sent += chunk.byteLength;
+                    if (!res.write(chunk)) {
+                        res.once("drain", pump);
+                        return;
+                    }
+                }
+                res.end();
+            };
+            pump();
+        });
+        ws = createTempWorkspace();
+        const source = new HttpExtensionRegistrySource(base, undefined, { maxArtifactBytes: 1024 });
+        await expect(source.fetchArtifact(urlVersion(`${origin}/endless.vsix`), ws.dir)).rejects.toThrow(
+            /exceeds the 1024-byte limit/,
+        );
+        await closed;
+        expect(sent).toBeLessThan(TOTAL);
+        expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
+    });
+
+    it("дефолтный лимит пропускает платформенный .vsix со вшитым рантаймом", () => {
+        // Самая тяжёлая сборка redhat.java@1.57.2026092608 (linux-x64, с JRE 21) —
+        // 139 029 576 байт; в прежние 64 МиБ она не пролезала вовсе. Опускать дефолт
+        // ниже этой отметки значит снова сделать платформенные записи неустановимыми.
+        expect(DEFAULT_MAX_ARTIFACT_BYTES).toBeGreaterThanOrEqual(139_029_576);
     });
 });
