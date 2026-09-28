@@ -26,3 +26,15 @@ export interface IVirtualDocumentSource {
      */
     provide(uri: Uri): Promise<string | null>;
 }
+
+/**
+ * Источник-пустышка: схем не обслуживает, содержимого не даёт. Дефолт
+ * `EditorService`, пока композиция не подключила настоящий (тесты, профили без
+ * extension host). Null-объект, а не `undefined`, по той же причине, что
+ * {@link import("../../../../platform/log/common/nullLogService.ts").NULL_LOGGER}:
+ * у потребителя не заводится ветка «источника нет», которую нечем проверить.
+ */
+export const NULL_VIRTUAL_DOCUMENT_SOURCE: IVirtualDocumentSource = {
+    canProvide: () => false,
+    provide: () => Promise.resolve(null),
+};

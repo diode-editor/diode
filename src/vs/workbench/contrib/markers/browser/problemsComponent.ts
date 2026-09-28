@@ -156,7 +156,10 @@ export class ProblemsComponent extends Component {
             const editor = this.revealTarget.getActiveEditor();
             // Ресурс мог не открыться — у недискового маркера (`jdt:`) провайдера
             // схемы может не быть. Без сверки ресурса каретка уехала бы по
-            // координатам маркера в ЧУЖОМ, всё ещё активном редакторе.
+            // координатам маркера в ЧУЖОМ, всё ещё активном редакторе, а без
+            // проверки на `null` — в никуда (маркер можно активировать и с
+            // пустой полосой вкладок).
+            // Stryker disable next-line OptionalChaining: снятие `?.` заставляет переход кинуть ПОСЛЕ await, то есть мимо стека теста — раннер падает на сериализации unhandled error вместо честного «мутант выжил/убит». Локализация ошибок слушателя — #275, см. docs/TESTING.md
             if (editor?.uri.toString() !== uri.toString()) return;
             const start = marker.range.start;
             editor.goToPosition(start.line, start.character);

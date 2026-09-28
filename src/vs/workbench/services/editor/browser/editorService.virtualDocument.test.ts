@@ -18,6 +18,7 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
 import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
+import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.ts";
 
 import { EditorService, EditorServiceDIToken } from "./editorService.ts";
 
@@ -423,16 +424,19 @@ describe("EditorService.canRestore — что история умеет откр
             service.dispose();
         });
 
-        it("источника нет — освежать нечем, молча выходим", async () => {
+        it("источник сняли (умер extension host) — освежать нечем, вкладка цела", async () => {
             const service = createEditorService();
             service.virtualDocumentSource = makeSource("demo", () => Promise.resolve("v1\n"));
             const uri = Uri.parse("demo:///a");
             await service.openUri(uri);
-            service.virtualDocumentSource = undefined;
+            service.virtualDocumentSource = NULL_VIRTUAL_DOCUMENT_SOURCE;
 
             expect(() => {
                 service.refreshVirtualDocument(uri);
             }).not.toThrow();
+            await Promise.resolve();
+            await Promise.resolve();
+
             expect(service.getEditor(0)?.getText()).toBe("v1\n");
             service.dispose();
         });

@@ -50,6 +50,7 @@ import { TextFileModelRegistry } from "../../textfile/common/textFileModelRegist
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
+import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.ts";
 
 import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
 import {
@@ -228,7 +229,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * самим сервисом в {@link openUri}: без источника `jdt:`/`class:`-ресурс
      * открыть нечем.
      */
-    public virtualDocumentSource?: IVirtualDocumentSource;
+    public virtualDocumentSource: IVirtualDocumentSource = NULL_VIRTUAL_DOCUMENT_SOURCE;
 
     /**
      * Хук «ресурс открыть не удалось» — композиция вешает сюда показ сообщения
@@ -1180,7 +1181,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     private async openVirtualUri(uri: Uri, options: { focus?: boolean; group?: "beside" }): Promise<void> {
         const source = this.virtualDocumentSource;
-        if (!source?.canProvide(uri.scheme)) {
+        if (!source.canProvide(uri.scheme)) {
             this.reportOpenFailed(uri, `no content provider is registered for the "${uri.scheme}:" scheme`);
             return;
         }
@@ -1209,7 +1210,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public canRestore(uri: Uri): boolean {
         if (uri.scheme === "file" || uri.scheme === "untitled") return true;
-        return this.virtualDocumentSource?.canProvide(uri.scheme) ?? false;
+        return this.virtualDocumentSource.canProvide(uri.scheme);
     }
 
     /**
@@ -1227,9 +1228,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             (pane): pane is TextEditorPane => pane instanceof TextEditorPane && pane.uri.toString() === uri.toString(),
         );
         if (targets.length === 0) return;
-        const source = this.virtualDocumentSource;
-        if (source === undefined) return;
-        void source.provide(uri).then(
+        void this.virtualDocumentSource.provide(uri).then(
             (content) => {
                 if (content === null) return;
                 for (const pane of targets) pane.model.replaceOwnedContent(content);
