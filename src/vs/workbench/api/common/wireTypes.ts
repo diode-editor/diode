@@ -1846,6 +1846,43 @@ export function parseWireReadFileResult(raw: unknown): Uint8Array {
     return new Uint8Array(Buffer.from(content, "base64"));
 }
 
+// ── workspace.registerTextDocumentContentProvider: содержимое недисковых ─────
+
+/**
+ * Ответ субпроцесса на `workspace.provideTextDocumentContent`. В отличие от
+ * `workspace.fs.readFile` содержимое едет обычной строкой: провайдер отдаёт
+ * ТЕКСТ, а не байты, и кодировать его в base64 незачем. `null` — провайдер
+ * схемы есть, но этот ресурс отдать отказался (`ProviderResult` разрешает
+ * `undefined`/`null`).
+ */
+export interface IWireTextContentResult {
+    content: string | null;
+}
+
+/**
+ * Разбирает ответ `workspace.provideTextDocumentContent`. Бросает на структурно
+ * чужом ответе: ядру нужна разница между «провайдер сказал нет» (`null`) и
+ * «канал сломался» — во втором случае человеку показывается причина.
+ */
+export function parseWireTextContentResult(raw: unknown): string | null {
+    if (typeof raw !== "object" || raw === null) {
+        throw new Error("workspace.provideTextDocumentContent: result must be an object");
+    }
+    const content = (raw as { content?: unknown }).content;
+    if (content === null || content === undefined) return null;
+    if (typeof content !== "string") {
+        throw new Error("workspace.provideTextDocumentContent: content must be a string or null");
+    }
+    return content;
+}
+
+/** Разбирает список схем из `workspace.*ProvidersChanged`; чужие элементы отбрасывает. */
+export function parseWireSchemes(raw: unknown): string[] {
+    const schemes = (raw as { schemes?: unknown } | null)?.schemes;
+    if (!Array.isArray(schemes)) return [];
+    return schemes.filter((s): s is string => typeof s === "string");
+}
+
 // ── workspace.createFileSystemWatcher: файловые watcher'ы расширений ─────────
 
 /**

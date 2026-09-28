@@ -104,12 +104,17 @@ describe("EditorService.openTextSnapshot", () => {
 });
 
 describe("TextFileModel.openFile — гейт схемы", () => {
-    it("не-file uri отвергается, а не читается с диска по fsPath", () => {
+    it("не-file uri не читается с диска по fsPath и не бросает наружу", async () => {
         const service = createEditorService();
+        const failures: string[] = [];
+        service.onOpenFailed = (uri, reason) => failures.push(`${uri.scheme}: ${reason}`);
 
-        expect(() => {
-            service.openUri(REVISION_URI);
-        }).toThrow(/file:-uri/u);
+        // Провайдера схемы нет — открывать нечем, но падать нельзя: отказ
+        // ЛЮБОГО открытия уносил бы весь редактор через unhandled rejection.
+        await expect(service.openUri(REVISION_URI)).resolves.toBeUndefined();
+
+        expect(service.editorCount).toBe(0);
+        expect(failures).toEqual(['git: no content provider is registered for the "git:" scheme']);
         service.dispose();
     });
 });

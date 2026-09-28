@@ -49,6 +49,8 @@ import type { ITextFileModelReference } from "../../textfile/common/textFileMode
 import { TextFileModelRegistry } from "../../textfile/common/textFileModelRegistry.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
+import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
+import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.ts";
 
 import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
 import {
@@ -68,6 +70,15 @@ export interface IGroupsChangeEvent {
     readonly index: number;
     /** Группа-источник сплита (view-слой делит её долю пополам). */
     readonly source?: EditorGroup;
+}
+
+/**
+ * Короткая причина отказа — для лога и для сообщения человеку. Стек здесь не
+ * нужен (в тост он не влезет, а виноватого называет сама схема ресурса), но
+ * `String(err)` на Error добавил бы префикс «Error: » — берём сообщение.
+ */
+function describeError(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }
 
 /** Метаданные сохранённого редактора для проекции в subprocess (did-save). */
@@ -211,6 +222,25 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * команде Go to Definition; в редакторы не раздаётся (group-level).
      */
     public definitionSource?: DefinitionSource;
+
+    /**
+     * Источник содержимого недисковых ресурсов (host подключает сюда
+     * `workspace.registerTextDocumentContentProvider` расширений). Читается
+     * самим сервисом в {@link openUri}: без источника `jdt:`/`class:`-ресурс
+     * открыть нечем.
+     */
+    public virtualDocumentSource: IVirtualDocumentSource = NULL_VIRTUAL_DOCUMENT_SOURCE;
+
+    /**
+     * Хук «ресурс открыть не удалось» — композиция вешает сюда показ сообщения
+     * человеку. Своей зависимости от `NotificationService` у сервиса нет
+     * намеренно: показывать сообщения — не его работа, а вот знать, что
+     * открытие провалилось, кроме него не может никто.
+     *
+     * Молчать здесь нельзя: Go to Definition в библиотеку без установленного
+     * провайдера иначе выглядит как «клавиша не работает».
+     */
+    public onOpenFailed?: (uri: Uri, reason: string) => void;
 
     /**
      * Hover-источник (host/харнесс подключает сюда провайдеры расширений через
@@ -992,25 +1022,17 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const group = this.activeGroupValue;
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
-            const existing = group.getPane(existingIndex);
+            const existing = this.replaceVirtualContent(group, existingIndex, text);
             /* v8 ignore start -- defensive: снимок по этому uri открывает только этот метод, вид панели известен */
-            if (existing instanceof TextEditorPane) {
+            // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине, что и для покрытия — панель по этому ресурсу заводит только этот метод
+            if (existing !== null) {
                 /* v8 ignore stop */
-                existing.model.replaceOwnedContent(text);
                 this.activateTab(existingIndex, { focus });
                 return existing;
             }
         }
 
-        // Снимок уникален по построению (uri несёт ревизию) — модель мимо реестра.
-        const model = new TextFileModel(this.languageService, this.undoRedoService);
-        this.wireModel(model);
-        model.openSynthetic(uri, languageId);
-        model.replaceOwnedContent(text);
-        const editor = this.createPaneForModel(model);
-        editor.labelOverride = label;
-        this.applyConfigurationToEditor(editor);
-        editor.readOnly = true;
+        const editor = this.createVirtualPane(uri, text, { languageId, label });
         group.insertPane(editor);
         group.activateTab(group.editorCount - 1, { focus });
         return editor;
@@ -1063,16 +1085,48 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * просто префиксует слэшем, и резолвить после подъёма было бы уже поздно.
      */
     public openFile(filePath: string, options: { focus?: boolean; group?: "beside" } = {}): void {
-        this.openUri(Uri.file(path.resolve(filePath)), options);
+        void this.openUri(Uri.file(path.resolve(filePath)), options);
     }
 
     /**
-     * Открывает ресурс по uri — вход для тех, у кого он уже есть (диагностики).
-     * `group: "beside"` — открытие в соседней справа группе (Open to the Side,
-     * Go to Definition to the Side); соседки нет — она создаётся (при нехватке
-     * места — фолбэк в активную, с записью в лог).
+     * Открывает ресурс по uri — вход для тех, у кого он уже есть (диагностики,
+     * Go to Definition, `window.showTextDocument`). `group: "beside"` — открытие
+     * в соседней справа группе (Open to the Side, Go to Definition to the Side);
+     * соседки нет — она создаётся (при нехватке места — фолбэк в активную, с
+     * записью в лог).
+     *
+     * **Обещание НИКОГДА не отклоняется.** Это не гигиена, а требование: почти
+     * все вызывающие — команды, которые роняют промис в `void`, а необработанный
+     * отказ в главном процессе убивает редактор целиком (именно так F12 в
+     * `jdt:`-ресурс уносил весь редактор). Любая неудача открытия уезжает в лог
+     * и в {@link onOpenFailed}, но наружу отказом не выходит.
+     *
+     * Асинхронен ровно один случай — **впервые открываемый недисковый ресурс**:
+     * за его содержимым надо сходить к провайдеру схемы. Всё остальное — файл с
+     * диска и активация уже открытой вкладки — делается до первого `await`,
+     * поэтому навигация (Go Back, клик по маркеру) работает как раньше.
      */
-    public openUri(uri: Uri, { focus = true, group: where }: { focus?: boolean; group?: "beside" } = {}): void {
+    public openUri(uri: Uri, options: { focus?: boolean; group?: "beside" } = {}): Promise<void> {
+        // Ресурсы не с диска идут своей дорогой: там нет ни чтения файла, ни
+        // watcher'а, ни записи — только текст от провайдера схемы.
+        if (uri.scheme === "file" || this.isOpenInTargetGroup(uri, options.group)) {
+            this.openResolvedUri(uri, null, options);
+            return Promise.resolve();
+        }
+        return this.openVirtualUri(uri, options);
+    }
+
+    /**
+     * Открывает ресурс, содержимое которого уже известно: `null` — файл с диска
+     * (модель берётся из реестра) либо уже открытая вкладка, строка — свежий
+     * недисковый ресурс (синтетическая read-only модель). Общая часть — выбор
+     * группы и пер-группный дедуп.
+     */
+    private openResolvedUri(
+        uri: Uri,
+        content: string | null,
+        { focus = true, group: where }: { focus?: boolean; group?: "beside" },
+    ): void {
         // Идентичность вкладки — по ресурсу целиком В ПРЕДЕЛАХ группы, а не по
         // имени файла: два разных файла с одинаковым basename должны открываться
         // в отдельных вкладках, а тот же ресурс в другой группе — своей вкладкой
@@ -1083,6 +1137,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
             group.activateTab(existingIndex, { focus });
+        } else if (content !== null) {
+            group.insertPane(this.createVirtualPane(uri, content));
+            group.activateTab(group.editorCount - 1, { focus });
         } else {
             // Модель приходит из реестра уже загруженной (фабрика ставит watcher
             // до openFile); вкладка владеет ссылкой, а не самой моделью.
@@ -1093,6 +1150,142 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             group.activateTab(group.editorCount - 1, { focus });
         }
         if (!wasActive) this.fireActiveGroupChanged(group);
+    }
+
+    /**
+     * Открыт ли ресурс во вкладке той группы, куда его собираются открывать.
+     * Проверка **без побочных эффектов** — в отличие от {@link openResolvedUri},
+     * она не делает целевую группу активной и не заводит соседнюю: её ответ
+     * решает лишь, идти ли к провайдеру, а идти туда за уже открытым ресурсом
+     * не надо (в эталоне модель тоже живёт, пока провайдер не сказал
+     * `onDidChange`).
+     */
+    private isOpenInTargetGroup(uri: Uri, where?: "beside"): boolean {
+        const group =
+            where === "beside"
+                ? this.groupsList.at(this.groupsList.indexOf(this.activeGroupValue) + 1)
+                : this.activeGroupValue;
+        return group !== undefined && group.findPaneIndex(uri) >= 0;
+    }
+
+    /**
+     * Открывает недисковый ресурс: текст берётся у {@link virtualDocumentSource},
+     * а вкладка получается такой же, как у снимка ревизии — синтетическая модель
+     * и read-only ({@link openTextSnapshot}).
+     *
+     * Не открыть такой ресурс — штатный исход, а не сбой ядра: провайдера схемы
+     * может не быть вовсе (расширение не установлено или ещё не активировалось),
+     * он может отказаться отдать ресурс или сломаться. Во всех трёх случаях
+     * человек обязан увидеть, почему ничего не открылось, — молчаливый no-op
+     * здесь худший из возможных исходов (см. {@link onOpenFailed}).
+     */
+    private async openVirtualUri(uri: Uri, options: { focus?: boolean; group?: "beside" }): Promise<void> {
+        const source = this.virtualDocumentSource;
+        if (!source.canProvide(uri.scheme)) {
+            this.reportOpenFailed(uri, `no content provider is registered for the "${uri.scheme}:" scheme`);
+            return;
+        }
+        let content: string | null;
+        try {
+            content = await source.provide(uri);
+        } catch (error) {
+            this.reportOpenFailed(uri, describeError(error));
+            return;
+        }
+        if (content === null) {
+            this.reportOpenFailed(uri, `the "${uri.scheme}:" content provider returned no content`);
+            return;
+        }
+        this.openResolvedUri(uri, content, options);
+    }
+
+    /**
+     * Сможет ли {@link openUri} открыть этот ресурс (шов истории навигации,
+     * см. `IHistoryEditorSource.canRestore`).
+     *
+     * Диск и безымянный буфер — да. Недисковый — ровно пока его схему кто-то
+     * обслуживает: `jdt:`-исходник восстановим, пока жив провайдер расширения,
+     * а `output:` и снимочные стороны диффа не восстановимы никогда —
+     * их содержимое пишет владелец вкладки, ресурс его не адресует.
+     */
+    public canRestore(uri: Uri): boolean {
+        if (uri.scheme === "file" || uri.scheme === "untitled") return true;
+        return this.virtualDocumentSource.canProvide(uri.scheme);
+    }
+
+    /**
+     * Перечитывает содержимое открытых вкладок недискового ресурса — реакция на
+     * `TextDocumentContentProvider.onDidChange`. Ресурса нет среди открытых —
+     * ничего не делаем: заводить вкладку по событию провайдера нельзя, человек
+     * её не просил.
+     *
+     * Ничего не ждём и наружу не отдаём: это фоновое освежение, и отказ
+     * провайдера здесь — повод написать в лог, а не показывать сообщение
+     * поверх работы (вкладка просто остаётся с прежним текстом).
+     */
+    public refreshVirtualDocument(uri: Uri): void {
+        const targets = this.allPanes().filter(
+            (pane): pane is TextEditorPane => pane instanceof TextEditorPane && pane.uri.toString() === uri.toString(),
+        );
+        if (targets.length === 0) return;
+        // `.catch` ХВОСТОМ, а не вторым аргументом `then`: так он накрывает и
+        // отказ провайдера, и поломку самой заливки текста. Иначе исключение из
+        // обработчика успеха улетело бы необработанным отказом — а это ровно тот
+        // класс, ради которого здесь всё и затевалось.
+        void this.virtualDocumentSource
+            .provide(uri)
+            .then((content) => {
+                if (content === null) return;
+                for (const pane of targets) pane.model.replaceOwnedContent(content);
+            })
+            .catch((error: unknown) => {
+                this.logger.error(`cannot refresh ${uri.toString()}: ${describeError(error)}`);
+            });
+    }
+
+    /**
+     * Вкладка недискового ресурса: синтетическая модель (ни диска, ни watcher'а,
+     * ни save) с содержимым от провайдера и замком read-only. Язык выводим из
+     * «пути» ресурса — у `jdt://contents/…/StringUtils.java` он честный.
+     */
+    private createVirtualPane(
+        uri: Uri,
+        content: string,
+        overrides: { languageId?: string; label?: string } = {},
+    ): TextEditorPane {
+        // Синтетический ресурс уникален по построению — модель мимо реестра.
+        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        // Stryker disable next-line CallExpression: обвязка модели у синтетического ресурса ненаблюдаема (диска нет: watcher не ставится, save отдаёт "no-file", onDidSave не стреляет) — держим её ради единообразия со всеми моделями сервиса
+        this.wireModel(model);
+        const languageId = overrides.languageId ?? this.languageService.getLanguageIdForResource(uri.path);
+        model.openSynthetic(uri, languageId ?? "plaintext");
+        model.replaceOwnedContent(content);
+        const editor = this.createPaneForModel(model);
+        editor.labelOverride = overrides.label ?? path.basename(uri.path);
+        this.applyConfigurationToEditor(editor);
+        editor.readOnly = true;
+        return editor;
+    }
+
+    /**
+     * Переливает свежее содержимое в уже открытую вкладку недискового ресурса.
+     * Возвращает её же; `null` — на этой позиции панель другого вида (открывать
+     * заново такую позицию нельзя, решает вызывающий).
+     */
+    private replaceVirtualContent(group: EditorGroup, index: number, content: string): TextEditorPane | null {
+        const pane = group.getPane(index);
+        /* v8 ignore start -- defensive: вкладку по этому ресурсу заводит только createVirtualPane */
+        // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине, что и для покрытия
+        if (!(pane instanceof TextEditorPane)) return null;
+        /* v8 ignore stop */
+        pane.model.replaceOwnedContent(content);
+        return pane;
+    }
+
+    /** Сообщает человеку и логу, что ресурс открыть не удалось. */
+    private reportOpenFailed(uri: Uri, reason: string): void {
+        this.logger.error(`cannot open ${uri.toString()}: ${reason}`);
+        this.onOpenFailed?.(uri, reason);
     }
 
     /** Группа справа от активной; нет — создаётся (нет места — фолбэк в активную). */

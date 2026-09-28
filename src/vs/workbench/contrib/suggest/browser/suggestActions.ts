@@ -21,7 +21,7 @@ export const triggerSuggestAction: CommandAction = {
     keybinding: parseKeybinding("ctrl+space"),
     when: "textInputFocus",
     run(accessor) {
-        void accessor.get(CompletionServiceDIToken).trigger();
+        return accessor.get(CompletionServiceDIToken).trigger();
     },
 };
 

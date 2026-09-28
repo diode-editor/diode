@@ -12,7 +12,8 @@ const NOOP_DISPOSABLE: IDisposable = {
     /* v8 ignore stop */
 };
 
-const NULL_LOGGER: ILogger = {
+/** Логгер, который ничего не пишет — для потребителей без своего канала. */
+export const NULL_LOGGER: ILogger = {
     trace: () => {
         /* no-op */
     },

@@ -16,6 +16,10 @@ import { QuitHandlerDIToken } from "../../workbench/browser/actions/appActions.t
 import { MENU_CONTRIBUTIONS } from "../../workbench/browser/actions/menuContributions.ts";
 import { MenuBarComponent, MenuBarComponentDIToken } from "../../workbench/browser/menuBarComponent.ts";
 import {
+    OpenFailureNotificationContribution,
+    OpenFailureNotificationContributionDIToken,
+} from "../../workbench/browser/openFailureNotificationContribution.ts";
+import {
     EditorPartComponent,
     EditorPartComponentDIToken,
 } from "../../workbench/browser/parts/editor/editorPartComponent.ts";
@@ -312,6 +316,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // прикрепляет WorkbenchComponent через attachHost).
     container.bind(NotificationServiceDIToken, NotificationService);
     container.bind(NotificationsComponentDIToken, NotificationsComponent);
+    // Неудача открытия ресурса — человеку тостом (см. EditorService.onOpenFailed).
+    container.bind(OpenFailureNotificationContributionDIToken, OpenFailureNotificationContribution);
     // Открытие внешних ссылок (env.openExternal расширений): системный
     // обработчик, а без графического сеанса — URL в буфер и сообщением на экран.
     // Швы отдаём колбэками: сервис в `node`, а поверхность сообщений в `browser`.

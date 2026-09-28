@@ -60,6 +60,8 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
     public readonly lineCounts = new Map<string, number>();
     /** Ресурсы, прошедшие через {@link openUri}, в порядке вызовов. */
     public readonly openUriCalls: string[] = [];
+    /** Схемы с «провайдером содержимого» — их ресурсы считаются восстановимыми. */
+    public readonly providedSchemes = new Set<string>();
     /** Группы, запрошенные через {@link focusGroup}, в порядке вызовов. */
     public readonly focusGroupCalls: number[] = [];
 
@@ -83,10 +85,22 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
     public openUri(uri: Uri): void {
         this.openUriCalls.push(uri.toString());
         const existing = this.findPane(this.activeGroupValue, uri.toString());
+        // Закрытый недисковый ресурс заново не открыть — ни безымянный буфер,
+        // ни `output:`. История до этого и не доходит (`isReachable`), а фейк
+        // держит проверку, чтобы промах был виден тестом, а не тишиной.
         if (existing === null && uri.scheme !== "file") {
             throw new Error(`openUri: ресурс ${uri.toString()} закрыт и не восстановим`);
         }
         this.activate(existing ?? this.insertPane(uri));
+    }
+
+    /**
+     * Как у настоящего сервиса: диск и безымянный буфер — всегда, прочие
+     * схемы — пока их обслуживает провайдер содержимого. Набор таких схем
+     * задаёт тест ({@link providedSchemes}), настоящего провайдера здесь нет.
+     */
+    public canRestore(uri: Uri): boolean {
+        return uri.scheme === "file" || uri.scheme === "untitled" || this.providedSchemes.has(uri.scheme);
     }
 
     public focusGroup(id: number): void {

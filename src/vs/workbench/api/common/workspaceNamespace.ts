@@ -10,6 +10,7 @@ import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./file
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
 import { createMessageApi } from "./messageNamespace.ts";
+import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     DisposableImpl,
@@ -29,6 +30,7 @@ import {
     type IWireEditorEdit,
     type IWireReadFileResult,
     type IWireResourceTextEdits,
+    type IWireTextContentResult,
     parseWireDocumentSyncSnapshot,
     parseWireWatcherEvents,
     type WireTextEdit,
@@ -165,6 +167,32 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         if (provider === undefined) throw new Error(`no file system provider for scheme "${uri.scheme}"`);
         const content = await provider.readFile(uri as unknown as vscode.Uri);
         return { content: Buffer.from(content).toString("base64") };
+    });
+
+    // ── Провайдеры содержимого по схеме ─────────────────────────────────────
+    // Дверь для документов, которых нет на диске (`jdt:` у redhat.java: класс
+    // из jar, исходник JDK, декомпиляция). Проводка та же, что у провайдеров
+    // ФС: субпроцесс объявляет схемы, хост спрашивает содержимое обратным
+    // запросом. Логика реестра — в subprocessTextDocumentContentProviders.
+    const contentProviders = new SubprocessTextDocumentContentProviders();
+
+    contentProviders.onDidChangeSchemes(() => {
+        rpc.notify("workspace.textDocumentContentProvidersChanged", { schemes: contentProviders.schemes() });
+    });
+    contentProviders.onDidChange((uri) => {
+        rpc.notify("workspace.textDocumentContentChanged", { uri: uri.toString() });
+    });
+
+    rpc.handleRequest("workspace.provideTextDocumentContent", async (params): Promise<IWireTextContentResult> => {
+        const p = params as { uri?: unknown };
+        if (typeof p.uri !== "string") {
+            throw new Error("workspace.provideTextDocumentContent: uri must be a string");
+        }
+        const uri = Uri.parse(p.uri);
+        if (!contentProviders.has(uri.scheme)) {
+            throw new Error(`no text document content provider for scheme "${uri.scheme}"`);
+        }
+        return { content: await contentProviders.provide(uri as unknown as vscode.Uri) };
     });
 
     // ── Файловые watcher'ы (`createFileSystemWatcher`) ──────────────────────
@@ -390,6 +418,16 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         const open = registry.get(uri);
         if (open !== undefined) return open as unknown as vscode.TextDocument;
 
+        // Схема с зарегистрированным провайдером содержимого — спрашиваем его,
+        // как это делает эталон («For all other schemes contributed text document
+        // content providers … are consulted»). RPC здесь не нужен: провайдер
+        // живёт в этом же субпроцессе.
+        if (contentProviders.has(uri.scheme)) {
+            const content = await contentProviders.provide(uri as unknown as vscode.Uri);
+            if (content === null) throw FileSystemError.FileNotFound(uri as unknown as vscode.Uri);
+            return makeEphemeralDocument(uri, content, "utf8") as unknown as vscode.TextDocument;
+        }
+
         // Промах реестра: читаем файл с диска в ЭФЕМЕРНЫЙ документ (в реестр не
         // кладём — это не открытый буфер). Читать умеем только с диска, поэтому для
         // не-file схемы честно отказываем, а не скармливаем `fsPath` в node:fs
@@ -402,6 +440,11 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // эфемерного документа детектим из текста — как делает ядро.
         const buffer = await nodeFs.readFile(uri.fsPath);
         const { text, encoding } = decodeBuffer(buffer, options?.encoding);
+        return makeEphemeralDocument(uri, text, encoding) as unknown as vscode.TextDocument;
+    }
+
+    /** Документ вне реестра открытых буферов: EOL детектим из текста, как ядро. */
+    function makeEphemeralDocument(uri: Uri, text: string, encoding: string): ExtHostTextDocument {
         const doc = new ExtHostTextDocument(uri);
         doc.applyFull({
             uri: uri.toString(),
@@ -409,7 +452,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             encoding,
             eol: detectEndOfLine(text) === CoreEndOfLine.CRLF ? EndOfLine.CRLF : EndOfLine.LF,
         });
-        return doc as unknown as vscode.TextDocument;
+        return doc;
     }
 
     const workspaceNs = {
@@ -504,8 +547,15 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             }
             return fsWatchers.create(resolved, ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
         },
-        registerTextDocumentContentProvider: (): vscode.Disposable =>
-            new DisposableImpl(() => undefined) as unknown as vscode.Disposable,
+        registerTextDocumentContentProvider: (
+            scheme: string,
+            provider: vscode.TextDocumentContentProvider,
+        ): vscode.Disposable => {
+            const registration = contentProviders.register(scheme, provider);
+            return new DisposableImpl(() => {
+                registration.dispose();
+            }) as unknown as vscode.Disposable;
+        },
 
         // Модели доверия воркспейса у Diode нет — открытое всегда доверено
         // (как VS Code с выключенным workspace trust). Ruff по этому флагу

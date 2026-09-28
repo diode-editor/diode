@@ -294,6 +294,15 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     group.definitionSource = (req) => host.provideDefinition(req);
     // Hover (LSP): источник hover'ов — как в extensionHostModule.
     group.hoverSource = (req) => host.provideHover(req);
+    // Содержимое недисковых ресурсов (registerTextDocumentContentProvider) — как
+    // в extensionHostModule: по нему открываются read-only вкладки `jdt:`/`class:`.
+    group.virtualDocumentSource = {
+        canProvide: (scheme) => host.hasTextContentProvider(scheme),
+        provide: (uri) => host.provideTextDocumentContent(uri),
+    };
+    host.onDidChangeTextContent((uri) => {
+        group.refreshVirtualDocument(uri);
+    });
     // References (LSP): источник ссылок на символ — как в extensionHostModule.
     group.referenceSource = (req) => host.provideReferences(req);
     // Signature help (LSP): источник подсказки параметров — как в extensionHostModule.

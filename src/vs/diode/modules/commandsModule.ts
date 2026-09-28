@@ -6,13 +6,18 @@ import {
     ModifierReleaseArmory,
     ModifierReleaseArmoryDIToken,
 } from "../../platform/keybinding/common/modifierReleaseArmory.ts";
+import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 
 /**
  * Команды, кейбиндинги и when-context. Без внешнего конфига —
  * все три реестра конструируются с дефолтным состоянием.
  */
 export const commandsModule: ContainerModule = (container) => {
-    container.bind(CommandRegistryDIToken, () => new CommandRegistry());
+    container.bind(
+        CommandRegistryDIToken,
+        // Stryker disable next-line ArrowFunction,StringLiteral: production-проводка модуля; имя канала — метка для панели Output, подменить её нечем наблюдаемым в юните, а поведение логирования закрыто юнитами CommandRegistry
+        () => new CommandRegistry(container.get(ILogServiceDIToken).createLogger("commands")),
+    );
     container.bind(KeybindingRegistryDIToken, () => new KeybindingRegistry());
     container.bind(ContextKeyServiceDIToken, () => new ContextKeyService());
     container.bind(ModifierReleaseArmoryDIToken, () => new ModifierReleaseArmory());

@@ -278,6 +278,26 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // подключаются как источник целей Go to Definition (читает DefinitionService).
         group.definitionSource = (req) => host.provideDefinition(req);
 
+        // Содержимое недисковых ресурсов: провайдеры расширений
+        // (workspace.registerTextDocumentContentProvider) — источник текста для
+        // read-only вкладок `jdt:`/`class:`. Читает сам EditorService в openUri,
+        // именно по этому пути Go to Definition доезжает в библиотеку.
+        // Stryker disable next-line ObjectLiteral,ArrowFunction: production-проводка модуля; поведение источника закрыто тестами хоста
+        group.virtualDocumentSource = {
+            // Stryker disable next-line ArrowFunction: см. выше
+            canProvide: (scheme) => host.hasTextContentProvider(scheme),
+            // Stryker disable next-line ArrowFunction: см. выше
+            provide: (uri) => host.provideTextDocumentContent(uri),
+        };
+        // Провайдер объявил `onDidChange` — перечитываем открытую вкладку этого
+        // ресурса. Без этого содержимое в редакторе навсегда осталось бы тем,
+        // каким оно было в момент открытия.
+        // Stryker disable ArrowFunction,BlockStatement,CallExpression: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, а поведение обеих сторон закрыто юнитами (`ExtensionHost.onDidChangeTextContent`, `EditorService.refreshVirtualDocument`) и сквозняком в тесте хоста «onDidChange провайдера перечитывает открытую вкладку»
+        host.onDidChangeTextContent((uri) => {
+            group.refreshVirtualDocument(uri);
+        });
+        // Stryker restore ArrowFunction,BlockStatement,CallExpression
+
         // Hover: провайдеры расширений (languages.provideHover) подключаются
         // как источник hover'ов группы (читает HoverService по Show Hover).
         // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста

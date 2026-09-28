@@ -27,7 +27,7 @@ export const triggerInlineSuggestAction: CommandAction = {
     keybinding: parseKeybinding("alt+\\"),
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
-        void accessor.get(InlineCompletionsServiceDIToken).trigger(InlineCompletionTriggerKind.Invoke);
+        return accessor.get(InlineCompletionsServiceDIToken).trigger(InlineCompletionTriggerKind.Invoke);
     },
 };
 

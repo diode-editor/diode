@@ -1,6 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ILogger } from "../../log/common/iLogger.ts";
+
 import { CommandRegistry } from "./commandRegistry.ts";
+
+/** Логгер-фейк: копит только error-строки — остальные уровни здесь не нужны. */
+function makeLogger(sink: string[]): ILogger {
+    return {
+        trace: () => undefined,
+        debug: () => undefined,
+        info: () => undefined,
+        warn: () => undefined,
+        error: (message) => sink.push(message),
+        isEnabled: () => true,
+    };
+}
+
+/** Даёт отработать цепочке `then` на уже отклонённом промисе. */
+function settleMicrotasks(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 describe("CommandRegistry", () => {
     it("executes a registered command", () => {
@@ -137,5 +156,47 @@ describe("CommandRegistry", () => {
         disposable.dispose();
 
         expect(registry.listCommands()).toHaveLength(0);
+    });
+
+    it("returns the promise of an async command as is — ждущий видит настоящий отказ", async () => {
+        const registry = new CommandRegistry();
+        registry.register("cmd.async", () => Promise.reject(new Error("boom")));
+
+        await expect(registry.execute("cmd.async")).rejects.toThrow("boom");
+    });
+
+    it("забытый отказ асинхронной команды не остаётся необработанным и уезжает в лог", async () => {
+        const errors: string[] = [];
+        const registry = new CommandRegistry(makeLogger(errors));
+        registry.register("cmd.async", () => Promise.reject(new Error("boom")));
+
+        // Результат НЕ ждём — ровно как диспетчер клавиш и пункт меню. Без
+        // обработчика отказа Node убил бы процесс, унеся все буферы.
+        registry.execute("cmd.async");
+        await settleMicrotasks();
+
+        // Стек в строке — намеренно: по «Error: boom» не найти виноватый сервис.
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('command "cmd.async" failed: Error: boom');
+    });
+
+    it("успешная асинхронная команда в лог не пишет", async () => {
+        const errors: string[] = [];
+        const registry = new CommandRegistry(makeLogger(errors));
+        registry.register("cmd.async", () => Promise.resolve("ok"));
+
+        registry.execute("cmd.async");
+        await settleMicrotasks();
+
+        expect(errors).toEqual([]);
+    });
+
+    it("без логгера забытый отказ всё равно обработан (минимальные контейнеры тестов)", async () => {
+        const registry = new CommandRegistry();
+        registry.register("cmd.async", () => Promise.reject(new Error("boom")));
+
+        registry.execute("cmd.async");
+
+        await expect(settleMicrotasks()).resolves.toBeUndefined();
     });
 });
