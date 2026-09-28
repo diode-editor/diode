@@ -441,12 +441,14 @@ describe("EditorService.canRestore — что история умеет откр
             service.dispose();
         });
 
-        it("провайдер отказался отдать содержимое (null) — вкладка остаётся прежней", async () => {
-            const service = createEditorService();
+        it("провайдер отказался отдать содержимое (null) — вкладка прежняя, и это не ошибка", async () => {
+            const logged: string[] = [];
+            const service = createEditorService(NULL_LANGUAGE_SERVICE, { logService: recordingLogService(logged) });
             let content: string | null = "v1\n";
             service.virtualDocumentSource = makeSource("demo", () => Promise.resolve(content));
             const uri = Uri.parse("demo:///a");
             await service.openUri(uri);
+            logged.length = 0;
 
             content = null;
             service.refreshVirtualDocument(uri);
@@ -454,6 +456,9 @@ describe("EditorService.canRestore — что история умеет откр
             await Promise.resolve();
 
             expect(service.getEditor(0)?.getText()).toBe("v1\n");
+            // «Нечего освежать» — штатный ответ провайдера, а не сбой: в лог
+            // ничего не уходит (иначе `null` доехал бы до заливки текста).
+            expect(logged).toEqual([]);
             service.dispose();
         });
     });

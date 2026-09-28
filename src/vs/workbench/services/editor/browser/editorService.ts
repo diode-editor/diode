@@ -1228,15 +1228,19 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             (pane): pane is TextEditorPane => pane instanceof TextEditorPane && pane.uri.toString() === uri.toString(),
         );
         if (targets.length === 0) return;
-        void this.virtualDocumentSource.provide(uri).then(
-            (content) => {
+        // `.catch` ХВОСТОМ, а не вторым аргументом `then`: так он накрывает и
+        // отказ провайдера, и поломку самой заливки текста. Иначе исключение из
+        // обработчика успеха улетело бы необработанным отказом — а это ровно тот
+        // класс, ради которого здесь всё и затевалось.
+        void this.virtualDocumentSource
+            .provide(uri)
+            .then((content) => {
                 if (content === null) return;
                 for (const pane of targets) pane.model.replaceOwnedContent(content);
-            },
-            (error: unknown) => {
+            })
+            .catch((error: unknown) => {
                 this.logger.error(`cannot refresh ${uri.toString()}: ${describeError(error)}`);
-            },
-        );
+            });
     }
 
     /**
