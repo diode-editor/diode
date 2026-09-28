@@ -109,6 +109,12 @@ export const editorColors = {
         defaults: { dark: "#454545", light: "#C8C8C8" },
         description: "Border color of the editor widget.",
     },
+    // Тень попапов (`TUIElement.shadow` в tuidom): полупрозрачный чёрный, как у
+    // VS Code; композитится движком с тем, что под оверлеем.
+    "widget.shadow": {
+        defaults: { dark: "#0000005C", light: "#00000029" },
+        description: "Shadow color of widgets such as find/replace inside the editor.",
+    },
     // Производные от editorWidget.*, как в реестре VS Code.
     "editorHoverWidget.foreground": {
         defaults: { dark: "editorWidget.foreground", light: "editorWidget.foreground" },
