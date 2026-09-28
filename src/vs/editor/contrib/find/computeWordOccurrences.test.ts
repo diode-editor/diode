@@ -64,4 +64,20 @@ describe("computeWordOccurrences", () => {
     it("handles a word at the very end of a line (no trailing char)", () => {
         expect(occurrences("bar\nbar", 0, 3)).toEqual([createRange(0, 0, 0, 3), createRange(1, 0, 1, 3)]);
     });
+
+    /**
+     * Highlight зовётся из `EditorElement.render`, и каретка приходит из
+     * состояния вью — за кадр она бывает «протухшей» (правка мимо вью, позиция от
+     * расширения). Колонка за концом строки роняла ВЕСЬ редактор
+     * (`TypeError: Cannot read properties of undefined (reading 'length')`
+     * в `isWordChar`), поэтому граница проверяется именно здесь, на живом
+     * документе, а не только у `findWordRangeAt`.
+     */
+    it("колонка за концом строки не роняет highlight, а берёт слово у конца", () => {
+        expect(occurrences("bar\nbar", 0, 9)).toEqual([createRange(0, 0, 0, 3), createRange(1, 0, 1, 3)]);
+    });
+
+    it("отрицательная колонка не роняет highlight", () => {
+        expect(occurrences("bar\nbar", 0, -3)).toEqual([createRange(0, 0, 0, 3), createRange(1, 0, 1, 3)]);
+    });
 });

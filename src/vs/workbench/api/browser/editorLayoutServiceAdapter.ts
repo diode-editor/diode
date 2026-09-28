@@ -2,6 +2,7 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Disposable } from "@tuidom/core/common/disposable";
 
 import { Uri } from "../../../base/common/uri.ts";
+import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
@@ -95,13 +96,18 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const editor = opened.activePane;
         if (editor instanceof TextEditorPane && params.selection !== undefined) {
             const s = params.selection;
+            // Позиции приехали от расширения и про наш текст ничего не знают:
+            // `showTextDocument` со ставшей неверной позицией (устаревший индекс
+            // символов, чужая ревизия файла) ставил каретку за конец строки, а
+            // это падение первого же кадра на highlight вхождений. Кламп — как у
+            // выделений через `editor.selections` в соседнем адаптере.
+            const doc = editor.model.document;
+            const anchor = clampPositionToDocument(doc, { line: s.anchorLine, character: s.anchorCharacter });
+            const active = clampPositionToDocument(doc, { line: s.activeLine, character: s.activeCharacter });
             editor.viewState.selections = [
-                createSelection(s.anchorLine, s.anchorCharacter, s.activeLine, s.activeCharacter),
+                createSelection(anchor.line, anchor.character, active.line, active.character),
             ];
-            editor.revealRange({
-                start: { line: s.activeLine, character: s.activeCharacter },
-                end: { line: s.activeLine, character: s.activeCharacter },
-            });
+            editor.revealRange({ start: active, end: active });
         }
 
         // preserveFocus: документ открыт в целевой колонке, но активная группа

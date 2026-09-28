@@ -177,8 +177,24 @@ export class TextDocument implements ITextDocument {
         // Compute inverse edits in new-document coordinates
         const inverseEdits = this.computeInverseEdits(docOrder, oldTexts);
 
+        // Правки применены снизу вверх, а события летят в документном порядке:
+        // каждое следующее адресует документ, в котором предыдущие УЖЕ применены
+        // (слушатель сдвигает свои позиции по каждому событию последовательно), а
+        // посчитано оно было в координатах, где верхних правок ещё не было.
+        // Поэтому границы сдвигаются на накопленную разницу строк уже
+        // отправленных событий. Без сдвига слушатель получал номера строк
+        // мимо документа: `EditorViewState.remapForDocumentChange` падал на
+        // `getLineLength` за концом документа, а уцелевшие позиции проскакивали
+        // чужую правку и оставались за концом своей строки.
+        let lineShift = 0;
         for (let i = changesBottomUp.length - 1; i >= 0; i--) {
-            this.fireChange(changesBottomUp[i]);
+            const change = changesBottomUp[i];
+            this.fireChange({
+                startLine: change.startLine + lineShift,
+                oldEndLine: change.oldEndLine + lineShift,
+                newEndLine: change.newEndLine + lineShift,
+            });
+            lineShift += change.newEndLine - change.oldEndLine;
         }
 
         return { appliedVersion: this.innerVersionId, inverseEdits };

@@ -923,7 +923,7 @@ export class EditorViewState {
         const edits = this.buildEditsFromSelections(text);
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
-        this.selections = this.computeSelectionsAfterEdits(edits);
+        this.selections = this.selectionsAfterEdits(inverseEdits);
         this.ensureCursorVisible();
         return {
             label: "type",
@@ -952,7 +952,7 @@ export class EditorViewState {
         // Stryker disable next-line CallExpression: токены пары однострочные, число строк не
         // меняется — двигать границы фолдов нечего; вызов держит общий порядок мутаторов
         this.adjustFoldingRegionsForEdits(edits);
-        this.selections = this.computeSelectionsAfterEdits(edits).map((sel) =>
+        this.selections = this.selectionsAfterEdits(inverseEdits).map((sel) =>
             createCursorSelection(sel.active.line, sel.active.character - close.length),
         );
         this.ensureCursorVisible();
@@ -1061,7 +1061,7 @@ export class EditorViewState {
         const versionBefore = this.document.versionId;
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
-        this.selections = this.computeSelectionsAfterEdits(edits);
+        this.selections = this.selectionsAfterEdits(inverseEdits);
         this.ensureCursorVisible();
         return {
             label,
@@ -1095,10 +1095,10 @@ export class EditorViewState {
         const edits = sorted.map((sel, i) => createTextEdit(selectionToRange(sel), plans[i].editText));
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
-        // computeSelectionsAfterEdits lands the cursor at the end of the inserted
+        // selectionsAfterEdits lands the cursor at the end of the inserted
         // text. For a block expansion the closer occupies the last inserted line,
         // so move that cursor up one line onto the empty middle line.
-        this.selections = this.computeSelectionsAfterEdits(edits).map((sel, i) =>
+        this.selections = this.selectionsAfterEdits(inverseEdits).map((sel, i) =>
             plans[i].blockExpand ? createCursorSelection(sel.active.line - 1, plans[i].cursorColumn) : sel,
         );
         this.ensureCursorVisible();
@@ -1152,7 +1152,7 @@ export class EditorViewState {
             const versionBefore = this.document.versionId;
             const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
             this.adjustFoldingRegionsForEdits(edits);
-            this.selections = this.computeSelectionsAfterEdits(edits);
+            this.selections = this.selectionsAfterEdits(inverseEdits);
             this.ensureCursorVisible();
             return {
                 label: "deleteLeft",
@@ -1685,7 +1685,7 @@ export class EditorViewState {
             const versionBefore = this.document.versionId;
             const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
             this.adjustFoldingRegionsForEdits(edits);
-            this.selections = this.computeSelectionsAfterEdits(edits);
+            this.selections = this.selectionsAfterEdits(inverseEdits);
             this.ensureCursorVisible();
             return {
                 label: "deleteRight",
@@ -1745,18 +1745,19 @@ export class EditorViewState {
             }
         }
 
-        if (edits.length > 0) {
+        const clipped = clipDeletionOverlaps(edits);
+        if (clipped.length > 0) {
             const beforeSelections = this.cloneSelections();
             const versionBefore = this.document.versionId;
-            const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
-            this.adjustFoldingRegionsForEdits(edits);
-            this.selections = this.computeSelectionsAfterEdits(edits);
+            const { appliedVersion, inverseEdits } = this.applyDocumentEdits(clipped);
+            this.adjustFoldingRegionsForEdits(clipped);
+            this.selections = this.selectionsAfterEdits(inverseEdits);
             this.ensureCursorVisible();
             return {
                 label,
                 versionBefore,
                 versionAfter: appliedVersion,
-                forwardEdits: edits,
+                forwardEdits: clipped,
                 backwardEdits: inverseEdits,
                 beforeSelections,
                 afterSelections: this.cloneSelections(),
@@ -1790,18 +1791,19 @@ export class EditorViewState {
             }
         }
 
-        if (edits.length > 0) {
+        const clipped = clipDeletionOverlaps(edits);
+        if (clipped.length > 0) {
             const beforeSelections = this.cloneSelections();
             const versionBefore = this.document.versionId;
-            const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
-            this.adjustFoldingRegionsForEdits(edits);
-            this.selections = this.computeSelectionsAfterEdits(edits);
+            const { appliedVersion, inverseEdits } = this.applyDocumentEdits(clipped);
+            this.adjustFoldingRegionsForEdits(clipped);
+            this.selections = this.selectionsAfterEdits(inverseEdits);
             this.ensureCursorVisible();
             return {
                 label: "deleteWordRight",
                 versionBefore,
                 versionAfter: appliedVersion,
-                forwardEdits: edits,
+                forwardEdits: clipped,
                 backwardEdits: inverseEdits,
                 beforeSelections,
                 afterSelections: this.cloneSelections(),
@@ -2019,7 +2021,7 @@ export class EditorViewState {
     /**
      * Удаление под Cut: непустые выделения теряют диапазон, пустые (при
      * включённой настройке) — строку целиком. Каретки встают в начала правок —
-     * стандартный путь {@link computeSelectionsAfterEdits}, как у deleteLeft.
+     * стандартный путь {@link selectionsAfterEdits}, как у deleteLeft.
      */
     public cutSelections(emptySelectionClipboard: boolean): IUndoElement | undefined {
         if (this.readOnly) return undefined;
@@ -2029,7 +2031,7 @@ export class EditorViewState {
         const versionBefore = this.document.versionId;
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
-        this.selections = this.computeSelectionsAfterEdits(edits);
+        this.selections = this.selectionsAfterEdits(inverseEdits);
         this.ensureCursorVisible();
         return {
             label: "cut",
@@ -2068,7 +2070,7 @@ export class EditorViewState {
         this.adjustFoldingRegionsForEdits(edits);
         // Стандартный расчёт сажает каретку в конец вставленного — это начало
         // строки, куда съехал текст пустой каретки; ей возвращается её колонка.
-        this.selections = this.computeSelectionsAfterEdits(edits).map((after, i) =>
+        this.selections = this.selectionsAfterEdits(inverseEdits).map((after, i) =>
             isSelectionCollapsed(sorted[i])
                 ? createCursorSelection(after.active.line, sorted[i].active.character)
                 : after,
@@ -2490,64 +2492,26 @@ export class EditorViewState {
     }
 
     /**
-     * After edits are applied, computes the new cursor positions.
-     * Each cursor moves to the end of the inserted text.
+     * Каретки после применённого батча: каждая — в конце вставленного текста
+     * своей правки (мультикурсорная семантика batch-редактирования).
+     *
+     * Позиции берутся из ОБРАТНЫХ правок, которые `applyEdits` документа вернул
+     * в координатах УЖЕ применённого документа: диапазон обратной правки ровно
+     * накрывает вставленный текст, а значит его конец — и есть каретка.
+     * Обратные правки идут в документном порядке, как и сами правки, поэтому
+     * вызывающие вправе зипать результат по индексу со своим `sortedSelections()`.
+     *
+     * Своей арифметики по исходным координатам здесь больше нет: она копила
+     * сдвиг колонки только для соседей на ОДНОЙ строке и на батче с
+     * многострочной правкой уводила каретки за пределы документа
+     * (отрицательная колонка после `deleteWordLeft` на двух каретках, колонка
+     * за концом строки после батча от расширения) — а каретка за концом строки
+     * роняла рендер на highlight вхождений.
      */
-    private computeSelectionsAfterEdits(edits: readonly ITextEdit[]): ISelection[] {
-        // Sort edits in document order (ascending)
-        const sorted = [...edits].sort((a, b) => comparePositions(a.range.start, b.range.start));
-
-        const newSelections: ISelection[] = [];
-        let accLineDelta = 0;
-        let accCharDelta = 0;
-        let lastEditEndLine = -1;
-
-        for (const edit of sorted) {
-            const range = edit.range;
-            const insertedLines = edit.text.split("\n");
-            const insertedLineCount = insertedLines.length;
-
-            // End position of the inserted text
-            let newLine: number;
-            let newChar: number;
-
-            if (insertedLineCount === 1) {
-                // Single-line insert: cursor goes to start + text length
-                newLine = range.start.line + accLineDelta;
-                const startChar =
-                    range.start.line === lastEditEndLine ? range.start.character + accCharDelta : range.start.character;
-                newChar = startChar + insertedLines[0].length;
-            } else {
-                // Multi-line insert: cursor goes to the last inserted line
-                newLine = range.start.line + accLineDelta + insertedLineCount - 1;
-                newChar = insertedLines[insertedLineCount - 1].length;
-            }
-
-            newSelections.push(createCursorSelection(newLine, newChar));
-
-            // Update accumulated deltas
-            const deletedLines = range.end.line - range.start.line;
-            const lineDelta = insertedLineCount - 1 - deletedLines;
-            accLineDelta += lineDelta;
-
-            if (insertedLineCount === 1 && deletedLines === 0) {
-                // Same-line edit: accumulate character delta
-                const charDelta = insertedLines[0].length - (range.end.character - range.start.character);
-                if (range.start.line === lastEditEndLine) {
-                    accCharDelta += charDelta;
-                } else {
-                    accCharDelta = charDelta;
-                }
-                lastEditEndLine = range.start.line;
-            } else {
-                accCharDelta = 0;
-                lastEditEndLine = -1;
-            }
-        }
-
-        /* v8 ignore start -- the `: [...]` fallback is unreachable: callers only invoke this with a non-empty edit list, and every document has at least one selection, so newSelections is never empty */
-        return newSelections.length > 0 ? newSelections : [createCursorSelection(0, 0)];
-        /* v8 ignore stop */
+    private selectionsAfterEdits(inverseEdits: readonly ITextEdit[]): ISelection[] {
+        return inverseEdits.map((inverse) =>
+            createCursorSelection(inverse.range.end.line, inverse.range.end.character),
+        );
     }
 
     /**
@@ -2597,6 +2561,43 @@ function firstNonWhitespaceIndex(content: string): number {
         if (!/\s/.test(content[i])) return i;
     }
     return content.length;
+}
+
+// ─── Batch Edit Helpers ────────────────────────────────────
+
+/**
+ * Срезает пересечения в батче УДАЛЯЮЩИХ правок (текст замены — пустой), уже
+ * идущих в документном порядке: начало правки поднимается до конца предыдущей,
+ * а полностью накрытая предыдущей правка выбрасывается.
+ *
+ * Пересечения родятся из мультикурсорного удаления по границе слова: две
+ * каретки внутри одного слова просят удалить до одного и того же его начала, и
+ * диапазоны накладываются. Для `applyEdits` документа непересечение — условие
+ * контракта: перекрытые правки он применяет снизу вверх по уже съеденному
+ * тексту (две каретки в «hello world» съедали «hello wo» вместо «hello»), а
+ * обратные правки считает по накопленному сдвигу, выдавая отрицательные
+ * колонки. Объединение диапазонов — и есть поведение vscode: перекрывшиеся
+ * удаления схлопываются в одно, каретки сливаются в одну.
+ */
+function clipDeletionOverlaps(edits: readonly ITextEdit[]): ITextEdit[] {
+    const clipped: ITextEdit[] = [];
+    let previousEnd: IPosition | null = null;
+    for (const edit of edits) {
+        // У первой правки предыдущего конца нет — она сравнивается сама с собой,
+        // и резать оказывается нечего.
+        const limit = previousEnd ?? edit.range.start;
+        // Stryker disable next-line EqualityOperator: на равенстве обе ветки дают одну и ту же позицию (`limit` и есть `edit.range.start`), мутант `<` → `<=` эквивалентен
+        const start = comparePositions(edit.range.start, limit) < 0 ? limit : edit.range.start;
+        if (comparePositions(start, edit.range.end) >= 0) continue;
+        clipped.push(
+            createTextEdit(
+                createRange(start.line, start.character, edit.range.end.line, edit.range.end.character),
+                edit.text,
+            ),
+        );
+        previousEnd = edit.range.end;
+    }
+    return clipped;
 }
 
 // ─── Word Boundary Helpers ──────────────────────────────────

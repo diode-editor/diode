@@ -110,4 +110,53 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         const adapter = new EditorOptionsServiceAdapter(makeGroup(makeEditor("/proj/a.ts")));
         expect(adapter.applyWorkspaceEdit([])).toBe(false);
     });
+
+    /**
+     * Перекрытые правки документ применил бы снизу вверх по уже съеденному
+     * тексту — тихая порча содержимого и сломанный undo. vscode такой edit
+     * отбивает («Overlapping ranges are not allowed»), и отказ обязан быть
+     * all-or-nothing: ресурс с пересечением отменяет весь edit.
+     */
+    it("all-or-nothing: пересекающиеся правки одного ресурса отменяют весь edit", () => {
+        const active = makeEditor("/proj/a.ts");
+        const other = makeEditor("/proj/b.ts");
+        const adapter = new EditorOptionsServiceAdapter(makeGroup(active, [other]));
+
+        const applied = adapter.applyWorkspaceEdit([
+            { resource: active.uri.toString(), edits: [EDIT_A] },
+            {
+                resource: other.uri.toString(),
+                edits: [
+                    { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 4 }, text: "x" },
+                    { range: { startLine: 0, startCharacter: 2, endLine: 0, endCharacter: 6 }, text: "y" },
+                ],
+            },
+        ]);
+
+        expect(applied).toBe(false);
+        expect(active.applyExternalEdits).not.toHaveBeenCalled();
+        expect(other.applyExternalEdits).not.toHaveBeenCalled();
+    });
+
+    it("правки встык и две вставки в одну точку пересечением не считаются", () => {
+        const active = makeEditor("/proj/a.ts");
+        const adapter = new EditorOptionsServiceAdapter(makeGroup(active));
+
+        const applied = adapter.applyWorkspaceEdit([
+            {
+                resource: active.uri.toString(),
+                edits: [
+                    // Встык: конец первой = начало второй.
+                    { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "x" },
+                    { range: { startLine: 0, startCharacter: 2, endLine: 0, endCharacter: 4 }, text: "y" },
+                    // Две вставки нулевой ширины в одну точку.
+                    { range: { startLine: 1, startCharacter: 1, endLine: 1, endCharacter: 1 }, text: "p" },
+                    { range: { startLine: 1, startCharacter: 1, endLine: 1, endCharacter: 1 }, text: "q" },
+                ],
+            },
+        ]);
+
+        expect(applied).toBe(true);
+        expect(active.applyExternalEdits).toHaveBeenCalledOnce();
+    });
 });

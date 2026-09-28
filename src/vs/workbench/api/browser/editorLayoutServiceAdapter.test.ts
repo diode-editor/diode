@@ -150,6 +150,26 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.getActiveEditor()!.viewState.selections[0].active).toEqual({ line: 5, character: 1 });
     });
 
+    /**
+     * Позиции приезжают от расширения и про наш текст ничего не знают: от
+     * устаревшего индекса до чужой ревизии файла. Каретка за концом строки —
+     * это падение первого же кадра на highlight вхождений, поэтому дверь
+     * клампит, как и `editor.selections` в соседнем адаптере.
+     */
+    it("showTextDocument: выделение за границами документа клампится", async () => {
+        ws.writeFile("short.ts", "ab\ncd");
+        service.openFile(ws.path("a.ts"));
+
+        await adapter.showTextDocument({
+            uri: service.getActiveEditor()!.uri.toString().replace("a.ts", "short.ts"),
+            selection: { anchorLine: -3, anchorCharacter: -7, activeLine: 99, activeCharacter: 99 },
+        });
+
+        const selection = service.getActiveEditor()!.viewState.selections[0];
+        expect(selection.anchor).toEqual({ line: 0, character: 0 });
+        expect(selection.active).toEqual({ line: 1, character: 2 });
+    });
+
     it("closeTabs закрывает чистую вкладку; умершая группа — идемпотентный успех", async () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();

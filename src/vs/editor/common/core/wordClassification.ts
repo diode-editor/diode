@@ -40,13 +40,19 @@ export interface IWordRange {
  */
 export function findWordRangeAt(line: string, character: number): IWordRange | null {
     const len = line.length;
+    // Позиция вне строки — не повод падать. Каретка приходит сюда из состояния
+    // вью, и «протухшая» на кадр позиция (правка мимо вью, чужая правка
+    // документа, позиция от расширения) роняла бы ВЕСЬ редактор: highlight
+    // вхождений зовётся из render, а исключение оттуда не ловит никто.
+    // Кламп — та же семантика, что у `validatePosition` в vscode.
+    const caret = Math.max(0, Math.min(Math.trunc(character), len));
     // Anchor onto a word char: the char at the caret, else the one just before
     // it (caret sitting immediately after a word).
     let anchor: number;
-    if (character < len && isWordChar(line[character])) {
-        anchor = character;
-    } else if (character > 0 && isWordChar(line[character - 1])) {
-        anchor = character - 1;
+    if (caret < len && isWordChar(line[caret])) {
+        anchor = caret;
+    } else if (caret > 0 && isWordChar(line[caret - 1])) {
+        anchor = caret - 1;
     } else {
         return null;
     }
