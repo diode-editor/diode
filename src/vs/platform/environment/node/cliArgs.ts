@@ -217,8 +217,9 @@ function parseHeadlessSize(raw: string): { cols: number; rows: number } {
 function parseLogRule(raw: string): ILogLevelRule {
     const idx = raw.lastIndexOf(":");
     const channel = idx === -1 ? "*" : raw.slice(0, idx);
-    const levelPart = idx === -1 ? raw : raw.slice(idx + 1);
-    const level = parseLogLevel(levelPart);
+    // Без двоеточия `idx` = -1, и `slice(0)` сам отдаёт всю строку — отдельная
+    // ветка тут была бы дословным дубликатом (и эквивалентным мутантом).
+    const level = parseLogLevel(raw.slice(idx + 1));
     if (level === undefined) {
         throw new CliArgsError(
             `--log expects [<channel>:]<level> with level off|trace|debug|info|warn|error, got: ${raw}`,

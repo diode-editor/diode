@@ -51,23 +51,26 @@ describe("resolveStartupTargets", () => {
 describe("resolveStartupTargets — --goto", () => {
     it("splits file:line", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-g", "a.ts:42"]), noDirs);
-        expect(targets.files).toEqual([{ path: abs("a.ts"), line: 42 }]);
+        // Строго: без номера колонки ключа `column` быть НЕ должно — условный
+        // спред здесь не украшение, а контракт (`toEqual` не видит лишнего
+        // `column: undefined`).
+        expect(targets.files).toStrictEqual([{ path: abs("a.ts"), line: 42 }]);
     });
 
     it("splits file:line:column", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-g", "a.ts:42:7"]), noDirs);
-        expect(targets.files).toEqual([{ path: abs("a.ts"), line: 42, column: 7 }]);
+        expect(targets.files).toStrictEqual([{ path: abs("a.ts"), line: 42, column: 7 }]);
     });
 
     it("accepts a plain path without a suffix", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-g", "a.ts"]), noDirs);
-        expect(targets.files).toEqual([{ path: abs("a.ts") }]);
+        expect(targets.files).toStrictEqual([{ path: abs("a.ts") }]);
     });
 
     it("still honours a leading directory", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-g", "src", "a.ts:3"]), dirsAre("src"));
         expect(targets.folder).toBe(abs("src"));
-        expect(targets.files).toEqual([{ path: abs("a.ts"), line: 3 }]);
+        expect(targets.files).toStrictEqual([{ path: abs("a.ts"), line: 3 }]);
     });
 
     it("throws when the suffix eats the whole argument", () => {

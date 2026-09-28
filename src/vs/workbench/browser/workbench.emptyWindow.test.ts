@@ -2,9 +2,13 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
+import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import { EXPLORER_VIEWLET_ID } from "../contrib/files/browser/explorerComponent.ts";
+import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
+import type { ITerminalSessionOptions } from "../contrib/terminal/common/terminalSessionFactory.ts";
+import { TerminalSessionFactoryDIToken } from "../contrib/terminal/common/terminalSessionFactory.ts";
 
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
@@ -16,6 +20,8 @@ import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 describe("Workbench — окно без воркспейса", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
+    /** Опции, с которыми поднимали терминалы — их cwd следует за папкой воркспейса. */
+    let terminalOptions: ITerminalSessionOptions[];
 
     function screen(): string {
         h.testApp.render();
@@ -24,8 +30,17 @@ describe("Workbench — окно без воркспейса", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-empty-window-", files: { "alpha.txt": "Alpha" } });
+        terminalOptions = [];
         // Ни workspaceFolder, ни openFile — ровно как запуск без аргументов.
-        h = createAppTestHarness({ size: new Size(80, 24) });
+        h = createAppTestHarness({
+            size: new Size(80, 24),
+            containerOverrides: (container) => {
+                container.bind(TerminalSessionFactoryDIToken, () => (options: ITerminalSessionOptions) => {
+                    terminalOptions.push(options);
+                    return new FakeTerminalSurface();
+                });
+            },
+        });
     });
 
     afterEach(() => {
@@ -65,5 +80,18 @@ describe("Workbench — окно без воркспейса", () => {
         const shown = screen();
         expect(shown).toContain("EXPLORER");
         expect(shown).not.toContain("No folder opened.");
+    });
+
+    // Продюсер-тест к `terminalService.setWorkingDirectory` в setWorkspaceFolder:
+    // сам сервис свой cwd отдаёт фабрике и без нас, а вот «кто ему сообщает про
+    // папку» проверяется только отсюда.
+    it("новые терминалы поднимаются в открытой папке, а не в cwd процесса", () => {
+        const terminals = h.container.get(TerminalServiceDIToken);
+        terminals.newTerminal();
+        expect(terminalOptions.at(-1)?.cwd).toBe(process.cwd());
+
+        h.workbench.setWorkspaceFolder(ws.dir);
+        terminals.newTerminal();
+        expect(terminalOptions.at(-1)?.cwd).toBe(ws.dir);
     });
 });
