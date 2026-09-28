@@ -76,6 +76,7 @@ import { DEFAULT_COLOR_THEME } from "../workbench/services/themes/common/themes/
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
 import { TokenThemeResolver } from "../workbench/services/themes/common/tokenThemeResolver.ts";
 
+import { curatedConfigInjection } from "./curatedConfigInjection.ts";
 import { createProductionContainer } from "./modules/productionProfile.ts";
 import { runAsNode } from "./runAsNode.ts";
 import { setupStartupTrace, TracingNodeTerminalBackend, writeStartupTrace } from "./startupTrace.ts";
@@ -778,34 +779,6 @@ function builtinConfigInjection(manifestName: string, logger: ILogger): Record<s
         // dev/self-extract: process.execPath субпроцесса — настоящий node.
         "diode.lsp.typescript.serverRuntime": isSeaBinary() ? "diode-as-node" : "node",
     };
-}
-
-/**
- * Курируемые config-дефолты host'а для КОНКРЕТНЫХ сторонних расширений — слой
- * поверх дефолтов их манифеста, ниже пользовательских настроек (переопределяемы).
- *
- * basedpyright: манифестный дефолт `importStrategy: "fromEnvironment"` ищет
- * pip-установку сервера через API расширения ms-python.python и падает всей
- * активацией, когда того нет (наш `extensions.getExtension` честно отвечает
- * undefined, а вызов в activate() не обёрнут в try/catch — проверено на 1.40.0).
- * В Diode питон-расширения Microsoft не существует, поэтому единственный рабочий
- * путь — вшитый в vsix сервер; включаем его дефолтом.
- *
- * ruff: манифестный дефолт `importStrategy: "fromEnvironment"` активацию не
- * роняет (без ms-python расширение честно падает на bundled), но сканирует
- * окружение и зависит от PATH; вшитый в платформенный vsix нативный бинарь —
- * детерминированный native server без Python вовсе (`nativeServer: "auto"`
- * выбирает его сам: bundled ruff заведомо ≥ 0.5.3). Пользовательский
- * `settings.json` может вернуть `fromEnvironment` — слой переопределяем.
- */
-function curatedConfigInjection(extensionId: string): Record<string, unknown> {
-    if (extensionId === "detachhead.basedpyright") {
-        return { "basedpyright.importStrategy": "useBundled" };
-    }
-    if (extensionId === "charliermarsh.ruff") {
-        return { "ruff.importStrategy": "useBundled" };
-    }
-    return {};
 }
 
 /**

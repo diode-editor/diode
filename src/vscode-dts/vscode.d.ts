@@ -2541,6 +2541,24 @@ declare module "vscode" {
 		stat(uri: Uri): Thenable<FileStat>;
 
 		/**
+		 * Retrieve all entries of a {@link FileType.Directory directory}.
+		 *
+		 * @param uri The uri of the folder.
+		 * @returns An array of name/type-tuples or a thenable that resolves to such.
+		 */
+		readDirectory(uri: Uri): Thenable<[string, FileType][]>;
+
+		/**
+		 * Create a new directory (Note, that new files are created via `write`-calls).
+		 *
+		 * *Note* that missing directories are created automatically, e.g this call has
+		 * `mkdirp` semantics.
+		 *
+		 * @param uri The uri of the new folder.
+		 */
+		createDirectory(uri: Uri): Thenable<void>;
+
+		/**
 		 * Read the entire contents of a file.
 		 *
 		 * @param uri The uri of the file.
@@ -2555,6 +2573,66 @@ declare module "vscode" {
 		 * @param content The new content of the file.
 		 */
 		writeFile(uri: Uri, content: Uint8Array): Thenable<void>;
+
+		/**
+		 * Delete a file.
+		 *
+		 * @param uri The resource that is to be deleted.
+		 * @param options Defines if trash can should be used and if deletion of folders is recursive
+		 */
+		delete(uri: Uri, options?: {
+			/**
+			 * Delete the content recursively if a folder is denoted.
+			 */
+			recursive?: boolean;
+			/**
+			 * Use the os's trashcan instead of permanently deleting files whenever possible.
+			 */
+			useTrash?: boolean;
+		}): Thenable<void>;
+
+		/**
+		 * Rename a file or folder.
+		 *
+		 * @param source The existing file.
+		 * @param target The new location.
+		 * @param options Defines if existing files should be overwritten.
+		 */
+		rename(source: Uri, target: Uri, options?: {
+			/**
+			 * Overwrite the file if it does exist.
+			 */
+			overwrite?: boolean;
+		}): Thenable<void>;
+
+		/**
+		 * Copy files or folders.
+		 *
+		 * @param source The existing file.
+		 * @param target The destination location.
+		 * @param options Defines if existing files should be overwritten.
+		 */
+		copy(source: Uri, target: Uri, options?: {
+			/**
+			 * Overwrite the file if it does exist.
+			 */
+			overwrite?: boolean;
+		}): Thenable<void>;
+
+		/**
+		 * Check if a given file system supports writing files.
+		 *
+		 * Keep in mind that just because a file system supports writing, that does
+		 * not mean that writes will always succeed. There may be permissions issues
+		 * or other errors that prevent writing a file.
+		 *
+		 * @param scheme The scheme of the filesystem, for example `file` or `git`.
+		 *
+		 * @returns `true` if the file system supports writing, `false` if it does not
+		 * support writing (i.e. it is readonly), and `undefined` if the editor does not
+		 * know about the filesystem.
+		 */
+		isWritableFileSystem(scheme: string): boolean | undefined;
 	}
 
 	/**
@@ -3949,6 +4027,25 @@ declare module "vscode" {
 		 * @returns A new file system watcher instance. Must be disposed when no longer needed.
 		 */
 		export function createFileSystemWatcher(globPattern: GlobPattern, ignoreCreateEvents?: boolean, ignoreChangeEvents?: boolean, ignoreDeleteEvents?: boolean): FileSystemWatcher;
+
+		/**
+		 * Find files across all {@link workspace.workspaceFolders workspace folders} in the workspace.
+		 *
+		 * @example
+		 * findFiles('**​/*.js', '**​/node_modules/**', 10)
+		 *
+		 * @param include A {@link GlobPattern glob pattern} that defines the files to search for. The glob pattern
+		 * will be matched against the file paths of resulting matches relative to their workspace. Use a {@link RelativePattern relative pattern}
+		 * to restrict the search results to a {@link WorkspaceFolder workspace folder}.
+		 * @param exclude  A {@link GlobPattern glob pattern} that defines files and folders to exclude. The glob pattern
+		 * will be matched against the file paths of resulting matches relative to their workspace. When `undefined`, default file-excludes (e.g. the `files.exclude`-setting
+		 * but not `search.exclude`) will apply. When `null`, no excludes will apply.
+		 * @param maxResults An upper-bound for the result.
+		 * @param token A token that can be used to signal cancellation to the underlying search engine.
+		 * @returns A thenable that resolves to an array of resource identifiers. Will return no results if no
+		 * {@link workspace.workspaceFolders workspace folders} are opened.
+		 */
+		export function findFiles(include: GlobPattern, exclude?: GlobPattern | null, maxResults?: number, token?: CancellationToken): Thenable<Uri[]>;
 
 		/**
 		 * When true, the user has explicitly trusted the contents of the workspace.
@@ -7010,6 +7107,22 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Possible kinds of UI that can use extensions.
+	 */
+	export enum UIKind {
+
+		/**
+		 * Extensions are accessed from a desktop application.
+		 */
+		Desktop = 1,
+
+		/**
+		 * Extensions are accessed from a web browser.
+		 */
+		Web = 2
+	}
+
+	/**
 	 * Namespace describing the environment the editor runs in.
 	 */
 	export namespace env {
@@ -7041,6 +7154,42 @@ declare module "vscode" {
 		 * The system clipboard.
 		 */
 		export const clipboard: Clipboard;
+
+		/**
+		 * A unique identifier for the current session.
+		 * Changes each time the editor is started.
+		 */
+		export const sessionId: string;
+
+		/**
+		 * Indicates whether the users has telemetry enabled.
+		 * Can be observed to determine if the extension should send telemetry.
+		 */
+		export const isTelemetryEnabled: boolean;
+
+		/**
+		 * An {@link Event} which fires when the user enabled or disables telemetry.
+		 * `true` if the user has enabled telemetry or `false` if the user has disabled telemetry.
+		 */
+		export const onDidChangeTelemetryEnabled: Event<boolean>;
+
+		/**
+		 * The name of a remote. Defined by extensions, popular samples are `wsl` for the Windows
+		 * Subsystem for Linux or `ssh-remote` for remotes using a secure shell.
+		 *
+		 * *Note* that the value is `undefined` when there is no remote extension host but that the
+		 * value is defined in all extension hosts (local and remote) in case a remote extension host
+		 * exists. Use {@link Extension.extensionKind} to know if
+		 * a specific extension runs remote or not.
+		 */
+		export const remoteName: string | undefined;
+
+		/**
+		 * The UI kind property indicates from which UI extensions
+		 * are accessed from. For example, extensions could be accessed
+		 * from a desktop application or a web browser.
+		 */
+		export const uiKind: UIKind;
 
 		/**
 		 * Opens a link externally using the default application. Depending on the

@@ -13,7 +13,7 @@ import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
  * (команды, провайдеры, призрачные подсказки). Пользователь получал не
  * «расширение без панели», а мёртвое расширение.
  *
- * Поэтому три точки входа существуют и ничего не делают (по образцу наивных
+ * Поэтому четыре точки входа существуют и ничего не делают (по образцу наивных
  * `tasks`/`extensions` в `vscodeNamespace.ts`): вызов возвращает
  * инертный объект, панель не появляется, а в панель Output уходит ОДНА внятная
  * строка про неподдерживаемый webview — иначе единственным следом остаётся
@@ -77,7 +77,7 @@ interface IInertWebviewPanel {
     dispose: () => void;
 }
 
-/** Три webview-члена `vscode.window`; подмешиваются в неймспейс окна. */
+/** Четыре webview-члена `vscode.window`; подмешиваются в неймспейс окна. */
 export interface IWebviewNoopMembers {
     createWebviewPanel: (
         viewType: string,
@@ -87,6 +87,7 @@ export interface IWebviewNoopMembers {
     ) => IInertWebviewPanel;
     registerWebviewViewProvider: (viewId: string, provider: unknown, options?: unknown) => vscode.Disposable;
     registerWebviewPanelSerializer: (viewType: string, serializer: unknown) => vscode.Disposable;
+    registerCustomEditorProvider: (viewType: string, provider: unknown, options?: unknown) => vscode.Disposable;
 }
 
 function createInertWebview(): IInertWebview {
@@ -148,6 +149,16 @@ export function createWebviewNoopMembers(rpc: RpcEndpoint): IWebviewNoopMembers 
         // поэтому `deserializeWebviewPanel` тоже никто не позовёт.
         registerWebviewPanelSerializer: (viewType: string): vscode.Disposable => {
             reportUnsupported(rpc, "registerWebviewPanelSerializer", viewType);
+            return new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
+        },
+
+        // Кастомный редактор — тот же webview, только вкладкой вместо панели
+        // (`contributes.customEditors`; у `redhat.java` на нём висит редактор
+        // настроек форматтера). Ресурса такого типа в TUI не открыть, поэтому
+        // `resolveCustomTextEditor` никто не позовёт — и регистрация обязана
+        // просто не падать: она идёт в `activate()` первой строкой.
+        registerCustomEditorProvider: (viewType: string): vscode.Disposable => {
+            reportUnsupported(rpc, "registerCustomEditorProvider", viewType);
             return new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
         },
     };

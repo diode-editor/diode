@@ -10,9 +10,7 @@ import { FileSystemError, FileType } from "./vscodeTypes.ts";
  *
  * Работает **локально через `node:fs`** — целевой файл живёт на той же машине и
  * не является открытым буфером ядра, поэтому RPC не нужен (в отличие от
- * will-save, который ходит за текстом активного документа на хост). Реализуем
- * только `stat`/`readFile`/`writeFile` — минимум, нужный команде
- * `EditorConfig.generate` и чтению `.editorconfig` с диска.
+ * will-save, который ходит за текстом активного документа на хост).
  *
  * Обслуживаем **только схему `file`**: в VS Code это роутер по `uri.scheme`
  * (`vscode-remote:`, `vscode-vfs:`, кастомные провайдеры), у нас же есть лишь
@@ -22,7 +20,18 @@ import { FileSystemError, FileType } from "./vscodeTypes.ts";
  * Ошибки `node` маппятся в {@link FileSystemError} с тем же `code`, что и в
  * VS Code, чтобы расширения ловили их по `err.code === "FileNotFound"`.
  */
-export type IFileSystemNamespace = Pick<vscode.FileSystem, "stat" | "readFile" | "writeFile">;
+export type IFileSystemNamespace = Pick<
+    vscode.FileSystem,
+    | "stat"
+    | "readFile"
+    | "writeFile"
+    | "createDirectory"
+    | "readDirectory"
+    | "delete"
+    | "rename"
+    | "copy"
+    | "isWritableFileSystem"
+>;
 
 /** Преобразует ошибку `node:fs` в {@link FileSystemError}; прочее пробрасывает. */
 export function toFileSystemError(err: unknown, uri: vscode.Uri): unknown {
@@ -177,5 +186,101 @@ export function createFileSystemNamespace(providers?: SubprocessFileSystemProvid
         }
     }
 
-    return { stat, readFile, writeFile };
+    /** `mkdirp`-семантика по контракту: недостающие родители создаются молча. */
+    async function createDirectory(uri: vscode.Uri): Promise<void> {
+        assertFileScheme(uri);
+        try {
+            await fs.mkdir(uri.fsPath, { recursive: true });
+        } catch (err) {
+            throw toFileSystemError(err, uri);
+        }
+    }
+
+    async function readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {
+        assertFileScheme(uri);
+        try {
+            const entries = await fs.readdir(uri.fsPath, { withFileTypes: true });
+            // `Dirent` отвечает на те же три предиката, что `Stats`, — классификация одна.
+            return entries.map((entry) => [entry.name, fileTypeFromStats(entry) as vscode.FileType]);
+        } catch (err) {
+            throw toFileSystemError(err, uri);
+        }
+    }
+
+    /**
+     * Удаление. `useTrash` не поддержан и молча игнорируется — корзины у
+     * терминального редактора нет; `recursive` по умолчанию `false`, как в
+     * контракте, поэтому непустой каталог без флага получает отказ.
+     *
+     * `force` у `fs.rm` НЕ включаем: по контракту отсутствующий ресурс — это
+     * `FileNotFound`, а не вакуумный успех.
+     */
+    async function deleteEntry(uri: vscode.Uri, options?: { recursive?: boolean }): Promise<void> {
+        assertFileScheme(uri);
+        try {
+            await fs.rm(uri.fsPath, { recursive: options?.recursive === true });
+        } catch (err) {
+            throw toFileSystemError(err, uri);
+        }
+    }
+
+    /**
+     * Переименование/перенос. `overwrite` по умолчанию `false`, и проверять это
+     * приходится САМИМ: `fs.rename` в posix затирает цель молча, поэтому без
+     * явной проверки флаг не значил бы ничего. Проверка — ДО `try`, чтобы
+     * `FileExists` про цель не переписался маппингом ошибки источника.
+     */
+    async function rename(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean }): Promise<void> {
+        assertFileScheme(source);
+        assertFileScheme(target);
+        if (options?.overwrite !== true) await assertVacant(target);
+        try {
+            // Родителя цели создаём сами — как в `writeFile`: перенос в ещё не
+            // существующий каталог по контракту законен.
+            await fs.mkdir(path.dirname(target.fsPath), { recursive: true });
+            await fs.rename(source.fsPath, target.fsPath);
+        } catch (err) {
+            throw toFileSystemError(err, source);
+        }
+    }
+
+    /** Копирование файла или дерева; `overwrite` — та же семантика, что у `rename`. */
+    async function copy(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean }): Promise<void> {
+        assertFileScheme(source);
+        assertFileScheme(target);
+        if (options?.overwrite !== true) await assertVacant(target);
+        try {
+            await fs.mkdir(path.dirname(target.fsPath), { recursive: true });
+            // `force` здесь безопасен: занятость цели уже разобрана выше.
+            await fs.cp(source.fsPath, target.fsPath, { recursive: true, force: true });
+        } catch (err) {
+            throw toFileSystemError(err, source);
+        }
+    }
+
+    return {
+        stat,
+        readFile,
+        writeFile,
+        createDirectory,
+        readDirectory,
+        delete: deleteEntry,
+        rename,
+        copy,
+        // Единственная схема, которую мы обслуживаем сами, — `file`, и она
+        // записываема. Про чужую схему честно `undefined` («редактор не знает
+        // такой ФС»): провайдер расширения отдаёт нам только чтение, и врать
+        // про его записываемость нельзя ни `true`, ни `false`.
+        isWritableFileSystem: (scheme: string): boolean | undefined => (scheme === "file" ? true : undefined),
+    };
+}
+
+/** Бросает `FileExists`, если цель занята: вызывается, когда перезапись запрещена. */
+async function assertVacant(target: vscode.Uri): Promise<void> {
+    try {
+        await fs.stat(target.fsPath);
+    } catch {
+        return; // цели нет — писать можно
+    }
+    throw FileSystemError.FileExists(target);
 }

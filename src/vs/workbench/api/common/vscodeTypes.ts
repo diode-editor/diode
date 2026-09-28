@@ -1056,6 +1056,18 @@ export enum ExtensionKind {
     Workspace = 2,
 }
 
+/**
+ * Из какого UI расширение видят (`env.uiKind`). В Diode всегда `Desktop`:
+ * редактор — настольное приложение, пусть и в терминале, а `Web` в контракте
+ * значит «доступ из браузера» (vscode.dev). Enum обязан быть рантайм-значением:
+ * `redhat.java` разбирает `switch (env.uiKind) { case UIKind.Desktop: ... }`
+ * прямо в `activate()`, и без него активация падала на первом же обращении.
+ */
+export enum UIKind {
+    Desktop = 1,
+    Web = 2,
+}
+
 /** Наивный WorkspaceEdit — хранит правки, применение — за `workspace.applyEdit`. */
 /**
  * Как был вызван signature-help-провайдер. Значения — из vscode API; их читает
