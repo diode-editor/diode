@@ -26,6 +26,7 @@ themes/*.ts ──▶ ThemeRegistry (label → IThemeFile) ──▶ resolve(lab
 - [x] Live-reload при ручной правке `workbench.colorTheme` в settings.json — `ThemeConfigContribution` (`contrib/themes/browser/themeConfigContribution.ts`).
 - [x] Альфа в цветах (tuidom 0.4.0): `#RRGGBBAA` уходит в палитру как есть, композитинг — в движке; `blendOver` снят. Выделение — токен `editor.selectionBackground` (дефолты VS Code `#264F78`/`#ADD6FF`) вместо литерала.
 - [x] Темы от расширений — `ExtensionThemeContributor` (`services/extensions/common/`), регистрация до первого кадра; постановка и чек-лист ниже.
+- [x] Тень оверлеев как возможность движка (tuidom 0.5.0: `TUIElement.shadow` / `OverlaySessionOptions.shadow`, токен `widget.shadow`): TUI-аналог `box-shadow` попапов VS Code — колонка справа и строка снизу композитятся с тем, что под оверлеем. В diode объявлен только цвет `widget.shadow` (дефолты VS Code), у оверлеев тень **не включена** — рамки меню для тем без неё решены в #358; включать точечно, если решим (`shadow: true` в опциях сессии).
 
 ## [x] Темы от расширений — установка темы из магазина (#84)
 
