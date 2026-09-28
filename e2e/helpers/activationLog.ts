@@ -46,28 +46,44 @@ interface IActivationLogUi {
 export async function openActivationLog(ui: IActivationLogUi): Promise<void> {
     await ui.sendKey("Alt+B");
     await ui.sendKey("Alt+U");
-    await ui.waitForText((t) => t.includes("OUTPUT"));
+    await waitPastToasts(ui, (t) => t.includes("OUTPUT"), "вкладка OUTPUT");
     await ui.sendKey("Alt+J");
-    await ui.waitForText((t) => t.includes("Extension Host"));
+    // Подпись активного канала живёт в ПРАВОЙ части шапки панели — ровно там,
+    // где встаёт тост (пойманный на CI флак: строка журнала в кадре уже была, а
+    // подпись «Extension Host» закрывал тост ruff'а про Python-окружение).
+    await waitPastToasts(ui, (t) => t.includes("Extension Host"), "канал Extension Host");
+}
+
+/** Ждёт строку журнала активации, гася тосты перед каждой попыткой. */
+export async function waitForActivationLine(ui: IActivationLogUi, needle: string): Promise<void> {
+    await waitPastToasts(ui, (t) => t.includes(needle), `строка журнала «${needle}»`);
+    // Ещё одна очистка перед кадром: тост мог вернуться между проверкой и
+    // скриншотом, и демо показывало бы его вместо журнала.
+    await ui.sendKey("Alt+Y");
 }
 
 /**
- * Ждёт строку журнала активации, гася тосты перед каждой попыткой. Короткое
- * пойманное ожидание в цикле, а не одно длинное: непойманное упало бы на тосте,
- * который приехал уже после очистки.
+ * Ждёт условие, гася тосты (`notifications.clearAll`) перед КАЖДОЙ попыткой.
+ *
+ * Тост стокового расширения висит поверх нижней панели и перекрывает её правую
+ * половину, поэтому ждать одним длинным `waitForText` нельзя: сообщение
+ * приезжает асинхронно — и до очистки, и после неё, — а непойманное ожидание
+ * падает на первом же таком кадре. Отсюда цикл из коротких пойманных попыток.
  */
-export async function waitForActivationLine(ui: IActivationLogUi, needle: string, attempts = 30): Promise<void> {
+async function waitPastToasts(
+    ui: IActivationLogUi,
+    predicate: (text: string) => boolean,
+    what: string,
+    attempts = 30,
+): Promise<void> {
     for (let attempt = 0; attempt < attempts; attempt++) {
         await ui.sendKey("Alt+Y");
         try {
-            await ui.waitForText((t) => t.includes(needle), { timeoutMs: 4000 });
-            // Ещё одна очистка перед кадром: тост мог вернуться между проверкой
-            // и скриншотом, и демо показывало бы его вместо журнала.
-            await ui.sendKey("Alt+Y");
+            await ui.waitForText(predicate, { timeoutMs: 4000 });
             return;
         } catch {
             // Ещё не доехало (или тост успел вернуться) — повторяем.
         }
     }
-    throw new Error(`activation log line not found: ${needle}`);
+    throw new Error(`activation log: не дождались — ${what}`);
 }
