@@ -30,7 +30,7 @@
 | поверхность | статус | члены |
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 11/40 |
-| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 18/45 |
+| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 19/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 22/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
@@ -44,7 +44,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 115/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 116/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 5/32 |
 
 ## vscode.languages
@@ -71,7 +71,7 @@
 
 ## vscode.workspace
 
-🟡 **18/45.** Документы, конфигурация, события сохранения и файловые watcher'ы — рабочие;
+🟡 **19/45.** Документы, конфигурация, события сохранения и файловые watcher'ы — рабочие;
 файловые операции `WorkspaceEdit` и notebook-поверхность — нет.
 
 | член | статус | комментарий |
@@ -86,11 +86,12 @@
 | `createFileSystemWatcher` | ✅ | настоящие watcher'ы: `RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude` |
 | `fs` | 🟡 | `stat`/`readFile`/`writeFile`; `readDirectory`, `createDirectory`, `delete`, `rename`, `copy` — нет |
 | `registerFileSystemProvider` | 🟡 | читающая часть: `watch`/`stat`/`readFile`/`onDidChangeFile` |
+| `registerTextDocumentContentProvider` | ✅ | недисковые ресурсы (`jdt:` у Java) открываются read-only вкладкой; `onDidChange` перечитывает открытую; `openTextDocument` по такой схеме спрашивает провайдера |
 | `isTrusted`, `onDidGrantWorkspaceTrust` | 🟡 | модели доверия нет — всегда `true`, событие не стреляет |
 | `getWorkspaceFolder` | 🟡 | работает наивно в рантайме (префикс-матч + fallback на первую папку); декларация ещё не поднята |
 | события папок и файловых операций (`onDidChangeWorkspaceFolders`, `onWill/onDid{Create,Delete,Rename}Files`) | 🕐 | подписка принимается (no-op), событие не стреляет |
 | notebook-поверхность (8 членов: `notebookDocuments`, `openNotebookDocument`, `registerNotebookSerializer`, события) | 🕐 | |
-| `rootPath`, `workspaceFile`, `updateWorkspaceFolders`, `findFiles`, `save`, `saveAs`, `saveAll`, `registerTextDocumentContentProvider`, `registerTaskProvider`, `decode`, `encode` | 🕐 | |
+| `rootPath`, `workspaceFile`, `updateWorkspaceFolders`, `findFiles`, `save`, `saveAs`, `saveAll`, `registerTaskProvider`, `decode`, `encode` | 🕐 | |
 
 ## vscode.window
 
@@ -231,7 +232,7 @@ output-каналы, декорации, пункты статус-бара и �
 
 ## Типы с неполной поверхностью
 
-Активно 112 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 113 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов).
 
 | тип | активно | не активно |

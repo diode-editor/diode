@@ -78,7 +78,7 @@ export const fileCopyPathAction: CommandAction = {
     ],
     run(accessor, ...args) {
         const filePath = (args[0] as string | undefined) ?? accessor.get(ExplorerServiceDIToken).getSelectedPaths()[0];
-        if (filePath) void accessor.get(ClipboardDIToken).writeText(filePath);
+        if (filePath) return accessor.get(ClipboardDIToken).writeText(filePath);
     },
 };
 
@@ -110,6 +110,6 @@ export const fileCopyRelativePathAction: CommandAction = {
         if (!filePath) return;
         const root = explorer.getRootPath();
         const relative = root ? path.relative(root, filePath) : filePath;
-        void accessor.get(ClipboardDIToken).writeText(relative);
+        return accessor.get(ClipboardDIToken).writeText(relative);
     },
 };

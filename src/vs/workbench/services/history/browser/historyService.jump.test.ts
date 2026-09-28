@@ -82,4 +82,65 @@ describe("HistoryService — шов прыжка", () => {
         source.moveCaret(40);
         expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 40 }]);
     });
+
+    it("jumpAsync: точка назначения снимается ПОСЛЕ асинхронного открытия", async () => {
+        source.open(alpha());
+        source.moveCaret(20);
+        source.providedSchemes.add("jdt");
+        const target = "jdt://contents/lib.jar/pkg/Foo.java";
+
+        await service.jumpAsync(async () => {
+            // Так ведёт себя открытие недискового ресурса: содержимое приезжает
+            // от провайдера через тик, и только потом можно двигать каретку.
+            await Promise.resolve();
+            source.open(target);
+            source.moveCaret(50);
+        });
+
+        const entries = service.getEntries();
+        expect(entries).toMatchObject([{ line: 0 }, { line: 20 }, { line: 50 }]);
+        expect(entries[2].uri.toString()).toBe(target);
+        service.goBack();
+        expect(source.caret()).toMatchObject({ uri: alpha(), line: 20 });
+    });
+
+    it("jumpAsync: промежуточные перемещения внутри перехода в стек не попадают", async () => {
+        source.open(alpha());
+
+        await service.jumpAsync(async () => {
+            source.moveCaret(5);
+            await Promise.resolve();
+            source.moveCaret(50);
+        });
+
+        // Ни 5, ни 0 целевого файла — только origin и итоговая позиция.
+        expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 50 }]);
+    });
+
+    it("jumpAsync: отказ перехода не оставляет историю заглушенной", async () => {
+        source.open(alpha());
+
+        await expect(
+            service.jumpAsync(async () => {
+                await Promise.resolve();
+                throw new Error("переход сорвался");
+            }),
+        ).rejects.toThrow("переход сорвался");
+
+        source.moveCaret(40);
+        expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 40 }]);
+    });
+
+    it("недисковый ресурс без провайдера схемы в стек не пишется", () => {
+        source.open(alpha());
+
+        service.jump(() => {
+            source.open("output:extensions");
+            source.moveCaret(50);
+        });
+
+        // Вернуться в Output через openUri нельзя — его содержимое пишет
+        // владелец панели, а не ресурс; записи о нём быть не должно.
+        expect(service.getEntries().map((e) => e.uri.scheme)).toEqual(["file"]);
+    });
 });

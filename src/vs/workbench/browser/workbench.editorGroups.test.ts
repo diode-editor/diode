@@ -469,7 +469,7 @@ describe("Workbench — editor groups (сплиты)", () => {
     it("US-5-механика: открытие beside создаёт/переиспользует соседнюю группу", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
 
-        service().openUri(service().getActiveEditor()!.uri, { group: "beside" });
+        void service().openUri(service().getActiveEditor()!.uri, { group: "beside" });
         // Тот же ресурс beside: новая группа со второй вкладкой той же модели.
         expect(service().groups.length).toBe(2);
         expect(service().activeGroup === service().groups[1]).toBe(true);

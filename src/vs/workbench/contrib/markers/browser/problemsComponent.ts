@@ -20,6 +20,8 @@ export const PROBLEMS_VIEW_ID = "workbench.panel.markers.view";
 
 /** Редактор, в котором раскрывается позиция маркера. */
 export interface IMarkerRevealEditor {
+    /** Ресурс редактора — по нему сверяется, что открылся именно маркерный. */
+    readonly uri: Uri;
     goToPosition(line: number, column?: number): void;
     revealRange(range: IRange): void;
 }
@@ -31,7 +33,8 @@ export interface IMarkerRevealEditor {
  * ({@link MarkerRevealTargetDIToken}).
  */
 export interface IMarkerRevealTarget {
-    openUri(uri: Uri): void;
+    /** Обещание не отклоняется: неудачу открытия сервис показывает сам. */
+    openUri(uri: Uri): Promise<void>;
     getActiveEditor(): IMarkerRevealEditor | null;
 }
 
@@ -99,7 +102,7 @@ export class ProblemsComponent extends Component {
         this.viewsService.attachContainer(PROBLEMS_VIEW_ID);
 
         this.tree.onActivate = (node) => {
-            this.revealMarker(node);
+            void this.revealMarker(node);
         };
 
         this.register(
@@ -140,20 +143,21 @@ export class ProblemsComponent extends Component {
         }
     }
 
-    private revealMarker(node: ProblemNode): void {
+    private async revealMarker(node: ProblemNode): Promise<void> {
         if (node.kind !== "marker") return;
         const { resource, marker } = node;
         // Переход целиком — одна запись истории (см. IJumpRecorder): точка, откуда
         // ушли, и сам маркер, без промежуточного «открыли файл в начале».
-        this.jumps.jump(() => {
-            // Ресурс маркера — уже uri (`uri.toString()`), а не путь: поднимаем его парсингом,
-            // а не Uri.file, иначе "file:///a.ts" стало бы путём с именем "file:".
-            this.revealTarget.openUri(Uri.parse(resource));
+        // Ресурс маркера — уже uri (`uri.toString()`), а не путь: поднимаем его парсингом,
+        // а не Uri.file, иначе "file:///a.ts" стало бы путём с именем "file:".
+        const uri = Uri.parse(resource);
+        await this.jumps.jumpAsync(async () => {
+            await this.revealTarget.openUri(uri);
             const editor = this.revealTarget.getActiveEditor();
-            /* v8 ignore start -- defensive: openUri always opens/activates an editor for the resource */
-            // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
-            if (editor === null) return;
-            /* v8 ignore stop */
+            // Ресурс мог не открыться — у недискового маркера (`jdt:`) провайдера
+            // схемы может не быть. Без сверки ресурса каретка уехала бы по
+            // координатам маркера в ЧУЖОМ, всё ещё активном редакторе.
+            if (editor?.uri.toString() !== uri.toString()) return;
             const start = marker.range.start;
             editor.goToPosition(start.line, start.character);
             editor.revealRange(marker.range);

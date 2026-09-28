@@ -6,13 +6,17 @@ import {
     ModifierReleaseArmory,
     ModifierReleaseArmoryDIToken,
 } from "../../platform/keybinding/common/modifierReleaseArmory.ts";
+import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 
 /**
  * Команды, кейбиндинги и when-context. Без внешнего конфига —
  * все три реестра конструируются с дефолтным состоянием.
  */
 export const commandsModule: ContainerModule = (container) => {
-    container.bind(CommandRegistryDIToken, () => new CommandRegistry());
+    container.bind(
+        CommandRegistryDIToken,
+        () => new CommandRegistry(container.get(ILogServiceDIToken).createLogger("commands")),
+    );
     container.bind(KeybindingRegistryDIToken, () => new KeybindingRegistry());
     container.bind(ContextKeyServiceDIToken, () => new ContextKeyService());
     container.bind(ModifierReleaseArmoryDIToken, () => new ModifierReleaseArmory());

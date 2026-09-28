@@ -79,7 +79,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         for (const cb of [...this.layoutListeners]) cb(layout);
     }
 
-    public showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult> {
+    public async showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult> {
         const uri = Uri.parse(params.uri);
         const focus = params.preserveFocus !== true;
         const previousActive = this.editors.activeGroup;
@@ -90,7 +90,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         if (target !== this.editors.activeGroup) {
             this.editors.focusGroup(target.id, { focus: false });
         }
-        this.editors.openUri(uri, { focus });
+        // Ждём открытия: недисковый ресурс (`jdt:`) приезжает от провайдера
+        // схемы обещанием, и выделение из `params` надо ставить уже в него.
+        await this.editors.openUri(uri, { focus });
 
         const opened = this.editors.activeGroup;
         const editor = opened.activePane;

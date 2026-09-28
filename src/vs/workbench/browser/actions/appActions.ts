@@ -45,7 +45,7 @@ export const reloadWindowAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "5_quit", order: 5 }],
     run(accessor) {
         const reload = accessor.get(WindowReloadHandlerDIToken);
-        void accessor.get(LifecycleServiceDIToken).requestShutdown(() => {
+        return accessor.get(LifecycleServiceDIToken).requestShutdown(() => {
             reload.reloadWindow();
         });
     },

@@ -31,7 +31,7 @@ export const findAllReferencesAction: CommandAction = {
     keybinding: parseChord("ctrl+k ctrl+r"),
     keybindings: [parseKeybinding("shift+alt+f12")],
     run(accessor) {
-        void accessor.get(ReferencesServiceDIToken).findReferences();
+        return accessor.get(ReferencesServiceDIToken).findReferences();
     },
 };
 

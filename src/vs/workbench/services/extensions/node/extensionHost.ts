@@ -91,6 +91,7 @@ import {
     parseWireQuickInputCancel,
     parseWireQuickPickRequest,
     parseWireReadFileResult,
+    parseWireSchemes,
     parseWireSecretKeysRequest,
     parseWireSecretRef,
     parseWireSecretWrite,
@@ -99,6 +100,7 @@ import {
     parseWireShowTextDocumentParams,
     parseWireStatusBarItem,
     parseWireStatusBarItemDispose,
+    parseWireTextContentResult,
     parseWireValidationMessage,
     parseWireWatcherCreate,
     parseWireWatcherDispose,
@@ -663,6 +665,9 @@ export class ExtensionHost extends Disposable {
     private fileSystemSchemesValue: readonly string[] = [];
     private readonly fileSystemSchemesListeners: (() => void)[] = [];
     private readonly fileSystemChangeListeners: ((uris: readonly Uri[]) => void)[] = [];
+    /** Схемы, для которых субпроцесс держит TextDocumentContentProvider'ы (`jdt:`, `class:`). */
+    private textContentSchemesValue: readonly string[] = [];
+    private readonly textContentChangeListeners: ((uri: Uri) => void)[] = [];
     /** Слушатели смены наличия folding-провайдеров (для пере-пересчёта фолдов открытых редакторов). */
     private readonly foldingProvidersChangedListeners: (() => void)[] = [];
     private readonly completionTriggerCharactersListeners: ((characters: readonly string[]) => void)[] = [];
@@ -1674,6 +1679,43 @@ export class ExtensionHost extends Disposable {
         };
     }
 
+    // ─── Провайдеры содержимого недисковых ресурсов (IVirtualDocumentSource) ──
+
+    /**
+     * Держит ли субпроцесс `TextDocumentContentProvider` для схемы. Ответ
+     * меняется по ходу жизни окна: расширение активируется асинхронно и
+     * регистрирует провайдера уже после того, как человек открыл первый файл, —
+     * поэтому спрашивать надо в момент открытия ресурса, а не один раз.
+     */
+    public hasTextContentProvider(scheme: string): boolean {
+        return this.textContentSchemesValue.includes(scheme);
+    }
+
+    /**
+     * Содержимое недискового ресурса от провайдера субпроцесса. `null` —
+     * провайдер отказался отдать ресурс. Отклоняется, если host не поднят,
+     * схема не зарегистрирована или провайдер бросил: ядру нужна причина, чтобы
+     * показать её человеку.
+     */
+    public async provideTextDocumentContent(uri: Uri): Promise<string | null> {
+        const rpc = this.rpc;
+        if (rpc === null) throw new Error("extension host is not running");
+        return parseWireTextContentResult(
+            await rpc.request("workspace.provideTextDocumentContent", { uri: uri.toString() }),
+        );
+    }
+
+    /** Провайдер объявил, что содержимое недискового ресурса изменилось. */
+    public onDidChangeTextContent(cb: (uri: Uri) => void): { dispose(): void } {
+        this.textContentChangeListeners.push(cb);
+        return {
+            dispose: (): void => {
+                const idx = this.textContentChangeListeners.indexOf(cb);
+                if (idx >= 0) this.textContentChangeListeners.splice(idx, 1);
+            },
+        };
+    }
+
     public hasExtension(id: string): boolean {
         return this.extensions.has(id);
     }
@@ -1994,10 +2036,21 @@ export class ExtensionHost extends Disposable {
         // FileSystemProvider (у встроенного git — `git:`). Ядро по ним читает
         // недисковые ресурсы через IFileSystemProviderRegistry.
         rpc.handleNotification("workspace.fileSystemProvidersChanged", (params) => {
-            const p = params as { schemes?: unknown };
-            const schemes = Array.isArray(p.schemes) ? p.schemes.filter((s): s is string => typeof s === "string") : [];
-            this.fileSystemSchemesValue = schemes;
+            this.fileSystemSchemesValue = parseWireSchemes(params);
             for (const cb of [...this.fileSystemSchemesListeners]) cb();
+        });
+        // То же для TextDocumentContentProvider'ов (`jdt:`/`class:` у redhat.java):
+        // это отдельный реестр — провайдер отдаёт текст, а не байты, и только на
+        // чтение. По ним ядро открывает read-only вкладки недисковых ресурсов.
+        rpc.handleNotification("workspace.textDocumentContentProvidersChanged", (params) => {
+            this.textContentSchemesValue = parseWireSchemes(params);
+        });
+        // Провайдер объявил, что содержимое ресурса изменилось — открытая вкладка
+        // обязана перечитаться (`TextDocumentContentProvider.onDidChange`).
+        rpc.handleNotification("workspace.textDocumentContentChanged", (params) => {
+            const uri = (params as { uri?: unknown }).uri;
+            if (typeof uri !== "string") return;
+            for (const cb of [...this.textContentChangeListeners]) cb(Uri.parse(uri));
         });
         // Провайдер расширения сообщил, что содержимое ресурсов изменилось
         // (для git: — сдвинулся HEAD/индекс): потребители сбрасывают кэш.

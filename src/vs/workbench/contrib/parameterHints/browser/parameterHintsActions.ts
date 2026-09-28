@@ -38,7 +38,7 @@ export const triggerParameterHintsAction: CommandAction = {
     keybindings: [parseKeybinding("mod+shift+space")],
     when: "textInputFocus",
     run(accessor) {
-        void accessor.get(ParameterHintsServiceDIToken).trigger();
+        return accessor.get(ParameterHintsServiceDIToken).trigger();
     },
 };
 

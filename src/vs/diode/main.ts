@@ -14,6 +14,7 @@ import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBacken
 import { joinVirtualPath } from "../base/common/assets/assetBundleFormat.ts";
 import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess.ts";
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
+import { describeRejection } from "../base/common/describeRejection.ts";
 import { mark } from "../base/common/performance.ts";
 import { Uri } from "../base/common/uri.ts";
 import { DIODE_VERSION } from "../base/common/version.ts";
@@ -184,6 +185,17 @@ async function runEditor(): Promise<void> {
         cwd: process.cwd(),
         folder: targets.folder,
         files: targets.files.length,
+    });
+
+    // Последняя страховка главного процесса — такая же, как у extension host'а
+    // (`extensionHostSubprocess.ts`) и по той же причине. Команды workbench'а
+    // сплошь асинхронные, а запускаются они «выстрелил и забыл»; забытый отказ
+    // Node по умолчанию считает фатальным и убивает процесс — то есть закрывает
+    // редактор со всеми несохранёнными буферами из-за неудачи ОДНОЙ команды.
+    // Реальный кейс: Go to Definition в `jdt:`-ресурс (#361). Гасить отказы
+    // молча нельзя — они уезжают в лог и видны в Output.
+    process.on("unhandledRejection", (reason: unknown) => {
+        bootstrapLogger.error(`unhandled rejection: ${describeRejection(reason)}`);
     });
 
     // ── User data: пути, настройки ─────────────────────────────

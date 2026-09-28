@@ -70,7 +70,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [ ] [EnvironmentTuning](EnvironmentTuning.md) — подсказки пользователю по тюнингу окружения (терминал/tmux/ssh); пункты — tmux extended-keys для Ctrl+Tab, лимит inotify (ENOSPC) с уведомлением как в VS Code
 - [~] [Distribution](Distribution.md) — каналы дистрибуции: `install.sh`, apt (плоский репозиторий на Releases), npm `@diode-editor/diode`, Homebrew tap, winget; код и воркфлоу готовы, осталось завести секреты/репозитории и выпустить первый релиз с ними
 - [~] [Folding](Folding.md) — indentation-фолдинг и API-провайдеры готовы; далее — region-маркеры/language-configuration, hover-контролы, персист свёрток
-- [~] [Uri](Uri.md) — ядро на `Uri` готово; далее — `untitled:`-провайдер, язык безымянных буферов
+- [~] [Uri](Uri.md) — ядро на `Uri` готово, виртуальные read-only документы (`registerTextDocumentContentProvider`) доведены до вкладки; далее — `untitled:`-провайдер, язык безымянных буферов, кэш содержимого
 - [~] [Problems](Problems.md) — маркер-сервис, squiggle и панель готовы; далее — счётчик в статус-баре, доп. поставщики (расширения/matchers)
 - [~] [TerminalPanelBugs](TerminalPanelBugs.md) — баги панели/терминала из e2e-прогона MVP закрыты; осталась необработанная ошибка спавна шелла на неподдерживаемой платформе
 - [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал интегрирован; далее — кросс-платформенная упаковка + CI-матрица, UX (скролбэк/выделение/ссылки), список терминалов, тема-реактивная ANSI-палитра, commandsToSkipShell

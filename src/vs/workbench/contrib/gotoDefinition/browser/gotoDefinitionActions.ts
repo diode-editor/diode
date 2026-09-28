@@ -14,7 +14,7 @@ export const revealDefinitionAction: CommandAction = {
     keybinding: parseKeybinding("f12"),
     when: "textInputFocus",
     run(accessor) {
-        void accessor.get(DefinitionServiceDIToken).revealDefinition();
+        return accessor.get(DefinitionServiceDIToken).revealDefinition();
     },
 };
 
@@ -25,6 +25,6 @@ export const revealDefinitionAsideAction: CommandAction = {
     keybinding: parseChord("mod+k f12"),
     when: "textInputFocus",
     run(accessor) {
-        void accessor.get(DefinitionServiceDIToken).revealDefinition({ toSide: true });
+        return accessor.get(DefinitionServiceDIToken).revealDefinition({ toSide: true });
     },
 };

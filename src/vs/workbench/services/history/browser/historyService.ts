@@ -32,6 +32,13 @@ export interface IHistoryEditorSource {
     readonly groups: readonly IHistoryEditorGroup[];
     getActiveEditor(): IHistoryEditor | null;
     openUri(uri: Uri, options?: { focus?: boolean }): void;
+    /**
+     * Сможет ли {@link openUri} открыть этот ресурс. Файл и безымянный буфер —
+     * да; недисковый — только пока его схему обслуживает провайдер содержимого
+     * (`jdt:` у Java). Всё остальное история не записывает: вернуться туда она
+     * всё равно не сможет.
+     */
+    canRestore(uri: Uri): boolean;
     focusGroup(id: number, options?: { focus?: boolean }): void;
     onActiveEditorChanged(listener: (editor: IHistoryEditor | null) => void): IDisposable;
     onDidChangeActiveEditorSelection(listener: (editor: IHistoryEditor) => void): IDisposable;
@@ -51,11 +58,19 @@ export interface IHistoryEditorSource {
  */
 export interface IJumpRecorder {
     jump<T>(navigate: () => T): T;
+    /**
+     * То же для перехода, который не укладывается в один тик: цель может быть
+     * недисковым ресурсом (`jdt:`), и её содержимое приезжает от провайдера
+     * схемы обещанием. Снимать точку назначения до этого бессмысленно — в стек
+     * попала бы позиция, откуда прыгнули.
+     */
+    jumpAsync(navigate: () => Promise<void>): Promise<void>;
 }
 
 /** Заглушка для юнит-тестов сайтов навигации: прыжок без записи в историю. */
 export const NULL_JUMP_RECORDER: IJumpRecorder = {
     jump: (navigate) => navigate(),
+    jumpAsync: (navigate) => navigate(),
 };
 
 // Stryker disable StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой, подменить её нечем наблюдаемым
@@ -83,13 +98,6 @@ const MAX_STACK_SIZE = 50;
  * новую запись, а обновляет текущую.
  */
 const SIGNIFICANT_LINE_DISTANCE = 10;
-
-/**
- * Схемы, которые история умеет восстановить. Всё остальное (`output:`, `git:`,
- * снимочные стороны диффа) в стек не попадает: `openUri` по ним либо бросит,
- * либо откроет не то, что пользователь видел.
- */
-const RECORDABLE_SCHEMES = new Set(["file", "untitled"]);
 
 /**
  * История навигации: Go Back / Go Forward по местам, где пользователь был
@@ -171,20 +179,42 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
 
     /** См. {@link IJumpRecorder.jump}. */
     public jump<T>(navigate: () => T): T {
-        const origin = this.capture();
-        this.suspended = true;
+        const origin = this.beginJump();
         let result: T;
         try {
             result = navigate();
         } finally {
             this.suspended = false;
         }
+        this.endJump(origin);
+        return result;
+    }
+
+    /** См. {@link IJumpRecorder.jumpAsync}. */
+    public async jumpAsync(navigate: () => Promise<void>): Promise<void> {
+        const origin = this.beginJump();
+        try {
+            await navigate();
+        } finally {
+            this.suspended = false;
+        }
+        this.endJump(origin);
+    }
+
+    /** Снимает точку, откуда прыгаем, и глушит промежуточные перемещения. */
+    private beginJump(): IHistoryEntry | null {
+        const origin = this.capture();
+        this.suspended = true;
+        return origin;
+    }
+
+    /** Кладёт в стек ровно две записи прыжка — откуда и куда. */
+    private endJump(origin: IHistoryEntry | null): void {
         // origin форсом: намеренный прыжок не должен съедаться порогом значимости.
         // Если позиция не изменилась, `record` просто освежит текущую запись.
         if (origin !== null) this.record(origin, true);
         const target = this.capture();
         if (target !== null) this.record(target, true);
-        return result;
     }
 
     private navigate(delta: -1 | 1): void {
@@ -236,7 +266,10 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
     /** Текущая позиция как запись стека; `null`, если её нечего записывать. */
     private capture(editor: IHistoryEditor | null = this.source.getActiveEditor()): IHistoryEntry | null {
         if (editor === null) return null;
-        if (!RECORDABLE_SCHEMES.has(editor.uri.scheme)) return null;
+        // Записываем только то, что `openUri` потом сможет открыть снова.
+        // `output:` и снимочные стороны диффа мимо: их содержимое пишет
+        // владелец вкладки, а не адресуемый ресурс.
+        if (!this.source.canRestore(editor.uri)) return null;
         return {
             uri: editor.uri,
             line: editor.primaryCursorLine,

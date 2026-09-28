@@ -10,6 +10,7 @@ import { ThemeConfigContributionDIToken } from "../contrib/themes/browser/themeC
 import { HistoryServiceDIToken } from "../services/history/browser/historyService.ts";
 import { TerminalEnvStatusContributionDIToken } from "../services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
 
+import { OpenFailureNotificationContributionDIToken } from "./openFailureNotificationContribution.ts";
 import { EditorStatusContributionDIToken } from "./parts/editor/editorStatusContribution.ts";
 import { PanelFocusContributionDIToken } from "./parts/panel/panelFocusContribution.ts";
 import { ProgressStatusBarContributionDIToken } from "./parts/statusbar/progressStatusBarContribution.ts";
@@ -34,6 +35,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё команды нет, и это ловит e2e-сценарий extension-storage (клавиша расширения не оживает после Arm)
     { token: SetContextCommandContributionDIToken, phase: "restored" },
     { token: PanelFocusContributionDIToken, phase: "restored" },
+    // Сообщение «ресурс открыть нечем»: подписка должна стоять до первого
+    // открытия, иначе первая же неудача пройдёт молча.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тост не появляется, и это ловит e2e-сценарий virtualDocument
+    { token: OpenFailureNotificationContributionDIToken, phase: "restored" },
     // Спиннеры занятости в заголовках секций: подписка должна стоять до первой
     // операции, иначе её начало пройдёт мимо.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения

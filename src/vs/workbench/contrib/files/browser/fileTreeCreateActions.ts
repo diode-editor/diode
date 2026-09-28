@@ -35,7 +35,7 @@ export const explorerNewFileAction: CommandAction = {
         },
     ],
     run(accessor, ...args) {
-        void accessor.get(FileOperationsServiceDIToken).runCreate("file", args[0] as string | undefined);
+        return accessor.get(FileOperationsServiceDIToken).runCreate("file", args[0] as string | undefined);
     },
 };
 
@@ -56,6 +56,6 @@ export const explorerNewFolderAction: CommandAction = {
         },
     ],
     run(accessor, ...args) {
-        void accessor.get(FileOperationsServiceDIToken).runCreate("folder", args[0] as string | undefined);
+        return accessor.get(FileOperationsServiceDIToken).runCreate("folder", args[0] as string | undefined);
     },
 };

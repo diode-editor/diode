@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import { describeRejection } from "../../../../base/common/describeRejection.ts";
 import type { IExtensionSecretsFactory } from "../../../api/common/extensionSecrets.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
@@ -200,17 +201,6 @@ export function runExtensionHostSubprocess(): void {
 
     // Сигнал готовности parent'у: можно слать activateExtension.
     rpc.notify("host.ready", null);
-}
-
-/**
- * Человекочитаемое описание причины unhandled rejection. `String(err)` на Error
- * даёт только «Error: message» — по такой строке не найти ни виноватое
- * расширение, ни строку кода. Стек называет и то, и другое; у не-Error причин
- * (строка, объект) стека нет — их печатаем как есть.
- */
-function describeRejection(reason: unknown): string {
-    if (reason instanceof Error) return reason.stack ?? `${reason.name}: ${reason.message}`;
-    return String(reason);
 }
 
 async function deactivate(active: ActivatedExtension): Promise<void> {

@@ -87,7 +87,7 @@ export const scmOpenFileAction: CommandAction = {
     ],
     run(accessor, rawUri) {
         const uri = resolveScmUri(accessor, rawUri);
-        if (uri) accessor.get(EditorServiceDIToken).openUri(uri);
+        return uri ? accessor.get(EditorServiceDIToken).openUri(uri) : undefined;
     },
 };
 
@@ -113,8 +113,8 @@ export const scmOpenChangesAction: CommandAction = {
     run(accessor, rawUri) {
         const uri = resolveScmUri(accessor, rawUri);
         if (!uri) return;
-        void openDiffWithHead(accessor, uri).then((result) => {
-            if (result === "no-original") accessor.get(EditorServiceDIToken).openUri(uri);
+        return openDiffWithHead(accessor, uri).then(async (result) => {
+            if (result === "no-original") await accessor.get(EditorServiceDIToken).openUri(uri);
         });
     },
 };

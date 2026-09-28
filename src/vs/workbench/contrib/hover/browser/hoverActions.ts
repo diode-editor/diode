@@ -24,7 +24,7 @@ export const showHoverAction: CommandAction = {
     keybinding: parseChord("ctrl+k ctrl+u"),
     when: "textInputFocus",
     run(accessor) {
-        void accessor.get(HoverServiceDIToken).showHover();
+        return accessor.get(HoverServiceDIToken).showHover();
     },
 };
 

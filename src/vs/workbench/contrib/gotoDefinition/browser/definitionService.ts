@@ -43,32 +43,40 @@ export class DefinitionService {
         });
         const target = locations.at(0);
         if (target === undefined) return;
-        this.revealLocation(target, toSide);
+        await this.revealLocation(target, toSide);
     }
 
     /**
      * Довозит каретку до цели: кросс-файлово — через открытие ресурса группой.
-     * Весь переход обёрнут в {@link IJumpRecorder.jump}: история кладёт точку
-     * вызова и точку определения, а промежуточное «открыли файл в начале» — нет.
+     * Весь переход обёрнут в {@link IJumpRecorder.jumpAsync}: история кладёт
+     * точку вызова и точку определения, а промежуточное «открыли файл в начале» —
+     * нет. Именно `jumpAsync`, а не `jump`: цель может оказаться недисковым
+     * ресурсом (`jdt:` у Java, исходник из JDK), который открывается через
+     * провайдера схемы, и снять точку назначения можно только после этого.
      */
-    private revealLocation(location: ICoreDefinitionLocation, toSide: boolean): void {
-        this.jumps.jump(() => {
-            this.doRevealLocation(location, toSide);
-        });
+    private revealLocation(location: ICoreDefinitionLocation, toSide: boolean): Promise<void> {
+        return this.jumps.jumpAsync(() => this.doRevealLocation(location, toSide));
     }
 
-    private doRevealLocation(location: ICoreDefinitionLocation, toSide: boolean): void {
+    private async doRevealLocation(location: ICoreDefinitionLocation, toSide: boolean): Promise<void> {
+        // Сравнивать с `location.uri` как со строкой нельзя: провайдер присылает
+        // её в своём написании, а `Uri` нормализует процентное кодирование —
+        // у `jdt:`-целей с их огромным query эти две строки НИКОГДА не совпадут.
+        // Поднимаем ресурс один раз и дальше сравниваем нормализованное с
+        // нормализованным.
+        const uri = Uri.parse(location.uri);
+        const key = uri.toString();
         if (toSide) {
             // Соседняя группа (Ctrl+K F12): исходная группа не меняется — цель
             // открывается/активируется в группе справа.
-            this.group.openUri(Uri.parse(location.uri), { group: "beside" });
-        } else if (this.group.getActiveEditor()?.uri.toString() !== location.uri) {
-            this.group.openUri(Uri.parse(location.uri));
+            await this.group.openUri(uri, { group: "beside" });
+        } else if (this.group.getActiveEditor()?.uri.toString() !== key) {
+            await this.group.openUri(uri);
         }
         const editor = this.group.getActiveEditor();
-        /* v8 ignore start -- defensive: openUri always opens/activates an editor for the resource */
-        if (editor?.uri.toString() !== location.uri) return;
-        /* v8 ignore stop */
+        // Ресурс мог не открыться: недисковую цель отдаёт провайдер схемы, а его
+        // может не быть (человек уже увидел сообщение — см. `onOpenFailed`).
+        if (editor?.uri.toString() !== key) return;
         editor.goToPosition(location.range.start.line, location.range.start.character);
         editor.revealRange(location.range);
     }

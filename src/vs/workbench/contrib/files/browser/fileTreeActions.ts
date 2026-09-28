@@ -39,7 +39,7 @@ export const fileRenameAction: CommandAction = {
     menus: [{ menuId: MenuId.ExplorerContext, group: "4_modify", order: 10, args: explorerPathArg }],
     run(accessor, filePath: unknown) {
         const target = (filePath as string | undefined) ?? accessor.get(ExplorerServiceDIToken).getSelectedPaths()[0];
-        if (target) void accessor.get(FileOperationsServiceDIToken).runRename(target);
+        if (target) return accessor.get(FileOperationsServiceDIToken).runRename(target);
     },
 };
 
@@ -63,7 +63,7 @@ export const refreshExplorerAction: CommandAction = {
         },
     ],
     run(accessor) {
-        void accessor.get(ExplorerServiceDIToken).refresh();
+        return accessor.get(ExplorerServiceDIToken).refresh();
     },
 };
 

@@ -56,7 +56,7 @@ export const revealActiveFileInExplorerAction: CommandAction = {
             (args[0] as string | undefined) ?? accessor.get(EditorServiceDIToken).getActiveEditor()?.absoluteFilePath;
         if (!filePath) return;
         accessor.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID);
-        void accessor.get(ExplorerServiceDIToken).revealPath(filePath);
+        return accessor.get(ExplorerServiceDIToken).revealPath(filePath);
     },
 };
 
