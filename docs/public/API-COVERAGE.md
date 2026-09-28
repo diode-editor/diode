@@ -9,7 +9,9 @@
 Версия API: **1.127.0** (пин `extensions/VSCODE_VERSION`; матрица сверена с этим пином).
 Матрица ведётся руками, но каждый статус сверяем с исходниками: активная поверхность API — это
 дословно раскомментированные строки запиннённого `src/vscode-dts/vscode.d.ts`; матрица обновляется
-в том же PR, который меняет поверхность.
+в том же PR, который меняет поверхность. Отдельная таблица —
+[события активации](#события-активации-activationevents): в `vscode.d.ts` их нет (они живут в
+`package.json`), но именно они решают, запустится ли расширение.
 
 ## Легенда
 
@@ -43,6 +45,7 @@
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
 | [типы и классы](#типы-с-неполной-поверхностью) | — | 115/424 |
+| [события активации](#события-активации-activationevents) | 🟡 | 5/32 |
 
 ## vscode.languages
 
@@ -168,6 +171,34 @@ output-каналы, декорации, пункты статус-бара и �
 | `remoteName`, `shell`, `onDidChangeShell`, `uiKind` | 🕐 | |
 | `asExternalUri` | 🕐 | нужен вместе с `registerUriHandler` |
 | `logLevel`, `onDidChangeLogLevel` | 🕐 | |
+
+## События активации (`activationEvents`)
+
+Это часть контракта расширения, которой нет в `vscode.d.ts`: она объявляется в `package.json`, но
+решает, запустится ли расширение вообще. Расширение, чьи события не поддержаны, устанавливается,
+показывается в каталоге — и молчит навсегда.
+
+Активно **5 из 32** видов событий upstream 1.127.0 (`*` плюс 31 именованный вид из схемы
+`activationEvents`). Строки ниже перечисляют все; неподдержанные сгруппированы по поверхности,
+которой они ждут.
+
+| событие | статус | комментарий |
+| --- | :-: | --- |
+| `*` | ✅ | eager; в него же нормализуется пустой/отсутствующий список |
+| `onStartupFinished` | ✅ | фаерится после открытия файлов из аргументов запуска |
+| `onLanguage:<id>` | ✅ | стартовое — по языку активного редактора, дальше на каждой смене вкладки |
+| `onCommand:<id>` | ✅ | плюс **неявные** события из `contributes.commands` (как `ImplicitActivationEvents` эталона): команда видна в палитре до активации, её исполнение ждёт `activate()` |
+| `workspaceContains:<паттерн>` | 🟡 | обе семантики префикса есть (проверка существования пути и поиск по дереву); глобы матчатся нашим `glob.ts` — **якорно по относительному пути**, тогда как за эталонным `workspaceContains:` стоит поиск на ripgrep, где паттерн без `/` ищется на любой глубине (`workspaceContains:*.py` у нас — только корень). Рекурсивные паттерны (`**/pyproject.toml`) совпадают |
+| `onUri`, `onOpenExternalUri` | 🕐 | нужны вместе с `registerUriHandler` / `env.asExternalUri` |
+| `onView:<id>`, `onWalkthrough:<id>` | 🕐 | ждут своих поверхностей (`contributes.views`, walkthrough) |
+| `onWebviewPanel:<id>`, `onCustomEditor:<id>`, `onRenderer:<id>` | ⛔ | поверхности webview-природы — см. [потолок](#не-будет-by-design) |
+| `onDebug`, `onDebugInitialConfigurations`, `onDebugDynamicConfigurations`, `onDebugResolve:<type>`, `onDebugAdapterProtocolTracker:<type>` | 🕐 | вместе с `vscode.debug` |
+| `onTaskType:<type>` | 🕐 | вместе с `vscode.tasks` |
+| `onNotebook:<type>` | 🕐 | вместе с `vscode.notebooks` |
+| `onAuthenticationRequest:<id>` | 🕐 | вместе с `vscode.authentication` |
+| `onChatParticipant:<id>`, `onChatContextProvider:<id>`, `onLanguageModelChatProvider:<id>`, `onLanguageModelTool:<id>` | 🕐 | вместе с `vscode.chat` / `vscode.lm` |
+| `onTerminal`, `onTerminalProfile:<id>`, `onTerminalQuickFixRequest:<id>`, `onTerminalShellIntegration` | 🕐 | вместе с соответствующими вкладами терминала |
+| `onFileSystem:<scheme>`, `onSearch:<scheme>`, `onEditSession:<scheme>`, `onIssueReporterOpened` | 🕐 | |
 
 ## Пока не поднятые namespace
 

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import { Uri } from "../vs/base/common/uri.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
@@ -34,10 +35,12 @@ import {
     type IProgressSink,
     type IQuickInputSink,
     type IStatusBarItemSink,
+    type IWorkspaceFolderInfo,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionSecretStore } from "../vs/workbench/services/extensions/node/extensionSecretsStore.ts";
 import type { IExtensionStorageHomes } from "../vs/workbench/services/extensions/node/extensionStoragePaths.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
+import type { IWorkspaceScanner } from "../vs/workbench/services/extensions/node/workspaceContainsActivation.ts";
 
 import { createTestContextMenuService } from "./testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
@@ -118,9 +121,12 @@ export interface IExtensionHarnessOptions {
      */
     readonly configurationService?: IConfigurationService;
     /**
-     * Пути папок воркспейса (`workspace.workspaceFolders`). По умолчанию — tmpDir.
+     * Папки воркспейса (`workspace.workspaceFolders`). Строка — ПУТЬ на ФС
+     * (тесту удобнее оперировать `tmpDir`, uri харнесс поднимет сам); объект —
+     * готовый дескриптор, когда тесту нужна не-`file:` схема. По умолчанию —
+     * tmpDir.
      */
-    readonly workspaceFolders?: readonly string[];
+    readonly workspaceFolders?: readonly (string | IWorkspaceFolderInfo)[];
     /**
      * Сервис определения языка (для `document.languageId`). По умолчанию —
      * {@link NULL_LANGUAGE_SERVICE} (всё — `plaintext`).
@@ -162,6 +168,12 @@ export interface IExtensionHarnessOptions {
      * записанное на диске.
      */
     readonly secrets?: IExtensionSecretStore;
+    /**
+     * Доступ к дереву воркспейса для `workspaceContains:`-активации. По
+     * умолчанию — настоящая ФС (то есть `tmpDir` харнесса, куда пишет
+     * `writeFile`); тесты обхода передают карту каталогов в памяти.
+     */
+    readonly workspaceScanner?: IWorkspaceScanner;
 }
 
 export interface IExtensionHarness {
@@ -216,11 +228,13 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const adapter = new EditorOptionsServiceAdapter(group);
     const commandRegistry = new CommandRegistry();
     const commandAdapter = new CommandServiceAdapter(commandRegistry);
-    const folders = (options.workspaceFolders ?? [tmpDir]).map((p, index) => ({
-        uri: p,
-        name: path.basename(p),
-        index,
-    }));
+    // `IWorkspaceFolderInfo.uri` — настоящий uri, как в extensionHostModule:
+    // хост читает из него путь папки (`workspaceContains:`), а субпроцесс —
+    // `WorkspaceFolder.uri`. Опция харнесса при этом принимает ПУТЬ, потому что
+    // тесту удобнее оперировать `tmpDir`.
+    const folders = (options.workspaceFolders ?? [tmpDir]).map((folder, index) =>
+        typeof folder === "string" ? { uri: Uri.file(folder).toString(), name: path.basename(folder), index } : folder,
+    );
     const configuration: IExtensionHostConfigProvider = {
         getSnapshot: () => options.configuration,
         getWorkspaceFolders: () => folders,
@@ -256,6 +270,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         themeColorResolver: options.themeColorResolver ?? new ThemeColorResolverAdapter(themeService),
         ...(options.fileWatcher !== undefined ? { fileWatcher: options.fileWatcher } : {}),
         ...(options.secrets !== undefined ? { secrets: options.secrets } : {}),
+        ...(options.workspaceScanner !== undefined ? { workspaceScanner: options.workspaceScanner } : {}),
     });
 
     // Save-pipeline (WP6): проброс will-save/did-save между группой и хостом.

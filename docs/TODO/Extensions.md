@@ -44,7 +44,13 @@
 
 ## Phase 7 — Активация и lifecycle
 
-- [~] `activationEvents`: `*`, `onStartupFinished`, `onLanguage:*` и lazy activation сделаны. Остаётся `onCommand:*` (нужен await активации во время dispatch команды).
+- [x] `activationEvents`: `*`, `onStartupFinished`, `onLanguage:*`, `onCommand:*`, `workspaceContains:*` и lazy activation сделаны.
+      `onCommand:*` — заглушка-активатор в `CommandRegistry` (команда видна в палитре до активации, её исполнение
+      ждёт `activate()`), плюс НЕЯВНЫЕ события из `contributes.commands`, как в эталоне.
+      `workspaceContains:*` — две семантики одного префикса (проверка существования пути против поиска по дереву),
+      повод считается по расширению и пересчитывается на открытии папки. Расхождение по глобам и детали —
+      [arch/Extensions.md](../arch/Extensions.md#активация-activationevents).
+      Остальные виды (`onUri`, `onDebug`, `onFileSystem`, `onView`, …) — по мере появления самих поверхностей.
 - [ ] `IDisposable`-цепочка: при unload корректно убираются все contributions (TokenizationRegistry, CommandRegistry, …).
 - [~] Reload расширения (dispose → re-register). Грубый ответ есть — **перезагрузка окна** (`workbench.action.reloadWindow`, `base/node/restartProcess.ts`): процесс поднимается заново с теми же аргументами, сессия восстанавливается, вклады сканируются на старте. Именно её просит магазин после установки. Горячий reload одного расширения без перезапуска — по-прежнему впереди и требует dispose-цепочки выше.
 
@@ -52,7 +58,7 @@
 
 Ядро (RPC поверх IPC, self-spawn, vscode-стаб, completion WP8, стоковый editorconfig) — сделано, см. [docs/arch/Extensions.md](../arch/Extensions.md). Остаётся:
 
-- [~] `activationEvents` triggers — вызов `activate(context)` в нужный момент. Сделаны `*`/`onStartupFinished`/`onLanguage:*` (см. Phase 7); остаётся `onCommand:*`.
+- [x] `activationEvents` triggers — вызов `activate(context)` в нужный момент: `*`/`onStartupFinished`/`onLanguage:*`/`onCommand:*`/`workspaceContains:*` (см. Phase 7).
 - [~] Расширение всего vscode-API: `commands`, `workspace`, `languages`, `window` за пределами `activeTextEditor.options`. Сделано: active-editor API (`window.activeTextEditor` / `onDidChangeActiveTextEditor` / `visibleTextEditors`); `languages.registerFoldingRangeProvider` (#194); **editor-write API** (`TextEditor.edit`/`selection(s)`, value-тип `Selection`, #194); **событие выделения** (`window.onDidChangeTextEditorSelection` с `kind` от жеста) и **активная тема** (`window.activeColorTheme` + `onDidChangeActiveColorTheme`). Осталось: `revealRange`, snippets, ESM.
 - [~] Изоляция исключений: упавшее расширение не валит host (RPC + try/catch; с #194 ещё и `unhandledRejection`-гард в субпроцессе — fire-and-forget вызов несуществующей команды больше не убивает host). Остаётся diagnostics.
 - [ ] **Свежесть текста документа в субпроцессе.** `editor.activeEditorChanged` / `editor.selectionChanged` несут только метаданные; полный текст (`upsertFull`) заезжает попутно — на запросах `languages.provideFoldingRanges` / `provideCompletionItems` и в снапшоте will-save. Без зарегистрированных провайдеров `document.getText()` в расширении отстаёт от буфера. Нужен настоящий `workspace.onDidChangeTextDocument` с инкрементальной синхронизацией.

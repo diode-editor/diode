@@ -1,0 +1,6 @@
+# Повод активации: `workspaceContains:**/pyproject.toml` у стокового
+# charliermarsh.ruff. Лежит на первом уровне вложенности НАМЕРЕННО — паттерн
+# рекурсивный, и корневой проверкой существования его не закрыть.
+[project]
+name = "activation-demo"
+version = "0.0.1"
