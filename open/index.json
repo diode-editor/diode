@@ -1,0 +1,16 @@
+[
+  {
+    "file": "2026-09-28-b7eddee33580.json",
+    "generatedAt": "2026-09-28T08:20:54.019Z",
+    "commit": "b7eddee33580",
+    "binaryVersion": "nightly-b7eddee",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
+  }
+]
