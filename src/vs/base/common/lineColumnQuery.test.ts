@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseGotoLineQuery, splitFileQuery } from "./quickOpenParsing.ts";
+import { parseGotoLineQuery, splitFileQuery } from "./lineColumnQuery.ts";
 
 describe("splitFileQuery", () => {
     it("returns the whole query when there is no suffix", () => {

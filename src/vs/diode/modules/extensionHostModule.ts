@@ -37,6 +37,7 @@ import {
     ExtensionHost,
     ExtensionHostDIToken,
     type IExtensionHostConfigProvider,
+    type IWorkspaceFolderInfo,
 } from "../../workbench/services/extensions/node/extensionHost.ts";
 import { createFileExtensionSecretStore } from "../../workbench/services/extensions/node/extensionSecretsStore.ts";
 import {
@@ -63,6 +64,32 @@ function toMarkerSeverity(severity: number): MarkerSeverity {
         default:
             return MarkerSeverity.Error;
     }
+}
+
+/** Источник корня воркспейса — ровно та часть `ExplorerService`, что тут нужна. */
+interface IWorkspaceRootSource {
+    getRootPath(): string | null;
+}
+
+/**
+ * Поставщик папок воркспейса для extension host'а. Фабрика, а не готовое
+ * значение, по двум причинам, и обе — контракт наружу, а не деталь проводки:
+ *
+ * 1. Корень читается **лениво**, на каждый вызов: `getWorkspaceFolders` зовут
+ *    при инициализации subprocess'а, а до неё успевает пройти
+ *    `WorkbenchComponent.setWorkspaceFolder` (и Open Folder в рантайме тоже).
+ *    Снимок, взятый в момент биндинга, залипал бы на состоянии «папки нет».
+ * 2. Папка не открыта (пустое окно) — **пустой** список, а не `process.cwd()`.
+ *    Подсунутый cwd отправил бы git и прочих шерстить случайный каталог, из
+ *    которого человек запустил редактор; пустой массив `workspaceNamespace`
+ *    отдаёт расширениям как `undefined` — ровно контракт VS Code для empty window.
+ */
+export function workspaceFoldersProvider(explorer: IWorkspaceRootSource): () => readonly IWorkspaceFolderInfo[] {
+    return () => {
+        const root = explorer.getRootPath();
+        if (root === null) return [];
+        return [{ uri: Uri.file(root).toString(), name: path.basename(root), index: 0 }];
+    };
 }
 
 /** Контекст модуля: корни хранения расширений из user-data (см. `main.ts`). */
@@ -102,20 +129,14 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             lg.isEnabled(LogLevel.Info) ? lg : undefined;
 
         // Провайдер конфигурации: снапшот настроек + единственная папка воркспейса
-        // (пока нет multi-root). Папку читаем ЛЕНИВО из ExplorerService (источник
-        // правды, выставляется `WorkbenchComponent.setWorkspaceFolder`): getWorkspaceFolders
-        // зовётся при инициализации subprocess'а — уже ПОСЛЕ setWorkspaceFolder, так
-        // что расширения (напр. git) видят реально открытую папку, а не process.cwd().
-        // Fallback на cwd, когда папка не открыта. Слой Configuration не тянется в
-        // рантайм host'а — доступ идёт через этот тонкий адаптер.
+        // (пока нет multi-root) — см. {@link workspaceFoldersProvider}: он же держит
+        // ленивое чтение корня и пустой список для окна без папки. Слой Configuration
+        // не тянется в рантайм host'а — доступ идёт через этот тонкий адаптер.
         const configService = container.get(IConfigurationServiceDIToken);
         const explorer = container.get(ExplorerServiceDIToken);
         const configuration: IExtensionHostConfigProvider = {
             getSnapshot: () => configService.getValue(),
-            getWorkspaceFolders: () => {
-                const root = explorer.getRootPath() ?? process.cwd();
-                return [{ uri: Uri.file(root).toString(), name: path.basename(root), index: 0 }];
-            },
+            getWorkspaceFolders: workspaceFoldersProvider(explorer),
             onDidChange: (cb) =>
                 configService.onDidChangeConfiguration((event) => {
                     cb(event.affectedKeys);

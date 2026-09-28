@@ -15,6 +15,7 @@ import { joinVirtualPath } from "../base/common/assets/assetBundleFormat.ts";
 import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess.ts";
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
 import { mark } from "../base/common/performance.ts";
+import { Uri } from "../base/common/uri.ts";
 import { DIODE_VERSION } from "../base/common/version.ts";
 import { createDefaultAssetAccess } from "../base/node/assets/createDefaultAssetAccess.ts";
 import { FsAssetAccess } from "../base/node/assets/fsAssetAccess.ts";
@@ -24,10 +25,14 @@ import { currentProcessSnapshot, realRestartHooks, restartProcess } from "../bas
 import type { ILanguageService } from "../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../editor/common/languages/tokenizationRegistry.ts";
 import { OscClipboard } from "../platform/clipboard/common/oscClipboard.ts";
+import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../platform/configuration/common/configurationRegistry.ts";
 import { loadConfiguration } from "../platform/configuration/node/configurationService.ts";
 import type { ICliArgs } from "../platform/environment/node/cliArgs.ts";
 import { CliArgsError, parseCliArgs, USAGE } from "../platform/environment/node/cliArgs.ts";
+import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
+import { resolveStartupTargets } from "../platform/environment/node/startupTargets.ts";
+import type { IUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import { createRegistrySource } from "../platform/extensionManagement/node/createRegistrySource.ts";
 import {
@@ -141,14 +146,19 @@ async function runEditor(): Promise<void> {
         return;
     }
 
-    const filePaths = cli.positional;
-    if (filePaths.length === 0) {
-        console.error("Usage: diode <file> [file2] [file3] ...");
-        console.error(USAGE);
-        process.exit(1);
+    // Что открываем: папка/файлы/дифф. Пустой набор — законный вход: поднимается
+    // пустое окно (см. docs/TODO/Startup.md), cwd при этом НЕ трогается.
+    let targets: IStartupTargets;
+    try {
+        targets = resolveStartupTargets(cli, isExistingDirectory);
+    } catch (err) {
+        if (err instanceof CliArgsError) {
+            console.error(err.message);
+            console.error(USAGE);
+            process.exit(2);
+        }
+        throw err;
     }
-
-    const resolvedPaths = filePaths.map((f) => path.resolve(f));
 
     // ── Logging ──────────────────────────────────────────────
     // Всегда поднимаем RingBufferSink (источник данных для будущей
@@ -157,6 +167,9 @@ async function runEditor(): Promise<void> {
     // debug-tool; в упакованных сборках файл вообще не создаётся — гейт идёт по
     // isPackagedRuntime(), а не isSeaBinary(): self-extract тоже прод, но не SEA.
     const logService = new LogService();
+    // Уровни из `--log`/`--verbose` — до первой записи, в порядке появления в
+    // командной строке: последнее правило на тот же канал побеждает.
+    for (const rule of cli.logLevels) logService.setLevel(rule.channel, rule.level);
     // Буфер держим в переменной: он же — источник содержимого Output-панели,
     // и подключён до подъёма UI, иначе ранние каналы были бы потеряны.
     const logHistory = new RingBufferSink();
@@ -167,15 +180,15 @@ async function runEditor(): Promise<void> {
     const bootstrapLogger = logService.createLogger("bootstrap");
     const extensionsLogger = logService.createLogger("extensions");
     const configurationLogger = logService.createLogger("configuration");
-    bootstrapLogger.info("diode starting", { cwd: process.cwd(), files: filePaths.length });
+    bootstrapLogger.info("diode starting", {
+        cwd: process.cwd(),
+        folder: targets.folder,
+        files: targets.files.length,
+    });
 
     // ── User data: пути, настройки ─────────────────────────────
 
-    const userDataPaths = resolveUserDataPaths({
-        userDataDir: cli.userDataDir,
-        profile: cli.profile,
-        homedir: os.homedir(),
-    });
+    const userDataPaths = resolvePathsFor(cli);
     // Live-reload настроек: следим за settings.json, чтобы правки применялись без
     // рестарта. Отдельный экземпляр watcher'а (редакторные контроллеры получают свой
     // через FileWatcherModule — следят за другими файлами). Живёт всё время работы
@@ -239,9 +252,14 @@ async function runEditor(): Promise<void> {
     });
 
     const builtinExtensions = await scanExtensions(assets, BUILTIN_PREFIX, { isBuiltin: true }, extensionsLogger);
-    const userExtensions = fs.existsSync(userDataPaths.extensionsDir)
-        ? await scanExtensions(assets, USER_PREFIX, { isBuiltin: false }, extensionsLogger)
-        : [];
+    // `--disable-extensions` гасит ТОЛЬКО пользовательские — встроенные остаются
+    // (дословно как в VS Code), иначе вместе с расширениями уехали бы грамматики
+    // и конфигурации языков, и флаг стал бы бесполезен для отладки.
+    const userExtensions =
+        !cli.disableExtensions && fs.existsSync(userDataPaths.extensionsDir)
+            ? await scanExtensions(assets, USER_PREFIX, { isBuiltin: false }, extensionsLogger)
+            : [];
+    if (cli.disableExtensions) extensionsLogger.info("user extensions disabled by --disable-extensions");
     const allExtensions = mergeExtensions(builtinExtensions, userExtensions, extensionsLogger);
     mark("main:extensions-scanned", { builtin: builtinExtensions.length, user: userExtensions.length });
 
@@ -389,10 +407,11 @@ async function runEditor(): Promise<void> {
     // переопределить встроенный аккорд. Декларативно, без extension host'а.
     registerExtensionKeybindings(allExtensions, container.get(KeybindingRegistryDIToken), extensionsLogger);
 
-    // If the first argument is a directory, use it as the workspace folder
-    const firstResolved = resolvedPaths[0];
-    if (fs.statSync(firstResolved, { throwIfNoEntry: false })?.isDirectory()) {
-        workbench.setWorkspaceFolder(firstResolved);
+    // Папка воркспейса — только если её назвали явно. Без неё окно поднимается
+    // пустым: ни Explorer-корня, ни индекса файлов, ни workspaceFolders у
+    // расширений (и, значит, никакого обхода текущего каталога).
+    if (targets.folder !== undefined) {
+        workbench.setWorkspaceFolder(targets.folder);
     }
 
     app.root = workbench.view;
@@ -460,9 +479,21 @@ async function runEditor(): Promise<void> {
 
     await workbench.activate();
     mark("workbench:activated");
-    const explicitFiles = resolvedPaths.filter((p) => !fs.statSync(p, { throwIfNoEntry: false })?.isDirectory());
-    // Явные файлы в CLI перебивают сохранённую сессию (как `code file.ts`).
-    const startupFiles = explicitFiles.length > 0 ? explicitFiles : workbench.getOpenEditorsToRestore();
+    const explicitFiles = targets.files;
+    const diffSides = targets.diff === undefined ? [] : [targets.diff.original, targets.diff.modified];
+    // Что откроется на старте — для прогрева грамматик. Явные файлы (и стороны
+    // диффа) перебивают сохранённую сессию (как `code file.ts`); без них сессию
+    // восстанавливаем, но только когда есть воркспейс: у пустого окна сессии нет.
+    let startupFiles: readonly string[];
+    if (diffSides.length > 0) {
+        startupFiles = diffSides;
+    } else if (explicitFiles.length > 0) {
+        startupFiles = explicitFiles.map((f) => f.path);
+    } else if (targets.folder !== undefined) {
+        startupFiles = workbench.getOpenEditorsToRestore();
+    } else {
+        startupFiles = [];
+    }
     // Грамматики стартовых файлов ждём ДО открытия — иначе первый кадр вкладки
     // покажет неподсвеченный текст, а цвета доедут репейнтом. Ждём именно те
     // языки, что открываются (обычно один, ~2 мс), а не все 77 грамматик (~420 мс);
@@ -470,9 +501,24 @@ async function runEditor(): Promise<void> {
     // await отдаёт event loop, и отложенный рендер успевает нарисовать кадр.
     await preloadGrammarsForFiles(startupFiles, languageRegistry, tokenizationRegistry);
     mark("main:grammars-preloaded");
-    if (explicitFiles.length > 0) {
-        for (const p of explicitFiles) workbench.openFile(p);
-    } else {
+    if (targets.diff !== undefined) {
+        // Тот же вход, что у расширений (`vscode.diff`): сторон-снимков тут нет,
+        // отсутствующий файл легитимно даёт пустую сторону.
+        await container
+            .get(CommandRegistryDIToken)
+            .execute("vscode.diff", Uri.file(targets.diff.original), Uri.file(targets.diff.modified));
+    } else if (explicitFiles.length > 0) {
+        for (const file of explicitFiles) workbench.openFile(file.path);
+        // `--goto`: каретка в указанную позицию последнего открытого файла —
+        // он же активный. Координаты CLI 1-based, редактора — 0-based.
+        const last = explicitFiles.at(-1);
+        if (last?.line !== undefined) {
+            container
+                .get(EditorServiceDIToken)
+                .getActiveEditor()
+                ?.goToPosition(last.line - 1, (last.column ?? 1) - 1);
+        }
+    } else if (targets.folder !== undefined) {
         // Иначе восстанавливаем открытые файлы прошлой сессии этого воркспейса.
         workbench.restoreOpenEditors();
     }
@@ -595,11 +641,7 @@ async function runEditor(): Promise<void> {
  * и таймер `AbortSignal.timeout` цикл событий не держат.
  */
 async function runExtensionManagement(cli: ICliArgs): Promise<void> {
-    const { extensionsDir } = resolveUserDataPaths({
-        userDataDir: cli.userDataDir,
-        profile: cli.profile,
-        homedir: os.homedir(),
-    });
+    const { extensionsDir } = resolvePathsFor(cli);
 
     try {
         if (cli.installExtension !== undefined) {
@@ -667,6 +709,26 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
  * фоновый прогрев, а критический путь. `load()` не реджектится — сбойная
  * грамматика просто оставит язык на fallback'е, стартовать это не помешает.
  */
+/**
+ * Единый резолв путей user data по аргументам: и CLI-ветка управления
+ * расширениями, и редактор обязаны смотреть в один каталог расширений, иначе
+ * `--install-extension --extensions-dir X` ставил бы туда, куда редактор не
+ * смотрит.
+ */
+function resolvePathsFor(cli: ICliArgs): IUserDataPaths {
+    return resolveUserDataPaths({
+        userDataDir: cli.userDataDir,
+        profile: cli.profile,
+        homedir: os.homedir(),
+        ...(cli.extensionsDir !== undefined ? { extensionsDir: cli.extensionsDir } : {}),
+    });
+}
+
+/** Порт к FS для {@link resolveStartupTargets}: путь существует и это папка. */
+function isExistingDirectory(absolutePath: string): boolean {
+    return fs.statSync(absolutePath, { throwIfNoEntry: false })?.isDirectory() === true;
+}
+
 async function preloadGrammarsForFiles(
     files: readonly string[],
     languageService: ILanguageService,

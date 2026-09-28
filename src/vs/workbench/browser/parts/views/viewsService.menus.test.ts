@@ -169,6 +169,25 @@ describe("ViewsService — inline-кнопки заголовка", () => {
         expect(run).toHaveBeenCalledOnce();
     });
 
+    // `registerView` заводит запись «в счёт будущего контейнера», поэтому в
+    // реестре легально живут контейнеры без собранного контрола: вьюлет, чей
+    // attachContainer ещё не случился, или панель, до которой не дошли. Обход
+    // по контекст-ключам обязан их пропускать, а не падать на attached().
+    it("refreshTitleActions пропускает зарегистрированный, но не собранный контейнер", () => {
+        const h = makeViewsHarness(CONTRIBUTIONS);
+        h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
+        h.service.registerView(testView(CHANGES, "scm", 10));
+        // attachContainer НЕ зовём — paneView остаётся null.
+
+        expect(() => {
+            h.service.refreshTitleActions();
+        }).not.toThrow();
+
+        // И контейнер не «протух»: собранный позже, он получает свои кнопки.
+        h.service.attachContainer("scm");
+        expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
+    });
+
     it("команда контейнера исполняется из его заголовка", () => {
         const h = makeViewsHarness([
             {

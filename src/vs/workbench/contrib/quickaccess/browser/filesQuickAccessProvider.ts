@@ -1,5 +1,7 @@
 import * as nodePath from "node:path";
 
+import type { ParsedGoto } from "../../../../base/common/lineColumnQuery.ts";
+import { splitFileQuery } from "../../../../base/common/lineColumnQuery.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -12,8 +14,6 @@ import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAcce
 import type { IGotoLineEditorSource } from "./gotoLineQuickAccessProvider.ts";
 import { GotoLineEditorSourceDIToken, navigateActiveEditor } from "./gotoLineQuickAccessProvider.ts";
 import { splitPathMatchRanges } from "./pathMatchRanges.ts";
-import type { ParsedGoto } from "./quickOpenParsing.ts";
-import { splitFileQuery } from "./quickOpenParsing.ts";
 
 export const FilesQuickAccessProviderDIToken = token<FilesQuickAccessProvider>("FilesQuickAccessProvider");
 

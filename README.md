@@ -14,8 +14,13 @@ binary from the latest release, verifies its checksum and puts `diode` on your P
 manager involved. Then:
 
 ```sh
-diode .
+diode .            # open a folder
+diode src/app.ts   # open a file
+diode              # empty window — pick a folder from inside
 ```
+
+`diode -g file.ts:42:7` opens a file with the caret already there, and
+`diode -d old.ts new.ts` opens a diff. `diode --help` lists the rest.
 
 ## Other ways to install
 

@@ -7,7 +7,7 @@ import * as path from "node:path";
  * Раскладка (см. docs/arch/Configuration.md, docs/arch/State.md):
  *
  *     <root>/
- *       extensions/                      ← внешние расширения, плоско
+ *       extensions/                      ← внешние расширения, плоско (переносится `--extensions-dir`)
  *       user-data/
  *         logs/                          ← логи; `<extId>` внутри = ExtensionContext.logUri
  *         User/                          ← default-профиль
@@ -35,7 +35,7 @@ import * as path from "node:path";
 export interface IUserDataPaths {
     /** Корень — `<userDataDir>` (то, что было передано через `--user-data-dir` или дефолт `~/.diode`). */
     readonly root: string;
-    /** Каталог внешних расширений: `<root>/extensions`. */
+    /** Каталог внешних расширений: `<root>/extensions` либо override `--extensions-dir`. */
     readonly extensionsDir: string;
     /** `<root>/user-data`. */
     readonly userDataDir: string;
@@ -98,6 +98,12 @@ export interface IResolveUserDataPathsOptions {
     readonly userDataDir?: string;
     /** Имя профиля. По умолчанию `"default"`. */
     readonly profile?: string;
+    /**
+     * Каталог внешних расширений (`--extensions-dir`). Замещает дефолт
+     * `<root>/extensions`, не трогая остальную раскладку: расширения можно
+     * держать отдельно от настроек и состояния, как в VS Code.
+     */
+    readonly extensionsDir?: string;
     /** Хоум-каталог пользователя. Передаётся явно ради тестируемости. */
     readonly homedir: string;
 }
@@ -113,7 +119,10 @@ export function resolveUserDataPaths(options: IResolveUserDataPathsOptions): IUs
             ? path.resolve(options.userDataDir)
             : path.resolve(options.homedir, DEFAULT_USER_DATA_ROOT_NAME);
 
-    const extensionsDir = path.join(root, "extensions");
+    const extensionsDir =
+        options.extensionsDir !== undefined && options.extensionsDir.length > 0
+            ? path.resolve(options.extensionsDir)
+            : path.join(root, "extensions");
     const userDataDir = path.join(root, "user-data");
     const userDir = path.join(userDataDir, "User");
     const isDefaultProfile = profileName === DEFAULT_PROFILE_NAME;

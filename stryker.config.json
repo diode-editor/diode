@@ -7,7 +7,7 @@
   },
   "coverageAnalysis": "perTest",
   "concurrency": "50%",
-  "reporters": ["html", "clear-text", "progress"],
+  "reporters": ["html", "json", "clear-text", "progress"],
   "thresholds": {
     "high": 100,
     "low": 100,

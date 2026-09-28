@@ -1,9 +1,8 @@
+import { parseGotoLineQuery } from "../../../../base/common/lineColumnQuery.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
-
-import { parseGotoLineQuery } from "./quickOpenParsing.ts";
 
 /**
  * The active editor as seen by Go-to-Line. Structurally satisfied by

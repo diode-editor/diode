@@ -12,9 +12,10 @@ export interface ParsedGoto {
 const GOTO_SUFFIX = /:(\d*)(?:[:,](\d*))?$/;
 
 /**
- * Splits a Quick Open file query into the fuzzy file part and an optional
+ * Splits a `file[:line[:column]]` string into the file part and an optional
  * line/column suffix, mirroring VS Code (`file.ts:10`, `file.ts:10:5`,
- * `file.ts:10,5`).
+ * `file.ts:10,5`). Two callers share it: Quick Open (fuzzy file part) and the
+ * CLI (`--goto`), so the suffix grammar cannot drift between them.
  *
  * The suffix is always stripped from the returned `filePart` — even a bare
  * trailing colon with no number yet (`file.ts:`) — so a `:` never leaks into

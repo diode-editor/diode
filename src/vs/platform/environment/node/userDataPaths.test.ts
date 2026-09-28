@@ -36,6 +36,28 @@ describe("resolveUserDataPaths", () => {
         expect(paths.settingsFile).toBe("/tmp/diode/user-data/User/settings.json");
     });
 
+    it("honors --extensions-dir override without moving the rest of the layout", () => {
+        const paths = resolveUserDataPaths({ homedir: home, extensionsDir: "/opt/diode-ext" });
+        expect(paths.extensionsDir).toBe("/opt/diode-ext");
+        expect(paths.root).toBe("/home/alice/.diode");
+        expect(paths.settingsFile).toBe("/home/alice/.diode/user-data/User/settings.json");
+    });
+
+    it("resolves relative --extensions-dir to absolute, and ignores an empty one", () => {
+        const relative = resolveUserDataPaths({ homedir: home, extensionsDir: "./ext" });
+        expect(relative.extensionsDir.startsWith("/")).toBe(true);
+        expect(relative.extensionsDir.endsWith("/ext")).toBe(true);
+        expect(resolveUserDataPaths({ homedir: home, extensionsDir: "" }).extensionsDir).toBe(
+            "/home/alice/.diode/extensions",
+        );
+    });
+
+    it("combines --extensions-dir with --user-data-dir", () => {
+        const paths = resolveUserDataPaths({ homedir: home, userDataDir: "/tmp/diode", extensionsDir: "/opt/ext" });
+        expect(paths.extensionsDir).toBe("/opt/ext");
+        expect(paths.root).toBe("/tmp/diode");
+    });
+
     it("resolves relative --user-data-dir to absolute", () => {
         const paths = resolveUserDataPaths({ homedir: home, userDataDir: "./local-diode" });
         expect(paths.root.startsWith("/")).toBe(true);

@@ -844,8 +844,8 @@ hide-toggle (`isHiddenByDefault`). См.
     (финал этапа 12; бывший `AppController`): владеет корневой view
     (`BodyElement`, `view.id = "workbench"`, + `WorkbenchLayoutElement` с сэшами),
     вставляет в неё view компонентов (`EditorGroupComponent` в центр,
-    `PanelComponent` вниз, `ExplorerComponent` в сайдбар при
-    `setWorkspaceFolder`, `StatusBarComponent`, `MenuBarComponent` — ПОСЛЕ
+    `PanelComponent` вниз, контейнеры сайдбара — в `mount()` через
+    `registerViewContainers()`, `StatusBarComponent`, `MenuBarComponent` — ПОСЛЕ
     применения user keybindings), прикрепляет late-init швы
     (`DialogService`/`ExplorerComponent`/`QuickInputComponent`/`SuggestComponent`
     `attachHost(BodyElement)`, `FindComponent.attachHost(OverlayHostElement)`,
@@ -862,11 +862,25 @@ hide-toggle (`isHiddenByDefault`). См.
     не выходом, а перезапуском процесса (шов `WindowReloadHandlerDIToken`). Наследник
     `ThemedComponent`: `updateStyles()` красит корень (fg/bg body) и hover-цвет
     сэшей. Единственный компонент с lifecycle за пределами конструктора — bootstrap
-    ведёт `main.ts`: `setWorkspaceFolder` → `mount()` (contribution'ы фазы
-    `restored` + листенеры + restore layout до первого кадра) → `run()` →
-    `activate()` (контекст-ключи, probe терминала, активация редакторов/
+    ведёт `main.ts`: `setWorkspaceFolder` (**только если папку назвали** — без неё
+    поднимается пустое окно) → `mount()` (`registerViewContainers()` +
+    contribution'ы фазы `restored` + листенеры + restore layout до первого кадра) →
+    `run()` → `activate()` (контекст-ключи, probe терминала, активация редакторов/
     Explorer'а) → `openFile`/`restoreOpenEditors` → `focusEditor` →
     `runEventuallyPhase()`.
+
+    **Сайдбар не зависит от воркспейса.** `registerViewContainers()` (из `mount()`)
+    собирает ВСЕ контейнеры сайдбара — Explorer, Search, Source Control,
+    Extensions, References — и показывает Explorer. `setWorkspaceFolder` отвечает
+    ровно за то, что зависит от папки: корень Explorer'а, cwd терминалов,
+    per-project стор состояния, restore-вызовы view и индекс файлов. Поэтому окно
+    без папки не слепое: Explorer рисует свой плейсхолдер «No folder opened.»
+    (`IViewDescriptor.placeholder`, аналог `viewsWelcome`), а `Open Folder`
+    доступен и работает. Смена корня на живом приложении (после `mount()`) сама
+    зовёт `explorerService.refresh()`: `setRootPath` лишь пересоздаёт провайдер, а
+    `TreeViewElement` наполняется исключительно `refresh()` — на бутстрапе эту
+    единственную загрузку делает `activate()`. Решение и его мотивы —
+    [docs/TODO/Startup.md](../TODO/Startup.md).
   - `Components/Shell/MenuBarComponent.ts` — `ThemedComponent`; владеет
     `MenuBarElement` (`view.id = "menuBar"`; стили — `getMenuStyles`), строит
     top-уровень из submenu-записей `MenuId.MenubarMainMenu`, а entries каждого
