@@ -1,0 +1,15 @@
+{
+    "name": "java-api-probe",
+    "displayName": "Java API Probe",
+    "description": "Демо пяти поверхностей API, без которых стоковый redhat.java не доживает до activate(): env.uiKind/sessionId/телеметрия, мутирующая половина workspace.fs, workspace.findFiles и заглушка registerCustomEditorProvider.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [{ "command": "javaApiProbe.showReport", "title": "Java API Probe: Show Report" }]
+    }
+}

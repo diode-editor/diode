@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type * as vscode from "vscode";
 
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
@@ -79,6 +81,7 @@ import {
     TextEditorSelectionChangeKind,
     ThemeColor,
     TypeHierarchyItem,
+    UIKind,
     Uri,
     ViewColumn,
     WorkspaceEdit,
@@ -172,6 +175,37 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
                 // `?token=42` системе досталось бы `?token%3D42`.
                 await rpc.request("env.openExternal", { uri: target.toString(true) }),
             ),
+
+        /**
+         * Идентификатор сеанса extension host'а. Читается как «тот же запуск или
+         * уже другой» (`redhat.java` этим отличает свою запись-однодневку на
+         * диске от чужой), поэтому важны два свойства: стабильность внутри
+         * запуска и несовпадение между запусками — оба даёт `randomUUID()` на
+         * сборке шима. Отступление от эталона: там id переживает перезапуск
+         * extension host'а, у нас — нет (шим собирается заново вместе с
+         * субпроцессом).
+         */
+        sessionId: randomUUID(),
+
+        /**
+         * Телеметрии в Diode нет вовсе — ни своей, ни канала для чужой. Это не
+         * стаб «пока не сделали», а постоянный ответ, поэтому
+         * `onDidChangeTelemetryEnabled` — валидное событие, которое никогда не
+         * стреляет: менять нечего. Расширение, уважающее флаг (redhat-телеметрия
+         * спрашивает его на каждом событии), само ничего не отправит.
+         */
+        isTelemetryEnabled: false,
+        onDidChangeTelemetryEnabled: new EventEmitter<boolean>().event,
+
+        /**
+         * Удалённого extension host'а нет — `undefined` по букве контракта
+         * («value is `undefined` when there is no remote extension host»).
+         */
+        remoteName: undefined,
+
+        // Редактор настольный, пусть и в терминале: `Web` в контракте значит
+        // «доступ из браузера» (vscode.dev), а не «не-графический UI».
+        uiKind: UIKind.Desktop,
     } as unknown;
 
     // Каталог установленных расширений приезжает от хоста (`extensions.catalog`
@@ -284,6 +318,10 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
         // createStatusBarItem — без runtime-поля выравнивание всегда падало бы
         // в Left, а `item.alignment === vscode.StatusBarAlignment.Right` — в false.
         StatusBarAlignment,
+        // `switch (env.uiKind) { case vscode.UIKind.Desktop: ... }` — типовой
+        // разбор окружения в `activate()`; без runtime-поля он падал бы на
+        // чтении `Desktop` у undefined, унося с собой всю активацию.
+        UIKind,
         // Расширение сравнивает `window.activeColorTheme.kind` с этим enum'ом,
         // чтобы выбрать иконки/цвета под светлую и тёмную — без runtime-поля
         // любое сравнение давало бы false, и тема всегда «не та».

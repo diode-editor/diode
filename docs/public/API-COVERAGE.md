@@ -30,12 +30,12 @@
 | поверхность | статус | члены |
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 11/40 |
-| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 19/45 |
+| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 20/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 22/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
-| [`vscode.env`](#vscodeenv) | 🟡 | 6/21 |
+| [`vscode.env`](#vscodeenv) | 🟡 | 11/21 |
 | [`vscode.tasks`](#пока-не-поднятые-namespace) | 🕐 | 0/8 |
 | [`vscode.debug`](#пока-не-поднятые-namespace) | 🕐 | 0/18 |
 | [`vscode.scm`](#пока-не-поднятые-namespace) | 🕐 | 0/2 |
@@ -44,7 +44,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 116/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 117/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 5/32 |
 
 ## vscode.languages
@@ -71,8 +71,8 @@
 
 ## vscode.workspace
 
-🟡 **19/45.** Документы, конфигурация, события сохранения и файловые watcher'ы — рабочие;
-файловые операции `WorkspaceEdit` и notebook-поверхность — нет.
+🟡 **20/45.** Документы, конфигурация, события сохранения, файловые watcher'ы, доступ к диску
+и поиск файлов по glob — рабочие; файловые операции `WorkspaceEdit` и notebook-поверхность — нет.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
@@ -84,14 +84,15 @@
 | `asRelativePath` | ✅ | |
 | `applyEdit` | 🟡 | текстовые правки по открытым документам, per-документ undo; файловые операции `WorkspaceEdit` не поддержаны (edit с ними целиком отвечает `false`) |
 | `createFileSystemWatcher` | ✅ | настоящие watcher'ы: `RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude` |
-| `fs` | 🟡 | `stat`/`readFile`/`writeFile`; `readDirectory`, `createDirectory`, `delete`, `rename`, `copy` — нет |
+| `fs` | 🟡 | вся поверхность `FileSystem`: `stat`, `readFile`, `writeFile`, `readDirectory`, `createDirectory`, `delete` (с `recursive`), `rename` и `copy` (с `overwrite`), `isWritableFileSystem`. Работает локально через `node:fs` — без RPC на хост. Отклонения: `useTrash` у `delete` игнорируется (корзины у терминального редактора нет), а `isWritableFileSystem` отвечает `true` только про `file` — про схему провайдера расширения честный `undefined`. Схему, за которой не стоит ни диск, ни провайдер, ловит гейт `Unavailable` |
 | `registerFileSystemProvider` | 🟡 | читающая часть: `watch`/`stat`/`readFile`/`onDidChangeFile` |
+| `findFiles` | 🟡 | поиск по glob своим обходом дерева в субпроцессе (в эталоне за ним стоит ripgrep в ядре). Поддержаны обе формы `GlobPattern` (строка — по всем папкам воркспейса, `RelativePattern` — по своей базе), три значения `exclude` (`undefined` — дефолтные исключения `.git`/`node_modules`, `null` — никаких, шаблон — вместо дефолтов), `maxResults` и токен отмены. Отклонения: глобы матчатся нашим `glob.ts` (диапазонов `[0-9]` нет), `search.exclude`/`files.exclude` не читаются — настройки нет, и у обхода есть предел в 5000 каталогов на запрос |
 | `registerTextDocumentContentProvider` | ✅ | недисковые ресурсы (`jdt:` у Java) открываются read-only вкладкой; `onDidChange` перечитывает открытую; `openTextDocument` по такой схеме спрашивает провайдера |
 | `isTrusted`, `onDidGrantWorkspaceTrust` | 🟡 | модели доверия нет — всегда `true`, событие не стреляет |
 | `getWorkspaceFolder` | 🟡 | работает наивно в рантайме (префикс-матч + fallback на первую папку); декларация ещё не поднята |
 | события папок и файловых операций (`onDidChangeWorkspaceFolders`, `onWill/onDid{Create,Delete,Rename}Files`) | 🕐 | подписка принимается (no-op), событие не стреляет |
 | notebook-поверхность (8 членов: `notebookDocuments`, `openNotebookDocument`, `registerNotebookSerializer`, события) | 🕐 | |
-| `rootPath`, `workspaceFile`, `updateWorkspaceFolders`, `findFiles`, `save`, `saveAs`, `saveAll`, `registerTaskProvider`, `decode`, `encode` | 🕐 | |
+| `rootPath`, `workspaceFile`, `updateWorkspaceFolders`, `save`, `saveAs`, `saveAll`, `registerTaskProvider`, `decode`, `encode` | 🕐 | |
 
 ## vscode.window
 
@@ -124,7 +125,7 @@ output-каналы, декорации, пункты статус-бара и �
 | `activeColorTheme`, `onDidChangeActiveColorTheme` | ✅ | вид активной темы (`ColorThemeKind`) верен уже в `activate()`; событие стреляет на каждой смене темы, в том числе между двумя тёмными (как upstream: «changed **or has changes**»). Имя темы расширению не отдаётся — в `vscode.ColorTheme` его и нет |
 | `registerUriHandler`, `withScmProgress` | 🕐 | |
 | `createWebviewPanel`, `registerWebviewPanelSerializer`, `registerWebviewViewProvider` | ⛔ | webview — требует браузера; декларации не подняты, но в рантайме члены есть как инертный no-op (панели нет, в Output одна строка про неподдерживаемый webview) — иначе расширение с чат-панелью умирало на активации целиком |
-| `registerCustomEditorProvider` | ⛔ | кастомные редакторы построены на webview |
+| `registerCustomEditorProvider` | ⛔ | кастомные редакторы построены на webview; в рантайме — тот же инертный no-op, что у трёх соседей выше (у `redhat.java` на нём висит редактор настроек форматтера, и падение на регистрации убивало всю активацию) |
 
 ## vscode.commands
 
@@ -159,17 +160,21 @@ output-каналы, декорации, пункты статус-бара и �
 
 ## vscode.env
 
-🟡 **6/21.** Поднято то, что в терминале имеет смысл и реализовано по-настоящему: буфер обмена и
-открытие внешней ссылки плюс константы окружения, которые читает `vscode-languageclient`.
+🟡 **11/21.** Поднято то, что в терминале имеет смысл и реализовано по-настоящему: буфер обмена и
+открытие внешней ссылки плюс константы окружения, которые расширения читают прямо в `activate()`
+(`vscode-languageclient` — `language`/`appName`, стоковый `redhat.java` — `uiKind` и телеметрию).
 
 | член | статус | комментарий |
 | --- | :-: | --- |
 | `appName`, `appHost`, `uriScheme`, `language` | 🟡 | константы шима (`Diode` / `desktop` / `diode` / `en`); переводов нет, поэтому `language` всегда `en` |
 | `clipboard` | ✅ | тот же буфер, которым пользуются copy/paste ядра: запись уходит и в системный буфер через OSC 52. Чтение отдаёт внутренний регистр — OSC 52 read намеренно не делаем (многие терминалы его запрещают, и запрос просто вешается); внешнее содержимое приезжает жестом вставки терминала |
 | `openExternal` | 🟡 | `http`/`https`/`mailto` открываются системным обработчиком (`xdg-open`/`open`/`cmd start`). Без графического сеанса (ssh, контейнер, голый сервер) ссылка ОТДАЁТСЯ человеку: URL уезжает в буфер обмена и показывается сообщением — и это считается успехом (`true`). Прочие схемы — честный `false` |
-| `machineId`, `sessionId`, `isNewAppInstall` | 🕐 | |
-| телеметрия (`isTelemetryEnabled`, `onDidChangeTelemetryEnabled`, `createTelemetryLogger`) | 🕐 | |
-| `remoteName`, `shell`, `onDidChangeShell`, `uiKind` | 🕐 | |
+| `uiKind` | ✅ | всегда `UIKind.Desktop`: редактор настольный, пусть и в терминале, а `Web` в контракте значит «доступ из браузера» |
+| `remoteName` | ✅ | `undefined` по букве контракта — удалённого extension host'а в Diode нет |
+| `sessionId` | 🟡 | случайный uuid на сеанс extension host'а: стабилен внутри запуска, различается между запусками. Отклонение от эталона — там id переживает перезапуск extension host'а, у нас шим собирается заново вместе с субпроцессом |
+| `isTelemetryEnabled`, `onDidChangeTelemetryEnabled` | ✅ | телеметрии в Diode нет вовсе — ни своей, ни канала для чужой, поэтому флаг всегда `false`, а событие валидное и никогда не стреляет (менять нечего) |
+| `machineId`, `isNewAppInstall`, `isAppPortable`, `createTelemetryLogger` | 🕐 | |
+| `shell`, `onDidChangeShell` | 🕐 | |
 | `asExternalUri` | 🕐 | нужен вместе с `registerUriHandler` |
 | `logLevel`, `onDidChangeLogLevel` | 🕐 | |
 
@@ -222,7 +227,7 @@ output-каналы, декорации, пункты статус-бара и �
 - `window.registerCustomEditorProvider` — кастомные редакторы построены на webview;
 - рендеры notebook-ячеек (сам Notebook API при этом — 🕐).
 
-«Не будет» — про панель, а не про расширение: три webview-члена `window`
+«Не будет» — про панель, а не про расширение: четыре webview-члена `window`
 существуют в рантайме как инертный no-op (`webviewNoop.ts`), потому что
 расширение с чат-панелью поднимает её ПЕРВОЙ строкой `activate()` — отсутствие
 члена убивало заодно его команды и провайдеры. Вызов возвращает мёртвую панель
@@ -232,7 +237,7 @@ output-каналы, декорации, пункты статус-бара и �
 
 ## Типы с неполной поверхностью
 
-Активно 113 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 114 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов).
 
 | тип | активно | не активно |
@@ -243,7 +248,6 @@ output-каналы, декорации, пункты статус-бара и �
 | `WorkspaceEdit` | 8/11 | файловые операции: `createFile`, `deleteFile`, `renameFile` |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |
 | `FileStat` | 4/5 | `permissions` |
-| `FileSystem` | 3/9 | `readDirectory`, `createDirectory`, `delete`, `rename`, `copy`, `isWritableFileSystem` |
 | `FileSystemProvider` | 4/10 | `readDirectory`, `createDirectory`, `writeFile`, `delete`, `rename`, `copy` |
 | `DocumentFilter` | 3/4 | `notebookType` |
 | `CompletionItem` | 8/16 | `tags`, `sortText`, `filterText`, `preselect`, `commitCharacters`, `keepWhitespace`, `textEdit`, `additionalTextEdits` |

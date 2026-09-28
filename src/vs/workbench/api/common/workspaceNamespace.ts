@@ -1,4 +1,5 @@
 import * as nodeFs from "node:fs/promises";
+import * as nodePath from "node:path";
 
 import type * as vscode from "vscode";
 
@@ -8,6 +9,7 @@ import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
+import { createNodeFindFilesScanner, DEFAULT_FIND_FILES_EXCLUDE, findFiles as walkForFiles } from "./findFiles.ts";
 import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
@@ -38,6 +40,46 @@ import {
 
 /** Тайм-аут на один waitUntil-thenable участника will-save, мс. */
 const WILL_SAVE_LISTENER_TIMEOUT_MS = 1500;
+
+/** Обход дерева для `findFiles` — один на субпроцесс (состояния у него нет). */
+const findFilesScanner = createNodeFindFilesScanner();
+
+/**
+ * Базы, по которым идёт `findFiles`, и шаблон относительно каждой.
+ *
+ * Строковый шаблон в контракте означает «во ВСЕХ папках воркспейса» (в отличие
+ * от `createFileSystemWatcher`, где у нас берётся первая): у поиска результат
+ * складывается, и терять папки нельзя. `RelativePattern` сам несёт свою базу —
+ * именно им расширение сужает поиск до одной папки.
+ */
+function findFilesBases(
+    include: unknown,
+    workspaceFolders: readonly IWorkspaceFolder[],
+): { base: string; pattern: string }[] {
+    if (typeof include === "string") {
+        return workspaceFolders.map((folder) => ({ base: folder.uri.fsPath, pattern: include }));
+    }
+    const resolved = resolveGlobPattern(include, undefined);
+    return resolved === null ? [] : [{ base: resolved.base, pattern: resolved.pattern }];
+}
+
+/**
+ * Шаблон исключения по трём значениям аргумента, как в контракте: `undefined` —
+ * дефолты `files.exclude`, `null` — не исключать ничего, шаблон — только он
+ * (дефолты при этом НЕ добавляются).
+ *
+ * Явной ветки под `null` нет: `resolveGlobPattern` отвечает на него тем же
+ * `null`, что и на любое неразбираемое значение, — а «разобрать нечем» и
+ * «исключений нет» для обхода одно и то же.
+ *
+ * `RelativePattern` в исключении разбирается ради его `pattern`: матчим мы
+ * относительно базы ПОИСКА, а не базы исключения — своя база у исключения
+ * значила бы второй корень, которого у обхода нет.
+ */
+function findFilesExclude(exclude: unknown, base: string): string | null {
+    if (exclude === undefined) return DEFAULT_FIND_FILES_EXCLUDE;
+    return resolveGlobPattern(exclude, base)?.pattern ?? null;
+}
 
 /** Промис, резолвящийся пустым набором правок по истечении per-listener тайм-аута. */
 function listenerTimeout(): Promise<readonly TextEdit[]> {
@@ -547,6 +589,45 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             }
             return fsWatchers.create(resolved, ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
         },
+        /**
+         * Поиск файлов по glob — свой обход дерева в субпроцессе (за эталонным
+         * `findFiles` стоит ripgrep в ядре; см. `findFiles.ts` о том, почему
+         * обход живёт здесь, а не на хосте).
+         *
+         * Строковый шаблон означает «во всех папках воркспейса», как в эталоне;
+         * `RelativePattern` ограничивает поиск своей базой. Результат — пути
+         * абсолютными `file:`-Uri, `maxResults` считается по всем папкам вместе.
+         */
+        findFiles: async (
+            include: vscode.GlobPattern,
+            exclude?: vscode.GlobPattern | null,
+            maxResults?: number,
+            token?: vscode.CancellationToken,
+        ): Promise<vscode.Uri[]> => {
+            const results: Uri[] = [];
+            const isCancelled = (): boolean => token?.isCancellationRequested === true;
+            // Ни отмену, ни исчерпанный `maxResults` здесь отдельно не ловим:
+            // обход сам возвращает пустой список и на отменённом токене, и на
+            // нулевом остатке, а вторая проверка того же условия — лишний шов.
+            for (const resolved of findFilesBases(include, workspaceFolders)) {
+                const relativePaths = await walkForFiles(
+                    findFilesScanner,
+                    {
+                        base: resolved.base,
+                        include: resolved.pattern,
+                        exclude: findFilesExclude(exclude, resolved.base),
+                        // Остаток на все папки вместе: `maxResults` в контракте
+                        // ограничивает результат целиком, а не каждую папку.
+                        maxResults: (maxResults ?? Number.POSITIVE_INFINITY) - results.length,
+                    },
+                    { isCancelled },
+                );
+                for (const relativePath of relativePaths)
+                    results.push(Uri.file(nodePath.join(resolved.base, relativePath)));
+            }
+            return results as unknown as vscode.Uri[];
+        },
+
         registerTextDocumentContentProvider: (
             scheme: string,
             provider: vscode.TextDocumentContentProvider,

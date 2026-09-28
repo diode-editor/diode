@@ -157,4 +157,27 @@ describe("webviewNoop — webview-члены window как честный no-op"
             expect(lines[0]?.channel).toBe("extensions");
         });
     });
+
+    describe("registerCustomEditorProvider", () => {
+        it("возвращает честный disposable и пишет в Output одну строку", () => {
+            const { members, stub } = makeMembers();
+
+            // Форма регистрации — как у `redhat.java` (редактор настроек форматтера).
+            const disposable = members.registerCustomEditorProvider(
+                "java.formatterSettings",
+                { resolveCustomTextEditor: () => Promise.resolve() },
+                { webviewOptions: { retainContextWhenHidden: true } },
+            );
+            expect(() => {
+                disposable.dispose();
+            }).not.toThrow();
+
+            const lines = outputLines(stub);
+            expect(lines).toHaveLength(1);
+            expect(lines[0]?.value).toContain(
+                'webview в TUI не поддерживается: window.registerCustomEditorProvider("java.formatterSettings")',
+            );
+            expect(lines[0]?.channel).toBe("extensions");
+        });
+    });
 });
