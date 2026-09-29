@@ -63,8 +63,9 @@ describe("ExplorerService — операции до присвоения кор�
     it("returns an empty selection and a null paste target without a view", () => {
         const service = createService();
 
-        expect(service.hasRootPath()).toBe(false);
-        expect(service.getRootPath()).toBeNull();
+        // Корня дерева ещё нет — провайдера тоже (компонент рисует по нему
+        // плейсхолдер «No folder opened.»).
+        expect(service.provider).toBeNull();
         expect(service.getSelectedPaths()).toEqual([]);
         expect(service.getPasteTargetDir()).toBeNull();
         // Фокус и refresh без дерева — no-op, не должны падать.

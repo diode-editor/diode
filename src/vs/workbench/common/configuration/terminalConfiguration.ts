@@ -5,6 +5,7 @@ export const terminalConfiguration: IConfigurationNode = {
     title: "Terminal",
     properties: {
         "terminal.tier": {
+            scope: "machine",
             type: "string",
             default: "auto",
             enum: ["auto", "legacy", "csi-u", "kitty"],
@@ -12,6 +13,7 @@ export const terminalConfiguration: IConfigurationNode = {
         },
         // ОС клавиатуры (не процесса): по ssh с мака раскладка должна быть маковской.
         "keyboard.platform": {
+            scope: "machine",
             type: "string",
             default: "auto",
             enum: ["auto", "mac", "linux", "windows"],
@@ -20,18 +22,21 @@ export const terminalConfiguration: IConfigurationNode = {
         },
         // Capability force-overrides, e.g. { "osc52": false }. Empty = use detection.
         "terminal.capabilities": {
+            scope: "machine",
             type: "object",
             default: {},
             description: "Force individual terminal capabilities on or off; empty uses detection.",
         },
         // Force modes on/off, e.g. { "ssh": true }. Wins over auto-detection.
         "terminal.modes": {
+            scope: "machine",
             type: "object",
             default: {},
             description: "Force terminal modes on or off; wins over auto-detection.",
         },
         // Declare custom manual-only modes, e.g. { "presentation": {} } — usable in `when`.
         "terminal.customModes": {
+            scope: "window",
             type: "object",
             default: {},
             description: "Declare custom manual-only terminal modes usable in when-clauses.",

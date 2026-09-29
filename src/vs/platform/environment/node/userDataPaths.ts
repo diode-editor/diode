@@ -1,5 +1,6 @@
-import * as crypto from "node:crypto";
 import * as path from "node:path";
+
+import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
 
 /**
  * Резолв путей user data в стиле VS Code. Полностью pure — никакого I/O.
@@ -148,20 +149,24 @@ export function resolveUserDataPaths(options: IResolveUserDataPathsOptions): IUs
 
 /**
  * Резолвит каталог конкретного проекта внутри `workspaceStorageDir`. Ключ
- * каталога — sha256 от абсолютного (нормализованного) пути папки, как в
- * VS Code (`workspaceStorage/<hash>/`). Pure, без I/O.
+ * каталога — {@link WorkspaceId}, идентичность воркспейса (её считает
+ * `computeWorkspaceId`, `platform/workspace/common/workspaceId.ts`; формат на
+ * диске — `workspaceStorage/<id>/`, как в VS Code). Pure, без I/O.
  *
- * В нём лежит и наше `state.json` ({@link resolveWorkspaceStatePath}), и
- * приватные каталоги расширений (`<hash>/<extId>` = `ExtensionContext.storageUri`) —
+ * Функция принимает именно **id**, а не путь папки: адресация per-workspace
+ * сторов не должна знать, из чего идентичность выведена — иначе подмена «набор
+ * папок / `.code-workspace` = один проект» превращается в раскопки по всем
+ * вызывающим (см. `docs/TODO/MultiRoot.md`, M8).
+ *
+ * В каталоге лежит и наше `state.json` ({@link resolveWorkspaceStatePath}), и
+ * приватные каталоги расширений (`<id>/<extId>` = `ExtensionContext.storageUri`) —
  * ровно как в VS Code, где рядом с `state.vscdb` живут те же `<extId>`.
  *
  * @param workspaceStorageDir корень хранилища (`IUserDataPaths.workspaceStorageDir`)
- * @param folderPath путь к папке-воркспейсу (резолвится в абсолютный)
+ * @param workspaceId идентичность воркспейса
  */
-export function resolveWorkspaceStorageDir(workspaceStorageDir: string, folderPath: string): string {
-    const resolved = path.resolve(folderPath);
-    const hash = crypto.createHash("sha256").update(resolved).digest("hex");
-    return path.join(workspaceStorageDir, hash);
+export function resolveWorkspaceStorageDir(workspaceStorageDir: string, workspaceId: WorkspaceId): string {
+    return path.join(workspaceStorageDir, workspaceId);
 }
 
 /**
@@ -169,10 +174,10 @@ export function resolveWorkspaceStorageDir(workspaceStorageDir: string, folderPa
  * Pure, без I/O.
  *
  * @param workspaceStorageDir корень хранилища (`IUserDataPaths.workspaceStorageDir`)
- * @param folderPath путь к папке-воркспейсу (резолвится в абсолютный)
+ * @param workspaceId идентичность воркспейса
  */
-export function resolveWorkspaceStatePath(workspaceStorageDir: string, folderPath: string): string {
-    return path.join(resolveWorkspaceStorageDir(workspaceStorageDir, folderPath), "state.json");
+export function resolveWorkspaceStatePath(workspaceStorageDir: string, workspaceId: WorkspaceId): string {
+    return path.join(resolveWorkspaceStorageDir(workspaceStorageDir, workspaceId), "state.json");
 }
 
 function normalizeProfileName(raw: string | undefined): string {

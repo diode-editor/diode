@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { type IUserDataPaths, resolveWorkspaceStatePath } from "../../environment/node/userDataPaths.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
+import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
 import type { IStateDescriptor, IStateService, StateScope } from "../common/iStateService.ts";
 
 /**
@@ -84,10 +85,10 @@ export class StateService implements IStateService {
         this.scheduleWrite();
     }
 
-    public openWorkspace(folderPath: string): void {
+    public openWorkspace(workspaceId: WorkspaceId): void {
         // Сбросить текущий workspace-стор на диск перед переключением на другой.
         this.writeStoreSync(this.workspace);
-        const filePath = resolveWorkspaceStatePath(this.workspaceStorageDir, folderPath);
+        const filePath = resolveWorkspaceStatePath(this.workspaceStorageDir, workspaceId);
         this.workspace.data = loadStateFile(filePath, this.logger);
         this.workspace.filePath = filePath;
         this.workspace.dirty = false;

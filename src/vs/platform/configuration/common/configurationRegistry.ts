@@ -1,13 +1,43 @@
 /**
+ * Область, в которой ключ настроек **разрешено** переопределять (аналог
+ * `ConfigurationScope` vscode). Порядок — от самой узкой области записи к самой
+ * широкой области действия.
+ *
+ * Поле-декларация: слоёв конфигурации ниже user'а у нас пока нет вовсе (ни
+ * `.code-workspace`, ни `<folder>/.vscode/settings.json`), поэтому **никто его
+ * не читает**. Размечается оно сейчас именно поэтому: задним числом это была бы
+ * ревизия семантики каждого существующего ключа, а не механическая правка (см.
+ * `docs/TODO/MultiRoot.md`, M6).
+ */
+export type ConfigurationScope =
+    /** Только user-настройки: воркспейсу такой ключ не отдаём (`files.hotExit` у эталона). */
+    | "application"
+    /** User или настройки машины, но не воркспейс: свойство окружения, а не проекта. */
+    | "machine"
+    /** User или воркспейс, но не отдельная папка: одно значение на окно. */
+    | "window"
+    /** Вплоть до папки: у каждой папки воркспейса может быть своё значение. */
+    | "resource"
+    /** Как `resource`, плюс переопределение на язык (`"[python]": { … }`). */
+    | "language-overridable";
+
+/**
  * Схема одного ключа настроек (подмножество JSON-schema, как у
- * `IConfigurationPropertySchema` vscode): тип, дефолт и опциональные
- * описание/enum — то, что нужно defaults-слою конфигурации, валидации
- * settings.json и автодополнению ключей.
+ * `IConfigurationPropertySchema` vscode): тип, дефолт, {@link ConfigurationScope}
+ * и опциональные описание/enum — то, что нужно defaults-слою конфигурации,
+ * валидации settings.json и автодополнению ключей.
  */
 export interface IConfigurationPropertySchema {
     readonly type: "string" | "number" | "boolean" | "object" | "array" | "null";
     /** JSON-совместимое значение по умолчанию. */
     readonly default: unknown;
+    /**
+     * Где ключ можно переопределять. Обязательное — в отличие от эталона, где
+     * поле опционально с дефолтом `WINDOW`: у нас ключей всего десятки, и молча
+     * получить `window` у ключа, который на самом деле про папку, дороже, чем
+     * ответить на вопрос при заведении ключа.
+     */
+    readonly scope: ConfigurationScope;
     readonly description?: string;
     readonly enum?: readonly unknown[];
 }

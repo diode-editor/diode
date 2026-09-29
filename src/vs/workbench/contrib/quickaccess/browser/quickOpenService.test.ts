@@ -18,6 +18,7 @@ import {
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
@@ -118,6 +119,13 @@ function makeOpenEditorsSource(panes: IEditorPane[] = []): FakeOpenEditorsSource
     };
 }
 
+/** Контекст воркспейса с одной открытой папкой — базой относительных путей пикера. */
+function workspaceWithRoot(root: string): WorkspaceContextService {
+    const workspace = new WorkspaceContextService();
+    workspace.setWorkspaceFolder(root);
+    return workspace;
+}
+
 /** Реестр с настоящими провайдерами поверх стабов зависимостей (без DI-контейнера). */
 function makeQuickAccessRegistry(deps: {
     fileSearch: FileSearchService;
@@ -139,7 +147,7 @@ function makeQuickAccessRegistry(deps: {
         [GotoLineQuickAccessProviderDIToken, new GotoLineQuickAccessProvider(deps.gotoSource, NULL_JUMP_RECORDER)],
         [
             OpenEditorsQuickAccessProviderDIToken,
-            new OpenEditorsQuickAccessProvider(deps.openEditors, { getRootPath: () => "/root" }),
+            new OpenEditorsQuickAccessProvider(deps.openEditors, workspaceWithRoot("/root")),
         ],
     ]);
     const accessor: ServiceAccessor = {

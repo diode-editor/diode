@@ -33,11 +33,16 @@ export interface IExplorerView {
 }
 
 /**
- * Сервис Explorer'а (аналог `IExplorerService` VS Code): корень воркспейса,
+ * Сервис Explorer'а (аналог `IExplorerService` VS Code): корень СВОЕГО дерева,
  * провайдер данных дерева ({@link FileTreeDataProvider}), reveal/refresh,
  * выбор, статус-декорации файлов и подсветка «вырезанных» (следует за
  * {@link IFileClipboard}). View приходит через шов {@link IExplorerView} —
  * без него операции над деревом деградируют в no-op.
+ *
+ * Источником правды о папках воркспейса этот сервис больше НЕ является: за
+ * корнем ходят в `IWorkspaceContextService` (`platform/workspace/common`).
+ * Здесь остался только корень дерева — он же приезжает от владельца папки
+ * (`WorkbenchComponent.setWorkspaceFolder`) через {@link setRootPath}.
  */
 export class ExplorerService extends Disposable {
     public static dependencies = [FileClipboardDIToken, IConfigurationServiceDIToken, ILogServiceDIToken] as const;
@@ -84,14 +89,6 @@ export class ExplorerService extends Disposable {
             this.watcherLogger.warn(`file watcher error${hint}`, { dirPath, code, error: String(error) });
         };
         for (const listener of [...this.rootListeners]) listener();
-    }
-
-    public getRootPath(): string | null {
-        return this.rootPath;
-    }
-
-    public hasRootPath(): boolean {
-        return this.rootPath !== null;
     }
 
     /** Регистрация дерева компонентом (null — отцепить). */

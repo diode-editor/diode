@@ -5,6 +5,7 @@ export const filesConfiguration: IConfigurationNode = {
     title: "Files",
     properties: {
         "files.enableTrash": {
+            scope: "window",
             type: "boolean",
             default: true,
             description: "Move files to the OS trash when available; when disabled, delete permanently.",
@@ -34,6 +35,7 @@ export const filesConfiguration: IConfigurationNode = {
         // конфигурации сливаются по ключам: свой шаблон добавляется рядом с
         // дефолтными, ненужный дефолт гасится значением `false`.
         "files.watcherExclude": {
+            scope: "resource",
             type: "object",
             default: {
                 // Служебные каталоги VCS целиком, а не только `objects`:

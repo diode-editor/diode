@@ -7,6 +7,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { KeybindingRegistry, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
 import type { WorkspaceEditService } from "../../bulkEdit/node/workspaceEditService.ts";
 
@@ -39,6 +40,7 @@ function makeService(explorer: Partial<ExplorerService>): { service: FileOperati
         cancelledPrompt,
         new KeybindingRegistry(),
         new ContextKeyService(),
+        new WorkspaceContextService(),
     );
     return { service, edits };
 }
@@ -80,6 +82,7 @@ describe("FileOperationsService — подсказка отмены в диал�
             { input: () => Promise.resolve(undefined) },
             keybindings,
             contextKeys,
+            new WorkspaceContextService(),
         );
         service.requestDeleteFile("/ws/a.txt");
         return shown[0].message;

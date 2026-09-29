@@ -12,6 +12,7 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { SEARCH_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
@@ -23,7 +24,6 @@ import type {
 } from "../../../services/search/common/textSearch.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
-import type { ExplorerService } from "../../files/browser/explorerService.ts";
 
 import { type ISearchRevealTarget, SearchComponent } from "./searchComponent.ts";
 
@@ -49,8 +49,14 @@ function fakeSearch(
     return { service };
 }
 
-function fakeExplorer(root: string | null): ExplorerService {
-    return { getRootPath: () => root } as unknown as ExplorerService;
+/**
+ * Папки воркспейса глазами компонента: корень отдаём строкой как есть — тест
+ * Windows-путей опирается именно на строку, а `Uri.file` нормализовал бы её к
+ * posix-виду.
+ */
+function fakeWorkspace(root: string | null): IWorkspaceContextService {
+    const folders = root === null ? [] : [{ uri: { fsPath: root }, name: "", index: 0 }];
+    return { getWorkspace: () => ({ id: root, folders }) } as unknown as IWorkspaceContextService;
 }
 
 function fileMatch(absolutePath: string, lines: [number, string, string, string][]): IFileMatch {
@@ -106,12 +112,12 @@ const NULL_VIEWS_SERVICE = { registerView: () => {} } as unknown as ViewsService
 
 function make(
     search: ITextSearchService,
-    explorer: ExplorerService,
+    workspace: IWorkspaceContextService,
     opts: { reveal?: ISearchRevealTarget; state?: IStateService; contextKeys?: ContextKeyService } = {},
 ): SearchComponent {
     return new SearchComponent(
         search,
-        explorer,
+        workspace,
         opts.reveal ?? fakeReveal().target,
         opts.state ?? NULL_STATE_SERVICE,
         opts.contextKeys ?? new ContextKeyService(),
@@ -143,7 +149,7 @@ describe("SearchComponent", () => {
     afterEach(() => vi.useRealTimers());
 
     it("по умолчанию — строка запроса и «···», include/exclude скрыты (заголовок SEARCH рисует pane-header)", () => {
-        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
         const screen = render(component).screenToString();
         expect(screen).toContain("Search");
         expect(screen).toContain("···");
@@ -152,7 +158,7 @@ describe("SearchComponent", () => {
     });
 
     it("toggleQueryDetails раскрывает include/exclude с пустой строкой между ними и скрывает обратно", () => {
-        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
         // Кнопка «···» — тот же тумблер мышью (4-я кнопка после Aa/\b/.*).
         const detailsBtn = (component.view.querySelectorAll("ButtonElement") as ButtonElement[])[3];
         detailsBtn.onActivate?.();
@@ -167,7 +173,7 @@ describe("SearchComponent", () => {
     });
 
     it("инпуты не прижаты к краям: слева и справа от строки запроса по колонке отступа", () => {
-        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
         const lines = render(component).screenToString().split("\n");
         const queryLine = lines.find((line) => line.includes("Search"))!;
         expect(queryLine.startsWith(" ")).toBe(true);
@@ -179,7 +185,7 @@ describe("SearchComponent", () => {
             fileMatch("/work/project/a.ts", [[12, "const ", "foo", " = 1"]]),
             fileMatch("/work/project/b.ts", [[3, "let ", "foo", ""]]),
         ];
-        const component = make(fakeSearch(results).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch(results).service, fakeWorkspace(ROOT));
         typeQuery(component, "foo");
         const screen = render(component).screenToString();
         expect(screen).toContain("a.ts");
@@ -195,13 +201,13 @@ describe("SearchComponent", () => {
                 [2, "x ", "foo", " y"],
             ]),
         ];
-        const component = make(fakeSearch(results).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch(results).service, fakeWorkspace(ROOT));
         typeQuery(component, "foo");
         expect(render(component).screenToString()).toContain("2 results in 1 file");
     });
 
     it("shows 'No results' once a search with no matches completes", async () => {
-        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
         typeQuery(component, "zzz");
         await vi.runAllTimersAsync(); // let the completion promise settle
         expect(render(component).screenToString()).toContain("No results");
@@ -210,7 +216,7 @@ describe("SearchComponent", () => {
     it("does not search on an empty query and clears the count", () => {
         const { service } = fakeSearch([fileMatch("/work/project/a.ts", [[1, "", "foo", ""]])]);
         const spy = vi.spyOn(service, "search");
-        const component = make(service, fakeExplorer(ROOT));
+        const component = make(service, fakeWorkspace(ROOT));
         typeQuery(component, "");
         expect(spy).not.toHaveBeenCalled();
     });
@@ -218,7 +224,7 @@ describe("SearchComponent", () => {
     it("does not search when there is no workspace root", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
-        const component = make(service, fakeExplorer(null));
+        const component = make(service, fakeWorkspace(null));
         typeQuery(component, "foo");
         expect(spy).not.toHaveBeenCalled();
     });
@@ -226,7 +232,7 @@ describe("SearchComponent", () => {
     it("debounces rapid keystrokes into a single search", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
-        const component = make(service, fakeExplorer(ROOT));
+        const component = make(service, fakeWorkspace(ROOT));
         const input = queryInput(component);
         input.inputState.value = "f";
         input.onChange?.("f");
@@ -241,7 +247,7 @@ describe("SearchComponent", () => {
     it("re-runs the search immediately when a toggle is flipped", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
-        const component = make(service, fakeExplorer(ROOT));
+        const component = make(service, fakeWorkspace(ROOT));
         typeQuery(component, "foo"); // 1 search
         const regexButton = component.view.querySelectorAll("ButtonElement")[2] as ButtonElement;
         regexButton.onActivate?.();
@@ -252,7 +258,7 @@ describe("SearchComponent", () => {
     it("passes include/exclude globs and all toggle state to the query", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
-        const component = make(service, fakeExplorer(ROOT));
+        const component = make(service, fakeWorkspace(ROOT));
         component.toggleQueryDetails(true, false); // include/exclude в дереве только раскрытыми
         const [, include, exclude] = component.view.querySelectorAll("InputElement") as InputElement[];
         const [caseBtn, wordBtn] = component.view.querySelectorAll("ButtonElement") as ButtonElement[];
@@ -277,14 +283,14 @@ describe("SearchComponent", () => {
             fileMatch("/work/project/a.ts", [[1, "", "foo", ""]]),
             fileMatch("/work/project/a.ts", [[2, "x ", "foo", ""]]),
         ];
-        const component = make(fakeSearch(results).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch(results).service, fakeWorkspace(ROOT));
         typeQuery(component, "foo");
         expect(render(component).screenToString()).toContain("2 results in 1 file");
     });
 
     it("shows workspace-relative, forward-slash labels for Windows paths", () => {
         const results = [fileMatch("C:\\work\\sub\\gamma.md", [[1, "", "foo", ""]])];
-        const component = make(fakeSearch(results).service, fakeExplorer("C:\\work"));
+        const component = make(fakeSearch(results).service, fakeWorkspace("C:\\work"));
         typeQuery(component, "foo");
         const screen = render(component).screenToString();
         expect(screen).toContain("sub/gamma.md");
@@ -293,7 +299,7 @@ describe("SearchComponent", () => {
 
     it("shows an absolute path for a match outside the workspace root", () => {
         const results = [fileMatch("/elsewhere/x.ts", [[1, "", "foo", ""]])];
-        const component = make(fakeSearch(results).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch(results).service, fakeWorkspace(ROOT));
         typeQuery(component, "foo");
         expect(render(component).screenToString()).toContain("/elsewhere/x.ts");
     });
@@ -309,7 +315,7 @@ describe("SearchComponent", () => {
                 };
             },
         };
-        const component = make(service, fakeExplorer(ROOT));
+        const component = make(service, fakeWorkspace(ROOT));
         typeQuery(component, "foo"); // search #1
         typeQuery(component, "bar"); // search #2 supersedes #1
         captured[0](fileMatch("/work/project/stale.ts", [[1, "", "x", ""]]));
@@ -320,7 +326,7 @@ describe("SearchComponent", () => {
     it("clears a pending debounce so a cancelled search never spawns", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
-        const component = make(service, fakeExplorer(ROOT));
+        const component = make(service, fakeWorkspace(ROOT));
         const input = queryInput(component);
         input.inputState.value = "foo";
         input.onChange?.("foo"); // debounce armed, not yet fired
@@ -332,7 +338,7 @@ describe("SearchComponent", () => {
     it("cancels the previous search before starting a new one", () => {
         const onCancel = vi.fn();
         const { service } = fakeSearch([], { onCancel });
-        const component = make(service, fakeExplorer(ROOT));
+        const component = make(service, fakeWorkspace(ROOT));
         typeQuery(component, "foo");
         typeQuery(component, "bar");
         expect(onCancel).toHaveBeenCalled();
@@ -341,14 +347,14 @@ describe("SearchComponent", () => {
     it("cancels an in-flight search on dispose", () => {
         const onCancel = vi.fn();
         const { service } = fakeSearch([], { onCancel });
-        const component = make(service, fakeExplorer(ROOT));
+        const component = make(service, fakeWorkspace(ROOT));
         typeQuery(component, "foo");
         component.dispose();
         expect(onCancel).toHaveBeenCalled();
     });
 
     it("focus() targets the query input", () => {
-        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
         const spy = vi.spyOn(queryInput(component), "focus");
         component.focus();
         expect(spy).toHaveBeenCalled();
@@ -372,7 +378,7 @@ describe("SearchComponent", () => {
         ];
 
         it("typing letters in the results list does not typeahead-jump between groups", () => {
-            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
             // Курсор на первой строке (file:a.ts); буква «b» не должна прыгать на b.ts.
             component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "b" }));
@@ -380,7 +386,7 @@ describe("SearchComponent", () => {
         });
 
         it("list-режим (дефолт): матчи сворачиваются под файл-строкой", () => {
-            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT));
             expect(component.getViewMode()).toBe("list");
             typeQuery(component, "foo");
             expect(component.results.contentHeight).toBe(5); // 2 файла + 3 матча
@@ -390,7 +396,7 @@ describe("SearchComponent", () => {
         });
 
         it("Enter on a file row toggles its group", () => {
-            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
             // Курсор по умолчанию — на первой строке (file:a.ts).
             component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
@@ -400,7 +406,7 @@ describe("SearchComponent", () => {
         it("tree-режим строит иерархию каталогов без нового rg; файлы — basename", () => {
             const { service } = fakeSearch(nestedFiles());
             const spy = vi.spyOn(service, "search");
-            const component = make(service, fakeExplorer(ROOT));
+            const component = make(service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
 
             component.setViewMode("tree");
@@ -420,7 +426,7 @@ describe("SearchComponent", () => {
         it("tree-режим: одиночные цепочки папок компактируются в одну строку", () => {
             const component = make(
                 fakeSearch([fileMatch("/work/project/deep/nested/dir/c.ts", [[1, "", "foo", ""]])]).service,
-                fakeExplorer(ROOT),
+                fakeWorkspace(ROOT),
             );
             typeQuery(component, "foo");
             component.setViewMode("tree");
@@ -430,7 +436,7 @@ describe("SearchComponent", () => {
         });
 
         it("Enter на папке сворачивает её поддерево", () => {
-            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
             component.setViewMode("tree");
             component.results.setCursorTo("dir:src");
@@ -440,7 +446,7 @@ describe("SearchComponent", () => {
 
         it("стрим в tree-режиме пересобирает строки по троттлу", () => {
             const { service: state } = fakeState();
-            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT), { state });
+            const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT), { state });
             component.setViewMode("tree");
             typeQuery(component, "foo");
             // Результаты уже в модели, но пересборка ждёт троттл.
@@ -450,7 +456,7 @@ describe("SearchComponent", () => {
         });
 
         it("завершение поиска флашит отложенную пересборку дерева, не дожидаясь троттла", async () => {
-            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT));
             component.setViewMode("tree");
             typeQuery(component, "foo");
             expect(component.results.contentHeight).toBe(0); // троттл ещё ждёт
@@ -462,7 +468,7 @@ describe("SearchComponent", () => {
         });
 
         it("новый поиск отменяет отложенную пересборку дерева прежнего", () => {
-            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT));
             component.setViewMode("tree");
             typeQuery(component, "foo");
             expect(component.results.contentHeight).toBe(0); // троттл первого поиска ждёт
@@ -476,7 +482,7 @@ describe("SearchComponent", () => {
         });
 
         it("свёрнутость и курсор переживают смену режима по стабильным id", () => {
-            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
             component.results.toggleCollapsed("file:src/x/a.ts");
             component.results.setCursorTo("file:src/y/b.ts");
@@ -497,7 +503,7 @@ describe("SearchComponent", () => {
         });
 
         it("свёрнутая папка дерева при уходе в list теряет свёрнутость молча (id умер)", () => {
-            const component = make(fakeSearch(nestedFiles()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
             component.setViewMode("tree");
             component.results.toggleCollapsed("dir:src");
@@ -509,7 +515,7 @@ describe("SearchComponent", () => {
 
         it("setViewMode persists to workspace state; same mode is a no-op", () => {
             const { service: state, stored } = fakeState();
-            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
+            const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { state });
             component.setViewMode("tree");
             expect(stored.get("workbench.search.viewMode")).toBe("tree");
 
@@ -521,7 +527,7 @@ describe("SearchComponent", () => {
         it("restoreViewState reads the store without writing back", () => {
             const { service: state, stored } = fakeState();
             stored.set("workbench.search.viewMode", "tree");
-            const component = make(fakeSearch(twoFiles()).service, fakeExplorer(ROOT), { state });
+            const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT), { state });
             // Конструктор уже прочитал tree; вернём list и проверим restore.
             component.setViewMode("list");
             stored.set("workbench.search.viewMode", "tree");
@@ -537,7 +543,7 @@ describe("SearchComponent", () => {
 
         it("toggleQueryDetails: write-through, фокус в include при раскрытии и в query при скрытии", () => {
             const { service: state, stored } = fakeState();
-            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
+            const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { state });
             const inputs = () => component.view.querySelectorAll("InputElement") as InputElement[];
 
             const queryFocus = vi.spyOn(inputs()[0], "focus");
@@ -557,7 +563,7 @@ describe("SearchComponent", () => {
         it("restoreViewState раскрывает детали из стора или при непустых полях, без write-through", () => {
             const { service: state, stored } = fakeState();
             stored.set("workbench.search.queryDetailsExpanded", true);
-            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { state });
+            const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { state });
             expect(component.isQueryDetailsShown()).toBe(true);
 
             // Скрыли; в сторе false. Непустой exclude заставляет restore раскрыть.
@@ -575,7 +581,7 @@ describe("SearchComponent", () => {
         it("сетит data-ключ searchViewMode при создании, переключении и restore", () => {
             const keys = new ContextKeyService();
             const { service: state, stored } = fakeState();
-            const component = make(fakeSearch([]).service, fakeExplorer(ROOT), { contextKeys: keys, state });
+            const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { contextKeys: keys, state });
             expect(keys.get("searchViewMode")).toBe("list");
 
             component.setViewMode("tree");
@@ -598,7 +604,7 @@ describe("SearchComponent", () => {
         ];
 
         it("в tree-режиме: первый вызов сворачивает матчи под файлами, второй — всё дерево", () => {
-            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(nested()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
             component.setViewMode("tree");
             expect(component.results.contentHeight).toBe(8);
@@ -617,7 +623,7 @@ describe("SearchComponent", () => {
         });
 
         it("в list-режиме сворачивает файл-строки; expandAll возвращает всё", () => {
-            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT));
+            const component = make(fakeSearch(nested()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
             expect(component.results.contentHeight).toBe(5);
 
@@ -630,7 +636,7 @@ describe("SearchComponent", () => {
 
         it("сетит data-ключи hasSearchResult/viewHasSomeCollapsibleResult (дебаунс)", () => {
             const keys = new ContextKeyService();
-            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT), { contextKeys: keys });
+            const component = make(fakeSearch(nested()).service, fakeWorkspace(ROOT), { contextKeys: keys });
             expect(keys.get("hasSearchResult")).toBe(false);
             expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
 
@@ -649,7 +655,7 @@ describe("SearchComponent", () => {
 
         it("сворачивание строки пользователем дёргает пересчёт ключей через onCollapsedChanged", () => {
             const keys = new ContextKeyService();
-            const component = make(fakeSearch(nested()).service, fakeExplorer(ROOT), { contextKeys: keys });
+            const component = make(fakeSearch(nested()).service, fakeWorkspace(ROOT), { contextKeys: keys });
             typeQuery(component, "foo");
             component.results.toggleCollapsed("file:src/x/a.ts");
             component.results.toggleCollapsed("file:src/y/b.ts");
@@ -662,7 +668,7 @@ describe("SearchComponent", () => {
         function makeFocusable(withDetails: boolean): { component: SearchComponent; app: TestApp } {
             const component = make(
                 fakeSearch([fileMatch("/work/project/a.ts", [[1, "", "foo", ""]])]).service,
-                fakeExplorer(ROOT),
+                fakeWorkspace(ROOT),
             );
             if (withDetails) component.toggleQueryDetails(true, false);
             const app = TestApp.createWithContent(component.view, new Size(40, 14));
@@ -722,7 +728,7 @@ describe("SearchComponent", () => {
     });
 
     it("containsFocus/isInputBoxFocused — по корню view и трём инпутам", () => {
-        const component = make(fakeSearch([]).service, fakeExplorer(ROOT));
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
         component.toggleQueryDetails(true, false);
         const [query, include] = component.view.querySelectorAll("InputElement") as InputElement[];
 
@@ -743,7 +749,7 @@ describe("SearchComponent", () => {
         } as unknown as ViewsService;
         const component = new SearchComponent(
             fakeSearch([]).service,
-            fakeExplorer(ROOT),
+            fakeWorkspace(ROOT),
             fakeReveal().target,
             NULL_STATE_SERVICE,
             new ContextKeyService(),
@@ -763,7 +769,7 @@ describe("SearchComponent", () => {
     it("theme change restyles existing file and match rows in place", () => {
         const component = make(
             fakeSearch([fileMatch("/work/project/a.ts", [[1, "x ", "foo", ""]])]).service,
-            fakeExplorer(ROOT),
+            fakeWorkspace(ROOT),
         );
         typeQuery(component, "foo");
         const before = render(component).screenToString();
@@ -776,7 +782,7 @@ describe("SearchComponent", () => {
         it("Enter on a match opens the file at the match position (1-based line → 0-based)", () => {
             const reveal = fakeReveal();
             const results = [fileMatch("/work/project/a.ts", [[12, "const ", "foo", " = 1"]])];
-            const component = make(fakeSearch(results).service, fakeExplorer(ROOT), { reveal: reveal.target });
+            const component = make(fakeSearch(results).service, fakeWorkspace(ROOT), { reveal: reveal.target });
             typeQuery(component, "foo");
 
             // Дети списка — обёртки строк (носители состояний); id — у контента.

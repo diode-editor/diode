@@ -7,6 +7,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
 import { loadState, StateService } from "../../platform/state/node/stateService.ts";
+import { computeWorkspaceId } from "../../platform/workspace/common/workspaceId.ts";
 import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
@@ -216,7 +217,8 @@ describe("Workbench — session state persistence", () => {
     it("сессия до сплитов (плоский ключ) поднимается одной группой", () => {
         // Пишем ТОЛЬКО плоский ключ — как это делала сборка до сплитов.
         const state1 = newState();
-        state1.openWorkspace(ws.dir);
+        // Тот же ключ per-project стора, что откроет харнесс через setWorkspaceFolder.
+        state1.openWorkspace(computeWorkspaceId(ws.dir));
         state1.store(OPEN_EDITORS_STATE, { files: [ws.path("a.ts"), ws.path("c.ts")], activeIndex: 1 });
         state1.flushSync();
 
@@ -235,7 +237,8 @@ describe("Workbench — session state persistence", () => {
         // Снимок пишем руками: доли короче списка групп (такое оставляет старая
         // сборка или рука в JSON), активный файл группы 2 удалён с диска.
         const state1 = newState();
-        state1.openWorkspace(ws.dir);
+        // Тот же ключ per-project стора, что откроет харнесс через setWorkspaceFolder.
+        state1.openWorkspace(computeWorkspaceId(ws.dir));
         state1.store(EDITOR_GROUPS_STATE, {
             orientation: "columns",
             groups: [

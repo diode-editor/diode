@@ -18,6 +18,8 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { Component } from "../../../browser/component.ts";
 import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyViewElement.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
@@ -34,8 +36,6 @@ import type {
     ITextSearchService,
 } from "../../../services/search/common/textSearch.ts";
 import { TextSearchServiceDIToken } from "../../../services/search/common/textSearch.ts";
-import type { ExplorerService } from "../../files/browser/explorerService.ts";
-import { ExplorerServiceDIToken } from "../../files/browser/explorerService.ts";
 
 import {
     buildFileRow,
@@ -124,7 +124,7 @@ type RowMeta =
 export class SearchComponent extends Component {
     public static dependencies = [
         TextSearchServiceDIToken,
-        ExplorerServiceDIToken,
+        IWorkspaceContextServiceDIToken,
         SearchRevealTargetDIToken,
         StateServiceDIToken,
         ContextKeyServiceDIToken,
@@ -180,7 +180,7 @@ export class SearchComponent extends Component {
 
     public constructor(
         private readonly searchService: ITextSearchService,
-        private readonly explorerService: ExplorerService,
+        private readonly workspaceContext: IWorkspaceContextService,
         private readonly revealTarget: ISearchRevealTarget,
         private readonly stateService: IStateService,
         private readonly contextKeys: ContextKeyService,
@@ -508,7 +508,10 @@ export class SearchComponent extends Component {
         this.results.clear();
         this.scheduleResultKeysUpdate();
 
-        const root = this.explorerService.getRootPath();
+        // Корень запроса — из IWorkspaceContextService; `folders.at(0)` здесь и есть
+        // видимое сужение до однопапочной семантики (N корней = N процессов rg и
+        // группировка результатов по папкам — этап C в docs/TODO/MultiRoot.md).
+        const root = this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? null;
         const query = this.buildQuery();
         if (root === null || query.pattern === "") {
             this.updateCount(false);

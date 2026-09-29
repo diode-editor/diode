@@ -13,6 +13,8 @@ import type { KeybindingRegistry } from "../../platform/keybinding/common/keybin
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
+import type { WorkspaceContextService } from "../../platform/workspace/common/workspaceContextService.ts";
+import { WorkspaceContextServiceDIToken } from "../../platform/workspace/common/workspaceContextService.ts";
 import { ServiceAccessorDIToken, TuiApplicationDIToken } from "../common/coreTokens.ts";
 import {
     WorkbenchContributionsRegistry,
@@ -144,6 +146,7 @@ export class WorkbenchComponent extends Component {
     private editorPartComponent: EditorPartComponent;
     private dialogService: DialogService;
     private lifecycleService: LifecycleService;
+    private workspaceContext: WorkspaceContextService;
     private explorerService: ExplorerService;
     private explorerComponent: ExplorerComponent;
     private searchComponent: SearchComponent;
@@ -193,8 +196,12 @@ export class WorkbenchComponent extends Component {
         // Editor-кластер: компонент группового контрола (tab strip + контент
         // активного редактора) поверх EditorService.
         this.editorPartComponent = this.register(accessor.get(EditorPartComponentDIToken));
-        // Explorer-кластер: сервис (корень/провайдер/reveal) и компонент
-        // (дерево + контекст-меню). WorkbenchComponent владеет их жизнью.
+        // Единственный источник правды о папках воркспейса: владельцем набора
+        // папок является этот компонент (см. setWorkspaceFolder), все остальные
+        // читают IWorkspaceContextService.
+        this.workspaceContext = accessor.get(WorkspaceContextServiceDIToken);
+        // Explorer-кластер: сервис (корень СВОЕГО дерева/провайдер/reveal) и
+        // компонент (дерево + контекст-меню). WorkbenchComponent владеет их жизнью.
         this.explorerService = this.register(accessor.get(ExplorerServiceDIToken));
         this.explorerComponent = this.register(accessor.get(ExplorerComponentDIToken));
         // Search-кластер: сервис поиска (spawn rg) внутри компонента; сам компонент —
@@ -540,12 +547,18 @@ export class WorkbenchComponent extends Component {
      * что ничего «одноразового» тут быть не должно.
      */
     public setWorkspaceFolder(dirPath: string): void {
+        // Источник правды о папках — IWorkspaceContextService, и ставится он
+        // ПЕРВЫМ: всё ниже (и подписчики onDidChangeWorkspaceFolders) обязано
+        // видеть уже новую папку. Здесь же считается идентичность проекта.
+        const workspaceId = this.workspaceContext.setWorkspaceFolder(dirPath);
         this.explorerService.setRootPath(dirPath);
         // Новые терминалы спавнятся в папке воркспейса.
         this.terminalService.setWorkingDirectory(dirPath);
-        // Открыть per-project стор состояния для этой папки (переключение флашит
-        // предыдущий). Дальше layout/открытые файлы читаются/пишутся в него.
-        this.workbenchState.openWorkspace(dirPath);
+        // Открыть per-project стор состояния этого проекта (переключение флашит
+        // предыдущий). Адресуется ИДЕНТИЧНОСТЬЮ воркспейса, а не путём папки —
+        // см. resolveWorkspaceStorageDir. Дальше layout/открытые файлы
+        // читаются/пишутся в него.
+        this.workbenchState.openWorkspace(workspaceId);
         // Состояние view поиска (режим дерево/плоско, раскрытость include/exclude)
         // — из workspace-стора; строго после openWorkspace, иначе прочитается
         // global-стор.

@@ -6,6 +6,7 @@ import { Disposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../base/common/uri.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../platform/state/common/iStateService.ts";
+import type { WorkspaceId } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import { StateServiceDIToken } from "../common/coreTokens.ts";
 import type { IEditorGroupSnapshot, IEditorGroupsState } from "../common/stateKeys.ts";
 import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
@@ -74,9 +75,9 @@ export class WorkbenchStateService extends Disposable {
         this.layoutView = view;
     }
 
-    /** Открывает/переключает per-project стор состояния на папку `folderPath`. */
-    public openWorkspace(folderPath: string): void {
-        this.state.openWorkspace(folderPath);
+    /** Открывает/переключает per-project стор состояния на проект `workspaceId`. */
+    public openWorkspace(workspaceId: WorkspaceId): void {
+        this.state.openWorkspace(workspaceId);
     }
 
     /**

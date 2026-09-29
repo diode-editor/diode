@@ -6,6 +6,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { Uri } from "../../base/common/uri.ts";
 import { resolveUserDataPaths, resolveWorkspaceStatePath } from "../../platform/environment/node/userDataPaths.ts";
 import { loadState, StateService } from "../../platform/state/node/stateService.ts";
+import { computeWorkspaceId } from "../../platform/workspace/common/workspaceId.ts";
 import { OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 
@@ -206,12 +207,14 @@ describe("WorkbenchStateService", () => {
     it("routes workspace-scoped state to the opened project's store", () => {
         const paths = resolveUserDataPaths({ homedir: "/never", userDataDir: ws.dir });
         const service = make();
-        service.openWorkspace("/projects/gamma");
+        // Стор адресуется идентичностью воркспейса, а не путём папки.
+        const workspaceId = computeWorkspaceId("/projects/gamma");
+        service.openWorkspace(workspaceId);
         group.setState(["/projects/gamma/x.ts"], 0);
         service.captureOpenEditors();
         state.flushSync();
 
-        const stateFile = resolveWorkspaceStatePath(paths.workspaceStorageDir, "/projects/gamma");
+        const stateFile = resolveWorkspaceStatePath(paths.workspaceStorageDir, workspaceId);
         const onDisk = JSON.parse(fs.readFileSync(stateFile, "utf-8")) as Record<string, unknown>;
         expect(onDisk["workbench.editors.openEditors"]).toEqual({ files: ["/projects/gamma/x.ts"], activeIndex: 0 });
     });

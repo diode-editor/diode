@@ -206,9 +206,10 @@ describe("ExplorerComponent", () => {
         // No error thrown — test passes
     });
 
-    it("exposes the root path via the service", () => {
-        expect(h.service.hasRootPath()).toBe(true);
-        expect(h.service.getRootPath()).toBe(ws.dir);
+    it("exposes the tree provider for the opened root", () => {
+        // «Корень воркспейса» сервис больше не публикует (за ним ходят в
+        // IWorkspaceContextService) — наружу торчит только провайдер дерева.
+        expect(h.service.provider).not.toBeNull();
     });
 
     it("expanding then collapsing a directory still renders the tree (watch/unwatch)", async () => {

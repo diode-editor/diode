@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import {
     editorTabIsFile,
     editorTabPathArg,
@@ -108,8 +109,11 @@ export const fileCopyRelativePathAction: CommandAction = {
         const explorer = accessor.get(ExplorerServiceDIToken);
         const filePath = (args[0] as string | undefined) ?? explorer.getSelectedPaths()[0];
         if (!filePath) return;
-        const root = explorer.getRootPath();
-        const relative = root ? path.relative(root, filePath) : filePath;
+        // Корень — из IWorkspaceContextService; `folders.at(0)` здесь и есть видимое
+        // сужение до однопапочной семантики (в мульти-руте базой станет папка
+        // самого файла — этап F в docs/TODO/MultiRoot.md).
+        const root = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0)?.uri.fsPath;
+        const relative = root === undefined ? filePath : path.relative(root, filePath);
         return accessor.get(ClipboardDIToken).writeText(relative);
     },
 };
