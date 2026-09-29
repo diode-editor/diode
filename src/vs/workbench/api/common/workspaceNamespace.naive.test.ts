@@ -75,20 +75,46 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
         }).not.toThrow();
     });
 
-    it("getWorkspaceFolder матчит по префиксу пути, иначе первая папка", () => {
-        const { stub, naive } = makeWorkspace();
-        stub.fire("workspace.initialize", {
-            configuration: {},
-            workspaceFolders: [
-                { uri: Uri.file("/proj/a").toString(), name: "a", index: 0 },
-                { uri: Uri.file("/proj/b").toString(), name: "b", index: 1 },
-            ],
+    describe("getWorkspaceFolder", () => {
+        /** Две папки: однопапочным набором матч не проверишь — «первая» и «та самая» совпадут. */
+        function folderLookup(): (p: string) => string | undefined {
+            const { stub, naive } = makeWorkspace();
+            stub.fire("workspace.initialize", {
+                configuration: {},
+                workspaceFolders: [
+                    { uri: Uri.file("/proj/a").toString(), name: "a", index: 0 },
+                    { uri: Uri.file("/proj/b").toString(), name: "b", index: 1 },
+                ],
+            });
+            return (p: string) => naive.getWorkspaceFolder(Uri.file(p))?.name;
+        }
+
+        it("файл внутри папки — эта папка, а не первая по списку", () => {
+            expect(folderLookup()("/proj/b/src/x.ts")).toBe("b");
         });
-        const folderOf = (p: string): string | undefined => naive.getWorkspaceFolder(Uri.file(p))?.name;
-        expect(folderOf("/proj/b/src/x.ts")).toBe("b");
-        expect(folderOf("/proj/a")).toBe("a");
-        // Вне всех папок — наивный fallback на первую (клиенту нужен хоть какой-то корень).
-        expect(folderOf("/elsewhere/x.ts")).toBe("a");
+
+        it("сама папка считается лежащей внутри себя", () => {
+            expect(folderLookup()("/proj/a")).toBe("a");
+        });
+
+        // Главный инвариант: файл ВНЕ папок воркспейса — `undefined`, как в
+        // эталоне («Returns `undefined` when the given uri doesn't match any
+        // workspace folder»). Раньше здесь стоял fallback на первую папку: в
+        // однопапочном мире почти безобидный, в мульти-руте — неверная адресация
+        // (расширение писало бы настройки и искало файлы в чужом проекте).
+        it("файл вне всех папок — undefined, а НЕ первая папка", () => {
+            expect(folderLookup()("/elsewhere/x.ts")).toBeUndefined();
+        });
+
+        // Префикс-матч идёт по границе сегмента: `/proj/abc` не внутри `/proj/a`.
+        it("сосед с общим префиксом имени папкой не считается", () => {
+            expect(folderLookup()("/proj/abc/x.ts")).toBeUndefined();
+        });
+
+        it("пустое окно — undefined на любой файл", () => {
+            const { naive } = makeWorkspace();
+            expect(naive.getWorkspaceFolder(Uri.file("/proj/a/x.ts"))).toBeUndefined();
+        });
     });
 
     it("createFileSystemWatcher без воркспейса — валидный немой watcher", () => {
