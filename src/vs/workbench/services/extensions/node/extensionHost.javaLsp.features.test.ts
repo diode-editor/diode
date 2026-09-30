@@ -111,29 +111,32 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         expect(joined).toContain("String demo.App.greet(String who)");
     });
 
-    it("автодополнение после `message.` отдаёт члены String из JDK", { timeout: 120_000 }, async () => {
+    it("автодополнение отдаёт члены типа из JDK", { timeout: 120_000 }, async () => {
         const source = harness?.group.completionSource;
         expect(source).toBeDefined();
-        // Пробный буфер: та же фикстура, но с `message.` вместо println-строки.
-        const probed = APP_JAVA.replace("        System.out.println(broken);", "        message.");
+        // Каретка внутри `System.out.println(...)` сразу ПОСЛЕ `System.out.` —
+        // позиция есть в самом буфере, подменять текст не нужно. Это важно: если
+        // прислать в запрос текст, отличный от открытого буфера, ответ зависит от
+        // того, успела ли доехать синхронизация, и кейс флакует (поймано красным
+        // CI: сервер дополнял `System.` и отдавал единственный `out`).
         const items = await until(
-            "completion после `message.`",
+            "completion после `System.out.`",
             async () => {
                 const found = await source!({
                     uri: appUri,
                     languageId: "java",
-                    text: probed,
+                    text: APP_JAVA,
                     line: 10,
-                    character: 16,
+                    character: 19,
                 });
                 return found.items.length > 0 ? found.items : null;
             },
             60_000,
         );
         const labels = items.map((i) => i.label);
-        // Члены java.lang.String — то есть classpath JDK доехал до сервера.
-        expect(labels).toContain("charAt");
-        expect(labels).toContain("length");
+        // `println` — член java.io.PrintStream из java.base: classpath JDK доехал
+        // до сервера, а не просто слова из текущего файла.
+        expect(labels).toContain("println");
     });
 
     it("definition внутри проекта ведёт на объявление метода", { timeout: 120_000 }, async () => {
