@@ -1,8 +1,9 @@
-import { cpSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { cpSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, LINT_JS, linkEslintLibrary } from "../../src/TestUtils/eslintFixture.ts";
+import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
@@ -230,6 +231,52 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                     text: (value) => app.session.sendText(value),
                     waitForText: (predicate, opts) => app.session.waitForText(predicate, opts),
                 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx" — стоковый redhat.java поверх Eclipse JDT LS.
+        // Чек доказывает путь из магазина наблюдаемым кадром: undercurl над
+        // `int broken = message;` рисуется только если сервер поднялся, импортировал
+        // проект и собрал его. Заодно это проверка курируемого дефолта
+        // lombokSupport: с манифестным `true` вместо диагностики пришла бы
+        // «Internal compiler error».
+        //
+        // `expectFiles` — только пути, общие для платформенного и universal
+        // артефактов: какой из них отдаст резолв, зависит от версии клиента
+        // (платформенные записи гейтятся `engines.diode >=0.5.0`), и чек не должен
+        // от этого зависеть.
+        id: "redhat.java",
+        expectFiles: ["package.json", "dist/extension.js", "server/config_linux/config.ini"],
+        timeoutMs: 600_000,
+        run: async (ctx) => {
+            // Проект — в ПОДКАТАЛОГЕ сессии, а не в `ctx.root`: в корне лежит
+            // `user-data-dir/` с приватными каталогами расширения, а jdt.ls
+            // отказывается импортировать проект, внутри которого развёрнуто его
+            // же eclipse-хозяйство («Invalid project description»), и молча
+            // сваливается в режим «non-project file, only syntax errors».
+            const projectRoot = join(ctx.root, "javaproj");
+            const file = join(projectRoot, APP_JAVA_PATH);
+            mkdirSync(dirname(file), { recursive: true });
+            writeFileSync(join(projectRoot, "pom.xml"), POM_XML);
+            writeFileSync(file, APP_JAVA);
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                // Папка ПЕРВОЙ: у redhat.java есть только `workspaceContains:`-события.
+                open: [projectRoot, file],
+                // Иначе тост про телеметрию перекрывает правую часть редактора —
+                // ровно те строки, где рисуется волна, — и чек ловит гонку.
+                settings: { "redhat.telemetry.enabled": false },
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle от jdt.ls", timeoutMs: 420_000, intervalMs: 1000 },
+                );
             } finally {
                 await app.dispose();
             }

@@ -89,6 +89,11 @@ export interface ScenarioSpec {
      */
     installVsix?: readonly string[];
     /**
+     * Таймаут кейса, если стандартных 300с мало (холодный старт тяжёлого
+     * language-сервера плюс установка крупного vsix). Пустое — 300с.
+     */
+    timeoutMs?: number;
+    /**
      * Сценарий ходит в сеть (ставит расширение из магазина): CI-safety-net
      * (`scenarios.test.ts`) пропускает его при `DIODE_E2E_OFFLINE=1` — та же
      * договорённость, что у сетевых e2e (docs/TESTING.md).
