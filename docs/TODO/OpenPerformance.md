@@ -1,6 +1,6 @@
 # Открытие файла: красивые бенчмарки
 
-Статус: `[~]` — этап 0 («Линейка») сделан, дальше этап 1. Цель — страница [docs/public/BENCH-OPEN.md](../public/BENCH-OPEN.md) с цифрами,
+Статус: `[~]` — этап 0 («Линейка») сделан; по этапу 1 («Кухня») проведено исследование парса бандла (2026-09-28), работа не начата. Цель — страница [docs/public/BENCH-OPEN.md](../public/BENCH-OPEN.md) с цифрами,
 которые не стыдно показать: наша часть старта над полом Node — десятки миллисекунд, файл до
 десятков мегабайт открывается «как маленький», полугигабайтный лог — за секунду и без
 полной загрузки в память. Смежные документы: [PieceTree.md](PieceTree.md) (бэкенд буфера),
@@ -128,20 +128,125 @@ EditorComponent`. Разведка 2026-09-27, ссылки на код акту
 - **Память:** `xlarge` (13 МБ) — 1.19 ГБ peak RSS, `small` — 233 МБ.
 
 ### Этап 1 — кухня: размер файла не играет роли
-Сначала профиль по лестнице этапа 0, потом правки по убыванию вклада. Кандидаты по коду:
-- [ ] `useCodeCache: true` (и оценить `useSnapshot`) в `build-sea.mjs` — снять компиляцию
-  3.6 МБ на каждом старте. Проверить на `diode --version`: пол бинаря должен приблизиться к полу node.
-- [ ] Всё «после openFile, но до кадра» — за первый кадр: цикл встроенных расширений,
-  `activateByEvent("*")` и спаун extension host — через `setImmediate` после первого paint'а
-  с файлом. SHA-256 `ts-server.bundle` — считать при сборке (версия + дайджест в манифест),
-  а не при старте; `getRawAsset` вместо копий.
-- [ ] Параллелить независимые `await`: конфиг, кейбинды, скан расширений, `onig.wasm`+грамматика —
-  `Promise.all`; `explorerService.refresh()` — не на пути к файлу.
-- [ ] Индекс манифестов встроенных расширений — один JSON при сборке вместо 52 чтений.
-- [ ] Ленивые `import()` для `@xterm/headless`, chokidar, iconv-lite (нужен только не-utf8),
-  node-pty уже ленивый.
-- [ ] Гейт: бюджет `наших мс` в `test:perf`; целевое — ≤ 50 мс над полом node на `small`
-  (сейчас ≈ 300 мс на CI).
+
+Кухня на `small` — 321 мс наших над полом node, из них 115 парс бандла (до `main:start`) и
+206 сверх пола бинаря. Обе половины разобраны ниже; порядок работ — в конце раздела.
+
+#### Исследование 2026-09-28: во что обходится загрузка бандла
+
+Замеры на `node dist/main.js --version` (тот же путь, что пол бинаря, без SEA-обёртки; коммит
+`50b34ca3`, node 25.9, 16 ядер), профиль `--cpu-prof --cpu-prof-interval=100`. Пол `node -e ""`
+— 23 мс, бандл до `--version` — 133 мс, то есть **110 мс наших**:
+
+| статья | мс | что это |
+|---|--:|---|
+| компиляция ESM (`compileSourceTextModule`) | 57 | ≈25 eager-компиляция IIFE-обёрток (webpack-рантаймы xterm/textmate/oniguruma), ≈32 preparse 3.4 МБ текста |
+| исполнение верхнего уровня | 32 | тела 667 модулей (13.8 — сам module body), webpack-рантаймы (5), esbuild-shim'ы CJS (3), semver-регэкспы |
+| загрузка undici | 9 | ESM-импорт `http` (`@tuidom/inspector` InspectorServer): фасад ESM перечисляет экспорты встроенного модуля, ленивый геттер `http` тянет undici. В CJS этого нет |
+| GC | 6.5 | куча +8 МБ за загрузку (3.7 → 11.7 МБ heapUsed) |
+| прочее | ~5 | |
+
+Состав бандла (3.4 МБ, по esbuild-маркерам): iconv-lite 540 КБ, `workbench/contrib` 417,
+`workbench/services` 343, `editor/common` 311, `workbench/browser` 291, `@xterm/headless` 274,
+`workbench/api` 187, `@tuidom/elements` 179, `@tuidom/core` 149, vscode-textmate 97, semver 64,
+yauzl 47, jsonc-parser 45, chokidar 40. Треть байт — зависимости, которые к первому кадру не
+нужны (iconv только не-utf8, xterm только терминал, semver/yauzl/jsonc только магазин).
+
+**Рычаги, замерено на том же бандле** (наших мс над полом node; сейчас 111):
+
+| вариант | всего мс | наших |
+|---|--:|--:|
+| ESM как сейчас | 134 | 111 |
+| тот же граф модулей в CJS (`esbuild --format=cjs --main-fields=module,main`) | 122 | 99 |
+| CJS + кэш кода (`NODE_COMPILE_CACHE`; в SEA — `useCodeCache`) | 92 | 69 |
+| ESM + `NODE_COMPILE_CACHE` | 108 | 85 |
+| **CJS в V8-снапшоте** (`--build-snapshot`, блоб 16.8 МБ) | **68** | **45** |
+| `--jitless` (контроль) | 165 | — |
+
+Кэш кода снимает только eager-компиляцию (preparse и исполнение остаются) — потолок для него
+≈69. Снапшот снимает и компиляцию, и исполнение: на старте куча восстанавливается, ничего не
+парсится. Это и есть «предкомпилированный JS» в node; в SEA включается `useSnapshot: true`,
+скрипт обязан вызвать `v8.startupSnapshot.setDeserializeMainFunction()`.
+
+**Цена снапшота** (синтетика с кучей регулируемого размера): пустой пользовательский снапшот
+стартует за 33 мс против 23 у `node -e ""` — **≈11 мс фиксированных** (сборка идёт
+`BuildSnapshotWithoutCodeCache`: внутренние модули node компилируются заново; в SEA блоб вшит
+в бинарь — перепроверить, не меньше ли там фиксированная часть); дальше **≈3 мс на МБ блоба**
+(на нашем графе: 68 − 33 = 35 мс за 11 МБ сверх базового блоба). Отсюда потолок: ниже ~11 мс
+наших не опуститься в принципе, 25–30 достижимо, если ужать кучу ядра вдвое.
+
+**Что не сериализуется** (бисекция по 60 импортам main.ts, `CheckGlobalAndEternalHandles
+failed`, «global handle not serialized: [Foreign]»):
+- `Intl.Segmenter`, созданный на уровне модуля и живой через замыкание —
+  `@tuidom/core/dist/common/measureTextWidth.js:2` и `displayLine.js:2`. Ленивое создание при
+  первом вызове проходит (проверено на синтетике и на полном графе с патчем в node_modules).
+  Правило общее: любой `Intl.*` на уровне модуля — нет.
+- `HTTPParser` от импорта `http` (`@tuidom/inspector` InspectorServer). Ленивая заглушка
+  `createServer` проходит; заодно уходят 9 мс undici. NB: Proxy-заглушка не годится —
+  `__toESM` esbuild перечисляет ключи и будит модуль.
+- Всё остальное из графа (xterm, textmate, oniguruma, chokidar, iconv, semver, yauzl,
+  `child_process`, `perf_hooks`, `module`, `TextDecoder`, `Buffer`, `WeakRef`) — легло без
+  вопросов; для `http`/`module`/`child_process`/`perf_hooks` node пишет «not yet fully
+  verified», работоспособность после десериализации проверять e2e.
+
+**Что снапшот меняет в правилах.** Верхний уровень модулей исполняется при сборке, не при
+запуске. Значит, на уровне модуля нельзя: читать окружение в константы (`process.env`, `cwd`,
+`homedir`, `platform`, размеры терминала, `isSeaBinary()` в кэш), держать нативные объекты
+(`Intl.*`, парсеры, сокеты, таймеры, watcher'ы), делать top-level await (у нас один —
+`await runEditor()` в `main.ts`). Дисциплина закрепляется гейтом: сборка снапшота в CI падает
+на первом нарушении. `performance.timeOrigin` в лестнице старта — сверить после
+десериализации.
+
+**Распил бандла.** Без снапшота даёт ≈10 мс на вынесенный МБ (preparse) — почти не
+окупается. Со снапшотом каждый МБ кучи ядра — ≈3 мс, и сумма стремится к 11 мс фиксированных.
+Схема: ядро до первого кадра — в снапшоте; терминал (xterm), магазин (semver/yauzl/jsonc),
+iconv, LSP-клиент — отдельными скриптами в ассетах SEA, компилируются по требованию с готовым
+code cache (`vm.Script` + `cachedData`). Делать после снапшота, если захочется дожать 45 → 25–30.
+
+**Как повторить** (всё — на `dist/main.js`, без SEA; пробник генерируется из импортов
+`main.ts`, чтобы граф модулей совпадал):
+
+```bash
+# разбивка: пол, бандл, кэш кода
+node -e ""; node dist/main.js --version; NODE_COMPILE_CACHE=/tmp/cc node dist/main.js --version
+node --cpu-prof --cpu-prof-interval=100 dist/main.js --version   # self-time по url: esm/utils = компиляция
+# CJS-пробник: те же импорты, что у main.ts (без type), имена удержать в массиве,
+# + setDeserializeMainFunction под isBuildingSnapshot(); http → ленивая заглушка createServer
+npx esbuild src/vs/diode/snapshotProbe.ts --bundle --platform=node --format=cjs --target=es2024 \
+  --main-fields=module,main --define:import.meta.url=import_meta_url --inject:import-meta-url.js \
+  --external:node-pty --external:@vscode/ripgrep --external:ws --external:vscode-languageclient \
+  --alias:http=./http-stub.cjs --outfile=probe.cjs
+# в node_modules/@tuidom/core/dist/common/{measureTextWidth,displayLine}.js — segmenter лениво
+node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-blob probe.blob ver
+```
+
+#### План этапа
+
+Порядок: сначала кухня воркбенча (206 мс, без изменений в сборке), параллельно две правки в
+tuidom под снапшот, затем CJS + `useSnapshot`, распил ядра — последним и по желанию.
+
+- [ ] **Кухня воркбенча (206 мс над полом бинаря).** Всё «после openFile, но до кадра» — за
+  первый кадр: цикл встроенных расширений, `activateByEvent("*")` и спаун extension host —
+  через `setImmediate` после первого paint'а с файлом (лестница: «вкладки открыты» → «кадр с
+  текстом» = 133 мс). SHA-256 `ts-server.bundle` (49 мс) — считать при сборке (дайджест в
+  манифест), `getRawAsset` вместо копий. Параллелить независимые `await` (конфиг, кейбинды,
+  скан расширений, `onig.wasm` + грамматика); `explorerService.refresh()` — не на пути к файлу.
+  Индекс манифестов встроенных расширений — один JSON при сборке вместо 52 чтений.
+- [ ] **tuidom под снапшот** (свой PR в tuidom, публикацию версии запрашивать): `Intl.Segmenter`
+  лениво в `measureTextWidth.js` и `displayLine.js`; `http` в InspectorServer — ленивый
+  `createServer`. Само по себе даёт −9 мс (undici) уже сейчас.
+- [ ] **CJS-бандл**: `format: cjs` в tsup, `--main-fields=module,main` (jsonc-parser в cjs
+  резолвится в UMD с динамическим require), шим `import.meta.url` (7 мест), `await runEditor()`
+  — в функцию. −12 мс без остального.
+- [ ] **`useSnapshot` в SEA**: main вызывает `setDeserializeMainFunction`, весь `runEditor` —
+  внутри; аудит модульных констант, читающих окружение; гейт «снапшот собирается» в CI;
+  e2e на SEA после десериализации (http/child_process/perf_hooks). Перепроверить фиксированную
+  часть на SEA. Цель: 111 → ~45 наших на парс.
+- [ ] **Кэш кода** — только если снапшот не взлетит: `useCodeCache` даёт 111 → 69, с CJS.
+- [ ] **Распил ядра** (после снапшота): xterm, магазин, iconv, LSP-клиент — в ассеты SEA с
+  `cachedData`. Цель: ~25–30 наших на парс.
+- [ ] **Гейт**: бюджет «наших мс» в `test:perf` зажимать по мере снятия; целевое — ≤ 50 мс над
+  полом node на `small` (сейчас 321 локально, ≈400 на CI).
 
 ### Этап 2 — жадные проходы: файл до десятков МБ открывается как маленький
 Каждый пункт измеряется на `xlarge` (13 МБ / 200 К строк) до и после:
