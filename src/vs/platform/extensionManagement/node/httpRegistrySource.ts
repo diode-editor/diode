@@ -137,11 +137,18 @@ async function readCapped(response: Response, limit: number, url: URL): Promise<
  * Цена потока — полуфайл: на превышении лимита, обрыве сети и ошибке записи
  * недокачанное убирается, чтобы не осталось под видом валидного артефакта.
  */
-async function downloadCapped(response: Response, limit: number, url: URL, target: string): Promise<void> {
+async function downloadCapped(
+    response: Response,
+    limit: number,
+    url: URL,
+    target: string,
+    onProgress: () => void,
+): Promise<void> {
     const file = await fs.open(target, "w");
     let complete = false;
     try {
         await consumeCapped(response, limit, url, async (chunk) => {
+            onProgress();
             await file.write(chunk);
         });
         complete = true;
@@ -173,12 +180,15 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         this.maxArtifactBytes = options.maxArtifactBytes ?? DEFAULT_MAX_ARTIFACT_BYTES;
     }
 
-    /** GET с таймаутом; сетевой сбой оборачивается адресом, иначе он безымянный. */
-    private async request(url: URL): Promise<Response> {
+    /**
+     * GET с таймаутом; сетевой сбой оборачивается адресом, иначе он безымянный.
+     * `signal` передают те, кому общий таймаут не годится — см. `fetchArtifact`.
+     */
+    private async request(url: URL, signal?: AbortSignal): Promise<Response> {
         try {
             return await fetch(url, {
                 headers: { "user-agent": `diode/${DIODE_VERSION}` },
-                signal: AbortSignal.timeout(this.timeoutMs),
+                signal: signal ?? AbortSignal.timeout(this.timeoutMs),
             });
         } catch (error) {
             throw new Error(`${url.href}: ${describeFetchError(error)}`, { cause: error });
@@ -251,15 +261,38 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         }
         requireHttp(url, `Artifact URL must be http(s): "${artifact.url}"`);
 
-        const response = await this.request(url);
-        this.ensureOk(response, url);
+        // Артефакт нельзя обрывать по ОБЩЕМУ времени: платформенный `.vsix` со
+        // вшитым рантаймом — сотни мегабайт, и на узком канале честная загрузка
+        // идёт минутами. Сторожим не длительность, а МОЛЧАНИЕ: таймер взводится
+        // заново на каждом куске и срабатывает, только если данные перестали
+        // идти. Поймано красным CI: 139-МБ артефакт redhat.java не укладывался в
+        // общий таймаут 30с на windows-раннере, хотя качался штатно.
+        const stall = new AbortController();
+        const arm = (): ReturnType<typeof setTimeout> =>
+            setTimeout(() => {
+                stall.abort(new Error(`no data for ${String(this.timeoutMs)}ms`));
+            }, this.timeoutMs);
+        // Сторож взводится СРАЗУ и потому всегда определён: ожидание заголовков
+        // ответа он накрывает наравне с чтением тела.
+        let watchdog = arm();
+        const rearm = (): void => {
+            clearTimeout(watchdog);
+            watchdog = arm();
+        };
 
-        // Имя фиксировано, а не выведено из URL: `tempDir` заводится вызывающим на
-        // одну установку (и им же убирается), а имя из чужих данных — только лишний
-        // путь для трюков. Настоящие id и версию `installVsix` всё равно читает из
-        // манифеста.
-        const target = path.join(tempDir, "artifact.vsix");
-        await downloadCapped(response, this.maxArtifactBytes, url, target);
-        return target;
+        try {
+            const response = await this.request(url, stall.signal);
+            this.ensureOk(response, url);
+
+            // Имя фиксировано, а не выведено из URL: `tempDir` заводится вызывающим на
+            // одну установку (и им же убирается), а имя из чужих данных — только лишний
+            // путь для трюков. Настоящие id и версию `installVsix` всё равно читает из
+            // манифеста.
+            const target = path.join(tempDir, "artifact.vsix");
+            await downloadCapped(response, this.maxArtifactBytes, url, target, rearm);
+            return target;
+        } finally {
+            clearTimeout(watchdog);
+        }
     }
 }

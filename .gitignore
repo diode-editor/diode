@@ -27,3 +27,11 @@ extensions/*/out/
 packaging/out/
 packaging/npm/vendor/
 packaging/npm/node_modules/
+
+# Следы импорта jdt.ls в java-фикстуре сценария: eclipse-метаданные и вывод
+# сборки, которые сервер создаёт В КАТАЛОГЕ проекта (сценарий открывает фикстуру
+# на месте, как ruffSample)
+e2e/fixtures/javaSample/target/
+e2e/fixtures/javaSample/.classpath
+e2e/fixtures/javaSample/.project
+e2e/fixtures/javaSample/.settings/

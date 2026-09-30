@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -68,7 +69,13 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
         fs.mkdirSync(VSIX_CACHE_DIR, { recursive: true });
         // Через свой temp внутри каталога кэша: rename атомарен только в пределах
         // одной ФС, а os.tmpdir() может жить на другой.
-        const staging = `${cached}.${String(process.pid)}.tmp`;
+        //
+        // Случайный суффикс, а НЕ один `process.pid`: воркеры vitest — это потоки
+        // ОДНОГО процесса, и два сьюта, тянущие одно расширение одновременно,
+        // получали одинаковое имя. Первый переименовывал, второй падал на
+        // `ENOENT: rename …vsix.<pid>.tmp` — поймано красным dry run мутационного
+        // гейта, когда java-сьютов стало два.
+        const staging = `${cached}.${String(process.pid)}.${randomBytes(6).toString("hex")}.tmp`;
         fs.copyFileSync(artifact, staging);
         fs.renameSync(staging, cached);
         return { vsixPath: cached, version: version.version };
