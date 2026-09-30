@@ -268,15 +268,18 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         // идти. Поймано красным CI: 139-МБ артефакт redhat.java не укладывался в
         // общий таймаут 30с на windows-раннере, хотя качался штатно.
         const stall = new AbortController();
-        let watchdog: ReturnType<typeof setTimeout> | undefined;
-        const rearm = (): void => {
-            if (watchdog !== undefined) clearTimeout(watchdog);
-            watchdog = setTimeout(() => {
+        const arm = (): ReturnType<typeof setTimeout> =>
+            setTimeout(() => {
                 stall.abort(new Error(`no data for ${String(this.timeoutMs)}ms`));
             }, this.timeoutMs);
+        // Сторож взводится СРАЗУ и потому всегда определён: ожидание заголовков
+        // ответа он накрывает наравне с чтением тела.
+        let watchdog = arm();
+        const rearm = (): void => {
+            clearTimeout(watchdog);
+            watchdog = arm();
         };
 
-        rearm();
         try {
             const response = await this.request(url, stall.signal);
             this.ensureOk(response, url);
@@ -289,7 +292,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
             await downloadCapped(response, this.maxArtifactBytes, url, target, rearm);
             return target;
         } finally {
-            if (watchdog !== undefined) clearTimeout(watchdog);
+            clearTimeout(watchdog);
         }
     }
 }
