@@ -334,6 +334,48 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
     });
 
+    it("медленная, но ЖИВАЯ загрузка не обрывается: сторожим молчание, а не длительность", async () => {
+        // Кусками по 8 байт с паузой 40мс: суммарно ~280мс, то есть заведомо
+        // дольше таймаута 100мс, но пауз длиннее таймаута нет ни одной. Общий
+        // таймаут на fetch такую загрузку убивал бы — и убивал: платформенный
+        // .vsix redhat.java (139 МБ) падал так на windows-раннере CI.
+        const total = 7;
+        routes.set("/slow.vsix", (_req, res) => {
+            res.writeHead(200, { "content-type": "application/octet-stream" });
+            let sent = 0;
+            const tick = (): void => {
+                if (sent === total) {
+                    res.end();
+                    return;
+                }
+                sent++;
+                res.write(Buffer.alloc(8, sent));
+                setTimeout(tick, 40);
+            };
+            tick();
+        });
+        ws = createTempWorkspace();
+        const source = new HttpExtensionRegistrySource(base, undefined, { timeoutMs: 100 });
+        const file = await source.fetchArtifact(urlVersion(`${origin}/slow.vsix`), ws.dir);
+        expect(fs.statSync(file).size).toBe(total * 8);
+    });
+
+    it("замолчавшая загрузка обрывается по сторожу, недокачанный файл убран", async () => {
+        // Заголовки и первый кусок пришли, дальше тишина — ровно тот случай,
+        // ради которого сторож и нужен.
+        routes.set("/stalled.vsix", (_req, res) => {
+            res.writeHead(200, { "content-type": "application/octet-stream" });
+            res.write(Buffer.alloc(8, 1));
+            // Тело не закрываем: соединение подчистит closeAllConnections в afterAll.
+        });
+        ws = createTempWorkspace();
+        const source = new HttpExtensionRegistrySource(base, undefined, { timeoutMs: 100 });
+        await expect(source.fetchArtifact(urlVersion(`${origin}/stalled.vsix`), ws.dir)).rejects.toThrow(
+            /stalled\.vsix: download failed/,
+        );
+        expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
+    });
+
     it("артефакт ровно в лимит скачивается", async () => {
         const bytes = Buffer.alloc(64, 7);
         routes.set("/exact.vsix", (_req, res) => {
