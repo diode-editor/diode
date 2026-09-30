@@ -10,6 +10,7 @@ export const workbenchConfiguration: IConfigurationNode = {
         // каталог автодополнения дописывает генератор схемы — из ThemeRegistry,
         // не отсюда.
         "workbench.colorTheme": {
+            scope: "window",
             type: "string",
             default: DEFAULT_COLOR_THEME,
             description: "Specifies the color theme used in the workbench.",

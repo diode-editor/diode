@@ -10,6 +10,7 @@ import {
     resolveWorkspaceStatePath,
 } from "../../environment/node/userDataPaths.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
+import { computeWorkspaceId } from "../../workspace/common/workspaceId.ts";
 import type { IStateDescriptor } from "../common/iStateService.ts";
 
 import { loadState, StateService } from "./stateService.ts";
@@ -89,9 +90,10 @@ describe("StateService", () => {
             });
         });
 
-        it("persists per-project state under workspaceStorage/<hash>/state.json", () => {
+        it("persists per-project state under workspaceStorage/<workspaceId>/state.json", () => {
             const p = paths();
-            const folder = "/projects/alpha";
+            // Аргумент — идентичность воркспейса, не путь папки (см. computeWorkspaceId).
+            const folder = computeWorkspaceId("/projects/alpha");
             const a = loadState(p);
             a.openWorkspace(folder);
             a.store(wsWidth, 55);
@@ -110,15 +112,15 @@ describe("StateService", () => {
         it("keeps different projects independent", () => {
             const p = paths();
             const svc = loadState(p);
-            svc.openWorkspace("/projects/alpha");
+            svc.openWorkspace(computeWorkspaceId("/projects/alpha"));
             svc.store(wsWidth, 11);
-            svc.openWorkspace("/projects/beta"); // flushes alpha, loads beta
+            svc.openWorkspace(computeWorkspaceId("/projects/beta")); // flushes alpha, loads beta
             expect(svc.get(wsWidth)).toBe(30); // beta has no stored value → default
             svc.store(wsWidth, 22);
             svc.flushSync();
 
             const reopened = loadState(p);
-            reopened.openWorkspace("/projects/alpha");
+            reopened.openWorkspace(computeWorkspaceId("/projects/alpha"));
             expect(reopened.get(wsWidth)).toBe(11);
         });
     });

@@ -6,16 +6,16 @@ import { ConfigurationRegistry } from "./configurationRegistry.ts";
 const editorNode: IConfigurationNode = {
     id: "editor",
     properties: {
-        "editor.tabSize": { type: "number", default: 4 },
-        "editor.insertSpaces": { type: "boolean", default: true },
+        "editor.tabSize": { scope: "language-overridable", type: "number", default: 4 },
+        "editor.insertSpaces": { scope: "language-overridable", type: "boolean", default: true },
     },
 };
 
 const terminalNode: IConfigurationNode = {
     id: "terminal",
     properties: {
-        "terminal.tier": { type: "string", default: "auto", enum: ["auto", "legacy"] },
-        "terminal.capabilities": { type: "object", default: {} },
+        "terminal.tier": { scope: "machine", type: "string", default: "auto", enum: ["auto", "legacy"] },
+        "terminal.capabilities": { scope: "machine", type: "object", default: {} },
     },
 };
 
@@ -55,7 +55,10 @@ describe("ConfigurationRegistry", () => {
 
     it("builds deep trees for multi-segment keys", () => {
         const registry = new ConfigurationRegistry([
-            { id: "git", properties: { "git.decorations.enabled": { type: "boolean", default: true } } },
+            {
+                id: "git",
+                properties: { "git.decorations.enabled": { scope: "resource", type: "boolean", default: true } },
+            },
         ]);
         expect(registry.getDefaultConfiguration()).toEqual({ git: { decorations: { enabled: true } } });
     });

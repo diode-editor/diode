@@ -8,6 +8,7 @@ export const scmConfiguration: IConfigurationNode = {
         // догрузки по «Load More». Границы 1..1000 (как в vscode) держит само
         // расширение — схема настроек здесь min/max не выражает.
         "scm.graph.pageSize": {
+            scope: "resource",
             type: "number",
             default: 50,
             description:

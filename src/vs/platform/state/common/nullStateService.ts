@@ -1,3 +1,5 @@
+import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
+
 import type { IStateDescriptor, IStateService } from "./iStateService.ts";
 
 /**
@@ -12,7 +14,7 @@ export const NULL_STATE_SERVICE: IStateService = {
     store<T>(_descriptor: IStateDescriptor<T>, _value: T): void {
         /* no-op */
     },
-    openWorkspace(_folderPath: string): void {
+    openWorkspace(_workspaceId: WorkspaceId): void {
         /* no-op */
     },
     flushSync(): void {

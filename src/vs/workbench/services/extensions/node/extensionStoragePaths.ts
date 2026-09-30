@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { resolveWorkspaceStorageDir } from "../../../../platform/environment/node/userDataPaths.ts";
+import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 /**
  * Корни приватных каталогов расширений. Их даёт ХОСТ (владелец user-data), а не
@@ -11,14 +12,14 @@ import { resolveWorkspaceStorageDir } from "../../../../platform/environment/nod
  *
  * Соответствие эталону vscode (`IEnvironment` в `extensionHostProtocol.ts`):
  * `globalStorageHome` ↔ `globalStorageHome`, `workspaceStorageHome` ↔
- * `workspaceStorageHome/<workspace.id>` (у нас id папки — sha256, см.
+ * `workspaceStorageHome/<workspace.id>` (тот же `IWorkspace.id`, см.
  * `resolveWorkspaceStorageDir`), `logsHome` ↔ `logsLocation`.
  */
 export interface IExtensionStorageHomes {
     /** Родитель каталогов `globalStorageUri` (`<profileDir>/globalStorage`). */
     readonly globalStorageHome: string;
     /**
-     * Родитель каталогов `storageUri` (`<workspaceStorageDir>/<hash(folder)>`).
+     * Родитель каталогов `storageUri` (`<workspaceStorageDir>/<workspaceId>`).
      * `null` — папка/воркспейс не открыт: тогда `storageUri` у расширения
      * `undefined`, как и в vscode.
      */
@@ -90,20 +91,22 @@ export interface IExtensionStorageUserDataPaths {
 }
 
 /**
- * Собирает корни из путей user-data и ТЕКУЩЕЙ папки воркспейса. Pure, без I/O.
+ * Собирает корни из путей user-data и идентичности ТЕКУЩЕГО воркспейса. Pure,
+ * без I/O.
  *
- * Папки нет (`null`) ⇒ воркспейсного корня нет ⇒ `storageUri` у расширения
- * `undefined` — семантика vscode: «The value is `undefined` when no workspace
- * nor folder has been opened». Два других корня от папки не зависят.
+ * Воркспейса нет (`null` — `IWorkspace.id` пустого окна) ⇒ воркспейсного корня
+ * нет ⇒ `storageUri` у расширения `undefined` — семантика vscode: «The value is
+ * `undefined` when no workspace nor folder has been opened». Два других корня от
+ * воркспейса не зависят.
  */
 export function extensionStorageHomes(
     paths: IExtensionStorageUserDataPaths,
-    workspaceFolder: string | null,
+    workspaceId: WorkspaceId | null,
 ): IExtensionStorageHomes {
     return {
         globalStorageHome: paths.globalStorageDir,
         workspaceStorageHome:
-            workspaceFolder === null ? null : resolveWorkspaceStorageDir(paths.workspaceStorageDir, workspaceFolder),
+            workspaceId === null ? null : resolveWorkspaceStorageDir(paths.workspaceStorageDir, workspaceId),
         logsHome: paths.logsDir,
     };
 }

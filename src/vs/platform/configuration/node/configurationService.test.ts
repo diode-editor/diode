@@ -51,9 +51,9 @@ const TEST_REGISTRY = new ConfigurationRegistry([
     {
         id: "editor",
         properties: {
-            "editor.tabSize": { type: "number", default: 4 },
-            "editor.insertSpaces": { type: "boolean", default: true },
-            "editor.cursorSurroundingLines": { type: "number", default: 3 },
+            "editor.tabSize": { scope: "language-overridable", type: "number", default: 4 },
+            "editor.insertSpaces": { scope: "language-overridable", type: "boolean", default: true },
+            "editor.cursorSurroundingLines": { scope: "language-overridable", type: "number", default: 3 },
         },
     },
 ]);

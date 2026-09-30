@@ -89,7 +89,7 @@
 | `findFiles` | 🟡 | поиск по glob своим обходом дерева в субпроцессе (в эталоне за ним стоит ripgrep в ядре). Поддержаны обе формы `GlobPattern` (строка — по всем папкам воркспейса, `RelativePattern` — по своей базе), три значения `exclude` (`undefined` — дефолтные исключения `.git`/`node_modules`, `null` — никаких, шаблон — вместо дефолтов), `maxResults` и токен отмены. Отклонения: глобы матчатся нашим `glob.ts` (диапазонов `[0-9]` нет), `search.exclude`/`files.exclude` не читаются — настройки нет, и у обхода есть предел в 5000 каталогов на запрос |
 | `registerTextDocumentContentProvider` | ✅ | недисковые ресурсы (`jdt:` у Java) открываются read-only вкладкой; `onDidChange` перечитывает открытую; `openTextDocument` по такой схеме спрашивает провайдера |
 | `isTrusted`, `onDidGrantWorkspaceTrust` | 🟡 | модели доверия нет — всегда `true`, событие не стреляет |
-| `getWorkspaceFolder` | 🟡 | работает наивно в рантайме (префикс-матч + fallback на первую папку); декларация ещё не поднята |
+| `getWorkspaceFolder` | ✅ | работает в рантайме: матч по границе сегмента пути, файл **вне** папок воркспейса — `undefined`, как в эталоне (fallback на первую папку убран); декларация в `vscode.d.ts` ещё не поднята |
 | события папок и файловых операций (`onDidChangeWorkspaceFolders`, `onWill/onDid{Create,Delete,Rename}Files`) | 🕐 | подписка принимается (no-op), событие не стреляет |
 | notebook-поверхность (8 членов: `notebookDocuments`, `openNotebookDocument`, `registerNotebookSerializer`, события) | 🕐 | |
 | `rootPath`, `workspaceFile`, `updateWorkspaceFolders`, `save`, `saveAs`, `saveAll`, `registerTaskProvider`, `decode`, `encode` | 🕐 | |

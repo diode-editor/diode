@@ -4,9 +4,10 @@ import { describe, expect, it } from "vitest";
 
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 
-import type { IOpenEditorsSource, IWorkspaceRootSource } from "./openEditorsQuickAccessProvider.ts";
+import type { IOpenEditorsSource } from "./openEditorsQuickAccessProvider.ts";
 import { OpenEditorsQuickAccessProvider } from "./openEditorsQuickAccessProvider.ts";
 
 const ROOT = "/repo";
@@ -46,7 +47,10 @@ function createProvider(panes: IEditorPane[], root: string | null = ROOT): Harne
         displayName: (editor) => editor.label,
         revealPane: (editor) => revealed.push(editor),
     };
-    const workspace: IWorkspaceRootSource = { getRootPath: () => root };
+    // Настоящий WorkspaceContextService: пикер спрашивает у него папку по uri
+    // вкладки, и заглушка проверяла бы свой префикс-матч, а не его.
+    const workspace = new WorkspaceContextService();
+    if (root !== null) workspace.setWorkspaceFolder(root);
     return { provider: new OpenEditorsQuickAccessProvider(editors, workspace), revealed };
 }
 

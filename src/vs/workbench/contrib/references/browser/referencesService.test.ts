@@ -5,9 +5,9 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import type { ExplorerService } from "../../files/browser/explorerService.ts";
 
 import type { IReferenceGroup } from "./referencePreview.ts";
 import { REFERENCES_VIEWLET_ID, type ReferencesComponent } from "./referencesComponent.ts";
@@ -65,8 +65,10 @@ function fakeGroup(opts: IFakeEditorOptions = {}): EditorService {
     } as unknown as EditorService;
 }
 
-function fakeExplorer(root: string | null = ROOT): ExplorerService {
-    return { getRootPath: () => root } as unknown as ExplorerService;
+/** Папки воркспейса глазами сервиса: ему нужен только путь первой папки. */
+function fakeWorkspace(root: string | null = ROOT): IWorkspaceContextService {
+    const folders = root === null ? [] : [{ uri: { fsPath: root }, name: "", index: 0 }];
+    return { getWorkspace: () => ({ id: root, folders }) } as unknown as IWorkspaceContextService;
 }
 
 function fakeProviders(disk: Partial<Record<string, string>>): IFileSystemProviderRegistry {
@@ -104,7 +106,7 @@ describe("ReferencesService — findReferences", () => {
                     return Promise.resolve([reference(`${ROOT}/src/defs.ts`, 0, 16, 21), reference(MAIN, 2, 14, 19)]);
                 },
             }),
-            fakeExplorer(),
+            fakeWorkspace(),
             fakeProviders({
                 [`${ROOT}/src/defs.ts`]: "export function greet(name: string) {}\n",
                 [MAIN]: MAIN_TEXT,
@@ -143,7 +145,7 @@ describe("ReferencesService — findReferences", () => {
                 source: () => Promise.resolve([reference(MAIN, 0, 0, 5)]),
                 openModels: { [MAIN]: "hello world (в буфере)\n" },
             }),
-            fakeExplorer(),
+            fakeWorkspace(),
             fakeProviders({ [MAIN]: "на диске другое\n" }),
             fakeSidebar().service,
         );
@@ -159,7 +161,7 @@ describe("ReferencesService — findReferences", () => {
         const service = new ReferencesService(
             panel.component,
             fakeGroup({ source: () => Promise.resolve([]) }),
-            fakeExplorer(),
+            fakeWorkspace(),
             fakeProviders({}),
             sidebar.service,
         );
@@ -191,7 +193,7 @@ describe("ReferencesService — findReferences", () => {
                           })
                         : Promise.resolve([reference(MAIN, 0, 9, 14)]),
             }),
-            fakeExplorer(),
+            fakeWorkspace(),
             providers,
             sidebar.service,
         );
@@ -226,7 +228,7 @@ describe("ReferencesService — findReferences", () => {
         const service = new ReferencesService(
             panel.component,
             fakeGroup({ source: () => Promise.resolve([reference(MAIN, 2, 14, 19)]) }),
-            fakeExplorer(),
+            fakeWorkspace(),
             providers,
             fakeSidebar().service,
         );
@@ -257,7 +259,7 @@ describe("ReferencesService — findReferences", () => {
                           })
                         : Promise.resolve([reference(MAIN, 0, 9, 14)]),
             }),
-            fakeExplorer(),
+            fakeWorkspace(),
             fakeProviders({ [MAIN]: MAIN_TEXT }),
             fakeSidebar().service,
         );
@@ -282,7 +284,7 @@ describe("ReferencesService — findReferences", () => {
         const noEditor = new ReferencesService(
             panel.component,
             fakeGroup({ noEditor: true, source: () => Promise.resolve([reference(MAIN, 0, 0, 1)]) }),
-            fakeExplorer(),
+            fakeWorkspace(),
             providers,
             sidebar.service,
         );
@@ -291,7 +293,7 @@ describe("ReferencesService — findReferences", () => {
         const noSource = new ReferencesService(
             panel.component,
             fakeGroup({}),
-            fakeExplorer(),
+            fakeWorkspace(),
             providers,
             sidebar.service,
         );
@@ -301,7 +303,7 @@ describe("ReferencesService — findReferences", () => {
         const notOnWord = new ReferencesService(
             panel.component,
             fakeGroup({ caret: [1, 0], source: () => Promise.resolve([reference(MAIN, 0, 0, 1)]) }),
-            fakeExplorer(),
+            fakeWorkspace(),
             providers,
             sidebar.service,
         );
@@ -311,7 +313,7 @@ describe("ReferencesService — findReferences", () => {
         const pastEnd = new ReferencesService(
             panel.component,
             fakeGroup({ caret: [99, 0], source: () => Promise.resolve([reference(MAIN, 0, 0, 1)]) }),
-            fakeExplorer(),
+            fakeWorkspace(),
             providers,
             sidebar.service,
         );
@@ -326,7 +328,7 @@ describe("ReferencesService — findReferences", () => {
         const service = new ReferencesService(
             panel.component,
             fakeGroup({ source: () => Promise.resolve([reference(MAIN, 2, 14, 19)]) }),
-            fakeExplorer(null),
+            fakeWorkspace(null),
             fakeProviders({ [MAIN]: MAIN_TEXT }),
             fakeSidebar().service,
         );
@@ -349,7 +351,7 @@ describe("ReferencesService — clear", () => {
                         release = resolve;
                     }),
             }),
-            fakeExplorer(),
+            fakeWorkspace(),
             fakeProviders({ [MAIN]: MAIN_TEXT }),
             fakeSidebar().service,
         );

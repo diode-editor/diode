@@ -1,6 +1,3 @@
-import * as path from "node:path";
-
-import { Uri } from "../../base/common/uri.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -9,6 +6,8 @@ import type { ContainerModule } from "../../platform/instantiation/common/diCont
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
+import type { IWorkspaceContextService } from "../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
 import { bindDocumentSync, openDocumentSnapshots } from "../../workbench/api/browser/documentSyncAdapter.ts";
 import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/editorDecorationsServiceAdapter.ts";
@@ -66,16 +65,11 @@ function toMarkerSeverity(severity: number): MarkerSeverity {
     }
 }
 
-/** Источник корня воркспейса — ровно та часть `ExplorerService`, что тут нужна. */
-interface IWorkspaceRootSource {
-    getRootPath(): string | null;
-}
-
 /**
  * Поставщик папок воркспейса для extension host'а. Фабрика, а не готовое
  * значение, по двум причинам, и обе — контракт наружу, а не деталь проводки:
  *
- * 1. Корень читается **лениво**, на каждый вызов: `getWorkspaceFolders` зовут
+ * 1. Папки читаются **лениво**, на каждый вызов: `getWorkspaceFolders` зовут
  *    при инициализации subprocess'а, а до неё успевает пройти
  *    `WorkbenchComponent.setWorkspaceFolder` (и Open Folder в рантайме тоже).
  *    Снимок, взятый в момент биндинга, залипал бы на состоянии «папки нет».
@@ -83,13 +77,18 @@ interface IWorkspaceRootSource {
  *    Подсунутый cwd отправил бы git и прочих шерстить случайный каталог, из
  *    которого человек запустил редактор; пустой массив `workspaceNamespace`
  *    отдаёт расширениям как `undefined` — ровно контракт VS Code для empty window.
+ *
+ * Сужения до одной папки здесь больше нет: провод хоста везёт массив
+ * (`IWorkspaceFolderInfo` с `index`), и `IWorkspace.folders` — тоже массив, так
+ * что перекладываем один в другой как есть.
  */
-export function workspaceFoldersProvider(explorer: IWorkspaceRootSource): () => readonly IWorkspaceFolderInfo[] {
-    return () => {
-        const root = explorer.getRootPath();
-        if (root === null) return [];
-        return [{ uri: Uri.file(root).toString(), name: path.basename(root), index: 0 }];
-    };
+export function workspaceFoldersProvider(
+    workspaceContext: IWorkspaceContextService,
+): () => readonly IWorkspaceFolderInfo[] {
+    return () =>
+        workspaceContext
+            .getWorkspace()
+            .folders.map((folder) => ({ uri: folder.uri.toString(), name: folder.name, index: folder.index }));
 }
 
 /** Контекст модуля: корни хранения расширений из user-data (см. `main.ts`). */
@@ -133,10 +132,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // ленивое чтение корня и пустой список для окна без папки. Слой Configuration
         // не тянется в рантайм host'а — доступ идёт через этот тонкий адаптер.
         const configService = container.get(IConfigurationServiceDIToken);
+        const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
         const explorer = container.get(ExplorerServiceDIToken);
         const configuration: IExtensionHostConfigProvider = {
             getSnapshot: () => configService.getValue(),
-            getWorkspaceFolders: workspaceFoldersProvider(explorer),
+            getWorkspaceFolders: workspaceFoldersProvider(workspaceContext),
             onDidChange: (cb) =>
                 configService.onDidChangeConfiguration((event) => {
                     cb(event.affectedKeys);
@@ -177,10 +177,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Приватные каталоги расширений (`globalStorageUri`/`storageUri`/`logUri`).
         // Провайдер ЛЕНИВЫЙ по той же причине, что `getWorkspaceFolders` выше:
         // папку воркспейса выставляет `WorkbenchComponent.setWorkspaceFolder`
-        // позже создания хоста, а `storageUri` зависит именно от неё. Сам резолв —
-        // в `extensionStorageHomes` (чистый, с тестами), здесь только чтение папки.
+        // позже создания хоста, а `storageUri` зависит именно от неё. Адресуется
+        // `storageUri` ИДЕНТИЧНОСТЬЮ воркспейса (`IWorkspace.id`), а не путём
+        // папки. Сам резолв — в `extensionStorageHomes` (чистый, с тестами),
+        // здесь только чтение id.
         // Stryker disable next-line ArrowFunction: production-проводка модуля; решение о корнях живёт в `extensionStorageHomes` и закрыто юнитами, сквозняк — e2e-сценарий extension-storage
-        const storageHomes = (): IExtensionStorageHomes => extensionStorageHomes(ctx, explorer.getRootPath());
+        const storageHomes = (): IExtensionStorageHomes =>
+            extensionStorageHomes(ctx, workspaceContext.getWorkspace().id);
 
         // Секреты расширений — файл в user-data (в отличие от memento, они
         // обязаны пережить перезапуск). Беды хранилища уходят в лог хоста; сами
@@ -363,11 +366,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // может открыться ПОЗЖЕ регистрации расширений, и событие «в проекте
         // есть pom.xml» иначе прогорело бы в пустоту. Стартовый проход (папка из
         // аргументов) делает main.ts — как и со стартовым `onLanguage:`; здесь
-        // ловится только смена корня. На самой первой смене (её делает
+        // ловится только смена набора папок. На самой первой смене (её делает
         // `setWorkspaceFolder` до регистрации расширений) считать нечего — хост
         // сам выходит на пустом наборе кандидатов, не трогая ФС.
         // Stryker disable CallExpression,BlockStatement,StringLiteral: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение о поводе активации живёт в `ExtensionHost.activateByWorkspaceContains` и закрыто его юнитами, сквозняк — e2e-сценарий activation-workspace-contains
-        explorer.onDidChangeRoot(() => {
+        workspaceContext.onDidChangeWorkspaceFolders(() => {
             void host.activateByWorkspaceContains().catch((err: unknown) => {
                 logger.error("workspaceContains activation failed", err);
             });

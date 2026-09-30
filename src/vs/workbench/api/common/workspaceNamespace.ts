@@ -570,10 +570,15 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             const params: IWireApplyWorkspaceEditParams = { edits: resources };
             return rpc.request("workspace.applyEdit", params) as Promise<boolean>;
         },
+        // Файл ВНЕ папок воркспейса — `undefined`, как в эталоне («Returns
+        // `undefined` when the given uri doesn't match any workspace folder»).
+        // Раньше здесь стоял fallback на `workspaceFolders[0]`: в однопапочном
+        // мире почти безобидный, а в мульти-руте — источник неверной адресации,
+        // на котором расширения успели бы устаканиться.
         getWorkspaceFolder: (uri: vscode.Uri): vscode.WorkspaceFolder | undefined => {
             const p = (uri as unknown as Uri).fsPath;
             const found = workspaceFolders.find((f) => p === f.uri.fsPath || p.startsWith(f.uri.fsPath + "/"));
-            return (found ?? workspaceFolders[0]) as unknown as vscode.WorkspaceFolder | undefined;
+            return found as unknown as vscode.WorkspaceFolder | undefined;
         },
         createFileSystemWatcher: (
             globPattern: vscode.GlobPattern,

@@ -21,6 +21,8 @@ import {
     UndoRedoServiceDIToken,
     WORKSPACE_UNDO_CONTEXT,
 } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
 import type { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
@@ -77,6 +79,7 @@ export class FileOperationsService {
         QuickInputServiceDIToken,
         KeybindingRegistryDIToken,
         ContextKeyServiceDIToken,
+        IWorkspaceContextServiceDIToken,
     ] as const;
 
     public constructor(
@@ -90,6 +93,7 @@ export class FileOperationsService {
         private readonly inputPrompt: IExplorerInputPrompt,
         private readonly keybindings: KeybindingRegistry,
         private readonly contextKeys: ContextKeyService,
+        private readonly workspaceContext: IWorkspaceContextService,
     ) {}
 
     /**
@@ -301,8 +305,14 @@ export class FileOperationsService {
         return path.resolve(this.workspaceRoot(), expanded);
     }
 
-    /** Current workspace root, or the process cwd when no folder is open. */
+    /**
+     * Current workspace root, or the process cwd when no folder is open. The
+     * root comes from `IWorkspaceContextService`; `folders.at(0)` is the visible
+     * narrowing to today's single-folder semantics (with several folders the
+     * reference resolves input against the active editor's folder — stage F in
+     * docs/TODO/MultiRoot.md).
+     */
     private workspaceRoot(): string {
-        return this.explorer.getRootPath() ?? process.cwd();
+        return this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? process.cwd();
     }
 }

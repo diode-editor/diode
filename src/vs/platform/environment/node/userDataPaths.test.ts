@@ -2,6 +2,8 @@ import * as crypto from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
+import { computeWorkspaceId } from "../../workspace/common/workspaceId.ts";
+
 import {
     DEFAULT_PROFILE_NAME,
     DEFAULT_USER_DATA_ROOT_NAME,
@@ -121,42 +123,39 @@ describe("resolveUserDataPaths", () => {
 
 describe("resolveWorkspaceStorageDir", () => {
     const storage = "/home/alice/.diode/user-data/User/workspaceStorage";
+    // Идентичность воркспейса приходит СНАРУЖИ — функция её не выводит и о том,
+    // из чего она посчитана, не знает (см. computeWorkspaceId и его тесты).
+    const id = computeWorkspaceId("/projects/app");
 
-    it("keys the folder dir by sha256 of the resolved path", () => {
-        const hash = crypto.createHash("sha256").update("/projects/app").digest("hex");
-        expect(resolveWorkspaceStorageDir(storage, "/projects/app")).toBe(`${storage}/${hash}`);
+    it("keys the dir by the workspace id verbatim", () => {
+        expect(resolveWorkspaceStorageDir(storage, id)).toBe(`${storage}/${id}`);
     });
 
-    // Каталог расширения (`<hash>/<extId>` = storageUri) лежит рядом с нашим
+    // Каталог расширения (`<id>/<extId>` = storageUri) лежит рядом с нашим
     // state.json — ровно как в vscode рядом с его state.vscdb.
     it("is the parent of state.json — extension dirs are its siblings", () => {
-        const dir = resolveWorkspaceStorageDir(storage, "/projects/app");
-        expect(resolveWorkspaceStatePath(storage, "/projects/app")).toBe(`${dir}/state.json`);
+        expect(resolveWorkspaceStatePath(storage, id)).toBe(`${resolveWorkspaceStorageDir(storage, id)}/state.json`);
     });
 
-    it("normalizes the folder path before hashing", () => {
-        const canonical = resolveWorkspaceStorageDir(storage, "/projects/app");
-        expect(resolveWorkspaceStorageDir(storage, "/projects/app/")).toBe(canonical);
-        expect(resolveWorkspaceStorageDir(storage, "/projects/sub/../app")).toBe(canonical);
+    // Формат на диске остаётся тем же, что у пользователей уже лежит:
+    // workspaceStorage/<sha256(абсолютный путь папки)>.
+    it("lands on the same on-disk layout as before the id was introduced", () => {
+        const hash = crypto.createHash("sha256").update("/projects/app").digest("hex");
+        expect(resolveWorkspaceStorageDir(storage, id)).toBe(`${storage}/${hash}`);
     });
 });
 
 describe("resolveWorkspaceStatePath", () => {
     const storage = "/home/alice/.diode/user-data/User/workspaceStorage";
 
-    it("keys state.json by sha256 of the resolved folder path", () => {
-        const hash = crypto.createHash("sha256").update("/projects/app").digest("hex");
-        expect(resolveWorkspaceStatePath(storage, "/projects/app")).toBe(`${storage}/${hash}/state.json`);
+    it("puts state.json inside the workspace dir", () => {
+        const id = computeWorkspaceId("/projects/app");
+        expect(resolveWorkspaceStatePath(storage, id)).toBe(`${storage}/${id}/state.json`);
     });
 
-    it("normalizes the folder path before hashing (trailing slash / . segments)", () => {
-        const canonical = resolveWorkspaceStatePath(storage, "/projects/app");
-        expect(resolveWorkspaceStatePath(storage, "/projects/app/")).toBe(canonical);
-        expect(resolveWorkspaceStatePath(storage, "/projects/./app")).toBe(canonical);
-        expect(resolveWorkspaceStatePath(storage, "/projects/sub/../app")).toBe(canonical);
-    });
-
-    it("produces different hashes for different folders", () => {
-        expect(resolveWorkspaceStatePath(storage, "/a")).not.toBe(resolveWorkspaceStatePath(storage, "/b"));
+    it("keeps different workspaces in different files", () => {
+        expect(resolveWorkspaceStatePath(storage, computeWorkspaceId("/a"))).not.toBe(
+            resolveWorkspaceStatePath(storage, computeWorkspaceId("/b")),
+        );
     });
 });

@@ -3,6 +3,8 @@ import * as nodePath from "node:path";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { fuzzyMatchBest } from "../../../../base/common/fuzzySearch.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { BASENAME_BONUS } from "../../../services/search/node/fileSearchService.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
@@ -20,18 +22,8 @@ export interface IOpenEditorsSource {
     revealPane(editor: IEditorPane): void;
 }
 
-/**
- * Корень воркспейса — чтобы путь в описании строки был относительным, как в
- * файловом пикере, а не абсолютным. Структурно соответствует `ExplorerService`
- * (он владеет корнем и переживает Open Folder); связывание — в DI-модуле.
- */
-export interface IWorkspaceRootSource {
-    getRootPath(): string | null;
-}
-
 // Stryker disable StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const OpenEditorsSourceDIToken = token<IOpenEditorsSource>("OpenEditorsSource");
-export const WorkspaceRootSourceDIToken = token<IWorkspaceRootSource>("WorkspaceRootSource");
 export const OpenEditorsQuickAccessProviderDIToken = token<OpenEditorsQuickAccessProvider>(
     "OpenEditorsQuickAccessProvider",
 );
@@ -71,11 +63,11 @@ export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
     /** С пробелом, как у vscode: `edt` без него остаётся запросом к файлам. */
     public static readonly PREFIX = "edt ";
 
-    public static dependencies = [OpenEditorsSourceDIToken, WorkspaceRootSourceDIToken] as const;
+    public static dependencies = [OpenEditorsSourceDIToken, IWorkspaceContextServiceDIToken] as const;
 
     public constructor(
         private readonly editors: IOpenEditorsSource,
-        private readonly workspace: IWorkspaceRootSource,
+        private readonly workspace: IWorkspaceContextService,
     ) {}
 
     public getPlaceholder(): string {
@@ -117,10 +109,12 @@ export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
         if (pane.uri.scheme !== "file") return "";
 
         const directory = nodePath.dirname(pane.uri.fsPath);
-        const root = this.workspace.getRootPath();
-        if (root === null) return directory;
-        const relative = nodePath.relative(root, directory);
-        if (relative.startsWith("..")) return directory;
+        // `getWorkspaceFolder` уже отвечает `null` и на пустое окно, и на файл вне
+        // папок — отдельная проверка «а не уехал ли путь в ../..» не нужна, и та
+        // же строка заработает при нескольких папках.
+        const folder = this.workspace.getWorkspaceFolder(pane.uri);
+        if (folder === null) return directory;
+        const relative = nodePath.relative(folder.uri.fsPath, directory);
         // Слэш на всех платформах, как у относительных путей файлового пикера.
         return relative.split(nodePath.sep).join("/");
     }

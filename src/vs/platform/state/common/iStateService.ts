@@ -1,3 +1,5 @@
+import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
+
 /**
  * Сервис машинного состояния UI/сессии — аналог `IStorageService` / `Memento`
  * из VS Code. **Отдельная система от {@link IConfigurationService}:** настройки
@@ -25,12 +27,15 @@ export interface IStateService {
     store<T>(descriptor: IStateDescriptor<T>, value: T): void;
 
     /**
-     * Открывает (или переключает) стор `workspace`-scope на папку `folderPath`.
-     * Предыдущий workspace-стор сначала синхронно сбрасывается на диск. Пока
-     * воркспейс не открыт, `workspace`-дескрипторы обслуживаются `global`-стором
-     * (fallback без открытого проекта).
+     * Открывает (или переключает) стор `workspace`-scope на проект
+     * `workspaceId`. Предыдущий workspace-стор сначала синхронно сбрасывается
+     * на диск. Пока воркспейс не открыт, `workspace`-дескрипторы обслуживаются
+     * `global`-стором (fallback без открытого проекта).
+     *
+     * Аргумент — идентичность проекта, а не путь папки: см.
+     * `resolveWorkspaceStorageDir`.
      */
-    openWorkspace(folderPath: string): void;
+    openWorkspace(workspaceId: WorkspaceId): void;
 
     /**
      * Синхронно записывает все «грязные» сторы на диск. Безопасно вызывать в
@@ -43,7 +48,7 @@ export interface IStateService {
 export type StateScope =
     /** Per-profile: `<profileDir>/globalState.json`. Fallback, когда проект не открыт. */
     | "global"
-    /** Per-project: `workspaceStorage/<sha256(folder)>/state.json`. */
+    /** Per-project: `workspaceStorage/<workspaceId>/state.json`. */
     | "workspace";
 
 /**

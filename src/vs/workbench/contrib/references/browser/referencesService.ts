@@ -2,13 +2,13 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import { findWordRangeAt } from "../../../../editor/common/core/wordClassification.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
-import type { ExplorerService } from "../../files/browser/explorerService.ts";
-import { ExplorerServiceDIToken } from "../../files/browser/explorerService.ts";
 
 import { buildReferenceGroups, type IReferenceTextSource } from "./referencePreview.ts";
 import type { ReferencesComponent } from "./referencesComponent.ts";
@@ -30,7 +30,7 @@ export class ReferencesService {
     public static dependencies = [
         ReferencesComponentDIToken,
         EditorServiceDIToken,
-        ExplorerServiceDIToken,
+        IWorkspaceContextServiceDIToken,
         FileSystemProviderRegistryDIToken,
         SidebarServiceDIToken,
     ] as const;
@@ -43,7 +43,7 @@ export class ReferencesService {
     public constructor(
         private readonly component: ReferencesComponent,
         private readonly group: EditorService,
-        private readonly explorerService: ExplorerService,
+        private readonly workspaceContext: IWorkspaceContextService,
         providers: IFileSystemProviderRegistry,
         private readonly sidebarService: SidebarService,
     ) {
@@ -84,8 +84,11 @@ export class ReferencesService {
         });
         if (seq !== this.requestSeq) return;
 
+        // Корень — из IWorkspaceContextService; `folders.at(0)` здесь и есть видимое
+        // сужение до однопапочной семантики (в мульти-руте путь ссылки будет
+        // относительным своей папке — этап C в docs/TODO/MultiRoot.md).
         // Stryker disable next-line StringLiteral: корень без открытой папки — любая строка, не являющаяся префиксом пути ссылки, даёт тот же результат (путь показывается целиком)
-        const root = this.explorerService.getRootPath() ?? "";
+        const root = this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? "";
         const groups = await buildReferenceGroups(references, this.textSource, root);
         if (seq !== this.requestSeq) return;
 
