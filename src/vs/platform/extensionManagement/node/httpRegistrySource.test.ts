@@ -370,10 +370,29 @@ describe("HttpExtensionRegistrySource", () => {
         });
         ws = createTempWorkspace();
         const source = new HttpExtensionRegistrySource(base, undefined, { timeoutMs: 100 });
+        // Текст причины обязан доехать до вызывающего: «download failed» без неё
+        // не отличает замолчавший канал от любого другого обрыва.
         await expect(source.fetchArtifact(urlVersion(`${origin}/stalled.vsix`), ws.dir)).rejects.toThrow(
-            /stalled\.vsix: download failed/,
+            /stalled\.vsix: download failed: no data for 100ms/,
         );
         expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
+    });
+
+    it("после успешной загрузки сторож снят — висящих таймеров не остаётся", async () => {
+        // Не косметика: несброшенный `setTimeout` держит event loop, и
+        // `diode --install-extension <id>` после успешной установки висел бы ещё
+        // `timeoutMs` вместо мгновенного выхода.
+        const bytes = Buffer.alloc(32, 3);
+        routes.set("/tidy.vsix", (_req, res) => {
+            res.writeHead(200);
+            res.end(bytes);
+        });
+        ws = createTempWorkspace();
+        const timers = (): number => process.getActiveResourcesInfo().filter((r) => r === "Timeout").length;
+        const before = timers();
+        const source = new HttpExtensionRegistrySource(base, undefined, { timeoutMs: 30_000 });
+        await source.fetchArtifact(urlVersion(`${origin}/tidy.vsix`), ws.dir);
+        expect(timers()).toBe(before);
     });
 
     it("артефакт ровно в лимит скачивается", async () => {
