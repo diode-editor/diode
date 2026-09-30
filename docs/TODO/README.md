@@ -33,6 +33,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Крупные задачи
 
+- [ ] [ClaudeCode](ClaudeCode.md) — интеграция с Claude Code: стоковое `Anthropic.claude-code` из OpenVSX в режиме `useTerminal` (проба: активируется, CLI подключается к его `ide`-серверу); фронт — мелочи API, терминал для расширений, предложенный дифф через `vscode.diff`, `getDiagnostics`
 - [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points; основное сделано, остались хвосты MenuRegistry (серые пункты попапа, `when`-фильтр палитры, `alt`/hide-toggle/вложенные подменю)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, panel, terminal, menuBar): по критерию «публичный API не упоминает понятий Diode» им место у нас
