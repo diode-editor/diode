@@ -1,4 +1,3 @@
-
 # Diode — TODO
 
 Трекер задач проекта. Каждая задача имеет статус, краткое описание и контекст.
@@ -14,15 +13,18 @@
 ## Визуальный ориентир
 
 ### NVChad — референс для UI/UX
+
 Проект: https://github.com/NvChad/NvChad
 
 NVChad — конфигурация Neovim с красивым UI, быстрым рендерингом и продуманной визуальной частью. Ориентируемся на него в плане:
+
 - **Внешний вид**: цветовые темы (base46), statusline, tabufline, общая эстетика
 - **Иконки**: nvim-web-devicons — файловые иконки, иконки типов файлов в дереве и табах
 - **Рендеринг UI-элементов**: telescope (fuzzy finder с превью), nvim-tree (файловое дерево), cheatsheets
 - **Цветовые схемы**: onedark и другие темы из base46 как отправная точка для палитры
 
 Ключевые плагины NVChad для вдохновения:
+
 - [base46](https://github.com/NvChad/base46) — темы и подсветка
 - [NvChad UI](https://github.com/NvChad/ui) — statusline, tabufline, theme switcher
 - [nvim-web-devicons](https://github.com/kyazdani42/nvim-web-devicons) — иконки файлов
@@ -33,6 +35,9 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Крупные задачи
 
+- [ ] [ParityBacklog](ParityBacklog.md) — заход по списку шероховатостей от пользователя (15 пунктов, живой ssh+tmux): диагноз по каждому снят до работы (часть — живым прогоном редактора), разбивка на три волны. Волна 1 — общие механизмы: bulk workspace edit (из-за него «Code action failed»), NLS манифестов (`%java.*%` в палитре), fuzzy+сплит запроса по пробелам (палитра вообще на `includes`), `files.exclude`/`search.exclude`, достижимость биндов (F1 под `tier == 'legacy'` — в tmux редактор остаётся без палитры вовсе)
+- [ ] [Formatting](Formatting.md) — prettier и выбор форматтера (пункт 5 ParityBacklog, охват сужен: сначала prettier). Замерено: TS/JS форматирует tsserver, markdown/json не покрыты никем; провайдер выбирается первым матчащим, `editor.defaultFormatter` нет — отсюда риск конфликта prettier×tsserver
+- [ ] [PreviewEditors](PreviewEditors.md) — режим предпросмотра вкладок (пункт 14 ParityBacklog): нет вовсе. Фаза 1 наша (preview-флаг + замещение + прикалывание правкой/Ctrl+K Enter), курсив в табе и двойной клик дерева требуют PR в tuidom
 - [ ] [ClaudeCode](ClaudeCode.md) — интеграция с Claude Code: стоковое `Anthropic.claude-code` из OpenVSX в режиме `useTerminal` (проба: активируется, CLI подключается к его `ide`-серверу); фронт — мелочи API, терминал для расширений, предложенный дифф через `vscode.diff`, `getDiagnostics`
 - [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points; основное сделано, остались хвосты MenuRegistry (серые пункты попапа, `when`-фильтр палитры, `alt`/hide-toggle/вложенные подменю)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
@@ -85,12 +90,14 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 ## Позиционирование и сайт
 
 ### [ ] Публичный роадмап + статус «альфа»
+
 Страница роадмапа (в доке или на сайте) и явный статус «alpha» на главной (рядом с версией).
 Смысл — управление ожиданиями: альфу не прячем, а показываем, куда идём и как быстро.
 Ключевой заявляемый пункт — конечная цель: **полная поддержка API расширений VS Code там, где
 она имеет смысл в терминале** (см. VISION.md «Что говорить вовне»). Ссылка с главной.
 
 ### [x] Матрица покрытия API VS Code
+
 Публичная матрица «namespace/поверхность → поддержано / частично / запланировано / не будет
 by design» — [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md). Заполнена руками по
 фактическому состоянию исходников (активная поверхность `vscode.d.ts` + таблица стабов из
@@ -101,11 +108,13 @@ by design» — [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md). Зап
 ведение начнёт врать.
 
 ### [ ] Страница бенчмарков + ссылка с главной
+
 Заготовка страницы — [docs/public/BENCHMARKS.md](../public/BENCHMARKS.md): структура и лестница
 готовы, осталось снять сравнительную таблицу одним прогоном, заполнить методику и дать ссылку
 с главной страницы сайта (diode-editor.github.io). Скорость — допуск на поле
 (см. [VISION.md](../VISION.md#скорость--допуск-на-поле)); цифра публичная — значит должна быть
 воспроизводимая и защищённая:
+
 - **Лестница старта**, а не одно число: пол Node 77мс → первый кадр 87мс → редактор готов 103мс
   (26мс воркбенча поверх пола Node); extension host лениво, LSP асинхронно.
 - **Сравнительная таблица, снятая своей рукой** на одной машине: vim · nvim голый ·
@@ -119,8 +128,10 @@ by design» — [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md). Зап
 ## Кодировки
 
 ### [ ] `files.encoding` — дефолтная кодировка из настроек
+
 Ось encoding в ядре и пикеры Reopen/Save with Encoding готовы (#106); детект — BOM-only,
 без BOM всегда utf-8. Follow-up как в VS Code:
+
 - **`files.encoding`** — кодировка по умолчанию для открытия/сохранения (вместо
   захардкоженного utf-8), применять в `EditorService.applyConfigurationToEditor` (`src/vs/workbench/services/editor/browser/editorService.ts`).
 - **`files.autoGuessEncoding`** — эвристический детект содержимого (jschardet-подобный),
@@ -134,9 +145,10 @@ by design» — [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md). Зап
 ## Unicode и отображение символов
 
 ### [ ] Системная ширина символов: кодоген таблиц + рантайм-проба ambiguous-width
+
 Таблицы `isWide`/`isZeroWidth` живут в движке (`unicodeWidth` в `@tuidom/core`) —
 кодоген из официальных Unicode-файлов делается в репозитории tuidom. Наша часть —
-**рантайм-проба (CPR)**: ширина *ambiguous-width* символов (`·≈→↔–—…№`, EAW=A) и части
+**рантайм-проба (CPR)**: ширина _ambiguous-width_ символов (`·≈→↔–—…№`, EAW=A) и части
 emoji терминально-зависима, terminfo этого не содержит; единственный источник правды —
 спросить сам терминал (напечатать символ → `ESC[6n` → вычислить фактическую ширину).
 Одноразовый probe в bootstrap для набора спорных символов, кэшировать результат.
@@ -174,8 +186,10 @@ emoji терминально-зависима, terminfo этого не соде
 ## Layout
 
 ### [ ] View-секции сайдбара — follow-up'ы
+
 Пилот (контейнер Source Control) и merged одно-view контейнеры (Search) готовы —
 `browser/parts/views/`, см. arch/Workbench.md. Осталось:
+
 - Перенос view между контейнерами (модель уже допускает: `containerId` в
   реестре view-дескрипторов) + персист размещения.
 - Explorer — миграция на merged-контейнер по готовому пути Search.
