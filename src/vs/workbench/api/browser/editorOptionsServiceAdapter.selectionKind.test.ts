@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 import { type CursorChangeSource, withCursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
+import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type { IActiveEditorSelections } from "../common/iEditorOptionsService.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
+/** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
+const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => false };
 
 // Продюсер поля `kind` у `editor.selectionChanged` — «кто и по какому жесту его
 // шлёт». Источник снимается СИНХРОННО в обработчике, а нотификация уезжает
@@ -63,7 +66,7 @@ function liveGroup(): { group: EditorService; move: (character: number) => void 
 /** Двигает каретку внутри объявленного источника и возвращает то, что уехало. */
 async function notifiedFor(source: CursorChangeSource | undefined): Promise<IActiveEditorSelections> {
     const { group, move } = liveGroup();
-    const adapter = new EditorOptionsServiceAdapter(group);
+    const adapter = new EditorOptionsServiceAdapter(group, NO_BULK_EDITS);
     const seen: IActiveEditorSelections[] = [];
     adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
     if (source === undefined) move(3);
@@ -97,7 +100,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
 
     it("источник снимается синхронно: к моменту отложенного флаша область уже закрыта", async () => {
         const { group, move } = liveGroup();
-        const adapter = new EditorOptionsServiceAdapter(group);
+        const adapter = new EditorOptionsServiceAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];
         adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
 
@@ -112,7 +115,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
 
     it("в коалесенном тике побеждает ПОСЛЕДНИЙ источник — он же автор итоговых выделений", async () => {
         const { group, move } = liveGroup();
-        const adapter = new EditorOptionsServiceAdapter(group);
+        const adapter = new EditorOptionsServiceAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];
         adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
 
@@ -131,7 +134,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
 
     it("источник не протекает в следующий тик", async () => {
         const { group, move } = liveGroup();
-        const adapter = new EditorOptionsServiceAdapter(group);
+        const adapter = new EditorOptionsServiceAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];
         adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
 

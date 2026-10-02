@@ -30,14 +30,29 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Текстовая правка + файловая операция: не поддержано — ждём честный false.
+    // Текстовая правка активного документа + переименование файла рядом:
+    // смешанный edit, как у rename-рефакторинга.
     context.subscriptions.push(
-        vscode.commands.registerCommand("test.applyWithFileOp", function () {
+        vscode.commands.registerCommand("test.applyRenameWithText", function (paths) {
             const editor = vscode.window.activeTextEditor;
             if (editor == null) return null;
             const edit = new vscode.WorkspaceEdit();
             edit.replace(editor.document.uri, new vscode.Range(0, 0, 0, 1), "Y");
-            edit.renameFile(editor.document.uri, vscode.Uri.file("/tmp/renamed.txt"));
+            edit.renameFile(vscode.Uri.file(paths[0]), vscode.Uri.file(paths[1]));
+            return vscode.workspace.applyEdit(edit);
+        }),
+    );
+
+    // «Move to a new file»: создать файл с содержимым, дописать в него, убрать
+    // исходный. Порядок операций значим.
+    context.subscriptions.push(
+        vscode.commands.registerCommand("test.applyMoveToNewFile", function (paths) {
+            const created = vscode.Uri.file(paths[0]);
+            const removed = vscode.Uri.file(paths[1]);
+            const edit = new vscode.WorkspaceEdit();
+            edit.createFile(created, { contents: new TextEncoder().encode("moved\n") });
+            edit.insert(created, new vscode.Position(1, 0), "tail\n");
+            edit.deleteFile(removed);
             return vscode.workspace.applyEdit(edit);
         }),
     );

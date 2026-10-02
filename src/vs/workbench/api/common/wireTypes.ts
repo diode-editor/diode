@@ -1649,29 +1649,98 @@ export interface IWireResourceTextEdits {
 }
 
 /**
- * Параметры `workspace.applyEdit` (subprocess → host): текстовые правки по
- * ресурсам. Файловые операции WorkspaceEdit не поддержаны — субпроцесс отвечает
- * `false` сам, не отправляя запрос.
+ * Одна операция workspace edit'а в проводе. Порядок в массиве значим: «Move to
+ * a new file» создаёт файл и тут же пишет в него, rename-рефакторинг
+ * переименовывает файл и правит импорты уже по новому пути.
+ *
+ * Опции — дословно из `vscode.WorkspaceEdit`: `overwrite` бьёт
+ * `ignoreIfExists`, без них коллизия отбивает edit целиком. `contents`
+ * создаваемого файла едет строкой (байты расширения декодируются как UTF-8:
+ * создаём мы текстовый файл).
+ */
+export type IWireWorkspaceEditOp =
+    | ({ readonly kind: "text" } & IWireResourceTextEdits)
+    | {
+          readonly kind: "create";
+          readonly resource: string;
+          readonly contents?: string;
+          readonly overwrite?: boolean;
+          readonly ignoreIfExists?: boolean;
+      }
+    | { readonly kind: "delete"; readonly resource: string; readonly ignoreIfNotExists?: boolean }
+    | {
+          readonly kind: "rename";
+          readonly from: string;
+          readonly to: string;
+          readonly overwrite?: boolean;
+          readonly ignoreIfExists?: boolean;
+      };
+
+/**
+ * Параметры `workspace.applyEdit` (subprocess → host): упорядоченный набор
+ * текстовых правок и файловых операций.
  */
 export interface IWireApplyWorkspaceEditParams {
-    readonly edits: readonly IWireResourceTextEdits[];
+    readonly ops: readonly IWireWorkspaceEditOp[];
 }
 
-/** Ресурсы без единой валидной правки отбрасываются (им нечего применять). */
-export function parseWireApplyWorkspaceEditParams(raw: unknown): IWireResourceTextEdits[] {
-    if (typeof raw !== "object" || raw === null) return [];
-    const list = (raw as Record<string, unknown>).edits;
-    if (!Array.isArray(list)) return [];
-    const result: IWireResourceTextEdits[] = [];
+/**
+ * Разбор операций workspace edit'а. Мусорная операция (неизвестный `kind`, не
+ * строковый ресурс, текстовая без единой валидной правки) **отбрасывает весь
+ * набор**: edit применяется all-or-nothing, и молча потерять одну операцию
+ * хуже, чем честно отказать. `null` — разбирать нечего.
+ */
+export function parseWireApplyWorkspaceEditParams(raw: unknown): IWireWorkspaceEditOp[] | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const list = (raw as Record<string, unknown>).ops;
+    if (!Array.isArray(list)) return null;
+    const result: IWireWorkspaceEditOp[] = [];
     for (const item of list) {
-        if (typeof item !== "object" || item === null) continue;
-        const obj = item as Record<string, unknown>;
-        if (typeof obj.resource !== "string") continue;
-        const edits = parseWireEditorEdits(obj.edits);
-        if (edits.length === 0) continue;
-        result.push({ resource: obj.resource, edits });
+        const parsed = parseWireWorkspaceEditOp(item);
+        if (parsed === null) return null;
+        result.push(parsed);
     }
     return result;
+}
+
+function parseWireWorkspaceEditOp(raw: unknown): IWireWorkspaceEditOp | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (obj.kind === "text") {
+        if (typeof obj.resource !== "string") return null;
+        const edits = parseWireEditorEdits(obj.edits);
+        if (edits.length === 0) return null;
+        return { kind: "text", resource: obj.resource, edits };
+    }
+    if (obj.kind === "create") {
+        if (typeof obj.resource !== "string") return null;
+        return {
+            kind: "create",
+            resource: obj.resource,
+            ...(typeof obj.contents === "string" ? { contents: obj.contents } : {}),
+            ...(obj.overwrite === true ? { overwrite: true } : {}),
+            ...(obj.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
+        };
+    }
+    if (obj.kind === "delete") {
+        if (typeof obj.resource !== "string") return null;
+        return {
+            kind: "delete",
+            resource: obj.resource,
+            ...(obj.ignoreIfNotExists === true ? { ignoreIfNotExists: true } : {}),
+        };
+    }
+    if (obj.kind === "rename") {
+        if (typeof obj.from !== "string" || typeof obj.to !== "string") return null;
+        return {
+            kind: "rename",
+            from: obj.from,
+            to: obj.to,
+            ...(obj.overwrite === true ? { overwrite: true } : {}),
+            ...(obj.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
+        };
+    }
+    return null;
 }
 
 // ─── Decorations (Chunk 4 — host-bridge) ─────────────────────────────────────

@@ -15,6 +15,7 @@ import { LogService } from "../../platform/log/common/logService.ts";
 import { RingBufferSink } from "../../platform/log/common/ringBufferSink.ts";
 import { loadState, StateService } from "../../platform/state/node/stateService.ts";
 import { EditorOptionsServiceAdapter } from "../api/browser/editorOptionsServiceAdapter.ts";
+import type { IBulkEditService } from "../contrib/bulkEdit/common/iBulkEditService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
 import { PROBLEMS_VIEW_ID } from "../contrib/markers/browser/problemsComponent.ts";
 import { SwitchOutputMenu } from "../contrib/output/browser/outputChannelActions.ts";
@@ -28,6 +29,8 @@ import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 import { WorkbenchStateServiceDIToken } from "./workbenchStateService.ts";
+/** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
+const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => false };
 
 const TOGGLE_OUTPUT = "workbench.action.output.toggleOutput";
 
@@ -413,7 +416,7 @@ describe("Workbench — Output: регрессии", () => {
     it("BUG-2: расширение видит вкладку, а не панель Output", () => {
         outputPane();
 
-        const adapter = new EditorOptionsServiceAdapter(h.container.get(EditorServiceDIToken));
+        const adapter = new EditorOptionsServiceAdapter(h.container.get(EditorServiceDIToken), NO_BULK_EDITS);
 
         expect(adapter.getActiveEditorMeta().uri).toBe(Uri.file(ws.path("alpha.txt")).toString());
     });

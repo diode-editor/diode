@@ -251,17 +251,57 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(resources[0].edits).toEqual([expect.any(TextEdit), snippet]);
     });
 
-    it("WorkspaceEdit: файловые операции учитываются, но не хранятся как текст", () => {
+    it("WorkspaceEdit: файловые операции хранятся отдельно от текстовых правок", () => {
+        const other = Uri.file("/proj/other.ts");
         const edit = new WorkspaceEdit();
         expect(edit.hasFileOperations).toBe(false);
-        edit.createFile();
-        edit.deleteFile();
-        edit.renameFile();
+        edit.createFile(other);
+        edit.deleteFile(other);
+        edit.renameFile(other, URI);
         expect(edit.hasFileOperations).toBe(true);
         // `size` — «затронутые ресурсы»: текстовые + файловые операции.
         edit.replace(URI, RANGE, "x");
         expect(edit.size).toBe(4);
+        // `entries`/`get` видят только текст: файловая операция ресурс «не правит».
         expect(edit.entries()).toHaveLength(1);
+        expect(edit.has(other)).toBe(false);
+    });
+
+    it("WorkspaceEdit: set(uri, []) по ресурсу без правок — ничего не ломает", () => {
+        const edit = new WorkspaceEdit();
+        edit.set(URI, []);
+        expect(edit.size).toBe(0);
+        expect(edit.has(URI)).toBe(false);
+        // ...а по ресурсу С правками — снимает операцию целиком.
+        edit.replace(URI, RANGE, "x");
+        edit.set(URI, null);
+        expect(edit.size).toBe(0);
+    });
+
+    it("WorkspaceEdit: ignoreIfExists сохраняется отдельно от overwrite", () => {
+        const other = Uri.file("/proj/other.ts");
+        const edit = new WorkspaceEdit();
+        edit.createFile(other, { ignoreIfExists: true });
+        edit.renameFile(URI, other, { ignoreIfExists: true });
+
+        const create = edit.operations()[0];
+        expect(create.kind === "create" && create.options).toEqual({ ignoreIfExists: true });
+        const rename = edit.operations()[1];
+        expect(rename.kind === "rename" && rename.options).toEqual({ ignoreIfExists: true });
+    });
+
+    it("WorkspaceEdit: порядок операций сохраняется дословно (создать → написать)", () => {
+        const created = Uri.file("/proj/created.ts");
+        const edit = new WorkspaceEdit();
+        edit.createFile(created, { contents: new TextEncoder().encode("seed") });
+        edit.insert(created, new Position(0, 4), "!");
+        edit.renameFile(URI, created, { overwrite: true });
+
+        expect(edit.operations().map((op) => op.kind)).toEqual(["create", "text", "rename"]);
+        const create = edit.operations()[0];
+        expect(create.kind === "create" && create.options.contents).toBe("seed");
+        const rename = edit.operations()[2];
+        expect(rename.kind === "rename" && rename.options.overwrite).toBe(true);
     });
 
     it("SnippetTextEdit: конструктор и статики replace/insert (класс-ловушка конвертера)", () => {

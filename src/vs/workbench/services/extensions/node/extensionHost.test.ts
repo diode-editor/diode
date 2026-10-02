@@ -15,8 +15,11 @@ import type {
     IEditorOptionsService,
     IEditorOptionsState,
 } from "../../../api/common/iEditorOptionsService.ts";
+import type { IBulkEditService } from "../../../contrib/bulkEdit/common/iBulkEditService.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
+/** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
+const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => false };
 
 class FakeOptionsService implements IEditorOptionsService {
     public state: IEditorOptionsState | null = { tabSize: 4, insertSpaces: true };
@@ -109,9 +112,12 @@ describe("ExtensionHost (subprocess)", () => {
 
 describe("EditorOptionsServiceAdapter", () => {
     it("возвращает null когда нет активного редактора", () => {
-        const adapter = new EditorOptionsServiceAdapter({
-            getActiveTabEditor: () => null,
-        } as never);
+        const adapter = new EditorOptionsServiceAdapter(
+            {
+                getActiveTabEditor: () => null,
+            } as never,
+            NO_BULK_EDITS,
+        );
         expect(adapter.getActiveEditorOptions()).toBeNull();
         adapter.setActiveEditorOptions({ tabSize: 2 }); // не должно бросать
     });

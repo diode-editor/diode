@@ -82,6 +82,8 @@ import {
     WorkbenchContributionsRegistry,
     WorkbenchContributionsRegistryDIToken,
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
+import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
+import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
 import {
     DiffSnapshotRefreshContribution,
     DiffSnapshotRefreshContributionDIToken,
@@ -375,6 +377,12 @@ export const workbenchModule: ContainerModule = (container) => {
     // TextEditorPane-пары, активная вкладка, MRU) + часть «область редактора»
     // (по групповому контролу tab strip + контент на группу).
     container.bind(EditorServiceDIToken, EditorService);
+    // `workspace.applyEdit` правит ОТКРЫТЫЙ ресурс через его буфер, а не через
+    // диск (иначе буфер и файл разъехались бы), и кладёт свой единственный шаг
+    // отмены в бакет тронутой вкладки. И то и другое знает только полоса групп
+    // редакторов, а исполнитель правок живёт в node-слое — доступ он получает
+    // отсюда.
+    container.bind(IBulkEditBuffersDIToken, () => new BulkEditBuffers(container.get(EditorServiceDIToken)));
     container.bind(EditorPartComponentDIToken, EditorPartComponent);
     // Оверлей серии Ctrl+Tab: видимый MRU-список вкладок текущей группы.
     container.bind(TabSwitcherComponentDIToken, TabSwitcherComponent);

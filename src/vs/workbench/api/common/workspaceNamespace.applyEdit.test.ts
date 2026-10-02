@@ -48,8 +48,9 @@ describe("workspace.applyEdit — продюсер RPC", () => {
 
         const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
         expect(req?.params).toEqual({
-            edits: [
+            ops: [
                 {
+                    kind: "text",
                     resource: URI_A.toString(),
                     edits: [
                         {
@@ -63,6 +64,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
                     ],
                 },
                 {
+                    kind: "text",
                     resource: URI_B.toString(),
                     edits: [
                         {
@@ -86,8 +88,9 @@ describe("workspace.applyEdit — продюсер RPC", () => {
 
         const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
         expect(req?.params).toEqual({
-            edits: [
+            ops: [
                 {
+                    kind: "text",
                     resource: URI_A.toString(),
                     edits: [{ range: { startLine: 0, startCharacter: 1, endLine: 0, endCharacter: 4 }, text: "y" }],
                 },
@@ -104,8 +107,9 @@ describe("workspace.applyEdit — продюсер RPC", () => {
 
         const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
         expect(req?.params).toEqual({
-            edits: [
+            ops: [
                 {
+                    kind: "text",
                     resource: URI_A.toString(),
                     edits: [
                         { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "foo(bar)" },
@@ -144,12 +148,14 @@ describe("workspace.applyEdit — продюсер RPC", () => {
 
         const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
         expect(req?.params).toEqual({
-            edits: [
+            ops: [
                 {
+                    kind: "text",
                     resource: URI_A.toString(),
                     edits: [{ range: { startLine: 1, startCharacter: 1, endLine: 1, endCharacter: 1 }, text: "" }],
                 },
                 {
+                    kind: "text",
                     resource: URI_B.toString(),
                     edits: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
                 },
@@ -157,13 +163,81 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
-    it("файловые операции не поддержаны: честный false без RPC, текст не применяется", async () => {
+    it("файловые операции едут В ПОРЯДКЕ добавления вперемешку с текстовыми", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
-        edit.replace(URI_A, new Range(0, 0, 0, 1), "z");
-        edit.renameFile();
-        await expect(workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit)).resolves.toBe(false);
-        expect(stub.requests).toHaveLength(0);
+        // Порядок как у «Move to a new file»: создать файл, написать в него,
+        // убрать исходный.
+        edit.createFile(URI_B, { contents: new TextEncoder().encode("seed\n") });
+        edit.insert(URI_B, new Position(1, 0), "moved");
+        edit.deleteFile(URI_A, { ignoreIfNotExists: true });
+
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+
+        const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
+        expect(req?.params).toEqual({
+            ops: [
+                { kind: "create", resource: URI_B.toString(), contents: "seed\n" },
+                {
+                    kind: "text",
+                    resource: URI_B.toString(),
+                    edits: [{ range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 0 }, text: "moved" }],
+                },
+                { kind: "delete", resource: URI_A.toString(), ignoreIfNotExists: true },
+            ],
+        });
+    });
+
+    it("renameFile с overwrite сериализуется парой from/to и опцией", () => {
+        const { stub, workspace } = makeWorkspace();
+        const edit = new WorkspaceEdit();
+        edit.renameFile(URI_A, URI_B, { overwrite: true });
+
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+
+        const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
+        expect(req?.params).toEqual({
+            ops: [{ kind: "rename", from: URI_A.toString(), to: URI_B.toString(), overwrite: true }],
+        });
+    });
+
+    it("каждая опция файловой операции доезжает по отдельности", () => {
+        const { stub, workspace } = makeWorkspace();
+        const edit = new WorkspaceEdit();
+        edit.createFile(URI_B, { overwrite: true, ignoreIfExists: true });
+        edit.renameFile(URI_A, URI_B, { ignoreIfExists: true });
+
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+
+        const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
+        expect(req?.params).toEqual({
+            ops: [
+                { kind: "create", resource: URI_B.toString(), overwrite: true, ignoreIfExists: true },
+                { kind: "rename", from: URI_A.toString(), to: URI_B.toString(), ignoreIfExists: true },
+            ],
+        });
+    });
+
+    it("createFile без опций едет без contents, а edit с одной файловой операцией — с RPC", () => {
+        const { stub, workspace } = makeWorkspace();
+        const edit = new WorkspaceEdit();
+        edit.createFile(URI_B);
+
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+
+        const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
+        expect(req?.params).toEqual({ ops: [{ kind: "create", resource: URI_B.toString() }] });
+    });
+
+    it("deleteFile без опций едет без ignoreIfNotExists", () => {
+        const { stub, workspace } = makeWorkspace();
+        const edit = new WorkspaceEdit();
+        edit.deleteFile(URI_A);
+
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+
+        const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
+        expect(req?.params).toEqual({ ops: [{ kind: "delete", resource: URI_A.toString() }] });
     });
 
     it("объект не-WorkspaceEdit (мимо типов) — честный false без RPC", async () => {

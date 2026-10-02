@@ -2018,11 +2018,101 @@ declare module "vscode" {
 		get(uri: Uri): TextEdit[];
 
 		/**
+		 * Create a regular file.
+		 *
+		 * @param uri Uri of the new file.
+		 * @param options Defines if an existing file should be overwritten or be
+		 * ignored. When `overwrite` and `ignoreIfExists` are both set `overwrite` wins.
+		 * When both are unset and when the file already exists then the edit cannot
+		 * be applied successfully. The `content`-property allows to set the initial contents
+		 * the file is being created with.
+		 * @param metadata Optional metadata for the entry.
+		 */
+		createFile(uri: Uri, options?: {
+			/**
+			 * Overwrite existing file. Overwrite wins over `ignoreIfExists`
+			 */
+			readonly overwrite?: boolean;
+			/**
+			 * Do nothing if a file with `uri` exists already.
+			 */
+			readonly ignoreIfExists?: boolean;
+			/**
+			 * The initial contents of the new file.
+			 *
+			 * If creating a file from a {@link DocumentDropEditProvider drop operation}, you can
+			 * pass in a {@link DataTransferFile} to improve performance by avoiding extra data copying.
+			 */
+			readonly contents?: Uint8Array | DataTransferFile;
+		}, metadata?: WorkspaceEditEntryMetadata): void;
+
+		/**
+		 * Delete a file or folder.
+		 *
+		 * @param uri The uri of the file that is to be deleted.
+		 * @param metadata Optional metadata for the entry.
+		 */
+		deleteFile(uri: Uri, options?: {
+			/**
+			 * Delete the content recursively if a folder is denoted.
+			 */
+			readonly recursive?: boolean;
+			/**
+			 * Do nothing if a file with `uri` exists already.
+			 */
+			readonly ignoreIfNotExists?: boolean;
+		}, metadata?: WorkspaceEditEntryMetadata): void;
+
+		/**
+		 * Rename a file or folder.
+		 *
+		 * @param oldUri The existing file.
+		 * @param newUri The new location.
+		 * @param options Defines if existing files should be overwritten or be
+		 * ignored. When overwrite and ignoreIfExists are both set overwrite wins.
+		 * @param metadata Optional metadata for the entry.
+		 */
+		renameFile(oldUri: Uri, newUri: Uri, options?: {
+			/**
+			 * Overwrite existing file. Overwrite wins over `ignoreIfExists`
+			 */
+			readonly overwrite?: boolean;
+			/**
+			 * Do nothing if a file with `uri` exists already.
+			 */
+			readonly ignoreIfExists?: boolean;
+		}, metadata?: WorkspaceEditEntryMetadata): void;
+
+		/**
 		 * Get all text edits grouped by resource.
 		 *
 		 * @returns A shallow copy of `[Uri, TextEdit[]]`-tuples.
 		 */
 		entries(): [Uri, TextEdit[]][];
+	}
+
+	/**
+	 * A file associated with a {@linkcode DataTransferItem}.
+	 *
+	 * Instances of this type can only be created by the editor and not by extensions.
+	 */
+	export interface DataTransferFile {
+		/**
+		 * The name of the file.
+		 */
+		readonly name: string;
+
+		/**
+		 * The full file path of the file.
+		 *
+		 * May be `undefined` on web.
+		 */
+		readonly uri?: Uri;
+
+		/**
+		 * The full file contents of the file.
+		 */
+		data(): Thenable<Uint8Array>;
 	}
 
 	/**

@@ -17,6 +17,7 @@ import type { EditorViewState, WordWrapMode } from "../../../../editor/common/vi
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
+import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
 import type { SaveParticipant } from "../../../services/textfile/common/iSaveParticipant.ts";
 import type { SaveOutcome, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
@@ -220,6 +221,15 @@ export class TextEditorPane extends Disposable implements IEditorPane {
 
     public applyExternalEdits(edits: readonly ITextEdit[], label: string): void {
         this.model.applyExternalEdits(edits, label, this.component.editTarget);
+    }
+
+    /**
+     * То же, но шаг истории отдаётся вызывающему, а не кладётся в бакет
+     * документа — им bulk edit собирает ОДИН шаг на весь `workspace.applyEdit`
+     * (см. `TextFileModel.applyExternalEditsDetached`).
+     */
+    public applyExternalEditsDetached(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null {
+        return this.model.applyExternalEditsDetached(edits, label, this.component.editTarget);
     }
 
     public undo(): void {

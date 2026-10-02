@@ -58,7 +58,7 @@ export interface IActiveEditorMeta {
 
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
-import type { IWireEditorEdit, IWireResourceTextEdits, IWireSelection, WireSelectionChangeKind } from "./wireTypes.ts";
+import type { IWireEditorEdit, IWireSelection, IWireWorkspaceEditOp, WireSelectionChangeKind } from "./wireTypes.ts";
 
 /**
  * Тонкий «port» поверх {@link EditorService}, нужный
@@ -92,12 +92,15 @@ export interface IEditorOptionsService {
      */
     applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean;
     /**
-     * Применяет workspace edit (`workspace.applyEdit`): текстовые правки по
-     * ресурсам, каждый документ — своим undoable-батчем. All-or-nothing по
-     * валидации: если хоть один ресурс не открыт ни в одной вкладке или
-     * read-only — не применяется НИЧЕГО и возвращается `false` (правка
-     * закрытых файлов — люфт v1, см. docs/TODO/LSP.md). Пустой список — тоже
-     * `false`: вакуумный успех пустого edit'а субпроцесс отвечает сам, без RPC.
+     * Применяет workspace edit (`workspace.applyEdit`): упорядоченный набор
+     * текстовых правок по ресурсам (открытым И закрытым) и файловых операций
+     * (create/rename/delete), ОДНИМ шагом отмены на весь edit.
+     *
+     * All-or-nothing по валидации: не прошёл хоть один ресурс (read-only
+     * буфер, нечитаемый файл, недисковая схема у файловой операции,
+     * пересекающиеся правки) — не применяется НИЧЕГО и возвращается `false`.
+     * Пустой список — тоже `false`: вакуумный успех пустого edit'а субпроцесс
+     * отвечает сам, без RPC.
      */
-    applyWorkspaceEdit(edits: readonly IWireResourceTextEdits[]): boolean;
+    applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): boolean;
 }

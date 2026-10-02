@@ -71,8 +71,9 @@
 
 ## vscode.workspace
 
-🟡 **20/45.** Документы, конфигурация, события сохранения, файловые watcher'ы, доступ к диску
-и поиск файлов по glob — рабочие; файловые операции `WorkspaceEdit` и notebook-поверхность — нет.
+🟡 **20/45.** Документы, конфигурация, события сохранения, файловые watcher'ы, доступ к диску,
+поиск файлов по glob и bulk `applyEdit` (включая закрытые файлы и файловые операции) — рабочие;
+notebook-поверхность — нет.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
@@ -82,7 +83,7 @@
 | `onWillSaveTextDocument`, `onDidSaveTextDocument` | ✅ | композиция save-участников с `codeActionsOnSave`/`formatOnSave` |
 | `getConfiguration`, `onDidChangeConfiguration` | ✅ | |
 | `asRelativePath` | ✅ | |
-| `applyEdit` | 🟡 | текстовые правки по открытым документам, per-документ undo; файловые операции `WorkspaceEdit` не поддержаны (edit с ними целиком отвечает `false`) |
+| `applyEdit` | 🟡 | настоящий bulk edit: текстовые правки по ОТКРЫТЫМ (через буфер, остаётся «грязным») и ЗАКРЫТЫМ (запись на диск) ресурсам плюс файловые операции `createFile`/`deleteFile`/`renameFile` с опциями `overwrite`/`ignoreIfExists`/`ignoreIfNotExists`, в порядке добавления; весь edit — ОДИН шаг отмены. All-or-nothing: read-only ресурс, нечитаемый файл, коллизия имени или пересекающиеся правки отбивают edit целиком (`false`). Отклонения: `recursive` у `deleteFile` игнорируется (удаление всегда рекурсивное — в корзину уходит всё дерево), `WorkspaceEditEntryMetadata` отбрасывается (preview-режима нет), `contents` в виде `DataTransferFile` игнорируется |
 | `createFileSystemWatcher` | ✅ | настоящие watcher'ы: `RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude` |
 | `fs` | 🟡 | вся поверхность `FileSystem`: `stat`, `readFile`, `writeFile`, `readDirectory`, `createDirectory`, `delete` (с `recursive`), `rename` и `copy` (с `overwrite`), `isWritableFileSystem`. Работает локально через `node:fs` — без RPC на хост. Отклонения: `useTrash` у `delete` игнорируется (корзины у терминального редактора нет), а `isWritableFileSystem` отвечает `true` только про `file` — про схему провайдера расширения честный `undefined`. Схему, за которой не стоит ни диск, ни провайдер, ловит гейт `Unavailable` |
 | `registerFileSystemProvider` | 🟡 | читающая часть: `watch`/`stat`/`readFile`/`onDidChangeFile` |
@@ -237,7 +238,7 @@ output-каналы, декорации, пункты статус-бара и �
 
 ## Типы с неполной поверхностью
 
-Активно 114 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 115 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов).
 
 | тип | активно | не активно |
@@ -245,7 +246,7 @@ output-каналы, декорации, пункты статус-бара и �
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
 | `ExtensionContext` | 14/17 | `environmentVariableCollection`, `extension`, `languageModelAccessInformation` |
-| `WorkspaceEdit` | 8/11 | файловые операции: `createFile`, `deleteFile`, `renameFile` |
+| `WorkspaceEdit` | 11/11 | — |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |
 | `FileStat` | 4/5 | `permissions` |
 | `FileSystemProvider` | 4/10 | `readDirectory`, `createDirectory`, `writeFile`, `delete`, `rename`, `copy` |
@@ -253,6 +254,7 @@ output-каналы, декорации, пункты статус-бара и �
 | `CompletionItem` | 8/16 | `tags`, `sortText`, `filterText`, `preselect`, `commitCharacters`, `keepWhitespace`, `textEdit`, `additionalTextEdits` |
 | `DocumentRangeFormattingEditProvider` | 1/2 | `provideDocumentRangesFormattingEdits` |
 | `LanguageStatusItem` | 9/10 | `accessibilityInformation` |
+| `DataTransferFile` | 3/3 | — (тип объявлен ради `createFile({ contents })`; экземпляры создаёт только редактор, а drag-and-drop у нас нет — такой `contents` игнорируется) |
 
 ## Семантические отклонения
 

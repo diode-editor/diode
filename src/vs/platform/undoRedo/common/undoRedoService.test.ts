@@ -104,3 +104,59 @@ describe("UndoRedoService", () => {
         expect(service.canRedo(CTX)).toBe(false);
     });
 });
+
+// Отказ шага (`canUndo`/`canRedo`) — для шагов, охватывающих несколько
+// документов: у bulk edit'а участник может стать неоткатываемым (в нём набрали
+// текст), и откатывать половину шага нельзя.
+describe("UndoRedoService — отказ шага", () => {
+    it("canUndo() === false: шаг не исполняется и ОСТАЁТСЯ в стеке отмены", async () => {
+        const service = new UndoRedoService();
+        const { el, undo } = makeElement("Refactor");
+        let allowed = false;
+        service.pushElement({ ...el, canUndo: () => allowed }, CTX);
+
+        expect(await service.undo(CTX)).toBe(false);
+        expect(undo).not.toHaveBeenCalled();
+        expect(service.canUndo(CTX)).toBe(true);
+        expect(service.canRedo(CTX)).toBe(false);
+
+        // Условие выполнилось — тот же шаг отменяется обычным порядком.
+        allowed = true;
+        expect(await service.undo(CTX)).toBe(true);
+        expect(undo).toHaveBeenCalledOnce();
+    });
+
+    it("canRedo() === false: шаг не исполняется и ОСТАЁТСЯ в стеке повтора", async () => {
+        const service = new UndoRedoService();
+        const { el, redo } = makeElement("Refactor");
+        service.pushElement({ ...el, canRedo: () => false }, CTX);
+        await service.undo(CTX);
+
+        expect(await service.redo(CTX)).toBe(false);
+        expect(redo).not.toHaveBeenCalled();
+        expect(service.canRedo(CTX)).toBe(true);
+        expect(service.canUndo(CTX)).toBe(false);
+    });
+
+    it("шаг без canUndo/canRedo отменяется и повторяется всегда (обычный шаг документа)", async () => {
+        const service = new UndoRedoService();
+        const { el, undo, redo } = makeElement("Typing");
+        service.pushElement(el, CTX);
+
+        expect(await service.undo(CTX)).toBe(true);
+        expect(await service.redo(CTX)).toBe(true);
+        expect(undo).toHaveBeenCalledOnce();
+        expect(redo).toHaveBeenCalledOnce();
+    });
+
+    it("отказавший шаг не пускает к шагам ПОД ним — иначе они легли бы не в том порядке", async () => {
+        const service = new UndoRedoService();
+        const older = makeElement("older");
+        const blocking = makeElement("blocking");
+        service.pushElement(older.el, CTX);
+        service.pushElement({ ...blocking.el, canUndo: () => false }, CTX);
+
+        expect(await service.undo(CTX)).toBe(false);
+        expect(older.undo).not.toHaveBeenCalled();
+    });
+});

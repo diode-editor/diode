@@ -29,6 +29,20 @@ export interface IUndoViewBinding {
 }
 
 /**
+ * Непрозрачный токен шага истории — идентичность записи в стеке менеджера.
+ *
+ * Нужен владельцу, который собирает ОДИН шаг уровня workspace из шагов
+ * нескольких документов (bulk edit): прежде чем откатывать, он обязан
+ * убедиться, что следующий {@link UndoManager.undo} снимет ИМЕННО его правку, а
+ * не то, что пользователь набрал после неё. Сравнивать по версии документа
+ * нельзя: `undo` переписывает `versionAfter` следующего элемента стека, поэтому
+ * снятый снаружи снимок версии устаревает (см. {@link UndoManager.undo}).
+ */
+export interface UndoStepToken {
+    readonly label: string;
+}
+
+/**
  * Движок undo одного документа: стеки с реальными пейлоадами (правки + EOL +
  * снимки выделений). Один на документ, а не на вью: история принадлежит
  * документу (семантика VS Code), и при нескольких редакторах на один документ
@@ -64,6 +78,32 @@ export class UndoManager {
         this.undoStack.push({ ...element });
         this.redoStack.length = 0;
         this.onDidPush?.(element);
+    }
+
+    /** Верхний шаг стека отмены как {@link UndoStepToken}; `undefined` — стек пуст. */
+    public peekUndoStep(): UndoStepToken | undefined {
+        return this.undoStack.at(-1);
+    }
+
+    /** Верхний шаг стека повтора как {@link UndoStepToken}; `undefined` — стек пуст. */
+    public peekRedoStep(): UndoStepToken | undefined {
+        return this.redoStack.at(-1);
+    }
+
+    /**
+     * Снимет ли следующий {@link undo} именно `token`: он верхний в стеке И
+     * версия документа совпадает с той, что была сразу после него (иначе
+     * документ правили в обход менеджера и `undo` сам откажет).
+     */
+    public canUndoStep(token: UndoStepToken): boolean {
+        const top = this.undoStack.at(-1);
+        return top !== undefined && top === token && this.doc.versionId === top.versionAfter;
+    }
+
+    /** То же для {@link redo}. */
+    public canRedoStep(token: UndoStepToken): boolean {
+        const top = this.redoStack.at(-1);
+        return top !== undefined && top === token && this.doc.versionId === top.versionAfter;
     }
 
     /**

@@ -31,8 +31,8 @@ import {
     type IWireApplyWorkspaceEditParams,
     type IWireEditorEdit,
     type IWireReadFileResult,
-    type IWireResourceTextEdits,
     type IWireTextContentResult,
+    type IWireWorkspaceEditOp,
     parseWireDocumentSyncSnapshot,
     parseWireWatcherEvents,
     type WireTextEdit,
@@ -126,6 +126,55 @@ function serializeWorkspaceTextEdit(edit: TextEdit | SnippetTextEdit): IWireEdit
     }
     if (edit.newEol !== undefined && edit.newText === "" && edit.range.isEmpty) return null;
     return { range, text: edit.newText };
+}
+
+/**
+ * Сериализует `WorkspaceEdit` в упорядоченный набор операций провода.
+ *
+ * Порядок операций сохраняется дословно: «Move to a new file» создаёт файл и
+ * тут же пишет в него, а rename-рефакторинг правит импорты уже по новому пути.
+ * Текстовая операция, у которой не осталось ни одной настоящей правки (один шум
+ * вроде `TextEdit.setEndOfLine`), выпадает — применять там нечего.
+ */
+function serializeWorkspaceEdit(edit: WorkspaceEdit): IWireWorkspaceEditOp[] {
+    const ops: IWireWorkspaceEditOp[] = [];
+    for (const op of edit.operations()) {
+        if (op.kind === "text") {
+            const edits: IWireEditorEdit[] = [];
+            for (const item of op.edits) {
+                const serialized = serializeWorkspaceTextEdit(item);
+                if (serialized !== null) edits.push(serialized);
+            }
+            if (edits.length > 0) ops.push({ kind: "text", resource: op.uri.toString(), edits });
+            continue;
+        }
+        if (op.kind === "rename") {
+            ops.push({
+                kind: "rename",
+                from: op.from.toString(),
+                to: op.to.toString(),
+                ...(op.options.overwrite === true ? { overwrite: true } : {}),
+                ...(op.options.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
+            });
+            continue;
+        }
+        if (op.kind === "create") {
+            ops.push({
+                kind: "create",
+                resource: op.uri.toString(),
+                ...(op.options.contents === undefined ? {} : { contents: op.options.contents }),
+                ...(op.options.overwrite === true ? { overwrite: true } : {}),
+                ...(op.options.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
+            });
+            continue;
+        }
+        ops.push({
+            kind: "delete",
+            resource: op.uri.toString(),
+            ...(op.options.ignoreIfNotExists === true ? { ignoreIfNotExists: true } : {}),
+        });
+    }
+    return ops;
 }
 
 /** Валидный Event, который никогда не стреляет (хост его не фаерит). */
@@ -554,20 +603,11 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // запроса: VS Code применяет такой edit атомарно, «наполовину» нельзя.
         applyEdit: (edit: vscode.WorkspaceEdit): Thenable<boolean> => {
             if (!(edit instanceof WorkspaceEdit)) return Promise.resolve(false);
-            if (edit.hasFileOperations) return Promise.resolve(false);
-            const resources: IWireResourceTextEdits[] = [];
-            for (const entry of edit.resourceEdits()) {
-                const edits: IWireEditorEdit[] = [];
-                for (const item of entry.edits) {
-                    const serialized = serializeWorkspaceTextEdit(item);
-                    if (serialized !== null) edits.push(serialized);
-                }
-                if (edits.length > 0) resources.push({ resource: entry.uri.toString(), edits });
-            }
+            const ops = serializeWorkspaceEdit(edit);
             // Пустой edit (или один шум вроде чистых EOL-правок) — вакуумный
             // успех, как у VS Code: применять нечего, но и отказа нет.
-            if (resources.length === 0) return Promise.resolve(true);
-            const params: IWireApplyWorkspaceEditParams = { edits: resources };
+            if (ops.length === 0) return Promise.resolve(true);
+            const params: IWireApplyWorkspaceEditParams = { ops };
             return rpc.request("workspace.applyEdit", params) as Promise<boolean>;
         },
         // Файл ВНЕ папок воркспейса — `undefined`, как в эталоне («Returns

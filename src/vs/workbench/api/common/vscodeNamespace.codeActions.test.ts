@@ -37,8 +37,9 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
         expect(await stub.callRequest("languages.applyCodeAction", { id: actions[0].id })).toBe(false);
         const applyRequest = stub.requests.find((r) => r.method === "workspace.applyEdit");
         expect(applyRequest?.params).toEqual({
-            edits: [
+            ops: [
                 {
+                    kind: "text",
                     resource: "file:///proj/a.py",
                     edits: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 4 }, text: "LINE" }],
                 },

@@ -30,6 +30,7 @@ import {
     FileSystemProviderRegistryDIToken,
     MarkerServiceDIToken,
 } from "../../workbench/common/coreTokens.ts";
+import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/node/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 import {
@@ -116,7 +117,7 @@ export interface IExtensionHostModuleContext {
 export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> = (container, ctx) => {
     container.bind(ExtensionHostDIToken, () => {
         const group = container.get(EditorServiceDIToken);
-        const adapter = new EditorOptionsServiceAdapter(group);
+        const adapter = new EditorOptionsServiceAdapter(group, container.get(WorkspaceEditServiceDIToken));
         const commandAdapter = new CommandServiceAdapter(container.get(CommandRegistryDIToken));
         const logService = container.get(ILogServiceDIToken);
         const logger = logService.createLogger("extensions.host");
