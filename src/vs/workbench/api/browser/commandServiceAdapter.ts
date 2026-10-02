@@ -21,7 +21,15 @@ export class CommandServiceAdapter implements ICommandService {
         return this.registry.execute(id, ...args);
     }
 
-    public registerProxy(id: string, invoke: (args: readonly unknown[]) => unknown, title?: string): IDisposable {
-        return this.registry.register(id, (...args) => invoke(args), title);
+    public registerProxy(
+        id: string,
+        invoke: (args: readonly unknown[]) => unknown,
+        title?: string,
+        category?: string,
+    ): IDisposable {
+        // `enablement` у команд расширений нет: доступность пункта палитры
+        // решает `when` вклада меню (отдельный узел), поэтому между title и
+        // category здесь `undefined`.
+        return this.registry.register(id, (...args) => invoke(args), title, undefined, category);
     }
 }

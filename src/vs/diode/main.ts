@@ -550,6 +550,7 @@ async function runEditor(): Promise<void> {
         const extensionPath = path.resolve(userDataPaths.extensionsDir, dirName);
         const mainPath = path.resolve(extensionPath, ext.manifest.main);
         try {
+            const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
             const reg: IExtensionRegistration = {
                 id: ext.id,
                 // Манифест целиком, а не тройка имя/издатель/версия: он же едет
@@ -563,7 +564,8 @@ async function runEditor(): Promise<void> {
                     ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
                     ...curatedConfigInjection(ext.id),
                 },
-                commandTitles: collectCommandTitles(ext.manifest.contributes?.commands),
+                commandTitles: commandMeta.titles,
+                commandCategories: commandMeta.categories,
                 activationEvents: ext.manifest.activationEvents,
             };
             extensionHost.registerExtension(reg);
@@ -582,6 +584,7 @@ async function runEditor(): Promise<void> {
         try {
             const virtualPath = joinVirtualPath(ext.location, main);
             const source = await assets.readText(virtualPath);
+            const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
             const reg: IExtensionRegistration = {
                 id: ext.id,
                 // Целиком — как у user-расширений выше: это `packageJSON`
@@ -594,7 +597,8 @@ async function runEditor(): Promise<void> {
                     ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
                     ...builtinConfigInjection(ext.manifest.name, extensionsLogger),
                 },
-                commandTitles: collectCommandTitles(ext.manifest.contributes?.commands),
+                commandTitles: commandMeta.titles,
+                commandCategories: commandMeta.categories,
                 activationEvents: ext.manifest.activationEvents,
             };
             extensionHost.registerExtension(reg);
@@ -782,18 +786,30 @@ function builtinConfigInjection(manifestName: string, logger: ILogger): Record<s
 }
 
 /**
- * Собирает `contributes.commands` в map id → title, чтобы host завёл прокси
- * рантайм-команд с заголовком (иначе команда исполнима, но не видна в палитре).
+ * Собирает `contributes.commands` в пару map'ов id → title и id → category:
+ * заголовок нужен, чтобы прокси рантайм-команды было видно в палитре (иначе
+ * команда исполнима, но не показывается), категория — чтобы палитра нарисовала
+ * её префиксом подписи («Java: Switch to Standard Mode»).
+ *
+ * `%ключи%` здесь уже резолвнуты: манифест локализован на этапе сканирования
+ * (`scanExtensions` → `localizeExtensionManifest`).
  */
-function collectCommandTitles(
-    commands: readonly ICommandContribution[] | undefined,
-): Record<string, string> | undefined {
-    if (commands === undefined || commands.length === 0) return undefined;
+function collectCommandMeta(commands: readonly ICommandContribution[] | undefined): {
+    titles?: Record<string, string>;
+    categories?: Record<string, string>;
+} {
+    if (commands === undefined || commands.length === 0) return {};
     const titles: Record<string, string> = {};
+    const categories: Record<string, string> = {};
     for (const cmd of commands) {
-        if (typeof cmd.command === "string" && typeof cmd.title === "string") {
-            titles[cmd.command] = cmd.title;
+        if (typeof cmd.command !== "string" || typeof cmd.title !== "string") continue;
+        titles[cmd.command] = cmd.title;
+        if (typeof cmd.category === "string" && cmd.category !== "") {
+            categories[cmd.command] = cmd.category;
         }
     }
-    return Object.keys(titles).length > 0 ? titles : undefined;
+    return {
+        titles: Object.keys(titles).length > 0 ? titles : undefined,
+        categories: Object.keys(categories).length > 0 ? categories : undefined,
+    };
 }

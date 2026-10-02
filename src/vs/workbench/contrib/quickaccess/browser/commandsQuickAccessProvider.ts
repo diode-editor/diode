@@ -1,5 +1,5 @@
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { commandPaletteLabel, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -15,8 +15,12 @@ export const CommandsQuickAccessProviderDIToken = token<CommandsQuickAccessProvi
 
 /**
  * Command palette (`>`): команды с заголовками из {@link CommandRegistry},
- * фильтр по подстроке заголовка (case-insensitive), шорткат — актуальный
- * кейбинд команды в текущем контексте.
+ * фильтр по подстроке подписи (case-insensitive), шорткат — актуальный кейбинд
+ * команды в текущем контексте.
+ *
+ * Подпись — `category: title` ({@link commandPaletteLabel}), как в VS Code:
+ * «Java: Switch to Standard Mode». Фильтр идёт по ней же, то есть набранное
+ * `java` находит все команды группы Java.
  */
 export class CommandsQuickAccessProvider implements IQuickAccessProvider {
     public static readonly PREFIX = ">";
@@ -44,12 +48,16 @@ export class CommandsQuickAccessProvider implements IQuickAccessProvider {
             .filter((cmd) => cmd.enablement === undefined || this.contextKeys.evaluate(cmd.enablement));
         const filterLower = filter.toLowerCase();
 
-        const matched = filterLower === "" ? all : all.filter((cmd) => cmd.title.toLowerCase().includes(filterLower));
+        // Отдельной ветки под пустой запрос нет: `includes("")` истинно для
+        // любой подписи, то есть фильтр сам отдаёт весь список.
+        const matched = all
+            .map((cmd) => ({ cmd, label: commandPaletteLabel(cmd) }))
+            .filter((e) => e.label.toLowerCase().includes(filterLower));
 
-        return matched.map((cmd): QuickAccessItem => {
+        return matched.map(({ cmd, label }): QuickAccessItem => {
             const chord = this.keybindings.getKeybindingForCommand(cmd.id, this.contextKeys);
             return {
-                label: cmd.title,
+                label,
                 shortcut: chord ? formatKeybinding(chord, keybindingLabelStyle(this.contextKeys)) : undefined,
                 accept: () => {
                     this.commands.execute(cmd.id);

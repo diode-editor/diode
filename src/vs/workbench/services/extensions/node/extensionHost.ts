@@ -528,6 +528,8 @@ export class ExtensionHost extends Disposable {
     private readonly commandActivationStubs = new Map<string, IDisposable>();
     /** Заголовки команд из contributes.commands (id → title) для видимости в палитре. */
     private readonly commandTitles = new Map<string, string>();
+    /** Группы команд из contributes.commands (id → category) — префикс подписи в палитре. */
+    private readonly commandCategories = new Map<string, string>();
     private readonly options: Required<
         Pick<
             IExtensionHostOptions,
@@ -758,6 +760,11 @@ export class ExtensionHost extends Disposable {
         // чтобы команда расширения показалась в палитре (см. commands.registerCommand).
         if (reg.commandTitles !== undefined) {
             for (const [id, title] of Object.entries(reg.commandTitles)) this.commandTitles.set(id, title);
+        }
+        if (reg.commandCategories !== undefined) {
+            for (const [id, category] of Object.entries(reg.commandCategories)) {
+                this.commandCategories.set(id, category);
+            }
         }
         this.pending.set(reg.id, reg);
         this.registrations.set(reg.id, reg);
@@ -1031,6 +1038,7 @@ export class ExtensionHost extends Disposable {
                     return this.commandService.execute(id, args);
                 },
                 this.commandTitles.get(id),
+                this.commandCategories.get(id),
             ),
         );
     }
@@ -1910,6 +1918,7 @@ export class ExtensionHost extends Disposable {
                     id,
                     (args) => rpc.request("commands.executeCommand", { id, args }),
                     this.commandTitles.get(id),
+                    this.commandCategories.get(id),
                 ),
             );
         });

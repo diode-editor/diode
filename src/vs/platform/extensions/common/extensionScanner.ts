@@ -1,12 +1,20 @@
 import type { IAssetAccess } from "../../../base/common/assets/iAssetAccess.ts";
+import { UI_LOCALE } from "../../environment/common/uiLocale.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 
+import { localizeExtensionManifest } from "./extensionNls.ts";
 import type { IExtension } from "./iExtension.ts";
 import type { IExtensionManifest } from "./iExtensionManifest.ts";
 
 export interface IScanExtensionsOptions {
     /** Помечать ли найденные расширения как builtin. По умолчанию `true`. */
     readonly isBuiltin?: boolean;
+    /**
+     * Локаль, по которой выбирается nls-бандл манифеста
+     * (`package.nls.<locale>.json` → `package.nls.json`). По умолчанию —
+     * {@link UI_LOCALE}, локаль интерфейса.
+     */
+    readonly locale?: string;
 }
 
 /**
@@ -19,6 +27,12 @@ export interface IScanExtensionsOptions {
  * Битые манифесты (отсутствие `name`/`publisher`/`version`, невалидный JSON,
  * отсутствующий `package.json`) пропускаются с записью в `logger.error` —
  * bootstrap не должен падать из-за одного криво скопированного расширения.
+ *
+ * Прочитанный манифест **локализуется** по `package.nls[.<locale>].json`
+ * (`localizeExtensionManifest`): `"%java.clean%"` в любом поле становится
+ * человеческой строкой. Это единственная точка резолва на оба источника
+ * манифестов — и builtin (из SEA-бандла), и установленные расширения, — поэтому
+ * nls-бандл читается тем же {@link IAssetAccess}, а не через `fs`.
  *
  * Сканирование строго неглубокое: только поддиректории первого уровня под
  * `rootPrefix`. `IExtension.location` устанавливается в виртуальный prefix
@@ -34,6 +48,7 @@ export async function scanExtensions(
         throw new Error(`scanExtensions: rootPrefix must end with "/": ${rootPrefix}`);
     }
     const isBuiltin = options.isBuiltin ?? true;
+    const locale = options.locale ?? UI_LOCALE;
 
     let entries;
     try {
@@ -83,9 +98,14 @@ export async function scanExtensions(
             continue;
         }
 
+        // Локализация ПОСЛЕ валидации: `name`/`publisher`/`version` — технические
+        // поля, их не переводят, и битый nls-бандл не должен влиять на то,
+        // считается ли каталог расширением вообще.
+        const localized = await localizeExtensionManifest(manifest, assets, extensionPrefix, locale, logger);
+
         result.push({
             id: `${manifest.publisher}.${manifest.name}`,
-            manifest,
+            manifest: localized,
             location: extensionPrefix,
             isBuiltin,
         });

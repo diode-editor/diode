@@ -1017,6 +1017,16 @@ hide-toggle (`isHiddenByDefault`). См.
 
 - ID команд, отражающих VS Code Workbench/Editor, именуются в стиле VS Code
   (`workbench.action.closeActiveEditor`).
+- **Подпись команды в палитре — `category: title`**, а не сам `title`
+  («Java: Switch to Standard Mode», как в VS Code). Склейку делает
+  `commandPaletteLabel` (`platform/commands/common/commandRegistry.ts`) в точке
+  показа; в `CommandRegistry` категория лежит отдельным полем, и `getTitle(id)`
+  её НЕ приклеивает. Записать её в сам заголовок нельзя: пункт меню, подпись
+  в статус-баре и метка кнопки в эталоне идут без префикса. Фильтр палитры
+  матчит ту же склейку — набранное `java` находит всю группу. Источник
+  категории у расширений — `contributes.commands[].category`
+  (`IExtensionRegistration.commandCategories`, см.
+  [Extensions.md](Extensions.md)).
 - Доступность кейбиндингов — через typed when-контексты из
   `Workbench/Services/ContextKeys.ts` (`ContextKeyService`); фокус/UI-состояния
   обновляет `WorkbenchContextKeys.update()`.

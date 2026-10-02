@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ILogger } from "../../log/common/iLogger.ts";
 
-import { CommandRegistry } from "./commandRegistry.ts";
+import { commandPaletteLabel, CommandRegistry } from "./commandRegistry.ts";
 
 /** Логгер-фейк: копит только error-строки — остальные уровни здесь не нужны. */
 function makeLogger(sink: string[]): ILogger {
@@ -198,5 +198,40 @@ describe("CommandRegistry", () => {
         registry.execute("cmd.async");
 
         await expect(settleMicrotasks()).resolves.toBeUndefined();
+    });
+
+    it("listCommands отдаёт категорию команды", () => {
+        const registry = new CommandRegistry();
+        registry.register("java.clean", () => undefined, "Clean Workspace", undefined, "Java");
+        registry.register("files.save", () => undefined, "Save");
+
+        expect(registry.listCommands()).toEqual([
+            { id: "java.clean", title: "Clean Workspace", enablement: undefined, category: "Java" },
+            { id: "files.save", title: "Save", enablement: undefined, category: undefined },
+        ]);
+    });
+
+    it("getTitle категорию НЕ приклеивает: подпись пункта меню остаётся заголовком", () => {
+        const registry = new CommandRegistry();
+        registry.register("java.clean", () => undefined, "Clean Workspace", undefined, "Java");
+
+        expect(registry.getTitle("java.clean")).toBe("Clean Workspace");
+    });
+});
+
+describe("commandPaletteLabel", () => {
+    it("склеивает категорию и заголовок через `: ` (эталон VS Code)", () => {
+        expect(commandPaletteLabel({ title: "Switch to Standard Mode", category: "Java" })).toBe(
+            "Java: Switch to Standard Mode",
+        );
+    });
+
+    it("без категории — сам заголовок", () => {
+        expect(commandPaletteLabel({ title: "Save" })).toBe("Save");
+        expect(commandPaletteLabel({ title: "Save", category: undefined })).toBe("Save");
+    });
+
+    it("пустая категория префикса не даёт", () => {
+        expect(commandPaletteLabel({ title: "Save", category: "" })).toBe("Save");
     });
 });

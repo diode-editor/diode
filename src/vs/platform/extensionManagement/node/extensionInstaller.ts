@@ -4,6 +4,14 @@ import * as path from "node:path";
 
 import type { Entry } from "yauzl";
 
+import { UI_LOCALE } from "../../environment/common/uiLocale.ts";
+import {
+    type INlsBundle,
+    localizeManifest,
+    nlsFileCandidates,
+    parseNlsBundle,
+} from "../../extensions/common/extensionNls.ts";
+
 /**
  * Установка/удаление расширений из `.vsix` на локальный диск.
  *
@@ -15,8 +23,9 @@ import type { Entry } from "yauzl";
  * {@link scanExtensions} (id/version он берёт из `package.json`, но имя каталога
  * держим по конвенции).
  *
- * Модуль намеренно чистый: только `node:fs`/`node:path`/`yauzl`, без DI/логгера/UI.
- * Печать и коды выхода — на стороне вызывающего (main.ts).
+ * Модуль намеренно чистый: `node:fs`/`node:path`/`yauzl` плюс чистые хелперы
+ * (`extensionNls`), без DI/логгера/UI. Печать и коды выхода — на стороне
+ * вызывающего (main.ts).
  */
 
 /** Установленное расширение (по чтению `package.json` в подкаталоге). */
@@ -47,11 +56,40 @@ function requireManifestString(manifest: Record<string, unknown>, field: string,
 }
 
 /**
+ * Читает nls-бандл расширения с диска по кандидатам локали интерфейса
+ * (`nlsFileCandidates`). Отсутствующий или битый файл — просто следующий
+ * кандидат; не нашлось ни одного — `undefined`.
+ *
+ * Своё чтение, а не `loadNlsBundle`: тот ходит через `IAssetAccess` (нужен
+ * builtin'ам внутри SEA-бандла), а installer по устройству работает с
+ * физическими каталогами.
+ */
+function readNlsBundleSync(dir: string, locale: string): INlsBundle | undefined {
+    for (const file of nlsFileCandidates(locale)) {
+        try {
+            // Декодирование явным шагом, а не вторым аргументом readFileSync:
+            // так кодировка — наблюдаемое решение (неверная бросает), а не
+            // подсказка, которую `JSON.parse` всё равно сгладил бы, приведя
+            // Buffer к строке сам.
+            return parseNlsBundle(fs.readFileSync(path.join(dir, file)).toString("utf8"));
+        } catch {
+            // Нет файла или битый JSON — пробуем следующего кандидата.
+        }
+    }
+    return undefined;
+}
+
+/**
  * Перечисляет установленные расширения: readdir первого уровня, для каждого
  * подкаталога читает `package.json` и извлекает id/version (как это делает
  * {@link scanExtensions}). Битые/без манифеста подкаталоги — пропускает.
  * Работает по реальным путям через `node:fs` (installer оперирует физическими
  * каталогами, а не абстракцией `IAssetAccess`).
+ *
+ * `displayName`/`description` отдаются **локализованными**: в манифесте там
+ * обычно `"%displayName%"`, и страница расширения показывала бы сам ключ.
+ * Резолв ключей во всём дереве `contributes` делает `scanExtensions` — здесь
+ * нужны ровно эти два поля, поэтому и подменяются только они.
  */
 function readInstalled(extensionsDir: string): IInstalledExtension[] {
     let entries: fs.Dirent[];
@@ -88,11 +126,20 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
             continue;
         }
 
-        const { displayName, description } = manifest;
+        // Бандл читаем безусловно, не «только когда есть что локализовать»:
+        // предохранитель сэкономил бы один промах readFileSync на расширение и
+        // стоил бы ветки, неотличимой по поведению. Резолвит тот же обход, что
+        // и у сканера, — просто по двум полям вместо всего манифеста.
+        const nls = readNlsBundleSync(dir, UI_LOCALE);
+        const { displayName, description } = localizeManifest(
+            { displayName: manifest.displayName, description: manifest.description },
+            nls,
+        ).value;
         result.push({
             id: `${publisher}.${name}`,
             version,
             dir,
+            // Пустое имя — не имя: карточка магазина показала бы пустую строку.
             displayName: typeof displayName === "string" && displayName.length > 0 ? displayName : undefined,
             description: typeof description === "string" ? description : undefined,
         });

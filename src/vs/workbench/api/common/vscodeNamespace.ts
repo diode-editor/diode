@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type * as vscode from "vscode";
 
+import { UI_LOCALE } from "../../../platform/environment/common/uiLocale.ts";
+
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
@@ -152,7 +154,7 @@ export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
     const env = {
         appName: "Diode",
         appHost: "desktop",
-        language: "en",
+        language: UI_LOCALE,
         uriScheme: "diode",
         clipboard: {
             readText: async (): Promise<string> =>
