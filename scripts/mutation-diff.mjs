@@ -131,6 +131,10 @@ function isMutable(file) {
  */
 function parseDiff(diff) {
     const scope = new Map();
+    // Сколько файловых заголовков распознано — включая файлы, где мутировать
+    // нечего (чистое удаление строк, удалённый файл). По нему, а не по размеру
+    // скоупа, отличаем «сломан парсер» от «дифф из одних удалений».
+    let headers = 0;
     let current = null;
     let prevWasOldFileHeader = false;
 
@@ -139,6 +143,7 @@ function parseDiff(diff) {
         // исходника `++ x` в диффе выглядит как `+++ x` и иначе сошла бы за имя файла.
         if (prevWasOldFileHeader && line.startsWith("+++ ")) {
             const file = line.slice(4);
+            headers++;
             current = file === "/dev/null" ? null : file; // удалённый файл мутировать нечего
             prevWasOldFileHeader = false;
             continue;
@@ -157,7 +162,7 @@ function parseDiff(diff) {
         if (!scope.has(current)) scope.set(current, []);
         scope.get(current).push([start, start + count - 1]);
     }
-    return scope;
+    return { scope, headers };
 }
 
 /** Склеивает соседние и пересекающиеся диапазоны, чтобы не плодить аргументы. */
@@ -212,11 +217,13 @@ const diff = git([
     mergeBase,
     "--",
 ]);
-const scope = parseDiff(diff);
+const { scope, headers } = parseDiff(diff);
 
 // Защита от тихо-зелёного гейта: если git что-то выдал, а разобрать не удалось
-// ни одного файла — сломан парсер, а не пуст дифф. Падаем громко.
-if (diff.trim() !== "" && scope.size === 0) {
+// ни одного файлового заголовка — сломан парсер, а не пуст дифф. Падаем громко.
+// Дифф из одних удалений строк заголовки даёт, а скоуп — нет: это честное
+// «мутировать нечего».
+if (diff.trim() !== "" && headers === 0) {
     throw new Error(
         "Не удалось разобрать вывод git diff — ни одного файла не распознано, " +
             "хотя дифф не пуст. Скоуп мутаций был бы пуст, и гейт прошёл бы, ничего не проверив.",
