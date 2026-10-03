@@ -809,6 +809,10 @@ hide-toggle (`isHiddenByDefault`). См.
     полосой (`groups`/`activeGroup`/`viewColumnOf`/`groupOf`), операциями
     сплитов (`splitActiveGroup`/`newGroup`/`focusGroup`/`moveActiveEditorToGroup`/
     `copyActiveEditorToGroup`/`joinTwoGroups`/`joinAllGroups`/`moveActiveGroup`;
+    сплит и копия повторяют вкладку по **рецепту** фабрики её вида —
+    `IEditorPaneFactory` в `editorPaneFactory.ts`: `describe(pane)` → plain-рецепт,
+    `open(рецепт, {group, focus})`; текстовая фабрика — `{uri, viewState}` через
+    `openUri(uri, {group, viewState})`;
     отказ по месту — `canAddGroupHook` + лог), схлопыванием опустевших групп,
     реестром моделей (`TextFileModelRegistry`: одна `TextFileModel` на ресурс,
     вкладка владеет ref-count-ссылкой), `openFile`/`openUri` (`{group:"beside"}` —
