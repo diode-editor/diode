@@ -917,10 +917,20 @@ export class EditorViewState {
      * If a selection is non-collapsed, the selected text is replaced.
      */
     public type(text: string): IUndoElement | undefined {
+        return this.typeEach(() => text);
+    }
+
+    /**
+     * Как {@link type}, но вставляемый текст у каждой каретки свой — его
+     * возвращает `textFor` по диапазону правки. Нужно там, где вставка зависит
+     * от положения каретки: Tab добирает пробелами до СВОЕГО табстопа, и у
+     * мультикурсора каретки на разных колонках получают разную строку.
+     */
+    private typeEach(textFor: (range: IRange) => string): IUndoElement | undefined {
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
-        const edits = this.buildEditsFromSelections(text);
+        const edits = this.buildEditsFromSelections(textFor);
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
         this.selections = this.selectionsAfterEdits(inverseEdits);
@@ -947,7 +957,7 @@ export class EditorViewState {
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
-        const edits = this.buildEditsFromSelections(text + close);
+        const edits = this.buildEditsFromSelections(() => text + close);
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         // Stryker disable next-line CallExpression: токены пары однострочные, число строк не
         // меняется — двигать границы фолдов нечего; вызов держит общий порядок мутаторов
@@ -1818,8 +1828,9 @@ export class EditorViewState {
     /**
      * Increases the indentation of the current selections (Tab).
      *
-     * With a collapsed cursor or a single-line selection this inserts one
-     * indent unit at the cursor (replacing the selection) — identical to typing.
+     * With a collapsed cursor or a single-line selection this inserts
+     * whitespace at the cursor (replacing the selection) that lands the caret
+     * on the next tab stop — see {@link indentUnitAt}.
      * With a selection spanning multiple lines it prepends one indent unit to
      * every touched line and keeps the selection covering them.
      */
@@ -1829,7 +1840,7 @@ export class EditorViewState {
             return range.start.line !== range.end.line;
         });
         if (!spansMultipleLines) {
-            return this.type(this.indentUnit());
+            return this.typeEach((range) => this.indentUnitAt(range.start));
         }
         return this.shiftIndent(1);
     }
@@ -1844,8 +1855,31 @@ export class EditorViewState {
         return this.shiftIndent(-1);
     }
 
+    /**
+     * Полный уровень отступа — то, что приписывается строке при мультистрочном
+     * Tab. О позиции ничего не знает и к табстопам не выравнивает: эталон тоже
+     * добавляет затронутой строке ровно один уровень.
+     */
     private indentUnit(): string {
         return this.insertSpaces ? " ".repeat(this.tabSize) : "\t";
+    }
+
+    /**
+     * Отступ, который Tab вставляет В ПОЗИЦИИ `pos`: при `insertSpaces` — ровно
+     * столько пробелов, чтобы каретка встала на СЛЕДУЮЩИЙ табстоп, а не
+     * фиксированные `tabSize` (`ab|` при tabSize 4 уезжает на колонку 4, а не
+     * на 6 — как VS Code). При отступе табами вставляется один `\t`: до
+     * табстопа его дотягивает рендер.
+     *
+     * Считается по ВИДИМОЙ колонке, а не по символьному offset'у: таб слева от
+     * каретки занимает своё расстояние до табстопа, а широкая графема — две
+     * колонки, поэтому по символьному offset'у табстоп вышел бы не тот.
+     */
+    private indentUnitAt(pos: IPosition): string {
+        if (!this.insertSpaces) return "\t";
+        const lineContent = this.document.getLineContent(pos.line);
+        const visibleColumn = this.displayLineFor(lineContent).offsetToColumn(pos.character);
+        return " ".repeat(this.tabSize - (visibleColumn % this.tabSize));
     }
 
     /**
@@ -2482,12 +2516,14 @@ export class EditorViewState {
     }
 
     /**
-     * Builds text edits from all current selections.
+     * Builds text edits from all current selections. `textFor` получает
+     * диапазон правки, потому что вставляемый текст бывает разным у разных
+     * кареток — см. {@link typeEach}.
      */
-    private buildEditsFromSelections(text: string): ITextEdit[] {
+    private buildEditsFromSelections(textFor: (range: IRange) => string): ITextEdit[] {
         return this.sortedSelections().map((sel) => {
             const range = selectionToRange(sel);
-            return createTextEdit(range, text);
+            return createTextEdit(range, textFor(range));
         });
     }
 
