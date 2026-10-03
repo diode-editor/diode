@@ -77,6 +77,8 @@
 - [ ] Семантические переименования файлов под upstream-имена (кодмод делал
   только camelCase): `disposable.ts`→`lifecycle.ts`,
   `geometryPromitives.ts`→`geometry.ts`, `iRange.ts`→`range.ts` и т.п.
+  Для `disposable.ts` вопрос шире переименования — примитив принадлежит
+  пакету движка; разбор и план — [Lifecycle.md](Lifecycle.md).
 
 ## Документация
 
