@@ -8,6 +8,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { TrashService } from "../../../../platform/files/node/trashService.ts";
 import { UndoRedoService, WORKSPACE_UNDO_CONTEXT } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { NULL_BULK_EDIT_BUFFERS } from "../common/iBulkEditBuffers.ts";
 
 import { WorkspaceEditService } from "./workspaceEditService.ts";
 
@@ -39,7 +40,12 @@ function configWith(enableTrash: boolean): IConfigurationService {
 
 function makeService(enableTrash = true): { service: WorkspaceEditService; undoRedo: UndoRedoService } {
     const undoRedo = new UndoRedoService();
-    const service = new WorkspaceEditService(undoRedo, new TrashService(), configWith(enableTrash));
+    const service = new WorkspaceEditService(
+        undoRedo,
+        new TrashService(),
+        configWith(enableTrash),
+        NULL_BULK_EDIT_BUFFERS,
+    );
     return { service, undoRedo };
 }
 
@@ -49,6 +55,27 @@ function write(rel: string, content = "x"): string {
     fs.writeFileSync(full, content);
     return full;
 }
+
+describe("WorkspaceEditService — подтверждение отмены", () => {
+    it("берётся у операции, которая его просит, а не у первой в наборе", () => {
+        const { service } = makeService();
+        const src = write("copied.txt", "payload");
+        const targetDir = path.join(tmpDir, "dest");
+        fs.mkdirSync(targetDir);
+
+        // Создание подтверждения не требует, вставка — требует: шаг обязан
+        // донести именно её сообщение.
+        const element = service.applyFileEdits(
+            [
+                { kind: "create", to: path.join(tmpDir, "fresh.txt") },
+                { kind: "copy", from: src, to: targetDir },
+            ],
+            "Paste",
+        );
+
+        expect(element?.confirmBeforeUndo).toBe("Удалить вставленный «copied.txt»?");
+    });
+});
 
 describe("WorkspaceEditService — move", () => {
     it("moves a file and undo/redo round-trips it", async () => {
@@ -214,7 +241,12 @@ describe("WorkspaceEditService — edge cases", () => {
             ...NULL_CONFIGURATION_SERVICE,
             get: () => undefined, // настройка не задана вовсе
         };
-        const service = new WorkspaceEditService(new UndoRedoService(), new TrashService(), config);
+        const service = new WorkspaceEditService(
+            new UndoRedoService(),
+            new TrashService(),
+            config,
+            NULL_BULK_EDIT_BUFFERS,
+        );
         expect(service.willMoveToTrash()).toBe(true);
     });
 });

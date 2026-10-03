@@ -14,6 +14,7 @@ import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
+import { TrashService } from "../vs/platform/files/node/trashService.ts";
 import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
@@ -26,6 +27,8 @@ import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensio
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColorResolver.ts";
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
+import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
+import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/node/workspaceEditService.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import {
     type DiagnosticsSink,
@@ -212,20 +215,31 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-ext-"));
 
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
+    const configurationService = options.configurationService ?? NULL_CONFIGURATION_SERVICE;
+    const undoRedoService = new UndoRedoService();
     const group = new EditorService(
         themeService,
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         options.languageService ?? NULL_LANGUAGE_SERVICE,
-        options.configurationService ?? NULL_CONFIGURATION_SERVICE,
-        new UndoRedoService(),
+        configurationService,
+        undoRedoService,
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
     );
     const groupComponent = new EditorGroupComponent(group.activeGroup, group, createTestContextMenuService());
 
-    const adapter = new EditorOptionsServiceAdapter(group);
+    // Настоящий исполнитель `workspace.applyEdit` — зеркально extensionHostModule:
+    // правки по закрытым файлам ложатся на диск, по открытым — в их буферы, и
+    // весь edit остаётся одним шагом общей истории (`undoRedoService`).
+    const workspaceEditService = new WorkspaceEditService(
+        undoRedoService,
+        new TrashService(),
+        configurationService,
+        new BulkEditBuffers(group),
+    );
+    const adapter = new EditorOptionsServiceAdapter(group, workspaceEditService);
     const commandRegistry = new CommandRegistry();
     const commandAdapter = new CommandServiceAdapter(commandRegistry);
     // `IWorkspaceFolderInfo.uri` — настоящий uri, как в extensionHostModule:

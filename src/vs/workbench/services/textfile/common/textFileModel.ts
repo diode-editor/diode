@@ -21,9 +21,10 @@ import {
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
-import type { IUndoViewBinding } from "../../../../editor/common/model/undoManager.ts";
+import type { IUndoViewBinding, UndoStepToken } from "../../../../editor/common/model/undoManager.ts";
 import { UndoManager } from "../../../../editor/common/model/undoManager.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
+import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
 import type { ISaveEdit, ISaveSnapshot, SaveParticipant } from "./iSaveParticipant.ts";
@@ -163,6 +164,12 @@ export class TextFileModel extends Disposable {
      * в `UndoRedoService` исполняется до первого await внутри `undo(context)`.
      */
     private actingView: IUndoViewBinding | null = null;
+    /**
+     * Куда уходят обёртки шагов, пока идёт {@link applyExternalEditsDetached}:
+     * `null` — штатный режим (шаг сразу в общий бакет), массив — шаг забирает
+     * вызывающий. Живёт только на время синхронного окна применения.
+     */
+    private detachedUndoSteps: IUndoRedoElement[] | null = null;
 
     public get isModified(): boolean {
         return this.doc.versionId !== this.savedVersionId || this.doc.eol !== this.savedEol;
@@ -450,22 +457,45 @@ export class TextFileModel extends Disposable {
         this.undoRedoService.clear(this.undoContext);
         this.undoManagerValue = new UndoManager(this.doc);
         this.undoManagerValue.onDidPush = (element) => {
-            const filePath = this.filePath;
-            this.undoRedoService.pushElement(
-                {
-                    label: element.label,
-                    resources: filePath === null ? [] : [filePath],
-                    undo: () => {
-                        this.undoManagerValue.undo(this.actingView);
-                        this.broadcastMarkDirty();
-                    },
-                    redo: () => {
-                        this.undoManagerValue.redo(this.actingView);
-                        this.broadcastMarkDirty();
-                    },
-                },
-                this.undoContext,
-            );
+            const wrapper = this.wrapUndoStep(element.label);
+            // Шаг забирает вызывающий (bulk edit) — в общий бакет он НЕ идёт:
+            // иначе на один workspace edit пришлось бы столько же Ctrl+Z,
+            // сколько документов он тронул.
+            if (this.detachedUndoSteps !== null) {
+                this.detachedUndoSteps.push(wrapper);
+                return;
+            }
+            this.undoRedoService.pushElement(wrapper, this.undoContext);
+        };
+    }
+
+    /**
+     * Обёртка шага документа для общей истории: токен порядка, чьи undo/redo
+     * делегируют в {@link UndoManager}. Токен шага снимается здесь же — им
+     * обёртка отвечает на вопрос «снимется ли ИМЕННО мой шаг» ({@link
+     * IUndoRedoElement.canUndo}); при откате/повторе запись переезжает в
+     * противоположный стек новым объектом, поэтому токен каждый раз
+     * перечитывается.
+     */
+    private wrapUndoStep(label: string): IUndoRedoElement {
+        const filePath = this.filePath;
+        let undoToken = this.undoManagerValue.peekUndoStep();
+        let redoToken: UndoStepToken | undefined;
+        return {
+            label,
+            resources: filePath === null ? [] : [filePath],
+            canUndo: () => this.undoManagerValue.canUndoStep(undoToken),
+            canRedo: () => this.undoManagerValue.canRedoStep(redoToken),
+            undo: () => {
+                this.undoManagerValue.undo(this.actingView);
+                redoToken = this.undoManagerValue.peekRedoStep();
+                this.broadcastMarkDirty();
+            },
+            redo: () => {
+                this.undoManagerValue.redo(this.actingView);
+                undoToken = this.undoManagerValue.peekUndoStep();
+                this.broadcastMarkDirty();
+            },
         };
     }
 
@@ -834,6 +864,37 @@ export class TextFileModel extends Disposable {
         const element = acting.applyEdits(edits, label);
         if (element) this.undoManagerValue.pushUndoElement(element);
         this.broadcastMarkDirty();
+    }
+
+    /**
+     * То же, что {@link applyExternalEdits}, но шаг истории НЕ попадает в общий
+     * `UndoRedoService` — его забирает вызывающий. Так bulk edit собирает ОДИН
+     * шаг на весь `workspace.applyEdit`: правки по нескольким документам и
+     * файловые операции отменяются вместе, одним Ctrl+Z.
+     *
+     * В {@link UndoManager} самого документа шаг ложится как обычно — без него
+     * version-гейт отбрасывал бы собственную историю документа как устаревшую.
+     *
+     * `null` — применять нечего (нет прикреплённой вью либо правки ничего не
+     * изменили): вызывающий обязан различать это от успеха.
+     */
+    public applyExternalEditsDetached(
+        edits: readonly ITextEdit[],
+        label: string,
+        target?: ITextFileEditTarget,
+    ): IUndoRedoElement | null {
+        const acting = target ?? this.editTargets.at(0);
+        if (acting === undefined) return null;
+        const captured: IUndoRedoElement[] = [];
+        this.detachedUndoSteps = captured;
+        try {
+            const element = acting.applyEdits(edits, label);
+            if (element) this.undoManagerValue.pushUndoElement(element);
+        } finally {
+            this.detachedUndoSteps = null;
+        }
+        this.broadcastMarkDirty();
+        return captured.at(0) ?? null;
     }
 
     /** Откат шага истории; `view` — действующая вью (восстановление выделений в неё). */

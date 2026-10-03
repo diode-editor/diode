@@ -16,6 +16,18 @@ export interface IUndoRedoElement {
      * файлы); строка — текст подтверждения для пользователя. Гейтится `explorer.confirmUndo`.
      */
     readonly confirmBeforeUndo?: string;
+    /**
+     * Можно ли откатить шаг ПРЯМО СЕЙЧАС. Отсутствует — можно всегда (обычный
+     * шаг одного документа: его стек и есть его бакет, рассинхрона не бывает).
+     *
+     * Нужно шагу, охватывающему несколько документов (bulk edit): после него
+     * могли набрать текст в одном из них, и тогда откат снял бы не ту правку.
+     * `false` здесь — честный отказ: {@link IUndoRedoElement.undo} не зовётся,
+     * шаг остаётся в стеке (см. `UndoRedoService.undo`).
+     */
+    canUndo?(): boolean;
+    /** То же для повтора. */
+    canRedo?(): boolean;
     undo(): void | Promise<void>;
     redo(): void | Promise<void>;
 }

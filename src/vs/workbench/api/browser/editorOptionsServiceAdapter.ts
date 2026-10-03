@@ -8,6 +8,8 @@ import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
+import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
+import type { BulkEdit, BulkEditOperation } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type {
     IActiveEditorMeta,
@@ -18,8 +20,8 @@ import type {
 } from "../common/iEditorOptionsService.ts";
 import {
     type IWireEditorEdit,
-    type IWireResourceTextEdits,
     type IWireSelection,
+    type IWireWorkspaceEditOp,
     selectionChangeKindOf,
 } from "../common/wireTypes.ts";
 
@@ -29,6 +31,12 @@ import {
  */
 export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private readonly group: EditorService;
+    /**
+     * Исполнитель `workspace.applyEdit`: правки по закрытым файлам и файловые
+     * операции живут в ядре (node), а не здесь — адаптер только переводит
+     * wire-форму в его модель.
+     */
+    private readonly workspaceEdits: IBulkEditService;
 
     /** Группа вкладки (для меты/таргетинга); вкладка уже закрыта — фолбэк активная. */
     private groupIdOf(editor: TextEditorPane): number {
@@ -49,8 +57,9 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
      */
     private pendingSelectionSource: CursorChangeSource | undefined;
 
-    public constructor(group: EditorService) {
+    public constructor(group: EditorService, workspaceEdits: IBulkEditService) {
         this.group = group;
+        this.workspaceEdits = workspaceEdits;
     }
 
     public getActiveEditorOptions(): IEditorOptionsState | null {
@@ -152,26 +161,16 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return true;
     }
 
-    public applyWorkspaceEdit(edits: readonly IWireResourceTextEdits[]): boolean {
+    public applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): boolean {
         // Пустой список — мусорный запрос: вакуумный успех пустого edit'а
         // субпроцесс отвечает сам, не отправляя RPC. Здесь ничего не применено —
         // врать `true` нельзя.
-        if (edits.length === 0) return false;
-        // Сначала валидация ВСЕХ ресурсов, потом применение: применённый
-        // «наполовину» workspace edit хуже честного отказа (у VS Code чисто
-        // текстовый edit — all-or-nothing).
-        const targets: { editor: TextEditorPane; edits: readonly ITextEdit[] }[] = [];
-        for (const entry of edits) {
-            const editor = this.anyEditorFor(entry.resource);
-            if (editor === null || editor.readOnly) return false;
-            const textEdits = this.toTextEdits(editor, entry.edits);
-            if (textEdits === null) return false;
-            targets.push({ editor, edits: textEdits });
-        }
-        for (const target of targets) {
-            target.editor.applyExternalEdits(target.edits, "workspace edit");
-        }
-        return true;
+        if (ops.length === 0) return false;
+        const edits = toWorkspaceEdit(ops);
+        // Файловая операция по недисковому ресурсу (`output:`, `jdt:`) —
+        // создавать и переименовывать там нечего: отбиваем edit целиком.
+        if (edits === null) return false;
+        return this.workspaceEdits.applyWorkspaceEdit(edits, "Workspace Edit");
     }
 
     /**
@@ -215,6 +214,67 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         if (active !== null && active.uri.toString() === uri) return active;
         return this.group.getEditors().find((editor) => editor.uri.toString() === uri) ?? null;
     }
+}
+
+/**
+ * Переводит операции провода в модель правок ядра. Координаты правок едут как
+ * есть — клампит их сам исполнитель (у закрытого ресурса их не к чему
+ * приложить здесь). `null` — файловая операция адресует НЕ диск: создавать,
+ * удалять и переименовывать там нечего, и весь edit отбивается.
+ */
+function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null {
+    const result: BulkEditOperation[] = [];
+    for (const op of ops) {
+        if (op.kind === "text") {
+            result.push({ resource: op.resource, edits: op.edits.map(toTextEdit) });
+            continue;
+        }
+        if (op.kind === "rename") {
+            const from = filePathOf(op.from);
+            const to = filePathOf(op.to);
+            if (from === null || to === null) return null;
+            result.push({
+                kind: "rename",
+                from,
+                to,
+                ...(op.overwrite === true ? { overwrite: true } : {}),
+                ...(op.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
+            });
+            continue;
+        }
+        const filePath = filePathOf(op.resource);
+        if (filePath === null) return null;
+        if (op.kind === "create") {
+            result.push({
+                kind: "create",
+                to: filePath,
+                ...(op.contents === undefined ? {} : { contents: op.contents }),
+                ...(op.overwrite === true ? { overwrite: true } : {}),
+                ...(op.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
+            });
+            continue;
+        }
+        result.push({
+            kind: "delete",
+            from: filePath,
+            ...(op.ignoreIfNotExists === true ? { ignoreIfNotExists: true } : {}),
+        });
+    }
+    return result;
+}
+
+/** Путь на диске за ресурсом; `null` — схема не `file`. */
+function filePathOf(resource: string): string | null {
+    const uri = Uri.parse(resource);
+    return uri.scheme === "file" ? uri.fsPath : null;
+}
+
+/** Wire-правка в правку ядра БЕЗ клампа (клампит исполнитель по содержимому ресурса). */
+function toTextEdit(edit: IWireEditorEdit): ITextEdit {
+    return createTextEdit(
+        createRange(edit.range.startLine, edit.range.startCharacter, edit.range.endLine, edit.range.endCharacter),
+        edit.text,
+    );
 }
 
 /** Все выделения редактора в wire-форме (первое — первичное). */

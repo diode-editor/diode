@@ -1,162 +1,173 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
+import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
+import type { BulkEdit } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
+import type { IWireWorkspaceEditOp } from "../common/wireTypes.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 
-// `applyWorkspaceEdit` (RPC `workspace.applyEdit`): применение текстовых правок
-// по ресурсам. Ключевое свойство — all-or-nothing: закрытый или read-only
-// ресурс отменяет ВЕСЬ edit до того, как тронут хоть один документ.
+// `applyWorkspaceEdit` в адаптере — ПЕРЕВОДЧИК: wire-операции в модель правок
+// ядра, ответ — ответ исполнителя. Сама семантика применения (all-or-nothing,
+// закрытые файлы, один шаг отмены) живёт и проверяется в
+// `contrib/bulkEdit/node/workspaceEditService`.
 
-interface IFakeEditor {
-    uri: Uri;
-    readOnly?: boolean;
-    model: { document: { lineCount: number; getLineLength(line: number): number } };
-    applyExternalEdits: ReturnType<typeof vi.fn>;
-}
-
-function makeEditor(path: string, readOnly = false): IFakeEditor {
+/** Исполнитель-шпион: запоминает модель, с которой его позвали. */
+function spyService(result = true): { service: IBulkEditService; calls: { edits: BulkEdit; label: string }[] } {
+    const calls: { edits: BulkEdit; label: string }[] = [];
     return {
-        uri: Uri.file(path),
-        readOnly,
-        model: { document: { lineCount: 5, getLineLength: () => 10 } },
-        applyExternalEdits: vi.fn(),
+        calls,
+        service: {
+            applyWorkspaceEdit: (edits, label) => {
+                calls.push({ edits, label });
+                return result;
+            },
+        },
     };
 }
 
-/** Группа: `active` — активная вкладка, `rest` — вкладки других ресурсов. */
-function makeGroup(active: IFakeEditor | null, rest: IFakeEditor[] = []): EditorService {
+function emptyGroup(): EditorService {
     return {
         groupOf: () => ({ id: 1 }),
         activeGroup: { id: 1 },
         viewColumnOf: () => 1,
         groups: [] as unknown[],
-        getActiveTabEditor: () => active,
-        getEditors: () => rest,
+        getActiveTabEditor: () => null,
+        getEditors: () => [] as unknown[],
     } as unknown as EditorService;
 }
 
+const A = Uri.file("/proj/a.ts");
+const B = Uri.file("/proj/b.ts");
 const EDIT_A = { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" };
-const EDIT_B = { range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 1 }, text: "" };
 
 describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
-    it("применяет правки к каждому документу своим батчем с меткой workspace edit", () => {
-        const active = makeEditor("/proj/a.ts");
-        const other = makeEditor("/proj/b.ts");
-        const adapter = new EditorOptionsServiceAdapter(makeGroup(active, [other]));
+    it("переводит текстовые операции в модель правок БЕЗ клампа и отдаёт ответ исполнителя", () => {
+        const { service, calls } = spyService();
+        const adapter = new EditorOptionsServiceAdapter(emptyGroup(), service);
 
         const applied = adapter.applyWorkspaceEdit([
-            { resource: active.uri.toString(), edits: [EDIT_A] },
-            { resource: other.uri.toString(), edits: [EDIT_B] },
-        ]);
-
-        expect(applied).toBe(true);
-        expect(active.applyExternalEdits).toHaveBeenCalledExactlyOnceWith(
-            [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" }],
-            "workspace edit",
-        );
-        expect(other.applyExternalEdits).toHaveBeenCalledExactlyOnceWith(
-            [{ range: { start: { line: 1, character: 0 }, end: { line: 1, character: 1 } }, text: "" }],
-            "workspace edit",
-        );
-    });
-
-    it("клампит координаты правок к границам документа", () => {
-        const active = makeEditor("/proj/a.ts");
-        const adapter = new EditorOptionsServiceAdapter(makeGroup(active));
-
-        adapter.applyWorkspaceEdit([
+            { kind: "text", resource: A.toString(), edits: [EDIT_A] },
             {
-                resource: active.uri.toString(),
-                edits: [{ range: { startLine: -3, startCharacter: -1, endLine: 99, endCharacter: 99 }, text: "z" }],
+                kind: "text",
+                resource: B.toString(),
+                // Координаты за концом документа едут как есть: клампит их
+                // исполнитель, у которого есть содержимое ресурса.
+                edits: [{ range: { startLine: 99, startCharacter: 99, endLine: 99, endCharacter: 99 }, text: "z" }],
             },
         ]);
 
-        expect(active.applyExternalEdits.mock.calls[0][0]).toEqual([
-            { range: { start: { line: 0, character: 0 }, end: { line: 4, character: 10 } }, text: "z" },
+        expect(applied).toBe(true);
+        expect(calls).toHaveLength(1);
+        expect(calls[0].label).toBe("Workspace Edit");
+        expect(calls[0].edits).toEqual([
+            {
+                resource: A.toString(),
+                edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" }],
+            },
+            {
+                resource: B.toString(),
+                edits: [{ range: { start: { line: 99, character: 99 }, end: { line: 99, character: 99 } }, text: "z" }],
+            },
         ]);
     });
 
-    it("all-or-nothing: закрытый ресурс отменяет весь edit, открытые не трогаются", () => {
-        const active = makeEditor("/proj/a.ts");
-        const adapter = new EditorOptionsServiceAdapter(makeGroup(active));
+    it("файловые операции переводятся в пути на диске с сохранением порядка и опций", () => {
+        const { service, calls } = spyService();
+        const adapter = new EditorOptionsServiceAdapter(emptyGroup(), service);
 
-        const applied = adapter.applyWorkspaceEdit([
-            { resource: active.uri.toString(), edits: [EDIT_A] },
-            { resource: Uri.file("/proj/closed.ts").toString(), edits: [EDIT_B] },
+        adapter.applyWorkspaceEdit([
+            { kind: "create", resource: B.toString(), contents: "seed", ignoreIfExists: true },
+            { kind: "text", resource: B.toString(), edits: [EDIT_A] },
+            { kind: "rename", from: A.toString(), to: B.toString(), overwrite: true },
+            { kind: "delete", resource: A.toString(), ignoreIfNotExists: true },
         ]);
 
-        expect(applied).toBe(false);
-        expect(active.applyExternalEdits).not.toHaveBeenCalled();
+        expect(calls[0].edits).toEqual([
+            { kind: "create", to: "/proj/b.ts", contents: "seed", ignoreIfExists: true },
+            {
+                resource: B.toString(),
+                edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" }],
+            },
+            { kind: "rename", from: "/proj/a.ts", to: "/proj/b.ts", overwrite: true },
+            { kind: "delete", from: "/proj/a.ts", ignoreIfNotExists: true },
+        ]);
     });
 
-    it("all-or-nothing: read-only ресурс отменяет весь edit", () => {
-        const active = makeEditor("/proj/a.ts");
-        const readOnly = makeEditor("/proj/ro.ts", true);
-        const adapter = new EditorOptionsServiceAdapter(makeGroup(active, [readOnly]));
+    it("каждая опция переводится по отдельности", () => {
+        const { service, calls } = spyService();
+        const adapter = new EditorOptionsServiceAdapter(emptyGroup(), service);
 
-        const applied = adapter.applyWorkspaceEdit([
-            { resource: active.uri.toString(), edits: [EDIT_A] },
-            { resource: readOnly.uri.toString(), edits: [EDIT_B] },
+        adapter.applyWorkspaceEdit([
+            { kind: "create", resource: B.toString(), overwrite: true },
+            { kind: "rename", from: A.toString(), to: B.toString(), ignoreIfExists: true },
         ]);
 
-        expect(applied).toBe(false);
-        expect(active.applyExternalEdits).not.toHaveBeenCalled();
-        expect(readOnly.applyExternalEdits).not.toHaveBeenCalled();
+        expect(calls[0].edits).toEqual([
+            { kind: "create", to: "/proj/b.ts", overwrite: true },
+            { kind: "rename", from: "/proj/a.ts", to: "/proj/b.ts", ignoreIfExists: true },
+        ]);
+    });
+
+    it("опции без значения не попадают в модель (отсутствие ≠ false)", () => {
+        const { service, calls } = spyService();
+        const adapter = new EditorOptionsServiceAdapter(emptyGroup(), service);
+
+        adapter.applyWorkspaceEdit([
+            { kind: "create", resource: B.toString() },
+            { kind: "delete", resource: A.toString() },
+            { kind: "rename", from: A.toString(), to: B.toString() },
+        ]);
+
+        // Строгое сравнение: опция без значения обязана ОТСУТСТВОВАТЬ, а не
+        // приехать как `undefined` — исполнитель различает их по `=== true`.
+        expect(calls[0].edits).toStrictEqual([
+            { kind: "create", to: "/proj/b.ts" },
+            { kind: "delete", from: "/proj/a.ts" },
+            { kind: "rename", from: "/proj/a.ts", to: "/proj/b.ts" },
+        ]);
+    });
+
+    it("ответ исполнителя не подменяется: отказ едет расширению как есть", () => {
+        const { service } = spyService(false);
+        const adapter = new EditorOptionsServiceAdapter(emptyGroup(), service);
+        expect(adapter.applyWorkspaceEdit([{ kind: "text", resource: A.toString(), edits: [EDIT_A] }])).toBe(false);
     });
 
     it("пустой список — false: вакуумный успех отвечает субпроцесс, здесь это мусорный запрос", () => {
-        const adapter = new EditorOptionsServiceAdapter(makeGroup(makeEditor("/proj/a.ts")));
+        const applyWorkspaceEdit = vi.fn(() => true);
+        const adapter = new EditorOptionsServiceAdapter(emptyGroup(), { applyWorkspaceEdit });
         expect(adapter.applyWorkspaceEdit([])).toBe(false);
+        expect(applyWorkspaceEdit).not.toHaveBeenCalled();
     });
 
-    /**
-     * Перекрытые правки документ применил бы снизу вверх по уже съеденному
-     * тексту — тихая порча содержимого и сломанный undo. vscode такой edit
-     * отбивает («Overlapping ranges are not allowed»), и отказ обязан быть
-     * all-or-nothing: ресурс с пересечением отменяет весь edit.
-     */
-    it("all-or-nothing: пересекающиеся правки одного ресурса отменяют весь edit", () => {
-        const active = makeEditor("/proj/a.ts");
-        const other = makeEditor("/proj/b.ts");
-        const adapter = new EditorOptionsServiceAdapter(makeGroup(active, [other]));
+    it.each<IWireWorkspaceEditOp>([
+        { kind: "create", resource: "output:extensions" },
+        { kind: "delete", resource: "output:extensions" },
+        { kind: "rename", from: "output:extensions", to: A.toString() },
+        { kind: "rename", from: A.toString(), to: "output:extensions" },
+    ])("файловая операция по недисковому ресурсу отбивает весь edit (%o)", (op) => {
+        const applyWorkspaceEdit = vi.fn(() => true);
+        const adapter = new EditorOptionsServiceAdapter(emptyGroup(), { applyWorkspaceEdit });
 
-        const applied = adapter.applyWorkspaceEdit([
-            { resource: active.uri.toString(), edits: [EDIT_A] },
-            {
-                resource: other.uri.toString(),
-                edits: [
-                    { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 4 }, text: "x" },
-                    { range: { startLine: 0, startCharacter: 2, endLine: 0, endCharacter: 6 }, text: "y" },
-                ],
-            },
-        ]);
+        const applied = adapter.applyWorkspaceEdit([{ kind: "text", resource: A.toString(), edits: [EDIT_A] }, op]);
 
         expect(applied).toBe(false);
-        expect(active.applyExternalEdits).not.toHaveBeenCalled();
-        expect(other.applyExternalEdits).not.toHaveBeenCalled();
+        expect(applyWorkspaceEdit).not.toHaveBeenCalled();
     });
 
-    it("правки встык и две вставки в одну точку пересечением не считаются", () => {
-        const active = makeEditor("/proj/a.ts");
-        const adapter = new EditorOptionsServiceAdapter(makeGroup(active));
+    it("текстовая правка недискового ресурса переводится (его может держать открытый буфер)", () => {
+        const { service, calls } = spyService();
+        const adapter = new EditorOptionsServiceAdapter(emptyGroup(), service);
 
-        const applied = adapter.applyWorkspaceEdit([
+        adapter.applyWorkspaceEdit([{ kind: "text", resource: "untitled:Untitled-1", edits: [EDIT_A] }]);
+
+        expect(calls[0].edits).toEqual([
             {
-                resource: active.uri.toString(),
-                edits: [
-                    // Встык: конец первой = начало второй.
-                    { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "x" },
-                    { range: { startLine: 0, startCharacter: 2, endLine: 0, endCharacter: 4 }, text: "y" },
-                    // Две вставки нулевой ширины в одну точку.
-                    { range: { startLine: 1, startCharacter: 1, endLine: 1, endCharacter: 1 }, text: "p" },
-                    { range: { startLine: 1, startCharacter: 1, endLine: 1, endCharacter: 1 }, text: "q" },
-                ],
+                resource: "untitled:Untitled-1",
+                edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" }],
             },
         ]);
-
-        expect(applied).toBe(true);
-        expect(active.applyExternalEdits).toHaveBeenCalledOnce();
     });
 });

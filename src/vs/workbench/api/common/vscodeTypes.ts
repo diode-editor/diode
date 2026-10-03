@@ -1068,7 +1068,6 @@ export enum UIKind {
     Web = 2,
 }
 
-/** Наивный WorkspaceEdit — хранит правки, применение — за `workspace.applyEdit`. */
 /**
  * Как был вызван signature-help-провайдер. Значения — из vscode API; их читает
  * конвертер стокового клиента (`codeConverter.asSignatureHelpTriggerKind`
@@ -1127,19 +1126,44 @@ export interface IResourceEditEntry {
     readonly edits: readonly (TextEdit | SnippetTextEdit)[];
 }
 
+/** Опции файловых операций `WorkspaceEdit` (`overwrite` бьёт `ignoreIfExists`). */
+export interface IFileOperationOptions {
+    readonly overwrite?: boolean;
+    readonly ignoreIfExists?: boolean;
+    readonly ignoreIfNotExists?: boolean;
+    /** Начальное содержимое создаваемого файла, уже приведённое к строке. */
+    readonly contents?: string;
+}
+
 /**
- * Правки уровня workspace (`vscode.WorkspaceEdit`). Текстовые правки копятся
- * per-uri в порядке добавления; `set` принимает обе формы конвертера клиента —
- * `TextEdit[]` и пары `[TextEdit, metadata]` (metadata отбрасывается). По dts
- * `get`/`entries` отдают только `TextEdit`; сниппет-правки хранятся и видны
- * через {@link resourceEdits} — их приземляет сериализация `workspace.applyEdit`
- * (плейсхолдеры вырезаются, как у completion). Файловые операции
- * (create/rename/delete) только УЧИТЫВАЮТСЯ ({@link hasFileOperations}):
- * применение не поддержано, `workspace.applyEdit` с ними честно ответит `false`.
+ * Одна операция внутри {@link WorkspaceEdit} — ровно в том порядке, в котором
+ * её добавило расширение. Текстовая операция адресует ОДИН ресурс и копит все
+ * его правки: координаты правок одного ресурса исходные (друг друга они не
+ * сдвигают), поэтому хранить их россыпью незачем.
+ */
+export type WorkspaceEditOperation =
+    | { readonly kind: "text"; readonly uri: Uri; readonly edits: (TextEdit | SnippetTextEdit)[] }
+    | { readonly kind: "create"; readonly uri: Uri; readonly options: IFileOperationOptions }
+    | { readonly kind: "delete"; readonly uri: Uri; readonly options: IFileOperationOptions }
+    | { readonly kind: "rename"; readonly from: Uri; readonly to: Uri; readonly options: IFileOperationOptions };
+
+/**
+ * Правки уровня workspace (`vscode.WorkspaceEdit`).
+ *
+ * Внутри — УПОРЯДОЧЕННЫЙ список операций ({@link operations}), как у upstream:
+ * порядок значим, потому что файловые операции и текстовые правки зависят друг
+ * от друга («Move to a new file» создаёт файл и тут же пишет в него).
+ * Текстовые правки группируются по ресурсу в первой его операции — `set`
+ * заменяет накопленное, `replace`/`insert`/`delete` дописывают.
+ *
+ * `set` принимает обе формы конвертера стокового LSP-клиента — `TextEdit[]` и
+ * пары `[TextEdit, metadata]` (metadata отбрасывается). По dts `get`/`entries`
+ * отдают только `TextEdit`; сниппет-правки хранятся и видны через
+ * {@link resourceEdits} — их приземляет сериализация `workspace.applyEdit`
+ * (плейсхолдеры вырезаются, как у completion).
  */
 export class WorkspaceEdit {
-    private readonly textEdits = new Map<string, { uri: Uri; edits: (TextEdit | SnippetTextEdit)[] }>();
-    private fileOperationCount = 0;
+    private readonly ops: WorkspaceEditOperation[] = [];
 
     public replace(uri: Uri, range: Range, newText: string): void {
         this.push(uri, new TextEdit(range, newText));
@@ -1154,7 +1178,7 @@ export class WorkspaceEdit {
     }
 
     public has(uri: Uri): boolean {
-        return this.textEdits.has(uri.toString());
+        return this.textOpFor(uri) !== undefined;
     }
 
     public set(
@@ -1165,9 +1189,11 @@ export class WorkspaceEdit {
             | null
             | undefined,
     ): void {
-        const key = uri.toString();
+        const existing = this.textOpFor(uri);
         if (edits === null || edits === undefined || edits.length === 0) {
-            this.textEdits.delete(key);
+            // Пустой набор снимает правки ресурса целиком — вместе с операцией,
+            // иначе `has`/`size` продолжали бы её считать.
+            if (existing !== undefined) this.ops.splice(this.ops.indexOf(existing), 1);
             return;
         }
         const list: (TextEdit | SnippetTextEdit)[] = [];
@@ -1175,51 +1201,110 @@ export class WorkspaceEdit {
             const edit = Array.isArray(entry) ? entry[0] : entry;
             if (edit instanceof TextEdit || edit instanceof SnippetTextEdit) list.push(edit);
         }
-        this.textEdits.set(key, { uri, edits: list });
+        if (existing !== undefined) {
+            existing.edits.length = 0;
+            existing.edits.push(...list);
+            return;
+        }
+        this.ops.push({ kind: "text", uri, edits: list });
     }
 
     public get(uri: Uri): TextEdit[] {
-        const entry = this.textEdits.get(uri.toString());
-        if (entry === undefined) return [];
-        return entry.edits.filter((edit): edit is TextEdit => edit instanceof TextEdit);
+        const op = this.textOpFor(uri);
+        if (op === undefined) return [];
+        return op.edits.filter((edit): edit is TextEdit => edit instanceof TextEdit);
     }
 
     public entries(): [Uri, TextEdit[]][] {
-        return [...this.textEdits.values()].map((entry) => [entry.uri, this.get(entry.uri)]);
+        return this.resourceEdits().map((entry) => [entry.uri, this.get(entry.uri)]);
     }
 
     /** Все правки по ресурсам, включая сниппетные (вне vscode API — для сериализации). */
     public resourceEdits(): readonly IResourceEditEntry[] {
-        return [...this.textEdits.values()];
+        return this.ops.flatMap((op) => (op.kind === "text" ? [{ uri: op.uri, edits: op.edits }] : []));
     }
 
-    public createFile(): void {
-        this.fileOperationCount += 1;
+    /** Операции в порядке добавления (вне vscode API — для сериализации applyEdit). */
+    public operations(): readonly WorkspaceEditOperation[] {
+        return this.ops;
     }
 
-    public deleteFile(): void {
-        this.fileOperationCount += 1;
+    public createFile(uri: Uri, options?: ICreateFileOptions): void {
+        this.ops.push({ kind: "create", uri, options: createFileOptionsOf(options) });
     }
 
-    public renameFile(): void {
-        this.fileOperationCount += 1;
+    public deleteFile(uri: Uri, options?: { readonly ignoreIfNotExists?: boolean }): void {
+        this.ops.push({
+            kind: "delete",
+            uri,
+            options: { ...(options?.ignoreIfNotExists === true ? { ignoreIfNotExists: true } : {}) },
+        });
     }
 
-    /** Есть ли файловые операции (create/rename/delete) — applyEdit их не поддерживает. */
+    public renameFile(
+        oldUri: Uri,
+        newUri: Uri,
+        options?: { readonly overwrite?: boolean; readonly ignoreIfExists?: boolean },
+    ): void {
+        this.ops.push({ kind: "rename", from: oldUri, to: newUri, options: overwriteOptionsOf(options) });
+    }
+
+    /** Есть ли файловые операции (create/rename/delete). */
     public get hasFileOperations(): boolean {
-        return this.fileOperationCount > 0;
+        return this.ops.some((op) => op.kind !== "text");
     }
 
+    /** Число затронутых ресурсов — текстовых и файловых (дословно `size` из dts). */
     public get size(): number {
-        return this.textEdits.size + this.fileOperationCount;
+        return this.ops.length;
+    }
+
+    private textOpFor(uri: Uri): { kind: "text"; uri: Uri; edits: (TextEdit | SnippetTextEdit)[] } | undefined {
+        const key = uri.toString();
+        return this.ops.find(
+            (op): op is { kind: "text"; uri: Uri; edits: (TextEdit | SnippetTextEdit)[] } =>
+                op.kind === "text" && op.uri.toString() === key,
+        );
     }
 
     private push(uri: Uri, edit: TextEdit): void {
-        const key = uri.toString();
-        const entry = this.textEdits.get(key) ?? { uri, edits: [] };
-        entry.edits.push(edit);
-        this.textEdits.set(key, entry);
+        const existing = this.textOpFor(uri);
+        if (existing !== undefined) {
+            existing.edits.push(edit);
+            return;
+        }
+        this.ops.push({ kind: "text", uri, edits: [edit] });
     }
+}
+
+/** Опции `createFile` из dts: `contents` приезжает байтами или файлом DataTransfer. */
+interface ICreateFileOptions {
+    readonly overwrite?: boolean;
+    readonly ignoreIfExists?: boolean;
+    readonly contents?: Uint8Array | { data(): Thenable<Uint8Array> };
+}
+
+/**
+ * Опции создания в нашей форме. `contents` приводится к строке здесь:
+ * создаём мы текстовый файл, а `DataTransferFile` (асинхронные байты из
+ * drag-and-drop) у нас взяться негде — такой `contents` игнорируется, файл
+ * создаётся пустым.
+ */
+function createFileOptionsOf(options: ICreateFileOptions | undefined): IFileOperationOptions {
+    const contents = options?.contents;
+    return {
+        ...overwriteOptionsOf(options),
+        ...(contents instanceof Uint8Array ? { contents: new TextDecoder().decode(contents) } : {}),
+    };
+}
+
+function overwriteOptionsOf(
+    options: { readonly overwrite?: boolean; readonly ignoreIfExists?: boolean } | undefined,
+): IFileOperationOptions {
+    return {
+        ...(options?.overwrite === true ? { overwrite: true } : {}),
+        ...(options?.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
+    };
 }
 
 /**

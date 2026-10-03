@@ -1888,9 +1888,12 @@ export class ExtensionHost extends Disposable {
             return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits));
         });
         // Сабпроцесс просит применить workspace edit (`workspace.applyEdit`):
-        // текстовые правки по ресурсам, all-or-nothing по валидации.
+        // текстовые правки по ресурсам плюс файловые операции, all-or-nothing
+        // по валидации. Мусор в параметрах — честный `false`, а не частичный edit.
         rpc.handleRequest("workspace.applyEdit", (params): unknown => {
-            return this.editorOptions.applyWorkspaceEdit(parseWireApplyWorkspaceEditParams(params));
+            const ops = parseWireApplyWorkspaceEditParams(params);
+            if (ops === null) return false;
+            return this.editorOptions.applyWorkspaceEdit(ops);
         });
         // Сабпроцесс просит исполнить команду ядра (напр. встроенную
         // editor.action.trimTrailingWhitespace). Нормализуем через Promise —

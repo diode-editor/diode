@@ -12,11 +12,14 @@ import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
+import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
+/** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
+const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => false };
 
 /**
  * Адресация по группам поверх настоящего EditorService: `groupId` в
@@ -44,7 +47,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
             createTestEditorContextMenuController(),
             NULL_LOG_SERVICE,
         );
-        adapter = new EditorOptionsServiceAdapter(service);
+        adapter = new EditorOptionsServiceAdapter(service, NO_BULK_EDITS);
     });
 
     afterEach(() => {

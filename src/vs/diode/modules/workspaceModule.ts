@@ -16,7 +16,9 @@ import {
  * (`WorkspaceContextService`) плюс единая система отмены — история
  * (`UndoRedoService`), системная корзина (`TrashService`) и исполнитель файловых
  * правок (`WorkspaceEditService`). `WorkspaceEditService` зависит от
- * `IConfigurationService` (см. `configurationModule`).
+ * `IConfigurationService` (см. `configurationModule`) и от доступа к открытым
+ * буферам `IBulkEditBuffers` — его даёт полоса групп редакторов, поэтому
+ * биндинг живёт в `workbenchModule` (сервис в node-слое о редакторе не знает).
  *
  * У контекста воркспейса ДВА токена на один экземпляр, и это не церемония:
  * `WorkspaceContextServiceDIToken` отдаёт класс с писателем и берётся только

@@ -54,9 +54,17 @@ export class UndoRedoService {
         return stack[stack.length - 1];
     }
 
+    /**
+     * Откатывает верхний шаг контекста. `false` — откатывать нечего ЛИБО шаг
+     * отказался (`canUndo() === false`, см. {@link IUndoRedoElement.canUndo}):
+     * в отказе шаг остаётся в стеке, половинчато не применяется ничего.
+     */
     public async undo(context: string): Promise<boolean> {
-        const element = this.stack(this.undoStacks, context).pop();
+        const stack = this.stack(this.undoStacks, context);
+        const element = stack.at(-1);
         if (!element) return false;
+        if (element.canUndo?.() === false) return false;
+        stack.pop();
         // Перемещаем по стекам синхронно (до await), чтобы немедленный redo сразу видел
         // элемент; синхронная часть element.undo() тоже успевает отработать до возврата.
         this.stack(this.redoStacks, context).push(element);
@@ -64,9 +72,13 @@ export class UndoRedoService {
         return true;
     }
 
+    /** Повторяет откаченный шаг; отказ — как в {@link undo}. */
     public async redo(context: string): Promise<boolean> {
-        const element = this.stack(this.redoStacks, context).pop();
+        const stack = this.stack(this.redoStacks, context);
+        const element = stack.at(-1);
         if (!element) return false;
+        if (element.canRedo?.() === false) return false;
+        stack.pop();
         this.stack(this.undoStacks, context).push(element);
         await element.redo();
         return true;
