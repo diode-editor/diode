@@ -124,7 +124,7 @@ describe("TextFileModel — external change detection", () => {
         it("watches the file after openFile and stops on dispose", () => {
             const watcher = new FakeFileWatcher();
             const controller = createEditorPane();
-            controller.fileWatcher = watcher;
+            controller.model.fileWatcher = watcher;
             const fp = writeFile("w.txt", "x\n");
             controller.openFile(Uri.file(fp));
 
@@ -136,7 +136,7 @@ describe("TextFileModel — external change detection", () => {
         it("auto-reloads a clean buffer when the file changes on disk", () => {
             const watcher = new FakeFileWatcher();
             const controller = createEditorPane();
-            controller.fileWatcher = watcher;
+            controller.model.fileWatcher = watcher;
             const fp = writeFile("clean.txt", "v1\n");
             controller.openFile(Uri.file(fp));
 
@@ -164,7 +164,7 @@ describe("TextFileModel — external change detection", () => {
         it("keeps a dirty buffer and flags a conflict instead of reloading", () => {
             const watcher = new FakeFileWatcher();
             const controller = createEditorPane();
-            controller.fileWatcher = watcher;
+            controller.model.fileWatcher = watcher;
             const fp = writeFile("dirty.txt", "v1\n");
             controller.openFile(Uri.file(fp));
             controller.viewState.type("Z"); // dirty
@@ -184,7 +184,7 @@ describe("TextFileModel — external change detection", () => {
         it("ignores its own writes (no spurious reload/conflict)", async () => {
             const watcher = new FakeFileWatcher();
             const controller = createEditorPane();
-            controller.fileWatcher = watcher;
+            controller.model.fileWatcher = watcher;
             const fp = writeFile("own.txt", "v1\n");
             controller.openFile(Uri.file(fp));
             controller.viewState.type("A");
@@ -201,7 +201,7 @@ describe("TextFileModel — external change detection", () => {
         it("ignores transient disappearance of the file (atomic-save unlink)", () => {
             const watcher = new FakeFileWatcher();
             const controller = createEditorPane();
-            controller.fileWatcher = watcher;
+            controller.model.fileWatcher = watcher;
             const fp = writeFile("atomic.txt", "keep\n");
             controller.openFile(Uri.file(fp));
 
@@ -219,7 +219,7 @@ describe("TextFileModel — external change detection", () => {
         it("stops delivering disk-state events after dispose (double dispose is a no-op)", () => {
             const watcher = new FakeFileWatcher();
             const controller = createEditorPane();
-            controller.fileWatcher = watcher;
+            controller.model.fileWatcher = watcher;
             const fp = writeFile("sub.txt", "v1\n");
             controller.openFile(Uri.file(fp));
 

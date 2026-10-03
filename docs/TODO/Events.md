@@ -186,8 +186,8 @@
 | `EditorService.onOpenFailed` (:243) | событие; подписчик — `openFailureNotificationContribution.ts:32–43` (ставит и в `dispose` обнуляет) | → событие `onDidFailOpen` |
 | `FileSearchService.onIndexChanged` (:66) | событие; `filesQuickAccessProvider.ts:53,61` ставит и обнуляет на открытии/закрытии пикера | → событие |
 | `EditorService.onEditorCreate` (:189) | событие без подписчиков | → событие либо удалить (см. раздел 9) |
-| `TextFileModel.onDidSave` (:209) | дубль события: рядом уже есть многоподписочное `onDidSaveDocument` (:219), слот зовётся первым в `fireSaved` | слить в событие; владелец (`EditorService.wireModel`) подписывается первым — порядок сохраняется |
-| `EditorService.onRequestConfirmClose` (:188) | **не событие, а делегат-команда**: ставит один `WorkbenchComponent`, зовут как метод четыре места (`tabActions`, `editorGroupComponent`, `editorLayoutServiceAdapter` ×2) | остаётся слотом; по-хорошему это метод диалогового сервиса, но это не тема событий |
+| ~~`TextFileModel.onDidSave`~~ | снят в E3: `EditorService.wireModel` подписан на `onDidSaveDocument` (первым — порядок прежний) | — |
+| ~~`EditorService.onRequestConfirmClose`~~ | снят в E8: закрытие с подтверждением — метод `EditorService.closeEditor` | — |
 | `UndoManager.onDidPush` (:63) | ребёнок → владелец (`TextFileModel` создаёт `UndoManager`) | остаётся слотом |
 
 ### 3.5. Что не событие вовсе: вето, участники, провайдеры
@@ -509,10 +509,6 @@ PR 2, 3, 4 между собой независимы и могут идти в 
 
 - `EditorService.onEditorCreate` (`editorService.ts:189`) — слот зовётся
   (:1397), но в не-тестовом коде его никто не ставит.
-- `TextEditorPane.onDidSave` (сеттер, `textEditorPane.ts:146`) пишет в тот же
-  слот модели, который занят `EditorService.wireModel` (:1369): присваивание
-  через панель молча отключит перепривязку реестра моделей и `fireModelSaved`.
-  В проде сеттером пользуются только тесты.
 - `EditorService.onOpenFailed` и `FileSearchService.onIndexChanged` —
   одиночные слоты на DI-сервисах: второй подписчик затрёт первого, а
   `dispose` первого обнулит чужую подписку.

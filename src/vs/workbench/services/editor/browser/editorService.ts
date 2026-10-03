@@ -41,6 +41,7 @@ import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts"
 import { TextFileModel } from "../../textfile/common/textFileModel.ts";
 import type { ITextFileModelReference } from "../../textfile/common/textFileModelRegistry.ts";
 import { TextFileModelRegistry } from "../../textfile/common/textFileModelRegistry.ts";
+import { TextFileSaveParticipant } from "../../textfile/common/textFileSaveParticipant.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
@@ -177,6 +178,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Подписка на выделение активного редактора; перевешивается при его смене. */
     private activeSelectionSubscription?: IDisposable;
     private saveParticipantValue?: SaveParticipant;
+    /**
+     * Пайплайн save-участников — один на все модели сервиса; состав собирается
+     * в момент сохранения ({@link collectSaveParticipants}).
+     */
+    private readonly textFileSaveParticipant = new TextFileSaveParticipant(() => this.collectSaveParticipants());
     /** Участник `editor.codeActionsOnSave` (см. {@link collectSaveParticipants}). */
     private readonly codeActionsOnSaveParticipant: SaveParticipant;
     /** Участник `editor.formatOnSave` (см. {@link collectSaveParticipants}). */
@@ -1377,13 +1383,14 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     private wireModel(model: TextFileModel): void {
         model.fileWatcher = this.fileWatcher;
-        model.saveParticipants = () => this.collectSaveParticipants();
-        model.onDidSave = () => {
+        model.saveParticipant = this.textFileSaveParticipant;
+        // Подписка живёт, пока жива модель: слушатели — её собственный массив.
+        model.onDidSaveDocument(() => {
             // saveAs мог сменить ресурс — реестр перепривязывает ключ.
             this.modelRegistry.handleUriChanged(model);
             this.fireEditorsChanged();
             this.fireModelSaved(model);
-        };
+        });
     }
 
     /**

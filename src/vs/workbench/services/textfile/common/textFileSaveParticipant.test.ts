@@ -7,13 +7,14 @@ import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory
 import { Uri } from "../../../../base/common/uri.ts";
 
 import type { ISaveEdit } from "./iSaveParticipant.ts";
+import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
 // Композиция save-участников (#196, хвост): участники исполняются
 // последовательно, каждый получает СВЕЖИЙ снапшот (правки предыдущего уже в
 // буфере), зависший режется таймаутом, сбойный пропускается — запись на диск
 // происходит в любом случае.
 
-describe("TextFileModel — композиция save-участников", () => {
+describe("TextFileSaveParticipant — композиция save-участников", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -36,7 +37,7 @@ describe("TextFileModel — композиция save-участников", () 
         controller.openFile(Uri.file(fp));
 
         const seenTexts: string[] = [];
-        controller.saveParticipants = () => [
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             (snapshot) => {
                 seenTexts.push(snapshot.text);
                 return Promise.resolve([insertAtStart("1")]);
@@ -45,7 +46,7 @@ describe("TextFileModel — композиция save-участников", () 
                 seenTexts.push(snapshot.text);
                 return Promise.resolve([insertAtStart("2")]);
             },
-        ];
+        ]);
 
         await controller.save();
 
@@ -61,7 +62,7 @@ describe("TextFileModel — композиция save-участников", () 
         controller.openFile(Uri.file(fp));
 
         const versions: number[] = [];
-        controller.saveParticipants = () => [
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             (snapshot) => {
                 versions.push(snapshot.versionId);
                 return Promise.resolve([insertAtStart("x")]);
@@ -70,7 +71,7 @@ describe("TextFileModel — композиция save-участников", () 
                 versions.push(snapshot.versionId);
                 return Promise.resolve([]);
             },
-        ];
+        ]);
 
         await controller.save();
 
@@ -84,13 +85,13 @@ describe("TextFileModel — композиция save-участников", () 
         const fp = ws.writeFile("err.txt", "base");
         controller.openFile(Uri.file(fp));
 
-        controller.saveParticipants = () => [
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             () => Promise.reject(new Error("boom")),
             // Отказ не-Error значением — тоже пропуск, а не крах save.
             // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
             () => Promise.reject("nope"),
             () => Promise.resolve([insertAtStart("ok:")]),
-        ];
+        ]);
 
         const outcome = await controller.save();
 
@@ -107,13 +108,13 @@ describe("TextFileModel — композиция save-участников", () 
             controller.openFile(Uri.file(fp));
 
             let secondRan = false;
-            controller.saveParticipants = () => [
+            controller.model.saveParticipant = new TextFileSaveParticipant(() => [
                 () => new Promise<ISaveEdit[]>(() => undefined), // никогда не резолвится
                 () => {
                     secondRan = true;
                     return Promise.resolve([insertAtStart("2:")]);
                 },
-            ];
+            ]);
 
             const savePromise = controller.save();
             // До таймаута запись не происходит — участник ещё «думает».
@@ -138,7 +139,10 @@ describe("TextFileModel — композиция save-участников", () 
             const fp = ws.writeFile("timers.txt", "x");
             controller.openFile(Uri.file(fp));
 
-            controller.saveParticipants = () => [() => Promise.resolve([]), () => Promise.reject(new Error("boom"))];
+            controller.model.saveParticipant = new TextFileSaveParticipant(() => [
+                () => Promise.resolve([]),
+                () => Promise.reject(new Error("boom")),
+            ]);
 
             await controller.save();
 
@@ -156,10 +160,10 @@ describe("TextFileModel — композиция save-участников", () 
         controller.openFile(Uri.file(fp));
 
         let calls = 0;
-        controller.saveParticipants = () => {
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => {
             calls++;
             return [];
-        };
+        });
 
         await controller.save();
         await controller.save();

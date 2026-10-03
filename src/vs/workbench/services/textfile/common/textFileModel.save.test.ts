@@ -8,6 +8,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 
 import type { ISaveEdit, SaveParticipant } from "./iSaveParticipant.ts";
+import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
 describe("TextFileModel — save participant", () => {
     let ws: ITempWorkspace;
@@ -25,10 +26,7 @@ describe("TextFileModel — save participant", () => {
     }
 
     function setParticipant(controller: TextEditorPane, participant: SaveParticipant): void {
-        const provider = (): SaveParticipant[] => [participant];
-        controller.saveParticipants = provider;
-        // Пара геттер/сеттер панели — сквозной проброс в модель.
-        expect(controller.saveParticipants).toBe(provider);
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [participant]);
     }
 
     it("применяет текстовые правки участника перед записью", async () => {

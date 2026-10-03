@@ -9,6 +9,8 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 
+import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
+
 describe("TextFileModel — encoding axis", () => {
     let ws: ITempWorkspace;
 
@@ -201,12 +203,12 @@ describe("TextFileModel — encoding axis", () => {
         controller.reopenWithEncoding("windows1251");
 
         let seen: string | null = null;
-        controller.saveParticipants = () => [
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             (snapshot) => {
                 seen = snapshot.encoding;
                 return Promise.resolve([]);
             },
-        ];
+        ]);
         await controller.save();
         expect(seen).toBe("windows1251");
         controller.dispose();
