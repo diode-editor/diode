@@ -21,24 +21,16 @@ import { ServiceAccessorDIToken } from "../common/coreTokens.ts";
 import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
-import type { FindService } from "../contrib/find/browser/findService.ts";
-import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
-import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
-import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
-import type { InlineCompletionsService } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
-import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
-import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
-import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import { REFERENCES_VIEWLET_ID } from "../contrib/references/browser/referencesComponent.ts";
 import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
 import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
-import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
-import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { FocusTracker } from "../services/focus/browser/focusTracker.ts";
+import { FocusTrackerDIToken } from "../services/focus/browser/focusTracker.ts";
 import type { HistoryService } from "../services/history/browser/historyService.ts";
 import { HistoryServiceDIToken } from "../services/history/browser/historyService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
@@ -59,7 +51,7 @@ export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("Workbenc
  * Выставляет контекст-ключи workbench'а (`ContextKeys.ts`) из фокуса и состояния
  * сервисов: слушает FocusManager корневой view (capture-листенеры focus/blur
  * вешает владелец дерева — `WorkbenchComponent` — на {@link handleFocusChange})
- * и сервисы Editor/Find/Completion/Terminal/TerminalEnvironment. Хук
+ * и сервисы Editor/Layout/Terminal/TerminalEnvironment. Хук
  * `KeybindingDispatcher.updateContextKeys` замкнут на {@link update} — перед
  * резолвом каждого биндинга ключи свежие.
  *
@@ -75,11 +67,6 @@ export class WorkbenchContextKeys extends Disposable {
     public static dependencies = [
         ContextKeyServiceDIToken,
         EditorServiceDIToken,
-        FindServiceDIToken,
-        CompletionServiceDIToken,
-        HoverServiceDIToken,
-        ParameterHintsServiceDIToken,
-        InlineCompletionsServiceDIToken,
         TerminalServiceDIToken,
         TerminalEnvironmentServiceDIToken,
         InputWidgetServiceDIToken,
@@ -88,6 +75,7 @@ export class WorkbenchContextKeys extends Disposable {
         SidebarServiceDIToken,
         HistoryServiceDIToken,
         TabSwitcherComponentDIToken,
+        FocusTrackerDIToken,
         ServiceAccessorDIToken,
         ContextKeyContributorsDIToken,
     ] as const;
@@ -99,11 +87,6 @@ export class WorkbenchContextKeys extends Disposable {
     public constructor(
         private readonly contextKeys: ContextKeyService,
         private readonly editorService: EditorService,
-        private readonly findService: FindService,
-        private readonly completionService: CompletionService,
-        private readonly hoverService: HoverService,
-        private readonly parameterHints: ParameterHintsService,
-        private readonly inlineCompletions: InlineCompletionsService,
         private readonly terminalService: TerminalService,
         private readonly terminalEnv: TerminalEnvironmentService,
         private readonly inputWidgetService: InputWidgetService,
@@ -112,6 +95,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly sidebarService: SidebarService,
         private readonly historyService: HistoryService,
         private readonly tabSwitcher: TabSwitcherComponent,
+        private readonly focusTracker: FocusTracker,
         accessor: ServiceAccessor,
         contributorTokens: readonly Token<IContextKeyContributor>[],
     ) {
@@ -137,16 +121,13 @@ export class WorkbenchContextKeys extends Disposable {
         this.view = view;
     }
 
-    /** Смена фокуса: сброс незавершённого чорда + пересчёт ключей + закрытие suggest-попапа. */
+    /** Смена фокуса: сброс незавершённого чорда, пересчёт ключей, событие {@link FocusTracker}. */
     public handleFocusChange = (_event: TUIFocusEvent): void => {
         this.dispatcher.cancelPendingChord();
         this.update();
-        // Фокус ушёл с редактора (клавиатурный путь: Ctrl+Tab, Quick Open) —
-        // закрываем suggest- и hover-попапы (клик-фокус уже покрыт close-on-outside).
-        const active = this.activeElement();
-        this.completionService.onFocusChanged(active instanceof EditorElement);
-        this.hoverService.onFocusChanged(active instanceof EditorElement);
-        this.parameterHints.onFocusChanged(active instanceof EditorElement);
+        // Подписчики (попапы редактора гаснут, когда фокус ушёл с редактора)
+        // видят уже освежённый контекст.
+        this.focusTracker.fire(this.activeElement());
     };
 
     public update(): void {
@@ -213,17 +194,6 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set(
             "scmViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SCM_VIEWLET_ID,
-        );
-        this.contextKeys.set("findWidgetVisible", this.findService.isVisible());
-        this.contextKeys.set("suggestWidgetVisible", this.completionService.isOpen());
-        this.contextKeys.set("editorHoverVisible", this.hoverService.isOpen());
-        this.contextKeys.set("parameterHintsVisible", this.parameterHints.isOpen());
-        this.contextKeys.set("parameterHintsMultipleSignatures", this.parameterHints.hasMultipleSignatures());
-        this.contextKeys.set("inlineSuggestionVisible", this.inlineCompletions.isOpen());
-        this.contextKeys.set("inlineSuggestionRequestPending", this.inlineCompletions.isRequestPending());
-        this.contextKeys.set(
-            "inlineSuggestionHasIndentationLessThanTabSize",
-            this.inlineCompletions.hasIndentationLessThanTabSize(),
         );
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         this.contextKeys.set("terminalIsOpen", this.terminalService.hasOpenTerminals);

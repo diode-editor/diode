@@ -5,16 +5,21 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
     ICoreCompletionItem,
     ICoreCompletionResult,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
+import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
+import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
 
 import { CompletionService } from "./completionService.ts";
 import { SuggestComponent } from "./suggestComponent.ts";
@@ -151,12 +156,14 @@ function createService(
     service: CompletionService;
     component: SuggestComponent;
     execute: ReturnType<typeof vi.fn>;
+    focusTracker: FocusTracker;
 } {
     const execute = vi.fn();
     const commands = { execute } as unknown as CommandRegistry;
     const component = new SuggestComponent();
-    const service = new CompletionService(component, group, commands, state);
-    return { service, component, execute };
+    const focusTracker = new FocusTracker();
+    const service = new CompletionService(component, group, commands, state, focusTracker);
+    return { service, component, execute, focusTracker };
 }
 
 function setup(items: readonly ICoreCompletionItem[], lineContent = "ind", character = 3, docText = lineContent) {
@@ -164,12 +171,12 @@ function setup(items: readonly ICoreCompletionItem[], lineContent = "ind", chara
     const source = vi.fn(() => Promise.resolve(completionResult(items)));
     const group = makeGroup(fake.editor, source);
 
-    const { service, component, execute } = createService(group);
+    const { service, component, execute, focusTracker } = createService(group);
     service.autoSuggestDelayMs = 0; // детерминированный авто-suggest в тестах
     const body = new BodyElement();
     const testApp = TestApp.create(body, new Size(80, 24));
     component.attachHost(body);
-    return { service, component, body, testApp, fake, source, execute, editor: fake.editor };
+    return { service, component, body, testApp, fake, source, execute, focusTracker, editor: fake.editor };
 }
 
 /** Даёт setTimeout(…, 0) авто-suggest'а отработать. */
@@ -1179,12 +1186,24 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("onFocusChanged(false) закрывает открытый попап", async () => {
-        const { service } = setup(ITEMS);
+    it("уход фокуса с редактора закрывает открытый попап, фокус в редакторе — нет", async () => {
+        const { service, focusTracker } = setup(ITEMS);
         await service.trigger();
         expect(service.isOpen()).toBe(true);
-        service.onFocusChanged(false); // фокус ушёл с редактора
+        focusTracker.fire(new EditorElement(new EditorViewState(new TextDocument(""))));
+        expect(service.isOpen()).toBe(true);
+        focusTracker.fire(null); // фокус ушёл с редактора
         expect(service.isOpen()).toBe(false);
+    });
+
+    it("suggestWidgetVisible — открыт ли попап", async () => {
+        const { service } = setup(ITEMS);
+        const keys = new ContextKeyService();
+        service.updateContextKeys(keys);
+        expect(keys.get("suggestWidgetVisible")).toBe(false);
+        await service.trigger();
+        service.updateContextKeys(keys);
+        expect(keys.get("suggestWidgetVisible")).toBe(true);
     });
 
     it("клик по пункту (view.onAccept) принимает через сервис", async () => {

@@ -1175,8 +1175,8 @@ hide-toggle (`isHiddenByDefault`). См.
     окружение (tier/os/cap_*/mode_*; динамические `mode_<name>` регистрирует в
     конструкторе + подписка на `onDidChange`). Замыкает на себя хук
     `KeybindingDispatcher.updateContextKeys`; `handleFocusChange` (capture
-    focus/blur листенеры вешает владелец дерева) сбрасывает незавершённый чорд и
-    закрывает suggest-попап при уходе фокуса с редактора.
+    focus/blur листенеры вешает владелец дерева) сбрасывает незавершённый чорд,
+    освежает ключи и рассылает смену фокуса через `FocusTracker`.
     **Ключи фич — у фич.** Фича, у которой есть ключи от фокуса или своего
     состояния, реализует `IContextKeyContributor`
     (`platform/contextkey/common/contextKeyContributor.ts`,
@@ -1187,7 +1187,18 @@ hide-toggle (`isHiddenByDefault`). См.
     ключ самоисцеляется на следующем нажатии. Ключ с одним переходом состояния
     фича пушит сама (`searchViewMode`, `hasSearchResult`, scm busy).
     Контрибьюторы: `SearchComponent` (`searchViewletFocus`/`searchInputBoxFocus`/
-    `firstMatchFocus`).
+    `firstMatchFocus`), виджеты над редактором — `FindService`
+    (`findWidgetVisible`), `CompletionService` (`suggestWidgetVisible`),
+    `HoverService` (`editorHoverVisible`), `ParameterHintsService`
+    (`parameterHintsVisible`/`parameterHintsMultipleSignatures`),
+    `InlineCompletionsService` (`inlineSuggestion*`).
+    **Смена фокуса как событие** — `FocusTracker`
+    (`services/focus/browser/focusTracker.ts`, `onDidChangeFocus(active)`):
+    `handleFocusChange` сначала освежает ключи, потом зовёт `fire`. Попапы
+    редактора (suggest, hover, parameter hints) подписываются сами и гаснут,
+    когда фокус ушёл с редактора. Это отдельный сервис без зависимостей, а не
+    событие центра: центр резолвит контрибьюторов при создании, и подписка фичи
+    на центр замкнула бы DI в цикл.
   - Экшены: `LayoutActions.ts` (toggle sidebar Ctrl+B, show explorer
     Ctrl+Shift+E, reveal active file, width-команды, toggle panel Ctrl+J,
     Problems Ctrl+Shift+M) и `TerminalActions.ts` (toggle Ctrl+` / new

@@ -10,13 +10,9 @@ import { ContextKeyService } from "../../platform/contextkey/common/contextKeySe
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
-import type { FindService } from "../contrib/find/browser/findService.ts";
-import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
-import type { InlineCompletionsService } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
-import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
-import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
+import { FocusTracker } from "../services/focus/browser/focusTracker.ts";
 import type { HistoryService } from "../services/history/browser/historyService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
@@ -40,9 +36,9 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
             contributors[contributorTokens.indexOf(requested as Token<IContextKeyContributor>)],
     } as unknown as ServiceAccessor;
     const setActive = vi.fn();
-    const onFocusChanged = vi.fn();
-    const onHoverFocusChanged = vi.fn();
-    const onParameterHintsFocusChanged = vi.fn();
+    const focusTracker = new FocusTracker();
+    const onDidChangeFocus = vi.fn();
+    focusTracker.onDidChangeFocus(onDidChangeFocus);
     const cancelPendingChord = vi.fn();
     let envListener: (() => void) | null = null;
 
@@ -67,19 +63,6 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
     const service = new WorkbenchContextKeys(
         contextKeys,
         { editorCount: 0, groups: [], activeGroup: null, viewColumnOf: () => 1 } as unknown as EditorService,
-        { isVisible: () => false } as unknown as FindService,
-        { isOpen: () => false, onFocusChanged } as unknown as CompletionService,
-        { isOpen: () => false, onFocusChanged: onHoverFocusChanged } as unknown as HoverService,
-        {
-            isOpen: () => false,
-            hasMultipleSignatures: () => false,
-            onFocusChanged: onParameterHintsFocusChanged,
-        } as unknown as ParameterHintsService,
-        {
-            isOpen: () => false,
-            hasIndentationLessThanTabSize: () => true,
-            isRequestPending: () => true,
-        } as unknown as InlineCompletionsService,
         { hasOpenTerminals: false } as unknown as TerminalService,
         terminalEnv as unknown as TerminalEnvironmentService,
         { setActive } as unknown as InputWidgetService,
@@ -88,6 +71,7 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
         { getActiveViewletId: () => "search" } as unknown as SidebarService,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
         { isOpen: () => false } as unknown as TabSwitcherComponent,
+        focusTracker,
         accessor,
         contributorTokens,
     );
@@ -96,9 +80,7 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
         service,
         contextKeys,
         setActive,
-        onFocusChanged,
-        onHoverFocusChanged,
-        onParameterHintsFocusChanged,
+        onDidChangeFocus,
         cancelPendingChord,
         dispatcher,
         fireEnvChange: () => envListener?.(),
@@ -124,12 +106,6 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("editorGroupHasEditors")).toBe(false);
         expect(h.contextKeys.get("editorTabsMultiple")).toBe(false);
         expect(h.contextKeys.get("panelVisible")).toBe(true); // из LayoutService
-        expect(h.contextKeys.get("findWidgetVisible")).toBe(false);
-        expect(h.contextKeys.get("suggestWidgetVisible")).toBe(false);
-        expect(h.contextKeys.get("inlineSuggestionVisible")).toBe(false);
-        expect(h.contextKeys.get("inlineSuggestionHasIndentationLessThanTabSize")).toBe(true);
-        // Запрос призрака в полёте — ключ взведён (фейк сервиса отдаёт true).
-        expect(h.contextKeys.get("inlineSuggestionRequestPending")).toBe(true);
         expect(h.contextKeys.get("terminalIsOpen")).toBe(false);
         expect(h.contextKeys.get("tier")).toBe("legacy");
         expect(h.contextKeys.get("os")).toBe("linux");
@@ -215,17 +191,17 @@ describe("WorkbenchContextKeys", () => {
         expect(calls).toHaveLength(6);
     });
 
-    it("handleFocusChange cancels a pending chord, refreshes keys and notifies completion", () => {
+    it("handleFocusChange cancels a pending chord, refreshes keys and fires FocusTracker with the active element", () => {
         const h = makeHarness();
-        h.service.attachView(new BodyElement());
+        const focused = new FillerElement();
+        h.service.attachView({ focusManager: { activeElement: focused } } as unknown as BodyElement);
+        h.onDidChangeFocus.mockImplementation(() => {
+            // Подписчик видит уже освежённый контекст.
+            expect(h.contextKeys.get("textInputFocus")).toBe(false);
+        });
         h.service.handleFocusChange({} as TUIFocusEvent);
 
         expect(h.cancelPendingChord).toHaveBeenCalledTimes(1);
-        expect(h.contextKeys.get("textInputFocus")).toBe(false);
-        // Активный элемент — не редактор (фокус-менеджера нет) → попапы закрываются:
-        // и автодополнение, и hover, и подсказка параметров.
-        expect(h.onFocusChanged).toHaveBeenCalledWith(false);
-        expect(h.onHoverFocusChanged).toHaveBeenCalledWith(false);
-        expect(h.onParameterHintsFocusChanged).toHaveBeenCalledWith(false);
+        expect(h.onDidChangeFocus).toHaveBeenCalledExactlyOnceWith(focused);
     });
 });

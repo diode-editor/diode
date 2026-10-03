@@ -16,6 +16,7 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
@@ -102,11 +103,19 @@ describe("FindService", () => {
 
     it("open() shows the widget and close() hides it", () => {
         const { find } = setup("foo bar foo");
+        const keys = new ContextKeyService();
+        const widgetVisibleKey = (): unknown => {
+            find.updateContextKeys(keys);
+            return keys.get("findWidgetVisible");
+        };
         expect(find.isVisible()).toBe(false);
+        expect(widgetVisibleKey()).toBe(false);
         find.open();
         expect(find.isVisible()).toBe(true);
+        expect(widgetVisibleKey()).toBe(true);
         find.close();
         expect(find.isVisible()).toBe(false);
+        expect(widgetVisibleKey()).toBe(false);
     });
 
     it("повторная активация той же вкладки не закрывает сессию поиска", () => {

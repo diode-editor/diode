@@ -2,6 +2,7 @@ import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import type { CompletionDetailsContent } from "@tuidom/elements/completionlist/completionDetailsElement";
 import type { CompletionListItem } from "@tuidom/elements/completionlist/completionListElement";
 
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -16,6 +17,8 @@ import type {
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
@@ -23,6 +26,8 @@ import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SUGGEST_DETAILS_VISIBLE_STATE } from "../../../common/stateKeys.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
+import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
 import { collectWordCompletions } from "./collectWordCompletions.ts";
 import type { SuggestComponent } from "./suggestComponent.ts";
@@ -50,12 +55,13 @@ const EMPTY_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
  * элемент. `item.command` исполняется напрямую через {@link CommandRegistry}
  * (как у QuickOpenService). Построен по образцу quick-open-оверлея.
  */
-export class CompletionService extends Disposable {
+export class CompletionService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
         SuggestComponentDIToken,
         EditorServiceDIToken,
         CommandRegistryDIToken,
         StateServiceDIToken,
+        FocusTrackerDIToken,
     ] as const;
 
     /**
@@ -107,6 +113,7 @@ export class CompletionService extends Disposable {
         group: EditorService,
         commands: CommandRegistry,
         state: IStateService,
+        focusTracker: FocusTracker,
     ) {
         super();
         this.component = component;
@@ -120,6 +127,13 @@ export class CompletionService extends Disposable {
             this.showDetailsFor(item);
         };
         this.component.detailsVisible = this.state.get(SUGGEST_DETAILS_VISIBLE_STATE);
+        // Фокус ушёл с редактора (клавиатурный путь: Ctrl+Tab, Quick Open) —
+        // попап закрывается. Клик-фокус уже покрыт `close-on-outside`.
+        this.register(
+            focusTracker.onDidChangeFocus((active) => {
+                if (!(active instanceof EditorElement) && this.isOpen()) this.close();
+            }),
+        );
 
         // «Всегда-включённая» подписка на активный редактор: и re-filter пока
         // попап открыт, и авто-открытие по мере набора пока закрыт.
@@ -257,6 +271,11 @@ export class CompletionService extends Disposable {
         return this.component.isOpen();
     }
 
+    /** IContextKeyContributor: `suggestWidgetVisible` — гейт Enter/Tab/стрелок попапа. */
+    public updateContextKeys(contextKeys: ContextKeyService): void {
+        contextKeys.set("suggestWidgetVisible", this.isOpen());
+    }
+
     // ─── Delegators for keybinding commands (suggestWidgetVisible) ─────────────
 
     public selectNext(): void {
@@ -299,15 +318,6 @@ export class CompletionService extends Disposable {
         // Тумблер включили при открытом попапе — описание выбранного пункта
         // могло быть ещё не запрошено.
         if (next) this.showDetailsFor(this.component.view.getSelectedItem());
-    }
-
-    /**
-     * Закрывает попап при уходе фокуса с редактора (клавиатурный путь: Ctrl+Tab,
-     * Quick Open). Клик-фокус уже покрыт `close-on-outside`. `editorFocused` —
-     * стал ли активным элемент-редактор после смены фокуса.
-     */
-    public onFocusChanged(editorFocused: boolean): void {
-        if (!editorFocused && this.isOpen()) this.close();
     }
 
     // ─── Private ─────────────────────────────────────────────────────────────

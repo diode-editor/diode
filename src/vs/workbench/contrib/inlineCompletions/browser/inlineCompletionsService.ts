@@ -9,6 +9,8 @@ import type { ICoreInlineCompletionItem } from "../../../../editor/common/langua
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
@@ -59,7 +61,7 @@ export const DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS = 5000;
  * `settings.json` подхватывается живым конфигом (watcher → reload) и должна
  * применяться без перезапуска редактора.
  */
-export class InlineCompletionsService extends Disposable {
+export class InlineCompletionsService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
         EditorServiceDIToken,
         CompletionServiceDIToken,
@@ -131,13 +133,20 @@ export class InlineCompletionsService extends Disposable {
         return this.session !== null;
     }
 
+    /** IContextKeyContributor: гейты Tab/Escape призрака. */
+    public updateContextKeys(contextKeys: ContextKeyService): void {
+        contextKeys.set("inlineSuggestionVisible", this.isOpen());
+        contextKeys.set("inlineSuggestionRequestPending", this.isRequestPending());
+        contextKeys.set("inlineSuggestionHasIndentationLessThanTabSize", this.hasIndentationLessThanTabSize());
+    }
+
     /**
      * Ждём ли сейчас ответа провайдера (context key
      * `inlineSuggestionRequestPending`). Ключ нужен Escape: пока призрака на
      * экране нет, `inlineSuggestionVisible` ложный, и без этого ключа команда
      * `.hide` до сервиса не доедет — а отменить незавершённый запрос она обязана.
      */
-    public isRequestPending(): boolean {
+    private isRequestPending(): boolean {
         return this.pendingRequest !== null;
     }
 
@@ -147,7 +156,7 @@ export class InlineCompletionsService extends Disposable {
      * индентить, а не принимать (context key VS Code
      * `inlineSuggestionHasIndentationLessThanTabSize`, дефолт true).
      */
-    public hasIndentationLessThanTabSize(): boolean {
+    private hasIndentationLessThanTabSize(): boolean {
         // Поле сбрасывается в true вместе со снятием сессии (hide) — пара
         // «session === null, поле false» недостижима, ветка мутационно
         // эквивалентна чтению поля напрямую.

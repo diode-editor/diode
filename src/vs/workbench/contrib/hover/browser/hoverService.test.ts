@@ -5,10 +5,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
+import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
+import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
 import { HoverComponentDIToken } from "./hoverComponent.ts";
 import { HoverServiceDIToken, stripMarkdown } from "./hoverService.ts";
@@ -79,9 +84,15 @@ describe("HoverService — показ и закрытие попапа", () => {
         group().hoverSource = () =>
             Promise.resolve([hoverOf(["```ts\nconst answer: number\n```", "Документация **ответа**"])]);
 
+        const keys = new ContextKeyService();
+        service().updateContextKeys(keys);
+        expect(keys.get("editorHoverVisible")).toBe(false);
+
         await service().showHover();
 
         expect(service().isOpen()).toBe(true);
+        service().updateContextKeys(keys);
+        expect(keys.get("editorHoverVisible")).toBe(true);
         // Контент одного провайдера — один блок: сигнатура + пустая строка + доки.
         const lines = component().view.linesFor(60);
         expect(lines).toContain("const answer: number");
@@ -244,8 +255,8 @@ describe("HoverService — показ и закрытие попапа", () => {
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
-        // Не прямой вызов onFocusChanged, а настоящий путь: фокус уходит в
-        // дерево Explorer, WorkbenchContextKeys ловит смену и гасит попап.
+        // Не прямой вызов FocusTracker.fire, а настоящий путь: фокус уходит в
+        // дерево Explorer, WorkbenchContextKeys ловит смену, сервис гасит попап.
         h.commands.execute("workbench.view.explorer");
         await flushMicrotasks();
 
@@ -257,11 +268,12 @@ describe("HoverService — показ и закрытие попапа", () => {
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
+        const focusTracker = h.container.get(FocusTrackerDIToken);
         // Фокус остался в редакторе (набор в самом редакторе) — попап живёт.
-        service().onFocusChanged(true);
+        focusTracker.fire(new EditorElement(new EditorViewState(new TextDocument(""))));
         expect(service().isOpen()).toBe(true);
 
-        service().onFocusChanged(false);
+        focusTracker.fire(null);
         expect(service().isOpen()).toBe(false);
     });
 

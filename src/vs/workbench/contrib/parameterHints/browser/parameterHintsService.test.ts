@@ -4,17 +4,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type {
     ICoreSignature,
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
+import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
+import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKey } from "../../../../platform/contextkey/common/contextKeys.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 import { CompletionServiceDIToken } from "../../suggest/browser/completionService.ts";
 
 import { ParameterHintsComponentDIToken } from "./parameterHintsComponent.ts";
 import { ParameterHintsServiceDIToken } from "./parameterHintsService.ts";
+
+/** Значение ключа, который сервис выставляет как IContextKeyContributor. */
+function contextKey(contributor: IContextKeyContributor, key: ContextKey): unknown {
+    const keys = new ContextKeyService();
+    contributor.updateContextKeys(keys, null);
+    return keys.get(key);
+}
 
 /** Даёт setTimeout(…, 0) авто-триггера отработать. */
 function flushTimers(): Promise<void> {
@@ -449,7 +463,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         group().signatureHelpSource = source;
 
         await service().trigger();
-        expect(service().hasMultipleSignatures()).toBe(true);
+        expect(contextKey(service(), "parameterHintsMultipleSignatures")).toBe(true);
         expect(lines()[0]).toBe("1/2 greet(name: string, age: number): void");
 
         service().nextSignature();
@@ -470,7 +484,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
             service().nextSignature();
             service().previousSignature();
         }).not.toThrow();
-        expect(service().hasMultipleSignatures()).toBe(false);
+        expect(contextKey(service(), "parameterHintsMultipleSignatures")).toBe(false);
     });
 
     it("одна сигнатура: счётчика нет, попап даже не пересобирается", async () => {
@@ -479,7 +493,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         await service().trigger();
         const shown = component().view.hint;
 
-        expect(service().hasMultipleSignatures()).toBe(false);
+        expect(contextKey(service(), "parameterHintsMultipleSignatures")).toBe(false);
         service().nextSignature();
         service().previousSignature();
 
@@ -609,11 +623,14 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         group().signatureHelpSource = () => Promise.resolve(help());
         await service().trigger();
 
-        service().onFocusChanged(true);
+        const focusTracker = h.container.get(FocusTrackerDIToken);
+        focusTracker.fire(new EditorElement(new EditorViewState(new TextDocument(""))));
         expect(service().isOpen()).toBe(true);
+        expect(contextKey(service(), "parameterHintsVisible")).toBe(true);
 
-        service().onFocusChanged(false);
+        focusTracker.fire(null);
         expect(service().isOpen()).toBe(false);
+        expect(contextKey(service(), "parameterHintsVisible")).toBe(false);
     });
 
     it("смена активного редактора закрывает попап и переносит подписки", async () => {
