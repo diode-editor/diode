@@ -1,12 +1,12 @@
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
-import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { bindActiveEditor } from "../../../services/editor/browser/activeEditorBinding.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
@@ -67,7 +67,6 @@ export class HoverService extends Disposable implements IContextKeyContributor {
 
     /** Guard от устаревших ответов: пока ходили за hover'ом, запрос мог смениться. */
     private readonly latest = new LatestRequest();
-    private caretSub: IDisposable | null = null;
 
     public constructor(
         private readonly component: HoverComponent,
@@ -84,24 +83,26 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         );
         // «Всегда-включённая» подписка на активный редактор: правка или движение
         // каретки закрывают попап (VS Code-like; сам показ — только по команде).
-        const activeEditorSub = this.group.onActiveEditorChanged((editor) => {
-            this.bindEditor(editor);
-        });
-        // Стартовая привязка — для случая, когда редактор уже открыт к моменту
-        // сборки сервиса (восстановленная сессия). В харнессе файл открывают
-        // после конструктора, и туда приходит onActiveEditorChanged — поэтому
-        // пропуск этого вызова юнит-тестом не наблюдается.
-        // Stryker disable next-line CallExpression: см. выше — привязку уже открытого редактора юнит не наблюдает, её путь проверяет поднятие приложения
-        this.bindEditor(this.group.getActiveEditor());
-        this.register({
-            // Stryker disable next-line BlockStatement: снятие подписок на выключении ненаблюдаемо юнитом — редактор и группа умирают следом, слушать некому
-            dispose: () => {
+        this.register(
+            bindActiveEditor(this.group, (editor, store) => {
+                // Смена редактора при открытом попапе в приложении уже сопровождается
+                // сменой фокуса (её ловит подписка на FocusTracker), поэтому в юните пропуск этого
+                // закрытия не наблюдается — вызов держим для программной смены редактора
+                // без участия фокуса (восстановление сессии, split).
                 // Stryker disable next-line CallExpression: см. выше
-                activeEditorSub.dispose();
-                // Stryker disable next-line CallExpression: см. выше
-                this.unbindEditor();
-            },
-        });
+                this.close();
+                if (editor === null) return;
+                // Одной подписки на каретку достаточно и для правок: правка двигает
+                // (или пересчитывает) каретку, и событие приходит в том же тике —
+                // отдельная подписка на контент оказалась мёртвым кодом.
+                store.add(
+                    editor.onDidChangeCursorPosition(() => {
+                        // Stryker disable next-line ConditionalExpression: close() на закрытом попапе — no-op, поэтому проверка экономит вызов, а не меняет поведение
+                        if (this.isOpen()) this.close();
+                    }),
+                );
+            }),
+        );
     }
 
     /**
@@ -160,29 +161,5 @@ export class HoverService extends Disposable implements IContextKeyContributor {
     /** IContextKeyContributor: `editorHoverVisible` — гейт Escape и навигации по попапу. */
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("editorHoverVisible", this.isOpen());
-    }
-
-    private bindEditor(editor: TextEditorPane | null): void {
-        this.unbindEditor();
-        // Смена редактора при открытом попапе в приложении уже сопровождается
-        // сменой фокуса (её ловит подписка на FocusTracker), поэтому в юните пропуск этого
-        // закрытия не наблюдается — вызов держим для программной смены редактора
-        // без участия фокуса (восстановление сессии, split).
-        // Stryker disable next-line CallExpression: см. выше
-        this.close();
-        if (editor === null) return;
-        // Одной подписки на каретку достаточно и для правок: правка двигает
-        // (или пересчитывает) каретку, и событие приходит в том же тике —
-        // отдельная подписка на контент оказалась мёртвым кодом.
-        this.caretSub = editor.onDidChangeCursorPosition(() => {
-            // Stryker disable next-line ConditionalExpression: close() на закрытом попапе — no-op, поэтому проверка экономит вызов, а не меняет поведение
-            if (this.isOpen()) this.close();
-        });
-    }
-
-    private unbindEditor(): void {
-        // Stryker disable next-line OptionalChaining: до первой привязки подписки нет — обращение к dispose несуществующей кинуло бы на старте
-        this.caretSub?.dispose();
-        this.caretSub = null;
     }
 }
