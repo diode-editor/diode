@@ -7,6 +7,7 @@ import {
     type ICancellationToken,
 } from "../../../../base/common/cancellation.ts";
 import { renderCodicons } from "../../../../base/common/codicons.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -669,25 +670,25 @@ export class ExtensionHost extends Disposable {
     private readonly fileWatchers = new Map<number, IDisposable>();
     /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
     private fileSystemSchemesValue: readonly string[] = [];
-    private readonly fileSystemSchemesListeners: (() => void)[] = [];
-    private readonly fileSystemChangeListeners: ((uris: readonly Uri[]) => void)[] = [];
+    private readonly onFileSystemProvidersChangedEmitter = this.register(new Emitter<void>());
+    private readonly onDidChangeProvidedFileEmitter = this.register(new Emitter<readonly Uri[]>());
     /** Схемы, для которых субпроцесс держит TextDocumentContentProvider'ы (`jdt:`, `class:`). */
     // Stryker disable next-line ArrayDeclaration: начальный список наблюдаем только через `hasTextContentProvider(scheme)`, а мутант подкладывает в него строку, которая схемой ресурса не бывает — отличить её от пустого списка нечем
     private textContentSchemesValue: readonly string[] = [];
-    private readonly textContentChangeListeners: ((uri: Uri) => void)[] = [];
+    private readonly onDidChangeTextContentEmitter = this.register(new Emitter<Uri>());
     /**
      * Языковые провайдеры субпроцесса, переехавшие в реестр ядра (`languages.register`),
      * по handle. Потребитель — `LanguageFeaturesAdapter`.
      */
     private readonly languageProviders = new Map<number, IWireLanguageProviderRegistration>();
-    private readonly languageProvidersListeners: (() => void)[] = [];
+    private readonly onLanguageProvidersChangedEmitter = this.register(new Emitter<void>());
     /** Вызовы completion-прокси с одним запросом — одним RPC (см. `provideCompletionItems`). */
     private readonly completionBatcher = new ProviderRequestBatcher<ICompletionRequest, ICoreCompletionResult>(
         (handles, req) => this.requestCompletionBatch(handles, req),
         EMPTY_COMPLETION_RESULT,
     );
     /** Слушатели смены наличия folding-провайдеров (для пере-пересчёта фолдов открытых редакторов). */
-    private readonly foldingProvidersChangedListeners: (() => void)[] = [];
+    private readonly onFoldingProvidersChangedEmitter = this.register(new Emitter<void>());
 
     public constructor(
         editorOptions: IEditorOptionsService,
@@ -1670,18 +1671,10 @@ export class ExtensionHost extends Disposable {
      * открытых редакторов — нужно, когда расширение активировалось после
      * открытия файла.
      */
-    public onFoldingProvidersChanged(cb: () => void): { dispose(): void } {
-        this.foldingProvidersChangedListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.foldingProvidersChangedListeners.indexOf(cb);
-                if (idx >= 0) this.foldingProvidersChangedListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onFoldingProvidersChanged = this.onFoldingProvidersChangedEmitter.event;
 
     private fireFoldingProvidersChanged(): void {
-        for (const cb of [...this.foldingProvidersChangedListeners]) cb();
+        this.onFoldingProvidersChangedEmitter.fire();
     }
 
     // ─── Языковые провайдеры (мост под ILanguageFeaturesService) ──────────────
@@ -1695,18 +1688,10 @@ export class ExtensionHost extends Disposable {
     }
 
     /** Состав провайдеров изменился: регистрация, снятие или смерть субпроцесса. */
-    public onLanguageProvidersChanged(cb: () => void): IDisposable {
-        this.languageProvidersListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.languageProvidersListeners.indexOf(cb);
-                if (idx >= 0) this.languageProvidersListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onLanguageProvidersChanged = this.onLanguageProvidersChangedEmitter.event;
 
     private fireLanguageProvidersChanged(): void {
-        for (const cb of [...this.languageProvidersListeners]) cb();
+        this.onLanguageProvidersChangedEmitter.fire();
     }
 
     // ─── Провайдеры ФС расширений (мост под IFileSystemProviderRegistry) ──────
@@ -1720,15 +1705,7 @@ export class ExtensionHost extends Disposable {
     }
 
     /** Набор схем изменился (расширение зарегистрировало/сняло провайдера). */
-    public onFileSystemProvidersChanged(cb: () => void): { dispose(): void } {
-        this.fileSystemSchemesListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.fileSystemSchemesListeners.indexOf(cb);
-                if (idx >= 0) this.fileSystemSchemesListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onFileSystemProvidersChanged = this.onFileSystemProvidersChangedEmitter.event;
 
     /**
      * Читает недисковый ресурс провайдером субпроцесса. Отклоняется, если host
@@ -1742,15 +1719,7 @@ export class ExtensionHost extends Disposable {
     }
 
     /** Содержимое ресурсов провайдера изменилось снаружи. */
-    public onDidChangeProvidedFile(cb: (uris: readonly Uri[]) => void): { dispose(): void } {
-        this.fileSystemChangeListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.fileSystemChangeListeners.indexOf(cb);
-                if (idx >= 0) this.fileSystemChangeListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeProvidedFile = this.onDidChangeProvidedFileEmitter.event;
 
     // ─── Провайдеры содержимого недисковых ресурсов (IVirtualDocumentSource) ──
 
@@ -1779,15 +1748,7 @@ export class ExtensionHost extends Disposable {
     }
 
     /** Провайдер объявил, что содержимое недискового ресурса изменилось. */
-    public onDidChangeTextContent(cb: (uri: Uri) => void): { dispose(): void } {
-        this.textContentChangeListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.textContentChangeListeners.indexOf(cb);
-                if (idx >= 0) this.textContentChangeListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeTextContent = this.onDidChangeTextContentEmitter.event;
 
     public hasExtension(id: string): boolean {
         return this.extensions.has(id);
@@ -2102,7 +2063,7 @@ export class ExtensionHost extends Disposable {
         // недисковые ресурсы через IFileSystemProviderRegistry.
         rpc.handleNotification("workspace.fileSystemProvidersChanged", (params) => {
             this.fileSystemSchemesValue = parseWireSchemes(params);
-            for (const cb of [...this.fileSystemSchemesListeners]) cb();
+            this.onFileSystemProvidersChangedEmitter.fire();
         });
         // То же для TextDocumentContentProvider'ов (`jdt:`/`class:` у redhat.java):
         // это отдельный реестр — провайдер отдаёт текст, а не байты, и только на
@@ -2115,7 +2076,7 @@ export class ExtensionHost extends Disposable {
         rpc.handleNotification("workspace.textDocumentContentChanged", (params) => {
             const uri = (params as { uri?: unknown }).uri;
             if (typeof uri !== "string") return;
-            for (const cb of [...this.textContentChangeListeners]) cb(Uri.parse(uri));
+            this.onDidChangeTextContentEmitter.fire(Uri.parse(uri));
         });
         // Провайдер расширения сообщил, что содержимое ресурсов изменилось
         // (для git: — сдвинулся HEAD/индекс): потребители сбрасывают кэш.
@@ -2124,7 +2085,7 @@ export class ExtensionHost extends Disposable {
             const raw = Array.isArray(p.uris) ? p.uris.filter((u): u is string => typeof u === "string") : [];
             if (raw.length === 0) return;
             const uris = raw.map((u) => Uri.parse(u));
-            for (const cb of [...this.fileSystemChangeListeners]) cb(uris);
+            this.onDidChangeProvidedFileEmitter.fire(uris);
         });
         // Файловые watcher'ы расширений (`workspace.createFileSystemWatcher`).
         // Слежение за деревом ведёт ядро (оно владеет excludes и бюджетом
