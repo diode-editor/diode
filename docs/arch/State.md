@@ -103,7 +103,7 @@
 ## Жизненный цикл (проводка)
 
 ```
-main.ts: build container ─► process.on("exit", stateService.flushSync)
+main.ts: build container ─► lifecycle.onShutdownSync(flushSync) + страховка process.on("exit")
    │
    ├─ первый CLI-arg — папка? ─► WorkbenchComponent.setWorkspaceFolder(dir)
    │                              └─► WorkbenchStateService.openWorkspace(dir)  (load per-project стор)
@@ -162,9 +162,26 @@ main.ts: build container ─► process.on("exit", stateService.flushSync)
   переотображает индекс активной вкладки на выживших.
 - **Смена папки в рантайме** (`setWorkspaceFolder`): `openWorkspace(newDir)` сначала
   синхронно флашит текущий workspace-стор, затем синхронно грузит новый.
-- **Flush:** единственный якорь — `process.on("exit")` в `main.ts` (только
-  синхронный I/O → `flushSync`). Любой путь выхода (`doQuit`, SIGINT в
-  `NodeTerminalBackend`) идёт через `process.exit(0)` и фаерит "exit".
+- **Flush:** `flushSync` — участник синхронной фазы прощания
+  (`LifecycleService.onShutdownSync`, подписывает `main.ts`): выход, перезагрузка
+  окна и выход по инспектору сбрасывают состояние до `exit`/замены процесса.
+  Страховка — `process.on("exit")` для путей мимо прощания (SIGINT в
+  `NodeTerminalBackend`, `process.exit` в обход протокола).
+
+## Три хранилища
+
+Машинное состояние живёт в трёх местах, и сводить их в одно не нужно:
+
+- **`StateService`** (этот документ) — состояние UI/сессии workbench'а и
+  **memento расширений** (`ExtensionContext.globalState`/`workspaceState`, ключи
+  `extensionState/<id>`, см. [Extensions.md](Extensions.md)): plain JSON,
+  debounce + `flushSync`.
+- **Секреты расширений** (`ExtensionContext.secrets`) — отдельный
+  `<profileDir>/secrets.json`: права 0600, синхронная запись, значения не
+  логируются. У vscode общий стор для секретов допустим только с шифрованием —
+  его у нас нет, отсюда отдельный файл.
+- **Приватные каталоги расширений** (`globalStorageUri`/`storageUri`/`logUri`)
+  — файлы самих расширений; хост гарантирует только родителя.
 
 ## Известные ограничения
 

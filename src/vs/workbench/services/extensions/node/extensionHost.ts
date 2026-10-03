@@ -87,6 +87,7 @@ import {
     parseWireInputBoxRequest,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
+    parseWireMementoUpdate,
     parseWireOutputAppend,
     parseWireOutputShow,
     parseWireProgressEnd,
@@ -136,6 +137,7 @@ import {
 import { ProviderRequestBatcher } from "../common/providerRequestBatcher.ts";
 
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
+import { createTransientExtensionStateStore, type IExtensionStateStore } from "./extensionStateStore.ts";
 import {
     ensureExtensionStorageParents,
     fallbackExtensionStorageHomes,
@@ -484,6 +486,13 @@ export interface IExtensionHostOptions {
      */
     readonly secrets?: IExtensionSecretStore;
     /**
+     * Хранилище `ExtensionContext.globalState` / `workspaceState`. Если не
+     * передано — {@link createTransientExtensionStateStore}: memento живёт в
+     * памяти субпроцесса (юнит-тесты, харнессы). Персистентный вариант поверх
+     * `IStateService` подключает `extensionHostModule`.
+     */
+    readonly extensionState?: IExtensionStateStore;
+    /**
      * Доступ к дереву воркспейса для событий `workspaceContains:<glob>`
      * (см. {@link ExtensionHost.activateByWorkspaceContains}). Если не передан —
      * {@link createNodeWorkspaceScanner} поверх настоящей ФС.
@@ -657,6 +666,14 @@ export class ExtensionHost extends Disposable {
     private readonly storageHomes: () => IExtensionStorageHomes;
     /** Хранилище секретов расширений (`ExtensionContext.secrets`). */
     private readonly secrets: IExtensionSecretStore;
+    /** Хранилище memento расширений (`globalState` / `workspaceState`). */
+    private readonly extensionState: IExtensionStateStore;
+    /**
+     * Воркспейс, в котором расширение активировано (корень его `storageUri`,
+     * `null` — пустое окно). `workspaceState` расширения — словарь ЭТОГО
+     * воркспейса: запись после смены папки протекла бы в чужой стор.
+     */
+    private readonly activationWorkspaces = new Map<string, string | null>();
     /** Доступ к дереву воркспейса для `workspaceContains:` (по умолчанию — настоящая ФС). */
     private readonly workspaceScanner: IWorkspaceScanner;
     /**
@@ -728,6 +745,7 @@ export class ExtensionHost extends Disposable {
         this.fileWatcher = options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER;
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.secrets = options.secrets ?? createInMemoryExtensionSecretStore();
+        this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
         this.diagnosticsSink = options.diagnosticsSink;
         this.progressSink = options.progressSink;
@@ -1036,6 +1054,7 @@ export class ExtensionHost extends Disposable {
         // Per-extension изоляция: упавший `activate()` одного расширения не
         // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
         const storage = this.resolveStoragePaths(reg.id);
+        this.activationWorkspaces.set(reg.id, this.storageHomes().workspaceStorageHome);
         try {
             await rpc.request("host.activateExtension", {
                 id: reg.id,
@@ -1052,6 +1071,10 @@ export class ExtensionHost extends Disposable {
                 globalStoragePath: storage.globalStoragePath,
                 storagePath: storage.storagePath,
                 logPath: storage.logPath,
+                // Memento с прошлых запусков — сразу в параметрах: `get` у
+                // расширения синхронный, ждать отдельного round-trip ему нечем.
+                globalState: this.extensionState.get(reg.id, true),
+                workspaceState: this.extensionState.get(reg.id, false),
             });
             this.extensions.add(reg.id);
             this.activatedRegistrations.set(reg.id, reg);
@@ -1894,6 +1917,7 @@ export class ExtensionHost extends Disposable {
 
     private installHostHandlers(rpc: RpcEndpoint): void {
         this.installSecretHandlers(rpc);
+        this.installMementoHandlers(rpc);
         rpc.handleRequest("editor.setOptions", (params): unknown => {
             const patch = sanitizeOptionsPatch(params);
             this.editorOptions.setActiveEditorOptions(patch);
@@ -2384,6 +2408,30 @@ export class ExtensionHost extends Disposable {
      * ошибки самого хранилища — его собственным `onError` (туда уходят путь и
      * причина, но никогда значение).
      */
+    /**
+     * `ExtensionContext.globalState` / `workspaceState`: субпроцесс держит
+     * словарь у себя (синхронные `get`/`keys`), а каждый `update` присылает его
+     * сюда целиком. Запись `workspaceState` из воркспейса, отличного от того, в
+     * котором расширение активировано, отбрасывается с предупреждением: иначе
+     * словарь воркспейса A протёк бы в стор B (честное лечение — перезапуск
+     * хоста при смене папки, как reload окна у vscode).
+     */
+    private installMementoHandlers(rpc: RpcEndpoint): void {
+        rpc.handleRequest("memento.update", (params): unknown => {
+            const update = parseWireMementoUpdate(params);
+            if (update === null) throw new Error("memento.update: malformed params");
+            const { extensionId, shared, value } = update;
+            if (!shared && this.activationWorkspaces.get(extensionId) !== this.storageHomes().workspaceStorageHome) {
+                this.logger?.warn(
+                    `memento.update: "${extensionId}" activated in another workspace — workspaceState write dropped`,
+                );
+                return null;
+            }
+            this.extensionState.set(extensionId, shared, value);
+            return null;
+        });
+    }
+
     private installSecretHandlers(rpc: RpcEndpoint): void {
         rpc.handleRequest("secrets.keys", (params): unknown => {
             const extensionId = parseWireSecretKeysRequest(params);

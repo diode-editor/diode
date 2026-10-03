@@ -22,6 +22,7 @@ import type { IConfigurationService } from "../vs/platform/configuration/common/
 import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { TrashService } from "../vs/platform/files/node/trashService.ts";
+import type { ILogger } from "../vs/platform/log/common/iLogger.ts";
 import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
@@ -54,6 +55,7 @@ import {
     type IWorkspaceFolderInfo,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionSecretStore } from "../vs/workbench/services/extensions/node/extensionSecretsStore.ts";
+import type { IExtensionStateStore } from "../vs/workbench/services/extensions/node/extensionStateStore.ts";
 import type { IExtensionStorageHomes } from "../vs/workbench/services/extensions/node/extensionStoragePaths.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 import type { IWorkspaceScanner } from "../vs/workbench/services/extensions/node/workspaceContainsActivation.ts";
@@ -218,6 +220,13 @@ export interface IExtensionHarnessOptions {
      */
     readonly secrets?: IExtensionSecretStore;
     /**
+     * Хранилище memento расширений (`globalState`/`workspaceState`). По
+     * умолчанию — без персиста (memento живёт в памяти субпроцесса).
+     */
+    readonly extensionState?: IExtensionStateStore;
+    /** Логгер хоста — тестам, которые проверяют предупреждения. По умолчанию его нет. */
+    readonly logger?: ILogger;
+    /**
      * Доступ к дереву воркспейса для `workspaceContains:`-активации. По
      * умолчанию — настоящая ФС (то есть `tmpDir` харнесса, куда пишет
      * `writeFile`); тесты обхода передают карту каталогов в памяти.
@@ -325,6 +334,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         spawnArgs: subprocessSpawnArgsForTests(options.subprocessLoader),
         configuration,
         storageHomes,
+        ...(options.logger !== undefined ? { logger: options.logger } : {}),
         openDocumentsProvider: () => openDocumentSnapshots(group),
         editorLayout,
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
@@ -340,6 +350,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         themeColorResolver: options.themeColorResolver ?? new ThemeColorResolverAdapter(themeService),
         ...(options.fileWatcher !== undefined ? { fileWatcher: options.fileWatcher } : {}),
         ...(options.secrets !== undefined ? { secrets: options.secrets } : {}),
+        ...(options.extensionState !== undefined ? { extensionState: options.extensionState } : {}),
         ...(options.workspaceScanner !== undefined ? { workspaceScanner: options.workspaceScanner } : {}),
     });
 
