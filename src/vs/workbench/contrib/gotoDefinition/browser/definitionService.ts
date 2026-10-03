@@ -50,6 +50,11 @@ export class DefinitionService {
         const ticket = this.latest.start(state.token);
         const caret = editor.viewState.selections[0].active;
         let locations: readonly ICoreDefinitionLocation[];
+        // Сам переход двигает каретку — следить за состоянием после ответа
+        // незачем. Снятие подписок заодно отцепляет и билет (он слушает токен
+        // состояния). Уборка подписок отработавшего запроса ненаблюдаема: забытая
+        // подписка лишь отменила бы уже никому не нужный токен.
+        // Stryker disable BlockStatement: см. выше — мутант пустого finally
         try {
             locations = await source({
                 uri: editor.uri.toString(),
@@ -58,13 +63,11 @@ export class DefinitionService {
                 line: caret.line,
                 character: caret.character,
             });
-            // Stryker disable next-line BlockStatement: уборка подписок отработавшего запроса — см. ниже
         } finally {
-            // Сам переход двигает каретку — следить за состоянием дальше незачем.
-            // Снятие подписок заодно отцепляет и билет (он слушает токен состояния).
-            // Stryker disable next-line CallExpression: уборка подписок отработавшего запроса — забытая подписка лишь отменила бы уже никому не нужный токен
+            // Stryker disable next-line CallExpression: см. выше
             state.dispose();
         }
+        // Stryker restore BlockStatement
         if (ticket.isStale()) return;
         const target = locations.at(0);
         if (target === undefined) return;
