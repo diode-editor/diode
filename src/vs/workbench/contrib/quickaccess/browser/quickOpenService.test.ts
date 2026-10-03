@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { charMask } from "../../../../base/common/fuzzySearch.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -84,15 +85,25 @@ function makeSearchResult(relativePath: string, matchedIndices: number[] = []): 
 }
 
 function makeFileSearchStub(results: FileSearchResult[] = []): FileSearchService {
+    const indexChanged = new Emitter<void>();
     return {
+        fireIndexChanged: () => {
+            indexChanged.fire();
+        },
+        hasIndexListeners: () => indexChanged.hasListeners(),
         search: vi.fn(() => results),
         activate: vi.fn(),
         refreshIfStale: vi.fn(),
         isIndexed: true,
-        onIndexChanged: null,
+        onIndexChanged: vi.fn(indexChanged.event),
         dispose: vi.fn(),
         register: vi.fn(),
     } as unknown as FileSearchService;
+}
+
+/** Фоновый обход индекса опубликовал новые записи (см. {@link makeFileSearchStub}). */
+function fireIndexChanged(fileSearch: FileSearchService): void {
+    (fileSearch as unknown as { fireIndexChanged(): void }).fireIndexChanged();
 }
 
 /** Открытая вкладка глазами пикера `edt `: ресурс, метка, маркер правок. */
@@ -330,11 +341,10 @@ describe("QuickOpenService — open/close", () => {
 
     it("close() on a never-opened picker is a no-op", () => {
         const { service, fileSearch } = createService();
-        // Subscribe a marker so we can prove close() short-circuits before touching it.
-        fileSearch.onIndexChanged = () => undefined;
         service.close();
-        // Early return: the index subscription is left untouched.
-        expect(fileSearch.onIndexChanged).not.toBeNull();
+        // Early return: the picker never subscribed to the index, and close()
+        // does not reach the provider either.
+        expect(fileSearch.onIndexChanged).not.toHaveBeenCalled();
     });
 
     it("close() restores focus to previously focused element", () => {
@@ -380,7 +390,7 @@ describe("QuickOpenService — files mode", () => {
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
         // Simulate the background walk publishing more entries.
-        fileSearch.onIndexChanged?.();
+        fireIndexChanged(fileSearch);
 
         expect(fileSearch.search).toHaveBeenCalledWith("App", 50);
     });
@@ -389,15 +399,15 @@ describe("QuickOpenService — files mode", () => {
         const { service, fileSearch } = createService();
         service.show();
         // Capture the index-changed handler the controller installed.
-        const handler = fileSearch.onIndexChanged;
-        expect(handler).not.toBeNull();
+        const handler = vi.mocked(fileSearch.onIndexChanged).mock.calls.at(-1)?.[0];
+        expect(handler).toBeDefined();
 
         service.close();
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
         // Fire the captured callback after the session is closed: handleIndexChanged
         // must bail out (session not open) and not query the index.
-        handler?.();
+        handler?.(undefined);
         expect(fileSearch.search).not.toHaveBeenCalled();
     });
 
@@ -407,17 +417,19 @@ describe("QuickOpenService — files mode", () => {
         view.onQueryChange?.(">cmd"); // now in command mode
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-        fileSearch.onIndexChanged?.();
+        fireIndexChanged(fileSearch);
 
         expect(fileSearch.search).not.toHaveBeenCalled();
     });
 
     it("close() unsubscribes from index changes", () => {
         const { service, fileSearch } = createService();
+        const hasIndexListeners = (): boolean =>
+            (fileSearch as unknown as { hasIndexListeners(): boolean }).hasIndexListeners();
         service.show();
-        expect(fileSearch.onIndexChanged).not.toBeNull();
+        expect(hasIndexListeners()).toBe(true);
         service.close();
-        expect(fileSearch.onIndexChanged).toBeNull();
+        expect(hasIndexListeners()).toBe(false);
     });
 
     it("a background index refresh preserves the cursor mid-navigation", () => {
@@ -437,7 +449,7 @@ describe("QuickOpenService — files mode", () => {
         expect(view.selectedIndex).toBe(2);
 
         // Background walk publishes more entries → onIndexChanged fires.
-        fileSearch.onIndexChanged?.();
+        fireIndexChanged(fileSearch);
 
         // Cursor preserved (previously it snapped back to 0).
         expect(view.selectedIndex).toBe(2);
@@ -905,7 +917,7 @@ describe("QuickOpenService — position and size", () => {
         // Без сессии компонент считается закрытым; live-обновления индекса не запрашивают поиск.
         expect(component.isOpen()).toBe(false);
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
-        fileSearch.onIndexChanged?.();
+        fireIndexChanged(fileSearch);
         expect(fileSearch.search).not.toHaveBeenCalled();
     });
 

@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 
 import type { IOutputChannelDescriptor, IOutputChannelRegistry } from "./output.ts";
@@ -13,12 +14,12 @@ export class OutputChannelRegistry implements IOutputChannelRegistry {
     public static dependencies = [] as const;
 
     private readonly channels = new Map<string, IOutputChannelDescriptor>();
-    private readonly listeners = new Set<(descriptor: IOutputChannelDescriptor) => void>();
+    private readonly onDidRegisterChannelEmitter = new Emitter<IOutputChannelDescriptor>();
 
     public registerChannel(descriptor: IOutputChannelDescriptor): void {
         if (this.channels.has(descriptor.id)) return;
         this.channels.set(descriptor.id, descriptor);
-        for (const listener of [...this.listeners]) listener(descriptor);
+        this.onDidRegisterChannelEmitter.fire(descriptor);
     }
 
     /** Снимок в порядке регистрации — он же порядок пунктов селектора. */
@@ -30,8 +31,5 @@ export class OutputChannelRegistry implements IOutputChannelRegistry {
         return this.channels.get(id);
     }
 
-    public onDidRegisterChannel(listener: (descriptor: IOutputChannelDescriptor) => void): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
-    }
+    public readonly onDidRegisterChannel = this.onDidRegisterChannelEmitter.event;
 }

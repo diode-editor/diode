@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import {
@@ -44,7 +45,7 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
     public static dependencies = [KeybindingRegistryDIToken, IEnvironmentServiceDIToken, ILogServiceDIToken] as const;
 
     private readonly ledger = new Map<string, ICommandLedger>();
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private readonly logger: ILogger;
     private readonly resource: string;
 
@@ -66,14 +67,11 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         return ledger.added.length > 0 || ledger.removedDefaults.length > 0;
     }
 
-    public onDidChange(cb: () => void): IDisposable {
-        this.listeners.add(cb);
-        return { dispose: () => this.listeners.delete(cb) };
-    }
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     private emitDidChange(): void {
         // Копия: слушатель может отписаться в обработчике.
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeEmitter.fire();
     }
 
     private ledgerFor(commandId: string): ICommandLedger {

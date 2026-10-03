@@ -1,9 +1,10 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 
 export class ThemeService {
     private currentTheme: WorkbenchTheme;
-    private listeners: ((theme: WorkbenchTheme) => void)[] = [];
+    private readonly onDidChangeThemeEmitter = new Emitter<WorkbenchTheme>();
 
     public constructor(initialTheme: WorkbenchTheme) {
         this.currentTheme = initialTheme;
@@ -15,9 +16,7 @@ export class ThemeService {
 
     public setTheme(theme: WorkbenchTheme): void {
         this.currentTheme = theme;
-        for (const listener of this.listeners) {
-            listener(theme);
-        }
+        this.onDidChangeThemeEmitter.fire(theme);
     }
 
     /**
@@ -26,13 +25,8 @@ export class ThemeService {
      * Returns a disposable to unsubscribe.
      */
     public onThemeChange(listener: (theme: WorkbenchTheme) => void): IDisposable {
-        this.listeners.push(listener);
+        const subscription = this.onDidChangeThemeEmitter.event(listener);
         listener(this.currentTheme);
-        return {
-            dispose: () => {
-                const index = this.listeners.indexOf(listener);
-                if (index >= 0) this.listeners.splice(index, 1);
-            },
-        };
+        return subscription;
     }
 }

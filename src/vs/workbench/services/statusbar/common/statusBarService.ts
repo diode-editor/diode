@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
@@ -53,7 +54,7 @@ export class StatusBarService {
     public static dependencies = [StateServiceDIToken] as const;
 
     private readonly entryList: IStatusBarEntry[] = [];
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeEntriesEmitter = new Emitter<void>();
     private readonly hidden: Set<string>;
 
     public constructor(private readonly stateService: IStateService) {
@@ -82,10 +83,7 @@ export class StatusBarService {
     }
 
     /** Подписка на любое изменение набора записей (add/update/dispose). */
-    public onDidChangeEntries(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
-    }
+    public readonly onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
 
     /**
      * Видимые записи в порядке отрисовки — то, что рисует компонент.
@@ -129,6 +127,6 @@ export class StatusBarService {
     }
 
     private fire(): void {
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeEntriesEmitter.fire();
     }
 }

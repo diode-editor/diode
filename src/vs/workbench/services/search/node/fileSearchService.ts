@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { charMask, fuzzyMatchPreparedLower, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -67,8 +68,9 @@ export class FileSearchService extends Disposable {
     /** True once an initial background walk has fully completed. */
     public isIndexed = false;
 
+    private readonly onIndexChangedEmitter = new Emitter<void>();
     /** Fired (debounced) as the index grows or changes. */
-    public onIndexChanged: (() => void) | null = null;
+    public readonly onIndexChanged = this.onIndexChangedEmitter.event;
 
     private isDisposedLocal = false;
     /** Bumped on every walk; an in-flight walk bails when it sees a newer one. */
@@ -289,7 +291,7 @@ export class FileSearchService extends Disposable {
         if (this.notifyTimer !== null) return;
         this.notifyTimer = setTimeout(() => {
             this.notifyTimer = null;
-            this.onIndexChanged?.();
+            this.onIndexChangedEmitter.fire();
         }, NOTIFY_DEBOUNCE_MS);
     }
 
@@ -298,7 +300,7 @@ export class FileSearchService extends Disposable {
             clearTimeout(this.notifyTimer);
             this.notifyTimer = null;
         }
-        this.onIndexChanged?.();
+        this.onIndexChangedEmitter.fire();
     }
 
     /**
