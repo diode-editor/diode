@@ -1,6 +1,7 @@
 import type { CompletionDetailsContent } from "@tuidom/elements/completionlist/completionDetailsElement";
 import type { CompletionListItem } from "@tuidom/elements/completionlist/completionListElement";
 
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
@@ -28,6 +29,7 @@ import type { IStateService } from "../../../../platform/state/common/iStateServ
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { SUGGEST_DETAILS_VISIBLE_STATE } from "../../../common/stateKeys.ts";
+import { bindActiveEditor } from "../../../services/editor/browser/activeEditorBinding.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
@@ -91,18 +93,15 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     // позиции, поэтому по нему мы отслеживаем, сколько символов добрали с триггера.
     private triggerCaret: IPosition | null = null;
 
-    // Подписки на активный редактор (пере-навешиваются при смене активного).
-    private caretSub: IDisposable | null = null;
-    private contentSub: IDisposable | null = null;
-    // Маркер «был правкой контента» (typing/удаление), выставляется content-листенером
-    // и потребляется в onCaretChanged (view-state там уже консистентен).
-    private contentDidChange = false;
-    // Кэш прошлого состояния строки/каретки для эвристики «вставлен 1 word-символ».
-    private lastCaretLine = -1;
-    private lastCaretChar = -1;
-    private lastLine = "";
-    private autoSuggestTimer: ReturnType<typeof setTimeout> | null = null;
-    // Символ, которым спровоцирован отложенный авто-запрос (`.`), если он был.
+    // Отложенный авто-запрос по набору; символ, которым он спровоцирован (`.`),
+    // лежит в pendingTriggerCharacter.
+    private readonly autoSuggest = this.register(
+        new RunOnceScheduler(() => {
+            const character = this.pendingTriggerCharacter;
+            this.pendingTriggerCharacter = undefined;
+            void this.trigger(character);
+        }, this.autoSuggestDelayMs),
+    );
     private pendingTriggerCharacter: string | undefined = undefined;
     // Последний запрос к источнику: ответ перебитого запроса устарел.
     private readonly latest = new LatestRequest();
@@ -114,9 +113,6 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     // Догруженные пункты и запросы «в полёте» (ключ — id пункта у источника).
     private readonly resolvedItems = new Map<string, ICoreResolvedCompletion>();
     private readonly pendingResolves = new Map<string, Promise<ICoreResolvedCompletion | null>>();
-    // Гасит одно авто-открытие после принятия пункта (правка accept не должна
-    // сама переоткрыть попап — переоткрытие только через провайдерский _retrigger).
-    private suppressAutoSuggestOnce = false;
 
     public constructor(
         component: SuggestComponent,
@@ -148,18 +144,24 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         );
 
         // «Всегда-включённая» подписка на активный редактор: и re-filter пока
-        // попап открыт, и авто-открытие по мере набора пока закрыт.
-        const activeEditorSub = this.group.onActiveEditorChanged((editor) => {
-            this.bindEditor(editor);
-        });
-        this.bindEditor(this.group.getActiveEditor());
-        this.register({
-            dispose: () => {
-                activeEditorSub.dispose();
-                this.unbindEditor();
-                this.cancelAutoSuggest();
-            },
-        });
+        // попап открыт, и авто-открытие по мере набора пока закрыт. Безусловный
+        // close() на смене: она гасит и отложенный авто-suggest.
+        this.register(
+            bindActiveEditor(this.group, (editor, store) => {
+                this.close();
+                if (editor === null) return;
+                store.add(
+                    editor.onDidChangeCursorPosition(() => {
+                        this.onCaretChanged(editor);
+                    }),
+                );
+                store.add(
+                    editor.onDidType((text) => {
+                        this.onDidType(editor, text);
+                    }),
+                );
+            }),
+        );
     }
 
     /**
@@ -330,71 +332,39 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     // ─── Private ─────────────────────────────────────────────────────────────
 
     /**
-     * Пере-навешивает подписки на нового активного редактора. Безусловный
-     * {@link close} (а не «закрыть, если открыт»): смена активного редактора
-     * должна гасить и отложенный авто-suggest — раньше это делал отдельный
-     * обработчик корневого контроллера, теперь сложено сюда.
+     * Правка или движение каретки при открытом попапе: сужает список от
+     * актуального префикса (или закрывает, если каретка ушла из слова).
      */
-    private bindEditor(editor: TextEditorPane | null): void {
-        this.unbindEditor();
-        this.close();
-        this.resetCaretCache(editor);
-        if (editor === null) return;
-        this.contentSub = editor.onDidChangeContent(() => {
-            this.contentDidChange = true;
-        });
-        this.caretSub = editor.onDidChangeCursorPosition(() => {
-            this.onCaretChanged();
-        });
-    }
-
-    private unbindEditor(): void {
-        this.caretSub?.dispose();
-        this.caretSub = null;
-        this.contentSub?.dispose();
-        this.contentSub = null;
-        this.contentDidChange = false;
+    private onCaretChanged(editor: TextEditorPane): void {
+        if (!this.isOpen()) return;
+        const selections = editor.viewState.selections;
+        const active = selections.length === 1 && isSelectionCollapsed(selections[0]) ? selections[0].active : null;
+        const line = active !== null ? editor.viewState.document.getLineContent(active.line) : "";
+        this.refilterOpen(editor, active, line);
     }
 
     /**
-     * Единый обработчик изменения каретки/текста. Пока попап открыт — сужает
-     * список от актуального префикса (или закрывает, если каретка ушла из слова);
-     * пока закрыт — авто-открывает попап при наборе word-символа.
+     * Набор символа (событие редактора, а не «строка выросла на символ»: правка
+     * от accept, undo и вставка набором не считаются — как quick suggest в
+     * upstream). Приходит ПОСЛЕ события каретки той же правки. Триггер-символ
+     * сервера (`.`) переоткрывает список у новой границы слова, даже если попап
+     * висел: после точки это другой запрос (`TriggerCharacter`), а не сужение
+     * прежнего. Word-символ при закрытом попапе авто-открывает его.
      */
-    private onCaretChanged(): void {
-        const wasEdit = this.contentDidChange;
-        this.contentDidChange = false;
-
-        const editor = this.group.getActiveEditor();
-        if (editor === null) {
-            if (this.isOpen()) this.close();
-            this.resetCaretCache(null);
-            return;
-        }
-
+    private onDidType(editor: TextEditorPane, text: string): void {
         const selections = editor.viewState.selections;
-        const single = selections.length === 1 && isSelectionCollapsed(selections[0]);
-        const active = single ? selections[0].active : null;
-        const line = active !== null ? editor.viewState.document.getLineContent(active.line) : "";
-
-        const suppressed = this.suppressAutoSuggestOnce;
-        this.suppressAutoSuggestOnce = false;
-
-        // Набран триггер-символ сервера (`.`) — переоткрываем список у новой
-        // границы слова, даже если попап уже висел: после точки это другой
-        // запрос (`TriggerCharacter`), а не сужение прежнего.
-        const triggerChar =
-            !suppressed && single && active !== null && wasEdit ? this.insertedTriggerCharacter(line, active) : null;
-        if (triggerChar !== null) {
+        if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) return;
+        // Символы — метаданные провайдеров, подошедших именно этому документу:
+        // «.» сервера TypeScript не открывает попап в markdown.
+        const triggers = this.languageFeatures.completionProvider
+            .ordered(editor)
+            .flatMap((provider) => provider.triggerCharacters);
+        if (triggers.includes(text)) {
             if (this.isOpen()) this.component.close();
-            this.scheduleAutoSuggest(triggerChar);
-        } else if (this.isOpen()) {
-            this.refilterOpen(editor, active, line);
-        } else if (!suppressed && single && active !== null && wasEdit && this.isSingleWordCharInsert(line, active)) {
+            this.scheduleAutoSuggest(text);
+        } else if (!this.isOpen() && WORD_CHAR.test(text)) {
             this.scheduleAutoSuggest();
         }
-
-        this.updateCaretCache(active, line);
     }
 
     /** Re-filter при открытом попапе (закрывает при уходе каретки из слова). */
@@ -451,66 +421,13 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         if (this.isIncomplete) this.scheduleAutoSuggest();
     }
 
-    /** Эвристика «вставлен ровно один word-символ у каретки» (набор буквы). */
-    private isSingleWordCharInsert(line: string, active: IPosition): boolean {
-        return isSingleCharInsert(line, active, this.lastCaretLine, this.lastCaretChar, this.lastLine, WORD_CHAR);
-    }
-
-    /**
-     * Набранный символ, если это триггер-символ источника (`.` у tsserver);
-     * иначе `null`. Символы объявляет language server при регистрации
-     * провайдера — ядро их только читает.
-     */
-    private insertedTriggerCharacter(line: string, active: IPosition): string | null {
-        const editor = this.group.getActiveEditor();
-        /* v8 ignore start -- defensive: события каретки приходят от привязанного редактора */
-        // Stryker disable next-line ConditionalExpression: ветка недостижима — см. v8 ignore выше
-        if (editor === null) return null;
-        /* v8 ignore stop */
-        // Символы — метаданные провайдеров, подошедших именно этому документу:
-        // «.» сервера TypeScript не открывает попап в markdown.
-        const characters = this.languageFeatures.completionProvider
-            .ordered(editor)
-            .flatMap((provider) => provider.triggerCharacters);
-        if (characters.length === 0) return null;
-        if (!isSingleCharInsert(line, active, this.lastCaretLine, this.lastCaretChar, this.lastLine)) return null;
-        const inserted = line.at(active.character - 1);
-        return inserted !== undefined && characters.includes(inserted) ? inserted : null;
-    }
-
-    private updateCaretCache(active: IPosition | null, line: string): void {
-        this.lastCaretLine = active?.line ?? -1;
-        this.lastCaretChar = active?.character ?? -1;
-        this.lastLine = line;
-    }
-
-    private resetCaretCache(editor: TextEditorPane | null): void {
-        if (editor === null) {
-            this.updateCaretCache(null, "");
-            return;
-        }
-        const selections = editor.viewState.selections;
-        const active = selections.length === 1 && isSelectionCollapsed(selections[0]) ? selections[0].active : null;
-        const line = active !== null ? editor.viewState.document.getLineContent(active.line) : "";
-        this.updateCaretCache(active, line);
-    }
-
     private scheduleAutoSuggest(triggerCharacter?: string): void {
-        this.cancelAutoSuggest();
         this.pendingTriggerCharacter = triggerCharacter;
-        this.autoSuggestTimer = setTimeout(() => {
-            this.autoSuggestTimer = null;
-            const character = this.pendingTriggerCharacter;
-            this.pendingTriggerCharacter = undefined;
-            void this.trigger(character);
-        }, this.autoSuggestDelayMs);
+        this.autoSuggest.schedule(this.autoSuggestDelayMs);
     }
 
     private cancelAutoSuggest(): void {
-        if (this.autoSuggestTimer !== null) {
-            clearTimeout(this.autoSuggestTimer);
-            this.autoSuggestTimer = null;
-        }
+        this.autoSuggest.cancel();
         this.pendingTriggerCharacter = undefined;
     }
 
@@ -602,7 +519,6 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         additionalEdits: readonly ITextEdit[],
     ): void {
         // Правка ниже синхронно вызовет onCaretChanged — не даём ей авто-переоткрыть попап.
-        this.suppressAutoSuggestOnce = true;
         editor.applyExternalEdits([createTextEdit(range, core.insertText), ...additionalEdits], "Accept Completion");
 
         const command = core.command;
@@ -704,30 +620,6 @@ function wordStart(line: string, character: number): number {
     let start = Math.min(character, line.length);
     while (start > 0 && WORD_CHAR.test(line[start - 1])) start--;
     return start;
-}
-
-/**
- * Общая эвристика «вставлен ровно один символ у каретки» (набор с клавиатуры, а
- * не вставка блока/удаление). `charClass` — необязательный фильтр по символу.
- *
- * Экспортируется ради второго потребителя — подсказки параметров
- * (`contrib/parameterHints`): у неё та же задача «отличить набор символа от
- * движения каретки», и своя копия эвристики разъезжалась бы с этой.
- */
-export function isSingleCharInsert(
-    line: string,
-    active: IPosition,
-    lastLineIndex: number,
-    lastCharIndex: number,
-    lastLine: string,
-    charClass?: RegExp,
-): boolean {
-    if (active.line !== lastLineIndex) return false;
-    if (active.character !== lastCharIndex + 1) return false;
-    if (line.length !== lastLine.length + 1) return false;
-    if (charClass === undefined) return true;
-    const inserted = line.at(active.character - 1);
-    return inserted !== undefined && charClass.test(inserted);
 }
 
 /**
