@@ -877,6 +877,12 @@ hide-toggle (`isHiddenByDefault`). См.
     оверлея** (`TabSwitcherComponent.isOpen()`). Он же разводит их с
     `scrollLineUp`/`scrollLineDown`, сидящими на тех же аккордах: список погас —
     прокрутка редактора вернулась.
+  - `services/editor/browser/activeEditorBinding.ts` — `bindActiveEditor(source,
+    (editor, store) => …)`: привязка фичи к активному редактору, наш аналог
+    времени жизни upstream `IEditorContribution`. Тело вызывается для текущего
+    редактора сразу и для каждого следующего; подписки кладутся в `store` и
+    снимаются, как только редактор перестаёт быть активным. `source` — узкий
+    `IActiveEditorSource<E>` (`getActiveEditor` + `onActiveEditorChanged`).
   - `parts/editor/editorStateCancellation.ts` — `EditorStateCancellationTokenSource`
     (аналог upstream `editor/contrib/editorState`): токен, который отменяется на
     правку документа (`EditorStateFlag.Value`) и/или движение каретки
