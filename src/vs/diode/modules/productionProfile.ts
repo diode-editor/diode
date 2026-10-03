@@ -98,7 +98,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(fileWatcherModule)
         .use(markersModule, { settingsResource: ctx.settingsResource, keybindingsResource: ctx.keybindingsResource })
         .use(workbenchModule)
-        .use(lifecycleModule, { hostProcess: ctx.hostProcess })
+        .use(lifecycleModule, ctx)
         .use(extensionsModule, ctx.extensions)
         .use(preferencesModule)
         .use(extensionHostModule, ctx.extensionStorage);

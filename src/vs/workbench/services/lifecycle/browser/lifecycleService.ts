@@ -44,8 +44,7 @@ export type ShutdownReason = "quit" | "reload" | "inspector";
  */
 export interface IWillShutdownEvent {
     readonly reason: ShutdownReason;
-    /** `id` — имя участника для отладки (как `join.stopExtensionHosts` у vscode). */
-    join(promise: Promise<unknown>, id: string): void;
+    join(promise: Promise<unknown>): void;
 }
 
 /** Подписка участника; `dispose()` снимает её. */
@@ -141,11 +140,11 @@ export class LifecycleService {
     }
 
     private async doShutdown(reason: ShutdownReason, then: () => void): Promise<void> {
-        const joins: Promise<unknown>[] = [];
+        const joins = new Set<Promise<unknown>>();
         const event: IWillShutdownEvent = {
             reason,
             join: (promise) => {
-                joins.push(promise.catch(() => undefined));
+                joins.add(promise.catch(() => undefined));
             },
         };
         for (const listener of [...this.willShutdownListeners]) {

@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { WorkspaceContextService } from "../../platform/workspace/common/workspaceContextService.ts";
 import { ExtensionHostDIToken } from "../../workbench/services/extensions/node/extensionHost.ts";
@@ -28,9 +28,21 @@ describe("extensionHostModule — прощание", () => {
             secretsFile: path.join(dir, "secrets.json"),
         });
         const host = container.get(ExtensionHostDIToken);
+        const lifecycle = container.get(LifecycleServiceDIToken);
+        const shutdown = vi.spyOn(host, "shutdown");
+        const disposeNow = vi.spyOn(host, "disposeNow");
+        // Подписан позже host'а — в синхронной фазе срабатывает раньше него:
+        // к этому моменту host уже снят вежливо, в асинхронной фазе.
+        let shutdownBeforeSyncPhase = false;
+        lifecycle.onShutdownSync(() => {
+            shutdownBeforeSyncPhase = shutdown.mock.calls.length === 1;
+        });
 
-        await container.get(LifecycleServiceDIToken).shutdown("quit", () => undefined);
+        await lifecycle.shutdown("quit", () => undefined);
 
+        expect(shutdownBeforeSyncPhase).toBe(true);
+        // Синхронная фаза добивает субпроцесс, если вежливое прощание не успело.
+        expect(disposeNow).toHaveBeenCalledOnce();
         expect(() => {
             host.registerExtension({
                 id: "a.b",

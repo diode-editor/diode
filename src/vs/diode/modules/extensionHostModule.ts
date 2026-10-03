@@ -386,7 +386,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // блокирует event loop, и субпроцесс остался бы сиротой).
         const lifecycle = container.get(LifecycleServiceDIToken);
         lifecycle.onWillShutdown((event) => {
-            event.join(host.shutdown(), "extensionHost");
+            event.join(host.shutdown());
         });
         lifecycle.onShutdownSync(() => {
             host.disposeNow();

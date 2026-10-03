@@ -562,7 +562,7 @@ hide-toggle (`isHiddenByDefault`). См.
      реализует структурно, регистрирует его `WorkbenchComponent`;
   2. **прощание** — `shutdown(reason, then)` (аналог vscode `onWillShutdown`):
      асинхронная фаза `onWillShutdown` (участник отдаёт промис через
-     `event.join(promise, id)`, общий тайм-аут `SHUTDOWN_JOIN_TIMEOUT_MS` = 2 с),
+     `event.join(promise)`, общий тайм-аут `SHUTDOWN_JOIN_TIMEOUT_MS` = 2 с),
      затем синхронная `onShutdownSync` в порядке, обратном подписке, и только потом
      `then`. Повторный вызов присоединяется к первому прощанию; сбой участника не
      останавливает остальных.

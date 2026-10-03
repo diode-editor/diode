@@ -38,7 +38,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         const then = vi.fn();
         const sync = vi.fn();
         lifecycle.onWillShutdown((event) => {
-            event.join(subprocess.promise, "subprocess");
+            event.join(subprocess.promise);
         });
         lifecycle.onShutdownSync(sync);
 
@@ -58,7 +58,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         const lifecycle = new LifecycleService(new DialogService());
         const then = vi.fn();
         lifecycle.onWillShutdown((event) => {
-            event.join(new Promise(() => undefined), "hung");
+            event.join(new Promise(() => undefined));
         });
 
         void lifecycle.shutdown("quit", then);
@@ -73,7 +73,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         const lifecycle = new LifecycleService(new DialogService(), 10);
         const then = vi.fn();
         lifecycle.onWillShutdown((event) => {
-            event.join(new Promise(() => undefined), "hung");
+            event.join(new Promise(() => undefined));
         });
 
         void lifecycle.shutdown("quit", then);
@@ -85,7 +85,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         vi.useFakeTimers();
         const lifecycle = new LifecycleService(new DialogService());
         lifecycle.onWillShutdown((event) => {
-            event.join(Promise.resolve(), "fast");
+            event.join(Promise.resolve());
         });
 
         await lifecycle.shutdown("quit", () => undefined);
@@ -102,7 +102,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
             throw new Error("не смог начать");
         });
         lifecycle.onWillShutdown((event) => {
-            event.join(Promise.reject(new Error("упал по дороге")), "broken");
+            event.join(Promise.reject(new Error("упал по дороге")));
         });
         lifecycle.onShutdownSync(sync);
         lifecycle.onShutdownSync(() => {
