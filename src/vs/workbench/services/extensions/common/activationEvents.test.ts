@@ -33,10 +33,12 @@ describe("computeActivationEvents", () => {
     });
 
     it("каждый contributes.languages добавляет НЕЯВНОЕ onLanguage:<id>", () => {
-        expect(computeActivationEvents({ contributes: { languages: [{ id: "toml" }, { id: "ini" }] } })).toEqual([
-            "onLanguage:toml",
-            "onLanguage:ini",
-        ]);
+        expect(
+            computeActivationEvents({
+                activationEvents: ["onStartupFinished"],
+                contributes: { languages: [{ id: "toml" }, { id: "ini" }] },
+            }),
+        ).toEqual(["onStartupFinished", "onLanguage:toml", "onLanguage:ini"]);
     });
 
     it("неявное событие не дублирует уже объявленное руками", () => {
@@ -51,14 +53,19 @@ describe("computeActivationEvents", () => {
     it("записи без строкового id неявных событий не дают", () => {
         expect(
             computeActivationEvents({
+                activationEvents: ["onStartupFinished"],
                 contributes: { commands: [{ title: "No id" } as never], languages: [{} as never] },
             }),
-        ).toEqual([]);
+        ).toEqual(["onStartupFinished"]);
     });
 
-    it("эталонный дефолт: без событий и вкладов — пусто, никакого неявного *", () => {
-        expect(computeActivationEvents({})).toEqual([]);
-        expect(computeActivationEvents({ activationEvents: [] })).toEqual([]);
+    it("манифест без событий — eager * (отклонение от эталона ради опубликованных расширений), плюс неявные", () => {
+        expect(computeActivationEvents({})).toEqual(["*"]);
+        expect(computeActivationEvents({ activationEvents: [] })).toEqual(["*"]);
+        expect(computeActivationEvents({ contributes: { commands: [{ command: "a.b", title: "A" }] } })).toEqual([
+            "*",
+            "onCommand:a.b",
+        ]);
     });
 
     it("генераторы перечислены явно — по точке расширения на каждый", () => {

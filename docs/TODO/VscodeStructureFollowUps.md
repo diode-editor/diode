@@ -94,6 +94,13 @@
 - [ ] `ContextKeyExpr`-парсер вместо `new Function` — см.
   [WhenContext.md](WhenContext.md).
 - [ ] PieceTree (`pieceTreeTextBuffer`) — см. [PieceTree.md](PieceTree.md).
+- [ ] Эталонный дефолт событий активации (пусто значит пусто, без неявного
+  `*`): механизм готов (`computeActivationEvents`), но дефолт `*` оставлен —
+  на нём держатся опубликованные в магазине записи без `activationEvents`
+  (`test.tab-setter`). Снимается после того, как записи реестра объявят `"*"`
+  сами (PR в репозиторий реестра — мерж за его владельцем), вместе с явным
+  `"*"` у четырёх e2e-фикстур (`will-save-trim`, `tab-setter`,
+  `inline-ghost`, `chat-panel`).
 - [ ] Выход мимо прощания: SIGTERM/SIGHUP в главном процессе не обработаны
   (смерть по сигналу не фаерит даже `process.on("exit")` — теряется до 500 мс
   состояния и не снимается терминал), SIGINT-обработчик `NodeTerminalBackend`

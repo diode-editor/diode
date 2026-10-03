@@ -76,13 +76,20 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
 
 /**
  * Полный набор событий активации расширения: объявленные в манифесте плюс
- * неявные от генераторов, без повторов. Эталонный дефолт: расширение без
- * событий само не поднимается — пусто значит пусто (никакого неявного `*`).
+ * неявные от генераторов, без повторов.
+ *
+ * **Отклонение от эталона — дефолт `*`:** манифест без событий (пусто или нет
+ * поля) считается eager. У vscode пусто значит пусто, но в нашем магазине уже
+ * опубликованы расширения, которые на этот дефолт полагаются (`test.tab-setter`
+ * без `activationEvents`), и эталонный дефолт молча выключил бы их у
+ * пользователей. Снимается вместе с обновлением этих записей реестра (см.
+ * `docs/TODO/VscodeStructureFollowUps.md`).
  */
 export function computeActivationEvents(
     manifest: Pick<IExtensionManifest, "activationEvents" | "contributes">,
 ): readonly string[] {
-    const events = [...(manifest.activationEvents ?? [])];
+    const declared = manifest.activationEvents ?? [];
+    const events = declared.length > 0 ? [...declared] : ["*"];
     const contributes = manifest.contributes ?? {};
     for (const generator of IMPLICIT_ACTIVATION_EVENT_GENERATORS) {
         for (const event of generator.generate(contributes)) {

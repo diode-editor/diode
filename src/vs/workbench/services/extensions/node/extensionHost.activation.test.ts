@@ -56,7 +56,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
         }
     });
 
-    it("пустой activationEvents — эталонный дефолт: расширение не поднимается даже на *", async () => {
+    it("хост дефолта не додумывает: регистрация с пустым набором событий не поднимается даже на *", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [{ ...extensionFixture("test.empty", "noopExtension.cjs"), activationEvents: [] }],

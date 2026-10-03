@@ -88,7 +88,7 @@ describe("toExtensionRegistration", () => {
         expect(reg?.activationEvents).toEqual(["onLanguage:python"]);
     });
 
-    it("события активации — полный набор: объявленные плюс неявные от contributes, без неявного *", async () => {
+    it("события активации — полный набор: объявленные плюс неявные от contributes", async () => {
         const m = manifest({
             main: "ext.js",
             activationEvents: ["onStartupFinished"],
@@ -103,7 +103,8 @@ describe("toExtensionRegistration", () => {
             "onCommand:sample.run",
             "onLanguage:sample",
         ]);
-        expect(bare?.activationEvents).toEqual([]);
+        // Без событий — eager `*` (отклонение от эталона, см. computeActivationEvents).
+        expect(bare?.activationEvents).toEqual(["*"]);
     });
 
     it("дефолты настроек: манифестные, поверх — инъекция host'а для этого расширения", async () => {

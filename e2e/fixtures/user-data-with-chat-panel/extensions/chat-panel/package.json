@@ -5,7 +5,6 @@
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
-    "activationEvents": ["*"],
     "engines": {
         "vscode": "^1.0.0"
     },
