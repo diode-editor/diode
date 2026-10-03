@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { ICancellationToken } from "../../../base/common/cancellation.ts";
+import { describeRejection } from "../../../base/common/describeRejection.ts";
 import type {
     ICoreParameterInfo,
     ICoreSignature,
@@ -635,6 +636,19 @@ function serializeTextEdit(edit: unknown): WireTextEdit | null {
     return { range, text: e.newText };
 }
 
+/**
+ * Пишет сбой провайдера в stderr субпроцесса (host зеркалит его в лог-канал).
+ *
+ * Молчаливый `catch` стоит здесь намеренно: сбойный провайдер не должен ломать
+ * команду. Но МОЛЧАЛИВЫМ он быть не должен — на этом сгорел день отладки
+ * стокового prettier: его `provideDocumentFormattingEdits` падал на
+ * отсутствующем `TextDocument.positionAt`, снаружи это выглядело как «форматтер
+ * ответил: менять нечего», и ни в одном логе следа не было (#381).
+ */
+function reportProviderFailure(method: string, err: unknown): void {
+    console.error(`[ext-host] ${method} failed: ${describeRejection(err)}`);
+}
+
 /** Сериализует `vscode.FoldingRange` в wire-форму; `null`, если форма битая. */
 function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | null {
     const start = (range as { start?: unknown }).start;
@@ -989,9 +1003,10 @@ export function createLanguagesNamespace(
                         token,
                     ),
                 );
-            } catch {
+            } catch (err) {
                 // Сбойный провайдер — пустой ответ (no-op), не «нет форматтера»:
                 // `result` остаётся неприсвоенным, его отсеет проверка ниже.
+                reportProviderFailure("provideDocumentRangeFormattingEdits", err);
             }
         } else {
             const docReg = formattingRegistrations.find((r) => matchDocumentSelector(r.selector, doc));
@@ -1004,8 +1019,9 @@ export function createLanguagesNamespace(
                             token,
                         ),
                     );
-                } catch {
+                } catch (err) {
                     // Симметрично range-ветке: сбой = пустой ответ.
+                    reportProviderFailure("provideDocumentFormattingEdits", err);
                 }
             } else {
                 // Документного провайдера нет, но range-провайдер — это тоже
@@ -1024,8 +1040,9 @@ export function createLanguagesNamespace(
                             token,
                         ),
                     );
-                } catch {
+                } catch (err) {
                     // Симметрично: сбой = пустой ответ.
+                    reportProviderFailure("provideDocumentRangeFormattingEdits", err);
                 }
             }
         }
