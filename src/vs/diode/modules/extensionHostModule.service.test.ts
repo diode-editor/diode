@@ -68,7 +68,7 @@ describe("extensionHostModule — сервис расширений", () => {
         expect(h.container.get(ExtensionServiceDIToken).extensions).toEqual([BROKEN_BUILTIN]);
     });
 
-    it("смена активного редактора просит onLanguage: его языка (тестовый профиль языков не знает — plaintext), закрытие последнего — ничего", () => {
+    it("смена активного редактора просит onLanguage: его языка (тестовый профиль языков не знает — plaintext), закрытие последнего — ничего", async () => {
         const service = h.container.get(ExtensionServiceDIToken);
         const activate = vi.spyOn(service, "activateByEvent");
 
@@ -76,7 +76,9 @@ describe("extensionHostModule — сервис расширений", () => {
         expect(activate.mock.calls).toEqual([["onLanguage:plaintext"]]);
 
         activate.mockClear();
-        h.container.get(EditorServiceDIToken).closeTab(0);
+        const editors = h.container.get(EditorServiceDIToken);
+        expect(await editors.closeEditor(editors.activeGroup, 0)).toBe(true);
+        expect(editors.getActiveEditor()).toBeNull();
         expect(activate).not.toHaveBeenCalled();
     });
 
