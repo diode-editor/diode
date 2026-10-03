@@ -1,7 +1,8 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
-import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -714,7 +715,9 @@ describe("SearchComponent", () => {
 
             component.focusSearchFromResults();
             expect(app.focusedElement?.id).toBe(queryInput(component).id);
-            expect(component.isInputBoxFocused(app.focusedElement)).toBe(true);
+            const keys = new ContextKeyService();
+            component.updateContextKeys(keys, app.focusedElement);
+            expect(keys.get("searchInputBoxFocus")).toBe(true);
         });
 
         it("детали раскрыты: query → include → exclude → список; обратно exclude → include → query", () => {
@@ -746,31 +749,42 @@ describe("SearchComponent", () => {
             expect(app.focusedElement).toBe(component.results);
         });
 
-        it("isFirstResultFocused: только активный список с курсором на первой строке", () => {
+        it("firstMatchFocus: только активный список с курсором на первой строке", () => {
             const { component } = makeFocusable(false);
+            const keys = new ContextKeyService();
+            const firstMatchFocus = (active: TUIElement | null): unknown => {
+                component.updateContextKeys(keys, active);
+                return keys.get("firstMatchFocus");
+            };
+            // Результатов ещё нет — первой строки нет, ключ опущен.
+            expect(firstMatchFocus(component.results)).toBe(false);
             (component as unknown as { queryInput: InputElement }).queryInput.inputState.value = "foo";
             typeQuery(component, "foo");
 
-            expect(component.isFirstResultFocused(component.results)).toBe(true); // курсор на file:a.ts
+            expect(firstMatchFocus(component.results)).toBe(true); // курсор на file:a.ts
             component.results.setCursorTo("match:a.ts:0");
-            expect(component.isFirstResultFocused(component.results)).toBe(false);
-            expect(component.isFirstResultFocused(null)).toBe(false);
+            expect(firstMatchFocus(component.results)).toBe(false);
+            expect(firstMatchFocus(null)).toBe(false);
         });
     });
 
-    it("containsFocus/isInputBoxFocused — по корню view и трём инпутам", () => {
+    it("searchViewletFocus/searchInputBoxFocus — по корню view и трём инпутам", () => {
         const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
         component.toggleQueryDetails(true, false);
-        const [query, include] = component.view.querySelectorAll("InputElement") as InputElement[];
+        const [query, include, exclude] = component.view.querySelectorAll("InputElement") as InputElement[];
+        const keys = new ContextKeyService();
+        const focusKeys = (active: TUIElement | null): unknown[] => {
+            component.updateContextKeys(keys, active);
+            return [keys.get("searchViewletFocus"), keys.get("searchInputBoxFocus")];
+        };
 
-        expect(component.containsFocus(query)).toBe(true);
-        expect(component.containsFocus(component.results)).toBe(true);
-        expect(component.containsFocus(null)).toBe(false);
-
-        expect(component.isInputBoxFocused(query)).toBe(true);
-        expect(component.isInputBoxFocused(include)).toBe(true);
-        expect(component.isInputBoxFocused(component.results)).toBe(false);
-        expect(component.isInputBoxFocused(null)).toBe(false);
+        expect(focusKeys(query)).toEqual([true, true]);
+        expect(focusKeys(include)).toEqual([true, true]);
+        expect(focusKeys(exclude)).toEqual([true, true]);
+        expect(focusKeys(component.results)).toEqual([true, false]);
+        // Элемент вне view поиска: предки до корня не доходят.
+        expect(focusKeys(new InputElement())).toEqual([false, false]);
+        expect(focusKeys(null)).toEqual([false, false]);
     });
 
     it("регистрирует свою view в merged-контейнере Search при создании", () => {

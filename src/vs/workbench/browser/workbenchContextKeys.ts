@@ -9,11 +9,15 @@ import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { EditorElement } from "../../editor/browser/editorElement.ts";
 import { isTextViewElement } from "../../editor/browser/iTextViewElement.ts";
+import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";
+import { ContextKeyContributorsDIToken } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import { registerContextKeys } from "../../platform/contextkey/common/contextKeys.ts";
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
+import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { macKeysLevel } from "../../platform/keybinding/common/macKeys.ts";
+import { ServiceAccessorDIToken } from "../common/coreTokens.ts";
 import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
@@ -28,8 +32,7 @@ import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/
 import { REFERENCES_VIEWLET_ID } from "../contrib/references/browser/referencesComponent.ts";
 import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
 import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
-import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
-import { SEARCH_VIEWLET_ID, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
+import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
@@ -60,6 +63,10 @@ export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("Workbenc
  * `KeybindingDispatcher.updateContextKeys` замкнут на {@link update} — перед
  * резолвом каждого биндинга ключи свежие.
  *
+ * Здесь живут только ключи workbench-уровня. Ключи фич выставляют сами фичи
+ * ({@link IContextKeyContributor}, явный список `ContextKeyContributorsDIToken`):
+ * центр опрашивает их в том же {@link update}, поэтому тайминг у них общий.
+ *
  * Корневая view приходит через late-init шов {@link attachView} (как
  * `attachHost` у DialogService): до прикрепления фокуса нет — активный элемент
  * считается `null`.
@@ -79,12 +86,15 @@ export class WorkbenchContextKeys extends Disposable {
         KeybindingDispatcherDIToken,
         LayoutServiceDIToken,
         SidebarServiceDIToken,
-        SearchComponentDIToken,
         HistoryServiceDIToken,
         TabSwitcherComponentDIToken,
+        ServiceAccessorDIToken,
+        ContextKeyContributorsDIToken,
     ] as const;
 
     private view: BodyElement | null = null;
+    /** Фичи со своими ключами — резолвятся сразу, чтобы порядок подъёма сервисов не зависел от первого нажатия. */
+    private readonly contributors: readonly IContextKeyContributor[];
 
     public constructor(
         private readonly contextKeys: ContextKeyService,
@@ -100,11 +110,13 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly dispatcher: KeybindingDispatcher,
         private readonly layoutService: LayoutService,
         private readonly sidebarService: SidebarService,
-        private readonly searchComponent: SearchComponent,
         private readonly historyService: HistoryService,
         private readonly tabSwitcher: TabSwitcherComponent,
+        accessor: ServiceAccessor,
+        contributorTokens: readonly Token<IContextKeyContributor>[],
     ) {
         super();
+        this.contributors = contributorTokens.map((contributor) => accessor.get(contributor));
         // Make custom-mode names (mode_<name>) valid `when` identifiers, then keep context
         // keys in sync when the environment changes (detection finalize / mode toggle);
         // сегмент статус-бара обновляет TerminalEnvStatusContribution по тому же событию.
@@ -190,10 +202,6 @@ export class WorkbenchContextKeys extends Disposable {
             "searchViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SEARCH_VIEWLET_ID,
         );
-        // Фокусные ключи поиска: сам компонент знает свои инпуты и корень view.
-        this.contextKeys.set("searchViewletFocus", this.searchComponent.containsFocus(active));
-        this.contextKeys.set("searchInputBoxFocus", this.searchComponent.isInputBoxFocused(active));
-        this.contextKeys.set("firstMatchFocus", this.searchComponent.isFirstResultFocused(active));
         this.contextKeys.set(
             "extensionsViewletVisible",
             this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === EXTENSIONS_VIEWLET_ID,
@@ -219,6 +227,10 @@ export class WorkbenchContextKeys extends Disposable {
         );
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         this.contextKeys.set("terminalIsOpen", this.terminalService.hasOpenTerminals);
+        // Ключи фич — у самих фич (IContextKeyContributor), тайминг тот же.
+        for (const contributor of this.contributors) {
+            contributor.updateContextKeys(this.contextKeys, active);
+        }
 
         // Terminal environment (tier / capabilities / modes / OS) — mostly static per session,
         // but mode can be force-toggled at runtime, so refresh alongside focus context.

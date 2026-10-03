@@ -16,6 +16,7 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -124,7 +125,7 @@ type RowMeta =
  * merged одно-view контейнер ({@link ViewsService}, mergeSingleView): заголовок
  * `SEARCH` с меню «⋯» рисует PaneHeaderElement, тело — {@link HeaderBodyViewElement}.
  */
-export class SearchComponent extends Component {
+export class SearchComponent extends Component implements IContextKeyContributor {
     public static dependencies = [
         TextSearchServiceDIToken,
         IWorkspaceContextServiceDIToken,
@@ -357,22 +358,31 @@ export class SearchComponent extends Component {
         }
     }
 
-    /** Активен список результатов и курсор на его первой строке (when-ключ `firstMatchFocus`). */
-    public isFirstResultFocused(active: TUIElement | null): boolean {
+    /**
+     * Фокусные ключи поиска (IContextKeyContributor): `searchViewletFocus` —
+     * активный элемент внутри тела view, `searchInputBoxFocus` — один из трёх
+     * инпутов, `firstMatchFocus` — список результатов с курсором на первой строке
+     * (возврат Up в инпуты).
+     */
+    public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
+        contextKeys.set("searchViewletFocus", this.containsFocus(active));
+        contextKeys.set("searchInputBoxFocus", this.isInputBoxFocused(active));
+        contextKeys.set("firstMatchFocus", this.isFirstResultFocused(active));
+    }
+
+    private isFirstResultFocused(active: TUIElement | null): boolean {
         if (active !== this.results || this.firstRowId === null) return false;
         return this.results.getCursorElement()?.id === this.firstRowId;
     }
 
-    /** Активный элемент внутри тела view поиска (when-ключ `searchViewletFocus`). */
-    public containsFocus(active: TUIElement | null): boolean {
+    private containsFocus(active: TUIElement | null): boolean {
         for (let element = active; element !== null; element = element.getParent()) {
             if (element === this.root) return true;
         }
         return false;
     }
 
-    /** Активный элемент — один из инпутов поиска (when-ключ `searchInputBoxFocus`). */
-    public isInputBoxFocused(active: TUIElement | null): boolean {
+    private isInputBoxFocused(active: TUIElement | null): boolean {
         return active === this.queryInput || active === this.includeInput || active === this.excludeInput;
     }
 
