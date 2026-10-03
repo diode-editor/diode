@@ -201,11 +201,12 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 ...(pane.modifiedUri !== null ? { modified: pane.modifiedUri.toString() } : {}),
             };
         }
-        /* v8 ignore start -- в полосе только текстовые и дифф-вкладки; минимальный снимок — задел под будущие виды панелей */
+        // Вкладка не текстового и не дифф-вида (Keyboard Shortcuts, страница
+        // расширения) — `TabInputUnknown` у vscode: расширению она не «текстовый
+        // редактор», и выдавать её за текст по её uri нельзя.
         if (!(pane instanceof TextEditorPane)) {
-            return { ...base, kind: "text" };
+            return { ...base, kind: "unknown" };
         }
-        /* v8 ignore stop */
         return {
             ...base,
             kind: "text",

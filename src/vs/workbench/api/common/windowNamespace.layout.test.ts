@@ -235,6 +235,47 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(groupTabs[1].input).toBeUndefined();
     });
 
+    it("TabInputTextDiff — только у диффа с обеими сторонами", () => {
+        const { stub, tabs } = makeCtx();
+        stub.fire("editor.layoutChanged", {
+            groups: [
+                {
+                    groupId: 1,
+                    viewColumn: 1,
+                    isActive: true,
+                    tabs: [
+                        { ...tab("diff://1", { isActive: true }), kind: "diff", original: A },
+                        { ...tab("diff://2"), kind: "diff", modified: B },
+                        // Стороны у вкладки не-диффа input не делают диффом.
+                        { ...tab("keybindings:global"), kind: "unknown", original: A, modified: B },
+                    ],
+                },
+            ],
+        });
+
+        expect(tabs.tabGroups.activeTabGroup.tabs.map((t) => t.input)).toEqual([undefined, undefined, undefined]);
+    });
+
+    it("вкладка чужого вида (kind=unknown): input undefined, видимым текстовым редактором не считается", () => {
+        const { stub, window, tabs } = makeCtx();
+        stub.fire("editor.layoutChanged", {
+            groups: [
+                {
+                    groupId: 1,
+                    viewColumn: 1,
+                    isActive: true,
+                    tabs: [tab(A), { ...tab("keybindings:global", { isActive: true }), kind: "unknown" }],
+                },
+            ],
+        });
+
+        const groupTabs = tabs.tabGroups.activeTabGroup.tabs;
+        expect(groupTabs[0].input instanceof TabInputText).toBe(true);
+        expect(groupTabs[1].input).toBeUndefined();
+        expect(tabs.tabGroups.activeTabGroup.activeTab?.input).toBeUndefined();
+        expect(window.visibleTextEditors).toEqual([]);
+    });
+
     it("onDidChangeTabs несёт diff-вкладки с тем же правилом input", () => {
         const { stub, tabs } = makeCtx();
         const events: vscode.TabChangeEvent[] = [];

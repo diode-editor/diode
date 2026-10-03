@@ -147,6 +147,17 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(group().getPanes()).toContain(diff);
     });
 
+    it("вкладку чужого вида (Keyboard Shortcuts) закрывает без диалога", async () => {
+        openAll("a.txt");
+        h.commands.execute("workbench.action.openGlobalKeybindings");
+        expect(labels()).toHaveLength(2);
+
+        expect(await service().closeEditor(group(), group().activePane!)).toBe(true);
+
+        expect(dialogs().getOpenConfirmSaveDialog()).toBeNull();
+        expect(labels()).toEqual(["a.txt"]);
+    });
+
     it("документ виден в другой группе — грязная вкладка закрывается без диалога", async () => {
         openAll("a.txt");
         edit(paneAt(0), "X");

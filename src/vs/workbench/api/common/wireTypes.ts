@@ -217,7 +217,8 @@ export interface IWireTabSnapshot {
     /** Активная вкладка СВОЕЙ группы. */
     readonly isActive: boolean;
     readonly isDirty: boolean;
-    readonly kind: "text" | "diff";
+    /** `unknown` — вкладка не текстового и не дифф-вида (Keyboard Shortcuts, страница расширения). */
+    readonly kind: "text" | "diff" | "unknown";
     /** kind=diff: uri original-стороны. */
     readonly original?: string;
     /** kind=diff: uri modified-стороны. */
@@ -263,7 +264,7 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
             if (typeof t.uri !== "string" || t.uri === "") return null;
             if (typeof t.label !== "string") return null;
             if (typeof t.isActive !== "boolean" || typeof t.isDirty !== "boolean") return null;
-            if (t.kind !== "text" && t.kind !== "diff") return null;
+            if (t.kind !== "text" && t.kind !== "diff" && t.kind !== "unknown") return null;
             tabs.push({
                 uri: t.uri,
                 label: t.label,

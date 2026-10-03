@@ -560,6 +560,11 @@ describe("WireTypes — parseWireEditorLayout", () => {
         expect(parseWireEditorLayout(raw)).toEqual(raw);
     });
 
+    it("принимает вкладку чужого вида (kind=unknown)", () => {
+        const raw = layoutOf(layoutTab({ uri: "keybindings:global", kind: "unknown" }));
+        expect(parseWireEditorLayout(raw)).toEqual(raw);
+    });
+
     it("подхватывает опциональные original/modified/languageId/selections diff-вкладки", () => {
         const raw = layoutOf(
             layoutTab({

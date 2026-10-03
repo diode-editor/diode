@@ -399,17 +399,24 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         return editor;
     }
 
+    /**
+     * `Tab.input` по виду вкладки. Дифф без ресурсных сторон (clipboard, untitled)
+     * и вкладка не текстового вида (Keyboard Shortcuts, страница расширения) —
+     * `undefined`, как `TabInputUnknown` у vscode.
+     */
+    function tabInputOf(tab: IWireTabSnapshot): TabInputText | TabInputTextDiff | undefined {
+        if (tab.kind === "text") return new TabInputText(Uri.parse(tab.uri));
+        if (tab.kind === "diff" && tab.original !== undefined && tab.modified !== undefined) {
+            return new TabInputTextDiff(Uri.parse(tab.original), Uri.parse(tab.modified));
+        }
+        return undefined;
+    }
+
     /** `Tab` для `window.tabGroups` — снимок на момент вызова (идентичность не гарантируется). */
     function makeTab(group: IWireTabGroupSnapshot, tab: IWireTabSnapshot): vscode.Tab {
-        const input =
-            tab.kind === "diff" && tab.original !== undefined && tab.modified !== undefined
-                ? new TabInputTextDiff(Uri.parse(tab.original), Uri.parse(tab.modified))
-                : tab.kind === "diff"
-                  ? undefined
-                  : new TabInputText(Uri.parse(tab.uri));
         return {
             label: tab.label,
-            input,
+            input: tabInputOf(tab),
             isActive: tab.isActive,
             isDirty: tab.isDirty,
             isPinned: false,
@@ -433,15 +440,9 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
 
     /** Tab без обратной ссылки на группу (обрыв рекурсии makeTab ↔ makeTabGroup). */
     function makeTabOnly(group: IWireTabGroupSnapshot, tab: IWireTabSnapshot): vscode.Tab {
-        const input =
-            tab.kind === "diff" && tab.original !== undefined && tab.modified !== undefined
-                ? new TabInputTextDiff(Uri.parse(tab.original), Uri.parse(tab.modified))
-                : tab.kind === "diff"
-                  ? undefined
-                  : new TabInputText(Uri.parse(tab.uri));
         return {
             label: tab.label,
-            input,
+            input: tabInputOf(tab),
             isActive: tab.isActive,
             isDirty: tab.isDirty,
             isPinned: false,
