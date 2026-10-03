@@ -1,5 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IMultiCursorFindSession } from "../../contrib/multicursor/iMultiCursorFindSession.ts";
@@ -143,7 +144,20 @@ export class EditorViewState {
      */
     public readOnly = false;
     private selectionsValue!: ISelection[];
-    private cursorChangeListeners: (() => void)[] = [];
+    private readonly onDidChangeCursorPositionEmitter = new Emitter<void>();
+    /**
+     * Subscribes to cursor/selection changes. Fires whenever `selections` is
+     * reassigned — cursor movement, typing, deletion, mouse, undo/redo.
+     */
+    public readonly onDidChangeCursorPosition = this.onDidChangeCursorPositionEmitter.event;
+    private readonly onDidChangeViewEmitter = new Emitter<void>();
+    /**
+     * Подписка на визуальные изменения view-состояния мимо курсора: скролл,
+     * фолдинг, подсветка поиска. Редактор помечает себя на перерисовку —
+     * контракт damage-tracking «любое видимое изменение проходит через
+     * markDirty» (docs/LAYOUT.md).
+     */
+    public readonly onDidChangeView = this.onDidChangeViewEmitter.event;
     /**
      * Ranges of all current search matches to highlight (set by the find
      * controller). Аксессоры — по той же причине, что и скролл: подсветка
@@ -368,48 +382,12 @@ export class EditorViewState {
         this.fireCursorChange();
     }
 
-    /**
-     * Subscribes to cursor/selection changes. Fires whenever `selections` is
-     * reassigned — cursor movement, typing, deletion, mouse, undo/redo.
-     */
-    public onDidChangeCursorPosition(listener: () => void): IDisposable {
-        this.cursorChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.cursorChangeListeners.indexOf(listener);
-                if (i >= 0) this.cursorChangeListeners.splice(i, 1);
-            },
-        };
-    }
-
     private fireCursorChange(): void {
-        for (const listener of [...this.cursorChangeListeners]) {
-            listener();
-        }
+        this.onDidChangeCursorPositionEmitter.fire();
     }
-
-    /**
-     * Подписка на визуальные изменения view-состояния мимо курсора: скролл,
-     * фолдинг, подсветка поиска. Редактор помечает себя на перерисовку —
-     * контракт damage-tracking «любое видимое изменение проходит через
-     * markDirty» (docs/LAYOUT.md).
-     */
-    public onDidChangeView(listener: () => void): IDisposable {
-        this.viewChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.viewChangeListeners.indexOf(listener);
-                if (i >= 0) this.viewChangeListeners.splice(i, 1);
-            },
-        };
-    }
-
-    private viewChangeListeners: (() => void)[] = [];
 
     private fireViewChange(): void {
-        for (const listener of [...this.viewChangeListeners]) {
-            listener();
-        }
+        this.onDidChangeViewEmitter.fire();
     }
 
     /** Единая точка мутации фолдинга: версия для кэшей + уведомление view. */

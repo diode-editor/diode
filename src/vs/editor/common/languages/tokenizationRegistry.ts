@@ -1,3 +1,4 @@
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 
@@ -28,7 +29,8 @@ interface ILazyEntry {
 export class TokenizationRegistry {
     private supports = new Map<string, ITokenizationSupport>();
     private lazy = new Map<string, ILazyEntry>();
-    private listeners: ((languageId: string) => void)[] = [];
+    private readonly onDidChangeEmitter = new Emitter<string>();
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     public register(languageId: string, support: ITokenizationSupport): IDisposable {
         this.supports.set(languageId, support);
@@ -93,16 +95,6 @@ export class TokenizationRegistry {
         return this.supports.get(languageId);
     }
 
-    public onDidChange(listener: (languageId: string) => void): IDisposable {
-        this.listeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.listeners.indexOf(listener);
-                if (i >= 0) this.listeners.splice(i, 1);
-            },
-        };
-    }
-
     private async runFactory(languageId: string, entry: ILazyEntry): Promise<ITokenizationSupport | undefined> {
         let support: ITokenizationSupport | null;
         try {
@@ -122,10 +114,7 @@ export class TokenizationRegistry {
     }
 
     private fireChange(languageId: string): void {
-        // Копия: fireChange теперь случается и по резолву промиса (возможно,
-        // после закрытия вкладки), а отписка во время фаера сдвинула бы массив
-        // и пропустила соседа.
-        for (const listener of [...this.listeners]) listener(languageId);
+        this.onDidChangeEmitter.fire(languageId);
     }
 }
 

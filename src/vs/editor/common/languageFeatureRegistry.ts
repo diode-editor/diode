@@ -1,3 +1,4 @@
+import { Emitter } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
 import type { Uri } from "../../base/common/uri.ts";
 
@@ -34,7 +35,7 @@ interface Entry<T> {
 export class LanguageFeatureRegistry<T> {
     private clock = 0;
     private readonly entries: Entry<T>[] = [];
-    private readonly listeners: ((count: number) => void)[] = [];
+    private readonly onDidChangeEmitter = new Emitter<number>();
     /** Документ, под который сейчас посчитаны `entry.score`; `undefined` — пересчитать. */
     private lastCandidate: { readonly uri: string; readonly languageId: string } | undefined;
 
@@ -61,15 +62,7 @@ export class LanguageFeatureRegistry<T> {
      * Событие «состав провайдеров изменился» — на каждую регистрацию и снятие
      * (а не только на переходе пусто↔непусто). Аргумент — число регистраций.
      */
-    public onDidChange(listener: (count: number) => void): IDisposable {
-        this.listeners.push(listener);
-        return {
-            dispose: () => {
-                const index = this.listeners.indexOf(listener);
-                if (index >= 0) this.listeners.splice(index, 1);
-            },
-        };
-    }
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     public has(target: ILanguageFeatureTarget): boolean {
         return this.ordered(target).length > 0;
@@ -105,7 +98,7 @@ export class LanguageFeatureRegistry<T> {
     }
 
     private fireDidChange(): void {
-        for (const listener of [...this.listeners]) listener(this.entries.length);
+        this.onDidChangeEmitter.fire(this.entries.length);
     }
 }
 
