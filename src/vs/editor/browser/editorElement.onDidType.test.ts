@@ -91,10 +91,11 @@ describe("EditorElement.onDidType", () => {
             neighbour.dispose();
         });
         neighbour = editor.onDidType((text) => seen.push(text));
-        // Рассылка идёт по снапшоту: сосед, отписанный посреди неё, текущий символ ещё получает.
+        // Сосед, отписанный посреди рассылки и ещё не достигнутый, текущий символ
+        // уже не получает (гарантия Emitter, docs/TODO/Events.md G2).
         press(editor, "a");
         press(editor, "b");
-        expect(seen).toEqual(["a"]);
+        expect(seen).toEqual([]);
 
         const last: string[] = [];
         editor.onDidType((text) => last.push(text));

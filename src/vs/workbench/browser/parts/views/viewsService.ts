@@ -3,6 +3,7 @@ import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFl
 import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { isSubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
@@ -209,6 +210,12 @@ function attached(entry: ContainerEntry): AttachedEntry {
  * `openWorkspace`) и меню «⋯» (`MenuId.ViewTitle` с императивной
  * фильтрацией по `menuContext.view`).
  */
+/** Смена раскрытости секции view (см. {@link ViewsService.onDidChangeViewExpanded}). */
+export interface IViewExpandedChangeEvent {
+    readonly viewId: string;
+    readonly expanded: boolean;
+}
+
 export class ViewsService {
     public static dependencies = [
         SidebarServiceDIToken,
@@ -226,7 +233,7 @@ export class ViewsService {
      * {@link syncExpanded}. Ключ — id view; отсутствие ключа равно `false`.
      */
     private readonly expandedState = new Map<string, boolean>();
-    private readonly expandedListeners = new Set<(viewId: string, expanded: boolean) => void>();
+    private readonly onDidChangeViewExpandedEmitter = new Emitter<IViewExpandedChangeEvent>();
 
     public constructor(
         private readonly sidebarService: SidebarService,
@@ -378,14 +385,7 @@ export class ViewsService {
      * пер-панельное событие теряло бы переходы. Здесь же после каждого пути
      * изменения состояние пересчитывается целиком и сравнивается с прежним.
      */
-    public onDidChangeViewExpanded(listener: (viewId: string, expanded: boolean) => void): IDisposable {
-        this.expandedListeners.add(listener);
-        return {
-            dispose: () => {
-                this.expandedListeners.delete(listener);
-            },
-        };
-    }
+    public readonly onDidChangeViewExpanded = this.onDidChangeViewExpandedEmitter.event;
 
     /** Пересчёт раскрытости секций контейнера с рассылкой по изменившимся. */
     private syncExpanded(entry: ContainerEntry): void {
@@ -393,7 +393,7 @@ export class ViewsService {
             const expanded = this.isViewExpanded(view.id);
             if ((this.expandedState.get(view.id) ?? false) === expanded) continue;
             this.expandedState.set(view.id, expanded);
-            for (const listener of [...this.expandedListeners]) listener(view.id, expanded);
+            this.onDidChangeViewExpandedEmitter.fire({ viewId: view.id, expanded });
         }
     }
 

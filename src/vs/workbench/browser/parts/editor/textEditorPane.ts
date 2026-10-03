@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import type { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
@@ -38,7 +39,7 @@ import type { IEditorPane } from "./iEditorPane.ts";
  * спросил текстовую панель.
  */
 export class TextEditorPane extends Disposable implements IEditorPane {
-    private readOnlyListeners = new Set<() => void>();
+    private readonly onDidChangeReadOnlyEmitter = this.register(new Emitter<void>());
     /**
      * Редактор вне таб-строки (нижняя Panel: Output). Такой редактор попадает в
      * `getActivePane()`, когда фокус внутри него, — и потребители, работающие
@@ -290,17 +291,14 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     public set readOnly(value: boolean) {
         if (this.component.viewState.readOnly === value) return;
         this.component.viewState.readOnly = value;
-        for (const listener of [...this.readOnlyListeners]) listener();
+        this.onDidChangeReadOnlyEmitter.fire();
     }
 
     /**
      * Смена режима read-only. На неё подписан `EditorService` — таб должен
      * получить/потерять замок сразу, как это уже сделано для EOL и dirty.
      */
-    public onDidChangeReadOnly(listener: () => void): IDisposable {
-        this.readOnlyListeners.add(listener);
-        return { dispose: () => this.readOnlyListeners.delete(listener) };
-    }
+    public readonly onDidChangeReadOnly = this.onDidChangeReadOnlyEmitter.event;
 
     public onDidChangeCursorPosition(listener: () => void): IDisposable {
         return this.component.onDidChangeCursorPosition(listener);

@@ -1,4 +1,5 @@
-import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
+import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
+
 import type { ILanguageFeaturesService } from "../../../editor/common/services/languageFeatures.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
 import type { IWireLanguageProviderRegistration, WireLanguageFeatureKind } from "../common/wireTypes.ts";

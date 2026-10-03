@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { ScmGraphMenuContext } from "../../../browser/actions/menuContexts.ts";
-import type { IViewDescriptor, ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import type {
+    IViewDescriptor,
+    IViewExpandedChangeEvent,
+    ViewsService,
+} from "../../../browser/parts/views/viewsService.ts";
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 import { SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
 
@@ -36,25 +41,18 @@ function make(expanded = true): ISetup {
     const graphService = new ScmGraphService(commands);
     const registered: IViewDescriptor[] = [];
     let isExpanded = expanded;
-    const expandedListeners = new Set<(viewId: string, expanded: boolean) => void>();
+    const expandedChanges = new Emitter<IViewExpandedChangeEvent>();
     const viewsService = {
         registerView: (descriptor: IViewDescriptor) => {
             registered.push(descriptor);
         },
         isViewExpanded: (viewId: string) => viewId === SCM_GRAPH_VIEW_ID && isExpanded,
-        onDidChangeViewExpanded: (listener: (viewId: string, next: boolean) => void) => {
-            expandedListeners.add(listener);
-            return {
-                dispose: () => {
-                    expandedListeners.delete(listener);
-                },
-            };
-        },
+        onDidChangeViewExpanded: expandedChanges.event,
     } as unknown as ViewsService;
     const setExpanded = (next: boolean): void => {
         if (next === isExpanded) return;
         isExpanded = next;
-        for (const listener of [...expandedListeners]) listener(SCM_GRAPH_VIEW_ID, next);
+        expandedChanges.fire({ viewId: SCM_GRAPH_VIEW_ID, expanded: next });
     };
     const shownMenus: { menuId: unknown; menuContext: unknown; owner: unknown; anchor: unknown }[] = [];
     const contextMenuService = {

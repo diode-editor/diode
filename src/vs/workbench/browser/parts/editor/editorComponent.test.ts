@@ -589,6 +589,9 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             fs.writeFileSync(fp, "changed\ncontent", "utf-8");
             ctrl.revertToDisk();
             const afterReload = fired;
+            // Сама перечитка — тоже смена выделения (каретка пересажена на новый
+            // view-state): подписчик узнаёт о ней ровно один раз.
+            expect(afterReload).toBe(2);
             ctrl.viewState.selections = [createCursorSelection(1, 2)];
             expect(fired).toBeGreaterThan(afterReload);
 

@@ -132,7 +132,7 @@ export class GraphViewComponent extends Component {
             }),
         );
         this.register(
-            viewsService.onDidChangeViewExpanded((viewId, expanded) => {
+            viewsService.onDidChangeViewExpanded(({ viewId, expanded }) => {
                 if (viewId === SCM_GRAPH_VIEW_ID) this.setExpanded(expanded);
             }),
         );

@@ -54,7 +54,7 @@ describe("ViewsService: раскрытость секций", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
         const seen: [string, boolean][] = [];
-        h.service.onDidChangeViewExpanded((id, expanded) => seen.push([id, expanded]));
+        h.service.onDidChangeViewExpanded(({ viewId, expanded }) => seen.push([viewId, expanded]));
         h.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: ["scm.graph"], weights: {}, hidden: [] },
         });
@@ -67,7 +67,7 @@ describe("ViewsService: раскрытость секций", () => {
     it("событие приходит на каждое изменение и только на него", () => {
         const h = makeScm();
         const seen: [string, boolean][] = [];
-        h.service.onDidChangeViewExpanded((id, expanded) => seen.push([id, expanded]));
+        h.service.onDidChangeViewExpanded(({ viewId, expanded }) => seen.push([viewId, expanded]));
 
         h.service.attachContainer("scm");
         expect(seen).toEqual([

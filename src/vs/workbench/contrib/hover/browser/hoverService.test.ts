@@ -1,3 +1,4 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -5,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
