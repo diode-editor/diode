@@ -305,23 +305,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         });
         // Stryker restore ArrowFunction,BlockStatement,CallExpression
 
-        // Formatting: провайдеры расширений (languages.provideFormattingEdits)
-        // подключаются как formatting-источник группы (читают команды
-        // editor.action.formatDocument / formatSelection).
-        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.formattingSource = (req) => host.provideFormattingEdits(req);
-
-        // Code actions: провайдеры расширений (languages.provideCodeActions /
-        // applyCodeAction) — источник действий группы (читают команды
-        // editor.action.organizeImports / fixAll).
-        // Stryker disable next-line ObjectLiteral: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.codeActionSource = {
-            // Stryker disable next-line ArrowFunction: см. выше
-            provide: (req) => host.provideCodeActions(req),
-            // Stryker disable next-line ArrowFunction: см. выше
-            apply: (id) => host.applyCodeAction(id),
-        };
-
         // Folding: провайдеры расширений (languages.provideFoldingRanges)
         // подключаются как источник областей сворачивания группы (читает
         // EditorComponent при пересчёте, мержит поверх indentation-фолдов).

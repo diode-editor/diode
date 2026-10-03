@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
@@ -12,9 +11,9 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 
 /**
- * Гейт запроса форматирования: субпроцесса нет, канал сшит in-process — так
- * проверяются ветки, недостижимые через настоящий fork (подписка ещё не
- * пришла, отсечка по размеру документа, форма параметров RPC). Образец —
+ * Запрос форматирования по handle: субпроцесса нет, канал сшит in-process —
+ * так проверяются ветки, недостижимые через настоящий fork (отсечка по размеру
+ * документа, форма параметров RPC). Образец —
  * `extensionHost.signatureHelpInProcess.test.ts`.
  */
 
@@ -63,40 +62,24 @@ function makeHost(options: { warn?: ILogger["warn"] } = {}): { host: ExtensionHo
     return { host, peer };
 }
 
-describe("ExtensionHost — гейт форматирования (in-process)", () => {
-    it("без подписки — null без RPC; после hasFormattingProviders — запрос уходит", async () => {
-        const { host, peer } = makeHost();
-        const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
-        peer.handleRequest("languages.provideFormattingEdits", provide);
-
-        expect(await host.provideFormattingEdits(requestOf("const  a=1;\n"))).toBeNull();
-        expect(provide).not.toHaveBeenCalled();
-
-        peer.notify("languages.updateSubscriptions", { hasFormattingProviders: true });
-        await flushMicrotasks();
-
-        expect(await host.provideFormattingEdits(requestOf("const  a=1;\n"))).toEqual([
-            { range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } }, text: " " },
-        ]);
-        expect(provide).toHaveBeenCalledTimes(1);
-    });
-
-    it("параметры едут как есть; range сериализуется в wire-форму и не выдумывается без него", async () => {
+describe("ExtensionHost — форматирование по handle (in-process)", () => {
+    it("запрос несёт handle; range сериализуется в wire-форму и не выдумывается без него", async () => {
         const { host, peer } = makeHost();
         const seen: unknown[] = [];
         peer.handleRequest("languages.provideFormattingEdits", (params) => {
             seen.push(params);
-            return Promise.resolve(null);
+            return Promise.resolve([WIRE_EDIT]);
         });
-        peer.notify("languages.updateSubscriptions", { hasFormattingProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideFormattingEdits(requestOf("x"))).toBeNull();
-        await host.provideFormattingEdits(requestOf("x", { range: createRange(1, 2, 3, 4) }));
+        expect(await host.provideFormattingEdits(5, requestOf("x"))).toEqual([
+            { range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } }, text: " " },
+        ]);
+        await host.provideFormattingEdits(6, requestOf("x", { range: createRange(1, 2, 3, 4) }));
 
         expect(seen).toEqual([
-            { uri: "file:///a.ts", languageId: "typescript", text: "x", tabSize: 2, insertSpaces: true },
+            { handle: 5, uri: "file:///a.ts", languageId: "typescript", text: "x", tabSize: 2, insertSpaces: true },
             {
+                handle: 6,
                 uri: "file:///a.ts",
                 languageId: "typescript",
                 text: "x",
@@ -112,11 +95,9 @@ describe("ExtensionHost — гейт форматирования (in-process)",
         const { host, peer } = makeHost({ warn });
         const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
         peer.handleRequest("languages.provideFormattingEdits", provide);
-        peer.notify("languages.updateSubscriptions", { hasFormattingProviders: true });
-        await flushMicrotasks();
 
         const huge = "x".repeat(MAX_TEXT_BYTES + 1);
-        expect(await host.provideFormattingEdits(requestOf(huge))).toEqual([]);
+        expect(await host.provideFormattingEdits(0, requestOf(huge))).toEqual([]);
         expect(provide).not.toHaveBeenCalled();
         expect(warn).toHaveBeenCalledExactlyOnceWith("skipping formatting: document too large", {
             uri: "file:///a.ts",
@@ -125,30 +106,28 @@ describe("ExtensionHost — гейт форматирования (in-process)",
 
         // Ровно на границе — не «слишком большой»: запрос уходит.
         const exact = "x".repeat(MAX_TEXT_BYTES);
-        await host.provideFormattingEdits(requestOf(exact));
+        await host.provideFormattingEdits(0, requestOf(exact));
         expect(provide).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledOnce();
+    });
+
+    it("после остановки субпроцесса запрос не уходит", async () => {
+        const { host, peer } = makeHost();
+        const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
+        peer.handleRequest("languages.provideFormattingEdits", provide);
+
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
+
+        expect(await host.provideFormattingEdits(0, requestOf("x"))).toEqual([]);
+        expect(provide).not.toHaveBeenCalled();
     });
 
     it("слишком большой документ без логгера — тот же [], без падения на warn", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
         peer.handleRequest("languages.provideFormattingEdits", provide);
-        peer.notify("languages.updateSubscriptions", { hasFormattingProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideFormattingEdits(requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toEqual([]);
-        expect(provide).not.toHaveBeenCalled();
-    });
-
-    it("чужая форма подписки (не true) не включает гейт", async () => {
-        const { host, peer } = makeHost();
-        const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
-        peer.handleRequest("languages.provideFormattingEdits", provide);
-        peer.notify("languages.updateSubscriptions", { hasFormattingProviders: "true" });
-        await flushMicrotasks();
-
-        expect(await host.provideFormattingEdits(requestOf("x"))).toBeNull();
+        expect(await host.provideFormattingEdits(0, requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toEqual([]);
         expect(provide).not.toHaveBeenCalled();
     });
 });

@@ -1,6 +1,8 @@
+import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
-import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
-import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { getCodeActions } from "../../../../editor/contrib/codeAction/codeAction.ts";
+import { formatDocument } from "../../../../editor/contrib/format/format.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { applyFormattingEdits } from "../../../browser/parts/editor/applyFormattingEdits.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
@@ -16,14 +18,13 @@ import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts"
 // модели `EditorService` (см. `collectSaveParticipants`).
 
 /**
- * Зависимости участников. Источники читаются ЛЕНИВО (host подключает их после
- * создания сервиса), панель ищется по ресурсу снапшота — сохраняться может и
+ * Зависимости участников. Провайдеры берутся из реестров по документу снапшота
+ * в момент сохранения, панель ищется по его ресурсу — сохраняться может и
  * неактивная вкладка (Save при переключении, будущий Save All).
  */
 export interface IOnSaveParticipantHost {
     readonly configuration: IConfigurationService;
-    codeActionSource(): CodeActionSource | undefined;
-    formattingSource(): FormattingSource | undefined;
+    readonly languageFeatures: ILanguageFeaturesService;
     paneForUri(uri: string): TextEditorPane | null;
 }
 
@@ -55,12 +56,13 @@ export function enabledCodeActionKindsOnSave(configuration: IConfigurationServic
  */
 export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost): SaveParticipant {
     return async (snapshot) => {
-        const source = host.codeActionSource();
-        if (source === undefined) return [];
+        const target = { uri: Uri.parse(snapshot.uri), languageId: snapshot.languageId };
+        // Провайдеров для документа нет — и настройку читать незачем.
+        if (!host.languageFeatures.codeActionProvider.has(target)) return [];
         for (const kind of enabledCodeActionKindsOnSave(host.configuration)) {
             const text = host.paneForUri(snapshot.uri)?.getText() ?? snapshot.text;
             const lines = text.split("\n");
-            const actions = await source.provide({
+            const items = await getCodeActions(host.languageFeatures.codeActionProvider, target, {
                 uri: snapshot.uri,
                 languageId: snapshot.languageId,
                 text,
@@ -69,8 +71,8 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
                 range: createRange(0, 0, lines.length - 1, lines[lines.length - 1].length),
                 only: kind,
             });
-            for (const action of actions ?? []) {
-                await source.apply(action.id);
+            for (const { action, provider } of items) {
+                await provider.applyCodeAction(action.id);
             }
         }
         return [];
@@ -88,11 +90,11 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
 export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): SaveParticipant {
     return async (snapshot) => {
         if (!host.configuration.get("editor.formatOnSave")) return [];
-        const source = host.formattingSource();
         const pane = host.paneForUri(snapshot.uri);
-        if (source === undefined || pane === null) return [];
+        if (pane === null) return [];
         const text = pane.getText();
-        const edits = await source({
+        const target = { uri: Uri.parse(snapshot.uri), languageId: snapshot.languageId };
+        const edits = await formatDocument(host.languageFeatures, target, {
             uri: snapshot.uri,
             languageId: snapshot.languageId,
             text,

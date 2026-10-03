@@ -4,7 +4,9 @@ import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
-import type { FormattingSource, IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
+import type { IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { type EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
@@ -33,9 +35,12 @@ interface ISetup {
     swapActiveEditor(): void;
 }
 
+/** Ответ форматтера на запрос (и документного, и range — у теста один). */
+type FakeFormatter = (request: IFormattingRequest) => Promise<readonly ITextEdit[]>;
+
 function makeSetup(
-    source: FormattingSource | undefined,
-    options: { selection?: ISelectionLike; noSelections?: boolean } = {},
+    source: FakeFormatter | undefined,
+    options: { selection?: ISelectionLike; noSelections?: boolean; selector?: string } = {},
 ): ISetup {
     let text = "const  a=1;\nsecond line\nthird";
     const applied: { edits: readonly ITextEdit[]; label: string }[] = [];
@@ -62,16 +67,22 @@ function makeSetup(
         },
     };
     let active: unknown = editor;
-    const wrappedSource: FormattingSource | undefined =
-        source === undefined
-            ? undefined
-            : async (request) => {
-                  requests.push(request);
-                  return source(request);
-              };
+    // Форматтер — документный и range-провайдер в реестре под селектором
+    // `options.selector` (по умолчанию — любой документ).
+    const languageFeatures = new LanguageFeaturesService();
+    if (source !== undefined) {
+        const selector = options.selector ?? "*";
+        const format = (request: IFormattingRequest): Promise<readonly ITextEdit[]> => {
+            requests.push(request);
+            return source(request);
+        };
+        languageFeatures.documentFormattingEditProvider.register(selector, { provideDocumentFormattingEdits: format });
+        languageFeatures.documentRangeFormattingEditProvider.register(selector, {
+            provideDocumentRangeFormattingEdits: format,
+        });
+    }
     const group = {
         getActiveEditor: () => active,
-        formattingSource: wrappedSource,
     } as unknown as EditorService;
     const notices: string[] = [];
     const statusBar = {
@@ -84,6 +95,7 @@ function makeSetup(
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => group);
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
+    accessor.bind(LanguageFeaturesServiceDIToken, () => languageFeatures);
     return {
         accessor,
         applied,
@@ -139,16 +151,22 @@ describe("editor.action.formatDocument", () => {
         ]);
     });
 
-    it("без источника или при null-ответе показывает «нет форматтера» и ничего не меняет", async () => {
+    it("без форматтера для документа показывает «нет форматтера» и ничего не меняет", async () => {
         const noSource = makeSetup(undefined);
         await formatDocumentAction.run(noSource.accessor);
         expect(noSource.applied).toEqual([]);
         expect(noSource.notices).toEqual(["formatting.notice: No formatter for 'python' installed"]);
 
-        const nullAnswer = makeSetup(() => Promise.resolve(null));
-        await formatDocumentAction.run(nullAnswer.accessor);
-        expect(nullAnswer.applied).toEqual([]);
-        expect(nullAnswer.notices).toEqual(["formatting.notice: No formatter for 'python' installed"]);
+        // Форматтер есть, но для чужого языка — к нему даже не ходят.
+        const foreign = makeSetup(() => Promise.resolve([EDIT]), { selector: "typescript" });
+        await formatDocumentAction.run(foreign.accessor);
+        await formatSelectionAction.run(foreign.accessor);
+        expect(foreign.requests).toEqual([]);
+        expect(foreign.applied).toEqual([]);
+        expect(foreign.notices).toEqual([
+            "formatting.notice: No formatter for 'python' installed",
+            "formatting.notice: No formatter for 'python' installed",
+        ]);
     });
 
     it("пустой ответ — тихий no-op: ни правок, ни сообщения", async () => {

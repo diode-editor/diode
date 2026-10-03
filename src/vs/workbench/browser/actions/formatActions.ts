@@ -1,5 +1,7 @@
 import { comparePositions, positionsEqual } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../editor/common/services/languageFeatures.ts";
+import { formatDocument, formatRange } from "../../../editor/contrib/format/format.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -12,7 +14,7 @@ import { EditorStateCancellationTokenSource, EditorStateFlag } from "../parts/ed
 // ─── Formatting (#196) ──────────────────────────────────────
 //
 // Команды форматирования поверх провайдеров расширений
-// (`EditorService.formattingSource` ← host ← `languages.provideFormattingEdits`).
+// (реестры `ILanguageFeaturesService` ← прокси host'а ← `languages.provideFormattingEdits`).
 // Своего форматтера у ядра нет намеренно: без провайдера команда показывает
 // «нет форматтера» в статус-баре (как VS Code), а не изобретает beautifier,
 // который портил бы код.
@@ -26,39 +28,35 @@ import { EditorStateCancellationTokenSource, EditorStateFlag } from "../parts/ed
 async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label: string): Promise<void> {
     const group = accessor.get(EditorServiceDIToken);
     const statusBar = accessor.get(StatusBarServiceDIToken);
+    const languageFeatures = accessor.get(LanguageFeaturesServiceDIToken);
     const editor = group.getActiveEditor();
     if (editor === null) return;
 
-    const noFormatter = (): void => {
-        showTransientNotice(statusBar, "formatting.notice", `No formatter for '${editor.languageId}' installed`);
-    };
-
-    const source = group.formattingSource;
-    if (source === undefined) {
-        noFormatter();
-        return;
-    }
-
     const text = editor.getText();
-    const range = useSelection ? selectionRange(editor.viewState.selections[0], text) : undefined;
+    const request = {
+        uri: editor.uri.toString(),
+        languageId: editor.languageId,
+        text,
+        tabSize: editor.viewState.tabSize,
+        insertSpaces: editor.viewState.insertSpaces,
+    };
     // Правка документа за время запроса делает ответ неприменимым: его
     // смещения посчитаны по снапшоту, который уже не совпадает с текстом.
     const state = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Value);
-    let edits: Awaited<ReturnType<typeof source>>;
+    let edits: Awaited<ReturnType<typeof formatDocument>>;
     try {
-        edits = await source({
-            uri: editor.uri.toString(),
-            languageId: editor.languageId,
-            text,
-            tabSize: editor.viewState.tabSize,
-            insertSpaces: editor.viewState.insertSpaces,
-            ...(range === undefined ? {} : { range }),
-        });
+        // Форматтера для документа нет — сразу «нет форматтера», без RPC.
+        edits = useSelection
+            ? await formatRange(languageFeatures, editor, {
+                  ...request,
+                  range: selectionRange(editor.viewState.selections[0], text),
+              })
+            : await formatDocument(languageFeatures, editor, request);
     } finally {
         state.dispose();
     }
     if (edits === null) {
-        noFormatter();
+        showTransientNotice(statusBar, "formatting.notice", `No formatter for '${editor.languageId}' installed`);
         return;
     }
     if (edits.length === 0) return;

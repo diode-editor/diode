@@ -8,6 +8,10 @@ import {
     extensionFixture,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import {
+    type ILanguageFeaturesService,
+    LanguageFeaturesServiceDIToken,
+} from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -43,6 +47,7 @@ function esmFixture(): IExtensionRegistration {
 function registerFormatAction(harness: {
     commandRegistry: Parameters<typeof registerAction>[0];
     group: unknown;
+    languageFeatures: ILanguageFeaturesService;
 }): string[] {
     const notices: string[] = [];
     const statusBar = {
@@ -53,6 +58,7 @@ function registerFormatAction(harness: {
     } as unknown as StatusBarService;
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => harness.group as never);
+    accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, formatDocumentAction);
     return notices;

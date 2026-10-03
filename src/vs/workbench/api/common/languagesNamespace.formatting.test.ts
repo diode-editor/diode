@@ -5,7 +5,7 @@ import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
-import { Range, TextEdit } from "./vscodeTypes.ts";
+import { Range, TextEdit, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stub: IStubRpc } {
@@ -23,6 +23,7 @@ const URI = "file:///proj/main.ts";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
+        handle: 0,
         uri: URI,
         languageId: "typescript",
         text: "const  a=1;\nconst b = 2;\n",
@@ -42,46 +43,30 @@ function oneEditProvider(): vscode.DocumentFormattingEditProvider {
 }
 
 describe("LanguagesNamespace — провайдеры форматирования", () => {
-    it("подписка сигналится на переходах 0↔1, range-провайдер тоже считается", () => {
+    it("оба вида объявляются ядру своим kind; dispose снимает один раз", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const flags = (): unknown[] =>
-            stub.notifies
-                .filter((n) => n.method === "languages.updateSubscriptions")
-                .map((n) => (n.params as { hasFormattingProviders?: unknown }).hasFormattingProviders);
 
         const doc = languages.registerDocumentFormattingEditProvider({ language: "typescript" }, oneEditProvider());
-        expect(flags()).toEqual([true]);
-
-        // Второй провайдер того же вида — сигнала нет (переход не 0↔1).
-        const doc2 = languages.registerDocumentFormattingEditProvider({ language: "python" }, oneEditProvider());
-        expect(flags()).toEqual([true]);
-        doc2.dispose();
-        expect(flags()).toEqual([true]);
-
-        doc.dispose();
-        expect(flags()).toEqual([true, false]);
-
-        const range = languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
+        const range = languages.registerDocumentRangeFormattingEditProvider({ language: "python" }, {
             provideDocumentRangeFormattingEdits: () => [],
         } as unknown as vscode.DocumentRangeFormattingEditProvider);
-        expect(flags()).toEqual([true, false, true]);
-        const range2 = languages.registerDocumentRangeFormattingEditProvider({ language: "python" }, {
-            provideDocumentRangeFormattingEdits: () => [],
-        } as unknown as vscode.DocumentRangeFormattingEditProvider);
-        expect(flags()).toEqual([true, false, true]);
-        range2.dispose();
-        expect(flags()).toEqual([true, false, true]);
-        range.dispose();
-        expect(flags()).toEqual([true, false, true, false]);
+        expect(stub.notifies.filter((n) => n.method === "languages.register").map((n) => n.params)).toEqual([
+            { handle: 0, kind: "formatting", selector: [{ language: "typescript" }] },
+            { handle: 1, kind: "rangeFormatting", selector: [{ language: "python" }] },
+        ]);
 
-        // Повторный dispose — no-op, не портит счётчики и не шлёт сигналов.
         doc.dispose();
         range.dispose();
-        expect(flags()).toEqual([true, false, true, false]);
+        doc.dispose();
+        expect(stub.notifies.filter((n) => n.method === "languages.unregister").map((n) => n.params)).toEqual([
+            { handle: 0 },
+            { handle: 1 },
+        ]);
+        expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 
-    it("документный запрос: правки первого матчащего провайдера сериализуются, options доезжают", async () => {
+    it("документный запрос: правки провайдера запрошенного handle сериализуются, options доезжают", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { languageId: string; text: string; options: vscode.FormattingOptions }[] = [];
@@ -91,7 +76,7 @@ describe("LanguagesNamespace — провайдеры форматировани
                 return [new TextEdit(new Range(0, 5, 0, 7), " ")];
             },
         } as unknown as vscode.DocumentFormattingEditProvider);
-        // Второй матчащий — не должен быть спрошен (первый выиграл).
+        // Второй (handle 1) не запрошен — и не спрошен.
         const second = vi.fn(() => [new TextEdit(new Range(1, 0, 1, 0), "zzz")]);
         languages.registerDocumentFormattingEditProvider({ language: "typescript" }, {
             provideDocumentFormattingEdits: second,
@@ -109,20 +94,44 @@ describe("LanguagesNamespace — провайдеры форматировани
         ]);
     });
 
-    it("нет матчащего провайдера — null («нет форматтера»), не пустой массив", async () => {
+    it("неизвестный handle и handle другого вида — пустой ответ, провайдер не зовётся", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        languages.registerDocumentFormattingEditProvider({ language: "python" }, oneEditProvider());
+        const provide = vi.fn(() => [new TextEdit(new Range(0, 5, 0, 7), " ")]);
+        const documentProvider = {
+            provideDocumentFormattingEdits: provide,
+        } as unknown as vscode.DocumentFormattingEditProvider;
+        languages.registerDocumentFormattingEditProvider({ language: "typescript" }, documentProvider); // 0
+        languages.registerDocumentFormattingEditProvider({ language: "typescript" }, documentProvider); // 1
+        languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
+            provideDocumentRangeFormattingEdits: provide,
+        } as unknown as vscode.DocumentRangeFormattingEditProvider); // 2
+        const selection = { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 };
 
-        const result = await stub.callRequest("languages.provideFormattingEdits", requestParams());
-        expect(result).toBeNull();
+        // Снятый handle и handle чужого вида не будят и синхронизацию документа.
+        const stale = "file:///proj/stale.ts";
+        for (const extra of [
+            { handle: 7 },
+            { handle: 7, range: selection },
+            { handle: 2 }, // документный запрос к range-провайдеру
+            { handle: 0, range: selection }, // range-запрос к документному
+        ]) {
+            expect(
+                await stub.callRequest("languages.provideFormattingEdits", requestParams({ uri: stale, ...extra })),
+            ).toEqual([]);
+        }
+        expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();
 
-        // И для range-запроса без range-провайдеров — тоже null.
-        const ranged = await stub.callRequest(
-            "languages.provideFormattingEdits",
-            requestParams({ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 } }),
+        // Ненулевой handle доходит до своего провайдера как есть.
+        expect(await stub.callRequest("languages.provideFormattingEdits", requestParams({ handle: 1 }))).toHaveLength(
+            1,
         );
-        expect(ranged).toBeNull();
+        expect(provide).toHaveBeenCalledTimes(1);
+        provide.mockClear();
+        expect(
+            await stub.callRequest("languages.provideFormattingEdits", requestParams({ handle: undefined })),
+        ).toEqual([]);
+        expect(provide).not.toHaveBeenCalled();
     });
 
     it("range-запрос уходит range-провайдеру с диапазоном как есть", async () => {
@@ -146,21 +155,16 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(ranges).toEqual([new Range(1, 2, 2, 4)]);
     });
 
-    it("документный запрос без документного провайдера падает на range-провайдер полным диапазоном", async () => {
+    it("документный запрос к range-провайдеру — пустой ответ (синтетический формат строит ядро)", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const ranges: vscode.Range[] = [];
+        const provide = vi.fn(() => []);
         languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
-            provideDocumentRangeFormattingEdits: (doc: vscode.TextDocument, range: vscode.Range) => {
-                ranges.push(range);
-                return [];
-            },
+            provideDocumentRangeFormattingEdits: provide,
         } as unknown as vscode.DocumentRangeFormattingEditProvider);
 
-        const result = await stub.callRequest("languages.provideFormattingEdits", requestParams());
-        expect(result).toEqual([]);
-        // Полный диапазон: от (0,0) до конца последней строки (пустая строка после \n).
-        expect(ranges).toEqual([new Range(0, 0, 2, 0)]);
+        expect(await stub.callRequest("languages.provideFormattingEdits", requestParams())).toEqual([]);
+        expect(provide).not.toHaveBeenCalled();
     });
 
     it("сбойный или мусорный провайдер — пустой ответ (no-op), не «нет форматтера»", async () => {
@@ -215,7 +219,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         }
     });
 
-    it("сбой range-провайдера пишется в stderr в обеих ветках", async () => {
+    it("сбой range-провайдера пишется в stderr", async () => {
         const errors: string[] = [];
         const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
             errors.push(args.map(String).join(" "));
@@ -228,23 +232,21 @@ describe("LanguagesNamespace — провайдеры форматировани
                     throw new Error("range boom");
                 },
             } as unknown as vscode.DocumentRangeFormattingEditProvider);
+            // Полный диапазон за документный запрос ядро шлёт тем же range-запросом.
             await stub.callRequest(
                 "languages.provideFormattingEdits",
                 requestParams({ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 } }),
             );
-            await stub.callRequest("languages.provideFormattingEdits", requestParams());
 
-            expect(errors).toHaveLength(2);
-            for (const line of errors) {
-                expect(line).toContain("provideDocumentRangeFormattingEdits failed");
-                expect(line).toContain("range boom");
-            }
+            expect(errors).toHaveLength(1);
+            expect(errors[0]).toContain("provideDocumentRangeFormattingEdits failed");
+            expect(errors[0]).toContain("range boom");
         } finally {
             spy.mockRestore();
         }
     });
 
-    it("сбойный range-провайдер — пустой ответ в обеих ветках (range и full-range fallback)", async () => {
+    it("сбойный range-провайдер — пустой ответ", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
@@ -258,7 +260,6 @@ describe("LanguagesNamespace — провайдеры форматировани
                 requestParams({ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 } }),
             ),
         ).toEqual([]);
-        expect(await stub.callRequest("languages.provideFormattingEdits", requestParams())).toEqual([]);
     });
 
     it("голые параметры (без languageId/text) — документ на дефолтном языке с пустым текстом", async () => {
@@ -272,7 +273,7 @@ describe("LanguagesNamespace — провайдеры форматировани
             },
         } as unknown as vscode.DocumentFormattingEditProvider);
 
-        expect(await stub.callRequest("languages.provideFormattingEdits", { uri: URI })).toEqual([]);
+        expect(await stub.callRequest("languages.provideFormattingEdits", { handle: 0, uri: URI })).toEqual([]);
         expect(texts).toEqual([""]);
     });
 

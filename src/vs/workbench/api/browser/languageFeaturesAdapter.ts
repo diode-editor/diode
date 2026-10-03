@@ -87,6 +87,20 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideCompletionItems: (request) => this.bridge.provideCompletionItems(handle, request),
                 resolveCompletionItem: (id) => this.bridge.resolveCompletionItem(id),
             }),
+        formatting: ({ handle, selector }) =>
+            this.languageFeatures.documentFormattingEditProvider.register(selector, {
+                provideDocumentFormattingEdits: (request) => this.bridge.provideFormattingEdits(handle, request),
+            }),
+        rangeFormatting: ({ handle, selector }) =>
+            this.languageFeatures.documentRangeFormattingEditProvider.register(selector, {
+                provideDocumentRangeFormattingEdits: (request) => this.bridge.provideFormattingEdits(handle, request),
+            }),
+        codeActions: ({ handle, selector, providedCodeActionKinds = [] }) =>
+            this.languageFeatures.codeActionProvider.register(selector, {
+                providedCodeActionKinds,
+                provideCodeActions: (request) => this.bridge.provideCodeActions(handle, request),
+                applyCodeAction: (id) => this.bridge.applyCodeAction(id),
+            }),
     };
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {

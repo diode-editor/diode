@@ -623,10 +623,6 @@ export class ExtensionHost extends Disposable {
     private inlineCompletionSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
     private foldingSubscribed = false;
-    /** Есть ли в субпроцессе провайдеры форматирования — документные или range (см. `languages.updateSubscriptions`). */
-    private formattingSubscribed = false;
-    /** Есть ли в субпроцессе зарегистрированные code-action-провайдеры (см. `languages.updateSubscriptions`). */
-    private codeActionsSubscribed = false;
     /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
     private documentSyncSubscribed = false;
     /**
@@ -1584,18 +1580,17 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса правки форматирования документа или диапазона
-     * (`languages.provideFormattingEdits`). `null` — форматтера нет: субпроцесс
-     * мёртв, провайдеры не зарегистрированы либо ни один не матчит документ
-     * (командный слой показывает «нет форматтера»). Пустой массив — менять
-     * нечего, документ слишком большой или таймаут `formattingTimeoutMs`
-     * (молчаливый no-op). Подключается в `EditorService.formattingSource`
-     * (wiring в module/харнессе).
+     * Запрашивает у провайдера форматирования `handle` правки документа (без
+     * `req.range` — документный провайдер) или диапазона (с ним — range-провайдер)
+     * — `languages.provideFormattingEdits`. Пустой массив — менять нечего,
+     * субпроцесса нет, документ слишком большой или таймаут `formattingTimeoutMs`
+     * (молчаливый no-op). «Нет форматтера» решает ядро по реестру. Зовёт его
+     * прокси из реестра ядра (`LanguageFeaturesAdapter`).
      */
-    public async provideFormattingEdits(req: IFormattingRequest): Promise<readonly ITextEdit[] | null> {
+    public async provideFormattingEdits(handle: number, req: IFormattingRequest): Promise<readonly ITextEdit[]> {
         const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null || !this.formattingSubscribed) return null;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return [];
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping formatting: document too large", {
                 uri: req.uri,
@@ -1606,6 +1601,7 @@ export class ExtensionHost extends Disposable {
         return requestFormattingEdits(
             (method, params) => rpc.request(method, params),
             {
+                handle,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -1631,16 +1627,15 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса code actions для диапазона
-     * (`languages.provideCodeActions`). `null` — действий взять неоткуда:
-     * субпроцесс мёртв, провайдеры не зарегистрированы либо ни один не матчит
-     * документ. Пустой массив — действий не нашлось, документ слишком большой
-     * или таймаут. Подключается в `EditorService.codeActionSource.provide`.
+     * Запрашивает у code-action-провайдера `handle` действия для диапазона
+     * (`languages.provideCodeActions`). Пустой массив — действий не нашлось,
+     * субпроцесса нет, документ слишком большой или таймаут. Зовёт его прокси из
+     * реестра ядра (`LanguageFeaturesAdapter`).
      */
-    public async provideCodeActions(req: ICodeActionRequest): Promise<readonly ICoreCodeAction[] | null> {
+    public async provideCodeActions(handle: number, req: ICodeActionRequest): Promise<readonly ICoreCodeAction[]> {
         const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null || !this.codeActionsSubscribed) return null;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return [];
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping code actions: document too large", {
                 uri: req.uri,
@@ -1651,6 +1646,7 @@ export class ExtensionHost extends Disposable {
         return requestCodeActions(
             (method, params) => rpc.request(method, params),
             {
+                handle,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -1674,12 +1670,13 @@ export class ExtensionHost extends Disposable {
      * (`languages.applyCodeAction`): ленивый resolve + правки через
      * `workspace.applyEdit` + команда действия — всё на его стороне. `false` —
      * субпроцесса нет, действие протухло, правки не легли или таймаут
-     * `applyCodeActionTimeoutMs`. Подключается в `EditorService.codeActionSource.apply`.
+     * `applyCodeActionTimeoutMs`. `id` уникален сквозь провайдеров: кэш
+     * субпроцесса сам знает, чьё это действие.
      */
     public async applyCodeAction(id: string): Promise<boolean> {
         const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: пара «канала нет, но подписка есть» недостижима — см. provideCodeActions
-        if (rpc === null || !this.codeActionsSubscribed) return false;
+        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
+        if (rpc === null) return false;
         return requestApplyCodeAction(
             (method, params) => rpc.request(method, params),
             id,
@@ -2053,13 +2050,9 @@ export class ExtensionHost extends Disposable {
         rpc.handleNotification("languages.updateSubscriptions", (params) => {
             const p = params as {
                 hasFoldingProviders?: unknown;
-                hasFormattingProviders?: unknown;
-                hasCodeActionsProviders?: unknown;
                 hasInlineCompletionProviders?: unknown;
             };
             this.inlineCompletionSubscribed = p.hasInlineCompletionProviders === true;
-            this.formattingSubscribed = p.hasFormattingProviders === true;
-            this.codeActionsSubscribed = p.hasCodeActionsProviders === true;
             const foldingBefore = this.foldingSubscribed;
             this.foldingSubscribed = p.hasFoldingProviders === true;
             // Провайдер folding появился/исчез (обычно — расширение активировалось
@@ -2508,13 +2501,9 @@ export class ExtensionHost extends Disposable {
         this.readyPromise = null;
         this.willSaveSubscribed = false;
         this.didSaveSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и formattingSubscribed ниже
+        // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
         this.inlineCompletionSubscribed = false;
         this.foldingSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
-        this.formattingSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и formattingSubscribed выше
-        this.codeActionsSubscribed = false;
         this.documentSyncSubscribed = false;
         // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из
         // реестра ядра, и запросы к мёртвым handle не уйдут.

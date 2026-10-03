@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ISelection } from "../../../../editor/common/core/iSelection.ts";
-import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
@@ -37,14 +40,40 @@ const SNAPSHOT: ISaveSnapshot = {
     encoding: "utf8",
 };
 
-function host(
-    overrides: Partial<IOnSaveParticipantHost> & { configuration: IConfigurationService },
-): IOnSaveParticipantHost {
+/** Провайдер code actions теста: что вернуть на запрос и чем ответить на apply. */
+interface IFakeCodeActions {
+    provide(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[] | null>;
+    apply(id: string): Promise<boolean>;
+}
+
+/**
+ * Хост участников с реестрами, в которых — провайдеры теста под `*`
+ * (`codeActions` — code-action-провайдер, `format` — документный форматтер).
+ */
+function host(overrides: {
+    configuration: IConfigurationService;
+    codeActions?: IFakeCodeActions;
+    format?: (request: IFormattingRequest) => Promise<readonly ITextEdit[] | null>;
+    paneForUri?: IOnSaveParticipantHost["paneForUri"];
+}): IOnSaveParticipantHost {
+    const languageFeatures = new LanguageFeaturesService();
+    const { codeActions, format } = overrides;
+    if (codeActions !== undefined) {
+        languageFeatures.codeActionProvider.register("*", {
+            providedCodeActionKinds: [],
+            provideCodeActions: async (request) => (await codeActions.provide(request)) ?? [],
+            applyCodeAction: (id) => codeActions.apply(id),
+        });
+    }
+    if (format !== undefined) {
+        languageFeatures.documentFormattingEditProvider.register("*", {
+            provideDocumentFormattingEdits: async (request) => (await format(request)) ?? [],
+        });
+    }
     return {
-        codeActionSource: () => undefined,
-        formattingSource: () => undefined,
-        paneForUri: () => null,
-        ...overrides,
+        configuration: overrides.configuration,
+        languageFeatures,
+        paneForUri: overrides.paneForUri ?? (() => null),
     };
 }
 
@@ -98,7 +127,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
 
     it("provide вернул null (нет матчащего провайдера) — apply не дёргается", async () => {
         let applied = 0;
-        const source: CodeActionSource = {
+        const source: IFakeCodeActions = {
             provide: () => Promise.resolve(null),
             apply: () => {
                 applied++;
@@ -108,7 +137,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
         const participant = createCodeActionsOnSaveParticipant(
             host({
                 configuration: config({ "editor.codeActionsOnSave": { "source.fixAll": true } }),
-                codeActionSource: () => source,
+                codeActions: source,
             }),
         );
 
@@ -118,7 +147,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
 
     it("без панели диапазон и текст берутся из снапшота", async () => {
         const provided: { text: string; endLine: number; endCharacter: number }[] = [];
-        const source: CodeActionSource = {
+        const source: IFakeCodeActions = {
             provide: (req) => {
                 provided.push({ text: req.text, endLine: req.range.end.line, endCharacter: req.range.end.character });
                 return Promise.resolve([]);
@@ -128,7 +157,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
         const participant = createCodeActionsOnSaveParticipant(
             host({
                 configuration: config({ "editor.codeActionsOnSave": { "source.fixAll": true } }),
-                codeActionSource: () => source,
+                codeActions: source,
             }),
         );
 
@@ -161,7 +190,7 @@ describe("createFormatOnSaveParticipant", () => {
         const participant = createFormatOnSaveParticipant(
             host({
                 configuration: config({}),
-                formattingSource: () => () => {
+                format: () => {
                     called = true;
                     return Promise.resolve([]);
                 },
@@ -189,7 +218,7 @@ describe("createFormatOnSaveParticipant", () => {
         const participant = createFormatOnSaveParticipant(
             host({
                 configuration: config({ "editor.formatOnSave": true }),
-                formattingSource: () => () =>
+                format: () =>
                     Promise.resolve([
                         { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, text: "y" },
                     ]),
@@ -207,7 +236,7 @@ describe("createFormatOnSaveParticipant", () => {
         const participant = createFormatOnSaveParticipant(
             host({
                 configuration: config({ "editor.formatOnSave": true }),
-                formattingSource: () => () =>
+                format: () =>
                     Promise.resolve([
                         { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, text: "y" },
                     ]),
@@ -224,7 +253,7 @@ describe("createFormatOnSaveParticipant", () => {
         const participant = createFormatOnSaveParticipant(
             host({
                 configuration: config({ "editor.formatOnSave": true }),
-                formattingSource: () => () => {
+                format: () => {
                     called = true;
                     return Promise.resolve([]);
                 },
@@ -246,7 +275,7 @@ describe("createFormatOnSaveParticipant", () => {
         const participant = createFormatOnSaveParticipant(
             host({
                 configuration: config({ "editor.formatOnSave": true }),
-                formattingSource: () => () => Promise.resolve([]),
+                format: () => Promise.resolve([]),
                 paneForUri: () => pane,
             }),
         );
@@ -265,7 +294,7 @@ describe("createFormatOnSaveParticipant", () => {
         const participant = createFormatOnSaveParticipant(
             host({
                 configuration: config({ "editor.formatOnSave": true }),
-                formattingSource: () => (req) => {
+                format: (req) => {
                     requests.push({ tabSize: req.tabSize, insertSpaces: req.insertSpaces });
                     return Promise.resolve(null);
                 },

@@ -48,6 +48,7 @@ const URI = "file:///proj/main.py";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
+        handle: 0,
         uri: URI,
         languageId: "python",
         text: "import b\nimport a\nunused()\n",
@@ -66,25 +67,40 @@ function editAction(title: string, kind: string, preferred = false): CodeAction 
 }
 
 describe("LanguagesNamespace — registerCodeActionsProvider", () => {
-    it("подписка сигналится на переходах 0↔1 (hasCodeActionsProviders)", () => {
+    it("регистрация объявляется ядру с видами из метаданных; dispose снимает один раз", () => {
         const { stub, languages } = makeCtx();
-        const flags = (): unknown[] =>
-            stub.notifies
-                .filter((n) => n.method === "languages.updateSubscriptions")
-                .map((n) => (n.params as { hasCodeActionsProviders?: unknown }).hasCodeActionsProviders);
 
         const first = languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => [],
         } as unknown as vscode.CodeActionProvider);
-        expect(flags()).toEqual([true]);
-        const second = languages.registerCodeActionsProvider("python", {
-            provideCodeActions: () => [],
-        } as unknown as vscode.CodeActionProvider);
-        second.dispose();
-        second.dispose(); // повторный dispose — no-op
-        expect(flags()).toEqual([true]);
+        languages.registerCodeActionsProvider(
+            "python",
+            { provideCodeActions: () => [] } as unknown as vscode.CodeActionProvider,
+            {
+                providedCodeActionKinds: [
+                    // Мусорная запись без value — не считается и не роняет.
+                    {} as never,
+                    new CodeActionKind("source.organizeImports"),
+                    new CodeActionKind("quickfix"),
+                ],
+            } as never,
+        );
+        expect(stub.notifies.filter((n) => n.method === "languages.register").map((n) => n.params)).toEqual([
+            { handle: 0, kind: "codeActions", selector: [{ language: "python" }], providedCodeActionKinds: [] },
+            {
+                handle: 1,
+                kind: "codeActions",
+                selector: [{ language: "python" }],
+                providedCodeActionKinds: ["source.organizeImports", "quickfix"],
+            },
+        ]);
+
         first.dispose();
-        expect(flags()).toEqual([true, false]);
+        first.dispose(); // повторный dispose — no-op
+        expect(stub.notifies.filter((n) => n.method === "languages.unregister").map((n) => n.params)).toEqual([
+            { handle: 0 },
+        ]);
+        expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 
     it("provide: действия сериализуются с id/kind/isPreferred, контекст несёт диагностики диапазона", async () => {
@@ -186,66 +202,34 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(all[2].kind).toBeUndefined();
     });
 
-    it("providedKinds отсекают провайдера без вызова; матч без действий — [], нет провайдера — null", async () => {
-        const { stub, languages } = makeCtx();
+    it("зовётся провайдер запрошенного handle (отсев по видам — у ядра); неизвестный handle — []", async () => {
+        const { stub, languages, ctx } = makeCtx();
         const organize = vi.fn(() => [editAction("Sort", "source.organizeImports")]);
-        languages.registerCodeActionsProvider(
-            "python",
-            { provideCodeActions: organize } as unknown as vscode.CodeActionProvider,
-            { providedCodeActionKinds: [new CodeActionKind("source.organizeImports")] } as never,
-        );
+        const provider = { provideCodeActions: organize } as unknown as vscode.CodeActionProvider;
+        const metadata = { providedCodeActionKinds: [new CodeActionKind("source.organizeImports")] } as never;
+        languages.registerCodeActionsProvider("python", provider, metadata);
+        languages.registerCodeActionsProvider("python", provider, metadata);
 
-        // only другого вида: провайдер не вызван, но ответ [] (провайдер под документ ЕСТЬ).
-        const filtered = await stub.callRequest(
-            "languages.provideCodeActions",
-            requestParams({ only: "source.fixAll" }),
-        );
-        expect(filtered).toEqual([]);
-        expect(organize).not.toHaveBeenCalled();
+        // Пересекающийся only — провайдер вызван, действие проходит фильтр вида.
+        const sorted = (await stub.callRequest("languages.provideCodeActions", requestParams({ only: "source" }))) as {
+            title: string;
+        }[];
+        expect(sorted.map((a) => a.title)).toEqual(["Sort"]);
+        expect(organize).toHaveBeenCalledTimes(1);
 
-        // Чужой язык — null («нет провайдера»).
+        // Неизвестный и отсутствующий handle — провайдера не спрашиваем, документ не синхронизируем.
+        const stale = "file:///proj/stale.py";
         expect(
-            await stub.callRequest("languages.provideCodeActions", requestParams({ languageId: "markdown" })),
-        ).toBeNull();
-
-        // Пересекающийся only — провайдер вызван.
-        await stub.callRequest("languages.provideCodeActions", requestParams({ only: "source" }));
+            await stub.callRequest("languages.provideCodeActions", requestParams({ handle: 9, uri: stale })),
+        ).toEqual([]);
+        expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();
+        expect(await stub.callRequest("languages.provideCodeActions", requestParams({ handle: undefined }))).toEqual(
+            [],
+        );
         expect(organize).toHaveBeenCalledTimes(1);
     });
 
-    it("метаданные: достаточно ОДНОГО пересекающегося вида, мусорные виды игнорируются", async () => {
-        const { stub, languages } = makeCtx();
-        const provide = vi.fn(() => [editAction("Sort", "source.organizeImports")]);
-        languages.registerCodeActionsProvider(
-            "python",
-            { provideCodeActions: provide } as unknown as vscode.CodeActionProvider,
-            {
-                providedCodeActionKinds: [
-                    // Мусорная запись без value — не считается и не роняет.
-                    {} as never,
-                    new CodeActionKind("source.organizeImports"),
-                    new CodeActionKind("quickfix"),
-                ],
-            } as never,
-        );
-
-        // Пересекается только ОДИН из видов — провайдер обязан быть спрошен.
-        const result = (await stub.callRequest(
-            "languages.provideCodeActions",
-            requestParams({ only: "source.organizeImports" }),
-        )) as { title: string }[];
-        expect(result.map((a) => a.title)).toEqual(["Sort"]);
-        expect(provide).toHaveBeenCalledTimes(1);
-
-        // Без only метаданные вообще не участвуют — провайдер спрошен как есть.
-        const unfiltered = (await stub.callRequest("languages.provideCodeActions", requestParams())) as {
-            title: string;
-        }[];
-        expect(unfiltered.map((a) => a.title)).toEqual(["Sort"]);
-        expect(provide).toHaveBeenCalledTimes(2);
-    });
-
-    it("сбойный или мусорный провайдер пропускается, второй отвечает", async () => {
+    it("сбойный или мусорный провайдер — пустой ответ; мусор в списке отбрасывается поштучно", async () => {
         const { stub, languages } = makeCtx();
         languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => {
@@ -265,7 +249,9 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
             ],
         } as unknown as vscode.CodeActionProvider);
 
-        const result = (await stub.callRequest("languages.provideCodeActions", requestParams())) as {
+        expect(await stub.callRequest("languages.provideCodeActions", requestParams({ handle: 0 }))).toEqual([]);
+        expect(await stub.callRequest("languages.provideCodeActions", requestParams({ handle: 1 }))).toEqual([]);
+        const result = (await stub.callRequest("languages.provideCodeActions", requestParams({ handle: 2 }))) as {
             title: string;
         }[];
         expect(result.map((a) => a.title)).toEqual(["Survivor"]);
@@ -490,6 +476,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         } as unknown as vscode.CodeActionProvider);
         expect(
             await stub.callRequest("languages.provideCodeActions", {
+                handle: 0,
                 uri: URI,
                 range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
             }),
