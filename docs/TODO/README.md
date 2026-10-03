@@ -45,7 +45,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, terminal, menuBar; `panel` переехал): по критерию «публичный API не упоминает понятий Diode» им место у нас
 - [~] [ListControls](ListControls.md) — два списочных контрола (`TreeViewElement` data-driven / `ListViewElement` DOM-строки): решение зафиксировано, остался техдолг (дублирование механик, union-instanceof)
-- [~] [WhenContext](WhenContext.md) — остался полноценный парсер when-выражений вместо `new Function`
+- [~] [WhenContext](WhenContext.md) — остался полноценный парсер when-выражений вместо `new Function`; владение ключами у фич (F3) сделано
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate готов; далее scope-селекторы, async/background токенизация)
 - [~] [Theming](Theming.md) — цветовые темы (встроенные, пикер, live-reload, темы от расширений / установка из магазина готовы; открыто — подсветка текущей строки, группировка пикера, `IWorkbenchColors`)
 - [~] [DiffViewer](DiffViewer.md) — смотрелка изменений: остались фаза 2 (интерактив: раскрытие свёртки жестом, Switch Side, F7) и фаза 6 (краевые случаи: большой файл, бинарник, whitespace). История движка и этапов — [Diff](Diff.md), дифф v2 на двух настоящих редакторах — [DiffEditable](DiffEditable.md) (сделан, в конце — follow-up'ы)

@@ -47,6 +47,8 @@ export class LayoutService extends Disposable {
     ) {
         super();
         // Видимость панели живёт в PanelService; layout и контекст-ключ следуют за ней.
+        // Стартовое значение — сразу: рестор, совпавший с ним, события не даст.
+        this.contextKeys.set("panelVisible", this.panelService.visible);
         this.register(
             this.panelService.onDidChangeVisibility((visible) => {
                 this.layout?.setBottomPanelVisible(visible);

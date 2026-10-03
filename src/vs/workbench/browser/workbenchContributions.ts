@@ -8,6 +8,7 @@ import { ScmBusyContextContributionDIToken } from "../contrib/scm/browser/scmBus
 import { ScmStatusBarContributionDIToken } from "../contrib/scm/browser/scmStatusBarContribution.ts";
 import { ThemeConfigContributionDIToken } from "../contrib/themes/browser/themeConfigContribution.ts";
 import { HistoryServiceDIToken } from "../services/history/browser/historyService.ts";
+import { TerminalEnvContextKeysContributionDIToken } from "../services/terminalEnvironment/node/terminalEnvContextKeysContribution.ts";
 import { TerminalEnvStatusContributionDIToken } from "../services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
 
 import { OpenFailureNotificationContributionDIToken } from "./openFailureNotificationContribution.ts";
@@ -27,6 +28,8 @@ import { SetContextCommandContributionDIToken } from "./setContextCommandContrib
 export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistration[] = [
     { token: EditorStatusContributionDIToken, phase: "ready" },
     { token: TerminalEnvStatusContributionDIToken, phase: "ready" },
+    // when-ключи окружения (tier/os/cap_*/mode_*/macKeys): до первого нажатия.
+    { token: TerminalEnvContextKeysContributionDIToken, phase: "ready" },
     { token: AutoRevealContributionDIToken, phase: "ready" },
     { token: ThemeConfigContributionDIToken, phase: "ready" },
     { token: OpenFileCommandContributionDIToken, phase: "ready" },

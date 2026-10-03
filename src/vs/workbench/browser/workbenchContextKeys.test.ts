@@ -13,15 +13,13 @@ import type { EditorService } from "../services/editor/browser/editorService.ts"
 import { FocusTracker } from "../services/focus/browser/focusTracker.ts";
 import type { HistoryService } from "../services/history/browser/historyService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
-import type { LayoutService } from "../services/layout/browser/layoutService.ts";
-import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
 /**
  * Юнит-сценарии поверх фейков — краевые случаи, не достижимые из интеграционных
- * Workbench-тестов: update() до attachView (фокуса ещё нет) и проводка
- * хуков (dispatcher.updateContextKeys, onDidChange терминального окружения).
+ * Workbench-тестов: update() до attachView (фокуса ещё нет), проводка хука
+ * dispatcher.updateContextKeys и опрос контрибьюторов фич.
  */
 function makeHarness(contributors: IContextKeyContributor[] = []) {
     const contextKeys = new ContextKeyService();
@@ -35,32 +33,16 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
     const onDidChangeFocus = vi.fn();
     focusTracker.onDidChangeFocus(onDidChangeFocus);
     const cancelPendingChord = vi.fn();
-    let envListener: (() => void) | null = null;
 
     const dispatcher = {
         updateContextKeys: () => {},
         cancelPendingChord,
     };
-    const terminalEnv = {
-        tier: "legacy",
-        os: "linux",
-        getKnownModeNames: () => ["local", "custom"],
-        isModeActive: (name: string) => name === "local",
-        // Только super: ключ cap_super обязан спросить именно его.
-        hasCapability: (cap: string) => cap === "super",
-        macKeysRung: "cmd",
-        onDidChange: (listener: () => void) => {
-            envListener = listener;
-            return { dispose: () => (envListener = null) };
-        },
-    };
 
     const service = new WorkbenchContextKeys(
         contextKeys,
         { editorCount: 0, groups: [], activeGroup: null, viewColumnOf: () => 1 } as unknown as EditorService,
-        terminalEnv as unknown as TerminalEnvironmentService,
         dispatcher as unknown as KeybindingDispatcher,
-        { isPanelVisible: () => true } as unknown as LayoutService,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
         focusTracker,
         accessor,
@@ -73,7 +55,6 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
         onDidChangeFocus,
         cancelPendingChord,
         dispatcher,
-        fireEnvChange: () => envListener?.(),
     };
 }
 
@@ -94,17 +75,6 @@ describe("WorkbenchContextKeys", () => {
 
         expect(h.contextKeys.get("editorGroupHasEditors")).toBe(false);
         expect(h.contextKeys.get("editorTabsMultiple")).toBe(false);
-        expect(h.contextKeys.get("panelVisible")).toBe(true); // из LayoutService
-        expect(h.contextKeys.get("tier")).toBe("legacy");
-        expect(h.contextKeys.get("os")).toBe("linux");
-        expect(h.contextKeys.get("isLinux")).toBe(true);
-        expect(h.contextKeys.get("isMac")).toBe(false);
-        expect(h.contextKeys.get("cap_super")).toBe(true);
-        expect(h.contextKeys.get("cap_extendedKeys")).toBe(false);
-        expect(h.contextKeys.get("macKeys")).toBe(3);
-        // Динамические mode_-ключи из терминального окружения.
-        expect(h.contextKeys.evaluate("mode_local")).toBe(true);
-        expect(h.contextKeys.evaluate("mode_custom")).toBe(false);
     });
 
     it("closes the dispatcher hook: updateContextKeys refreshes the keys", () => {
@@ -112,18 +82,6 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("editorGroupHasEditors")).toBeUndefined();
         h.dispatcher.updateContextKeys();
         expect(h.contextKeys.get("editorGroupHasEditors")).toBe(false);
-    });
-
-    it("re-pushes keys when the terminal environment changes", () => {
-        const h = makeHarness();
-        h.fireEnvChange();
-        expect(h.contextKeys.get("tier")).toBe("legacy");
-
-        // Подписка снимается при dispose.
-        h.service.dispose();
-        h.contextKeys.reset("tier");
-        h.fireEnvChange();
-        expect(h.contextKeys.get("tier")).toBeUndefined();
     });
 
     it("опрашивает контрибьюторов фич по порядку списка — с сервисом ключей и активным элементом", () => {

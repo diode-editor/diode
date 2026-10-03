@@ -25,3 +25,23 @@
   ему неоткуда взять глобальный скоуп.
 - **Оператор `in`** (VS Code умеет `key in arrayKey`) не поддержан: значения у нас
   примитивные, массив из `setContext` сводится к своей истинности.
+
+## Владение ключами (F3) — сделано
+
+Ключи фич выставляют сами фичи (`IContextKeyContributor` + явный список
+`WORKBENCH_CONTEXT_KEY_CONTRIBUTORS`), центр `WorkbenchContextKeys` опрашивает их
+в своём `update()` и импортов из `contrib/` не имеет. Ключи с единственной
+точкой перехода пушит владелец (окружение — `TerminalEnvContextKeysContribution`,
+`panelVisible` — `LayoutService`). Смена фокуса — событие `FocusTracker`.
+Правило и список контрибьюторов — [arch/Workbench.md](../arch/Workbench.md).
+
+Сознательно не сделано:
+- **Группы и история на события** (`editorGroupHasEditors`, `activeEditorGroup*`,
+  `canNavigate*` по событиям `EditorService`/`HistoryService`) — опциональный шаг
+  плана: на pull ключи самоисцеляются, а выигрыша кроме чистоты нет.
+- **Upstream-ключ `activeViewlet`** — объявление нового ключа трогает
+  `ContextKeyTypes`/`allContextKeys`, а это зона парсера (пункт выше,
+  `RawContextKey` у фичи). Заводить вместе с ним.
+- **Ключи «вьюлет показан» на push** — оставлены на pull: видимость сайдбара
+  меняется и мимо `SidebarService` (Ctrl+B, восстановление layout'а), события
+  у `LayoutService` на это нет.

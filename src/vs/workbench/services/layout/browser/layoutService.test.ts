@@ -149,6 +149,11 @@ describe("LayoutService", () => {
     });
 
     describe("нижняя панель", () => {
+        it("panelVisible выставлен сразу — стартовой видимостью из PanelService", () => {
+            make();
+            expect(contextKeys.get("panelVisible")).toBe(false);
+        });
+
         it("setPanelVisible routes through PanelService and the layout follows", () => {
             const { service, layout } = make();
             service.setPanelVisible(true);
