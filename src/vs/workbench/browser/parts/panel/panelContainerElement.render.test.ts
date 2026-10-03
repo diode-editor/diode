@@ -157,6 +157,19 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 10, 2).bg).not.toBe(BG);
     });
 
+    it("не рисует placeholder, когда строки контента нет вовсе", () => {
+        // Панель из двух строк — полоса границы и таб-строка; места под контент
+        // не осталось. Проверять это можно только на экране больше панели: на
+        // своём запись в несуществующую строку просто съедает клип.
+        const panel = themed();
+        panel.addView({ id: "a", title: "P", content: null, placeholder: "hidden" });
+        const screen = paint(panel, new Size(20, 2));
+
+        expect(row(screen, 1, 0, 4)).toBe("  P ");
+        expect(at(screen, 2, 2).char).not.toBe("h");
+        expect(at(screen, 2, 2).bg).not.toBe(BG);
+    });
+
     it("вкладка с контентом и без placeholder'а рисуется и раскладывается", () => {
         const panel = themed();
         const content = new MarkerContent("X");
