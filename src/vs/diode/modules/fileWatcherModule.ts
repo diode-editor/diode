@@ -9,6 +9,7 @@ import {
 } from "../../platform/files/node/subprocessTreeWatcher.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
+import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 
 /**
  * Продакшен: реальные watcher'ы — пофайловый на chokidar прямо здесь (следит за
@@ -22,18 +23,26 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
  * Ошибки watcher'а (ENOSPC и прочие отказы ОС) приезжают из того процесса
  * в тот же канал `files.watcher`, а не роняют редактор.
  *
- * Два токена на один объект — осознанно: потребители видят интерфейс, а `main.ts`
- * нужен сам владелец процесса, чтобы синхронно снять его при перезагрузке окна.
+ * Два токена на один объект — осознанно: потребители видят интерфейс, а
+ * владельцу процесса нужен сам `SubprocessTreeWatcher`. Снимается он в
+ * синхронной фазе прощания (`LifecycleService.onShutdownSync`): при
+ * перезагрузке окна дальше блокируется event loop, и не снятый процесс пережил
+ * бы своё окно со всеми inotify-подписками.
  */
 export const fileWatcherModule: ContainerModule = (container) => {
     container.bind(
         IFileWatcherDIToken,
         () => new ChokidarFileWatcher(container.get(ILogServiceDIToken).createLogger("files.watcher")),
     );
-    container.bind(
-        SubprocessTreeWatcherDIToken,
-        () => new SubprocessTreeWatcher({ logger: container.get(ILogServiceDIToken).createLogger("files.watcher") }),
-    );
+    container.bind(SubprocessTreeWatcherDIToken, () => {
+        const watcher = new SubprocessTreeWatcher({
+            logger: container.get(ILogServiceDIToken).createLogger("files.watcher"),
+        });
+        container.get(LifecycleServiceDIToken).onShutdownSync(() => {
+            watcher.dispose();
+        });
+        return watcher;
+    });
     container.bind(ITreeFileWatcherDIToken, () => container.get(SubprocessTreeWatcherDIToken));
 };
 

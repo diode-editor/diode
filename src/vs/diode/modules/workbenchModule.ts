@@ -13,7 +13,6 @@ import {
 } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
-import { QuitHandlerDIToken } from "../../workbench/browser/actions/appActions.ts";
 import { MENU_CONTRIBUTIONS } from "../../workbench/browser/actions/menuContributions.ts";
 import { MenuBarComponent, MenuBarComponentDIToken } from "../../workbench/browser/menuBarComponent.ts";
 import {
@@ -336,8 +335,8 @@ export const workbenchModule: ContainerModule = (container) => {
             },
         });
     });
-    // Shutdown-протокол: участников регистрирует владелец приложения (WorkbenchComponent
-    // записывает EditorService), выход передаётся колбэком в requestQuit().
+    // Shutdown-протокол: confirm-save участников (WorkbenchComponent записывает
+    // EditorService) и единое прощание — участники подписываются там, где создаются.
     container.bind(LifecycleServiceDIToken, LifecycleService);
     // Explorer-кластер (этап 7): сервис (корень/провайдер/reveal/декорации),
     // компонент (дерево + контекст-меню), файловые операции и целевой сервис
@@ -372,9 +371,6 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);
     container.bind(WorkspaceFolderOpenerDIToken, () => container.get(WorkbenchComponentDIToken));
-    // Выход из приложения (Ctrl+Q / меню / палитра → quitAction) — структурно
-    // выполняет WorkbenchComponent (confirm-save + teardown + exit).
-    container.bind(QuitHandlerDIToken, () => container.get(WorkbenchComponentDIToken));
     // Editor-кластер (этап 9b): логика полосы групп редакторов (открытые
     // TextEditorPane-пары, активная вкладка, MRU) + часть «область редактора»
     // (по групповому контролу tab strip + контент на группу).

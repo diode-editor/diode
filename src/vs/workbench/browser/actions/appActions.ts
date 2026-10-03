@@ -1,22 +1,27 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { token } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
+import type { ShutdownReason } from "../../services/lifecycle/browser/lifecycleService.ts";
 import { LifecycleServiceDIToken } from "../../services/lifecycle/browser/lifecycleService.ts";
-import { WindowReloadHandlerDIToken } from "../../services/lifecycle/common/windowReload.ts";
+import { HostProcessDIToken } from "../../services/lifecycle/common/hostProcess.ts";
 
 /**
- * Выход из приложения. Интерфейсный шов: Workbench объявляет, владелец приложения
- * (`WorkbenchComponent`: confirm-save через LifecycleService, затем teardown TUI +
- * exit) соответствует структурно; биндинг — в `Workbench/Modules/WorkbenchModule.ts`.
+ * Общий путь выхода и перезагрузки: confirm-save (`requestShutdown`), затем
+ * единое прощание участников (`shutdown`), затем процесс-владелец — выход или
+ * замена процесса новым. Cancel в диалоге оставляет окно на месте.
  */
-export interface IQuitHandler {
-    requestQuit(accessor: ServiceAccessor): void;
+function closeWindow(accessor: ServiceAccessor, reason: Extract<ShutdownReason, "quit" | "reload">): Promise<void> {
+    const lifecycle = accessor.get(LifecycleServiceDIToken);
+    const host = accessor.get(HostProcessDIToken);
+    return lifecycle.requestShutdown(() =>
+        lifecycle.shutdown(reason, () => {
+            if (reason === "quit") host.exit();
+            else host.restart();
+        }),
+    );
 }
-
-export const QuitHandlerDIToken = token<IQuitHandler>("QuitHandler");
 
 export const quitAction: CommandAction = {
     id: "workbench.action.quit",
@@ -25,7 +30,7 @@ export const quitAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarFileMenu, title: "Exit", group: "5_quit", order: 10 }],
     keybinding: parseKeybinding("mod+q"),
     run(accessor) {
-        accessor.get(QuitHandlerDIToken).requestQuit(accessor);
+        return closeWindow(accessor, "quit");
     },
 };
 
@@ -44,10 +49,7 @@ export const reloadWindowAction: CommandAction = {
     title: "Reload Window",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "5_quit", order: 5 }],
     run(accessor) {
-        const reload = accessor.get(WindowReloadHandlerDIToken);
-        return accessor.get(LifecycleServiceDIToken).requestShutdown(() => {
-            reload.reloadWindow();
-        });
+        return closeWindow(accessor, "reload");
     },
 };
 

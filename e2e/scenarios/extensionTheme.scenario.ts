@@ -66,7 +66,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Reload Window"));
         await editor.capture("installed");
 
-        // Ответа на этот ввод не будет: окно уходит на перезапуск вместе с
+        // Ответ на этот ввод может и не прийти: окно уходит на перезапуск вместе с
         // сокетом. Новое окно поднимается с теми же аргументами — и с темами
         // расширения в реестре.
         await editor.sendKey("Enter").catch(() => undefined);

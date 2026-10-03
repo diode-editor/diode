@@ -1,13 +1,16 @@
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Mock } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
+import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../common/coreTokens.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
+import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
 import type { WorkbenchComponent } from "./workbenchComponent.ts";
 
@@ -18,8 +21,13 @@ interface TestQuitContext {
     commands: CommandRegistry;
 }
 
-function createTestContext(): TestQuitContext {
-    const h = createAppTestHarness();
+/** `exit` — подменённый выход процесса-владельца: настоящий унёс бы раннер. */
+function createTestContext(exit: () => void = () => undefined): TestQuitContext {
+    const h = createAppTestHarness({
+        containerOverrides: (container) => {
+            container.bind(HostProcessDIToken, () => ({ exit, restart: () => undefined }));
+        },
+    });
     return {
         testApp: h.testApp,
         workbench: h.workbench,
@@ -28,37 +36,39 @@ function createTestContext(): TestQuitContext {
     };
 }
 
-/** Save и confirm-save последовательность выхода теперь async (LifecycleService
- *  ждёт promise DialogService.confirmSave) — продолжение после ответа в диалоге
- *  откладывается на микротаск, поэтому ветки надо «прокрутить» перед проверкой. */
+/** Save и confirm-save последовательность выхода async (LifecycleService
+ *  ждёт promise DialogService.confirmSave, затем прощание участников) —
+ *  выход откладывается на микротаски, поэтому ветки надо «прокрутить» перед проверкой. */
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
+/** Выход тем же путём, что Ctrl+Q / меню / палитра. */
+function quit(accessor: ServiceAccessor): void {
+    accessor.get(CommandRegistryDIToken).execute("workbench.action.quit");
+}
+
 describe("Workbench quit with save dialog", () => {
-    let exitSpy: ReturnType<typeof vi.spyOn>;
+    let exitSpy: Mock<() => void>;
 
     beforeEach(() => {
-        exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+        exitSpy = vi.fn();
     });
 
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
+    it("quits without dialogs when no unsaved files", async () => {
+        const { accessor } = createTestContext(exitSpy);
 
-    it("quits immediately when no unsaved files", () => {
-        const { workbench, accessor } = createTestContext();
+        quit(accessor);
+        await tick();
 
-        workbench.requestQuit(accessor);
-
-        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(exitSpy).toHaveBeenCalledOnce();
     });
 
     it("shows confirm dialog when there is an unsaved file", () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-test-show.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         const dialog = testApp.querySelector("#confirmSaveDialog");
         expect(dialog).not.toBeNull();
@@ -66,12 +76,12 @@ describe("Workbench quit with save dialog", () => {
     });
 
     it("aborts quit when Cancel is pressed", () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-test-cancel.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         dialog.onCancel?.();
@@ -80,37 +90,37 @@ describe("Workbench quit with save dialog", () => {
     });
 
     it("quits without saving when Don't Save is pressed", async () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-test-dontsave.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         dialog.onDontSave?.();
         await tick();
 
-        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(exitSpy).toHaveBeenCalledOnce();
     });
 
     it("saves file and quits when Save is pressed", async () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-test-save.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         dialog.onSave?.();
         await tick();
 
-        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(exitSpy).toHaveBeenCalledOnce();
     });
 
     it("shows dialog for each unsaved file sequentially", async () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-seq-a.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
@@ -118,7 +128,7 @@ describe("Workbench quit with save dialog", () => {
         workbench.focusEditor();
         testApp.sendKey("y");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         expect(exitSpy).not.toHaveBeenCalled();
@@ -131,11 +141,11 @@ describe("Workbench quit with save dialog", () => {
         // Don't Save on second file → quit
         dialog.onDontSave?.();
         await tick();
-        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(exitSpy).toHaveBeenCalledOnce();
     });
 
     it("cancelling first dialog in sequence aborts quit entirely", () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-seq-cancel-a.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
@@ -143,7 +153,7 @@ describe("Workbench quit with save dialog", () => {
         workbench.focusEditor();
         testApp.sendKey("y");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         dialog.onCancel?.();
@@ -152,7 +162,7 @@ describe("Workbench quit with save dialog", () => {
     });
 
     it("Ctrl+Q triggers quit flow and shows dialog for unsaved file", () => {
-        const { testApp, workbench } = createTestContext();
+        const { testApp, workbench } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-keybinding.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
@@ -163,16 +173,17 @@ describe("Workbench quit with save dialog", () => {
         expect(testApp.querySelector("#confirmSaveDialog")).not.toBeNull();
     });
 
-    it("Ctrl+Q quits immediately when no unsaved files", () => {
-        const { testApp } = createTestContext();
+    it("Ctrl+Q quits without dialogs when no unsaved files", async () => {
+        const { testApp } = createTestContext(exitSpy);
 
         testApp.sendKey("Ctrl+Q");
+        await tick();
 
-        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(exitSpy).toHaveBeenCalledOnce();
     });
 
     it("Save on the first dialog proceeds to the next file's dialog before quitting", async () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-seq-save-a.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
@@ -180,7 +191,7 @@ describe("Workbench quit with save dialog", () => {
         workbench.focusEditor();
         testApp.sendKey("y");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         // First dialog: Save → saves file, advances to second dialog (no quit yet).
         const firstDialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
@@ -195,11 +206,11 @@ describe("Workbench quit with save dialog", () => {
         // Save on the last file → quit.
         secondDialog.onSave?.();
         await tick();
-        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(exitSpy).toHaveBeenCalledOnce();
     });
 
     it("skips editors that vanished mid-sequence and still quits", async () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-seq-stale-a.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
@@ -211,7 +222,7 @@ describe("Workbench quit with save dialog", () => {
         testApp.sendKey("z");
 
         // requestQuit snapshots the dirty editors [0, 1, 2] and shows the dialog for the first one.
-        workbench.requestQuit(accessor);
+        quit(accessor);
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         expect(exitSpy).not.toHaveBeenCalled();
 
@@ -223,11 +234,11 @@ describe("Workbench quit with save dialog", () => {
         // Advancing the sequence walks past the now-missing editors and quits at the end.
         dialog.onDontSave?.();
         await tick();
-        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(exitSpy).toHaveBeenCalledOnce();
     });
 
     it("mixes Save then Don't Save across the sequence and quits at the end", async () => {
-        const { testApp, workbench, accessor } = createTestContext();
+        const { testApp, workbench, accessor } = createTestContext(exitSpy);
         workbench.openFile("/tmp/quit-seq-mix-a.txt");
         workbench.focusEditor();
         testApp.sendKey("x");
@@ -235,7 +246,7 @@ describe("Workbench quit with save dialog", () => {
         workbench.focusEditor();
         testApp.sendKey("y");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         const first = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         first.onSave?.();
@@ -245,7 +256,7 @@ describe("Workbench quit with save dialog", () => {
         const second = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         second.onDontSave?.();
         await tick();
-        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(exitSpy).toHaveBeenCalledOnce();
     });
 });
 
@@ -344,7 +355,7 @@ describe("Workbench — диалог сохранения для безымян�
         workbench.focusEditor();
         testApp.sendKey("x");
 
-        workbench.requestQuit(accessor);
+        quit(accessor);
 
         expect(dialogText(testApp)).toContain("Untitled-1");
         expect(dialogText(testApp)).not.toContain("untitled?");

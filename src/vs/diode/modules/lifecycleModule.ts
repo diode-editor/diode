@@ -1,21 +1,21 @@
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
-import { WindowReloadHandlerDIToken } from "../../workbench/services/lifecycle/common/windowReload.ts";
+import type { IHostProcess } from "../../workbench/services/lifecycle/common/hostProcess.ts";
+import { HostProcessDIToken } from "../../workbench/services/lifecycle/common/hostProcess.ts";
 
 export interface LifecycleModuleContext {
     /**
-     * Перезагрузка окна: отпустить терминал, extension host и состояние сессии,
-     * после чего заменить процесс новым с теми же аргументами. Всё это знает
-     * только владелец приложения (`main.ts`), поэтому сюда приезжает замыканием.
+     * Чем заканчивается прощание: выход или замена процесса новым. Оба знает
+     * только владелец процесса (`main.ts`), поэтому сюда приезжают хуками.
      */
-    reloadWindow: () => void;
+    hostProcess: IHostProcess;
 }
 
 /**
- * Жизненный цикл приложения со стороны владельца процесса. Пока это один шов —
- * перезагрузка окна (`workbench.action.reloadWindow`); выход живёт отдельно
- * (`QuitHandlerDIToken` → `WorkbenchComponent`), потому что там владельцу
- * достаточно teardown'а и `process.exit`.
+ * Жизненный цикл приложения со стороны владельца процесса — шов
+ * `HostProcessDIToken`. Сам протокол прощания (`LifecycleService`) — в
+ * `workbenchModule`; ресурсы отпускают его участники, а сюда остаётся только
+ * последний шаг: `exit` или `restart`.
  */
-export const lifecycleModule: ContainerModule<LifecycleModuleContext> = (container, { reloadWindow }) => {
-    container.bind(WindowReloadHandlerDIToken, () => ({ reloadWindow }));
+export const lifecycleModule: ContainerModule<LifecycleModuleContext> = (container, { hostProcess }) => {
+    container.bind(HostProcessDIToken, () => hostProcess);
 };

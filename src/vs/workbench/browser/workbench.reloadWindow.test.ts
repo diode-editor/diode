@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
-import { WindowReloadHandlerDIToken } from "../services/lifecycle/common/windowReload.ts";
+import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
 /**
  * Перезагрузка окна сквозь настоящий workbench: команда → протокол прощания
- * (несохранённые вкладки) → шов владельца процесса. Сам перезапуск процесса
+ * (несохранённые вкладки) → прощание → шов владельца процесса. Сам перезапуск процесса
  * проверяется юнитами `base/node/restartProcess.test.ts` — здесь шов подменён.
  */
 
@@ -15,20 +15,21 @@ function createHarness(): { harness: ReturnType<typeof createAppTestHarness>; re
     const reloadWindow = vi.fn();
     const harness = createAppTestHarness({
         containerOverrides: (container) => {
-            container.bind(WindowReloadHandlerDIToken, () => ({ reloadWindow }));
+            container.bind(HostProcessDIToken, () => ({ exit: () => undefined, restart: reloadWindow }));
         },
     });
     return { harness, reloadWindow };
 }
 
-/** Продолжение после ответа в диалоге откладывается на микротаск (LifecycleService async). */
+/** Продолжение после ответа в диалоге и прощание участников идут микротасками (LifecycleService async). */
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("Workbench — перезагрузка окна", () => {
-    it("без несохранённых вкладок команда перезагружает сразу", () => {
+    it("без несохранённых вкладок команда перезагружает без диалогов", async () => {
         const { harness, reloadWindow } = createHarness();
 
         harness.commands.execute("workbench.action.reloadWindow");
+        await tick();
 
         expect(reloadWindow).toHaveBeenCalledOnce();
     });

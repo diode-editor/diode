@@ -387,6 +387,36 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(child.killed).toBe(true);
     });
 
+    it("shutdown ждёт вежливого выхода субпроцесса, а disposeNow после него никого не добивает", async () => {
+        const child = new FakeChild();
+        child.exitOnShutdown = true;
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        const done = host.shutdown();
+        expect(host.shutdown()).toBe(done);
+        await done;
+
+        expect(child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown")).toBe(true);
+        expect(child.exitCode).toBe(0);
+        // Синхронная фаза прощания зовёт disposeNow всегда — вышедшего по-хорошему он не трогает.
+        host.disposeNow();
+        expect(child.signals).toEqual([]);
+    });
+
+    it("disposeNow добивает субпроцесс, который ещё прощается после shutdown", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+        // Субпроцесс завис в deactivate(): на host.shutdown не отвечает.
+        child.autoRespond = false;
+
+        void host.shutdown();
+        host.disposeNow();
+
+        expect(child.signals).toEqual(["SIGKILL"]);
+    });
+
     it("disposeNow без поднятого субпроцесса просто гасит host", () => {
         const host = spawnReadyHost(new FakeChild(), new FakeEditorOptions());
 

@@ -6,7 +6,6 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { HeadlessCaptureBackend } from "@tuidom/headless-backend/headlessCaptureBackend";
 import { waitForIdle } from "@tuidom/inspector/idleWaiter";
-import type { AttachedInspector } from "@tuidom/inspector/index";
 import { attachInspector } from "@tuidom/inspector/index";
 import type { InspectorDriver } from "@tuidom/inspector/InspectorDriver";
 import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
@@ -48,7 +47,6 @@ import { scanExtensions } from "../platform/extensions/common/extensionScanner.t
 import type { ICommandContribution } from "../platform/extensions/common/iExtensionManifest.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
-import { SubprocessTreeWatcherDIToken } from "../platform/files/node/subprocessTreeWatcher.ts";
 import { runTreeWatcherSubprocess } from "../platform/files/node/treeWatcherMain.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import { loadUserKeybindings } from "../platform/keybinding/node/keybindingsService.ts";
@@ -71,6 +69,7 @@ import type { IExtensionRegistration } from "../workbench/services/extensions/no
 import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/extensions/node/loadTsServer.ts";
 import { LanguageConfigurationService } from "../workbench/services/language/common/languageConfigurationService.ts";
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
+import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
 import { DEFAULT_COLOR_THEME } from "../workbench/services/themes/common/themes/builtinThemes.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
@@ -240,10 +239,6 @@ async function runEditor(): Promise<void> {
     const clipboard = new OscClipboard((seq) => {
         backend.writeOscSequence(seq);
     });
-    // Инспектор поднимается ниже и только по `--inspect-tui`; ссылку держим
-    // здесь, потому что перезагрузка окна обязана освободить его порт.
-    let inspectorHandle: AttachedInspector | null = null;
-
     // ── Загрузка расширений ────────────────────────────────────
     // Builtin: либо SEA-bundle, либо `src/Extensions/builtin/` в dev.
     // User: `<userData.root>/extensions/` через `FsAssetAccess`, замапленный
@@ -355,38 +350,37 @@ async function runEditor(): Promise<void> {
             logsDir: userDataPaths.logsDir,
             secretsFile: userDataPaths.secretsFile,
         },
-        reloadWindow,
+        hostProcess: {
+            exit: () => process.exit(0),
+            // Перезагрузка окна: процесс поднимается заново с теми же аргументами
+            // (`workbench.action.reloadWindow`, кнопка после установки расширения).
+            // Горячей перезагрузки вкладов у нас нет — расширения сканируются один
+            // раз на старте, — поэтому «применить» значит «начать сначала».
+            restart: () => {
+                bootstrapLogger.info("reloading window");
+                restartProcess(currentProcessSnapshot(), realRestartHooks);
+            },
+        },
     });
     mark("main:container-created");
 
-    /**
-     * Перезагрузка окна: процесс поднимается заново с теми же аргументами
-     * (`workbench.action.reloadWindow`, кнопка после установки расширения).
-     * Горячей перезагрузки вкладов у нас нет — расширения сканируются один раз
-     * на старте, — поэтому «применить» значит «начать сначала».
-     *
-     * Порядок отпускания важен: сперва терминал (иначе новое окно рисует поверх
-     * чужих режимов), затем сокет инспектора (новое окно займёт тот же порт),
-     * затем оба служебных субпроцесса — синхронно (`disposeNow` у extension
-     * host'а, `dispose` у watcher'а), потому что дальше event loop не крутится
-     * и вежливое прощание не доехало бы, а сами они остались бы сиротами у
-     * заблокированного супервизора (watcher — ещё и со всеми своими
-     * inotify-подписками рядом с подписками нового окна), — и только потом
-     * состояние сессии на диск: новое окно читает его на старте, то есть
-     * заведомо раньше, чем сработал бы `process.on("exit")`.
-     */
-    function reloadWindow(): void {
-        bootstrapLogger.info("reloading window");
-        backend.teardown();
-        inspectorHandle?.dispose();
-        extensionHost.disposeNow();
-        treeWatcher.dispose();
+    // Прощание (выход, перезагрузка окна, выход по инспектору) — один путь,
+    // `LifecycleService.shutdown`. То, что создано здесь до DI, подписывает
+    // владелец — main. Синхронная фаза идёт в порядке, обратном подписке:
+    // субпроцессы (подписываются у себя в модулях, позже) и инспектор снимаются
+    // раньше терминала, а состояние сессии уходит на диск последним — новое
+    // окно читает его на старте, то есть заведомо раньше, чем сработал бы
+    // `process.on("exit")`.
+    const lifecycle = container.get(LifecycleServiceDIToken);
+    lifecycle.onShutdownSync(() => {
         stateService.flushSync();
-        restartProcess(currentProcessSnapshot(), realRestartHooks);
-    }
+    });
+    lifecycle.onShutdownSync(() => {
+        backend.teardown();
+    });
 
-    // Единственный якорь сброса состояния на диск: `process.exit(0)` (любой путь
-    // выхода — quit, SIGINT в NodeTerminalBackend) фаерит "exit". Только синхронный
+    // Страховка сброса состояния на диск — для путей мимо прощания (SIGINT в
+    // NodeTerminalBackend): `process.exit` фаерит "exit". Только синхронный
     // I/O — поэтому flushSync. Write-through держит in-memory стор актуальным, так
     // что здесь всегда сериализуется последнее состояние.
     process.on("exit", () => {
@@ -411,9 +405,6 @@ async function runEditor(): Promise<void> {
     // user) — ниже, ПОСЛЕ setWorkspaceFolder + openFile (чтобы workspaceFolders и
     // activeTextEditor были доступны на момент `activate()`).
     const extensionHost = container.get(ExtensionHostDIToken);
-    // Watcher-процесс поднимется сам по первому запросу на слежение; держим
-    // ссылку только ради синхронного убийства в reloadWindow (см. там).
-    const treeWatcher = container.get(SubprocessTreeWatcherDIToken);
 
     // `contributes.keybindings` расширений — регистрируем ПОСЛЕ builtin-биндингов
     // (они заведены при построении WorkbenchComponent), чтобы расширение могло
@@ -473,16 +464,15 @@ async function runEditor(): Promise<void> {
                       shutdown: () => {
                           // Отложенно, чтобы RPC-ответ успел уйти до выхода.
                           setImmediate(() => {
-                              try {
-                                  extensionHost.dispose();
-                              } finally {
-                                  process.exit(0);
-                              }
+                              void lifecycle.shutdown("inspector", () => process.exit(0));
                           });
                       },
                   };
         const inspector = await attachInspector(app, cli.inspectTui, driver);
-        inspectorHandle = inspector;
+        // Порт освобождается до выхода: перезагруженное окно займёт тот же.
+        lifecycle.onShutdownSync(() => {
+            inspector.dispose();
+        });
         bootstrapLogger.info("TUIDom inspector listening", {
             host: cli.inspectTui.host,
             port: inspector.port,
