@@ -70,7 +70,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         const paneView = h.paneView(EXPLORER_VIEWLET_ID);
         const placeholder = paneView.querySelector("#viewPlaceholder-workbench-explorer-fileView");
         expect(placeholder).toBeInstanceOf(ViewWelcomeElement);
-        const button = placeholder?.getChildren().find((child) => child instanceof ButtonElement)!;
+        const button = (placeholder?.getChildren() ?? []).find((child) => child instanceof ButtonElement)!;
         expect(button.getLabel()).toBe("Open Folder");
 
         service.setRootPath(ws.dir);

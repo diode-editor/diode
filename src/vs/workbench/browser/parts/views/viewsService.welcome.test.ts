@@ -4,11 +4,11 @@ import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { describe, expect, it } from "vitest";
 
-import type { IViewWelcomeBlock } from "./viewWelcomeElement.ts";
-import { ViewWelcomeElement } from "./viewWelcomeElement.ts";
-import type { IViewDescriptor } from "./viewsService.ts";
 import type { IViewsHarness } from "./viewsService.testUtils.ts";
 import { makeViewsHarness, testView as view } from "./viewsService.testUtils.ts";
+import type { IViewDescriptor } from "./viewsService.ts";
+import type { IViewWelcomeBlock } from "./viewWelcomeElement.ts";
+import { ViewWelcomeElement } from "./viewWelcomeElement.ts";
 
 const WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "You have not yet opened a folder." },

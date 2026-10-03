@@ -7,11 +7,13 @@ import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import { EXPLORER_VIEWLET_ID } from "../contrib/files/browser/explorerComponent.ts";
+import { SCM_GRAPH_VIEW_ID } from "../contrib/scm/common/scmViews.ts";
 import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import type { ITerminalSessionOptions } from "../contrib/terminal/common/terminalSessionFactory.ts";
 import { TerminalSessionFactoryDIToken } from "../contrib/terminal/common/terminalSessionFactory.ts";
 
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
+import type { PaneViewElement } from "./parts/views/paneViewElement.ts";
 
 /**
  * Пустое окно (`diode` без аргументов): воркспейса нет, но оболочка обязана быть
@@ -27,6 +29,14 @@ describe("Workbench — окно без воркспейса", () => {
     function screen(): string {
         h.testApp.render();
         return h.testApp.backend.screenToString();
+    }
+
+    /** Кнопка пустого состояния Explorer — единственная в его welcome. */
+    function welcomeButton(): ButtonElement {
+        const welcome = h.testApp.querySelector("#viewPlaceholder-workbench-explorer-fileView");
+        const buttons = (welcome?.getChildren() ?? []).filter((child) => child instanceof ButtonElement);
+        expect(buttons).toHaveLength(1);
+        return buttons[0];
     }
 
     beforeEach(() => {
@@ -58,8 +68,7 @@ describe("Workbench — окно без воркспейса", () => {
     });
 
     it("кнопка welcome ведёт в ту же команду Open Folder, что и бинд", () => {
-        const welcome = h.testApp.querySelector("#viewPlaceholder-workbench-explorer-fileView");
-        const button = welcome?.getChildren().find((child) => child instanceof ButtonElement)!;
+        const button = welcomeButton();
         const ran: string[] = [];
         // Подменяем саму команду: тест держит маршрут «кнопка → команда», а не
         // диалог ввода пути (он проверен в fileActions).
@@ -75,9 +84,7 @@ describe("Workbench — окно без воркспейса", () => {
     it("фокус Explorer'а в пустом окне стоит на кнопке welcome — выход одним Enter'ом", () => {
         h.commands.execute("workbench.view.explorer");
 
-        const welcome = h.testApp.querySelector("#viewPlaceholder-workbench-explorer-fileView");
-        const button = welcome?.getChildren().find((child) => child instanceof ButtonElement);
-        expect(h.testApp.focusedElement).toBe(button);
+        expect(h.testApp.focusedElement).toBe(welcomeButton());
     });
 
     it("Search без папки не делает вид, что ищет, — честное пустое состояние", () => {
@@ -93,6 +100,19 @@ describe("Workbench — окно без воркспейса", () => {
         const shown = screen();
         expect(shown).toContain("To use source control, open a");
         expect(shown).toContain("[ Open Folder ]");
+    });
+
+    it("GRAPH без папки — подсказка вместо пустой истории, и без второй кнопки", () => {
+        h.commands.execute("workbench.view.scm");
+        // Секция свёрнута по умолчанию — разворачиваем (пользователь делает это
+        // Enter'ом по заголовку), иначе её тела не видно.
+        const paneView = h.testApp.querySelector("#viewContainer-scm") as PaneViewElement;
+        paneView.setCollapsed(SCM_GRAPH_VIEW_ID, false);
+
+        const shown = screen();
+        expect(shown).toContain("No folder opened.");
+        // Кнопка Open Folder в контейнере ровно одна — у CHANGES.
+        expect(shown.split("[ Open Folder ]")).toHaveLength(2);
     });
 
     it("остальные вьюлеты тоже на месте — магазин открывается без папки", () => {
