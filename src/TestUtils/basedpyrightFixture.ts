@@ -5,10 +5,9 @@ import * as path from "node:path";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { installVsix } from "../vs/platform/extensionManagement/node/extensionInstaller.ts";
-import { flattenConfigDefaults } from "../vs/platform/extensions/common/configDefaults.ts";
-import type { IExtensionManifest } from "../vs/platform/extensions/common/iExtensionManifest.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
+import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 import { settle } from "./timing.ts";
 
@@ -51,7 +50,7 @@ export interface IInstalledBasedpyright {
 
 /**
  * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же логикой, что и приложение (`main.ts`):
+ * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`):
  * flattenConfigDefaults + курируемый дефолт importStrategy (манифестный
  * `fromEnvironment` требует расширения ms-python.python и роняет activate —
  * см. curatedConfigInjection в main.ts).
@@ -59,25 +58,8 @@ export interface IInstalledBasedpyright {
 export async function installBasedpyright(): Promise<IInstalledBasedpyright> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(BASEDPYRIGHT_ID)).vsixPath, extensionsDir);
-    const installRoot = path.join(extensionsDir, `${id}-${version}`);
-    const manifest = JSON.parse(fs.readFileSync(path.join(installRoot, "package.json"), "utf8")) as IExtensionManifest;
-    // Расширение без `main` активировать нечем — падаем с внятным текстом,
-    // а не разыменованием undefined в глубине резолва.
-    /* v8 ignore start -- у стокового vsix main есть всегда; ветка достижима только на битом манифесте */
-    if (manifest.main === undefined) throw new Error(`${installRoot}: в манифесте нет main`);
-    /* v8 ignore stop */
     return {
-        registration: {
-            id,
-            manifest: { name: manifest.name, publisher: manifest.publisher, version: manifest.version },
-            mainPath: path.resolve(installRoot, manifest.main),
-            extensionPath: installRoot,
-            configDefaults: {
-                ...flattenConfigDefaults(manifest.contributes?.configuration),
-                "basedpyright.importStrategy": "useBundled",
-            },
-            activationEvents: manifest.activationEvents,
-        },
+        registration: await registrationFromInstalled(extensionsDir, id, version),
         dispose: (): void => {
             fs.rmSync(extensionsDir, { recursive: true, force: true });
         },

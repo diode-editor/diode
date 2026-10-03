@@ -3,10 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { installVsix } from "../vs/platform/extensionManagement/node/extensionInstaller.ts";
-import { flattenConfigDefaults } from "../vs/platform/extensions/common/configDefaults.ts";
-import type { IExtensionManifest } from "../vs/platform/extensions/common/iExtensionManifest.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
+import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
@@ -41,7 +40,7 @@ export interface IInstalledRuff {
 
 /**
  * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же логикой, что приложение (`main.ts`):
+ * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`):
  * flattenConfigDefaults + курируемый дефолт `importStrategy: "useBundled"`
  * (манифестный `fromEnvironment` сканирует окружение и зависит от PATH;
  * вшитый бинарь — детерминированный native server, см. curatedConfigInjection).
@@ -49,25 +48,8 @@ export interface IInstalledRuff {
 export async function installRuff(): Promise<IInstalledRuff> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(RUFF_ID)).vsixPath, extensionsDir);
-    const installRoot = path.join(extensionsDir, `${id}-${version}`);
-    const manifest = JSON.parse(fs.readFileSync(path.join(installRoot, "package.json"), "utf8")) as IExtensionManifest;
-    // Расширение без `main` активировать нечем — падаем с внятным текстом,
-    // а не разыменованием undefined в глубине резолва.
-    /* v8 ignore start -- у стокового vsix main есть всегда; ветка достижима только на битом манифесте */
-    if (manifest.main === undefined) throw new Error(`${installRoot}: в манифесте нет main`);
-    /* v8 ignore stop */
     return {
-        registration: {
-            id,
-            manifest: { name: manifest.name, publisher: manifest.publisher, version: manifest.version },
-            mainPath: path.resolve(installRoot, manifest.main),
-            extensionPath: installRoot,
-            configDefaults: {
-                ...flattenConfigDefaults(manifest.contributes?.configuration),
-                "ruff.importStrategy": "useBundled",
-            },
-            activationEvents: manifest.activationEvents,
-        },
+        registration: await registrationFromInstalled(extensionsDir, id, version),
         dispose: (): void => {
             fs.rmSync(extensionsDir, { recursive: true, force: true });
         },
