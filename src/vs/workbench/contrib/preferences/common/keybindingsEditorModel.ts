@@ -105,13 +105,6 @@ function parseQuery(query: string): IParsedQuery {
 }
 
 /**
- * Фильтр списка: `@source:` — точный отбор по источнику, `@conflicts` — только
- * конфликтующие записи, остальное — fuzzy по title, id команды и display-форме
- * биндинга (поэтому `@conflicts ctrl+k ctrl+u` сужает до группы одной
- * комбинации). Подсветка возвращается только для совпадения по title:
- * подсвечивать колонку клавиш по fuzzy-огрызку — шум.
- */
-/**
  * Поиск по комбинации — по той подписи, что видна в таблице, а на маке ещё и по
  * словам («cmd+s», «option»): глиф «⌘» с клавиатуры не набрать.
  */
@@ -123,33 +116,73 @@ function matchesKeyLabel(query: PreparedQuery, chord: KeybindingChord, style: Ke
     return labels.some((label) => fuzzyMatchPrepared(query, label) !== null);
 }
 
+/**
+ * Надбавка за совпадение в подписи — тот же приём, что `BASENAME_BONUS` у
+ * файлового пикера: совпасть в том, что пользователь читает, важнее, чем в id
+ * команды. Совпадение только по подписи комбинации очков не приносит вовсе и
+ * оседает в хвосте.
+ */
+const TITLE_MATCH_BONUS = 200;
+
+/** Строка с ключом сортировки; наружу уезжает только {@link IFilteredKeybindingItem}. */
+interface IRankedKeybindingItem {
+    readonly entry: IFilteredKeybindingItem;
+    readonly score: number;
+}
+
+/** Префикс-фильтры запроса (`@source:`, `@conflicts`) — отбор до fuzzy. */
+function passesPrefixFilters(item: IKeybindingItem, parsed: IParsedQuery): boolean {
+    if (parsed.source !== null && item.source !== parsed.source) return false;
+    if (parsed.conflictsOnly && !item.hasConflict) return false;
+    return true;
+}
+
+/**
+ * Фильтр списка: `@source:` — точный отбор по источнику, `@conflicts` — только
+ * конфликтующие записи, остальное — fuzzy по title, id команды и display-форме
+ * биндинга (поэтому `@conflicts ctrl+k ctrl+u` сужает до группы одной
+ * комбинации). Подсветка возвращается только для совпадения по title:
+ * подсвечивать колонку клавиш по fuzzy-огрызку — шум.
+ *
+ * Выдача **ранжируется**, а не остаётся в алфавитном порядке списка: запрос из
+ * нескольких термов ищет их по отдельности, и точное совпадение по подписи
+ * иначе тонет среди команд, у которых термы нашлись где-то в id («Show Hover»
+ * уезжала в конец, потому что `show` и `hover` есть в
+ * `editor.action.showPrevParameterHint`). Сортировка стабильная, поэтому при
+ * равных очках порядок остаётся исходным (по title) — строки одной команды
+ * держатся рядом.
+ */
 export function filterKeybindingItems(
     items: readonly IKeybindingItem[],
     query: string,
     style: KeybindingLabelStyle = "pc",
 ): IFilteredKeybindingItem[] {
     const parsed = parseQuery(query);
+    const candidates = items.filter((item) => passesPrefixFilters(item, parsed));
     // Разбор запроса — один раз на фильтр, а не на строку таблицы. Пробел режет
     // его на термы, совпасть обязаны все: `go line` находит «Go to Line/Column…».
     const prepared = prepareQuery(parsed.text);
-    const result: IFilteredKeybindingItem[] = [];
-    for (const item of items) {
-        if (parsed.source !== null && item.source !== parsed.source) continue;
-        if (parsed.conflictsOnly && !item.hasConflict) continue;
-        if (prepared.terms.length === 0) {
-            // Без подсветки: подсвечивать нечего, и строка остаётся как есть.
-            result.push({ item, titleMatch: null });
-            continue;
-        }
+    // Пустой остаток запроса: отработали только префикс-фильтры, подсвечивать
+    // нечего и ранжировать не по чему — порядок исходный.
+    if (prepared.terms.length === 0) return candidates.map((item) => ({ item, titleMatch: null }));
+
+    const ranked: IRankedKeybindingItem[] = [];
+    for (const item of candidates) {
         const titleMatch = fuzzyMatchPrepared(prepared, item.title);
         if (titleMatch !== null) {
-            result.push({ item, titleMatch });
+            ranked.push({ entry: { item, titleMatch }, score: titleMatch.score + TITLE_MATCH_BONUS });
             continue;
         }
         const idMatch = fuzzyMatchPrepared(prepared, item.commandId);
-        if (idMatch !== null || (item.chord !== null && matchesKeyLabel(prepared, item.chord, style))) {
-            result.push({ item, titleMatch: null });
+        if (idMatch !== null) {
+            ranked.push({ entry: { item, titleMatch: null }, score: idMatch.score });
+            continue;
+        }
+        if (item.chord !== null && matchesKeyLabel(prepared, item.chord, style)) {
+            ranked.push({ entry: { item, titleMatch: null }, score: 0 });
         }
     }
-    return result;
+
+    ranked.sort((a, b) => b.score - a.score);
+    return ranked.map((rankedItem) => rankedItem.entry);
 }
