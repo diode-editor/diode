@@ -1,10 +1,10 @@
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../base/common/uri.ts";
-import type { IFileSystemProviderRegistry } from "../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderCapabilities, type IFileService } from "../../../platform/files/common/files.ts";
 import type { IExtensionFileSystemBridge } from "../common/iExtensionFileSystem.ts";
 
 /**
- * Держит регистрации в {@link IFileSystemProviderRegistry} в соответствии с
+ * Держит регистрации в {@link IFileService} в соответствии с
  * набором схем, объявленным субпроцессом ({@link IExtensionFileSystemBridge}).
  * Живёт в слое Extensions — ядро про host не знает.
  *
@@ -16,10 +16,10 @@ import type { IExtensionFileSystemBridge } from "../common/iExtensionFileSystem.
  */
 export class FileSystemProviderAdapter extends Disposable {
     private readonly bridge: IExtensionFileSystemBridge;
-    private readonly registry: IFileSystemProviderRegistry;
+    private readonly registry: IFileService;
     private readonly registrations = new Map<string, IDisposable>();
 
-    public constructor(bridge: IExtensionFileSystemBridge, registry: IFileSystemProviderRegistry) {
+    public constructor(bridge: IExtensionFileSystemBridge, registry: IFileService) {
         super();
         this.bridge = bridge;
         this.registry = registry;
@@ -54,7 +54,10 @@ export class FileSystemProviderAdapter extends Disposable {
     }
 
     private registerScheme(scheme: string): IDisposable {
+        // Только чтение: члены записи `FileSystemProvider` в vscode.d.ts не
+        // раскомментированы, а мост умеет лишь readFile.
         return this.registry.registerProvider(scheme, {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: (uri) => this.bridge.readProvidedFile(uri),
             onDidChangeFile: (cb) =>
                 this.bridge.onDidChangeProvidedFile((uris) => {

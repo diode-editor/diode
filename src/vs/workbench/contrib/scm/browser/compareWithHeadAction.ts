@@ -1,6 +1,6 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
@@ -68,7 +68,7 @@ async function resolveOriginalUri(accessor: ServiceAccessor, uri: Uri, ref: stri
     try {
         const original = await accessor.get(OriginalResourceProviderDIToken).provideOriginalResource(uri, ref);
         if (original === null) return null;
-        if (!accessor.get(FileSystemProviderRegistryDIToken).hasProvider(original.scheme)) return null;
+        if (!accessor.get(IFileServiceDIToken).hasProvider(original)) return null;
         return original;
     } catch {
         return null;

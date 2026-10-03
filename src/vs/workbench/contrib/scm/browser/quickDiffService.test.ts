@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { Event } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { FileSystemProviderRegistry } from "../../../../platform/files/common/fileSystemProviderRegistry.ts";
-import type { IReadOnlyFileSystemProvider } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderCapabilities, type IFileSystemProvider } from "../../../../platform/files/common/files.ts";
+import { FileService } from "../../../../platform/files/common/fileService.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import type { IOriginalResourceProvider, IQuickDiffEditor, IQuickDiffEditorSource } from "./quickDiffService.ts";
@@ -107,7 +108,8 @@ function fakeTheme(colors: Record<string, number>) {
 function fakeProvider(content: string) {
     const listeners: ((uris: readonly Uri[]) => void)[] = [];
     let current = content;
-    const provider: IReadOnlyFileSystemProvider = {
+    const provider: IFileSystemProvider = {
+        capabilities: FileSystemProviderCapabilities.Readonly,
         readFile: () => Promise.resolve(new TextEncoder().encode(current)),
         onDidChangeFile: (cb) => {
             listeners.push(cb);
@@ -132,7 +134,7 @@ interface ISetupOptions {
 function setup(options: ISetupOptions = {}) {
     const ed = fakeEditor(FILE, options.text ?? "a\nb\nc");
     const src = fakeSource(ed.editor);
-    const registry = new FileSystemProviderRegistry();
+    const registry = new FileService();
     const prov = fakeProvider(options.original ?? "a\nb\nc");
     registry.registerProvider("git", prov.provider);
     const cfg = fakeConfig({ "git.refreshDebounce": 0, ...options.config });
@@ -216,7 +218,7 @@ describe("QuickDiffService", () => {
         const theme = fakeTheme({ "editorGutter.modifiedBackground": MODIFIED });
         const originals: IOriginalResourceProvider = { provideOriginalResource: () => Promise.resolve(ORIGINAL) };
 
-        new QuickDiffService(src.source, originals, new FileSystemProviderRegistry(), cfg.service, theme.service);
+        new QuickDiffService(src.source, originals, new FileService(), cfg.service, theme.service);
         await settle();
 
         expect(ed.last).toEqual([]);
@@ -225,10 +227,11 @@ describe("QuickDiffService", () => {
     it("ошибка чтения оригинала не роняет сервис", async () => {
         const ed = fakeEditor(FILE, "a");
         const src = fakeSource(ed.editor);
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.reject(new Error("git недоступен")),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            onDidChangeFile: Event.None,
         });
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
         const theme = fakeTheme({});
@@ -317,14 +320,7 @@ describe("QuickDiffService", () => {
         const originals: IOriginalResourceProvider = { provideOriginalResource: () => Promise.resolve(ORIGINAL) };
 
         expect(
-            () =>
-                new QuickDiffService(
-                    src.source,
-                    originals,
-                    new FileSystemProviderRegistry(),
-                    cfg.service,
-                    theme.service,
-                ),
+            () => new QuickDiffService(src.source, originals, new FileService(), cfg.service, theme.service),
         ).not.toThrow();
         await settle();
     });
@@ -333,7 +329,7 @@ describe("QuickDiffService", () => {
         // Оригинал резолвится с задержкой; за это время редактор сменился.
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", fakeProvider("a\nb\nc").provider);
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
         const theme = fakeTheme({ "editorGutter.modifiedBackground": MODIFIED });
@@ -361,7 +357,7 @@ describe("QuickDiffService", () => {
         // отрицательный ответ кэшировался, и бары не появлялись до первой правки.
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
         const theme = fakeTheme({ "editorGutter.modifiedBackground": MODIFIED });
         const originals: IOriginalResourceProvider = { provideOriginalResource: () => Promise.resolve(ORIGINAL) };
@@ -380,7 +376,7 @@ describe("QuickDiffService", () => {
     it("отсутствие оригинала не кэшируется — иначе не пережить позднюю активацию", async () => {
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", fakeProvider("a\nb\nc").provider);
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
         const theme = fakeTheme({ "editorGutter.modifiedBackground": MODIFIED });
@@ -441,7 +437,7 @@ describe("QuickDiffService", () => {
     it("цвет, которого нет в теме, не роняет расчёт", async () => {
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", fakeProvider("a\nb\nc").provider);
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
         const originals: IOriginalResourceProvider = { provideOriginalResource: () => Promise.resolve(ORIGINAL) };

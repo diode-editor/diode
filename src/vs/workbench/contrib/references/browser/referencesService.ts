@@ -3,8 +3,8 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import { findWordRangeAt } from "../../../../editor/common/core/wordClassification.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
-import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import type { IFileService } from "../../../../platform/files/common/files.ts";
+import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
@@ -35,7 +35,7 @@ export class ReferencesService {
         ReferencesComponentDIToken,
         EditorServiceDIToken,
         IWorkspaceContextServiceDIToken,
-        FileSystemProviderRegistryDIToken,
+        IFileServiceDIToken,
         SidebarServiceDIToken,
         LanguageFeaturesServiceDIToken,
     ] as const;
@@ -49,7 +49,7 @@ export class ReferencesService {
         private readonly component: ReferencesComponent,
         private readonly group: EditorService,
         private readonly workspaceContext: IWorkspaceContextService,
-        providers: IFileSystemProviderRegistry,
+        providers: IFileService,
         private readonly sidebarService: SidebarService,
         private readonly languageFeatures: ILanguageFeaturesService,
     ) {
@@ -57,7 +57,7 @@ export class ReferencesService {
             // Открытая модель — источник правды для открытых файлов: в ней видны
             // несохранённые правки, которые сервер тоже видит через didChange.
             openText: (uri: Uri) => this.group.openFileModel(uri)?.getText() ?? null,
-            readText: async (uri: Uri) => new TextDecoder().decode(await providers.readFile(uri)),
+            readText: async (uri: Uri) => new TextDecoder().decode((await providers.readFile(uri)).value),
         };
     }
 

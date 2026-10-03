@@ -7,10 +7,11 @@ import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils
 import { quickPickByTitle, tabLabels } from "../../../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../scm/browser/commandOriginalResourceProvider.ts";
@@ -223,9 +224,10 @@ describe("Команды сравнения файлов", () => {
 
         it("пикер ref'ов открывает дифф против выбранной ревизии", async () => {
             const git = stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
-            h.container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
+            h.container.get(IFileServiceDIToken).registerProvider("git", {
+                capabilities: FileSystemProviderCapabilities.Readonly,
                 readFile: () => Promise.resolve(new TextEncoder().encode("alpha\nDEV\n")),
-                onDidChangeFile: () => ({ dispose: () => undefined }),
+                onDidChangeFile: Event.None,
             });
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
@@ -260,9 +262,10 @@ describe("Команды сравнения файлов", () => {
 
         it("Open File at Revision: read-only вкладка `имя (ref)` с контентом ревизии", async () => {
             stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
-            h.container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
+            h.container.get(IFileServiceDIToken).registerProvider("git", {
+                capabilities: FileSystemProviderCapabilities.Readonly,
                 readFile: () => Promise.resolve(new TextEncoder().encode("alpha\nDEV\n")),
-                onDidChangeFile: () => ({ dispose: () => undefined }),
+                onDidChangeFile: Event.None,
             });
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
@@ -321,9 +324,10 @@ describe("Команды сравнения файлов", () => {
 
         it("Open File at Revision: файла нет на ревизии — нотис, вкладки нет", async () => {
             stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
-            h.container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
+            h.container.get(IFileServiceDIToken).registerProvider("git", {
+                capabilities: FileSystemProviderCapabilities.Readonly,
                 readFile: () => Promise.reject(new Error("not found")),
-                onDidChangeFile: () => ({ dispose: () => undefined }),
+                onDidChangeFile: Event.None,
             });
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);

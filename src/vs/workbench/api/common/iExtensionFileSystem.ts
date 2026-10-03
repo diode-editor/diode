@@ -9,7 +9,7 @@ import type { Uri } from "../../../base/common/uri.ts";
  * host'у нужно от Workbench ({@link IEditorDecorationsService},
  * {@link ICommandService}), а здесь — что Workbench'у нужно от host'а. Поэтому
  * реализует его сам `ExtensionHost` (структурно), а связывает с
- * `IFileSystemProviderRegistry` адаптер в `api/browser`.
+ * `IFileService` адаптер в `api/browser`.
  */
 export interface IExtensionFileSystemBridge {
     /** Схемы, для которых расширения зарегистрировали провайдеров. */

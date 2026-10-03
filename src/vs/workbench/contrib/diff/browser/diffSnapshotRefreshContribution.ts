@@ -1,8 +1,8 @@
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { DiffSide } from "../../../../editor/common/diff/diffSide.ts";
-import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import type { IFileService } from "../../../../platform/files/common/files.ts";
+import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
@@ -28,7 +28,7 @@ const REFRESH_DEBOUNCE_MS = 200;
  * отбрасывает сама (no-op — каретка и скролл не сбрасываются зря).
  */
 export class DiffSnapshotRefreshContribution extends Disposable implements IWorkbenchContribution {
-    public static dependencies = [EditorServiceDIToken, FileSystemProviderRegistryDIToken] as const;
+    public static dependencies = [EditorServiceDIToken, IFileServiceDIToken] as const;
 
     /** Накопленные изменённые ресурсы до срабатывания debounce. */
     private readonly pending = new Set<string>();
@@ -38,11 +38,11 @@ export class DiffSnapshotRefreshContribution extends Disposable implements IWork
 
     public constructor(
         private readonly editors: EditorService,
-        private readonly providers: IFileSystemProviderRegistry,
+        private readonly providers: IFileService,
     ) {
         super();
         this.register(
-            this.providers.onDidChangeFile((uris) => {
+            this.providers.onDidFilesChange((uris) => {
                 this.schedule(uris);
             }),
         );

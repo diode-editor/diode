@@ -5,7 +5,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
-import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { type IFileService } from "../../../../platform/files/common/files.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
@@ -78,7 +78,7 @@ function createService(
     component: ReferencesComponent,
     group: EditorService,
     workspace: IWorkspaceContextService,
-    providers: IFileSystemProviderRegistry,
+    providers: IFileService,
     sidebar: SidebarService,
 ): ReferencesService {
     const languageFeatures = new LanguageFeaturesService();
@@ -93,14 +93,14 @@ function fakeWorkspace(root: string | null = ROOT): IWorkspaceContextService {
     return { getWorkspace: () => ({ id: root, folders }) } as unknown as IWorkspaceContextService;
 }
 
-function fakeProviders(disk: Partial<Record<string, string>>): IFileSystemProviderRegistry {
+function fakeProviders(disk: Partial<Record<string, string>>): IFileService {
     return {
         readFile: (uri: Uri) => {
             const text = disk[uri.fsPath];
             if (text === undefined) return Promise.reject(new Error(`ENOENT ${uri.fsPath}`));
-            return Promise.resolve(new TextEncoder().encode(text));
+            return Promise.resolve({ value: new TextEncoder().encode(text) });
         },
-    } as unknown as IFileSystemProviderRegistry;
+    } as unknown as IFileService;
 }
 
 function fakeSidebar(): { service: SidebarService; shown: string[] } {
@@ -202,9 +202,9 @@ describe("ReferencesService — findReferences", () => {
         const providers = {
             readFile: () => {
                 reads++;
-                return Promise.resolve(new TextEncoder().encode(MAIN_TEXT));
+                return Promise.resolve({ value: new TextEncoder().encode(MAIN_TEXT) });
             },
-        } as unknown as IFileSystemProviderRegistry;
+        } as unknown as IFileService;
         const service = createService(
             panel.component,
             fakeGroup({
@@ -239,14 +239,14 @@ describe("ReferencesService — findReferences", () => {
         let hang = true;
         const providers = {
             readFile: () => {
-                if (!hang) return Promise.resolve(new TextEncoder().encode(MAIN_TEXT));
-                return new Promise<Uint8Array>((resolve) => {
+                if (!hang) return Promise.resolve({ value: new TextEncoder().encode(MAIN_TEXT) });
+                return new Promise<{ value: Uint8Array }>((resolve) => {
                     releaseRead = () => {
-                        resolve(new TextEncoder().encode(MAIN_TEXT));
+                        resolve({ value: new TextEncoder().encode(MAIN_TEXT) });
                     };
                 });
             },
-        } as unknown as IFileSystemProviderRegistry;
+        } as unknown as IFileService;
         const service = createService(
             panel.component,
             fakeGroup({ source: () => Promise.resolve([reference(MAIN, 2, 14, 19)]) }),

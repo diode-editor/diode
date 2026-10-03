@@ -4,13 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
+import { Event } from "../../base/common/event.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
-import { FileSystemProviderRegistry } from "../../platform/files/common/fileSystemProviderRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../platform/files/common/files.ts";
+import { FileService } from "../../platform/files/common/fileService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { COMPARE_NOTICE_MS, openDiffWithHead } from "../contrib/scm/browser/compareWithHeadAction.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
@@ -43,12 +44,13 @@ describe("Workbench — вкладка diff", () => {
         const testContainer = createTestContainer();
         const bindApp = testContainer.bindApp;
         container = testContainer.container;
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            onDidChangeFile: Event.None,
         });
-        container.bind(FileSystemProviderRegistryDIToken, () => registry);
+        container.bind(IFileServiceDIToken, () => registry);
 
         workbench = container.get(WorkbenchComponentDIToken);
         commands = container.get(CommandRegistryDIToken);
@@ -269,12 +271,13 @@ describe("Workbench — вкладка diff, отказы", () => {
     /** Собирает workbench с провайдером `git:`, чьё чтение падает. */
     async function withFailingProvider() {
         const { container, bindApp } = createTestContainer();
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.reject(new Error("git недоступен")),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            onDidChangeFile: Event.None,
         });
-        container.bind(FileSystemProviderRegistryDIToken, () => registry);
+        container.bind(IFileServiceDIToken, () => registry);
 
         const workbench = container.get(WorkbenchComponentDIToken);
         const commands = container.get(CommandRegistryDIToken);
@@ -338,9 +341,10 @@ describe("Workbench — дифф без открытого файла (openDiffW
      */
     function mountWorkbench() {
         const { container, bindApp } = createTestContainer();
-        container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
+        container.get(IFileServiceDIToken).registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            onDidChangeFile: Event.None,
         });
         const workbench = container.get(WorkbenchComponentDIToken);
         const commands = container.get(CommandRegistryDIToken);
@@ -426,12 +430,13 @@ describe("Workbench — дифф на широком терминале (side-by
     /** Тот же стенд, что и в основном блоке, но терминал шире порога режима. */
     async function mountWide() {
         const { container, bindApp } = createTestContainer();
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            onDidChangeFile: Event.None,
         });
-        container.bind(FileSystemProviderRegistryDIToken, () => registry);
+        container.bind(IFileServiceDIToken, () => registry);
         const workbench = container.get(WorkbenchComponentDIToken);
         const commands = container.get(CommandRegistryDIToken);
         const editors = container.get(EditorServiceDIToken);
@@ -503,7 +508,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
         // Расширение объявило git:-ресурс, а провайдер ещё не зарегистрировался.
         const ws = createTempWorkspace({ prefix: "diode-diff-noprov-", files: { "a.txt": AT_HEAD } });
         const { container, bindApp } = createTestContainer();
-        container.bind(FileSystemProviderRegistryDIToken, () => new FileSystemProviderRegistry());
+        container.bind(IFileServiceDIToken, () => new FileService());
         const workbench = container.get(WorkbenchComponentDIToken);
         const commands = container.get(CommandRegistryDIToken);
         const editors = container.get(EditorServiceDIToken);
@@ -527,12 +532,13 @@ describe("Workbench — вкладка diff, вырожденные случаи
     it("SCM ответило «оригинала нет» — вкладка не открывается", async () => {
         const ws = createTempWorkspace({ prefix: "diode-diff-none-", files: { "a.txt": AT_HEAD } });
         const { container, bindApp } = createTestContainer();
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            onDidChangeFile: Event.None,
         });
-        container.bind(FileSystemProviderRegistryDIToken, () => registry);
+        container.bind(IFileServiceDIToken, () => registry);
         const workbench = container.get(WorkbenchComponentDIToken);
         const commands = container.get(CommandRegistryDIToken);
         const editors = container.get(EditorServiceDIToken);

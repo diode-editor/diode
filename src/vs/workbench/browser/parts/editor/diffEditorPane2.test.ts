@@ -11,9 +11,8 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
-import { FileSystemProviderRegistry } from "../../../../platform/files/common/fileSystemProviderRegistry.ts";
-import { NULL_FILE_SYSTEM_PROVIDER_REGISTRY } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
+import { FileService } from "../../../../platform/files/common/fileService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { diffPaneRecipe, openDiffPair, refreshDiffSnapshots } from "../../../contrib/diff/browser/openDiffPair.ts";
@@ -435,7 +434,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
 
     it("refreshDiffSnapshots на панели, открытой мимо openDiffPair, — тихий no-op", async () => {
         const pane = makePane("a", "b");
-        await refreshDiffSnapshots(NULL_FILE_SYSTEM_PROVIDER_REGISTRY, pane);
+        await refreshDiffSnapshots(new FileService(), pane);
         expect(pane.sidePanes()[0].getText()).toBe("a");
         // Рецепта у такой панели тоже нет — сплит её не повторит.
         expect(diffPaneRecipe(pane)).toBeUndefined();
@@ -476,10 +475,11 @@ describe("Workbench — дифф v2", () => {
         ws = createTempWorkspace({ prefix: "diode-diffv2-", files: { "a.txt": AT_HEAD } });
         const testContainer = createTestContainer();
         container = testContainer.container;
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         headContent = AT_HEAD;
         fireGitChange = null;
         registry.registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(headContent)),
             onDidChangeFile: (cb) => {
                 fireGitChange = cb;
@@ -490,7 +490,7 @@ describe("Workbench — дифф v2", () => {
                 };
             },
         });
-        container.bind(FileSystemProviderRegistryDIToken, () => registry);
+        container.bind(IFileServiceDIToken, () => registry);
         // In-memory стейт вместо NULL-заглушки: тумблер US-22 персистит режим.
         const stateStore = new Map<string, unknown>();
         container.bind(StateServiceDIToken, () => ({

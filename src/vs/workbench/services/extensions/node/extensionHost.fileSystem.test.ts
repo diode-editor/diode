@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { FileSystemProviderRegistry } from "../../../../platform/files/common/fileSystemProviderRegistry.ts";
+import { FileService } from "../../../../platform/files/common/fileService.ts";
 import { FileSystemProviderAdapter } from "../../../api/browser/fileSystemProviderAdapter.ts";
 
 /**
@@ -80,14 +80,14 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
 
     it("сквозь адаптер и реестр ядра ресурс читается end-to-end", async () => {
         // Полная цепочка, которой пользуется живой гуттер:
-        // расширение → RPC → ExtensionHost → адаптер → IFileSystemProviderRegistry.
+        // расширение → RPC → ExtensionHost → адаптер → IFileService.
         const harness = await harnessWithProvider();
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const adapter = new FileSystemProviderAdapter(harness.host, registry);
         try {
-            expect(registry.hasProvider("demo")).toBe(true);
+            expect(registry.hasProvider(Uri.from({ scheme: "demo", path: "/" }))).toBe(true);
 
-            const bytes = await registry.readFile(Uri.parse("demo:/repo/b.ts"));
+            const bytes = (await registry.readFile(Uri.parse("demo:/repo/b.ts"))).value;
             expect(new TextDecoder().decode(bytes)).toBe("содержимое /repo/b.ts");
         } finally {
             adapter.dispose();
@@ -97,11 +97,11 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
 
     it("изменение ресурса доходит до реестра ядра", async () => {
         const harness = await harnessWithProvider();
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const adapter = new FileSystemProviderAdapter(harness.host, registry);
         try {
             const seen: string[] = [];
-            registry.onDidChangeFile((uris) => {
+            registry.onDidFilesChange((uris) => {
                 for (const uri of uris) seen.push(uri.toString());
             });
 
