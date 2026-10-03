@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { globToRegExp, matchAnyGlob, matchGlob } from "./glob.ts";
+import { globToRegExp, matchAnyGlob, matchGlob, matchRelativeGlob } from "./glob.ts";
 
 describe("glob", () => {
     it("`*` не переходит через разделитель сегментов", () => {
@@ -59,5 +59,18 @@ describe("glob", () => {
     it("matchAnyGlob: пустой набор не матчит ничего", () => {
         expect(matchAnyGlob([], "a.ts")).toBe(false);
         expect(matchAnyGlob(["**/*.js", "**/*.ts"], "a.ts")).toBe(true);
+    });
+
+    it("matchRelativeGlob: шаблон матчится по пути относительно base", () => {
+        expect(matchRelativeGlob({ base: "/home/user", pattern: "*.json" }, "/home/user/a.json")).toBe(true);
+        expect(matchRelativeGlob({ base: "/home/user/", pattern: "*.json" }, "/home/user/a.json")).toBe(true);
+        // `*` относительно base не спускается в подкаталог — значит, base действительно отрезан.
+        expect(matchRelativeGlob({ base: "/home/user", pattern: "*.json" }, "/home/user/sub/a.json")).toBe(false);
+        expect(matchRelativeGlob({ base: "/home/user", pattern: "**/*.json" }, "/home/user/sub/a.json")).toBe(true);
+    });
+
+    it("matchRelativeGlob: путь вне base не матчит, даже с общим префиксом имени", () => {
+        expect(matchRelativeGlob({ base: "/home/user", pattern: "**" }, "/home/other/a.json")).toBe(false);
+        expect(matchRelativeGlob({ base: "/home/user", pattern: "**" }, "/home/username/a.json")).toBe(false);
     });
 });

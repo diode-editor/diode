@@ -76,3 +76,21 @@ export function matchGlob(pattern: string, path: string): boolean {
 export function matchAnyGlob(patterns: readonly string[], path: string): boolean {
     return patterns.some((pattern) => matchGlob(pattern, path));
 }
+
+/**
+ * Шаблон относительно базового каталога (upstream `IRelativePattern`,
+ * `vscode.RelativePattern` на проводе): `pattern` матчится по пути, отсчитанному
+ * от `base`. Путь вне `base` не матчит.
+ */
+export interface IRelativePattern {
+    /** Абсолютный базовый каталог (posix-форма). */
+    readonly base: string;
+    readonly pattern: string;
+}
+
+/** Матчит путь (posix-форма) против шаблона относительно базового каталога. */
+export function matchRelativeGlob(pattern: IRelativePattern, path: string): boolean {
+    const base = pattern.base.endsWith("/") ? pattern.base : pattern.base + "/";
+    if (!path.startsWith(base)) return false;
+    return matchGlob(pattern.pattern, path.slice(base.length));
+}

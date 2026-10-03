@@ -1,0 +1,19 @@
+import { token } from "../../../platform/instantiation/common/diContainer.ts";
+import type { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
+import type { HoverProvider } from "../languages/iHoverSource.ts";
+
+/**
+ * Реестры языковых провайдеров ядра (upstream
+ * `vs/editor/common/services/languageFeatures.ts`): по реестру на фичу.
+ * Провайдеры extension host'а регистрируются сюда прокси по handle, встроенные
+ * провайдеры ядра — тем же путём; потребители спрашивают `ordered(document)`.
+ *
+ * Поля добавляются по мере переезда фич с полей-швов `EditorService`
+ * (docs/TODO — G2).
+ */
+export interface ILanguageFeaturesService {
+    readonly hoverProvider: LanguageFeatureRegistry<HoverProvider>;
+}
+
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const LanguageFeaturesServiceDIToken = token<ILanguageFeaturesService>("LanguageFeaturesService");
