@@ -41,7 +41,9 @@ function editors({
 } = {}): EditorService {
     return {
         getActiveTabEditor: () => active,
-        getEditors: () => (active === null ? rest : [active, ...rest]),
+        // Активная вкладка идёт ПОСЛЕДНЕЙ: так видно, что адресат выбирается по
+        // активности, а не «первым попавшимся».
+        getEditors: () => (active === null ? rest : [...rest, active]),
         openFileModel: (uri: Uri) => (models.has(uri.toString()) ? {} : null),
     } as unknown as EditorService;
 }

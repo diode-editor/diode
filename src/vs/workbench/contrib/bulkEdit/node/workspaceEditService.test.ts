@@ -56,6 +56,27 @@ function write(rel: string, content = "x"): string {
     return full;
 }
 
+describe("WorkspaceEditService — подтверждение отмены", () => {
+    it("берётся у операции, которая его просит, а не у первой в наборе", () => {
+        const { service } = makeService();
+        const src = write("copied.txt", "payload");
+        const targetDir = path.join(tmpDir, "dest");
+        fs.mkdirSync(targetDir);
+
+        // Создание подтверждения не требует, вставка — требует: шаг обязан
+        // донести именно её сообщение.
+        const element = service.applyFileEdits(
+            [
+                { kind: "create", to: path.join(tmpDir, "fresh.txt") },
+                { kind: "copy", from: src, to: targetDir },
+            ],
+            "Paste",
+        );
+
+        expect(element?.confirmBeforeUndo).toBe("Удалить вставленный «copied.txt»?");
+    });
+});
+
 describe("WorkspaceEditService — move", () => {
     it("moves a file and undo/redo round-trips it", async () => {
         const { service } = makeService();

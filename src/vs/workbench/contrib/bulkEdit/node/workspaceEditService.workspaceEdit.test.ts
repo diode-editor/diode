@@ -281,6 +281,21 @@ describe("WorkspaceEditService.applyWorkspaceEdit — закрытые файл�
         expect(applied).toBe(false);
     });
 
+    it("чужая схема не превращается в путь: файл по тому же пути не трогаем", () => {
+        const { service } = makeService();
+        const victim = write("victim.ts", "mine\n");
+
+        // У `probe:/tmp/.../victim.ts` путь указывает на НАСТОЯЩИЙ файл. Решает
+        // схема, а не выведенный путь, — иначе правка ушла бы в посторонний файл.
+        const applied = service.applyWorkspaceEdit(
+            [{ resource: `probe:${victim}`, edits: [replaceFirstLine("theirs\n")] }],
+            "Edit",
+        );
+
+        expect(applied).toBe(false);
+        expect(read(victim)).toBe("mine\n");
+    });
+
     it("пересекающиеся правки одного ресурса отбивают edit целиком", () => {
         const { service } = makeService();
         const a = write("a.ts", "keep\n");

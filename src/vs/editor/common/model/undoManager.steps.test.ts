@@ -33,6 +33,12 @@ describe("UndoManager — токены шагов", () => {
         expect(manager.peekRedoStep()).toBeUndefined();
     });
 
+    it("на пустых стеках отсутствующий токен — просто `false`, а не падение", () => {
+        const manager = new UndoManager(new TextDocument(""));
+        expect(manager.canUndoStep(undefined)).toBe(false);
+        expect(manager.canRedoStep(undefined)).toBe(false);
+    });
+
     it("свежий шаг — верхний и отменяемый", () => {
         const doc = new TextDocument("");
         const manager = new UndoManager(doc);

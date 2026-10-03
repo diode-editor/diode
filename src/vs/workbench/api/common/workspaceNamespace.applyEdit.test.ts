@@ -226,7 +226,9 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
 
         const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
-        expect(req?.params).toEqual({ ops: [{ kind: "create", resource: URI_B.toString() }] });
+        // Строгое сравнение: `contents: undefined` в проводе — не то же, что
+        // отсутствие поля (хост различает их по `typeof === "string"`).
+        expect(req?.params).toStrictEqual({ ops: [{ kind: "create", resource: URI_B.toString() }] });
     });
 
     it("deleteFile без опций едет без ignoreIfNotExists", () => {

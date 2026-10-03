@@ -276,10 +276,14 @@ describe("vscodeTypes — LSP value-классы", () => {
         edit.set(URI, []);
         expect(edit.size).toBe(0);
         expect(edit.has(URI)).toBe(false);
-        // ...а по ресурсу С правками — снимает операцию целиком.
+        // И не уносит с собой чужую операцию: снимать нечего — значит ничего.
+        edit.createFile(Uri.file("/proj/other.ts"));
+        edit.set(URI, []);
+        expect(edit.operations().map((op) => op.kind)).toEqual(["create"]);
+        // ...а по ресурсу С правками — снимает его операцию, и только её.
         edit.replace(URI, RANGE, "x");
         edit.set(URI, null);
-        expect(edit.size).toBe(0);
+        expect(edit.operations().map((op) => op.kind)).toEqual(["create"]);
     });
 
     it("WorkspaceEdit: ignoreIfExists сохраняется отдельно от overwrite", () => {

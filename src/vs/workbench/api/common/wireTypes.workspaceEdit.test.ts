@@ -94,6 +94,8 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         ["не объект", [null]],
         ["строка вместо операции", ["junk"]],
         ["неизвестный kind", [{ kind: "notebook", resource: "file:///a.ts" }]],
+        // Неизвестный вид с полями переименования не должен проехать как rename.
+        ["неизвестный kind с from/to", [{ kind: "notebook", from: "file:///a.ts", to: "file:///b.ts" }]],
         ["kind отсутствует", [{ resource: "file:///a.ts", edits: [EDIT] }]],
         ["нестроковый resource", [{ kind: "text", resource: 5, edits: [EDIT] }]],
         ["текстовая без правок", [{ kind: "text", resource: "file:///a.ts", edits: [] }]],

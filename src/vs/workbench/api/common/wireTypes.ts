@@ -1691,8 +1691,9 @@ export interface IWireApplyWorkspaceEditParams {
  * хуже, чем честно отказать. `null` — разбирать нечего.
  */
 export function parseWireApplyWorkspaceEditParams(raw: unknown): IWireWorkspaceEditOp[] | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const list = (raw as Record<string, unknown>).ops;
+    // Непригодные параметры (не объект, `null`, без массива `ops`) отсеивает
+    // один гейт: у примитива и у `null` свойства просто нет.
+    const list = (raw as { ops?: unknown } | null | undefined)?.ops;
     if (!Array.isArray(list)) return null;
     const result: IWireWorkspaceEditOp[] = [];
     for (const item of list) {

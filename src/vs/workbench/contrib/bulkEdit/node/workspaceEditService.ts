@@ -313,18 +313,22 @@ export class WorkspaceEditService {
     /** Слот правок ресурса: открытый буфер либо чтение с диска. `null` — ресурс не правится. */
     private openTextSlot(resource: string, projection: ResourceProjection): ITextSlot | null {
         const uri = Uri.parse(resource);
-        const filePath = uri.scheme === "file" ? uri.fsPath : null;
         const target = this.buffers.get(resource);
         // Ресурс открыт, но правка не состоится (read-only документ) —
         // отказываем честно, не трогая остальные ресурсы edit'а.
         if (target === "read-only") return null;
         if (target !== null) {
+            // Путь буфера может и отсутствовать — безымянный буфер на диске не лежит.
+            const filePath = uri.scheme === "file" ? uri.fsPath : null;
             return { resource, filePath, buffer: target, base: target.text(), edits: [] };
         }
         // Ресурс не открыт: правим по диску. Недисковые схемы читать нечем —
         // поставщики `IFileSystemProviderRegistry` работают только на чтение,
-        // и записать в них правку некуда.
-        if (filePath === null) return null;
+        // и записать в них правку некуда. Гейт именно по СХЕМЕ, а не по
+        // выведенному пути: у чужого uri путь бывает валидным (`probe:/etc/x`),
+        // и правка ушла бы в посторонний файл.
+        if (uri.scheme !== "file") return null;
+        const filePath = uri.fsPath;
         const source = projection.read(filePath);
         if (source === null) return null;
         return { resource, filePath, buffer: null, base: source.text, encoding: source.encoding, edits: [] };
@@ -393,7 +397,10 @@ export class WorkspaceEditService {
             // затёртое содержимое надо суметь вернуть при отмене.
             const from = edit.from;
             const to = edit.to;
-            const replaced = edit.overwrite === true ? keepAside(to) : null;
+            // Снимок цели делаем всегда: без `overwrite` валидация сюда с
+            // занятой целью не пускает (снимка не будет), а если цель всё же
+            // заняли в гонке — отмена вернёт её содержимое, а не потеряет.
+            const replaced = keepAside(to);
             moveToPath(from, to);
             let current = to;
             resources.push(from, to);
@@ -532,13 +539,17 @@ function validateFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjectio
 }
 
 /**
- * Операция-no-op: `ignoreIfExists`/`ignoreIfNotExists` при уже достигнутом
- * состоянии. `overwrite` бьёт `ignoreIfExists` (дословно как в vscode API):
- * с ним операция не пропускается, а затирает цель.
+ * Операция-no-op: нужное состояние уже достигнуто.
+ *
+ * Зовётся ПОСЛЕ {@link validateFileEdit}, и это снимает половину проверок:
+ * удаление несуществующего доходит сюда только с `ignoreIfNotExists`, а занятая
+ * цель — только с `ignoreIfExists` либо `overwrite`. Остаётся развилка между
+ * ними: `overwrite` бьёт `ignoreIfExists` (дословно как в vscode API) — с ним
+ * операция не пропускается, а затирает цель.
  */
 function skipsFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection): boolean {
-    if (edit.kind === "delete") return edit.ignoreIfNotExists === true && !projection.exists(edit.from);
-    return edit.ignoreIfExists === true && edit.overwrite !== true && projection.exists(edit.to);
+    if (edit.kind === "delete") return !projection.exists(edit.from);
+    return edit.overwrite !== true && projection.exists(edit.to);
 }
 
 /** Проецирует эффект файловой операции на состояние ресурсов. */
@@ -547,6 +558,7 @@ function projectFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection
         projection.createFile(edit.to, edit.contents ?? "");
         return;
     }
+    // Stryker disable next-line ConditionalExpression: `true` отправит в эту ветку и удаление, а `rename` начинается с `remove(from)` — запись по несуществующему пути никто не читает, наблюдаемой разницы нет
     if (edit.kind === "rename") {
         projection.rename(edit.from, edit.to);
         return;

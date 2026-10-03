@@ -120,7 +120,9 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
             { kind: "rename", from: A.toString(), to: B.toString() },
         ]);
 
-        expect(calls[0].edits).toEqual([
+        // Строгое сравнение: опция без значения обязана ОТСУТСТВОВАТЬ, а не
+        // приехать как `undefined` — исполнитель различает их по `=== true`.
+        expect(calls[0].edits).toStrictEqual([
             { kind: "create", to: "/proj/b.ts" },
             { kind: "delete", from: "/proj/a.ts" },
             { kind: "rename", from: "/proj/a.ts", to: "/proj/b.ts" },
