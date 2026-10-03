@@ -1,17 +1,30 @@
-import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 export const InputWidgetServiceDIToken = token<InputWidgetService>("InputWidgetService");
 
-export class InputWidgetService {
+/**
+ * Редактирующие команды однострочных полей (клипборд, undo, навигация) поверх
+ * сфокусированного {@link InputElement}. Своих ключей у сервиса нет
+ * (`inputWidgetFocus` центральный), но активное поле он забирает в том же
+ * опросе IContextKeyContributor (перед резолвом каждого биндинга и на смене
+ * фокуса) — тайминг тот же, что был у центра, когда он раздавал поле сам.
+ */
+export class InputWidgetService implements IContextKeyContributor {
     public static dependencies = [] as const;
 
     private activeInput: InputElement | null = null;
 
     public setActive(input: InputElement | null): void {
         this.activeInput = input;
+    }
+
+    public updateContextKeys(_contextKeys: unknown, active: TUIElement | null): void {
+        this.setActive(active instanceof InputElement ? active : null);
     }
 
     // ─── Cursor movement ─────────────────────────────────────

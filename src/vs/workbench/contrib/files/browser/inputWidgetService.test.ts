@@ -1,7 +1,9 @@
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { describe, expect, it } from "vitest";
 
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 
 import { InputWidgetService } from "./inputWidgetService.ts";
 
@@ -37,6 +39,26 @@ function setup(text = ""): {
     controller.setActive(input);
     return { controller, input, changes };
 }
+
+describe("InputWidgetService — активное поле из опроса контрибьюторов", () => {
+    it("забирает сфокусированный InputElement, а любой другой фокус снимает поле", () => {
+        const { controller, input, changes } = setup("ab");
+        const keys = new ContextKeyService();
+
+        controller.updateContextKeys(keys, new FillerElement());
+        controller.deleteLeft();
+        expect(input.inputState.value).toBe("ab"); // поля нет — команда no-op
+
+        controller.updateContextKeys(keys, input);
+        controller.deleteLeft();
+        expect(input.inputState.value).toBe("a");
+        expect(changes).toEqual(["a"]);
+
+        controller.updateContextKeys(keys, null);
+        controller.deleteLeft();
+        expect(input.inputState.value).toBe("a");
+    });
+});
 
 describe("InputWidgetService — editing (delete)", () => {
     it("deleteRight removes the grapheme to the right of the cursor and notifies", () => {

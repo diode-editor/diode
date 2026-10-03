@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import type { ITerminalSessionOptions, TerminalSessionFactory } from "../common/terminalSessionFactory.ts";
@@ -45,10 +46,16 @@ describe("TerminalService — instances", () => {
         h.service.onDidChangeActiveInstance(onActive);
         h.service.onDidRequestFocus(onFocus);
 
+        const keys = new ContextKeyService();
+        h.service.updateContextKeys(keys);
+        expect(keys.get("terminalIsOpen")).toBe(false);
+
         h.service.openTerminal();
 
         expect(h.created).toHaveLength(1);
         expect(h.service.hasOpenTerminals).toBe(true);
+        h.service.updateContextKeys(keys);
+        expect(keys.get("terminalIsOpen")).toBe(true);
         expect(h.service.getActiveInstance()?.session).toBe(h.created[0]);
         expect(onOpen).toHaveBeenCalledTimes(1);
         expect(onActive).toHaveBeenCalledWith(h.service.getActiveInstance());

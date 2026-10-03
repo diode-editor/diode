@@ -3,6 +3,8 @@ import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
 import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
@@ -30,7 +32,7 @@ export const TabSwitcherComponentDIToken = token<TabSwitcherComponent>("TabSwitc
  * поверх видимого оверлея). Overlay-хост приходит через late-init шов
  * {@link attachHost}, как у QuickInput/Suggest/Hover.
  */
-export class TabSwitcherComponent extends Component {
+export class TabSwitcherComponent extends Component implements IContextKeyContributor {
     public static dependencies = [EditorServiceDIToken] as const;
 
     public readonly view: TabSwitcherElement;
@@ -89,6 +91,16 @@ export class TabSwitcherComponent extends Component {
 
     public isOpen(): boolean {
         return this.session?.isOpen() ?? false;
+    }
+
+    /**
+     * IContextKeyContributor: `tabSwitcherVisible`. Спрашиваем ВИДИМОСТЬ
+     * оверлея, а не состояние серии в модели: список гаснет и помимо конца серии
+     * (уход из группы), а стрелки обязаны вернуться редактору ровно тогда, когда
+     * список исчез с экрана.
+     */
+    public updateContextKeys(contextKeys: ContextKeyService): void {
+        contextKeys.set("tabSwitcherVisible", this.isOpen());
     }
 
     /** Отражает шаг серии: строки из замороженного MRU-списка, окно — по позиции. */

@@ -9,8 +9,6 @@ import type { IContextKeyContributor } from "../../platform/contextkey/common/co
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
-import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
-import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { FocusTracker } from "../services/focus/browser/focusTracker.ts";
 import type { HistoryService } from "../services/history/browser/historyService.ts";
@@ -18,7 +16,6 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
-import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
 /**
@@ -34,7 +31,6 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
         get: (requested: Token<unknown>) =>
             contributors[contributorTokens.indexOf(requested as Token<IContextKeyContributor>)],
     } as unknown as ServiceAccessor;
-    const setActive = vi.fn();
     const focusTracker = new FocusTracker();
     const onDidChangeFocus = vi.fn();
     focusTracker.onDidChangeFocus(onDidChangeFocus);
@@ -62,13 +58,10 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
     const service = new WorkbenchContextKeys(
         contextKeys,
         { editorCount: 0, groups: [], activeGroup: null, viewColumnOf: () => 1 } as unknown as EditorService,
-        { hasOpenTerminals: false } as unknown as TerminalService,
         terminalEnv as unknown as TerminalEnvironmentService,
-        { setActive } as unknown as InputWidgetService,
         dispatcher as unknown as KeybindingDispatcher,
         { isPanelVisible: () => true } as unknown as LayoutService,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
-        { isOpen: () => false } as unknown as TabSwitcherComponent,
         focusTracker,
         accessor,
         contributorTokens,
@@ -77,7 +70,6 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
     return {
         service,
         contextKeys,
-        setActive,
         onDidChangeFocus,
         cancelPendingChord,
         dispatcher,
@@ -94,7 +86,6 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("inputWidgetFocus")).toBe(false);
         expect(h.contextKeys.get("listFocus")).toBe(false);
         expect(h.contextKeys.get("terminalFocus")).toBe(false);
-        expect(h.setActive).toHaveBeenCalledWith(null);
     });
 
     it("reflects service state into context keys", () => {
@@ -104,7 +95,6 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("editorGroupHasEditors")).toBe(false);
         expect(h.contextKeys.get("editorTabsMultiple")).toBe(false);
         expect(h.contextKeys.get("panelVisible")).toBe(true); // из LayoutService
-        expect(h.contextKeys.get("terminalIsOpen")).toBe(false);
         expect(h.contextKeys.get("tier")).toBe("legacy");
         expect(h.contextKeys.get("os")).toBe("linux");
         expect(h.contextKeys.get("isLinux")).toBe(true);
@@ -134,36 +124,6 @@ describe("WorkbenchContextKeys", () => {
         h.contextKeys.reset("tier");
         h.fireEnvChange();
         expect(h.contextKeys.get("tier")).toBeUndefined();
-    });
-
-    it("filesExplorerFocus взводится ровно по пути предков до view проводника", () => {
-        const h = makeHarness();
-        // Настоящее дерево — ключ считается по getAncestorPath активного элемента.
-        const body = new VFlexElement();
-        const explorerView = new VFlexElement();
-        explorerView.id = "explorerView";
-        const rowInExplorer = new FillerElement();
-        explorerView.addChild(rowInExplorer, { height: vflexFixed(1), width: "fill" });
-        const outsider = new FillerElement();
-        outsider.id = "someOtherView";
-        body.addChild(explorerView, { height: vflexFixed(1), width: "fill" });
-        body.addChild(outsider, { height: vflexFixed(1), width: "fill" });
-
-        const focusOn = (element: TUIElement | null): void => {
-            h.service.attachView({ focusManager: { activeElement: element } } as unknown as BodyElement);
-            h.service.update();
-        };
-
-        focusOn(rowInExplorer);
-        expect(h.contextKeys.get("filesExplorerFocus")).toBe(true);
-
-        // Фокус вне проводника — ключ обязан упасть.
-        focusOn(outsider);
-        expect(h.contextKeys.get("filesExplorerFocus")).toBe(false);
-
-        // Фокуса нет вовсе (`activeElement === null`) — тоже false, а не undefined.
-        focusOn(null);
-        expect(h.contextKeys.get("filesExplorerFocus")).toBe(false);
     });
 
     it("опрашивает контрибьюторов фич по порядку списка — с сервисом ключей и активным элементом", () => {

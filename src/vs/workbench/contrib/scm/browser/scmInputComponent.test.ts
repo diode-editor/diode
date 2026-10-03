@@ -1,6 +1,8 @@
 import { BoxConstraints } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
@@ -134,6 +136,20 @@ describe("computeActionButton (правила VS Code)", () => {
 });
 
 describe("ScmInputComponent — поле", () => {
+    it("scmInputFocus — только поле сообщения коммита", () => {
+        const h = make();
+        const keys = new ContextKeyService();
+        const focusKey = (active: TUIElement | null): unknown => {
+            h.component.updateContextKeys(keys, active);
+            return keys.get("scmInputFocus");
+        };
+        expect(focusKey(h.component.input)).toBe(true);
+        // Обычное поле ввода (и кнопка рядом) — не поле коммита.
+        expect(focusKey(new InputElement())).toBe(false);
+        expect(focusKey(h.component.actionButton)).toBe(false);
+        expect(focusKey(null)).toBe(false);
+    });
+
     it("безрамочное поле с плейсхолдером и id для e2e; обвязка — sideBar-фон", () => {
         const h = make();
         expect(h.component.input).toBeInstanceOf(ScmCommitInputElement);

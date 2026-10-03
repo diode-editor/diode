@@ -13,6 +13,8 @@ import { basename } from "node:path";
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
@@ -51,7 +53,7 @@ interface TerminalInstanceRecord extends ITerminalInstance {
  * `TerminalPanelComponent` по событиям `onDidOpenInstance` /
  * `onDidCloseInstance` / `onDidChangeActiveInstance` / `onDidRequestFocus`.
  */
-export class TerminalService extends Disposable {
+export class TerminalService extends Disposable implements IContextKeyContributor {
     public static dependencies = [PanelServiceDIToken, ViewsServiceDIToken, TerminalSessionFactoryDIToken] as const;
 
     private instances: TerminalInstanceRecord[] = [];
@@ -97,6 +99,11 @@ export class TerminalService extends Disposable {
     /** True, пока открыт хотя бы один инстанс терминала (для контекст-ключа terminalIsOpen). */
     public get hasOpenTerminals(): boolean {
         return this.instances.length > 0;
+    }
+
+    /** IContextKeyContributor: `terminalIsOpen`. */
+    public updateContextKeys(contextKeys: ContextKeyService): void {
+        contextKeys.set("terminalIsOpen", this.hasOpenTerminals);
     }
 
     /** Открытые инстансы в порядке создания. */

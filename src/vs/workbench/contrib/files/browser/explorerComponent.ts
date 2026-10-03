@@ -7,6 +7,8 @@ import type { IFileClipboard } from "../../../../platform/clipboard/common/iFile
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -58,7 +60,7 @@ interface ExplorerViewParts {
  * `ContextMenuService` — делегат с точкой `MenuId.ExplorerContext`, пункты
  * исполняют команды `explorer.*`/`fileOperations.*`.
  */
-export class ExplorerComponent extends Component {
+export class ExplorerComponent extends Component implements IContextKeyContributor {
     public static dependencies = [
         ExplorerServiceDIToken,
         CommandRegistryDIToken,
@@ -105,6 +107,19 @@ export class ExplorerComponent extends Component {
     /** Тело секции. До первого setRootPath сервиса дерева ещё нет (как и раньше у контроллера). */
     public get view(): TUIElement {
         return this.parts?.scrollBars as TUIElement;
+    }
+
+    /** IContextKeyContributor: `filesExplorerFocus` — активный элемент внутри тела секции (дерево файлов). */
+    public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
+        contextKeys.set("filesExplorerFocus", this.containsFocus(active));
+    }
+
+    private containsFocus(active: TUIElement | null): boolean {
+        if (this.parts === null) return false;
+        for (let element = active; element !== null; element = element.getParent()) {
+            if (element === this.parts.scrollBars) return true;
+        }
+        return false;
     }
 
     /** Пересоздаёт дерево под новый провайдер сервиса и регистрирует его как view сервиса. */
