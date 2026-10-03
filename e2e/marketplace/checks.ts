@@ -2,7 +2,12 @@ import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, LINT_JS, linkEslintLibrary } from "../../src/TestUtils/eslintFixture.ts";
+import {
+    ensureEslintLibrary,
+    ESLINT_FLAT_CONFIG,
+    LINT_JS,
+    linkEslintLibrary,
+} from "../../src/TestUtils/eslintFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
@@ -196,7 +201,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 // Вторая строка, у правого края: первая — под кареткой и occurrence-подсветкой.
                 const cell = frame.cells[(editor.box.y + 1) * frame.cols + editor.box.x + editor.box.width - 2];
                 if (cell.bg !== 0x1e1e2e) {
-                    throw new Error(`фон редактора #${cell.bg.toString(16)} — не editor.background Catppuccin Mocha (#1e1e2e)`);
+                    throw new Error(
+                        `фон редактора #${cell.bg.toString(16)} — не editor.background Catppuccin Mocha (#1e1e2e)`,
+                    );
                 }
                 await app.session.sendKey("F8");
                 await app.session.waitForText((t) => t.includes("Select Color Theme"), { timeoutMs: 20_000 });
@@ -277,6 +284,37 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
                     { describe: "undercurl squiggle от jdt.ls", timeoutMs: 420_000, intervalMs: 1000 },
                 );
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx" — стоковый prettier, ЕДИНСТВЕННОЕ ESM-расширение
+        // в магазине (`"type": "module"` + `import … from "vscode"`). Чек поэтому
+        // доказывает сразу два маршрута: формат markdown (языка, которого не
+        // покрывает ни один наш LSP) и загрузку ESM-точки входа в собранном
+        // бинаре — под SEA прямой `import()` из вшитого main не работает.
+        //
+        // Чорд Ctrl+K Ctrl+E шлём инспектором (не через PTY) — как соседние чеки.
+        id: "esbenp.prettier-vscode",
+        expectFiles: ["package.json", "dist/extension.js", "node_modules/prettier/package.json"],
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const file = join(ctx.root, "notes.md");
+            writeFileSync(file, "#   Hello\n\n*  item one\n");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                // Пункт статус-бара появляется в конце activate(): провайдеры
+                // формата к этому моменту зарегистрированы.
+                await app.session.waitForText((text) => text.includes("Prettier"), { timeoutMs: 120_000 });
+                await app.session.key("Ctrl+K");
+                await app.session.key("Ctrl+E");
+                // Этого текста в файле не было — он мог появиться только правками
+                // настоящего prettier.
+                await app.session.waitForText((text) => text.includes("# Hello") && text.includes("- item one"), {
+                    timeoutMs: 60_000,
+                });
             } finally {
                 await app.dispose();
             }
