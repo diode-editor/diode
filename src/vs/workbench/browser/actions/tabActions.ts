@@ -142,16 +142,10 @@ export const closeActiveEditorAction: CommandAction = {
         const target = resolveTabTarget(service, args);
         if (target === null) return;
 
-        // Закрываем вкладку по её индексу, поэтому и dirty спрашиваем у НЕЁ:
-        // focus-aware `getActiveEditor()` при фокусе в панели вернул бы Output
-        // (он никогда не modified) — и изменённая вкладка закрылась бы молча.
-        // Именно getPane: дифф v2 с несохранённой стороной — тоже вкладка, и
-        // Ctrl+W обязан спрашивать про неё так же, как крестик мыши.
-        const pane = target.group.getPane(target.index);
-        if (pane !== null && service.needsCloseConfirm(pane) && service.onRequestConfirmClose) {
-            service.onRequestConfirmClose(target.group, target.index);
-        } else {
-            target.group.closeTab(target.index);
-        }
+        // Закрываем вкладку по её адресу, а не focus-aware `getActiveEditor()`:
+        // при фокусе в панели тот вернул бы Output (он никогда не modified) — и
+        // изменённая вкладка закрылась бы молча. Дифф v2 с несохранённой
+        // стороной — тоже вкладка: confirm у него тот же, что у крестика мыши.
+        void service.closeEditor(target.group, target.index);
     },
 };

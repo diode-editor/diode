@@ -19,6 +19,7 @@ import type { IBulkEditService } from "../contrib/bulkEdit/common/iBulkEditServi
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
 import { PROBLEMS_VIEW_ID } from "../contrib/markers/browser/problemsComponent.ts";
 import { SwitchOutputMenu } from "../contrib/output/browser/outputChannelActions.ts";
+import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import { LogHistoryDIToken, OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../services/output/common/output.ts";
 import { OutputChannelRegistry } from "../services/output/common/outputChannelRegistry.ts";
@@ -536,21 +537,18 @@ describe("Workbench — Output: потребители, которым нужн�
         expect(h.testApp.backend.screenToString()).toContain("AAAA");
     });
 
-    it("Ctrl+W при фокусе в Output спрашивает про несохранённую вкладку", () => {
+    it("Ctrl+W при фокусе в Output спрашивает про несохранённую вкладку", async () => {
         // dirty спрашивали у focus-aware активного редактора — Output никогда не
         // modified, и изменённая вкладка закрывалась бы молча.
         const editorService = h.container.get(EditorServiceDIToken);
         const tab = editorService.getEditors()[0];
         tab.viewState.type("X");
         expect(tab.isModified).toBe(true);
-        let asked = -1;
-        editorService.onRequestConfirmClose = (_group, index) => {
-            asked = index;
-        };
 
         h.commands.execute("workbench.action.closeActiveEditor");
+        await Promise.resolve();
 
-        expect(asked).toBe(0);
+        expect(h.container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).not.toBeNull();
         expect(editorService.editorCount).toBe(1);
     });
 

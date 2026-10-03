@@ -132,7 +132,7 @@ describe("EditorService — панели не-текстового вида", ()
         const pane = new FakePane(fakeUri("diff"));
         service.openPane(pane);
 
-        service.closeTab(0);
+        service.activeGroup.closeTab(0);
 
         expect(service.editorCount).toBe(0);
         expect(pane.disposed).toBe(true);

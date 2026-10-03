@@ -26,8 +26,8 @@ import { TextEditorPane } from "./textEditorPane.ts";
  * тёзок, иконки, маркер изменённости, активная вкладка). Пустой слот занимает
  * филлер, крашеный editor.background; у пустой группы он focusable — «фокус в
  * группе» существует и без вкладок (US-4/47). Клики по табам возвращаются в
- * группу (`activateTab`/`closeTab`; закрытие «грязной» вкладки — через
- * `EditorService.onRequestConfirmClose` с координатой группы). Любой фокус
+ * группу (`activateTab`; крестик — `EditorService.closeEditor` с координатой
+ * группы, confirm-флоу решает сервис). Любой фокус
  * внутри поддерева группы (клик в текст, таб, филлер) капчурится и делает
  * группу активной ({@link EditorService.notifyGroupFocused}).
  *
@@ -73,21 +73,10 @@ export class EditorGroupComponent extends Component {
             this.group.activateTab(index);
         };
         this.tabStrip.onTabClose = (index) => {
-            // Индекс приходит из tab strip и всегда указывает на существующую вкладку.
-            // Именно getPane, а не getEditor: закрывать надо вкладку любого вида,
-            // иначе не-текстовую панель (дифф) нельзя было бы закрыть крестиком.
-            const editor = this.group.getPane(index);
-            /* v8 ignore start -- индекс из tab strip всегда указывает на существующую вкладку; null — недостижимый инвариант-гард */
-            if (editor === null) return;
-            /* v8 ignore stop */
-            // Диалог — только у последней поверхности документа: пока он виден
-            // где-то ещё, несохранённые правки живут в общей модели и не теряются.
-            const needsConfirm = this.editorService.needsCloseConfirm(editor);
-            if (needsConfirm && this.editorService.onRequestConfirmClose) {
-                this.editorService.onRequestConfirmClose(this.group, index);
-            } else {
-                this.group.closeTab(index);
-            }
+            // Индекс приходит из tab strip и всегда указывает на существующую
+            // вкладку любого вида (дифф тоже закрывается крестиком). Диалог —
+            // только у последней поверхности документа: это решает сервис.
+            void this.editorService.closeEditor(this.group, index);
         };
         this.tabStrip.onTabContextMenu = (index, screenX, screenY) => {
             this.showTabContextMenu(index, screenX, screenY);

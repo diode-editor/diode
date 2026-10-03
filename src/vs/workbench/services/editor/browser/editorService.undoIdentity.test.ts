@@ -77,7 +77,7 @@ describe("EditorService — идентичность истории отмены
         first.pushUndo(first.viewState.type("first"));
         second.pushUndo(second.viewState.type("second"));
 
-        group.closeTab(0);
+        group.activeGroup.closeTab(0);
 
         second.undo();
         expect(second.getText()).toBe("");

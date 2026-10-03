@@ -128,49 +128,39 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         });
     }
 
-    public closeTabs(params: IWireCloseTabsParams): Promise<boolean> {
+    /**
+     * Программное закрытие вкладок — тот же confirm-флоу, что у пользователя
+     * (upstream `MainThreadEditorTabs.$closeTab`): цели собираются по группам,
+     * каждая группа закрывается одной серией, ответ — `true`, если закрыто всё.
+     * Вкладка или группа, которой уже нет, — идемпотентный успех.
+     */
+    public async closeTabs(params: IWireCloseTabsParams): Promise<boolean> {
+        const targets = new Map<EditorGroup, IEditorPane[]>();
         for (const target of params.tabs) {
             const group = this.editors.groups.find((candidate) => candidate.id === target.groupId);
-            if (group === undefined) continue; // группа уже схлопнулась — успех-идемпотентность
-            const index = group.findPaneIndex(Uri.parse(target.uri));
-            if (index < 0) continue;
-            const pane = group.getPane(index);
-            /* v8 ignore start -- findPaneIndex вернул валидный индекс, getPane не может отдать null */
+            if (group === undefined) continue;
+            const pane = group.getPane(group.findPaneIndex(Uri.parse(target.uri)));
             if (pane === null) continue;
-            /* v8 ignore stop */
-            if (this.editors.needsCloseConfirm(pane)) {
-                // Программное закрытие «грязной» вкладки — тот же confirm-флоу,
-                // что и у пользователя; отказ (диалог решает пользователь)
-                // возвращаем false, вкладка остаётся.
-                if (this.editors.onRequestConfirmClose) {
-                    this.editors.onRequestConfirmClose(group, index);
-                    return Promise.resolve(false);
-                }
-                return Promise.resolve(false);
-            }
-            group.closeTab(index);
+            targets.set(group, [...(targets.get(group) ?? []), pane]);
         }
-        return Promise.resolve(true);
+        const results: boolean[] = [];
+        for (const [group, panes] of targets) results.push(await this.editors.closeEditors(group, panes));
+        return results.every((closed) => closed);
     }
 
-    public closeGroups(params: IWireCloseGroupsParams): Promise<boolean> {
+    /**
+     * Закрывает группы целиком (upstream `$closeGroup`): вето в одной группе не
+     * мешает закрыть остальные, ответ — `true`, если закрыты все. Опустевшая
+     * группа схлопывается сама.
+     */
+    public async closeGroups(params: IWireCloseGroupsParams): Promise<boolean> {
+        const results: boolean[] = [];
         for (const groupId of params.groupIds) {
             const group = this.editors.groups.find((candidate) => candidate.id === groupId);
             if (group === undefined) continue;
-            while (group.editorCount > 0) {
-                const index = group.editorCount - 1;
-                const pane = group.getPane(index);
-                /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
-                if (pane === null) break;
-                /* v8 ignore stop */
-                if (this.editors.needsCloseConfirm(pane)) {
-                    if (this.editors.onRequestConfirmClose) this.editors.onRequestConfirmClose(group, index);
-                    return Promise.resolve(false);
-                }
-                group.closeTab(index);
-            }
+            results.push(await this.editors.closeAllEditors(group));
         }
-        return Promise.resolve(true);
+        return results.every((closed) => closed);
     }
 
     // ─── Снимки ──────────────────────────────────────────────────────────────

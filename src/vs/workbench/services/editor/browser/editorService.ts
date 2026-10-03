@@ -116,7 +116,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
 
     /**
      * Полоса групп в порядке ViewColumn − 1. Пока сплитов нет — ровно одна;
-     * вкладочная поверхность сервиса (activeIndex, activateTab, closeTab, MRU)
+     * вкладочная поверхность сервиса (activeIndex, activateTab, MRU)
      * делегирует в активную группу.
      */
     private groupsList: EditorGroup[] = [];
@@ -190,7 +190,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public focusGroupContentHook?: (group: EditorGroup) => void;
 
-    public onRequestConfirmClose?: (group: EditorGroup, index: number) => void;
     public onEditorCreate?: (pane: TextEditorPane) => void;
 
     /**
@@ -1500,11 +1499,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.activeGroupValue = target.group;
         target.group.activateTab(target.index);
         this.fireActiveGroupChanged(target.group);
-    }
-
-    /** Закрывает вкладку активной группы (события и фокус — контракт группы). */
-    public closeTab(index: number): void {
-        this.activeGroupValue.closeTab(index);
     }
 
     public async activate(): Promise<void> {

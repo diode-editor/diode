@@ -120,7 +120,7 @@ describe("Workbench — панель не-текстового вида во в�
         editors.openPane(new TextOnlyPane(Uri.from({ scheme: "fake", path: "/changes" })));
         testApp.render();
 
-        editors.closeTab(editors.activeIndex);
+        editors.activeGroup.closeTab(editors.activeIndex);
         testApp.render();
 
         expect(testApp.backend.screenToString()).not.toContain(PANE_TEXT);

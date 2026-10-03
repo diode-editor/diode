@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
@@ -23,6 +24,7 @@ import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService
 import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
 import { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -32,6 +34,7 @@ import { EditorGroupComponent } from "./editorGroupComponent.ts";
 interface IEditorGroup {
     service: EditorService;
     component: EditorGroupComponent;
+    dialogs: DialogService;
 }
 
 function createEditorGroup(
@@ -41,6 +44,8 @@ function createEditorGroup(
     } = {},
 ): IEditorGroup {
     const themeService = overrides.themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
+    const dialogs = new DialogService();
+    dialogs.attachHost(new BodyElement());
     const service = new EditorService(
         themeService,
         new TokenizationRegistry(),
@@ -51,9 +56,11 @@ function createEditorGroup(
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
+        undefined,
+        dialogs,
     );
     const component = new EditorGroupComponent(service.activeGroup, service, createTestContextMenuService());
-    return { service, component };
+    return { service, component, dialogs };
 }
 
 function tabStrip(component: EditorGroupComponent): EditorTabStripElement {
@@ -137,7 +144,7 @@ describe("EditorGroupComponent", () => {
 
             service.newUntitled();
             service.newUntitled();
-            service.closeTab(0);
+            service.activeGroup.closeTab(0);
             service.newUntitled();
 
             expect(tabLabels(component)).toEqual(["Untitled-2", "Untitled-3"]);
@@ -182,7 +189,7 @@ describe("EditorGroupComponent", () => {
             const paneView = service.getActiveEditor()!.view;
             expect(contentSlot(component)).toBe(paneView);
 
-            service.closeTab(0);
+            service.activeGroup.closeTab(0);
 
             expect(contentSlot(component)).toBeInstanceOf(FillerElement);
             expect(paneView.getParent()).toBeNull();
@@ -296,21 +303,22 @@ describe("EditorGroupComponent", () => {
             expect(service.getActiveEditor()?.fileName).toBe("b.ts");
         });
 
-        it("onTabClose on a modified editor defers to onRequestConfirmClose instead of closing", () => {
-            const { service, component } = createEditorGroup();
+        it("onTabClose on a modified editor asks to save instead of closing", async () => {
+            const { service, component, dialogs } = createEditorGroup();
             service.openFile(writeFile("a.ts", "const x = 1;"));
-            const editor = service.getActiveEditor()!;
-            editor.viewState.insertText("y"); // mark modified
-
-            let confirmedIndex = -1;
-            service.onRequestConfirmClose = (_group, index) => {
-                confirmedIndex = index;
-            };
+            service.openFile(writeFile("b.ts", "b"));
+            service.getEditors()[0].viewState.insertText("y"); // mark modified
 
             tabStrip(component).onTabClose?.(0);
 
-            expect(confirmedIndex).toBe(0);
-            expect(service.editorCount).toBe(1); // not closed — waiting on confirmation
+            // Not closed — waiting on the user; the asked-about tab is brought forward.
+            expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
+            expect(tabLabels(component)).toEqual(["a.ts", "b.ts"]);
+            expect(service.activeIndex).toBe(0);
+
+            dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(tabLabels(component)).toEqual(["b.ts"]);
         });
     });
 

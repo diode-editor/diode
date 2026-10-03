@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
@@ -15,6 +16,7 @@ import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IDiffEditorPane2Input } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
+import { DialogService } from "../../services/dialogs/browser/dialogService.ts";
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
@@ -29,6 +31,7 @@ import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
 describe("EditorLayoutServiceAdapter", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
+    let dialogs: DialogService;
     let adapter: EditorLayoutServiceAdapter;
 
     beforeEach(() => {
@@ -36,6 +39,8 @@ describe("EditorLayoutServiceAdapter", () => {
             prefix: "diode-layout-adapter-",
             files: { "a.ts": "alpha", "b.ts": "beta" },
         });
+        dialogs = new DialogService();
+        dialogs.attachHost(new BodyElement());
         service = new EditorService(
             new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
             new TokenizationRegistry(),
@@ -46,6 +51,8 @@ describe("EditorLayoutServiceAdapter", () => {
             NULL_FILE_WATCHER,
             createTestEditorContextMenuController(),
             NULL_LOG_SERVICE,
+            undefined,
+            dialogs,
         );
         adapter = new EditorLayoutServiceAdapter(service);
     });
@@ -198,16 +205,39 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.groups.length).toBe(1);
     });
 
-    it("closeTabs с несохранённой последней вкладкой документа — false, вкладка на месте", async () => {
+    it("closeTabs с несохранённой последней вкладкой ждёт ответа: Cancel — false, вкладка на месте", async () => {
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
         editor.viewState.type("dirty");
         const group = service.activeGroup;
 
-        await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] })).resolves.toBe(
-            false,
-        );
+        const closed = adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] });
+        // Решение за пользователем: тот же диалог, что у Ctrl+W.
+        expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
+        dialogs.getOpenConfirmSaveDialog()?.onCancel?.();
+
+        await expect(closed).resolves.toBe(false);
         expect(group.editorCount).toBe(1);
+    });
+
+    it("closeTabs: Don't Save по грязной — true, закрыты все цели списка", async () => {
+        service.openFile(ws.path("a.ts"));
+        const dirty = service.getActiveEditor()!;
+        dirty.viewState.type("dirty");
+        service.openFile(ws.path("b.ts"));
+        const clean = service.getActiveEditor()!;
+        const group = service.activeGroup;
+
+        const closed = adapter.closeTabs({
+            tabs: [
+                { groupId: group.id, uri: dirty.uri.toString() },
+                { groupId: group.id, uri: clean.uri.toString() },
+            ],
+        });
+        dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
+
+        await expect(closed).resolves.toBe(true);
+        expect(group.editorCount).toBe(0);
     });
 
     it("closeTabs: uri, которого нет в группе, пропускается — идемпотентный успех", async () => {
@@ -220,22 +250,6 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(group.editorCount).toBe(1);
     });
 
-    it("closeTabs несохранённой вкладки при подключённом confirm-флоу — диалог пользователю и false", async () => {
-        service.openFile(ws.path("a.ts"));
-        const editor = service.getActiveEditor()!;
-        editor.viewState.type("dirty");
-        const group = service.activeGroup;
-        const confirms: { index: number; sameGroup: boolean }[] = [];
-        service.onRequestConfirmClose = (g, index) => confirms.push({ index, sameGroup: g === group });
-
-        await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] })).resolves.toBe(
-            false,
-        );
-        // Решение за пользователем: адаптер лишь поднял confirm той же группы/вкладки.
-        expect(confirms).toEqual([{ index: 0, sameGroup: true }]);
-        expect(group.editorCount).toBe(1);
-    });
-
     it("closeGroups: неизвестная группа пропускается — идемпотентный успех", async () => {
         service.openFile(ws.path("a.ts"));
 
@@ -243,22 +257,21 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.groups.length).toBe(1);
     });
 
-    it("closeGroups с несохранённой вкладкой — false; confirm-флоу поднимается, если подключён", async () => {
+    it("closeGroups: вето в одной группе не мешает закрыть другую, ответ — false", async () => {
         service.openFile(ws.path("a.ts"));
-        const editor = service.getActiveEditor()!;
-        editor.viewState.type("dirty");
-        const group = service.activeGroup;
+        service.getActiveEditor()!.viewState.type("dirty");
+        const first = service.activeGroup;
+        service.newGroup("after");
+        service.openFile(ws.path("b.ts"));
+        const second = service.activeGroup;
+        expect(service.groups.length).toBe(2);
 
-        // Без confirm-обработчика — просто отказ, вкладка на месте.
-        await expect(adapter.closeGroups({ groupIds: [group.id] })).resolves.toBe(false);
-        expect(group.editorCount).toBe(1);
+        const closed = adapter.closeGroups({ groupIds: [first.id, second.id] });
+        dialogs.getOpenConfirmSaveDialog()?.onCancel?.();
 
-        // С обработчиком — диалог пользователю и тот же отказ.
-        const confirms: number[] = [];
-        service.onRequestConfirmClose = (_g, index) => confirms.push(index);
-        await expect(adapter.closeGroups({ groupIds: [group.id] })).resolves.toBe(false);
-        expect(confirms).toEqual([0]);
-        expect(group.editorCount).toBe(1);
+        await expect(closed).resolves.toBe(false);
+        expect(first.editorCount).toBe(1);
+        expect(service.groups).toEqual([first]);
     });
 
     it("снимок: дифф-вкладка несёт kind=diff и uri сторон (если они есть)", () => {

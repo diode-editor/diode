@@ -648,7 +648,7 @@ describe("Workbench — дифф v2", () => {
 
     it("команды без активного файла и без git — тихий no-op и нотис", async () => {
         // Без активного редактора (закрыть файл) — no-op.
-        editors.closeTab(editors.activeIndex);
+        editors.activeGroup.closeTab(editors.activeIndex);
         container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
         await settle(20);
         expect(editors.editorCount).toBe(0);
@@ -678,7 +678,7 @@ describe("Workbench — дифф v2", () => {
         expect(editors.editorCount).toBe(countAfterFirst);
 
         // Несохранённые правки живут в модели файла — дифф закрывается молча.
-        editors.closeTab(editors.activeIndex);
+        editors.activeGroup.closeTab(editors.activeIndex);
         expect(editors.editorCount).toBe(countAfterFirst - 1);
     });
 
@@ -889,7 +889,8 @@ describe("Workbench — дифф v2", () => {
         (pane as DiffEditorPane2).sidePanes()[1].viewState.type("keepme");
 
         const dialogs = container.get(DialogServiceDIToken);
-        editors.onRequestConfirmClose?.(editors.activeGroup, editors.activeIndex);
+        void editors.closeEditor(editors.activeGroup, editors.activeIndex);
+        await settle(10);
         app.render();
         // Диалог называет dirty-сторону.
         expect(app.backend.screenToString()).toContain("Untitled-2");
@@ -901,7 +902,8 @@ describe("Workbench — дифф v2", () => {
         expect(editors.getActiveTabPane()).toBe(pane);
 
         // Don't Save — закрывает.
-        editors.onRequestConfirmClose?.(editors.activeGroup, editors.activeIndex);
+        void editors.closeEditor(editors.activeGroup, editors.activeIndex);
+        await settle(10);
         dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
         await settle(10);
         expect(editors.getPanes().includes(pane as DiffEditorPane2)).toBe(false);
@@ -910,12 +912,13 @@ describe("Workbench — дифф v2", () => {
     it("диалог закрытия диффа с file-стороной: Save пишет файл и закрывает вкладку", async () => {
         await openV2();
         // Файловая вкладка закрыта — dirty-модель живёт только в стороне диффа.
-        editors.closeTab(0);
+        editors.activeGroup.closeTab(0);
         const pane = editors.getActiveTabPane() as DiffEditorPane2;
         expect(editors.needsCloseConfirm(pane)).toBe(true);
 
         const dialogs = container.get(DialogServiceDIToken);
-        editors.onRequestConfirmClose?.(editors.activeGroup, editors.activeIndex);
+        void editors.closeEditor(editors.activeGroup, editors.activeIndex);
+        await settle(10);
         dialogs.getOpenConfirmSaveDialog()?.onSave?.();
         await settle(20);
 
@@ -947,24 +950,17 @@ describe("Workbench — дифф v2", () => {
     it("закрытие вкладки файла при открытом диффе — без диалога: правки живут в стороне", async () => {
         await openV2();
 
-        // Активируем вкладку файла (индекс 0) и закрываем её: модель dirty, но
-        // дифф-сторона держит тот же документ — диалог не нужен.
-        const closed = new Promise<void>((resolve) => {
-            editors.onRequestConfirmClose = () => {
-                throw new Error("не должно быть диалога");
-            };
-            resolve();
-        });
+        // Закрываем вкладку файла (индекс 0): модель dirty, но дифф-сторона
+        // держит тот же документ — диалог не нужен.
         editors.activateTab(0);
         const fileEditor = editors.getActiveTabEditor();
         expect(fileEditor?.isModified).toBe(true);
         expect(editors.needsCloseConfirm(fileEditor!)).toBe(false);
-        await closed;
+        expect(await editors.closeEditor(editors.activeGroup, fileEditor!)).toBe(true);
+        expect(container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).toBeNull();
 
         // А дифф после этого — последняя поверхность документа: ему диалог нужен.
-        editors.activateTab(1);
         const diffPane = editors.getActiveTabPane() as DiffEditorPane2;
-        editors.closeTab(0);
         expect(editors.needsCloseConfirm(diffPane)).toBe(true);
         expect(editors.dirtyExclusiveDiffSides(diffPane).map((s) => s.label)).toEqual(["a.txt"]);
     });

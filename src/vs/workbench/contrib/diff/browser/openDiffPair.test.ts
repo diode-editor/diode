@@ -118,7 +118,7 @@ describe("openDiffPair", () => {
         // Вкладка нормально закрывается и не ломает навигацию.
         const pane = editors.getPanes().find((p) => p instanceof DiffEditorPane2);
         expect(pane).toBeDefined();
-        editors.closeTab(editors.getPanes().indexOf(pane ?? editors.getPanes()[0]));
+        editors.activeGroup.closeTab(editors.getPanes().indexOf(pane ?? editors.getPanes()[0]));
         expect(editors.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
     });
 

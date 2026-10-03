@@ -104,7 +104,7 @@ describe("Workbench — вкладка diff", () => {
         expect(pane?.isModified).toBe(true);
         expect(pane === null ? true : editors.needsCloseConfirm(pane)).toBe(false);
 
-        editors.closeTab(editors.activeIndex);
+        editors.activeGroup.closeTab(editors.activeIndex);
         testApp.render();
 
         expect(testApp.backend.screenToString()).not.toContain("↔ HEAD");
