@@ -977,46 +977,51 @@ export class ExtensionHost extends Disposable {
     private async activateRegistrations(regs: readonly IExtensionRegistration[], reason: string): Promise<void> {
         const toActivate = [...this.toRevive.values(), ...regs];
         if (toActivate.length === 0) return;
-        // Спавним subprocess ОДИН раз до цикла: сбой хоста (spawn/ready) — это не
+        // Спавним subprocess ОДИН раз до активации: сбой хоста (spawn/ready) — это не
         // проблема конкретного расширения, он пробрасывается наверх.
         const rpc = await this.ensureSubprocess();
-        for (const reg of toActivate) {
-            // Второй guard на случай, если параллельная активация уже занялась им.
-            if (!this.pending.delete(reg.id) && !this.toRevive.delete(reg.id)) continue;
-            // Per-extension изоляция: упавший `activate()` одного расширения не
-            // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
-            const storage = this.resolveStoragePaths(reg.id);
-            try {
-                await rpc.request("host.activateExtension", {
-                    id: reg.id,
-                    mainPath: reg.mainPath,
-                    source: reg.source,
-                    filename: reg.filename,
-                    // `"type"` из package.json расширения — им субпроцесс решает,
-                    // грузить точку входа как CJS или как ESM (`isEsmEntry`).
-                    // Едет как есть: нормализует его ОДНА сторона — та, что
-                    // разбирает параметры (`parseActivateParams`).
-                    moduleType: reg.manifest.type,
-                    extensionPath: reg.extensionPath,
-                    configDefaults: reg.configDefaults,
-                    globalStoragePath: storage.globalStoragePath,
-                    storagePath: storage.storagePath,
-                    logPath: storage.logPath,
-                });
-                this.extensions.add(reg.id);
-                this.activatedRegistrations.set(reg.id, reg);
-                // Точечно, а не целым каталогом: манифесты тяжёлые (у языковых
-                // серверов package.json со схемой настроек — сотни килобайт), а
-                // меняется здесь ровно один флаг.
-                rpc.notify("extensions.activated", { id: reg.id });
-            } catch (err) {
-                this.logger?.error(`failed to activate extension "${reg.id}"`, err);
-                continue;
-            }
-            // Запись об успехе — ВНЕ try: этот `catch` про сбой активации, и
-            // беда логгера не должна прикидываться им (а заодно тихо глотаться).
-            this.logger?.info(`activated extension "${reg.id}" (${reason})`);
+        // Набор активируется параллельно (как `_activateExtensions` эталона): соседи
+        // по событию не ждут друг друга — стоковый LSP-клиент, поднимающий сервер
+        // секундами прямо в `activate()`, иначе держал бы всех за собой.
+        await Promise.all(toActivate.map((reg) => this.activateRegistration(rpc, reg, reason)));
+    }
+
+    private async activateRegistration(rpc: RpcEndpoint, reg: IExtensionRegistration, reason: string): Promise<void> {
+        // Guard на случай, если параллельная активация уже занялась им.
+        if (!this.pending.delete(reg.id) && !this.toRevive.delete(reg.id)) return;
+        // Per-extension изоляция: упавший `activate()` одного расширения не
+        // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
+        const storage = this.resolveStoragePaths(reg.id);
+        try {
+            await rpc.request("host.activateExtension", {
+                id: reg.id,
+                mainPath: reg.mainPath,
+                source: reg.source,
+                filename: reg.filename,
+                // `"type"` из package.json расширения — им субпроцесс решает,
+                // грузить точку входа как CJS или как ESM (`isEsmEntry`).
+                // Едет как есть: нормализует его ОДНА сторона — та, что
+                // разбирает параметры (`parseActivateParams`).
+                moduleType: reg.manifest.type,
+                extensionPath: reg.extensionPath,
+                configDefaults: reg.configDefaults,
+                globalStoragePath: storage.globalStoragePath,
+                storagePath: storage.storagePath,
+                logPath: storage.logPath,
+            });
+            this.extensions.add(reg.id);
+            this.activatedRegistrations.set(reg.id, reg);
+            // Точечно, а не целым каталогом: манифесты тяжёлые (у языковых
+            // серверов package.json со схемой настроек — сотни килобайт), а
+            // меняется здесь ровно один флаг.
+            rpc.notify("extensions.activated", { id: reg.id });
+        } catch (err) {
+            this.logger?.error(`failed to activate extension "${reg.id}"`, err);
+            return;
         }
+        // Запись об успехе — ВНЕ try: этот `catch` про сбой активации, и
+        // беда логгера не должна прикидываться им (а заодно тихо глотаться).
+        this.logger?.info(`activated extension "${reg.id}" (${reason})`);
     }
 
     /**

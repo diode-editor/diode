@@ -7,6 +7,12 @@ import type { IExtensionRegistrationEnv } from "./extensionRegistration.ts";
 import { toExtensionRegistration } from "./extensionRegistration.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
+/**
+ * Сколько `onStartupFinished` ждёт eager-активацию (`*` и `workspaceContains:`),
+ * прежде чем наступить без неё (`timeout(10000)` эталона).
+ */
+export const STARTUP_FINISHED_TIMEOUT_MS = 10_000;
+
 /** Механика extension host'а, которой распоряжается сервис (`ExtensionHost`). */
 export interface IExtensionActivationHost {
     registerExtension(reg: IExtensionRegistration): unknown;
@@ -37,6 +43,7 @@ export class ExtensionService implements IExtensionService {
         public readonly extensions: readonly IExtension[],
         private readonly registrationEnv: IExtensionRegistrationEnv,
         private readonly logger: ILogger,
+        private readonly startupFinishedTimeoutMs = STARTUP_FINISHED_TIMEOUT_MS,
     ) {}
 
     public getExtension(id: string): IExtension | undefined {
@@ -60,10 +67,11 @@ export class ExtensionService implements IExtensionService {
     }
 
     /**
-     * Регистрация набора и стартовая активация: `*` → события, запрошенные до
-     * регистрации (`onLanguage:` уже открытых файлов) → барьер →
-     * `onStartupFinished` → `workspaceContains:` (последним: единственное событие,
-     * которому нужен обход дерева, и держать на нём соседей незачем).
+     * Регистрация набора и стартовая активация (как `_handleEagerExtensions`
+     * эталона): `*` (за ним — события, запрошенные до регистрации, и барьер) и
+     * проход `workspaceContains:` идут параллельно; `onStartupFinished` — после
+     * них, но не позже {@link STARTUP_FINISHED_TIMEOUT_MS}: повисший `activate()`
+     * одного eager-расширения не откладывает его навсегда.
      *
      * Сбой регистрации одного расширения — в лог, остальные регистрируются;
      * сбой самого host'а (субпроцесс не поднялся) — в лог, редактор работает без
@@ -79,19 +87,36 @@ export class ExtensionService implements IExtensionService {
             }
         }
         mark("main:extensions-registered");
-        try {
-            await this.host.activateByEvent("*");
-            // Живой обход: событие, пришедшее во время проигрыша, тоже проиграется.
-            for (const event of this.requested) await this.host.activateByEvent(event);
-            this.barrierOpen = true;
-            this.openBarrier();
-            await this.host.activateByEvent("onStartupFinished");
-            await this.host.activateByWorkspaceContains();
-        } catch (err) {
-            this.logger.error("extension host activation failed", err);
-        }
+        const eager = Promise.all([
+            this.activateEager(),
+            this.guard("workspaceContains", this.host.activateByWorkspaceContains()),
+        ]);
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, this.startupFinishedTimeoutMs);
+        });
+        await Promise.race([eager, timeout]);
+        clearTimeout(timer);
+        await this.guard("onStartupFinished", this.host.activateByEvent("onStartupFinished"));
+        await eager;
+        mark("exthost:activated");
+    }
+
+    /** `*`, за ним — события, запрошенные до регистрации; затем барьер. */
+    private async activateEager(): Promise<void> {
+        await this.guard("*", this.host.activateByEvent("*"));
+        // Живой обход: событие, пришедшее во время проигрыша, тоже проиграется.
+        for (const event of this.requested) await this.guard(event, this.host.activateByEvent(event));
         this.barrierOpen = true;
         this.openBarrier();
-        mark("exthost:activated");
+    }
+
+    /** Сбой host'а на стартовом событии — в лог, а не в отказ всего старта. */
+    private async guard(event: string, activation: Promise<void>): Promise<void> {
+        try {
+            await activation;
+        } catch (err) {
+            this.logger.error(`extension host activation failed (${event})`, err);
+        }
     }
 }

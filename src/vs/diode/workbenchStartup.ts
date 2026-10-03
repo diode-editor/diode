@@ -27,8 +27,12 @@ export interface IWorkbenchStartupHost {
     afterMounted(): Promise<void>;
     /** Грамматики стартовых файлов — ДО открытия (см. {@link startWorkbench}). */
     preloadGrammars(files: readonly string[]): Promise<void>;
-    /** В фазе `restored`: регистрация расширений и стартовые события активации. */
-    afterRestored(): Promise<void>;
+    /**
+     * В фазе `restored`: регистрация расширений и стартовая активация. Не
+     * ожидается — `eventually` от активации не зависит (повисший `activate()`
+     * расширения не должен откладывать фоновую работу окна).
+     */
+    afterRestored(): void;
     /** Отложить колбэк до после первого кадра (`setImmediate`: кадр отложен на него же). */
     afterFirstFrame(callback: () => void): void;
 }
@@ -53,8 +57,8 @@ export interface IWorkbenchStartupOptions {
  * 4. Грамматики стартовых файлов — ДО открытия: после `openFile` ждать поздно,
  *    await отдаёт event loop, и отложенный рендер рисует кадр без подсветки.
  * 5. Открытие (дифф / файлы с `--goto` / рестор сессии) — фаза `restored`.
- * 6. Расширения регистрируются ПОСЛЕ открытия — к их `activate()` уже есть
- *    `activeTextEditor`.
+ * 6. Расширения регистрируются после открытия, но `eventually` их активацию
+ *    не ждёт.
  * 7. Фаза `eventually` — после первого кадра: `mount()` идёт до `run()`, и
  *    фаза из самого `mount` сработала бы раньше кадра.
  *
@@ -134,7 +138,7 @@ export async function startWorkbench(
     mark("main:files-opened", { files: startupFiles.length });
     lifecycle.setPhase("restored");
 
-    await host.afterRestored();
+    host.afterRestored();
 
     host.afterFirstFrame(() => {
         lifecycle.setPhase("eventually");

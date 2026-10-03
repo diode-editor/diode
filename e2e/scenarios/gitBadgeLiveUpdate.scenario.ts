@@ -53,16 +53,27 @@ export default defineScenario({
         await editor.capture("clean");
 
         // Правка «из терминала»: редактор этот файл не открывал и о записи не знает.
-        writeFileSync(join(repoDir, "app.ts"), "export const a = 2;\n");
-        writeFileSync(join(repoDir, "untracked.md"), "new\n");
-
-        // Единственный путь, по которому это может доехать до дерева, — событие
-        // из watcher-процесса.
-        await editor.waitForText((t) => {
+        // Единственный путь, по которому она может доехать до дерева, — событие из
+        // watcher-процесса. Подписку git-расширение заводит при активации, а та
+        // не ждётся стартом окна, и watcher-процесс ещё поднимается и делает
+        // начальный обход: правка, сделанная раньше, события не даёт (её видел бы
+        // разве что первичный `git status`). Поэтому правку повторяем, пока
+        // событие не доедет; если слежение сломано, не доедет ни одна.
+        const edited = (t: string): boolean => {
             const changed = rowFor(t, "app.ts");
             const untracked = rowFor(t, "untracked.md");
             return changed !== undefined && changed.includes("M") && untracked !== undefined;
-        });
+        };
+        for (let attempt = 1; ; attempt++) {
+            writeFileSync(join(repoDir, "app.ts"), `export const a = ${String(attempt + 1)};\n`);
+            writeFileSync(join(repoDir, "untracked.md"), `new ${String(attempt)}\n`);
+            try {
+                await editor.waitForText(edited, { timeoutMs: 3000 });
+                break;
+            } catch (err) {
+                if (attempt === 5) throw err;
+            }
+        }
         await editor.capture("after-external-edit");
     },
 });
