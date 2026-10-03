@@ -1,7 +1,7 @@
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { TerminalEnvironmentService } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
 import { keyboardDoctorSnapshot } from "./preferencesModule.ts";
@@ -27,7 +27,7 @@ describe("keyboardDoctorSnapshot", () => {
     });
 
     it("снимок окружения для доктора: ОС с источником, рунг, включённые caps и отсортированные моды", () => {
-        const env = new TerminalEnvironmentService(new MockTerminalBackend(), NULL_CONFIGURATION_SERVICE);
+        const env = new TerminalEnvironmentService(new MockTerminalBackend(), createTestConfigurationService());
         env.noteTerminalName("kitty(0.45.0)");
         env.setMode("presentation", true); // вставляется последним — снимок сортирует
         expect(keyboardDoctorSnapshot(env)).toEqual({

@@ -1,6 +1,6 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
-export const explorerConfiguration: IConfigurationNode = {
+export const explorerConfiguration = {
     id: "explorer",
     title: "File Explorer",
     properties: {
@@ -24,4 +24,4 @@ export const explorerConfiguration: IConfigurationNode = {
             description: "Automatically reveal and select the active file in the explorer tree.",
         },
     },
-};
+} as const satisfies IConfigurationNode;

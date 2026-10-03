@@ -6,11 +6,11 @@ import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerEl
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -51,7 +51,7 @@ function setup(text = "hello world\nsecond line", configuration?: IConfiguration
             new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
         ),
     );
-    const controller = new ContextMenuController(contextMenuService, configuration ?? NULL_CONFIGURATION_SERVICE);
+    const controller = new ContextMenuController(contextMenuService, configuration ?? createTestConfigurationService());
     controller.attach(view);
 
     return { app, editor, view, executed };
@@ -184,11 +184,7 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
     });
 
     it("editor.contextmenu: false only places the caret and opens nothing", () => {
-        const config = {
-            ...NULL_CONFIGURATION_SERVICE,
-            get: <T>(key: string, defaultValue?: T): T | undefined =>
-                key === "editor.contextmenu" ? (false as T) : defaultValue,
-        };
+        const config = createTestConfigurationService({ "editor.contextmenu": false });
         const { app, editor } = setup(undefined, config);
 
         rightClick(app, editor, GUTTER + 6, 0);

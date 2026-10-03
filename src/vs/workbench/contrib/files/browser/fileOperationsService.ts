@@ -138,7 +138,7 @@ export class FileOperationsService {
     /** Удаление файла: подтверждение (всегда — если безвозвратно) + запись в историю отмены. */
     public requestDeleteFile(filePath: string): void {
         const willTrash = this.workspaceEditService.willMoveToTrash();
-        const confirmDelete = this.configurationService.get<boolean>("explorer.confirmDelete", true) ?? true;
+        const confirmDelete = this.configurationService.get("explorer.confirmDelete");
         const name = path.basename(filePath);
 
         const doDelete = (): void => {
@@ -177,7 +177,7 @@ export class FileOperationsService {
     public undoWorkspace(): void {
         const element = this.undoRedoService.peekUndo(WORKSPACE_UNDO_CONTEXT);
         if (!element) return;
-        const confirmUndo = this.configurationService.get<boolean>("explorer.confirmUndo", true) ?? true;
+        const confirmUndo = this.configurationService.get("explorer.confirmUndo");
 
         const doUndo = (): void => {
             void this.undoRedoService.undo(WORKSPACE_UNDO_CONTEXT).then((ok) => {

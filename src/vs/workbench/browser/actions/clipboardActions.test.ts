@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { createCursorSelection, createSelection } from "../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
@@ -13,7 +14,6 @@ import { ClipboardDIToken } from "../../../platform/clipboard/common/iClipboard.
 import { OscClipboard } from "../../../platform/clipboard/common/oscClipboard.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -47,7 +47,7 @@ function createGroup(): EditorService {
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         NULL_LANGUAGE_SERVICE,
-        NULL_CONFIGURATION_SERVICE,
+        createTestConfigurationService(),
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
@@ -66,11 +66,9 @@ function openEditor(content: string, clipboard: IClipboard, emptySelectionClipbo
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => ctrl);
     accessor.bind(ClipboardDIToken, () => clipboard);
-    accessor.bind(IConfigurationServiceDIToken, () => ({
-        ...NULL_CONFIGURATION_SERVICE,
-        get: <T>(key: string, defaultValue?: T): T | undefined =>
-            key === "editor.emptySelectionClipboard" ? (emptySelectionClipboard as T) : defaultValue,
-    }));
+    accessor.bind(IConfigurationServiceDIToken, () =>
+        createTestConfigurationService({ "editor.emptySelectionClipboard": emptySelectionClipboard }),
+    );
 
     async function exec(action: CommandAction): Promise<void> {
         registerAction(commands, new KeybindingRegistry(), accessor, action);
@@ -148,7 +146,7 @@ describe("clipboardCopyAction", () => {
         accessor.bind(EditorServiceDIToken, () => ctrl);
         accessor.bind(ClipboardDIToken, () => clipboard);
         // NULL-сервис возвращает undefined — сработать обязан дефолт `?? true`.
-        accessor.bind(IConfigurationServiceDIToken, () => NULL_CONFIGURATION_SERVICE);
+        accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService());
         registerAction(commands, new KeybindingRegistry(), accessor, clipboardCopyAction);
 
         await commands.execute(clipboardCopyAction.id);
@@ -277,7 +275,7 @@ describe("clipboardCutAction defensive delete handling", () => {
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ({ getActiveEditor: () => editor }) as never);
         accessor.bind(ClipboardDIToken, () => clipboard);
-        accessor.bind(IConfigurationServiceDIToken, () => NULL_CONFIGURATION_SERVICE);
+        accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService());
 
         registerAction(commands, new KeybindingRegistry(), accessor, clipboardCutAction);
         await commands.execute(clipboardCutAction.id);

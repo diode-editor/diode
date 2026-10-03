@@ -1,7 +1,7 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 import { DEFAULT_COLOR_THEME } from "../../services/themes/common/themes/builtinThemes.ts";
 
-export const workbenchConfiguration: IConfigurationNode = {
+export const workbenchConfiguration = {
     id: "workbench",
     title: "Workbench",
     properties: {
@@ -16,4 +16,4 @@ export const workbenchConfiguration: IConfigurationNode = {
             description: "Specifies the color theme used in the workbench.",
         },
     },
-};
+} as const satisfies IConfigurationNode;

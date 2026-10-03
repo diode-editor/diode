@@ -72,7 +72,7 @@ export class TerminalEnvironmentService extends Disposable {
         this.backend = backend;
         this.config = config;
         this.baseModes = detectBaseModes();
-        this.osSignals = initialOsSignals(this.config.get<string>("keyboard.platform"));
+        this.osSignals = initialOsSignals(this.config.get("keyboard.platform"));
         this.resolvedOs = resolveOs(this.osSignals);
 
         // Synchronous capability detection from environment (no terminal round-trip).
@@ -256,10 +256,9 @@ export class TerminalEnvironmentService extends Disposable {
     }
 
     private resolveTierWithOverride(): Tier {
-        const forced = this.config.get<string>("terminal.tier");
-        if (forced && forced !== "auto" && (TIER_ORDER as readonly string[]).includes(forced)) {
-            return forced as Tier;
-        }
+        // Значение вне enum схемы сервис настроек уже заменил дефолтом ("auto").
+        const forced = this.config.get("terminal.tier");
+        if (forced !== "auto") return forced;
         return resolveTier(this.capabilities);
     }
 

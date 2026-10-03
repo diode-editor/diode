@@ -9,7 +9,7 @@ import { EditorServiceDIToken } from "../../services/editor/browser/editorServic
 
 /** `editor.emptySelectionClipboard`: копирует ли Copy/Cut без выделения текущую строку. */
 function isEmptySelectionClipboardEnabled(accessor: ServiceAccessor): boolean {
-    return accessor.get(IConfigurationServiceDIToken).get<boolean>("editor.emptySelectionClipboard") ?? true;
+    return accessor.get(IConfigurationServiceDIToken).get("editor.emptySelectionClipboard");
 }
 
 export const clipboardCopyAction: CommandAction = {

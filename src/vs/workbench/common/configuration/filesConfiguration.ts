@@ -1,6 +1,6 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
-export const filesConfiguration: IConfigurationNode = {
+export const filesConfiguration = {
     id: "files",
     title: "Files",
     properties: {
@@ -120,4 +120,4 @@ export const filesConfiguration: IConfigurationNode = {
                 "Glob patterns to exclude from file watching. Patterns are matched relative to the watched folder.",
         },
     },
-};
+} as const satisfies IConfigurationNode;

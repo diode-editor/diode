@@ -4,8 +4,8 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { TrashService } from "../../../../platform/files/node/trashService.ts";
 import { UndoRedoService, WORKSPACE_UNDO_CONTEXT } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { NULL_BULK_EDIT_BUFFERS } from "../common/iBulkEditBuffers.ts";
@@ -30,12 +30,7 @@ afterEach(() => {
 });
 
 function configWith(enableTrash: boolean): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, def?: T): T | undefined {
-            return key === "files.enableTrash" ? (enableTrash as unknown as T) : def;
-        },
-    };
+    return createTestConfigurationService({ "files.enableTrash": enableTrash });
 }
 
 function makeService(enableTrash = true): { service: WorkspaceEditService; undoRedo: UndoRedoService } {
@@ -237,10 +232,7 @@ describe("WorkspaceEditService — edge cases", () => {
     });
 
     it.skipIf(process.platform !== "linux")("treats a missing files.enableTrash setting as enabled", () => {
-        const config: IConfigurationService = {
-            ...NULL_CONFIGURATION_SERVICE,
-            get: () => undefined, // настройка не задана вовсе
-        };
+        const config = createTestConfigurationService(); // настройка не задана вовсе — дефолт схемы
         const service = new WorkspaceEditService(
             new UndoRedoService(),
             new TrashService(),

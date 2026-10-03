@@ -1,6 +1,6 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
-export const terminalConfiguration: IConfigurationNode = {
+export const terminalConfiguration = {
     id: "terminal",
     title: "Terminal",
     properties: {
@@ -42,4 +42,4 @@ export const terminalConfiguration: IConfigurationNode = {
             description: "Declare custom manual-only terminal modes usable in when-clauses.",
         },
     },
-};
+} as const satisfies IConfigurationNode;

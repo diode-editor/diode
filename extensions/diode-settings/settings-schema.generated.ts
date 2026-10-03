@@ -93,6 +93,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Milliseconds to wait for an inline suggestion provider to answer. After that the request is given up on and no suggestion is shown.",
     },
     { key: "editor.insertSpaces", type: "boolean", default: true, description: "Insert spaces when pressing Tab." },
+    {
+        key: "editor.occurrencesHighlight",
+        type: "string",
+        default: "singleFile",
+        description: "Controls whether the editor highlights semantic symbol occurrences.",
+        enum: ["off", "singleFile", "multiFile"],
+    },
     { key: "editor.tabSize", type: "number", default: 4, description: "The number of spaces a tab is equal to." },
     {
         key: "editor.wordWrap",

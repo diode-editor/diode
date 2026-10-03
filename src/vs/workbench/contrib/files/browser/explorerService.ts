@@ -146,7 +146,7 @@ export class ExplorerService extends Disposable {
      * меняется только выделение/скролл дерева (в отличие от явной команды reveal).
      */
     public autoRevealActiveFile(filePath: string | null): void {
-        const autoReveal = this.configurationService.get<boolean>("explorer.autoReveal", true) ?? true;
+        const autoReveal = this.configurationService.get("explorer.autoReveal");
         if (!autoReveal) return;
         if (!filePath) return;
         void this.revealPath(filePath);

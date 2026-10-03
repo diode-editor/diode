@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
@@ -15,7 +16,6 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/i
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { loadConfiguration } from "../../../../platform/configuration/node/configurationService.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
@@ -42,7 +42,7 @@ function createEditorService(
         overrides.registry ?? new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         overrides.languageService ?? NULL_LANGUAGE_SERVICE,
-        overrides.configurationService ?? NULL_CONFIGURATION_SERVICE,
+        overrides.configurationService ?? createTestConfigurationService(),
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
@@ -52,12 +52,7 @@ function createEditorService(
 
 /** Minimal IConfigurationService that serves a fixed key/value map. */
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            return key in values ? (values[key] as T) : defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 describe("EditorService", () => {

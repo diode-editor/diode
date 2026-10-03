@@ -9,22 +9,18 @@ import type {
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
+import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
+import { isValidConfigurationValue } from "../../../../platform/configuration/common/configurationValidation.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKey } from "../../../../platform/contextkey/common/contextKeys.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
-import { editorConfiguration } from "../../../common/configuration/editorConfiguration.ts";
+import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import type { CompletionService } from "../../suggest/browser/completionService.ts";
 
-import {
-    computeIndentationLessThanTabSize,
-    DEFAULT_INLINE_SUGGEST_DELAY_MS,
-    DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS,
-    InlineCompletionsService,
-    readMillisecondsSetting,
-} from "./inlineCompletionsService.ts";
+import { computeIndentationLessThanTabSize, InlineCompletionsService } from "./inlineCompletionsService.ts";
 
 /** Значение ключа, который сервис выставляет как IContextKeyContributor. */
 function contextKey(contributor: IContextKeyContributor, key: ContextKey): unknown {
@@ -172,6 +168,9 @@ interface ServiceOptions {
     requestTimeout?: unknown;
 }
 
+/** Схемы ключей приложения — по ним заглушка конфига отбраковывает мусор, как настоящий сервис. */
+const APP_SCHEMAS = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
+
 function makeService(
     group: EditorService,
     options: ServiceOptions = {},
@@ -186,12 +185,21 @@ function makeService(
     } as unknown as CompletionService;
     // Живой конфиг: читается на каждом обращении, значения берутся из `options`
     // в момент чтения — тест может подменить их по ходу (live-reload).
+    // Как настоящий сервис настроек: значение вне схемы ключа (и отсутствующее) —
+    // дефолт схемы.
     const configuration = {
         get: (key: string): unknown => {
-            if (key === "editor.inlineSuggest.enabled") return options.enabled ?? true;
-            if (key === "editor.inlineSuggest.delay") return options.delay ?? 0;
-            if (key === "editor.inlineSuggest.requestTimeout") return options.requestTimeout;
-            return undefined;
+            const raw =
+                key === "editor.inlineSuggest.enabled"
+                    ? options.enabled
+                    : key === "editor.inlineSuggest.delay"
+                      ? (options.delay ?? 0)
+                      : key === "editor.inlineSuggest.requestTimeout"
+                        ? options.requestTimeout
+                        : undefined;
+            const schema = APP_SCHEMAS.get(key);
+            if (schema === undefined) return raw;
+            return raw !== undefined && isValidConfigurationValue(schema, raw) ? raw : schema.default;
         },
     } as unknown as IConfigurationService;
     const service = new InlineCompletionsService(group, completion, configuration) as InlineCompletionsService & {
@@ -1327,7 +1335,7 @@ describe("InlineCompletionsService — настройки", () => {
         });
 
         await service.trigger();
-        expect(requests[0]).toMatchObject({ timeoutMs: DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS });
+        expect(requests[0]).toMatchObject({ timeoutMs: 5000 });
         expect(service.isOpen()).toBe(true);
 
         // Дефолтные 50 мс дебаунса: через 10 мс запроса ещё нет, через 70 — есть.
@@ -1336,34 +1344,6 @@ describe("InlineCompletionsService — настройки", () => {
         expect(requests).toHaveLength(1);
         await tick(70);
         expect(requests).toHaveLength(2);
-    });
-});
-
-describe("InlineCompletionsService — дефолты в лок-степе со схемой", () => {
-    it("fallback-константы совпадают с `default` ключей editor.inlineSuggest.*", () => {
-        // Разойдутся — и редактор с пустым settings.json поведёт себя иначе,
-        // чем обещает автодополнение ключа.
-        expect(DEFAULT_INLINE_SUGGEST_DELAY_MS).toBe(
-            editorConfiguration.properties["editor.inlineSuggest.delay"].default,
-        );
-        expect(DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS).toBe(
-            editorConfiguration.properties["editor.inlineSuggest.requestTimeout"].default,
-        );
-    });
-});
-
-describe("readMillisecondsSetting", () => {
-    it("пропускает конечные числа не меньше min, остальное — fallback", () => {
-        expect(readMillisecondsSetting(2000, 50, 0)).toBe(2000);
-        expect(readMillisecondsSetting(0, 50, 0)).toBe(0); // ноль допустим для delay
-        expect(readMillisecondsSetting(0, 5000, 1)).toBe(5000); // но не для timeout
-        expect(readMillisecondsSetting(-5, 50, 0)).toBe(50);
-        expect(readMillisecondsSetting("много", 5000, 1)).toBe(5000);
-        expect(readMillisecondsSetting(Number.NaN, 50, 0)).toBe(50);
-        expect(readMillisecondsSetting(Number.POSITIVE_INFINITY, 50, 0)).toBe(50);
-        expect(readMillisecondsSetting(undefined, 50, 0)).toBe(50); // ключа нет в модели
-        expect(readMillisecondsSetting(true, 50, 0)).toBe(50);
-        expect(readMillisecondsSetting(null, 50, 0)).toBe(50);
     });
 });
 

@@ -278,10 +278,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         if (this.codeActionSource !== undefined && enabledCodeActionKindsOnSave(this.configurationService).length > 0) {
             participants.push(this.codeActionsOnSaveParticipant);
         }
-        if (
-            this.formattingSource !== undefined &&
-            this.configurationService.get<boolean>("editor.formatOnSave") === true
-        ) {
+        if (this.formattingSource !== undefined && this.configurationService.get("editor.formatOnSave")) {
             participants.push(this.formatOnSaveParticipant);
         }
         if (this.saveParticipantValue !== undefined) {
@@ -1511,20 +1508,17 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /**
      * Применяет к редактору настройки из `IConfigurationService`
      * (`editor.cursorSurroundingLines`, `editor.tabSize`, `editor.insertSpaces`,
-     * `editor.detectIndentation`). Если ключ не задан, соответствующая настройка
-     * редактора не трогается.
+     * `editor.detectIndentation`, перенос строк, подсветка вхождений). Значения
+     * всегда есть — дефолты реестра.
      * Публичный: стороны дифф-вкладки создаёт `openDiffPair`, а конфиг — общий.
      */
     public applyConfigurationToEditor(editor: TextEditorPane): void {
         // `editor.occurrencesHighlight`: "off" disables; "singleFile"/"multiFile"
-        // (and unset → VS Code default) enable. We only support single-file scope.
-        const occurrencesHighlight = this.configurationService.get<string>("editor.occurrencesHighlight");
+        // enable. We only support single-file scope.
+        const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight");
         editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
 
-        const surroundingLines = this.configurationService.get<number>("editor.cursorSurroundingLines");
-        if (surroundingLines !== undefined) {
-            editor.setCursorSurroundingLines(surroundingLines);
-        }
+        editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines"));
 
         // Отступ: конфиг — это БАЗА, а не приказ. При включённом
         // `editor.detectIndentation` (дефолт) содержимое файла главнее, как в
@@ -1533,23 +1527,22 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // автоопределение; поскольку `get()` отдаёт и дефолты реестра (4/true),
         // детекция глохла на каждом открытом файле.
         editor.applyIndentConfiguration({
-            tabSize: this.configurationService.get<number>("editor.tabSize"),
-            insertSpaces: this.configurationService.get<boolean>("editor.insertSpaces"),
-            detectIndentation: this.configurationService.get<boolean>("editor.detectIndentation"),
+            tabSize: this.configurationService.get("editor.tabSize"),
+            insertSpaces: this.configurationService.get("editor.insertSpaces"),
+            detectIndentation: this.configurationService.get("editor.detectIndentation"),
         });
 
         // Session-override от Alt+Z главнее конфига (transient, как в VS Code);
         // мусорное значение из settings.json деградирует к "off".
         editor.setWordWrap(
             this.wordWrapSessionOverride ?? this.configuredWordWrap(),
-            this.configurationService.get<number>("editor.wordWrapColumn") ?? 80,
+            this.configurationService.get("editor.wordWrapColumn"),
         );
     }
 
-    /** `editor.wordWrap` из конфига, просеянный до валидного режима. */
+    /** `editor.wordWrap` из конфига (мусор из settings.json сервис уже заменил дефолтом схемы). */
     private configuredWordWrap(): WordWrapMode {
-        const raw = this.configurationService.get<string>("editor.wordWrap");
-        return raw === "on" || raw === "wordWrapColumn" || raw === "bounded" ? raw : "off";
+        return this.configurationService.get("editor.wordWrap");
     }
 
     /**

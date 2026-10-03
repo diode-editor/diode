@@ -82,7 +82,7 @@ export class ContextMenuController {
             anchor = { screenX: cell.x, screenY: cell.y };
         }
 
-        if (this.configurationService.get<boolean>("editor.contextmenu", true) === false) return;
+        if (!this.configurationService.get("editor.contextmenu")) return;
 
         event.preventDefault();
         this.contextMenuService.showContextMenu({

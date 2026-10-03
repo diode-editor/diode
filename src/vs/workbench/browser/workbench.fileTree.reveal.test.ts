@@ -5,12 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
@@ -27,13 +27,7 @@ function createNestedWorkspace(): ITempWorkspace {
 
 /** Конфиг-стаб: заданные ключи возвращают свои значения, остальные — default. */
 function stubConfig(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            if (key in values) return values[key] as T;
-            return defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 interface Ctx {
@@ -95,7 +89,7 @@ describe("reveal active file in explorer", () => {
 
     it("treats a missing explorer.autoReveal setting as enabled", async () => {
         // A config whose get() always yields undefined exercises the `?? true` fallback.
-        const ctx = createApp(ws.dir, { ...NULL_CONFIGURATION_SERVICE, get: () => undefined });
+        const ctx = createApp(ws.dir, createTestConfigurationService());
         await ctx.workbench.activate();
         ctx.testApp.render();
 

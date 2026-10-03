@@ -3,6 +3,7 @@ import type { HFlexElement, HFlexLayoutStyle } from "@tuidom/elements/layout/hFl
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -12,7 +13,6 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -202,7 +202,7 @@ export function createStatusBarHarness(languageService: ILanguageService = NULL_
     const contextMenuService = new ContextMenuService(
         new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), [])),
     );
-    const terminalEnv = new TerminalEnvironmentService(new MockTerminalBackend(), NULL_CONFIGURATION_SERVICE);
+    const terminalEnv = new TerminalEnvironmentService(new MockTerminalBackend(), createTestConfigurationService());
     const source = new FakeActiveEditorSource();
     const terminalContribution = new TerminalEnvStatusContribution(statusBarService, terminalEnv, commands);
     const editorContribution = new EditorStatusContribution(statusBarService, source, languageService, commands);
