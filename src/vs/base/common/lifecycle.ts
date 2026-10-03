@@ -65,10 +65,6 @@ export function isDisposable<E>(thing: E): thing is E & IDisposable {
     return typeof candidate === "function" && candidate.length === 0;
 }
 
-function isIterable(thing: unknown): thing is Iterable<unknown> {
-    return typeof thing === "object" && thing !== null && Symbol.iterator in thing;
-}
-
 /**
  * Освобождает значение или все значения коллекции. Упавший `dispose()` не
  * мешает освободить остальных: ошибки копятся и бросаются в конце — одна как
@@ -81,8 +77,9 @@ export function dispose<T extends IDisposable>(disposables: T[]): T[];
 export function dispose<T extends IDisposable>(disposables: readonly T[]): readonly T[];
 export function dispose<T extends IDisposable, A extends Iterable<T> = Iterable<T>>(disposables: A): A;
 export function dispose<T extends IDisposable>(arg: T | Iterable<T> | undefined): T | Iterable<T> | undefined {
-    if (!isIterable(arg)) {
-        arg?.dispose();
+    if (arg === undefined) return undefined;
+    if (!(Symbol.iterator in arg)) {
+        arg.dispose();
         return arg;
     }
     const errors: unknown[] = [];
@@ -93,8 +90,11 @@ export function dispose<T extends IDisposable>(arg: T | Iterable<T> | undefined)
             errors.push(e);
         }
     }
-    if (errors.length === 1) throw errors[0];
-    if (errors.length > 1) throw new AggregateError(errors, "Encountered errors while disposing of store");
+    if (errors.length > 0) {
+        throw errors.length === 1
+            ? errors[0]
+            : new AggregateError(errors, "Encountered errors while disposing of store");
+    }
     return Array.isArray(arg) ? [] : arg;
 }
 
@@ -152,7 +152,6 @@ export class DisposableStore implements IDisposable {
 
     /** Освобождает всё содержимое, но стор остаётся рабочим. */
     public clear(): void {
-        if (this.toDispose.size === 0) return;
         const items = [...this.toDispose].reverse();
         this.toDispose.clear();
         dispose(items);
@@ -270,7 +269,6 @@ export class DisposableMap<K, V extends IDisposable = IDisposable> implements ID
 
     /** Освобождает все значения и очищает карту; сама карта остаётся рабочей. */
     public clearAndDisposeAll(): void {
-        if (this.map.size === 0) return;
         const values = [...this.map.values()];
         this.map.clear();
         dispose(values);

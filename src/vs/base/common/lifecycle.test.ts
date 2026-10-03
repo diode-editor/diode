@@ -210,6 +210,7 @@ describe("DisposableStore", () => {
         const log: string[] = [];
         const store = new DisposableStore();
         const a = logged(log, "a");
+        store.add(Disposable.None);
         store.add(a);
         store.deleteAndLeak(a);
         store.dispose();
@@ -418,6 +419,7 @@ describe("хуки учёта утечек", () => {
         setDisposableTracker(tracker);
         const store = new DisposableStore();
         names.set(store, "store");
+        store.add(Disposable.None);
         store.add(a);
         store.deleteAndLeak(a);
         store.deleteAndLeak(a);
@@ -440,6 +442,7 @@ describe("хуки учёта утечек", () => {
 
         const slot = new MutableDisposable<IDisposable>();
         names.set(slot, "slot");
+        slot.clearAndLeak();
         slot.value = a;
         slot.value = undefined;
         slot.value = a;
@@ -451,6 +454,7 @@ describe("хуки учёта утечек", () => {
         const map = new DisposableMap<string>();
         names.set(map, "map");
         map.set("k", a);
+        map.deleteAndLeak("k");
         map.deleteAndLeak("k");
         map.dispose();
         expect(events).toEqual(["track ?", "parent a ← map", "parent a ← null", "disposed map"]);
