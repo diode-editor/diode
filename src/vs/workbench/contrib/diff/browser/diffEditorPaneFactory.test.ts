@@ -84,6 +84,29 @@ describe("Фабрика дифф-вкладки", () => {
         expect(service().groups[0].activePane).toBe(source);
     });
 
+    it("повтор в группу, где дифф уже открыт, активирует его без фокуса", async () => {
+        const source = await openFilesDiff();
+        service().openFile(ws.path("a.txt"));
+
+        await openDiffPair(h.container, files(), { group: service().activeGroup, focus: false });
+
+        expect(service().activeGroup.editorCount).toBe(2);
+        expect(service().activeGroup.activePane).toBe(source);
+        // Фокус был во вкладке a.txt, она ушла из дерева; в дифф его не ставили.
+        expect(h.testApp.focusedElement).toBeNull();
+    });
+
+    it("дифф со стороной-моделью справа не повторить", async () => {
+        const owned = service().createUntitledModel();
+        await openDiffPair(h.container, {
+            original: { uri: Uri.file(ws.path("a.txt")), label: "a.txt", identity: "a" },
+            modified: { ownedModel: owned, label: "Untitled", identity: "u" },
+        });
+        const pane = service().getActiveTabPane() as DiffEditorPane2;
+
+        expect(factory().describe(pane)).toBeUndefined();
+    });
+
     it("untitled-пару не повторить: её стороны принадлежат одной панели", async () => {
         h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
         await vi.waitFor(() => {
