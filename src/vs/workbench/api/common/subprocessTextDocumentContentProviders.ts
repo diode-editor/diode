@@ -1,5 +1,7 @@
 import type * as vscode from "vscode";
 
+import { Emitter } from "../../../base/common/event.ts";
+
 import { EventEmitter } from "./vscodeTypes.ts";
 
 /** Токен отмены-заглушка: запрос содержимого короткоживущий, отменять его некому. */
@@ -38,8 +40,8 @@ interface IProviderEntry {
 
 export class SubprocessTextDocumentContentProviders {
     private readonly entries = new Map<string, IProviderEntry>();
-    private readonly schemeListeners = new Set<() => void>();
-    private readonly changeListeners = new Set<(uri: vscode.Uri) => void>();
+    private readonly onDidChangeSchemesEmitter = new Emitter<void>();
+    private readonly onDidChangeEmitter = new Emitter<vscode.Uri>();
 
     /** Регистрирует провайдера схемы. Занятая схема — ошибка, как в VS Code. */
     public register(scheme: string, provider: vscode.TextDocumentContentProvider): { dispose: () => void } {
@@ -53,7 +55,7 @@ export class SubprocessTextDocumentContentProviders {
         const entry: IProviderEntry = {
             provider,
             changed: provider.onDidChange?.((uri) => {
-                for (const cb of [...this.changeListeners]) cb(uri);
+                this.onDidChangeEmitter.fire(uri);
             }),
         };
         this.entries.set(scheme, entry);
@@ -92,18 +94,12 @@ export class SubprocessTextDocumentContentProviders {
         return content ?? null;
     }
 
-    public onDidChangeSchemes(cb: () => void): { dispose: () => void } {
-        this.schemeListeners.add(cb);
-        return { dispose: () => this.schemeListeners.delete(cb) };
-    }
+    public readonly onDidChangeSchemes = this.onDidChangeSchemesEmitter.event;
 
     /** Провайдер объявил, что содержимое ресурса изменилось. */
-    public onDidChange(cb: (uri: vscode.Uri) => void): { dispose: () => void } {
-        this.changeListeners.add(cb);
-        return { dispose: () => this.changeListeners.delete(cb) };
-    }
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     private fireSchemesChanged(): void {
-        for (const cb of [...this.schemeListeners]) cb();
+        this.onDidChangeSchemesEmitter.fire();
     }
 }

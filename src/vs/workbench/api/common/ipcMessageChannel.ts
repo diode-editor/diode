@@ -1,3 +1,4 @@
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
@@ -29,7 +30,7 @@ export interface IIpcEndpoint {
  */
 export class IpcMessageChannel implements IMessageChannel {
     private readonly endpoint: IIpcEndpoint;
-    private readonly listeners: ((message: unknown) => void)[] = [];
+    private readonly onMessageEmitter = new Emitter<unknown>();
     private readonly onIncoming: (message: unknown) => void;
     private readonly onDisconnect: () => void;
     private disposed = false;
@@ -39,9 +40,7 @@ export class IpcMessageChannel implements IMessageChannel {
         this.endpoint = endpoint;
         this.onIncoming = (message: unknown): void => {
             if (this.disposed) return;
-            for (const listener of this.listeners.slice()) {
-                listener(message);
-            }
+            this.onMessageEmitter.fire(message);
         };
         this.onDisconnect = (): void => {
             this.alive = false;
@@ -60,18 +59,7 @@ export class IpcMessageChannel implements IMessageChannel {
         }
     }
 
-    public onMessage(listener: (message: unknown) => void): IDisposable {
-        if (this.disposed) {
-            return { dispose: (): void => undefined };
-        }
-        this.listeners.push(listener);
-        return {
-            dispose: (): void => {
-                const index = this.listeners.indexOf(listener);
-                if (index >= 0) this.listeners.splice(index, 1);
-            },
-        };
-    }
+    public readonly onMessage = this.onMessageEmitter.event;
 
     public dispose(): void {
         if (this.disposed) return;
@@ -79,6 +67,9 @@ export class IpcMessageChannel implements IMessageChannel {
         this.alive = false;
         this.endpoint.off("message", this.onIncoming);
         this.endpoint.off("disconnect", this.onDisconnect);
-        this.listeners.length = 0;
+        // Доставку после dispose и так отсекает гард `disposed`; снятие слушателей
+        // ненаблюдаемо снаружи и держится ради освобождения их замыканий.
+        // Stryker disable next-line CallExpression: эквивалентен — см. выше
+        this.onMessageEmitter.dispose();
     }
 }

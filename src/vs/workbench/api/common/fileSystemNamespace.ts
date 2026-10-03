@@ -3,6 +3,8 @@ import * as path from "node:path";
 
 import type * as vscode from "vscode";
 
+import { Emitter } from "../../../base/common/event.ts";
+
 import { FileSystemError, FileType } from "./vscodeTypes.ts";
 
 /**
@@ -70,8 +72,8 @@ function assertFileScheme(uri: vscode.Uri): void {
  */
 export class SubprocessFileSystemProviders {
     private readonly providers = new Map<string, vscode.FileSystemProvider>();
-    private readonly schemeListeners = new Set<() => void>();
-    private readonly changeListeners = new Set<(uris: vscode.Uri[]) => void>();
+    private readonly onDidChangeSchemesEmitter = new Emitter<void>();
+    private readonly onDidChangeFileEmitter = new Emitter<vscode.Uri[]>();
     private readonly changeSubscriptions = new Map<string, vscode.Disposable>();
 
     /** Регистрирует провайдера схемы. Занятая схема — ошибка, как в VS Code. */
@@ -87,7 +89,7 @@ export class SubprocessFileSystemProviders {
             provider.onDidChangeFile((events) => {
                 const uris = events.map((e) => e.uri);
                 if (uris.length === 0) return;
-                for (const cb of [...this.changeListeners]) cb(uris);
+                this.onDidChangeFileEmitter.fire(uris);
             }),
         );
         this.fireSchemesChanged();
@@ -111,18 +113,12 @@ export class SubprocessFileSystemProviders {
         return [...this.providers.keys()];
     }
 
-    public onDidChangeSchemes(cb: () => void): { dispose: () => void } {
-        this.schemeListeners.add(cb);
-        return { dispose: () => this.schemeListeners.delete(cb) };
-    }
+    public readonly onDidChangeSchemes = this.onDidChangeSchemesEmitter.event;
 
-    public onDidChangeFile(cb: (uris: vscode.Uri[]) => void): { dispose: () => void } {
-        this.changeListeners.add(cb);
-        return { dispose: () => this.changeListeners.delete(cb) };
-    }
+    public readonly onDidChangeFile = this.onDidChangeFileEmitter.event;
 
     private fireSchemesChanged(): void {
-        for (const cb of [...this.schemeListeners]) cb();
+        this.onDidChangeSchemesEmitter.fire();
     }
 }
 
