@@ -25,45 +25,45 @@ import { SetContextCommandContributionDIToken } from "./setContextCommandContrib
  * `WorkbenchComponent`.
  */
 export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistration[] = [
-    { token: EditorStatusContributionDIToken, phase: "restored" },
-    { token: TerminalEnvStatusContributionDIToken, phase: "restored" },
-    { token: AutoRevealContributionDIToken, phase: "restored" },
-    { token: ThemeConfigContributionDIToken, phase: "restored" },
-    { token: OpenFileCommandContributionDIToken, phase: "restored" },
+    { token: EditorStatusContributionDIToken, phase: "ready" },
+    { token: TerminalEnvStatusContributionDIToken, phase: "ready" },
+    { token: AutoRevealContributionDIToken, phase: "ready" },
+    { token: ThemeConfigContributionDIToken, phase: "ready" },
+    { token: OpenFileCommandContributionDIToken, phase: "ready" },
     // Встроенная `setContext`: расширение может дёрнуть её в activate(), то есть
     // раньше любого пользовательского действия.
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё команды нет, и это ловит e2e-сценарий extension-storage (клавиша расширения не оживает после Arm)
-    { token: SetContextCommandContributionDIToken, phase: "restored" },
-    { token: PanelFocusContributionDIToken, phase: "restored" },
+    { token: SetContextCommandContributionDIToken, phase: "ready" },
+    { token: PanelFocusContributionDIToken, phase: "ready" },
     // Сообщение «ресурс открыть нечем»: подписка должна стоять до первого
     // открытия, иначе первая же неудача пройдёт молча.
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тост не появляется, и это ловит e2e-сценарий virtualDocument
-    { token: OpenFailureNotificationContributionDIToken, phase: "restored" },
+    { token: OpenFailureNotificationContributionDIToken, phase: "ready" },
     // Спиннеры занятости в заголовках секций: подписка должна стоять до первой
     // операции, иначе её начало пройдёт мимо.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
-    { token: ViewProgressContributionDIToken, phase: "restored" },
+    { token: ViewProgressContributionDIToken, phase: "ready" },
     // Долгие сетевые операции видно и когда Source Control не показан.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
-    { token: ProgressStatusBarContributionDIToken, phase: "restored" },
+    { token: ProgressStatusBarContributionDIToken, phase: "ready" },
     // Живой тулбар: кнопки заголовков реагируют на смену контекст-ключей.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
-    { token: ViewTitleActionsContributionDIToken, phase: "restored" },
+    { token: ViewTitleActionsContributionDIToken, phase: "ready" },
     // История навигации: подписки должны стоять до открытия первого файла.
     // Убрать эту строку сейчас ничего не ломает — сервис всё равно поднимается
     // раньше, когда workbenchContextKeys читает canGoBack/canGoForward. Но такая
     // гарантия порядка держится на чужой детали, поэтому запись оставляем явной.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. выше — снятие записи ненаблюдаемо
-    { token: HistoryServiceDIToken, phase: "restored" },
+    { token: HistoryServiceDIToken, phase: "ready" },
     // Каналы Output как команды + пункты submenu селектора.
-    { token: OutputChannelActionsDIToken, phase: "restored" },
+    { token: OutputChannelActionsDIToken, phase: "ready" },
     // Живые change-bars: считать дифф можно только после того, как есть редакторы.
-    { token: QuickDiffServiceDIToken, phase: "restored" },
+    { token: QuickDiffServiceDIToken, phase: "ready" },
     // Автоосвежение снимочных сторон дифф-вкладок по onDidChangeFile (US-31).
-    { token: DiffSnapshotRefreshContributionDIToken, phase: "restored" },
+    { token: DiffSnapshotRefreshContributionDIToken, phase: "ready" },
     // Ветка + sync-счётчики в статус-баре (из repo-state git-расширения).
-    { token: ScmStatusBarContributionDIToken, phase: "restored" },
+    { token: ScmStatusBarContributionDIToken, phase: "ready" },
     // Ключ занятости git: на нём висит enablement мутирующих команд.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
-    { token: ScmBusyContextContributionDIToken, phase: "restored" },
+    { token: ScmBusyContextContributionDIToken, phase: "ready" },
 ];

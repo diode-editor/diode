@@ -1,5 +1,4 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
-
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 
 import type { ITokenizationSupport } from "./iTokenizationSupport.ts";

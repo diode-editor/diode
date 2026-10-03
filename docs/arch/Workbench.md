@@ -228,13 +228,18 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 **Реестр + фазы.** `WorkbenchContributionsRegistry.instantiateByPhase(phase)`
 инстанцирует по фазе через DI (`accessor.get(token)` — авто-инжект
 `static dependencies` + кэш-синглтон) и забирает владение (`register`), поэтому
-dispose реестра сматывает все contribution'ы. Две фазы:
-- **`restored`** — синхронно в `WorkbenchComponent.mount()` (view построена,
-  лёгкие сервисы готовы; между конструктором и mount ни один редактор не
-  открывается → перенос проводки из конструктора эквивалентен);
-- **`eventually`** — idle после первого кадра (из `main.ts`,
-  `setImmediate(() => workbench.runEventuallyPhase())`; из mount фаза сработала бы
-  до кадра, т.к. `app.run()` красит отложенно) — для тяжёлой/отложенной работы.
+dispose реестра сматывает все contribution'ы. Фаза contribution'а — это фаза
+жизненного цикла (`LifecyclePhase` из `services/lifecycle/common/lifecyclePhase.ts`):
+корень подписан на `LifecycleService.onDidChangePhase` и зовёт
+`instantiateByPhase` синхронно на каждый переход. Две фазы с contribution'ами:
+- **`ready`** — в `WorkbenchComponent.mount()`, который сам двигает фазу (view
+  построена, лёгкие сервисы готовы; ≈ vscode `WorkbenchPhase.BlockRestore`; между
+  конструктором и mount ни один редактор не открывается → перенос проводки из
+  конструктора эквивалентен);
+- **`eventually`** — после первого кадра (`workbenchStartup.ts`,
+  `afterFirstFrame` → `setImmediate`; из mount фаза сработала бы до кадра, т.к.
+  `app.run()` красит отложенно) — для тяжёлой/отложенной работы. Здесь же
+  стартует фоновый прогрев грамматик (`main.ts`, по `onDidChangePhase`).
 
 **Регистрация — явный массив** `WORKBENCH_CONTRIBUTIONS` (`workbenchContributions.ts`,
 зеркало `builtinActions`, без import-side-effect самрегистрации): пара
@@ -257,7 +262,7 @@ dispose реестра сматывает все contribution'ы. Две фаз�
 `OpenFileCommandContribution` (команда `workbench.openFile`),
 `PanelFocusContribution` (возврат фокуса в редактор, когда содержимое нижней панели
 уходит со сцены), `HistoryService` (история навигации — сервис, он же contribution:
-владение подписками отдаёт реестр). Все — `restored`.
+владение подписками отдаёт реестр). Все — `ready`.
 
 ## Configuration-узлы (`src/vs/workbench/common/configuration/`)
 
@@ -621,8 +626,16 @@ hide-toggle (`isHiddenByDefault`). См.
   через late-init шов `attachHost(BodyElement)` — его зовёт владелец корневой
   view (`WorkbenchComponent`) после её постройки.
 - **Жизненный цикл (этап 5c, C6)** — `services/lifecycle/browser/lifecycleService.ts`.
-  Прощание в два шага, общих для выхода, перезагрузки окна и выхода по команде
-  инспектора:
+  **Фазы старта** (`LifecyclePhase`: `starting` → `ready` → `restored` →
+  `eventually`, аналог vscode `LifecyclePhase`) растут монотонно: `setPhase`
+  проходит пропущенные промежуточные, откат — ошибка. `ready` двигает
+  `WorkbenchComponent.mount()`, остальные — `diode/workbenchStartup.ts`. Кто
+  стартует не сразу, ждёт фазу сам: `onDidChangePhase` — синхронно в момент
+  перехода (реестр contributions, фоновый прогрев грамматик), `when(phase)` —
+  промисом.
+
+  **Прощание** — в два шага, общих для выхода, перезагрузки окна и выхода по
+  команде инспектора:
   1. **подтверждение** — `requestShutdown(onProceed)` последовательно спрашивает про
      «грязные» элементы участников через `DialogService.confirmSave` (Cancel прерывает
      прощание, как и Save, который не сохранил — untitled без пути; чистый выход —
@@ -693,7 +706,7 @@ hide-toggle (`isHiddenByDefault`). См.
     (`#statusBarItem-status-scm-branch`), не за индексом в пуле — селекторы
     инспектора/e2e стабильны.
   - Сегменты публикуют workbench-contribution'ы (инстанцируются реестром в фазе
-    `restored`, см. «Workbench-contributions»): `Services/EditorStatusContribution.ts`
+    `ready`, см. «Workbench-contributions»): `Services/EditorStatusContribution.ts`
     (правые, порядок VS Code: `Ln X, Col Y` · Indentation (`Spaces: N`/`Tab Size: N`)
     · Encoding · EOL · Language; Encoding/EOL кликабельны — команды
     `changeEncoding`/`changeEOL` через `CommandRegistry`; Indentation инертен —
@@ -1008,19 +1021,24 @@ hide-toggle (`isHiddenByDefault`). См.
     листенеры `KeybindingDispatcher` и фокус-хуки, регистрирует список
     `builtinActions` одним циклом. Фич-проводка (autoReveal, live-reload темы,
     контекст-меню редактора, команда `workbench.openFile`, статус-бар) вынесена в
-    workbench-contribution'ы — корень лишь прогоняет их по фазам через реестр
-    (`restored` — в `mount()`, `eventually` — из `main.ts` через
-    `runEventuallyPhase()`; см. «Workbench-contributions»). Выхода в корне нет:
+    workbench-contribution'ы — корень лишь прогоняет их по фазам `LifecycleService`
+    через реестр (`ready` — в `mount()`, `eventually` — после первого кадра; см.
+    «Workbench-contributions»). Выхода в корне нет:
     `quitAction` и `reloadWindowAction` ведут прощание через `LifecycleService`
     (см. «Жизненный цикл»). Тему
     кладёт в корневой var-scope (`applyThemeVars` по `onThemeChange`) — единственная
-    точка «тема → цвета», дальше каскад. Единственный компонент с lifecycle за пределами конструктора — bootstrap
-    ведёт `main.ts`: `setWorkspaceFolder` (**только если папку назвали** — без неё
-    поднимается пустое окно) → `mount()` (`registerViewContainers()` +
-    contribution'ы фазы `restored` + листенеры + restore layout до первого кадра) →
-    `run()` → `activate()` (контекст-ключи, probe терминала, активация редакторов/
-    Explorer'а) → `openFile`/`restoreOpenEditors` → `focusEditor` →
-    `runEventuallyPhase()`.
+    точка «тема → цвета», дальше каскад. Единственный компонент с lifecycle за пределами конструктора — стартовую
+    последовательность ведёт `src/vs/diode/workbenchStartup.ts` (`startWorkbench`,
+    юнит-тесты порядка и вех — рядом): keybindings расширений (после builtin) →
+    `setWorkspaceFolder` (**только если папку назвали** — без неё поднимается пустое
+    окно) → `mount()` (`registerViewContainers()` + фаза `ready` с её
+    contribution'ами + листенеры + restore layout до первого кадра) → `run()` →
+    `activate()` (контекст-ключи, probe терминала, активация редакторов/Explorer'а) →
+    прогрев грамматик стартовых файлов → `vscode.diff`/`openFile`(+`--goto`)/
+    `restoreOpenEditors` → `focusEditor` → фаза `restored` → регистрация и стартовая
+    активация расширений → после первого кадра фаза `eventually`. Что делается руками
+    процесса (корень рендера, инспектор, прогрев, extension host), `main.ts` отдаёт
+    хуками `IWorkbenchStartupHost`; вехи трассы старта — те же имена, что читает бенч.
 
     **Сайдбар не зависит от воркспейса.** `registerViewContainers()` (из `mount()`)
     собирает ВСЕ контейнеры сайдбара — Explorer, Search, Source Control,

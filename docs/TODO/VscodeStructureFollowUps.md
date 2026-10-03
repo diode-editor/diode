@@ -69,6 +69,15 @@
   Необязательные хвосты H6 (узлы конфигурации фич в `contrib/<f>/common/`,
   revision-команды из `diff/compareActions.ts` в scm, DI-дескриптор фичи вместо
   блоков `workbenchModule.ts`) записаны там же в таблице долга.
+- Жизненный цикл (`LifecycleService`, C6) — узкий срез upstream: четыре фазы
+  `LifecyclePhase` с `when()`/`onDidChangePhase` и прощание
+  `onWillShutdown`+`join`/`onShutdownSync`. Не переносим: `WorkbenchPhase` ×4 с
+  lazy/onEditor-инстанцированием (фаза contribution'а — это фаза жизненного
+  цикла, `ready`/`eventually`), veto-события поверх confirm-save,
+  `ShutdownReason.CLOSE/LOAD` и `StartupKind`. `eventually` — сразу после
+  первого кадра, а не таймер 2.5 с: это бенч-критично. Общего bootstrap'а
+  prod/test нет, как и в upstream: `startWorkbench` гоняют юниты на тестовом
+  контейнере, харнесс его не повторяет.
 
 ## Опциональные углубления (перенос из upstream, упрощён парностью путей)
 
@@ -77,6 +86,16 @@
 - [ ] `ContextKeyExpr`-парсер вместо `new Function` — см.
   [WhenContext.md](WhenContext.md).
 - [ ] PieceTree (`pieceTreeTextBuffer`) — см. [PieceTree.md](PieceTree.md).
+- [ ] Выход мимо прощания: SIGTERM/SIGHUP в главном процессе не обработаны
+  (смерть по сигналу не фаерит даже `process.on("exit")` — теряется до 500 мс
+  состояния и не снимается терминал), SIGINT-обработчик `NodeTerminalBackend`
+  (tuidom) выходит мимо confirm-save и `LifecycleService.shutdown`. Точка
+  подключения уже есть — `shutdown(reason, then)`; нужна причина `"signal"` и
+  обработчики (для SIGINT — хук в tuidom).
+- [ ] Стартовая активация расширений (`*`/`onLanguage`/`onStartupFinished`/
+  `workspaceContains`) и два цикла регистрации всё ещё в `main.ts`
+  (хук `afterRestored` у `startWorkbench`) — переезжают к владельцу в G8
+  (бывший PR3 C6).
 - [ ] Разнос `EditorViewState` на viewModel/viewLayout/cursor.
 - [ ] `ProxyIdentifier`-типизация RPC extension host'а (сейчас строковая
   адресация методов).

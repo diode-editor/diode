@@ -1,6 +1,8 @@
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { DialogService } from "../../dialogs/browser/dialogService.ts";
 import { DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
+import type { LifecyclePhase } from "../common/lifecyclePhase.ts";
+import { LIFECYCLE_PHASES } from "../common/lifecyclePhase.ts";
 
 export const LifecycleServiceDIToken = token<LifecycleService>("LifecycleService");
 
@@ -49,8 +51,8 @@ export interface IWillShutdownEvent {
     join(promise: Promise<unknown>): void;
 }
 
-/** Подписка участника; `dispose()` снимает её. */
-export interface IShutdownSubscription {
+/** Подписка на событие жизненного цикла; `dispose()` снимает её. */
+export interface ILifecycleSubscription {
     dispose(): void;
 }
 
@@ -62,8 +64,15 @@ export interface IShutdownSubscription {
 export const SHUTDOWN_JOIN_TIMEOUT_MS = 2000;
 
 /**
- * Жизненный цикл приложения (аналог vscode `ILifecycleService`, срез shutdown).
- * Прощание в два шага:
+ * Жизненный цикл приложения (аналог vscode `ILifecycleService`): фазы старта и
+ * прощание.
+ *
+ * Фазы ({@link LifecyclePhase}) двигает старт окна: `ready` — `WorkbenchComponent.mount`,
+ * дальше — `workbenchStartup.ts`. Кто должен стартовать не сразу, ждёт свою
+ * фазу сам: {@link onDidChangePhase} — синхронно в момент перехода (реестр
+ * workbench-contributions), {@link when} — промисом.
+ *
+ * Прощание — в два шага:
  *
  * 1. {@link requestShutdown} — подтверждение: последовательно спрашивает про
  *    каждый «грязный» элемент участников через `DialogService.confirmSave`;
@@ -87,11 +96,58 @@ export class LifecycleService {
     private readonly willShutdownListeners = new Set<(event: IWillShutdownEvent) => void>();
     private readonly shutdownSyncListeners = new Set<() => void>();
     private shutdownPromise: Promise<void> | null = null;
+    private currentPhase: LifecyclePhase = "starting";
+    private readonly phaseListeners = new Set<(phase: LifecyclePhase) => void>();
+    /** Барьер на каждую фазу: `when` отдаёт его промис, переход в фазу его открывает. */
+    private readonly phaseBarriers: Readonly<Record<LifecyclePhase, IBarrier>> = {
+        starting: createBarrier(),
+        ready: createBarrier(),
+        restored: createBarrier(),
+        eventually: createBarrier(),
+    };
 
     public constructor(
         private readonly dialogService: DialogService,
         private readonly joinTimeoutMs = SHUTDOWN_JOIN_TIMEOUT_MS,
-    ) {}
+    ) {
+        this.barrier("starting").open();
+    }
+
+    public get phase(): LifecyclePhase {
+        return this.currentPhase;
+    }
+
+    /**
+     * Переход в фазу. Пропущенные промежуточные фазы проходятся по порядку, так
+     * что их слушатели и ожидающие тоже срабатывают; повтор текущей — no-op,
+     * откат назад — ошибка в порядке старта.
+     */
+    public setPhase(phase: LifecyclePhase): void {
+        const target = LIFECYCLE_PHASES.indexOf(phase);
+        const current = LIFECYCLE_PHASES.indexOf(this.currentPhase);
+        if (target < current) {
+            throw new Error(`Lifecycle cannot go backwards: ${this.currentPhase} → ${phase}`);
+        }
+        for (const next of LIFECYCLE_PHASES.slice(current + 1, target + 1)) {
+            this.currentPhase = next;
+            for (const listener of [...this.phaseListeners]) listener(next);
+            this.barrier(next).open();
+        }
+    }
+
+    /** Синхронно в момент перехода в каждую следующую фазу. */
+    public onDidChangePhase(listener: (phase: LifecyclePhase) => void): ILifecycleSubscription {
+        return subscribe(this.phaseListeners, listener);
+    }
+
+    /** Резолвится, когда фаза достигнута (сразу — если уже). */
+    public when(phase: LifecyclePhase): Promise<void> {
+        return this.barrier(phase).promise;
+    }
+
+    private barrier(phase: LifecyclePhase): IBarrier {
+        return this.phaseBarriers[phase];
+    }
 
     public registerShutdownParticipant(participant: IShutdownParticipant): void {
         this.participants.push(participant);
@@ -117,7 +173,7 @@ export class LifecycleService {
     }
 
     /** Асинхронная фаза прощания: здесь отпускают то, что требует ответа (субпроцессы). */
-    public onWillShutdown(listener: (event: IWillShutdownEvent) => void): IShutdownSubscription {
+    public onWillShutdown(listener: (event: IWillShutdownEvent) => void): ILifecycleSubscription {
         return subscribe(this.willShutdownListeners, listener);
     }
 
@@ -127,7 +183,7 @@ export class LifecycleService {
      * нового процесса). Только синхронный код: сброс состояния, снятие терминала,
      * добивание того, что не успело уйти вежливо.
      */
-    public onShutdownSync(listener: () => void): IShutdownSubscription {
+    public onShutdownSync(listener: () => void): ILifecycleSubscription {
         return subscribe(this.shutdownSyncListeners, listener);
     }
 
@@ -174,7 +230,20 @@ export class LifecycleService {
     }
 }
 
-function subscribe<T>(listeners: Set<T>, listener: T): IShutdownSubscription {
+interface IBarrier {
+    readonly promise: Promise<void>;
+    open(): void;
+}
+
+function createBarrier(): IBarrier {
+    let open!: () => void;
+    const promise = new Promise<void>((resolve) => {
+        open = resolve;
+    });
+    return { promise, open };
+}
+
+function subscribe<T>(listeners: Set<T>, listener: T): ILifecycleSubscription {
     listeners.add(listener);
     return {
         dispose: () => {
