@@ -122,7 +122,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
 
             // В конец файла, набираем `reply.` — точка = триггер-символ сервера.
             await session.key("Ctrl+End");
-            for (const char of "reply.") await session.text(char);
+            // Нажатиями: триггер-символ открывает попап только набором, не вставкой.
+            for (const char of "reply.") await session.key(char);
 
             // Члены int из typeshed-стабов — таких слов в буфере нет вовсе.
             // Ассертим пункты из НАЧАЛА алфавитного списка: ниже LSP-пунктов в
@@ -145,7 +146,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
 
             // Набираем вызов в конце файла: «(» — триггер-символ сервера.
             await session.key("Ctrl+End");
-            for (const char of "greet(") await session.text(char);
+            for (const char of "greet(") await session.key(char);
 
             await session.waitForText((text) => text.includes("(name: str) -> str"), {
                 timeoutMs: 60_000,
