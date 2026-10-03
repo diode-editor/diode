@@ -2,6 +2,7 @@ import type { CompletionDetailsContent } from "@tuidom/elements/completionlist/c
 import type { CompletionListItem } from "@tuidom/elements/completionlist/completionListElement";
 
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
@@ -60,6 +61,7 @@ const EMPTY_RESULT: ICompletionsFromProviders = { items: [], isIncomplete: false
  * (как у QuickOpenService). Построен по образцу quick-open-оверлея.
  */
 export class CompletionService extends Disposable implements IContextKeyContributor {
+    private readonly onDidCloseEmitter = this.register(new Emitter<void>());
     public static dependencies = [
         SuggestComponentDIToken,
         EditorServiceDIToken,
@@ -261,7 +263,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // Ответ «в полёте» больше не нужен: его билет устареет и ответ будет отброшен.
         this.latest.cancel();
         if (wasOpen) {
-            for (const listener of [...this.closeListeners]) listener();
+            this.onDidCloseEmitter.fire();
         }
     }
 
@@ -270,17 +272,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * редактора/фокуса — все пути сходятся в {@link close}). Не фаерится, если
      * попап и так был закрыт.
      */
-    public onDidClose(listener: () => void): IDisposable {
-        this.closeListeners.push(listener);
-        return {
-            dispose: () => {
-                const index = this.closeListeners.indexOf(listener);
-                if (index >= 0) this.closeListeners.splice(index, 1);
-            },
-        };
-    }
-
-    private readonly closeListeners: (() => void)[] = [];
+    public readonly onDidClose = this.onDidCloseEmitter.event;
 
     /** Открыт ли попап (для `suggestWidgetVisible` и делегаторов команд). */
     public isOpen(): boolean {

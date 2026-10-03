@@ -26,6 +26,7 @@ import type { IBufferCell, Terminal } from "@xterm/headless";
 import xtermHeadless from "@xterm/headless";
 import type { IPty } from "node-pty";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { xtermPaletteToRgb } from "../common/xtermPalette.ts";
 
@@ -86,8 +87,8 @@ function currentEnv(): Record<string, string> {
 export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
     private readonly pty: IPty;
     private readonly term: Terminal;
-    private readonly updateListeners = new Set<() => void>();
-    private readonly exitListeners = new Set<(exitCode: number) => void>();
+    private readonly onUpdateEmitter = new Emitter<void>();
+    private readonly onExitEmitter = new Emitter<number>();
     // Переиспользуемая ячейка — getCell(x, cell) не аллоцирует новый объект на каждую ячейку.
     private cellBuffer: IBufferCell | undefined;
     private cols: number;
@@ -145,7 +146,7 @@ export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
         });
         this.pty.onExit(({ exitCode }) => {
             this.exited = true;
-            for (const cb of this.exitListeners) cb(exitCode);
+            this.onExitEmitter.fire(exitCode);
         });
     }
 
@@ -263,15 +264,9 @@ export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
         });
     }
 
-    public onUpdate(callback: () => void): IDisposable {
-        this.updateListeners.add(callback);
-        return { dispose: () => this.updateListeners.delete(callback) };
-    }
+    public readonly onUpdate = this.onUpdateEmitter.event;
 
-    public onExit(callback: (exitCode: number) => void): IDisposable {
-        this.exitListeners.add(callback);
-        return { dispose: () => this.exitListeners.delete(callback) };
-    }
+    public readonly onExit = this.onExitEmitter.event;
 
     public dispose(): void {
         if (!this.exited) {
@@ -285,7 +280,7 @@ export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
     }
 
     private emitUpdate(): void {
-        for (const cb of this.updateListeners) cb();
+        this.onUpdateEmitter.fire();
     }
 
     /** Сколько строк истории лежит выше вьюпорта — максимум, на который можно уехать. */

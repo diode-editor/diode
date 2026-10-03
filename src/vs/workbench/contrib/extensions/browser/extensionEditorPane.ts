@@ -1,5 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -45,7 +46,7 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
     public readonly readOnly = true;
 
     private readonly element: ExtensionPageElement;
-    private readonly stateListeners = new Set<() => void>();
+    private readonly onDidChangeStateEmitter = this.register(new Emitter<void>());
     private labelValue: string;
     /** Идёт установка/удаление: кнопки гаснут, вторая операция не запускается. */
     private busy = false;
@@ -91,10 +92,7 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         return [];
     }
 
-    public onDidChangeState(cb: () => void): IDisposable {
-        this.stateListeners.add(cb);
-        return { dispose: () => this.stateListeners.delete(cb) };
-    }
+    public readonly onDidChangeState = this.onDidChangeStateEmitter.event;
 
     public focusEditor(): void {
         this.element.focus();
@@ -169,7 +167,7 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         this.render();
         if (fresh.displayName !== this.labelValue) {
             this.labelValue = fresh.displayName;
-            for (const listener of [...this.stateListeners]) listener();
+            this.onDidChangeStateEmitter.fire();
         }
     }
 }

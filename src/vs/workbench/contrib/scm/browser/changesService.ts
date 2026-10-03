@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -63,7 +64,7 @@ export class ScmChangesService extends Disposable {
     private changeList: readonly IScmChange[] = [];
     /** Подпись текущего набора — чтобы не файрить при повторной публикации того же. */
     private signature = "";
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeChangesEmitter = this.register(new Emitter<void>());
 
     public constructor(commands: CommandRegistry) {
         super();
@@ -79,14 +80,7 @@ export class ScmChangesService extends Disposable {
         return this.changeList;
     }
 
-    public onDidChangeChanges(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return {
-            dispose: () => {
-                this.listeners.delete(listener);
-            },
-        };
-    }
+    public readonly onDidChangeChanges = this.onDidChangeChangesEmitter.event;
 
     /**
      * Хендлер {@link PUBLISH_CHANGES_COMMAND}: заменяет набор целиком. Payload
@@ -104,7 +98,7 @@ export class ScmChangesService extends Disposable {
         if (signature === this.signature) return;
         this.signature = signature;
         this.changeList = changes;
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeChangesEmitter.fire();
     }
 }
 

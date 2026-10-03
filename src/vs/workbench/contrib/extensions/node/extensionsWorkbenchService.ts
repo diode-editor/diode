@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { IExtensionRegistrySource } from "../../../../platform/extensionManagement/common/iExtensionRegistrySource.ts";
@@ -34,7 +35,7 @@ import type {
  * инвалидацией (см. docs/TODO/ExtensionsView.md).
  */
 export class ExtensionsWorkbenchService extends Disposable implements IExtensionsWorkbenchService {
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private readonly metaCache = new Map<string, IRegistryExtensionMeta | undefined>();
     /** Что ставили/удаляли в этой сессии: до перезагрузки окна вклады не поедут. */
     private readonly pendingReload = new Set<string>();
@@ -58,11 +59,6 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         // INSTALLED была наполнена ещё до первого запроса к реестру.
         this.installed = listInstalledExtensions(extensionsDir);
         this.entries = this.computeEntries();
-        this.register({
-            dispose: () => {
-                this.listeners.clear();
-            },
-        });
     }
 
     public ensureLoaded(): Promise<void> {
@@ -139,10 +135,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         this.reloadInstalled();
     }
 
-    public onDidChange(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
-    }
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     /** Перечитывает установленное с диска (после установки/удаления). */
     public reloadInstalled(): void {
@@ -207,7 +200,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     }
 
     private fireChange(): void {
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeEmitter.fire();
     }
 }
 

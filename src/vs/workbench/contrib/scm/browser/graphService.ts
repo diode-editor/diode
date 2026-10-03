@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -77,7 +78,7 @@ export class ScmGraphService extends Disposable {
     private more = false;
     /** Подпись текущего набора — чтобы не файрить при повторной публикации того же. */
     private signature = "";
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeCommitsEmitter = this.register(new Emitter<void>());
     /** Нужна ли графу история; `null` — ядро ещё не объявляло своё состояние. */
     private active: boolean | null = null;
 
@@ -124,14 +125,7 @@ export class ScmGraphService extends Disposable {
         );
     }
 
-    public onDidChangeCommits(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return {
-            dispose: () => {
-                this.listeners.delete(listener);
-            },
-        };
-    }
+    public readonly onDidChangeCommits = this.onDidChangeCommitsEmitter.event;
 
     private publish(payload: unknown): void {
         const { commits, hasMore } = parseLogPayload(payload);
@@ -140,7 +134,7 @@ export class ScmGraphService extends Disposable {
         this.signature = signature;
         this.commitList = commits;
         this.more = hasMore;
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeCommitsEmitter.fire();
     }
 }
 
