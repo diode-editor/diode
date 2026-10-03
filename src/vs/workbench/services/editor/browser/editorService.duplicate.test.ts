@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -16,7 +17,7 @@ import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts"
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
 
-import { EditorService } from "./editorService.ts";
+import { EditorService, EditorServiceDIToken } from "./editorService.ts";
 
 /**
  * Сплит и копия в группу повторяют вкладку по её рецепту (фабрика вкладок
@@ -144,5 +145,43 @@ describe("EditorService — повтор вкладки по рецепту (с�
 
         expect(service.activeGroup.editorCount).toBe(1);
         expect(textPaneOf(0).viewState.selections).toEqual([createCursorSelection(1, 1)]);
+    });
+});
+
+describe("EditorService — повтор вкладки без фокуса", () => {
+    let ws: ITempWorkspace;
+    let h: IAppHarness;
+
+    beforeEach(() => {
+        ws = createTempWorkspace({ prefix: "diode-duplicate-focus-", files: { "a.txt": "a\n" } });
+        h = createAppTestHarness({ workspaceFolder: ws.dir });
+        h.workbench.openFile(ws.path("a.txt"));
+        h.workbench.focusEditor();
+    });
+
+    afterEach(() => {
+        h.dispose();
+        ws.dispose();
+    });
+
+    it("split с focus: false — копия в новой группе, фокус остаётся в источнике", () => {
+        const service = h.container.get(EditorServiceDIToken);
+        const focused = h.testApp.focusedElement;
+        expect(focused).not.toBeNull();
+
+        service.splitActiveGroup({ focus: false });
+
+        expect(service.groups[1].editorCount).toBe(1);
+        expect(h.testApp.focusedElement).toBe(focused);
+    });
+
+    it("copy с focus: false — копия в соседней группе, фокус остаётся в источнике", () => {
+        const service = h.container.get(EditorServiceDIToken);
+        const focused = h.testApp.focusedElement;
+
+        service.copyActiveEditorToGroup("next", { focus: false });
+
+        expect(service.groups[1].editorCount).toBe(1);
+        expect(h.testApp.focusedElement).toBe(focused);
     });
 });
