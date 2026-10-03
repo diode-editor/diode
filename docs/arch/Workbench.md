@@ -1210,7 +1210,12 @@ hide-toggle (`isHiddenByDefault`). См.
     (`findWidgetVisible`), `CompletionService` (`suggestWidgetVisible`),
     `HoverService` (`editorHoverVisible`), `ParameterHintsService`
     (`parameterHintsVisible`/`parameterHintsMultipleSignatures`),
-    `InlineCompletionsService` (`inlineSuggestion*`).
+    `InlineCompletionsService` (`inlineSuggestion*`), `SidebarService` —
+    ключи «вьюлет показан» одним генериком: ключ объявляет дескриптор
+    контейнера (`IViewContainerDescriptor.visibleContextKey`, например
+    `searchViewletVisible`), истинен он при видимом сайдбаре и активном
+    вьюлете. Видимость сайдбара меняется и мимо `SidebarService` (Ctrl+B,
+    восстановление layout'а), поэтому ключ опрашивается, а не пушится.
     **Смена фокуса как событие** — `FocusTracker`
     (`services/focus/browser/focusTracker.ts`, `onDidChangeFocus(active)`):
     `handleFocusChange` сначала освежает ключи, потом зовёт `fire`. Попапы

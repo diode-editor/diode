@@ -7,6 +7,8 @@ import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/
 import { SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 
+import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
+
 /**
  * Явный список фич, которые сами выставляют свои контекст-ключи (зеркало
  * `WORKBENCH_CONTRIBUTIONS`). `WorkbenchContextKeys` опрашивает их в этом
@@ -21,4 +23,6 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     HoverServiceDIToken,
     ParameterHintsServiceDIToken,
     InlineCompletionsServiceDIToken,
+    // Видимость вьюлетов: ключ объявляет дескриптор контейнера (visibleContextKey).
+    SidebarServiceDIToken,
 ];
