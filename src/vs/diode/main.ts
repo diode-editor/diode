@@ -53,13 +53,10 @@ import { loadState } from "../platform/state/node/stateService.ts";
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
-import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
+import { ExtensionServiceDIToken } from "../workbench/services/extensions/common/extensions.ts";
 import { ExtensionThemeContributor } from "../workbench/services/extensions/common/extensionThemeContributor.ts";
 import { ExtensionTokenizationContributor } from "../workbench/services/extensions/common/extensionTokenizationContributor.ts";
-import { ExtensionHostDIToken } from "../workbench/services/extensions/node/extensionHost.ts";
 import { runExtensionHostSubprocess } from "../workbench/services/extensions/node/extensionHostSubprocess.ts";
-import type { IExtensionRegistrationEnv } from "../workbench/services/extensions/node/extensionRegistration.ts";
-import { toExtensionRegistration } from "../workbench/services/extensions/node/extensionRegistration.ts";
 import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/extensions/node/loadTsServer.ts";
 import { LanguageConfigurationService } from "../workbench/services/language/common/languageConfigurationService.ts";
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
@@ -337,9 +334,22 @@ async function runEditor(): Promise<void> {
                 extensionsLogger.warn(problem);
             },
         },
-        // Приватные каталоги расширений: раскладку знает только владелец
-        // user-data, поэтому корни едут отсюда, а не собираются в host'е.
-        extensionStorage: {
+        extensionHost: {
+            // Набор для регистрации в extension host'е: сперва пользовательские,
+            // затем встроенные (например `git`).
+            extensions: [...userExtensions, ...builtinExtensions],
+            registration: {
+                userPrefix: USER_PREFIX,
+                userExtensionsDir: userDataPaths.extensionsDir,
+                // dev — FsAssetAccess, SEA — BundleAssetAccess, единый вызов.
+                readBuiltinSource: (virtualPath) => assets.readText(virtualPath),
+                configInjection: (ext) =>
+                    ext.isBuiltin
+                        ? builtinConfigInjection(ext.manifest.name, extensionsLogger)
+                        : curatedConfigInjection(ext.id),
+            },
+            // Приватные каталоги расширений: раскладку знает только владелец
+            // user-data, поэтому корни едут отсюда, а не собираются в host'е.
             globalStorageDir: userDataPaths.globalStorageDir,
             workspaceStorageDir: userDataPaths.workspaceStorageDir,
             logsDir: userDataPaths.logsDir,
@@ -395,10 +405,10 @@ async function runEditor(): Promise<void> {
     });
 
     const app = container.get(TuiApplicationDIToken);
-    // Поднимаем extension host. Регистрация расширений с `manifest.main` (builtin +
-    // user) — в фазе `restored`, ПОСЛЕ setWorkspaceFolder + openFile (чтобы
-    // workspaceFolders и activeTextEditor были доступны на момент `activate()`).
-    const extensionHost = container.get(ExtensionHostDIToken);
+    // Сервис расширений (и под ним extension host) — до старта окна: его подписки
+    // запоминают события активации (`onLanguage:` открываемых файлов), пришедшие
+    // раньше регистрации. Регистрация и стартовая активация — в фазе `restored`.
+    const extensionService = container.get(ExtensionServiceDIToken);
     // Корень строим до подписки на фазы ниже: его реестр contributions
     // подписывается в конструкторе, и в `eventually` contribution'ы
     // инстанцируются раньше фонового прогрева грамматик (как и было).
@@ -490,60 +500,7 @@ async function runEditor(): Promise<void> {
                 }
             },
             preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
-            afterRestored: async () => {
-                // Регистрируем расширения с `manifest.main` в extension host: сперва
-                // пользовательские, затем встроенные (например `git`). `registerExtension` —
-                // только bookkeeping (subprocess не поднимается); реальная активация —
-                // событийная (`activateByEvent` ниже) по `activationEvents`. Регистрируем
-                // ПОСЛЕ openFile, чтобы к моменту стартовых событий activeTextEditor был
-                // доступен на `activate()`.
-                const registrationEnv: IExtensionRegistrationEnv = {
-                    userPrefix: USER_PREFIX,
-                    userExtensionsDir: userDataPaths.extensionsDir,
-                    // dev — FsAssetAccess, SEA — BundleAssetAccess, единый вызов.
-                    readBuiltinSource: (virtualPath) => assets.readText(virtualPath),
-                    configInjection: (ext) =>
-                        ext.isBuiltin
-                            ? builtinConfigInjection(ext.manifest.name, extensionsLogger)
-                            : curatedConfigInjection(ext.id),
-                };
-                for (const ext of [...userExtensions, ...builtinExtensions]) {
-                    try {
-                        const reg = await toExtensionRegistration(ext, registrationEnv);
-                        if (reg !== null) extensionHost.registerExtension(reg);
-                    } catch (err) {
-                        extensionsLogger.error(
-                            `${ext.id}: failed to register${ext.isBuiltin ? " (builtin)" : ""}`,
-                            err,
-                        );
-                    }
-                }
-                mark("main:extensions-registered");
-
-                // Фаерим стартовые события активации. Порядок: eager `*` → `onLanguage:*` для
-                // языка уже открытого активного редактора → `onStartupFinished` →
-                // `workspaceContains:*`. Последующие `onLanguage:*` (переключение/открытие
-                // вкладок) фаерит ExtensionHostModule через `EditorService.onActiveEditorChanged`,
-                // а повторный `workspaceContains:` — по смене корня воркспейса. Расширения без
-                // `activationEvents` трактуются как `["*"]` — активируются здесь же.
-                // `workspaceContains:` идёт последним осознанно: это единственное событие,
-                // которому нужен обход дерева, и держать на нём соседей незачем.
-                // Per-extension сбои activate() изолирует сам ExtensionHost (log + continue);
-                // здесь ловим host-level сбой (subprocess не поднялся) — редактор не должен
-                // падать из-за нерабочего extension host'а, просто без расширений.
-                try {
-                    await extensionHost.activateByEvent("*");
-                    const activeLanguageId = container.get(EditorServiceDIToken).getActiveEditor()?.languageId;
-                    if (activeLanguageId !== undefined) {
-                        await extensionHost.activateByEvent(`onLanguage:${activeLanguageId}`);
-                    }
-                    await extensionHost.activateByEvent("onStartupFinished");
-                    await extensionHost.activateByWorkspaceContains();
-                } catch (err) {
-                    extensionsLogger.error("extension host activation failed", err);
-                }
-                mark("exthost:activated");
-            },
+            afterRestored: () => extensionService.start(),
             afterFirstFrame: (callback) => {
                 setImmediate(callback);
             },

@@ -2,6 +2,7 @@ import { createRange } from "../../editor/common/core/iRange.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import type { IExtension } from "../../platform/extensions/common/iExtension.ts";
 import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
@@ -32,13 +33,16 @@ import { watcherExcludeGlobs } from "../../workbench/common/configuration/exclud
 import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/node/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
 import {
     ExtensionHost,
     ExtensionHostDIToken,
     type IExtensionHostConfigProvider,
     type IWorkspaceFolderInfo,
 } from "../../workbench/services/extensions/node/extensionHost.ts";
+import type { IExtensionRegistrationEnv } from "../../workbench/services/extensions/node/extensionRegistration.ts";
 import { createFileExtensionSecretStore } from "../../workbench/services/extensions/node/extensionSecretsStore.ts";
+import { ExtensionService } from "../../workbench/services/extensions/node/extensionService.ts";
 import {
     extensionStorageHomes,
     type IExtensionStorageHomes,
@@ -92,8 +96,12 @@ export function workspaceFoldersProvider(
             .folders.map((folder) => ({ uri: folder.uri.toString(), name: folder.name, index: folder.index }));
 }
 
-/** Контекст модуля: корни хранения расширений из user-data (см. `main.ts`). */
+/** Контекст модуля: набор расширений и корни их хранения из user-data (см. `main.ts`). */
 export interface IExtensionHostModuleContext {
+    /** Просканированный набор: пользовательские, затем встроенные. */
+    readonly extensions: readonly IExtension[];
+    /** Откуда и с какими дефолтами собирать регистрации (`toExtensionRegistration`). */
+    readonly registration: IExtensionRegistrationEnv;
     /** `<profileDir>/globalStorage` — родитель `globalStorageUri` расширений. */
     readonly globalStorageDir: string;
     /** `<profileDir>/workspaceStorage` — из него резолвится `storageUri` по открытой папке. */
@@ -356,30 +364,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
         });
 
-        // Ленивая активация по `onLanguage:*`: при смене активного редактора
-        // фаерим событие языка — host поднимает расширения, чьи activationEvents
-        // содержат `onLanguage:<langId>` (напр. diode-settings на JSON). Стартовое
-        // событие для уже открытого редактора фаерит main.ts; ядро про
-        // activation-events не знает — тот же seam-паттерн, что completionSource.
-        group.onActiveEditorChanged((editor) => {
-            if (editor !== null) void host.activateByEvent(`onLanguage:${editor.languageId}`);
-        });
-
-        // Ленивая активация по `workspaceContains:<паттерн>`: папка воркспейса
-        // может открыться ПОЗЖЕ регистрации расширений, и событие «в проекте
-        // есть pom.xml» иначе прогорело бы в пустоту. Стартовый проход (папка из
-        // аргументов) делает main.ts — как и со стартовым `onLanguage:`; здесь
-        // ловится только смена набора папок. На самой первой смене (её делает
-        // `setWorkspaceFolder` до регистрации расширений) считать нечего — хост
-        // сам выходит на пустом наборе кандидатов, не трогая ФС.
-        // Stryker disable CallExpression,BlockStatement,StringLiteral: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение о поводе активации живёт в `ExtensionHost.activateByWorkspaceContains` и закрыто его юнитами, сквозняк — e2e-сценарий activation-workspace-contains
-        workspaceContext.onDidChangeWorkspaceFolders(() => {
-            void host.activateByWorkspaceContains().catch((err: unknown) => {
-                logger.error("workspaceContains activation failed", err);
-            });
-        });
-        // Stryker restore CallExpression,BlockStatement,StringLiteral
-
         // Прощание (выход, перезагрузка окна, выход по инспектору) — один путь:
         // сперва вежливо, с `deactivate()` расширений, а что не успело выйти за
         // общий тайм-аут — сигналом в синхронной фазе (перезагрузка дальше
@@ -393,5 +377,40 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         });
 
         return host;
+    });
+
+    // Сервис расширений — политика «что и когда активировать» поверх механики
+    // host'а: регистрация набора, барьер с памятью событий, стартовая активация.
+    container.bind(ExtensionServiceDIToken, () => {
+        const logService = container.get(ILogServiceDIToken);
+        const logger = logService.createLogger("extensions");
+        const service = new ExtensionService(
+            container.get(ExtensionHostDIToken),
+            ctx.extensions,
+            ctx.registration,
+            logger,
+        );
+
+        // Активация по `onLanguage:*` при смене активного редактора (напр.
+        // diode-settings на JSON). Файлы, открытые на старте ДО регистрации
+        // расширений, не теряются: сервис запоминает событие и проигрывает его
+        // сразу за `*`. Ядро про activation-events не знает — тот же seam-паттерн,
+        // что completionSource.
+        container.get(EditorServiceDIToken).onActiveEditorChanged((editor) => {
+            if (editor !== null) void service.activateByEvent(`onLanguage:${editor.languageId}`);
+        });
+
+        // `workspaceContains:<паттерн>` по смене набора папок: папка может
+        // открыться ПОЗЖЕ старта, и событие «в проекте есть pom.xml» иначе
+        // прогорело бы в пустоту. Стартовый проход делает сам сервис.
+        // Stryker disable CallExpression,BlockStatement,StringLiteral: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение о поводе активации живёт в `ExtensionHost.activateByWorkspaceContains` и закрыто его юнитами, сквозняк — e2e-сценарий activation-workspace-contains
+        container.get(IWorkspaceContextServiceDIToken).onDidChangeWorkspaceFolders(() => {
+            void service.activateByWorkspaceContains().catch((err: unknown) => {
+                logger.error("workspaceContains activation failed", err);
+            });
+        });
+        // Stryker restore CallExpression,BlockStatement,StringLiteral
+
+        return service;
     });
 };

@@ -92,10 +92,6 @@
   (tuidom) выходит мимо confirm-save и `LifecycleService.shutdown`. Точка
   подключения уже есть — `shutdown(reason, then)`; нужна причина `"signal"` и
   обработчики (для SIGINT — хук в tuidom).
-- [ ] Стартовая активация расширений (`*`/`onLanguage`/`onStartupFinished`/
-  `workspaceContains`) и два цикла регистрации всё ещё в `main.ts`
-  (хук `afterRestored` у `startWorkbench`) — переезжают к владельцу в G8
-  (бывший PR3 C6).
 - [ ] Разнос `EditorViewState` на viewModel/viewLayout/cursor.
 - [ ] `ProxyIdentifier`-типизация RPC extension host'а (сейчас строковая
   адресация методов).
