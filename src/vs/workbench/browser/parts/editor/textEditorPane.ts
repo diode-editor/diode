@@ -9,7 +9,6 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
@@ -147,14 +146,6 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     /** Документ записан на диск (save/saveAs) — событие модели. */
     public get onDidSave(): Event<void> {
         return this.model.onDidSaveDocument;
-    }
-
-    public get foldingRangeSource(): FoldingRangeSource | undefined {
-        return this.component.foldingRangeSource;
-    }
-
-    public set foldingRangeSource(source: FoldingRangeSource | undefined) {
-        this.component.foldingRangeSource = source;
     }
 
     /** Токен темы для фона редактора (см. `EditorComponent.backgroundToken`). */

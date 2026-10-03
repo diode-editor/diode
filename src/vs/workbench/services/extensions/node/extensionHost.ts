@@ -621,8 +621,6 @@ export class ExtensionHost extends Disposable {
     private didSaveSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные inline-completion-провайдеры (см. `languages.updateSubscriptions`). */
     private inlineCompletionSubscribed = false;
-    /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
-    private foldingSubscribed = false;
     /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
     private documentSyncSubscribed = false;
     /**
@@ -695,13 +693,16 @@ export class ExtensionHost extends Disposable {
      */
     private readonly languageProviders = new Map<number, IWireLanguageProviderRegistration>();
     private readonly onLanguageProvidersChangedEmitter = this.register(new Emitter<void>());
+    /** Вызовы folding-прокси с одним запросом — одним RPC (см. `provideFoldingRanges`). */
+    private readonly foldingBatcher = new ProviderRequestBatcher<IFoldingRequest, readonly IFoldingRegion[]>(
+        (handles, req) => this.requestFoldingBatch(handles, req),
+        [],
+    );
     /** Вызовы completion-прокси с одним запросом — одним RPC (см. `provideCompletionItems`). */
     private readonly completionBatcher = new ProviderRequestBatcher<ICompletionRequest, ICoreCompletionResult>(
         (handles, req) => this.requestCompletionBatch(handles, req),
         EMPTY_COMPLETION_RESULT,
     );
-    /** Слушатели смены наличия folding-провайдеров (для пере-пересчёта фолдов открытых редакторов). */
-    private readonly onFoldingProvidersChangedEmitter = this.register(new Emitter<void>());
 
     public constructor(
         editorOptions: IEditorOptionsService,
@@ -1409,15 +1410,24 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Отдаёт области сворачивания от folding-провайдеров субпроцесса для
-     * документа. Возвращает пустой массив, если host не поднят, провайдеров нет,
-     * документ слишком большой или расширение не ответило за `foldingTimeoutMs`
-     * — ядро в этом случае откатывается на indentation-фолды. Подключается в
-     * `EditorService.foldingRangeSource` (wiring в module/харнессе).
+     * Отдаёт области сворачивания folding-провайдера субпроцесса `handle` для
+     * документа (`languages.provideFoldingRanges`). Пустой массив, если
+     * субпроцесса нет, документ слишком большой или расширение не ответило за
+     * `foldingTimeoutMs` — ядро в этом случае остаётся на indentation-фолдах.
+     * Зовёт его прокси из реестра ядра (`LanguageFeaturesAdapter`); вызовы с
+     * одним запросом уходят одним RPC (`ProviderRequestBatcher`).
      */
-    public async provideFoldingRanges(req: IFoldingRequest): Promise<readonly IFoldingRegion[]> {
+    public provideFoldingRanges(handle: number, req: IFoldingRequest): Promise<readonly IFoldingRegion[]> {
+        return this.foldingBatcher.call(handle, req);
+    }
+
+    private async requestFoldingBatch(
+        handles: readonly number[],
+        req: IFoldingRequest,
+    ): Promise<readonly (readonly IFoldingRegion[])[]> {
         const rpc = this.rpc;
-        if (rpc === null || !this.foldingSubscribed) return [];
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return [];
         /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping folding: document too large", {
@@ -1430,6 +1440,7 @@ export class ExtensionHost extends Disposable {
         return requestFoldingRanges(
             (method, params) => rpc.request(method, params),
             {
+                handles,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -1682,19 +1693,6 @@ export class ExtensionHost extends Disposable {
             id,
             this.options.applyCodeActionTimeoutMs,
         );
-    }
-
-    /**
-     * Событие смены наличия folding-провайдеров в субпроцессе. Потребитель
-     * (ExtensionHostModule / харнесс) на него пере-подключает
-     * `EditorService.foldingRangeSource`, что триггерит пересчёт фолдов уже
-     * открытых редакторов — нужно, когда расширение активировалось после
-     * открытия файла.
-     */
-    public readonly onFoldingProvidersChanged = this.onFoldingProvidersChangedEmitter.event;
-
-    private fireFoldingProvidersChanged(): void {
-        this.onFoldingProvidersChangedEmitter.fire();
     }
 
     // ─── Языковые провайдеры (мост под ILanguageFeaturesService) ──────────────
@@ -2049,16 +2047,9 @@ export class ExtensionHost extends Disposable {
         // Без них хост не гоняет RPC на Ctrl+Space.
         rpc.handleNotification("languages.updateSubscriptions", (params) => {
             const p = params as {
-                hasFoldingProviders?: unknown;
                 hasInlineCompletionProviders?: unknown;
             };
             this.inlineCompletionSubscribed = p.hasInlineCompletionProviders === true;
-            const foldingBefore = this.foldingSubscribed;
-            this.foldingSubscribed = p.hasFoldingProviders === true;
-            // Провайдер folding появился/исчез (обычно — расширение активировалось
-            // уже после открытия файла): просим пере-пересчитать фолды открытых
-            // редакторов, иначе провайдерские области не подъедут до первой правки.
-            if (foldingBefore !== this.foldingSubscribed) this.fireFoldingProvidersChanged();
         });
         // Языковые провайдеры, переехавшие в реестр ядра: субпроцесс объявляет
         // каждого с handle и селектором, ядро само решает, кого спрашивать.
@@ -2503,7 +2494,6 @@ export class ExtensionHost extends Disposable {
         this.didSaveSubscribed = false;
         // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
         this.inlineCompletionSubscribed = false;
-        this.foldingSubscribed = false;
         this.documentSyncSubscribed = false;
         // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из
         // реестра ядра, и запросы к мёртвым handle не уйдут.

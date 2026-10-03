@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    provideFoldingRegions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -29,8 +33,8 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
         });
         try {
             await settle();
-            // Через group.foldingRangeSource (wiring харнесса) — как это делает ядро.
-            const regions = await harness.group.foldingRangeSource!(REQ);
+            // Через реестр харнесса — как это делает EditorComponent.
+            const regions = await provideFoldingRegions(harness, REQ);
             expect(regions).toEqual([{ startLine: 0, endLine: 3, isCollapsed: false }]);
         } finally {
             await harness.dispose();
@@ -43,7 +47,8 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
         });
         try {
             await settle();
-            const regions = await harness.host.provideFoldingRanges({ ...REQ, languageId: "typescript" });
+            // Провайдер под селектор не подходит — реестр его не отдаёт, RPC нет.
+            const regions = await provideFoldingRegions(harness, { ...REQ, languageId: "typescript" });
             expect(regions).toEqual([]);
         } finally {
             await harness.dispose();
@@ -53,7 +58,7 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
     it("без folding-провайдеров (нет расширений) → [] без RPC", async () => {
         const harness = await createExtensionTestHarness({});
         try {
-            const regions = await harness.host.provideFoldingRanges(REQ);
+            const regions = await provideFoldingRegions(harness, REQ);
             expect(regions).toEqual([]);
         } finally {
             await harness.dispose();

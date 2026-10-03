@@ -84,18 +84,6 @@ describe("ExtensionHost (subprocess)", () => {
         expect(() => host.registerExtension(extensionFixture("late", "noopExtension.cjs"))).toThrow(/disposed/);
     });
 
-    it("onFoldingProvidersChanged: подписка снимается по dispose (идемпотентно)", () => {
-        const host = createHost(new FakeOptionsService());
-        let fired = 0;
-        const sub = host.onFoldingProvidersChanged(() => {
-            fired++;
-        });
-        sub.dispose();
-        sub.dispose(); // повторный dispose безопасен (idx < 0)
-        expect(fired).toBe(0);
-        host.dispose();
-    });
-
     it("unregisterExtension убирает конкретное расширение", async () => {
         const svc = new FakeOptionsService();
         const host = createHost(svc);

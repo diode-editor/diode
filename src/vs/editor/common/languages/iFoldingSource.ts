@@ -14,10 +14,11 @@ export interface IFoldingRequest {
 }
 
 /**
- * Folding-источник: по запросу возвращает области сворачивания от провайдеров
- * расширений (`languages.registerFoldingRangeProvider`). Инъектируется в ядро
- * извне (host/харнесс) — ядро не знает про extension-слой (зеркало
- * {@link ./iCompletionSource.ts:CompletionSource}). Пустой результат = провайдер
- * ничего не дал; ядро откатывается на indentation-фолды.
+ * Folding-провайдер в реестре `ILanguageFeaturesService.foldingRangeProvider`
+ * (upstream `languages.FoldingRangeProvider`): области сворачивания документа.
+ * Ответы всех подошедших провайдеров склеиваются поверх indentation-фолдов
+ * (`EditorComponent`); пустой ответ — у провайдера областей нет.
  */
-export type FoldingRangeSource = (request: IFoldingRequest) => Promise<readonly IFoldingRegion[]>;
+export interface FoldingRangeProvider {
+    provideFoldingRanges(request: IFoldingRequest): Promise<readonly IFoldingRegion[]>;
+}

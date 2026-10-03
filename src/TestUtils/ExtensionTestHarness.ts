@@ -10,6 +10,7 @@ import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeature
 import type { ICodeActionRequest, ICoreCodeAction } from "../vs/editor/common/languages/iCodeActionSource.ts";
 import type { ICompletionRequest, ICoreCompletionResult } from "../vs/editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../vs/editor/common/languages/iDefinitionSource.ts";
+import type { IFoldingRequest } from "../vs/editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../vs/editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iHoverSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
@@ -21,6 +22,8 @@ import { TokenizationRegistry } from "../vs/editor/common/languages/tokenization
 import type { ILanguageFeaturesService } from "../vs/editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../vs/editor/common/services/languageFeaturesService.ts";
 import { getCodeActions } from "../vs/editor/contrib/codeAction/codeAction.ts";
+import type { IFoldingRegion } from "../vs/editor/contrib/folding/iFoldingRegion.ts";
+import { provideFoldingRanges } from "../vs/editor/contrib/folding/syntaxRangeProvider.ts";
 import { formatDocument, formatRange } from "../vs/editor/contrib/format/format.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
@@ -386,11 +389,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     host.onDidChangeTextContent((uri) => {
         group.refreshVirtualDocument(uri);
     });
-    // Folding (#87): источник областей сворачивания — провайдеры расширений через host.
-    group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
-    host.onFoldingProvidersChanged(() => {
-        group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
-    });
 
     const writeFile = (name: string, content: string): string => {
         const fp = path.join(tmpDir, name);
@@ -526,6 +524,11 @@ export async function provideCodeActions(
 ): Promise<readonly ICoreCodeAction[]> {
     const items = await getCodeActions(harness.languageFeatures.codeActionProvider, targetOf(request), request);
     return items.map((item) => item.action);
+}
+
+/** Области сворачивания от провайдеров так, как их собирает `EditorComponent`. */
+export function provideFoldingRegions(harness: IExtensionHarness, request: IFoldingRequest): Promise<IFoldingRegion[]> {
+    return provideFoldingRanges(harness.languageFeatures.foldingRangeProvider.ordered(targetOf(request)), request);
 }
 
 /** Документ запроса как цель скоринга реестра. */

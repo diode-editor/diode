@@ -224,6 +224,8 @@ interface IWireInlineCompletionParams {
 
 /** Wire-параметры запроса folding (host → subprocess). */
 interface IWireFoldingParams {
+    /** Провайдеры, выбранные ядром по селектору, в порядке реестра (пачка). */
+    readonly handles?: readonly unknown[];
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
@@ -707,11 +709,9 @@ export function createLanguagesNamespace(
 ): {
     languages: typeof vscode.languages;
     inlineCompletionRegistrations: readonly IInlineCompletionRegistration[];
-    foldingRegistrations: readonly IFoldingRegistration[];
 } {
     const { rpc, documentSync } = ctx;
     const inlineCompletionRegistrations: IInlineCompletionRegistration[] = [];
-    const foldingRegistrations: IFoldingRegistration[] = [];
     // Провайдеры фич, переехавших в реестр ядра: по handle, который ядро
     // присылает в запросе (upstream ExtHostLanguageFeatures._adapter).
     const hoverProviders = new Map<number, IHoverRegistration>();
@@ -722,6 +722,7 @@ export function createLanguagesNamespace(
     const formattingProviders = new Map<number, IFormattingRegistration>();
     const rangeFormattingProviders = new Map<number, IRangeFormattingRegistration>();
     const codeActionProviders = new Map<number, ICodeActionRegistration>();
+    const foldingProviders = new Map<number, IFoldingRegistration>();
     let nextProviderHandle = 0;
 
     /**
@@ -803,7 +804,6 @@ export function createLanguagesNamespace(
 
     function pushSubscriptions(): void {
         rpc.notify("languages.updateSubscriptions", {
-            hasFoldingProviders: foldingRegistrations.length > 0,
             hasInlineCompletionProviders: inlineCompletionRegistrations.length > 0,
         });
     }
@@ -1327,7 +1327,7 @@ export function createLanguagesNamespace(
         },
     );
 
-    rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[]> => {
+    rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[][]> => {
         const p = params as IWireFoldingParams;
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
@@ -1337,16 +1337,24 @@ export function createLanguagesNamespace(
         const token = neverCancelledToken();
         const context = {} as vscode.FoldingContext;
 
-        const ranges: WireFoldingRange[] = [];
-        for (const reg of foldingRegistrations) {
-            if (!matchDocumentSelector(reg.selector, doc)) continue;
+        // Провайдеров — в присланном ядром порядке; ответ выровнен по `handles`.
+        // Снятый, пока запрос летел, или чужой handle — пустой список.
+        const results: WireFoldingRange[][] = [];
+        for (const handle of Array.isArray(p.handles) ? p.handles : []) {
+            // Handle чужого типа Map.get и так не найдёт — отдельная проверка не нужна.
+            const reg = foldingProviders.get(handle as number);
+            const ranges: WireFoldingRange[] = [];
+            results.push(ranges);
+            // Stryker disable next-line ConditionalExpression: без проверки обращение к снятому провайдеру падает внутри try ниже, и провайдер получает тот же пустой список
+            if (reg === undefined) continue;
             let result: unknown;
             try {
                 result = await Promise.resolve(
                     reg.provider.provideFoldingRanges(doc as unknown as vscode.TextDocument, context, token),
                 );
             } catch {
-                continue; // сбойный провайдер не роняет остальные
+                // Сбойный провайдер = пустой список: `result` остаётся
+                // неприсвоенным, и его отсеивает проверка ниже.
             }
             if (!Array.isArray(result)) continue;
             for (const range of result as vscode.FoldingRange[]) {
@@ -1354,7 +1362,7 @@ export function createLanguagesNamespace(
                 if (wire !== null) ranges.push(wire);
             }
         }
-        return ranges;
+        return results;
     });
 
     // No-op регистрация провайдера — валидный Disposable; фича не работает,
@@ -1469,18 +1477,7 @@ export function createLanguagesNamespace(
         registerFoldingRangeProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.FoldingRangeProvider,
-        ): vscode.Disposable => {
-            const registration: IFoldingRegistration = { selector, provider };
-            foldingRegistrations.push(registration);
-            if (foldingRegistrations.length === 1) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = foldingRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    foldingRegistrations.splice(idx, 1);
-                    if (foldingRegistrations.length === 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
-        },
+        ): vscode.Disposable => registerByHandle(foldingProviders, "folding", selector, { selector, provider }),
         registerDefinitionProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DefinitionProvider,
@@ -1577,6 +1574,5 @@ export function createLanguagesNamespace(
     return {
         languages: languagesNs as unknown as typeof vscode.languages,
         inlineCompletionRegistrations,
-        foldingRegistrations,
     };
 }

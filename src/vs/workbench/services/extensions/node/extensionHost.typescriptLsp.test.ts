@@ -9,6 +9,7 @@ import {
     extensionFixture,
     type IExtensionHarness,
     provideDefinitions,
+    provideFoldingRegions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -265,9 +266,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 "extra.ts",
                 "export function block(): void {\n    void 0;\n    void 0;\n}\n",
             );
-            const foldSource = harness.group.foldingRangeSource;
             const folds = await until("фолды неанонсированного extra.ts", async () => {
-                const found = await foldSource!({
+                const found = await provideFoldingRegions(harness, {
                     uri: Uri.file(extraPath).toString(),
                     languageId: "typescript",
                     text: "export function block(): void {\n    void 0;\n    void 0;\n}\n",
@@ -284,7 +284,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             harness.group.openFile(mainPath);
             const editor = harness.group.getActiveEditor();
             editor?.applyExternalEdits([createTextEdit(createRange(4, 0, 4, 0), "\nconst tail = 1;\n")], "grow");
-            const racing = foldSource!({
+            const racing = provideFoldingRegions(harness, {
                 uri: mainUri,
                 languageId: "typescript",
                 text: editor?.getText() ?? "",

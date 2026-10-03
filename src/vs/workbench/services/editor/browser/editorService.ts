@@ -3,7 +3,6 @@ import * as path from "node:path";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
@@ -197,7 +196,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private readonly codeActionsOnSaveParticipant: SaveParticipant;
     /** Участник `editor.formatOnSave` (см. {@link collectSaveParticipants}). */
     private readonly formatOnSaveParticipant: SaveParticipant;
-    private foldingRangeSourceValue?: FoldingRangeSource;
     /**
      * Монотонный счётчик номеров безымянных буферов (`Untitled-1`, `Untitled-2`, …).
      * Не переиспользуется при закрытии вкладок — как в VS Code, номер стабилен за
@@ -291,23 +289,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             participants.push(this.saveParticipantValue);
         }
         return participants;
-    }
-
-    /**
-     * Folding-источник, прокидываемый в каждый редактор группы (host/харнесс
-     * подключает сюда `languages.provideFoldingRanges`). Присваивание раздаёт
-     * источник уже открытым редакторам и всем последующим (в openFile) — extension
-     * host мог активироваться уже после открытия первого файла.
-     */
-    public get foldingRangeSource(): FoldingRangeSource | undefined {
-        return this.foldingRangeSourceValue;
-    }
-
-    public set foldingRangeSource(source: FoldingRangeSource | undefined) {
-        this.foldingRangeSourceValue = source;
-        for (const editor of this.textPanes()) {
-            editor.foldingRangeSource = source;
-        }
     }
 
     /**
@@ -1347,13 +1328,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             this.tokenStyleResolver,
             model,
             this.languageConfigurationService,
+            this.languageFeatures.foldingRangeProvider,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // Политика контекстного меню редактора слушает "contextmenu" на обвязке
         // пары: ScrollBarDecorator переживает пересоздание EditorElement при
         // перечитке, сам элемент контроллер берёт из цели события.
         this.contextMenuController.attach(component.view);
-        editor.foldingRangeSource = this.foldingRangeSourceValue;
         return editor;
     }
 
