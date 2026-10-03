@@ -1,7 +1,7 @@
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
-import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
-import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
 import type {
     ICoreSignatureHelp,
@@ -11,13 +11,12 @@ import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iS
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { bindActiveEditor } from "../../../services/editor/browser/activeEditorBinding.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 import { stripMarkdown } from "../../hover/browser/hoverService.ts";
-import { isSingleCharInsert } from "../../suggest/browser/completionService.ts";
 
 import type { ParameterHintsComponent } from "./parameterHintsComponent.ts";
 import { ParameterHintsComponentDIToken } from "./parameterHintsComponent.ts";
@@ -44,20 +43,14 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
 
     /** Guard от устаревших ответов: пока ходили за подсказкой, запрос мог смениться. */
     private readonly latest = new LatestRequest();
-    private caretSub: IDisposable | null = null;
-    private contentSub: IDisposable | null = null;
-    // Затравки полей ниже перетираются ещё в конструкторе (`bindEditor` зовёт
-    // `unbindEditor` и `resetCaretCache`), поэтому их значения ненаблюдаемы.
-    // Stryker disable next-line BooleanLiteral: см. выше
-    /** Правка пришла до события каретки — их общий обработчик читает этот флаг. */
-    private contentDidChange = false;
-    // Stryker disable next-line UnaryOperator: см. выше
-    private lastCaretLine = -1;
-    // Stryker disable next-line UnaryOperator: см. выше
-    private lastCaretChar = -1;
-    // Stryker disable next-line StringLiteral: см. выше
-    private lastLine = "";
-    private triggerTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Отложенный авто-запрос: вид и символ берутся из {@link scheduledTrigger}. */
+    private readonly triggerScheduler = this.register(
+        new RunOnceScheduler(() => {
+            void this.trigger(this.scheduledTrigger.kind, this.scheduledTrigger.character);
+        }, this.triggerDelayMs),
+    );
+    // Без затравки: `scheduleTrigger` пишет поле до каждого `schedule()`, раньше него раннер не зовётся.
+    private scheduledTrigger!: { kind: TriggerKind; character: string | undefined };
     /** Показанная сейчас подсказка (она же — эхо `activeSignatureHelp` серверу). */
     private currentHelp: ICoreSignatureHelp | null = null;
     private activeSignatureIndex = 0;
@@ -74,24 +67,27 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
                 if (!(active instanceof EditorElement) && this.isOpen()) this.close();
             }),
         );
-        const activeEditorSub = this.group.onActiveEditorChanged((editor) => {
-            this.bindEditor(editor);
-        });
-        // Стартовая привязка — для случая, когда редактор уже открыт к моменту
-        // сборки сервиса (восстановленная сессия). В харнессе файл открывают
-        // после конструктора, и туда приходит onActiveEditorChanged — поэтому
-        // пропуск этого вызова юнит-тестом не наблюдается.
-        // Stryker disable next-line CallExpression: см. выше — привязку уже открытого редактора юнит не наблюдает, её путь проверяет поднятие приложения
-        this.bindEditor(this.group.getActiveEditor());
-        this.register({
-            // Stryker disable next-line BlockStatement: снятие подписок на выключении ненаблюдаемо юнитом — редактор и группа умирают следом, слушать некому
-            dispose: () => {
+        this.register(
+            bindActiveEditor(this.group, (editor, store) => {
+                // Смена редактора при открытом попапе в приложении уже сопровождается
+                // сменой фокуса (её ловит подписка на FocusTracker), поэтому в юните пропуск этого
+                // закрытия не наблюдается — вызов держим для программной смены редактора
+                // без участия фокуса (восстановление сессии, split).
                 // Stryker disable next-line CallExpression: см. выше
-                activeEditorSub.dispose();
-                // Stryker disable next-line CallExpression: см. выше
-                this.unbindEditor();
-            },
-        });
+                this.close();
+                if (editor === null) return;
+                store.add(
+                    editor.onDidType((text) => {
+                        this.onDidType(text);
+                    }),
+                );
+                store.add(
+                    editor.onDidChangeCursorPosition(() => {
+                        this.onCaretChanged();
+                    }),
+                );
+            }),
+        );
     }
 
     /**
@@ -210,139 +206,48 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         });
     }
 
-    private bindEditor(editor: TextEditorPane | null): void {
-        this.unbindEditor();
-        // Смена редактора при открытом попапе в приложении уже сопровождается
-        // сменой фокуса (её ловит подписка на FocusTracker), поэтому в юните пропуск этого
-        // закрытия не наблюдается — вызов держим для программной смены редактора
-        // без участия фокуса (восстановление сессии, split).
-        // Stryker disable next-line CallExpression: см. выше
-        this.close();
-        this.resetCaretCache(editor);
-        if (editor === null) return;
-        // Правка только взводит флаг: вся работа идёт из события каретки, где
-        // view-state уже консистентен (схема CompletionService).
-        this.contentSub = editor.onDidChangeContent(() => {
-            this.contentDidChange = true;
-        });
-        this.caretSub = editor.onDidChangeCursorPosition(() => {
-            this.onCaretChanged();
-        });
-    }
-
-    private unbindEditor(): void {
-        // Stryker disable next-line OptionalChaining: до первой привязки подписок нет — обращение к dispose несуществующей кинуло бы на старте
-        this.caretSub?.dispose();
-        this.caretSub = null;
-        // Stryker disable next-line OptionalChaining: см. выше
-        this.contentSub?.dispose();
-        this.contentSub = null;
-        // Stryker disable next-line BooleanLiteral: «правка была» без правки всё равно отсекается проверкой длины строки в isSingleCharInsert — флаг лишь экономит её вызов
-        this.contentDidChange = false;
+    /**
+     * Набор символа (событие редактора, а не «строка выросла на символ»): триггер
+     * сервера открывает подсказку, а пока она показана — ретриггер-символ (`)`)
+     * уходит серверу в контексте, ответ на нём обычно пустой, и подсказка
+     * закрывается сама. Приходит ПОСЛЕ события каретки той же правки и
+     * перезаводит запланированный им `ContentChange` своим видом.
+     */
+    private onDidType(text: string): void {
+        const triggers = this.group.signatureHelpTriggerCharacters.includes(text);
+        const retriggers = this.isOpen() && this.group.signatureHelpRetriggerCharacters.includes(text);
+        if (triggers || retriggers) this.scheduleTrigger(SignatureHelpTriggerKind.TriggerCharacter, text);
     }
 
     /**
-     * Единый обработчик правки/движения каретки: набор триггер-символа
-     * открывает подсказку, а пока она показана — любое изменение позиции или
-     * текста её перезапрашивает (иначе активный параметр застыл бы на первом).
+     * Правка или движение каретки: пока подсказка показана, она перезапрашивается
+     * (иначе активный параметр застыл бы на первом). Выделение вместо каретки
+     * подсказку закрывает.
      */
     private onCaretChanged(): void {
-        const wasEdit = this.contentDidChange;
-        // Stryker disable next-line BooleanLiteral: не сброшенный флаг ненаблюдаем по той же причине, что и в unbindEditor — вставку символа опознаёт длина строки, а не он
-        this.contentDidChange = false;
-
         const editor = this.group.getActiveEditor();
         /* v8 ignore start -- defensive: события приходят от привязанного редактора */
         // Stryker disable next-line ConditionalExpression,EqualityOperator: ветка недостижима — см. v8 ignore выше
         if (editor === null) return;
         /* v8 ignore stop */
-
-        const { active, line } = this.readCaret(editor);
-
-        if (active === null) {
+        const selections = editor.viewState.selections;
+        if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) {
             // Выделение, а не каретка: показывать подсказку вызова не для чего.
             // `close()` идемпотентен и заодно снимает отложенный запрос — иначе
             // набранная перед выделением «(» открыла бы попап уже поверх него.
             this.close();
-            // Stryker disable next-line CallExpression: кэш каретки при выделении всё равно не совпадёт с одиночной вставкой (длина строки не сойдётся), поэтому пропуск сброса ненаблюдаем
-            this.updateCaretCache(active, line);
             return;
         }
-
-        // Пустая строка — «набора не было»: пустой символ ни один сервер
-        // триггером не объявляет (а если бы объявил, его отсеет readStringArray).
-        // Stryker disable next-line StringLiteral: любая заглушка ведёт себя одинаково — сервер не объявляет триггером ни её, ни пустую строку
-        const inserted = wasEdit ? this.insertedChar(line, active) : "";
-        if (this.group.signatureHelpTriggerCharacters.includes(inserted)) {
-            this.scheduleTrigger(SignatureHelpTriggerKind.TriggerCharacter, inserted);
-        } else if (this.isOpen()) {
-            // Ретриггер-символ (`)`) отличается от прочих правок только тем, что
-            // сервер получает его в контексте — ответ на нём обычно пустой,
-            // и подсказка закрывается сама.
-            const isRetriggerChar = this.group.signatureHelpRetriggerCharacters.includes(inserted);
-            this.scheduleTrigger(
-                isRetriggerChar ? SignatureHelpTriggerKind.TriggerCharacter : SignatureHelpTriggerKind.ContentChange,
-                isRetriggerChar ? inserted : undefined,
-            );
-        }
-
-        this.updateCaretCache(active, line);
+        if (this.isOpen()) this.scheduleTrigger(SignatureHelpTriggerKind.ContentChange, undefined);
     }
 
-    /** Набранный только что символ; пустая строка — набора не было. */
-    private insertedChar(line: string, active: IPosition): string {
-        // Stryker disable next-line StringLiteral: см. вызывающего — заглушка «набора не было» лишь не должна совпасть с объявленным символом
-        if (!isSingleCharInsert(line, active, this.lastCaretLine, this.lastCaretChar, this.lastLine)) return "";
-        // `slice`, а не `at`: эвристика выше уже гарантировала, что символ на
-        // этой позиции есть, и ветка «его нет» была бы мёртвой.
-        return line.slice(active.character - 1, active.character);
-    }
-
-    /** Каретка и её строка; `active: null` — выделение, а не одиночная каретка. */
-    private readCaret(editor: TextEditorPane): { active: IPosition | null; line: string } {
-        const selections = editor.viewState.selections;
-        const active = selections.length === 1 && isSelectionCollapsed(selections[0]) ? selections[0].active : null;
-        // Stryker disable next-line StringLiteral: строка без каретки уходит только в кэш, а он в этом состоянии всё равно не даст совпадения по длине
-        const line = active !== null ? editor.viewState.document.getLineContent(active.line) : "";
-        return { active, line };
-    }
-
-    private scheduleTrigger(triggerKind: TriggerKind, character?: string): void {
-        this.cancelScheduledTrigger();
-        this.triggerTimer = setTimeout(() => {
-            this.triggerTimer = null;
-            void this.trigger(triggerKind, character);
-        }, this.triggerDelayMs);
+    private scheduleTrigger(kind: TriggerKind, character: string | undefined): void {
+        this.scheduledTrigger = { kind, character };
+        this.triggerScheduler.schedule(this.triggerDelayMs);
     }
 
     private cancelScheduledTrigger(): void {
-        // Stryker disable next-line ConditionalExpression: clearTimeout(null) — no-op, поэтому проверка экономит вызов, а не меняет поведение
-        if (this.triggerTimer !== null) {
-            clearTimeout(this.triggerTimer);
-            this.triggerTimer = null;
-        }
-    }
-
-    private updateCaretCache(active: IPosition | null, line: string): void {
-        // `-1` — заведомо недостижимая позиция: чтобы часовой сработал, вставка
-        // должна оставить каретку на нулевой колонке, а она всегда сдвигает её
-        // вправо. Сдвиг часового на +1 требует уже противоречия (каретка на
-        // колонке 2 в строке длиной 1), поэтому тоже ненаблюдаем.
-        // Stryker disable next-line UnaryOperator: см. выше
-        this.lastCaretLine = active?.line ?? -1;
-        // Stryker disable next-line UnaryOperator: см. выше
-        this.lastCaretChar = active?.character ?? -1;
-        this.lastLine = line;
-    }
-
-    private resetCaretCache(editor: TextEditorPane | null): void {
-        if (editor === null) {
-            // Stryker disable next-line CallExpression,StringLiteral: без редактора набирать некуда — кэш в этом состоянии не читается, а следующая привязка перезапишет его целиком
-            this.updateCaretCache(null, "");
-            return;
-        }
-        const { active, line } = this.readCaret(editor);
-        this.updateCaretCache(active, line);
+        this.triggerScheduler.cancel();
     }
 }
 
