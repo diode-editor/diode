@@ -2,7 +2,7 @@
 
 Часть архитектуры Diode — обзорная карта в [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
-Базовые типы и утилиты: геометрия (`Point`, `Size`, `Rect`, `BoxConstraints`), `IDisposable`/`Disposable`, DI-примитивы (`Token`, `Container`, см. [../DI.md](../DI.md)). Unicode: `UnicodeWidth` и `DisplayLine` (маппинг строки документа на grapheme-слоты + двусторонний конвертер offset↔column) — общий инструмент корректной обработки wide chars / emoji / табов / combining marks во всех слоях (Editor, TUIDom, RenderContext).
+Базовые типы и утилиты: геометрия (`Point`, `Size`, `Rect`, `BoxConstraints`), `IDisposable`/`Disposable` (`lifecycle.ts`, см. ниже), DI-примитивы (`Token`, `Container`, см. [../DI.md](../DI.md)). Unicode: `UnicodeWidth` и `DisplayLine` (маппинг строки документа на grapheme-слоты + двусторонний конвертер offset↔column) — общий инструмент корректной обработки wide chars / emoji / табов / combining marks во всех слоях (Editor, TUIDom, RenderContext).
 
 Слой не зависит от других слоёв проекта; leaf-библиотеки со стороны брать можно по политике зависимостей из [GOAL.md](../../GOAL.md) — так здесь живёт `Uri`.
 
@@ -27,6 +27,15 @@ IO-абстракции (интерфейс + no-op/in-memory заглушка),
 await …; if (ticket.isStale()) return;` — а не рукописным счётчиком поколений, и токен билета
 доезжает до исполнителя. Привязки к документу в хелпере нет (base про документ не знает): «отменить
 на правку/движение каретки» — `EditorStateCancellationTokenSource` в workbench (см. Workbench.md).
+
+## Жизненный цикл: `lifecycle.ts`
+`vs/base/common/lifecycle.ts` — примитив освобождения ресурсов, аналог одноимённого файла vscode (наш код, а не дословный перенос; план и обоснование — [../TODO/Lifecycle.md](../TODO/Lifecycle.md)):
+- `IDisposable`, `isDisposable`, `dispose(x | iterable)` (освобождает всех, ошибки — в конце, несколько — `AggregateError`), `toDisposable(fn)` (функция зовётся не больше раза), `combinedDisposable`;
+- `DisposableStore` — набор вместо `IDisposable[]` с ручным циклом; `Disposable` — база класса-владельца поверх стора (`register(…)`, `Disposable.None`);
+- `MutableDisposable` — слот под сменяемое значение вместо поля `handle?.dispose()`; `DisposableMap` — карта, освобождающая значения при перезаписи и удалении;
+- хуки учёта утечек (`setDisposableTracker`, `trackDisposable`, `markAsDisposed`): по умолчанию трекера нет, хук — одна проверка на `null`.
+
+Отклонения от эталона: освобождение в обратном порядке добавления (LIFO — так работал прежний класс из `@tuidom/core`, под него писались классы проекта), `register` без подчёркивания, добавление в уже освобождённый стор молча оставляет объект неосвобождённым.
 
 ## Вехи старта: `performance.ts`
 
