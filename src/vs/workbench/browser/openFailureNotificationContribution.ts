@@ -12,7 +12,7 @@ export const OpenFailureNotificationContributionDIToken =
 
 /**
  * Показывает человеку, почему ресурс не открылся. Единственный потребитель
- * {@link EditorService.onOpenFailed}.
+ * {@link EditorService.onDidFailOpen}.
  *
  * Отдельная проводка, а не зависимость сервиса редакторов от сообщений: открыть
  * ресурс `EditorService` обязан, а решать, как об этом рассказать, — нет
@@ -28,19 +28,16 @@ export class OpenFailureNotificationContribution extends Disposable implements I
 
     public constructor(editors: EditorService, notifications: NotificationService) {
         super();
-        editors.onOpenFailed = (uri, reason) => {
-            // Тост без кнопок: выбирать человеку нечего, а уезжает он сам.
-            notifications.show({
-                severity: "error",
-                message: `Unable to open '${uri.toString()}': ${reason}`,
-                modal: false,
-                items: [],
-            });
-        };
-        this.register({
-            dispose: () => {
-                editors.onOpenFailed = undefined;
-            },
-        });
+        this.register(
+            editors.onDidFailOpen(({ uri, reason }) => {
+                // Тост без кнопок: выбирать человеку нечего, а уезжает он сам.
+                notifications.show({
+                    severity: "error",
+                    message: `Unable to open '${uri.toString()}': ${reason}`,
+                    modal: false,
+                    items: [],
+                });
+            }),
+        );
     }
 }

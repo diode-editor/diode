@@ -206,20 +206,17 @@ export class TextFileModel extends Disposable {
         this.onDidChangeEncodingEmitter.fire();
     }
 
-    public onDidSave?: () => void;
     private readonly onDidSaveDocumentEmitter = this.register(new Emitter<void>());
 
     /**
-     * Событие «документ записан на диск» (save/saveAs) — многоподписочное, в
-     * отличие от слота {@link onDidSave} (тот занят владельцем-сервисом).
-     * Слушают вкладки: сохранение меняет вид вкладки (гаснет маркер
+     * Событие «документ записан на диск» (save/saveAs). Первым подписан
+     * владелец-сервис (перепривязка реестра моделей), дальше — вкладки: сохранение меняет вид вкладки (гаснет маркер
      * изменённости, после saveAs меняется имя) — у каждой из N вкладок
      * документа.
      */
     public readonly onDidSaveDocument = this.onDidSaveDocumentEmitter.event;
 
     private fireSaved(): void {
-        this.onDidSave?.();
         this.onDidSaveDocumentEmitter.fire();
     }
 

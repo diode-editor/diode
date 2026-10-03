@@ -81,12 +81,12 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.getCaretAnchor()).toBeNull();
         });
 
-        it("save() is a no-op when no file is open (no file written, no onDidSave)", async () => {
+        it("save() is a no-op when no file is open (no file written, no onDidSave event)", async () => {
             const ctrl = createEditorPane();
             let saved = false;
-            ctrl.onDidSave = () => {
+            ctrl.onDidSave(() => {
                 saved = true;
-            };
+            });
 
             // Must not throw and must not invoke the save callback.
             await ctrl.save();
@@ -110,9 +110,9 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.txt", "content")));
             let saved = 0;
-            ctrl.onDidSave = () => {
+            ctrl.onDidSave(() => {
                 saved++;
-            };
+            });
 
             const newPath = ws.path("b.md");
             await ctrl.saveAs(newPath);

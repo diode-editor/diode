@@ -313,7 +313,7 @@ export const workbenchModule: ContainerModule = (container) => {
     // прикрепляет WorkbenchComponent через attachHost).
     container.bind(NotificationServiceDIToken, NotificationService);
     container.bind(NotificationsComponentDIToken, NotificationsComponent);
-    // Неудача открытия ресурса — человеку тостом (см. EditorService.onOpenFailed).
+    // Неудача открытия ресурса — человеку тостом (см. EditorService.onDidFailOpen).
     container.bind(OpenFailureNotificationContributionDIToken, OpenFailureNotificationContribution);
     // Открытие внешних ссылок (env.openExternal расширений): системный
     // обработчик, а без графического сеанса — URL в буфер и сообщением на экран.

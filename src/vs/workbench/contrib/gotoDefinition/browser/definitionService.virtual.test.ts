@@ -100,7 +100,7 @@ describe("DefinitionService — цель на недисковом ресурс�
 
     it("провайдера схемы нет — F12 сообщает человеку и оставляет исходный файл", async () => {
         const failures: string[] = [];
-        group().onOpenFailed = (_uri, reason) => failures.push(reason);
+        group().onDidFailOpen(({ reason }) => failures.push(reason));
         useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
 
         h.testApp.sendKey("F12");

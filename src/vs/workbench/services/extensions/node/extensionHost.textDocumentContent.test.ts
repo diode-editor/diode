@@ -91,7 +91,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         });
         try {
             const failures: string[] = [];
-            harness.group.onOpenFailed = (_uri, reason) => failures.push(reason);
+            harness.group.onDidFailOpen(({ reason }) => failures.push(reason));
 
             await harness.group.openUri(Uri.parse("jdt:///Missing.java"));
 
@@ -109,7 +109,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         });
         try {
             const failures: string[] = [];
-            harness.group.onOpenFailed = (_uri, reason) => failures.push(reason);
+            harness.group.onDidFailOpen(({ reason }) => failures.push(reason));
 
             await expect(harness.group.openUri(Uri.parse("jdt:///Broken.java"))).resolves.toBeUndefined();
 
@@ -142,7 +142,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         });
         try {
             const failures: string[] = [];
-            harness.group.onOpenFailed = (_uri, reason) => failures.push(reason);
+            harness.group.onDidFailOpen(({ reason }) => failures.push(reason));
 
             expect(harness.host.hasTextContentProvider("jdt")).toBe(false);
             await harness.group.openUri(Uri.parse(TARGET));
